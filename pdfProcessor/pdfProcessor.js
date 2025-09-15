@@ -12,7 +12,7 @@ import { renderCondensedCanvas } from './condenseRenderer.js';
 
 const canvasCache = new WeakMap();
 
-export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal }) {
+export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal, pageModeRadio, continuousModeRadio }) {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
