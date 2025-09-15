@@ -1,6 +1,7 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupGoogleDriveButton } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
+import { loadGP, renderGPPage, gpCanvases, gpPages, currentGPPageIndex, layoutGPPages, renderGPPageMode, gpState } from './gpProcessor/gpHandler.js';
 
 // At the end of DOMContentLoaded
 window.addEventListener('DOMContentLoaded', () => {
@@ -8,7 +9,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- ELEMENTS ---
-const pdfInput = document.getElementById('pdfFile');
+const fileInput = document.getElementById('pdfFile');
 const debugMode = document.getElementById('debugMode');
 const originalMode = document.getElementById('originalMode');
 const prevBtn = document.getElementById('prevPage');
@@ -203,11 +204,21 @@ function getPageStep() {
 
 // --- NAVIGATION ---
 prevBtn.addEventListener('click', () => {
+  const step = getPageStep();
+
+  if (gpState.gpCanvases[0]) {
+    // GP navigation
+    gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - step);
+    renderGPPage(output, pageModeRadio, continuousModeRadio);
+    return;
+  }
+
   if (pageModeRadio.checked) {
-    const step = getPageStep();
+    // PDF page mode
     currentPageIndex = Math.max(0, currentPageIndex - step);
     renderPage();
   } else {
+    // PDF continuous scroll
     const scrollTop = output.scrollTop;
     for (let i = condensedCanvases.length - 1; i >= 0; i--) {
       if (condensedCanvases[i].offsetTop < scrollTop - 10) {
@@ -219,11 +230,21 @@ prevBtn.addEventListener('click', () => {
 });
 
 nextBtn.addEventListener('click', () => {
+  const step = getPageStep();
+
+  if (gpState.gpCanvases[0]) {
+    // GP navigation
+    gpState.currentGPPageIndex = Math.min(gpState.gpPages.length - 1, gpState.currentGPPageIndex + step);
+    renderGPPage(output, pageModeRadio, continuousModeRadio);
+    return;
+  }
+
   if (pageModeRadio.checked) {
-    const step = getPageStep();
+    // PDF page mode
     currentPageIndex = Math.min(pages.length - 1, currentPageIndex + step);
     renderPage();
   } else {
+    // PDF continuous scroll
     const scrollTop = output.scrollTop;
     for (let i = 0; i < condensedCanvases.length; i++) {
       if (condensedCanvases[i].offsetTop > scrollTop + 10) {
@@ -237,41 +258,76 @@ nextBtn.addEventListener('click', () => {
 // --- MODE TOGGLE ---
 pageModeRadio.addEventListener('change', () => {
   if (pageModeRadio.checked) {
-    switchToPageMode();
+    if (gpCanvases[0]?.container) {
+        // GP page mode render
+        layoutGPPages(gpCanvases[0].container, output);
+        renderGPPageMode(output, pagesPerView);
+    } else {
+        switchToPageMode(); // PDF path
+    }
     output.focus();
   }
 });
 
 continuousModeRadio.addEventListener('change', () => {
   if (continuousModeRadio.checked) {
-    switchToContinuous();
+    if (gpCanvases[0]?.container) renderGPPage(output, pageModeRadio, continuousModeRadio);
+    else switchToContinuous();
     output.focus();
   }
 });
 
 // --- RESIZE HANDLER ---
 window.addEventListener('resize', () => {
-  if (pageModeRadio.checked) layoutPages();
-  else switchToContinuous();
+  if (pageModeRadio.checked) {
+    if (gpCanvases[0]?.container) {
+        scaleGPContainer(gpCanvases[0].container, output);
+        layoutGPPages(gpCanvases[0].container, output);
+        renderGPPageMode(output, pagesPerView);
+    } else {
+        layoutPages();
+    }
+  } else {
+    if (gpCanvases[0]?.container) {
+        renderGPPage(output, pageModeRadio, continuousModeRadio);
+    } else {
+        switchToContinuous();
+    }
+  }
 });
 
 // --- KEYBOARD NAVIGATION ---
 window.addEventListener('keydown', (e) => {
-  // Only handle keys if a PDF is loaded
+  // Only handle keys if a PDF or GP is loaded
   if (!currentFile) return;
 
   const nextPageKeys = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
   const prevPageKeys = ['ArrowLeft', 'ArrowUp', 'PageUp', 'Enter'];
 
-  // Check if focus is inside an input or textarea to avoid hijacking typing
+  // Avoid hijacking typing in inputs/textareas
   const activeEl = document.activeElement;
   if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
 
-  if (pageModeRadio.checked) {
-    const step = getPageStep();
+  const step = getPageStep();
 
+  if (gpCanvases[0]) {
+    // GP navigation
     if (nextPageKeys.includes(e.key)) {
-      e.preventDefault(); // prevent scrolling/menu only when handling PDF
+      e.preventDefault();
+      currentGPPageIndex = Math.min(gpPages.length - 1, currentGPPageIndex + step);
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+    } else if (prevPageKeys.includes(e.key)) {
+      e.preventDefault();
+      currentGPPageIndex = Math.max(0, currentGPPageIndex - step);
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+    }
+    return;
+  }
+
+  if (pageModeRadio.checked) {
+    // PDF page mode
+    if (nextPageKeys.includes(e.key)) {
+      e.preventDefault();
       currentPageIndex = Math.min(pages.length - 1, currentPageIndex + step);
       renderPage();
     } else if (prevPageKeys.includes(e.key)) {
@@ -280,8 +336,8 @@ window.addEventListener('keydown', (e) => {
       renderPage();
     }
   } else if (continuousModeRadio.checked) {
+    // PDF continuous mode
     const scrollTop = output.scrollTop;
-
     if (prevPageKeys.includes(e.key)) {
       e.preventDefault();
       for (let i = condensedCanvases.length - 1; i >= 0; i--) {
@@ -348,6 +404,8 @@ async function loadPDF(file) {
     progressBar,
     condensedCanvases,
     abortSignal: currentProcessing,
+    pageModeRadio,
+    continuousModeRadio,
     onCanvasRendered: () => {
       if (currentProcessing.aborted) return;
       if (pageModeRadio.checked) layoutPages();
@@ -357,12 +415,44 @@ async function loadPDF(file) {
 }
 
 // --- FILE INPUT ---
-pdfInput.addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (file) {
+fileInput.addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
     fileMenu.hide();
-    await loadPDF(file);
-  }
+
+    currentFile = file;
+    currentProcessing.aborted = true;
+    currentProcessing = { aborted: false };
+    condensedCanvases = [];
+    pages = [];
+    currentPageIndex = 0;
+    output.innerHTML = '';
+
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    if (ext === 'pdf') {
+        await processPDF(file, {
+            debugMode,
+            originalMode,
+            progressContainer,
+            progressBar,
+            condensedCanvases,
+            abortSignal: currentProcessing,
+            pageModeRadio,
+            continuousModeRadio,
+            onCanvasRendered: () => {
+                if (currentProcessing.aborted) return;
+                if (pageModeRadio.checked) layoutPages();
+                else switchToContinuous();
+            }
+        });
+    } else if (['gp', 'gp3', 'gp4', 'gp5', 'gpx'].includes(ext)) {
+        // Just pass output container to loadGP
+        await loadGP(file, output, pageModeRadio, continuousModeRadio);
+    } else {
+        console.warn('Unsupported file type:', ext);
+    }
 });
 
 // --- DEBUG MODE TOGGLE ---
@@ -400,4 +490,21 @@ darkModeToggle.addEventListener('change', () => {
 // --- ADVANCE ONE PAGE TOGGLE ---
 advanceOnePageToggle.addEventListener('change', () => {
   localStorage.setItem('advanceOnePage', advanceOnePageToggle.checked ? 'true' : 'false');
+});
+
+window.addEventListener('resize', () => {
+    if (pageModeRadio.checked) {
+        if (gpCanvases[0]?.container) {
+            scaleGPContainer(gpCanvases[0].container, output);
+            layoutGPPages(gpCanvases[0].container, output);
+        } else {
+            layoutPages();
+        }
+    } else {
+        if (gpCanvases[0]?.container) {
+            renderGPPage(output, pageModeRadio, continuousModeRadio);
+        } else {
+            switchToContinuous();
+        }
+    }
 });
