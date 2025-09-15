@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MajesticTab</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.3.0/font/bootstrap-icons.css">
+<link href="style.css" rel="stylesheet">
+<script type="module" src="https://unpkg.com/@googleworkspace/drive-picker-element@0/dist/index.iife.min.js"></script>
+</head>
+<body>
+
+<!-- Top Bar -->
+<nav class="navbar px-3">
+  <button class="btn btn-outline-primary me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#fileMenu" aria-controls="fileMenu">
+    ☰
+  </button>
+  <span class="navbar-brand mb-0 h1">MajesticTab</span>
+
+  <div class="toolbar-items">
+    <div id="modeButtons" class="btn-group" role="group" aria-label="Display Mode" style="display:none;">
+      <input type="radio" class="btn-check" name="modeRadio" id="pageModeRadio" autocomplete="off" checked>
+      <label class="btn btn-outline-primary btn-sm" for="pageModeRadio"><i class="bi-book"></i></label>
+      <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off">
+      <label class="btn btn-outline-primary btn-sm" for="continuousModeRadio"><i class="bi-arrow-down-up"></i></label>
+    </div>
+  </div>
+
+  <div id="navButtons" class="ms-auto" style="display:none;">
+    <button class="btn btn-primary btn-sm" id="prevPage"><i class="bi-arrow-left"></i></button>
+    <span id="pageIndicator" class="me-2"></span>
+    <button class="btn btn-primary btn-sm" id="nextPage"><i class="bi-arrow-right"></i></button>
+  </div>
+</nav>
+
+<div class="offcanvas offcanvas-start" tabindex="-1" id="fileMenu" aria-labelledby="fileMenuLabel">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="fileMenuLabel">Menu</h5>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body d-flex flex-column gap-2">
+    <h6>Load PDF locally:</h6>
+    <input type="file" class="form-control" id="pdfFile" accept="application/pdf">
+    <br/><h6>Load PDF from cloud:</h6>
+    <button class="btn btn-outline-primary mt-2" id="googleDriveBtn">Load from Google Drive</button>
+    <br/><h6>Options:</h6>
+    <div class="form-check form-switch mt-2">
+      <input class="form-check-input" type="checkbox" id="darkModeToggle">
+      <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
+    </div>
+    <div class="form-check form-switch mt-2">
+      <input class="form-check-input" type="checkbox" id="advanceOnePageToggle">
+      <label class="form-check-label" for="advanceOnePageToggle">Always Advance One Page</label>
+    </div>
+    <div class="form-check form-switch mt-2">
+      <input class="form-check-input" type="checkbox" id="originalMode">
+      <label class="form-check-label" for="originalMode">View Original PDF</label>
+    </div>
+    <div class="form-check form-switch mt-2">
+      <input class="form-check-input" type="checkbox" id="debugMode">
+      <label class="form-check-label" for="debugMode">Debug Overlay</label>
+    </div>
+  <br/><h6>Export:</h6>
+  <button class="btn btn-outline-primary mt-2" id="exportPDFBtn">Export PDF</button>
+  <div id="exportProgressContainer" style="display:none; margin-top:5px;">
+    <div class="progress">
+      <div id="exportProgressBar" class="progress-bar bg-primary" role="progressbar" style="width:0%">0%</div>
+    </div>
+  </div>
+  <br/><h6>Source:</h6>
+  <a href="https://github.com/cgarst/MajesticTab" target="_blank" class="btn btn-outline-primary mt-2">
+    <i class="bi-github"></i> GitHub
+  </a>
+  </div>
+</div>
+
+<div id="progressContainer"><div id="progressBar"></div></div>
+<div id="output" tabindex="0" style="flex:1; width:100%; overflow:hidden; background:#f8f9fa;"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.2/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+</html>
