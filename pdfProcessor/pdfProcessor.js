@@ -45,6 +45,8 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     await page.render({ canvasContext: ctx, viewport }).promise;
+    
+    if (onCanvasRendered) onCanvasRendered(canvas);
 
     if (originalMode?.checked) {
       // In originalMode, just return the page as-is
