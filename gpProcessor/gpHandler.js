@@ -94,9 +94,9 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
     const pagesPerView = window.innerWidth > window.innerHeight ? 2 : 1;
 
     if (pageModeRadio.checked) {
-        // Page mode
         const pageHeight = output.clientHeight - 20;
-        gpState.gpPages = layoutGPPages(gpState.gpCanvases[0].container, pageHeight); // recalc pages
+        gpState.gpPages = layoutGPPages(gpState.gpCanvases[0].container, pageHeight);
+
         const containerWrapper = document.createElement('div');
         containerWrapper.className = 'pageContainer';
 
@@ -114,6 +114,9 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
 
             pageSet.forEach(div => wrapper.appendChild(div.cloneNode(true)));
 
+            // Apply scaling to fit horizontally
+            scaleGPContainer(wrapper, wrapper.clientWidth);
+
             const pnum = document.createElement('div');
             pnum.className = 'pageNumber';
             pnum.textContent = `${pageIndex + 1}/${gpState.gpPages.length}`;
@@ -127,6 +130,8 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
         // Continuous mode
         output.appendChild(gpState.gpCanvases[0].container);
     }
+
+    updateGPPageIndicator();
 }
 
 /**
@@ -136,10 +141,10 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
  * @returns {HTMLElement[][]} gpPages - Array of page arrays
  */
 export function layoutGPPages(container, pageHeight) {
-    console.log("Layout GP Pages Debug:");
+    //console.log("Layout GP Pages Debug:");
 
     const allBlocks = Array.from(container.querySelectorAll("div.at-surface.at > div"));
-    console.log("Total content blocks found:", allBlocks.length);
+    //console.log("Total content blocks found:", allBlocks.length);
 
     // Offscreen container for reliable height measurements
     const offscreen = document.createElement('div');
@@ -156,7 +161,7 @@ export function layoutGPPages(container, pageHeight) {
         const clone = block.cloneNode(true);
         offscreen.appendChild(clone);
         const blockHeight = clone.offsetHeight;
-        console.log(`Child ${i} height:`, blockHeight);
+        //console.log(`Child ${i} height:`, blockHeight);
 
         // Start new page if current page is full
         if (currentHeight + blockHeight > pageHeight && currentPage.length) {
@@ -172,7 +177,7 @@ export function layoutGPPages(container, pageHeight) {
     if (currentPage.length) gpPages.push(currentPage);
 
     document.body.removeChild(offscreen);
-    console.log("Final gpPages structure:", gpPages.map(p => p.length));
+    //console.log("Final gpPages structure:", gpPages.map(p => p.length));
     return gpPages;
 }
 
@@ -218,3 +223,39 @@ export function prevGPPage() {
     if (!gpState.gpPages.length) return;
     gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - 1);
 }   
+
+function updateGPPageIndicator() {
+    if (!gpState.gpPages || gpState.gpPages.length === 0) return;
+
+    if (pageModeRadio.checked) {
+        pageIndicator.textContent = `${gpState.currentGPPageIndex + 1}/${gpState.gpPages.length}`;
+    } else if (continuousModeRadio.checked) {
+        const container = gpState.gpCanvases[0]?.container;
+        if (!container) return;
+        const scrollTop = output.scrollTop;
+        const totalHeight = container.scrollHeight - output.clientHeight;
+        const percent = totalHeight > 0 ? Math.floor((scrollTop / totalHeight) * 100) : 100;
+        pageIndicator.textContent = `${percent}%`;
+    }
+}
+
+export function scaleGPContainer(container, targetWidth) {
+    if (!container) return;
+
+    // Measure the actual content width
+    const content = container.querySelectorAll(':scope > *'); // immediate children
+    if (!content.length) return;
+
+    let maxWidth = 0;
+    content.forEach(child => {
+        const childRight = child.offsetLeft + child.offsetWidth;
+        if (childRight > maxWidth) maxWidth = childRight;
+    });
+
+    // Compute scale factor
+    const scaleX = targetWidth / maxWidth;
+
+    // Apply transform
+    container.style.transformOrigin = 'top left';
+    container.style.transform = `scale(${scaleX}, 1)`;
+}
