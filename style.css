@@ -131,3 +131,8 @@ body.dark-mode #output {
 body.dark-mode .pageNumber {
     background-color: #2c2c2c;
 }
+
+/* Ensure all AlphaTab symbols use the correct font */
+g.at text {
+    font-family: 'alphaTab' !important;
+}
