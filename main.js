@@ -55,6 +55,12 @@ window.addEventListener('DOMContentLoaded', () => {
   if (advanceOnePageSaved === 'true') {
     advanceOnePageToggle.checked = true;
   }
+
+  // Load Original Mode preference
+  const originalModeSaved = localStorage.getItem('originalMode');
+  if (originalModeSaved === 'true') {
+    originalMode.checked = true;
+  }
 });
 
 // --- PAGE LAYOUT ---
@@ -467,7 +473,7 @@ fileInput.addEventListener('change', async e => {
       // Show progress
       progressContainer.style.display = 'block';
       progressBar.classList.add('indeterminate');
-      await loadGP(file, output, pageModeRadio, continuousModeRadio);
+      await loadGP(file, output, pageModeRadio, continuousModeRadio, !originalMode.checked);
       // Hide progress
       progressBar.classList.remove('indeterminate');
       progressContainer.style.display = 'none';
@@ -491,8 +497,24 @@ originalMode.addEventListener('change', async () => {
     // Disable Debug Mode if Original Mode is enabled
     debugMode.checked = false;
   }
-  if (currentFile) await loadPDF(currentFile);
+
+  localStorage.setItem('originalMode', originalMode.checked ? 'true' : 'false');
+
+  if (!currentFile) return;
+
+  const ext = currentFile.name.split('.').pop().toLowerCase();
+  if (ext === 'pdf') {
+    await loadPDF(currentFile);
+  } else if (['gp', 'gp3', 'gp4', 'gp5', 'gpx'].includes(ext)) {
+    // Show progress
+    progressContainer.style.display = 'block';
+    progressBar.classList.add('indeterminate');
+    await loadGP(currentFile, output, pageModeRadio, continuousModeRadio, !originalMode.checked);
+    progressBar.classList.remove('indeterminate');
+    progressContainer.style.display = 'none';
+  }
 });
+
 
 // --- GOOGLE DRIVE ---
 setupGoogleDriveButton();
