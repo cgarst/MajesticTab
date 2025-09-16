@@ -7,7 +7,7 @@ const PAGE_PADDING = 10;
  * Load a Guitar Pro file into the app.
  */
 export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
-    // 1️⃣ Immediately select continuous mode
+    // Immediately select continuous mode
     continuousModeRadio.checked = true;
     pageModeRadio.checked = false;
     continuousModeRadio.dispatchEvent(new Event('change', { bubbles: true }));
@@ -33,52 +33,32 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
         dataToLoad = file; // assume string path
     }
 
-    // Create AlphaTab container inside output
+    // Init AlphaTab container for page view
     const alphaTabContainer = document.createElement('div');
     alphaTabContainer.className = 'alphaTabContainer';
-    alphaTabContainer.style.width = '100%';
+    alphaTabContainer.style.width = '860px';
     alphaTabContainer.style.margin = '0 auto';
-    alphaTabContainer.style.boxSizing = 'border-box';
-    alphaTabContainer.style.overflow = 'hidden';
     output.appendChild(alphaTabContainer);
 
-    // Load Guitar Pro via AlphaTab
-    const api = await loadGuitarPro(dataToLoad, alphaTabContainer, { shrink: true, debug: false });
+    // Render before capturing page data
+    let api = await loadGuitarPro(dataToLoad, alphaTabContainer, 
+        { shrink: true, debug: false } );
 
-    // Store container reference
     gpState.gpCanvases = [{ container: alphaTabContainer }];
 
-    // Wait for AlphaTab to finish rendering its DOM
     api.postRenderFinished.on(() => {
-        console.log("AlphaTab postRenderFinished fired");
+        console.log("AlphaTab postRenderFinished fired (fixed width)");
 
-        // Ensure continuous mode is selected in the UI
-        continuousModeRadio.checked = true;
-        pageModeRadio.checked = false;
-
-        // --- SCALE IF NEEDED ---
-        const outputWidth = output.clientWidth;
-        const containerWidth = alphaTabContainer.offsetWidth;
-        if (containerWidth > outputWidth) {
-            const scaleX = outputWidth / containerWidth;
-            alphaTabContainer.style.transformOrigin = 'top left';
-            alphaTabContainer.style.transform = `scale(${scaleX}, 1)`;
-        } else {
-            alphaTabContainer.style.transform = 'none';
-        }
-
-        // --- LAYOUT PAGES ---
+        // --- Capture pages ---
         const pageHeight = output.clientHeight - 20;
         gpState.gpPages = layoutGPPages(alphaTabContainer, pageHeight);
         console.log("gpPages ready:", gpState.gpPages.map(p => p.length));
 
-        // --- RENDER CONTINUOUS MODE ---
+        // --- Then show continuous mode by default ---
         output.innerHTML = '';
         output.style.overflowY = 'auto';
         alphaTabContainer.style.overflow = 'visible';
         output.appendChild(alphaTabContainer);
-
-        // Scroll to top
         output.scrollTop = 0;
     });
 }
