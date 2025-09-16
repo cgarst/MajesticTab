@@ -67,6 +67,12 @@ export function loadGuitarPro(file, container, { shrink = true, debug = false } 
 
                     // final cleanup
                     container.querySelectorAll("svg").forEach(svg => removeEmptyStaffs(svg, debug));
+
+                    // debugging
+                    console.log("AlphaTab postRenderFinished fired");
+                    console.log('Container height after render:', container.offsetHeight);
+
+                    resolve(api); // keep the Promise resolving
                 }
 
                 resolve(api);
