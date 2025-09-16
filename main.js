@@ -1,7 +1,7 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupGoogleDriveButton } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
-import { loadGP, renderGPPage, layoutGPPages, renderGPPageMode, gpState, nextGPPage, prevGPPage} from './gpProcessor/gpHandler.js';
+import { loadGP, renderGPPage, layoutGPPages, renderGPPageMode, gpState, nextGPPage, prevGPPage, scaleGPContainer} from './gpProcessor/gpHandler.js';
 
 // At the end of DOMContentLoaded
 window.addEventListener('DOMContentLoaded', () => {
@@ -306,8 +306,8 @@ continuousModeRadio.addEventListener('change', () => {
 window.addEventListener('resize', () => {
   if (pageModeRadio.checked) {
     if (gpState.gpCanvases[0]?.container) {
-        scaleGPContainer(gpCanvases[0].container, output);
-        layoutGPPages(gpCanvases[0].container, output);
+        scaleGPContainer(gpState.gpCanvases[0].container, output);
+        layoutGPPages(gpState.gpCanvases[0].container, output);
         renderGPPageMode(output, pagesPerView);
     } else {
         layoutPages();
