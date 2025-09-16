@@ -257,17 +257,42 @@ nextBtn.addEventListener('click', () => {
 
 // --- MODE TOGGLE ---
 pageModeRadio.addEventListener('change', () => {
+  if (!output) return; // safeguard
+
   if (pageModeRadio.checked) {
+    // --- SWITCH TO PAGE MODE ---
+    // Clear continuous mode display
+    output.innerHTML = '';
+
     if (gpCanvases[0]?.container) {
-        // GP page mode render
-        layoutGPPages(gpCanvases[0].container, output);
-        renderGPPageMode(output, pagesPerView);
+      // Guitar Pro page mode
+      console.log("Switching to GP page mode...");
+      layoutGPPages(gpCanvases[0].container, output); // calculates pages
+      renderGPPageMode(output, pagesPerView);
     } else {
-        switchToPageMode(); // PDF path
+      // PDF fallback path
+      console.log("Switching to PDF page mode...");
+      switchToPageMode();
     }
+
+    output.focus();
+  } else {
+    // --- SWITCH BACK TO CONTINUOUS MODE ---
+    // Clear page mode display
+    output.innerHTML = '';
+
+    if (gpCanvases[0]?.container) {
+      console.log("Switching to GP continuous mode...");
+      renderGPContinuousMode(output); // your existing continuous render
+    } else {
+      console.log("Switching to PDF continuous mode...");
+      switchToContinuousMode(); // fallback
+    }
+
     output.focus();
   }
 });
+
 
 continuousModeRadio.addEventListener('change', () => {
   if (continuousModeRadio.checked) {
