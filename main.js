@@ -456,6 +456,7 @@ fileInput.addEventListener('change', async e => {
     if (!file) return;
 
     fileMenu.hide();
+    resetView();
 
     currentFile = file;
     currentProcessing.aborted = true;
@@ -492,6 +493,7 @@ debugMode.addEventListener('change', async () => {
   localStorage.setItem('debugMode', debugMode.checked ? 'true' : 'false');
 
   if (!currentFile) return;
+  resetView(); 
 
   const ext = currentFile.name.split('.').pop().toLowerCase();
   if (ext === 'pdf') {
@@ -515,6 +517,8 @@ debugMode.addEventListener('change', async () => {
 
 // --- ORIGINAL MODE TOGGLE ---
 originalMode.addEventListener('change', async () => {
+  if (!currentFile) return;
+  resetView(); 
   if (originalMode.checked && debugMode.checked) {
     // Disable Debug Mode if Original Mode is enabled
     debugMode.checked = false;
@@ -589,3 +593,26 @@ window.addEventListener('resize', () => {
     }
   }
 });
+
+// --- RESET FUNCTION ---
+function resetView() {
+  // Abort any ongoing processing
+  if (currentProcessing) currentProcessing.aborted = true;
+
+  // Clear PDF state
+  condensedCanvases.length = 0;
+  pages = [];
+  currentPageIndex = 0;
+
+  // Clear GP state
+  gpState.gpCanvases = [];
+  gpState.gpPages = [];
+  gpState.currentGPPageIndex = 0;
+
+  // Clear DOM
+  output.innerHTML = '';
+
+  // Reset scroll & indicators
+  output.scrollTop = 0;
+  pageIndicator.textContent = '';
+}
