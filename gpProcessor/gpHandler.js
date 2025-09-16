@@ -126,6 +126,20 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
         }
 
         output.appendChild(containerWrapper);
+
+        // --- APPLY HORIZONTAL SCALE TO ALL SVGs WHILE PRESERVING ASPECT RATIO ---
+        containerWrapper.querySelectorAll('.pageWrapper').forEach(wrapper => {
+            const wrapperWidth = wrapper.clientWidth;
+
+            wrapper.querySelectorAll('svg').forEach(svg => {
+                const svgWidth = svg.width.baseVal.value;
+                const scale = wrapperWidth / svgWidth; // use same scale for X and Y
+
+                svg.style.transformOrigin = 'top left';
+                svg.style.transform = `scale(${scale}, ${scale})`;
+            });
+        });
+
     } else {
         // Continuous mode
         output.appendChild(gpState.gpCanvases[0].container);
