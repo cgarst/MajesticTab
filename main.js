@@ -488,7 +488,29 @@ debugMode.addEventListener('change', async () => {
     // Disable Original Mode if Debug is enabled
     originalMode.checked = false;
   }
-  if (currentFile) await loadPDF(currentFile);
+
+  localStorage.setItem('debugMode', debugMode.checked ? 'true' : 'false');
+
+  if (!currentFile) return;
+
+  const ext = currentFile.name.split('.').pop().toLowerCase();
+  if (ext === 'pdf') {
+    await loadPDF(currentFile);
+  } else if (['gp', 'gp3', 'gp4', 'gp5', 'gpx'].includes(ext)) {
+    // Show progress
+    progressContainer.style.display = 'block';
+    progressBar.classList.add('indeterminate');
+    await loadGP(
+      currentFile,
+      output,
+      pageModeRadio,
+      continuousModeRadio,
+      !originalMode.checked,
+      debugMode.checked
+    );
+    progressBar.classList.remove('indeterminate');
+    progressContainer.style.display = 'none';
+  }
 });
 
 // --- ORIGINAL MODE TOGGLE ---
