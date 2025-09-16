@@ -314,13 +314,13 @@ window.addEventListener('keydown', (e) => {
     // GP navigation
     if (nextPageKeys.includes(e.key)) {
       e.preventDefault();
-      currentGPPageIndex = Math.min(gpPages.length - 1, currentGPPageIndex + step);
+      gpState.currentGPPageIndex = Math.min(gpState.gpPages.length - 1, gpState.currentGPPageIndex + step);
       renderGPPage(output, pageModeRadio, continuousModeRadio);
-    } else if (prevPageKeys.includes(e.key)) {
-      e.preventDefault();
-      currentGPPageIndex = Math.max(0, currentGPPageIndex - step);
-      renderGPPage(output, pageModeRadio, continuousModeRadio);
-    }
+  } else if (prevPageKeys.includes(e.key)) {
+    e.preventDefault();
+    gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - step);
+    renderGPPage(output, pageModeRadio, continuousModeRadio);
+  }
     return;
   }
 

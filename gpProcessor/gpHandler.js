@@ -8,12 +8,13 @@ const PAGE_PADDING = 10;
 
 /**
  * Load a Guitar Pro file into the app.
- * @param {File|string} file - File object (upload) or path (string)
- * @param {HTMLElement} output - container for both continuous and page modes
- * @param {HTMLInputElement} pageModeRadio 
- * @param {HTMLInputElement} continuousModeRadio
  */
 export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
+    // 1️⃣ Immediately select continuous mode
+    continuousModeRadio.checked = true;
+    pageModeRadio.checked = false;
+    continuousModeRadio.dispatchEvent(new Event('change', { bubbles: true }));
+
     // Clear old content
     output.innerHTML = '';
     gpCanvases = [];
@@ -23,7 +24,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
     // If File object, read as Base64
     let dataToLoad;
     if (file instanceof File) {
-        console.log('Got file as an object')
+        console.log('Got file as an object');
         dataToLoad = await new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
@@ -31,7 +32,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
             reader.readAsDataURL(file);
         });
     } else {
-        console.log('File came as a string instead of object')
+        console.log('File came as a string instead of object');
         dataToLoad = file; // assume string path
     }
 
@@ -41,34 +42,50 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
     alphaTabContainer.style.width = '100%';
     alphaTabContainer.style.margin = '0 auto';
     alphaTabContainer.style.boxSizing = 'border-box';
-    alphaTabContainer.style.overflow = 'hidden'; // ensure container doesn't overflow
+    alphaTabContainer.style.overflow = 'hidden';
     output.appendChild(alphaTabContainer);
 
-    // Render in continuous mode first
+    // Load Guitar Pro via AlphaTab
     const api = await loadGuitarPro(dataToLoad, alphaTabContainer, { shrink: true, debug: false });
-    console.log("AlphaTab render complete", api);
 
-    // Store the container for later cloning
+    // Store container reference
     gpCanvases = [{ container: alphaTabContainer }];
+    gpState.gpCanvases = gpCanvases;
 
-    // Constrain width but keep height natural
-    const outputWidth = output.clientWidth;
-    const containerWidth = alphaTabContainer.offsetWidth;
+    // Wait for AlphaTab to finish rendering its DOM
+    api.postRenderFinished.on(() => {
+        console.log("AlphaTab postRenderFinished fired");
 
-    if (containerWidth > outputWidth) {
-        const scaleX = outputWidth / containerWidth; // horizontal scale only
-        alphaTabContainer.style.transformOrigin = 'top left';
-        alphaTabContainer.style.transform = `scale(${scaleX}, 1)`; // scaleX horizontally, keep Y = 1
-    } else {
-        alphaTabContainer.style.transform = 'none';
-    }
+        // Ensure continuous mode is selected in the UI
+        continuousModeRadio.checked = true;
+        pageModeRadio.checked = false;
 
-    // Compute pages for page mode
-    layoutGPPages(alphaTabContainer, output);
+        // --- SCALE IF NEEDED ---
+        const outputWidth = output.clientWidth;
+        const containerWidth = alphaTabContainer.offsetWidth;
+        if (containerWidth > outputWidth) {
+            const scaleX = outputWidth / containerWidth;
+            alphaTabContainer.style.transformOrigin = 'top left';
+            alphaTabContainer.style.transform = `scale(${scaleX}, 1)`;
+        } else {
+            alphaTabContainer.style.transform = 'none';
+        }
 
-    // Automatically switch to continuous mode
-    continuousModeRadio.checked = true;
-    renderGPPage(output, pageModeRadio, continuousModeRadio);
+        // --- LAYOUT PAGES ---
+        const pageHeight = output.clientHeight - 20;
+        gpPages = layoutGPPages(alphaTabContainer, pageHeight);
+        gpState.gpPages = gpPages;
+        console.log("gpPages ready:", gpPages.map(p => p.length));
+
+        // --- RENDER CONTINUOUS MODE ---
+        output.innerHTML = '';
+        output.style.overflowY = 'auto';
+        alphaTabContainer.style.overflow = 'visible';
+        output.appendChild(alphaTabContainer);
+
+        // Scroll to top
+        output.scrollTop = 0;
+    });
 }
 
 /**
@@ -76,108 +93,136 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
  */
 export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
     output.innerHTML = '';
-    if (gpPages.length === 0) return;
 
-    pagesPerView = window.innerWidth > window.innerHeight ? 2 : 1;
+    if (!gpPages || gpPages.length === 0) return;
+
+    const pagesPerView = window.innerWidth > window.innerHeight ? 2 : 1;
 
     if (pageModeRadio.checked) {
+        // --- PAGE MODE ---
         const containerWrapper = document.createElement('div');
         containerWrapper.className = 'pageContainer';
+
         const pageWidth = (window.innerWidth - 40) / pagesPerView;
         const pageHeight = window.innerHeight - 80;
 
         for (let i = 0; i < pagesPerView; i++) {
-            const pageSet = gpPages[currentGPPageIndex + i];
+            const pageIndex = currentGPPageIndex + i;
+            const pageSet = gpPages[pageIndex];
             if (!pageSet) break;
 
             const wrapper = document.createElement('div');
             wrapper.className = 'pageWrapper';
             wrapper.style.width = `${pageWidth}px`;
             wrapper.style.height = `${pageHeight}px`;
-            wrapper.style.paddingTop = `${PAGE_PADDING}px`;
+            wrapper.style.overflow = 'hidden';
+            wrapper.style.paddingTop = '10px';
+            wrapper.style.position = 'relative';
 
-            pageSet.forEach(item => {
-                wrapper.appendChild(item.container.cloneNode(true));
+            pageSet.forEach(div => {
+                // clone the div to keep original container intact
+                wrapper.appendChild(div.cloneNode(true));
             });
 
+            // Page number display
             const pnum = document.createElement('div');
             pnum.className = 'pageNumber';
-            pnum.textContent = `${currentGPPageIndex + i + 1}/${gpPages.length}`;
+            pnum.textContent = `${pageIndex + 1}/${gpPages.length}`;
             wrapper.appendChild(pnum);
 
             containerWrapper.appendChild(wrapper);
+            console.log(`RenderGPPageMode - appended page ${pageIndex}`);
         }
 
         output.appendChild(containerWrapper);
 
-    } else if (continuousModeRadio.checked) {
-        output.appendChild(gpCanvases[0].container);
-        output.style.overflowY = 'auto';
+        // Continuous scroll should be disabled in page mode
+        disableContinuousScrollTracking();
+    } 
+    else if (continuousModeRadio.checked) {
+        // --- CONTINUOUS MODE ---
+        if (gpCanvases[0]?.container) {
+            output.appendChild(gpCanvases[0].container);
+
+            // Enable scroll tracking for continuous mode
+            enableContinuousScrollTracking();
+            updateContinuousPageIndicator();
+        }
     }
 }
 
 /**
- * Layout GP pages by slicing the container into virtual pages
+ * Layout GP pages based on indivisible DIV blocks
+ * @param {HTMLElement} container - AlphaTab container
+ * @param {number} pageHeight - Desired page height in px
+ * @returns {HTMLElement[][]} gpPages - Array of page arrays
  */
-export function layoutGPPages(container, output) {
-    gpPages = [];
-    const pageHeight = window.innerHeight - 80 - PAGE_PADDING;
-    const totalHeight = container.offsetHeight;
-    const pageCount = Math.ceil(totalHeight / pageHeight);
+export function layoutGPPages(container, pageHeight) {
+    console.log("Layout GP Pages Debug:");
 
-    for (let i = 0; i < pageCount; i++) {
-        const wrapper = document.createElement('div');
-        wrapper.style.height = `${pageHeight}px`;
-        wrapper.style.overflow = 'hidden';
-        wrapper.style.position = 'relative';
+    const allBlocks = Array.from(container.querySelectorAll("div.at-surface.at > div"));
+    console.log("Total content blocks found:", allBlocks.length);
 
-        // Clone the AlphaTab container for this page
-        const clone = container.cloneNode(true);
-        clone.style.position = 'absolute';
-        clone.style.top = `-${i * pageHeight}px`;
-        clone.style.left = '0';
-        wrapper.appendChild(clone);
+    // Offscreen container for reliable height measurements
+    const offscreen = document.createElement('div');
+    offscreen.style.position = 'absolute';
+    offscreen.style.visibility = 'hidden';
+    offscreen.style.width = `${container.clientWidth}px`;
+    document.body.appendChild(offscreen);
 
-        gpPages.push([{ container: wrapper }]);
-    }
+    const gpPages = [];
+    let currentPage = [];
+    let currentHeight = 0;
 
-    gpState.currentGPPageIndex = 0;
+    allBlocks.forEach((block, i) => {
+        const clone = block.cloneNode(true);
+        offscreen.appendChild(clone);
+        const blockHeight = clone.offsetHeight;
+        console.log(`Child ${i} height:`, blockHeight);
+
+        // Start new page if current page is full
+        if (currentHeight + blockHeight > pageHeight && currentPage.length) {
+            gpPages.push(currentPage);
+            currentPage = [];
+            currentHeight = 0;
+        }
+
+        currentPage.push(clone);
+        currentHeight += blockHeight;
+    });
+
+    if (currentPage.length) gpPages.push(currentPage);
+
+    document.body.removeChild(offscreen);
+    console.log("Final gpPages structure:", gpPages.map(p => p.length));
+    return gpPages;
 }
 
-export function renderGPPageMode(output, pagesPerView = 1) {
-    if (!gpCanvases[0] || gpPages.length === 0) return;
-
+/**
+ * Render a single page
+ * @param {HTMLElement} output - Page output container
+ * @param {HTMLElement[][]} gpPages - Array of page arrays
+ * @param {number} pageIndex - Which page to render
+ */
+export function renderGPPageMode(output, gpPages, pageIndex) {
+    if (!gpPages || !gpPages[pageIndex]) return;
     output.innerHTML = '';
-    const containerWrapper = document.createElement('div');
-    containerWrapper.className = 'pageContainer';
 
-    const pageWidth = (window.innerWidth - 40) / pagesPerView;
-    const pageHeight = window.innerHeight - 80;
+    gpPages[pageIndex].forEach(block => {
+        output.appendChild(block);
+    });
 
-    for (let i = 0; i < pagesPerView; i++) {
-        const pageSet = gpPages[currentGPPageIndex + i];
-        if (!pageSet) break;
+    console.log(`RenderGPPageMode - appended page ${pageIndex}`);
+}
 
-        const wrapper = document.createElement('div');
-        wrapper.className = 'pageWrapper';
-        wrapper.style.width = `${pageWidth}px`;
-        wrapper.style.height = `${pageHeight}px`;
-        wrapper.style.paddingTop = `${PAGE_PADDING}px`;
-
-        pageSet.forEach(item => {
-            // clone the original container for page view
-            wrapper.appendChild(item.container.cloneNode(true));
-        });
-
-        const pnum = document.createElement('div');
-        pnum.className = 'pageNumber';
-        pnum.textContent = `${currentGPPageIndex + i + 1}/${gpPages.length}`;
-        wrapper.appendChild(pnum);
-
-        containerWrapper.appendChild(wrapper);
-    }
-
-    output.appendChild(containerWrapper);
+/**
+ * Continuous mode rendering
+ * Just appends the original container for scrolling
+ */
+function renderGPContinuous(container, output) {
+    output.innerHTML = '';
+    output.appendChild(container);
+    console.log("Rendering continuous mode");
 }
 
 export const gpState = {
