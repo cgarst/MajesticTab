@@ -94,60 +94,43 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
 export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
     output.innerHTML = '';
 
-    if (!gpPages || gpPages.length === 0) return;
+    if (!gpPages || gpPages.length === 0 || !gpCanvases[0]?.container) return;
 
     const pagesPerView = window.innerWidth > window.innerHeight ? 2 : 1;
 
     if (pageModeRadio.checked) {
-        // --- PAGE MODE ---
+        // Page mode
+        const pageHeight = output.clientHeight - 20;
+        gpPages = layoutGPPages(gpCanvases[0].container, pageHeight); // recalc pages
         const containerWrapper = document.createElement('div');
         containerWrapper.className = 'pageContainer';
 
-        const pageWidth = (window.innerWidth - 40) / pagesPerView;
-        const pageHeight = window.innerHeight - 80;
-
         for (let i = 0; i < pagesPerView; i++) {
-            const pageIndex = currentGPPageIndex + i;
+            const pageIndex = gpState.currentGPPageIndex + i;
             const pageSet = gpPages[pageIndex];
             if (!pageSet) break;
 
             const wrapper = document.createElement('div');
             wrapper.className = 'pageWrapper';
-            wrapper.style.width = `${pageWidth}px`;
+            wrapper.style.width = `${(window.innerWidth - 40) / pagesPerView}px`;
             wrapper.style.height = `${pageHeight}px`;
             wrapper.style.overflow = 'hidden';
-            wrapper.style.paddingTop = '10px';
             wrapper.style.position = 'relative';
 
-            pageSet.forEach(div => {
-                // clone the div to keep original container intact
-                wrapper.appendChild(div.cloneNode(true));
-            });
+            pageSet.forEach(div => wrapper.appendChild(div.cloneNode(true)));
 
-            // Page number display
             const pnum = document.createElement('div');
             pnum.className = 'pageNumber';
             pnum.textContent = `${pageIndex + 1}/${gpPages.length}`;
             wrapper.appendChild(pnum);
 
             containerWrapper.appendChild(wrapper);
-            console.log(`RenderGPPageMode - appended page ${pageIndex}`);
         }
 
         output.appendChild(containerWrapper);
-
-        // Continuous scroll should be disabled in page mode
-        disableContinuousScrollTracking();
-    } 
-    else if (continuousModeRadio.checked) {
-        // --- CONTINUOUS MODE ---
-        if (gpCanvases[0]?.container) {
-            output.appendChild(gpCanvases[0].container);
-
-            // Enable scroll tracking for continuous mode
-            enableContinuousScrollTracking();
-            updateContinuousPageIndicator();
-        }
+    } else {
+        // Continuous mode
+        output.appendChild(gpCanvases[0].container);
     }
 }
 
@@ -230,3 +213,13 @@ export const gpState = {
     gpCanvases: [],
     gpPages: []
 };
+
+export function nextGPPage() {
+    if (!gpPages.length) return;
+    gpState.currentGPPageIndex = Math.min(gpPages.length - 1, gpState.currentGPPageIndex + 1);
+}
+
+export function prevGPPage() {
+    if (!gpPages.length) return;
+    gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - 1);
+}   
