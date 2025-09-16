@@ -206,11 +206,11 @@ function getPageStep() {
 prevBtn.addEventListener('click', () => {
   const step = getPageStep();
 
-  if (gpState.gpCanvases[0]) {
-    // GP navigation
-    gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - step);
-    renderGPPage(output, pageModeRadio, continuousModeRadio);
-    return;
+  // GP mode
+  if (gpCanvases[0]?.container) {
+      prevGPPage();
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+      return;
   }
 
   if (pageModeRadio.checked) {
@@ -232,11 +232,11 @@ prevBtn.addEventListener('click', () => {
 nextBtn.addEventListener('click', () => {
   const step = getPageStep();
 
-  if (gpState.gpCanvases[0]) {
-    // GP navigation
-    gpState.currentGPPageIndex = Math.min(gpState.gpPages.length - 1, gpState.currentGPPageIndex + step);
-    renderGPPage(output, pageModeRadio, continuousModeRadio);
-    return;
+  // GP mode
+  if (gpCanvases[0]?.container) {
+      nextGPPage();
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+      return;
   }
 
   if (pageModeRadio.checked) {
@@ -257,40 +257,40 @@ nextBtn.addEventListener('click', () => {
 
 // --- MODE TOGGLE ---
 pageModeRadio.addEventListener('change', () => {
-  if (!output) return; // safeguard
+  if (!output) return;
 
-  if (pageModeRadio.checked) {
-    // --- SWITCH TO PAGE MODE ---
-    // Clear continuous mode display
-    output.innerHTML = '';
+  // Clear display regardless of mode
+  output.innerHTML = '';
 
-    if (gpCanvases[0]?.container) {
-      // Guitar Pro page mode
+  if (gpCanvases[0]?.container) {
+    // --- GUITAR PRO ---
+    if (pageModeRadio.checked) {
+      // --- PAGE MODE ---
       console.log("Switching to GP page mode...");
-      layoutGPPages(gpCanvases[0].container, output); // calculates pages
-      renderGPPageMode(output, pagesPerView);
+      // Calculate pages
+      const pageHeight = output.clientHeight - 20;
+      gpState.gpPages = layoutGPPages(gpCanvases[0].container, pageHeight);
+      // Reset to first page
+      gpState.currentGPPageIndex = 0;
+      // Render current page(s)
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
     } else {
-      // PDF fallback path
+      // --- CONTINUOUS MODE ---
+      console.log("Switching to GP continuous mode...");
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+    }
+  } else {
+    // --- PDF ---
+    if (pageModeRadio.checked) {
       console.log("Switching to PDF page mode...");
       switchToPageMode();
-    }
-
-    output.focus();
-  } else {
-    // --- SWITCH BACK TO CONTINUOUS MODE ---
-    // Clear page mode display
-    output.innerHTML = '';
-
-    if (gpCanvases[0]?.container) {
-      console.log("Switching to GP continuous mode...");
-      renderGPContinuousMode(output); // your existing continuous render
     } else {
       console.log("Switching to PDF continuous mode...");
-      switchToContinuousMode(); // fallback
+      switchToContinuous();
     }
-
-    output.focus();
   }
+
+  output.focus();
 });
 
 
@@ -518,16 +518,33 @@ advanceOnePageToggle.addEventListener('change', () => {
 });
 
 window.addEventListener('resize', () => {
-    if (pageModeRadio.checked) {
-        if (gpCanvases[0]?.container) {
-            scaleGPContainer(gpCanvases[0].container, output);
-            layoutGPPages(gpCanvases[0].container, output);
+    if (gpCanvases[0]?.container) {
+        // --- GUITAR PRO ---
+        const container = gpCanvases[0].container;
+
+        // Scale the container to fit output width
+        scaleGPContainer(container, output);
+
+        if (pageModeRadio.checked) {
+            // Recalculate pages for the new size
+            const pageHeight = output.clientHeight - 20;
+            gpState.gpPages = layoutGPPages(container, pageHeight);
+
+            // Ensure current page index is valid
+            if (gpState.currentGPPageIndex >= gpState.gpPages.length) {
+                gpState.currentGPPageIndex = 0;
+            }
+
+            // Re-render current page(s)
+            renderGPPage(output, pageModeRadio, continuousModeRadio);
         } else {
-            layoutPages();
+            // Continuous mode: just re-render the container
+            renderGPPage(output, pageModeRadio, continuousModeRadio);
         }
     } else {
-        if (gpCanvases[0]?.container) {
-            renderGPPage(output, pageModeRadio, continuousModeRadio);
+        // --- PDF fallback ---
+        if (pageModeRadio.checked) {
+            layoutPages();
         } else {
             switchToContinuous();
         }
