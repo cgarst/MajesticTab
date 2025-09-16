@@ -1,7 +1,7 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupGoogleDriveButton } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
-import { loadGP, renderGPPage, gpCanvases, gpPages, currentGPPageIndex, layoutGPPages, renderGPPageMode, gpState } from './gpProcessor/gpHandler.js';
+import { loadGP, renderGPPage, layoutGPPages, renderGPPageMode, gpState, nextGPPage, prevGPPage} from './gpProcessor/gpHandler.js';
 
 // At the end of DOMContentLoaded
 window.addEventListener('DOMContentLoaded', () => {
@@ -207,7 +207,7 @@ prevBtn.addEventListener('click', () => {
   const step = getPageStep();
 
   // GP mode
-  if (gpCanvases[0]?.container) {
+  if (gpState.gpCanvases[0]?.container) {
       prevGPPage();
       renderGPPage(output, pageModeRadio, continuousModeRadio);
       return;
@@ -233,7 +233,7 @@ nextBtn.addEventListener('click', () => {
   const step = getPageStep();
 
   // GP mode
-  if (gpCanvases[0]?.container) {
+  if (gpState.gpCanvases[0]?.container) {
       nextGPPage();
       renderGPPage(output, pageModeRadio, continuousModeRadio);
       return;
@@ -262,14 +262,14 @@ pageModeRadio.addEventListener('change', () => {
   // Clear display regardless of mode
   output.innerHTML = '';
 
-  if (gpCanvases[0]?.container) {
+  if (gpState.gpCanvases[0]?.container) {
     // --- GUITAR PRO ---
     if (pageModeRadio.checked) {
       // --- PAGE MODE ---
       console.log("Switching to GP page mode...");
       // Calculate pages
       const pageHeight = output.clientHeight - 20;
-      gpState.gpPages = layoutGPPages(gpCanvases[0].container, pageHeight);
+      gpState.gpPages = layoutGPPages(gpState.gpCanvases[0].container, pageHeight);
       // Reset to first page
       gpState.currentGPPageIndex = 0;
       // Render current page(s)
@@ -296,7 +296,7 @@ pageModeRadio.addEventListener('change', () => {
 
 continuousModeRadio.addEventListener('change', () => {
   if (continuousModeRadio.checked) {
-    if (gpCanvases[0]?.container) renderGPPage(output, pageModeRadio, continuousModeRadio);
+    if (gpState.gpCanvases[0]?.container) renderGPPage(output, pageModeRadio, continuousModeRadio);
     else switchToContinuous();
     output.focus();
   }
@@ -305,7 +305,7 @@ continuousModeRadio.addEventListener('change', () => {
 // --- RESIZE HANDLER ---
 window.addEventListener('resize', () => {
   if (pageModeRadio.checked) {
-    if (gpCanvases[0]?.container) {
+    if (gpState.gpCanvases[0]?.container) {
         scaleGPContainer(gpCanvases[0].container, output);
         layoutGPPages(gpCanvases[0].container, output);
         renderGPPageMode(output, pagesPerView);
@@ -313,7 +313,7 @@ window.addEventListener('resize', () => {
         layoutPages();
     }
   } else {
-    if (gpCanvases[0]?.container) {
+    if (gpState.gpCanvases[0]?.container) {
         renderGPPage(output, pageModeRadio, continuousModeRadio);
     } else {
         switchToContinuous();
@@ -335,7 +335,7 @@ window.addEventListener('keydown', (e) => {
 
   const step = getPageStep();
 
-  if (gpCanvases[0]) {
+  if (gpState.gpCanvases[0]) {
     // GP navigation
     if (nextPageKeys.includes(e.key)) {
       e.preventDefault();
@@ -518,9 +518,9 @@ advanceOnePageToggle.addEventListener('change', () => {
 });
 
 window.addEventListener('resize', () => {
-    if (gpCanvases[0]?.container) {
+    if (gpState.gpCanvases[0]?.container) {
         // --- GUITAR PRO ---
-        const container = gpCanvases[0].container;
+        const container = gpState.gpCanvases[0].container;
 
         // Scale the container to fit output width
         scaleGPContainer(container, output);

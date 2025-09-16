@@ -1,8 +1,5 @@
 import { loadGuitarPro } from './gpProcessor.js';
 
-export let gpCanvases = [];
-export let gpPages = [];
-export let currentGPPageIndex = 0;
 let pagesPerView = 1;
 const PAGE_PADDING = 10;
 
@@ -17,9 +14,9 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
 
     // Clear old content
     output.innerHTML = '';
-    gpCanvases = [];
-    gpPages = [];
-    currentGPPageIndex = 0;
+    gpState.gpCanvases = [];
+    gpState.gpPages = [];
+    gpState.currentGPPageIndex = 0;
 
     // If File object, read as Base64
     let dataToLoad;
@@ -49,8 +46,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
     const api = await loadGuitarPro(dataToLoad, alphaTabContainer, { shrink: true, debug: false });
 
     // Store container reference
-    gpCanvases = [{ container: alphaTabContainer }];
-    gpState.gpCanvases = gpCanvases;
+    gpState.gpCanvases = [{ container: alphaTabContainer }];
 
     // Wait for AlphaTab to finish rendering its DOM
     api.postRenderFinished.on(() => {
@@ -73,9 +69,8 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
 
         // --- LAYOUT PAGES ---
         const pageHeight = output.clientHeight - 20;
-        gpPages = layoutGPPages(alphaTabContainer, pageHeight);
-        gpState.gpPages = gpPages;
-        console.log("gpPages ready:", gpPages.map(p => p.length));
+        gpState.gpPages = layoutGPPages(alphaTabContainer, pageHeight);
+        console.log("gpPages ready:", gpState.gpPages.map(p => p.length));
 
         // --- RENDER CONTINUOUS MODE ---
         output.innerHTML = '';
@@ -94,20 +89,20 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio) {
 export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
     output.innerHTML = '';
 
-    if (!gpPages || gpPages.length === 0 || !gpCanvases[0]?.container) return;
+    if (!gpState.gpPages || gpState.gpPages.length === 0 || !gpState.gpCanvases[0]?.container) return;
 
     const pagesPerView = window.innerWidth > window.innerHeight ? 2 : 1;
 
     if (pageModeRadio.checked) {
         // Page mode
         const pageHeight = output.clientHeight - 20;
-        gpPages = layoutGPPages(gpCanvases[0].container, pageHeight); // recalc pages
+        gpState.gpPages = layoutGPPages(gpState.gpCanvases[0].container, pageHeight); // recalc pages
         const containerWrapper = document.createElement('div');
         containerWrapper.className = 'pageContainer';
 
         for (let i = 0; i < pagesPerView; i++) {
             const pageIndex = gpState.currentGPPageIndex + i;
-            const pageSet = gpPages[pageIndex];
+            const pageSet = gpState.gpPages[pageIndex];
             if (!pageSet) break;
 
             const wrapper = document.createElement('div');
@@ -121,7 +116,7 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
 
             const pnum = document.createElement('div');
             pnum.className = 'pageNumber';
-            pnum.textContent = `${pageIndex + 1}/${gpPages.length}`;
+            pnum.textContent = `${pageIndex + 1}/${gpState.gpPages.length}`;
             wrapper.appendChild(pnum);
 
             containerWrapper.appendChild(wrapper);
@@ -130,7 +125,7 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
         output.appendChild(containerWrapper);
     } else {
         // Continuous mode
-        output.appendChild(gpCanvases[0].container);
+        output.appendChild(gpState.gpCanvases[0].container);
     }
 }
 
@@ -215,11 +210,11 @@ export const gpState = {
 };
 
 export function nextGPPage() {
-    if (!gpPages.length) return;
-    gpState.currentGPPageIndex = Math.min(gpPages.length - 1, gpState.currentGPPageIndex + 1);
+    if (!gpState.gpPages.length) return;
+    gpState.currentGPPageIndex = Math.min(gpState.gpPages.length - 1, gpState.currentGPPageIndex + 1);
 }
 
 export function prevGPPage() {
-    if (!gpPages.length) return;
+    if (!gpState.gpPages.length) return;
     gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - 1);
 }   
