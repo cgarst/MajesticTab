@@ -464,7 +464,13 @@ fileInput.addEventListener('change', async e => {
     if (ext === 'pdf') {
       await loadPDF(file);
     } else if (['gp', 'gp3', 'gp4', 'gp5', 'gpx'].includes(ext)) {
+      // Show progress
+      progressContainer.style.display = 'block';
+      progressBar.classList.add('indeterminate');
       await loadGP(file, output, pageModeRadio, continuousModeRadio);
+      // Hide progress
+      progressBar.classList.remove('indeterminate');
+      progressContainer.style.display = 'none';
     } else {
       console.warn('Unsupported file type:', ext);
     }

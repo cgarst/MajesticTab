@@ -110,6 +110,7 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
         // --- APPLY HORIZONTAL SCALE TO ALL SVGs WHILE PRESERVING ASPECT RATIO ---
         containerWrapper.querySelectorAll('.pageWrapper').forEach(wrapper => {
             const wrapperWidth = wrapper.clientWidth;
+            requestAnimationFrame(() => scaleGPText(wrapper));
 
             wrapper.querySelectorAll('svg').forEach(svg => {
                 const svgWidth = svg.width.baseVal.value;
@@ -246,10 +247,42 @@ export function scaleGPContainer(container, targetWidth) {
         if (childRight > maxWidth) maxWidth = childRight;
     });
 
-    // Compute scale factor
     const scaleX = targetWidth / maxWidth;
 
     // Apply transform
     container.style.transformOrigin = 'top left';
     container.style.transform = `scale(${scaleX}, 1)`;
+}
+
+/**
+ * Scale all <text> elements inside a container to fit the container width.
+ * Does NOT scale the container itself.
+ * @param {HTMLElement} container - Wrapper containing SVGs
+ */
+export function scaleGPText(container) {
+    if (!container) return;
+
+    // Find all <text> elements
+    container.querySelectorAll('text').forEach(text => {
+        const style = text.getAttribute('style') || '';
+        const match = style.match(/font:\s*(\d+(\.\d+)?)px/);
+        if (!match) return;
+
+        const originalSize = parseFloat(match[1]);
+
+        // Find the closest SVG
+        const svg = text.closest('svg');
+        if (!svg) return;
+
+        const svgWidth = svg.width.baseVal.value;
+        const wrapperWidth = svg.parentElement.clientWidth;
+
+        // Compute horizontal scale
+        const scale = wrapperWidth / svgWidth;
+        const newSize = originalSize * scale;
+
+        // Replace font size in inline style
+        const newStyle = style.replace(/font:\s*(\d+(\.\d+)?)px/, `font:${newSize}px`);
+        text.setAttribute('style', newStyle);
+    });
 }
