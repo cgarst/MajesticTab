@@ -12,7 +12,7 @@ import { renderCondensedCanvas } from './condenseRenderer.js';
 
 const canvasCache = new WeakMap();
 
-export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal }) {
+export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal, pageModeRadio, continuousModeRadio }) {
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
 
@@ -45,6 +45,8 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     await page.render({ canvasContext: ctx, viewport }).promise;
+    
+    if (onCanvasRendered) onCanvasRendered(canvas);
 
     if (originalMode?.checked) {
       // In originalMode, just return the page as-is
