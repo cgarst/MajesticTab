@@ -7,7 +7,7 @@ export function setupExportPDFButton(condensedCanvases) {
 
   exportBtn.addEventListener('click', async () => {
     if (!condensedCanvases || condensedCanvases.length === 0) {
-      alert('No tab loaded yet.');
+      alert('A supported tab PDF file is not currently opened.');
       return;
     }
 
