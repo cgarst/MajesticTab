@@ -146,3 +146,7 @@ body.dark-mode .pageNumber {
 g.at text {
     font-family: 'alphaTab' !important;
 }
+
+body.dark-mode #output svg text {
+  fill: white !important;
+}
