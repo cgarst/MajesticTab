@@ -1,8 +1,8 @@
 # MajesticTab
 
-MajesticTab transforms PDF guitar tablature into an immersive, distraction-free experience for tablets and computers — helping guitarists stay focused and practice smarter. It is specifically built to more efficiently display information from Guitar Pro PDF files which where exported in multitrack tab-only view.
+MajesticTab transforms PDF and Guitar Pro guitar tablature into an immersive, distraction-free experience for tablets and computers — helping guitarists stay focused and practice smarter. 
 
-This tool was made to reduce the number of pages that guitarists need to flip through while using multitrack tab. This enables tabs with multiple rhythm and lead tracks to be optimized to consume a fraction of the pages.
+It is built to dynamically optimize multi-track views to be intelligently displayed based on available content. This reduces the number of pages that guitarists need to flip through while using multitrack tab. Tabs with multiple rhythm and lead tracks will generate a fraction of the page counts when rest staves are removed.
 
 ➡️ [Try MajesticTab here](https://cgarst.github.io/MajesticTab/).
 
@@ -10,16 +10,20 @@ This tool was made to reduce the number of pages that guitarists need to flip th
 
 ## ✨ Features
 
-- **PDF Tab Optimization**
+- **Input Formats**
+  - Supports multi-track tab-only PDFs exported from Guitar Pro
+  - Supports GP, GPX, GP5, GP4, and GP3 formats from Guitar Pro
+
+- **Tab Optimization**
   - Finds staves that contain notes
   - Discards empty staves
   - Re-draws staff groupings based on what tracks are actively playing
   - Cleans margins and trims whitespace
-  - Removes A4 size limitations to maximize the vertical space of your screen
+  - Maximizes the vertical space of your screen
 
 - **Viewing Modes**
-  - **Page Mode**: View 1 or 2 pages at a time
-  - **Continuous Mode**: Infinite scroll
+  - **Page Mode**: View 1 or 2 pages at a time based on available horizontal screen space
+  - **Continuous Mode**: Infinite vertical scroll
 
 - **UI Options**
   - Mouse, touch, or keyboard navigation
@@ -88,7 +92,9 @@ Open `http://localhost:8080` in your browser.
 
 ---
 
-## 🎸 Acquiring Guitar Pro PDF Files
+## 🎸 PDF File Requirements
+
+When using PDFs files with MajesticTab, they are expected to be multitrack tab-only views.
 
 ### Exporting a Multitrack Tab-Only PDF from Guitar Pro
 
