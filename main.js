@@ -187,20 +187,23 @@ function getPageStep() {
 prevBtn.addEventListener('click', () => {
   const step = getPageStep();
 
-  // GP mode
-  if (gpState.gpCanvases[0]?.container) {
+  if (gpState.gpCanvases[0]) {
+    if (pageModeRadio.checked) {
+      // --- GP Page Mode ---
       prevGPPage();
       renderGPPage(output, pageModeRadio, continuousModeRadio);
-      return;
+    } else if (continuousModeRadio.checked) {
+      // --- GP Continuous Mode ---
+      output.scrollBy({ top: -window.innerHeight * 0.9, behavior: 'smooth' });
+    }
+    return;
   }
 
+  // --- PDF Navigation ---
   if (pageModeRadio.checked) {
-    // PDF page mode
     currentPageIndex = Math.max(0, currentPageIndex - step);
     renderPage();
   } else {
-    // PDF continuous scroll
-    //console.log('Setting scrollTop', { newTop: output.scrollTop, mode: pageModeRadio.checked ? 'page' : 'continuous' }, new Error().stack);
     const scrollTop = output.scrollTop;
     for (let i = condensedCanvases.length - 1; i >= 0; i--) {
       if (condensedCanvases[i].offsetTop < scrollTop - 10) {
@@ -214,21 +217,24 @@ prevBtn.addEventListener('click', () => {
 nextBtn.addEventListener('click', () => {
   const step = getPageStep();
 
-  // GP mode
-  if (gpState.gpCanvases[0]?.container) {
+  if (gpState.gpCanvases[0]) {
+    if (pageModeRadio.checked) {
+      // --- GP Page Mode ---
       nextGPPage();
       renderGPPage(output, pageModeRadio, continuousModeRadio);
-      return;
+    } else if (continuousModeRadio.checked) {
+      // --- GP Continuous Mode ---
+      output.scrollBy({ top: window.innerHeight * 0.9, behavior: 'smooth' });
+    }
+    return;
   }
 
+  // --- PDF Navigation ---
   if (pageModeRadio.checked) {
-    // PDF page mode
     currentPageIndex = Math.min(pages.length - 1, currentPageIndex + step);
     renderPage();
   } else {
-    // PDF continuous scroll
     const scrollTop = output.scrollTop;
-    //console.log('Setting scrollTop', { newTop: scrollTop, mode: pageModeRadio.checked ? 'page' : 'continuous' }, new Error().stack);
     for (let i = 0; i < condensedCanvases.length; i++) {
       if (condensedCanvases[i].offsetTop > scrollTop + 10) {
         output.scrollTo({ top: condensedCanvases[i].offsetTop, behavior: 'smooth' });
@@ -318,20 +324,37 @@ window.addEventListener('keydown', (e) => {
 
   const step = getPageStep();
 
+  // --- GP NAVIGATION ---
   if (gpState.gpCanvases[0]) {
-    // GP navigation
-    if (nextPageKeys.includes(e.key)) {
-      e.preventDefault();
-      gpState.currentGPPageIndex = Math.min(gpState.gpPages.length - 1, gpState.currentGPPageIndex + step);
-      renderGPPage(output, pageModeRadio, continuousModeRadio);
-  } else if (prevPageKeys.includes(e.key)) {
-    e.preventDefault();
-    gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - step);
-    renderGPPage(output, pageModeRadio, continuousModeRadio);
-  }
-    return;
+    const isGPPageMode = pageModeRadio.checked;          // your GP page toggle
+    const isGPContinuous = !isGPPageMode;                // GP defaults to continuous otherwise
+
+    if (isGPPageMode) {
+      // GP page mode
+      if (nextPageKeys.includes(e.key)) {
+        e.preventDefault();
+        gpState.currentGPPageIndex = Math.min(gpState.gpPages.length - 1, gpState.currentGPPageIndex + step);
+        renderGPPage(output, pageModeRadio, continuousModeRadio);
+      } else if (prevPageKeys.includes(e.key)) {
+        e.preventDefault();
+        gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - step);
+        renderGPPage(output, pageModeRadio, continuousModeRadio);
+      }
+    } else if (isGPContinuous) {
+      const scrollAmount = window.innerHeight * 0.9; // same as buttons
+      if (prevPageKeys.includes(e.key)) {
+        e.preventDefault();
+        output.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+      } else if (nextPageKeys.includes(e.key)) {
+        e.preventDefault();
+        output.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+      }
+    }
+
+    return; // don’t fall through to PDF
   }
 
+  // --- PDF NAVIGATION ---
   if (pageModeRadio.checked) {
     // PDF page mode
     if (nextPageKeys.includes(e.key)) {
