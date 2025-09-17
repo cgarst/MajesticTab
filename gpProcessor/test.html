@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AlphaTab Visible Library Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@latest/dist/alphaTab.min.js"></script>
+  <style>
+    body { margin: 0; font-family: sans-serif; background: #f9f9f5; }
+    #alphaTab { width: 1024px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div id="alphaTab"></div>
+
+  <script type="module">
+    import { loadGuitarPro } from './gpProcessor.js';
+
+    const container = document.getElementById('alphaTab');
+    const file = '../song.gp5';
+
+    loadGuitarPro(file, container, { shrink: true, debug: false })
+      .then(api => {
+        console.log("Render complete, AlphaTab API ready", api);
+      })
+      .catch(err => console.error(err));
+  </script>
+</body>
+</html>

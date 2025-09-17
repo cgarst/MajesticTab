@@ -1,6 +1,7 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupGoogleDriveButton } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
+import { loadGP, renderGPPage, layoutGPPages, renderGPPageMode, gpState, nextGPPage, prevGPPage, scaleGPContainer} from './gpProcessor/gpHandler.js';
 
 // At the end of DOMContentLoaded
 window.addEventListener('DOMContentLoaded', () => {
@@ -8,7 +9,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- ELEMENTS ---
-const pdfInput = document.getElementById('pdfFile');
+const fileInput = document.getElementById('pdfFile');
 const debugMode = document.getElementById('debugMode');
 const originalMode = document.getElementById('originalMode');
 const prevBtn = document.getElementById('prevPage');
@@ -53,6 +54,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const advanceOnePageSaved = localStorage.getItem('advanceOnePage');
   if (advanceOnePageSaved === 'true') {
     advanceOnePageToggle.checked = true;
+  }
+
+  // Load Original Mode preference
+  const originalModeSaved = localStorage.getItem('originalMode');
+  if (originalModeSaved === 'true') {
+    originalMode.checked = true;
   }
 });
 
@@ -148,34 +155,9 @@ function disableContinuousScrollTracking() {
 
 // --- CONTINUOUS MODE ---
 function switchToContinuous() {
+  //console.log('switchToContinuous called', new Error().stack);
   disableContinuousScrollTracking();
   output.style.overflowY = 'auto';
-  output.innerHTML = '';
-
-  condensedCanvases.forEach(c => {
-    const wrapper = document.createElement('div');
-    wrapper.style.width = '100%';
-    wrapper.style.textAlign = 'center';
-    const scale = output.clientWidth / c.width;
-    c.style.width = `${c.width * scale}px`;
-    c.style.height = 'auto';
-    wrapper.appendChild(c);
-    output.appendChild(wrapper);
-  });
-
-  // Get the navbar height dynamically
-  const navbar = document.querySelector('.navbar');
-  const navbarHeight = navbar ? navbar.offsetHeight : 0;
-
-  // Scroll so the first canvas starts below the navbar
-  const firstCanvasIndex = currentPageIndex * pagesPerView;
-  const targetCanvas = condensedCanvases[firstCanvasIndex];
-  if (targetCanvas) {
-    output.scrollTo({
-      top: targetCanvas.offsetTop - navbarHeight,
-      behavior: 'auto'
-    });
-  }
 
   enableContinuousScrollTracking();
   updateContinuousPageIndicator();
@@ -203,8 +185,22 @@ function getPageStep() {
 
 // --- NAVIGATION ---
 prevBtn.addEventListener('click', () => {
+  const step = getPageStep();
+
+  if (gpState.gpCanvases[0]) {
+    if (pageModeRadio.checked) {
+      // --- GP Page Mode ---
+      prevGPPage();
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+    } else if (continuousModeRadio.checked) {
+      // --- GP Continuous Mode ---
+      output.scrollBy({ top: -window.innerHeight * 0.9, behavior: 'smooth' });
+    }
+    return;
+  }
+
+  // --- PDF Navigation ---
   if (pageModeRadio.checked) {
-    const step = getPageStep();
     currentPageIndex = Math.max(0, currentPageIndex - step);
     renderPage();
   } else {
@@ -219,8 +215,22 @@ prevBtn.addEventListener('click', () => {
 });
 
 nextBtn.addEventListener('click', () => {
+  const step = getPageStep();
+
+  if (gpState.gpCanvases[0]) {
+    if (pageModeRadio.checked) {
+      // --- GP Page Mode ---
+      nextGPPage();
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+    } else if (continuousModeRadio.checked) {
+      // --- GP Continuous Mode ---
+      output.scrollBy({ top: window.innerHeight * 0.9, behavior: 'smooth' });
+    }
+    return;
+  }
+
+  // --- PDF Navigation ---
   if (pageModeRadio.checked) {
-    const step = getPageStep();
     currentPageIndex = Math.min(pages.length - 1, currentPageIndex + step);
     renderPage();
   } else {
@@ -236,42 +246,119 @@ nextBtn.addEventListener('click', () => {
 
 // --- MODE TOGGLE ---
 pageModeRadio.addEventListener('change', () => {
-  if (pageModeRadio.checked) {
-    switchToPageMode();
-    output.focus();
+  if (!output) return;
+
+  // Clear display regardless of mode
+  output.innerHTML = '';
+
+  if (gpState.gpCanvases[0]?.container) {
+    // --- GUITAR PRO ---
+    if (pageModeRadio.checked) {
+      // --- PAGE MODE ---
+      console.log("Switching to GP page mode...");
+      // Calculate pages
+      const pageHeight = output.clientHeight - 20;
+      gpState.gpPages = layoutGPPages(gpState.gpCanvases[0].container, pageHeight);
+      // Reset to first page
+      gpState.currentGPPageIndex = 0;
+      // Render current page(s)
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+    } else {
+      // --- CONTINUOUS MODE ---
+      console.log("Switching to GP continuous mode...");
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+    }
+  } else {
+    // --- PDF ---
+    if (pageModeRadio.checked) {
+      console.log("Switching to PDF page mode...");
+      switchToPageMode();
+    } else {
+      console.log("Switching to PDF continuous mode...");
+      switchToContinuous();
+    }
   }
+
+  output.focus();
 });
+
 
 continuousModeRadio.addEventListener('change', () => {
   if (continuousModeRadio.checked) {
-    switchToContinuous();
+    if (gpState.gpCanvases[0]?.container) renderGPPage(output, pageModeRadio, continuousModeRadio);
+    else switchToContinuous();
     output.focus();
   }
 });
 
 // --- RESIZE HANDLER ---
 window.addEventListener('resize', () => {
-  if (pageModeRadio.checked) layoutPages();
-  else switchToContinuous();
+  if (pageModeRadio.checked) {
+    if (gpState.gpCanvases[0]?.container) {
+        scaleGPContainer(gpState.gpCanvases[0].container, output);
+        layoutGPPages(gpState.gpCanvases[0].container, output);
+        renderGPPageMode(output, pagesPerView);
+    } else {
+        layoutPages();
+    }
+  } else {
+    if (gpState.gpCanvases[0]?.container) {
+        renderGPPage(output, pageModeRadio, continuousModeRadio);
+    } else {
+        switchToContinuous();
+    }
+  }
 });
 
 // --- KEYBOARD NAVIGATION ---
 window.addEventListener('keydown', (e) => {
-  // Only handle keys if a PDF is loaded
+  // Only handle keys if a PDF or GP is loaded
   if (!currentFile) return;
 
   const nextPageKeys = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
   const prevPageKeys = ['ArrowLeft', 'ArrowUp', 'PageUp', 'Enter'];
 
-  // Check if focus is inside an input or textarea to avoid hijacking typing
+  // Avoid hijacking typing in inputs/textareas
   const activeEl = document.activeElement;
   if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA')) return;
 
-  if (pageModeRadio.checked) {
-    const step = getPageStep();
+  const step = getPageStep();
 
+  // --- GP NAVIGATION ---
+  if (gpState.gpCanvases[0]) {
+    const isGPPageMode = pageModeRadio.checked;          // your GP page toggle
+    const isGPContinuous = !isGPPageMode;                // GP defaults to continuous otherwise
+
+    if (isGPPageMode) {
+      // GP page mode
+      if (nextPageKeys.includes(e.key)) {
+        e.preventDefault();
+        gpState.currentGPPageIndex = Math.min(gpState.gpPages.length - 1, gpState.currentGPPageIndex + step);
+        renderGPPage(output, pageModeRadio, continuousModeRadio);
+      } else if (prevPageKeys.includes(e.key)) {
+        e.preventDefault();
+        gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - step);
+        renderGPPage(output, pageModeRadio, continuousModeRadio);
+      }
+    } else if (isGPContinuous) {
+      const scrollAmount = window.innerHeight * 0.9; // same as buttons
+      if (prevPageKeys.includes(e.key)) {
+        e.preventDefault();
+        output.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+      } else if (nextPageKeys.includes(e.key)) {
+        e.preventDefault();
+        output.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+      }
+    }
+
+    return; // don’t fall through to PDF
+  }
+
+  // --- PDF NAVIGATION ---
+  if (pageModeRadio.checked) {
+    // PDF page mode
     if (nextPageKeys.includes(e.key)) {
-      e.preventDefault(); // prevent scrolling/menu only when handling PDF
+      e.preventDefault();
       currentPageIndex = Math.min(pages.length - 1, currentPageIndex + step);
       renderPage();
     } else if (prevPageKeys.includes(e.key)) {
@@ -280,8 +367,9 @@ window.addEventListener('keydown', (e) => {
       renderPage();
     }
   } else if (continuousModeRadio.checked) {
+    // PDF continuous mode
     const scrollTop = output.scrollTop;
-
+    //console.log('Setting scrollTop', { newTop: scrollTop, mode: pageModeRadio.checked ? 'page' : 'continuous' }, new Error().stack);
     if (prevPageKeys.includes(e.key)) {
       e.preventDefault();
       for (let i = condensedCanvases.length - 1; i >= 0; i--) {
@@ -348,21 +436,74 @@ async function loadPDF(file) {
     progressBar,
     condensedCanvases,
     abortSignal: currentProcessing,
-    onCanvasRendered: () => {
+    pageModeRadio,
+    continuousModeRadio,
+    onCanvasRendered: (canvas) => {
+      //console.log('onCanvasRendered', canvas._appended);
       if (currentProcessing.aborted) return;
-      if (pageModeRadio.checked) layoutPages();
-      else switchToContinuous();
+
+      if (pageModeRadio.checked) {
+        layoutPages();
+      } else {
+        // Continuous mode: append only new canvases
+        if (!canvas._appended) {
+          const prevScroll = output.scrollTop;
+
+          const wrapper = document.createElement('div');
+          wrapper.style.width = '100%';
+          wrapper.style.textAlign = 'center';
+
+          const scale = output.clientWidth / canvas.width;
+          canvas.style.width = `${canvas.width * scale}px`;
+          canvas.style.height = 'auto';
+
+          wrapper.appendChild(canvas);
+          output.appendChild(wrapper);
+
+          canvas._appended = true;
+
+          // restore scrollTop immediately
+          //console.log('Setting scrollTop', { newTop: prevScroll, mode: pageModeRadio.checked ? 'page' : 'continuous' }, new Error().stack);
+          output.scrollTop = prevScroll;
+        }
+
+        updateContinuousPageIndicator();
+      }
     }
   });
 }
 
 // --- FILE INPUT ---
-pdfInput.addEventListener('change', async e => {
-  const file = e.target.files[0];
-  if (file) {
+fileInput.addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+
     fileMenu.hide();
-    await loadPDF(file);
-  }
+    resetView();
+
+    currentFile = file;
+    currentProcessing.aborted = true;
+    currentProcessing = { aborted: false };
+    condensedCanvases = [];
+    pages = [];
+    currentPageIndex = 0;
+    output.innerHTML = '';
+
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    if (ext === 'pdf') {
+      await loadPDF(file);
+    } else if (['gp', 'gp3', 'gp4', 'gp5', 'gpx'].includes(ext)) {
+      // Show progress
+      progressContainer.style.display = 'block';
+      progressBar.classList.add('indeterminate');
+      await loadGP(file, output, pageModeRadio, continuousModeRadio, !originalMode.checked);
+      // Hide progress
+      progressBar.classList.remove('indeterminate');
+      progressContainer.style.display = 'none';
+    } else {
+      console.warn('Unsupported file type:', ext);
+    }
 });
 
 // --- DEBUG MODE TOGGLE ---
@@ -371,17 +512,58 @@ debugMode.addEventListener('change', async () => {
     // Disable Original Mode if Debug is enabled
     originalMode.checked = false;
   }
-  if (currentFile) await loadPDF(currentFile);
+
+  localStorage.setItem('debugMode', debugMode.checked ? 'true' : 'false');
+
+  if (!currentFile) return;
+  resetView(); 
+
+  const ext = currentFile.name.split('.').pop().toLowerCase();
+  if (ext === 'pdf') {
+    await loadPDF(currentFile);
+  } else if (['gp', 'gp3', 'gp4', 'gp5', 'gpx'].includes(ext)) {
+    // Show progress
+    progressContainer.style.display = 'block';
+    progressBar.classList.add('indeterminate');
+    await loadGP(
+      currentFile,
+      output,
+      pageModeRadio,
+      continuousModeRadio,
+      !originalMode.checked,
+      debugMode.checked
+    );
+    progressBar.classList.remove('indeterminate');
+    progressContainer.style.display = 'none';
+  }
 });
 
 // --- ORIGINAL MODE TOGGLE ---
 originalMode.addEventListener('change', async () => {
+  if (!currentFile) return;
+  resetView(); 
   if (originalMode.checked && debugMode.checked) {
     // Disable Debug Mode if Original Mode is enabled
     debugMode.checked = false;
   }
-  if (currentFile) await loadPDF(currentFile);
+
+  localStorage.setItem('originalMode', originalMode.checked ? 'true' : 'false');
+
+  if (!currentFile) return;
+
+  const ext = currentFile.name.split('.').pop().toLowerCase();
+  if (ext === 'pdf') {
+    await loadPDF(currentFile);
+  } else if (['gp', 'gp3', 'gp4', 'gp5', 'gpx'].includes(ext)) {
+    // Show progress
+    progressContainer.style.display = 'block';
+    progressBar.classList.add('indeterminate');
+    await loadGP(currentFile, output, pageModeRadio, continuousModeRadio, !originalMode.checked);
+    progressBar.classList.remove('indeterminate');
+    progressContainer.style.display = 'none';
+  }
 });
+
 
 // --- GOOGLE DRIVE ---
 setupGoogleDriveButton();
@@ -401,3 +583,80 @@ darkModeToggle.addEventListener('change', () => {
 advanceOnePageToggle.addEventListener('change', () => {
   localStorage.setItem('advanceOnePage', advanceOnePageToggle.checked ? 'true' : 'false');
 });
+
+window.addEventListener('resize', () => {
+  //console.log('resize event', { pageMode: pageModeRadio.checked });
+  if (currentProcessing?.aborted) return;
+
+  if (gpState.gpCanvases[0]?.container) {
+    const container = gpState.gpCanvases[0].container;
+
+    const isGPPageMode = pageModeRadio.checked;
+
+    if (isGPPageMode) {
+      // --- GP PAGE MODE ---
+      scaleGPContainer(container, output); // safe to recalc pages here
+      const pageHeight = output.clientHeight - 20;
+      gpState.gpPages = layoutGPPages(container, pageHeight);
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+    } else {
+      // --- GP CONTINUOUS MODE ---
+      const container = gpState.gpCanvases[0].container;
+      if (!container) return;
+
+      // Preserve scroll position
+      const scrollTop = output.scrollTop;
+
+      // Re-render the container for continuous mode
+      output.innerHTML = '';
+      output.appendChild(container);
+
+      // Scale to fit output width
+      const scale = output.clientWidth / container.scrollWidth;
+      container.style.transformOrigin = 'top left';
+      container.style.transform = `scale(${scale})`;
+
+      // Restore scroll
+      output.scrollTop = scrollTop;
+    }
+  } else {
+    // --- PDF ---
+    if (pageModeRadio.checked) {
+      layoutPages();
+    } else {
+      // Continuous mode: don't reset scroll, just scale canvases
+      const scrollTop = output.scrollTop;
+      condensedCanvases.forEach(c => {
+        const scale = output.clientWidth / c.width;
+        c.style.width = `${c.width * scale}px`;
+        c.style.height = 'auto';
+      });
+      //console.log('Setting scrollTop', { newTop: scrollTop, mode: pageModeRadio.checked ? 'page' : 'continuous' }, new Error().stack);
+      output.scrollTop = scrollTop;
+      updateContinuousPageIndicator();
+    }
+  }
+});
+
+// --- RESET FUNCTION ---
+function resetView() {
+  // Abort any ongoing processing
+  if (currentProcessing) currentProcessing.aborted = true;
+
+  // Clear PDF state
+  condensedCanvases.length = 0;
+  pages = [];
+  currentPageIndex = 0;
+
+  // Clear GP state
+  gpState.gpCanvases = [];
+  gpState.gpPages = [];
+  gpState.currentGPPageIndex = 0;
+
+  // Clear DOM
+  output.innerHTML = '';
+
+  // Reset scroll & indicators
+  output.scrollTop = 0;
+  pageIndicator.textContent = '';
+}
