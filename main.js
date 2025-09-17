@@ -589,14 +589,35 @@ window.addEventListener('resize', () => {
   if (currentProcessing?.aborted) return;
 
   if (gpState.gpCanvases[0]?.container) {
-    // --- GP ---
-    scaleGPContainer(gpState.gpCanvases[0].container, output);
-    if (pageModeRadio.checked) {
+    const container = gpState.gpCanvases[0].container;
+
+    const isGPPageMode = pageModeRadio.checked;
+
+    if (isGPPageMode) {
+      // --- GP PAGE MODE ---
+      scaleGPContainer(container, output); // safe to recalc pages here
       const pageHeight = output.clientHeight - 20;
-      gpState.gpPages = layoutGPPages(gpState.gpCanvases[0].container, pageHeight);
+      gpState.gpPages = layoutGPPages(container, pageHeight);
       renderGPPage(output, pageModeRadio, continuousModeRadio);
     } else {
-      renderGPPage(output, pageModeRadio, continuousModeRadio);
+      // --- GP CONTINUOUS MODE ---
+      const container = gpState.gpCanvases[0].container;
+      if (!container) return;
+
+      // Preserve scroll position
+      const scrollTop = output.scrollTop;
+
+      // Re-render the container for continuous mode
+      output.innerHTML = '';
+      output.appendChild(container);
+
+      // Scale to fit output width
+      const scale = output.clientWidth / container.scrollWidth;
+      container.style.transformOrigin = 'top left';
+      container.style.transform = `scale(${scale})`;
+
+      // Restore scroll
+      output.scrollTop = scrollTop;
     }
   } else {
     // --- PDF ---
