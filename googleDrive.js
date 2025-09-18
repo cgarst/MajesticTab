@@ -61,5 +61,7 @@ export function setupDrivePicker() {
       picker.appendChild(docsView);
 
       container.appendChild(picker);
+
+      return picker
   });
 }
