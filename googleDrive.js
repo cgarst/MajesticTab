@@ -5,17 +5,42 @@
  * and return it as a File object.
  */
 export async function fetchPickedFile(event) {
-  const { docs, token } = event.detail;
-  const doc = docs[0];
-  if (!doc) return null;
+    console.log('[DEBUG] fetchPickedFile called', event);
 
-  const res = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  const blob = await res.blob();
-  const file = new File([blob], doc.name, { type: doc.mimeType || 'application/octet-stream' });
-  return file;
+    const { docs, token } = event.detail;
+    console.log('[DEBUG] event.detail', event.detail);
+
+    const doc = docs[0];
+    if (!doc) {
+        console.warn('[DEBUG] No doc selected');
+        return null;
+    }
+
+    console.log('[DEBUG] Selected doc:', doc);
+
+    try {
+        const res = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`,
+            { headers: { Authorization: `Bearer ${token}` } }
+        );
+        console.log('[DEBUG] Fetch response', res);
+
+        if (!res.ok) {
+            console.error('[DEBUG] Fetch failed', res.status, res.statusText);
+            return null;
+        }
+
+        const blob = await res.blob();
+        console.log('[DEBUG] Blob created', blob);
+
+        const file = new File([blob], doc.name, { type: doc.mimeType || 'application/octet-stream' });
+        console.log('[DEBUG] File object created', file);
+
+        return file;
+    } catch (err) {
+        console.error('[DEBUG] Error fetching file', err);
+        return null;
+    }
 }
 
 export function setupDrivePicker() {
