@@ -484,6 +484,7 @@ fileInput.addEventListener('change', async e => {
 setupDrivePicker()
 const picker = document.getElementById('googleDrivePicker');
 if (picker) {
+  fileMenu.hide();
   picker.addEventListener('picker-picked', async (e) => {
     const file = await fetchPickedFile(e);
     if (!file) return;
