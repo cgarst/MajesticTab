@@ -46,15 +46,10 @@
     <input type="file" class="form-control" id="localFile" accept=".pdf,.gp,.gp3,.gp4,.gp5,.gpx"><br/>
     
     <h6>Load tab from cloud:</h6>
-    <drive-picker
-      prompt=""
-      app-id="1059497343032"
-      client-id="1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com"
-      scopes="https://www.googleapis.com/auth/drive.readonly"
-      mime-types="application/pdf, application/x-guitar-pro"
-      max-items=1>  
-      <drive-picker-docs-view starred="true"></drive-picker-docs-view>
-    </drive-picker>
+    <button class="btn btn-outline-primary" id="loadFromDriveBtn">
+      Choose File from Google Drive
+    </button>
+    <div id="drivePickerContainer"></div>
 
     <br/><h6>Options:</h6>
     <div class="form-check form-switch mt-2">

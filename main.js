@@ -1,5 +1,5 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
-import { fetchPickedFile } from './googleDrive.js';
+import { fetchPickedFile, setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
 import { loadGP, renderGPPage, layoutGPPages, renderGPPageMode, gpState, nextGPPage, prevGPPage, scaleGPContainer} from './gpProcessor/gpHandler.js';
 
@@ -481,6 +481,7 @@ fileInput.addEventListener('change', async e => {
 });
 
 // --- GOOGLE DRIVE PICKER ---
+setupDrivePicker()
 const picker = document.getElementById('googleDrivePicker');
 if (picker) {
   picker.addEventListener('picker-picked', async (e) => {
