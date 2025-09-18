@@ -481,11 +481,11 @@ fileInput.addEventListener('change', async e => {
 });
 
 // --- GOOGLE DRIVE PICKER ---
-setupDrivePicker()
+picker = setupDrivePicker()
+console.log('[DEBUG] setup picker: ', picker)
 document.getElementById('loadFromDriveBtn').addEventListener('click', () => { 
   fileMenu.hide();
 });
-const picker = document.querySelector('drive-picker');
 picker.addEventListener('picker:picked', async (e) => {
   console.log('[DEBUG] picker:picked fired')
   const file = await fetchPickedFile(e);
