@@ -1,5 +1,5 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
-import { setupGoogleDriveButton } from './googleDrive.js';
+import { fetchPickedFile } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
 import { loadGP, renderGPPage, layoutGPPages, renderGPPageMode, gpState, nextGPPage, prevGPPage, scaleGPContainer} from './gpProcessor/gpHandler.js';
 
@@ -9,7 +9,7 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 // --- ELEMENTS ---
-const fileInput = document.getElementById('pdfFile');
+const fileInput = document.getElementById('localFile');
 const debugMode = document.getElementById('debugMode');
 const originalMode = document.getElementById('originalMode');
 const prevBtn = document.getElementById('prevPage');
@@ -473,11 +473,25 @@ async function loadPDF(file) {
   });
 }
 
-// --- FILE INPUT ---
+// --- LOCAL FILE INPUT LISTENER ---
 fileInput.addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
+    await loadFile(file)
+});
 
+// --- GOOGLE DRIVE PICKER ---
+const picker = document.getElementById('googleDrivePicker');
+if (picker) {
+  picker.addEventListener('picker-picked', async (e) => {
+    const file = await fetchPickedFile(e);
+    if (!file) return;
+    await loadFile(file);
+  });
+}
+
+// --- FILE LOADING ---
+async function loadFile(file) {
     fileMenu.hide();
     resetView();
 
@@ -504,7 +518,7 @@ fileInput.addEventListener('change', async e => {
     } else {
       console.warn('Unsupported file type:', ext);
     }
-});
+}
 
 // --- DEBUG MODE TOGGLE ---
 debugMode.addEventListener('change', async () => {
@@ -563,10 +577,6 @@ originalMode.addEventListener('change', async () => {
     progressContainer.style.display = 'none';
   }
 });
-
-
-// --- GOOGLE DRIVE ---
-setupGoogleDriveButton();
 
 // --- DARK MODE ---
 darkModeToggle.addEventListener('change', () => {

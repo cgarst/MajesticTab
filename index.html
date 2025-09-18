@@ -41,10 +41,21 @@
     <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
   </div>
   <div class="offcanvas-body d-flex flex-column gap-2">
+
     <h6>Load tab from file:</h6>
-    <input type="file" class="form-control" id="pdfFile" accept=".pdf,.gp,.gp3,.gp4,.gp5,.gpx">
-    <br/><h6>Load tab from cloud:</h6>
-    <button class="btn btn-outline-primary mt-2" id="googleDriveBtn">Load from Google Drive</button>
+    <input type="file" class="form-control" id="localFile" accept=".pdf,.gp,.gp3,.gp4,.gp5,.gpx"><br/>
+    
+    <h6>Load tab from cloud:</h6>
+    <drive-picker
+      prompt=""
+      app-id="1059497343032"
+      client-id="1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com"
+      scopes="https://www.googleapis.com/auth/drive.readonly"
+      mime-types="application/pdf, application/x-guitar-pro"
+      max-items=1>  
+      <drive-picker-docs-view starred="true"></drive-picker-docs-view>
+    </drive-picker>
+
     <br/><h6>Options:</h6>
     <div class="form-check form-switch mt-2">
       <input class="form-check-input" type="checkbox" id="darkModeToggle">
