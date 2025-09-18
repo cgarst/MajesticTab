@@ -481,7 +481,7 @@ fileInput.addEventListener('change', async e => {
 });
 
 // --- GOOGLE DRIVE PICKER ---
-picker = setupDrivePicker()
+const picker = setupDrivePicker()
 console.log('[DEBUG] setup picker: ', picker)
 document.getElementById('loadFromDriveBtn').addEventListener('click', () => { 
   fileMenu.hide();
