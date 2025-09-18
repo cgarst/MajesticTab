@@ -487,6 +487,7 @@ document.getElementById('loadFromDriveBtn').addEventListener('click', () => {
 });
 const picker = document.querySelector('drive-picker');
 picker.addEventListener('picker-picked', async (e) => {
+  console.log('[DEBUG] picker-picked fired')
   const file = await fetchPickedFile(e);
   if (!file) return;
   await loadFile(file);
