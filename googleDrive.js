@@ -36,7 +36,5 @@ export function setupDrivePicker() {
       picker.appendChild(docsView);
 
       container.appendChild(picker);
-
-      picker.open(); // opens picker in response to user click
   });
 }
