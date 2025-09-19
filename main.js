@@ -668,3 +668,33 @@ function resetView() {
   output.scrollTop = 0;
   pageIndicator.textContent = '';
 }
+
+// --- ADD "BACK TO PAGE 1" BUTTON WITH ICON ---
+const backToFirstBtn = document.createElement('button');
+backToFirstBtn.id = 'backToFirstPage';
+backToFirstBtn.className = 'btn btn-sm btn-outline-primary';
+backToFirstBtn.style.marginRight = '8px';
+backToFirstBtn.innerHTML = '<i class="bi bi-skip-backward-fill"></i>';
+
+// Insert before the previous page button
+prevBtn.parentNode.insertBefore(backToFirstBtn, prevBtn);
+
+// --- CLICK HANDLER ---
+backToFirstBtn.addEventListener('click', () => {
+  if (gpState.gpCanvases[0]) {
+    // GP file
+    gpState.currentGPPageIndex = 0;
+    renderGPPage(output, pageModeRadio, continuousModeRadio);
+  } else {
+    // PDF file
+    currentPageIndex = 0;
+
+    if (pageModeRadio.checked) {
+      renderPage();
+    } else if (continuousModeRadio.checked) {
+      // Scroll to top for continuous mode
+      output.scrollTo({ top: 0, behavior: 'smooth' });
+      updateContinuousPageIndicator();
+    }
+  }
+});
