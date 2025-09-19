@@ -482,15 +482,14 @@ fileInput.addEventListener('change', async e => {
 
 // --- GOOGLE DRIVE PICKER ---
 setupDrivePicker()
-const picker = document.getElementById('googleDrivePicker');
-if (picker) {
+document.getElementById('loadFromDriveBtn').addEventListener('click', () => { 
   fileMenu.hide();
-  picker.addEventListener('picker-picked', async (e) => {
-    const file = await fetchPickedFile(e);
-    if (!file) return;
-    await loadFile(file);
-  });
-}
+});
+picker.addEventListener('picker-picked', async (e) => {
+  const file = await fetchPickedFile(e);
+  if (!file) return;
+  await loadFile(file);
+});
 
 // --- FILE LOADING ---
 async function loadFile(file) {
