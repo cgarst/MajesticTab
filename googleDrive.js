@@ -4,6 +4,9 @@
  * Given a `picker-picked` event, fetch the file from Google Drive
  * and return it as a File object.
  */
+
+import { loadFile } from './main.js';
+
 export async function fetchPickedFile(event) {
     console.log('[DEBUG] fetchPickedFile called', event);
 
@@ -44,24 +47,36 @@ export async function fetchPickedFile(event) {
 }
 
 export function setupDrivePicker() {
-  document.getElementById('loadFromDriveBtn').addEventListener('click', () => {
-      const container = document.getElementById('drivePickerContainer');
-      
-      // Clear previous picker if any
-      container.innerHTML = '';
+  const loadBtn = document.getElementById('loadFromDriveBtn');
 
-      const picker = document.createElement('drive-picker');
-      picker.setAttribute('client-id', '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com');
-      picker.setAttribute('app-id', '1059497343032');
-      picker.setAttribute('scopes', 'https://www.googleapis.com/auth/drive.readonly');
-      picker.setAttribute('mime-types', 'application/pdf, application/x-guitar-pro');
-      picker.setAttribute('max-items', '1');
+  loadBtn.addEventListener('click', () => {
+    const container = document.getElementById('drivePickerContainer');
+    
+    // Clear previous picker if any
+    container.innerHTML = '';
 
-      const docsView = document.createElement('drive-picker-docs-view');
-      picker.appendChild(docsView);
+    // Create the picker
+    const picker = document.createElement('drive-picker');
+    picker.setAttribute('client-id', '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com');
+    picker.setAttribute('app-id', '1059497343032');
+    picker.setAttribute('scopes', 'https://www.googleapis.com/auth/drive.readonly');
+    picker.setAttribute('mime-types', 'application/pdf, application/x-guitar-pro');
+    picker.setAttribute('max-items', '1');
 
-      container.appendChild(picker);
+    const docsView = document.createElement('drive-picker-docs-view');
+    picker.appendChild(docsView);
 
-      return picker
+    container.appendChild(picker);
+
+    // Now picker exists, you can safely add event listeners
+    picker.addEventListener('picker:picked', async (e) => {
+      console.log('[DEBUG] picker:picked fired')
+      const file = await fetchPickedFile(e);
+      if (!file) return;
+      await loadFile(file);
+    });
+
+    // Hide menu on click
+    loadBtn.addEventListener('click', () => fileMenu.hide());
   });
 }
