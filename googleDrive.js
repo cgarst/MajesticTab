@@ -12,7 +12,7 @@ let token = null;
 export async function fetchPickedFile(event) {
     console.log('[DEBUG] fetchPickedFile called', event);
 
-    const { docs } = event;
+    const { docs } = event.detail;
     if (!docs || docs.length === 0) {
         console.warn('[DEBUG] No doc selected');
         return null;
