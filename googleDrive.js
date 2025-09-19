@@ -10,9 +10,9 @@ import { loadFile, hideFileMenu } from './main.js';
 export async function fetchPickedFile(event) {
     console.log('[DEBUG] fetchPickedFile called', event);
 
-    const { docs, detail } = event.detail;
+    const { docs, detail } = event;
     console.log('[DEBUG] doc detail', detail);
-    const token = detail.token;
+    const { token } = event.detail;
     console.log('[DEBUG] token', token);
 
     const doc = docs[0];
