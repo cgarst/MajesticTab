@@ -485,7 +485,7 @@ setupDrivePicker()
 document.getElementById('loadFromDriveBtn').addEventListener('click', () => { 
   fileMenu.hide();
 });
-picker.addEventListener('picker-picked', async (e) => {
+document.addEventListener('picker-picked', async (e) => {
   const file = await fetchPickedFile(e);
   if (!file) return;
   await loadFile(file);
