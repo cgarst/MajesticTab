@@ -7,20 +7,23 @@
 
 import { loadFile, hideFileMenu } from './main.js';
 
+let token = null;
+
 export async function fetchPickedFile(event) {
     console.log('[DEBUG] fetchPickedFile called', event);
 
-    const { docs, detail } = event;
-    console.log('[DEBUG] doc detail', detail);
-    const { token } = event.detail;
-    console.log('[DEBUG] token', token);
-
-    const doc = docs[0];
-    if (!doc) {
+    const { docs } = event;
+    if (!docs || docs.length === 0) {
         console.warn('[DEBUG] No doc selected');
         return null;
     }
 
+    if (!token) {
+        console.error('[DEBUG] No token available, cannot fetch file');
+        return null;
+    }
+
+    const doc = docs[0];
     console.log('[DEBUG] Selected doc:', doc);
 
     try {
@@ -28,6 +31,7 @@ export async function fetchPickedFile(event) {
             `https://www.googleapis.com/drive/v3/files/${doc.id}?alt=media`,
             { headers: { Authorization: `Bearer ${token}` } }
         );
+
         console.log('[DEBUG] Fetch response', res);
 
         if (!res.ok) {
@@ -49,36 +53,36 @@ export async function fetchPickedFile(event) {
 }
 
 export function setupDrivePicker() {
-  const loadBtn = document.getElementById('loadFromDriveBtn');
+    const loadBtn = document.getElementById('loadFromDriveBtn');
 
-  loadBtn.addEventListener('click', () => {
-    const container = document.getElementById('drivePickerContainer');
-    
-    // Clear previous picker if any
-    container.innerHTML = '';
+    loadBtn.addEventListener('click', () => {
+        hideFileMenu()
+        const container = document.getElementById('drivePickerContainer');
+        container.innerHTML = '';
 
-    // Create the picker
-    const picker = document.createElement('drive-picker');
-    picker.setAttribute('client-id', '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com');
-    picker.setAttribute('app-id', '1059497343032');
-    picker.setAttribute('scopes', 'https://www.googleapis.com/auth/drive.readonly');
-    picker.setAttribute('mime-types', 'application/pdf, application/x-guitar-pro');
-    picker.setAttribute('max-items', '1');
+        const picker = document.createElement('drive-picker');
+        picker.setAttribute('client-id', '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com');
+        picker.setAttribute('app-id', '1059497343032');
+        picker.setAttribute('scopes', 'https://www.googleapis.com/auth/drive.readonly');
+        picker.setAttribute('mime-types', 'application/pdf, application/x-guitar-pro');
+        picker.setAttribute('max-items', '1');
 
-    const docsView = document.createElement('drive-picker-docs-view');
-    picker.appendChild(docsView);
+        const docsView = document.createElement('drive-picker-docs-view');
+        picker.appendChild(docsView);
+        container.appendChild(picker);
 
-    container.appendChild(picker);
+        // Listen for authentication
+        picker.addEventListener('picker:authenticated', (e) => {
+            console.log('[DEBUG] picker:authenticated fired', e.detail);
+            token = e.detail.token;
+        });
 
-    // Now picker exists, you can safely add event listeners
-    picker.addEventListener('picker:picked', async (e) => {
-      console.log('[DEBUG] picker:picked fired')
-      const file = await fetchPickedFile(e);
-      if (!file) return;
-      await loadFile(file);
+        // Then pick a file
+        picker.addEventListener('picker:picked', async (e) => {
+            console.log('[DEBUG] picker:picked fired');
+            const file = await fetchPickedFile(e);
+            if (!file) return;
+            await loadFile(file);
+        });
     });
-
-    // Hide menu on click
-    loadBtn.addEventListener('click', () => hideFileMenu());
-  });
 }
