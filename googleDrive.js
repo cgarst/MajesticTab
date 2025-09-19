@@ -11,7 +11,9 @@ export async function fetchPickedFile(event) {
     console.log('[DEBUG] fetchPickedFile called', event);
 
     const { docs, detail } = event.detail;
-    token = event.detail.token;
+    console.log('[DEBUG] doc detail', detail);
+    const token = detail.token;
+    console.log('[DEBUG] token', token);
 
     const doc = docs[0];
     if (!doc) {
