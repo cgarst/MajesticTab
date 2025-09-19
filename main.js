@@ -484,7 +484,7 @@ fileInput.addEventListener('change', async e => {
 setupDrivePicker()
 
 // --- FILE LOADING ---
-async function loadFile(file) {
+export async function loadFile(file) {
     fileMenu.hide();
     resetView();
 
