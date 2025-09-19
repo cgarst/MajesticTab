@@ -63,6 +63,11 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Hide file menu when needed
+export function hideFileMenu() {
+  fileMenu.hide()
+}
+
 // --- PAGE LAYOUT ---
 function layoutPages() {
   pages = [];
