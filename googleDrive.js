@@ -5,7 +5,7 @@
  * and return it as a File object.
  */
 
-import { loadFile } from './main.js';
+import { loadFile, hideFileMenu } from './main.js';
 
 export async function fetchPickedFile(event) {
     console.log('[DEBUG] fetchPickedFile called', event);
@@ -77,6 +77,6 @@ export function setupDrivePicker() {
     });
 
     // Hide menu on click
-    loadBtn.addEventListener('click', () => fileMenu.hide());
+    loadBtn.addEventListener('click', () => hideFileMenu());
   });
 }
