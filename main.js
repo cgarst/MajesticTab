@@ -73,7 +73,8 @@ function layoutPages() {
   pages = [];
   const pageHeight = window.innerHeight - 80 - PAGE_PADDING;
   const pageWidth = window.innerWidth - 40;
-  pagesPerView = window.innerWidth > window.innerHeight ? 2 : 1;
+  // * 1.25 means width must be 125% of the height before 2-page view kicks in
+  pagesPerView = window.innerWidth > window.innerHeight * 1.25 ? 2 : 1;
 
   let currentPage = [];
   let usedHeight = 0;
@@ -160,9 +161,28 @@ function disableContinuousScrollTracking() {
 
 // --- CONTINUOUS MODE ---
 function switchToContinuous() {
-  //console.log('switchToContinuous called', new Error().stack);
+  // Clean out old page-mode layout
+  output.innerHTML = '';
+
   disableContinuousScrollTracking();
   output.style.overflowY = 'auto';
+
+  // Rebuild continuous view
+  condensedCanvases.forEach(c => {
+    const wrapper = document.createElement('div');
+    wrapper.style.width = '100%';
+    wrapper.style.textAlign = 'center';
+
+    const scale = output.clientWidth / c.width;
+    c.style.width = `${c.width * scale}px`;
+    c.style.height = 'auto';
+
+    wrapper.appendChild(c);
+    output.appendChild(wrapper);
+  });
+
+  // Reset scroll and indicator
+  output.scrollTop = 0;
 
   enableContinuousScrollTracking();
   updateContinuousPageIndicator();
@@ -236,7 +256,14 @@ nextBtn.addEventListener('click', () => {
 
   // --- PDF Navigation ---
   if (pageModeRadio.checked) {
-    currentPageIndex = Math.min(pages.length - 1, currentPageIndex + step);
+    const step = getPageStep();
+
+    // Calculate max starting index so last view shows up to pagesPerView
+    const maxStartIndex = Math.max(0, pages.length - pagesPerView);
+
+    // Advance, but don’t exceed maxStartIndex
+    currentPageIndex = Math.min(currentPageIndex + step, maxStartIndex);
+
     renderPage();
   } else {
     const scrollTop = output.scrollTop;
@@ -337,9 +364,11 @@ window.addEventListener('keydown', (e) => {
     if (isGPPageMode) {
       // GP page mode
       if (nextPageKeys.includes(e.key)) {
-        e.preventDefault();
-        gpState.currentGPPageIndex = Math.min(gpState.gpPages.length - 1, gpState.currentGPPageIndex + step);
-        renderGPPage(output, pageModeRadio, continuousModeRadio);
+          e.preventDefault();
+          const pagesPerView = window.innerWidth > window.innerHeight ? 2 : 1;
+          const maxStartIndex = Math.max(0, gpState.gpPages.length - pagesPerView);
+          gpState.currentGPPageIndex = Math.min(gpState.currentGPPageIndex + 1, maxStartIndex);
+          renderGPPage(output, pageModeRadio, continuousModeRadio);
       } else if (prevPageKeys.includes(e.key)) {
         e.preventDefault();
         gpState.currentGPPageIndex = Math.max(0, gpState.currentGPPageIndex - step);
@@ -364,8 +393,11 @@ window.addEventListener('keydown', (e) => {
     // PDF page mode
     if (nextPageKeys.includes(e.key)) {
       e.preventDefault();
-      currentPageIndex = Math.min(pages.length - 1, currentPageIndex + step);
-      renderPage();
+          // Calculate max starting index so last view shows full pagesPerView
+          const maxStartIndex = Math.max(0, pages.length - pagesPerView);
+          // Advance, but don’t exceed maxStartIndex
+          currentPageIndex = Math.min(currentPageIndex + step, maxStartIndex);
+          renderPage();
     } else if (prevPageKeys.includes(e.key)) {
       e.preventDefault();
       currentPageIndex = Math.max(0, currentPageIndex - step);
@@ -511,11 +543,15 @@ export async function loadFile(file) {
       progressBar.classList.add('indeterminate');
       await loadGP(file, output, pageModeRadio, continuousModeRadio, !originalMode.checked);
       // Hide progress
-      progressBar.classList.remove('indeterminate');
-      progressContainer.style.display = 'none';
+      hideLoadingBar()
     } else {
       console.warn('Unsupported file type:', ext);
     }
+}
+
+export function hideLoadingBar() {
+  progressBar.classList.remove('indeterminate');
+  progressContainer.style.display = 'none';
 }
 
 // --- DEBUG MODE TOGGLE ---
@@ -684,7 +720,13 @@ backToFirstBtn.addEventListener('click', () => {
   if (gpState.gpCanvases[0]) {
     // GP file
     gpState.currentGPPageIndex = 0;
-    renderGPPage(output, pageModeRadio, continuousModeRadio);
+    if (pageModeRadio.checked) {
+      renderGPPage(output, pageModeRadio, continuousModeRadio);
+    } else if (continuousModeRadio.checked) {
+      // Scroll to top for continuous mode
+      output.scrollTo({ top: 0, behavior: 'smooth' });
+      updateContinuousPageIndicator();
+    }
   } else {
     // PDF file
     currentPageIndex = 0;
