@@ -24,10 +24,20 @@ canvas { display:block; margin:0 auto; background:white; }
 .navbar .btn-outline-primary { color: #9966cc; border-color: #9966cc; }
 .navbar .btn-outline-primary:hover { background-color: #884dbc; color:white; }
 .btn-check:checked + label.btn-outline-primary,
-.btn-outline-primary.active {
-    background-color: #9966cc !important;
-    border-color: #9966cc !important;
-    color: white !important;
+/* Hovered or currently pressed */
+.btn-outline-primary:hover,
+.btn-outline-primary:active {
+    background-color: #9966cc;
+    color: white;
+    border-color: #9966cc;
+}
+
+/* Remove focus styles */
+.btn-outline-primary:focus {
+    background-color: transparent;
+    color: #9966cc;
+    border-color: #9966cc;
+    box-shadow: none;
 }
 .navbar .btn-primary { background-color: #9966cc; border-color: #9966cc; color:white; }
 .navbar .btn-primary:hover { background-color: #884dbc; border-color: #884dbc; color:white; }
@@ -66,11 +76,6 @@ input[type=range]::-moz-range-thumb { background: #9966cc; }
     color: white;
     border-color: #9966cc;
 } 
-.btn-outline-primary:focus {
-    background-color: #9966cc;
-    color: white;
-    border-color: #9966cc;
-}
 .btn-outline-primary:active {
     background-color: #9966cc;
     color: white;
@@ -149,4 +154,60 @@ g.at text {
 
 body.dark-mode #output svg text {
   fill: white !important;
+}
+
+/* Phone UI scaling */
+@media (max-width: 768px) {
+  /* Navbar buttons: wrap instead of scroll */
+  .navbar .btn,
+  .navbar .btn-sm {
+    padding: 0.25rem 0.4rem;  /* slightly smaller buttons */
+    margin-right: 0.25rem !important; /* override .me-2 */
+  }
+
+  .navbar .btn-group {
+    margin-right: 0.25rem; /* tighten spacing between button groups */
+  }
+
+  .navbar .toolbar-items {
+    gap: 0.25rem;  /* reduce gap between toolbar items */
+  }
+
+  .navbar {
+    flex-wrap: nowrap !important;  /* prevent wrapping */
+    justify-content: flex-start;   /* align items to left */
+  }
+
+  /* Page containers: single column, full width */
+  .pageContainer {
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+  }
+  .pageWrapper {
+    width: 95% !important;   /* shrink to fit phone */
+    height: auto !important;
+    border-width: 1px;
+  }
+  .pageWrapper canvas {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Page number text smaller */
+  .pageNumber {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+
+  /* Progress bar slimmer */
+  #progressContainer {
+    height: 5px;
+  }
+
+  .brand-text {
+    display: none;
+  }
+
+  
 }
