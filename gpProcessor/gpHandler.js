@@ -1,4 +1,5 @@
 import { loadGuitarPro } from './gpProcessor.js';
+import { hideLoadingBar } from '../main.js';
 
 let pagesPerView = 1;
 const PAGE_PADDING = 10;
@@ -40,9 +41,19 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, s
     alphaTabContainer.style.margin = '0 auto';
     output.appendChild(alphaTabContainer);
 
-    // Render before capturing page data
-    let api = await loadGuitarPro(dataToLoad, alphaTabContainer, 
-        { shrink: shrink, debug: debug } );
+    // Render GP content in AlphaTab
+    let api;
+    try {
+        api = await loadGuitarPro(dataToLoad, alphaTabContainer, {
+            shrink: shrink,
+            debug: debug
+        });
+        console.log('Guitar Pro file loaded');
+    } catch (err) {
+        console.log('Error from gpProcessor: ', err)
+        hideLoadingBar()
+        return;
+    }
 
     gpState.gpCanvases = [{ container: alphaTabContainer }];
 
@@ -67,13 +78,14 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, s
  * Render GP pages to output depending on mode
  */
 export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
-    output.innerHTML = '';
-
     if (!gpState.gpPages || gpState.gpPages.length === 0 || !gpState.gpCanvases[0]?.container) return;
 
     const pagesPerView = window.innerWidth > window.innerHeight ? 2 : 1;
 
     if (pageModeRadio.checked) {
+        // Clear output for page mode
+        output.innerHTML = '';
+
         const pageHeight = output.clientHeight - 20;
         gpState.gpPages = layoutGPPages(gpState.gpCanvases[0].container, pageHeight);
 
@@ -94,7 +106,6 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
 
             pageSet.forEach(div => wrapper.appendChild(div.cloneNode(true)));
 
-            // Apply scaling to fit horizontally
             scaleGPContainer(wrapper, wrapper.clientWidth);
 
             const pnum = document.createElement('div');
@@ -106,24 +117,13 @@ export function renderGPPage(output, pageModeRadio, continuousModeRadio) {
         }
 
         output.appendChild(containerWrapper);
-
-        // --- APPLY HORIZONTAL SCALE TO ALL SVGs WHILE PRESERVING ASPECT RATIO ---
-        containerWrapper.querySelectorAll('.pageWrapper').forEach(wrapper => {
-            const wrapperWidth = wrapper.clientWidth;
-            requestAnimationFrame(() => scaleGPText(wrapper));
-
-            wrapper.querySelectorAll('svg').forEach(svg => {
-                const svgWidth = svg.width.baseVal.value;
-                const scale = wrapperWidth / svgWidth; // use same scale for X and Y
-
-                svg.style.transformOrigin = 'top left';
-                svg.style.transform = `scale(${scale}, ${scale})`;
-            });
-        });
-
     } else {
-        // Continuous mode
-        output.appendChild(gpState.gpCanvases[0].container);
+        // Continuous mode: only clear output if the container is not already inside
+        if (gpState.gpCanvases[0].container.parentElement !== output) {
+            output.innerHTML = '';
+            output.appendChild(gpState.gpCanvases[0].container);
+            output.style.overflowY = 'auto';
+        }
     }
 
     updateGPPageIndicator();
@@ -211,7 +211,15 @@ export const gpState = {
 
 export function nextGPPage() {
     if (!gpState.gpPages.length) return;
-    gpState.currentGPPageIndex = Math.min(gpState.gpPages.length - 1, gpState.currentGPPageIndex + 1);
+
+    // Determine pagesPerView dynamically
+    const pagesPerView = window.innerWidth > window.innerHeight ? 2 : 1;
+
+    // Maximum starting index so last view shows full pagesPerView
+    const maxStartIndex = Math.max(0, gpState.gpPages.length - pagesPerView);
+
+    // Advance, but don’t exceed maxStartIndex
+    gpState.currentGPPageIndex = Math.min(gpState.currentGPPageIndex + 1, maxStartIndex);
 }
 
 export function prevGPPage() {
