@@ -7,8 +7,9 @@ import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtil
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupViewModeToggles, setupTapClickNavigation } from './utils/navigationUtils.js';
 import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
+import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
 
-// Handle window resizing
+// Handle window resizing 
 let resizeTimeout;
 window.addEventListener('resize', () => {
     // Debounce resize handling
@@ -74,7 +75,8 @@ mainContent.addEventListener('wheel', (e) => {
 // Elements
 const fileInput = document.getElementById('localFile');
 const debugMode = document.getElementById('debugMode');
-const originalMode = document.getElementById('originalMode');
+const condensePdfMode = document.getElementById('condensePdfMode');
+const condenseGpMode = document.getElementById('condenseGpMode');
 const firstBtn = document.getElementById('firstPage');
 const prevBtn = document.getElementById('prevPage');
 const nextBtn = document.getElementById('nextPage');
@@ -101,15 +103,21 @@ let continuous = false;
 function setupSettings() {
     // Load settings from localStorage
     const savedDebugMode = localStorage.getItem('debugMode') === 'true';
-    const savedOriginalMode = localStorage.getItem('originalMode') === 'true';
     const savedDarkMode = localStorage.getItem('darkMode') === 'true';
-
+    
+    // Load condense mode settings with different defaults
+    const savedCondensePdfMode = localStorage.getItem('condensePdfMode');
+    const savedCondenseGpMode = localStorage.getItem('condenseGpMode');
+    
     // Get dark mode toggle
     const darkModeToggle = document.getElementById('darkModeToggle');
 
     // Apply saved settings
     debugMode.checked = savedDebugMode;
-    originalMode.checked = savedOriginalMode;
+    // Default: Condense PDFs by default (true), don't condense GP by default (false)
+    condensePdfMode.checked = savedCondensePdfMode === null ? true : savedCondensePdfMode === 'true';
+    condenseGpMode.checked = savedCondenseGpMode === null ? false : savedCondenseGpMode === 'true';
+    
     if (darkModeToggle) {
         darkModeToggle.checked = savedDarkMode;
         if (savedDarkMode) {
@@ -134,9 +142,16 @@ function setupSettings() {
         }
     });
 
-    originalMode.addEventListener('change', () => {
-        localStorage.setItem('originalMode', originalMode.checked);
-        if (currentFile) {
+    condensePdfMode.addEventListener('change', () => {
+        localStorage.setItem('condensePdfMode', condensePdfMode.checked);
+        if (currentFile && currentFile.type.includes('pdf')) {
+            loadFile(currentFile); // Reload current file with new settings
+        }
+    });
+
+    condenseGpMode.addEventListener('change', () => {
+        localStorage.setItem('condenseGpMode', condenseGpMode.checked);
+        if (currentFile && /\.(gp|gp[345x])$/i.test(currentFile.name)) {
             loadFile(currentFile); // Reload current file with new settings
         }
     });
@@ -147,6 +162,9 @@ window.addEventListener('DOMContentLoaded', () => {
     setupExportPDFButton(condensedCanvases);
     setupDrivePicker();
     setupSettings();
+    
+    // Show the file menu on initial load
+    fileMenu.show();
 
     // Create navigation config with getters for dynamic values
     const getNavigationConfig = () => ({
@@ -216,7 +234,7 @@ async function loadPDF(file) {
     // Process PDF with current settings
     await processPDF(file, {
         debugMode: { checked: debugMode.checked },
-        originalMode: { checked: originalMode.checked },
+        originalMode: { checked: !condensePdfMode.checked },
         progressContainer,
         progressBar,
         condensedCanvases,
@@ -302,7 +320,7 @@ export async function loadFile(file) {
         await loadPDF(file);
     } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
         showProgress(progressContainer, progressBar);
-        await loadGP(file, output, pageModeRadio, continuousModeRadio, !originalMode.checked);
+        await loadGP(file, output, pageModeRadio, continuousModeRadio, condenseGpMode.checked);
         hideProgress(progressContainer, progressBar);
     } else {
         console.warn('Unsupported file type:', file.name.split('.').pop().toLowerCase());
