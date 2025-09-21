@@ -176,34 +176,18 @@ export async function processText(file) {
                     // Create a wrapper for chord-lyric pair
                     const wrapper = document.createElement('div');
                     wrapper.className = 'chord-lyric-line';
-                    wrapper.style.cssText = `
-                        display: flex;
-                        flex-wrap: wrap;
-                        gap: 0 4px;
-                        width: 100%;
-                        white-space: normal;
-                    `;
+                    wrapper.className = 'chord-lyric-line';
 
                     // Split into chord-lyric segments
                     const segments = createChordLyricSegments(line, nextLine);
                     segments.forEach(segment => {
                         const segmentDiv = document.createElement('div');
                         segmentDiv.className = 'chord-lyric-segment';
-                        segmentDiv.style.cssText = `
-                            display: inline-flex;
-                            flex-direction: column;
-                            align-items: flex-start;
-                            font-family: monospace;
-                            line-height: 1.5;
-                        `;
+                        segmentDiv.className = 'chord-lyric-segment';
 
                         const chordSpan = document.createElement('span');
                         chordSpan.textContent = segment.chord;
-                        chordSpan.style.cssText = `
-                            min-height: 1.5em;
-                            color: #2c5282;
-                            font-weight: bold;
-                        `;
+                        chordSpan.className = 'chord-lyric-chord';
 
                         const lyricSpan = document.createElement('span');
                         lyricSpan.textContent = segment.lyric;
@@ -224,11 +208,7 @@ export async function processText(file) {
 
                 // Create div for current line
                 const textDiv = document.createElement('div');
-                textDiv.style.cssText = `
-                    font-family: monospace;
-                    line-height: 1.5;
-                    white-space: pre-wrap;
-                `;
+                textDiv.className = 'text-line';
                 textDiv.textContent = line;
 
                 // If this is a header (next line is a tab) or a tab line, 
@@ -298,16 +278,8 @@ function createPaginatedPages(processedLines) {
     
     // Create a temporary div to measure content height
     const measureDiv = document.createElement('div');
-    measureDiv.style.cssText = `
-        position: absolute;
-        visibility: hidden;
-        width: ${availableWidth - PAGE_PADDING * 2}px;
-        padding: ${PAGE_PADDING}px;
-        box-sizing: border-box;
-        font-family: monospace;
-        font-size: 14px;
-        line-height: 1.5;
-    `;
+    measureDiv.className = 'measure-div';
+    measureDiv.style.width = `${availableWidth - PAGE_PADDING * 2}px`;
     document.body.appendChild(measureDiv);
     
     function measureContentHeight(elements) {
