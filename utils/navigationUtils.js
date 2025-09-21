@@ -1,7 +1,7 @@
 // navigationUtils.js
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
-import { clearOutput } from './renderUtils.js';
+import { clearOutput, updatePageIndicator } from './renderUtils.js';
 
 // Navigation action constants
 export const NavigationAction = {
@@ -49,6 +49,19 @@ export function navigate(config) {
             const navigated = isNext ? nextGPPage?.() : prevGPPage?.();
             if (navigated && renderGPPage) {
                 renderGPPage(output, pageModeChecked, continuousModeRadio);
+            }
+        } else {
+            scrollByViewport(output, isNext);
+        }
+        return null;
+    }
+
+    // Handle text files
+    if (config.textState?.pages?.length > 0 || config.textState?.fullContent) {
+        if (pageModeChecked) {
+            const navigated = isNext ? config.nextTextPage?.() : config.prevTextPage?.();
+            if (navigated && config.renderTextPage) {
+                config.renderTextPage(output, pageModeChecked);
             }
         } else {
             scrollByViewport(output, isNext);
@@ -322,28 +335,57 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
             }
         } else {
             if (isPageMode) {
-                // Switch to page mode for PDFs
-                switchToPageMode(
-                    config.output,
-                    config.currentPageIndex,
-                    config.condensedCanvases.length
-                );
-                // Update page indicator and layout
-                updateIndicator(config, true);
-                config.doLayoutPages();
-                // Focus the output element to enable keyboard navigation
-                config.output.focus();
+                if (config.textState?.pages?.length > 0) {
+                    // Handle text files
+                    config.output.style.overflowY = 'hidden';
+                    // Switch to page mode for text files
+                    switchToPageMode(
+                        config.output,
+                        config.textState.currentPageIndex,
+                        config.textState.pages.length
+                    );
+                    config.renderTextPage(config.output, true);
+                    config.output.focus();
+                } else {
+                    // Switch to page mode for PDFs
+                    switchToPageMode(
+                        config.output,
+                        config.currentPageIndex,
+                        config.condensedCanvases.length
+                    );
+                    // Update page indicator and layout
+                    updateIndicator(config, true);
+                    config.doLayoutPages();
+                    // Focus the output element to enable keyboard navigation
+                    config.output.focus();
+                }
             } else {
-                // Switch to continuous mode for PDFs
-                switchToContinuous(
-                    config.output,
-                    config.condensedCanvases,
-                    (newPage) => {
-                        config.currentPageIndex = newPage;
-                        config.updatePageDisplay();
-                        updateIndicator(config, false);
-                    }
-                );
+                if (config.textState?.pages?.length > 0) {
+                    // Handle text files in continuous mode
+                    switchToContinuous(
+                        config.output,
+                        [config.textState.fullContent],
+                        (newPage) => {
+                            config.textState.currentPageIndex = newPage;
+                            if (indicator) {
+                                const scrollPercent = (config.output.scrollTop / (config.output.scrollHeight - config.output.clientHeight) * 100) || 0;
+                                indicator.textContent = `${Math.round(scrollPercent)}%`;
+                            }
+                        }
+                    );
+                    config.renderTextPage(config.output, false);
+                } else {
+                    // Switch to continuous mode for PDFs
+                    switchToContinuous(
+                        config.output,
+                        config.condensedCanvases,
+                        (newPage) => {
+                            config.currentPageIndex = newPage;
+                            config.updatePageDisplay();
+                            updateIndicator(config, false);
+                        }
+                    );
+                }
             }
         }
     });
@@ -362,6 +404,20 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
             // For GP files, just render directly in continuous mode
             config.renderGPPage(config.output, false, continuousModeRadio);
             updateIndicator(config, false);
+        } else if (config.textState?.pages?.length > 0) {
+            // Handle text files in continuous mode
+            switchToContinuous(
+                config.output,
+                [config.textState.fullContent],
+                (newPage) => {
+                    config.textState.currentPageIndex = newPage;
+                    if (indicator) {
+                        const scrollPercent = (config.output.scrollTop / (config.output.scrollHeight - config.output.clientHeight) * 100) || 0;
+                        indicator.textContent = `${Math.round(scrollPercent)}%`;
+                    }
+                }
+            );
+            config.renderTextPage(config.output, false);
         } else {
             // Switch to continuous mode for PDFs
             switchToContinuous(

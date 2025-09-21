@@ -3,6 +3,7 @@ import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { fetchPickedFile, setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
 import { loadGP, renderGPPage, gpState, nextGPPage, prevGPPage, layoutGPPages } from './gpProcessor/gpHandler.js';
+import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupViewModeToggles, setupTapClickNavigation } from './utils/navigationUtils.js';
 import { getPagesPerView } from './utils/viewModeUtils.js';
@@ -173,14 +174,18 @@ window.addEventListener('DOMContentLoaded', () => {
         pageModeRadio,
         continuousModeRadio,
         gpState,
+        textState,
         getPages: () => pages,
         getCurrentPageIndex: () => currentPageIndex,
         continuous,
         condensedCanvases,
         renderPage: renderCurrentPage,
         renderGPPage: () => renderGPPage(output, pageModeRadio.checked, continuousModeRadio),
+        renderTextPage: () => renderTextPage(output, pageModeRadio.checked),
         nextGPPage,
         prevGPPage,
+        nextTextPage,
+        prevTextPage,
         getPageStep,
         updatePageDisplay,
         doLayoutPages,
@@ -321,6 +326,10 @@ export async function loadFile(file) {
     } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
         showProgress(progressContainer, progressBar);
         await loadGP(file, output, pageModeRadio, continuousModeRadio, condenseGpMode.checked);
+        hideProgress(progressContainer, progressBar);
+    } else if (isFileType(file, ['txt'])) {
+        showProgress(progressContainer, progressBar);
+        await loadText(file, output, pageModeRadio, continuousModeRadio);
         hideProgress(progressContainer, progressBar);
     } else {
         console.warn('Unsupported file type:', file.name.split('.').pop().toLowerCase());
