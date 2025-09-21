@@ -284,7 +284,7 @@ body.dark-mode #output svg text {
     height: 5px;
   }
 
-  .brand-text {
+  #brand-text {
     display: none;
   }
 
