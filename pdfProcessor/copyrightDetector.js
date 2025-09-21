@@ -1,5 +1,8 @@
 /**
- * Detect copyright / footer content at the bottom of a page.
+ * Detect copyright / footer content at the bottom of a     const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = canvasWidth;
+    finalCanvas.height = height;
+    const fctx = finalCanvas.getContext('2d', { willReadFrequently: true });.
  * Skips the first few rows of pixels to avoid leftover staff lines, trims to actual content,
  * and adds optional top padding.
  *

@@ -9,15 +9,21 @@ import { detectCopyright } from './copyrightDetector.js';
 import { detectMargins } from './marginDetector.js';
 import { detectLeftMargins } from './leftMarginDetector.js';
 import { renderCondensedCanvas } from './condenseRenderer.js';
+import { clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
+import { updateProgress } from '../utils/fileHandlingUtils.js';
 
 const canvasCache = new WeakMap();
 
 export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal, pageModeRadio, continuousModeRadio }) {
+  condensedCanvases.length = 0;
+  progressBar.classList.add('indeterminate');
+  progressContainer.style.display = 'block';
+  
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-
-  condensedCanvases.length = 0;
-  progressContainer.style.display = 'block';
+  
+  // Switch to determinate progress bar now that we know the total pages
+  progressBar.classList.remove('indeterminate');
   progressBar.style.width = '0%';
 
   if (!canvasCache.has(file)) canvasCache.set(file, { debug: [], normal: [], original: [] });
@@ -33,7 +39,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
       const cachedCanvas = fileCache[cacheKey][pageNum - 1];
       condensedCanvases.push(cachedCanvas);
       onCanvasRendered(cachedCanvas);
-      progressBar.style.width = `${(pageNum / pdf.numPages * 100).toFixed(1)}%`;
+      updateProgress(progressBar, (pageNum / pdf.numPages * 100));
       continue;
     }
 
@@ -125,20 +131,28 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
     fileCache[cacheKey][pageNum - 1] = finalCanvas;
     onCanvasRendered(finalCanvas);
 
-    progressBar.style.width = `${(pageNum / pdf.numPages * 100).toFixed(1)}%`;
+    updateProgress(progressBar, (pageNum / pdf.numPages * 100));
 
     // Detect bottom-of-page copyright for first page
     if (pageNum === 1 && !debugMode.checked) {
-      const lastGroupBottom = Math.max(...stavesByGroup.flat().map(s => s.end + CONFIG.EXTRA_BOTTOM_PADDING));
-      copyrightCanvasMemory = detectCopyright(ctx, canvas.width, canvas.height, lastGroupBottom);
+      try {
+        const lastGroupBottom = Math.max(...stavesByGroup.flat().map(s => s.end + CONFIG.EXTRA_BOTTOM_PADDING));
+        copyrightCanvasMemory = detectCopyright(ctx, canvas.width, canvas.height, lastGroupBottom);
+      } catch (e) {
+        console.warn('Copyright detection failed:', e);
+      }
     }
   }
 
-  // Append copyright canvas at end
-  if (copyrightCanvasMemory) {
-    condensedCanvases.push(copyrightCanvasMemory);
-    fileCache[cacheKey].push(copyrightCanvasMemory);
-    onCanvasRendered(copyrightCanvasMemory);
+  // Append copyright canvas at end if it exists and we're not in debug mode
+  if (copyrightCanvasMemory && !debugMode.checked) {
+    try {
+      condensedCanvases.push(copyrightCanvasMemory);
+      fileCache[cacheKey].push(copyrightCanvasMemory);
+      onCanvasRendered(copyrightCanvasMemory);
+    } catch (e) {
+      console.warn('Failed to add copyright canvas:', e);
+    }
   }
 
   progressContainer.style.display = 'none';
