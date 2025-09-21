@@ -1,7 +1,7 @@
 // navigationUtils.js
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
-import { clearOutput, updatePageIndicator } from './renderUtils.js';
+import { clearOutput } from './renderUtils.js';
 
 // Navigation action constants
 export const NavigationAction = {

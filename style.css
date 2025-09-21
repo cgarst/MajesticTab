@@ -20,6 +20,48 @@ body {
     box-sizing: border-box;
 }
 
+/* AlphaTab container styles */
+.alphaTabContainer {
+    width: 860px;
+    margin: 0 auto;
+    overflow: visible;
+}
+
+.alphaTab-gp-content {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex: 1;
+    width: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+}
+
+.alphaTab-gp-content > * {
+    max-width: 100%;
+}
+
+/* Guitar Pro Page Styles */
+.gp-page-container {
+    height: 100%;
+    display: flex;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px;
+}
+
+.gp-page-wrapper {
+    flex: 1;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+    overflow: hidden;
+}
+
 /* Output styles for continuous mode */
 #output.continuous-mode {
     overflow-y: auto;
