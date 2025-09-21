@@ -31,26 +31,11 @@ export function renderTextPage(output, pageModeChecked) {
         
         // Create outer container that fills the viewport
         const outerContainer = document.createElement('div');
-        outerContainer.style.cssText = `
-            width: 100%;
-            height: 100%;
-            background-color: var(--page-bg-color, white);
-            overflow: hidden;
-        `;
+        outerContainer.className = 'outer-container';
 
-        // Create page container with flexbox layout like PDF
+        // Create page container
         const container = document.createElement('div');
         container.className = 'pageContainer';
-        container.style.cssText = `
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            gap: 20px;
-            padding: 20px;
-            min-height: 100%;
-            box-sizing: border-box;
-            overflow: hidden;
-        `;
 
         const startIndex = textState.currentPageIndex;
         
