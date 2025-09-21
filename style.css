@@ -178,6 +178,11 @@ span.me-2 {
 body.dark-mode {
     background-color: #1e1e1e;
     color: #ddd;
+    --page-bg-color: #2c2c2c;
+    --text-color: #ddd;
+    --border-color: #444;
+    --page-shadow: 0 2px 6px rgba(0,0,0,0.7);
+    --separator-color: #444;
 }
 
 body.dark-mode #output {
@@ -220,6 +225,15 @@ body.dark-mode .btn-outline-primary:hover {
 
 body.dark-mode #output {
     background-color: #2c2c2c !important;
+}
+
+body.dark-mode .pageNumber {
+    background: rgba(44, 44, 44, 0.8);
+    color: #ddd;
+}
+
+body.dark-mode .chord-lyric-segment span[style*="color: rgb(44, 82, 130)"] {
+    color: #7eb6ff !important;
 }
 
 body.dark-mode .pageNumber {

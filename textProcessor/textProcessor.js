@@ -152,9 +152,10 @@ export async function processText(file) {
             padding: 40px;
             font-family: monospace;
             line-height: 1.5;
-            background-color: white;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            border: 1px solid #ddd;
+            background-color: var(--page-bg-color, white);
+            color: var(--text-color, black);
+            box-shadow: var(--page-shadow, 0 2px 6px rgba(0,0,0,0.1));
+            border: 1px solid var(--border-color, #ddd);
             box-sizing: border-box;
             font-size: 14px;
         `;
@@ -168,7 +169,7 @@ export async function processText(file) {
                 sectionSeparator.className = 'section-separator';
                 sectionSeparator.style.cssText = `
                     margin: 1em 0;
-                    border-top: 1px solid #ccc;
+                    border-top: 1px solid var(--separator-color, #ccc);
                 `;
                 allProcessedLines.push(sectionSeparator);
             }
@@ -344,9 +345,10 @@ function createPaginatedPages(processedLines) {
             width: ${availableWidth}px;
             height: 100%;
             min-height: ${pageHeight}px;
-            background-color: white;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-            border: 1px solid #ddd;
+            background-color: var(--page-bg-color, white);
+            color: var(--text-color, black);
+            box-shadow: var(--page-shadow, 0 2px 6px rgba(0,0,0,0.1));
+            border: 1px solid var(--border-color, #ddd);
             box-sizing: border-box;
             display: flex;
             flex-direction: column;

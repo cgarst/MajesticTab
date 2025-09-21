@@ -34,7 +34,7 @@ export function renderTextPage(output, pageModeChecked) {
         outerContainer.style.cssText = `
             width: 100%;
             height: 100%;
-            background-color: white;
+            background-color: var(--page-bg-color, white);
             overflow: hidden;
         `;
 
