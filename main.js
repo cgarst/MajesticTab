@@ -102,16 +102,35 @@ function setupSettings() {
     // Load settings from localStorage
     const savedDebugMode = localStorage.getItem('debugMode') === 'true';
     const savedOriginalMode = localStorage.getItem('originalMode') === 'true';
+    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
+
+    // Get dark mode toggle
+    const darkModeToggle = document.getElementById('darkModeToggle');
 
     // Apply saved settings
     debugMode.checked = savedDebugMode;
     originalMode.checked = savedOriginalMode;
+    if (darkModeToggle) {
+        darkModeToggle.checked = savedDarkMode;
+        if (savedDarkMode) {
+            document.body.classList.add('dark-mode');
+        }
+    }
 
     // Setup event listeners for settings changes
     debugMode.addEventListener('change', () => {
         localStorage.setItem('debugMode', debugMode.checked);
         if (currentFile) {
             loadFile(currentFile); // Reload current file with new settings
+        }
+    });
+
+    darkModeToggle.addEventListener('change', () => {
+        localStorage.setItem('darkMode', darkModeToggle.checked);
+        if (darkModeToggle.checked) {
+            document.body.classList.add('dark-mode');
+        } else {
+            document.body.classList.remove('dark-mode');
         }
     });
 

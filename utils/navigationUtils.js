@@ -311,15 +311,9 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
                 // Focus the output element to enable keyboard navigation
                 config.output.focus();
             } else {
-                // Switch to continuous mode
-                switchToContinuous(
-                    config.output,
-                    config.gpState.canvases,
-                    (newPage) => {
-                        config.gpState.currentPageIndex = newPage;
-                        config.renderGPPage(config.output, false, continuousModeRadio);
-                    }
-                );
+                // For GP files, just render directly in continuous mode
+                config.renderGPPage(config.output, false, continuousModeRadio);
+                
                 // Force immediate scroll indicator update
                 if (indicator) {
                     const scrollPercent = (config.output.scrollTop / (config.output.scrollHeight - config.output.clientHeight) * 100) || 0;
@@ -365,16 +359,9 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
         clearOutput(config.output);
 
         if (config.gpState.canvases[0]) {
-            // Switch to continuous mode for Guitar Pro
-            switchToContinuous(
-                config.output,
-                config.gpState.canvases,
-                (newPage) => {
-                    config.gpState.currentPageIndex = newPage;
-                    config.renderGPPage(config.output, false, continuousModeRadio);
-                    updateIndicator(config, false);
-                }
-            );
+            // For GP files, just render directly in continuous mode
+            config.renderGPPage(config.output, false, continuousModeRadio);
+            updateIndicator(config, false);
         } else {
             // Switch to continuous mode for PDFs
             switchToContinuous(
