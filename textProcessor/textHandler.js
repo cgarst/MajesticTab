@@ -66,8 +66,6 @@ export function renderTextPage(output, pageModeChecked) {
         if (textState.fullContent) {
             // Create a wrapper just like PDF does
             const wrapper = document.createElement('div');
-            wrapper.style.width = '100%';
-            wrapper.style.textAlign = 'left';
             const content = textState.fullContent.cloneNode(true);
             wrapper.appendChild(content);
             output.appendChild(wrapper);
