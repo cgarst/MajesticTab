@@ -71,16 +71,6 @@ export function loadGuitarPro(file, container, { shrink = true, debug = false } 
                             div.style.zIndex = "";
                             div.style.paddingBottom = "10px";
                         });
-
-                        /*
-                        // remove tiny 1x1 dots
-                        container.querySelectorAll("path").forEach(path => {
-                            const d = path.getAttribute("d");
-                            if (d && d.includes("A1,1")) path.remove();
-                        });
-
-                        container.querySelectorAll("svg").forEach(svg => processStaves(svg, debug, shrink));
-                        */
                     }
 
                     // debugging

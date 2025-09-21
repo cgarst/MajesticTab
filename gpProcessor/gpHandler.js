@@ -232,48 +232,6 @@ function renderGPPageMode(output) {
 }
 
 /**
- * Render in continuous mode
- */
-function renderGPContinuous(container, output) {
-    clearOutput(output);
-    
-    // Ensure container is properly configured for continuous mode
-    container.style.width = '860px';
-    container.style.margin = '0 auto';
-    container.style.display = 'block';
-    container.style.visibility = 'visible';
-    container.style.overflow = 'visible';
-    
-    // Reset any transforms that might have been applied in page mode
-    container.style.transform = '';
-    container.style.transformOrigin = '';
-    
-    // Make sure all AlphaTab elements are visible and properly positioned
-    container.querySelectorAll('.at-surface').forEach(surface => {
-        surface.style.display = 'block';
-        surface.style.visibility = 'visible';
-        surface.style.position = 'relative';
-    });
-    
-    container.querySelectorAll('.at-surface > div').forEach(div => {
-        div.style.display = 'block';
-        div.style.visibility = 'visible';
-        div.style.position = 'relative';
-        div.style.top = '';
-        div.style.left = '';
-    });
-    
-    output.appendChild(container);
-    
-    // Force a reflow to ensure content is visible
-    requestAnimationFrame(() => {
-        output.style.overflowY = 'auto';
-        container.style.overflow = 'visible';
-        output.scrollTop = output.scrollTop;
-    });
-}
-
-/**
  * Navigation functions
  */
 /**
