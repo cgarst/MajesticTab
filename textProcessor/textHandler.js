@@ -61,16 +61,7 @@ export function renderTextPage(output, pageModeChecked) {
         );
     } else {
         // Continuous mode 
-        output.style.cssText = `
-            overflow-y: auto;
-            padding: 20px;
-            background-color: #f5f5f5;
-            height: 100%;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        `;
+        output.className = 'continuous-mode';
 
         if (textState.fullContent) {
             // Create a wrapper just like PDF does
