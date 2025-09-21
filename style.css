@@ -190,6 +190,14 @@ body.dark-mode .pageWrapper {
     box-shadow: 0 2px 6px rgba(0,0,0,0.7);
 }
 
+body.dark-mode .alphaTabContainer {
+    background-color: #000000;
+}
+
+body.dark-mode .alphaTabContainer > div {
+    background-color: #000000;
+}
+
 body.dark-mode canvas {
     filter: invert(1) hue-rotate(180deg);
 }
