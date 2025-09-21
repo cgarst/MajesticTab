@@ -64,7 +64,7 @@ export function setupDrivePicker() {
         picker.setAttribute('client-id', '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com');
         picker.setAttribute('app-id', '1059497343032');
         picker.setAttribute('scopes', 'https://www.googleapis.com/auth/drive.readonly');
-        picker.setAttribute('mime-types', 'application/pdf, application/x-guitar-pro');
+        picker.setAttribute('mime-types', 'application/pdf, application/x-guitar-pro', 'text/plain');
         picker.setAttribute('max-items', '1');
 
         const docsView = document.createElement('drive-picker-docs-view');
