@@ -1,7 +1,6 @@
 // gpHandler.js.new
 import { loadGuitarPro } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
-import { NavigationHandler } from '../utils/navigationUtils.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 
@@ -48,8 +47,6 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, s
     // Init AlphaTab container
     const container = document.createElement('div');
     container.className = 'alphaTabContainer';
-    container.style.width = '860px';
-    container.style.margin = '0 auto';
     output.appendChild(container);
 
     try {
@@ -63,8 +60,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, s
             
             // Show continuous mode by default
             clearOutput(output);
-            output.style.overflowY = 'auto';
-            container.style.overflow = 'visible';
+            output.classList.add('continuous-mode');
             output.appendChild(container);
             output.scrollTop = 0;
         });
@@ -94,15 +90,10 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         if (container.parentNode) {
             container.parentNode.removeChild(container);
         }
-        container.style.width = '860px';
-        container.style.margin = '0 auto';
-        container.style.display = 'block';
-        container.style.visibility = 'visible';
-        container.style.position = 'relative';
         container.style.transform = '';
         container.style.transformOrigin = '';
         
-        output.style.overflowY = 'auto';
+        output.classList.add('continuous-mode');
         output.appendChild(container);
         output.scrollTop = 0;
     }
@@ -159,13 +150,7 @@ function renderGPPageMode(output) {
     clearOutput(output);
     const pagesPerView = getPagesPerView(true); // true = Guitar Pro mode
     const containerWrapper = createPageContainer();
-
-    // Set up container styles for full height pages
-    containerWrapper.style.height = '100%';
-    containerWrapper.style.display = 'flex';
-    containerWrapper.style.alignItems = 'stretch'; // Make children stretch to full height
-    containerWrapper.style.gap = '10px';
-    containerWrapper.style.padding = '10px';
+    containerWrapper.className = 'gp-page-container';
 
     for (let i = 0; i < pagesPerView; i++) {
         const pageIndex = gpState.currentPageIndex + i;
@@ -173,26 +158,12 @@ function renderGPPageMode(output) {
         if (!pageSet) break;
 
         const wrapper = createPageWrapper();
-        wrapper.style.flex = '1'; // Make each wrapper take equal space
+        wrapper.className = 'gp-page-wrapper';
         wrapper.style.width = `${(100 / pagesPerView)}%`;
         wrapper.style.maxWidth = `${(window.innerWidth - 40) / pagesPerView}px`;
-        wrapper.style.height = 'auto'; // Let it stretch with flex
-        wrapper.style.display = 'flex';
-        wrapper.style.flexDirection = 'column';
-        wrapper.style.justifyContent = 'center';
-        wrapper.style.alignItems = 'center';
-        wrapper.style.margin = '0';
-        wrapper.style.overflow = 'hidden';
 
         const contentContainer = document.createElement('div');
-        contentContainer.style.display = 'flex';
-        contentContainer.style.flexDirection = 'column';
-        contentContainer.style.justifyContent = 'center';
-        contentContainer.style.alignItems = 'center';
-        contentContainer.style.flex = '1'; // Take up available space
-        contentContainer.style.width = '100%';
-        contentContainer.style.padding = '10px';
-        contentContainer.style.boxSizing = 'border-box';
+        contentContainer.className = 'alphaTab-gp-content';
 
         pageSet.forEach(div => {
             const clone = div.cloneNode(true);
