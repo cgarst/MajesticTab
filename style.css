@@ -524,13 +524,13 @@ span.me-2 {
 /* Dark mode */
 
 body.dark-mode .pageWrapper {
-    background-color: #000000 !important;
-    border-color: #444;
+    background-color: var(--page-bg-color) !important;
+    border-color: var(--border-color);
     box-shadow: 0 2px 6px rgba(0,0,0,0.7);
 }
 
 body.dark-mode .alphaTabContainer {
-    background-color: #000000;
+    background-color: var(--page-bg-color);
 }
 
 body.dark-mode .pageContainer {
