@@ -46,7 +46,7 @@ export function navigate(config) {
     // Handle GP files
     if (gpState?.canvases[0]) {
         if (pageModeChecked) {
-            const navigated = isNext ? nextGPPage?.() : prevGPPage?.();
+            const navigated = isNext ? nextGPPage?.(output) : prevGPPage?.(output);
             if (navigated && renderGPPage) {
                 renderGPPage(output, pageModeChecked, continuousModeRadio);
             }
@@ -130,8 +130,8 @@ export class NavigationHandler {
 
         if (isGP) {
             if (isPageMode) {
-                if (isNext) config.nextGPPage();
-                else config.prevGPPage();
+                if (isNext) config.nextGPPage(config.output);
+                else config.prevGPPage(config.output);
                 config.renderGPPage(config.output, isPageMode, config.continuousModeRadio);
             } else {
                 scrollByViewport(config.output, isNext);
@@ -460,23 +460,34 @@ export function setupTapClickNavigation(output, getConfig) {
  */
 export function handleTapNavigation(e, config) {
     // Skip if there's no file loaded or not in page mode
-    if (!config.pageModeRadio?.checked) return;
-    if (config.currentFile == null) return;
+    if (!config.pageModeRadio?.checked) {
+        console.log('Click ignored: not in page mode');
+        return;
+    }
+    if (config.currentFile == null) {
+        console.log('Click ignored: no file loaded');
+        return;
+    }
 
     const outputRect = config.output.getBoundingClientRect();
-    if (e.clientY < outputRect.top) return;
+    if (e.clientY < outputRect.top) {
+        console.log('Click ignored: above content area');
+        return;
+    }
 
-    const pageContainers = config.output.querySelectorAll('.pageWrapper');
+    // Handle both regular page wrappers and GP-specific wrappers
+    const pageContainers = config.output.querySelectorAll('.pageWrapper, .gp-page-wrapper');
+    console.log('Found page containers:', pageContainers.length);
+    
     for (let i = 0; i < pageContainers.length; i++) {
         const rect = pageContainers[i].getBoundingClientRect();
         if (e.clientY >= rect.top && e.clientY <= rect.bottom) {
             const clickX = e.clientX;
             const midX = rect.left + rect.width / 2;
             const action = clickX >= midX ? NavigationAction.NEXT : NavigationAction.PREV;
-
+            
             const navigationHandler = new NavigationHandler(config);
             const result = navigationHandler.handleAction(action);
-
             if (result?.newPageIndex !== undefined) {
                 config.setCurrentPageIndex(result.newPageIndex);
             }
