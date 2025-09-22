@@ -168,6 +168,9 @@ body.dark-mode {
     background-color: var(--outside-bg-color);
     transform-origin: 0 0;
     will-change: transform;
+    
+    /* Zoom containment */
+    contain: paint;
 }
 
 /* AlphaTab container styles */
@@ -254,6 +257,7 @@ g.at text {
     top: 0;
     z-index: 1000;
     background: white;
+    transform: scale(1) !important; /* Prevent top bar from being affected by zoom */
 }
 
 #mainContent {
@@ -262,6 +266,7 @@ g.at text {
     -webkit-overflow-scrolling: touch;
     position: relative;
     min-height: 0;
+    isolation: isolate; /* Create a new stacking context */
     width: 100%;
 }
 
