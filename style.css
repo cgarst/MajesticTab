@@ -9,6 +9,7 @@
     --page-shadow: 0 2px 6px rgba(0,0,0,0.1);
     --separator-color: #ccc;
     --page-padding: 20px;
+    --highlight-color: #9966cc;
 }
 
 /* ==========================================================================
@@ -55,19 +56,25 @@ body {
 .navbar .navbar-brand,
 .navbar .btn,
 .navbar .btn-check + label {
+    border-color: var(--highlight-color);
     color: white;
 }
 
 .navbar .btn-primary {
-    background-color: #9966cc;
-    border-color: #9966cc;
+    background-color: var(--highlight-color);
+    border-color: var(--highlight-color);
     color: white;
 }
 
 .navbar .btn-primary:hover {
-    background-color: #884dbc;
-    border-color: #884dbc;
+    background-color: var(--highlight-color);
+    border-color: var(--highlight-color);
     color: white;
+}
+
+.navbar .btn:hover {
+    border-color: var(--highlight-color) !important;
+    color:  var(--highlight-color);
 }
 
 #modeButtons {
@@ -224,22 +231,22 @@ g.at text {
 
 /* Primary outline button styles */
 .btn-outline-primary { 
-    color: #9966cc;
-    border-color: #9966cc;
+    color: var(--highlight-color);
+    border-color: var(--highlight-color);
 }
 
 .btn-outline-primary:hover,
 .btn-outline-primary:active,
 .btn-check:checked + label.btn-outline-primary {
-    background-color: #9966cc;
+    background-color: var(--highlight-color);
     color: white;
-    border-color: #9966cc;
+    border-color: var(--highlight-color);
 }
 
 .btn-outline-primary:focus {
     background-color: transparent;
-    color: #9966cc;
-    border-color: #9966cc;
+    color: var(--highlight-color);
+    border-color: var(--highlight-color);
     box-shadow: none;
 }
 
@@ -406,14 +413,14 @@ input[type=range]::-moz-range-thumb { background: #9966cc; }
 /* Scrollbar for continuous mode */
 #output::-webkit-scrollbar { width:8px; }
 #output::-webkit-scrollbar-track { background:#ccc; }
-#output::-webkit-scrollbar-thumb { background:#9966cc; border-radius:4px; }
+#output::-webkit-scrollbar-thumb { background: var(--highlight-color); border-radius:4px; }
 
 /* Utility Classes */
 span.me-2 {
     margin-right: 0px !important;
 }
 
-/* Dark mode */
+/* Dark mode - root overrides */
 body.dark-mode {
     background-color: #1e1e1e;
     color: #ddd;
@@ -423,6 +430,7 @@ body.dark-mode {
     --border-color: #444;
     --page-shadow: 0 2px 6px rgba(0,0,0,0.7);
     --separator-color: #444;
+    --highlight-color: #884dbc;
 }
 
 body.dark-mode .pageWrapper {
@@ -446,12 +454,12 @@ body.dark-mode .offcanvas {
 }
 
 body.dark-mode .btn-outline-primary {
-    color: #9966cc;
-    border-color: #9966cc;
+    color: var(--highlight-color);
+    border-color: var(--highlight-color);
 }
 
 body.dark-mode .btn-outline-primary:hover {
-    background-color: #884dbc;
+    background-color: var(--highlight-color);
     color: white;
 }
 
