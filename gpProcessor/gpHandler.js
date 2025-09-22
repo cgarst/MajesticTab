@@ -93,7 +93,10 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         container.style.transform = '';
         container.style.transformOrigin = '';
         
+        // Set up continuous mode view
         output.classList.add('continuous-mode');
+        output.style.overflowY = 'auto';  // Explicitly enable vertical scrolling
+        output.style.overflowX = 'hidden'; // Prevent horizontal scrolling
         output.appendChild(container);
         output.scrollTop = 0;
     }

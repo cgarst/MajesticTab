@@ -5,7 +5,7 @@
     --page-bg-color: white;
     --outside-bg-color: #f8f9fa;
     --text-color: black;
-    --border-color: #ddd;
+    --border-color: #aaaaaa;
     --page-shadow: 0 2px 6px rgba(0,0,0,0.1);
     --separator-color: #ccc;
     --page-padding: 20px;
@@ -25,6 +25,18 @@ body {
     overflow: hidden;
 }
 
+body.dark-mode {
+    background-color: #1e1e1e;
+    color: #ddd;
+    --outside-bg-color: #1e1e1e;
+    --page-bg-color: #000000;
+    --text-color: #ddd;
+    --border-color: #444;
+    --page-shadow: 0 2px 6px rgba(0,0,0,0.7);
+    --separator-color: #444;
+    --highlight-color: #884dbc;
+}
+
 /* ==========================================================================
    Navigation & Controls
    ========================================================================== */
@@ -41,7 +53,7 @@ body {
     
     /* Colors */
     background-color: #3a3f44 !important;
-    color: white;
+    color: var(--text-color);
 }
 
 /* Navbar Elements */
@@ -65,22 +77,22 @@ body {
 
 /* Primary Button Styles */
 .btn-outline-primary { 
-    color: #9966cc;
-    border-color: #9966cc;
+    color: var(--highlight-color);
+    border-color: var(--highlight-color);
 }
 
 .btn-outline-primary:hover,
 .btn-outline-primary:active,
 .btn-check:checked + label.btn-outline-primary {
-    background-color: #9966cc;
-    color: white;
-    border-color: #9966cc;
+    background-color: var(--highlight-color);
+    color: var(--text-color);
+    border-color: var(--highlight-color);
 }
 
 .btn-outline-primary:focus {
     background-color: transparent;
-    color: #9966cc;
-    border-color: #9966cc;
+    color: var(--highlight-color);
+    border-color: var(--highlight-color);
     box-shadow: none;
 }
 
@@ -189,6 +201,16 @@ body {
 
 g.at text {
     font-family: 'alphaTab' !important;
+}
+
+#output svg text, rect {
+  fill: var(--text-color) !important;
+  stroke: none !important;
+}
+
+#output.dark-mode svg text, rect {
+  fill: var(--text-color) !important;
+  stroke: var(--border-color) !important;
 }
 
 /* ==========================================================================
@@ -499,18 +521,7 @@ span.me-2 {
     margin-right: 0px !important;
 }
 
-/* Dark mode - root overrides */
-body.dark-mode {
-    background-color: #1e1e1e;
-    color: #ddd;
-    --outside-bg-color: #1e1e1e;
-    --page-bg-color: #000000;
-    --text-color: #ddd;
-    --border-color: #444;
-    --page-shadow: 0 2px 6px rgba(0,0,0,0.7);
-    --separator-color: #444;
-    --highlight-color: #884dbc;
-}
+/* Dark mode */
 
 body.dark-mode .pageWrapper {
     background-color: #000000 !important;
@@ -543,7 +554,7 @@ body.dark-mode .btn-outline-primary {
 
 body.dark-mode .btn-outline-primary:hover {
     background-color: var(--highlight-color);
-    color: white;
+    color: var(--text-color);
 }
 
 body.dark-mode .pageNumber {
@@ -553,15 +564,6 @@ body.dark-mode .pageNumber {
 
 body.dark-mode .chord-lyric-segment span[style*="color: rgb(44, 82, 130)"] {
     color: #7eb6ff !important;
-}
-
-/* Ensure all AlphaTab symbols use the correct font */
-g.at text {
-    font-family: 'alphaTab' !important;
-}
-
-body.dark-mode #output svg text {
-  fill: white !important;
 }
 
 /* Phone UI scaling */
