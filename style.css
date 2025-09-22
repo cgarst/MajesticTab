@@ -10,13 +10,21 @@ body {
 
 #output {
     overscroll-behavior: contain;
-    width: 100%;
     min-height: 0;
     flex: 1;
     overflow: hidden;
-    background: #f8f9fa;
+    background-color: var(--outside-bg-color);
     display: flex;
     flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* Output styles for continuous mode */
+#output.continuous-mode {
+    overflow-y: auto;
+    align-items: center;
+    background-color: var(--outside-bg-color);
 }
 
 #topBar {
@@ -47,6 +55,7 @@ body {
 canvas { display:block; margin:0 auto; background:white; max-width:100%; height:auto; }
 :root {
     --page-bg-color: white;
+    --outside-bg-color: #f8f9fa;
     --text-color: black;
     --border-color: #ddd;
     --page-shadow: 0 2px 6px rgba(0,0,0,0.1);
@@ -58,7 +67,7 @@ canvas { display:block; margin:0 auto; background:white; max-width:100%; height:
 .outer-container {
     width: 100%;
     height: 100%;
-    background-color: var(--page-bg-color);
+    background-color: var(--outside-bg-color);
     overflow: hidden;
 }
 
@@ -186,7 +195,48 @@ input[type=range]::-moz-range-thumb { background: #9966cc; }
     width: 100%;
     overflow-y: auto;   /* allow vertical scrolling */
     overflow-x: hidden;
-    background: #f8f9fa;
+    background: var(--outside-bg-color);
+}
+
+/* Chord-lyric line styles */
+.chord-lyric-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 4px;
+    width: 100%;
+    white-space: normal;
+}
+
+.chord-lyric-segment {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    font-family: monospace;
+    line-height: 1.5;
+}
+
+.chord-lyric-chord {
+    min-height: 1.5em;
+    color: #2c5282;
+    font-weight: bold;
+}
+
+/* Plain text line style */
+.text-line {
+    font-family: monospace;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+
+/* Measurement div for pagination */
+.measure-div {
+    position: absolute;
+    visibility: hidden;
+    padding: var(--page-padding);
+    box-sizing: border-box;
+    font-family: monospace;
+    font-size: 14px;
+    line-height: 1.5;
 }
 
 /* Tab section styles */
@@ -216,6 +266,7 @@ input[type=range]::-moz-range-thumb { background: #9966cc; }
     border: 1px solid var(--border-color);
     box-sizing: border-box;
     font-size: 14px;
+    margin: 20px;
 }
 
 /* Scrollbar for continuous mode */
@@ -264,15 +315,12 @@ span.me-2 {
 body.dark-mode {
     background-color: #1e1e1e;
     color: #ddd;
-    --page-bg-color: #2c2c2c;
+    --outside-bg-color: #1e1e1e;
+    --page-bg-color: #000000;
     --text-color: #ddd;
     --border-color: #444;
     --page-shadow: 0 2px 6px rgba(0,0,0,0.7);
     --separator-color: #444;
-}
-
-body.dark-mode #output {
-    background-color: #1e1e1e;
 }
 
 body.dark-mode .pageWrapper {
@@ -307,10 +355,6 @@ body.dark-mode .btn-outline-primary {
 body.dark-mode .btn-outline-primary:hover {
     background-color: #884dbc;
     color: white;
-}
-
-body.dark-mode #output {
-    background-color: #2c2c2c !important;
 }
 
 body.dark-mode .pageNumber {
