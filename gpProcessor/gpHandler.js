@@ -103,12 +103,14 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
  * Layout GP pages based on block heights
  */
 export function layoutGPPages(container, pageHeight) {
+    // Get all score parts (includes both the div container and its SVG content)
     const blocks = Array.from(container.querySelectorAll("div.at-surface.at > div"));
     const offscreen = document.createElement('div');
     offscreen.style.position = 'absolute';
     offscreen.style.visibility = 'hidden';
     offscreen.style.width = `${container.clientWidth}px`;
-    offscreen.style.height = `${pageHeight}px`;  // Set height to match target page height
+    offscreen.style.height = `${pageHeight}px`;
+    offscreen.style.overflow = 'hidden'; // Prevent any overflow issues during measurement
     document.body.appendChild(offscreen);
 
     // Account for padding and gaps between blocks
@@ -119,12 +121,35 @@ export function layoutGPPages(container, pageHeight) {
     let currentHeight = 0;
 
     blocks.forEach((block) => {
+        // Deep clone the block and all its content (including SVGs)
         const clone = block.cloneNode(true);
-        offscreen.appendChild(clone);
-        const blockHeight = clone.offsetHeight;
-        const blockWithSpacing = blockHeight + PAGE_PADDING; // Add spacing between blocks
+        
+        // Reset positioning to get accurate measurements
+        clone.style.position = 'relative';
+        clone.style.top = 'auto';
+        clone.style.left = 'auto';
+        clone.style.maxWidth = '100%';
+        clone.style.display = 'block';
+        
+        // Ensure SVGs are properly carried over
+        const originalSvg = block.querySelector('svg');
+        const clonedSvg = clone.querySelector('svg');
+        if (originalSvg && clonedSvg) {
+            // Copy any dynamic properties that might not be cloned
+            clonedSvg.setAttribute('viewBox', originalSvg.getAttribute('viewBox'));
+            clonedSvg.style.width = '100%';
+            clonedSvg.style.height = 'auto';
+            clonedSvg.style.display = 'block';
+        }
 
-        // If adding this block would exceed page height and we already have blocks, start a new page
+        offscreen.appendChild(clone);
+        
+        // Force a reflow and ensure proper measurement
+        void offscreen.offsetHeight;
+        const blockHeight = clone.getBoundingClientRect().height;
+        const blockWithSpacing = blockHeight + PAGE_PADDING;
+
+        // Start a new page if current block won't fit
         if (currentHeight + blockWithSpacing > effectivePageHeight && currentPage.length) {
             pages.push(currentPage);
             currentPage = [];
@@ -166,8 +191,35 @@ function renderGPPageMode(output) {
         contentContainer.className = 'alphaTab-gp-content';
 
         pageSet.forEach(div => {
+            // Ensure we're working with the original node's structure
             const clone = div.cloneNode(true);
-            clone.style.maxWidth = '100%'; // Ensure content doesn't overflow
+            
+            // Reset absolute positioning that might cause layout issues
+            clone.style.position = 'relative';
+            clone.style.top = 'auto';
+            clone.style.left = 'auto';
+            clone.style.maxWidth = '100%';
+            clone.style.display = 'block';
+            clone.style.marginBottom = '10px'; // Add spacing between staff blocks
+            
+            // Handle SVG content specifically
+            const svg = clone.querySelector('svg');
+            if (svg) {
+                svg.style.width = '100%';
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%';
+                svg.style.display = 'block';
+                
+                // Ensure viewBox is preserved
+                if (!svg.hasAttribute('viewBox') && div.querySelector('svg')?.hasAttribute('viewBox')) {
+                    svg.setAttribute('viewBox', div.querySelector('svg').getAttribute('viewBox'));
+                }
+                
+                // Remove any transforms that might interfere with responsive sizing
+                svg.style.transform = '';
+                svg.style.transformOrigin = '';
+            }
+            
             contentContainer.appendChild(clone);
         });
         wrapper.appendChild(contentContainer);
@@ -179,20 +231,6 @@ function renderGPPageMode(output) {
 
         containerWrapper.appendChild(wrapper);
     }
-
-        // Scale SVGs to fit wrapper width while preserving aspect ratio
-        containerWrapper.querySelectorAll('.pageWrapper').forEach(wrapper => {
-            wrapper.querySelectorAll('svg').forEach(svg => {
-                // First set the SVG to fill its container width
-                svg.style.width = '100%';
-                svg.style.height = 'auto';
-                svg.style.maxWidth = '100%';
-                
-                // Remove any transform since we're using responsive sizing
-                svg.style.transform = '';
-                svg.style.transformOrigin = '';
-            });
-        });
         output.appendChild(containerWrapper);
     updatePageIndicator(
         document.getElementById('pageIndicator'), 
@@ -206,28 +244,36 @@ function renderGPPageMode(output) {
  * Navigation functions
  */
 /**
- * Navigate to next GP page
+ * Navigate to next GP page and re-render
+ * @param {HTMLElement} output - The output container element
  * @returns {boolean} Whether navigation was successful
  */
-export function nextGPPage() {
+export function nextGPPage(output) {
     if (!gpState.pages.length) return false;
     const newIndex = Math.min(gpState.currentPageIndex + 1, Math.max(0, gpState.pages.length - getPagesPerView()));
     if (newIndex !== gpState.currentPageIndex) {
         gpState.currentPageIndex = newIndex;
+        if (output) {
+            renderGPPageMode(output);
+        }
         return true;
     }
     return false;
 }
 
 /**
- * Navigate to previous GP page
+ * Navigate to previous GP page and re-render
+ * @param {HTMLElement} output - The output container element
  * @returns {boolean} Whether navigation was successful
  */
-export function prevGPPage() {
+export function prevGPPage(output) {
     if (!gpState.pages.length) return false;
     const newIndex = Math.max(0, gpState.currentPageIndex - 1);
     if (newIndex !== gpState.currentPageIndex) {
         gpState.currentPageIndex = newIndex;
+        if (output) {
+            renderGPPageMode(output);
+        }
         return true;
     }
     return false;
