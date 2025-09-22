@@ -76,7 +76,8 @@
       <label class="form-check-label" for="debugMode">Debug Overlay</label>
     </div>
   <br/><h6>Export:</h6>
-  <button class="btn btn-outline-primary mt-2" id="exportPDFBtn">Export PDF</button>
+  <button class="btn btn-outline-primary mt-2" id="exportPDFBtn">Export Current File</button>
+  <button class="btn btn-outline-primary mt-2" id="bulkConvertBtn" onclick="window.open('batchExport.html', '_blank')">Bulk Condense PDFs</button>
   <div id="exportProgressContainer" style="display:none; margin-top:5px;">
     <div class="progress">
       <div id="exportProgressBar" class="progress-bar bg-primary" role="progressbar" style="width:0%">0%</div>
