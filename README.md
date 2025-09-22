@@ -11,8 +11,9 @@ It is built to dynamically optimize multi-track views to be intelligently displa
 ## ✨ Features
 
 - **Input Formats**
-  - Supports multi-track tab-only PDFs exported from Guitar Pro
-  - Supports GP, GPX, GP5, GP4, and GP3 formats from Guitar Pro
+  - Multi-track tab-only PDFs exported from Guitar Pro
+  - GP, GPX, GP5, GP4, and GP3 formats from Guitar Pro
+  - TXT files
 
 - **Tab Optimization**
   - Finds staves that contain notes
