@@ -28,6 +28,7 @@ body {
 /* ==========================================================================
    Navigation & Controls
    ========================================================================== */
+/* Navbar Layout */
 .navbar {
     /* Layout */
     position: relative;
@@ -43,13 +44,44 @@ body {
     color: white;
 }
 
-/* Navbar elements */
+/* Navbar Elements */
 .navbar-brand {
     white-space: nowrap;
 }
 
 .navbar .toolbar-items {
     flex-wrap: nowrap !important;
+}
+
+/* Button Base Styles */
+.btn-check:focus + .btn, 
+.btn:focus { 
+    box-shadow: none !important; 
+}
+
+.btn-check + .btn { 
+    pointer-events: auto !important; 
+}
+
+/* Primary Button Styles */
+.btn-outline-primary { 
+    color: #9966cc;
+    border-color: #9966cc;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:active,
+.btn-check:checked + label.btn-outline-primary {
+    background-color: #9966cc;
+    color: white;
+    border-color: #9966cc;
+}
+
+.btn-outline-primary:focus {
+    background-color: transparent;
+    color: #9966cc;
+    border-color: #9966cc;
+    box-shadow: none;
 }
 
 /* Navbar buttons and labels */
@@ -152,6 +184,7 @@ body {
 
 .alphaTab-gp-content > * {
     max-width: 100%;
+    position: relative !important;
 }
 
 g.at text {
@@ -311,10 +344,33 @@ canvas {
     font-family: monospace;
     line-height: 1.5;
 }
-.pageNumber { position:absolute; bottom:5px; right:5px; background:rgba(255,255,255,0.8); padding:2px 5px; font-size:12px; }
-#progressContainer { width:100%; height:8px; background:#ddd; margin:5px 0; border-radius:5px; overflow:hidden; display:none; }
-#progressBar { height: 100%; width:0%; background: #9966cc; transition: width 0.2s; }
-@keyframes indeterminate {
+
+.pageNumber {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 2px 5px;
+  font-size: 12px;
+  text-align: right;
+}
+
+#progressContainer {
+  width: 100%;
+  height: 8px;
+  background: #ddd;
+  margin: 5px 0;
+  border-radius: 5px;
+  overflow: hidden;
+  display: none;
+}
+
+#progressBar {
+  height: 100%;
+  width: 0%;
+  background: #9966cc;
+  transition: width 0.2s;
+}@keyframes indeterminate {
   0% { left: -40%; width: 40%; }
   50% { left: 30%; width: 30%; }
   100% { left: 100%; width: 40%; }
@@ -327,11 +383,32 @@ canvas {
 /* Navbar styles consolidated in Navigation & Controls section */
 
 /* Offcanvas Menu */
-.offcanvas { background-color: #2f343a; color:white; }
-.offcanvas .form-control { background-color: #3a3f44; color:white; border-color: #5c5c5c; }
-.offcanvas .form-control:focus { background-color: #3a3f44; color:white; border-color: #9966cc; box-shadow: 0 0 0 0.2rem rgba(153,102,204,0.25); }
-.offcanvas .form-check-input:checked { background-color: #9966cc; border-color: #9966cc; }
-.offcanvas .form-check-label { color:white; }
+.offcanvas {
+  background-color: #2f343a;
+  color: white;
+}
+
+.offcanvas .form-control {
+  background-color: #3a3f44;
+  color: white;
+  border-color: #5c5c5c;
+}
+
+.offcanvas .form-control:focus {
+  background-color: #3a3f44;
+  color: white;
+  border-color: #9966cc;
+  box-shadow: 0 0 0 0.2rem rgba(153, 102, 204, 0.25);
+}
+
+.offcanvas .form-check-input:checked {
+  background-color: #9966cc;
+  border-color: #9966cc;
+}
+
+.offcanvas .form-check-label {
+  color: white;
+}
 
 /* Range/Slider inputs */
 input[type=range]::-webkit-slider-thumb { background: #9966cc; }
@@ -434,13 +511,17 @@ body.dark-mode {
 }
 
 body.dark-mode .pageWrapper {
-    background-color: #000000;
+    background-color: #000000 !important;
     border-color: #444;
     box-shadow: 0 2px 6px rgba(0,0,0,0.7);
 }
 
 body.dark-mode .alphaTabContainer {
     background-color: #000000;
+}
+
+body.dark-mode .pageContainer {
+    background-color: var(--outside-bg-color);
 }
 
 body.dark-mode canvas {
@@ -464,7 +545,7 @@ body.dark-mode .btn-outline-primary:hover {
 }
 
 body.dark-mode .pageNumber {
-    background-color: #2c2c2c;
+    background-color: #000000;
     color: #ddd;
 }
 
@@ -509,6 +590,7 @@ body.dark-mode #output svg text {
     align-items: center;
     gap: 5px;
   }
+
   .pageWrapper {
     width: 95% !important;   /* shrink to fit phone */
     height: auto !important;
