@@ -587,6 +587,12 @@ body.dark-mode .chord-lyric-segment span[style*="color: rgb(44, 82, 130)"] {
     flex-wrap: nowrap !important;  /* prevent wrapping */
     justify-content: flex-start;   /* align items to left */
   }
+  
+  #modeButtons {
+      position: relative;
+      left: 5%;
+      transform: translateX(-5%);
+  }
 
   /* Page containers: single column, full width */
   .pageContainer {
