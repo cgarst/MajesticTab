@@ -1,3 +1,19 @@
+/* ==========================================================================
+   CSS Variables & Root Settings
+   ========================================================================== */
+:root {
+    --page-bg-color: white;
+    --outside-bg-color: #f8f9fa;
+    --text-color: black;
+    --border-color: #ddd;
+    --page-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    --separator-color: #ccc;
+    --page-padding: 20px;
+}
+
+/* ==========================================================================
+   Base Layout
+   ========================================================================== */
 body {
     margin: 0;
     padding: 0;
@@ -8,23 +24,112 @@ body {
     overflow: hidden;
 }
 
+/* ==========================================================================
+   Navigation & Controls
+   ========================================================================== */
+.navbar {
+    /* Layout */
+    position: relative;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    
+    /* Spacing */
+    padding-top: 0.3rem !important;
+    padding-bottom: 0.3rem !important;
+    
+    /* Colors */
+    background-color: #3a3f44 !important;
+    color: white;
+}
+
+/* Navbar elements */
+.navbar-brand {
+    white-space: nowrap;
+}
+
+.navbar .toolbar-items {
+    flex-wrap: nowrap !important;
+}
+
+/* Navbar buttons and labels */
+.navbar .navbar-brand,
+.navbar .btn,
+.navbar .btn-check + label {
+    color: white;
+}
+
+.navbar .btn-primary {
+    background-color: #9966cc;
+    border-color: #9966cc;
+    color: white;
+}
+
+.navbar .btn-primary:hover {
+    background-color: #884dbc;
+    border-color: #884dbc;
+    color: white;
+}
+
+#modeButtons {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+#navButtons {
+    display: none;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+#pageIndicator {
+    display: inline-block;
+    white-space: nowrap;
+    min-width: 4em;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
+
+/* ==========================================================================
+   Main Content Layout
+   ========================================================================== */
 #output {
+    /* Base layout */
     overscroll-behavior: contain;
     min-height: 0;
     flex: 1;
-    overflow: hidden;
-    background-color: var(--outside-bg-color);
+    width: 100%;
+    height: 100%;
+    position: relative;
+    
+    /* Display and box model */
     display: flex;
     flex-direction: column;
-    height: 100%;
     box-sizing: border-box;
+    
+    /* Overflow handling */
+    overflow: hidden;
+    overflow-x: hidden;
+    
+    /* Visual styles */
+    background-color: var(--outside-bg-color);
+    transform-origin: 0 0;
+    will-change: transform;
 }
 
 /* AlphaTab container styles */
+/* ==========================================================================
+   AlphaTab Specific Styles
+   ========================================================================== */
 .alphaTabContainer {
     width: 860px;
     margin: 0 auto;
     overflow: visible;
+    box-shadow: var(--page-shadow);
+    border: 1px solid var(--border-color);
+    box-sizing: border-box;
 }
 
 .alphaTab-gp-content {
@@ -42,9 +147,16 @@ body {
     max-width: 100%;
 }
 
-/* Guitar Pro Page Styles */
+g.at text {
+    font-family: 'alphaTab' !important;
+}
+
+/* ==========================================================================
+   Guitar Pro Page Styles
+   ========================================================================== */
 .gp-page-container {
     height: 100%;
+    width: 100%;
     display: flex;
     align-items: stretch;
     gap: 10px;
@@ -58,8 +170,13 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    margin: 0;
     overflow: hidden;
+    box-shadow: var(--page-shadow);
+    border: 1px solid var(--border-color);
+    box-sizing: border-box;
+    background-color: var(--page-bg-color);
+    margin-left: auto;
+    margin-right: auto;
 }
 
 /* Output styles for continuous mode */
@@ -92,17 +209,49 @@ body {
     min-height: 0;
     height: 100%;
 }
-.btn-check:focus + .btn, .btn:focus { box-shadow: none !important; }
-.btn-check + .btn { pointer-events: auto !important; }
-canvas { display:block; margin:0 auto; background:white; max-width:100%; height:auto; }
-:root {
-    --page-bg-color: white;
-    --outside-bg-color: #f8f9fa;
-    --text-color: black;
-    --border-color: #ddd;
-    --page-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    --separator-color: #ccc;
-    --page-padding: 20px;
+/* ==========================================================================
+   Button Base Styles
+   ========================================================================== */
+/* Button focus states */
+.btn-check:focus + .btn, 
+.btn:focus { 
+    box-shadow: none !important; 
+}
+
+.btn-check + .btn { 
+    pointer-events: auto !important; 
+}
+
+/* Primary outline button styles */
+.btn-outline-primary { 
+    color: #9966cc;
+    border-color: #9966cc;
+}
+
+.btn-outline-primary:hover,
+.btn-outline-primary:active,
+.btn-check:checked + label.btn-outline-primary {
+    background-color: #9966cc;
+    color: white;
+    border-color: #9966cc;
+}
+
+.btn-outline-primary:focus {
+    background-color: transparent;
+    color: #9966cc;
+    border-color: #9966cc;
+    box-shadow: none;
+}
+
+/* ==========================================================================
+   Canvas Element Styles
+   ========================================================================== */
+canvas { 
+    display: block; 
+    margin: 0 auto; 
+    background: white; 
+    max-width: 100%; 
+    height: auto; 
 }
 
 /* Outer container styles */
@@ -168,58 +317,7 @@ canvas { display:block; margin:0 auto; background:white; max-width:100%; height:
   position: relative;
   animation: indeterminate 1.2s infinite linear;
 }
-.navbar { 
-    background-color: #3a3f44 !important; 
-    color: white;
-    padding-top: 0.3rem !important;
-    padding-bottom: 0.3rem !important;
-    position: relative;
-}
-
-#modeButtons {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-}
-
-#navButtons { 
-    display: none; 
-    align-items: center; 
-    gap: 0.5rem;
-    white-space: nowrap;
-}
-
-#pageIndicator { 
-    display: inline-block;
-    white-space: nowrap;
-    min-width: 4em;
-    text-align: center;
-    margin: 0;
-    padding: 0;
-}
-
-/* --- Custom Colors --- */
-.navbar .navbar-brand, .navbar .btn, .navbar .btn-check + label { color:white; }
-.navbar .btn-outline-primary { color: #9966cc; border-color: #9966cc; }
-.navbar .btn-outline-primary:hover { background-color: #884dbc; color:white; }
-.btn-check:checked + label.btn-outline-primary,
-/* Hovered or currently pressed */
-.btn-outline-primary:hover,
-.btn-outline-primary:active {
-    background-color: #9966cc;
-    color: white;
-    border-color: #9966cc;
-}
-
-/* Remove focus styles */
-.btn-outline-primary:focus {
-    background-color: transparent;
-    color: #9966cc;
-    border-color: #9966cc;
-    box-shadow: none;
-}
-.navbar .btn-primary { background-color: #9966cc; border-color: #9966cc; color:white; }
-.navbar .btn-primary:hover { background-color: #884dbc; border-color: #884dbc; color:white; }
+/* Navbar styles consolidated in Navigation & Controls section */
 
 /* Offcanvas Menu */
 .offcanvas { background-color: #2f343a; color:white; }
@@ -232,13 +330,7 @@ canvas { display:block; margin:0 auto; background:white; max-width:100%; height:
 input[type=range]::-webkit-slider-thumb { background: #9966cc; }
 input[type=range]::-moz-range-thumb { background: #9966cc; }
 
-#output {
-    flex: 1;
-    width: 100%;
-    overflow-y: auto;   /* allow vertical scrolling */
-    overflow-x: hidden;
-    background: var(--outside-bg-color);
-}
+/* Consolidated output styles moved to Main Content Layout section */
 
 /* Chord-lyric line styles */
 .chord-lyric-line {
@@ -316,41 +408,9 @@ input[type=range]::-moz-range-thumb { background: #9966cc; }
 #output::-webkit-scrollbar-track { background:#ccc; }
 #output::-webkit-scrollbar-thumb { background:#9966cc; border-radius:4px; }
 
-/* Buttons */
-.btn-outline-primary { 
-    color: #9966cc;
-    border-color: #9966cc;
-}
-.btn-outline-primary:hover {
-    background-color: #9966cc;
-    color: white;
-    border-color: #9966cc;
-} 
-.btn-outline-primary:active {
-    background-color: #9966cc;
-    color: white;
-    border-color: #9966cc;
-}
-
-.navbar {
-  flex-wrap: nowrap !important;
-  overflow-x: auto;
-}
-.navbar .toolbar-items {
-  flex-wrap: nowrap !important;
-}
-.navbar-brand {
-  white-space: nowrap;
-}
-
-.navbar .btn:focus,
-.navbar .btn-check:focus + label {
-    outline: none !important;
-    box-shadow: none !important;
-}
-
+/* Utility Classes */
 span.me-2 {
-    margin-right: 0px !important
+    margin-right: 0px !important;
 }
 
 /* Dark mode */
@@ -375,10 +435,6 @@ body.dark-mode .alphaTabContainer {
     background-color: #000000;
 }
 
-body.dark-mode .alphaTabContainer > div {
-    background-color: #000000;
-}
-
 body.dark-mode canvas {
     filter: invert(1) hue-rotate(180deg);
 }
@@ -400,16 +456,12 @@ body.dark-mode .btn-outline-primary:hover {
 }
 
 body.dark-mode .pageNumber {
-    background: rgba(44, 44, 44, 0.8);
+    background-color: #2c2c2c;
     color: #ddd;
 }
 
 body.dark-mode .chord-lyric-segment span[style*="color: rgb(44, 82, 130)"] {
     color: #7eb6ff !important;
-}
-
-body.dark-mode .pageNumber {
-    background-color: #2c2c2c;
 }
 
 /* Ensure all AlphaTab symbols use the correct font */
