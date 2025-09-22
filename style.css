@@ -217,6 +217,7 @@ g.at text {
     background-color: var(--page-bg-color);
     margin-left: auto;
     margin-right: auto;
+    user-select: none;
 }
 
 /* Output styles for continuous mode */
@@ -485,6 +486,7 @@ input[type=range]::-moz-range-thumb { background: #9966cc; }
     box-sizing: border-box;
     font-size: 14px;
     margin: 20px;
+    user-select: none;
 }
 
 /* Scrollbar for continuous mode */
