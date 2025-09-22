@@ -244,8 +244,6 @@ async function loadPDF(file) {
         progressBar,
         condensedCanvases,
         abortSignal: currentProcessing,
-        pageModeRadio,
-        continuousModeRadio,
         onCanvasRendered: (canvas) => {
             if (currentProcessing.aborted) return;
 
