@@ -145,20 +145,6 @@ export async function processText(file) {
         const fullContent = document.createElement('div');
         fullContent.className = 'text-content';
         fullContent.tabIndex = 0; // Make focusable for keyboard navigation
-        fullContent.style.cssText = `
-            width: 100%;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 40px;
-            font-family: monospace;
-            line-height: 1.5;
-            background-color: var(--page-bg-color, white);
-            color: var(--text-color, black);
-            box-shadow: var(--page-shadow, 0 2px 6px rgba(0,0,0,0.1));
-            border: 1px solid var(--border-color, #ddd);
-            box-sizing: border-box;
-            font-size: 14px;
-        `;
 
         // Process each section
         let allProcessedLines = [];
@@ -167,10 +153,6 @@ export async function processText(file) {
                 // Add a minimal separator line between sections (except the first)
                 const sectionSeparator = document.createElement('div');
                 sectionSeparator.className = 'section-separator';
-                sectionSeparator.style.cssText = `
-                    margin: 1em 0;
-                    border-top: 1px solid var(--separator-color, #ccc);
-                `;
                 allProcessedLines.push(sectionSeparator);
             }
             
@@ -256,7 +238,6 @@ export async function processText(file) {
                     if (!tabContainer) {
                         tabContainer = document.createElement('div');
                         tabContainer.className = 'tab-section-container';
-                        tabContainer.style.cssText = 'break-inside: avoid;';
                     }
                     tabContainer.appendChild(textDiv);
 
@@ -341,28 +322,8 @@ function createPaginatedPages(processedLines) {
         pageWrapper.className = 'pageWrapper';
         pageWrapper.setAttribute('role', 'document');
         pageWrapper.tabIndex = 0;
-        pageWrapper.style.cssText = `
-            width: ${availableWidth}px;
-            height: 100%;
-            min-height: ${pageHeight}px;
-            background-color: var(--page-bg-color, white);
-            color: var(--text-color, black);
-            box-shadow: var(--page-shadow, 0 2px 6px rgba(0,0,0,0.1));
-            border: 1px solid var(--border-color, #ddd);
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-        `;
 
         const pageContent = document.createElement('div');
-        pageContent.style.cssText = `
-            margin: 0;
-            padding: ${PAGE_PADDING}px;
-            width: 100%;
-            flex: 1;
-            box-sizing: border-box;
-            font-size: 14px;
-        `;
 
         elements.forEach(el => pageContent.appendChild(el.cloneNode(true)));
         pageWrapper.appendChild(pageContent);
