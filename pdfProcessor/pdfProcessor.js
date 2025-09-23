@@ -1,6 +1,6 @@
 // pdfProcessor.js
 
-import { CONFIG } from './config.js';
+import { CONFIG, createScaledConfig } from './config.js';
 import { detectStaffGroups } from './staffDetector.js';
 import { detectIndividualStaves } from './individualStaffDetector.js';
 import { detectDigits } from './digitDetector.js';
@@ -9,12 +9,14 @@ import { detectCopyright } from './copyrightDetector.js';
 import { detectMargins } from './marginDetector.js';
 import { detectLeftMargins } from './leftMarginDetector.js';
 import { renderCondensedCanvas } from './condenseRenderer.js';
-import { clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { updateProgress } from '../utils/fileHandlingUtils.js';
 
 const canvasCache = new WeakMap();
 
-export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal, pageModeRadio, continuousModeRadio }) {
+export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal, scale }) {
+  // Create a scaled config if a custom scale is provided
+  const config = scale ? createScaledConfig(scale) : CONFIG;
+  
   condensedCanvases.length = 0;
   progressBar.classList.add('indeterminate');
   progressContainer.style.display = 'block';
@@ -45,7 +47,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
 
     // Render PDF page
     const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 1.5 });
+    const viewport = page.getViewport({ scale: config.SCALE });
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
@@ -66,26 +68,26 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
     // Detect staff groups & individual staves
-    const { staffGroups, groupVerticalRuns } = detectStaffGroups(imageData, canvas.width, canvas.height, CONFIG, debugMode, ctx);
+    const { staffGroups, groupVerticalRuns } = detectStaffGroups(imageData, canvas.width, canvas.height, config, debugMode, ctx);
     const stavesByGroup = staffGroups.map(group =>
-      detectIndividualStaves(imageData, canvas.width, group, Math.floor(canvas.width * 0.9), CONFIG, debugMode, ctx)
+      detectIndividualStaves(imageData, canvas.width, group, Math.floor(canvas.width * 0.9), config, debugMode, ctx)
     );
 
     // Detect digits, stems, notes
     stavesByGroup.forEach(staves => {
       staves.forEach((s, si) => {
-        const hasDigits = detectDigits(ctx, imageData.data, canvas.width, canvas.height, s, CONFIG, debugMode);
+        const hasDigits = detectDigits(ctx, imageData.data, canvas.width, canvas.height, s, config, debugMode);
         let candidateRuns = [], hasStemNotes = false;
 
-        if (CONFIG.FIND_STEMS_IF_NO_DIGITS || hasDigits) {
+        if (config.FIND_STEMS_IF_NO_DIGITS || hasDigits) {
           const nextStaffTop = si < staves.length - 1 ? staves[si + 1].start : canvas.height;
-          candidateRuns = detectStems(ctx, imageData.data, canvas.width, canvas.height, s, nextStaffTop, CONFIG, debugMode);
+          candidateRuns = detectStems(ctx, imageData.data, canvas.width, canvas.height, s, nextStaffTop, config, debugMode);
           hasStemNotes = candidateRuns.length > 0;
         }
 
         s.hasDigits = hasDigits;
         s.hasStems = hasStemNotes;
-        s.hasNotes = CONFIG.USE_STEMS_FOR_DECISION ? hasDigits || hasStemNotes : hasDigits;
+        s.hasNotes = config.USE_STEMS_FOR_DECISION ? hasDigits || hasStemNotes : hasDigits;
         s.candidateRuns = candidateRuns;
 
         // small dot for debug
@@ -99,13 +101,13 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
     });
 
     // Detect margins and inter-group sections
-    const { keptMargins, betweenGroupSections } = detectMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns, CONFIG, debugMode);
+    const { keptMargins, betweenGroupSections } = detectMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns, config, debugMode);
 
     if (debugMode?.checked) {
-      detectLeftMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns, CONFIG, debugMode, false);
+      detectLeftMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns, config, debugMode, false);
     }
 
-    const leftMarginLines = detectLeftMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns, CONFIG, debugMode, true);
+    const leftMarginLines = detectLeftMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns, config, debugMode, true);
 
     // Create condensed canvas
     let finalCanvas;
@@ -120,7 +122,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
         canvasWidth: canvas.width,
         trimmedSections,
         leftMarginLines,
-        CONFIG,
+        CONFIG: config,
         debugMode
       });
     } else {
@@ -136,7 +138,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
     // Detect bottom-of-page copyright for first page
     if (pageNum === 1 && !debugMode.checked) {
       try {
-        const lastGroupBottom = Math.max(...stavesByGroup.flat().map(s => s.end + CONFIG.EXTRA_BOTTOM_PADDING));
+        const lastGroupBottom = Math.max(...stavesByGroup.flat().map(s => s.end + config.EXTRA_BOTTOM_PADDING));
         copyrightCanvasMemory = detectCopyright(ctx, canvas.width, canvas.height, lastGroupBottom);
       } catch (e) {
         console.warn('Copyright detection failed:', e);
