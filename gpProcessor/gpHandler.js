@@ -21,7 +21,7 @@ export const gpState = {
 /**
  * Load a Guitar Pro file into the app.
  */
-export async function loadGP(file, output, pageModeRadio, continuousModeRadio, shrink = false, debug = false) {
+export async function loadGP(file, output, pageModeRadio, continuousModeRadio, debug = false) {
     // Immediately select continuous mode
     continuousModeRadio.checked = true;
     pageModeRadio.checked = false;
@@ -50,7 +50,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, s
     output.appendChild(container);
 
     try {
-        const api = await loadGuitarPro(dataToLoad, container, { shrink, debug });
+        const api = await loadGuitarPro(dataToLoad, container, { debug });
         gpState.canvases = [{ container }];
 
         api.postRenderFinished.on(() => {

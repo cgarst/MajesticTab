@@ -18,7 +18,7 @@
     const container = document.getElementById('alphaTab');
     const file = '../song2.gp';
 
-    loadGuitarPro(file, container, { shrink: true, debug: false })
+    loadGuitarPro(file, container, { debug: false })
       .then(api => {
         console.log("Render complete, AlphaTab API ready", api);
       })
