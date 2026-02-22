@@ -77,7 +77,6 @@ mainContent.addEventListener('wheel', (e) => {
 const fileInput = document.getElementById('localFile');
 const debugMode = document.getElementById('debugMode');
 const condensePdfMode = document.getElementById('condensePdfMode');
-const condenseGpMode = document.getElementById('condenseGpMode');
 const firstBtn = document.getElementById('firstPage');
 const prevBtn = document.getElementById('prevPage');
 const nextBtn = document.getElementById('nextPage');
@@ -108,16 +107,14 @@ function setupSettings() {
     
     // Load condense mode settings with different defaults
     const savedCondensePdfMode = localStorage.getItem('condensePdfMode');
-    const savedCondenseGpMode = localStorage.getItem('condenseGpMode');
-    
+
     // Get dark mode toggle
     const darkModeToggle = document.getElementById('darkModeToggle');
 
     // Apply saved settings
     debugMode.checked = savedDebugMode;
-    // Default: Condense PDFs by default (true), don't condense GP by default (false)
+    // Default: Condense PDFs by default (true)
     condensePdfMode.checked = savedCondensePdfMode === null ? true : savedCondensePdfMode === 'true';
-    condenseGpMode.checked = savedCondenseGpMode === null ? false : savedCondenseGpMode === 'true';
     
     if (darkModeToggle) {
         darkModeToggle.checked = savedDarkMode;
@@ -146,13 +143,6 @@ function setupSettings() {
     condensePdfMode.addEventListener('change', () => {
         localStorage.setItem('condensePdfMode', condensePdfMode.checked);
         if (currentFile && currentFile.type.includes('pdf')) {
-            loadFile(currentFile); // Reload current file with new settings
-        }
-    });
-
-    condenseGpMode.addEventListener('change', () => {
-        localStorage.setItem('condenseGpMode', condenseGpMode.checked);
-        if (currentFile && /\.(gp|gp[345x])$/i.test(currentFile.name)) {
             loadFile(currentFile); // Reload current file with new settings
         }
     });
@@ -323,7 +313,7 @@ export async function loadFile(file) {
         await loadPDF(file);
     } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
         showProgress(progressContainer, progressBar);
-        await loadGP(file, output, pageModeRadio, continuousModeRadio, condenseGpMode.checked);
+        await loadGP(file, output, pageModeRadio, continuousModeRadio);
         hideProgress(progressContainer, progressBar);
     } else if (isFileType(file, ['txt'])) {
         showProgress(progressContainer, progressBar);
