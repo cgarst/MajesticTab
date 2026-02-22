@@ -8,7 +8,7 @@ It is built to dynamically optimize multi-track views to be intelligently displa
 
 ---
 
-## ✨ Features
+## Features
 
 - **Input Formats**
   - Multi-track tab-only PDFs exported from Guitar Pro
@@ -41,7 +41,7 @@ It is built to dynamically optimize multi-track views to be intelligently displa
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - A modern web browser (Chrome, Edge, Firefox, Safari)
@@ -93,7 +93,7 @@ Open `http://localhost:8080` in your browser.
 
 ---
 
-## 🎸 PDF File Requirements
+## PDF File Requirements
 
 When using PDFs files with MajesticTab, they are expected to be multitrack tab-only views.
 
@@ -118,7 +118,7 @@ MajesticTab works best with multitrack tab-only PDFs exported from Guitar Pro. T
 
 ---
 
-## 🛠 Development
+## Development
 
 ### File Structure
 
@@ -133,7 +133,7 @@ The project is browser-only. External dependencies are loaded via CDN, so no bui
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome!
 To contribute:
@@ -148,14 +148,15 @@ Please include screenshots or descriptions for UI changes.
 
 ---
 
-## 📜 License
+## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙌 Acknowledgments
+## Acknowledgments
 
 * [PDF.js](https://mozilla.github.io/pdf.js/) for PDF rendering
 * [Bootstrap](https://getbootstrap.com/) for UI components
 * [jsPDF](https://github.com/parallax/jsPDF) for export functionality
+* [AlphaTab](https://github.com/CoderLine/alphaTab) for Guitar Pro rendering
