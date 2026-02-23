@@ -380,7 +380,10 @@ canvas {
   background: rgba(255, 255, 255, 0.8);
   padding: 2px 5px;
   font-size: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+  font-weight: 400;
   text-align: right;
+  color: #666;
 }
 
 #progressContainer {

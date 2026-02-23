@@ -194,10 +194,6 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
 
         const pageNumber = document.createElement('div');
         pageNumber.className = 'pageNumber';
-        pageNumber.style.position = 'absolute';
-        pageNumber.style.bottom = '10px';
-        pageNumber.style.right = '10px';
-        pageNumber.style.color = '#666';
         pageNumber.textContent = `${startIndex + i + 1}/${pages.length}`;
         wrapper.appendChild(pageNumber);
 
