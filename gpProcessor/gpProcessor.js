@@ -51,7 +51,10 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             const api = new alphaTab.AlphaTabApi(container, {
                 core: { file, tracks: guitarTrackIndices, enableLazyLoading: false },
                 player: { enablePlayer: true },
-                display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page }
+                display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page },
+                notation: {
+                    rhythmMode: alphaTab.TabRhythmMode.ShowWithBars
+                }
             });
 
             // Set stylesheet properties on the new score
