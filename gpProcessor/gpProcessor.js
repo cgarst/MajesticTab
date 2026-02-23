@@ -51,7 +51,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             const api = new alphaTab.AlphaTabApi(container, {
                 core: { file, tracks: guitarTrackIndices, enableLazyLoading: false },
                 player: { enablePlayer: true },
-                display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page },
+                display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page, scale: 0.75 },
                 notation: {
                     rhythmMode: alphaTab.TabRhythmMode.ShowWithBars
                 }

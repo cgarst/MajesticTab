@@ -174,7 +174,8 @@ export function layoutGPPages(container, pageHeight, pageWidth = null) {
         const clonedSvg = clone.querySelector('svg');
         if (originalSvg && clonedSvg) {
             // Copy any dynamic properties that might not be cloned
-            clonedSvg.setAttribute('viewBox', originalSvg.getAttribute('viewBox'));
+            const vb = originalSvg.getAttribute('viewBox');
+            if (vb && vb !== 'null') clonedSvg.setAttribute('viewBox', vb);
             clonedSvg.style.width = '100%';
             clonedSvg.style.height = 'auto';
             clonedSvg.style.display = 'block';
@@ -233,8 +234,20 @@ function renderGPPageMode(output) {
         gpState.lastLayoutDimensions.pagesPerView !== pagesPerView;
 
     if (needsRecalc) {
-        gpState.pages = layoutGPPages(gpState.canvases[0].container, pageHeight, pageWidth);
+        // Park the container in an offscreen element so AlphaTab's resize observer
+        // doesn't see a detached/invisible container and produce null-dimensioned SVGs.
+        const offscreenHolder = document.createElement('div');
+        offscreenHolder.style.cssText = 'position:absolute;visibility:hidden;width:0;height:0;overflow:hidden;';
+        document.body.appendChild(offscreenHolder);
+        const container = gpState.canvases[0].container;
+        if (container.parentNode) container.parentNode.removeChild(container);
+        offscreenHolder.appendChild(container);
+
+        gpState.pages = layoutGPPages(container, pageHeight, pageWidth);
         gpState.lastLayoutDimensions = currentDimensions;
+
+        offscreenHolder.removeChild(container);
+        document.body.removeChild(offscreenHolder);
     }
 
     const containerWrapper = createPageContainer();
