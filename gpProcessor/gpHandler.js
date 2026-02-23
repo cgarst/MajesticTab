@@ -225,7 +225,6 @@ function renderGPPageMode(output) {
             clone.style.left = 'auto';
             clone.style.display = 'block';
             clone.style.marginBottom = '10px';
-            clone.style.width = '100%';
             clone.style.maxWidth = '100%';
             clone.style.overflow = 'visible';
 
@@ -239,40 +238,38 @@ function renderGPPageMode(output) {
                 // Only use viewBox if it exists and is valid
                 if (viewBox && viewBox !== 'null' && viewBox.includes(' ')) {
                     const vbWidth = parseFloat(viewBox.split(' ')[2]);
-                    if (!isNaN(vbWidth)) {
+                    if (!isNaN(vbWidth) && vbWidth > 0) {
                         naturalWidth = vbWidth;
                     }
                 }
 
                 // Calculate scale to fit within page width (minus padding)
                 const availableWidth = pageWidth - 40;
-                const scale = (naturalWidth > 0 && naturalWidth > availableWidth) ? availableWidth / naturalWidth : 1;
+                const needsScaling = naturalWidth > 0 && naturalWidth > availableWidth;
 
-                // Apply scaling by setting explicit dimensions
-                if (scale < 1) {
-                    const scaledWidth = naturalWidth * scale;
-                    const scaledHeight = svg.height.baseVal.value * scale;
+                // Set viewBox if it doesn't exist - crucial for proper scaling
+                if ((!viewBox || viewBox === 'null') && svg.width.baseVal.value > 0) {
+                    const originalWidth = svg.width.baseVal.value;
+                    const originalHeight = svg.height.baseVal.value;
+                    svg.setAttribute('viewBox', `0 0 ${originalWidth} ${originalHeight}`);
+                }
 
-                    // Set viewBox if it doesn't exist - this is crucial for proper scaling
-                    if (!viewBox || viewBox === 'null') {
-                        const originalWidth = svg.width.baseVal.value;
-                        const originalHeight = svg.height.baseVal.value;
-                        svg.setAttribute('viewBox', `0 0 ${originalWidth} ${originalHeight}`);
-                    }
-
+                if (needsScaling) {
+                    // Scale down by setting width and letting SVG handle aspect ratio
+                    const scaledWidth = availableWidth;
                     svg.setAttribute('width', scaledWidth);
-                    svg.setAttribute('height', scaledHeight);
+                    svg.removeAttribute('height'); // Let SVG maintain aspect ratio
                     svg.style.width = `${scaledWidth}px`;
-                    svg.style.height = `${scaledHeight}px`;
-                    clone.style.width = `${scaledWidth}px`;
-                    clone.style.height = `${scaledHeight}px`;
+                    svg.style.height = 'auto';
+                    svg.style.maxWidth = '100%';
                 } else {
+                    // Content fits, use percentage for responsive scaling
                     svg.style.width = '100%';
                     svg.style.height = 'auto';
+                    svg.style.maxWidth = '100%';
                 }
 
                 svg.style.display = 'block';
-                svg.style.maxWidth = '100%';
             }
 
             contentContainer.appendChild(clone);
