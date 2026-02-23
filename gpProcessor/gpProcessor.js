@@ -44,10 +44,6 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                 console.log("Guitar track indices:", guitarTrackIndices);
             }
 
-            // Enable hide empty staves before disposing
-            score.stylesheet.hideEmptyStaves = true;
-            score.stylesheet.hideEmptyStavesInFirstSystem = true;
-
             // Step 3: dispose of temporary API
             tempApi.destroy();
 
@@ -56,6 +52,16 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                 core: { file, tracks: guitarTrackIndices, enableLazyLoading: false },
                 player: { enablePlayer: true },
                 display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page }
+            });
+
+            // Set stylesheet properties on the new score
+            api.scoreLoaded.on((newScore) => {
+                newScore.stylesheet.hideEmptyStaves = true;
+                newScore.stylesheet.hideEmptyStavesInFirstSystem = true;
+
+                if (debug) {
+                    console.log("Hide empty staves enabled:", newScore.stylesheet.hideEmptyStaves);
+                }
             });
 
             api.postRenderFinished.on(() => {
