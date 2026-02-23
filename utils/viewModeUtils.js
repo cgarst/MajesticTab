@@ -2,10 +2,20 @@ import { enableContinuousScrollTracking, disableContinuousScrollTracking, scroll
 
 /**
  * Get number of pages to show based on available window width
+ * @param {boolean} isGuitarPro - Whether this is for Guitar Pro mode
  * @returns {number} Number of pages to show
  */
-export function getPagesPerView() {
-    const minPageWidth = 500; // Minimum comfortable width for a guitar pro page
+export function getPagesPerView(isGuitarPro = false) {
+    if (isGuitarPro) {
+        // For Guitar Pro: use portrait/landscape detection
+        const aspectRatio = window.innerWidth / window.innerHeight;
+        // Portrait mode (aspect ratio < 1.0): show 1 page
+        // Landscape mode (aspect ratio >= 1.0): show 2 pages
+        return aspectRatio < 1.0 ? 1 : 2;
+    }
+
+    // For PDF mode: use width-based calculation
+    const minPageWidth = 500; // Minimum comfortable width for a page
     const bufferFactor = 1.10; // Require 10% extra space before adding another page
     const availableWidth = window.innerWidth - 40; // Account for margins
     const possiblePages = Math.floor(availableWidth / (minPageWidth * bufferFactor));
