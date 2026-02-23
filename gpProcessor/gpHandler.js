@@ -199,43 +199,95 @@ function renderGPPageMode(output) {
         const wrapper = createPageWrapper();
         wrapper.className = 'gp-page-wrapper';
         wrapper.style.width = `${(100 / pagesPerView)}%`;
-        wrapper.style.maxWidth = `${(window.innerWidth - 40) / pagesPerView}px`;
+        wrapper.style.maxWidth = `${pageWidth}px`;
+        wrapper.style.padding = '20px';
+        wrapper.style.boxSizing = 'border-box';
+        wrapper.style.overflow = 'hidden';
 
         const contentContainer = document.createElement('div');
         contentContainer.className = 'alphaTab-gp-content';
+        contentContainer.style.width = '100%';
+        contentContainer.style.display = 'flex';
+        contentContainer.style.flexDirection = 'column';
+        contentContainer.style.alignItems = 'center';
 
-        pageSet.forEach(div => {
-            // Ensure we're working with the original node's structure
+        pageSet.forEach((div, idx) => {
             const clone = div.cloneNode(true);
-            
-            // Reset absolute positioning that might cause layout issues
+
+            // Reset positioning
             clone.style.position = 'relative';
             clone.style.top = 'auto';
             clone.style.left = 'auto';
-            clone.style.maxWidth = '100%';
             clone.style.display = 'block';
-            clone.style.marginBottom = '10px'; // Add spacing between staff blocks
-            
-            // Handle SVG content specifically
+            clone.style.marginBottom = '10px';
+            clone.style.width = '100%';
+            clone.style.maxWidth = '100%';
+            clone.style.overflow = 'visible';
+
+            // Scale SVG to fit within container
             const svg = clone.querySelector('svg');
             if (svg) {
-                svg.style.width = '100%';
-                svg.style.height = 'auto';
-                svg.style.maxWidth = '100%';
-                svg.style.display = 'block';
-                
-                // Ensure viewBox is preserved
-                if (!svg.hasAttribute('viewBox') && div.querySelector('svg')?.hasAttribute('viewBox')) {
-                    svg.setAttribute('viewBox', div.querySelector('svg').getAttribute('viewBox'));
+                // Get the natural width from viewBox or current width
+                const viewBox = svg.getAttribute('viewBox');
+                let naturalWidth = svg.width.baseVal.value;
+
+                // Only use viewBox if it exists and is valid
+                if (viewBox && viewBox !== 'null' && viewBox.includes(' ')) {
+                    const vbWidth = parseFloat(viewBox.split(' ')[2]);
+                    if (!isNaN(vbWidth)) {
+                        naturalWidth = vbWidth;
+                    }
                 }
-                
-                // Remove any transforms that might interfere with responsive sizing
-                svg.style.transform = '';
-                svg.style.transformOrigin = '';
+
+                // Calculate scale to fit within page width (minus padding)
+                const availableWidth = pageWidth - 40;
+                const scale = (naturalWidth > 0 && naturalWidth > availableWidth) ? availableWidth / naturalWidth : 1;
+
+                // DEBUG LOGGING
+                console.log(`[GP Page Debug] Block ${idx}:`, {
+                    pageWidth,
+                    availableWidth,
+                    naturalWidth,
+                    viewBox,
+                    svgWidth: svg.width.baseVal.value,
+                    svgHeight: svg.height.baseVal.value,
+                    calculatedScale: scale
+                });
+
+                // Apply scaling by setting explicit dimensions
+                if (scale < 1) {
+                    const scaledWidth = naturalWidth * scale;
+                    const scaledHeight = svg.height.baseVal.value * scale;
+
+                    // Set viewBox if it doesn't exist - this is crucial for proper scaling
+                    if (!viewBox || viewBox === 'null') {
+                        const originalWidth = svg.width.baseVal.value;
+                        const originalHeight = svg.height.baseVal.value;
+                        svg.setAttribute('viewBox', `0 0 ${originalWidth} ${originalHeight}`);
+                        console.log(`[GP Page Debug] Set viewBox: 0 0 ${originalWidth} ${originalHeight}`);
+                    }
+
+                    svg.setAttribute('width', scaledWidth);
+                    svg.setAttribute('height', scaledHeight);
+                    svg.style.width = `${scaledWidth}px`;
+                    svg.style.height = `${scaledHeight}px`;
+                    clone.style.width = `${scaledWidth}px`;
+                    clone.style.height = `${scaledHeight}px`;
+
+                    console.log(`[GP Page Debug] Applied scale ${scale} to block ${idx}, dimensions: ${scaledWidth}x${scaledHeight}`);
+                } else {
+                    svg.style.width = '100%';
+                    svg.style.height = 'auto';
+                    console.log(`[GP Page Debug] Using 100% width for block ${idx}`);
+                }
+
+                svg.style.display = 'block';
+                svg.style.maxWidth = '100%';
             }
-            
+
             contentContainer.appendChild(clone);
         });
+
         wrapper.appendChild(contentContainer);
 
         const pnum = document.createElement('div');
