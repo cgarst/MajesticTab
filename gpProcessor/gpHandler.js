@@ -21,6 +21,104 @@ export const gpState = {
 };
 
 /**
+ * Move section rehearsal labels (Intro, Band Enter, etc.) upward when AlphaTab
+ * renders them at the same y-row as above-staff accent/ornament glyphs.
+ * Operates on the original rendered SVGs so the fix propagates to both
+ * continuous mode (direct display) and page mode (clone-based display).
+ *
+ * When the label needs to go above y=0, the SVG viewBox is extended upward
+ * so the label remains visible (negative y is clipped otherwise).
+ */
+function fixSectionLabelOverlaps(container) {
+    const svgs = container.querySelectorAll('svg');
+    svgs.forEach(svg => {
+        const allTexts = Array.from(svg.querySelectorAll('text'));
+
+        // Section labels: bold Georgia font (AlphaTab renders rehearsal/section names this way).
+        // Exclude tempo markings like "= 120" (no alphabetic characters) — those use the same
+        // bold Georgia style but are rendered inline with the tempo glyph (♩), not above-staff.
+        const labels = allTexts.filter(t => {
+            const s = t.getAttribute('style') || '';
+            return s.includes('bold') && s.includes('Georgia') && /[a-zA-Z]/.test(t.textContent);
+        });
+        if (labels.length === 0) return;
+
+        // SMuFL glyph groups: find <g transform="translate(x y)"> elements that contain
+        // a text with a percentage font-size. We use the translate-y as the visual position
+        // rather than getBoundingClientRect(), because the alphaTab SMuFL font has a very
+        // large em-box (spanning the full staff height) which inflates BCR far beyond the
+        // actual visible glyph, making BCR-based overlap detection unreliable.
+        const glyphGroups = Array.from(svg.querySelectorAll('g[transform]')).filter(g => {
+            const t = g.querySelector('text');
+            if (!t) return false;
+            return /font-size:\s*[\d.]+%/.test(t.getAttribute('style') || '');
+        });
+
+        // LIFT: SVG units to place the label ABOVE the nearest glyph group translate-y.
+        // Must account for both the label text height (~10.5px) and the fact that SMuFL
+        // glyphs extend visually upward from their translate anchor point.
+        const LIFT = 20;
+        const PROXIMITY = 30; // SVG units — how close a glyph must be to count as nearby
+
+        labels.forEach(label => {
+            const labelY = parseFloat(label.getAttribute('y') || '0');
+            if (isNaN(labelY)) return;
+
+            // Find glyph groups whose translate-y is within the label's y-band
+            const nearby = glyphGroups.filter(g => {
+                const m = g.getAttribute('transform')
+                    ?.match(/translate\s*\(\s*[-\d.]+\s*,?\s*([-\d.]+)\s*\)/);
+                if (!m) return false;
+                const gy = parseFloat(m[1]);
+                return gy >= labelY - 5 && gy <= labelY + PROXIMITY;
+            });
+            if (nearby.length === 0) return;
+
+            // Find the topmost glyph group translate-y
+            let minGlyphY = Infinity;
+            nearby.forEach(g => {
+                const m = g.getAttribute('transform')
+                    ?.match(/translate\s*\(\s*[-\d.]+\s*,?\s*([-\d.]+)\s*\)/);
+                if (m) minGlyphY = Math.min(minGlyphY, parseFloat(m[1]));
+            });
+            if (minGlyphY === Infinity) return;
+
+            // Target: place the label LIFT units above the topmost glyph anchor
+            const targetY = minGlyphY - LIFT;
+            if (targetY >= labelY) return; // already in a good position
+
+            // If targetY is negative we need to extend the SVG viewBox upward so the
+            // label isn't clipped. svg.viewBox.baseVal returns {0,0,0,0} when no viewBox
+            // attribute is set, so we must read dimensions from the width/height attributes.
+            if (targetY < 0) {
+                const vbAttr = svg.getAttribute('viewBox');
+                let vbX = 0, vbY = 0, vbW, vbH;
+                if (vbAttr && vbAttr !== 'null') {
+                    const parts = vbAttr.trim().split(/[\s,]+/);
+                    vbX = parseFloat(parts[0]) || 0;
+                    vbY = parseFloat(parts[1]) || 0;
+                    vbW = parseFloat(parts[2]);
+                    vbH = parseFloat(parts[3]);
+                } else {
+                    vbW = svg.width.baseVal.value || parseFloat(svg.getAttribute('width')) || 0;
+                    vbH = svg.height.baseVal.value || parseFloat(svg.getAttribute('height')) || 0;
+                }
+                if (vbW > 0 && vbH > 0) {
+                    const needed = Math.ceil(-targetY) + 2; // +2 units top padding
+                    if (needed > -vbY) {
+                        const extra = needed - (-vbY);
+                        svg.setAttribute('viewBox',
+                            `${vbX} ${vbY - extra} ${vbW} ${vbH + extra}`);
+                    }
+                }
+            }
+
+            label.setAttribute('y', targetY.toFixed(2));
+        });
+    });
+}
+
+/**
  * Load a Guitar Pro file into the app.
  */
 export async function loadGP(file, output, pageModeRadio, continuousModeRadio, debug = false) {
@@ -79,6 +177,10 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     try {
         const api = await loadGuitarPro(dataToLoad, container, { debug });
         gpState.canvases = [{ container }];
+
+        // Fix section labels (Intro, Band Enter, etc.) that AlphaTab positions at
+        // the same y-row as above-staff accent/ornament glyphs.
+        fixSectionLabelOverlaps(container);
 
         // Rendering is complete (promise resolved), now set up display
         // First render in continuous mode (simple, no layout needed)
