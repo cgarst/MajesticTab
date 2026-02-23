@@ -149,13 +149,51 @@ function setupSettings() {
 }
 
 // --- INITIALIZATION ---
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
+    // Debug: Always log that we're starting
+    console.log('[App Init] DOMContentLoaded fired');
+    console.log('[App Init] Current URL:', window.location.href);
+    console.log('[App Init] Query string:', window.location.search);
+
     setupExportPDFButton(condensedCanvases);
     setupDrivePicker();
     setupSettings();
-    
-    // Show the file menu on initial load
-    fileMenu.show();
+
+    // Check for test mode URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const testFile = urlParams.get('test');
+    console.log('[App Init] Test parameter value:', testFile);
+
+    if (testFile) {
+        console.log('[Test Mode] Detected test parameter:', testFile);
+        console.log('[Test Mode] Attempting to fetch: tests/' + testFile);
+        try {
+            const response = await fetch(`tests/${testFile}`);
+            console.log('[Test Mode] Fetch response status:', response.status, response.statusText);
+
+            if (!response.ok) throw new Error(`Failed to load: ${response.statusText}`);
+
+            const blob = await response.blob();
+            console.log('[Test Mode] Blob created, size:', blob.size, 'type:', blob.type);
+
+            const file = new File([blob], testFile, { type: blob.type });
+            console.log('[Test Mode] File object created:', file.name, file.size, 'bytes');
+
+            // Load the file automatically
+            console.log('[Test Mode] Calling loadFile...');
+            await loadFile(file);
+            console.log('[Test Mode] ✅ Test file loaded successfully');
+        } catch (error) {
+            console.error('[Test Mode] ❌ Failed to load test file:', error);
+            console.error('[Test Mode] Error stack:', error.stack);
+            alert(`Test mode error: Could not load tests/${testFile}\n${error.message}`);
+            fileMenu.show();
+        }
+    } else {
+        console.log('[Normal Mode] No test parameter found, showing file menu');
+        // Show the file menu on initial load (normal mode)
+        fileMenu.show();
+    }
 
     // Create navigation config with getters for dynamic values
     const getNavigationConfig = () => ({
