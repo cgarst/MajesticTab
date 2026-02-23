@@ -17,14 +17,25 @@ export function scrollByViewport(container, isNext = true) {
 
 // --- CONTINUOUS MODE SCROLL TRACKING ---
 let scrollTimeout;
+let activeScrollHandler = null; // Store the actual listener reference
 const SCROLL_DEBOUNCE = 100; // ms
 
 export function enableContinuousScrollTracking(output, condensedCanvases, onPageChange) {
-    output.addEventListener('scroll', () => handleContinuousScroll(output, condensedCanvases, onPageChange));
+    // Remove any existing listener first
+    if (activeScrollHandler) {
+        output.removeEventListener('scroll', activeScrollHandler);
+    }
+
+    // Create and store the handler
+    activeScrollHandler = () => handleContinuousScroll(output, condensedCanvases, onPageChange);
+    output.addEventListener('scroll', activeScrollHandler);
 }
 
 export function disableContinuousScrollTracking(output) {
-    output.removeEventListener('scroll', handleContinuousScroll);
+    if (activeScrollHandler) {
+        output.removeEventListener('scroll', activeScrollHandler);
+        activeScrollHandler = null;
+    }
 }
 
 function handleContinuousScroll(output, condensedCanvases, onPageChange) {
