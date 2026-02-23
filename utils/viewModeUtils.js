@@ -9,9 +9,9 @@ export function getPagesPerView(isGuitarPro = false) {
     if (isGuitarPro) {
         // For Guitar Pro: use portrait/landscape detection
         const aspectRatio = window.innerWidth / window.innerHeight;
-        // Portrait mode (aspect ratio < 1.0): show 1 page
-        // Landscape mode (aspect ratio >= 1.0): show 2 pages
-        return aspectRatio < 1.0 ? 1 : 2;
+        // When taller than wide (height >= width): show 1 page
+        // When wider than tall (width > height): show 2 pages
+        return aspectRatio <= 1.0 ? 1 : 2;
     }
 
     // For PDF mode: use width-based calculation
