@@ -26,10 +26,15 @@ export const gpState = {
  * Operates on the original rendered SVGs so the fix propagates to both
  * continuous mode (direct display) and page mode (clone-based display).
  *
- * When the label needs to go above y=0, the SVG viewBox is extended upward
- * so the label remains visible (negative y is clipped otherwise).
+ * When the label needs a negative SVG y, we use svg overflow:visible and add
+ * paddingTop to the containing block div — this avoids any viewBox or height
+ * change (which would cause scale distortion and uneven stave widths).
  */
 function fixSectionLabelOverlaps(container) {
+    // Pre-build the list of block divs (direct children of the at-surface div)
+    // so we can efficiently find which block contains a given SVG.
+    const blocks = Array.from(container.querySelectorAll('div.at-surface.at > div'));
+
     const svgs = container.querySelectorAll('svg');
     svgs.forEach(svg => {
         const allTexts = Array.from(svg.querySelectorAll('text'));
@@ -87,29 +92,20 @@ function fixSectionLabelOverlaps(container) {
             const targetY = minGlyphY - LIFT;
             if (targetY >= labelY) return; // already in a good position
 
-            // If targetY is negative we need to extend the SVG viewBox upward so the
-            // label isn't clipped. svg.viewBox.baseVal returns {0,0,0,0} when no viewBox
-            // attribute is set, so we must read dimensions from the width/height attributes.
+            // If targetY is negative the label would be clipped by the SVG viewport.
+            // Instead of changing the viewBox (which distorts vertical scale and makes
+            // stave widths appear uneven), we:
+            //   1. Allow the SVG to overflow its bounds (overflow:visible)
+            //   2. Add paddingTop to the containing block div so the label has
+            //      physical space above the SVG in the layout.
+            // This keeps the SVG dimensions and scale completely unchanged.
             if (targetY < 0) {
-                const vbAttr = svg.getAttribute('viewBox');
-                let vbX = 0, vbY = 0, vbW, vbH;
-                if (vbAttr && vbAttr !== 'null') {
-                    const parts = vbAttr.trim().split(/[\s,]+/);
-                    vbX = parseFloat(parts[0]) || 0;
-                    vbY = parseFloat(parts[1]) || 0;
-                    vbW = parseFloat(parts[2]);
-                    vbH = parseFloat(parts[3]);
-                } else {
-                    vbW = svg.width.baseVal.value || parseFloat(svg.getAttribute('width')) || 0;
-                    vbH = svg.height.baseVal.value || parseFloat(svg.getAttribute('height')) || 0;
-                }
-                if (vbW > 0 && vbH > 0) {
-                    const needed = Math.ceil(-targetY) + 2; // +2 units top padding
-                    if (needed > -vbY) {
-                        const extra = needed - (-vbY);
-                        svg.setAttribute('viewBox',
-                            `${vbX} ${vbY - extra} ${vbW} ${vbH + extra}`);
-                    }
+                svg.style.overflow = 'visible';
+                const blockDiv = blocks.find(b => b.contains(svg));
+                if (blockDiv) {
+                    const needed = Math.ceil(-targetY) + 2; // +2px safety margin
+                    const current = parseInt(blockDiv.style.paddingTop || '0');
+                    blockDiv.style.paddingTop = `${Math.max(current, needed)}px`;
                 }
             }
 
