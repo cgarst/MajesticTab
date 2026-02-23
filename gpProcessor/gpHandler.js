@@ -1,7 +1,7 @@
 // gpHandler.js.new
 import { loadGuitarPro } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
-import { getPagesPerView } from '../utils/viewModeUtils.js';
+import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 
 const PAGE_PADDING = 10;
@@ -24,14 +24,21 @@ export const gpState = {
  * Load a Guitar Pro file into the app.
  */
 export async function loadGP(file, output, pageModeRadio, continuousModeRadio, debug = false) {
-    // Immediately select continuous mode
+    // We want page mode, but render continuous first to let AlphaTab size properly
+    const targetPageMode = true;
+
+    // Temporarily set continuous mode for initial render
     continuousModeRadio.checked = true;
     pageModeRadio.checked = false;
-    continuousModeRadio.dispatchEvent(new Event('change', { bubbles: true }));
 
     // Reset state and clear output
     gpState.reset();
+    gpState.lastLayoutDimensions = null; // Force fresh layout calculation
     clearOutput(output);
+
+    // Ensure output is visible for alphaTab sizing
+    output.style.display = 'flex';
+    output.style.overflowY = 'auto';
 
     // Load file
     let dataToLoad;
@@ -46,22 +53,51 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         dataToLoad = file;
     }
 
-    // Init AlphaTab container
+    // Init AlphaTab container with width for target page mode
     const container = document.createElement('div');
     container.className = 'alphaTabContainer';
+
+    // Calculate width for page mode (2 pages side-by-side)
+    const pagesPerView = getPagesPerView(true);
+    const targetWidth = Math.floor((window.innerWidth - 80) / pagesPerView) - 60; // More conservative for better fit
+
+    container.style.width = `${targetWidth}px`;
+    container.style.height = '100%';
+    container.style.display = 'block';
+    container.style.margin = '0 auto'; // Center it
     output.appendChild(container);
+
+    console.log('[GP Init] ========================================');
+    console.log('[GP Init] Window width:', window.innerWidth);
+    console.log('[GP Init] Pages per view:', pagesPerView);
+    console.log('[GP Init] Calculated container width:', targetWidth, 'px');
+    console.log('[GP Init] ========================================');
+
+    // Force a layout before creating AlphaTab API
+    void container.offsetHeight;
 
     try {
         const api = await loadGuitarPro(dataToLoad, container, { debug });
         gpState.canvases = [{ container }];
 
-        api.postRenderFinished.on(() => {
-            // Show continuous mode by default (layout calculated on-demand in page mode)
-            clearOutput(output);
-            output.classList.add('continuous-mode');
-            output.appendChild(container);
-            output.scrollTop = 0;
-        });
+        // Rendering is complete (promise resolved), now set up display
+        // First render in continuous mode (simple, no layout needed)
+        renderGPPage(output, false, continuousModeRadio);
+
+        console.log('[GP Mode Switch] Continuous rendered, switching to page mode...');
+
+        // Then switch to page mode after DOM settles
+        if (targetPageMode) {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    console.log('[GP Mode Switch] Executing switch to page mode');
+                    pageModeRadio.checked = true;
+                    continuousModeRadio.checked = false;
+                    renderGPPage(output, true, continuousModeRadio);
+                    console.log('[GP Mode Switch] Page mode rendered');
+                });
+            });
+        }
     } catch (err) {
         console.error('Error loading Guitar Pro file:', err);
         hideLoadingBar();
@@ -182,6 +218,14 @@ function renderGPPageMode(output) {
     const pageWidth = (window.innerWidth - 40) / pagesPerView;
     const currentDimensions = { pageHeight, pageWidth, pagesPerView };
 
+    console.log('[GP Layout Debug] Calculating dimensions:', {
+        windowWidth: window.innerWidth,
+        pagesPerView,
+        calculatedPageWidth: pageWidth,
+        outputHeight: output.clientHeight,
+        calculatedPageHeight: pageHeight
+    });
+
     // Check if we need to recalculate layout
     const needsRecalc = !gpState.lastLayoutDimensions ||
         gpState.lastLayoutDimensions.pageHeight !== pageHeight ||
@@ -204,10 +248,9 @@ function renderGPPageMode(output) {
         const wrapper = createPageWrapper();
         wrapper.className = 'gp-page-wrapper';
         wrapper.style.width = `${(100 / pagesPerView)}%`;
-        wrapper.style.maxWidth = `${pageWidth}px`;
         wrapper.style.padding = '20px';
         wrapper.style.boxSizing = 'border-box';
-        wrapper.style.overflow = 'hidden';
+        wrapper.style.overflow = 'auto'; // Allow scroll if content is larger
 
         const contentContainer = document.createElement('div');
         contentContainer.className = 'alphaTab-gp-content';
@@ -228,47 +271,22 @@ function renderGPPageMode(output) {
             clone.style.maxWidth = '100%';
             clone.style.overflow = 'visible';
 
-            // Scale SVG to fit within container
+            // Keep SVG at its rendered size, don't scale up
             const svg = clone.querySelector('svg');
             if (svg) {
-                // Get the natural width from viewBox or current width
-                const viewBox = svg.getAttribute('viewBox');
-                let naturalWidth = svg.width.baseVal.value;
-
-                // Only use viewBox if it exists and is valid
-                if (viewBox && viewBox !== 'null' && viewBox.includes(' ')) {
-                    const vbWidth = parseFloat(viewBox.split(' ')[2]);
-                    if (!isNaN(vbWidth) && vbWidth > 0) {
-                        naturalWidth = vbWidth;
-                    }
-                }
-
-                // Calculate scale to fit within page width (minus padding)
-                const availableWidth = pageWidth - 40;
-                const needsScaling = naturalWidth > 0 && naturalWidth > availableWidth;
-
                 // Set viewBox if it doesn't exist - crucial for proper scaling
+                const viewBox = svg.getAttribute('viewBox');
                 if ((!viewBox || viewBox === 'null') && svg.width.baseVal.value > 0) {
                     const originalWidth = svg.width.baseVal.value;
                     const originalHeight = svg.height.baseVal.value;
                     svg.setAttribute('viewBox', `0 0 ${originalWidth} ${originalHeight}`);
                 }
 
-                if (needsScaling) {
-                    // Scale down by setting width and letting SVG handle aspect ratio
-                    const scaledWidth = availableWidth;
-                    svg.setAttribute('width', scaledWidth);
-                    svg.removeAttribute('height'); // Let SVG maintain aspect ratio
-                    svg.style.width = `${scaledWidth}px`;
-                    svg.style.height = 'auto';
-                    svg.style.maxWidth = '100%';
-                } else {
-                    // Content fits, use percentage for responsive scaling
-                    svg.style.width = '100%';
-                    svg.style.height = 'auto';
-                    svg.style.maxWidth = '100%';
-                }
-
+                // Keep the rendered size, don't scale up
+                const renderedWidth = svg.width.baseVal.value;
+                svg.style.width = `${renderedWidth}px`;
+                svg.style.height = 'auto';
+                svg.style.maxWidth = '100%'; // Can scale down if needed
                 svg.style.display = 'block';
             }
 
