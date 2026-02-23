@@ -14,12 +14,9 @@ export function getPagesPerView(isGuitarPro = false) {
         return aspectRatio <= 1.0 ? 1 : 2;
     }
 
-    // For PDF mode: use width-based calculation
-    const minPageWidth = 500; // Minimum comfortable width for a page
-    const bufferFactor = 1.10; // Require 10% extra space before adding another page
-    const availableWidth = window.innerWidth - 40; // Account for margins
-    const possiblePages = Math.floor(availableWidth / (minPageWidth * bufferFactor));
-    return Math.max(1, possiblePages); // At least 1 page, more if they'll fit
+    // For PDF mode: same portrait/landscape detection as Guitar Pro
+    const aspectRatio = window.innerWidth / window.innerHeight;
+    return aspectRatio <= 1.0 ? 1 : 2;
 }
 
 export function switchToContinuous(output, condensedCanvases, onPageChange) {
