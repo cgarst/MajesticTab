@@ -1,4 +1,6 @@
 // gpProcessor.js
+export const GP_DISPLAY_SCALE = 0.75;
+
 export function loadGuitarPro(file, container, { debug = false } = {}) {
     return new Promise((resolve, reject) => {
         if (!container) {
@@ -51,7 +53,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             const api = new alphaTab.AlphaTabApi(container, {
                 core: { file, tracks: guitarTrackIndices, enableLazyLoading: false },
                 player: { enablePlayer: true },
-                display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page, scale: 0.75 },
+                display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE },
                 notation: {
                     rhythmMode: alphaTab.TabRhythmMode.ShowWithBars
                 }

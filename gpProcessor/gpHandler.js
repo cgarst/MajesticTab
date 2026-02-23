@@ -1,5 +1,5 @@
 // gpHandler.js.new
-import { loadGuitarPro } from './gpProcessor.js';
+import { loadGuitarPro, GP_DISPLAY_SCALE } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
@@ -283,6 +283,10 @@ function renderGPPageMode(output) {
             clone.style.marginBottom = '10px';
             clone.style.maxWidth = '100%';
             clone.style.overflow = 'visible';
+
+            // SMuFL music glyphs use % font-sizes that resolve against inherited CSS font-size.
+            // Boost it so glyphs appear at a larger visual size in page mode.
+            clone.style.fontSize = `${(16 / GP_DISPLAY_SCALE * 1.5).toFixed(4)}px`;
 
             // Keep SVG at its rendered size, don't scale up
             const svg = clone.querySelector('svg');
