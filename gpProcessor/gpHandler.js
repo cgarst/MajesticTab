@@ -81,8 +81,10 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
 
     if (pageModeChecked) {
         // Always recalculate pages in page mode to ensure proper sizing
+        const pagesPerView = getPagesPerView(true);
         const pageHeight = output.clientHeight - 20;
-        gpState.pages = layoutGPPages(gpState.canvases[0].container, pageHeight);
+        const pageWidth = (window.innerWidth - 40) / pagesPerView;
+        gpState.pages = layoutGPPages(gpState.canvases[0].container, pageHeight, pageWidth);
         renderGPPageMode(output);
     } else {
         // Make sure the container is detached before reattaching
@@ -104,14 +106,17 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
 
 /**
  * Layout GP pages based on block heights
+ * @param {HTMLElement} container - The alphaTab container
+ * @param {number} pageHeight - Available height for each page
+ * @param {number} pageWidth - Available width for each page (optional, defaults to container width)
  */
-export function layoutGPPages(container, pageHeight) {
+export function layoutGPPages(container, pageHeight, pageWidth = null) {
     // Get all score parts (includes both the div container and its SVG content)
     const blocks = Array.from(container.querySelectorAll("div.at-surface.at > div"));
     const offscreen = document.createElement('div');
     offscreen.style.position = 'absolute';
     offscreen.style.visibility = 'hidden';
-    offscreen.style.width = `${container.clientWidth}px`;
+    offscreen.style.width = `${pageWidth || container.clientWidth}px`;
     offscreen.style.height = `${pageHeight}px`;
     offscreen.style.overflow = 'hidden'; // Prevent any overflow issues during measurement
     document.body.appendChild(offscreen);
@@ -177,6 +182,12 @@ export function layoutGPPages(container, pageHeight) {
 function renderGPPageMode(output) {
     clearOutput(output);
     const pagesPerView = getPagesPerView(true); // true = Guitar Pro mode
+
+    // Recalculate pages with correct width for the number of pages per view
+    const pageHeight = output.clientHeight - 20;
+    const pageWidth = (window.innerWidth - 40) / pagesPerView;
+    gpState.pages = layoutGPPages(gpState.canvases[0].container, pageHeight, pageWidth);
+
     const containerWrapper = createPageContainer();
     containerWrapper.className = 'gp-page-container';
 
