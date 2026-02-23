@@ -11,10 +11,12 @@ export const gpState = {
     currentPageIndex: 0,
     canvases: [],
     pages: [],
+    lastLayoutDimensions: null, // Cache layout dimensions
     reset() {
         this.canvases.length = 0;
         this.pages.length = 0;
         this.currentPageIndex = 0;
+        this.lastLayoutDimensions = null;
     }
 };
 
@@ -54,11 +56,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         gpState.canvases = [{ container }];
 
         api.postRenderFinished.on(() => {
-            // Layout pages
-            const pageHeight = output.clientHeight - 20;
-            gpState.pages = layoutGPPages(container, pageHeight);
-
-            // Show continuous mode by default
+            // Show continuous mode by default (layout calculated on-demand in page mode)
             clearOutput(output);
             output.classList.add('continuous-mode');
             output.appendChild(container);
@@ -80,11 +78,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
     clearOutput(output);
 
     if (pageModeChecked) {
-        // Always recalculate pages in page mode to ensure proper sizing
-        const pagesPerView = getPagesPerView(true);
-        const pageHeight = output.clientHeight - 20;
-        const pageWidth = (window.innerWidth - 40) / pagesPerView;
-        gpState.pages = layoutGPPages(gpState.canvases[0].container, pageHeight, pageWidth);
+        // renderGPPageMode will handle layout calculation with caching
         renderGPPageMode(output);
     } else {
         // Make sure the container is detached before reattaching
@@ -183,10 +177,21 @@ function renderGPPageMode(output) {
     clearOutput(output);
     const pagesPerView = getPagesPerView(true); // true = Guitar Pro mode
 
-    // Recalculate pages with correct width for the number of pages per view
+    // Only recalculate if dimensions changed
     const pageHeight = output.clientHeight - 20;
     const pageWidth = (window.innerWidth - 40) / pagesPerView;
-    gpState.pages = layoutGPPages(gpState.canvases[0].container, pageHeight, pageWidth);
+    const currentDimensions = { pageHeight, pageWidth, pagesPerView };
+
+    // Check if we need to recalculate layout
+    const needsRecalc = !gpState.lastLayoutDimensions ||
+        gpState.lastLayoutDimensions.pageHeight !== pageHeight ||
+        gpState.lastLayoutDimensions.pageWidth !== pageWidth ||
+        gpState.lastLayoutDimensions.pagesPerView !== pagesPerView;
+
+    if (needsRecalc) {
+        gpState.pages = layoutGPPages(gpState.canvases[0].container, pageHeight, pageWidth);
+        gpState.lastLayoutDimensions = currentDimensions;
+    }
 
     const containerWrapper = createPageContainer();
     containerWrapper.className = 'gp-page-container';
