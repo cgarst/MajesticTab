@@ -230,8 +230,8 @@ g.at text {
 }
 
 .gp-page-wrapper {
+    position: relative;
     flex: 1;
-    height: auto;
     display: flex;
     flex-direction: column;
     justify-content: center;
