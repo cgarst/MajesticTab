@@ -57,7 +57,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
             // Layout pages
             const pageHeight = output.clientHeight - 20;
             gpState.pages = layoutGPPages(container, pageHeight);
-            
+
             // Show continuous mode by default
             clearOutput(output);
             output.classList.add('continuous-mode');
@@ -243,17 +243,6 @@ function renderGPPageMode(output) {
                 const availableWidth = pageWidth - 40;
                 const scale = (naturalWidth > 0 && naturalWidth > availableWidth) ? availableWidth / naturalWidth : 1;
 
-                // DEBUG LOGGING
-                console.log(`[GP Page Debug] Block ${idx}:`, {
-                    pageWidth,
-                    availableWidth,
-                    naturalWidth,
-                    viewBox,
-                    svgWidth: svg.width.baseVal.value,
-                    svgHeight: svg.height.baseVal.value,
-                    calculatedScale: scale
-                });
-
                 // Apply scaling by setting explicit dimensions
                 if (scale < 1) {
                     const scaledWidth = naturalWidth * scale;
@@ -264,7 +253,6 @@ function renderGPPageMode(output) {
                         const originalWidth = svg.width.baseVal.value;
                         const originalHeight = svg.height.baseVal.value;
                         svg.setAttribute('viewBox', `0 0 ${originalWidth} ${originalHeight}`);
-                        console.log(`[GP Page Debug] Set viewBox: 0 0 ${originalWidth} ${originalHeight}`);
                     }
 
                     svg.setAttribute('width', scaledWidth);
@@ -273,12 +261,9 @@ function renderGPPageMode(output) {
                     svg.style.height = `${scaledHeight}px`;
                     clone.style.width = `${scaledWidth}px`;
                     clone.style.height = `${scaledHeight}px`;
-
-                    console.log(`[GP Page Debug] Applied scale ${scale} to block ${idx}, dimensions: ${scaledWidth}x${scaledHeight}`);
                 } else {
                     svg.style.width = '100%';
                     svg.style.height = 'auto';
-                    console.log(`[GP Page Debug] Using 100% width for block ${idx}`);
                 }
 
                 svg.style.display = 'block';
