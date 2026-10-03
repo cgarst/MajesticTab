@@ -16,27 +16,72 @@
 
 <!-- Top Bar -->
 <nav id="topBar" class="navbar px-3">
-  <div class="d-flex align-items-center">
+  <div class="d-flex align-items-center" id="brandSection">
     <button class="btn btn-outline-primary me-2" type="button" data-bs-toggle="offcanvas" data-bs-target="#fileMenu" aria-controls="fileMenu">
       ☰
     </button>
     <span class="navbar-brand mb-0 h1" id="brand-text">MajesticTab</span>
   </div>
 
-  <div id="modeButtons" class="btn-group mx-auto" role="group" aria-label="Display Mode" style="display:none;">
+  <div id="modeButtons" class="btn-group" role="group" aria-label="Display Mode" style="display:none;">
     <input type="radio" class="btn-check" name="modeRadio" id="pageModeRadio" autocomplete="off" tabindex="-1" checked>
     <label class="btn btn-outline-primary btn-sm" for="pageModeRadio" tabindex="-1"><i class="bi-book"></i></label>
     <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off" tabindex="-1">
     <label class="btn btn-outline-primary btn-sm" for="continuousModeRadio" tabindex="-1"><i class="bi-arrow-down-up"></i></label>
   </div>
 
-  <div id="navButtons" class="ms-auto" style="display:none;">
+  <div id="ytContainer" class="d-flex align-items-center justify-content-center" style="display:none;">
+    <div id="ytMiniPill" class="btn-group" role="group" aria-label="YouTube Player">
+      <button class="btn btn-outline-danger btn-sm" id="ytToggleBtn" title="Toggle YouTube Player">
+        <i class="bi-youtube"></i> <span id="ytPillLabel" class="d-none d-sm-inline ms-1">Original</span> <i class="bi-chevron-down ms-1" id="ytPillChevron"></i>
+      </button>
+    </div>
+  </div>
+
+  <div id="navButtons" class="d-flex align-items-center justify-content-end" style="display:none;">
     <button class="btn btn-primary btn-sm" id="firstPage" title="Back to First Page"><i class="bi-chevron-double-left"></i></button>
     <button class="btn btn-primary btn-sm" id="prevPage"><i class="bi-arrow-left"></i></button>
     <span id="pageIndicator"></span>
     <button class="btn btn-primary btn-sm" id="nextPage"><i class="bi-arrow-right"></i></button>
   </div>
 </nav>
+
+<!-- Collapsible YouTube Panel (Anchored below Top Bar Button) -->
+<div id="ytDropdownPanel" class="yt-panel shadow" style="display:none;">
+  <div class="yt-panel-header d-flex justify-content-between align-items-center px-3 py-2">
+    <div class="d-flex align-items-center text-truncate me-2">
+      <i class="bi-youtube text-danger me-2"></i>
+      <span class="yt-panel-title text-truncate fw-semibold" id="ytPanelTitle">YouTube Audio</span>
+    </div>
+    <button class="btn btn-sm btn-link text-decoration-none p-0 text-reset" id="ytPanelCloseBtn" title="Collapse">
+      <i class="bi-chevron-up fs-6"></i>
+    </button>
+  </div>
+  <div class="yt-panel-body p-2">
+    <div class="btn-group btn-group-sm w-100 mb-2" role="group" aria-label="Track Mode">
+      <input type="radio" class="btn-check" name="ytTrackMode" id="ytTrackOriginal" value="original" autocomplete="off" checked>
+      <label class="btn btn-outline-danger btn-sm" for="ytTrackOriginal">Original Song</label>
+      <input type="radio" class="btn-check" name="ytTrackMode" id="ytTrackBacking" value="backing" autocomplete="off">
+      <label class="btn btn-outline-danger btn-sm" for="ytTrackBacking">Backing Track</label>
+    </div>
+    <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-2">
+      <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      <div id="ytPlaceholderPrompt" class="d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
+        <i class="bi-youtube text-danger fs-1 mb-1"></i>
+        <div class="small fw-semibold mb-2" id="ytPromptTitle">Find Video on YouTube</div>
+        <a class="btn btn-danger btn-sm mb-2" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer">
+          <i class="bi-search me-1"></i> Search on YouTube <i class="bi-box-arrow-up-right ms-1"></i>
+        </a>
+        <div class="text-muted" style="font-size: 0.75rem;">Paste YouTube link below to play</div>
+      </div>
+    </div>
+    <div class="input-group input-group-sm">
+      <input type="text" id="ytSearchInput" class="form-control" placeholder="Paste YouTube link or video ID...">
+      <button class="btn btn-outline-danger" id="ytSearchBtn" type="button" title="Load Video"><i class="bi-play-fill"></i> Play</button>
+      <a class="btn btn-outline-secondary" id="ytExternalLink" href="#" target="_blank" title="Open search in YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right"></i></a>
+    </div>
+  </div>
+</div>
 
 <div class="offcanvas offcanvas-start" tabindex="-1" id="fileMenu" aria-labelledby="fileMenuLabel">
   <div class="offcanvas-header">
@@ -77,6 +122,10 @@
         <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
         <label class="btn btn-outline-primary btn-sm" for="pageAdvance2">2 Pages</label>
       </div>
+    </div>
+    <div class="mt-2">
+      <label class="form-label d-block mb-1">YouTube Data API Key (Optional):</label>
+      <input type="password" class="form-control form-control-sm" id="ytApiKeyInput" placeholder="Auto-fetches tracks if provided">
     </div>
     <div class="form-check form-switch mt-2">
       <input class="form-check-input" type="checkbox" id="condensePdfMode">
