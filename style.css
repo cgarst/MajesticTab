@@ -122,9 +122,8 @@ body.dark-mode {
 }
 
 #modeButtons {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
 }
 
 #navButtons {
@@ -333,8 +332,27 @@ body.dark-mode #output svg ellipse {
 }
 
 @media (max-width: 576px) {
+    #centerSection {
+        position: static;
+        top: auto;
+        left: auto;
+        transform: none;
+        pointer-events: auto;
+        margin-left: 0.25rem;
+    }
+
     #rightSection {
         width: auto;
+        gap: 0.25rem;
+    }
+
+    #ytContainer {
+        margin-left: auto;
+        margin-right: 0;
+    }
+
+    #navButtons {
+        margin-left: 0;
     }
 }
 
@@ -677,12 +695,7 @@ body.dark-mode .chord-lyric-segment span[style*="color: rgb(44, 82, 130)"] {
     flex-wrap: nowrap !important;  /* prevent wrapping */
     justify-content: flex-start;   /* align items to left */
   }
-  
-  #modeButtons {
-      position: relative;
-      left: 5%;
-      transform: translateX(-5%);
-  }
+
 
   /* Page containers: single column, full width */
   .pageContainer {
