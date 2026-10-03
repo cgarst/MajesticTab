@@ -7,41 +7,27 @@
 
 import { loadFile, hideFileMenu } from './main.js';
 
+const CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
+const APP_ID = '1059497343032';
+const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const STORAGE_KEY = 'gdrive_auth';
 let token = null;
 
-async function handleTokenResponse(tokenData) {
-    //console.log('[DEBUG] Handling token response:', { ...tokenData, token: 'REDACTED' });
-    
-    // Handle picker auth response format where token is in tokenData.token
-    const accessToken = tokenData.token || tokenData.access_token;
-    
-    // Store the access token and its expiration
-    const authData = {
-        access_token: accessToken,
-        expiry_date: Date.now() + ((tokenData.expires || 3600) * 1000)
-    };
-
-    token = authData.access_token;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
-}
-
-async function isTokenValid() {
+function isTokenValid() {
     try {
         const storedAuth = localStorage.getItem(STORAGE_KEY);
         if (!storedAuth) return false;
 
         const authData = JSON.parse(storedAuth);
         
-        // Check if we have a token and it hasn't expired
-        if (authData.access_token && authData.expiry_date && Date.now() < authData.expiry_date) {
+        // Check if token exists and has not expired (with 60s buffer)
+        if (authData.access_token && authData.expiry_date && Date.now() < (authData.expiry_date - 60000)) {
             token = authData.access_token;
             return true;
         }
 
         return false;
     } catch (err) {
-        //console.error('[DEBUG] Error validating token:', err);
         return false;
     }
 }
@@ -51,22 +37,103 @@ function clearStoredToken() {
     token = null;
 }
 
-export async function fetchPickedFile(event) {
-    //console.log('[DEBUG] fetchPickedFile called', event);
+function getRedirectUri() {
+    return window.location.origin + window.location.pathname;
+}
 
+function redirectToGoogleAuth() {
+    const redirectUri = getRedirectUri();
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${encodeURIComponent(CLIENT_ID)}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&response_type=token` +
+        `&scope=${encodeURIComponent(SCOPE)}` +
+        `&include_granted_scopes=true` +
+        `&state=open_picker`;
+    
+    window.location.href = authUrl;
+}
+
+function launchPickerModal() {
+    const container = document.getElementById('drivePickerContainer');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const picker = document.createElement('drive-picker');
+    picker.setAttribute('client-id', CLIENT_ID);
+    picker.setAttribute('app-id', APP_ID);
+    picker.setAttribute('scope', SCOPE);
+    picker.setAttribute('max-items', '1');
+
+    if (token) {
+        picker.setAttribute('access-token', token);
+    }
+
+    // View 1: My Drive Root folder directory browsing
+    const rootDocsView = document.createElement('drive-picker-docs-view');
+    rootDocsView.setAttribute('parent', 'root');
+    rootDocsView.setAttribute('mode', 'LIST');
+    rootDocsView.setAttribute('include-folders', 'true');
+    rootDocsView.setAttribute('enable-drives', 'true');
+    picker.appendChild(rootDocsView);
+
+    // View 2: All / Recent files
+    const allDocsView = document.createElement('drive-picker-docs-view');
+    allDocsView.setAttribute('mode', 'LIST');
+    allDocsView.setAttribute('include-folders', 'true');
+    allDocsView.setAttribute('enable-drives', 'true');
+    picker.appendChild(allDocsView);
+
+    container.appendChild(picker);
+
+    // Listen for file selection
+    picker.addEventListener('picker:picked', async (e) => {
+        const file = await fetchPickedFile(e);
+        if (!file) return;
+        await loadFile(file);
+    });
+}
+
+function handleAuthRedirect() {
+    if (!window.location.hash) return false;
+
+    const hash = window.location.hash.substring(1);
+    const params = new URLSearchParams(hash);
+    const accessToken = params.get('access_token');
+    const expiresIn = params.get('expires_in');
+    const state = params.get('state');
+
+    if (accessToken) {
+        const authData = {
+            access_token: accessToken,
+            expiry_date: Date.now() + ((parseInt(expiresIn, 10) || 3600) * 1000)
+        };
+        token = authData.access_token;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
+
+        // Clean up hash from URL bar without reloading
+        const cleanUrl = window.location.pathname + window.location.search;
+        window.history.replaceState(null, '', cleanUrl);
+
+        if (state === 'open_picker') {
+            launchPickerModal();
+        }
+        return true;
+    }
+    return false;
+}
+
+export async function fetchPickedFile(event) {
     const { docs } = event.detail;
     if (!docs || docs.length === 0) {
-        //console.warn('[DEBUG] No doc selected');
         return null;
     }
 
     if (!token) {
-        //console.error('[DEBUG] No token available, cannot fetch file');
         return null;
     }
 
     const doc = docs[0];
-    //console.log('[DEBUG] Selected doc:', doc);
 
     try {
         const res = await fetch(
@@ -74,23 +141,15 @@ export async function fetchPickedFile(event) {
             { headers: { Authorization: `Bearer ${token}` } }
         );
 
-        //console.log('[DEBUG] Fetch response', res);
-
         if (!res.ok) {
             if (res.status === 401) {
-                // Token is invalid or expired
                 clearStoredToken();
             }
-            //console.error('[DEBUG] Fetch failed', res.status, res.statusText);
             return null;
         }
 
         const blob = await res.blob();
-        //console.log('[DEBUG] Blob created', blob);
-
         const file = new File([blob], doc.name, { type: doc.mimeType || 'application/octet-stream' });
-        //console.log('[DEBUG] File object created', file);
-
         return file;
     } catch (err) {
         console.error('[DEBUG] Error fetching file', err);
@@ -98,60 +157,20 @@ export async function fetchPickedFile(event) {
     }
 }
 
-export async function setupDrivePicker() {
+export function setupDrivePicker() {
     const loadBtn = document.getElementById('loadFromDriveBtn');
-
-    loadBtn.addEventListener('click', async () => {
-        hideFileMenu();
-        const container = document.getElementById('drivePickerContainer');
-        container.innerHTML = '';
-
-        // Check if we have valid auth before creating the picker
-        const tokenValid = await isTokenValid();
-        //if (!tokenValid) {
-            //console.log('[DEBUG] No valid token, will need to authenticate');
-        //}
-
-        const picker = document.createElement('drive-picker');
-        picker.setAttribute('client-id', '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com');
-        picker.setAttribute('app-id', '1059497343032');
-        picker.setAttribute('scope', 'https://www.googleapis.com/auth/drive.readonly');
-        picker.setAttribute('max-items', '1');
-
-        if (token) {
-            // If we have a valid token, provide it to the picker
-            picker.setAttribute('access-token', token);
-        } else {
-            // Only set up auth listener if we need to authenticate
-            picker.addEventListener('picker:authenticated', async (e) => {
-                //console.log('[DEBUG] picker:authenticated fired', e.detail);
-                await handleTokenResponse(e.detail);
-            });
-        }
-
-        // View 1: My Drive Root folder directory browsing
-        const rootDocsView = document.createElement('drive-picker-docs-view');
-        rootDocsView.setAttribute('parent', 'root');
-        rootDocsView.setAttribute('mode', 'LIST');
-        rootDocsView.setAttribute('include-folders', 'true');
-        rootDocsView.setAttribute('enable-drives', 'true');
-        picker.appendChild(rootDocsView);
-
-        // View 2: All / Recent files
-        const allDocsView = document.createElement('drive-picker-docs-view');
-        allDocsView.setAttribute('mode', 'LIST');
-        allDocsView.setAttribute('include-folders', 'true');
-        allDocsView.setAttribute('enable-drives', 'true');
-        picker.appendChild(allDocsView);
-
-        container.appendChild(picker);
-
-        // Listen for file selection
-        picker.addEventListener('picker:picked', async (e) => {
-            //console.log('[DEBUG] picker:picked fired');
-            const file = await fetchPickedFile(e);
-            if (!file) return;
-            await loadFile(file);
+    if (loadBtn) {
+        loadBtn.addEventListener('click', () => {
+            hideFileMenu();
+            if (!isTokenValid()) {
+                redirectToGoogleAuth();
+            } else {
+                launchPickerModal();
+            }
         });
-    });
+    }
+
+    // Check if returning from Google OAuth redirect
+    handleAuthRedirect();
 }
+
