@@ -4,7 +4,7 @@ MajesticTab transforms PDF and Guitar Pro guitar tablature into an immersive, di
 
 It is built to dynamically optimize multi-track views to be intelligently displayed based on available content. This reduces the number of pages that guitarists need to flip through while using multitrack tab. Tabs with multiple rhythm and lead tracks will generate a fraction of the page counts when rest staves are removed.
 
-➡️ [Try MajesticTab here](https://cgarst.github.io/MajesticTab/).
+➡️ [Try MajesticTab here](https://cgarst.github.io/MajesticTab/app/).
 
 ---
 
@@ -49,7 +49,7 @@ It is built to dynamically optimize multi-track views to be intelligently displa
 
 ### Run via GitHub Pages
 
-The application is entire client based. No files are transmitted to the developer or GitHub. It is hosted through GitHub pages at: [https://cgarst.github.io/MajesticTab/](https://cgarst.github.io/MajesticTab/)
+The application is entire client based. No files are transmitted to the developer or GitHub. It is hosted through GitHub pages at: [https://cgarst.github.io/MajesticTab/](https://cgarst.github.io/MajesticTab/app/)
 
 ### Run Locally
 
@@ -60,7 +60,7 @@ cd MajesticTab
 python -m http.server
 ````
 
-Open `http://localhost:8080` in your browser.
+Open `http://localhost:8080/` for the landing page or `http://localhost:8080/app/` for the app.
 
 ---
 
@@ -78,7 +78,7 @@ Open `http://localhost:8080` in your browser.
 
 3. **Navigation**
 
-   * In Page Mode, use Prev/Next buttons, tap/click, arrow keys, space/enter keys, or page up/down keys.
+   * In Page Mode, use Prev/Next buttons, tap/click, arrow keys or page up/down keys (Space plays/pauses audio).
    * In Continuous Mode, scroll, or use the buttons as page mode.
 
 4. **Export**
@@ -122,10 +122,10 @@ MajesticTab works best with multitrack tab-only PDFs exported from Guitar Pro. T
 
 ### File Structure
 
-* `main.js` → Handles UI, navigation, modes
-* `pdfProcessor/` → Core logic for PDF rendering, staff detection, and trimming
-* `exportPdf.js` → Export to PDF
-* `googleDrive.js` → Google Drive integration
+* `app/main.js` → Handles UI, navigation, modes
+* `app/pdfProcessor/` → Core logic for PDF rendering, staff detection, and trimming
+* `app/exportPdf.js` → Export to PDF
+* `app/googleDrive.js` → Google Drive integration
 
 ### Install Dependencies
 
