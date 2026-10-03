@@ -398,7 +398,14 @@ export async function loadFile(file) {
     output.focus();
     
     // Apply default view mode based on file type preference
-    if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
+    const modeParam = new URLSearchParams(window.location.search).get('mode');
+    if (modeParam === 'page') {
+        pageModeRadio.checked = true;
+        continuousModeRadio.checked = false;
+    } else if (modeParam === 'continuous' || modeParam === 'scroll') {
+        continuousModeRadio.checked = true;
+        pageModeRadio.checked = false;
+    } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
         const gpDefault = localStorage.getItem('gpDefaultView') || 'continuous';
         if (gpDefault === 'continuous') {
             continuousModeRadio.checked = true;
