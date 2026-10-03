@@ -1,6 +1,8 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
-import { pauseSynthPlayer, clearSynthHighlights } from './gpProcessor/gpPlayer.js';
+import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel } from './gpProcessor/gpPlayer.js';
+
+let activeSearchController = null;
 
 let playerState = {
     isOpen: false,
@@ -12,7 +14,8 @@ let playerState = {
     currentVideoId: null,
     currentTime: 0,
     isPlaying: false,
-    hasStarted: false
+    hasStarted: false,
+    isSearching: false
 };
 
 /**
@@ -182,17 +185,22 @@ const PUBLIC_MIRRORS = [
 /**
  * Attempt to search public mirrors concurrently for a matching video ID
  */
-async function fetchMultiMirrorSearch(query) {
+async function fetchMultiMirrorSearch(query, parentSignal = null) {
     const fetchFromMirror = async (mirror) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        const timeoutController = new AbortController();
+        const timeoutId = setTimeout(() => timeoutController.abort(), 3500);
+
+        if (parentSignal) {
+            parentSignal.addEventListener('abort', () => timeoutController.abort(), { once: true });
+        }
+
         try {
             const endpoint = mirror.type === 'invidious'
                 ? `${mirror.url}/api/v1/search?q=${encodeURIComponent(query)}&type=video`
                 : `${mirror.url}/search?q=${encodeURIComponent(query)}&filter=videos`;
 
             const res = await fetch(endpoint, {
-                signal: controller.signal,
+                signal: timeoutController.signal,
                 headers: { 'Accept': 'application/json' }
             });
             clearTimeout(timeoutId);
@@ -224,22 +232,56 @@ async function fetchMultiMirrorSearch(query) {
 /**
  * Search YouTube Data API v3 if API key is configured in settings
  */
-async function fetchYouTubeApiKeySearch(query) {
+async function fetchYouTubeApiKeySearch(query, parentSignal = null) {
     const apiKey = localStorage.getItem('youtubeApiKey');
     if (!apiKey) return null;
 
     try {
         const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=1&q=${encodeURIComponent(query)}&key=${encodeURIComponent(apiKey)}`;
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: parentSignal });
         if (!res.ok) return null;
         const data = await res.json();
         if (data.items && data.items.length > 0) {
             return data.items[0].id?.videoId || null;
         }
     } catch (e) {
-        console.warn('[YouTube API Search Error]', e);
+        if (e.name !== 'AbortError') {
+            console.warn('[YouTube API Search Error]', e);
+        }
     }
     return null;
+}
+
+/**
+ * Cancel an ongoing automated search
+ */
+export function cancelYouTubeSearch() {
+    if (activeSearchController) {
+        activeSearchController.abort();
+        activeSearchController = null;
+    }
+    playerState.isSearching = false;
+
+    const iframe = document.getElementById('ytIframe');
+    const prompt = document.getElementById('ytPlaceholderPrompt');
+    const loadingIndicator = document.getElementById('ytLoadingIndicator');
+    const searchInput = document.getElementById('ytSearchInput');
+
+    if (loadingIndicator) loadingIndicator.style.setProperty('display', 'none', 'important');
+    if (iframe) {
+        iframe.src = '';
+        iframe.style.display = 'none';
+        delete iframe.dataset.loaded;
+    }
+    if (prompt) {
+        prompt.style.setProperty('display', 'flex', 'important');
+    }
+    if (searchInput) {
+        searchInput.value = '';
+        searchInput.placeholder = 'Paste YouTube link or video ID...';
+    }
+
+    updatePanelTitle();
 }
 
 /**
@@ -248,21 +290,58 @@ async function fetchYouTubeApiKeySearch(query) {
 async function loadCurrentTrack(autoplay = false) {
     const iframe = document.getElementById('ytIframe');
     const prompt = document.getElementById('ytPlaceholderPrompt');
+    const loadingIndicator = document.getElementById('ytLoadingIndicator');
+    const loadingQueryText = document.getElementById('ytLoadingQueryText');
     const searchInput = document.getElementById('ytSearchInput');
 
     // 1. Check if user already saved a video ID for this song & mode
     const storedId = localStorage.getItem(getStorageKey());
     let videoId = storedId || playerState.currentVideoId;
 
-    // 2. If no ID, attempt YouTube Data API search if key is provided
+    // 2. If no ID, attempt search with visible loading indicator and cancel capability
     if (!videoId) {
-        const query = buildQuery();
-        videoId = await fetchYouTubeApiKeySearch(query);
-        
-        // 3. If still no ID, attempt multi-mirror public search
-        if (!videoId) {
-            videoId = await fetchMultiMirrorSearch(query);
+        if (activeSearchController) {
+            activeSearchController.abort();
+            activeSearchController = null;
         }
+
+        const query = buildQuery();
+        playerState.isSearching = true;
+
+        if (iframe) {
+            iframe.src = '';
+            iframe.style.display = 'none';
+            delete iframe.dataset.loaded;
+        }
+        if (prompt) prompt.style.setProperty('display', 'none', 'important');
+        if (loadingIndicator) {
+            loadingIndicator.style.setProperty('display', 'flex', 'important');
+            if (loadingQueryText) {
+                loadingQueryText.textContent = `"${query}"`;
+            }
+        }
+
+        activeSearchController = new AbortController();
+        const signal = activeSearchController.signal;
+
+        try {
+            // Check YouTube Data API if key provided
+            videoId = await fetchYouTubeApiKeySearch(query, signal);
+
+            // If still no ID, attempt public mirrors search
+            if (!videoId && !signal.aborted) {
+                videoId = await fetchMultiMirrorSearch(query, signal);
+            }
+        } catch (e) {
+            // Handled
+        }
+
+        if (signal.aborted) {
+            return;
+        }
+
+        activeSearchController = null;
+        playerState.isSearching = false;
 
         if (videoId) {
             localStorage.setItem(getStorageKey(), videoId);
@@ -271,6 +350,8 @@ async function loadCurrentTrack(autoplay = false) {
 
     playerState.currentVideoId = videoId;
     updatePanelTitle();
+
+    if (loadingIndicator) loadingIndicator.style.setProperty('display', 'none', 'important');
 
     if (videoId) {
         // We have a valid video ID -> show iframe
@@ -351,12 +432,15 @@ export function toggleYouTubePanel(forceState = null) {
     playerState.isOpen = newState;
 
     if (newState) {
+        // Ensure Synth / SoundFont panel is closed when opening YouTube panel
+        toggleSynthPanel(false);
+
         if (toggleBtn) {
             const rect = toggleBtn.getBoundingClientRect();
             panel.style.position = 'fixed';
             panel.style.top = `${rect.bottom + 8}px`;
             const centerX = rect.left + rect.width / 2;
-            const halfPanelWidth = Math.min(180, (window.innerWidth - 24) / 2);
+            const halfPanelWidth = Math.min(190, (window.innerWidth - 24) / 2);
             const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
             panel.style.left = `${clampedLeft}px`;
             panel.style.transform = 'translateX(-50%)';
@@ -367,9 +451,9 @@ export function toggleYouTubePanel(forceState = null) {
         }
         toggleBtn?.classList.add('active');
 
-        // Load track if not yet loaded
+        // Load track if not yet loaded or searching
         const iframe = document.getElementById('ytIframe');
-        if (!iframe?.dataset.loaded && !playerState.currentVideoId) {
+        if (!iframe?.dataset.loaded && !playerState.currentVideoId && !playerState.isSearching) {
             loadCurrentTrack(false);
         }
     } else {
@@ -414,6 +498,10 @@ function updatePlaybackControls() {
  * Called when a new file or score metadata is loaded in the app
  */
 export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArtist = '' } = {}) {
+    if (activeSearchController) {
+        activeSearchController.abort();
+        activeSearchController = null;
+    }
     const { artist, title } = parseSongInfo(filename, scoreTitle, scoreArtist);
 
     playerState.artist = artist;
@@ -424,6 +512,7 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     playerState.currentTime = 0;
     playerState.isPlaying = false;
     playerState.hasStarted = false;
+    playerState.isSearching = false;
 
     updatePlaybackControls();
 
@@ -440,10 +529,16 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     }
     playerState.trackMode = 'original';
 
-    // Reset iframe dataset.loaded
+    // Reset iframe dataset.loaded and loading indicator
     const iframe = document.getElementById('ytIframe');
     if (iframe) {
+        iframe.src = '';
+        iframe.style.display = 'none';
         delete iframe.dataset.loaded;
+    }
+    const loadingIndicator = document.getElementById('ytLoadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.setProperty('display', 'none', 'important');
     }
 
     updatePanelTitle();
@@ -460,6 +555,7 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
 export function initYouTubePlayer() {
     const toggleBtn = document.getElementById('ytToggleBtn');
     const closeBtn = document.getElementById('ytPanelCloseBtn');
+    const cancelSearchBtn = document.getElementById('ytCancelSearchBtn');
     const originalRadio = document.getElementById('ytTrackOriginal');
     const backingRadio = document.getElementById('ytTrackBacking');
     const searchBtn = document.getElementById('ytSearchBtn');
@@ -492,6 +588,12 @@ export function initYouTubePlayer() {
     closeBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleYouTubePanel(false);
+    });
+
+    // Cancel search button in loading state
+    cancelSearchBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cancelYouTubeSearch();
     });
 
     // Rewind 10 seconds button
@@ -539,6 +641,9 @@ export function initYouTubePlayer() {
     // Track Mode Selector (Original vs Backing)
     originalRadio?.addEventListener('change', () => {
         if (originalRadio.checked) {
+            if (playerState.isSearching) {
+                cancelYouTubeSearch();
+            }
             playerState.trackMode = 'original';
             playerState.currentVideoId = null;
             loadCurrentTrack(true);
@@ -547,6 +652,9 @@ export function initYouTubePlayer() {
 
     backingRadio?.addEventListener('change', () => {
         if (backingRadio.checked) {
+            if (playerState.isSearching) {
+                cancelYouTubeSearch();
+            }
             playerState.trackMode = 'backing';
             playerState.currentVideoId = null;
             loadCurrentTrack(true);
@@ -557,6 +665,10 @@ export function initYouTubePlayer() {
     const handleInput = () => {
         const text = (searchInput?.value || '').trim();
         if (!text) return;
+
+        if (playerState.isSearching) {
+            cancelYouTubeSearch();
+        }
 
         const videoId = extractVideoId(text);
         if (videoId) {
