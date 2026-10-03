@@ -20,12 +20,16 @@ let playerState = {
  */
 export function pauseYouTube() {
     const iframe = document.getElementById('ytIframe');
-    if (iframe?.contentWindow && playerState.hasStarted && playerState.isPlaying) {
-        iframe.contentWindow.postMessage(JSON.stringify({
-            event: 'command',
-            func: 'pauseVideo',
-            args: []
-        }), '*');
+    if (iframe?.contentWindow) {
+        try {
+            iframe.contentWindow.postMessage(JSON.stringify({
+                event: 'command',
+                func: 'pauseVideo',
+                args: []
+            }), '*');
+        } catch (e) {}
+    }
+    if (playerState.isPlaying) {
         playerState.isPlaying = false;
         updatePlaybackControls();
     }
