@@ -458,10 +458,9 @@ function resetView() {
     output.scrollTop = 0;
     pageIndicator.textContent = '';
     
-    // Hide navigation controls and synth player by default
+    // Hide navigation controls and mode buttons by default
     navButtons.style.display = 'none';
     modeButtons.style.display = 'none';
-    hideSynthPlayer();
 }
 
 // --- PAGE LAYOUT AND RENDERING ---
