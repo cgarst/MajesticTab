@@ -10,7 +10,8 @@ let playerState = {
     customQuery: '',
     currentVideoId: null,
     currentTime: 0,
-    isPlaying: false
+    isPlaying: false,
+    hasStarted: false
 };
 
 /**
@@ -233,7 +234,6 @@ async function loadCurrentTrack(autoplay = false) {
  */
 function updatePanelTitle() {
     const titleEl = document.getElementById('ytPanelTitle');
-    const pillLabel = document.getElementById('ytPillLabel');
     const promptTitle = document.getElementById('ytPromptTitle');
     const searchExternalBtn = document.getElementById('ytSearchExternalBtn');
     const externalLink = document.getElementById('ytExternalLink');
@@ -245,10 +245,6 @@ function updatePanelTitle() {
 
     if (titleEl) {
         titleEl.textContent = `${songLabel} (${modeLabel})`;
-    }
-
-    if (pillLabel) {
-        pillLabel.textContent = modeLabel;
     }
 
     if (promptTitle) {
@@ -313,6 +309,35 @@ export function toggleYouTubePanel(forceState = null) {
 }
 
 /**
+ * Update visibility and icons of playback buttons in top bar
+ */
+function updatePlaybackControls() {
+    const rewindBtn = document.getElementById('ytRewindBtn');
+    const playPauseBtn = document.getElementById('ytPlayPauseBtn');
+    const playPauseIcon = document.getElementById('ytPlayPauseIcon');
+
+    if (!rewindBtn || !playPauseBtn || !playPauseIcon) return;
+
+    if (playerState.hasStarted) {
+        rewindBtn.style.display = 'inline-flex';
+        playPauseBtn.style.display = 'inline-flex';
+
+        if (playerState.isPlaying) {
+            playPauseIcon.className = 'bi-pause-fill';
+            playPauseBtn.title = 'Pause';
+        } else {
+            playPauseIcon.className = 'bi-play-fill';
+            playPauseBtn.title = 'Play';
+        }
+    } else {
+        rewindBtn.style.display = 'none';
+        playPauseBtn.style.display = 'none';
+        playPauseIcon.className = 'bi-play-fill';
+        playPauseBtn.title = 'Play';
+    }
+}
+
+/**
  * Called when a new file or score metadata is loaded in the app
  */
 export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArtist = '' } = {}) {
@@ -324,6 +349,10 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     playerState.customQuery = '';
     playerState.currentVideoId = null;
     playerState.currentTime = 0;
+    playerState.isPlaying = false;
+    playerState.hasStarted = false;
+
+    updatePlaybackControls();
 
     // Show container in top bar
     const container = document.getElementById('ytContainer');
@@ -377,6 +406,9 @@ export function initYouTubePlayer() {
         });
     }
 
+    const rewindBtn = document.getElementById('ytRewindBtn');
+    const playPauseBtn = document.getElementById('ytPlayPauseBtn');
+
     // Toggle button in top bar
     toggleBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -387,6 +419,46 @@ export function initYouTubePlayer() {
     closeBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleYouTubePanel(false);
+    });
+
+    // Rewind 10 seconds button
+    rewindBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const iframe = document.getElementById('ytIframe');
+        if (!iframe || !iframe.contentWindow) return;
+
+        const targetTime = Math.max(0, (playerState.currentTime || 0) - 10);
+        playerState.currentTime = targetTime;
+        iframe.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'seekTo',
+            args: [targetTime, true]
+        }), '*');
+    });
+
+    // Play / Pause button
+    playPauseBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const iframe = document.getElementById('ytIframe');
+        if (!iframe || !iframe.contentWindow) return;
+
+        if (playerState.isPlaying) {
+            iframe.contentWindow.postMessage(JSON.stringify({
+                event: 'command',
+                func: 'pauseVideo',
+                args: []
+            }), '*');
+            playerState.isPlaying = false;
+        } else {
+            iframe.contentWindow.postMessage(JSON.stringify({
+                event: 'command',
+                func: 'playVideo',
+                args: []
+            }), '*');
+            playerState.isPlaying = true;
+            playerState.hasStarted = true;
+        }
+        updatePlaybackControls();
     });
 
     // Track Mode Selector (Original vs Backing)
@@ -447,14 +519,32 @@ export function initYouTubePlayer() {
             }
             if (!data || typeof data !== 'object') return;
 
+            let stateChanged = false;
+
             // YouTube iframe API sends infoDelivery messages with currentTime & playerState
             if (data.event === 'infoDelivery' && data.info) {
                 if (typeof data.info.currentTime === 'number') {
                     playerState.currentTime = data.info.currentTime;
                 }
                 if (typeof data.info.playerState === 'number') {
-                    playerState.isPlaying = (data.info.playerState === 1);
+                    const playing = (data.info.playerState === 1);
+                    if (playing) playerState.hasStarted = true;
+                    if (playerState.isPlaying !== playing) {
+                        playerState.isPlaying = playing;
+                        stateChanged = true;
+                    }
                 }
+            } else if (data.event === 'onStateChange' && typeof data.info === 'number') {
+                const playing = (data.info === 1);
+                if (playing) playerState.hasStarted = true;
+                if (playerState.isPlaying !== playing) {
+                    playerState.isPlaying = playing;
+                    stateChanged = true;
+                }
+            }
+
+            if (stateChanged) {
+                updatePlaybackControls();
             }
         } catch (e) {
             // Ignore non-JSON messages from other sources
@@ -469,15 +559,20 @@ export function initYouTubePlayer() {
                     event: 'listening',
                     id: 1
                 }), '*');
+                iframe.contentWindow?.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'addEventListener',
+                    args: ['onStateChange']
+                }), '*');
             } catch (e) {
                 // Ignore cross-origin error if any
             }
         });
     }
 
-    // Periodically send listening event to iframe while panel is open to ensure continuous time updates
+    // Periodically send listening event to iframe to ensure continuous time & state updates
     setInterval(() => {
-        if (playerState.isOpen) {
+        if (playerState.isOpen || playerState.hasStarted) {
             const currentIframe = document.getElementById('ytIframe');
             if (currentIframe && currentIframe.contentWindow) {
                 try {
