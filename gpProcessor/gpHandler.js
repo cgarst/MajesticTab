@@ -118,12 +118,8 @@ function fixSectionLabelOverlaps(container) {
  * Load a Guitar Pro file into the app.
  */
 export async function loadGP(file, output, pageModeRadio, continuousModeRadio, debug = false) {
-    // We want page mode, but render continuous first to let AlphaTab size properly
-    const targetPageMode = true;
-
-    // Temporarily set continuous mode for initial render
-    continuousModeRadio.checked = true;
-    pageModeRadio.checked = false;
+    // Determine active mode (default to page mode if neither or page mode is selected)
+    const isPageMode = pageModeRadio ? pageModeRadio.checked : true;
 
     // Reset state and clear output
     gpState.reset();
@@ -132,7 +128,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
     // Ensure output is visible for alphaTab sizing
     output.style.display = 'flex';
-    output.style.overflowY = 'auto';
+    output.style.overflowY = isPageMode ? 'hidden' : 'auto';
 
     // Load file
     let dataToLoad;
@@ -147,24 +143,24 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         dataToLoad = file;
     }
 
-    // Init AlphaTab container with width for target page mode
+    // Init AlphaTab container with appropriate width for active mode
     const container = document.createElement('div');
     container.className = 'alphaTabContainer';
 
-    // Calculate width for page mode (2 pages side-by-side)
     const pagesPerView = getPagesPerView(true);
-    const targetWidth = Math.floor((window.innerWidth - 80) / pagesPerView) - 60; // More conservative for better fit
+    const targetWidth = Math.floor((window.innerWidth - 80) / pagesPerView) - 60;
 
-    container.style.width = `${targetWidth}px`;
+    container.style.width = isPageMode ? `${targetWidth}px` : '100%';
     container.style.height = '100%';
     container.style.display = 'block';
-    container.style.margin = '0 auto'; // Center it
+    container.style.margin = '0 auto';
     output.appendChild(container);
 
     console.log('[GP Init] ========================================');
     console.log('[GP Init] Window width:', window.innerWidth);
     console.log('[GP Init] Pages per view:', pagesPerView);
-    console.log('[GP Init] Calculated container width:', targetWidth, 'px');
+    console.log('[GP Init] Initial mode:', isPageMode ? 'page' : 'continuous');
+    console.log('[GP Init] Calculated container width:', isPageMode ? `${targetWidth}px` : '100%');
     console.log('[GP Init] ========================================');
 
     // Force a layout before creating AlphaTab API
@@ -179,24 +175,8 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         fixSectionLabelOverlaps(container);
         api.postRenderFinished.on(() => fixSectionLabelOverlaps(container));
 
-        // Rendering is complete (promise resolved), now set up display
-        // First render in continuous mode (simple, no layout needed)
-        renderGPPage(output, false, continuousModeRadio);
-
-        console.log('[GP Mode Switch] Continuous rendered, switching to page mode...');
-
-        // Then switch to page mode after DOM settles
-        if (targetPageMode) {
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    console.log('[GP Mode Switch] Executing switch to page mode');
-                    pageModeRadio.checked = true;
-                    continuousModeRadio.checked = false;
-                    renderGPPage(output, true, continuousModeRadio);
-                    console.log('[GP Mode Switch] Page mode rendered');
-                });
-            });
-        }
+        // Render directly in the active mode
+        renderGPPage(output, isPageMode, continuousModeRadio);
     } catch (err) {
         console.error('Error loading Guitar Pro file:', err);
         hideLoadingBar();
@@ -212,16 +192,22 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
     // Always clear output before rendering
     clearOutput(output);
 
+    const container = gpState.canvases[0].container;
+
     if (pageModeChecked) {
         output.classList.remove('continuous-mode');
         output.style.overflowY = 'hidden';
         output.style.overflowX = 'hidden';
         output.style.overflow = 'hidden';
+
+        const pagesPerView = getPagesPerView(true);
+        const targetWidth = Math.floor((window.innerWidth - 80) / pagesPerView) - 60;
+        container.style.width = `${targetWidth}px`;
+
         // renderGPPageMode will handle layout calculation with caching
         renderGPPageMode(output);
     } else {
         // Make sure the container is detached before reattaching
-        const container = gpState.canvases[0].container;
         if (container.parentNode) {
             container.parentNode.removeChild(container);
         }
