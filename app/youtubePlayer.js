@@ -564,6 +564,27 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
 }
 
 /**
+ * Close the panel only once the iframe is actually playing. Hiding the iframe
+ * (display:none) before playback starts can cause YouTube to block/abort
+ * autoplay. If playback never starts (e.g. autoplay blocked), the panel stays
+ * open so the user can press play inside the iframe.
+ */
+function closePanelWhenPlaying(timeoutMs = 8000) {
+    const start = Date.now();
+    const check = setInterval(() => {
+        if (!playerState.isOpen) {
+            clearInterval(check);
+        } else if (playerState.isPlaying) {
+            clearInterval(check);
+            // Brief delay so playback is stable before hiding
+            setTimeout(() => toggleYouTubePanel(false), 400);
+        } else if (Date.now() - start > timeoutMs) {
+            clearInterval(check);
+        }
+    }, 150);
+}
+
+/**
  * Initialize YouTube Player controls and event listeners
  */
 export function initYouTubePlayer() {
@@ -665,7 +686,7 @@ export function initYouTubePlayer() {
             } else {
                 loadCurrentTrack(true);
             }
-            toggleYouTubePanel(false);
+            closePanelWhenPlaying();
         } else {
             // Text search fallback via search query
             const query = text;
