@@ -1,9 +1,9 @@
-// gpHandler.js.new
 import { loadGuitarPro, GP_DISPLAY_SCALE } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
+import { attachAlphaTabApi, detachAlphaTabApi } from './gpPlayer.js';
 
 const PAGE_PADDING = 10;
 
@@ -14,6 +14,7 @@ export const gpState = {
     pages: [],
     lastLayoutDimensions: null, // Cache layout dimensions
     reset() {
+        detachAlphaTabApi();
         this.canvases.length = 0;
         this.pages.length = 0;
         this.currentPageIndex = 0;
@@ -171,6 +172,11 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     try {
         const api = await loadGuitarPro(dataToLoad, container, { debug });
         gpState.canvases = [{ container, api }];
+        window.gpApi = api;
+        window.gpState = gpState;
+
+        // Attach to synth player
+        attachAlphaTabApi(api);
 
         // Update YouTube player with parsed score metadata
         if (api.score) {
@@ -262,9 +268,10 @@ export function layoutGPPages(container, pageHeight, pageWidth = null) {
     let currentPage = [];
     let currentHeight = 0;
 
-    blocks.forEach((block) => {
+    blocks.forEach((block, blockIndex) => {
         // Deep clone the block and all its content (including SVGs)
         const clone = block.cloneNode(true);
+        clone.dataset.blockIndex = blockIndex.toString();
         
         // Reset positioning to get accurate measurements
         clone.style.position = 'relative';
@@ -378,6 +385,7 @@ function renderGPPageMode(output) {
 
         pageSet.forEach((div, idx) => {
             const clone = div.cloneNode(true);
+            clone.dataset.blockIndex = div.dataset.blockIndex ?? idx.toString();
 
             // Reset positioning
             clone.style.position = 'relative';

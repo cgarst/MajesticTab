@@ -845,3 +845,126 @@ body.dark-mode .yt-panel input.form-control::placeholder {
     }
 }
 
+/* ==========================================================================
+   Synth / Instrument Player Panel
+   ========================================================================== */
+#synthContainer {
+    z-index: 1040;
+}
+
+#synthMiniPill .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-color: #198754;
+    color: #198754;
+}
+
+#synthMiniPill .btn:hover:not(:disabled),
+#synthMiniPill .btn.active:not(:disabled),
+#synthMiniPill .btn:active:not(:disabled) {
+    background-color: #198754;
+    border-color: #198754;
+    color: #fff;
+}
+
+#synthMiniPill .btn:disabled,
+#synthMiniPill .btn.disabled {
+    opacity: 0.4;
+    border-color: #6c757d;
+    color: #adb5bd;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.synth-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 360px;
+    max-width: 95vw;
+    background-color: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+    z-index: 1050;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: synthSlideDown 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes synthSlideDown {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -8px);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0);
+    }
+}
+
+.synth-panel-header {
+    background-color: rgba(0, 0, 0, 0.03);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.synth-panel-title {
+    font-size: 0.85rem;
+    max-width: 280px;
+}
+
+/* AlphaTab cursor styling */
+.at-cursor-beat, .at-cursor-bar {
+    background: rgba(40, 167, 69, 0.25) !important;
+}
+
+/* Page mode playback position cursor overlays */
+.gp-page-cursor-bar {
+    position: absolute;
+    pointer-events: none;
+    background-color: rgba(40, 167, 69, 0.12) !important;
+    border-radius: 4px;
+    z-index: 5;
+    box-sizing: border-box;
+    display: none;
+}
+
+.gp-page-cursor-beat {
+    position: absolute;
+    pointer-events: none;
+    background-color: rgba(40, 167, 69, 0.35) !important;
+    border-radius: 3px;
+    z-index: 6;
+    box-sizing: border-box;
+    display: none;
+}
+
+/* Dark mode styles for Synth panel */
+body.dark-mode .synth-panel {
+    background-color: #212529;
+    border-color: #495057;
+    color: #f8f9fa;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.6);
+}
+
+body.dark-mode .synth-panel-header {
+    background-color: #1a1d20;
+    border-bottom: 1px solid #343a40;
+}
+
+body.dark-mode .synth-panel input.form-range::-webkit-slider-runnable-track {
+    background-color: #495057;
+}
+
+@media (max-width: 576px) {
+    .synth-panel {
+        right: 8px;
+        left: 8px;
+        width: auto;
+        max-width: calc(100vw - 16px);
+        top: 50px;
+    }
+}
+
+
