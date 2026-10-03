@@ -208,14 +208,41 @@ g.at text {
     font-family: 'alphaTab' !important;
 }
 
-#output svg text, rect {
-  fill: var(--text-color) !important;
-  stroke: none !important;
+#output svg text {
+    fill: var(--text-color) !important;
 }
 
-#output.dark-mode svg text, rect {
-  fill: var(--text-color) !important;
-  stroke: var(--border-color) !important;
+body.dark-mode #output svg text {
+    fill: var(--text-color) !important;
+}
+
+body.dark-mode #output svg path[style*="stroke: none"],
+body.dark-mode #output svg path:not([style*="fill: none"]):not([fill="none"]) {
+    fill: var(--text-color) !important;
+}
+
+body.dark-mode #output svg path[style*="fill: none"] {
+    fill: none !important;
+    stroke: var(--text-color) !important;
+}
+
+body.dark-mode #output svg rect[fill="#000000"],
+body.dark-mode #output svg rect[fill="#222211"],
+body.dark-mode #output svg rect:not([fill="#A5A5A5"]) {
+    fill: var(--text-color) !important;
+}
+
+body.dark-mode #output svg rect[fill="#A5A5A5"] {
+    fill: #777777 !important;
+}
+
+body.dark-mode #output svg polygon,
+body.dark-mode #output svg polyline,
+body.dark-mode #output svg line,
+body.dark-mode #output svg circle,
+body.dark-mode #output svg ellipse {
+    fill: var(--text-color) !important;
+    stroke: var(--text-color) !important;
 }
 
 /* ==========================================================================
