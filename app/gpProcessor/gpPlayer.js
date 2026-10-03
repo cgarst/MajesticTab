@@ -746,8 +746,9 @@ export function toggleSynthPanel(forceState = null) {
     synthPlayerState.isOpen = newState;
 
     if (newState) {
-        // Ensure YouTube panel is closed when opening synth panel
+        // Ensure YouTube panel is closed and YouTube playback paused when opening synth panel
         toggleYouTubePanel(false);
+        pauseYouTube();
 
         if (toggleBtn) {
             const rect = toggleBtn.getBoundingClientRect();
@@ -783,6 +784,7 @@ export function initSynthPlayer() {
 
     toggleBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
+        pauseYouTube();
         toggleSynthPanel();
     });
 
