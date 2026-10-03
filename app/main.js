@@ -255,7 +255,10 @@ window.addEventListener('DOMContentLoaded', async () => {
         console.log('[Test Mode] Detected test parameter:', testFile);
         console.log('[Test Mode] Attempting to fetch: tests/' + testFile);
         try {
-            const response = await fetch(`tests/${testFile}`);
+            let response = await fetch(`tests/${testFile}`);
+            if (!response.ok) {
+                response = await fetch(`../tests/${testFile}`);
+            }
             console.log('[Test Mode] Fetch response status:', response.status, response.statusText);
 
             if (!response.ok) throw new Error(`Failed to load: ${response.statusText}`);

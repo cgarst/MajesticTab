@@ -336,14 +336,17 @@ body {
 
 .menu-toggle-btn {
   border-radius: 9999px;
-  padding: 0.3rem 0.55rem;
-  font-size: 0.82rem;
-  line-height: 1;
+  width: 35px;
+  height: 35px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .menu-toggle-btn i {
-  font-size: 0.9rem;
+  font-size: 1.15rem;
   line-height: 1;
 }
 
@@ -527,6 +530,8 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: 9999px;
   padding: 2px 6px;
+  min-height: 35px;
+  box-sizing: border-box;
 }
 
 #navButtons .btn {
@@ -1623,6 +1628,16 @@ body:not(.synth-playback-started) .at-highlight {
     gap: 1px;
   }
 
+  .menu-toggle-btn {
+    width: 30px;
+    height: 30px;
+    padding: 0;
+  }
+
+  .menu-toggle-btn i {
+    font-size: 1rem;
+  }
+
   .hud-pill-group .btn-check + .btn,
   #globalAudioControls .btn,
   #audioSourcePill .btn,
@@ -1634,6 +1649,7 @@ body:not(.synth-playback-started) .at-highlight {
   #navButtons {
     padding: 1px 4px;
     gap: 0.15rem;
+    min-height: 30px;
   }
 
   #navButtons .btn {

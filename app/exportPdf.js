@@ -1,10 +1,13 @@
 import { getCurrentFile, getCondensedCanvases, getPdfPages } from './main.js';
 import { gpState } from './gpProcessor/gpHandler.js';
 
-async function svgToImage(svgElement, width, height) {
+async function svgToImage(svgElement, width, height, viewBox) {
   const svgClone = svgElement.cloneNode(true);
   if (!svgClone.getAttribute('xmlns')) {
     svgClone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+  if (viewBox) {
+    svgClone.setAttribute('viewBox', viewBox);
   }
   svgClone.setAttribute('width', width.toString());
   svgClone.setAttribute('height', height.toString());
@@ -51,16 +54,32 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
     const svg = block.querySelector('svg');
     if (!svg) continue;
 
-    let vb = svg.getAttribute('viewBox');
+    let minX = 0;
+    let minY = 0;
     let vbWidth = 1200;
     let vbHeight = 100;
+
+    const vb = svg.getAttribute('viewBox');
     if (vb) {
       const parts = vb.split(/[\s,]+/).map(parseFloat);
       if (parts.length >= 4 && parts[2] > 0 && parts[3] > 0) {
+        minX = parts[0];
+        minY = parts[1];
         vbWidth = parts[2];
         vbHeight = parts[3];
       }
+    } else {
+      vbWidth = parseFloat(svg.getAttribute('width')) || block.clientWidth || container.clientWidth || 1200;
+      vbHeight = parseFloat(svg.getAttribute('height')) || block.clientHeight || 100;
     }
+
+    const pt = parseFloat(block.style.paddingTop) || 0;
+    if (pt > 0 && minY >= 0) {
+      minY = -pt;
+      vbHeight += pt;
+    }
+
+    const viewBoxStr = `${minX} ${minY} ${vbWidth} ${vbHeight}`;
     const blockHeight = (vbHeight / vbWidth) * CONTENT_WIDTH;
 
     if (curY + blockHeight > CONTENT_HEIGHT && curPage.length > 0) {
@@ -68,7 +87,7 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
       curPage = [];
       curY = 0;
     }
-    curPage.push({ svg, blockHeight });
+    curPage.push({ svg, blockHeight, viewBoxStr });
     curY += blockHeight + SPACING;
   }
   if (curPage.length > 0) {
@@ -92,7 +111,7 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
     let drawY = MARGIN_Y;
     for (const item of pages[p]) {
       try {
-        const img = await svgToImage(item.svg, CONTENT_WIDTH, item.blockHeight);
+        const img = await svgToImage(item.svg, CONTENT_WIDTH, item.blockHeight, item.viewBoxStr);
         ctx.drawImage(img, MARGIN_X, drawY, CONTENT_WIDTH, item.blockHeight);
       } catch (err) {
         console.error('Error rendering SVG block for PDF export:', err);
