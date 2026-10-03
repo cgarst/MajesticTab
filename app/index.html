@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="Mystic Dream" data-theme-sheet="false">
+<head>
+<meta charset="utf-8">
+<title>MajesticTab</title>
+<meta name="theme-color" content="#06050a">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+<link href="style.css" rel="stylesheet">
+<link rel="manifest" href="site.webmanifest" />
+<link rel="icon" href="icons/favicon.ico" type="image/x-icon" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script type="module" src="https://unpkg.com/@googleworkspace/drive-picker-element@0/dist/index.iife.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
+</head>
+<body>
+
+<!-- Modern Minimal Top Bar (Floating HUD) -->
+<nav id="topBar">
+  <div id="brandSection">
+    <button class="brand-btn menu-toggle-btn" id="menuToggleBtn" type="button" data-bs-toggle="offcanvas" data-bs-target="#fileMenu" aria-controls="fileMenu" title="Open Menu & Settings">
+      <i class="bi-list"></i>
+    </button>
+    <span class="brand-title" id="brand-text">
+      MajesticTab
+    </span>
+  </div>
+
+  <div id="centerSection">
+    <!-- View Mode Switcher -->
+    <div id="modeButtons" class="hud-pill-group" role="group" aria-label="Display Mode" style="display:none;">
+      <input type="radio" class="btn-check" name="modeRadio" id="pageModeRadio" autocomplete="off" tabindex="-1" checked>
+      <label class="btn btn-sm" for="pageModeRadio" tabindex="-1" title="Page View Mode"><i class="bi-book me-1"></i><span class="mode-btn-text">Page</span></label>
+      
+      <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off" tabindex="-1">
+      <label class="btn btn-sm" for="continuousModeRadio" tabindex="-1" title="Continuous Scroll Mode"><i class="bi-arrow-down-up me-1"></i><span class="mode-btn-text">Scroll</span></label>
+    </div>
+  </div>
+
+  <div id="rightSection">
+    <!-- Synth / Instrument Player Controls -->
+    <div id="synthContainer">
+      <div id="synthMiniPill" role="group" aria-label="Instrument Player">
+        <button class="btn btn-sm" id="synthToggleBtn" title="Instrument Audio & Controls">
+          <i class="bi-music-note-beamed"></i>
+        </button>
+        <button class="btn btn-sm" id="synthRewindBtn" title="Back 10 Seconds" disabled>
+          <i class="bi-arrow-counterclockwise"></i>
+        </button>
+        <button class="btn btn-sm" id="synthPlayPauseBtn" title="Play / Pause" disabled>
+          <i class="bi-play-fill" id="synthPlayPauseIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- YouTube Player Controls -->
+    <div id="ytContainer" style="display:none;">
+      <div id="ytMiniPill" role="group" aria-label="YouTube Player">
+        <button class="btn btn-sm" id="ytToggleBtn" title="YouTube Audio & Controls">
+          <i class="bi-youtube"></i>
+        </button>
+        <button class="btn btn-sm" id="ytRewindBtn" title="Back 10 Seconds" disabled>
+          <i class="bi-arrow-counterclockwise"></i>
+        </button>
+        <button class="btn btn-sm" id="ytPlayPauseBtn" title="Play / Pause" disabled>
+          <i class="bi-play-fill" id="ytPlayPauseIcon"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Navigation Controls -->
+    <div id="navButtons" style="display:none;">
+      <button class="btn btn-sm" id="firstPage" title="First Page"><i class="bi-chevron-double-left"></i></button>
+      <button class="btn btn-sm" id="prevPage" title="Previous Page"><i class="bi-chevron-left"></i></button>
+      <span id="pageIndicator"></span>
+      <button class="btn btn-sm" id="nextPage" title="Next Page"><i class="bi-chevron-right"></i></button>
+    </div>
+  </div>
+</nav>
+
+<!-- Collapsible Synth Panel -->
+<div id="synthDropdownPanel" class="synth-panel" style="display:none;">
+  <div class="synth-panel-header">
+    <div class="d-flex align-items-center text-truncate me-2">
+      <i class="bi-music-note-beamed text-success me-2 fs-6"></i>
+      <span class="synth-panel-title text-truncate" id="synthPanelTitle">Instrument Audio</span>
+    </div>
+    <button class="brand-btn p-1 px-2 text-muted" id="synthPanelCloseBtn" title="Close">
+      <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
+    </button>
+  </div>
+  <div class="synth-panel-body">
+    <!-- Scrubber / Timeline -->
+    <div class="mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
+        <span id="synthCurrentTimeText">0:00</span>
+        <span class="fw-semibold text-white" id="synthPositionPercent">0%</span>
+        <span id="synthTotalTimeText">0:00</span>
+      </div>
+      <input type="range" id="synthSeekSlider" min="0" max="1000" value="0" step="1" disabled>
+    </div>
+
+    <!-- Speed / Tempo Control -->
+    <div class="mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted">Playback Speed:</label>
+        <div class="d-flex align-items-center gap-1">
+          <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="synthSpeedMinusBtn" title="Decrease speed by 1%">-1%</button>
+          <span class="badge bg-secondary" id="synthSpeedBadge" style="min-width: 44px; text-align: center;">100%</span>
+          <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="synthSpeedPlusBtn" title="Increase speed by 1%">+1%</button>
+        </div>
+      </div>
+      <div class="btn-group btn-group-sm w-100 mt-1" role="group" id="synthSpeedButtons">
+        <button type="button" class="btn btn-outline-secondary" data-speed="0.5">50%</button>
+        <button type="button" class="btn btn-outline-secondary" data-speed="0.75">75%</button>
+        <button type="button" class="btn btn-outline-secondary" data-speed="0.9">90%</button>
+        <button type="button" class="btn btn-outline-secondary active" data-speed="1.0">100%</button>
+        <button type="button" class="btn btn-outline-secondary" data-speed="1.1">110%</button>
+        <button type="button" class="btn btn-outline-secondary" data-speed="1.25">125%</button>
+      </div>
+    </div>
+
+    <!-- Metronome & Count-in -->
+    <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary-subtle">
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="synthMetronomeSwitch">
+        <label class="form-check-label small" for="synthMetronomeSwitch">Metronome</label>
+      </div>
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="synthCountInSwitch">
+        <label class="form-check-label small" for="synthCountInSwitch">Count-in</label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Collapsible YouTube Panel -->
+<div id="ytDropdownPanel" class="yt-panel" style="display:none;">
+  <div class="yt-panel-header">
+    <div class="d-flex align-items-center text-truncate me-2">
+      <div class="yt-header-badge me-2">
+        <i class="bi-youtube"></i>
+      </div>
+      <span class="yt-panel-title text-truncate" id="ytPanelTitle">YouTube Audio</span>
+    </div>
+    <button class="brand-btn p-1 px-2 text-muted" id="ytPanelCloseBtn" title="Close">
+      <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
+    </button>
+  </div>
+  <div class="yt-panel-body">
+    <div class="yt-mode-selector mb-3" role="group" aria-label="Track Mode">
+      <input type="radio" class="btn-check" name="ytTrackMode" id="ytTrackOriginal" value="original" autocomplete="off" checked>
+      <label class="yt-mode-btn" for="ytTrackOriginal">
+        <i class="bi-music-note me-1"></i> Original Song
+      </label>
+      <input type="radio" class="btn-check" name="ytTrackMode" id="ytTrackBacking" value="backing" autocomplete="off">
+      <label class="yt-mode-btn" for="ytTrackBacking">
+        <i class="bi-disc me-1"></i> Backing Track
+      </label>
+    </div>
+    <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-3">
+      <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      
+      <!-- Loading Indicator with Cancel Button -->
+      <div id="ytLoadingIndicator" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
+        <div class="spinner-border text-info mb-2" role="status" style="width: 1.85rem; height: 1.85rem; border-width: 0.18em;">
+          <span class="visually-hidden">Searching YouTube...</span>
+        </div>
+        <div class="small fw-bold text-white mb-1">Searching YouTube...</div>
+        <div class="text-muted text-truncate px-3 mb-2" id="ytLoadingQueryText" style="font-size: 0.72rem; max-width: 100%;"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 mt-1" id="ytCancelSearchBtn" style="font-size: 0.75rem;">
+          <i class="bi-x-circle me-1"></i> Cancel Search
+        </button>
+      </div>
+
+      <!-- Manual Search / Fallback Prompt -->
+      <div id="ytPlaceholderPrompt" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
+        <div class="yt-prompt-icon mb-2">
+          <i class="bi-youtube"></i>
+        </div>
+        <div class="small fw-semibold text-white mb-1" id="ytPromptTitle">Find Video on YouTube</div>
+        <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link below or search directly</div>
+        <a class="btn btn-sm btn-danger px-3 py-1 mb-1" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem;">
+          <i class="bi-search me-1"></i> Search on YouTube <i class="bi-box-arrow-up-right ms-1"></i>
+        </a>
+      </div>
+    </div>
+    <div class="input-group input-group-sm yt-search-group">
+      <input type="text" id="ytSearchInput" class="form-control" placeholder="Paste YouTube link or video ID...">
+      <button class="btn yt-play-btn" id="ytSearchBtn" type="button" title="Load Video"><i class="bi-play-fill"></i> Play</button>
+      <a class="btn yt-ext-btn" id="ytExternalLink" href="#" target="_blank" title="Open search in YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right"></i></a>
+    </div>
+  </div>
+</div>
+
+<!-- Theme Chooser Modal (Ported from concerts) -->
+<div id="themeModal" class="theme-modal-backdrop">
+  <div class="theme-modal-card">
+    <div class="theme-modal-header">
+      <div class="d-flex align-items-center gap-2">
+        <div class="brand-btn p-2" style="width: 36px; height: 36px;">
+          <i class="bi-palette-fill text-info"></i>
+        </div>
+        <div>
+          <h6 class="mb-0 fw-bold text-white">Guitar Finish Color Themes</h6>
+          <small class="text-muted" style="font-size: 0.75rem;">Homages to iconic guitar finishes and ambient stages</small>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <span id="themeModalActiveBadge" class="theme-active-pill">Mystic Dream</span>
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="theme-modal-body">
+      <!-- Sheet Music Appearance Section (Single 4-Option Row) -->
+      <div class="p-3 rounded-3 mb-2" style="background: var(--bg-card-solid); border: 1px solid var(--border-subtle);">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <div class="fw-semibold text-white small">
+            <i class="bi-file-earmark-music me-1 text-info"></i> Sheet Music Mode
+          </div>
+          <span class="text-muted" style="font-size: 0.72rem;">Score notation styling</span>
+        </div>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="sheetModeRadio" id="modalSheetModeAuto" value="auto" autocomplete="off">
+          <label class="btn btn-sm" for="modalSheetModeAuto" style="flex: 1;" title="Follow system dark/light preference"><i class="bi-circle-half me-1"></i> Auto</label>
+
+          <input type="radio" class="btn-check" name="sheetModeRadio" id="modalSheetModeLight" value="light" autocomplete="off" checked>
+          <label class="btn btn-sm" for="modalSheetModeLight" style="flex: 1;" title="Clean white paper with black notation"><i class="bi-sun me-1"></i> Light</label>
+
+          <input type="radio" class="btn-check" name="sheetModeRadio" id="modalSheetModeDark" value="dark" autocomplete="off">
+          <label class="btn btn-sm" for="modalSheetModeDark" style="flex: 1;" title="Neutral dark mode"><i class="bi-moon me-1"></i> Dark</label>
+
+          <input type="radio" class="btn-check" name="sheetModeRadio" id="modalSheetModeTheme" value="theme" autocomplete="off">
+          <label class="btn btn-sm" for="modalSheetModeTheme" style="flex: 1;" title="Apply active guitar finish colorway to sheet"><i class="bi-palette me-1"></i> Theme</label>
+        </div>
+      </div>
+
+      <!-- Theme Cards Grid -->
+      <div class="theme-modal-grid" id="themeModalGrid">
+        <!-- Populated dynamically by themeEngine.js -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Offcanvas Settings & File Menu -->
+<div class="offcanvas offcanvas-start" tabindex="-1" id="fileMenu" aria-labelledby="fileMenuLabel">
+  <div class="offcanvas-header">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi-sliders2-vertical text-info fs-5"></i>
+      <h5 class="offcanvas-title mb-0" id="fileMenuLabel">Settings & Files</h5>
+    </div>
+    <button type="button" class="btn-close btn-close-white text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+
+    <!-- Section 1: File Loading -->
+    <div class="settings-card">
+      <div class="settings-header-label">
+        <i class="bi-folder2-open text-primary"></i> Load Sheet Music
+      </div>
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">From local device:</label>
+        <input type="file" class="form-control" id="localFile" accept=".pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt">
+      </div>
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">From cloud:</label>
+        <button class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2" id="loadFromDriveBtn">
+          <i class="bi-google"></i> Google Drive
+        </button>
+        <div id="drivePickerContainer"></div>
+      </div>
+    </div>
+
+    <!-- Section 2: Appearance & Theming -->
+    <div class="settings-card">
+      <div class="settings-header-label">
+        <i class="bi-palette-fill text-info"></i> Appearance & Themes
+      </div>
+      
+      <!-- Colorway Finish Row -->
+      <div class="d-flex align-items-center justify-content-between p-2 rounded-2" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
+        <div class="d-flex align-items-center gap-2">
+          <span class="theme-swatch-icon" id="drawerThemeSwatch" style="width: 1.25rem; height: 1.25rem;"></span>
+          <span class="small fw-semibold text-white" id="drawerThemeName">Mystic Dream</span>
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2 text-white" onclick="import('./themeEngine.js').then(m => m.openThemeModal())">
+          Change <i class="bi-chevron-right ms-1"></i>
+        </button>
+      </div>
+
+      <!-- Sheet Music Mode Controls (Single 4-Option Row) -->
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Sheet Music Mode:</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeAuto" value="auto" autocomplete="off">
+          <label class="btn btn-sm" for="drawerSheetModeAuto" style="flex: 1;"><i class="bi-circle-half me-1"></i> Auto</label>
+
+          <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeLight" value="light" autocomplete="off" checked>
+          <label class="btn btn-sm" for="drawerSheetModeLight" style="flex: 1;"><i class="bi-sun me-1"></i> Light</label>
+
+          <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeDark" value="dark" autocomplete="off">
+          <label class="btn btn-sm" for="drawerSheetModeDark" style="flex: 1;"><i class="bi-moon me-1"></i> Dark</label>
+
+          <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeTheme" value="theme" autocomplete="off">
+          <label class="btn btn-sm" for="drawerSheetModeTheme" style="flex: 1;"><i class="bi-palette me-1"></i> Theme</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 3: Viewing Preferences -->
+    <div class="settings-card">
+      <div class="settings-header-label">
+        <i class="bi-layout-text-window-reverse text-warning"></i> Viewing Preferences
+      </div>
+      
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Dual-Page Advance:</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance1" value="1" autocomplete="off">
+          <label class="btn btn-sm w-50" for="pageAdvance1">1 Page</label>
+
+          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="pageAdvance2">2 Pages</label>
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Default View (Guitar Pro):</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultPage" value="page" autocomplete="off">
+          <label class="btn btn-sm w-50" for="gpDefaultPage"><i class="bi-book me-1"></i> Page</label>
+
+          <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultContinuous" value="continuous" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="gpDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Default View (PDF):</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="pdfDefaultViewRadio" id="pdfDefaultPage" value="page" autocomplete="off">
+          <label class="btn btn-sm w-50" for="pdfDefaultPage"><i class="bi-book me-1"></i> Page</label>
+
+          <input type="radio" class="btn-check" name="pdfDefaultViewRadio" id="pdfDefaultContinuous" value="continuous" autocomplete="off">
+          <label class="btn btn-sm w-50" for="pdfDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 4: PDF Tools & Exports -->
+    <div class="settings-card">
+      <div class="settings-header-label">
+        <i class="bi-tools text-danger"></i> PDF Tools & Export
+      </div>
+      <div class="form-check form-switch mb-1">
+        <input class="form-check-input" type="checkbox" id="condensePdfMode">
+        <label class="form-check-label small text-white" for="condensePdfMode">Condense PDF <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">Beta</span></label>
+      </div>
+      <div class="form-check form-switch mb-2">
+        <input class="form-check-input" type="checkbox" id="debugMode">
+        <label class="form-check-label small text-white" for="debugMode">Debug PDF Overlay</label>
+      </div>
+      <button class="btn btn-outline-primary w-100 mb-2" id="exportPDFBtn">Export Current File as PDF</button>
+      <button class="btn btn-outline-primary w-100" id="bulkConvertBtn" onclick="window.open('batchExport.html', '_blank')">Bulk Condense PDFs</button>
+      <div id="exportProgressContainer" style="display:none; margin-top:5px;">
+        <div class="progress" style="height: 6px;">
+          <div id="exportProgressBar" class="progress-bar bg-primary" role="progressbar" style="width:0%">0%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-auto pt-2 d-flex flex-column gap-2">
+      <a href="privacy.html" target="_blank" class="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center gap-2 text-white">
+        <i class="bi-shield-check"></i> Privacy Policy
+      </a>
+      <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center gap-2 text-white">
+        <i class="bi-github"></i> View Source on GitHub
+      </a>
+    </div>
+
+  </div>
+</div>
+
+<div id="mainContent">
+    <div id="progressContainer"><div id="progressBar"></div></div>
+    <div id="output" tabindex="0"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.2/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/alphaTab.min.js"></script>
+<script type="module" src="main.js"></script>
+</body>
+</html>

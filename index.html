@@ -1,397 +1,334 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="Mystic Dream" data-theme-sheet="false">
+<html lang="en" class="scroll-smooth">
 <head>
-<meta charset="utf-8">
-<title>MajesticTab</title>
-<meta name="theme-color" content="#06050a">
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-<link href="style.css" rel="stylesheet">
-<link rel="manifest" href="site.webmanifest" />
-<link rel="icon" href="icons/favicon.ico" type="image/x-icon" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script type="module" src="https://unpkg.com/@googleworkspace/drive-picker-element@0/dist/index.iife.min.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes, viewport-fit=cover">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>MajesticTab - Free, Open-Source Tab Reader for Guitarists</title>
+  <meta name="description" content="Practice guitar tabs without the fiddling. Free, open-source, self-hostable tab viewer for PDF and Guitar Pro files with page or scroll view, Bluetooth page turner support, and PDF export. Nothing is uploaded.">
+  <meta name="theme-color" content="#06050a">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    html, body {
+      background-color: #06050a;
+      background-image:
+        radial-gradient(circle at 15% 10%, rgba(147, 51, 234, 0.22) 0%, transparent 45%),
+        radial-gradient(circle at 85% 15%, rgba(16, 185, 129, 0.18) 0%, transparent 45%),
+        radial-gradient(circle at 50% 85%, rgba(6, 182, 212, 0.12) 0%, transparent 50%),
+        radial-gradient(circle at 50% 50%, #06050a 0%, #030205 100%);
+      background-attachment: fixed;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding-left: env(safe-area-inset-left, 0px);
+      padding-right: env(safe-area-inset-right, 0px);
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    header.sticky { padding-top: env(safe-area-inset-top, 0px); }
+    .glass-card {
+      background: rgba(18, 14, 28, 0.82);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(147, 51, 234, 0.24);
+      box-shadow: 0 4px 20px -2px rgba(0,0,0,0.6), inset 0 1px 0 0 rgba(16,185,129,0.2);
+    }
+    .glass-card-interactive {
+      background: rgba(18, 14, 28, 0.82);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(147, 51, 234, 0.24);
+      box-shadow: 0 4px 20px -2px rgba(0,0,0,0.6), inset 0 1px 0 0 rgba(16,185,129,0.15);
+      transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .glass-card-interactive:hover {
+      border-color: rgba(16,185,129,0.45);
+      transform: translateY(-2px);
+      box-shadow: 0 16px 30px -10px rgba(16,185,129,0.2), 0 0 16px -2px rgba(16,185,129,0.25);
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #a855f7 0%, #06b6d4 50%, #10b981 100%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    /* Mock tab staff */
+    .staff { position: relative; height: 54px; margin: 10px 0;
+      background: repeating-linear-gradient(to bottom, rgba(203,213,225,0.55) 0 1px, transparent 1px 10.8px);
+      background-size: 100% 54px; border-left: 2px solid #cbd5e1; border-right: 2px solid #cbd5e1; }
+    .staff span { position: absolute; font: 600 11px ui-monospace, Menlo, monospace; color: #e2e8f0;
+      background: #0b0814; padding: 0 2px; transform: translateY(-50%); }
+    .page-mock { background: #0e0a18; border: 1px solid rgba(147,51,234,0.3); border-radius: 10px; padding: 10px 14px; }
+    .kbd { font-family: ui-monospace, Menlo, monospace; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #06050a; }
+    ::-webkit-scrollbar-thumb { background: #1f1730; border-radius: 3px; }
+  </style>
 </head>
-<body>
+<body class="min-h-screen selection:bg-purple-600 selection:text-white flex flex-col">
 
-<!-- Modern Minimal Top Bar (Floating HUD) -->
-<nav id="topBar">
-  <div id="brandSection">
-    <button class="brand-btn menu-toggle-btn" id="menuToggleBtn" type="button" data-bs-toggle="offcanvas" data-bs-target="#fileMenu" aria-controls="fileMenu" title="Open Menu & Settings">
-      <i class="bi-list"></i>
-    </button>
-    <span class="brand-title" id="brand-text">
-      MajesticTab
-    </span>
+  <div class="fixed inset-0 pointer-events-none overflow-hidden -z-10">
+    <div class="absolute -top-40 left-1/2 -translate-x-1/2 w-[700px] h-[500px] bg-purple-600/20 rounded-full blur-3xl"></div>
+    <div class="absolute top-[40%] -left-32 w-[500px] h-[500px] bg-emerald-600/15 rounded-full blur-3xl"></div>
+    <div class="absolute top-[70%] -right-32 w-[500px] h-[500px] bg-cyan-600/15 rounded-full blur-3xl"></div>
   </div>
 
-  <div id="centerSection">
-    <!-- View Mode Switcher -->
-    <div id="modeButtons" class="hud-pill-group" role="group" aria-label="Display Mode" style="display:none;">
-      <input type="radio" class="btn-check" name="modeRadio" id="pageModeRadio" autocomplete="off" tabindex="-1" checked>
-      <label class="btn btn-sm" for="pageModeRadio" tabindex="-1" title="Page View Mode"><i class="bi-book me-1"></i><span class="mode-btn-text">Page</span></label>
-      
-      <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off" tabindex="-1">
-      <label class="btn btn-sm" for="continuousModeRadio" tabindex="-1" title="Continuous Scroll Mode"><i class="bi-arrow-down-up me-1"></i><span class="mode-btn-text">Scroll</span></label>
+  <!-- Nav -->
+  <header class="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <a href="./" class="flex items-center gap-2.5 group" title="MajesticTab Home">
+        <img src="icons/android-chrome-192x192.png" alt="" class="w-8 h-8 rounded-lg transition-transform group-hover:scale-105">
+        <span class="font-extrabold tracking-tight text-lg">Majestic<span class="gradient-text">Tab</span></span>
+      </a>
+      <nav class="hidden md:flex items-center gap-5 text-xs font-semibold text-slate-300">
+        <a href="#practice" class="hover:text-white transition">Practice</a>
+        <a href="#views" class="hover:text-white transition">Views</a>
+        <a href="#pedals" class="hover:text-white transition">Page Turners</a>
+        <a href="#export" class="hover:text-white transition">PDF Export</a>
+        <a href="#privacy" class="hover:text-white transition">Privacy</a>
+        <a href="#self-hosting" class="hover:text-white transition">Self-Hosting</a>
+        <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60 transition" title="View Source on GitHub" aria-label="GitHub"><i class="fa-brands fa-github text-base"></i></a>
+        <a href="app/" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-bold">Open App</a>
+      </nav>
+      <a href="app/" class="md:hidden px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-emerald-600 text-white font-bold text-xs">Open App</a>
     </div>
-  </div>
+  </header>
 
-  <div id="rightSection">
-    <!-- Synth / Instrument Player Controls -->
-    <div id="synthContainer">
-      <div id="synthMiniPill" role="group" aria-label="Instrument Player">
-        <button class="btn btn-sm" id="synthToggleBtn" title="Instrument Audio & Controls">
-          <i class="bi-music-note-beamed"></i>
-        </button>
-        <button class="btn btn-sm" id="synthRewindBtn" title="Back 10 Seconds" disabled>
-          <i class="bi-arrow-counterclockwise"></i>
-        </button>
-        <button class="btn btn-sm" id="synthPlayPauseBtn" title="Play / Pause" disabled>
-          <i class="bi-play-fill" id="synthPlayPauseIcon"></i>
-        </button>
-      </div>
-    </div>
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16 space-y-20 md:space-y-28">
 
-    <!-- YouTube Player Controls -->
-    <div id="ytContainer" style="display:none;">
-      <div id="ytMiniPill" role="group" aria-label="YouTube Player">
-        <button class="btn btn-sm" id="ytToggleBtn" title="YouTube Audio & Controls">
-          <i class="bi-youtube"></i>
-        </button>
-        <button class="btn btn-sm" id="ytRewindBtn" title="Back 10 Seconds" disabled>
-          <i class="bi-arrow-counterclockwise"></i>
-        </button>
-        <button class="btn btn-sm" id="ytPlayPauseBtn" title="Play / Pause" disabled>
-          <i class="bi-play-fill" id="ytPlayPauseIcon"></i>
-        </button>
+    <!-- Hero -->
+    <section class="text-center space-y-6 max-w-4xl mx-auto pt-4">
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-200 text-xs font-semibold">
+        <i class="fa-solid fa-guitar text-emerald-400"></i>
+        <span>Free &amp; Open Source Tab Reader</span>
       </div>
-    </div>
-
-    <!-- Navigation Controls -->
-    <div id="navButtons" style="display:none;">
-      <button class="btn btn-sm" id="firstPage" title="First Page"><i class="bi-chevron-double-left"></i></button>
-      <button class="btn btn-sm" id="prevPage" title="Previous Page"><i class="bi-chevron-left"></i></button>
-      <span id="pageIndicator"></span>
-      <button class="btn btn-sm" id="nextPage" title="Next Page"><i class="bi-chevron-right"></i></button>
-    </div>
-  </div>
-</nav>
-
-<!-- Collapsible Synth Panel -->
-<div id="synthDropdownPanel" class="synth-panel" style="display:none;">
-  <div class="synth-panel-header">
-    <div class="d-flex align-items-center text-truncate me-2">
-      <i class="bi-music-note-beamed text-success me-2 fs-6"></i>
-      <span class="synth-panel-title text-truncate" id="synthPanelTitle">Instrument Audio</span>
-    </div>
-    <button class="brand-btn p-1 px-2 text-muted" id="synthPanelCloseBtn" title="Close">
-      <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
-    </button>
-  </div>
-  <div class="synth-panel-body">
-    <!-- Scrubber / Timeline -->
-    <div class="mb-3">
-      <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
-        <span id="synthCurrentTimeText">0:00</span>
-        <span class="fw-semibold text-white" id="synthPositionPercent">0%</span>
-        <span id="synthTotalTimeText">0:00</span>
-      </div>
-      <input type="range" id="synthSeekSlider" min="0" max="1000" value="0" step="1" disabled>
-    </div>
-
-    <!-- Speed / Tempo Control -->
-    <div class="mb-3">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <label class="form-label small mb-0 fw-semibold text-muted">Playback Speed:</label>
-        <div class="d-flex align-items-center gap-1">
-          <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="synthSpeedMinusBtn" title="Decrease speed by 1%">-1%</button>
-          <span class="badge bg-secondary" id="synthSpeedBadge" style="min-width: 44px; text-align: center;">100%</span>
-          <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="synthSpeedPlusBtn" title="Increase speed by 1%">+1%</button>
-        </div>
-      </div>
-      <div class="btn-group btn-group-sm w-100 mt-1" role="group" id="synthSpeedButtons">
-        <button type="button" class="btn btn-outline-secondary" data-speed="0.5">50%</button>
-        <button type="button" class="btn btn-outline-secondary" data-speed="0.75">75%</button>
-        <button type="button" class="btn btn-outline-secondary" data-speed="0.9">90%</button>
-        <button type="button" class="btn btn-outline-secondary active" data-speed="1.0">100%</button>
-        <button type="button" class="btn btn-outline-secondary" data-speed="1.1">110%</button>
-        <button type="button" class="btn btn-outline-secondary" data-speed="1.25">125%</button>
-      </div>
-    </div>
-
-    <!-- Metronome & Count-in -->
-    <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary-subtle">
-      <div class="form-check form-switch mb-0">
-        <input class="form-check-input" type="checkbox" id="synthMetronomeSwitch">
-        <label class="form-check-label small" for="synthMetronomeSwitch">Metronome</label>
-      </div>
-      <div class="form-check form-switch mb-0">
-        <input class="form-check-input" type="checkbox" id="synthCountInSwitch">
-        <label class="form-check-label small" for="synthCountInSwitch">Count-in</label>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Collapsible YouTube Panel -->
-<div id="ytDropdownPanel" class="yt-panel" style="display:none;">
-  <div class="yt-panel-header">
-    <div class="d-flex align-items-center text-truncate me-2">
-      <div class="yt-header-badge me-2">
-        <i class="bi-youtube"></i>
-      </div>
-      <span class="yt-panel-title text-truncate" id="ytPanelTitle">YouTube Audio</span>
-    </div>
-    <button class="brand-btn p-1 px-2 text-muted" id="ytPanelCloseBtn" title="Close">
-      <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
-    </button>
-  </div>
-  <div class="yt-panel-body">
-    <div class="yt-mode-selector mb-3" role="group" aria-label="Track Mode">
-      <input type="radio" class="btn-check" name="ytTrackMode" id="ytTrackOriginal" value="original" autocomplete="off" checked>
-      <label class="yt-mode-btn" for="ytTrackOriginal">
-        <i class="bi-music-note me-1"></i> Original Song
-      </label>
-      <input type="radio" class="btn-check" name="ytTrackMode" id="ytTrackBacking" value="backing" autocomplete="off">
-      <label class="yt-mode-btn" for="ytTrackBacking">
-        <i class="bi-disc me-1"></i> Backing Track
-      </label>
-    </div>
-    <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-3">
-      <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-      
-      <!-- Loading Indicator with Cancel Button -->
-      <div id="ytLoadingIndicator" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
-        <div class="spinner-border text-info mb-2" role="status" style="width: 1.85rem; height: 1.85rem; border-width: 0.18em;">
-          <span class="visually-hidden">Searching YouTube...</span>
-        </div>
-        <div class="small fw-bold text-white mb-1">Searching YouTube...</div>
-        <div class="text-muted text-truncate px-3 mb-2" id="ytLoadingQueryText" style="font-size: 0.72rem; max-width: 100%;"></div>
-        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 mt-1" id="ytCancelSearchBtn" style="font-size: 0.75rem;">
-          <i class="bi-x-circle me-1"></i> Cancel Search
-        </button>
-      </div>
-
-      <!-- Manual Search / Fallback Prompt -->
-      <div id="ytPlaceholderPrompt" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
-        <div class="yt-prompt-icon mb-2">
-          <i class="bi-youtube"></i>
-        </div>
-        <div class="small fw-semibold text-white mb-1" id="ytPromptTitle">Find Video on YouTube</div>
-        <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link below or search directly</div>
-        <a class="btn btn-sm btn-danger px-3 py-1 mb-1" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem;">
-          <i class="bi-search me-1"></i> Search on YouTube <i class="bi-box-arrow-up-right ms-1"></i>
+      <h1 class="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight">
+        Just open your tab<br>
+        <span class="gradient-text">and start playing.</span>
+      </h1>
+      <p class="text-sm sm:text-base md:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto">
+        MajesticTab is a distraction-free viewer for guitar tabs. Drop in a PDF or Guitar Pro file and practice in seconds, with no account, no install, and none of the fiddling that heavy tab-composition software demands.
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
+        <a href="app/" class="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 via-cyan-600 to-emerald-600 hover:from-purple-500 hover:via-cyan-500 hover:to-emerald-500 text-white font-bold text-sm shadow-xl shadow-purple-500/30 transition transform hover:-translate-y-0.5 flex items-center gap-2">
+          <i class="fa-solid fa-play"></i><span>Launch MajesticTab</span>
+        </a>
+        <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm shadow-lg transition transform hover:-translate-y-0.5 flex items-center gap-2">
+          <i class="fa-brands fa-github text-emerald-400"></i><span>View on GitHub</span>
         </a>
       </div>
-    </div>
-    <div class="input-group input-group-sm yt-search-group">
-      <input type="text" id="ytSearchInput" class="form-control" placeholder="Paste YouTube link or video ID...">
-      <button class="btn yt-play-btn" id="ytSearchBtn" type="button" title="Load Video"><i class="bi-play-fill"></i> Play</button>
-      <a class="btn yt-ext-btn" id="ytExternalLink" href="#" target="_blank" title="Open search in YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right"></i></a>
-    </div>
-  </div>
-</div>
+      <div class="flex flex-wrap items-center justify-center gap-2 pt-4 text-xs text-slate-400 font-medium">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-tag text-emerald-400"></i> Free forever</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-lock text-cyan-400"></i> Files never leave your device</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-brands fa-bluetooth-b text-sky-400"></i> Page turner ready</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-mobile-screen-button text-purple-400"></i> Mobile friendly</span>
+      </div>
+    </section>
 
-<!-- Theme Chooser Modal (Ported from concerts) -->
-<div id="themeModal" class="theme-modal-backdrop">
-  <div class="theme-modal-card">
-    <div class="theme-modal-header">
-      <div class="d-flex align-items-center gap-2">
-        <div class="brand-btn p-2" style="width: 36px; height: 36px;">
-          <i class="bi-palette-fill text-info"></i>
+    <!-- Practice / ease of use -->
+    <section id="practice" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-purple-400">Built for practice</h2>
+        <p class="text-2xl sm:text-3xl font-extrabold">Less fiddling. More playing.</p>
+        <p class="text-xs sm:text-sm text-slate-400">Composition suites are made for writing music. MajesticTab is made for reading it while your hands are busy.</p>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-400 flex items-center justify-center text-lg"><i class="fa-solid fa-file-arrow-up"></i></div>
+          <h3 class="text-base font-bold">Open and go</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">Pick a PDF, Guitar Pro (GP, GPX, GP5, GP4, GP3) or text file. No project setup, no tracks to configure, no accounts to create.</p>
         </div>
-        <div>
-          <h6 class="mb-0 fw-bold text-white">Guitar Finish Color Themes</h6>
-          <small class="text-muted" style="font-size: 0.75rem;">Homages to iconic guitar finishes and ambient stages</small>
+        <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-lg"><i class="fa-solid fa-expand"></i></div>
+          <h3 class="text-base font-bold">Fills your screen</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">Margins are trimmed and tab is sized to your display, so you see more music per screen and turn fewer pages.</p>
+        </div>
+        <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-lg"><i class="fa-solid fa-palette"></i></div>
+          <h3 class="text-base font-bold">Easy on the eyes</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">Light, dark, or guitar-finish themes for the sheet. Dark mode inverts black-on-white PDFs for the stage or late-night sessions.</p>
         </div>
       </div>
-      <div class="d-flex align-items-center gap-2">
-        <span id="themeModalActiveBadge" class="theme-active-pill">Mystic Dream</span>
-        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" aria-label="Close modal">
-          <i class="bi-x-lg"></i>
-        </button>
-      </div>
-    </div>
-    <div class="theme-modal-body">
-      <!-- Sheet Music Appearance Section (Single 4-Option Row) -->
-      <div class="p-3 rounded-3 mb-2" style="background: var(--bg-card-solid); border: 1px solid var(--border-subtle);">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <div class="fw-semibold text-white small">
-            <i class="bi-file-earmark-music me-1 text-info"></i> Sheet Music Mode
+    </section>
+
+    <!-- Views -->
+    <section id="views">
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl space-y-8">
+        <div class="text-center space-y-2 max-w-3xl mx-auto">
+          <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Two ways to read</h2>
+          <p class="text-2xl sm:text-3xl font-extrabold">Continuous scroll or book-like pages</p>
+          <p class="text-xs sm:text-sm text-slate-300">Switch with one tap, any time, on any file.</p>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Scroll mock -->
+          <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center gap-2 text-sm font-bold"><i class="fa-solid fa-arrow-down-up text-cyan-400"></i> Scroll</div>
+            <div class="page-mock h-56 overflow-hidden relative">
+              <div class="staff"><span style="left:12%;top:20%">5</span><span style="left:30%;top:40%">7</span><span style="left:48%;top:60%">5</span><span style="left:66%;top:80%">7</span></div>
+              <div class="staff"><span style="left:10%;top:60%">3</span><span style="left:28%;top:40%">5</span><span style="left:52%;top:20%">3</span><span style="left:72%;top:60%">0</span></div>
+              <div class="staff"><span style="left:14%;top:80%">0</span><span style="left:36%;top:60%">2</span><span style="left:58%;top:40%">3</span><span style="left:78%;top:20%">2</span></div>
+              <div class="absolute right-1.5 top-2 bottom-2 w-1 rounded bg-slate-800"><div class="w-full h-1/3 rounded bg-gradient-to-b from-purple-500 to-emerald-500"></div></div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">Endless vertical flow with a progress indicator. Ideal for learning a song section by section, or when you'd rather not break the flow.</p>
           </div>
-          <span class="text-muted" style="font-size: 0.72rem;">Score notation styling</span>
-        </div>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="sheetModeRadio" id="modalSheetModeAuto" value="auto" autocomplete="off">
-          <label class="btn btn-sm" for="modalSheetModeAuto" style="flex: 1;" title="Follow system dark/light preference"><i class="bi-circle-half me-1"></i> Auto</label>
-
-          <input type="radio" class="btn-check" name="sheetModeRadio" id="modalSheetModeLight" value="light" autocomplete="off" checked>
-          <label class="btn btn-sm" for="modalSheetModeLight" style="flex: 1;" title="Clean white paper with black notation"><i class="bi-sun me-1"></i> Light</label>
-
-          <input type="radio" class="btn-check" name="sheetModeRadio" id="modalSheetModeDark" value="dark" autocomplete="off">
-          <label class="btn btn-sm" for="modalSheetModeDark" style="flex: 1;" title="Neutral dark mode"><i class="bi-moon me-1"></i> Dark</label>
-
-          <input type="radio" class="btn-check" name="sheetModeRadio" id="modalSheetModeTheme" value="theme" autocomplete="off">
-          <label class="btn btn-sm" for="modalSheetModeTheme" style="flex: 1;" title="Apply active guitar finish colorway to sheet"><i class="bi-palette me-1"></i> Theme</label>
+          <!-- Page mock -->
+          <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center gap-2 text-sm font-bold"><i class="fa-solid fa-book-open text-purple-400"></i> Page</div>
+            <div class="grid grid-cols-2 gap-3 h-56">
+              <div class="page-mock overflow-hidden"><div class="staff"><span style="left:15%;top:40%">3</span><span style="left:45%;top:60%">5</span><span style="left:75%;top:20%">7</span></div><div class="staff"><span style="left:20%;top:80%">0</span><span style="left:50%;top:40%">2</span><span style="left:80%;top:60%">3</span></div><div class="staff"></div></div>
+              <div class="page-mock overflow-hidden"><div class="staff"><span style="left:15%;top:60%">5</span><span style="left:45%;top:20%">7</span><span style="left:75%;top:40%">5</span></div><div class="staff"><span style="left:20%;top:20%">3</span><span style="left:50%;top:80%">0</span><span style="left:80%;top:40%">2</span></div><div class="staff"></div></div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">Like a real book. One page on a phone, two side by side on a wide screen. Choose to advance one page or two at a time.</p>
+          </div>
         </div>
       </div>
+    </section>
 
-      <!-- Theme Cards Grid -->
-      <div class="theme-modal-grid" id="themeModalGrid">
-        <!-- Populated dynamically by themeEngine.js -->
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- Offcanvas Settings & File Menu -->
-<div class="offcanvas offcanvas-start" tabindex="-1" id="fileMenu" aria-labelledby="fileMenuLabel">
-  <div class="offcanvas-header">
-    <div class="d-flex align-items-center gap-2">
-      <i class="bi-sliders2-vertical text-info fs-5"></i>
-      <h5 class="offcanvas-title mb-0" id="fileMenuLabel">Settings & Files</h5>
-    </div>
-    <button type="button" class="btn-close btn-close-white text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-  </div>
-  <div class="offcanvas-body">
-
-    <!-- Section 1: File Loading -->
-    <div class="settings-card">
-      <div class="settings-header-label">
-        <i class="bi-folder2-open text-primary"></i> Load Sheet Music
-      </div>
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">From local device:</label>
-        <input type="file" class="form-control" id="localFile" accept=".pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt">
-      </div>
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">From cloud:</label>
-        <button class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2" id="loadFromDriveBtn">
-          <i class="bi-google"></i> Google Drive
-        </button>
-        <div id="drivePickerContainer"></div>
-      </div>
-    </div>
-
-    <!-- Section 2: Appearance & Theming -->
-    <div class="settings-card">
-      <div class="settings-header-label">
-        <i class="bi-palette-fill text-info"></i> Appearance & Themes
-      </div>
-      
-      <!-- Colorway Finish Row -->
-      <div class="d-flex align-items-center justify-content-between p-2 rounded-2" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
-        <div class="d-flex align-items-center gap-2">
-          <span class="theme-swatch-icon" id="drawerThemeSwatch" style="width: 1.25rem; height: 1.25rem;"></span>
-          <span class="small fw-semibold text-white" id="drawerThemeName">Mystic Dream</span>
-        </div>
-        <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2 text-white" onclick="import('./themeEngine.js').then(m => m.openThemeModal())">
-          Change <i class="bi-chevron-right ms-1"></i>
-        </button>
-      </div>
-
-      <!-- Sheet Music Mode Controls (Single 4-Option Row) -->
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Sheet Music Mode:</label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeAuto" value="auto" autocomplete="off">
-          <label class="btn btn-sm" for="drawerSheetModeAuto" style="flex: 1;"><i class="bi-circle-half me-1"></i> Auto</label>
-
-          <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeLight" value="light" autocomplete="off" checked>
-          <label class="btn btn-sm" for="drawerSheetModeLight" style="flex: 1;"><i class="bi-sun me-1"></i> Light</label>
-
-          <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeDark" value="dark" autocomplete="off">
-          <label class="btn btn-sm" for="drawerSheetModeDark" style="flex: 1;"><i class="bi-moon me-1"></i> Dark</label>
-
-          <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeTheme" value="theme" autocomplete="off">
-          <label class="btn btn-sm" for="drawerSheetModeTheme" style="flex: 1;"><i class="bi-palette me-1"></i> Theme</label>
+    <!-- Pedals -->
+    <section id="pedals">
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/95 shadow-2xl">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          <div class="space-y-4">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-[11px] font-mono"><i class="fa-brands fa-bluetooth-b mr-1.5"></i> Hands-free</span>
+            <h2 class="text-2xl sm:text-3xl font-extrabold">Works with Bluetooth page turners</h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">Keep both hands on the guitar. Most Bluetooth foot pedals and page turners (AirTurn, PageFlip and similar) act as a keyboard, and MajesticTab already speaks keyboard.</p>
+            <ul class="space-y-2 text-xs text-slate-300">
+              <li class="flex gap-2"><i class="fa-solid fa-check text-emerald-400 mt-0.5"></i> Arrow keys, Page Up and Page Down</li>
+              <li class="flex gap-2"><i class="fa-solid fa-check text-emerald-400 mt-0.5"></i> Works in both page and scroll modes</li>
+              <li class="flex gap-2"><i class="fa-solid fa-check text-emerald-400 mt-0.5"></i> Also tap, click, mouse and on-screen buttons</li>
+            </ul>
+          </div>
+          <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-6 space-y-4">
+            <div class="flex flex-wrap gap-2 justify-center">
+              <span class="kbd px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm">&larr;</span>
+              <span class="kbd px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm">&rarr;</span>
+              <span class="kbd px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm">PgUp</span>
+              <span class="kbd px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm">PgDn</span>
+            </div>
+            <p class="text-[11px] text-slate-400 text-center">Pair your pedal, open a tab, and press. Compatibility varies by device, so check your pedal's keyboard mode.</p>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Section 3: Viewing Preferences -->
-    <div class="settings-card">
-      <div class="settings-header-label">
-        <i class="bi-layout-text-window-reverse text-warning"></i> Viewing Preferences
+    <!-- Export + Condense -->
+    <section id="export" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-indigo-400">Take it with you</h2>
+        <p class="text-2xl sm:text-3xl font-extrabold">PDF export &amp; experimental condensing</p>
       </div>
-      
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Dual-Page Advance:</label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance1" value="1" autocomplete="off">
-          <label class="btn btn-sm w-50" for="pageAdvance1">1 Page</label>
-
-          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
-          <label class="btn btn-sm w-50" for="pageAdvance2">2 Pages</label>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-pink-500/20 border border-pink-500/30 text-pink-400 flex items-center justify-center text-lg"><i class="fa-solid fa-file-pdf"></i></div>
+          <h3 class="text-base font-bold">Export to PDF</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">Save what you see as a clean, printable A4 PDF. Print it, share it, or load it on any other device.</p>
+        </div>
+        <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center text-lg"><i class="fa-solid fa-compress"></i></div>
+          <h3 class="text-base font-bold flex items-center gap-2">Condense PDF <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-900 text-[10px] font-bold">EXPERIMENTAL</span></h3>
+          <p class="text-xs text-slate-300 leading-relaxed">For multi-track tab PDFs, MajesticTab detects staves with notes, drops empty ones, and redraws the groupings. Tabs with many rhythm and lead tracks can shrink to a fraction of the pages. It's still in beta, so always keep your original.</p>
         </div>
       </div>
+    </section>
 
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Default View (Guitar Pro):</label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultPage" value="page" autocomplete="off">
-          <label class="btn btn-sm w-50" for="gpDefaultPage"><i class="bi-book me-1"></i> Page</label>
-
-          <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultContinuous" value="continuous" autocomplete="off" checked>
-          <label class="btn btn-sm w-50" for="gpDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+    <!-- Mobile -->
+    <section id="mobile">
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 shadow-2xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+        <div class="space-y-4">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-mono"><i class="fa-solid fa-mobile-screen-button mr-1.5"></i> Phone &amp; tablet</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold">Optimized for mobile</h2>
+          <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">A responsive layout with a minimal floating toolbar and touch navigation. Install it to your home screen as an app and it launches full screen, ready for the music stand.</p>
+        </div>
+        <div class="flex justify-center">
+          <div class="w-[200px] rounded-[32px] bg-slate-950 p-2 border-[6px] border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_35px_rgba(147,51,234,0.25)]">
+            <div class="rounded-[24px] bg-[#0e0a18] p-3 h-80 overflow-hidden">
+              <div class="flex items-center justify-between text-[10px] text-slate-400 mb-2"><i class="fa-solid fa-bars"></i><span class="px-2 py-0.5 rounded-full bg-slate-800">Page | Scroll</span><i class="fa-solid fa-play"></i></div>
+              <div class="staff"><span style="left:15%;top:40%">5</span><span style="left:45%;top:60%">7</span><span style="left:75%;top:20%">5</span></div>
+              <div class="staff"><span style="left:20%;top:80%">0</span><span style="left:50%;top:40%">2</span><span style="left:80%;top:60%">3</span></div>
+              <div class="staff"><span style="left:15%;top:20%">3</span><span style="left:45%;top:80%">5</span><span style="left:75%;top:40%">7</span></div>
+              <div class="staff"><span style="left:25%;top:60%">0</span><span style="left:55%;top:20%">2</span></div>
+            </div>
+          </div>
         </div>
       </div>
+    </section>
 
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Default View (PDF):</label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="pdfDefaultViewRadio" id="pdfDefaultPage" value="page" autocomplete="off">
-          <label class="btn btn-sm w-50" for="pdfDefaultPage"><i class="bi-book me-1"></i> Page</label>
-
-          <input type="radio" class="btn-check" name="pdfDefaultViewRadio" id="pdfDefaultContinuous" value="continuous" autocomplete="off">
-          <label class="btn btn-sm w-50" for="pdfDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+    <!-- Privacy / open source -->
+    <section id="privacy" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Yours, completely</h2>
+        <p class="text-2xl sm:text-3xl font-extrabold">Free, open source, and private</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="glass-card p-6 rounded-2xl space-y-2">
+          <div class="text-emerald-400 text-lg"><i class="fa-solid fa-tag"></i></div>
+          <h3 class="text-sm font-bold">Free</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">No subscription, ads, or paywalled features.</p>
+        </div>
+        <div class="glass-card p-6 rounded-2xl space-y-2">
+          <div class="text-purple-400 text-lg"><i class="fa-solid fa-code-branch"></i></div>
+          <h3 class="text-sm font-bold">Open source</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">MIT licensed. Read it, fork it, improve it.</p>
+        </div>
+        <div class="glass-card p-6 rounded-2xl space-y-2">
+          <div class="text-cyan-400 text-lg"><i class="fa-solid fa-file-code"></i></div>
+          <h3 class="text-sm font-bold">Static page</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">Plain HTML and JavaScript. No backend, no database, no build step.</p>
+        </div>
+        <div class="glass-card p-6 rounded-2xl space-y-2">
+          <div class="text-pink-400 text-lg"><i class="fa-solid fa-user-shield"></i></div>
+          <h3 class="text-sm font-bold">No remote data stored</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">Files are processed in your browser and never uploaded. Read the <a href="app/privacy.html" class="text-indigo-300 underline">privacy policy</a>.</p>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- Section 4: PDF Tools & Exports -->
-    <div class="settings-card">
-      <div class="settings-header-label">
-        <i class="bi-tools text-danger"></i> PDF Tools & Export
-      </div>
-      <div class="form-check form-switch mb-1">
-        <input class="form-check-input" type="checkbox" id="condensePdfMode">
-        <label class="form-check-label small text-white" for="condensePdfMode">Condense PDF <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">Beta</span></label>
-      </div>
-      <div class="form-check form-switch mb-2">
-        <input class="form-check-input" type="checkbox" id="debugMode">
-        <label class="form-check-label small text-white" for="debugMode">Debug PDF Overlay</label>
-      </div>
-      <button class="btn btn-outline-primary w-100 mb-2" id="exportPDFBtn">Export Current File as PDF</button>
-      <button class="btn btn-outline-primary w-100" id="bulkConvertBtn" onclick="window.open('batchExport.html', '_blank')">Bulk Condense PDFs</button>
-      <div id="exportProgressContainer" style="display:none; margin-top:5px;">
-        <div class="progress" style="height: 6px;">
-          <div id="exportProgressBar" class="progress-bar bg-primary" role="progressbar" style="width:0%">0%</div>
+    <!-- Self-hosting -->
+    <section id="self-hosting">
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-indigo-500/30 bg-slate-900/90 shadow-2xl">
+        <div class="max-w-3xl mx-auto text-center space-y-3 mb-6">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-mono"><i class="fa-solid fa-server mr-1.5"></i> Self-host</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold">Host it yourself in seconds</h2>
+          <p class="text-xs sm:text-sm text-slate-300">It's just static files. Serve them from any web server, a Raspberry Pi, or GitHub Pages.</p>
+        </div>
+        <div class="max-w-2xl mx-auto space-y-3 font-mono text-xs">
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 overflow-x-auto">
+            <p class="text-slate-500"># Clone and serve</p>
+            <p><span class="text-indigo-400">git clone</span> https://github.com/cgarst/MajesticTab.git</p>
+            <p><span class="text-indigo-400">cd</span> MajesticTab</p>
+            <p><span class="text-emerald-400">python3 -m http.server</span> 8080</p>
+            <p class="text-slate-500 mt-2"># Landing page: http://localhost:8080/</p>
+            <p class="text-slate-500"># App:          http://localhost:8080/app/</p>
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-slate-400 font-sans">
+            <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-emerald-400"></i> MIT Licensed</span>
+            <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 font-semibold underline">Read the docs on GitHub &rarr;</a>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
 
-    <div class="mt-auto pt-2 d-flex flex-column gap-2">
-      <a href="privacy.html" target="_blank" class="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center gap-2 text-white">
-        <i class="bi-shield-check"></i> Privacy Policy
+    <!-- Final CTA -->
+    <section class="text-center space-y-4">
+      <h2 class="text-2xl sm:text-3xl font-extrabold">Ready to practice?</h2>
+      <a href="app/" class="inline-flex px-8 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-cyan-600 to-emerald-600 hover:from-purple-500 hover:via-cyan-500 hover:to-emerald-500 text-white font-bold shadow-xl shadow-purple-500/30 transition transform hover:-translate-y-0.5 items-center gap-2">
+        <i class="fa-solid fa-play"></i><span>Launch MajesticTab</span>
       </a>
-      <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="btn btn-outline-secondary btn-sm w-100 d-flex align-items-center justify-content-center gap-2 text-white">
-        <i class="bi-github"></i> View Source on GitHub
-      </a>
+    </section>
+  </main>
+
+  <footer class="border-t border-slate-800/80 bg-slate-950/90 py-8 px-4 sm:px-6 lg:px-8 mt-16">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+      <div class="flex items-center gap-3">
+        <img src="icons/favicon-32x32.png" alt="" class="w-6 h-6 rounded">
+        <span>&copy; MajesticTab &bull; Free, open-source tab reader.</span>
+      </div>
+      <div class="flex items-center gap-6">
+        <a href="app/" class="hover:text-white transition">App</a>
+        <a href="app/privacy.html" class="hover:text-white transition">Privacy</a>
+        <a href="#self-hosting" class="hover:text-white transition">Self-Host</a>
+        <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="hover:text-white transition flex items-center gap-1"><i class="fa-brands fa-github"></i> GitHub</a>
+      </div>
     </div>
-
-  </div>
-</div>
-
-<div id="mainContent">
-    <div id="progressContainer"><div id="progressBar"></div></div>
-    <div id="output" tabindex="0"></div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.2/jspdf.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/alphaTab.min.js"></script>
-<script type="module" src="main.js"></script>
+  </footer>
 </body>
 </html>
