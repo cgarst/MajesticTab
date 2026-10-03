@@ -226,27 +226,15 @@ export function setupKeyboardNavigation(getConfig) {
 
         // Spacebar toggles playback
         if (isSpace) {
-            // 1. If either player is actively playing, pause it
-            if (isSynthPlaying()) {
-                playPauseSynth();
-                return;
-            }
-            if (isYouTubePlaying()) {
-                playPauseYouTube();
-                return;
-            }
-
-            // 2. If neither is playing, start whichever is available
-            if (isSynthAvailable()) {
-                playPauseSynth();
-                return;
-            }
-            if (isYouTubeAvailable()) {
-                playPauseYouTube();
+            // 1. If a player is playing, pause it; otherwise resume the last
+            //    active/selected source (soundfont or YouTube), falling back to
+            //    whichever is available
+            if (isSynthPlaying() || isYouTubePlaying() || isSynthAvailable() || isYouTubeAvailable()) {
+                handleGlobalPlayPause();
                 return;
             }
 
-            // 3. If neither player is loaded (e.g. plain PDF), advance page
+            // 2. If neither player is loaded (e.g. plain PDF), advance page
             const navigationHandler = new NavigationHandler(config);
             const result = navigationHandler.handleAction(NavigationAction.NEXT);
             if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
