@@ -538,6 +538,24 @@ export function rewindSynth() {
 }
 
 /**
+ * Seek back 10 seconds (or to 0 if within first 10s)
+ */
+export function rewindSynth10Seconds() {
+    if (!currentApi) return;
+    try {
+        const currentMs = (synthPlayerState.currentTime !== undefined && synthPlayerState.currentTime !== null)
+            ? synthPlayerState.currentTime
+            : (currentApi.timePosition || 0);
+        const targetMs = Math.max(0, currentMs - 10000);
+        currentApi.timePosition = targetMs;
+        synthPlayerState.currentTime = targetMs;
+        updateSynthUI();
+    } catch (e) {
+        console.error('[Synth Player] Back 10s error:', e);
+    }
+}
+
+/**
  * Seek to a percentage position (0 to 1)
  */
 export function seekSynthPercent(percent) {
@@ -666,8 +684,9 @@ export function initSynthPlayer() {
         toggleSynthPanel(false);
     });
 
-    rewindBtn?.addEventListener('click', () => {
-        rewindSynth();
+    rewindBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        rewindSynth10Seconds();
     });
 
     playPauseBtn?.addEventListener('click', () => {

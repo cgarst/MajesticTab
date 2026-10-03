@@ -2,8 +2,8 @@
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
-import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights } from '../gpProcessor/gpPlayer.js';
-import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying } from '../youtubePlayer.js';
+import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth } from '../gpProcessor/gpPlayer.js';
+import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning } from '../youtubePlayer.js';
 
 // Navigation action constants
 export const NavigationAction = {
@@ -166,6 +166,14 @@ export class NavigationHandler {
         const { config } = this;
         const isGP = config.gpState?.canvases[0];
         const isPageMode = config.pageModeChecked || config.pageModeRadio?.checked;
+
+        // Trigger rewind to beginning action for active/available audio players
+        if (isSynthAvailable()) {
+            rewindSynth();
+        }
+        if (isYouTubeAvailable()) {
+            rewindYouTubeToBeginning();
+        }
 
         if (isGP) {
             if (isPageMode) {

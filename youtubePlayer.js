@@ -36,6 +36,21 @@ export function pauseYouTube() {
 }
 
 /**
+ * Rewind YouTube to start (0s)
+ */
+export function rewindYouTubeToBeginning() {
+    const iframe = document.getElementById('ytIframe');
+    if (!iframe || !iframe.contentWindow) return;
+
+    playerState.currentTime = 0;
+    iframe.contentWindow.postMessage(JSON.stringify({
+        event: 'command',
+        func: 'seekTo',
+        args: [0, true]
+    }), '*');
+}
+
+/**
  * Toggle YouTube play / pause
  */
 export function playPauseYouTube() {
