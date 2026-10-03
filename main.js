@@ -11,6 +11,7 @@ import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './uti
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
 import { initSynthPlayer, hideSynthPlayer } from './gpProcessor/gpPlayer.js';
+import { initTheming } from './themeEngine.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -101,70 +102,6 @@ let pages = [];
 let currentPageIndex = 0;
 let continuous = false;
 
-// --- THEME MANAGEMENT ---
-function applyTheme(theme) {
-    let isDark = false;
-    if (theme === 'dark') {
-        isDark = true;
-    } else if (theme === 'light') {
-        isDark = false;
-    } else { // 'auto'
-        isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-
-    if (isDark) {
-        document.body.classList.add('dark-mode');
-    } else {
-        document.body.classList.remove('dark-mode');
-    }
-}
-
-function setupTheme() {
-    // Determine initial theme: check 'theme', or migrate legacy 'darkMode' if present, otherwise default to 'auto'
-    let savedTheme = localStorage.getItem('theme');
-    if (!savedTheme) {
-        const legacyDarkMode = localStorage.getItem('darkMode');
-        if (legacyDarkMode !== null) {
-            savedTheme = legacyDarkMode === 'true' ? 'dark' : 'light';
-            localStorage.setItem('theme', savedTheme);
-            localStorage.removeItem('darkMode');
-        } else {
-            savedTheme = 'auto';
-        }
-    }
-
-    // Update checked radio button
-    const themeRadio = document.querySelector(`input[name="themeRadio"][value="${savedTheme}"]`);
-    if (themeRadio) {
-        themeRadio.checked = true;
-    }
-
-    // Apply theme
-    applyTheme(savedTheme);
-
-    // Listen to changes on radio buttons
-    const themeRadios = document.querySelectorAll('input[name="themeRadio"]');
-    themeRadios.forEach(radio => {
-        radio.addEventListener('change', () => {
-            if (radio.checked) {
-                const selectedTheme = radio.value;
-                localStorage.setItem('theme', selectedTheme);
-                applyTheme(selectedTheme);
-            }
-        });
-    });
-
-    // Listen for OS/browser color scheme changes when in 'auto' mode
-    if (window.matchMedia) {
-        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-            const currentTheme = localStorage.getItem('theme') || 'auto';
-            if (currentTheme === 'auto') {
-                applyTheme('auto');
-            }
-        });
-    }
-}
-
 // --- SETTINGS MANAGEMENT ---
 function setupSettings() {
     // Load settings from localStorage
@@ -178,7 +115,8 @@ function setupSettings() {
     // Default: Condense PDFs off by default (false)
     condensePdfMode.checked = savedCondensePdfMode === null ? false : savedCondensePdfMode === 'true';
     
-    setupTheme();
+    // Initialize modern guitar finish theming engine
+    initTheming();
 
     // Setup dual-page advance selector
     let savedPageAdvance = localStorage.getItem('pageAdvancePages');
@@ -295,6 +233,13 @@ window.addEventListener('DOMContentLoaded', async () => {
         console.log('[Normal Mode] No test parameter found, showing file menu');
         // Show the file menu on initial load (normal mode)
         fileMenu.show();
+    }
+
+    if (urlParams.has('drawer')) {
+        fileMenu.show();
+    }
+    if (urlParams.has('modal')) {
+        import('./themeEngine.js').then(m => m.openThemeModal());
     }
 
     // Create navigation config with getters for dynamic values
