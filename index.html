@@ -36,7 +36,13 @@
     <div id="ytContainer" class="d-flex align-items-center justify-content-center mx-auto" style="display:none;">
       <div id="ytMiniPill" class="btn-group" role="group" aria-label="YouTube Player">
         <button class="btn btn-outline-danger btn-sm" id="ytToggleBtn" title="Toggle YouTube Player">
-          <i class="bi-youtube"></i> <span id="ytPillLabel" class="d-none d-sm-inline ms-1">Original</span> <i class="bi-chevron-down ms-1" id="ytPillChevron"></i>
+          <i class="bi-youtube"></i>
+        </button>
+        <button class="btn btn-outline-danger btn-sm" id="ytRewindBtn" title="Back 10 Seconds" style="display:none;">
+          <i class="bi-arrow-counterclockwise"></i>
+        </button>
+        <button class="btn btn-outline-danger btn-sm" id="ytPlayPauseBtn" title="Play / Pause" style="display:none;">
+          <i class="bi-play-fill" id="ytPlayPauseIcon"></i>
         </button>
       </div>
     </div>
