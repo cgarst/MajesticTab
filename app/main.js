@@ -585,3 +585,22 @@ export function getCondensedCanvases() {
 export function getPdfPages() {
     return pages;
 }
+
+// Fullscreen toggle
+(function setupFullscreenToggle() {
+    const btn = document.getElementById("fullscreenToggleBtn");
+    const icon = document.getElementById("fullscreenIcon");
+    if (!btn) return;
+    const root = document.documentElement;
+    if (!root.requestFullscreen) { btn.parentElement.style.display = "none"; return; }
+    btn.addEventListener("click", () => {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else root.requestFullscreen().catch(err => console.warn("Fullscreen failed:", err));
+        btn.blur();
+    });
+    document.addEventListener("fullscreenchange", () => {
+        const fs = !!document.fullscreenElement;
+        icon.className = fs ? "bi-fullscreen-exit" : "bi-arrows-fullscreen";
+        btn.title = fs ? "Exit Fullscreen" : "Enter Fullscreen";
+    });
+})();
