@@ -405,37 +405,10 @@ body {
   min-width: max-content;
 }
 
-/* Consolidated Rewind Button & Audio Mini Pills */
-#globalRewindBtn,
-.rewind-btn-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-card-solid);
-  border: 1px solid var(--border-subtle);
-  border-radius: 9999px;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
-  transition: all 0.2s ease;
-}
-
-#globalRewindBtn:hover:not(:disabled),
-.rewind-btn-pill:hover:not(:disabled) {
-  color: var(--accent-text);
-  background: var(--bg-card-hover);
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 10px var(--accent-glow);
-}
-
-#globalRewindBtn:disabled,
-.rewind-btn-pill:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-#synthMiniPill, #ytMiniPill {
+/* Consolidated Playback Controls & Audio Mini Pills */
+#globalAudioControls,
+#synthMiniPill,
+#ytMiniPill {
   display: inline-flex;
   align-items: center;
   background: var(--bg-card-solid);
@@ -445,7 +418,9 @@ body {
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
 }
 
-#synthMiniPill .btn, #ytMiniPill .btn {
+#globalAudioControls .btn,
+#synthMiniPill .btn,
+#ytMiniPill .btn {
   border: none !important;
   background: transparent;
   color: var(--text-muted);
@@ -458,6 +433,11 @@ body {
   transition: all 0.2s ease;
 }
 
+#globalAudioControls .btn:hover:not(:disabled) {
+  color: var(--accent-text);
+  background: var(--bg-card-hover);
+}
+
 #synthMiniPill .btn:hover:not(:disabled) {
   color: #10b981;
   background: rgba(16, 185, 129, 0.15);
@@ -466,6 +446,13 @@ body {
 #ytMiniPill .btn:hover:not(:disabled) {
   color: #ef4444;
   background: rgba(239, 68, 68, 0.15);
+}
+
+#globalAudioControls .btn:disabled,
+#synthMiniPill .btn:disabled,
+#ytMiniPill .btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 #synthMiniPill .btn.active, #ytMiniPill .btn.active {
