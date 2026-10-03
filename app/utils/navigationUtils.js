@@ -602,6 +602,17 @@ export function handleGlobalRewind10Seconds() {
         rewindYouTube10Seconds();
         return;
     }
+    const ytActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
+    const synthActive = document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode');
+
+    if (ytActive && isYouTubeAvailable()) {
+        rewindYouTube10Seconds();
+        return;
+    }
+    if (synthActive && isSynthAvailable()) {
+        rewindSynth10Seconds();
+        return;
+    }
     if (isSynthAvailable()) {
         rewindSynth10Seconds();
         return;
