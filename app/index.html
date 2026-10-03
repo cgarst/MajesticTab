@@ -47,22 +47,14 @@
       </button>
     </div>
 
-    <!-- Synth / Instrument Player Controls -->
-    <div id="synthContainer" style="display:none;">
-      <div id="synthMiniPill" role="group" aria-label="Instrument Player">
-        <button class="btn btn-sm" id="synthToggleBtn" title="Instrument Audio & Controls">
-          <i class="bi-music-note-beamed"></i>
-        </button>
-      </div>
-    </div>
-
-    <!-- YouTube Player Controls -->
-    <div id="ytContainer" style="display:none;">
-      <div id="ytMiniPill" role="group" aria-label="YouTube Player">
-        <button class="btn btn-sm" id="ytToggleBtn" title="YouTube Audio & Controls">
-          <i class="bi-youtube"></i>
-        </button>
-      </div>
+    <!-- Audio Source Selector Pill (SoundFont & YouTube) -->
+    <div id="audioSourcePill" class="hud-pill-group" role="group" aria-label="Audio Sources" style="display:none;">
+      <button class="btn btn-sm" id="synthToggleBtn" title="Instrument Audio & Controls" style="display:none;">
+        <i class="bi-music-note-beamed"></i>
+      </button>
+      <button class="btn btn-sm" id="ytToggleBtn" title="YouTube Audio & Controls" style="display:none;">
+        <i class="bi-youtube"></i>
+      </button>
     </div>
 
     <!-- Navigation Controls -->
