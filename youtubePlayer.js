@@ -90,6 +90,63 @@ export function buildQuery(mode = playerState.trackMode) {
 }
 
 /**
+ * Public Invidious and Piped mirrors for client-side multi-mirror search
+ */
+const PUBLIC_MIRRORS = [
+    { type: 'invidious', url: 'https://invidious.f5.si' },
+    { type: 'invidious', url: 'https://yt.artemislena.eu' },
+    { type: 'invidious', url: 'https://iv.ggtyler.dev' },
+    { type: 'invidious', url: 'https://invidious.private.coffee' },
+    { type: 'invidious', url: 'https://invidious.drgns.space' },
+    { type: 'invidious', url: 'https://inv.vern.cc' },
+    { type: 'piped', url: 'https://pa.il.ax' },
+    { type: 'piped', url: 'https://pipedapi.tokhmi.xyz' },
+    { type: 'piped', url: 'https://pipedapi.r4fo.com' }
+];
+
+/**
+ * Attempt to search public mirrors concurrently for a matching video ID
+ */
+async function fetchMultiMirrorSearch(query) {
+    const fetchFromMirror = async (mirror) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        try {
+            const endpoint = mirror.type === 'invidious'
+                ? `${mirror.url}/api/v1/search?q=${encodeURIComponent(query)}&type=video`
+                : `${mirror.url}/search?q=${encodeURIComponent(query)}&filter=videos`;
+
+            const res = await fetch(endpoint, {
+                signal: controller.signal,
+                headers: { 'Accept': 'application/json' }
+            });
+            clearTimeout(timeoutId);
+
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            if (mirror.type === 'invidious' && Array.isArray(data) && data.length > 0) {
+                const vid = data[0].videoId;
+                if (vid && /^[a-zA-Z0-9_-]{11}$/.test(vid)) return vid;
+            } else if (mirror.type === 'piped' && data?.items?.length > 0) {
+                const vid = data.items[0].url?.replace('/watch?v=', '');
+                if (vid && /^[a-zA-Z0-9_-]{11}$/.test(vid)) return vid;
+            }
+            throw new Error('No video found in response');
+        } catch (e) {
+            clearTimeout(timeoutId);
+            throw e;
+        }
+    };
+
+    try {
+        return await Promise.any(PUBLIC_MIRRORS.map(m => fetchFromMirror(m)));
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Search YouTube Data API v3 if API key is configured in settings
  */
 async function fetchYouTubeApiKeySearch(query) {
@@ -126,6 +183,12 @@ async function loadCurrentTrack(autoplay = false) {
     if (!videoId) {
         const query = buildQuery();
         videoId = await fetchYouTubeApiKeySearch(query);
+        
+        // 3. If still no ID, attempt multi-mirror public search
+        if (!videoId) {
+            videoId = await fetchMultiMirrorSearch(query);
+        }
+
         if (videoId) {
             localStorage.setItem(getStorageKey(), videoId);
         }
