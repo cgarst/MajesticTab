@@ -1,6 +1,6 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
-import { pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
+import { pauseSynthPlayer, clearSynthHighlights } from './gpProcessor/gpPlayer.js';
 
 let playerState = {
     isOpen: false,
@@ -51,6 +51,7 @@ export function playPauseYouTube() {
         playerState.isPlaying = false;
     } else {
         pauseSynthPlayer();
+        clearSynthHighlights();
         iframe.contentWindow.postMessage(JSON.stringify({
             event: 'command',
             func: 'playVideo',
@@ -507,6 +508,8 @@ export function initYouTubePlayer() {
             }), '*');
             playerState.isPlaying = false;
         } else {
+            pauseSynthPlayer();
+            clearSynthHighlights();
             iframe.contentWindow.postMessage(JSON.stringify({
                 event: 'command',
                 func: 'playVideo',
@@ -588,6 +591,7 @@ export function initYouTubePlayer() {
                     if (playing) {
                         playerState.hasStarted = true;
                         pauseSynthPlayer();
+                        clearSynthHighlights();
                     }
                     if (playerState.isPlaying !== playing) {
                         playerState.isPlaying = playing;
@@ -599,6 +603,7 @@ export function initYouTubePlayer() {
                 if (playing) {
                     playerState.hasStarted = true;
                     pauseSynthPlayer();
+                    clearSynthHighlights();
                 }
                 if (playerState.isPlaying !== playing) {
                     playerState.isPlaying = playing;

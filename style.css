@@ -24,8 +24,8 @@
   --accent-secondary: #10b981;
   --accent-gradient: linear-gradient(135deg, #9333ea 0%, #06b6d4 50%, #10b981 100%);
   --accent-gradient-hover: linear-gradient(135deg, #a855f7 0%, #0891b2 50%, #059669 100%);
-  --accent-glow: rgba(16, 185, 129, 0.45);
-  --accent-primary-alpha: rgba(147, 51, 234, 0.24);
+  --accent-glow: rgba(16, 185, 129, 0.28);
+  --accent-primary-alpha: rgba(147, 51, 234, 0.16);
   --accent-border-alpha: rgba(16, 185, 129, 0.45);
   --accent-text: #a7f3d0;
   
@@ -54,8 +54,8 @@
   --accent-secondary: #38bdf8;
   --accent-gradient: linear-gradient(135deg, #1d4ed8, #38bdf8);
   --accent-gradient-hover: linear-gradient(135deg, #1e40af, #0284c7);
-  --accent-glow: rgba(56, 189, 248, 0.55);
-  --accent-primary-alpha: rgba(37, 99, 235, 0.25);
+  --accent-glow: rgba(56, 189, 248, 0.32);
+  --accent-primary-alpha: rgba(37, 99, 235, 0.16);
   --accent-border-alpha: rgba(56, 189, 248, 0.45);
   --accent-text: #93c5fd;
   --sheet-bg: #ffffff;
@@ -82,8 +82,8 @@
   --accent-secondary: #0284c7;
   --accent-gradient: linear-gradient(135deg, #06b6d4, #0284c7);
   --accent-gradient-hover: linear-gradient(135deg, #0891b2, #0369a1);
-  --accent-glow: rgba(6, 182, 212, 0.55);
-  --accent-primary-alpha: rgba(6, 182, 212, 0.22);
+  --accent-glow: rgba(6, 182, 212, 0.32);
+  --accent-primary-alpha: rgba(6, 182, 212, 0.15);
   --accent-border-alpha: rgba(34, 211, 238, 0.45);
   --accent-text: #67e8f9;
   --sheet-bg: #ffffff;
@@ -110,8 +110,8 @@
   --accent-secondary: #71717a;
   --accent-gradient: linear-gradient(135deg, #a1a1aa, #52525b);
   --accent-gradient-hover: linear-gradient(135deg, #8e8e93, #3f3f46);
-  --accent-glow: rgba(161, 161, 170, 0.3);
-  --accent-primary-alpha: rgba(161, 161, 170, 0.18);
+  --accent-glow: rgba(161, 161, 170, 0.22);
+  --accent-primary-alpha: rgba(161, 161, 170, 0.14);
   --accent-border-alpha: rgba(161, 161, 170, 0.4);
   --accent-text: #e4e4e7;
   --sheet-bg: #ffffff;
@@ -138,8 +138,8 @@
   --accent-secondary: #ef4444;
   --accent-gradient: linear-gradient(135deg, #f97316, #ef4444);
   --accent-gradient-hover: linear-gradient(135deg, #ea580c, #dc2626);
-  --accent-glow: rgba(249, 115, 22, 0.55);
-  --accent-primary-alpha: rgba(249, 115, 22, 0.25);
+  --accent-glow: rgba(249, 115, 22, 0.32);
+  --accent-primary-alpha: rgba(249, 115, 22, 0.16);
   --accent-border-alpha: rgba(251, 146, 60, 0.45);
   --accent-text: #fdba74;
   --sheet-bg: #ffffff;
@@ -166,8 +166,8 @@
   --accent-secondary: #7c3aed;
   --accent-gradient: linear-gradient(135deg, #c026d3, #7c3aed);
   --accent-gradient-hover: linear-gradient(135deg, #a21caf, #6d28d9);
-  --accent-glow: rgba(192, 38, 211, 0.55);
-  --accent-primary-alpha: rgba(192, 38, 211, 0.24);
+  --accent-glow: rgba(192, 38, 211, 0.32);
+  --accent-primary-alpha: rgba(192, 38, 211, 0.16);
   --accent-border-alpha: rgba(217, 70, 239, 0.45);
   --accent-text: #f0abfc;
   --sheet-bg: #ffffff;
@@ -194,8 +194,8 @@
   --accent-secondary: #475569;
   --accent-gradient: linear-gradient(135deg, #e11d48, #475569);
   --accent-gradient-hover: linear-gradient(135deg, #be123c, #334155);
-  --accent-glow: rgba(225, 29, 72, 0.55);
-  --accent-primary-alpha: rgba(225, 29, 72, 0.25);
+  --accent-glow: rgba(225, 29, 72, 0.32);
+  --accent-primary-alpha: rgba(225, 29, 72, 0.16);
   --accent-border-alpha: rgba(225, 29, 72, 0.45);
   --accent-text: #fda4af;
   --sheet-bg: #ffffff;
@@ -222,8 +222,8 @@
   --accent-secondary: #991b1b;
   --accent-gradient: linear-gradient(135deg, #e11d48, #991b1b);
   --accent-gradient-hover: linear-gradient(135deg, #be123c, #7f1d1d);
-  --accent-glow: rgba(225, 29, 72, 0.55);
-  --accent-primary-alpha: rgba(225, 29, 72, 0.24);
+  --accent-glow: rgba(225, 29, 72, 0.32);
+  --accent-primary-alpha: rgba(225, 29, 72, 0.16);
   --accent-border-alpha: rgba(251, 113, 133, 0.45);
   --accent-text: #fda4af;
   --sheet-bg: #ffffff;
@@ -1203,17 +1203,33 @@ body.theme-sheet-active .chord-lyric-chord {
 }
 
 /* --------------------------------------------------------------------------
-   AlphaTab Playback Cursors & Overlays
+   AlphaTab Playback Cursors & Overlays (Continuous & Page Mode)
    -------------------------------------------------------------------------- */
-.at-cursor-beat, .at-cursor-bar {
-  background: var(--accent-glow) !important;
+/* Hide continuous mode cursors/selection until playback has started */
+body:not(.synth-playback-started) .at-cursors,
+body:not(.synth-playback-started) .at-selection {
+  display: none !important;
+}
+
+.at-cursor-bar,
+.gp-page-cursor-bar {
+  background-color: var(--accent-primary-alpha) !important;
+  border-radius: 4px;
+}
+
+.at-cursor-beat,
+.gp-page-cursor-beat {
+  background-color: var(--accent-glow) !important;
+  border-radius: 3px;
+}
+
+.at-selection {
+  background-color: var(--accent-primary-alpha) !important;
 }
 
 .gp-page-cursor-bar {
   position: absolute;
   pointer-events: none;
-  background-color: var(--accent-primary-alpha) !important;
-  border-radius: 4px;
   z-index: 5;
   box-sizing: border-box;
   display: none;
@@ -1222,8 +1238,6 @@ body.theme-sheet-active .chord-lyric-chord {
 .gp-page-cursor-beat {
   position: absolute;
   pointer-events: none;
-  background-color: var(--accent-glow) !important;
-  border-radius: 3px;
   z-index: 6;
   box-sizing: border-box;
   display: none;

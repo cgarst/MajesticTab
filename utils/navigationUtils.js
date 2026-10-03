@@ -2,7 +2,7 @@
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
-import { playPauseSynth, isSynthAvailable, isSynthPlaying } from '../gpProcessor/gpPlayer.js';
+import { playPauseSynth, isSynthAvailable, isSynthPlaying, clearSynthHighlights } from '../gpProcessor/gpPlayer.js';
 import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying } from '../youtubePlayer.js';
 
 // Navigation action constants
@@ -328,6 +328,7 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
         const config = getConfig();
         if (!config.output || !config.currentFile) return;
 
+        clearSynthHighlights();
         config.continuous = !pageModeRadio.checked;
         const isPageMode = pageModeRadio.checked;
         
@@ -421,6 +422,7 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
     continuousModeRadio.addEventListener('change', () => {
         if (!continuousModeRadio.checked) return;
         
+        clearSynthHighlights();
         const config = getConfig();
         config.continuous = true;
         
