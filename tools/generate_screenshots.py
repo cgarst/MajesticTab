@@ -52,13 +52,19 @@ def start_server():
     return httpd, f"http://127.0.0.1:{port}"
 
 
-def load_file(page, base_url, path, mode):
-    """Open the app fresh, upload `path`, and pick 'page' or 'continuous' view."""
+def load_file(page, base_url, path, mode, condense=False):
+    """Open the app fresh, upload `path`, and pick 'page' or 'continuous' view.
+
+    With condense=True the (experimental) Condense PDF option is enabled first.
+    """
     page.goto(f"{base_url}/app/", wait_until="load", timeout=60000)
     page.evaluate(FORCE_DEFAULT_THEME_JS)
+    if condense:
+        page.evaluate("document.querySelector('#condensePdfMode').click()")
     page.set_input_files("#localFile", str(path))
     page.wait_for_selector("#output canvas, #output svg", timeout=90000)
-    page.wait_for_timeout(2500)
+    # Condensing renders progressively; give it time to finish before capturing.
+    page.wait_for_timeout(15000 if condense else 2500)
     radio = "#continuousModeRadio" if mode == "continuous" else "#pageModeRadio"
     page.evaluate(f"document.querySelector('{radio}').click()")
     page.wait_for_timeout(2000)
@@ -110,6 +116,11 @@ def main():
                 if wanted("pdf_page"):
                     load_file(page, base_url, PDF_FILE, "page")
                     save("pdf_page")
+
+                # PDF with the experimental Condense option on
+                if wanted("pdf_condensed"):
+                    load_file(page, base_url, PDF_FILE, "page", condense=True)
+                    save("pdf_condensed")
 
                 # Settings drawer
                 if wanted("menu"):
