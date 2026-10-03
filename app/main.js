@@ -1,6 +1,6 @@
 // main.js
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
-import { fetchPickedFile, setupDrivePicker } from './googleDrive.js';
+import { setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
 import { loadGP, renderGPPage, gpState, nextGPPage, prevGPPage, layoutGPPages } from './gpProcessor/gpHandler.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';

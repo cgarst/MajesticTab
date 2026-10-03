@@ -980,6 +980,114 @@ input[type=range]::-webkit-slider-thumb:hover {
 }
 
 /* --------------------------------------------------------------------------
+   Google Drive In-App File Browser
+   -------------------------------------------------------------------------- */
+.drive-modal-card {
+  max-width: 640px;
+}
+
+.drive-modal-toolbar {
+  background: var(--bg-card-solid);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.drive-breadcrumbs {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-subtle);
+  white-space: nowrap;
+}
+
+.drive-breadcrumb-item {
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  transition: background 0.15s ease, color 0.15s ease;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+}
+
+.drive-breadcrumb-item:hover {
+  color: #ffffff;
+  background: var(--bg-card-hover);
+}
+
+.drive-breadcrumb-item.active {
+  color: var(--accent-text);
+  font-weight: 600;
+  cursor: default;
+}
+
+.drive-breadcrumb-item.active:hover {
+  background: transparent;
+}
+
+.drive-file-list-container {
+  overflow-y: auto;
+  max-height: 55vh;
+  min-height: 250px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.drive-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.65rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: #ffffff;
+  text-decoration: none;
+}
+
+.drive-file-item:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+}
+
+.drive-file-item-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.drive-file-icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  background: var(--bg-card-solid);
+}
+
+.drive-file-name {
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.drive-file-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  text-align: right;
+  margin-left: 0.5rem;
+}
+
+/* --------------------------------------------------------------------------
    Modernized Offcanvas Settings Drawer
    -------------------------------------------------------------------------- */
 .offcanvas {

@@ -10,7 +10,6 @@
 <link rel="manifest" href="site.webmanifest" />
 <link rel="icon" href="icons/favicon.ico" type="image/x-icon" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script type="module" src="https://unpkg.com/@googleworkspace/drive-picker-element@0/dist/index.iife.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 </head>
 <body>
@@ -240,6 +239,55 @@
       <!-- Theme Cards Grid -->
       <div class="theme-modal-grid" id="themeModalGrid">
         <!-- Populated dynamically by themeEngine.js -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Google Drive In-App File Browser Modal -->
+<div id="driveModal" class="theme-modal-backdrop">
+  <div class="theme-modal-card drive-modal-card">
+    <div class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2" style="width: 36px; height: 36px;">
+          <i class="bi-google text-primary"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h6 class="mb-0 fw-bold text-white text-truncate">Google Drive</h6>
+          <small class="text-muted d-none d-sm-block" style="font-size: 0.75rem;">Select a tab file to open</small>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2 text-white" id="driveSignOutBtn" title="Disconnect Google Account">
+          <i class="bi-box-arrow-right me-1"></i><span class="d-none d-sm-inline">Disconnect</span>
+        </button>
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="driveModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Search & Refresh Toolbar -->
+    <div class="drive-modal-toolbar p-2 px-3 d-flex align-items-center gap-2">
+      <div class="input-group input-group-sm flex-grow-1">
+        <span class="input-group-text bg-dark border-secondary text-white-50"><i class="bi-search"></i></span>
+        <input type="text" class="form-control bg-dark text-white border-secondary" id="driveSearchInput" placeholder="Search tabs by name...">
+      </div>
+      <button class="btn btn-outline-secondary btn-sm text-white" id="driveRefreshBtn" title="Refresh file list">
+        <i class="bi-arrow-clockwise"></i>
+      </button>
+    </div>
+
+    <!-- Breadcrumbs navigation -->
+    <div class="drive-breadcrumbs px-3 py-1.5 small text-white-50 d-flex align-items-center gap-1 overflow-x-auto" id="driveBreadcrumbs">
+      <span class="drive-breadcrumb-item active"><i class="bi-folder2-open me-1"></i> My Drive</span>
+    </div>
+
+    <!-- File list area -->
+    <div class="drive-file-list-container p-2" id="driveFileListContainer">
+      <div class="text-center py-5 text-muted">
+        <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
+        <div>Loading files from Google Drive...</div>
       </div>
     </div>
   </div>
