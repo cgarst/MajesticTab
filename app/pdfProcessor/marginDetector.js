@@ -22,8 +22,10 @@ export function detectMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns
     if (gIndex === 0) {
       sectionStart = 0;
       sectionEnd = Math.max(sectionEnd, 0);
-    } else if (prevGroupHasContent) {
-      sectionStart = Math.max(prevGroupMarginBottom, prevGroupBottom);
+    } else {
+      sectionStart = prevGroupHasContent
+        ? Math.max(prevGroupMarginBottom, prevGroupBottom)
+        : prevGroupBottom;
       sectionEnd = group.start;
     }
 
@@ -55,7 +57,7 @@ export function detectMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns
       sectionStart += firstContentRow;
     }
 
-    if (sectionEnd > sectionStart) {
+    if (sectionEnd > sectionStart && (gIndex === 0 || groupHasNotesOrStems)) {
       betweenGroupSections.push({ start: sectionStart, end: sectionEnd });
       if (debugMode?.checked && ctx) {
         ctx.strokeStyle = 'teal';
@@ -72,6 +74,8 @@ export function detectMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns
 
       if (si === 0) {
         marginTop = Math.max(0, prevMarginBottom - CONFIG.MIN_TOP_MARGIN_ABOVE_GROUP);
+      } else if (!staves[si - 1].hasNotes) {
+        marginTop = Math.max(0, s.start - CONFIG.MIN_TOP_MARGIN_ABOVE_GROUP);
       }
 
       const marginBottom = Math.max(
