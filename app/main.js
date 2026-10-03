@@ -193,7 +193,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log('[App Init] Current URL:', window.location.href);
     console.log('[App Init] Query string:', window.location.search);
 
-    setupExportPDFButton(condensedCanvases);
+    setupExportPDFButton();
     setupDrivePicker();
     setupSettings();
     initYouTubePlayer();
@@ -514,4 +514,16 @@ export function hideLoadingBar() {
 
 export function hideFileMenu() {
     fileMenu.hide();
+}
+
+export function getCurrentFile() {
+    return currentFile;
+}
+
+export function getCondensedCanvases() {
+    return condensedCanvases;
+}
+
+export function getPdfPages() {
+    return pages;
 }
