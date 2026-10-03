@@ -1020,6 +1020,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   min-height: 100%;
   margin: 0 auto;
   overflow: visible;
+  flex-shrink: 0;
 }
 
 .alphaTab-gp-content {

@@ -155,6 +155,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     container.style.width = isPageMode ? `${targetWidth}px` : '100%';
     container.style.height = isPageMode ? '100%' : 'auto';
     container.style.minHeight = '100%';
+    container.style.flexShrink = '0';
     container.style.display = 'block';
     container.style.margin = '0 auto';
     output.appendChild(container);
@@ -257,6 +258,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         container.style.width = '100%';
         container.style.height = 'auto';
         container.style.minHeight = '100%';
+        container.style.flexShrink = '0';
         
         // Set up continuous mode view
         output.classList.add('continuous-mode');
