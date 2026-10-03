@@ -179,6 +179,7 @@ body.dark-mode {
    ========================================================================== */
 .alphaTabContainer {
     width: 100%;
+    min-height: 100%;
     margin: 0 auto;
     overflow: visible;
     box-shadow: var(--page-shadow);
@@ -745,12 +746,21 @@ body.dark-mode .chord-lyric-segment span[style*="color: rgb(44, 82, 130)"] {
     color: #dc3545;
 }
 
-#ytMiniPill .btn:hover,
-#ytMiniPill .btn.active,
-#ytMiniPill .btn:active {
+#ytMiniPill .btn:hover:not(:disabled),
+#ytMiniPill .btn.active:not(:disabled),
+#ytMiniPill .btn:active:not(:disabled) {
     background-color: #dc3545;
     border-color: #dc3545;
     color: #fff;
+}
+
+#ytMiniPill .btn:disabled,
+#ytMiniPill .btn.disabled {
+    opacity: 0.4;
+    border-color: #6c757d;
+    color: #adb5bd;
+    cursor: not-allowed;
+    pointer-events: none;
 }
 
 .yt-panel {
