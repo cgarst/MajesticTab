@@ -99,44 +99,90 @@ let pages = [];
 let currentPageIndex = 0;
 let continuous = false;
 
+// --- THEME MANAGEMENT ---
+function applyTheme(theme) {
+    let isDark = false;
+    if (theme === 'dark') {
+        isDark = true;
+    } else if (theme === 'light') {
+        isDark = false;
+    } else { // 'auto'
+        isDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    }
+
+    if (isDark) {
+        document.body.classList.add('dark-mode');
+    } else {
+        document.body.classList.remove('dark-mode');
+    }
+}
+
+function setupTheme() {
+    // Determine initial theme: check 'theme', or migrate legacy 'darkMode' if present, otherwise default to 'auto'
+    let savedTheme = localStorage.getItem('theme');
+    if (!savedTheme) {
+        const legacyDarkMode = localStorage.getItem('darkMode');
+        if (legacyDarkMode !== null) {
+            savedTheme = legacyDarkMode === 'true' ? 'dark' : 'light';
+            localStorage.setItem('theme', savedTheme);
+            localStorage.removeItem('darkMode');
+        } else {
+            savedTheme = 'auto';
+        }
+    }
+
+    // Update checked radio button
+    const themeRadio = document.querySelector(`input[name="themeRadio"][value="${savedTheme}"]`);
+    if (themeRadio) {
+        themeRadio.checked = true;
+    }
+
+    // Apply theme
+    applyTheme(savedTheme);
+
+    // Listen to changes on radio buttons
+    const themeRadios = document.querySelectorAll('input[name="themeRadio"]');
+    themeRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                const selectedTheme = radio.value;
+                localStorage.setItem('theme', selectedTheme);
+                applyTheme(selectedTheme);
+            }
+        });
+    });
+
+    // Listen for OS/browser color scheme changes when in 'auto' mode
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            const currentTheme = localStorage.getItem('theme') || 'auto';
+            if (currentTheme === 'auto') {
+                applyTheme('auto');
+            }
+        });
+    }
+}
+
 // --- SETTINGS MANAGEMENT ---
 function setupSettings() {
     // Load settings from localStorage
     const savedDebugMode = localStorage.getItem('debugMode') === 'true';
-    const savedDarkMode = localStorage.getItem('darkMode') === 'true';
     
     // Load condense mode settings with different defaults
     const savedCondensePdfMode = localStorage.getItem('condensePdfMode');
-
-    // Get dark mode toggle
-    const darkModeToggle = document.getElementById('darkModeToggle');
 
     // Apply saved settings
     debugMode.checked = savedDebugMode;
     // Default: Condense PDFs by default (true)
     condensePdfMode.checked = savedCondensePdfMode === null ? true : savedCondensePdfMode === 'true';
     
-    if (darkModeToggle) {
-        darkModeToggle.checked = savedDarkMode;
-        if (savedDarkMode) {
-            document.body.classList.add('dark-mode');
-        }
-    }
+    setupTheme();
 
     // Setup event listeners for settings changes
     debugMode.addEventListener('change', () => {
         localStorage.setItem('debugMode', debugMode.checked);
         if (currentFile) {
             loadFile(currentFile); // Reload current file with new settings
-        }
-    });
-
-    darkModeToggle.addEventListener('change', () => {
-        localStorage.setItem('darkMode', darkModeToggle.checked);
-        if (darkModeToggle.checked) {
-            document.body.classList.add('dark-mode');
-        } else {
-            document.body.classList.remove('dark-mode');
         }
     });
 
