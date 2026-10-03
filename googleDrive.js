@@ -115,8 +115,7 @@ export async function setupDrivePicker() {
         const picker = document.createElement('drive-picker');
         picker.setAttribute('client-id', '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com');
         picker.setAttribute('app-id', '1059497343032');
-        picker.setAttribute('scopes', 'https://www.googleapis.com/auth/drive.readonly');
-        picker.setAttribute('mime-types', 'application/pdf,application/x-guitar-pro,text/plain');
+        picker.setAttribute('scope', 'https://www.googleapis.com/auth/drive.readonly');
         picker.setAttribute('max-items', '1');
 
         if (token) {
@@ -130,11 +129,21 @@ export async function setupDrivePicker() {
             });
         }
 
-        const docsView = document.createElement('drive-picker-docs-view');
-        docsView.setAttribute('mode', 'LIST');
-        docsView.setAttribute('include-folders', 'true');
-        docsView.setAttribute('enable-drives', 'true');
-        picker.appendChild(docsView);
+        // View 1: My Drive Root folder directory browsing
+        const rootDocsView = document.createElement('drive-picker-docs-view');
+        rootDocsView.setAttribute('parent', 'root');
+        rootDocsView.setAttribute('mode', 'LIST');
+        rootDocsView.setAttribute('include-folders', 'true');
+        rootDocsView.setAttribute('enable-drives', 'true');
+        picker.appendChild(rootDocsView);
+
+        // View 2: All / Recent files
+        const allDocsView = document.createElement('drive-picker-docs-view');
+        allDocsView.setAttribute('mode', 'LIST');
+        allDocsView.setAttribute('include-folders', 'true');
+        allDocsView.setAttribute('enable-drives', 'true');
+        picker.appendChild(allDocsView);
+
         container.appendChild(picker);
 
         // Listen for file selection
