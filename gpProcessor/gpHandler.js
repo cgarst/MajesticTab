@@ -213,6 +213,10 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
     clearOutput(output);
 
     if (pageModeChecked) {
+        output.classList.remove('continuous-mode');
+        output.style.overflowY = 'hidden';
+        output.style.overflowX = 'hidden';
+        output.style.overflow = 'hidden';
         // renderGPPageMode will handle layout calculation with caching
         renderGPPageMode(output);
     } else {
@@ -363,7 +367,7 @@ function renderGPPageMode(output) {
         wrapper.style.width = `${(100 / pagesPerView)}%`;
         wrapper.style.padding = '20px';
         wrapper.style.boxSizing = 'border-box';
-        wrapper.style.overflow = 'auto'; // Allow scroll if content is larger
+        wrapper.style.overflow = 'hidden';
 
         const contentContainer = document.createElement('div');
         contentContainer.className = 'alphaTab-gp-content';
