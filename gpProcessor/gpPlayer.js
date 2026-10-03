@@ -374,6 +374,37 @@ export function updateContinuousPlaybackScroll(currentTick) {
     const output = document.getElementById('output');
     if (!output) return;
 
+    const viewportHeight = output.clientHeight;
+    if (viewportHeight <= 0) return;
+
+    const TOP_PADDING = 12;
+    const outputRect = output.getBoundingClientRect();
+
+    // Prefer measuring the actual highlighted cursor DOM element placed by AlphaTab
+    const cursorEl = document.querySelector('.at-cursor-bar') || document.querySelector('.at-cursor-beat');
+    if (cursorEl) {
+        const cursorRect = cursorEl.getBoundingClientRect();
+        const cursorVisualTop = cursorRect.top - outputRect.top;
+        const cursorDocY = cursorVisualTop + output.scrollTop;
+
+        // Read-ahead threshold: snap when cursor is above viewport (e.g. repeat jump / rewind)
+        // or past 45% of viewport height (to ensure reader has remaining view for read-ahead)
+        const isAboveTop = cursorVisualTop < 0;
+        const isBelowThreshold = cursorVisualTop > (viewportHeight * 0.45);
+
+        if (isAboveTop || isBelowThreshold) {
+            const maxScroll = output.scrollHeight - output.clientHeight;
+            const targetScrollTop = (cursorDocY < 160)
+                ? 0
+                : Math.max(0, Math.min(maxScroll, cursorDocY - TOP_PADDING));
+            if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
+                output.scrollTop = targetScrollTop;
+            }
+        }
+        return;
+    }
+
+    // Fallback using renderer boundsLookup if DOM cursor element is not yet found
     const boundsLookup = currentApi.renderer?.boundsLookup;
     if (!boundsLookup || !boundsLookup.staffSystems || !boundsLookup.staffSystems.length) return;
 
@@ -413,14 +444,9 @@ export function updateContinuousPlaybackScroll(currentTick) {
     const container = gpState.canvases[0]?.container;
     const containerTop = container ? container.offsetTop : 0;
     const sysY = containerTop + (targetStaffSystem.realBounds?.y ?? targetStaffSystem.visualBounds?.y ?? 0);
-    const viewportHeight = output.clientHeight;
-    if (viewportHeight <= 0) return;
 
     const visualTop = sysY - output.scrollTop;
-    const TOP_PADDING = 12;
 
-    // Read-ahead threshold: snap when active system is scrolled above viewport (e.g. after rewind/seek)
-    // or when active system is past 45% of viewport height (to ensure reader has remaining view for read-ahead)
     const isAboveTop = visualTop < 0;
     const isBelowThreshold = visualTop > (viewportHeight * 0.45);
 
