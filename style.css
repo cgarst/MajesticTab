@@ -228,6 +228,8 @@ g.at text {
     align-items: stretch;
     gap: 10px;
     padding: 10px;
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 .gp-page-wrapper {
