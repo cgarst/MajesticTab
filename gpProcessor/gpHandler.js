@@ -3,6 +3,7 @@ import { loadGuitarPro, GP_DISPLAY_SCALE } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
+import { updateSongForYouTube } from '../youtubePlayer.js';
 
 const PAGE_PADDING = 10;
 
@@ -169,6 +170,15 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     try {
         const api = await loadGuitarPro(dataToLoad, container, { debug });
         gpState.canvases = [{ container, api }];
+
+        // Update YouTube player with parsed score metadata
+        if (api.score) {
+            updateSongForYouTube({
+                filename: file.name,
+                scoreTitle: api.score.title,
+                scoreArtist: api.score.artist
+            });
+        }
 
         // Fix section labels (Intro, Band Enter, etc.) that AlphaTab positions at
         // the same y-row as above-staff accent/ornament glyphs.
