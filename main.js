@@ -9,6 +9,7 @@ import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigat
 import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
+import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -229,6 +230,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupExportPDFButton(condensedCanvases);
     setupDrivePicker();
     setupSettings();
+    initYouTubePlayer();
 
     // Check for test mode URL parameter
     const urlParams = new URLSearchParams(window.location.search);
@@ -409,6 +411,9 @@ export async function loadFile(file) {
     currentFile = file;
     currentProcessing.aborted = true;
     currentProcessing = { aborted: false };
+    
+    // Update YouTube player metadata with filename
+    updateSongForYouTube({ filename: file.name });
     
     // Show navigation controls for all supported file types
     navButtons.style.display = 'flex';
