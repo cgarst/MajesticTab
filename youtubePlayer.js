@@ -309,7 +309,7 @@ export function toggleYouTubePanel(forceState = null) {
 }
 
 /**
- * Update visibility and icons of playback buttons in top bar
+ * Update visibility and state of playback buttons in top bar
  */
 function updatePlaybackControls() {
     const rewindBtn = document.getElementById('ytRewindBtn');
@@ -319,8 +319,8 @@ function updatePlaybackControls() {
     if (!rewindBtn || !playPauseBtn || !playPauseIcon) return;
 
     if (playerState.hasStarted) {
-        rewindBtn.style.display = 'inline-flex';
-        playPauseBtn.style.display = 'inline-flex';
+        rewindBtn.disabled = false;
+        playPauseBtn.disabled = false;
 
         if (playerState.isPlaying) {
             playPauseIcon.className = 'bi-pause-fill';
@@ -330,8 +330,8 @@ function updatePlaybackControls() {
             playPauseBtn.title = 'Play';
         }
     } else {
-        rewindBtn.style.display = 'none';
-        playPauseBtn.style.display = 'none';
+        rewindBtn.disabled = true;
+        playPauseBtn.disabled = true;
         playPauseIcon.className = 'bi-play-fill';
         playPauseBtn.title = 'Play';
     }
@@ -596,4 +596,6 @@ export function initYouTubePlayer() {
             toggleYouTubePanel(false);
         }
     });
+
+    updatePlaybackControls();
 }
