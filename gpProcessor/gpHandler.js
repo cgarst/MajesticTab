@@ -370,14 +370,14 @@ function renderGPPageMode(output) {
         if (!pageSet) break;
 
         const wrapper = createPageWrapper();
-        wrapper.className = 'gp-page-wrapper';
+        wrapper.className = 'gp-page-wrapper alphaTab at';
         wrapper.style.width = `${(100 / pagesPerView)}%`;
         wrapper.style.padding = '20px';
         wrapper.style.boxSizing = 'border-box';
         wrapper.style.overflow = 'hidden';
 
         const contentContainer = document.createElement('div');
-        contentContainer.className = 'alphaTab-gp-content';
+        contentContainer.className = 'alphaTab-gp-content alphaTab at';
         contentContainer.style.width = '100%';
         contentContainer.style.display = 'flex';
         contentContainer.style.flexDirection = 'column';

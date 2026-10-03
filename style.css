@@ -944,7 +944,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   overflow: hidden;
 }
 
-.pageContainer, .gp-page-container {
+.pageContainer {
   display: flex;
   justify-content: center;
   align-items: flex-start;
@@ -955,6 +955,18 @@ input[type=range]::-webkit-slider-thumb:hover {
   overflow: hidden;
   width: 100%;
   height: 100%;
+}
+
+.gp-page-container {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  gap: 10px;
+  padding: 10px;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Default Standard Sheet Page (Clean Crisp Paper) */
@@ -1000,6 +1012,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   margin-left: auto;
   margin-right: auto;
   user-select: none;
+  font-family: alphaTab, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 .alphaTabContainer {
@@ -1018,6 +1031,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   width: 100%;
   padding: 10px;
   box-sizing: border-box;
+  font-family: alphaTab, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 canvas {
