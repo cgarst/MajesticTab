@@ -541,11 +541,13 @@ export function handleTapNavigation(e, config) {
 }
 
 /**
- * Update the visibility and disabled state of the consolidated top bar rewind button
+ * Update the visibility and disabled state of the consolidated top bar audio playback controls
  */
-export function updateGlobalRewindButton() {
+export function updateGlobalAudioControls() {
+    const controlsContainer = document.getElementById('globalAudioControls');
     const rewindBtn = document.getElementById('globalRewindBtn');
-    if (!rewindBtn) return;
+    const playPauseBtn = document.getElementById('globalPlayPauseBtn');
+    const playPauseIcon = document.getElementById('globalPlayPauseIcon');
 
     const synthContainer = document.getElementById('synthContainer');
     const ytContainer = document.getElementById('ytContainer');
@@ -553,18 +555,35 @@ export function updateGlobalRewindButton() {
     const isSynthVisible = Boolean(synthContainer && synthContainer.style.display !== 'none');
     const isYtVisible = Boolean(ytContainer && ytContainer.style.display !== 'none');
 
-    if (isSynthVisible || isYtVisible) {
-        rewindBtn.style.display = 'inline-flex';
-    } else {
-        rewindBtn.style.display = 'none';
-        return;
+    if (controlsContainer) {
+        if (isSynthVisible || isYtVisible) {
+            controlsContainer.style.display = 'inline-flex';
+        } else {
+            controlsContainer.style.display = 'none';
+            return;
+        }
     }
 
     const synthPlayable = isSynthAvailable();
     const ytPlayable = isYouTubeAvailable();
+    const canPlay = synthPlayable || ytPlayable;
 
-    rewindBtn.disabled = !(synthPlayable || ytPlayable);
+    if (rewindBtn) {
+        rewindBtn.disabled = !canPlay;
+    }
+
+    const isPlaying = isSynthPlaying() || isYouTubePlaying();
+
+    if (playPauseBtn) {
+        playPauseBtn.disabled = !canPlay;
+        playPauseBtn.title = isPlaying ? 'Pause' : 'Play';
+    }
+    if (playPauseIcon) {
+        playPauseIcon.className = isPlaying ? 'bi-pause-fill' : 'bi-play-fill';
+    }
 }
+
+export const updateGlobalRewindButton = updateGlobalAudioControls;
 
 /**
  * Handle Back 10 Seconds for whichever audio player is active/playing
@@ -589,19 +608,62 @@ export function handleGlobalRewind10Seconds() {
 }
 
 /**
- * Initialize the consolidated top bar rewind button
+ * Handle Play / Pause for whichever audio player is active/playing or available
  */
-export function setupGlobalRewindButton() {
-    const rewindBtn = document.getElementById('globalRewindBtn');
-    if (!rewindBtn) return;
+export function handleGlobalPlayPause() {
+    // 1. If either player is actively playing, pause it
+    if (isSynthPlaying()) {
+        playPauseSynth();
+        return;
+    }
+    if (isYouTubePlaying()) {
+        playPauseYouTube();
+        return;
+    }
 
-    rewindBtn.addEventListener('click', (e) => {
+    // 2. If neither is playing, start whichever mode is highlighted/active or available
+    const ytActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
+    const synthActive = document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode');
+
+    if (ytActive && isYouTubeAvailable()) {
+        playPauseYouTube();
+        return;
+    }
+    if (synthActive && isSynthAvailable()) {
+        playPauseSynth();
+        return;
+    }
+    if (isSynthAvailable()) {
+        playPauseSynth();
+        return;
+    }
+    if (isYouTubeAvailable()) {
+        playPauseYouTube();
+        return;
+    }
+}
+
+/**
+ * Initialize the consolidated top bar playback controls
+ */
+export function setupGlobalAudioControls() {
+    const rewindBtn = document.getElementById('globalRewindBtn');
+    const playPauseBtn = document.getElementById('globalPlayPauseBtn');
+
+    rewindBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         handleGlobalRewind10Seconds();
     });
 
-    updateGlobalRewindButton();
+    playPauseBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleGlobalPlayPause();
+    });
+
+    updateGlobalAudioControls();
 }
+
+export const setupGlobalRewindButton = setupGlobalAudioControls;
 
 /**
  * Highlight the active audio mode toggle button (Instrument vs YouTube)

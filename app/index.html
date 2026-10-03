@@ -37,19 +37,21 @@
   </div>
 
   <div id="rightSection">
-    <!-- Consolidated Back 10 Seconds Button (Left of Audio Player Groups) -->
-    <button class="btn btn-sm rewind-btn-pill" id="globalRewindBtn" title="Back 10 Seconds" style="display:none;" disabled>
-      <i class="bi-arrow-counterclockwise"></i>
-    </button>
+    <!-- Consolidated Playback Controls (Left of Audio Player Groups) -->
+    <div id="globalAudioControls" class="hud-pill-group" role="group" aria-label="Playback Controls" style="display:none;">
+      <button class="btn btn-sm" id="globalRewindBtn" title="Back 10 Seconds" disabled>
+        <i class="bi-arrow-counterclockwise"></i>
+      </button>
+      <button class="btn btn-sm" id="globalPlayPauseBtn" title="Play / Pause" disabled>
+        <i class="bi-play-fill" id="globalPlayPauseIcon"></i>
+      </button>
+    </div>
 
     <!-- Synth / Instrument Player Controls -->
     <div id="synthContainer" style="display:none;">
       <div id="synthMiniPill" role="group" aria-label="Instrument Player">
         <button class="btn btn-sm" id="synthToggleBtn" title="Instrument Audio & Controls">
           <i class="bi-music-note-beamed"></i>
-        </button>
-        <button class="btn btn-sm" id="synthPlayPauseBtn" title="Play / Pause" disabled>
-          <i class="bi-play-fill" id="synthPlayPauseIcon"></i>
         </button>
       </div>
     </div>
@@ -59,9 +61,6 @@
       <div id="ytMiniPill" role="group" aria-label="YouTube Player">
         <button class="btn btn-sm" id="ytToggleBtn" title="YouTube Audio & Controls">
           <i class="bi-youtube"></i>
-        </button>
-        <button class="btn btn-sm" id="ytPlayPauseBtn" title="Play / Pause" disabled>
-          <i class="bi-play-fill" id="ytPlayPauseIcon"></i>
         </button>
       </div>
     </div>

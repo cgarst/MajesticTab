@@ -489,27 +489,6 @@ export function toggleYouTubePanel(forceState = null) {
  * Update visibility and state of playback buttons in top bar
  */
 function updatePlaybackControls() {
-    const playPauseBtn = document.getElementById('ytPlayPauseBtn');
-    const playPauseIcon = document.getElementById('ytPlayPauseIcon');
-
-    if (!playPauseBtn || !playPauseIcon) return;
-
-    if (playerState.hasStarted) {
-        playPauseBtn.disabled = false;
-
-        if (playerState.isPlaying) {
-            playPauseIcon.className = 'bi-pause-fill';
-            playPauseBtn.title = 'Pause';
-        } else {
-            playPauseIcon.className = 'bi-play-fill';
-            playPauseBtn.title = 'Play';
-        }
-    } else {
-        playPauseBtn.disabled = true;
-        playPauseIcon.className = 'bi-play-fill';
-        playPauseBtn.title = 'Play';
-    }
-
     updateGlobalRewindButton();
 }
 
@@ -594,8 +573,6 @@ export function initYouTubePlayer() {
         });
     }
 
-    const playPauseBtn = document.getElementById('ytPlayPauseBtn');
-
     // Toggle button in top bar
     toggleBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -614,34 +591,6 @@ export function initYouTubePlayer() {
     cancelSearchBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         cancelYouTubeSearch();
-    });
-
-    // Play / Pause button
-    playPauseBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const iframe = document.getElementById('ytIframe');
-        if (!iframe || !iframe.contentWindow) return;
-
-        if (playerState.isPlaying) {
-            iframe.contentWindow.postMessage(JSON.stringify({
-                event: 'command',
-                func: 'pauseVideo',
-                args: []
-            }), '*');
-            playerState.isPlaying = false;
-        } else {
-            pauseSynthPlayer();
-            clearSynthHighlights();
-            iframe.contentWindow.postMessage(JSON.stringify({
-                event: 'command',
-                func: 'playVideo',
-                args: []
-            }), '*');
-            playerState.isPlaying = true;
-            playerState.hasStarted = true;
-            setActiveAudioMode('youtube');
-        }
-        updatePlaybackControls();
     });
 
     // Track Mode Selector (Original vs Backing)
