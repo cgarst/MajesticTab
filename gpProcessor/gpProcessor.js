@@ -49,10 +49,16 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             // Step 3: dispose of temporary API
             tempApi.destroy();
 
-            // Step 4: re-create API with filtered tracks
+            // Step 4: re-create API with filtered tracks and SoundFont synth player
             const api = new alphaTab.AlphaTabApi(container, {
                 core: { file, tracks: guitarTrackIndices, enableLazyLoading: false },
-                player: { enablePlayer: true },
+                player: {
+                    enablePlayer: true,
+                    playerMode: alphaTab.PlayerMode.EnabledSynthesizer,
+                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/soundfont/sonivox.sf2',
+                    enableCursor: true,
+                    enableElementHighlighting: true
+                },
                 display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE },
                 notation: {
                     rhythmMode: alphaTab.TabRhythmMode.ShowWithBars

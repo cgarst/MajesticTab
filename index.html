@@ -33,6 +33,21 @@
   </div>
 
   <div id="rightSection" class="d-flex align-items-center ms-auto">
+    <!-- Synth / Instrument Player Controls -->
+    <div id="synthContainer" class="d-flex align-items-center justify-content-center mx-auto me-2" style="display:none;">
+      <div id="synthMiniPill" class="btn-group" role="group" aria-label="Instrument Player">
+        <button class="btn btn-outline-success btn-sm" id="synthToggleBtn" title="Instrument Player Settings & Scrubber">
+          <i class="bi-music-note-beamed"></i>
+        </button>
+        <button class="btn btn-outline-success btn-sm" id="synthRewindBtn" title="Rewind to Beginning" disabled>
+          <i class="bi-arrow-counterclockwise"></i>
+        </button>
+        <button class="btn btn-outline-success btn-sm" id="synthPlayPauseBtn" title="Play / Pause" disabled>
+          <i class="bi-play-fill" id="synthPlayPauseIcon"></i>
+        </button>
+      </div>
+    </div>
+
     <div id="ytContainer" class="d-flex align-items-center justify-content-center mx-auto" style="display:none;">
       <div id="ytMiniPill" class="btn-group" role="group" aria-label="YouTube Player">
         <button class="btn btn-outline-danger btn-sm" id="ytToggleBtn" title="Toggle YouTube Player">
@@ -55,6 +70,62 @@
     </div>
   </div>
 </nav>
+
+<!-- Collapsible Synth Panel (Anchored below Top Bar Button) -->
+<div id="synthDropdownPanel" class="synth-panel shadow" style="display:none;">
+  <div class="synth-panel-header d-flex justify-content-between align-items-center px-3 py-2">
+    <div class="d-flex align-items-center text-truncate me-2">
+      <i class="bi-music-note-beamed text-success me-2"></i>
+      <span class="synth-panel-title text-truncate fw-semibold" id="synthPanelTitle">Instrument Audio</span>
+    </div>
+    <button class="btn btn-sm btn-link text-decoration-none p-0 text-reset" id="synthPanelCloseBtn" title="Collapse">
+      <i class="bi-chevron-up fs-6"></i>
+    </button>
+  </div>
+  <div class="synth-panel-body p-3">
+    <!-- Scrubber / Timeline -->
+    <div class="mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
+        <span id="synthCurrentTimeText">0:00</span>
+        <span class="fw-semibold text-body" id="synthPositionPercent">0%</span>
+        <span id="synthTotalTimeText">0:00</span>
+      </div>
+      <input type="range" class="form-range" id="synthSeekSlider" min="0" max="1000" value="0" step="1" disabled>
+    </div>
+
+    <!-- Speed / Tempo Control -->
+    <div class="mb-3">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label class="form-label small mb-0 fw-semibold">Playback Speed:</label>
+        <div class="d-flex align-items-center gap-1">
+          <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="synthSpeedMinusBtn" title="Decrease speed by 1%">-1%</button>
+          <span class="badge bg-secondary" id="synthSpeedBadge" style="min-width: 48px; text-align: center;">100%</span>
+          <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="synthSpeedPlusBtn" title="Increase speed by 1%">+1%</button>
+        </div>
+      </div>
+      <div class="btn-group btn-group-sm w-100 mt-1" role="group" id="synthSpeedButtons">
+        <button type="button" class="btn btn-outline-secondary" data-speed="0.5">50%</button>
+        <button type="button" class="btn btn-outline-secondary" data-speed="0.75">75%</button>
+        <button type="button" class="btn btn-outline-secondary" data-speed="0.9">90%</button>
+        <button type="button" class="btn btn-outline-secondary active btn-success" data-speed="1.0">100%</button>
+        <button type="button" class="btn btn-outline-secondary" data-speed="1.1">110%</button>
+        <button type="button" class="btn btn-outline-secondary" data-speed="1.25">125%</button>
+      </div>
+    </div>
+
+    <!-- Metronome & Count-in -->
+    <div class="d-flex align-items-center justify-content-between pt-2 border-top">
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="synthMetronomeSwitch">
+        <label class="form-check-label small" for="synthMetronomeSwitch">Metronome</label>
+      </div>
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input" type="checkbox" id="synthCountInSwitch">
+        <label class="form-check-label small" for="synthCountInSwitch">Count-in</label>
+      </div>
+    </div>
+  </div>
+</div>
 
 <!-- Collapsible YouTube Panel (Anchored below Top Bar Button) -->
 <div id="ytDropdownPanel" class="yt-panel shadow" style="display:none;">
@@ -133,20 +204,40 @@
         <label class="btn btn-outline-primary btn-sm" for="pageAdvance2">2 Pages</label>
       </div>
     </div>
+    <div class="mt-2">
+      <label class="form-label d-block mb-1">Default View (Guitar Pro):</label>
+      <div class="btn-group w-100" role="group" aria-label="Guitar Pro default view selection">
+        <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultPage" value="page" autocomplete="off">
+        <label class="btn btn-outline-primary btn-sm" for="gpDefaultPage"><i class="bi-book"></i> Page</label>
+
+        <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultContinuous" value="continuous" autocomplete="off" checked>
+        <label class="btn btn-outline-primary btn-sm" for="gpDefaultContinuous"><i class="bi-arrow-down-up"></i> Continuous</label>
+      </div>
+    </div>
+    <div class="mt-2">
+      <label class="form-label d-block mb-1">Default View (PDF):</label>
+      <div class="btn-group w-100" role="group" aria-label="PDF default view selection">
+        <input type="radio" class="btn-check" name="pdfDefaultViewRadio" id="pdfDefaultPage" value="page" autocomplete="off" checked>
+        <label class="btn btn-outline-primary btn-sm" for="pdfDefaultPage"><i class="bi-book"></i> Page</label>
+
+        <input type="radio" class="btn-check" name="pdfDefaultViewRadio" id="pdfDefaultContinuous" value="continuous" autocomplete="off">
+        <label class="btn btn-outline-primary btn-sm" for="pdfDefaultContinuous"><i class="bi-arrow-down-up"></i> Continuous</label>
+      </div>
+    </div>
     <div class="mt-2" style="display:none;">
       <label class="form-label d-block mb-1">YouTube Data API Key (Optional):</label>
       <input type="password" class="form-control form-control-sm" id="ytApiKeyInput" placeholder="Auto-fetches tracks if provided">
     </div>
     <div class="form-check form-switch mt-2">
       <input class="form-check-input" type="checkbox" id="condensePdfMode">
-      <label class="form-check-label" for="condensePdfMode">Condense PDF</label>
+      <label class="form-check-label" for="condensePdfMode">Condense PDF <span class="badge bg-warning text-dark ms-1" style="font-size: 0.65rem;">Experimental</span></label>
     </div>
     <div class="form-check form-switch mt-2">
       <input class="form-check-input" type="checkbox" id="debugMode">
-      <label class="form-check-label" for="debugMode">Debug Overlay</label>
+      <label class="form-check-label" for="debugMode">Debug PDF Overlay</label>
     </div>
   <br/><h6>Export:</h6>
-  <button class="btn btn-outline-primary mt-2" id="exportPDFBtn">Export Current File</button>
+  <button class="btn btn-outline-primary mt-2" id="exportPDFBtn">Export Current File as PDF</button>
   <button class="btn btn-outline-primary mt-2" id="bulkConvertBtn" onclick="window.open('batchExport.html', '_blank')">Bulk Condense PDFs</button>
   <div id="exportProgressContainer" style="display:none; margin-top:5px;">
     <div class="progress">
