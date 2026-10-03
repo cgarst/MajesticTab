@@ -583,6 +583,7 @@ export function detachAlphaTabApi() {
 
     clearSynthHighlights();
     toggleSynthPanel(false);
+    hideSynthPlayer();
     updateSynthUI();
 }
 
@@ -769,6 +770,7 @@ export function toggleSynthPanel(forceState = null) {
  * Initialize all DOM event listeners for the Synth Player
  */
 export function initSynthPlayer() {
+    hideSynthPlayer();
     const toggleBtn = document.getElementById('synthToggleBtn');
     const closeBtn = document.getElementById('synthPanelCloseBtn');
     const rewindBtn = document.getElementById('synthRewindBtn');
