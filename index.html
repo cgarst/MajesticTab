@@ -80,6 +80,7 @@
         <span class="font-extrabold tracking-tight text-lg">Majestic<span class="gradient-text">Tab</span></span>
       </a>
       <nav class="hidden md:flex items-center gap-5 text-xs font-semibold text-slate-300">
+        <a href="#multitrack" class="hover:text-white transition">Multi-Track</a>
         <a href="#practice" class="hover:text-white transition">Practice</a>
         <a href="#views" class="hover:text-white transition">Views</a>
         <a href="#pedals" class="hover:text-white transition">Page Turners</a>
@@ -106,7 +107,7 @@
         <span class="gradient-text">and start playing.</span>
       </h1>
       <p class="text-sm sm:text-base md:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto">
-        MajesticTab is a distraction-free viewer for guitar tabs. Drop in a PDF or Guitar Pro file and practice in seconds, with no account, no install, and none of the fiddling that heavy tab-composition software demands.
+        MajesticTab is a distraction-free viewer for guitar tabs. See every guitar track in one clean multi-track view, with no other instruments in the way. Drop in a PDF or Guitar Pro file and practice in seconds, with no account, no install, and none of the fiddling that heavy tab-composition software demands.
       </p>
       <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
         <a href="app/" class="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 via-cyan-600 to-emerald-600 hover:from-purple-500 hover:via-cyan-500 hover:to-emerald-500 text-white font-bold text-sm shadow-xl shadow-purple-500/30 transition transform hover:-translate-y-0.5 flex items-center gap-2">
@@ -121,6 +122,28 @@
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-lock text-cyan-400"></i> Files never leave your device</span>
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-brands fa-bluetooth-b text-sky-400"></i> Page turner ready</span>
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-mobile-screen-button text-purple-400"></i> Mobile friendly</span>
+      </div>
+    </section>
+
+    <!-- Featured: multi-track guitar view -->
+    <section id="multitrack">
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900/95 via-emerald-950/20 to-slate-900/95 shadow-2xl space-y-8">
+        <div class="text-center space-y-3 max-w-3xl mx-auto">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-mono"><i class="fa-solid fa-guitar mr-1.5"></i> Signature feature</span>
+          <h2 class="text-2xl sm:text-4xl font-extrabold">Every guitar track. <span class="gradient-text">Nothing else.</span></h2>
+          <p class="text-xs sm:text-sm md:text-base text-slate-300 leading-relaxed">
+            See all your guitar parts together in one multi-track view, without drums, bass, keys or vocals cluttering the page. No more switching between tracks while you play through a song. It reads like a professional tab book.
+          </p>
+        </div>
+        <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
+          <img src="img/screenshots/gp_scroll.png" alt="Multi-track guitar tab showing rhythm and lead guitar staves together" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800 hidden sm:block">
+          <img src="img/screenshots/gp_scroll_mobile.png" alt="Multi-track guitar tab on mobile" loading="lazy" class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800 sm:hidden">
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-300">
+          <div class="flex items-start gap-3"><i class="fa-solid fa-layer-group text-emerald-400 mt-0.5"></i><span><strong class="text-white">All guitars at once.</strong> Rhythm and lead stack together, so the whole arrangement is in front of you.</span></div>
+          <div class="flex items-start gap-3"><i class="fa-solid fa-eye-slash text-purple-400 mt-0.5"></i><span><strong class="text-white">No clutter.</strong> Other instruments are left out, and resting staves are dropped from PDFs to save space.</span></div>
+          <div class="flex items-start gap-3"><i class="fa-solid fa-book-open text-cyan-400 mt-0.5"></i><span><strong class="text-white">Tab-book layout.</strong> Clean margins and tightly grouped staves, like the printed books.</span></div>
+        </div>
       </div>
     </section>
 
@@ -247,6 +270,76 @@
               <div class="staff"><span style="left:15%;top:20%">3</span><span style="left:45%;top:80%">5</span><span style="left:75%;top:40%">7</span></div>
               <div class="staff"><span style="left:25%;top:60%">0</span><span style="left:55%;top:20%">2</span></div>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Guitar finish themes -->
+    <section id="themes">
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          <div class="space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-semibold">
+              <i class="fa-solid fa-palette text-xs"></i>
+              <span>Default Theme: Mystic Dream</span>
+            </div>
+            <h2 class="text-2xl sm:text-3xl font-extrabold">Guitar Inspired Themes</h2>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              Make the app yours with color schemes inspired by legendary electric guitar finishes and bursts, with <strong>Mystic Dream</strong> as the signature default. Your sheet can follow the theme too, or stay light or dark.
+            </p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
+              <div class="p-2.5 rounded-xl bg-purple-950/40 border border-emerald-500/50 ring-1 ring-emerald-500/40 space-y-1">
+                <div class="w-full h-4 rounded bg-gradient-to-r from-purple-700 via-cyan-500 to-emerald-500 shadow-inner"></div>
+                <div class="flex items-center justify-between">
+                  <p class="text-[11px] font-bold text-white truncate">Mystic Dream</p>
+                  <span class="text-[8px] font-mono px-1 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">Default</span>
+                </div>
+                <p class="text-[9px] text-slate-400">Iridescent shift</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                <div class="w-full h-4 rounded bg-gradient-to-r from-purple-900 via-purple-600 to-indigo-400"></div>
+                <p class="text-[11px] font-bold text-white truncate">Purple Nebula</p>
+                <p class="text-[9px] text-slate-400">Deep cosmic burst</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                <div class="w-full h-4 rounded bg-gradient-to-r from-red-800 via-rose-600 to-pink-500"></div>
+                <p class="text-[11px] font-bold text-white truncate">Red Nebula</p>
+                <p class="text-[9px] text-slate-400">Vibrant ruby flame</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                <div class="w-full h-4 rounded bg-gradient-to-r from-cyan-600 via-sky-500 to-blue-400"></div>
+                <p class="text-[11px] font-bold text-white truncate">Cerulean Paradise</p>
+                <p class="text-[9px] text-slate-400">Tropical aqua burst</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                <div class="w-full h-4 rounded bg-gradient-to-r from-sky-600 via-blue-500 to-indigo-400"></div>
+                <p class="text-[11px] font-bold text-white truncate">Blue Pearl</p>
+                <p class="text-[9px] text-slate-400">Shimmering metallic</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                <div class="w-full h-4 rounded bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-950"></div>
+                <p class="text-[11px] font-bold text-white truncate">Dark Side</p>
+                <p class="text-[9px] text-slate-400">Monochrome stealth</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                <div class="w-full h-4 rounded bg-gradient-to-r from-amber-700 via-amber-500 to-orange-400"></div>
+                <p class="text-[11px] font-bold text-white truncate">Ember Glow</p>
+                <p class="text-[9px] text-slate-400">Warm flame maple</p>
+              </div>
+              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                <div class="w-full h-4 rounded bg-gradient-to-r from-red-900 via-rose-700 to-amber-600"></div>
+                <p class="text-[11px] font-bold text-white truncate">Red Pearl Burst</p>
+                <p class="text-[9px] text-slate-400">Deep crimson edge</p>
+              </div>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
+              <img src="img/screenshots/theme_palettes.png" alt="MajesticTab theme selector" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800 hidden sm:block">
+              <img src="img/screenshots/theme_palettes_mobile.png" alt="MajesticTab theme selector on mobile" loading="lazy" class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800 sm:hidden">
+            </div>
+            <p class="text-center text-[11px] text-slate-400">Pick a finish and the whole interface adapts instantly.</p>
           </div>
         </div>
       </div>
