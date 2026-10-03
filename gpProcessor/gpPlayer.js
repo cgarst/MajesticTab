@@ -498,11 +498,13 @@ export function isSynthPlaying() {
 export function pauseSynthPlayer() {
     if (!currentApi) return;
     try {
-        if (synthPlayerState.isPlaying) {
-            currentApi.pause();
-        }
+        currentApi.pause();
     } catch (e) {
         console.error('[Synth Player] Pause error:', e);
+    }
+    if (synthPlayerState.isPlaying) {
+        synthPlayerState.isPlaying = false;
+        updateSynthUI();
     }
 }
 
