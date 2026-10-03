@@ -362,6 +362,80 @@ function updatePageModeCursor(currentTick) {
 }
 
 /**
+ * Handle auto-scrolling with quick snap and read-ahead in Continuous Mode
+ */
+export function updateContinuousPlaybackScroll(currentTick) {
+    if (!currentApi || !currentScore || !synthPlayerState.isPlaying) return;
+
+    const pageModeRadio = document.getElementById('pageModeRadio');
+    const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
+    if (isPageMode) return;
+
+    const output = document.getElementById('output');
+    if (!output) return;
+
+    const boundsLookup = currentApi.renderer?.boundsLookup;
+    if (!boundsLookup || !boundsLookup.staffSystems || !boundsLookup.staffSystems.length) return;
+
+    // 1. Find master bar for currentTick
+    const masterBars = currentScore.masterBars;
+    if (!masterBars || !masterBars.length) return;
+
+    let activeMasterBarIndex = -1;
+    for (let i = 0; i < masterBars.length; i++) {
+        const mb = masterBars[i];
+        const barStart = mb.start;
+        const barEnd = barStart + mb.calculateDuration();
+        if (currentTick >= barStart && currentTick < barEnd) {
+            activeMasterBarIndex = i;
+            break;
+        }
+    }
+    if (activeMasterBarIndex === -1 && masterBars.length > 0) {
+        if (currentTick >= masterBars[masterBars.length - 1].start) {
+            activeMasterBarIndex = masterBars.length - 1;
+        }
+    }
+    if (activeMasterBarIndex < 0) return;
+
+    // 2. Find staffSystem containing activeMasterBarIndex
+    let targetStaffSystem = null;
+    for (let s = 0; s < boundsLookup.staffSystems.length; s++) {
+        const sys = boundsLookup.staffSystems[s];
+        if (sys.bars && sys.bars.some(b => b.index === activeMasterBarIndex)) {
+            targetStaffSystem = sys;
+            break;
+        }
+    }
+    if (!targetStaffSystem) return;
+
+    // 3. Compute system vertical coordinates
+    const container = gpState.canvases[0]?.container;
+    const containerTop = container ? container.offsetTop : 0;
+    const sysY = containerTop + (targetStaffSystem.realBounds?.y ?? targetStaffSystem.visualBounds?.y ?? 0);
+    const viewportHeight = output.clientHeight;
+    if (viewportHeight <= 0) return;
+
+    const visualTop = sysY - output.scrollTop;
+    const TOP_PADDING = 12;
+
+    // Read-ahead threshold: snap when active system is scrolled above viewport (e.g. after rewind/seek)
+    // or when active system is past 45% of viewport height (to ensure reader has remaining view for read-ahead)
+    const isAboveTop = visualTop < 0;
+    const isBelowThreshold = visualTop > (viewportHeight * 0.45);
+
+    if (isAboveTop || isBelowThreshold) {
+        const maxScroll = output.scrollHeight - output.clientHeight;
+        const targetScrollTop = (targetStaffSystem === boundsLookup.staffSystems[0])
+            ? 0
+            : Math.max(0, Math.min(maxScroll, sysY - TOP_PADDING));
+        if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
+            output.scrollTop = targetScrollTop;
+        }
+    }
+}
+
+/**
  * Attach AlphaTab API to the synth player
  */
 export function attachAlphaTabApi(api) {
@@ -445,6 +519,7 @@ export function attachAlphaTabApi(api) {
 
         updateSynthUI();
         updatePageModeCursor(args.currentTick);
+        updateContinuousPlaybackScroll(args.currentTick);
     });
 
     // Show Synth Player UI

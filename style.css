@@ -291,8 +291,9 @@ body {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  flex: 1;
+  flex: 0 1 auto;
   min-width: 0;
+  overflow: hidden;
   justify-content: flex-start;
 }
 
@@ -327,6 +328,8 @@ body {
   align-items: center;
   gap: 0.4rem;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 
@@ -335,7 +338,9 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 /* Glass Pill Button Groups */
@@ -383,8 +388,8 @@ body {
   align-items: center;
   justify-content: flex-end;
   gap: 0.5rem;
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: max-content;
 }
 
 /* Synth and YouTube Mini Pills */
@@ -945,6 +950,7 @@ input[type=range]::-webkit-slider-thumb:hover {
 #output.continuous-mode {
   overflow-y: auto;
   align-items: center;
+  scroll-behavior: auto !important;
 }
 
 /* Outer & Page Containers */

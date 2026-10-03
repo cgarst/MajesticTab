@@ -57,7 +57,8 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                     playerMode: alphaTab.PlayerMode.EnabledSynthesizer,
                     soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/soundfont/sonivox.sf2',
                     enableCursor: true,
-                    enableElementHighlighting: true
+                    enableElementHighlighting: true,
+                    scrollMode: alphaTab.ScrollMode.Off
                 },
                 display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE },
                 notation: {
