@@ -545,15 +545,20 @@ export function handleTapNavigation(e, config) {
  */
 export function updateGlobalAudioControls() {
     const controlsContainer = document.getElementById('globalAudioControls');
+    const sourcePill = document.getElementById('audioSourcePill');
     const rewindBtn = document.getElementById('globalRewindBtn');
     const playPauseBtn = document.getElementById('globalPlayPauseBtn');
     const playPauseIcon = document.getElementById('globalPlayPauseIcon');
 
-    const synthContainer = document.getElementById('synthContainer');
-    const ytContainer = document.getElementById('ytContainer');
+    const synthBtn = document.getElementById('synthToggleBtn');
+    const ytBtn = document.getElementById('ytToggleBtn');
 
-    const isSynthVisible = Boolean(synthContainer && synthContainer.style.display !== 'none');
-    const isYtVisible = Boolean(ytContainer && ytContainer.style.display !== 'none');
+    const isSynthVisible = Boolean(synthBtn && synthBtn.style.display !== 'none');
+    const isYtVisible = Boolean(ytBtn && ytBtn.style.display !== 'none');
+
+    if (sourcePill) {
+        sourcePill.style.display = (isSynthVisible || isYtVisible) ? 'inline-flex' : 'none';
+    }
 
     if (controlsContainer) {
         if (isSynthVisible || isYtVisible) {
