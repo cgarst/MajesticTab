@@ -723,6 +723,7 @@ export function toggleSynthPanel(forceState = null) {
     synthPlayerState.isOpen = newState;
 
     if (newState) {
+        setActiveAudioMode('synth');
         // Ensure YouTube panel is closed and YouTube playback paused when opening synth panel
         toggleYouTubePanel(false);
         pauseYouTube();
