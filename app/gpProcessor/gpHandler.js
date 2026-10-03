@@ -150,7 +150,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     container.className = 'alphaTabContainer';
 
     const pagesPerView = getPagesPerView(true);
-    const targetWidth = Math.floor((window.innerWidth - 80) / pagesPerView) - 60;
+    const targetWidth = Math.floor((window.innerWidth - 24) / pagesPerView) - (window.innerWidth < 768 ? 16 : 24);
 
     container.style.width = isPageMode ? `${targetWidth}px` : '100%';
     container.style.height = isPageMode ? '100%' : 'auto';
@@ -220,7 +220,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         output.style.overflow = 'hidden';
 
         const pagesPerView = getPagesPerView(true);
-        const targetWidth = Math.floor((window.innerWidth - 80) / pagesPerView) - 60;
+        const targetWidth = Math.floor((window.innerWidth - 24) / pagesPerView) - (window.innerWidth < 768 ? 16 : 24);
         const targetWidthStr = `${targetWidth}px`;
         const widthChanged = container.style.width !== targetWidthStr;
 
@@ -356,7 +356,7 @@ function renderGPPageMode(output) {
 
     // Only recalculate if dimensions changed
     const pageHeight = output.clientHeight - 20;
-    const pageWidth = (window.innerWidth - 40) / pagesPerView;
+    const pageWidth = (window.innerWidth - 20) / pagesPerView;
     const currentDimensions = { pageHeight, pageWidth, pagesPerView };
 
     console.log('[GP Layout Debug] Calculating dimensions:', {
@@ -401,7 +401,7 @@ function renderGPPageMode(output) {
         const wrapper = createPageWrapper();
         wrapper.className = 'gp-page-wrapper alphaTab at';
         wrapper.style.width = `${(100 / pagesPerView)}%`;
-        wrapper.style.padding = '20px';
+        wrapper.style.padding = window.innerWidth < 768 ? '10px 8px' : '16px 14px';
         wrapper.style.boxSizing = 'border-box';
         wrapper.style.overflow = 'hidden';
 
