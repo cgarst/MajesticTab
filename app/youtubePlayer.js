@@ -634,7 +634,10 @@ export function initYouTubePlayer() {
 
     // Handle Search / Link Paste
     const handleInput = () => {
-        const text = (searchInput?.value || '').trim();
+        let text = (searchInput?.value || '').trim();
+        if (!text && playerState.currentVideoId) {
+            text = playerState.currentVideoId;
+        }
         if (!text) return;
 
         if (playerState.isSearching) {
@@ -662,6 +665,7 @@ export function initYouTubePlayer() {
             } else {
                 loadCurrentTrack(true);
             }
+            toggleYouTubePanel(false);
         } else {
             // Text search fallback via search query
             const query = text;
