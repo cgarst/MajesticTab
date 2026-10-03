@@ -209,15 +209,17 @@ export function setupKeyboardNavigation(getConfig) {
 
         const isSpace = (e.key === ' ' || e.code === 'Space');
 
-        // Avoid handling keys when focused on form elements
+        // Avoid handling keys when focused on editable text elements
         const activeEl = document.activeElement;
-        if (activeEl && (
-            activeEl.tagName === 'INPUT' || 
+        const isTextInput = activeEl && (
+            (activeEl.tagName === 'INPUT' && !['radio', 'checkbox', 'button', 'submit', 'range'].includes(activeEl.type)) ||
             activeEl.tagName === 'TEXTAREA' ||
-            activeEl.tagName === 'SELECT'
-        )) return;
+            activeEl.tagName === 'SELECT' ||
+            activeEl.isContentEditable
+        );
+        if (isTextInput) return;
 
-        // Prevent default browser scrolling for navigation and spacebar
+        // Prevent default browser scrolling and radio group switching for navigation and spacebar
         if (nextPageKeys.includes(e.key) || prevPageKeys.includes(e.key) || isSpace) {
             e.preventDefault();
         }
@@ -333,6 +335,7 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
     };
 
     pageModeRadio.addEventListener('change', () => {
+        pageModeRadio.blur();
         const config = getConfig();
         if (!config.output || !config.currentFile) return;
 
@@ -429,6 +432,7 @@ export function setupViewModeToggles(pageModeRadio, continuousModeRadio, getConf
     });
 
     continuousModeRadio.addEventListener('change', () => {
+        continuousModeRadio.blur();
         if (!continuousModeRadio.checked) return;
         
         pauseSynthPlayer();
