@@ -68,9 +68,15 @@
         <label class="btn btn-outline-primary btn-sm" for="themeDark"><i class="bi-moon"></i> Dark</label>
       </div>
     </div>
-    <div class="form-check form-switch mt-2">
-      <input class="form-check-input" type="checkbox" id="advanceOnePageToggle">
-      <label class="form-check-label" for="advanceOnePageToggle">Always Advance One Page</label>
+    <div class="mt-2">
+      <label class="form-label d-block mb-1">Dual-Page Advance:</label>
+      <div class="btn-group w-100" role="group" aria-label="Dual-page advance selection">
+        <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance1" value="1" autocomplete="off">
+        <label class="btn btn-outline-primary btn-sm" for="pageAdvance1">1 Page</label>
+
+        <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
+        <label class="btn btn-outline-primary btn-sm" for="pageAdvance2">2 Pages</label>
+      </div>
     </div>
     <div class="form-check form-switch mt-2">
       <input class="form-check-input" type="checkbox" id="condensePdfMode">

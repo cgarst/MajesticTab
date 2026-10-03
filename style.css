@@ -341,6 +341,10 @@ body.dark-mode #output svg ellipse {
     box-shadow: none;
 }
 
+.badge.bg-primary {
+    background-color: var(--highlight-color) !important;
+}
+
 /* ==========================================================================
    Canvas Element Styles
    ========================================================================== */
