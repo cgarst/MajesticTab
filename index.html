@@ -23,26 +23,30 @@
     <span class="navbar-brand mb-0 h1" id="brand-text">MajesticTab</span>
   </div>
 
-  <div id="modeButtons" class="btn-group" role="group" aria-label="Display Mode" style="display:none;">
-    <input type="radio" class="btn-check" name="modeRadio" id="pageModeRadio" autocomplete="off" tabindex="-1" checked>
-    <label class="btn btn-outline-primary btn-sm" for="pageModeRadio" tabindex="-1"><i class="bi-book"></i></label>
-    <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off" tabindex="-1">
-    <label class="btn btn-outline-primary btn-sm" for="continuousModeRadio" tabindex="-1"><i class="bi-arrow-down-up"></i></label>
-  </div>
-
-  <div id="ytContainer" class="d-flex align-items-center justify-content-center" style="display:none;">
-    <div id="ytMiniPill" class="btn-group" role="group" aria-label="YouTube Player">
-      <button class="btn btn-outline-danger btn-sm" id="ytToggleBtn" title="Toggle YouTube Player">
-        <i class="bi-youtube"></i> <span id="ytPillLabel" class="d-none d-sm-inline ms-1">Original</span> <i class="bi-chevron-down ms-1" id="ytPillChevron"></i>
-      </button>
+  <div id="centerSection">
+    <div id="modeButtons" class="btn-group" role="group" aria-label="Display Mode" style="display:none;">
+      <input type="radio" class="btn-check" name="modeRadio" id="pageModeRadio" autocomplete="off" tabindex="-1" checked>
+      <label class="btn btn-outline-primary btn-sm" for="pageModeRadio" tabindex="-1"><i class="bi-book"></i></label>
+      <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off" tabindex="-1">
+      <label class="btn btn-outline-primary btn-sm" for="continuousModeRadio" tabindex="-1"><i class="bi-arrow-down-up"></i></label>
     </div>
   </div>
 
-  <div id="navButtons" class="d-flex align-items-center justify-content-end" style="display:none;">
-    <button class="btn btn-primary btn-sm" id="firstPage" title="Back to First Page"><i class="bi-chevron-double-left"></i></button>
-    <button class="btn btn-primary btn-sm" id="prevPage"><i class="bi-arrow-left"></i></button>
-    <span id="pageIndicator"></span>
-    <button class="btn btn-primary btn-sm" id="nextPage"><i class="bi-arrow-right"></i></button>
+  <div id="rightSection" class="d-flex align-items-center ms-auto">
+    <div id="ytContainer" class="d-flex align-items-center justify-content-center mx-auto" style="display:none;">
+      <div id="ytMiniPill" class="btn-group" role="group" aria-label="YouTube Player">
+        <button class="btn btn-outline-danger btn-sm" id="ytToggleBtn" title="Toggle YouTube Player">
+          <i class="bi-youtube"></i> <span id="ytPillLabel" class="d-none d-sm-inline ms-1">Original</span> <i class="bi-chevron-down ms-1" id="ytPillChevron"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="navButtons" class="d-flex align-items-center ms-auto" style="display:none;">
+      <button class="btn btn-primary btn-sm" id="firstPage" title="Back to First Page"><i class="bi-chevron-double-left"></i></button>
+      <button class="btn btn-primary btn-sm" id="prevPage"><i class="bi-arrow-left"></i></button>
+      <span id="pageIndicator"></span>
+      <button class="btn btn-primary btn-sm" id="nextPage"><i class="bi-arrow-right"></i></button>
+    </div>
   </div>
 </nav>
 
