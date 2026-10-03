@@ -512,13 +512,13 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     playerState.hasStarted = false;
     playerState.isSearching = false;
 
-    updatePlaybackControls();
-
-    // Show container in top bar
-    const container = document.getElementById('ytContainer');
-    if (container) {
-        container.style.display = 'flex';
+    // Show YouTube toggle button in audio source pill
+    const ytBtn = document.getElementById('ytToggleBtn');
+    if (ytBtn) {
+        ytBtn.style.display = 'inline-flex';
     }
+
+    updatePlaybackControls();
 
     // Default to Original Song radio (checked)
     const originalRadio = document.getElementById('ytTrackOriginal');
@@ -742,9 +742,9 @@ export function initYouTubePlayer() {
     // Close panel when clicking outside of panel and top bar toggle
     document.addEventListener('click', (e) => {
         const panel = document.getElementById('ytDropdownPanel');
-        const container = document.getElementById('ytContainer');
+        const sourcePill = document.getElementById('audioSourcePill');
 
-        if (playerState.isOpen && panel && !panel.contains(e.target) && !container?.contains(e.target)) {
+        if (playerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target)) {
             toggleYouTubePanel(false);
         }
     });
