@@ -85,8 +85,8 @@
       <i class="bi-music-note-beamed text-success me-2 fs-6"></i>
       <span class="synth-panel-title text-truncate" id="synthPanelTitle">Instrument Audio</span>
     </div>
-    <button class="btn btn-sm btn-link text-decoration-none p-0 text-muted" id="synthPanelCloseBtn" title="Collapse">
-      <i class="bi-chevron-up"></i>
+    <button class="brand-btn p-1 px-2 text-muted" id="synthPanelCloseBtn" title="Close">
+      <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
     </button>
   </div>
   <div class="synth-panel-body">
@@ -138,35 +138,57 @@
 <div id="ytDropdownPanel" class="yt-panel" style="display:none;">
   <div class="yt-panel-header">
     <div class="d-flex align-items-center text-truncate me-2">
-      <i class="bi-youtube text-danger me-2 fs-6"></i>
+      <div class="yt-header-badge me-2">
+        <i class="bi-youtube"></i>
+      </div>
       <span class="yt-panel-title text-truncate" id="ytPanelTitle">YouTube Audio</span>
     </div>
-    <button class="btn btn-sm btn-link text-decoration-none p-0 text-muted" id="ytPanelCloseBtn" title="Collapse">
-      <i class="bi-chevron-up"></i>
+    <button class="brand-btn p-1 px-2 text-muted" id="ytPanelCloseBtn" title="Close">
+      <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
     </button>
   </div>
   <div class="yt-panel-body">
-    <div class="btn-group btn-group-sm w-100 mb-2" role="group" aria-label="Track Mode">
+    <div class="yt-mode-selector mb-3" role="group" aria-label="Track Mode">
       <input type="radio" class="btn-check" name="ytTrackMode" id="ytTrackOriginal" value="original" autocomplete="off" checked>
-      <label class="btn btn-outline-danger btn-sm" for="ytTrackOriginal">Original Song</label>
+      <label class="yt-mode-btn" for="ytTrackOriginal">
+        <i class="bi-music-note me-1"></i> Original Song
+      </label>
       <input type="radio" class="btn-check" name="ytTrackMode" id="ytTrackBacking" value="backing" autocomplete="off">
-      <label class="btn btn-outline-danger btn-sm" for="ytTrackBacking">Backing Track</label>
+      <label class="yt-mode-btn" for="ytTrackBacking">
+        <i class="bi-disc me-1"></i> Backing Track
+      </label>
     </div>
-    <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-2">
+    <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-3">
       <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-      <div id="ytPlaceholderPrompt" class="d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
-        <i class="bi-youtube text-danger fs-1 mb-1"></i>
-        <div class="small fw-semibold mb-2" id="ytPromptTitle">Find Video on YouTube</div>
-        <a class="btn btn-danger btn-sm mb-2" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer">
+      
+      <!-- Loading Indicator with Cancel Button -->
+      <div id="ytLoadingIndicator" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
+        <div class="spinner-border text-info mb-2" role="status" style="width: 1.85rem; height: 1.85rem; border-width: 0.18em;">
+          <span class="visually-hidden">Searching YouTube...</span>
+        </div>
+        <div class="small fw-bold text-white mb-1">Searching YouTube...</div>
+        <div class="text-muted text-truncate px-3 mb-2" id="ytLoadingQueryText" style="font-size: 0.72rem; max-width: 100%;"></div>
+        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 mt-1" id="ytCancelSearchBtn" style="font-size: 0.75rem;">
+          <i class="bi-x-circle me-1"></i> Cancel Search
+        </button>
+      </div>
+
+      <!-- Manual Search / Fallback Prompt -->
+      <div id="ytPlaceholderPrompt" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
+        <div class="yt-prompt-icon mb-2">
+          <i class="bi-youtube"></i>
+        </div>
+        <div class="small fw-semibold text-white mb-1" id="ytPromptTitle">Find Video on YouTube</div>
+        <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link below or search directly</div>
+        <a class="btn btn-sm btn-danger px-3 py-1 mb-1" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem;">
           <i class="bi-search me-1"></i> Search on YouTube <i class="bi-box-arrow-up-right ms-1"></i>
         </a>
-        <div class="text-muted" style="font-size: 0.75rem;">Paste YouTube link below to play</div>
       </div>
     </div>
-    <div class="input-group input-group-sm">
+    <div class="input-group input-group-sm yt-search-group">
       <input type="text" id="ytSearchInput" class="form-control" placeholder="Paste YouTube link or video ID...">
-      <button class="btn btn-outline-danger" id="ytSearchBtn" type="button" title="Load Video"><i class="bi-play-fill"></i> Play</button>
-      <a class="btn btn-outline-secondary" id="ytExternalLink" href="#" target="_blank" title="Open search in YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right"></i></a>
+      <button class="btn yt-play-btn" id="ytSearchBtn" type="button" title="Load Video"><i class="bi-play-fill"></i> Play</button>
+      <a class="btn yt-ext-btn" id="ytExternalLink" href="#" target="_blank" title="Open search in YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right"></i></a>
     </div>
   </div>
 </div>
