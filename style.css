@@ -288,38 +288,50 @@ body.dark-mode #output svg ellipse {
     top: 0;
     z-index: 1000;
     transform: scale(1) !important; /* Prevent top bar from being affected by zoom */
-    display: grid;
-    grid-template-columns: auto 1fr auto 1fr auto;
+    display: flex;
     align-items: center;
-    gap: 8px;
+    position: relative;
+    padding-left: 1rem;
+    padding-right: 1rem;
 }
 
 #brandSection {
-    grid-column: 1;
+    flex-shrink: 0;
 }
 
-#modeButtons {
-    grid-column: 3;
-    justify-self: center;
+#centerSection {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    z-index: 1010;
+}
+
+#centerSection > * {
+    pointer-events: auto;
+}
+
+#rightSection {
+    width: calc(50% - 20px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-left: auto;
 }
 
 #ytContainer {
-    grid-column: 4;
-    justify-self: center;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 #navButtons {
-    grid-column: 5;
-    justify-self: end;
+    margin-left: auto;
+    flex-shrink: 0;
 }
 
 @media (max-width: 576px) {
-    #topBar {
-        display: flex;
-        justify-content: space-between;
-        gap: 4px;
-        padding-left: 8px !important;
-        padding-right: 8px !important;
+    #rightSection {
+        width: auto;
     }
 }
 
