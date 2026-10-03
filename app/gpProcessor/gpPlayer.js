@@ -3,6 +3,7 @@
 import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
 import { gpState } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
+import { updateGlobalRewindButton } from '../utils/navigationUtils.js';
 
 let currentApi = null;
 let currentScore = null;
@@ -39,7 +40,6 @@ function formatTime(ms) {
 export function updateSynthUI() {
     const playPauseBtn = document.getElementById('synthPlayPauseBtn');
     const playPauseIcon = document.getElementById('synthPlayPauseIcon');
-    const rewindBtn = document.getElementById('synthRewindBtn');
     const metronomeQuickBtn = document.getElementById('synthMetronomeQuickBtn');
     const metronomeSwitch = document.getElementById('synthMetronomeSwitch');
     const countInSwitch = document.getElementById('synthCountInSwitch');
@@ -73,9 +73,7 @@ export function updateSynthUI() {
         }
     }
 
-    if (rewindBtn) {
-        rewindBtn.disabled = !canPlay;
-    }
+    updateGlobalRewindButton();
 
     if (metronomeQuickBtn) {
         metronomeQuickBtn.disabled = !canPlay;
@@ -725,11 +723,13 @@ export function toggleCountIn(force = null) {
 export function showSynthPlayer() {
     const container = document.getElementById('synthContainer');
     if (container) container.style.display = 'flex';
+    updateGlobalRewindButton();
 }
 
 export function hideSynthPlayer() {
     const container = document.getElementById('synthContainer');
     if (container) container.style.display = 'none';
+    updateGlobalRewindButton();
 }
 
 /**
@@ -773,7 +773,6 @@ export function initSynthPlayer() {
     hideSynthPlayer();
     const toggleBtn = document.getElementById('synthToggleBtn');
     const closeBtn = document.getElementById('synthPanelCloseBtn');
-    const rewindBtn = document.getElementById('synthRewindBtn');
     const playPauseBtn = document.getElementById('synthPlayPauseBtn');
     const metronomeQuickBtn = document.getElementById('synthMetronomeQuickBtn');
     const metronomeSwitch = document.getElementById('synthMetronomeSwitch');
@@ -788,11 +787,6 @@ export function initSynthPlayer() {
 
     closeBtn?.addEventListener('click', () => {
         toggleSynthPanel(false);
-    });
-
-    rewindBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        rewindSynth10Seconds();
     });
 
     playPauseBtn?.addEventListener('click', () => {

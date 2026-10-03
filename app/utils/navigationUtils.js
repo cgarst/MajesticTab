@@ -2,8 +2,8 @@
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
-import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth } from '../gpProcessor/gpPlayer.js';
-import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning } from '../youtubePlayer.js';
+import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds } from '../gpProcessor/gpPlayer.js';
+import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds } from '../youtubePlayer.js';
 
 // Navigation action constants
 export const NavigationAction = {
@@ -534,4 +534,67 @@ export function handleTapNavigation(e, config) {
             break;
         }
     }
+}
+
+/**
+ * Update the visibility and disabled state of the consolidated top bar rewind button
+ */
+export function updateGlobalRewindButton() {
+    const rewindBtn = document.getElementById('globalRewindBtn');
+    if (!rewindBtn) return;
+
+    const synthContainer = document.getElementById('synthContainer');
+    const ytContainer = document.getElementById('ytContainer');
+
+    const isSynthVisible = Boolean(synthContainer && synthContainer.style.display !== 'none');
+    const isYtVisible = Boolean(ytContainer && ytContainer.style.display !== 'none');
+
+    if (isSynthVisible || isYtVisible) {
+        rewindBtn.style.display = 'inline-flex';
+    } else {
+        rewindBtn.style.display = 'none';
+        return;
+    }
+
+    const synthPlayable = isSynthAvailable();
+    const ytPlayable = isYouTubeAvailable();
+
+    rewindBtn.disabled = !(synthPlayable || ytPlayable);
+}
+
+/**
+ * Handle Back 10 Seconds for whichever audio player is active/playing
+ */
+export function handleGlobalRewind10Seconds() {
+    if (isSynthPlaying()) {
+        rewindSynth10Seconds();
+        return;
+    }
+    if (isYouTubePlaying()) {
+        rewindYouTube10Seconds();
+        return;
+    }
+    if (isSynthAvailable()) {
+        rewindSynth10Seconds();
+        return;
+    }
+    if (isYouTubeAvailable()) {
+        rewindYouTube10Seconds();
+        return;
+    }
+}
+
+/**
+ * Initialize the consolidated top bar rewind button
+ */
+export function setupGlobalRewindButton() {
+    const rewindBtn = document.getElementById('globalRewindBtn');
+    if (!rewindBtn) return;
+
+    rewindBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        handleGlobalRewind10Seconds();
+    });
+
+    updateGlobalRewindButton();
 }
