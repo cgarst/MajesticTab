@@ -172,11 +172,12 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
     try {
         const api = await loadGuitarPro(dataToLoad, container, { debug });
-        gpState.canvases = [{ container }];
+        gpState.canvases = [{ container, api }];
 
         // Fix section labels (Intro, Band Enter, etc.) that AlphaTab positions at
         // the same y-row as above-staff accent/ornament glyphs.
         fixSectionLabelOverlaps(container);
+        api.postRenderFinished.on(() => fixSectionLabelOverlaps(container));
 
         // Rendering is complete (promise resolved), now set up display
         // First render in continuous mode (simple, no layout needed)
@@ -222,6 +223,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         }
         container.style.transform = '';
         container.style.transformOrigin = '';
+        container.style.width = '100%';
         
         // Set up continuous mode view
         output.classList.add('continuous-mode');
