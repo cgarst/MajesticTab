@@ -1,5 +1,5 @@
 // gpProcessor.js
-export const GP_DISPLAY_SCALE = 0.75;
+export const GP_DISPLAY_SCALE = 0.70;
 
 export function loadGuitarPro(file, container, { debug = false } = {}) {
     return new Promise((resolve, reject) => {
