@@ -26,14 +26,14 @@ body {
 }
 
 body.dark-mode {
-    background-color: #1e1e1e;
-    color: #ddd;
-    --outside-bg-color: #1e1e1e;
-    --page-bg-color: #000000;
-    --text-color: #ddd;
-    --border-color: #444;
-    --page-shadow: 0 2px 6px rgba(0,0,0,0.7);
-    --separator-color: #444;
+    background-color: #181818;
+    color: #e0e0e0;
+    --outside-bg-color: #181818;
+    --page-bg-color: #2b2b2b;
+    --text-color: #e0e0e0;
+    --border-color: #404040;
+    --page-shadow: 0 2px 6px rgba(0,0,0,0.6);
+    --separator-color: #404040;
     --highlight-color: #884dbc;
 }
 
@@ -569,8 +569,8 @@ body.dark-mode .btn-outline-primary:hover {
 }
 
 body.dark-mode .pageNumber {
-    background-color: #000000;
-    color: #ddd;
+    background-color: var(--page-bg-color);
+    color: var(--text-color);
 }
 
 body.dark-mode .chord-lyric-segment span[style*="color: rgb(44, 82, 130)"] {
