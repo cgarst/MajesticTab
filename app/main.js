@@ -5,7 +5,7 @@ import { setupExportPDFButton } from './exportPdf.js';
 import { loadGP, renderGPPage, gpState, nextGPPage, prevGPPage, layoutGPPages } from './gpProcessor/gpHandler.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
-import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupViewModeToggles, setupTapClickNavigation } from './utils/navigationUtils.js';
+import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton } from './utils/navigationUtils.js';
 import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
@@ -198,6 +198,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupSettings();
     initYouTubePlayer();
     initSynthPlayer();
+    setupGlobalRewindButton();
 
     // Check for test mode URL parameter
     const urlParams = new URLSearchParams(window.location.search);

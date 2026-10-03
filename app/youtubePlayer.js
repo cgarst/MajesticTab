@@ -1,6 +1,7 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel } from './gpProcessor/gpPlayer.js';
+import { updateGlobalRewindButton } from './utils/navigationUtils.js';
 
 let activeSearchController = null;
 
@@ -50,6 +51,22 @@ export function rewindYouTubeToBeginning() {
         event: 'command',
         func: 'seekTo',
         args: [0, true]
+    }), '*');
+}
+
+/**
+ * Rewind YouTube by 10 seconds
+ */
+export function rewindYouTube10Seconds() {
+    const iframe = document.getElementById('ytIframe');
+    if (!iframe || !iframe.contentWindow) return;
+
+    const targetTime = Math.max(0, (playerState.currentTime || 0) - 10);
+    playerState.currentTime = targetTime;
+    iframe.contentWindow.postMessage(JSON.stringify({
+        event: 'command',
+        func: 'seekTo',
+        args: [targetTime, true]
     }), '*');
 }
 
@@ -469,14 +486,12 @@ export function toggleYouTubePanel(forceState = null) {
  * Update visibility and state of playback buttons in top bar
  */
 function updatePlaybackControls() {
-    const rewindBtn = document.getElementById('ytRewindBtn');
     const playPauseBtn = document.getElementById('ytPlayPauseBtn');
     const playPauseIcon = document.getElementById('ytPlayPauseIcon');
 
-    if (!rewindBtn || !playPauseBtn || !playPauseIcon) return;
+    if (!playPauseBtn || !playPauseIcon) return;
 
     if (playerState.hasStarted) {
-        rewindBtn.disabled = false;
         playPauseBtn.disabled = false;
 
         if (playerState.isPlaying) {
@@ -487,11 +502,12 @@ function updatePlaybackControls() {
             playPauseBtn.title = 'Play';
         }
     } else {
-        rewindBtn.disabled = true;
         playPauseBtn.disabled = true;
         playPauseIcon.className = 'bi-play-fill';
         playPauseBtn.title = 'Play';
     }
+
+    updateGlobalRewindButton();
 }
 
 /**
@@ -575,7 +591,6 @@ export function initYouTubePlayer() {
         });
     }
 
-    const rewindBtn = document.getElementById('ytRewindBtn');
     const playPauseBtn = document.getElementById('ytPlayPauseBtn');
 
     // Toggle button in top bar
@@ -594,21 +609,6 @@ export function initYouTubePlayer() {
     cancelSearchBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         cancelYouTubeSearch();
-    });
-
-    // Rewind 10 seconds button
-    rewindBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const iframe = document.getElementById('ytIframe');
-        if (!iframe || !iframe.contentWindow) return;
-
-        const targetTime = Math.max(0, (playerState.currentTime || 0) - 10);
-        playerState.currentTime = targetTime;
-        iframe.contentWindow.postMessage(JSON.stringify({
-            event: 'command',
-            func: 'seekTo',
-            args: [targetTime, true]
-        }), '*');
     });
 
     // Play / Pause button
