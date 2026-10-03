@@ -388,9 +388,9 @@ export function updateContinuousPlaybackScroll(currentTick) {
         const cursorDocY = cursorVisualTop + output.scrollTop;
 
         // Read-ahead threshold: snap when cursor is above viewport (e.g. repeat jump / rewind)
-        // or past 45% of viewport height (to ensure reader has remaining view for read-ahead)
+        // or past 68% of viewport height (advancing after ~3 of 4 on-screen stave groups)
         const isAboveTop = cursorVisualTop < 0;
-        const isBelowThreshold = cursorVisualTop > (viewportHeight * 0.45);
+        const isBelowThreshold = cursorVisualTop > (viewportHeight * 0.68);
 
         if (isAboveTop || isBelowThreshold) {
             const maxScroll = output.scrollHeight - output.clientHeight;
@@ -448,7 +448,7 @@ export function updateContinuousPlaybackScroll(currentTick) {
     const visualTop = sysY - output.scrollTop;
 
     const isAboveTop = visualTop < 0;
-    const isBelowThreshold = visualTop > (viewportHeight * 0.45);
+    const isBelowThreshold = visualTop > (viewportHeight * 0.68);
 
     if (isAboveTop || isBelowThreshold) {
         const maxScroll = output.scrollHeight - output.clientHeight;
