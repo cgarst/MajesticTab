@@ -9,6 +9,10 @@ async function svgToImage(svgElement, width, height) {
   svgClone.setAttribute('width', width.toString());
   svgClone.setAttribute('height', height.toString());
 
+  // Ensure any dark-mode/theme overrides are cleared so export is always clean light mode
+  svgClone.removeAttribute('class');
+  svgClone.style.filter = 'none';
+
   const xml = new XMLSerializer().serializeToString(svgClone);
   const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
