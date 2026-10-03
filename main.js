@@ -178,6 +178,31 @@ function setupSettings() {
     
     setupTheme();
 
+    // Setup dual-page advance selector
+    let savedPageAdvance = localStorage.getItem('pageAdvancePages');
+    if (!savedPageAdvance) {
+        const legacyAdvanceOne = localStorage.getItem('advanceOnePage');
+        if (legacyAdvanceOne !== null) {
+            savedPageAdvance = legacyAdvanceOne === 'true' ? '1' : '2';
+            localStorage.setItem('pageAdvancePages', savedPageAdvance);
+            localStorage.removeItem('advanceOnePage');
+        } else {
+            savedPageAdvance = '2';
+        }
+    }
+
+    const pageAdvanceRadios = document.querySelectorAll('input[name="pageAdvanceRadio"]');
+    pageAdvanceRadios.forEach(radio => {
+        if (radio.value === savedPageAdvance) {
+            radio.checked = true;
+        }
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                localStorage.setItem('pageAdvancePages', radio.value);
+            }
+        });
+    });
+
     // Setup event listeners for settings changes
     debugMode.addEventListener('change', () => {
         localStorage.setItem('debugMode', debugMode.checked);
@@ -446,7 +471,9 @@ function doLayoutPages() {
 }
 
 function getPageStep() {
-    return document.getElementById('advanceOnePageToggle').checked ? 1 : getPagesPerView();
+    const selected = document.querySelector('input[name="pageAdvanceRadio"]:checked');
+    const advancePages = selected ? parseInt(selected.value, 10) : 2;
+    return advancePages === 1 ? 1 : getPagesPerView();
 }
 
 // --- PAGE RENDERING ---
