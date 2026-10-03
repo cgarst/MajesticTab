@@ -4,12 +4,42 @@ import { loadFile, hideFileMenu } from './main.js';
 const CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const STORAGE_KEY = 'gdrive_auth';
+const FOLDER_STORAGE_KEY = 'gdrive_last_folder';
 
 let token = null;
 let currentFolderId = 'root';
 let folderHistory = [{ id: 'root', name: 'My Drive' }];
 let currentSearchQuery = '';
 let searchDebounceTimeout = null;
+
+function saveCurrentFolder() {
+    try {
+        localStorage.setItem(FOLDER_STORAGE_KEY, JSON.stringify({
+            currentFolderId,
+            folderHistory
+        }));
+    } catch (e) {
+        console.error('Failed to save last drive folder:', e);
+    }
+}
+
+function loadSavedFolder() {
+    try {
+        const saved = localStorage.getItem(FOLDER_STORAGE_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.currentFolderId && Array.isArray(parsed.folderHistory) && parsed.folderHistory.length > 0) {
+                currentFolderId = parsed.currentFolderId;
+                folderHistory = parsed.folderHistory;
+            }
+        }
+    } catch (e) {
+        console.error('Failed to load last drive folder:', e);
+    }
+}
+
+// Load saved folder location on script initialization
+loadSavedFolder();
 
 export function isTokenValid() {
     try {
@@ -131,6 +161,7 @@ function renderBreadcrumbs() {
             const idx = parseInt(el.getAttribute('data-history-index'), 10);
             folderHistory = folderHistory.slice(0, idx + 1);
             currentFolderId = folderHistory[folderHistory.length - 1].id;
+            saveCurrentFolder();
             loadDriveFiles();
         });
     });
@@ -186,6 +217,14 @@ async function loadDriveFiles() {
                 clearStoredToken();
                 closeDriveModal();
                 redirectToGoogleAuth();
+                return;
+            }
+            if ((res.status === 404 || res.status === 400) && currentFolderId !== 'root') {
+                console.warn('[Drive] Saved folder inaccessible, falling back to root');
+                currentFolderId = 'root';
+                folderHistory = [{ id: 'root', name: 'My Drive' }];
+                saveCurrentFolder();
+                loadDriveFiles();
                 return;
             }
             throw new Error(`Google Drive API error: ${res.status} ${res.statusText}`);
@@ -254,6 +293,7 @@ function renderFileList(files) {
                 if (searchInput) searchInput.value = '';
                 folderHistory.push({ id: fileId, name: fileName });
                 currentFolderId = fileId;
+                saveCurrentFolder();
                 loadDriveFiles();
             } else {
                 // Fetch and open tab file
@@ -348,6 +388,9 @@ export function setupDrivePicker() {
     const signOutBtn = document.getElementById('driveSignOutBtn');
     signOutBtn?.addEventListener('click', () => {
         clearStoredToken();
+        localStorage.removeItem(FOLDER_STORAGE_KEY);
+        currentFolderId = 'root';
+        folderHistory = [{ id: 'root', name: 'My Drive' }];
         closeDriveModal();
         alert('Disconnected Google Drive account.');
     });
