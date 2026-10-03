@@ -1,3 +1,37 @@
+function findStaffBottomContent(ctx, canvasWidth, canvasHeight, startY, maxScanY, blankRowThreshold = 8) {
+  if (!ctx || startY >= maxScanY) return startY;
+  const scanHeight = maxScanY - startY + 1;
+  const imgData = ctx.getImageData(0, startY, canvasWidth, scanHeight);
+  const data = imgData.data;
+
+  let lastContentY = startY;
+  let consecutiveBlank = 0;
+
+  for (let y = 0; y < scanHeight; y++) {
+    let rowHasContent = false;
+    for (let x = Math.floor(canvasWidth * 0.05); x < Math.floor(canvasWidth * 0.95); x++) {
+      const idx = (y * canvasWidth + x) * 4;
+      const r = data[idx], g = data[idx + 1], b = data[idx + 2], a = data[idx + 3];
+      if (a > 0 && (r < 220 || g < 220 || b < 220)) {
+        rowHasContent = true;
+        break;
+      }
+    }
+
+    if (rowHasContent) {
+      lastContentY = startY + y;
+      consecutiveBlank = 0;
+    } else {
+      consecutiveBlank++;
+      if (consecutiveBlank >= blankRowThreshold) {
+        break;
+      }
+    }
+  }
+
+  return lastContentY;
+}
+
 export function detectMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns = [], CONFIG, debugMode) {
   const keptMargins = [];
   const betweenGroupSections = [];
@@ -32,11 +66,12 @@ export function detectMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns
     // Reduce sectionEnd by minimum top margin
     sectionEnd = Math.max(sectionStart, sectionEnd - CONFIG.MIN_TOP_MARGIN_ABOVE_GROUP);
 
-    // --- Trim leading whitespace at top of teal section ---
+    // --- Trim whitespace of between-group section ---
     if (ctx && sectionEnd > sectionStart) {
       const imageData = ctx.getImageData(0, sectionStart, canvasWidth, sectionEnd - sectionStart);
       const data = imageData.data;
-      let firstContentRow = 0;
+      let firstContentRow = -1;
+      let lastContentRow = -1;
 
       for (let y = 0; y < imageData.height; y++) {
         let rowHasContent = false;
@@ -49,12 +84,28 @@ export function detectMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns
           }
         }
         if (rowHasContent) {
-          firstContentRow = y;
-          break;
+          if (firstContentRow === -1) firstContentRow = y;
+          lastContentRow = y;
         }
       }
 
-      sectionStart += firstContentRow;
+      if (gIndex === 0) {
+        if (firstContentRow !== -1) {
+          sectionStart += firstContentRow;
+        }
+      } else {
+        if (firstContentRow !== -1) {
+          const padTop = CONFIG.BETWEEN_GROUP_PADDING_TOP ?? 10;
+          const padBottom = CONFIG.BETWEEN_GROUP_PADDING_BOTTOM ?? 8;
+          const newStart = Math.max(sectionStart, sectionStart + firstContentRow - padTop);
+          const newEnd = Math.min(sectionEnd, sectionStart + lastContentRow + padBottom);
+          sectionStart = newStart;
+          sectionEnd = newEnd;
+        } else {
+          const gap = CONFIG.INTER_SYSTEM_GAP ?? 16;
+          sectionStart = Math.max(sectionStart, sectionEnd - gap);
+        }
+      }
     }
 
     if (sectionEnd > sectionStart && (gIndex === 0 || groupHasNotesOrStems)) {
@@ -78,10 +129,27 @@ export function detectMargins(ctx, staffGroups, stavesByGroup, groupVerticalRuns
         marginTop = Math.max(0, s.start - CONFIG.MIN_TOP_MARGIN_ABOVE_GROUP);
       }
 
-      const marginBottom = Math.max(
+      const stemMaxY = s.candidateRuns.reduce((acc, r) => Math.max(acc, r.maxY), s.end);
+      const bottomScanLimit = si < staves.length - 1
+        ? staves[si + 1].start - 1
+        : (gIndex < staffGroups.length - 1 ? staffGroups[gIndex + 1].start - 1 : canvasHeight - 1);
+
+      const contentMaxY = findStaffBottomContent(
+        ctx,
+        canvasWidth,
+        canvasHeight,
+        s.end,
+        Math.min(bottomScanLimit, s.end + (CONFIG.EXTRA_BOTTOM_SCAN ?? 50)),
+        CONFIG.BLANK_ROW_THRESHOLD ?? 8
+      );
+
+      const detectedBottom = Math.max(
         s.end + CONFIG.CONTENT_TOLERANCE_ABOVE_STAFF,
-        s.candidateRuns.reduce((acc, r) => Math.max(acc, r.maxY), s.end)
-      ) + CONFIG.EXTRA_BOTTOM_PADDING;
+        stemMaxY,
+        contentMaxY
+      );
+
+      const marginBottom = detectedBottom + CONFIG.EXTRA_BOTTOM_PADDING;
 
       if (s.hasNotes && !debugMode?.checked) {
         keptMargins.push({ marginTop, marginBottom });
