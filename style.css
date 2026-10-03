@@ -737,16 +737,17 @@ body.dark-mode .chord-lyric-segment span[style*="color: rgb(44, 82, 130)"] {
     z-index: 1040;
 }
 
-#ytToggleBtn {
+#ytMiniPill .btn {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     border-color: #dc3545;
     color: #dc3545;
 }
 
-#ytToggleBtn:hover,
-#ytToggleBtn.active,
-#ytToggleBtn:active {
+#ytMiniPill .btn:hover,
+#ytMiniPill .btn.active,
+#ytMiniPill .btn:active {
     background-color: #dc3545;
     border-color: #dc3545;
     color: #fff;
