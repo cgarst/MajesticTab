@@ -280,9 +280,17 @@ window.addEventListener('DOMContentLoaded', async () => {
             fileMenu.show();
         }
     } else {
-        console.log('[Normal Mode] No test parameter found, showing file menu');
-        // Show the file menu on initial load (normal mode)
-        fileMenu.show();
+        // Show the file menu on initial load (normal mode), unless the Drive modal was
+        // just reopened after the OAuth redirect (the offcanvas focus trap would steal
+        // focus from the Drive search input)
+        const driveModalEl = document.getElementById('driveModal');
+        const driveModalOpen = driveModalEl && driveModalEl.style.display === 'flex';
+        if (driveModalOpen) {
+            console.log('[Normal Mode] Drive modal open, not showing file menu');
+        } else {
+            console.log('[Normal Mode] No test parameter found, showing file menu');
+            fileMenu.show();
+        }
     }
 
     if (urlParams.has('drawer')) {
