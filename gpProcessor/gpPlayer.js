@@ -12,6 +12,7 @@ export const synthPlayerState = {
     isOpen: false,
     isPlaying: false,
     isReady: false,
+    hasPlayed: false,
     soundFontLoaded: false,
     currentTime: 0,
     endTime: 0,
@@ -140,7 +141,10 @@ export function updateSynthUI() {
  * Render visual playback position cursor and handle auto-page navigation in Page Mode
  */
 function updatePageModeCursor(currentTick) {
-    if (!currentApi || !currentScore) return;
+    if (!currentApi || !currentScore || !synthPlayerState.hasPlayed) {
+        document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
+        return;
+    }
 
     const pageModeRadio = document.getElementById('pageModeRadio');
     const isPageMode = pageModeRadio ? pageModeRadio.checked : true;
@@ -365,10 +369,12 @@ export function attachAlphaTabApi(api) {
     currentScore = api.score;
 
     synthPlayerState.isPlaying = false;
+    synthPlayerState.hasPlayed = false;
     synthPlayerState.currentTime = 0;
     synthPlayerState.endTime = 0;
     synthPlayerState.isReady = false;
     synthPlayerState.soundFontLoaded = false;
+    document.body.classList.remove('synth-playback-started');
 
     // Update song title in panel
     const titleEl = document.getElementById('synthPanelTitle');
@@ -424,11 +430,10 @@ export function attachAlphaTabApi(api) {
     api.playerStateChanged.on((args) => {
         const state = args.state;
         synthPlayerState.isPlaying = (state === 1);
-        if (synthPlayerState.isPlaying) {
+        if (state === 1) {
+            synthPlayerState.hasPlayed = true;
+            document.body.classList.add('synth-playback-started');
             pauseYouTube();
-        } else if (state === 0) {
-            // Stopped: clear cursors
-            document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
         }
         updateSynthUI();
     });
@@ -445,6 +450,15 @@ export function attachAlphaTabApi(api) {
     // Show Synth Player UI
     showSynthPlayer();
     updateSynthUI();
+}
+
+/**
+ * Clear visual playback highlight and reset hasPlayed state
+ */
+export function clearSynthHighlights() {
+    synthPlayerState.hasPlayed = false;
+    document.body.classList.remove('synth-playback-started');
+    document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
 }
 
 /**
@@ -466,7 +480,7 @@ export function detachAlphaTabApi() {
     synthPlayerState.currentTime = 0;
     synthPlayerState.endTime = 0;
 
-    document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
+    clearSynthHighlights();
     toggleSynthPanel(false);
     updateSynthUI();
 }
