@@ -598,3 +598,23 @@ export function setupGlobalRewindButton() {
 
     updateGlobalRewindButton();
 }
+
+/**
+ * Highlight the active audio mode toggle button (Instrument vs YouTube)
+ * @param {'synth'|'youtube'|null} mode
+ */
+export function setActiveAudioMode(mode) {
+    const synthBtn = document.getElementById('synthToggleBtn');
+    const ytBtn = document.getElementById('ytToggleBtn');
+
+    if (mode === 'synth') {
+        synthBtn?.classList.add('active-audio-mode');
+        ytBtn?.classList.remove('active-audio-mode');
+    } else if (mode === 'youtube') {
+        ytBtn?.classList.add('active-audio-mode');
+        synthBtn?.classList.remove('active-audio-mode');
+    } else if (mode === null) {
+        synthBtn?.classList.remove('active-audio-mode');
+        ytBtn?.classList.remove('active-audio-mode');
+    }
+}

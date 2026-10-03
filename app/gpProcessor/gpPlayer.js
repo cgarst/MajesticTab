@@ -3,7 +3,7 @@
 import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
 import { gpState } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
-import { updateGlobalRewindButton } from '../utils/navigationUtils.js';
+import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 
 let currentApi = null;
 let currentScore = null;
@@ -532,6 +532,7 @@ export function attachAlphaTabApi(api) {
             synthPlayerState.hasPlayed = true;
             document.body.classList.add('synth-playback-started');
             pauseYouTube();
+            setActiveAudioMode('synth');
         }
         updateSynthUI();
     });
