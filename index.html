@@ -55,9 +55,18 @@
     <div id="drivePickerContainer"></div>
 
     <br/><h6>Options:</h6>
-    <div class="form-check form-switch mt-2">
-      <input class="form-check-input" type="checkbox" id="darkModeToggle">
-      <label class="form-check-label" for="darkModeToggle">Dark Mode</label>
+    <div class="mt-2">
+      <label class="form-label d-block mb-1">Theme:</label>
+      <div class="btn-group w-100" role="group" aria-label="Theme selection">
+        <input type="radio" class="btn-check" name="themeRadio" id="themeAuto" value="auto" autocomplete="off" checked>
+        <label class="btn btn-outline-primary btn-sm" for="themeAuto"><i class="bi-circle-half"></i> Auto</label>
+
+        <input type="radio" class="btn-check" name="themeRadio" id="themeLight" value="light" autocomplete="off">
+        <label class="btn btn-outline-primary btn-sm" for="themeLight"><i class="bi-sun"></i> Light</label>
+
+        <input type="radio" class="btn-check" name="themeRadio" id="themeDark" value="dark" autocomplete="off">
+        <label class="btn btn-outline-primary btn-sm" for="themeDark"><i class="bi-moon"></i> Dark</label>
+      </div>
     </div>
     <div class="form-check form-switch mt-2">
       <input class="form-check-input" type="checkbox" id="advanceOnePageToggle">
