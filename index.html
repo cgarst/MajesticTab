@@ -23,7 +23,6 @@
     </button>
     <span class="brand-title" id="brand-text">
       MajesticTab
-      <span class="brand-dot"></span>
     </span>
   </div>
 
@@ -31,16 +30,16 @@
     <!-- View Mode Switcher -->
     <div id="modeButtons" class="hud-pill-group" role="group" aria-label="Display Mode" style="display:none;">
       <input type="radio" class="btn-check" name="modeRadio" id="pageModeRadio" autocomplete="off" tabindex="-1" checked>
-      <label class="btn btn-sm" for="pageModeRadio" tabindex="-1" title="Page View Mode"><i class="bi-book me-1"></i> Page</label>
+      <label class="btn btn-sm" for="pageModeRadio" tabindex="-1" title="Page View Mode"><i class="bi-book me-1"></i><span class="mode-btn-text">Page</span></label>
       
       <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off" tabindex="-1">
-      <label class="btn btn-sm" for="continuousModeRadio" tabindex="-1" title="Continuous Scroll Mode"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+      <label class="btn btn-sm" for="continuousModeRadio" tabindex="-1" title="Continuous Scroll Mode"><i class="bi-arrow-down-up me-1"></i><span class="mode-btn-text">Scroll</span></label>
     </div>
   </div>
 
   <div id="rightSection">
     <!-- Synth / Instrument Player Controls -->
-    <div id="synthContainer" style="display:none;">
+    <div id="synthContainer">
       <div id="synthMiniPill" role="group" aria-label="Instrument Player">
         <button class="btn btn-sm" id="synthToggleBtn" title="Instrument Audio & Controls">
           <i class="bi-music-note-beamed"></i>
