@@ -152,7 +152,8 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     const targetWidth = Math.floor((window.innerWidth - 80) / pagesPerView) - 60;
 
     container.style.width = isPageMode ? `${targetWidth}px` : '100%';
-    container.style.height = '100%';
+    container.style.height = isPageMode ? '100%' : 'auto';
+    container.style.minHeight = '100%';
     container.style.display = 'block';
     container.style.margin = '0 auto';
     output.appendChild(container);
@@ -213,6 +214,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         const pagesPerView = getPagesPerView(true);
         const targetWidth = Math.floor((window.innerWidth - 80) / pagesPerView) - 60;
         container.style.width = `${targetWidth}px`;
+        container.style.height = '100%';
 
         // renderGPPageMode will handle layout calculation with caching
         renderGPPageMode(output);
@@ -224,6 +226,8 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         container.style.transform = '';
         container.style.transformOrigin = '';
         container.style.width = '100%';
+        container.style.height = 'auto';
+        container.style.minHeight = '100%';
         
         // Set up continuous mode view
         output.classList.add('continuous-mode');
