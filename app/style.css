@@ -474,6 +474,18 @@ body {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
+#synthToggleBtn.active-audio-mode {
+  color: #10b981 !important;
+  background: rgba(16, 185, 129, 0.22) !important;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+}
+
+#ytToggleBtn.active-audio-mode {
+  color: #ef4444 !important;
+  background: rgba(239, 68, 68, 0.22) !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.45);
+}
+
 #synthMiniPill .btn:disabled, #ytMiniPill .btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
