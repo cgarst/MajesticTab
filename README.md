@@ -173,4 +173,4 @@ python3 tools/generate_screenshots.py                 # all shots
 python3 tools/generate_screenshots.py --only gp_scroll theme_palettes
 ```
 
-Shot names: `gp_scroll`, `gp_page`, `pdf_page`, `menu`, `theme_palettes`, `gp_themed` (mobile versions end in `_mobile`).
+Shot names: `gp_scroll`, `gp_page`, `pdf_page`, `pdf_condensed`, `menu`, `theme_palettes`, `gp_themed` (mobile versions end in `_mobile`).
