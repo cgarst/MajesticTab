@@ -9,6 +9,7 @@ let playerState = {
     filename: '',
     customQuery: '',
     currentVideoId: null,
+    currentTime: 0,
     isPlaying: false
 };
 
@@ -203,7 +204,8 @@ async function loadCurrentTrack(autoplay = false) {
         if (iframe) {
             iframe.style.display = 'block';
             const autoplayParam = autoplay ? '1' : '0';
-            iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=${autoplayParam}&enablejsapi=1`;
+            const startParam = playerState.currentTime > 0 ? `&start=${Math.floor(playerState.currentTime)}` : '';
+            iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=${autoplayParam}&enablejsapi=1${startParam}`;
             iframe.dataset.loaded = 'true';
         }
         if (searchInput) {
@@ -321,6 +323,7 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     playerState.filename = filename;
     playerState.customQuery = '';
     playerState.currentVideoId = null;
+    playerState.currentTime = 0;
 
     // Show container in top bar
     const container = document.getElementById('ytContainer');
@@ -434,6 +437,60 @@ export function initYouTubePlayer() {
     searchInput?.addEventListener('paste', () => {
         setTimeout(handleInput, 50);
     });
+
+    // Listen for YouTube iframe postMessage events (currentTime and player state)
+    window.addEventListener('message', (event) => {
+        try {
+            let data = event.data;
+            if (typeof data === 'string') {
+                data = JSON.parse(data);
+            }
+            if (!data || typeof data !== 'object') return;
+
+            // YouTube iframe API sends infoDelivery messages with currentTime & playerState
+            if (data.event === 'infoDelivery' && data.info) {
+                if (typeof data.info.currentTime === 'number') {
+                    playerState.currentTime = data.info.currentTime;
+                }
+                if (typeof data.info.playerState === 'number') {
+                    playerState.isPlaying = (data.info.playerState === 1);
+                }
+            }
+        } catch (e) {
+            // Ignore non-JSON messages from other sources
+        }
+    });
+
+    const iframe = document.getElementById('ytIframe');
+    if (iframe) {
+        iframe.addEventListener('load', () => {
+            try {
+                iframe.contentWindow?.postMessage(JSON.stringify({
+                    event: 'listening',
+                    id: 1
+                }), '*');
+            } catch (e) {
+                // Ignore cross-origin error if any
+            }
+        });
+    }
+
+    // Periodically send listening event to iframe while panel is open to ensure continuous time updates
+    setInterval(() => {
+        if (playerState.isOpen) {
+            const currentIframe = document.getElementById('ytIframe');
+            if (currentIframe && currentIframe.contentWindow) {
+                try {
+                    currentIframe.contentWindow.postMessage(JSON.stringify({
+                        event: 'listening',
+                        id: 1
+                    }), '*');
+                } catch (e) {
+                    // Ignore cross-origin error if any
+                }
+            }
+        }
+    }, 1000);
 
     // Close panel when clicking outside of panel and top bar toggle
     document.addEventListener('click', (e) => {
