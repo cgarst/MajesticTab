@@ -8,6 +8,7 @@ import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigatio
 let currentApi = null;
 let currentScore = null;
 let isSeeking = false;
+const GUITAR_PROGRAMS = new Set([24, 25, 26, 27, 28, 29, 30, 31]);
 
 export const synthPlayerState = {
     isOpen: false,
@@ -20,8 +21,30 @@ export const synthPlayerState = {
     playbackSpeed: 1.0,
     metronomeEnabled: false,
     countInEnabled: false,
-    masterVolume: 1.0
+    masterVolume: 1.0,
+    trackMode: 'fullBand'
 };
+
+function applySynthTrackMode() {
+    if (!currentApi || !currentScore?.tracks) return;
+
+    const trackModeRadios = document.querySelectorAll('input[name="synthTrackMode"]');
+    trackModeRadios.forEach(radio => {
+        radio.checked = radio.value === synthPlayerState.trackMode;
+    });
+
+    const guitarTracks = [];
+    const otherTracks = [];
+    currentScore.tracks.forEach((track, index) => {
+        const program = track.playbackInfo?.program ?? track.program;
+        (GUITAR_PROGRAMS.has(program) ? guitarTracks : otherTracks).push(index);
+    });
+
+    const muteGuitars = synthPlayerState.trackMode === 'noGuitars';
+    const muteOtherTracks = synthPlayerState.trackMode === 'guitarsOnly';
+    if (guitarTracks.length) currentApi.changeTrackMute(guitarTracks, muteGuitars);
+    if (otherTracks.length) currentApi.changeTrackMute(otherTracks, muteOtherTracks);
+}
 
 /**
  * Format milliseconds into M:SS or MM:SS string
@@ -466,6 +489,7 @@ export function attachAlphaTabApi(api) {
     if (api.isReadyForPlayback || api.isReady || api.player?.isReadyForPlayback) {
         synthPlayerState.isReady = true;
     }
+    applySynthTrackMode();
 
     // SoundFont Loaded Event
     api.soundFontLoaded.on(() => {
@@ -490,6 +514,7 @@ export function attachAlphaTabApi(api) {
         api.playbackSpeed = synthPlayerState.playbackSpeed;
         api.metronomeVolume = synthPlayerState.metronomeEnabled ? 1.0 : 0.0;
         api.countInVolume = synthPlayerState.countInEnabled ? 1.0 : 0.0;
+        applySynthTrackMode();
         updateSynthUI();
     });
 
@@ -758,6 +783,7 @@ export function initSynthPlayer() {
     const countInSwitch = document.getElementById('synthCountInSwitch');
     const seekSlider = document.getElementById('synthSeekSlider');
     const speedButtons = document.querySelectorAll('#synthSpeedButtons button');
+    const trackModeRadios = document.querySelectorAll('input[name="synthTrackMode"]');
 
     toggleBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -779,6 +805,14 @@ export function initSynthPlayer() {
 
     countInSwitch?.addEventListener('change', (e) => {
         toggleCountIn(e.target.checked);
+    });
+
+    trackModeRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (!radio.checked) return;
+            synthPlayerState.trackMode = radio.value;
+            applySynthTrackMode();
+        });
     });
 
     const speedMinusBtn = document.getElementById('synthSpeedMinusBtn');
