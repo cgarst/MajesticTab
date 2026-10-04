@@ -1,6 +1,39 @@
 import { getCurrentFile, getCondensedCanvases, getPdfPages } from './main.js';
 import { gpState } from './gpProcessor/gpHandler.js';
 
+function getAlphaTabFontCss() {
+  const rules = [];
+
+  for (const sheet of document.styleSheets) {
+    try {
+      for (const rule of sheet.cssRules || []) {
+        const text = rule.cssText || '';
+        if (text.includes('alphaTab') && (text.includes('@font-face') || text.includes('font-family'))) {
+          rules.push(text);
+        }
+      }
+    } catch (error) {
+      // Ignore cross-origin stylesheets and other inaccessible rules.
+    }
+  }
+
+  if (rules.length === 0) {
+    return `
+      @font-face {
+        font-family: 'alphaTab';
+        src: url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff2') format('woff2'),
+             url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff') format('woff'),
+             url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.otf') format('opentype');
+        font-weight: normal;
+        font-style: normal;
+      }
+      svg, text, tspan, textPath { font-family: 'alphaTab'; }
+    `;
+  }
+
+  return `${rules.join('\n')}\nsvg, text, tspan, textPath { font-family: 'alphaTab'; }`;
+}
+
 async function svgToImage(svgElement, width, height, viewBox) {
   const svgClone = svgElement.cloneNode(true);
   if (!svgClone.getAttribute('xmlns')) {
@@ -12,9 +45,15 @@ async function svgToImage(svgElement, width, height, viewBox) {
   svgClone.setAttribute('width', width.toString());
   svgClone.setAttribute('height', height.toString());
 
-  // Ensure any dark-mode/theme overrides are cleared so export is always clean light mode
-  svgClone.removeAttribute('class');
+  // Keep the AlphaTab font family and font-face definitions in the exported SVG.
+  // Without this, the standalone SVG loses the SMuFL font and the exported PDF is
+  // missing notation glyphs even though the original on-page SVG renders correctly.
+  const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
+  fontStyle.textContent = getAlphaTabFontCss();
+  svgClone.insertBefore(fontStyle, svgClone.firstChild);
+
   svgClone.style.filter = 'none';
+  svgClone.style.background = 'transparent';
 
   const xml = new XMLSerializer().serializeToString(svgClone);
   const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
