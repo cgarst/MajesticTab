@@ -48,17 +48,18 @@ export function updateSynthUI() {
     const seekSlider = document.getElementById('synthSeekSlider');
     const positionPercent = document.getElementById('synthPositionPercent');
     const speedBadge = document.getElementById('synthSpeedBadge');
-    const canPlay = Boolean(synthPlayerState.isReady || synthPlayerState.soundFontLoaded || currentApi?.isReadyForPlayback || currentApi?.isSoundFontLoaded);
+    const hasScore = Boolean(currentApi);
+    const canPlay = Boolean(currentApi && (synthPlayerState.isReady || synthPlayerState.soundFontLoaded || currentApi?.isReadyForPlayback || currentApi?.isSoundFontLoaded));
 
     if (playPauseBtn) {
         playPauseBtn.disabled = !canPlay;
-        playPauseBtn.title = !canPlay 
-            ? 'Loading instruments...' 
-            : (synthPlayerState.isPlaying ? 'Pause' : 'Play');
+        playPauseBtn.title = !hasScore
+            ? 'Play / Pause'
+            : (!canPlay ? 'Loading instruments...' : (synthPlayerState.isPlaying ? 'Pause' : 'Play'));
     }
 
     if (playPauseIcon) {
-        if (!canPlay) {
+        if (hasScore && !canPlay) {
             playPauseIcon.className = 'spinner-border spinner-border-sm';
             playPauseIcon.style.width = '0.85rem';
             playPauseIcon.style.height = '0.85rem';
@@ -466,8 +467,8 @@ export function detachAlphaTabApi() {
     synthPlayerState.endTime = 0;
 
     document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
-    hideSynthPlayer();
     toggleSynthPanel(false);
+    updateSynthUI();
 }
 
 /**
