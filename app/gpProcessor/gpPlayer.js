@@ -577,8 +577,8 @@ export function playPauseSynth() {
 }
 
 export function isSynthAvailable() {
-    const synthContainer = document.getElementById('synthContainer');
-    return Boolean(synthContainer && synthContainer.style.display !== 'none' && currentApi);
+    const synthBtn = document.getElementById('synthToggleBtn');
+    return Boolean(synthBtn && synthBtn.style.display !== 'none' && currentApi);
 }
 
 export function isSynthPlaying() {
@@ -699,14 +699,14 @@ export function toggleCountIn(force = null) {
  * Show / Hide top bar Synth container
  */
 export function showSynthPlayer() {
-    const container = document.getElementById('synthContainer');
-    if (container) container.style.display = 'flex';
+    const btn = document.getElementById('synthToggleBtn');
+    if (btn) btn.style.display = 'inline-flex';
     updateGlobalRewindButton();
 }
 
 export function hideSynthPlayer() {
-    const container = document.getElementById('synthContainer');
-    if (container) container.style.display = 'none';
+    const btn = document.getElementById('synthToggleBtn');
+    if (btn) btn.style.display = 'none';
     updateGlobalRewindButton();
 }
 
@@ -826,9 +826,9 @@ export function initSynthPlayer() {
     // Close panel when clicking outside
     document.addEventListener('click', (e) => {
         const panel = document.getElementById('synthDropdownPanel');
-        const container = document.getElementById('synthContainer');
+        const sourcePill = document.getElementById('audioSourcePill');
 
-        if (synthPlayerState.isOpen && panel && !panel.contains(e.target) && !container?.contains(e.target)) {
+        if (synthPlayerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target)) {
             toggleSynthPanel(false);
         }
     });

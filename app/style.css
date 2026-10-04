@@ -405,8 +405,9 @@ body {
   min-width: max-content;
 }
 
-/* Consolidated Playback Controls & Audio Mini Pills */
+/* Consolidated Playback Controls & Audio Source Selector Pill */
 #globalAudioControls,
+#audioSourcePill,
 #synthMiniPill,
 #ytMiniPill {
   display: inline-flex;
@@ -419,6 +420,7 @@ body {
 }
 
 #globalAudioControls .btn,
+#audioSourcePill .btn,
 #synthMiniPill .btn,
 #ytMiniPill .btn {
   border: none !important;
@@ -438,44 +440,34 @@ body {
   background: var(--bg-card-hover);
 }
 
-#synthMiniPill .btn:hover:not(:disabled) {
+#synthToggleBtn:hover:not(:disabled) {
   color: #10b981;
   background: rgba(16, 185, 129, 0.15);
 }
 
-#ytMiniPill .btn:hover:not(:disabled) {
+#ytToggleBtn:hover:not(:disabled) {
   color: #ef4444;
   background: rgba(239, 68, 68, 0.15);
 }
 
 #globalAudioControls .btn:disabled,
-#synthMiniPill .btn:disabled,
-#ytMiniPill .btn:disabled {
+#audioSourcePill .btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-#synthMiniPill .btn.active, #ytMiniPill .btn.active {
-  background: var(--accent-gradient) !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 10px var(--accent-glow);
-}
-
+#synthToggleBtn.active,
 #synthToggleBtn.active-audio-mode {
   color: #10b981 !important;
   background: rgba(16, 185, 129, 0.22) !important;
-  box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.45) !important;
 }
 
+#ytToggleBtn.active,
 #ytToggleBtn.active-audio-mode {
   color: #ef4444 !important;
   background: rgba(239, 68, 68, 0.22) !important;
-  box-shadow: 0 0 10px rgba(239, 68, 68, 0.45);
-}
-
-#synthMiniPill .btn:disabled, #ytMiniPill .btn:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.45) !important;
 }
 
 /* Theme Swatch Button in Top Bar */
