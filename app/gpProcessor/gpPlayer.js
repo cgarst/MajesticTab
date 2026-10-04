@@ -38,8 +38,6 @@ function formatTime(ms) {
  * Update the Top Bar and Panel UI elements
  */
 export function updateSynthUI() {
-    const playPauseBtn = document.getElementById('synthPlayPauseBtn');
-    const playPauseIcon = document.getElementById('synthPlayPauseIcon');
     const metronomeQuickBtn = document.getElementById('synthMetronomeQuickBtn');
     const metronomeSwitch = document.getElementById('synthMetronomeSwitch');
     const countInSwitch = document.getElementById('synthCountInSwitch');
@@ -51,27 +49,6 @@ export function updateSynthUI() {
     const speedBadge = document.getElementById('synthSpeedBadge');
     const hasScore = Boolean(currentApi);
     const canPlay = Boolean(currentApi && (synthPlayerState.isReady || synthPlayerState.soundFontLoaded || currentApi?.isReadyForPlayback || currentApi?.isSoundFontLoaded));
-
-    if (playPauseBtn) {
-        playPauseBtn.disabled = !canPlay;
-        playPauseBtn.title = !hasScore
-            ? 'Play / Pause'
-            : (!canPlay ? 'Loading instruments...' : (synthPlayerState.isPlaying ? 'Pause' : 'Play'));
-    }
-
-    if (playPauseIcon) {
-        if (hasScore && !canPlay) {
-            playPauseIcon.className = 'spinner-border spinner-border-sm';
-            playPauseIcon.style.width = '0.85rem';
-            playPauseIcon.style.height = '0.85rem';
-        } else if (synthPlayerState.isPlaying) {
-            playPauseIcon.className = 'bi-pause-fill';
-            playPauseIcon.removeAttribute('style');
-        } else {
-            playPauseIcon.className = 'bi-play-fill';
-            playPauseIcon.removeAttribute('style');
-        }
-    }
 
     updateGlobalRewindButton();
 
@@ -775,7 +752,6 @@ export function initSynthPlayer() {
     hideSynthPlayer();
     const toggleBtn = document.getElementById('synthToggleBtn');
     const closeBtn = document.getElementById('synthPanelCloseBtn');
-    const playPauseBtn = document.getElementById('synthPlayPauseBtn');
     const metronomeQuickBtn = document.getElementById('synthMetronomeQuickBtn');
     const metronomeSwitch = document.getElementById('synthMetronomeSwitch');
     const countInSwitch = document.getElementById('synthCountInSwitch');
@@ -790,10 +766,6 @@ export function initSynthPlayer() {
 
     closeBtn?.addEventListener('click', () => {
         toggleSynthPanel(false);
-    });
-
-    playPauseBtn?.addEventListener('click', () => {
-        playPauseSynth();
     });
 
     metronomeQuickBtn?.addEventListener('click', () => {
