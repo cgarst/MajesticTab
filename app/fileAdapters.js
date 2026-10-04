@@ -1,7 +1,9 @@
 let adapters = [];
+let scoreTransforms = [];
 
-function compileAdapters(source, ids = new Set()) {
-    const registered = [];
+function compileExtensions(source, ids = new Set()) {
+    const registeredAdapters = [];
+    const registeredScoreTransforms = [];
 
     const registerFileAdapter = adapter => {
         if (!adapter || typeof adapter.id !== 'string' || !adapter.id.trim()) {
@@ -14,16 +16,31 @@ function compileAdapters(source, ids = new Set()) {
             throw new TypeError(`Adapter "${adapter.id}" must provide matches and transform functions.`);
         }
         ids.add(adapter.id);
-        registered.push(adapter);
+        registeredAdapters.push(adapter);
     };
 
-    new Function('registerFileAdapter', `"use strict";\n${source}`)(registerFileAdapter);
-    return registered;
+    const registerGpScoreTransform = extension => {
+        if (!extension || typeof extension.id !== 'string' || !extension.id.trim()) {
+            throw new TypeError('Each GP score transform must have a non-empty id.');
+        }
+        if (ids.has(extension.id)) {
+            throw new TypeError(`Duplicate extension id: ${extension.id}`);
+        }
+        if (typeof extension.transform !== 'function') {
+            throw new TypeError(`GP score transform "${extension.id}" must provide a transform function.`);
+        }
+        ids.add(extension.id);
+        registeredScoreTransforms.push(extension);
+    };
+
+    new Function('registerFileAdapter', 'registerGpScoreTransform', `"use strict";\n${source}`)(registerFileAdapter, registerGpScoreTransform);
+    return { adapters: registeredAdapters, scoreTransforms: registeredScoreTransforms };
 }
 
 export function installFileAdapters(source) {
-    const nextAdapters = compileAdapters(source);
-    adapters = nextAdapters;
+    const compiled = compileExtensions(source);
+    adapters = compiled.adapters;
+    scoreTransforms = compiled.scoreTransforms;
     return adapters.length;
 }
 
@@ -32,13 +49,18 @@ export function installExtensionSources(extensions) {
     const ids = new Set();
     const errors = [];
     const idsByExtension = {};
+    const nextScoreTransforms = [];
 
     for (const extension of extensions) {
         const extensionIds = new Set(ids);
         try {
-            const registered = compileAdapters(extension.source, extensionIds);
-            nextAdapters.push(...registered);
-            idsByExtension[extension.id] = registered.map(adapter => adapter.id);
+            const compiled = compileExtensions(extension.source, extensionIds);
+            nextAdapters.push(...compiled.adapters);
+            nextScoreTransforms.push(...compiled.scoreTransforms);
+            idsByExtension[extension.id] = [
+                ...compiled.adapters.map(adapter => adapter.id),
+                ...compiled.scoreTransforms.map(transform => transform.id)
+            ];
             ids.clear();
             extensionIds.forEach(id => ids.add(id));
         } catch (error) {
@@ -47,11 +69,29 @@ export function installExtensionSources(extensions) {
     }
 
     adapters = nextAdapters;
-    return { count: adapters.length, errors, idsByExtension };
+    scoreTransforms = nextScoreTransforms;
+    return {
+        count: adapters.length,
+        registrationCount: adapters.length + scoreTransforms.length,
+        errors,
+        idsByExtension
+    };
 }
 
 export function clearFileAdapters() {
     adapters = [];
+    scoreTransforms = [];
+}
+
+export function applyGpScoreTransforms(score) {
+    for (const extension of scoreTransforms) {
+        try {
+            extension.transform(score);
+        } catch (error) {
+            console.error(`GP score extension "${extension.id}" failed:`, error);
+        }
+    }
+    return score;
 }
 
 export async function applyFileAdapters(file) {
