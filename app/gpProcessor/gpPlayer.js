@@ -22,7 +22,10 @@ export const synthPlayerState = {
     metronomeEnabled: false,
     countInEnabled: false,
     masterVolume: 1.0,
-    trackMode: 'fullBand'
+    trackMode: 'fullBand',
+    loopEnabled: false,
+    loopStartMeasure: 1,
+    loopEndMeasure: 1
 };
 
 function applySynthTrackMode() {
@@ -44,6 +47,13 @@ function applySynthTrackMode() {
     const muteOtherTracks = synthPlayerState.trackMode === 'guitarsOnly';
     if (guitarTracks.length) currentApi.changeTrackMute(guitarTracks, muteGuitars);
     if (otherTracks.length) currentApi.changeTrackMute(otherTracks, muteOtherTracks);
+}
+
+function seekToLoopStart() {
+    const firstBar = currentScore?.masterBars?.[synthPlayerState.loopStartMeasure - 1];
+    if (currentApi && firstBar) {
+        currentApi.tickPosition = firstBar.start;
+    }
 }
 
 /**
@@ -70,8 +80,12 @@ export function updateSynthUI() {
     const seekSlider = document.getElementById('synthSeekSlider');
     const positionPercent = document.getElementById('synthPositionPercent');
     const speedBadge = document.getElementById('synthSpeedBadge');
+    const loopSwitch = document.getElementById('synthLoopSwitch');
+    const loopStartInput = document.getElementById('synthLoopStartMeasure');
+    const loopEndInput = document.getElementById('synthLoopEndMeasure');
     const hasScore = Boolean(currentApi);
     const canPlay = Boolean(currentApi && (synthPlayerState.isReady || synthPlayerState.soundFontLoaded || currentApi?.isReadyForPlayback || currentApi?.isSoundFontLoaded));
+    const measureCount = currentScore?.masterBars?.length || 1;
 
     updateGlobalRewindButton();
 
@@ -119,6 +133,24 @@ export function updateSynthUI() {
 
     if (speedBadge) {
         speedBadge.textContent = `${Math.round(synthPlayerState.playbackSpeed * 100)}%`;
+    }
+
+    if (loopSwitch) {
+        loopSwitch.checked = synthPlayerState.loopEnabled;
+        loopSwitch.disabled = !hasScore;
+    }
+
+    if (loopStartInput && loopEndInput) {
+        synthPlayerState.loopStartMeasure = Math.min(measureCount, Math.max(1, synthPlayerState.loopStartMeasure));
+        synthPlayerState.loopEndMeasure = Math.min(measureCount, Math.max(synthPlayerState.loopStartMeasure, synthPlayerState.loopEndMeasure));
+        loopStartInput.min = '1';
+        loopStartInput.max = String(synthPlayerState.loopEndMeasure);
+        loopStartInput.value = String(synthPlayerState.loopStartMeasure);
+        loopStartInput.disabled = !hasScore;
+        loopEndInput.min = String(synthPlayerState.loopStartMeasure);
+        loopEndInput.max = String(measureCount);
+        loopEndInput.value = String(synthPlayerState.loopEndMeasure);
+        loopEndInput.disabled = !hasScore;
     }
 
     // Update speed button active classes
@@ -466,6 +498,10 @@ export function attachAlphaTabApi(api) {
     currentApi = api;
     currentScore = api.score;
 
+    synthPlayerState.loopEnabled = false;
+    synthPlayerState.loopStartMeasure = 1;
+    synthPlayerState.loopEndMeasure = Math.max(1, currentScore?.masterBars?.length || 1);
+
     synthPlayerState.isPlaying = false;
     synthPlayerState.hasPlayed = false;
     synthPlayerState.currentTime = 0;
@@ -544,6 +580,15 @@ export function attachAlphaTabApi(api) {
         synthPlayerState.currentTime = args.currentTime;
         synthPlayerState.endTime = args.endTime;
 
+        if (synthPlayerState.loopEnabled && synthPlayerState.isPlaying && currentScore?.masterBars?.length) {
+            const firstBar = currentScore.masterBars[synthPlayerState.loopStartMeasure - 1];
+            const lastBar = currentScore.masterBars[synthPlayerState.loopEndMeasure - 1];
+            const loopEndTick = lastBar.start + lastBar.calculateDuration();
+            if (firstBar && args.currentTick >= loopEndTick) {
+                currentApi.tickPosition = firstBar.start;
+            }
+        }
+
         updateSynthUI();
         updatePageModeCursor(args.currentTick);
         updateContinuousPlaybackScroll(args.currentTick);
@@ -595,6 +640,9 @@ export function playPauseSynth() {
     if (!currentApi) return;
     try {
         pauseYouTube();
+        if (!synthPlayerState.isPlaying && synthPlayerState.loopEnabled) {
+            seekToLoopStart();
+        }
         currentApi.playPause();
     } catch (e) {
         console.error('[Synth Player] Play/Pause error:', e);
@@ -784,6 +832,9 @@ export function initSynthPlayer() {
     const seekSlider = document.getElementById('synthSeekSlider');
     const speedButtons = document.querySelectorAll('#synthSpeedButtons button');
     const trackModeRadios = document.querySelectorAll('input[name="synthTrackMode"]');
+    const loopSwitch = document.getElementById('synthLoopSwitch');
+    const loopStartInput = document.getElementById('synthLoopStartMeasure');
+    const loopEndInput = document.getElementById('synthLoopEndMeasure');
 
     toggleBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -813,6 +864,27 @@ export function initSynthPlayer() {
             synthPlayerState.trackMode = radio.value;
             applySynthTrackMode();
         });
+    });
+
+    loopSwitch?.addEventListener('change', () => {
+        synthPlayerState.loopEnabled = loopSwitch.checked;
+        if (synthPlayerState.loopEnabled) {
+            seekToLoopStart();
+        }
+    });
+
+    loopStartInput?.addEventListener('change', () => {
+        const measureCount = currentScore?.masterBars?.length || 1;
+        const value = Number.parseInt(loopStartInput.value, 10);
+        synthPlayerState.loopStartMeasure = Math.min(synthPlayerState.loopEndMeasure, Math.max(1, Math.min(measureCount, Number.isFinite(value) ? value : 1)));
+        updateSynthUI();
+    });
+
+    loopEndInput?.addEventListener('change', () => {
+        const measureCount = currentScore?.masterBars?.length || 1;
+        const value = Number.parseInt(loopEndInput.value, 10);
+        synthPlayerState.loopEndMeasure = Math.max(synthPlayerState.loopStartMeasure, Math.min(measureCount, Number.isFinite(value) ? value : measureCount));
+        updateSynthUI();
     });
 
     const speedMinusBtn = document.getElementById('synthSpeedMinusBtn');
