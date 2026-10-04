@@ -1207,7 +1207,10 @@ body.theme-sheet-active .chord-lyric-chord {
    -------------------------------------------------------------------------- */
 /* Hide continuous mode cursors/selection until playback has started */
 body:not(.synth-playback-started) .at-cursors,
-body:not(.synth-playback-started) .at-selection {
+body:not(.synth-playback-started) .at-selection,
+body:not(.synth-playback-started) .at-cursor-bar,
+body:not(.synth-playback-started) .at-cursor-beat,
+body:not(.synth-playback-started) .at-highlight {
   display: none !important;
 }
 
