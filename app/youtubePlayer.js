@@ -378,7 +378,22 @@ async function loadCurrentTrack(autoplay = false) {
             iframe.style.display = 'block';
             const autoplayParam = autoplay ? '1' : '0';
             const startParam = playerState.currentTime > 0 ? `&start=${Math.floor(playerState.currentTime)}` : '';
-            iframe.src = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=${autoplayParam}&enablejsapi=1${startParam}`;
+            const targetSrc = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=${autoplayParam}&enablejsapi=1${startParam}`;
+            if (iframe.src !== targetSrc) {
+                iframe.src = targetSrc;
+            } else if (autoplay && iframe.contentWindow) {
+                pauseSynthPlayer();
+                clearSynthHighlights();
+                iframe.contentWindow.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'playVideo',
+                    args: []
+                }), '*');
+                playerState.isPlaying = true;
+                playerState.hasStarted = true;
+                setActiveAudioMode('youtube');
+                updatePlaybackControls();
+            }
             iframe.dataset.loaded = 'true';
         }
         if (searchInput) {
@@ -629,7 +644,23 @@ export function initYouTubePlayer() {
         if (videoId) {
             playerState.currentVideoId = videoId;
             localStorage.setItem(getStorageKey(), videoId);
-            loadCurrentTrack(true);
+
+            const iframe = document.getElementById('ytIframe');
+            if (iframe?.dataset.loaded === 'true' && iframe.contentWindow && iframe.src.includes(videoId)) {
+                pauseSynthPlayer();
+                clearSynthHighlights();
+                iframe.contentWindow.postMessage(JSON.stringify({
+                    event: 'command',
+                    func: 'playVideo',
+                    args: []
+                }), '*');
+                playerState.isPlaying = true;
+                playerState.hasStarted = true;
+                setActiveAudioMode('youtube');
+                updatePlaybackControls();
+            } else {
+                loadCurrentTrack(true);
+            }
         } else {
             // Text search fallback via search query
             const query = text;
@@ -716,6 +747,13 @@ export function initYouTubePlayer() {
                     func: 'addEventListener',
                     args: ['onStateChange']
                 }), '*');
+                if (playerState.isPlaying || playerState.hasStarted) {
+                    iframe.contentWindow?.postMessage(JSON.stringify({
+                        event: 'command',
+                        func: 'playVideo',
+                        args: []
+                    }), '*');
+                }
             } catch (e) {
                 // Ignore cross-origin error if any
             }
