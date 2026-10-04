@@ -59,15 +59,15 @@ function launchPickerModal() {
     if (!container) return;
     container.innerHTML = '';
 
-    const picker = document.createElement('drive-picker');
-    picker.setAttribute('client-id', CLIENT_ID);
-    picker.setAttribute('app-id', APP_ID);
-    picker.setAttribute('scope', SCOPE);
-    picker.setAttribute('max-items', '1');
-
-    if (token) {
-        picker.setAttribute('access-token', token);
+    if (!token) {
+        redirectToGoogleAuth();
+        return;
     }
+
+    const picker = document.createElement('drive-picker');
+    picker.setAttribute('app-id', APP_ID);
+    picker.setAttribute('oauth-token', token);
+    picker.setAttribute('max-items', '1');
 
     // View 1: My Drive Root folder directory browsing
     const rootDocsView = document.createElement('drive-picker-docs-view');
@@ -91,6 +91,11 @@ function launchPickerModal() {
         const file = await fetchPickedFile(e);
         if (!file) return;
         await loadFile(file);
+    });
+
+    picker.addEventListener('picker:error', (e) => {
+        console.error('[Drive Picker Error]', e);
+        clearStoredToken();
     });
 }
 
