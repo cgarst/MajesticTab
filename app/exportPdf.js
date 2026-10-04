@@ -1,7 +1,7 @@
 import { getCurrentFile, getCondensedCanvases, getPdfPages } from './main.js';
 import { gpState } from './gpProcessor/gpHandler.js';
 
-function getAlphaTabFontCss() {
+async function getAlphaTabFontCss() {
   const rules = [];
 
   for (const sheet of document.styleSheets) {
@@ -17,21 +17,42 @@ function getAlphaTabFontCss() {
     }
   }
 
-  if (rules.length === 0) {
-    return `
+  let embeddedFont = '';
+  try {
+    const fontUrl = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff2';
+    const response = await fetch(fontUrl);
+    if (response.ok) {
+      const buffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      let binary = '';
+      bytes.forEach(byte => {
+        binary += String.fromCharCode(byte);
+      });
+      embeddedFont = `data:font/woff2;base64,${btoa(binary)}`;
+    }
+  } catch (error) {
+    console.warn('[PDF Export] Could not preload AlphaTab font; falling back to remote URL.', error);
+  }
+
+  const src = embeddedFont
+    ? `url('${embeddedFont}') format('woff2')`
+    : `url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff2') format('woff2'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff') format('woff'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.otf') format('opentype')`;
+
+  const baseCss = `
       @font-face {
         font-family: 'alphaTab';
-        src: url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff2') format('woff2'),
-             url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff') format('woff'),
-             url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.otf') format('opentype');
+        src: ${src};
         font-weight: normal;
         font-style: normal;
       }
       svg, text, tspan, textPath { font-family: 'alphaTab'; }
     `;
+
+  if (rules.length === 0) {
+    return baseCss;
   }
 
-  return `${rules.join('\n')}\nsvg, text, tspan, textPath { font-family: 'alphaTab'; }`;
+  return `${rules.join('\n')}\n${baseCss}`;
 }
 
 async function svgToImage(svgElement, width, height, viewBox) {
@@ -45,11 +66,24 @@ async function svgToImage(svgElement, width, height, viewBox) {
   svgClone.setAttribute('width', width.toString());
   svgClone.setAttribute('height', height.toString());
 
+  // Preserve the AlphaTab music-font context. The SVG root itself is not the
+  // font-bearing node: SMuFL glyph text elements inherit from the AlphaTab font
+  // family and percentage-based font sizes. If the cloned root reverts to the
+  // generic SVG/system font, the exported glyphs disappear or render as blank boxes.
+  const glyphText = Array.from(svgElement.querySelectorAll('text')).find(text => {
+    const style = text.getAttribute('style') || '';
+    return /font-size:\s*[\d.]+%/.test(style);
+  });
+  const rootFontSize = glyphText ? '36px' : '36px';
+  svgClone.style.fontSize = rootFontSize;
+  svgClone.style.fontFamily = 'alphaTab';
+  svgClone.style.lineHeight = 'normal';
+
   // Keep the AlphaTab font family and font-face definitions in the exported SVG.
-  // Without this, the standalone SVG loses the SMuFL font and the exported PDF is
-  // missing notation glyphs even though the original on-page SVG renders correctly.
+  // Embed the Bravura font as a data URI so the export remains self-contained and
+  // does not rely on a live network fetch or viewer font fallback when the PDF is opened.
   const fontStyle = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-  fontStyle.textContent = getAlphaTabFontCss();
+  fontStyle.textContent = await getAlphaTabFontCss();
   svgClone.insertBefore(fontStyle, svgClone.firstChild);
 
   svgClone.style.filter = 'none';
