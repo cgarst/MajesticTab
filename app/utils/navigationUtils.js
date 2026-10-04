@@ -205,7 +205,7 @@ export function setupKeyboardNavigation(getConfig) {
         if (!config.currentFile) return;
 
         const nextPageKeys = ['ArrowRight', 'ArrowDown', 'PageDown'];
-        const prevPageKeys = ['ArrowLeft', 'ArrowUp', 'PageUp', 'Enter'];
+        const prevPageKeys = ['ArrowLeft', 'ArrowUp', 'PageUp'];
 
         const isSpace = (e.key === ' ' || e.code === 'Space');
 
