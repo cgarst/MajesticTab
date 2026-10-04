@@ -1,6 +1,6 @@
 // gpPlayer.js
 // In-app artificial instrument (SoundFont synthesizer) player for Guitar Pro files
-import { pauseYouTube } from '../youtubePlayer.js';
+import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
 import { gpState } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 
@@ -744,6 +744,9 @@ export function toggleSynthPanel(forceState = null) {
     synthPlayerState.isOpen = newState;
 
     if (newState) {
+        // Ensure YouTube panel is closed when opening synth panel
+        toggleYouTubePanel(false);
+
         if (toggleBtn) {
             const rect = toggleBtn.getBoundingClientRect();
             panel.style.position = 'fixed';
