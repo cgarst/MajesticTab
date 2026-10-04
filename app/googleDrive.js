@@ -223,46 +223,36 @@ async function loadDriveFiles() {
     }
 
     try {
-        let query = "trashed = false and (mimeType = 'application/vnd.google-apps.folder' or name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt')";
-
+        let files;
         if (currentSearchQuery.trim()) {
             const cleanSearch = currentSearchQuery.trim().replace(/'/g, "\\'");
-            query += ` and '${getDriveRoot().id}' in parents and name contains '${cleanSearch}'`;
+            files = await searchDriveFolderTree(getDriveRoot().id, cleanSearch);
         } else {
+            let query = "trashed = false and (mimeType = 'application/vnd.google-apps.folder' or name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt')";
             query += ` and '${currentFolderId}' in parents`;
+
+            files = await fetchDriveFiles(query);
         }
 
-        const url = `https://www.googleapis.com/drive/v3/files?` +
-            `q=${encodeURIComponent(query)}` +
-            `&fields=nextPageToken,files(id,name,mimeType,size,modifiedTime)` +
-            `&orderBy=folder,name` +
-            `&pageSize=100`;
-
-        const res = await fetch(url, {
-            headers: { Authorization: `Bearer ${token}` }
+        files.sort((a, b) => {
+            const aIsFolder = a.mimeType === 'application/vnd.google-apps.folder';
+            const bIsFolder = b.mimeType === 'application/vnd.google-apps.folder';
+            return Number(bIsFolder) - Number(aIsFolder) || a.name.localeCompare(b.name);
         });
-
-        if (!res.ok) {
-            if (res.status === 401) {
-                clearStoredToken();
-                closeDriveModal();
-                redirectToGoogleAuth();
-                return;
-            }
-            if ((res.status === 404 || res.status === 400) && currentFolderId !== getDriveRoot().id) {
-                console.warn('[Drive] Saved folder inaccessible, falling back to tabs directory');
-                resetFolderToDriveRoot();
-                loadDriveFiles();
-                return;
-            }
-            throw new Error(`Google Drive API error: ${res.status} ${res.statusText}`);
-        }
-
-        const data = await res.json();
-        const files = data.files || [];
-
         renderFileList(files);
     } catch (err) {
+        if (err.status === 401) {
+            clearStoredToken();
+            closeDriveModal();
+            redirectToGoogleAuth();
+            return;
+        }
+        if ((err.status === 404 || err.status === 400) && currentFolderId !== getDriveRoot().id) {
+            console.warn('[Drive] Saved folder inaccessible, falling back to tabs directory');
+            resetFolderToDriveRoot();
+            loadDriveFiles();
+            return;
+        }
         console.error('[Drive Error]', err);
         listContainer.innerHTML = `
             <div class="text-center py-4 text-white-50">
@@ -273,6 +263,62 @@ async function loadDriveFiles() {
         `;
         document.getElementById('driveRetryBtn')?.addEventListener('click', loadDriveFiles);
     }
+}
+
+async function fetchDriveFiles(query) {
+    const files = [];
+    let pageToken = null;
+
+    do {
+        const params = new URLSearchParams({
+            q: query,
+            fields: 'nextPageToken,files(id,name,mimeType,size,modifiedTime)',
+            pageSize: '100'
+        });
+        if (pageToken) params.set('pageToken', pageToken);
+
+        const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) {
+            const error = new Error(`Google Drive API error: ${res.status} ${res.statusText}`);
+            error.status = res.status;
+            throw error;
+        }
+
+        const data = await res.json();
+        files.push(...(data.files || []));
+        pageToken = data.nextPageToken;
+    } while (pageToken);
+
+    return files;
+}
+
+async function searchDriveFolderTree(rootFolderId, searchTerm) {
+    const pendingFolderIds = [rootFolderId];
+    const visitedFolderIds = new Set();
+    const matchingFiles = [];
+    const supportedFileQuery = "name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt'";
+
+    while (pendingFolderIds.length > 0) {
+        const folderId = pendingFolderIds.pop();
+        if (visitedFolderIds.has(folderId)) continue;
+        visitedFolderIds.add(folderId);
+
+        const query = `trashed = false and '${folderId}' in parents and (mimeType = 'application/vnd.google-apps.folder' or (name contains '${searchTerm}' and (${supportedFileQuery})))`;
+        const children = await fetchDriveFiles(query);
+
+        for (const child of children) {
+            if (child.mimeType === 'application/vnd.google-apps.folder') {
+                pendingFolderIds.push(child.id);
+                if (child.name.toLowerCase().includes(searchTerm.toLowerCase())) matchingFiles.push(child);
+            } else {
+                matchingFiles.push(child);
+            }
+        }
+    }
+
+    return matchingFiles;
 }
 
 function renderFileList(files) {
