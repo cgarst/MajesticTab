@@ -13,6 +13,7 @@ import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
 import { initSynthPlayer, hideSynthPlayer } from './gpProcessor/gpPlayer.js';
 import { initTheming } from './themeEngine.js';
+import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -279,6 +280,271 @@ function setupSettings() {
     });
 }
 
+function setupExtensionSettings() {
+    const modal = document.getElementById('extensionModal');
+    const openButton = document.getElementById('openExtensions');
+    const sourceInput = document.getElementById('extensionSource');
+    const listView = document.getElementById('extensionListView');
+    const editorView = document.getElementById('extensionEditorView');
+    const extensionList = document.getElementById('extensionList');
+    const extensionCount = document.getElementById('extensionCount');
+    const managerStatus = document.getElementById('extensionManagerStatus');
+    const editorStatus = document.getElementById('extensionEditorStatus');
+    const addButton = document.getElementById('addExtension');
+    const saveButton = document.getElementById('saveExtension');
+    const closeButton = modal?.querySelector('.extension-modal-close-btn');
+    const extensionsKey = 'customExtensions';
+    const legacySourceKey = 'customExtensionSource';
+    const legacyEnabledKey = 'customExtensionEnabled';
+    const adapterSourceKey = 'customFileAdapterSource';
+
+    if (!modal || !openButton || !sourceInput || !listView || !editorView || !extensionList) return;
+
+    let returnFocusTarget = null;
+    let editingId = null;
+    let extensions = [];
+    const editor = window.CodeMirror?.fromTextArea(sourceInput, {
+        mode: 'javascript',
+        lineNumbers: true,
+        indentUnit: 2,
+        tabSize: 2,
+        indentWithTabs: false,
+        lineWrapping: false,
+        placeholder: sourceInput.placeholder
+    });
+
+    editor?.on('change', () => {
+        sourceInput.value = editor.getValue();
+    });
+
+    const getSource = () => editor ? editor.getValue() : sourceInput.value;
+    const extensionLabel = extension => extension.registrationIds?.length
+        ? extension.registrationIds.join(', ')
+        : 'No registered ID';
+    const setSource = source => {
+        sourceInput.value = source;
+        editor?.setValue(source);
+    };
+    const saveExtensions = () => localStorage.setItem(extensionsKey, JSON.stringify(extensions));
+
+    const refreshInstalledExtensions = () => {
+        extensions.forEach(extension => { extension.error = ''; });
+        const active = extensions.filter(extension => extension.enabled);
+        const result = installExtensionSources(active.map(({ id, source }) => ({ id, source })));
+        result.errors.forEach(error => {
+            const extension = extensions.find(item => item.id === error.id);
+            if (extension) extension.error = error.message;
+        });
+        active.forEach(extension => {
+            extension.registrationIds = result.idsByExtension[extension.id] || [];
+            if (extension.error) extension.registrationIds = [];
+        });
+        saveExtensions();
+        const failedCount = result.errors.length;
+        managerStatus.textContent = failedCount
+            ? `${result.count} registrations active; ${failedCount} extension${failedCount === 1 ? '' : 's'} failed to load`
+            : result.count
+                ? `${result.count} registration${result.count === 1 ? '' : 's'} active`
+                : 'No extensions registered';
+    };
+
+    const renderExtensions = () => {
+        extensionList.replaceChildren();
+        extensionCount.textContent = `${extensions.length} extension${extensions.length === 1 ? '' : 's'}`;
+
+        if (!extensions.length) {
+            const emptyState = document.createElement('div');
+            emptyState.className = 'extension-empty-state';
+            emptyState.textContent = 'No extensions yet';
+            extensionList.append(emptyState);
+            return;
+        }
+
+        extensions.forEach(extension => {
+            const row = document.createElement('article');
+            row.className = 'extension-item';
+            row.setAttribute('role', 'listitem');
+
+            const details = document.createElement('div');
+            details.className = 'extension-item-details';
+            const label = extensionLabel(extension);
+            const name = document.createElement('strong');
+            name.className = 'extension-item-name';
+            name.textContent = label;
+            name.title = label;
+            const state = document.createElement('span');
+            state.className = extension.error ? 'extension-item-state text-danger' : 'extension-item-state';
+            state.textContent = extension.error
+                ? `Could not load: ${extension.error}`
+                : extension.enabled ? 'Enabled' : 'Disabled';
+            details.append(name, state);
+
+            const actions = document.createElement('div');
+            actions.className = 'extension-item-actions';
+            const enabledLabel = document.createElement('label');
+            enabledLabel.className = 'form-check form-switch extension-toggle';
+            const enabledInput = document.createElement('input');
+            enabledInput.className = 'form-check-input';
+            enabledInput.type = 'checkbox';
+            enabledInput.checked = extension.enabled;
+            enabledInput.setAttribute('aria-label', `${label} enabled`);
+            enabledInput.addEventListener('change', () => {
+                extension.enabled = enabledInput.checked;
+                saveExtensions();
+                refreshInstalledExtensions();
+                renderExtensions();
+            });
+            enabledLabel.append(enabledInput);
+
+            const editButton = document.createElement('button');
+            editButton.className = 'btn btn-sm theme-control-btn';
+            editButton.type = 'button';
+            editButton.title = `Edit ${label}`;
+            editButton.setAttribute('aria-label', `Edit ${label}`);
+            editButton.innerHTML = '<i class="bi-pencil"></i>';
+            editButton.addEventListener('click', () => showEditor(extension));
+
+            const deleteButton = document.createElement('button');
+            deleteButton.className = 'btn btn-sm theme-control-btn extension-delete-button';
+            deleteButton.type = 'button';
+            deleteButton.title = `Delete ${label}`;
+            deleteButton.setAttribute('aria-label', `Delete ${label}`);
+            deleteButton.innerHTML = '<i class="bi-trash"></i>';
+            deleteButton.addEventListener('click', () => {
+                if (!window.confirm(`Delete "${label}"?`)) return;
+                extensions = extensions.filter(item => item.id !== extension.id);
+                saveExtensions();
+                refreshInstalledExtensions();
+                renderExtensions();
+            });
+
+            actions.append(enabledLabel, editButton, deleteButton);
+            row.append(details, actions);
+            extensionList.append(row);
+        });
+    };
+
+    const showList = () => {
+        editorView.classList.add('d-none');
+        listView.classList.remove('d-none');
+        renderExtensions();
+        addButton.focus();
+    };
+
+    const showEditor = extension => {
+        editingId = extension?.id ?? null;
+        setSource(extension?.source ?? '');
+        document.getElementById('extensionEditorMode').textContent = extension ? 'Edit extension' : 'New extension';
+        editorStatus.textContent = '';
+        listView.classList.add('d-none');
+        editorView.classList.remove('d-none');
+        requestAnimationFrame(() => {
+            editor?.refresh();
+            if (editor) editor.focus();
+            else sourceInput.focus();
+        });
+    };
+
+    const openModal = () => {
+        returnFocusTarget = document.getElementById('menuToggleBtn') || openButton;
+        modal.classList.add('show');
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('modal-open');
+        showList();
+    };
+
+    const closeModal = () => {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+        returnFocusTarget?.focus();
+    };
+
+    openButton.addEventListener('click', () => {
+        const menu = document.getElementById('fileMenu');
+        const offcanvas = menu && window.bootstrap?.Offcanvas?.getInstance(menu);
+        if (menu?.classList.contains('show') && offcanvas) {
+            menu.addEventListener('hidden.bs.offcanvas', openModal, { once: true });
+            offcanvas.hide();
+        } else {
+            openModal();
+        }
+    });
+    closeButton?.addEventListener('click', closeModal);
+    modal.addEventListener('click', event => {
+        if (event.target === modal) closeModal();
+    });
+    window.addEventListener('keydown', event => {
+        if (event.key === 'Escape' && modal.classList.contains('show')) closeModal();
+    });
+
+    const storedExtensions = localStorage.getItem(extensionsKey);
+    if (storedExtensions !== null) {
+        try {
+            const parsed = JSON.parse(storedExtensions);
+            if (Array.isArray(parsed)) {
+                extensions = parsed.filter(extension =>
+                    extension && typeof extension.id === 'string' && typeof extension.source === 'string'
+                ).map(extension => ({
+                    id: extension.id,
+                    source: extension.source,
+                    enabled: extension.enabled === true,
+                    registrationIds: Array.isArray(extension.registrationIds)
+                        ? extension.registrationIds.filter(id => typeof id === 'string')
+                        : [],
+                    error: ''
+                }));
+            }
+        } catch (error) {
+            managerStatus.textContent = `Could not read saved extensions: ${error.message}`;
+        }
+    } else {
+        const oldSource = localStorage.getItem(legacySourceKey) ?? localStorage.getItem(adapterSourceKey);
+        if (oldSource !== null) {
+            extensions = [{
+                id: 'migrated-extension',
+                source: oldSource,
+                enabled: (localStorage.getItem(legacyEnabledKey) ?? localStorage.getItem('customFileAdapterEnabled')) === 'true',
+                registrationIds: [],
+                error: ''
+            }];
+            saveExtensions();
+            localStorage.removeItem(legacySourceKey);
+            localStorage.removeItem(legacyEnabledKey);
+            localStorage.removeItem(adapterSourceKey);
+            localStorage.removeItem('customFileAdapterEnabled');
+        }
+    }
+    refreshInstalledExtensions();
+    renderExtensions();
+
+    addButton.addEventListener('click', () => showEditor(null));
+    document.getElementById('backToExtensions').addEventListener('click', showList);
+    document.getElementById('cancelExtensionEdit').addEventListener('click', showList);
+    saveButton.addEventListener('click', () => {
+        const existing = extensions.find(extension => extension.id === editingId);
+        if (existing) {
+            existing.source = getSource();
+            existing.registrationIds = [];
+            existing.error = '';
+        } else {
+            extensions.push({
+                id: globalThis.crypto?.randomUUID?.() ?? `extension-${Date.now()}`,
+                source: getSource(),
+                enabled: true,
+                registrationIds: [],
+                error: ''
+            });
+        }
+
+        saveExtensions();
+        refreshInstalledExtensions();
+        showList();
+    });
+}
+
 // --- INITIALIZATION ---
 window.addEventListener('DOMContentLoaded', async () => {
     // Debug: Always log that we're starting
@@ -289,6 +555,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupExportPDFButton();
     setupDrivePicker();
     setupSettings();
+    setupExtensionSettings();
     initYouTubePlayer();
     initSynthPlayer();
     setupGlobalRewindButton();
@@ -532,15 +799,30 @@ export async function loadFile(file, { hideMenu = true } = {}) {
         }
     }
 
+    const supportedFile = isFileType(file, ['pdf', 'gp', 'gp3', 'gp4', 'gp5', 'gpx', 'txt']);
+    let fileToLoad = file;
+    if (supportedFile && file instanceof File) {
+        try {
+            showProgress(progressContainer, progressBar);
+            fileToLoad = await applyFileAdapters(file);
+        } catch (error) {
+            console.error('Error applying file adapters:', error);
+            alert(error?.message || 'Unable to process this file.');
+            return;
+        } finally {
+            hideProgress(progressContainer, progressBar);
+        }
+    }
+
     if (isFileType(file, ['pdf'])) {
-        await loadPDF(file);
+        await loadPDF(fileToLoad);
     } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
         showProgress(progressContainer, progressBar);
-        await loadGP(file, output, pageModeRadio, continuousModeRadio);
+        await loadGP(fileToLoad, output, pageModeRadio, continuousModeRadio);
         hideProgress(progressContainer, progressBar);
     } else if (isFileType(file, ['txt'])) {
         showProgress(progressContainer, progressBar);
-        await loadText(file, output, pageModeRadio, continuousModeRadio);
+        await loadText(fileToLoad, output, pageModeRadio, continuousModeRadio);
         hideProgress(progressContainer, progressBar);
     } else {
         console.warn('Unsupported file type:', file.name.split('.').pop().toLowerCase());
