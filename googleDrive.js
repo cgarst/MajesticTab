@@ -132,6 +132,8 @@ export async function setupDrivePicker() {
 
         const docsView = document.createElement('drive-picker-docs-view');
         docsView.setAttribute('mode', 'LIST');
+        docsView.setAttribute('include-folders', 'true');
+        docsView.setAttribute('enable-drives', 'true');
         picker.appendChild(docsView);
         container.appendChild(picker);
 
