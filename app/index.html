@@ -116,6 +116,18 @@
       </div>
     </div>
 
+    <div class="mb-3">
+      <label class="form-label small mb-1 fw-semibold text-muted">SoundFont Tracks:</label>
+      <div class="hud-pill-group w-100" role="group" aria-label="SoundFont track mode">
+        <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackFullBand" value="fullBand" autocomplete="off" checked>
+        <label class="btn btn-sm" for="synthTrackFullBand" style="flex: 1;">Full Band</label>
+        <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackGuitarsOnly" value="guitarsOnly" autocomplete="off">
+        <label class="btn btn-sm" for="synthTrackGuitarsOnly" style="flex: 1;">Guitars Only</label>
+        <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackNoGuitars" value="noGuitars" autocomplete="off">
+        <label class="btn btn-sm" for="synthTrackNoGuitars" style="flex: 1;">No Guitars</label>
+      </div>
+    </div>
+
     <!-- Metronome & Count-in -->
     <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary-subtle">
       <div class="form-check form-switch mb-0">
