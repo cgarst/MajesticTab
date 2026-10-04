@@ -1,7 +1,7 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel } from './gpProcessor/gpPlayer.js';
-import { updateGlobalRewindButton } from './utils/navigationUtils.js';
+import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 
 let activeSearchController = null;
 
@@ -94,6 +94,7 @@ export function playPauseYouTube() {
         }), '*');
         playerState.isPlaying = true;
         playerState.hasStarted = true;
+        setActiveAudioMode('youtube');
     }
     updatePlaybackControls();
     return true;
@@ -634,6 +635,7 @@ export function initYouTubePlayer() {
             }), '*');
             playerState.isPlaying = true;
             playerState.hasStarted = true;
+            setActiveAudioMode('youtube');
         }
         updatePlaybackControls();
     });
@@ -719,6 +721,7 @@ export function initYouTubePlayer() {
                         playerState.hasStarted = true;
                         pauseSynthPlayer();
                         clearSynthHighlights();
+                        setActiveAudioMode('youtube');
                     }
                     if (playerState.isPlaying !== playing) {
                         playerState.isPlaying = playing;
@@ -731,6 +734,7 @@ export function initYouTubePlayer() {
                     playerState.hasStarted = true;
                     pauseSynthPlayer();
                     clearSynthHighlights();
+                    setActiveAudioMode('youtube');
                 }
                 if (playerState.isPlaying !== playing) {
                     playerState.isPlaying = playing;
