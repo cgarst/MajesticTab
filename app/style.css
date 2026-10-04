@@ -1317,6 +1317,12 @@ input[type=range]::-webkit-slider-thumb:hover {
   gap: 0.75rem;
 }
 
+.extension-list-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .extension-list {
   display: flex;
   flex: 1;
@@ -1497,6 +1503,19 @@ input[type=range]::-webkit-slider-thumb:hover {
   .extension-item-actions {
     width: 100%;
     justify-content: flex-end;
+  }
+
+  .extension-list-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .extension-list-actions {
+    width: 100%;
+  }
+
+  .extension-list-actions button {
+    flex: 1;
   }
 
   .extension-code-field .CodeMirror {

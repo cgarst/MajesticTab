@@ -1,4 +1,6 @@
 // gpProcessor.js
+import { applyGpScoreTransforms } from '../fileAdapters.js';
+
 export const DEFAULT_GP_DISPLAY_SCALE = 1.0;
 export let GP_DISPLAY_SCALE = DEFAULT_GP_DISPLAY_SCALE;
 
@@ -65,6 +67,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
         });
 
         tempApi.scoreLoaded.on((score) => {
+            applyGpScoreTransforms(score);
             if (debug) console.log("Tracks:", score.tracks);
 
             // Step 2: filter guitar tracks by MIDI program
@@ -72,8 +75,11 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             const guitarTrackIndices = score.tracks
                 .map((track, index) => ({ track, index }))
                 .filter(ti => {
+                    const isPercussion = ti.track.isPercussion
+                        || ti.track.playbackInfo?.isPercussion
+                        || ti.track.staves?.some(staff => staff.isPercussion);
                     const program = ti.track.playbackInfo?.program ?? ti.track.program;
-                    return guitarProgramWhitelist.includes(program);
+                    return !isPercussion && guitarProgramWhitelist.includes(program);
                 })
                 .map(ti => ti.index);
 
@@ -104,6 +110,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
 
             // Set stylesheet properties on the new score
             api.scoreLoaded.on((newScore) => {
+                applyGpScoreTransforms(newScore);
                 newScore.stylesheet.hideEmptyStaves = true;
                 newScore.stylesheet.hideEmptyStavesInFirstSystem = true;
 

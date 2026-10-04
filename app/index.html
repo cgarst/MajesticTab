@@ -503,7 +503,11 @@
     <div class="theme-modal-body extension-modal-body extension-list-view" id="extensionListView">
       <div class="extension-list-toolbar">
         <span class="small text-white-50" id="extensionCount">0 extensions</span>
-        <button class="btn btn-outline-primary" id="addExtension" type="button"><i class="bi-plus-lg me-1"></i>Add extension</button>
+        <div class="extension-list-actions">
+          <input class="d-none" id="importExtensionInput" type="file" accept=".js,.mjs,text/javascript,application/javascript">
+          <button class="btn theme-control-btn" id="importExtensionFile" type="button"><i class="bi-file-earmark-code me-1"></i>Import .js</button>
+          <button class="btn theme-control-btn" id="addExtension" type="button"><i class="bi-plus-lg me-1"></i>Add extension</button>
+        </div>
       </div>
       <div class="extension-list" id="extensionList" role="list"></div>
       <div class="small text-info" id="extensionManagerStatus" role="status" aria-live="polite">No extensions registered</div>
