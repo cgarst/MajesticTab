@@ -610,6 +610,19 @@ body {
   padding: 1rem;
 }
 
+.synth-panel .form-control {
+  background: var(--bg-card);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.synth-panel .form-control:focus {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 0.2rem var(--accent-primary-alpha);
+}
+
 /* Range Inputs / Sliders */
 input[type=range] {
   -webkit-appearance: none;
