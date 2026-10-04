@@ -1,5 +1,6 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
+import { pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
 
 let playerState = {
     isOpen: false,
@@ -13,6 +14,58 @@ let playerState = {
     isPlaying: false,
     hasStarted: false
 };
+
+/**
+ * Pause YouTube player if active
+ */
+export function pauseYouTube() {
+    const iframe = document.getElementById('ytIframe');
+    if (iframe?.contentWindow && playerState.hasStarted && playerState.isPlaying) {
+        iframe.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'pauseVideo',
+            args: []
+        }), '*');
+        playerState.isPlaying = false;
+        updatePlaybackControls();
+    }
+}
+
+/**
+ * Toggle YouTube play / pause
+ */
+export function playPauseYouTube() {
+    const iframe = document.getElementById('ytIframe');
+    if (!iframe || !iframe.contentWindow) return false;
+
+    if (playerState.isPlaying) {
+        iframe.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'pauseVideo',
+            args: []
+        }), '*');
+        playerState.isPlaying = false;
+    } else {
+        pauseSynthPlayer();
+        iframe.contentWindow.postMessage(JSON.stringify({
+            event: 'command',
+            func: 'playVideo',
+            args: []
+        }), '*');
+        playerState.isPlaying = true;
+        playerState.hasStarted = true;
+    }
+    updatePlaybackControls();
+    return true;
+}
+
+export function isYouTubeAvailable() {
+    return Boolean(playerState.currentVideoId || playerState.hasStarted);
+}
+
+export function isYouTubePlaying() {
+    return Boolean(playerState.isPlaying);
+}
 
 /**
  * Clean up a raw string (e.g. filename) to extract probable artist and song title
@@ -528,7 +581,10 @@ export function initYouTubePlayer() {
                 }
                 if (typeof data.info.playerState === 'number') {
                     const playing = (data.info.playerState === 1);
-                    if (playing) playerState.hasStarted = true;
+                    if (playing) {
+                        playerState.hasStarted = true;
+                        pauseSynthPlayer();
+                    }
                     if (playerState.isPlaying !== playing) {
                         playerState.isPlaying = playing;
                         stateChanged = true;
@@ -536,7 +592,10 @@ export function initYouTubePlayer() {
                 }
             } else if (data.event === 'onStateChange' && typeof data.info === 'number') {
                 const playing = (data.info === 1);
-                if (playing) playerState.hasStarted = true;
+                if (playing) {
+                    playerState.hasStarted = true;
+                    pauseSynthPlayer();
+                }
                 if (playerState.isPlaying !== playing) {
                     playerState.isPlaying = playing;
                     stateChanged = true;

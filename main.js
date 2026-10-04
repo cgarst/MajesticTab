@@ -10,6 +10,7 @@ import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
+import { initSynthPlayer, hideSynthPlayer } from './gpProcessor/gpPlayer.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -174,8 +175,8 @@ function setupSettings() {
 
     // Apply saved settings
     debugMode.checked = savedDebugMode;
-    // Default: Condense PDFs by default (true)
-    condensePdfMode.checked = savedCondensePdfMode === null ? true : savedCondensePdfMode === 'true';
+    // Default: Condense PDFs off by default (false)
+    condensePdfMode.checked = savedCondensePdfMode === null ? false : savedCondensePdfMode === 'true';
     
     setupTheme();
 
@@ -204,10 +205,37 @@ function setupSettings() {
         });
     });
 
+    // Setup Default View selectors for GP and PDF
+    let savedGpDefaultView = localStorage.getItem('gpDefaultView') || 'continuous';
+    const gpDefaultRadios = document.querySelectorAll('input[name="gpDefaultViewRadio"]');
+    gpDefaultRadios.forEach(radio => {
+        if (radio.value === savedGpDefaultView) {
+            radio.checked = true;
+        }
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                localStorage.setItem('gpDefaultView', radio.value);
+            }
+        });
+    });
+
+    let savedPdfDefaultView = localStorage.getItem('pdfDefaultView') || 'page';
+    const pdfDefaultRadios = document.querySelectorAll('input[name="pdfDefaultViewRadio"]');
+    pdfDefaultRadios.forEach(radio => {
+        if (radio.value === savedPdfDefaultView) {
+            radio.checked = true;
+        }
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                localStorage.setItem('pdfDefaultView', radio.value);
+            }
+        });
+    });
+
     // Setup event listeners for settings changes
     debugMode.addEventListener('change', () => {
         localStorage.setItem('debugMode', debugMode.checked);
-        if (currentFile) {
+        if (currentFile && currentFile.type.includes('pdf')) {
             loadFile(currentFile); // Reload current file with new settings
         }
     });
@@ -231,6 +259,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupDrivePicker();
     setupSettings();
     initYouTubePlayer();
+    initSynthPlayer();
 
     // Check for test mode URL parameter
     const urlParams = new URLSearchParams(window.location.search);
@@ -423,6 +452,27 @@ export async function loadFile(file) {
     output.tabIndex = 0;
     output.focus();
     
+    // Apply default view mode based on file type preference
+    if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
+        const gpDefault = localStorage.getItem('gpDefaultView') || 'continuous';
+        if (gpDefault === 'continuous') {
+            continuousModeRadio.checked = true;
+            pageModeRadio.checked = false;
+        } else {
+            pageModeRadio.checked = true;
+            continuousModeRadio.checked = false;
+        }
+    } else if (isFileType(file, ['pdf'])) {
+        const pdfDefault = localStorage.getItem('pdfDefaultView') || 'page';
+        if (pdfDefault === 'continuous') {
+            continuousModeRadio.checked = true;
+            pageModeRadio.checked = false;
+        } else {
+            pageModeRadio.checked = true;
+            continuousModeRadio.checked = false;
+        }
+    }
+
     if (isFileType(file, ['pdf'])) {
         await loadPDF(file);
     } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
@@ -456,9 +506,10 @@ function resetView() {
     output.scrollTop = 0;
     pageIndicator.textContent = '';
     
-    // Hide navigation controls by default
+    // Hide navigation controls and synth player by default
     navButtons.style.display = 'none';
     modeButtons.style.display = 'none';
+    hideSynthPlayer();
 }
 
 // --- PAGE LAYOUT AND RENDERING ---

@@ -2,6 +2,8 @@
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
+import { playPauseSynth, isSynthAvailable, isSynthPlaying } from '../gpProcessor/gpPlayer.js';
+import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying } from '../youtubePlayer.js';
 
 // Navigation action constants
 export const NavigationAction = {
@@ -194,33 +196,59 @@ export function setupKeyboardNavigation(getConfig) {
         const config = getConfig();
         if (!config.currentFile) return;
 
-        const nextPageKeys = ['ArrowRight', 'ArrowDown', 'PageDown', ' '];
+        const nextPageKeys = ['ArrowRight', 'ArrowDown', 'PageDown'];
         const prevPageKeys = ['ArrowLeft', 'ArrowUp', 'PageUp', 'Enter'];
 
-        // Always prevent default arrow key behavior in our app
-        const activeEl = document.activeElement;
-        if (nextPageKeys.includes(e.key) || prevPageKeys.includes(e.key)) {
-            e.preventDefault();
-        }
+        const isSpace = (e.key === ' ' || e.code === 'Space');
 
         // Avoid handling keys when focused on form elements
+        const activeEl = document.activeElement;
         if (activeEl && (
             activeEl.tagName === 'INPUT' || 
             activeEl.tagName === 'TEXTAREA' ||
-            activeEl.tagName === 'SELECT' ||
-            activeEl.tagName === 'BUTTON'
+            activeEl.tagName === 'SELECT'
         )) return;
 
-        // Prevent arrow keys from scrolling the page
-        if (nextPageKeys.includes(e.key) || prevPageKeys.includes(e.key)) {
+        // Prevent default browser scrolling for navigation and spacebar
+        if (nextPageKeys.includes(e.key) || prevPageKeys.includes(e.key) || isSpace) {
             e.preventDefault();
+        }
+
+        // Spacebar toggles playback
+        if (isSpace) {
+            // 1. If either player is actively playing, pause it
+            if (isSynthPlaying()) {
+                playPauseSynth();
+                return;
+            }
+            if (isYouTubePlaying()) {
+                playPauseYouTube();
+                return;
+            }
+
+            // 2. If neither is playing, start whichever is available
+            if (isSynthAvailable()) {
+                playPauseSynth();
+                return;
+            }
+            if (isYouTubeAvailable()) {
+                playPauseYouTube();
+                return;
+            }
+
+            // 3. If neither player is loaded (e.g. plain PDF), advance page
+            const navigationHandler = new NavigationHandler(config);
+            const result = navigationHandler.handleAction(NavigationAction.NEXT);
+            if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
+                config.setCurrentPageIndex(result.newPageIndex);
+            }
+            return;
         }
 
         const isNext = nextPageKeys.includes(e.key);
         const isPrev = prevPageKeys.includes(e.key);
 
         if (isNext || isPrev) {
-            e.preventDefault();
             const navigationHandler = new NavigationHandler(config);
             const action = isNext ? NavigationAction.NEXT : NavigationAction.PREV;
             const result = navigationHandler.handleAction(action);
