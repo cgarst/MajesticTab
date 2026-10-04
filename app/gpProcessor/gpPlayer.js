@@ -158,11 +158,9 @@ export function updateSynthUI() {
     speedButtons.forEach(btn => {
         const speedVal = parseFloat(btn.dataset.speed);
         if (Math.abs(speedVal - synthPlayerState.playbackSpeed) < 0.005) {
-            btn.classList.add('active', 'btn-success');
-            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('active');
         } else {
-            btn.classList.remove('active', 'btn-success');
-            btn.classList.add('btn-outline-secondary');
+            btn.classList.remove('active');
         }
     });
 }
