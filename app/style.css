@@ -439,6 +439,7 @@ body {
 
 #globalAudioControls .btn,
 #audioSourcePill .btn,
+#fullscreenPill .btn,
 #synthMiniPill .btn,
 #ytMiniPill .btn {
   border: none !important;
@@ -453,7 +454,8 @@ body {
   transition: all 0.2s ease;
 }
 
-#globalAudioControls .btn:hover:not(:disabled) {
+#globalAudioControls .btn:hover:not(:disabled),
+#fullscreenPill .btn:hover:not(:disabled) {
   color: var(--accent-text);
   background: var(--bg-card-hover);
 }
@@ -1641,6 +1643,7 @@ body:not(.synth-playback-started) .at-highlight {
   .hud-pill-group .btn-check + .btn,
   #globalAudioControls .btn,
   #audioSourcePill .btn,
+  #fullscreenPill .btn,
   .brand-btn {
     padding: 0.25rem 0.4rem;
     font-size: 0.78rem;
