@@ -210,6 +210,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
     clearOutput(output);
 
     const container = gpState.canvases[0].container;
+    const api = gpState.canvases[0].api;
 
     if (pageModeChecked) {
         output.classList.remove('continuous-mode');
@@ -219,8 +220,29 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
 
         const pagesPerView = getPagesPerView(true);
         const targetWidth = Math.floor((window.innerWidth - 80) / pagesPerView) - 60;
-        container.style.width = `${targetWidth}px`;
+        const targetWidthStr = `${targetWidth}px`;
+        const widthChanged = container.style.width !== targetWidthStr;
+
+        container.style.width = targetWidthStr;
         container.style.height = '100%';
+
+        if (widthChanged && api) {
+            // Park container offscreen while alphaTab re-renders at new target width
+            const offscreenHolder = document.createElement('div');
+            offscreenHolder.style.cssText = 'position:absolute;visibility:hidden;width:0;height:0;overflow:hidden;';
+            document.body.appendChild(offscreenHolder);
+            if (container.parentNode) container.parentNode.removeChild(container);
+            offscreenHolder.appendChild(container);
+
+            const unsub = api.postRenderFinished.on(() => {
+                unsub();
+                if (offscreenHolder.parentNode) document.body.removeChild(offscreenHolder);
+                gpState.lastLayoutDimensions = null; // force fresh layout calculation
+                renderGPPageMode(output);
+            });
+            api.render();
+            return;
+        }
 
         // renderGPPageMode will handle layout calculation with caching
         renderGPPageMode(output);
@@ -231,6 +253,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         }
         container.style.transform = '';
         container.style.transformOrigin = '';
+        const wasNotFullWidth = container.style.width !== '100%';
         container.style.width = '100%';
         container.style.height = 'auto';
         container.style.minHeight = '100%';
@@ -241,6 +264,10 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         output.style.overflowX = 'hidden'; // Prevent horizontal scrolling
         output.appendChild(container);
         output.scrollTop = 0;
+
+        if (wasNotFullWidth && api) {
+            api.render();
+        }
     }
 }
 

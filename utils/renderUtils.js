@@ -157,7 +157,6 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
     const outerContainer = document.createElement('div');
     outerContainer.style.width = '100%';
     outerContainer.style.height = '100%';
-    outerContainer.style.backgroundColor = 'white';
     outerContainer.style.overflow = 'hidden';
 
     // Create page container
@@ -176,11 +175,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
         wrapper.style.width = `${(window.innerWidth - 40) / pagesPerView}px`;
         wrapper.style.height = `${window.innerHeight - 80}px`;
         wrapper.style.paddingTop = `${PAGE_PADDING}px`;
-        wrapper.style.backgroundColor = 'white';
-        wrapper.style.float = 'left';
-        wrapper.style.marginRight = '10px';
-        wrapper.style.boxShadow = '0 2px 6px rgba(0,0,0,0.1)';
-        wrapper.style.border = '1px solid #ddd';
+        wrapper.style.boxSizing = 'border-box';
 
         pageSet.forEach((page, idx) => {
             const canvas = page.canvas;
