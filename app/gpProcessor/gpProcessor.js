@@ -1,5 +1,41 @@
 // gpProcessor.js
-export const GP_DISPLAY_SCALE = 0.70;
+export const DEFAULT_GP_DISPLAY_SCALE = 1.0;
+export let GP_DISPLAY_SCALE = DEFAULT_GP_DISPLAY_SCALE;
+
+export function getGpDisplayScalePercent() {
+    if (typeof localStorage === 'undefined') {
+        return Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
+    }
+
+    const raw = localStorage.getItem('gpSheetScale');
+    if (raw === null || raw === '') {
+        return Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
+    }
+
+    const value = Number.parseInt(raw, 10);
+    if (!Number.isFinite(value)) {
+        return Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
+    }
+
+    return Math.min(200, Math.max(50, value));
+}
+
+export function setGpDisplayScale(percent) {
+    const numeric = Number.parseInt(percent, 10);
+    const safePercent = Number.isFinite(numeric)
+        ? Math.min(200, Math.max(50, numeric))
+        : Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
+
+    GP_DISPLAY_SCALE = safePercent / 100;
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('gpSheetScale', String(safePercent));
+    }
+    return safePercent;
+}
+
+export function applySavedGpDisplayScale() {
+    return setGpDisplayScale(getGpDisplayScalePercent());
+}
 
 export function loadGuitarPro(file, container, { debug = false } = {}) {
     return new Promise((resolve, reject) => {
