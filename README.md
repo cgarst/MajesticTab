@@ -160,3 +160,17 @@ This project is licensed under the MIT License — see the [LICENSE](LICENSE) fi
 * [Bootstrap](https://getbootstrap.com/) for UI components
 * [jsPDF](https://github.com/parallax/jsPDF) for export functionality
 * [AlphaTab](https://github.com/CoderLine/alphaTab) for Guitar Pro rendering
+
+---
+
+## Landing Page Screenshots
+
+The landing page (`index.html`) uses screenshots of the app loaded with the demo tab in `tests/Keystone.gp` and `tests/Keystone.pdf`. To regenerate them (desktop 1440x900 and mobile 390x844) into `img/screenshots/`:
+
+```bash
+pip install playwright && playwright install chromium
+python3 tools/generate_screenshots.py                 # all shots
+python3 tools/generate_screenshots.py --only gp_scroll theme_palettes
+```
+
+Shot names: `gp_scroll`, `gp_page`, `pdf_page`, `menu`, `theme_palettes`, `gp_themed` (mobile versions end in `_mobile`).
