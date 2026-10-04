@@ -3,6 +3,7 @@ import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
 import { loadGP, renderGPPage, gpState, nextGPPage, prevGPPage, layoutGPPages } from './gpProcessor/gpHandler.js';
+import { setGpDisplayScale, applySavedGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton } from './utils/navigationUtils.js';
@@ -160,6 +161,52 @@ function setupSettings() {
     debugMode.checked = savedDebugMode;
     // Default: Condense PDFs off by default (false)
     condensePdfMode.checked = savedCondensePdfMode === null ? false : savedCondensePdfMode === 'true';
+
+    const gpSheetScaleInput = document.getElementById('gpSheetScale');
+    const gpSheetScaleValue = document.getElementById('gpSheetScaleValue');
+    const gpSheetScaleMinus = document.getElementById('gpSheetScaleMinus');
+    const gpSheetScalePlus = document.getElementById('gpSheetScalePlus');
+    if (gpSheetScaleInput && gpSheetScaleValue) {
+        const syncGpSheetScale = (nextValue) => {
+            const currentScale = Number.parseInt(nextValue, 10);
+            const safeValue = Number.isFinite(currentScale) ? currentScale : 100;
+            gpSheetScaleInput.value = String(safeValue);
+            gpSheetScaleValue.textContent = `${safeValue}%`;
+            return safeValue;
+        };
+
+        const applyGpSheetScale = async (nextValue) => {
+            const scaledValue = syncGpSheetScale(nextValue);
+            setGpDisplayScale(scaledValue);
+
+            if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
+                await loadFile(currentFile, { hideMenu: false });
+            }
+        };
+
+        const savedGpSheetScale = applySavedGpDisplayScale();
+        syncGpSheetScale(savedGpSheetScale);
+
+        gpSheetScaleInput.addEventListener('input', () => {
+            syncGpSheetScale(gpSheetScaleInput.value);
+        });
+
+        gpSheetScaleInput.addEventListener('change', async () => {
+            await applyGpSheetScale(gpSheetScaleInput.value);
+        });
+
+        gpSheetScaleMinus?.addEventListener('click', async () => {
+            const currentScale = Number.parseInt(gpSheetScaleInput.value, 10) || 100;
+            const nextScale = Math.max(50, currentScale - 5);
+            await applyGpSheetScale(nextScale);
+        });
+
+        gpSheetScalePlus?.addEventListener('click', async () => {
+            const currentScale = Number.parseInt(gpSheetScaleInput.value, 10) || 100;
+            const nextScale = Math.min(200, currentScale + 5);
+            await applyGpSheetScale(nextScale);
+        });
+    }
     
     // Initialize modern guitar finish theming engine
     initTheming();
@@ -436,8 +483,10 @@ async function loadPDF(file) {
     hideProgress(progressContainer, progressBar);
 }
 
-export async function loadFile(file) {
-    fileMenu.hide();
+export async function loadFile(file, { hideMenu = true } = {}) {
+    if (hideMenu) {
+        fileMenu.hide();
+    }
     resetView();
 
     currentFile = file;
