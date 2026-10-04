@@ -39,6 +39,52 @@ window.addEventListener('resize', () => {
 // Handle desktop zooming with Ctrl+Wheel
 const mainContent = document.getElementById('mainContent');
 const topBar = document.getElementById('topBar');
+if (topBar) {
+    let isDown = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    let hasDragged = false;
+
+    topBar.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return;
+        isDown = true;
+        hasDragged = false;
+        startX = e.pageX - topBar.offsetLeft;
+        scrollLeft = topBar.scrollLeft;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        const x = e.pageX - topBar.offsetLeft;
+        const walk = x - startX;
+        if (Math.abs(walk) > 4) {
+            hasDragged = true;
+            topBar.classList.add('is-dragging');
+            topBar.scrollLeft = scrollLeft - walk;
+        }
+    });
+
+    const stopDragging = () => {
+        if (isDown) {
+            isDown = false;
+            topBar.classList.remove('is-dragging');
+            if (hasDragged) {
+                setTimeout(() => { hasDragged = false; }, 50);
+            }
+        }
+    };
+
+    window.addEventListener('mouseup', stopDragging);
+
+    // Prevent accidental button clicks when dragging
+    topBar.addEventListener('click', (e) => {
+        if (hasDragged) {
+            e.preventDefault();
+            e.stopPropagation();
+            hasDragged = false;
+        }
+    }, true);
+}
 let currentScale = 1;
 const MIN_SCALE = 1.0; // Changed to 1.0 to prevent zooming out beyond initial scale
 const MAX_SCALE = 3;
