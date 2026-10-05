@@ -39,7 +39,7 @@ jobs:
         with:
           workspaces: build/tauri/src-tauri -> ../target
       - run: node build/build-tauri.mjs ${{ matrix.target }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.target }}
           path: dist/*
@@ -67,7 +67,7 @@ jobs:
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y flathub org.gnome.Platform//48 org.gnome.Sdk//48
       - run: node build/build-tauri.mjs linux
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux
           path: dist/*.flatpak
@@ -95,7 +95,7 @@ jobs:
       - name: Locate Android NDK
         run: echo "NDK_HOME=$ANDROID_NDK_HOME" >> "$GITHUB_ENV"
       - run: node build/build-tauri.mjs android
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android
           path: dist/*.apk
