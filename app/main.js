@@ -2,7 +2,7 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
-import { loadGP, renderGPPage, gpState, nextGPPage, prevGPPage, layoutGPPages } from './gpProcessor/gpHandler.js';
+import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages } from './gpProcessor/gpHandler.js';
 import { setGpDisplayScale, applySavedGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
@@ -210,7 +210,9 @@ function setupSettings() {
             setGpDisplayScale(scaledValue);
 
             if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
-                await loadFile(currentFile, { hideMenu: false });
+                if (!applyGpDisplayScale(output, pageModeRadio.checked, continuousModeRadio)) {
+                    await loadFile(currentFile, { hideMenu: false });
+                }
             }
         };
 
