@@ -1305,7 +1305,7 @@ input[type=range]::-webkit-slider-thumb:hover {
 
 .theme-control-btn:hover:not(:disabled) {
   background: var(--accent-gradient);
-  border-color: transparent;
+  border-color: var(--accent-border-alpha);
   color: #ffffff;
   box-shadow: 0 2px 8px var(--accent-glow);
 }
@@ -1628,7 +1628,8 @@ input[type=range]::-webkit-slider-thumb:hover {
 .offcanvas input[type="file"]:hover::file-selector-button,
 .offcanvas input[type="file"]:hover::-webkit-file-upload-button {
   background: var(--accent-gradient);
-  border-color: transparent;
+  border-color: var(--accent-border-alpha);
+  border-radius: 0.5rem;
   color: #ffffff;
   box-shadow: 0 2px 8px var(--accent-glow);
 }
@@ -1646,7 +1647,7 @@ input[type=range]::-webkit-slider-thumb:hover {
 
 .offcanvas .btn-outline-primary:hover {
   background: var(--accent-gradient);
-  border-color: transparent;
+  border-color: var(--accent-border-alpha);
   color: #ffffff;
   box-shadow: 0 2px 8px var(--accent-glow);
 }
