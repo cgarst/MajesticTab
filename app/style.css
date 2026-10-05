@@ -247,6 +247,21 @@ html {
 }
 
 body {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Keep selection working in editable fields and the extension code editor. */
+input,
+textarea,
+[contenteditable="true"],
+.CodeMirror,
+.CodeMirror * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+body {
   margin: 0;
   padding: 0;
   height: 100vh;
