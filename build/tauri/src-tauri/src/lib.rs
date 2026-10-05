@@ -17,6 +17,7 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_oauth::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_google_auth::init())
         .setup(|_app| {
             #[cfg(target_os = "macos")]
             youtube_macos::install(_app)?;

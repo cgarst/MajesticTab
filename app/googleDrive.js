@@ -2,7 +2,7 @@
 import { loadFile, hideFileMenu } from './main.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
-const TAURI_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
+const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const STORAGE_KEY = 'gdrive_auth';
 const FOLDER_STORAGE_KEY = 'gdrive_last_folder';
@@ -95,6 +95,11 @@ function getRedirectUri() {
 }
 
 export function redirectToGoogleAuth() {
+    if (window.__TAURI__?.core?.invoke && /android/i.test(navigator.userAgent)) {
+        startAndroidGoogleAuth();
+        return;
+    }
+
     if (window.__TAURI__?.core?.invoke && window.__TAURI__?.event?.listen) {
         startTauriGoogleAuth();
         return;
@@ -110,6 +115,19 @@ export function redirectToGoogleAuth() {
         `&state=open_drive_browser`;
 
     window.location.href = authUrl;
+}
+
+async function startAndroidGoogleAuth() {
+    try {
+        const authData = await window.__TAURI__.core.invoke('plugin:google-auth|authorize');
+        if (!storeGoogleAuth(authData.accessToken, authData.expiresIn)) {
+            throw new Error('Google authorization did not return an access token.');
+        }
+        openDriveModal();
+    } catch (error) {
+        console.error('Failed to authorize Google Drive on Android:', error);
+        alert('Could not connect to Google Drive. Please try again.');
+    }
 }
 
 async function startTauriGoogleAuth() {
@@ -154,7 +172,7 @@ async function startTauriGoogleAuth() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({
-                        client_id: TAURI_CLIENT_ID,
+                        client_id: DESKTOP_CLIENT_ID,
                         client_secret: TAURI_CLIENT_SECRET,
                         code: authorizationCode,
                         code_verifier: codeVerifier,
@@ -177,7 +195,7 @@ async function startTauriGoogleAuth() {
 
         const redirectUri = `http://127.0.0.1:${port}`;
         const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-            `client_id=${encodeURIComponent(TAURI_CLIENT_ID)}` +
+            `client_id=${encodeURIComponent(DESKTOP_CLIENT_ID)}` +
             `&redirect_uri=${encodeURIComponent(redirectUri)}` +
             `&response_type=code` +
             `&scope=${encodeURIComponent(SCOPE)}` +
