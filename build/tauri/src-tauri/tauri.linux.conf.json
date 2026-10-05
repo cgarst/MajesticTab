@@ -3,7 +3,8 @@
     "icon": [
       "icons/linux/32x32.png",
       "icons/linux/128x128.png",
-      "icons/linux/128x128@2x.png"
+      "icons/linux/256x256.png",
+      "icons/linux/512x512.png"
     ]
   }
 }
