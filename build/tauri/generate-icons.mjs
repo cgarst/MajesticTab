@@ -159,6 +159,7 @@ const GENERATORS = {
     await mkdir(target, { recursive: true });
     await writeFile(path.join(target, 'icon.icns'), await buildIcns(out));
     console.log('  ICNS Creating icon.icns');
+    await cp(path.join(out, '512x512.png'), path.join(target, '512x512.png'));
   },
   // `tauri icon` always emits both mobile sets; keep only the one requested.
   async android() {
