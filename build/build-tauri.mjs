@@ -121,15 +121,7 @@ run('npm', [
   'prepare:frontend',
   ...(target === 'android' ? ['--', '--android'] : []),
 ]);
-run('npm', [
-  'run',
-  'tauri',
-  '--',
-  'icon',
-  path.join(tauriDir, 'icon-manifest.json'),
-  '--output',
-  path.join(tauriDir, 'src-tauri', 'icons'),
-]);
+run('node', ['generate-icons.mjs']);
 
 if (target === 'android') {
   const javaHome = process.env.JAVA_HOME;
