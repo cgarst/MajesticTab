@@ -274,9 +274,9 @@ body {
   position: sticky;
   top: 0;
   z-index: 1000;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
   align-items: center;
-  justify-content: space-between;
   padding: 0.5rem 1rem;
   background: var(--bg-card) !important;
   backdrop-filter: blur(16px);
@@ -375,8 +375,7 @@ body {
   justify-content: center;
   gap: 0.5rem;
   flex: 0 0 auto;
-  margin-left: auto;
-  margin-right: auto;
+  justify-self: center;
 }
 
 /* Glass Pill Button Groups */
@@ -2041,14 +2040,11 @@ body:not(.synth-playback-started) .at-highlight {
   }
   
   #centerSection {
-    margin-left: 0;
-    margin-right: 0;
     gap: 0.25rem;
   }
 
   #rightSection {
     gap: 0.25rem;
-    margin-left: auto;
   }
 
   .brand-title {
