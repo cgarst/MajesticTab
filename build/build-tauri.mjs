@@ -98,7 +98,18 @@ if (target === 'macos') requireHost('darwin', 'macOS');
 if (target === 'linux') requireHost('linux', 'Linux');
 
 await mkdir(distDir, { recursive: true });
-if (!(await stat(path.join(tauriDir, 'node_modules')).catch(() => null))) {
+const packageManifest = JSON.parse(await readFile(path.join(tauriDir, 'package.json'), 'utf8'));
+const requiredPackages = { ...packageManifest.dependencies, ...packageManifest.devDependencies };
+const installedVersions = await Promise.all(Object.entries(requiredPackages).map(async ([name, version]) => {
+  const packagePath = path.join(tauriDir, 'node_modules', name, 'package.json');
+  try {
+    const installedPackage = JSON.parse(await readFile(packagePath, 'utf8'));
+    return installedPackage.version === version;
+  } catch {
+    return false;
+  }
+}));
+if (installedVersions.some((installed) => !installed)) {
   run('npm', ['ci']);
 }
 run('npm', ['run', 'prepare:frontend']);
