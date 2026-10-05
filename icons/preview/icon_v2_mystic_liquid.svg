@@ -5,27 +5,27 @@
 <path id="letters" fill-rule="evenodd" d="M232.00,343.05L232.00,330.10L237.25,329.80L242.50,329.50L242.77,306.25L243.04,283.00L228.27,283.00L213.50,283.00L213.84,289.00L214.18,295.00L218.09,295.00L222.00,295.00L222.00,307.50L222.00,320.00L198.00,320.00L174.00,320.00L174.00,307.50L174.00,295.00L178.00,295.00L182.00,295.00L182.00,237.50L182.00,180.00L175.00,180.00L168.00,180.00L168.00,163.98L168.00,147.96L191.10,148.23L214.20,148.50L232.67,178.50C242.83,195.00 252.24,210.64 253.59,213.25C254.93,215.86 256.20,218.00 256.41,218.00C256.61,218.00 266.17,202.26 277.64,183.03L298.50,148.05L321.25,148.03L344.00,148.00L344.00,164.00L344.00,180.00L337.00,180.00L330.00,180.00L330.00,237.50L330.00,295.00L334.50,295.00L339.00,295.00L339.00,307.50L339.00,320.00L314.50,320.00L290.00,320.00L290.00,307.50L290.00,295.00L294.50,295.00L299.00,295.00L299.00,288.75L299.00,282.50L284.50,282.80L270.00,283.10L270.00,306.55L270.00,330.00L275.50,330.00L281.00,330.00L281.00,343.00L281.00,356.00L256.50,356.00L232.00,356.00L232.00,343.05ZM239.24,251.75C238.16,249.96 232.42,240.40 226.49,230.50C220.55,220.60 215.31,212.07 214.85,211.55C214.38,211.03 214.00,220.57 214.00,232.80L214.00,255.00L227.60,255.00L241.20,255.00L239.24,251.75ZM299.00,232.27L299.00,209.55L291.04,223.30C286.67,230.87 280.59,241.10 277.54,246.03L271.99,255.00L285.49,255.00L299.00,255.00L299.00,232.27Z"/>
 <clipPath id="pickClip"><use href="#pick"/></clipPath>
 <radialGradient id="body" gradientUnits="userSpaceOnUse" cx="190" cy="150" r="300">
-<stop offset="0" stop-color="#1a1230"/><stop offset="0.45" stop-color="#100b1d"/><stop offset="1" stop-color="#0a0714"/>
+<stop offset="0" stop-color="#33216b"/><stop offset="0.45" stop-color="#150f2a"/><stop offset="1" stop-color="#0a0714"/>
 </radialGradient>
 <linearGradient id="edge" gradientUnits="userSpaceOnUse" x1="105" y1="97" x2="408" y2="413">
-<stop offset="0" stop-color="#fff" stop-opacity="0.3"/><stop offset="0.3" stop-color="#c4b5fd" stop-opacity="0.05"/><stop offset="0.7" stop-color="#22d3ee" stop-opacity="0.04"/><stop offset="1" stop-color="#6ee7b7" stop-opacity="0.28"/>
+<stop offset="0" stop-color="#fff" stop-opacity="0.9"/><stop offset="0.3" stop-color="#c4b5fd" stop-opacity="0.25"/><stop offset="0.7" stop-color="#22d3ee" stop-opacity="0.2"/><stop offset="1" stop-color="#6ee7b7" stop-opacity="0.8"/>
 </linearGradient>
 <radialGradient id="spec" cx="0.5" cy="0.5" r="0.5">
-<stop offset="0" stop-color="#fff" stop-opacity="0.1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+<stop offset="0" stop-color="#fff" stop-opacity="0.5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
 </radialGradient>
 <linearGradient id="letterEdge" gradientUnits="userSpaceOnUse" x1="168" y1="148" x2="344" y2="356">
-<stop offset="0" stop-color="#fff" stop-opacity="0.28"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0.12"/>
+<stop offset="0" stop-color="#fff" stop-opacity="0.85"/><stop offset="0.5" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="0.45"/>
 </linearGradient>
 <filter id="soft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
 <filter id="glow" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="6"/></filter>
 </defs>
 <use href="#pick" fill="url(#body)"/>
 <g clip-path="url(#pickClip)">
-<use href="#pick" fill="none" stroke="url(#edge)" stroke-width="14" filter="url(#soft)" opacity="0.2"/>
+<use href="#pick" fill="none" stroke="url(#edge)" stroke-width="18" filter="url(#soft)" opacity="0.7"/>
 <ellipse cx="205" cy="128" rx="105" ry="30" transform="rotate(-22 205 128)" fill="url(#spec)"/>
-<use href="#pick" fill="none" stroke="url(#edge)" stroke-width="1.5"/>
+<use href="#pick" fill="none" stroke="url(#edge)" stroke-width="3"/>
 </g>
-<use href="#letters" fill="url(#mystic)" filter="url(#glow)" opacity="0.12"/>
+<use href="#letters" fill="url(#mystic)" filter="url(#glow)" opacity="0.4"/>
 <use href="#letters" fill="url(#mystic)"/>
-<use href="#letters" fill="none" stroke="url(#letterEdge)" stroke-width="1" stroke-linejoin="round"/>
+<use href="#letters" fill="none" stroke="url(#letterEdge)" stroke-width="1.6" stroke-linejoin="round"/>
 </svg>

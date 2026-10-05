@@ -11,7 +11,12 @@ const iconsDir = path.join(scriptDir, 'src-tauri', 'icons');
 const workDir = path.join(scriptDir, 'target', 'icon-build');
 
 const CANVAS = 1024;
-const BACKGROUND = '#2f2f30';
+const BACKGROUND_TOP = '#ffffff';
+const BACKGROUND_BOTTOM = '#ddd3f7';
+// Solid midpoint for the places that only accept a flat color.
+const BACKGROUND = '#eee9fb';
+const TILE_GRADIENT = '<defs><linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">'
+  + `<stop offset="0" stop-color="${BACKGROUND_TOP}"/><stop offset="1" stop-color="${BACKGROUND_BOTTOM}"/></linearGradient></defs>`;
 
 // Art box = longest side of the artwork, in 1024-unit canvas coordinates.
 const PLATFORMS = {
@@ -32,14 +37,17 @@ const viewBox = /viewBox="([^"]+)"/.exec(source)?.[1];
 const inner = /<svg[^>]*>([\s\S]*)<\/svg>/.exec(source)?.[1];
 if (!viewBox || inner === undefined) throw new Error(`Could not parse ${sourceSvg}`);
 
-function composeSvg({ box, tile }) {
+function composeSvg({ box, tile }, backgroundOnly = false) {
   const offset = (CANVAS - box) / 2;
   const size = tile ? CANVAS - tile.inset * 2 : 0;
   const background = tile
-    ? `<rect x="${tile.inset}" y="${tile.inset}" width="${size}" height="${size}" rx="${tile.radius}" fill="${BACKGROUND}"/>`
+    ? `${TILE_GRADIENT}<rect x="${tile.inset}" y="${tile.inset}" width="${size}" height="${size}" rx="${tile.radius}" fill="url(#tile)"/>`
     : '';
+  const art = backgroundOnly
+    ? ''
+    : `<svg x="${offset}" y="${offset}" width="${box}" height="${box}" viewBox="${viewBox}">${inner}</svg>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS}" height="${CANVAS}" viewBox="0 0 ${CANVAS} ${CANVAS}">`
-    + `${background}<svg x="${offset}" y="${offset}" width="${box}" height="${box}" viewBox="${viewBox}">${inner}</svg></svg>`;
+    + `${background}${art}</svg>`;
 }
 
 function tauriIcon(input, output) {
@@ -70,6 +78,7 @@ async function generate(name, svgSpec, manifest) {
   let input = svgPath;
   if (manifest) {
     await writeFile(path.join(sourceDir, 'android-fg.svg'), composeSvg(PLATFORMS.androidFg));
+    await writeFile(path.join(sourceDir, 'android-bg.svg'), composeSvg(PLATFORMS.ios, true));
     input = path.join(sourceDir, 'manifest.json');
     await writeFile(input, JSON.stringify(manifest, null, 2));
   }
@@ -108,6 +117,7 @@ function generateMobile() {
     bg_color: BACKGROUND,
     ios_color: BACKGROUND,
     android_fg: 'android-fg.svg',
+    android_bg: 'android-bg.svg',
     android_fg_scale: 100,
   });
 }
