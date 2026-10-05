@@ -121,7 +121,7 @@ run('npm', [
   'prepare:frontend',
   ...(target === 'android' ? ['--', '--android'] : []),
 ]);
-run('node', ['generate-icons.mjs', target]);
+run('node', ['generate-icons.mjs']);
 
 if (target === 'android') {
   const javaHome = process.env.JAVA_HOME;
