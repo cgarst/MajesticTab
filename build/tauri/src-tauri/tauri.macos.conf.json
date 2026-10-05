@@ -14,5 +14,10 @@
         "trafficLightPosition": { "x": 16, "y": 27 }
       }
     ]
+  },
+  "bundle": {
+    "icon": [
+      "icons/macos/icon.icns"
+    ]
   }
 }
