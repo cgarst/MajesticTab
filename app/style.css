@@ -421,6 +421,8 @@ body {
 /* Keep top bar controls from showing lingering focus rings while using the score */
 #topBar .btn:focus,
 #topBar .btn:focus-visible,
+#topBar .brand-btn:focus,
+#topBar .brand-btn:focus-visible,
 #topBar .btn-check:focus + .btn,
 #topBar .btn-check:focus-visible + .btn {
   outline: none;
