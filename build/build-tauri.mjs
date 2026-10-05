@@ -118,7 +118,7 @@ run('npm', [
   'tauri',
   '--',
   'icon',
-  path.join(rootDir, 'icons', 'android-chrome-512x512.png'),
+  path.join(tauriDir, 'icon-manifest.json'),
   '--output',
   path.join(tauriDir, 'src-tauri', 'icons'),
 ]);
