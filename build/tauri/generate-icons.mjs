@@ -50,8 +50,8 @@ function composeSvg({ box, tile }, backgroundOnly = false) {
     + `${background}${art}</svg>`;
 }
 
-function tauriIcon(input, output, extraArgs = []) {
-  const result = spawnSync('npm', ['run', 'tauri', '--', 'icon', input, '--output', output, ...extraArgs], {
+function tauriIcon(input, output) {
+  const result = spawnSync('npm', ['run', 'tauri', '--', 'icon', input, '--output', output], {
     cwd: scriptDir,
     stdio: 'inherit',
     shell: process.platform === 'win32',
@@ -69,7 +69,7 @@ async function copyTopLevel(from, to, accept) {
   }
 }
 
-async function generate(name, svgSpec, manifest, extraArgs = []) {
+async function generate(name, svgSpec, manifest) {
   const sourceDir = path.join(workDir, `${name}-src`);
   const outDir = path.join(workDir, name);
   await mkdir(sourceDir, { recursive: true });
@@ -82,121 +82,35 @@ async function generate(name, svgSpec, manifest, extraArgs = []) {
     input = path.join(sourceDir, 'manifest.json');
     await writeFile(input, JSON.stringify(manifest, null, 2));
   }
-  tauriIcon(input, outDir, extraArgs);
+  tauriIcon(input, outDir);
   return outDir;
 }
 
-// `tauri icon --png` skips every other format, so desktop targets only rasterize what they need.
-function generatePngs(name, svgSpec, sizes) {
-  return generate(name, svgSpec, undefined, ['--png', sizes.join(',')]);
-}
+await rm(workDir, { recursive: true, force: true });
+await rm(iconsDir, { recursive: true, force: true });
 
-const pngSize = (dir, size) => readFile(path.join(dir, `${size}x${size}.png`));
+const windowsOut = await generate('windows', PLATFORMS.windows);
+await copyTopLevel(windowsOut, path.join(iconsDir, 'windows'), (file) => !file.endsWith('.icns'));
 
-// ICO entries may embed PNG data directly (Vista+).
-async function buildIco(dir, sizes) {
-  const images = await Promise.all(sizes.map((size) => pngSize(dir, size)));
-  const header = Buffer.alloc(6 + 16 * sizes.length);
-  header.writeUInt16LE(1, 2);
-  header.writeUInt16LE(sizes.length, 4);
-  let offset = header.length;
-  sizes.forEach((size, i) => {
-    const entry = 6 + 16 * i;
-    header.writeUInt8(size >= 256 ? 0 : size, entry);
-    header.writeUInt8(size >= 256 ? 0 : size, entry + 1);
-    header.writeUInt16LE(1, entry + 4);
-    header.writeUInt16LE(32, entry + 6);
-    header.writeUInt32LE(images[i].length, entry + 8);
-    header.writeUInt32LE(offset, entry + 12);
-    offset += images[i].length;
-  });
-  return Buffer.concat([header, ...images]);
-}
+const linuxOut = await generate('linux', PLATFORMS.linux);
+await copyTopLevel(linuxOut, path.join(iconsDir, 'linux'), (file) => file.endsWith('.png'));
 
-// Each ICNS chunk type maps to a PNG pixel size (the @2x types reuse the next size up).
-const ICNS_TYPES = [
-  ['icp4', 16], ['ic11', 32], ['icp5', 32], ['ic12', 64], ['ic07', 128],
-  ['ic13', 256], ['ic08', 256], ['ic14', 512], ['ic09', 512], ['ic10', 1024],
-];
+const macosOut = await generate('macos', PLATFORMS.macos);
+await copyTopLevel(macosOut, path.join(iconsDir, 'macos'), (file) => file === 'icon.icns');
 
-async function buildIcns(dir) {
-  const chunks = await Promise.all(ICNS_TYPES.map(async ([type, size]) => {
-    const data = await pngSize(dir, size);
-    const header = Buffer.alloc(8);
-    header.write(type, 0, 'ascii');
-    header.writeUInt32BE(data.length + 8, 4);
-    return Buffer.concat([header, data]);
-  }));
-  const body = Buffer.concat(chunks);
-  const header = Buffer.alloc(8);
-  header.write('icns', 0, 'ascii');
-  header.writeUInt32BE(body.length + 8, 4);
-  return Buffer.concat([header, body]);
-}
+const mobileOut = await generate('mobile', PLATFORMS.ios, {
+  default: 'icon.svg',
+  bg_color: BACKGROUND,
+  ios_color: BACKGROUND,
+  android_fg: 'android-fg.svg',
+  android_bg: 'android-bg.svg',
+  android_fg_scale: 100,
+});
+await cp(path.join(mobileOut, 'android'), path.join(iconsDir, 'android'), { recursive: true });
+await cp(path.join(mobileOut, 'ios'), path.join(iconsDir, 'ios'), { recursive: true });
 
-const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
-
-// Each generator writes only its own icons/<platform>/ directory.
-const GENERATORS = {
-  async windows() {
-    const out = await generatePngs('windows', PLATFORMS.windows, ICO_SIZES);
-    const target = path.join(iconsDir, 'windows');
-    await mkdir(target, { recursive: true });
-    await writeFile(path.join(target, 'icon.ico'), await buildIco(out, ICO_SIZES));
-    console.log(`  ICO Creating icon.ico (${ICO_SIZES.join(', ')})`);
-    for (const size of [32, 128, 256]) {
-      await cp(path.join(out, `${size}x${size}.png`), path.join(target, `${size}x${size}.png`));
-    }
-  },
-  async linux() {
-    const out = await generatePngs('linux', PLATFORMS.linux, [32, 128, 256, 512]);
-    await copyTopLevel(out, path.join(iconsDir, 'linux'), (file) => file.endsWith('.png'));
-  },
-  async macos() {
-    const sizes = [...new Set(ICNS_TYPES.map(([, size]) => size))];
-    const out = await generatePngs('macos', PLATFORMS.macos, sizes);
-    const target = path.join(iconsDir, 'macos');
-    await mkdir(target, { recursive: true });
-    await writeFile(path.join(target, 'icon.icns'), await buildIcns(out));
-    console.log('  ICNS Creating icon.icns');
-  },
-  // `tauri icon` always emits both mobile sets; keep only the one requested.
-  async android() {
-    const out = await generateMobile();
-    await cp(path.join(out, 'android'), path.join(iconsDir, 'android'), { recursive: true });
-  },
-  async ios() {
-    const out = await generateMobile();
-    await cp(path.join(out, 'ios'), path.join(iconsDir, 'ios'), { recursive: true });
-  },
-};
-
-function generateMobile() {
-  return generate('mobile', PLATFORMS.ios, {
-    default: 'icon.svg',
-    bg_color: BACKGROUND,
-    ios_color: BACKGROUND,
-    android_fg: 'android-fg.svg',
-    android_bg: 'android-bg.svg',
-    android_fg_scale: 100,
-  });
-}
-
-const HOST_PLATFORMS = { win32: 'windows', darwin: 'macos', linux: 'linux' };
-const requested = process.argv.slice(2);
-const platforms = requested.length > 0 ? requested : [HOST_PLATFORMS[process.platform]].filter(Boolean);
-for (const name of platforms) {
-  if (!GENERATORS[name]) {
-    console.error(`Unknown icon platform "${name}". Use: ${Object.keys(GENERATORS).join(', ')}`);
-    process.exit(2);
-  }
-}
-
-for (const name of platforms) {
-  await rm(workDir, { recursive: true, force: true });
-  await rm(path.join(iconsDir, name), { recursive: true, force: true });
-  await GENERATORS[name]();
-}
+await rm(workDir, { recursive: true, force: true });
+console.log(`Icons written to ${iconsDir}`);
 
 await rm(workDir, { recursive: true, force: true });
 console.log(`Icons for ${platforms.join(', ')} written to ${iconsDir}`);
