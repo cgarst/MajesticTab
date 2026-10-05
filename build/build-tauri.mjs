@@ -1,4 +1,4 @@
-import { cp, mkdir, readdir, stat } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -146,6 +146,10 @@ if (target === 'android') {
     path.join(javaHome, 'bin'),
     env.PATH,
   ].join(path.delimiter);
+  env.WRY_RUSTWEBVIEW_CLASS_EXTENSION = await readFile(
+    path.join(tauriDir, 'android-youtube-referer.kotlin'),
+    'utf8',
+  );
   const sdkmanager = path.join(androidSdk, 'cmdline-tools', 'latest', 'bin', process.platform === 'win32' ? 'sdkmanager.bat' : 'sdkmanager');
   if (!(await stat(sdkmanager).catch(() => null))) {
     fail('Install Android SDK Command-line Tools in Android Studio (SDK Manager).');

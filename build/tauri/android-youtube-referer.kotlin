@@ -1,0 +1,92 @@
+    override fun setWebViewClient(client: WebViewClient) {
+        super.setWebViewClient(object : WebViewClient() {
+            override fun shouldInterceptRequest(
+                view: WebView,
+                request: WebResourceRequest
+            ): WebResourceResponse? {
+                return interceptYouTubeEmbed(request) ?: client.shouldInterceptRequest(view, request)
+            }
+
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                return client.shouldOverrideUrlLoading(view, request)
+            }
+
+            override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                client.onPageStarted(view, url, favicon)
+            }
+
+            override fun onPageFinished(view: WebView, url: String) {
+                client.onPageFinished(view, url)
+            }
+
+            override fun onReceivedError(
+                view: WebView,
+                request: WebResourceRequest,
+                error: WebResourceError
+            ) {
+                client.onReceivedError(view, request, error)
+            }
+        })
+    }
+
+    private fun interceptYouTubeEmbed(request: WebResourceRequest): WebResourceResponse? {
+        val uri = request.url
+        val host = uri.host?.lowercase() ?: return null
+        if (request.method != "GET" ||
+            (host != "youtube-nocookie.com" && host != "www.youtube-nocookie.com") ||
+            !uri.path.orEmpty().startsWith("/embed/")
+        ) {
+            return null
+        }
+
+        val connection = java.net.URL(uri.toString()).openConnection() as? java.net.HttpURLConnection ?: return null
+        return try {
+            connection.instanceFollowRedirects = true
+            connection.connectTimeout = 15000
+            connection.readTimeout = 30000
+            request.requestHeaders.forEach { (name, value) ->
+                if (!name.equals("Referer", true) &&
+                    !name.equals("Host", true) &&
+                    !name.equals("Accept-Encoding", true) &&
+                    !name.equals("Content-Length", true) &&
+                    !name.equals("Connection", true)
+                ) {
+                    connection.setRequestProperty(name, value)
+                }
+            }
+            connection.setRequestProperty("Accept-Encoding", "identity")
+            connection.setRequestProperty("Referer", "https://io.github.cgarst.MajesticTab")
+
+            val status = connection.responseCode
+            if (status in 300..399) return null
+
+            val body = if (status >= 400) connection.errorStream else connection.inputStream
+            val contentType = connection.contentType ?: "text/html; charset=UTF-8"
+            val mimeType = contentType.substringBefore(';').trim()
+            val charset = Regex("charset=([^;]+)", RegexOption.IGNORE_CASE)
+                .find(contentType)?.groupValues?.get(1)?.trim() ?: "UTF-8"
+            val responseHeaders = HashMap<String, String>()
+            connection.headerFields.forEach { (name, values) ->
+                if (name != null && values != null &&
+                    !name.equals("Content-Type", true) &&
+                    !name.equals("Content-Length", true) &&
+                    !name.equals("Content-Encoding", true) &&
+                    !name.equals("Transfer-Encoding", true) &&
+                    !name.equals("Connection", true)
+                ) {
+                    responseHeaders[name] = values.joinToString(", ")
+                }
+            }
+            WebResourceResponse(
+                mimeType,
+                charset,
+                status,
+                connection.responseMessage ?: "OK",
+                responseHeaders,
+                body ?: java.io.ByteArrayInputStream(ByteArray(0))
+            )
+        } catch (_: Exception) {
+            connection.disconnect()
+            null
+        }
+    }
