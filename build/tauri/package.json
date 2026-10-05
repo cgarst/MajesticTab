@@ -6,8 +6,8 @@
     "tauri": "tauri",
     "prepare:frontend": "node prepare-tauri-frontend.mjs",
     "generate:icons": "node generate-icons.mjs",
-    "tauri:dev": "node prepare-tauri-frontend.mjs && tauri dev",
-    "tauri:build": "node prepare-tauri-frontend.mjs && tauri build"
+    "tauri:dev": "node prepare-tauri-frontend.mjs && node generate-icons.mjs && tauri dev",
+    "tauri:build": "node prepare-tauri-frontend.mjs && node generate-icons.mjs && tauri build"
   },
   "dependencies": {
     "@coderline/alphatab": "1.8.4",
