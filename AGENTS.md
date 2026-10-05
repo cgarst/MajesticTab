@@ -21,7 +21,7 @@ python3 -m http.server 8000
 The app supports a `?test=<filename>` URL parameter that auto-loads a file from the `tests/` directory on startup, bypassing the file picker. Use this to test specific files without manual interaction.
 
 ```
-http://localhost:8000/?test=Keystone.gp
+http://localhost:8000/app/?test=Keystone.gp
 ```
 
 Test files live in `tests/`. Add new test cases there.
