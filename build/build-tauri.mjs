@@ -170,6 +170,14 @@ if (target === 'android') {
   if (!(await stat(androidProject).catch(() => null))) {
     run('npm', ['run', 'tauri', '--', 'android', 'init', '--ci']);
   }
+  // `android init` only copies icons once, so refresh them on every build.
+  const androidRes = path.join(androidProject, 'app', 'src', 'main', 'res');
+  for (const entry of await readdir(androidRes)) {
+    if (entry.startsWith('mipmap-')) await rm(path.join(androidRes, entry), { recursive: true, force: true });
+  }
+  await rm(path.join(androidRes, 'drawable-v24', 'ic_launcher_foreground.xml'), { force: true });
+  await rm(path.join(androidRes, 'drawable', 'ic_launcher_background.xml'), { force: true });
+  await cp(path.join(tauriDir, 'src-tauri', 'icons', 'android'), androidRes, { recursive: true });
   await writeFile(
     path.join(androidProject, 'app', 'src', 'main', 'java', 'io', 'github', 'cgarst', 'MajesticTab', 'MainActivity.kt'),
     await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8'),
