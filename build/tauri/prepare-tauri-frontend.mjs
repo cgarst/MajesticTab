@@ -163,6 +163,7 @@ async function writeBuildInfo() {
     version: tauriConfig.version,
     channel: process.env.MAJESTICTAB_CHANNEL || 'dev',
     buildId: process.env.MAJESTICTAB_BUILD_ID || 'dev',
+    arch: process.env.MAJESTICTAB_ARCH || null,
   };
   await writeFile(path.join(frontendDir, 'build-info.js'), `export default ${JSON.stringify(info)};\n`);
 }

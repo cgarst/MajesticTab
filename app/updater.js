@@ -62,7 +62,10 @@ export async function checkForUpdate(buildInfo, channel = getUpdateChannel()) {
         label = release.tag_name;
     }
     const pattern = platformAssetPattern();
-    const asset = (release.assets || []).find((a) => pattern.test(a.name));
+    const matches = (release.assets || []).filter((a) => pattern.test(a.name));
+    // Tauri names Intel macOS bundles "x64" and Apple Silicon ones "aarch64".
+    const archPattern = buildInfo.arch === 'x86_64' ? /x64|x86_64/i : buildInfo.arch === 'aarch64' ? /aarch64|arm64/i : null;
+    const asset = (archPattern && matches.find((a) => archPattern.test(a.name))) || matches[0];
     return { label, url: asset?.browser_download_url || release.html_url, releaseUrl: release.html_url };
 }
 

@@ -10,6 +10,7 @@ const distDir = path.join(rootDir, 'dist');
 const target = process.argv[2];
 const buildOptions = process.argv.slice(3);
 const debugTools = buildOptions.includes('--debug-tools');
+const macosX64 = buildOptions.includes('--x86_64');
 const validTargets = ['windows', 'macos', 'linux', 'android'];
 const rustBin = path.join(process.env.HOME ?? '', '.cargo', 'bin');
 const env = {
@@ -24,12 +25,15 @@ function fail(message) {
 }
 
 if (!validTargets.includes(target)
-  || buildOptions.some((option) => option !== '--debug-tools')
-  || buildOptions.filter((option) => option === '--debug-tools').length > 1
-  || (debugTools && target === 'android')) {
-  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools]`);
+  || buildOptions.some((option) => option !== '--debug-tools' && option !== '--x86_64')
+  || new Set(buildOptions).size !== buildOptions.length
+  || (debugTools && target === 'android')
+  || (macosX64 && target !== 'macos')) {
+  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools] [--x86_64 (macos only)]`);
   process.exit(2);
 }
+
+if (target === 'macos') env.MAJESTICTAB_ARCH = macosX64 ? 'x86_64' : 'aarch64';
 
 function run(command, args, options = {}) {
   const result = spawnSync(command, args, {
@@ -210,8 +214,12 @@ if (target === 'android') {
   const buildEnv = target === 'macos' ? { ...env, CI: 'true' } : env;
   const buildArgs = ['run', 'tauri', '--', 'build', '--bundles', bundle];
   if (debugTools) buildArgs.push('--features', 'debug-tools');
+  if (macosX64) buildArgs.push('--target', 'x86_64-apple-darwin');
   run('npm', buildArgs, { env: buildEnv });
-  await copyBundleArtifacts(path.join(tauriDir, 'target', 'release', 'bundle'), extension);
+  const bundleDir = macosX64
+    ? path.join(tauriDir, 'target', 'x86_64-apple-darwin', 'release', 'bundle')
+    : path.join(tauriDir, 'target', 'release', 'bundle');
+  await copyBundleArtifacts(bundleDir, extension);
 }
 
 console.log(`Build output: ${distDir}`);
