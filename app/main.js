@@ -941,12 +941,21 @@ export function getPdfPages() {
     const icon = document.getElementById("fullscreenIcon");
     if (!btn) return;
     const root = document.documentElement;
+    const nativeImmersive = window.AndroidImmersive;
+    let immersive = false;
     const request = root.requestFullscreen || root.webkitRequestFullscreen;
-    if (!request) { btn.parentElement.style.display = "none"; return; }
-    const getFsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
+    if (!request && !nativeImmersive) { btn.parentElement.style.display = "none"; return; }
+    const getFsElement = () => nativeImmersive ? (immersive || null) : (document.fullscreenElement || document.webkitFullscreenElement);
     const exit = () => (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     btn.addEventListener("click", () => {
         console.log("Fullscreen button clicked; currently fullscreen:", !!getFsElement());
+        if (nativeImmersive) {
+            immersive = !immersive;
+            nativeImmersive.setImmersive(immersive);
+            onChange();
+            btn.blur();
+            return;
+        }
         try {
             const result = getFsElement() ? exit() : request.call(root);
             if (result && result.catch) result.catch(err => console.error("Fullscreen failed:", err));
