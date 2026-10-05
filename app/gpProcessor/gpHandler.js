@@ -105,6 +105,55 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 let gpRenderToken = 0;
 
 /**
+ * Re-render the loaded GP score at the current display scale without reloading
+ * the file, so playback and page position are preserved.
+ */
+export function applyGpDisplayScale(output, pageModeChecked, continuousModeRadio) {
+    const api = gpState.canvases[0]?.api;
+    const container = gpState.canvases[0]?.container;
+    if (!api || !container) return false;
+
+    const oldIndex = gpState.currentPageIndex;
+    const oldCount = gpState.pages.length;
+    api.settings.display.scale = GP_DISPLAY_SCALE;
+    api.updateSettings();
+
+    if (!pageModeChecked) {
+        api.render();
+        return true;
+    }
+
+    // Park offscreen while re-rendering, as in renderGPPage
+    const offscreenHolder = document.createElement('div');
+    offscreenHolder.style.cssText = 'position:absolute;visibility:hidden;width:0;height:0;overflow:hidden;';
+    document.body.appendChild(offscreenHolder);
+    if (container.parentNode) container.parentNode.removeChild(container);
+    offscreenHolder.appendChild(container);
+
+    const renderToken = ++gpRenderToken;
+    const unsub = api.postRenderFinished.on(() => {
+        unsub();
+        if (offscreenHolder.parentNode) document.body.removeChild(offscreenHolder);
+        if (renderToken !== gpRenderToken) return;
+        gpState.lastLayoutDimensions = null;
+        // Estimate the equivalent position in the new pagination
+        gpState.pages = [];
+        renderGPPageMode(output);
+        const newCount = gpState.pages.length;
+        if (oldCount > 0 && newCount > 0) {
+            const maxIndex = Math.max(0, newCount - getPagesPerView());
+            const target = Math.min(maxIndex, Math.floor(oldIndex / oldCount * newCount));
+            if (target !== gpState.currentPageIndex) {
+                gpState.currentPageIndex = target;
+                renderGPPageMode(output);
+            }
+        }
+    });
+    api.render();
+    return true;
+}
+
+/**
  * Render GP pages based on view mode
  */
 export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
