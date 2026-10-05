@@ -244,7 +244,9 @@ function setupSettings() {
             const scaledValue = syncGpSheetScale(nextValue);
             setGpDisplayScale(scaledValue);
 
-            if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
+            if (currentFile && isFileType(currentFile, ['txt'])) {
+                await loadFile(currentFile, { hideMenu: false });
+            } else if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
                 if (!applyGpDisplayScale(output, pageModeRadio.checked, continuousModeRadio)) {
                     await loadFile(currentFile, { hideMenu: false });
                 }
@@ -304,6 +306,8 @@ function setupSettings() {
     });
 
     // Setup Default View selectors for GP and PDF
+    document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
+
     let savedGpDefaultView = localStorage.getItem('gpDefaultView') || 'continuous';
     const gpDefaultRadios = document.querySelectorAll('input[name="gpDefaultViewRadio"]');
     gpDefaultRadios.forEach(radio => {
@@ -326,6 +330,18 @@ function setupSettings() {
         radio.addEventListener('change', () => {
             if (radio.checked) {
                 localStorage.setItem('pdfDefaultView', radio.value);
+            }
+        });
+    });
+
+    let savedTxtDefaultView = localStorage.getItem('txtDefaultView') || 'continuous';
+    document.querySelectorAll('input[name="txtDefaultViewRadio"]').forEach(radio => {
+        if (radio.value === savedTxtDefaultView) {
+            radio.checked = true;
+        }
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                localStorage.setItem('txtDefaultView', radio.value);
             }
         });
     });
@@ -873,6 +889,10 @@ export async function loadFile(file, { hideMenu = true } = {}) {
             pageModeRadio.checked = true;
             continuousModeRadio.checked = false;
         }
+    } else if (isFileType(file, ['txt'])) {
+        const txtDefault = localStorage.getItem('txtDefaultView') || 'continuous';
+        continuousModeRadio.checked = txtDefault === 'continuous';
+        pageModeRadio.checked = txtDefault !== 'continuous';
     } else if (isFileType(file, ['pdf'])) {
         const pdfDefault = localStorage.getItem('pdfDefaultView') || 'page';
         if (pdfDefault === 'continuous') {
