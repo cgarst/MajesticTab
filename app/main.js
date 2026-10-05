@@ -234,7 +234,7 @@ function setupSettings() {
     if (gpSheetScaleInput && gpSheetScaleValue) {
         const syncGpSheetScale = (nextValue) => {
             const currentScale = Number.parseInt(nextValue, 10);
-            const safeValue = Number.isFinite(currentScale) ? currentScale : 100;
+            const safeValue = Number.isFinite(currentScale) ? Math.min(150, Math.max(50, currentScale)) : 100;
             gpSheetScaleInput.value = String(safeValue);
             gpSheetScaleValue.textContent = `${safeValue}%`;
             return safeValue;
@@ -270,7 +270,7 @@ function setupSettings() {
 
         gpSheetScalePlus?.addEventListener('click', async () => {
             const currentScale = Number.parseInt(gpSheetScaleInput.value, 10) || 100;
-            const nextScale = Math.min(200, currentScale + 5);
+            const nextScale = Math.min(150, currentScale + 5);
             await applyGpSheetScale(nextScale);
         });
     }

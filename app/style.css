@@ -1726,6 +1726,44 @@ input[type=range]::-webkit-slider-thumb:hover {
   box-shadow: 0 0 0 2px var(--accent-primary-alpha);
 }
 
+.gp-scale-slider {
+  min-width: 0;
+}
+
+.offcanvas .gp-scale-slider .form-range::-webkit-slider-runnable-track {
+  background-image:
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted));
+  background-position:
+    calc(0% + 0.5rem) 50%,
+    calc(25% + 0.25rem) 50%,
+    50% 50%,
+    calc(75% - 0.25rem) 50%,
+    calc(100% - 0.5rem) 50%;
+  background-repeat: no-repeat;
+  background-size: 1px 60%;
+}
+
+.offcanvas .gp-scale-slider .form-range::-moz-range-track {
+  background-image:
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted)),
+    linear-gradient(var(--text-muted), var(--text-muted));
+  background-position:
+    calc(0% + 0.5rem) 50%,
+    calc(25% + 0.25rem) 50%,
+    50% 50%,
+    calc(75% - 0.25rem) 50%,
+    calc(100% - 0.5rem) 50%;
+  background-repeat: no-repeat;
+  background-size: 1px 60%;
+}
+
 /* --------------------------------------------------------------------------
    Sheet Music Canvas & Page Layout
    Default: Clean & Crisp Standard Notation
