@@ -97,7 +97,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                 player: {
                     enablePlayer: true,
                     playerMode: alphaTab.PlayerMode.EnabledSynthesizer,
-                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/soundfont/sonivox.sf2',
+                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/soundfont/sonivox.sf2',
                     enableCursor: true,
                     enableElementHighlighting: true,
                     scrollMode: alphaTab.ScrollMode.Off

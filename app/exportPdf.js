@@ -19,7 +19,7 @@ async function getAlphaTabFontCss() {
 
   let embeddedFont = '';
   try {
-    const fontUrl = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff2';
+    const fontUrl = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff2';
     const response = await fetch(fontUrl);
     if (response.ok) {
       const buffer = await response.arrayBuffer();
@@ -36,7 +36,7 @@ async function getAlphaTabFontCss() {
 
   const src = embeddedFont
     ? `url('${embeddedFont}') format('woff2')`
-    : `url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff2') format('woff2'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.woff') format('woff'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.1/dist/font/Bravura.otf') format('opentype')`;
+    : `url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff2') format('woff2'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff') format('woff'), url('https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.otf') format('opentype')`;
 
   const baseCss = `
       @font-face {
