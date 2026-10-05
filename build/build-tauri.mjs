@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -190,6 +190,8 @@ if (target === 'android') {
   run('npm', ['run', 'tauri', '--', 'build', '--no-bundle']);
   const repoDir = path.join(tauriDir, 'target', 'flatpak-repo');
   const buildDir = path.join(tauriDir, 'target', 'flatpak-build');
+  // A cached target/ can restore an empty repo dir that flatpak-builder cannot open.
+  await rm(repoDir, { recursive: true, force: true });
   run('flatpak-builder', [
     '--force-clean',
     `--repo=${repoDir}`,
