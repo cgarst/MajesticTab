@@ -1,7 +1,8 @@
 // googleDrive.js
 import { loadFile, hideFileMenu } from './main.js';
 
-const CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
+const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
+const TAURI_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const STORAGE_KEY = 'gdrive_auth';
 const FOLDER_STORAGE_KEY = 'gdrive_last_folder';
@@ -94,9 +95,14 @@ function getRedirectUri() {
 }
 
 export function redirectToGoogleAuth() {
+    if (window.__TAURI__?.core?.invoke && window.__TAURI__?.event?.listen) {
+        startTauriGoogleAuth();
+        return;
+    }
+
     const redirectUri = getRedirectUri();
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${encodeURIComponent(CLIENT_ID)}` +
+        `client_id=${encodeURIComponent(BROWSER_CLIENT_ID)}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
         `&response_type=token` +
         `&scope=${encodeURIComponent(SCOPE)}` +
@@ -104,6 +110,108 @@ export function redirectToGoogleAuth() {
         `&state=open_drive_browser`;
 
     window.location.href = authUrl;
+}
+
+async function startTauriGoogleAuth() {
+    const tauri = window.__TAURI__;
+    let port = null;
+    let unlisten = null;
+    let state;
+
+    try {
+        const { TAURI_CLIENT_SECRET } = await import('./googleDrive.local.js');
+        if (!TAURI_CLIENT_SECRET || TAURI_CLIENT_SECRET === 'REPLACE_WITH_DESKTOP_CLIENT_SECRET') {
+            throw new Error('Set the Desktop OAuth client secret in app/googleDrive.local.js.');
+        }
+
+        state = encodeBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+        const codeVerifier = encodeBase64Url(crypto.getRandomValues(new Uint8Array(32)));
+        const challengeDigest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(codeVerifier));
+        const codeChallenge = encodeBase64Url(new Uint8Array(challengeDigest));
+
+        unlisten = await tauri.event.listen('oauth://url', async (event) => {
+            unlisten?.();
+            const callbackUrl = new URL(event.payload);
+            const callbackState = callbackUrl.searchParams.get('state');
+
+            if (callbackUrl.protocol !== 'http:'
+                || callbackUrl.hostname !== '127.0.0.1'
+                || callbackUrl.port !== String(port)
+                || callbackState !== state) {
+                console.error('Ignored an invalid Google OAuth callback.');
+                return;
+            }
+
+            const authorizationCode = callbackUrl.searchParams.get('code');
+            if (!authorizationCode) {
+                console.error('Google OAuth callback did not contain an authorization code.');
+                alert('Google authorization was not completed. Please try again.');
+                return;
+            }
+
+            try {
+                const response = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                        client_id: TAURI_CLIENT_ID,
+                        client_secret: TAURI_CLIENT_SECRET,
+                        code: authorizationCode,
+                        code_verifier: codeVerifier,
+                        grant_type: 'authorization_code',
+                        redirect_uri: `http://127.0.0.1:${port}`
+                    })
+                });
+                const authData = await response.json();
+                if (!response.ok || !storeGoogleAuth(authData.access_token, authData.expires_in)) {
+                    throw new Error(authData.error_description || 'Google token exchange failed.');
+                }
+                openDriveModal();
+            } catch (error) {
+                console.error('Failed to exchange Google authorization code:', error);
+                alert('Could not connect to Google Drive. Please try again.');
+            }
+        });
+
+        port = await tauri.core.invoke('plugin:oauth|start', { config: {} });
+
+        const redirectUri = `http://127.0.0.1:${port}`;
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+            `client_id=${encodeURIComponent(TAURI_CLIENT_ID)}` +
+            `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+            `&response_type=code` +
+            `&scope=${encodeURIComponent(SCOPE)}` +
+            `&state=${encodeURIComponent(state)}` +
+            `&code_challenge=${encodeURIComponent(codeChallenge)}` +
+            `&code_challenge_method=S256`;
+
+        await tauri.core.invoke('plugin:opener|open_url', { url: authUrl });
+    } catch (error) {
+        unlisten?.();
+        if (port !== null) {
+            await tauri.core.invoke('plugin:oauth|cancel', { port }).catch(() => {});
+        }
+        console.error('Failed to start Google OAuth:', error);
+        alert('Could not connect to Google Drive. Please try again.');
+    }
+}
+
+function encodeBase64Url(bytes) {
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+}
+
+function storeGoogleAuth(accessToken, expiresIn) {
+    if (!accessToken) return false;
+
+    const authData = {
+        access_token: accessToken,
+        expiry_date: Date.now() + ((parseInt(expiresIn, 10) || 3600) * 1000)
+    };
+    token = authData.access_token;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
+    return true;
 }
 
 export function openDriveModal() {
@@ -422,12 +530,7 @@ function handleAuthRedirect() {
     const state = params.get('state');
 
     if (accessToken) {
-        const authData = {
-            access_token: accessToken,
-            expiry_date: Date.now() + ((parseInt(expiresIn, 10) || 3600) * 1000)
-        };
-        token = authData.access_token;
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
+        storeGoogleAuth(accessToken, expiresIn);
 
         const cleanUrl = window.location.pathname + window.location.search;
         window.history.replaceState(null, '', cleanUrl);

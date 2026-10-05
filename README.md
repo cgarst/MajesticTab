@@ -144,7 +144,15 @@ node build/build-tauri.mjs linux
 node build/build-tauri.mjs android
 ```
 
-Build macOS and Windows installers on their respective operating systems. The Linux target builds a Flatpak and requires `flatpak` and `flatpak-builder`. Android requires Android Studio's SDK Platform, Platform-Tools, Command-line Tools, NDK (Side by side), a supported JDK, and `ANDROID_HOME`, `NDK_HOME`, and `JAVA_HOME` configured per the Tauri guide. Android produces a debug APK for testing; release distribution needs signing. All generated bundles and Cargo output go under the git-ignored `dist/` directory. Desktop builds are unsigned unless signing credentials are configured.
+Desktop builds disable the JavaScript inspector by default. Add `--debug-tools` to a macOS, Windows, or Linux command to enable and open it for debugging, for example:
+
+```bash
+node build/build-tauri.mjs macos --debug-tools
+```
+
+Build macOS and Windows installers on their respective operating systems. The Linux target builds a Flatpak and requires `flatpak` and `flatpak-builder`. Android requires Android Studio's SDK Platform, Platform-Tools, Command-line Tools, NDK (Side by side), JDK 17-26 (JDK 17 recommended), and `ANDROID_HOME`, `NDK_HOME`, and `JAVA_HOME` configured per the Tauri guide. The build script checks the selected JDK before running Gradle. Android produces a debug APK for testing; release distribution needs signing. All generated bundles and Cargo output go under the git-ignored `dist/` directory. Desktop builds are unsigned unless signing credentials are configured.
+
+To enable Google Drive in a Tauri build, copy `app/googleDrive.local.js.example` to `app/googleDrive.local.js` and replace the placeholder with the Desktop OAuth client secret. The local file is git-ignored, but the secret is embedded in the packaged app and can be extracted from it; do not treat it as confidential.
 
 ---
 
