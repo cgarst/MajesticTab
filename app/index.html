@@ -14,6 +14,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
 </head>
 <body>
+  <div id="updateBanner" class="update-banner" hidden role="status">
+    <span id="updateBannerText"></span>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="updateDownloadBtn">Download</button>
+    <button type="button" class="btn btn-sm btn-outline-primary" id="updateDismissBtn" aria-label="Dismiss"><i class="bi-x-lg"></i></button>
+  </div>
 
 <!-- Modern Minimal Top Bar (Floating HUD) -->
 <nav id="topBar" data-tauri-drag-region>
@@ -465,6 +470,27 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- Updates (native app only) -->
+    <div class="settings-card" id="updateSettingsCard" hidden>
+      <div class="settings-header-label">
+        <i class="bi-cloud-arrow-down text-danger"></i> Updates
+      </div>
+      <div class="small text-white-50 mb-2" id="updateCurrentVersion"></div>
+      <label class="form-label d-block mb-1 small text-white-50">Check for:</label>
+      <div class="hud-pill-group w-100 mb-2">
+        <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNone" value="none" autocomplete="off">
+        <label class="btn btn-sm w-33" for="updateChannelNone">None</label>
+
+        <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNightly" value="nightly" autocomplete="off">
+        <label class="btn btn-sm w-33" for="updateChannelNightly">Nightly</label>
+
+        <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelStable" value="stable" autocomplete="off" checked>
+        <label class="btn btn-sm w-33" for="updateChannelStable">Stable</label>
+      </div>
+      <button class="btn btn-outline-primary w-100" id="updateCheckBtn" type="button">Check Now</button>
+      <div class="small text-white-50 mt-2" id="updateStatus" role="status"></div>
     </div>
 
     <!-- Section 4: PDF Tools & Exports -->
