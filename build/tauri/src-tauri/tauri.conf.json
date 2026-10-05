@@ -7,11 +7,13 @@
     "frontendDist": "../../../app"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "MajesticTab",
         "width": 1440,
         "height": 960,
+        "devtools": false,
         "minWidth": 760,
         "minHeight": 560
       }

@@ -5,6 +5,9 @@ description = "Guitar Pro and PDF guitar tab viewer"
 authors = ["MajesticTab contributors"]
 edition = "2021"
 
+[features]
+debug-tools = ["tauri/devtools"]
+
 [lib]
 name = "majestictab_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
@@ -14,3 +17,5 @@ tauri-build = { version = "2", features = [] }
 
 [dependencies]
 tauri = { version = "2", features = [] }
+tauri-plugin-oauth = "2"
+tauri-plugin-opener = "2"
