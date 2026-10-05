@@ -24,6 +24,7 @@ jobs:
   build:
     needs: verify
     uses: ./.github/workflows/build.yml
+    secrets: inherit
     with:
       channel: stable
       build_id: ${{ github.ref_name }}

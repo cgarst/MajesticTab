@@ -1,4 +1,4 @@
-package io.github.cgarst.MajesticTab
+package net.zathu.majestictab
 
 import android.os.Bundle
 import android.webkit.JavascriptInterface
