@@ -446,7 +446,11 @@
       var RELEASES = 'https://github.com/' + REPO + '/releases';
       var ua = navigator.userAgent;
       var plat = navigator.platform || '';
-      var platform = /android/i.test(ua) ? 'android'
+      // "Desktop site" mode hides "Android" from the UA, but platform stays "Linux armv8l" and touch remains.
+      var uaDataPlat = (navigator.userAgentData && navigator.userAgentData.platform) || '';
+      var isAndroid = /android/i.test(ua) || /android/i.test(uaDataPlat) ||
+        (/^Linux (arm|aarch)/i.test(plat) && navigator.maxTouchPoints > 0);
+      var platform = isAndroid ? 'android'
         : (/iPhone|iPad|iPod/.test(ua) || (plat === 'MacIntel' && navigator.maxTouchPoints > 1)) ? 'ios'
         : /Win/i.test(plat) ? 'windows'
         : /Mac/i.test(plat) ? 'macos'
