@@ -5,10 +5,11 @@ const LAST_CHECK_KEY = 'updateLastCheck';
 const DISMISSED_KEY = 'updateDismissed';
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const CHANNELS = ['none', 'nightly', 'stable'];
+let defaultChannel = 'stable';
 
 export function getUpdateChannel() {
     const saved = localStorage.getItem(CHANNEL_KEY);
-    return CHANNELS.includes(saved) ? saved : 'stable';
+    return CHANNELS.includes(saved) ? saved : defaultChannel;
 }
 
 function parseVersion(tag) {
@@ -112,6 +113,9 @@ export async function initUpdater() {
     } catch {
         return;
     }
+
+    // Nightly builds follow nightly until the user picks otherwise.
+    if (buildInfo.channel === 'nightly') defaultChannel = 'nightly';
 
     const section = document.getElementById('updateSettingsCard');
     if (section) section.hidden = false;
