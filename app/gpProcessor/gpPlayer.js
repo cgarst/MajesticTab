@@ -840,6 +840,15 @@ export function initSynthPlayer() {
         toggleSynthPanel();
     });
 
+    window.addEventListener('resize', () => {
+        const panel = document.getElementById('synthDropdownPanel');
+        if (!synthPlayerState.isOpen || !toggleBtn || !panel) return;
+        const rect = toggleBtn.getBoundingClientRect();
+        const halfPanelWidth = Math.min(180, (window.innerWidth - 24) / 2);
+        panel.style.top = `${rect.bottom + 8}px`;
+        panel.style.left = `${Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, rect.left + rect.width / 2))}px`;
+    });
+
     closeBtn?.addEventListener('click', () => {
         toggleSynthPanel(false);
     });
