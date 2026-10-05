@@ -1,1 +1,9 @@
 .DS_Store
+/dist/
+/build/node_modules/
+/build/mac-arm64/
+/build/tauri/node_modules/
+/build/tauri/src-tauri/gen/
+/build/tauri/src-tauri/icons/
+/build/tauri/src-tauri/target/
+/build/tauri/target/

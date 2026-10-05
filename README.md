@@ -133,6 +133,19 @@ The app then removes empty staves, cleans margins, and re-renders the tab into a
 
 The app is browser-based and loads external libraries from a CDN, so there is no app build step required for normal use.
 
+### Desktop and Android builds
+
+The Tauri v2 build configuration and launcher live under `build/`. Install Node.js, Rust, and the platform prerequisites listed in the [Tauri guide](https://v2.tauri.app/start/prerequisites/), then run one target from the repository root:
+
+```bash
+node build/build-tauri.mjs macos
+node build/build-tauri.mjs windows
+node build/build-tauri.mjs linux
+node build/build-tauri.mjs android
+```
+
+Build macOS and Windows installers on their respective operating systems. The Linux target builds a Flatpak and requires `flatpak` and `flatpak-builder`. Android requires Android Studio's SDK Platform, Platform-Tools, Command-line Tools, NDK (Side by side), a supported JDK, and `ANDROID_HOME`, `NDK_HOME`, and `JAVA_HOME` configured per the Tauri guide. Android produces a debug APK for testing; release distribution needs signing. All generated bundles and Cargo output go under the git-ignored `dist/` directory. Desktop builds are unsigned unless signing credentials are configured.
+
 ---
 
 ## Contributing
