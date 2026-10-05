@@ -41,6 +41,20 @@ window.addEventListener('resize', () => {
 // Handle desktop zooming with Ctrl+Wheel
 const mainContent = document.getElementById('mainContent');
 const topBar = document.getElementById('topBar');
+// Native macOS shell uses an overlay title bar; reserve room for the traffic lights.
+if (window.__TAURI__ && /Mac/i.test(navigator.platform)) {
+    const root = document.documentElement;
+    // Traffic lights are hidden in fullscreen, so revert to the standard layout then.
+    const syncTitleBarInset = () => {
+        const fs = !!(document.fullscreenElement || document.webkitFullscreenElement)
+            || window.innerHeight >= screen.height;
+        root.classList.toggle('tauri-macos', !fs);
+    };
+    syncTitleBarInset();
+    window.addEventListener('resize', syncTitleBarInset);
+    document.addEventListener('fullscreenchange', syncTitleBarInset);
+    document.addEventListener('webkitfullscreenchange', syncTitleBarInset);
+}
 if (topBar) {
     let isDown = false;
     let startX = 0;
