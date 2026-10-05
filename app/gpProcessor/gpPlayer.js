@@ -165,6 +165,8 @@ export function updateSynthUI() {
     });
 }
 
+const playedBeatState = { beat: null, shownBeat: null };
+
 /**
  * Render visual playback position cursor and handle auto-page navigation in Page Mode
  */
@@ -185,25 +187,20 @@ function updatePageModeCursor(currentTick) {
     const boundsLookup = currentApi.renderer?.boundsLookup;
     if (!boundsLookup || !boundsLookup.staffSystems || !boundsLookup.staffSystems.length) return;
 
-    // 1. Find master bar for currentTick
-    const masterBars = currentScore.masterBars;
-    if (!masterBars || !masterBars.length) return;
-
-    let activeMasterBarIndex = -1;
-    for (let i = 0; i < masterBars.length; i++) {
-        const mb = masterBars[i];
-        const barStart = mb.start;
-        const barEnd = barStart + mb.calculateDuration();
-        if (currentTick >= barStart && currentTick < barEnd) {
-            activeMasterBarIndex = i;
-            break;
-        }
+    // 1. Use the beat AlphaTab reports as playing; raw ticks are on the repeat-unrolled timeline.
+    const playedBeat = playedBeatState.beat;
+    if (!playedBeat) return;
+    if (playedBeatState.shownBeat !== playedBeat) {
+        playedBeatState.shownBeat = playedBeat;
     }
-    if (activeMasterBarIndex === -1 && masterBars.length > 0) {
-        if (currentTick >= masterBars[masterBars.length - 1].start) {
-            activeMasterBarIndex = masterBars.length - 1;
-        }
+    const activeMasterBarIndex = playedBeat.voice.bar.masterBar.index;
+    let tempo = currentScore.tempo || 120;
+    for (let i = activeMasterBarIndex; i >= 0; i--) {
+        const auto = currentScore.masterBars[i].tempoAutomation;
+        if (auto) { tempo = auto.value; break; }
     }
+    // AlphaTab MIDI resolution is 960 ticks per quarter note
+    const ticksPerMs = (tempo * 960 / 60000) * (currentApi.playbackSpeed || 1);
     if (activeMasterBarIndex < 0) return;
 
     // 2. Find which staffSystem contains activeMasterBarIndex
@@ -227,35 +224,19 @@ function updatePageModeCursor(currentTick) {
     if (!targetStaffSystem || targetStaffSystemIndex < 0 || !targetBarBounds) return;
 
     // 3. Find beat bounds within the bar
-    const targetMasterBar = masterBars[activeMasterBarIndex];
     let targetBeatBounds = null;
     let nextBeatBounds = null;
-    let beatProgress = 0;
+    let beatTicks = 0;
     if (targetBarBounds.bars && targetBarBounds.bars.length > 0) {
         const trackBar = targetBarBounds.bars[0];
-        if (trackBar.beats && trackBar.beats.length > 0) {
-            for (const beat of trackBar.beats) {
-                const bStart = beat.beat?.absolutePlaybackStart ?? ((targetMasterBar.start || 0) + (beat.beat?.playbackStart ?? beat.playbackStart ?? 0));
-                const bDur = beat.beat?.playbackDuration ?? beat.playbackDuration ?? 0;
-                if (bStart !== undefined && currentTick >= bStart && currentTick < (bStart + bDur)) {
-                    targetBeatBounds = beat;
-                    beatProgress = bDur > 0 ? (currentTick - bStart) / bDur : 0;
-                    nextBeatBounds = trackBar.beats[trackBar.beats.indexOf(beat) + 1] || null;
-                    break;
-                }
-            }
-            if (!targetBeatBounds && trackBar.beats.length > 0) {
-                // If not found inside any specific beat range, pick the closest beat
-                let minDiff = Infinity;
-                for (const beat of trackBar.beats) {
-                    const bStart = beat.beat?.absolutePlaybackStart ?? ((targetMasterBar.start || 0) + (beat.beat?.playbackStart ?? beat.playbackStart ?? 0));
-                    const diff = Math.abs(currentTick - bStart);
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        targetBeatBounds = beat;
-                    }
-                }
-            }
+        const beats = trackBar.beats || [];
+        const idx = beats.findIndex(b => b.beat === playedBeat);
+        if (idx >= 0) {
+            targetBeatBounds = beats[idx];
+            nextBeatBounds = beats[idx + 1] || null;
+            // playbackDuration of a trailing rest can be shorter than the time left in the bar
+            const barTicks = playedBeat.voice.bar.masterBar.calculateDuration();
+            beatTicks = (nextBeatBounds?.beat?.playbackStart ?? barTicks) - playedBeat.playbackStart;
         }
     }
 
@@ -383,11 +364,19 @@ function updatePageModeCursor(currentTick) {
             const endX = nextBeatBounds
                 ? (nextBeatBounds.onNotesX ?? nextBeatBounds.visualBounds?.x ?? startX)
                 : (staffBounds.x + staffBounds.w);
-            const rawBeatX = startX + (endX - startX) * Math.max(0, Math.min(1, beatProgress));
-            const beatX = svgLeftOffset + rawBeatX;
             const beatW = 3;
 
-            cursorBeat.style.left = `${beatX}px`;
+            // Start one linear animation per beat so motion isn't restarted on every position update
+            if (cursorBeat._animBeat !== playedBeat) {
+                cursorBeat._animBeat = playedBeat;
+                const beatMs = beatTicks / ticksPerMs;
+                cursorBeat.style.display = 'block';
+                cursorBeat.style.transition = 'none';
+                cursorBeat.style.left = `${svgLeftOffset + startX}px`;
+                void cursorBeat.offsetWidth;
+                cursorBeat.style.transition = `left ${beatMs}ms linear`;
+                cursorBeat.style.left = `${svgLeftOffset + endX}px`;
+            }
             cursorBeat.style.top = `${barY}px`;
             cursorBeat.style.width = `${beatW}px`;
             cursorBeat.style.height = `${barH}px`;
@@ -582,6 +571,10 @@ export function attachAlphaTabApi(api) {
         updateSynthUI();
     });
 
+    api.playedBeatChanged.on((beat) => {
+        playedBeatState.beat = beat;
+    });
+
     // Player Position Changed
     api.playerPositionChanged.on((args) => {
         synthPlayerState.currentTime = args.currentTime;
@@ -611,6 +604,8 @@ export function attachAlphaTabApi(api) {
  */
 export function clearSynthHighlights() {
     synthPlayerState.hasPlayed = false;
+    playedBeatState.beat = null;
+    playedBeatState.shownBeat = null;
     document.body.classList.remove('synth-playback-started');
     document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
 }
