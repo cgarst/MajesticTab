@@ -17,6 +17,7 @@
   },
   "bundle": {
     "icon": [
+      "icons/macos/512x512.png",
       "icons/macos/icon.icns"
     ]
   }
