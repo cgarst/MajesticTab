@@ -975,6 +975,8 @@ export function getPdfPages() {
     let immersive = false;
     const request = root.requestFullscreen || root.webkitRequestFullscreen;
     if (!request && !nativeImmersive) { btn.parentElement.style.display = "none"; return; }
+    // The native macOS green button handles fullscreen in the Tauri build.
+    if (window.__TAURI__ && /Mac/i.test(navigator.platform)) { btn.parentElement.style.display = "none"; return; }
     const getFsElement = () => nativeImmersive ? (immersive || null) : (document.fullscreenElement || document.webkitFullscreenElement);
     const exit = () => (document.exitFullscreen || document.webkitExitFullscreen).call(document);
     btn.addEventListener("click", () => {
