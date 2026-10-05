@@ -5,10 +5,12 @@ const CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleuse
 const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 const STORAGE_KEY = 'gdrive_auth';
 const FOLDER_STORAGE_KEY = 'gdrive_last_folder';
+const TABS_DIRECTORY_STORAGE_KEY = 'gdrive_tabs_directory';
 
 let token = null;
 let currentFolderId = 'root';
 let folderHistory = [{ id: 'root', name: 'My Drive' }];
+let tabsDirectory = null;
 let currentSearchQuery = '';
 let searchDebounceTimeout = null;
 
@@ -38,8 +40,33 @@ function loadSavedFolder() {
     }
 }
 
-// Load saved folder location on script initialization
+function loadTabsDirectory() {
+    try {
+        const saved = localStorage.getItem(TABS_DIRECTORY_STORAGE_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.id && parsed.name) tabsDirectory = parsed;
+        }
+    } catch (e) {
+        console.error('Failed to load tabs directory:', e);
+    }
+}
+
+function getDriveRoot() {
+    return tabsDirectory || { id: 'root', name: 'My Drive' };
+}
+
+function resetFolderToDriveRoot() {
+    const root = getDriveRoot();
+    currentFolderId = root.id;
+    folderHistory = [{ id: root.id, name: root.name }];
+    saveCurrentFolder();
+}
+
+// Load saved root and folder location on script initialization
+loadTabsDirectory();
 loadSavedFolder();
+if (folderHistory[0]?.id !== getDriveRoot().id) resetFolderToDriveRoot();
 
 export function isTokenValid() {
     try {
@@ -165,6 +192,9 @@ function renderBreadcrumbs() {
             loadDriveFiles();
         });
     });
+
+    const resetRootBtn = document.getElementById('driveResetTabsDirectoryBtn');
+    if (resetRootBtn) resetRootBtn.hidden = !tabsDirectory;
 }
 
 function escapeHtml(str) {
@@ -197,7 +227,7 @@ async function loadDriveFiles() {
 
         if (currentSearchQuery.trim()) {
             const cleanSearch = currentSearchQuery.trim().replace(/'/g, "\\'");
-            query += ` and name contains '${cleanSearch}'`;
+            query += ` and '${getDriveRoot().id}' in parents and name contains '${cleanSearch}'`;
         } else {
             query += ` and '${currentFolderId}' in parents`;
         }
@@ -219,11 +249,9 @@ async function loadDriveFiles() {
                 redirectToGoogleAuth();
                 return;
             }
-            if ((res.status === 404 || res.status === 400) && currentFolderId !== 'root') {
-                console.warn('[Drive] Saved folder inaccessible, falling back to root');
-                currentFolderId = 'root';
-                folderHistory = [{ id: 'root', name: 'My Drive' }];
-                saveCurrentFolder();
+            if ((res.status === 404 || res.status === 400) && currentFolderId !== getDriveRoot().id) {
+                console.warn('[Drive] Saved folder inaccessible, falling back to tabs directory');
+                resetFolderToDriveRoot();
                 loadDriveFiles();
                 return;
             }
@@ -384,6 +412,23 @@ export function setupDrivePicker() {
 
     const refreshBtn = document.getElementById('driveRefreshBtn');
     refreshBtn?.addEventListener('click', () => loadDriveFiles());
+
+    const setRootBtn = document.getElementById('driveSetTabsDirectoryBtn');
+    setRootBtn?.addEventListener('click', () => {
+        const currentFolder = folderHistory[folderHistory.length - 1];
+        tabsDirectory = { id: currentFolder.id, name: currentFolder.name };
+        localStorage.setItem(TABS_DIRECTORY_STORAGE_KEY, JSON.stringify(tabsDirectory));
+        resetFolderToDriveRoot();
+        loadDriveFiles();
+    });
+
+    const resetRootBtn = document.getElementById('driveResetTabsDirectoryBtn');
+    resetRootBtn?.addEventListener('click', () => {
+        tabsDirectory = null;
+        localStorage.removeItem(TABS_DIRECTORY_STORAGE_KEY);
+        resetFolderToDriveRoot();
+        loadDriveFiles();
+    });
 
     const signOutBtn = document.getElementById('driveSignOutBtn');
     signOutBtn?.addEventListener('click', () => {
