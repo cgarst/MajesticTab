@@ -677,7 +677,8 @@ fileInput.addEventListener('change', async e => {
 // --- LOAD PDF ---
 async function loadPDF(file) {
     if (currentProcessing) currentProcessing.aborted = true;
-    currentProcessing = { aborted: false };
+    const processing = { aborted: false };
+    currentProcessing = processing;
     
     // Show progress bar immediately
     showProgress(progressContainer, progressBar);
@@ -708,9 +709,9 @@ async function loadPDF(file) {
         progressContainer,
         progressBar,
         condensedCanvases,
-        abortSignal: currentProcessing,
+        abortSignal: processing,
         onCanvasRendered: (canvas) => {
-            if (currentProcessing.aborted) return;
+            if (processing.aborted) return;
 
             // Always check current mode at render time
             const isPageMode = pageModeRadio.checked;
@@ -720,7 +721,7 @@ async function loadPDF(file) {
                 if (!canvas._layoutScheduled) {
                     canvas._layoutScheduled = true;
                     setTimeout(() => {
-                        if (!currentProcessing.aborted) {
+                        if (!processing.aborted) {
                             // Store current page index before layout
                             const oldIndex = currentPageIndex;
                             // Do layout but preserve the current page
@@ -741,7 +742,7 @@ async function loadPDF(file) {
                 if (!canvas._appendScheduled) {
                     canvas._appendScheduled = true;
                     setTimeout(() => {
-                        if (!currentProcessing.aborted) {
+                        if (!processing.aborted) {
                             const wrapper = document.createElement('div');
                             wrapper.style.width = '100%';
                             wrapper.style.textAlign = 'center';
