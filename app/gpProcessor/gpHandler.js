@@ -102,12 +102,15 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     }
 }
 
+let gpRenderToken = 0;
+
 /**
  * Render GP pages based on view mode
  */
 export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
     if (!gpState.canvases[0]?.container) return;
     
+    const renderToken = ++gpRenderToken;
     // Always clear output before rendering
     clearOutput(output);
 
@@ -139,6 +142,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
             const unsub = api.postRenderFinished.on(() => {
                 unsub();
                 if (offscreenHolder.parentNode) document.body.removeChild(offscreenHolder);
+                if (renderToken !== gpRenderToken) return; // superseded by a newer render
                 gpState.lastLayoutDimensions = null; // force fresh layout calculation
                 renderGPPageMode(output);
             });
