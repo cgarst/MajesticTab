@@ -14,6 +14,7 @@ import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
 import { initSynthPlayer, hideSynthPlayer } from './gpProcessor/gpPlayer.js';
 import { initTheming } from './themeEngine.js';
 import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
+import { initUpdater } from './updater.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -656,6 +657,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupDrivePicker();
     setupSettings();
     setupExtensionSettings();
+    initUpdater();
     initYouTubePlayer();
     initSynthPlayer();
     setupGlobalRewindButton();

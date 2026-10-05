@@ -60,6 +60,7 @@ const replacements = new Map([
 const allowedRemoteHosts = new Set([
   '127.0.0.1',
   'accounts.google.com',
+  'api.github.com',
   'developers.google.com',
   'github.com',
   'invidious.drgns.space',
@@ -156,6 +157,16 @@ async function hasDesktopClientSecret() {
   return Boolean(secret && secret !== 'REPLACE_WITH_DESKTOP_CLIENT_SECRET');
 }
 
+async function writeBuildInfo() {
+  const tauriConfig = JSON.parse(await readFile(path.join(scriptDir, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+  const info = {
+    version: tauriConfig.version,
+    channel: process.env.MAJESTICTAB_CHANNEL || 'dev',
+    buildId: process.env.MAJESTICTAB_BUILD_ID || 'dev',
+  };
+  await writeFile(path.join(frontendDir, 'build-info.js'), `export default ${JSON.stringify(info)};\n`);
+}
+
 async function hideUnavailableDriveOptions() {
   const indexPath = path.join(frontendDir, 'index.html');
   let indexHtml = await readFile(indexPath, 'utf8');
@@ -175,6 +186,7 @@ async function hideUnavailableDriveOptions() {
 try {
   await rm(frontendDir, { recursive: true, force: true });
   await cp(sourceDir, frontendDir, { recursive: true });
+  await writeBuildInfo();
   if (!androidBuild && !(await hasDesktopClientSecret())) {
     await hideUnavailableDriveOptions();
     console.log('Google Drive hidden: no Desktop OAuth client secret configured.');
