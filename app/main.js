@@ -67,6 +67,41 @@ if (window.__TAURI__ && /Mac/i.test(navigator.platform)) {
     document.addEventListener('fullscreenchange', scheduleSync);
     document.addEventListener('webkitfullscreenchange', scheduleSync);
 }
+// Native Windows shell is undecorated; draw window controls on the right and shift the top bar controls left.
+// In fullscreen the controls are hidden, so the top bar controls return to the right edge.
+if (window.__TAURI__ && /Win/i.test(navigator.platform)) {
+    const root = document.documentElement;
+    const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
+    const maxIcon = document.getElementById('winMaxIcon');
+    const maxBtn = document.getElementById('winMaxBtn');
+    let syncToken = 0;
+    const syncWindowState = async () => {
+        const token = ++syncToken;
+        let fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        let maximized = false;
+        if (appWindow) {
+            try { if (!fs) fs = await appWindow.isFullscreen(); } catch {}
+            try { maximized = await appWindow.isMaximized(); } catch {}
+        }
+        if (token !== syncToken) return;
+        root.classList.toggle('tauri-windows', !fs);
+        if (maxIcon) maxIcon.className = maximized ? 'bi-fullscreen-exit' : 'bi-square';
+        if (maxBtn) { const t = maximized ? 'Restore' : 'Maximize'; maxBtn.title = t; maxBtn.setAttribute('aria-label', t); }
+    };
+    let settleTimer = 0;
+    const scheduleSync = () => {
+        syncWindowState();
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(syncWindowState, 400);
+    };
+    document.getElementById('winMinBtn')?.addEventListener('click', () => appWindow?.minimize());
+    maxBtn?.addEventListener('click', () => appWindow?.toggleMaximize());
+    document.getElementById('winCloseBtn')?.addEventListener('click', () => appWindow?.close());
+    syncWindowState();
+    window.addEventListener('resize', scheduleSync);
+    document.addEventListener('fullscreenchange', scheduleSync);
+    document.addEventListener('webkitfullscreenchange', scheduleSync);
+}
 if (topBar) {
     let isDown = false;
     let startX = 0;
