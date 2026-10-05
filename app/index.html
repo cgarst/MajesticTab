@@ -404,13 +404,18 @@
       </div>
       
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Dual-Page Advance:</label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance1" value="1" autocomplete="off">
-          <label class="btn btn-sm w-50" for="pageAdvance1">1 Page</label>
-
-          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
-          <label class="btn btn-sm w-50" for="pageAdvance2">2 Pages</label>
+        <label class="form-label d-block mb-1 small text-white-50">Tab Size (Guitar Pro):</label>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm theme-control-btn px-2 py-1" id="gpSheetScaleMinus" aria-label="Decrease Guitar Pro tab size">−</button>
+          <div class="gp-scale-slider flex-grow-1">
+            <input type="range" class="form-range" id="gpSheetScale" min="50" max="150" step="5" value="100" aria-label="Guitar Pro tab size">
+          </div>
+          <button type="button" class="btn btn-sm theme-control-btn px-2 py-1" id="gpSheetScalePlus" aria-label="Increase Guitar Pro tab size">+</button>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-1">
+          <span class="small text-white-50">50%</span>
+          <span class="small fw-semibold text-info" id="gpSheetScaleValue">100%</span>
+          <span class="small text-white-50">150%</span>
         </div>
       </div>
 
@@ -437,18 +442,16 @@
       </div>
 
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Sheet Music Size (Guitar Pro):</label>
-        <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-sm theme-control-btn px-2 py-1" id="gpSheetScaleMinus" aria-label="Decrease Guitar Pro sheet music size">−</button>
-          <input type="range" class="form-range flex-grow-1" id="gpSheetScale" min="50" max="200" step="5" value="100" aria-label="Guitar Pro sheet music size">
-          <button type="button" class="btn btn-sm theme-control-btn px-2 py-1" id="gpSheetScalePlus" aria-label="Increase Guitar Pro sheet music size">+</button>
-        </div>
-        <div class="d-flex justify-content-between align-items-center mt-1">
-          <span class="small text-white-50">50%</span>
-          <span class="small fw-semibold text-info" id="gpSheetScaleValue">100%</span>
-          <span class="small text-white-50">200%</span>
+        <label class="form-label d-block mb-1 small text-white-50">Dual-Page Advance:</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance1" value="1" autocomplete="off">
+          <label class="btn btn-sm w-50" for="pageAdvance1">1 Page</label>
+
+          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="pageAdvance2">2 Pages</label>
         </div>
       </div>
+
     </div>
 
     <!-- Section 4: PDF Tools & Exports -->
@@ -456,20 +459,20 @@
       <div class="settings-header-label">
         <i class="bi-tools text-danger"></i> PDF Tools & Export
       </div>
-      <div class="form-check form-switch mb-1">
-        <input class="form-check-input" type="checkbox" id="condensePdfMode">
-        <label class="form-check-label small text-white" for="condensePdfMode">Condense PDF <span class="settings-beta-badge">Beta</span></label>
-      </div>
-      <div class="form-check form-switch mb-2">
-        <input class="form-check-input" type="checkbox" id="debugMode">
-        <label class="form-check-label small text-white" for="debugMode">Debug PDF Overlay</label>
-      </div>
       <button class="btn btn-outline-primary w-100 mb-2" id="exportPDFBtn">Export Current File as PDF</button>
-      <button class="btn btn-outline-primary w-100" id="bulkConvertBtn" onclick="window.open('batchExport.html', '_blank')">Bulk Condense PDFs</button>
+      <button class="btn btn-outline-primary w-100 mb-2" id="bulkConvertBtn" onclick="window.open('batchExport.html', '_blank')">Bulk Condense PDFs</button>
       <div id="exportProgressContainer" style="display:none; margin-top:5px;">
         <div class="progress settings-progress" style="height: 6px;">
           <div id="exportProgressBar" class="progress-bar settings-progress-bar" role="progressbar" style="width:0%">0%</div>
         </div>
+      </div>
+      <div class="form-check form-switch mb-1">
+        <input class="form-check-input" type="checkbox" id="condensePdfMode">
+        <label class="form-check-label small text-white" for="condensePdfMode">Condense PDF <span class="settings-beta-badge">Experimental</span></label>
+      </div>
+      <div class="form-check form-switch mb-2">
+        <input class="form-check-input" type="checkbox" id="debugMode">
+        <label class="form-check-label small text-white" for="debugMode">Debug PDF Overlay</label>
       </div>
     </div>
 

@@ -19,13 +19,13 @@ export function getGpDisplayScalePercent() {
         return Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
     }
 
-    return Math.min(200, Math.max(50, value));
+    return Math.min(150, Math.max(50, value));
 }
 
 export function setGpDisplayScale(percent) {
     const numeric = Number.parseInt(percent, 10);
     const safePercent = Number.isFinite(numeric)
-        ? Math.min(200, Math.max(50, numeric))
+        ? Math.min(150, Math.max(50, numeric))
         : Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
 
     GP_DISPLAY_SCALE = safePercent / 100;
