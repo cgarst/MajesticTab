@@ -112,7 +112,11 @@ const installedVersions = await Promise.all(Object.entries(requiredPackages).map
 if (installedVersions.some((installed) => !installed)) {
   run('npm', ['ci']);
 }
-run('npm', ['run', 'prepare:frontend']);
+run('npm', [
+  'run',
+  'prepare:frontend',
+  ...(target === 'android' ? ['--', '--android'] : []),
+]);
 run('npm', [
   'run',
   'tauri',
