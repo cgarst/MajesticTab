@@ -12,6 +12,7 @@ MajesticTab is a browser-based Guitar Pro and PDF guitar tab viewer designed for
 MajesticTab is built for guitarists who want a clean way to read tablature without the clutter of a full DAW or score editor. It combines:
 
 - Guitar Pro viewing for `.gp`, `.gp3`, `.gp4`, `.gp5`, and `.gpx` files
+- Plain-text tab and chord sheet viewing for `.txt` files, with a configurable default view and tab size
 - PDF tab viewing for multi-track tablature exports and other tab PDFs
 - Responsive layout for desktop, tablet, and mobile devices
 - Page and continuous reading modes

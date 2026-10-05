@@ -250,7 +250,7 @@
       <div class="p-3 rounded-3 mb-2" style="background: var(--bg-card-solid); border: 1px solid var(--border-subtle);">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <div class="fw-semibold text-white small">
-            <i class="bi-file-earmark-music me-1 text-info"></i> Sheet Music Mode
+            <i class="bi-file-earmark-music me-1 text-info"></i> Tab Mode
           </div>
           <span class="text-muted" style="font-size: 0.72rem;">Score notation styling</span>
         </div>
@@ -380,7 +380,7 @@
 
       <!-- Sheet Music Mode Controls (Single 4-Option Row) -->
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Sheet Music Mode:</label>
+        <label class="form-label d-block mb-1 small text-white-50">Tab Mode:</label>
         <div class="hud-pill-group w-100">
           <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeAuto" value="auto" autocomplete="off">
           <label class="btn btn-sm" for="drawerSheetModeAuto" style="flex: 1;"><i class="bi-circle-half me-1"></i> Auto</label>
@@ -404,7 +404,7 @@
       </div>
       
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Tab Size (Guitar Pro):</label>
+        <label class="form-label d-block mb-1 small text-white-50">Tab Size (Guitar Pro &amp; TXT):</label>
         <div class="d-flex align-items-center gap-2">
           <button type="button" class="btn btn-sm theme-control-btn px-2 py-1" id="gpSheetScaleMinus" aria-label="Decrease Guitar Pro tab size">−</button>
           <div class="gp-scale-slider flex-grow-1">
@@ -442,7 +442,20 @@
       </div>
 
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Dual-Page Advance:</label>
+        <label class="form-label d-block mb-1 small text-white-50">Default View (TXT):</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="txtDefaultViewRadio" id="txtDefaultPage" value="page" autocomplete="off">
+          <label class="btn btn-sm w-50" for="txtDefaultPage"><i class="bi-book me-1"></i> Page</label>
+
+          <input type="radio" class="btn-check" name="txtDefaultViewRadio" id="txtDefaultContinuous" value="continuous" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="txtDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Dual-Page Advance:
+          <button type="button" class="btn btn-link p-0 ms-1 align-baseline text-white-50" data-bs-toggle="tooltip" data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="When two pages are shown side by side, controls how many pages the next/previous buttons turn: 1 page overlaps the previous spread, 2 pages shows a fresh spread." aria-label="About dual-page advance"><i class="bi-info-circle"></i></button>
+        </label>
         <div class="hud-pill-group w-100">
           <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance1" value="1" autocomplete="off">
           <label class="btn btn-sm w-50" for="pageAdvance1">1 Page</label>

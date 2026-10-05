@@ -1860,7 +1860,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   width: 100%;
   flex: 1;
   box-sizing: border-box;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   font-family: monospace;
   line-height: 1.5;
 }
@@ -1931,8 +1931,14 @@ canvas {
   box-shadow: var(--sheet-shadow);
   border: 1px solid var(--sheet-border);
   border-radius: 6px;
-  font-size: 14px;
+  font-size: calc(14px * var(--text-scale, 1));
   user-select: none;
+}
+
+.measure-div {
+  font-family: monospace;
+  font-size: calc(14px * var(--text-scale, 1));
+  line-height: 1.5;
 }
 
 .chord-lyric-chord {

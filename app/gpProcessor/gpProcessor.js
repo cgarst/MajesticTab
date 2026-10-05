@@ -29,6 +29,9 @@ export function setGpDisplayScale(percent) {
         : Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
 
     GP_DISPLAY_SCALE = safePercent / 100;
+    if (typeof document !== 'undefined') {
+        document.documentElement.style.setProperty('--text-scale', String(GP_DISPLAY_SCALE));
+    }
     if (typeof localStorage !== 'undefined') {
         localStorage.setItem('gpSheetScale', String(safePercent));
     }
