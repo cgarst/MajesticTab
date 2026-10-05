@@ -152,6 +152,9 @@ const pageModeRadio = document.getElementById('pageModeRadio');
 const continuousModeRadio = document.getElementById('continuousModeRadio');
 const fileMenuEl = document.getElementById('fileMenu');
 const fileMenu = new bootstrap.Offcanvas(fileMenuEl);
+fileMenuEl.addEventListener('hidden.bs.offcanvas', () => {
+    document.activeElement?.blur?.();
+});
 const output = document.getElementById('output');
 const progressContainer = document.getElementById('progressContainer');
 const progressBar = document.getElementById('progressBar');
