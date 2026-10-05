@@ -16,8 +16,13 @@
     "icon": [
       "icons/windows/32x32.png",
       "icons/windows/128x128.png",
-      "icons/windows/128x128@2x.png",
+      "icons/windows/256x256.png",
       "icons/windows/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/windows/icon.ico"
+      }
+    }
   }
 }
