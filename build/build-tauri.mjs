@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, readdir, stat } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -101,6 +101,7 @@ await mkdir(distDir, { recursive: true });
 if (!(await stat(path.join(tauriDir, 'node_modules')).catch(() => null))) {
   run('npm', ['ci']);
 }
+run('npm', ['run', 'prepare:frontend']);
 run('npm', [
   'run',
   'tauri',
@@ -158,6 +159,10 @@ if (target === 'android') {
   if (!(await stat(androidProject).catch(() => null))) {
     run('npm', ['run', 'tauri', '--', 'android', 'init', '--ci']);
   }
+  await writeFile(
+    path.join(androidProject, 'app', 'src', 'main', 'java', 'io', 'github', 'cgarst', 'MajesticTab', 'MainActivity.kt'),
+    await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8'),
+  );
   run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', '--debug', '--target', 'aarch64']);
   const apk = await findApk(path.join(androidProject, 'app', 'build', 'outputs', 'apk'));
   if (!apk) fail('Tauri completed without producing an Android APK.');
