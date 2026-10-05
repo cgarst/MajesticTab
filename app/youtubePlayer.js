@@ -4,6 +4,7 @@ import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel } from './gpPr
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 
 let activeSearchController = null;
+const MAC_PLAYER_VERTICAL_OFFSET = 32;
 
 let playerState = {
     isOpen: false,
@@ -19,20 +20,65 @@ let playerState = {
     isSearching: false
 };
 
+function isNativeMacPlayer() {
+    return Boolean(window.__TAURI__) && /Macintosh/.test(navigator.userAgent);
+}
+
+function sendYouTubeMessage(iframe, message) {
+    if (isNativeMacPlayer()) {
+        window.__TAURI__.core.invoke('youtube_player_command', { message }).catch(() => {});
+        return;
+    }
+    iframe?.contentWindow?.postMessage(JSON.stringify(message), '*');
+}
+
+function syncNativeMacPlayerBounds(autoplay = false) {
+    if (!isNativeMacPlayer()) return;
+
+    const iframe = document.getElementById('ytIframe');
+    const rect = iframe?.getBoundingClientRect();
+    const visible = Boolean(
+        playerState.isOpen &&
+        playerState.currentVideoId &&
+        iframe?.dataset.loaded === 'true' &&
+        rect?.width &&
+        rect?.height
+    );
+
+    window.__TAURI__.core.invoke('youtube_player_update', {
+        videoId: playerState.currentVideoId || '',
+        autoplay,
+        start: Math.floor(playerState.currentTime || 0),
+        left: rect?.left || 0,
+        top: (rect?.top || 0) + MAC_PLAYER_VERTICAL_OFFSET,
+        width: rect?.width || 0,
+        height: rect?.height || 0,
+        visible,
+        keepAlive: playerState.isPlaying || playerState.hasStarted
+    }).catch(() => {});
+}
+
+function animateNativeMacPlayerBounds() {
+    const stopAt = performance.now() + 320;
+    let lastUpdate = 0;
+    const update = (time) => {
+        if (time - lastUpdate >= 32 || time >= stopAt) {
+            syncNativeMacPlayerBounds();
+            lastUpdate = time;
+        }
+        if (time < stopAt) {
+            requestAnimationFrame(update);
+        }
+    };
+    requestAnimationFrame(update);
+}
+
 /**
  * Pause YouTube player if active
  */
 export function pauseYouTube() {
     const iframe = document.getElementById('ytIframe');
-    if (iframe?.contentWindow) {
-        try {
-            iframe.contentWindow.postMessage(JSON.stringify({
-                event: 'command',
-                func: 'pauseVideo',
-                args: []
-            }), '*');
-        } catch (e) {}
-    }
+    sendYouTubeMessage(iframe, { event: 'command', func: 'pauseVideo', args: [] });
     if (playerState.isPlaying) {
         playerState.isPlaying = false;
         updatePlaybackControls();
@@ -47,11 +93,7 @@ export function rewindYouTubeToBeginning() {
     if (!iframe || !iframe.contentWindow) return;
 
     playerState.currentTime = 0;
-    iframe.contentWindow.postMessage(JSON.stringify({
-        event: 'command',
-        func: 'seekTo',
-        args: [0, true]
-    }), '*');
+    sendYouTubeMessage(iframe, { event: 'command', func: 'seekTo', args: [0, true] });
 }
 
 /**
@@ -63,11 +105,7 @@ export function rewindYouTube10Seconds() {
 
     const targetTime = Math.max(0, (playerState.currentTime || 0) - 10);
     playerState.currentTime = targetTime;
-    iframe.contentWindow.postMessage(JSON.stringify({
-        event: 'command',
-        func: 'seekTo',
-        args: [targetTime, true]
-    }), '*');
+    sendYouTubeMessage(iframe, { event: 'command', func: 'seekTo', args: [targetTime, true] });
 }
 
 /**
@@ -78,20 +116,12 @@ export function playPauseYouTube() {
     if (!iframe || !iframe.contentWindow) return false;
 
     if (playerState.isPlaying) {
-        iframe.contentWindow.postMessage(JSON.stringify({
-            event: 'command',
-            func: 'pauseVideo',
-            args: []
-        }), '*');
+        sendYouTubeMessage(iframe, { event: 'command', func: 'pauseVideo', args: [] });
         playerState.isPlaying = false;
     } else {
         pauseSynthPlayer();
         clearSynthHighlights();
-        iframe.contentWindow.postMessage(JSON.stringify({
-            event: 'command',
-            func: 'playVideo',
-            args: []
-        }), '*');
+        sendYouTubeMessage(iframe, { event: 'command', func: 'playVideo', args: [] });
         playerState.isPlaying = true;
         playerState.hasStarted = true;
         setActiveAudioMode('youtube');
@@ -377,24 +407,32 @@ async function loadCurrentTrack(autoplay = false) {
         if (iframe) {
             iframe.style.display = 'block';
             const autoplayParam = autoplay ? '1' : '0';
-            const startParam = playerState.currentTime > 0 ? `&start=${Math.floor(playerState.currentTime)}` : '';
-            const targetSrc = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=${autoplayParam}&enablejsapi=1${startParam}`;
-            if (iframe.src !== targetSrc) {
+            const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+            embedUrl.searchParams.set('autoplay', autoplayParam);
+            embedUrl.searchParams.set('enablejsapi', '1');
+            embedUrl.searchParams.set('origin', window.location.origin);
+            if (playerState.currentTime > 0) {
+                embedUrl.searchParams.set('start', String(Math.floor(playerState.currentTime)));
+            }
+            const targetSrc = embedUrl.toString();
+            if (isNativeMacPlayer()) {
+                iframe.src = '';
+                iframe.style.visibility = 'hidden';
+            } else if (iframe.src !== targetSrc) {
+                iframe.style.visibility = 'visible';
                 iframe.src = targetSrc;
             } else if (autoplay && iframe.contentWindow) {
+                iframe.style.visibility = 'visible';
                 pauseSynthPlayer();
                 clearSynthHighlights();
-                iframe.contentWindow.postMessage(JSON.stringify({
-                    event: 'command',
-                    func: 'playVideo',
-                    args: []
-                }), '*');
+                sendYouTubeMessage(iframe, { event: 'command', func: 'playVideo', args: [] });
                 playerState.isPlaying = true;
                 playerState.hasStarted = true;
                 setActiveAudioMode('youtube');
                 updatePlaybackControls();
             }
             iframe.dataset.loaded = 'true';
+            syncNativeMacPlayerBounds(autoplay);
         }
         if (searchInput) {
             searchInput.value = `https://www.youtube.com/watch?v=${videoId}`;
@@ -404,8 +442,10 @@ async function loadCurrentTrack(autoplay = false) {
         if (iframe) {
             iframe.src = '';
             iframe.style.display = 'none';
+            iframe.style.visibility = 'visible';
             delete iframe.dataset.loaded;
         }
+        syncNativeMacPlayerBounds();
         if (prompt) {
             prompt.style.setProperty('display', 'flex', 'important');
         }
@@ -499,6 +539,11 @@ export function toggleYouTubePanel(forceState = null) {
         }
         toggleBtn?.classList.remove('active');
     }
+    if (newState && isNativeMacPlayer()) {
+        animateNativeMacPlayerBounds();
+    } else {
+        syncNativeMacPlayerBounds();
+    }
 }
 
 /**
@@ -548,8 +593,10 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     if (iframe) {
         iframe.src = '';
         iframe.style.display = 'none';
+        iframe.style.visibility = 'visible';
         delete iframe.dataset.loaded;
     }
+    syncNativeMacPlayerBounds();
     const loadingIndicator = document.getElementById('ytLoadingIndicator');
     if (loadingIndicator) {
         loadingIndicator.style.setProperty('display', 'none', 'important');
@@ -674,11 +721,7 @@ export function initYouTubePlayer() {
             if (iframe?.dataset.loaded === 'true' && iframe.contentWindow && iframe.src.includes(videoId)) {
                 pauseSynthPlayer();
                 clearSynthHighlights();
-                iframe.contentWindow.postMessage(JSON.stringify({
-                    event: 'command',
-                    func: 'playVideo',
-                    args: []
-                }), '*');
+                sendYouTubeMessage(iframe, { event: 'command', func: 'playVideo', args: [] });
                 playerState.isPlaying = true;
                 playerState.hasStarted = true;
                 setActiveAudioMode('youtube');
@@ -760,25 +803,25 @@ export function initYouTubePlayer() {
         }
     });
 
+    if (isNativeMacPlayer()) {
+        window.__TAURI__.event.listen('youtube-player-state', ({ payload }) => {
+            window.dispatchEvent(new MessageEvent('message', { data: payload }));
+        });
+    }
+
     const iframe = document.getElementById('ytIframe');
     if (iframe) {
         iframe.addEventListener('load', () => {
+            if (isNativeMacPlayer()) return;
             try {
-                iframe.contentWindow?.postMessage(JSON.stringify({
-                    event: 'listening',
-                    id: 1
-                }), '*');
-                iframe.contentWindow?.postMessage(JSON.stringify({
+                sendYouTubeMessage(iframe, { event: 'listening', id: 1 });
+                sendYouTubeMessage(iframe, {
                     event: 'command',
                     func: 'addEventListener',
                     args: ['onStateChange']
-                }), '*');
+                });
                 if (playerState.isPlaying || playerState.hasStarted) {
-                    iframe.contentWindow?.postMessage(JSON.stringify({
-                        event: 'command',
-                        func: 'playVideo',
-                        args: []
-                    }), '*');
+                    sendYouTubeMessage(iframe, { event: 'command', func: 'playVideo', args: [] });
                 }
             } catch (e) {
                 // Ignore cross-origin error if any
@@ -792,16 +835,22 @@ export function initYouTubePlayer() {
             const currentIframe = document.getElementById('ytIframe');
             if (currentIframe && currentIframe.contentWindow) {
                 try {
-                    currentIframe.contentWindow.postMessage(JSON.stringify({
-                        event: 'listening',
-                        id: 1
-                    }), '*');
+                    sendYouTubeMessage(currentIframe, { event: 'listening', id: 1 });
                 } catch (e) {
                     // Ignore cross-origin error if any
                 }
             }
         }
     }, 1000);
+
+    if (isNativeMacPlayer()) {
+        const syncBounds = () => syncNativeMacPlayerBounds();
+        if (typeof ResizeObserver !== 'undefined' && iframe) {
+            new ResizeObserver(syncBounds).observe(iframe);
+        }
+        window.addEventListener('resize', syncBounds);
+        window.addEventListener('scroll', syncBounds, true);
+    }
 
     // Close panel when clicking outside of panel and top bar toggle
     document.addEventListener('click', (e) => {

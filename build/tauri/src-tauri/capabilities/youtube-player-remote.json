@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "youtube-player-remote",
+  "description": "Allow the native YouTube player webview to emit player state events",
+  "windows": ["main"],
+  "webviews": ["youtubeplayer"],
+  "remote": {
+    "urls": ["https://io.github.cgarst.MajesticTab"]
+  },
+  "permissions": ["core:event:allow-emit"]
+}
