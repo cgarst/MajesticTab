@@ -1,0 +1,12 @@
+[package]
+name = "tauri-plugin-google-auth"
+version = "0.1.0"
+edition = "2021"
+links = "tauri-plugin-google-auth"
+build = "build.rs"
+
+[dependencies]
+tauri = { version = "2", default-features = false }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
