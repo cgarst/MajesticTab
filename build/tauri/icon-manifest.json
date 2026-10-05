@@ -1,0 +1,5 @@
+{
+  "default": "../../icons/android-chrome-512x512.png",
+  "android_fg": "android-icon-foreground.svg",
+  "android_fg_scale": 100
+}
