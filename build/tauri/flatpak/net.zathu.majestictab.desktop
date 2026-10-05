@@ -2,7 +2,7 @@
 Name=MajesticTab
 Comment=Guitar Pro and PDF guitar tab viewer
 Exec=majestictab %U
-Icon=io.github.cgarst.MajesticTab
+Icon=net.zathu.majestictab
 Terminal=false
 Type=Application
 Categories=AudioVideo;Education;
