@@ -77,27 +77,56 @@ async function generate(name, svgSpec, manifest) {
   return outDir;
 }
 
+// Each generator writes only its own icons/<platform>/ directory.
+const GENERATORS = {
+  async windows() {
+    const out = await generate('windows', PLATFORMS.windows);
+    await copyTopLevel(out, path.join(iconsDir, 'windows'), (file) => !file.endsWith('.icns'));
+  },
+  async linux() {
+    const out = await generate('linux', PLATFORMS.linux);
+    await copyTopLevel(out, path.join(iconsDir, 'linux'), (file) => file.endsWith('.png'));
+  },
+  async macos() {
+    const out = await generate('macos', PLATFORMS.macos);
+    await copyTopLevel(out, path.join(iconsDir, 'macos'), (file) => file === 'icon.icns');
+  },
+  // `tauri icon` always emits both mobile sets; keep only the one requested.
+  async android() {
+    const out = await generateMobile();
+    await cp(path.join(out, 'android'), path.join(iconsDir, 'android'), { recursive: true });
+  },
+  async ios() {
+    const out = await generateMobile();
+    await cp(path.join(out, 'ios'), path.join(iconsDir, 'ios'), { recursive: true });
+  },
+};
+
+function generateMobile() {
+  return generate('mobile', PLATFORMS.ios, {
+    default: 'icon.svg',
+    bg_color: BACKGROUND,
+    ios_color: BACKGROUND,
+    android_fg: 'android-fg.svg',
+    android_fg_scale: 100,
+  });
+}
+
+const HOST_PLATFORMS = { win32: 'windows', darwin: 'macos', linux: 'linux' };
+const requested = process.argv.slice(2);
+const platforms = requested.length > 0 ? requested : [HOST_PLATFORMS[process.platform]].filter(Boolean);
+for (const name of platforms) {
+  if (!GENERATORS[name]) {
+    console.error(`Unknown icon platform "${name}". Use: ${Object.keys(GENERATORS).join(', ')}`);
+    process.exit(2);
+  }
+}
+
+for (const name of platforms) {
+  await rm(workDir, { recursive: true, force: true });
+  await rm(path.join(iconsDir, name), { recursive: true, force: true });
+  await GENERATORS[name]();
+}
+
 await rm(workDir, { recursive: true, force: true });
-await rm(iconsDir, { recursive: true, force: true });
-
-const windowsOut = await generate('windows', PLATFORMS.windows);
-await copyTopLevel(windowsOut, path.join(iconsDir, 'windows'), (file) => !file.endsWith('.icns'));
-
-const linuxOut = await generate('linux', PLATFORMS.linux);
-await copyTopLevel(linuxOut, path.join(iconsDir, 'linux'), (file) => file.endsWith('.png'));
-
-const macosOut = await generate('macos', PLATFORMS.macos);
-await copyTopLevel(macosOut, path.join(iconsDir, 'macos'), (file) => file === 'icon.icns');
-
-const mobileOut = await generate('mobile', PLATFORMS.ios, {
-  default: 'icon.svg',
-  bg_color: BACKGROUND,
-  ios_color: BACKGROUND,
-  android_fg: 'android-fg.svg',
-  android_fg_scale: 100,
-});
-await cp(path.join(mobileOut, 'android'), path.join(iconsDir, 'android'), { recursive: true });
-await cp(path.join(mobileOut, 'ios'), path.join(iconsDir, 'ios'), { recursive: true });
-
-await rm(workDir, { recursive: true, force: true });
-console.log(`Icons written to ${iconsDir}`);
+console.log(`Icons for ${platforms.join(', ')} written to ${iconsDir}`);
