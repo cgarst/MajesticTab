@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>MajesticTab - Free, Open-Source Tab Reader for Guitarists</title>
-  <meta name="description" content="Practice guitar tabs without the fiddling. Free, open-source, self-hostable tab viewer for PDF, Guitar Pro, and plain-text tab (TXT) files with page or scroll view, Bluetooth page turner support, and PDF export. Nothing is uploaded.">
+  <meta name="description" content="Practice guitar tabs without the fiddling. Free, open-source tab viewer for PDF, Guitar Pro, and plain-text tab (TXT) files. Native apps for Windows, macOS, Linux and Android that work offline, plus web and iOS home-screen versions. Nothing is uploaded.">
   <meta name="theme-color" content="#06050a">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -52,6 +52,10 @@
       -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
     }
     .kbd { font-family: ui-monospace, Menlo, monospace; }
+    [hidden] { display: none !important; }
+    .shot-toggle { color: #94a3b8; }
+    .shot-toggle:hover { color: #fff; }
+    .shot-toggle[aria-selected="true"] { color: #fff; background: linear-gradient(135deg, #9333ea, #059669); }
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #06050a; }
     ::-webkit-scrollbar-thumb { background: #1f1730; border-radius: 3px; }
@@ -79,7 +83,7 @@
         <a href="#pedals" class="hover:text-white transition">Page Turners</a>
         <a href="#export" class="hover:text-white transition">PDF Export</a>
         <a href="#privacy" class="hover:text-white transition">Privacy</a>
-        <a href="#self-hosting" class="hover:text-white transition">Self-Hosting</a>
+        <a href="#download" class="hover:text-white transition">Download</a>
         <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60 transition" title="View Source on GitHub" aria-label="GitHub"><i class="fa-brands fa-github text-base"></i></a>
         <a href="app/" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-bold">Open App</a>
       </nav>
@@ -100,21 +104,22 @@
         <span class="gradient-text">and start playing.</span>
       </h1>
       <p class="text-sm sm:text-base md:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto">
-        MajesticTab is a distraction-free viewer for guitar tabs. See every guitar track in one clean multi-track view, with no other instruments in the way. Drop in a PDF, Guitar Pro, or plain-text (TXT) tab file and practice in seconds, with no account, no install, and none of the fiddling that heavy tab-composition software demands.
+        MajesticTab is a distraction-free viewer for guitar tabs. See every guitar track in one clean multi-track view, with no other instruments in the way. Drop in a PDF, Guitar Pro, or plain-text (TXT) tab file and practice in seconds, with no account and none of the fiddling that heavy tab-composition software demands. Get a native app for your platform, or run it right in your browser.
       </p>
       <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
-        <a href="app/" class="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 via-cyan-600 to-emerald-600 hover:from-purple-500 hover:via-cyan-500 hover:to-emerald-500 text-white font-bold text-sm shadow-xl shadow-purple-500/30 transition transform hover:-translate-y-0.5 flex items-center gap-2">
-          <i class="fa-solid fa-play"></i><span>Launch MajesticTab</span>
+        <a id="heroDownload" href="#download" class="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 via-cyan-600 to-emerald-600 hover:from-purple-500 hover:via-cyan-500 hover:to-emerald-500 text-white font-bold text-sm shadow-xl shadow-purple-500/30 transition transform hover:-translate-y-0.5 flex items-center gap-2">
+          <i class="fa-solid fa-download"></i><span id="heroDownloadLabel">Download MajesticTab</span>
         </a>
-        <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm shadow-lg transition transform hover:-translate-y-0.5 flex items-center gap-2">
-          <i class="fa-brands fa-github text-emerald-400"></i><span>View on GitHub</span>
+        <a href="app/" class="px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-semibold text-sm shadow-lg transition transform hover:-translate-y-0.5 flex items-center gap-2">
+          <i class="fa-solid fa-globe text-emerald-400"></i><span>Open in Browser</span>
         </a>
       </div>
+      <p id="heroDownloadMeta" class="text-[11px] text-slate-400" hidden></p>
       <div class="flex flex-wrap items-center justify-center gap-2 pt-4 text-xs text-slate-400 font-medium">
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-tag text-emerald-400"></i> Free forever</span>
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-lock text-cyan-400"></i> Files never leave your device</span>
         <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-brands fa-bluetooth-b text-sky-400"></i> Page turner ready</span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-mobile-screen-button text-purple-400"></i> Mobile friendly</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-plane text-purple-400"></i> Works offline</span>
       </div>
     </section>
 
@@ -128,9 +133,15 @@
             See all your guitar parts together in one multi-track view, without drums, bass, keys or vocals cluttering the page. No more switching between tracks while you play through a song. It reads like a professional tab book.
           </p>
         </div>
+        <div class="flex justify-center">
+          <div class="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold" role="tablist" aria-label="Screenshot device">
+            <button type="button" data-shot="desktop" role="tab" aria-selected="true" class="shot-toggle px-4 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-desktop"></i> Desktop/Tablet</button>
+            <button type="button" data-shot="mobile" role="tab" aria-selected="false" class="shot-toggle px-4 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-mobile-screen-button"></i> Mobile</button>
+          </div>
+        </div>
         <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
-          <img src="img/screenshots/gp_scroll.png" alt="Multi-track guitar tab showing rhythm and lead guitar staves together" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800 hidden sm:block">
-          <img src="img/screenshots/gp_scroll_mobile.png" alt="Multi-track guitar tab on mobile" loading="lazy" class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800 sm:hidden">
+          <img data-shot-img="desktop" src="img/screenshots/gp_scroll.png" alt="Multi-track guitar tab showing rhythm and lead guitar staves together" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
+          <img data-shot-img="mobile" src="img/screenshots/gp_scroll_mobile.png" alt="Multi-track guitar tab on mobile" loading="lazy" hidden class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800">
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-slate-300">
           <div class="flex items-start gap-3"><i class="fa-solid fa-layer-group text-emerald-400 mt-0.5"></i><span><strong class="text-white">All guitars at once.</strong> Rhythm and lead stack together, so the whole arrangement is in front of you.</span></div>
@@ -180,8 +191,7 @@
           <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3">
             <div class="flex items-center gap-2 text-sm font-bold"><i class="fa-solid fa-arrow-down-up text-cyan-400"></i> Scroll</div>
             <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 p-1">
-              <img src="img/screenshots/gp_scroll.png" alt="Continuous scroll view" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800 hidden sm:block">
-              <img src="img/screenshots/gp_scroll_mobile.png" alt="Continuous scroll view (mobile)" loading="lazy" class="w-full max-w-[260px] mx-auto h-auto rounded-xl object-contain border border-slate-800 sm:hidden">
+              <img src="img/screenshots/gp_scroll.png" alt="Continuous scroll view" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
             </div>
             <p class="text-xs text-slate-300 leading-relaxed">Endless vertical flow with a progress indicator. Ideal for learning a song section by section, or when you'd rather not break the flow.</p>
           </div>
@@ -189,8 +199,7 @@
           <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3">
             <div class="flex items-center gap-2 text-sm font-bold"><i class="fa-solid fa-book-open text-purple-400"></i> Page</div>
             <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 p-1">
-              <img src="img/screenshots/gp_page.png" alt="Page view" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800 hidden sm:block">
-              <img src="img/screenshots/gp_page_mobile.png" alt="Page view (mobile)" loading="lazy" class="w-full max-w-[260px] mx-auto h-auto rounded-xl object-contain border border-slate-800 sm:hidden">
+              <img src="img/screenshots/gp_page.png" alt="Page view" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
             </div>
             <p class="text-xs text-slate-300 leading-relaxed">Like a real book. One page on a phone, two side by side on a wide screen. Choose to advance one page or two at a time.</p>
           </div>
@@ -241,25 +250,6 @@
           <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center text-lg"><i class="fa-solid fa-compress"></i></div>
           <h3 class="text-base font-bold flex items-center gap-2">Condense PDF <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-900 text-[10px] font-bold">EXPERIMENTAL</span></h3>
           <p class="text-xs text-slate-300 leading-relaxed">For multi-track tab PDFs, MajesticTab detects staves with notes, drops empty ones, and redraws the groupings. Tabs with many rhythm and lead tracks can shrink to a fraction of the pages. It's still in beta, so always keep your original.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Mobile -->
-    <section id="mobile">
-      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 shadow-2xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        <div class="space-y-4">
-          <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-mono"><i class="fa-solid fa-mobile-screen-button mr-1.5"></i> Phone &amp; tablet</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold">Optimized for mobile</h2>
-          <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">A responsive layout with a minimal floating toolbar and touch navigation. Install it to your home screen as an app and it launches full screen, ready for the music stand.</p>
-        </div>
-        <div class="flex justify-center gap-4">
-          <div class="w-[150px] sm:w-[190px] rounded-[28px] bg-slate-950 p-1.5 border-[5px] border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_35px_rgba(147,51,234,0.25)] overflow-hidden">
-            <img src="img/screenshots/gp_page_mobile.png" alt="MajesticTab page view on a phone" loading="lazy" class="w-full h-auto rounded-[22px] block">
-          </div>
-          <div class="w-[150px] sm:w-[190px] rounded-[28px] bg-slate-950 p-1.5 border-[5px] border-slate-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9),0_0_35px_rgba(16,185,129,0.25)] overflow-hidden mt-8">
-            <img src="img/screenshots/menu_mobile.png" alt="MajesticTab settings menu on a phone" loading="lazy" class="w-full h-auto rounded-[22px] block">
-          </div>
         </div>
       </div>
     </section>
@@ -325,8 +315,8 @@
           </div>
           <div class="space-y-2">
             <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
-              <img src="img/screenshots/theme_palettes.png" alt="MajesticTab theme selector" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800 hidden sm:block">
-              <img src="img/screenshots/theme_palettes_mobile.png" alt="MajesticTab theme selector on mobile" loading="lazy" class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800 sm:hidden">
+              <img data-shot-img="desktop" src="img/screenshots/theme_palettes.png" alt="MajesticTab theme selector" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
+              <img data-shot-img="mobile" src="img/screenshots/theme_palettes_mobile.png" alt="MajesticTab theme selector on mobile" loading="lazy" hidden class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800">
             </div>
             <p class="text-center text-[11px] text-slate-400">Pick a finish and the whole interface adapts instantly.</p>
           </div>
@@ -352,50 +342,74 @@
           <p class="text-xs text-slate-300 leading-relaxed">MIT licensed. Read it, fork it, improve it.</p>
         </div>
         <div class="glass-card p-6 rounded-2xl space-y-2">
-          <div class="text-cyan-400 text-lg"><i class="fa-solid fa-file-code"></i></div>
-          <h3 class="text-sm font-bold">Static page</h3>
-          <p class="text-xs text-slate-300 leading-relaxed">Plain HTML and JavaScript. No backend, no database, no build step.</p>
+          <div class="text-cyan-400 text-lg"><i class="fa-solid fa-plane"></i></div>
+          <h3 class="text-sm font-bold">Works offline</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">Native apps need no internet connection, so your tabs are ready on stage or in the rehearsal room.</p>
         </div>
         <div class="glass-card p-6 rounded-2xl space-y-2">
           <div class="text-pink-400 text-lg"><i class="fa-solid fa-user-shield"></i></div>
           <h3 class="text-sm font-bold">No remote data stored</h3>
-          <p class="text-xs text-slate-300 leading-relaxed">Files are processed in your browser and never uploaded. Read the <a href="app/privacy.html" class="text-indigo-300 underline">privacy policy</a>.</p>
+          <p class="text-xs text-slate-300 leading-relaxed">Files are processed on your device and never uploaded. Read the <a href="app/privacy.html" class="text-indigo-300 underline">privacy policy</a>.</p>
         </div>
       </div>
     </section>
 
-    <!-- Self-hosting -->
-    <section id="self-hosting">
-      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-indigo-500/30 bg-slate-900/90 shadow-2xl">
-        <div class="max-w-3xl mx-auto text-center space-y-3 mb-6">
-          <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-300 border border-indigo-500/40 text-xs font-mono"><i class="fa-solid fa-server mr-1.5"></i> Self-host</span>
-          <h2 class="text-2xl sm:text-3xl font-extrabold">Host it yourself in seconds</h2>
-          <p class="text-xs sm:text-sm text-slate-300">It's just static files. Serve them from any web server, a Raspberry Pi, or GitHub Pages.</p>
+    <!-- Download -->
+    <section id="download">
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900/95 via-emerald-950/20 to-slate-900/95 shadow-2xl space-y-8">
+        <div class="max-w-3xl mx-auto text-center space-y-3">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-mono"><i class="fa-solid fa-download mr-1.5"></i> Get MajesticTab</span>
+          <h2 class="text-2xl sm:text-3xl font-extrabold">One app. <span class="gradient-text">Every device.</span></h2>
+          <p class="text-xs sm:text-sm text-slate-300">Native builds are tuned for each operating system and work fully offline. The web version runs the same app in any modern browser.</p>
+          <p id="downloadVersion" class="text-[11px] text-slate-400" hidden></p>
         </div>
-        <div class="max-w-2xl mx-auto space-y-3 font-mono text-xs">
-          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-slate-200 overflow-x-auto">
-            <p class="text-slate-500"># Clone and serve</p>
-            <p><span class="text-indigo-400">git clone</span> https://github.com/cgarst/MajesticTab.git</p>
-            <p><span class="text-indigo-400">cd</span> MajesticTab</p>
-            <p><span class="text-emerald-400">python3 -m http.server</span> 8080</p>
-            <p class="text-slate-500 mt-2"># Landing page: http://localhost:8080/</p>
-            <p class="text-slate-500"># App:          http://localhost:8080/app/</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div data-platform="windows" class="glass-card-interactive p-5 rounded-2xl space-y-3">
+            <div class="flex items-center gap-3"><i class="fa-brands fa-windows text-2xl text-sky-400"></i><h3 class="text-base font-bold">Windows</h3></div>
+            <p class="text-xs text-slate-300">Native installer (.exe).</p>
+            <a data-asset="windows" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Download</a>
           </div>
-          <div class="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs text-slate-400 font-sans">
-            <span class="flex items-center gap-1.5"><i class="fa-solid fa-shield-halved text-emerald-400"></i> MIT Licensed</span>
-            <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 font-semibold underline">Read the docs on GitHub &rarr;</a>
+          <div data-platform="macos" class="glass-card-interactive p-5 rounded-2xl space-y-3">
+            <div class="flex items-center gap-3"><i class="fa-brands fa-apple text-2xl text-slate-200"></i><h3 class="text-base font-bold">macOS</h3></div>
+            <p class="text-xs text-slate-300">Disk image (.dmg) for Apple Silicon and Intel.</p>
+            <div class="flex flex-wrap gap-2">
+              <a data-asset="macos-arm" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Apple Silicon</a>
+              <a data-asset="macos-intel" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Intel</a>
+            </div>
+          </div>
+          <div data-platform="linux" class="glass-card-interactive p-5 rounded-2xl space-y-3">
+            <div class="flex items-center gap-3"><i class="fa-brands fa-linux text-2xl text-amber-300"></i><h3 class="text-base font-bold">Linux</h3></div>
+            <p class="text-xs text-slate-300">Flatpak bundle (.flatpak).</p>
+            <a data-asset="linux" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Download</a>
+          </div>
+          <div data-platform="android" class="glass-card-interactive p-5 rounded-2xl space-y-3">
+            <div class="flex items-center gap-3"><i class="fa-brands fa-android text-2xl text-emerald-400"></i><h3 class="text-base font-bold">Android</h3></div>
+            <p class="text-xs text-slate-300">Native app (.apk) for phones and tablets.</p>
+            <a data-asset="android" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Download</a>
+          </div>
+          <div data-platform="ios" class="glass-card-interactive p-5 rounded-2xl space-y-3">
+            <div class="flex items-center gap-3"><i class="fa-solid fa-mobile-screen-button text-2xl text-purple-400"></i><h3 class="text-base font-bold">iPhone &amp; iPad</h3></div>
+            <p class="text-xs text-slate-300">Add to your home screen for a full-screen, app-like experience that launches without browser chrome.</p>
+            <ol class="text-[11px] text-slate-400 list-decimal list-inside space-y-0.5">
+              <li>Open <a href="app/" class="text-indigo-300 underline">the app</a> in Safari</li>
+              <li>Tap Share <i class="fa-solid fa-arrow-up-from-bracket"></i></li>
+              <li>Choose <strong class="text-slate-200">Add to Home Screen</strong></li>
+            </ol>
+          </div>
+          <div data-platform="web" class="glass-card-interactive p-5 rounded-2xl space-y-3">
+            <div class="flex items-center gap-3"><i class="fa-solid fa-globe text-2xl text-cyan-400"></i><h3 class="text-base font-bold">Web</h3></div>
+            <p class="text-xs text-slate-300">Nothing to install. Works in any modern browser on any device.</p>
+            <a href="app/" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white text-xs font-bold"><i class="fa-solid fa-play"></i> Open App</a>
           </div>
         </div>
+        <p class="text-center text-xs text-slate-400">
+          All downloads are published on
+          <a href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="text-indigo-400 hover:text-indigo-300 font-semibold underline">GitHub Releases</a>.
+          MIT licensed.
+        </p>
       </div>
     </section>
 
-    <!-- Final CTA -->
-    <section class="text-center space-y-4">
-      <h2 class="text-2xl sm:text-3xl font-extrabold">Ready to practice?</h2>
-      <a href="app/" class="inline-flex px-8 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 via-cyan-600 to-emerald-600 hover:from-purple-500 hover:via-cyan-500 hover:to-emerald-500 text-white font-bold shadow-xl shadow-purple-500/30 transition transform hover:-translate-y-0.5 items-center gap-2">
-        <i class="fa-solid fa-play"></i><span>Launch MajesticTab</span>
-      </a>
-    </section>
   </main>
 
   <footer class="border-t border-slate-800/80 bg-slate-950/90 py-8 px-4 sm:px-6 lg:px-8 mt-16">
@@ -407,10 +421,91 @@
       <div class="flex items-center gap-6">
         <a href="app/" class="hover:text-white transition">App</a>
         <a href="app/privacy.html" class="hover:text-white transition">Privacy</a>
-        <a href="#self-hosting" class="hover:text-white transition">Self-Host</a>
+        <a href="#download" class="hover:text-white transition">Download</a>
         <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="hover:text-white transition flex items-center gap-1"><i class="fa-brands fa-github"></i> GitHub</a>
       </div>
     </div>
   </footer>
+
+  <script>
+    document.querySelectorAll('.shot-toggle').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var which = btn.getAttribute('data-shot');
+        document.querySelectorAll('.shot-toggle').forEach(function (b) {
+          b.setAttribute('aria-selected', String(b === btn));
+        });
+        document.querySelectorAll('[data-shot-img]').forEach(function (img) {
+          img.hidden = img.getAttribute('data-shot-img') !== which;
+        });
+      });
+    });
+  </script>
+  <script>
+    (function () {
+      var REPO = 'cgarst/MajesticTab';
+      var RELEASES = 'https://github.com/' + REPO + '/releases';
+      var ua = navigator.userAgent;
+      var plat = navigator.platform || '';
+      var platform = /android/i.test(ua) ? 'android'
+        : (/iPhone|iPad|iPod/.test(ua) || (plat === 'MacIntel' && navigator.maxTouchPoints > 1)) ? 'ios'
+        : /Win/i.test(plat) ? 'windows'
+        : /Mac/i.test(plat) ? 'macos'
+        : /Linux|X11/i.test(plat + ua) ? 'linux' : 'web';
+
+      var card = document.querySelector('[data-platform="' + platform + '"]');
+      if (card) card.classList.add('ring-1', 'ring-emerald-500/60');
+
+      var matchers = {
+        windows: function (n) { return /\.exe$/i.test(n); },
+        'macos-arm': function (n) { return /\.dmg$/i.test(n) && /aarch64|arm64/i.test(n); },
+        'macos-intel': function (n) { return /\.dmg$/i.test(n) && /x64|x86_64/i.test(n); },
+        linux: function (n) { return /\.flatpak$/i.test(n); },
+        android: function (n) { return /\.apk$/i.test(n); }
+      };
+      var heroNames = { windows: 'Windows', macos: 'macOS', linux: 'Linux', android: 'Android' };
+
+      function getRelease(path) {
+        return fetch('https://api.github.com/repos/' + REPO + '/' + path, { headers: { Accept: 'application/vnd.github+json' } })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .catch(function () { return null; });
+      }
+
+      // Prefer the latest stable release; fall back to the nightly build.
+      getRelease('releases/latest').then(function (rel) {
+        return rel && rel.assets && rel.assets.length ? rel : getRelease('releases/tags/nightly');
+      }).then(function (rel) {
+        if (!rel || !rel.assets) return;
+        var found = {};
+        Object.keys(matchers).forEach(function (key) {
+          var asset = rel.assets.filter(function (a) { return matchers[key](a.name); })[0];
+          if (!asset) return;
+          found[key] = asset.browser_download_url;
+          var el = document.querySelector('[data-asset="' + key + '"]');
+          if (el) { el.href = asset.browser_download_url; el.removeAttribute('target'); }
+        });
+
+        var label = rel.prerelease || /nightly/i.test(rel.tag_name || '') ? (rel.name || 'Nightly') : rel.tag_name;
+        var version = document.getElementById('downloadVersion');
+        if (version && label) { version.textContent = 'Latest: ' + label; version.hidden = false; }
+
+        // macOS arch can't be detected reliably, so the hero links to the two .dmg choices.
+        var heroKey = platform;
+        if (heroNames[platform] && (found[heroKey] || (platform === 'macos' && (found['macos-arm'] || found['macos-intel'])))) {
+          var hero = document.getElementById('heroDownload');
+          if (platform !== 'macos') hero.href = found[heroKey];
+          document.getElementById('heroDownloadLabel').textContent = 'Download for ' + heroNames[platform];
+          var meta = document.getElementById('heroDownloadMeta');
+          meta.innerHTML = '';
+          meta.appendChild(document.createTextNode(label + ' \u00b7 '));
+          var all = document.createElement('a');
+          all.href = '#download';
+          all.className = 'underline hover:text-white';
+          all.textContent = 'All platforms';
+          meta.appendChild(all);
+          meta.hidden = false;
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
