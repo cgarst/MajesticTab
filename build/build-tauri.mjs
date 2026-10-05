@@ -8,6 +8,8 @@ const rootDir = path.resolve(scriptDir, '..');
 const tauriDir = path.join(scriptDir, 'tauri');
 const distDir = path.join(rootDir, 'dist');
 const target = process.argv[2];
+const buildOptions = process.argv.slice(3);
+const debugTools = buildOptions.includes('--debug-tools');
 const validTargets = ['windows', 'macos', 'linux', 'android'];
 const rustBin = path.join(process.env.HOME ?? '', '.cargo', 'bin');
 const env = {
@@ -21,8 +23,11 @@ function fail(message) {
   process.exit(1);
 }
 
-if (!validTargets.includes(target) || process.argv.length > 3) {
-  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}]`);
+if (!validTargets.includes(target)
+  || buildOptions.some((option) => option !== '--debug-tools')
+  || buildOptions.filter((option) => option === '--debug-tools').length > 1
+  || (debugTools && target === 'android')) {
+  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools]`);
   process.exit(2);
 }
 
@@ -107,17 +112,29 @@ run('npm', [
 ]);
 
 if (target === 'android') {
+  const javaHome = process.env.JAVA_HOME;
+  if (!javaHome || !(await stat(javaHome).catch(() => null))) {
+    fail('Android builds require JAVA_HOME pointing to JDK 17-26. JDK 17 is recommended.');
+  }
+  const javaExecutable = path.join(javaHome, 'bin', process.platform === 'win32' ? 'java.exe' : 'java');
+  const javaResult = spawnSync(javaExecutable, ['-version'], { encoding: 'utf8' });
+  const javaOutput = `${javaResult.stdout ?? ''}\n${javaResult.stderr ?? ''}`;
+  const javaVersion = /(?:openjdk|java)(?: version)?\s+"?(\d+)/i.exec(javaOutput);
+  const javaMajor = javaVersion ? Number(javaVersion[1]) : null;
+  if (javaResult.error || javaResult.status !== 0 || javaMajor === null) {
+    fail(`Could not determine the JDK version at JAVA_HOME: ${javaHome}`);
+  }
+  if (javaMajor < 17 || javaMajor > 26) {
+    fail(`Android builds require JDK 17-26 for this Gradle/Android Gradle Plugin setup; found JDK ${javaMajor} at ${javaHome}. Install/select JDK 17 and set JAVA_HOME to it.`);
+  }
+
   const androidSdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT;
   const androidNdk = process.env.NDK_HOME ?? process.env.ANDROID_NDK_HOME;
-  const javaHome = process.env.JAVA_HOME;
   if (!androidSdk || !(await stat(androidSdk).catch(() => null))) {
     fail('Android builds require ANDROID_HOME or ANDROID_SDK_ROOT pointing to the Android SDK.');
   }
   if (!androidNdk || !(await stat(androidNdk).catch(() => null))) {
     fail('Install the Android NDK (Side by side) and set NDK_HOME to its installed directory.');
-  }
-  if (!javaHome || !(await stat(javaHome).catch(() => null))) {
-    fail('Android builds require JAVA_HOME pointing to a supported JDK, such as Android Studio bundled JBR.');
   }
   env.ANDROID_HOME = androidSdk;
   env.ANDROID_SDK_ROOT = androidSdk;
@@ -164,7 +181,10 @@ if (target === 'android') {
 } else {
   const bundle = target === 'macos' ? 'dmg' : 'nsis';
   const extension = target === 'macos' ? '.dmg' : '.exe';
-  run('npm', ['run', 'tauri', '--', 'build', '--bundles', bundle]);
+  const buildEnv = target === 'macos' ? { ...env, CI: 'true' } : env;
+  const buildArgs = ['run', 'tauri', '--', 'build', '--bundles', bundle];
+  if (debugTools) buildArgs.push('--features', 'debug-tools');
+  run('npm', buildArgs, { env: buildEnv });
   await copyBundleArtifacts(path.join(tauriDir, 'target', 'release', 'bundle'), extension);
 }
 
