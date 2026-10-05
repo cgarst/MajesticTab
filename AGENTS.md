@@ -128,9 +128,12 @@ Note: screenshots are captured at the device pixel ratio of the display (2× on 
 
 Use this only for native-shell issues (window, titlebar, plugins, Rust commands, YouTube native player, OAuth). For generic web/UI issues, use the browser procedures above.
 
-- Run dev mode from `build/tauri`: `npm run tauri -- dev --features debug-tools`. The `debug-tools` feature enables devtools and auto-opens them on the `main` window.
+- Run dev mode from `build/tauri`: `npm run tauri:dev -- --features debug-tools`. The `debug-tools` feature enables devtools and auto-opens them on the `main` window. This prepares the Tauri-only local-asset frontend first.
+- CDN assets used by `app/` must remain available to the web implementation, and must also be vendored into the Tauri frontend. When adding or changing a CDN asset, pin its package version in `build/tauri/package.json`, update `build/tauri/prepare-tauri-frontend.mjs` to copy and rewrite it, and run `npm run prepare:frontend` from `build/tauri` to verify no unapproved external URLs remain.
+- Keep `build/tauri/frontend-dist/` generated; do not edit it directly. Distributable builds created through `node build/build-tauri.mjs <target>` prepare it automatically.
 - Redirect output to a file and read it, e.g. `... > /tmp/tauri-dev.log 2>&1` (async terminal). Do not pipe through `tail`; it buffers until exit.
 - The dev watcher rebuilds and relaunches automatically when files under `build/tauri/src-tauri` change; no manual restart needed. Check `pgrep -fl majestictab` to confirm the process is running.
 - Rust-side logs (`eprintln!`) appear in that log; JS console output appears in the devtools console, not the terminal.
+- Before a direct Cargo check, prepare the generated frontend from `build/tauri`: `npm run prepare:frontend`.
 - Compile-only check: `cargo check --manifest-path build/tauri/src-tauri/Cargo.toml`.
 - macOS-only config lives in `src-tauri/tauri.macos.conf.json` (merged over `tauri.conf.json`). Plugins that don't exist on other platforms must stay in macOS-only deps/capabilities.
