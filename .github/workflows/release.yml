@@ -12,7 +12,7 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Tag must match app version
         run: |
           version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
