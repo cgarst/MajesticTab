@@ -75,6 +75,13 @@
   </div>
 </nav>
 
+<!-- Windows native shell: custom window controls (shown via .tauri-windows) -->
+<div id="winControls" role="group" aria-label="Window controls">
+  <button type="button" class="win-ctrl-btn" id="winMinBtn" title="Minimize" aria-label="Minimize"><i class="bi-dash-lg"></i></button>
+  <button type="button" class="win-ctrl-btn" id="winMaxBtn" title="Maximize" aria-label="Maximize"><i class="bi-square" id="winMaxIcon"></i></button>
+  <button type="button" class="win-ctrl-btn win-ctrl-close" id="winCloseBtn" title="Close" aria-label="Close"><i class="bi-x-lg"></i></button>
+</div>
+
 <!-- Collapsible Synth Panel -->
 <div id="synthDropdownPanel" class="synth-panel" style="display:none;">
   <div class="synth-panel-header">
