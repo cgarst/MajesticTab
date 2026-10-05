@@ -349,10 +349,10 @@
         <i class="bi-folder2-open text-primary"></i> Load Sheet Music
       </div>
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">From local device:</label>
+        <label id="localFileSourceLabel" class="form-label mb-1 small text-white-50">From local device:</label>
         <input type="file" class="form-control" id="localFile" accept=".pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt">
       </div>
-      <div>
+      <div id="drivePickerSection">
         <label class="form-label d-block mb-1 small text-white-50">From cloud:</label>
         <button class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center gap-2" id="loadFromDriveBtn">
           <i class="bi-google"></i> Google Drive
