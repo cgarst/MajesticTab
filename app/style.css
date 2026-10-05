@@ -1267,6 +1267,18 @@ input[type=range]::-webkit-slider-thumb:hover {
   top: 50px;
 }
 
+/* Clip the shadow's upward bleed onto the top bar */
+.tauri-macos .offcanvas,
+.tauri-windows .offcanvas {
+  clip-path: inset(0 -60px 0 0);
+}
+
+.tauri-macos .offcanvas-backdrop,
+.tauri-windows .offcanvas-backdrop {
+  top: 50px;
+  height: calc(100% - 50px);
+}
+
 .offcanvas-header {
   border-bottom: 1px solid var(--border-subtle);
   padding: 1rem 1.25rem;
