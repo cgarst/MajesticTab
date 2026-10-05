@@ -12,6 +12,7 @@
     "oauth:allow-start",
     "oauth:allow-cancel",
     "opener:allow-open-url",
-    "opener:allow-default-urls"
+    "opener:allow-default-urls",
+    "google-auth:allow-authorize"
   ]
 }
