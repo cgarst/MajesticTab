@@ -44,16 +44,28 @@ const topBar = document.getElementById('topBar');
 // Native macOS shell uses an overlay title bar; reserve room for the traffic lights.
 if (window.__TAURI__ && /Mac/i.test(navigator.platform)) {
     const root = document.documentElement;
+    const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
     // Traffic lights are hidden in fullscreen, so revert to the standard layout then.
-    const syncTitleBarInset = () => {
-        const fs = !!(document.fullscreenElement || document.webkitFullscreenElement)
-            || window.innerHeight >= screen.height;
-        root.classList.toggle('tauri-macos', !fs);
+    let syncToken = 0;
+    const syncTitleBarInset = async () => {
+        const token = ++syncToken;
+        let fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        if (!fs && appWindow) {
+            try { fs = await appWindow.isFullscreen(); } catch {}
+        }
+        if (token === syncToken) root.classList.toggle('tauri-macos', !fs);
+    };
+    // The window state settles after the fullscreen animation, so re-check once it ends.
+    let settleTimer = 0;
+    const scheduleSync = () => {
+        syncTitleBarInset();
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(syncTitleBarInset, 600);
     };
     syncTitleBarInset();
-    window.addEventListener('resize', syncTitleBarInset);
-    document.addEventListener('fullscreenchange', syncTitleBarInset);
-    document.addEventListener('webkitfullscreenchange', syncTitleBarInset);
+    window.addEventListener('resize', scheduleSync);
+    document.addEventListener('fullscreenchange', scheduleSync);
+    document.addEventListener('webkitfullscreenchange', scheduleSync);
 }
 if (topBar) {
     let isDown = false;

@@ -4,7 +4,6 @@ import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel } from './gpPr
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 
 let activeSearchController = null;
-const MAC_PLAYER_VERTICAL_OFFSET = 32;
 
 let playerState = {
     isOpen: false,
@@ -50,7 +49,7 @@ function syncNativeMacPlayerBounds(autoplay = false) {
         autoplay,
         start: Math.floor(playerState.currentTime || 0),
         left: rect?.left || 0,
-        top: (rect?.top || 0) + MAC_PLAYER_VERTICAL_OFFSET,
+        top: rect?.top || 0,
         width: rect?.width || 0,
         height: rect?.height || 0,
         visible,
