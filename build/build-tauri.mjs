@@ -235,7 +235,7 @@ if (target === 'android') {
     'build-bundle',
     repoDir,
     path.join(distDir, 'MajesticTab.flatpak'),
-    'io.github.cgarst.MajesticTab',
+    'net.zathu.majestictab',
   ], { cwd: rootDir });
 } else {
   const bundle = target === 'macos' ? 'dmg' : 'nsis';

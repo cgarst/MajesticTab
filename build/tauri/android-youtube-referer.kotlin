@@ -55,7 +55,7 @@
                 }
             }
             connection.setRequestProperty("Accept-Encoding", "identity")
-            connection.setRequestProperty("Referer", "https://io.github.cgarst.MajesticTab")
+            connection.setRequestProperty("Referer", "https://net.zathu.majestictab")
 
             val status = connection.responseCode
             if (status in 300..399) return null

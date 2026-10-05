@@ -5,7 +5,7 @@
   "windows": ["main"],
   "webviews": ["youtubeplayer"],
   "remote": {
-    "urls": ["https://io.github.cgarst.MajesticTab"]
+    "urls": ["https://net.zathu.majestictab"]
   },
   "permissions": ["core:event:allow-emit"]
 }
