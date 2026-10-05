@@ -7,6 +7,7 @@ const rootDir = path.resolve(scriptDir, '../..');
 const sourceDir = path.join(rootDir, 'app');
 const frontendDir = path.join(scriptDir, 'frontend-dist');
 const nodeModulesDir = path.join(scriptDir, 'node_modules');
+const androidBuild = process.argv.includes('--android');
 
 const assets = [
   ['bootstrap/dist/css/bootstrap.min.css', 'vendor/bootstrap/dist/css/bootstrap.min.css'],
@@ -143,9 +144,41 @@ async function validateRemoteUrls(directory) {
   }
 }
 
+async function hasDesktopClientSecret() {
+  let config;
+  try {
+    config = await readFile(path.join(sourceDir, 'googleDrive.local.js'), 'utf8');
+  } catch {
+    return false;
+  }
+
+  const secret = /export\s+const\s+TAURI_CLIENT_SECRET\s*=\s*(['"])(.*?)\1\s*;?/.exec(config)?.[2]?.trim();
+  return Boolean(secret && secret !== 'REPLACE_WITH_DESKTOP_CLIENT_SECRET');
+}
+
+async function hideUnavailableDriveOptions() {
+  const indexPath = path.join(frontendDir, 'index.html');
+  let indexHtml = await readFile(indexPath, 'utf8');
+  const hiddenMarkers = [
+    ['<label id="localFileSourceLabel"', '<label id="localFileSourceLabel" hidden'],
+    ['<div id="drivePickerSection"', '<div id="drivePickerSection" hidden'],
+  ];
+  for (const [marker, hiddenMarker] of hiddenMarkers) {
+    if (!indexHtml.includes(marker)) {
+      throw new Error(`Could not find ${marker} in the Tauri frontend.`);
+    }
+    indexHtml = indexHtml.replace(marker, hiddenMarker);
+  }
+  await writeFile(indexPath, indexHtml);
+}
+
 try {
   await rm(frontendDir, { recursive: true, force: true });
   await cp(sourceDir, frontendDir, { recursive: true });
+  if (!androidBuild && !(await hasDesktopClientSecret())) {
+    await hideUnavailableDriveOptions();
+    console.log('Google Drive hidden: no Desktop OAuth client secret configured.');
+  }
   for (const [source, destination] of assets) {
     await copyAsset(source, destination);
   }
