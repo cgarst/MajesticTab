@@ -413,6 +413,20 @@ body {
   color: #ffffff;
 }
 
+/* Keep top bar controls from showing lingering focus rings while using the score */
+#topBar .btn:focus,
+#topBar .btn:focus-visible,
+#topBar .btn-check:focus + .btn,
+#topBar .btn-check:focus-visible + .btn {
+  outline: none;
+  box-shadow: none;
+}
+
+#topBar .hud-pill-group .btn-check:checked:focus + .btn,
+#topBar .hud-pill-group .btn-check:checked:focus-visible + .btn {
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
 /* Right Section Controls */
 #rightSection {
   display: flex;
