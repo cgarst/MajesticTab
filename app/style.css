@@ -2004,6 +2004,7 @@ body:not(.synth-playback-started) .at-highlight {
   z-index: 5;
   box-sizing: border-box;
   display: none;
+  transition: left 0.12s linear, width 0.12s linear;
 }
 
 .gp-page-cursor-beat {
@@ -2012,6 +2013,7 @@ body:not(.synth-playback-started) .at-highlight {
   z-index: 6;
   box-sizing: border-box;
   display: none;
+  transition: left 0.12s linear;
 }
 
 /* Progress Bar */

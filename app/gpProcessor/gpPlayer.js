@@ -227,7 +227,10 @@ function updatePageModeCursor(currentTick) {
     if (!targetStaffSystem || targetStaffSystemIndex < 0 || !targetBarBounds) return;
 
     // 3. Find beat bounds within the bar
+    const targetMasterBar = masterBars[activeMasterBarIndex];
     let targetBeatBounds = null;
+    let nextBeatBounds = null;
+    let beatProgress = 0;
     if (targetBarBounds.bars && targetBarBounds.bars.length > 0) {
         const trackBar = targetBarBounds.bars[0];
         if (trackBar.beats && trackBar.beats.length > 0) {
@@ -236,6 +239,8 @@ function updatePageModeCursor(currentTick) {
                 const bDur = beat.beat?.playbackDuration ?? beat.playbackDuration ?? 0;
                 if (bStart !== undefined && currentTick >= bStart && currentTick < (bStart + bDur)) {
                     targetBeatBounds = beat;
+                    beatProgress = bDur > 0 ? (currentTick - bStart) / bDur : 0;
+                    nextBeatBounds = trackBar.beats[trackBar.beats.indexOf(beat) + 1] || null;
                     break;
                 }
             }
@@ -374,9 +379,13 @@ function updatePageModeCursor(currentTick) {
         // Beat cursor spans the exact same vertical staff line bounds
         if (targetBeatBounds) {
             const beatVisual = targetBeatBounds.visualBounds || targetBeatBounds.realBounds;
-            const rawBeatX = targetBeatBounds.onNotesX ?? (beatVisual ? beatVisual.x : staffBounds.x);
+            const startX = targetBeatBounds.onNotesX ?? (beatVisual ? beatVisual.x : staffBounds.x);
+            const endX = nextBeatBounds
+                ? (nextBeatBounds.onNotesX ?? nextBeatBounds.visualBounds?.x ?? startX)
+                : (staffBounds.x + staffBounds.w);
+            const rawBeatX = startX + (endX - startX) * Math.max(0, Math.min(1, beatProgress));
             const beatX = svgLeftOffset + rawBeatX;
-            const beatW = beatVisual ? Math.max(6, Math.min(14, beatVisual.w)) : 8;
+            const beatW = 3;
 
             cursorBeat.style.left = `${beatX}px`;
             cursorBeat.style.top = `${barY}px`;
