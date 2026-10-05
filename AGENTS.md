@@ -123,3 +123,14 @@ Note: screenshots are captured at the device pixel ratio of the display (2× on 
 - `Unchecked runtime.lastError: The message port closed...` — browser extension issue, not app code
 - `Tracking Prevention blocked access to storage for cdn.jsdelivr.net / cdnjs.cloudflare.com` — Edge privacy feature blocking CDN cookie/localStorage access, harmless
 - `[AlphaTab][Rendering] AlphaTab container was invisible while autosizing` — warning only; AlphaTab recovers on its own
+
+## Native App (Tauri) Troubleshooting
+
+Use this only for native-shell issues (window, titlebar, plugins, Rust commands, YouTube native player, OAuth). For generic web/UI issues, use the browser procedures above.
+
+- Run dev mode from `build/tauri`: `npm run tauri -- dev --features debug-tools`. The `debug-tools` feature enables devtools and auto-opens them on the `main` window.
+- Redirect output to a file and read it, e.g. `... > /tmp/tauri-dev.log 2>&1` (async terminal). Do not pipe through `tail`; it buffers until exit.
+- The dev watcher rebuilds and relaunches automatically when files under `build/tauri/src-tauri` change; no manual restart needed. Check `pgrep -fl majestictab` to confirm the process is running.
+- Rust-side logs (`eprintln!`) appear in that log; JS console output appears in the devtools console, not the terminal.
+- Compile-only check: `cargo check --manifest-path build/tauri/src-tauri/Cargo.toml`.
+- macOS-only config lives in `src-tauri/tauri.macos.conf.json` (merged over `tauri.conf.json`). Plugins that don't exist on other platforms must stay in macOS-only deps/capabilities.
