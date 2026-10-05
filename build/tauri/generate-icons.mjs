@@ -111,6 +111,3 @@ await cp(path.join(mobileOut, 'ios'), path.join(iconsDir, 'ios'), { recursive: t
 
 await rm(workDir, { recursive: true, force: true });
 console.log(`Icons written to ${iconsDir}`);
-
-await rm(workDir, { recursive: true, force: true });
-console.log(`Icons for ${platforms.join(', ')} written to ${iconsDir}`);
