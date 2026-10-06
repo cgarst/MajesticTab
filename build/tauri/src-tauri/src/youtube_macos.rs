@@ -99,7 +99,7 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
             layer.setMasksToBounds(true);
         }
         let html = NSString::from_str(PLAYER_HTML);
-        let base_url = NSString::from_str("https://io.github.cgarst.MajesticTab");
+        let base_url = NSString::from_str("https://net.zathu.majestictab");
         if let Some(base_url) = NSURL::URLWithString(&base_url) {
             webview.loadHTMLString_baseURL(&html, Some(&base_url));
         }
@@ -182,7 +182,7 @@ pub fn youtube_player_update(
         url.query_pairs_mut()
             .append_pair("autoplay", if autoplay { "1" } else { "0" })
             .append_pair("enablejsapi", "1")
-            .append_pair("origin", "https://io.github.cgarst.MajesticTab");
+            .append_pair("origin", "https://net.zathu.majestictab");
         if start > 0 {
             url.query_pairs_mut()
                 .append_pair("start", &start.to_string());
