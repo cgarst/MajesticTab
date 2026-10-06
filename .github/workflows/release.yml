@@ -1,0 +1,45 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tag must match app version
+        run: |
+          version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "Tag $GITHUB_REF_NAME does not match tauri.conf.json version $version" >&2
+            exit 1
+          fi
+
+  build:
+    needs: verify
+    uses: ./.github/workflows/build.yml
+    with:
+      channel: stable
+      build_id: ${{ github.ref_name }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
