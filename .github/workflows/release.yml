@@ -42,4 +42,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --title "$GITHUB_REF_NAME" --generate-notes
+        run: |
+          cat > notes.md <<'EOF'
+          ### Opening on macOS
+
+          The macOS build is not signed or notarized, so Gatekeeper may say the app is damaged or from an unidentified developer. After dragging MajesticTab to Applications, either:
+
+          - Run `xattr -dr com.apple.quarantine /Applications/MajesticTab.app` in Terminal, then open the app; or
+          - Try to open it once, then go to System Settings > Privacy & Security and click **Open Anyway**.
+
+          EOF
+          gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md --generate-notes
