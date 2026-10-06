@@ -20,7 +20,8 @@ PNG_SIZES = {
     "favicon-16x16.png": 16,
     "favicon-32x32.png": 32,
 }
-BACKGROUND = (0x2F, 0x2F, 0x30, 255)
+# Vertical gradient (top, bottom) for the opaque icons.
+BACKGROUND = ((0xFF, 0xFF, 0xFF), (0xDD, 0xD3, 0xF7))
 # name -> (size, art longest side as a fraction of the canvas)
 OPAQUE_SIZES = {
     "apple-touch-icon.png": (180, 0.62),
@@ -29,14 +30,22 @@ OPAQUE_SIZES = {
 ICO_SIZES = [16, 32, 48]
 
 
-def render(size: int, fraction: float = 1.0, background=(0, 0, 0, 0)) -> Image.Image:
+def vertical_gradient(size: int, top, bottom) -> Image.Image:
+    column = Image.new("RGBA", (1, size))
+    for y in range(size):
+        t = y / max(size - 1, 1)
+        column.putpixel((0, y), (*(round(a + (b - a) * t) for a, b in zip(top, bottom)), 255))
+    return column.resize((size, size))
+
+
+def render(size: int, fraction: float = 1.0, background=None) -> Image.Image:
     # The artwork is not square; fit its longest side and center it on a square canvas.
     box = round(size * fraction)
     data = bytes(resvg_py.svg_to_bytes(svg_path=str(SOURCE), height=box))
     art = Image.open(io.BytesIO(data)).convert("RGBA")
     if art.width > box:
         art = art.resize((box, round(art.height * box / art.width)), Image.LANCZOS)
-    canvas = Image.new("RGBA", (size, size), background)
+    canvas = vertical_gradient(size, *background) if background else Image.new("RGBA", (size, size), (0, 0, 0, 0))
     canvas.alpha_composite(art, ((size - art.width) // 2, (size - art.height) // 2))
     return canvas
 
