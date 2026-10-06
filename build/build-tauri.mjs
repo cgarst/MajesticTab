@@ -167,7 +167,10 @@ if (target === 'android') {
     fail('Install Android SDK Command-line Tools in Android Studio (SDK Manager).');
   }
   const androidProject = path.join(tauriDir, 'src-tauri', 'gen', 'android');
-  if (!(await stat(androidProject).catch(() => null))) {
+  const androidPackageDir = path.join(androidProject, 'app', 'src', 'main', 'java', 'net', 'zathu', 'majestictab');
+  // A project generated under the old identifier must be regenerated.
+  if (!(await stat(androidPackageDir).catch(() => null))) {
+    await rm(androidProject, { recursive: true, force: true });
     run('npm', ['run', 'tauri', '--', 'android', 'init', '--ci']);
   }
   // `android init` only copies icons once, so refresh them on every build.
@@ -179,13 +182,39 @@ if (target === 'android') {
   await rm(path.join(androidRes, 'drawable', 'ic_launcher_background.xml'), { force: true });
   await cp(path.join(tauriDir, 'src-tauri', 'icons', 'android'), androidRes, { recursive: true });
   await writeFile(
-    path.join(androidProject, 'app', 'src', 'main', 'java', 'io', 'github', 'cgarst', 'MajesticTab', 'MainActivity.kt'),
+    path.join(androidPackageDir, 'MainActivity.kt'),
     await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8'),
   );
-  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', '--debug', '--target', 'aarch64']);
+  const keystore = process.env.ANDROID_KEYSTORE_FILE;
+  const keystorePassword = process.env.ANDROID_KEYSTORE_PASSWORD;
+  const keyAlias = process.env.ANDROID_KEY_ALIAS;
+  const keyPassword = process.env.ANDROID_KEY_PASSWORD ?? keystorePassword;
+  const signRelease = Boolean(keystore);
+  if (signRelease && (!keystorePassword || !keyAlias)) {
+    fail('ANDROID_KEYSTORE_FILE requires ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS.');
+  }
+  await rm(path.join(androidProject, 'app', 'build', 'outputs', 'apk'), { recursive: true, force: true });
+  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(signRelease ? [] : ['--debug']), '--target', 'aarch64']);
   const apk = await findApk(path.join(androidProject, 'app', 'build', 'outputs', 'apk'));
   if (!apk) fail('Tauri completed without producing an Android APK.');
-  await cp(apk, path.join(distDir, 'MajesticTab-android-debug.apk'));
+  if (signRelease) {
+    const buildToolsRoot = path.join(androidSdk, 'build-tools');
+    const versions = (await readdir(buildToolsRoot)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    const buildTools = path.join(buildToolsRoot, versions[versions.length - 1]);
+    const ext = process.platform === 'win32' ? '.bat' : '';
+    const aligned = path.join(distDir, 'MajesticTab-android-aligned.apk');
+    const signed = path.join(distDir, 'MajesticTab-android.apk');
+    run(path.join(buildTools, 'zipalign' + (process.platform === 'win32' ? '.exe' : '')), ['-f', '-p', '4', apk, aligned]);
+    run(path.join(buildTools, 'apksigner' + ext), [
+      'sign', '--ks', keystore, '--ks-key-alias', keyAlias,
+      '--ks-pass', 'env:ANDROID_KEYSTORE_PASSWORD', '--key-pass', 'env:ANDROID_KEY_PASSWORD',
+      '--out', signed, aligned,
+    ], { env: { ...env, ANDROID_KEYSTORE_PASSWORD: keystorePassword, ANDROID_KEY_PASSWORD: keyPassword } });
+    await rm(aligned, { force: true });
+    await rm(signed + '.idsig', { force: true });
+  } else {
+    await cp(apk, path.join(distDir, 'MajesticTab-android-debug.apk'));
+  }
 } else if (target === 'linux') {
   for (const command of ['flatpak-builder', 'flatpak']) {
     const result = spawnSync(command, ['--version'], { env, stdio: 'ignore' });

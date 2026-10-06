@@ -104,7 +104,18 @@ jobs:
           workspaces: build/tauri/src-tauri -> ../target
       - name: Locate Android NDK
         run: echo "NDK_HOME=$ANDROID_NDK_HOME" >> "$GITHUB_ENV"
+      - name: Restore release keystore
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_B64" || { echo "::error::Missing ANDROID_KEYSTORE_B64 secret"; exit 1; }
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
       - run: node build/build-tauri.mjs android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       - uses: actions/upload-artifact@v7
         with:
           name: android
