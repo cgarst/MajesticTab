@@ -187,6 +187,7 @@ async function hideUnavailableDriveOptions() {
 try {
   await rm(frontendDir, { recursive: true, force: true });
   await cp(sourceDir, frontendDir, { recursive: true });
+  await cp(path.join(rootDir, 'icons'), path.join(frontendDir, 'icons'), { recursive: true });
   await writeBuildInfo();
   if (!androidBuild && !(await hasDesktopClientSecret())) {
     await hideUnavailableDriveOptions();
