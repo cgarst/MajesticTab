@@ -464,7 +464,7 @@ function updatePanelTitle() {
     const searchExternalBtn = document.getElementById('ytSearchExternalBtn');
     const externalLink = document.getElementById('ytExternalLink');
 
-    const songLabel = [playerState.artist, playerState.title].filter(Boolean).join(' - ') || 'YouTube Audio';
+    const songLabel = [playerState.artist, playerState.title].filter(Boolean).join(' - ') + ' song';
     const modeLabel = playerState.trackMode === 'backing' ? 'Backing Track' : 'Original';
     const query = buildQuery();
     const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
