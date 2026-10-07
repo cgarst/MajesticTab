@@ -56,6 +56,23 @@ function seekToLoopStart() {
     }
 }
 
+export function applyLoopSettings() {
+    if (!currentApi) return;
+    if (synthPlayerState.loopEnabled && currentScore?.masterBars?.length) {
+        const firstBar = currentScore.masterBars[synthPlayerState.loopStartMeasure - 1];
+        const lastBar = currentScore.masterBars[synthPlayerState.loopEndMeasure - 1];
+        if (firstBar && lastBar) {
+            const startTick = firstBar.start;
+            const endTick = lastBar.start + lastBar.calculateDuration();
+            currentApi.playbackRange = { startTick, endTick };
+            currentApi.isLooping = true;
+            return;
+        }
+    }
+    currentApi.isLooping = false;
+    currentApi.playbackRange = null;
+}
+
 /**
  * Format milliseconds into M:SS or MM:SS string
  */
@@ -142,12 +159,12 @@ export function updateSynthUI() {
 
     if (loopStartInput && loopEndInput) {
         synthPlayerState.loopStartMeasure = Math.min(measureCount, Math.max(1, synthPlayerState.loopStartMeasure));
-        synthPlayerState.loopEndMeasure = Math.min(measureCount, Math.max(synthPlayerState.loopStartMeasure, synthPlayerState.loopEndMeasure));
+        synthPlayerState.loopEndMeasure = Math.min(measureCount, Math.max(1, synthPlayerState.loopEndMeasure));
         loopStartInput.min = '1';
-        loopStartInput.max = String(synthPlayerState.loopEndMeasure);
+        loopStartInput.max = String(measureCount);
         loopStartInput.value = String(synthPlayerState.loopStartMeasure);
         loopStartInput.disabled = !hasScore;
-        loopEndInput.min = String(synthPlayerState.loopStartMeasure);
+        loopEndInput.min = '1';
         loopEndInput.max = String(measureCount);
         loopEndInput.value = String(synthPlayerState.loopEndMeasure);
         loopEndInput.disabled = !hasScore;
@@ -497,6 +514,7 @@ export function attachAlphaTabApi(api) {
     synthPlayerState.loopEnabled = false;
     synthPlayerState.loopStartMeasure = 1;
     synthPlayerState.loopEndMeasure = Math.max(1, currentScore?.masterBars?.length || 1);
+    applyLoopSettings();
 
     synthPlayerState.isPlaying = false;
     synthPlayerState.hasPlayed = false;
@@ -642,6 +660,7 @@ export function playPauseSynth() {
     if (!currentApi) return;
     try {
         pauseYouTube();
+        applyLoopSettings();
         if (!synthPlayerState.isPlaying && synthPlayerState.loopEnabled) {
             seekToLoopStart();
         }
@@ -879,24 +898,48 @@ export function initSynthPlayer() {
 
     loopSwitch?.addEventListener('change', () => {
         synthPlayerState.loopEnabled = loopSwitch.checked;
+        applyLoopSettings();
         if (synthPlayerState.loopEnabled) {
             seekToLoopStart();
         }
+        updateSynthUI();
     });
 
-    loopStartInput?.addEventListener('change', () => {
+    const handleLoopStartChange = () => {
         const measureCount = currentScore?.masterBars?.length || 1;
         const value = Number.parseInt(loopStartInput.value, 10);
-        synthPlayerState.loopStartMeasure = Math.min(synthPlayerState.loopEndMeasure, Math.max(1, Math.min(measureCount, Number.isFinite(value) ? value : 1)));
-        updateSynthUI();
-    });
+        if (Number.isFinite(value) && value >= 1) {
+            const clampedStart = Math.min(measureCount, Math.max(1, value));
+            synthPlayerState.loopStartMeasure = clampedStart;
+            if (synthPlayerState.loopEndMeasure < clampedStart) {
+                synthPlayerState.loopEndMeasure = clampedStart;
+            }
+            synthPlayerState.loopEnabled = true;
+            applyLoopSettings();
+            updateSynthUI();
+        }
+    };
 
-    loopEndInput?.addEventListener('change', () => {
+    loopStartInput?.addEventListener('input', handleLoopStartChange);
+    loopStartInput?.addEventListener('change', handleLoopStartChange);
+
+    const handleLoopEndChange = () => {
         const measureCount = currentScore?.masterBars?.length || 1;
         const value = Number.parseInt(loopEndInput.value, 10);
-        synthPlayerState.loopEndMeasure = Math.max(synthPlayerState.loopStartMeasure, Math.min(measureCount, Number.isFinite(value) ? value : measureCount));
-        updateSynthUI();
-    });
+        if (Number.isFinite(value) && value >= 1) {
+            const clampedEnd = Math.min(measureCount, Math.max(1, value));
+            synthPlayerState.loopEndMeasure = clampedEnd;
+            if (synthPlayerState.loopStartMeasure > clampedEnd) {
+                synthPlayerState.loopStartMeasure = clampedEnd;
+            }
+            synthPlayerState.loopEnabled = true;
+            applyLoopSettings();
+            updateSynthUI();
+        }
+    };
+
+    loopEndInput?.addEventListener('input', handleLoopEndChange);
+    loopEndInput?.addEventListener('change', handleLoopEndChange);
 
     const speedMinusBtn = document.getElementById('synthSpeedMinusBtn');
     const speedPlusBtn = document.getElementById('synthSpeedPlusBtn');
