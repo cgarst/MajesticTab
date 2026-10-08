@@ -145,7 +145,36 @@ async function validateRemoteUrls(directory) {
   }
 }
 
+async function loadEnvFiles() {
+  const possiblePaths = [
+    path.join(rootDir, '.env'),
+    path.join(scriptDir, '.env'),
+    path.join(rootDir, 'build', '.env'),
+  ];
+  for (const envPath of possiblePaths) {
+    try {
+      const content = await readFile(envPath, 'utf8');
+      for (const line of content.split('\n')) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) continue;
+        const match = /^([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/.exec(trimmed);
+        if (match) {
+          const key = match[1];
+          let val = match[2].trim();
+          if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+            val = val.slice(1, -1);
+          }
+          if (!process.env[key]) {
+            process.env[key] = val;
+          }
+        }
+      }
+    } catch {}
+  }
+}
+
 async function getDesktopClientSecret() {
+  await loadEnvFiles();
   const envSecret = (process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_DESKTOP_CLIENT_SECRET || '').trim();
   if (envSecret && envSecret !== 'REPLACE_WITH_DESKTOP_CLIENT_SECRET') {
     return envSecret;
