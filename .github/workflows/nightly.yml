@@ -57,9 +57,20 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          cat > notes.md <<EOF
+          Automated nightly build of $GITHUB_SHA.
+
+          ### Opening on macOS
+
+          The macOS build is not signed or notarized, so Gatekeeper may say the app is damaged or from an unidentified developer. After dragging MajesticTab to Applications, either:
+
+          - Run \`xattr -dr com.apple.quarantine /Applications/MajesticTab.app\` in Terminal, then open the app; or
+          - Try to open it once, then go to System Settings > Privacy & Security and click **Open Anyway**.
+
+          EOF
           gh release delete nightly --cleanup-tag --yes || true
           gh release create nightly artifacts/* \
             --target "$GITHUB_SHA" \
             --prerelease \
             --title "Nightly ${{ needs.check.outputs.build_id }}" \
-            --notes "Automated nightly build of $GITHUB_SHA."
+            --notes-file notes.md
