@@ -1,5 +1,6 @@
 // googleDrive.js
 import { loadFile, hideFileMenu } from './main.js';
+import { saveStoredFile } from './fileStore.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
 const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
@@ -524,6 +525,11 @@ function renderFileList(files) {
 
                     const blob = await res.blob();
                     const fileObj = new File([blob], fileName, { type: mimeType || 'application/octet-stream' });
+                    try {
+                        await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
+                    } catch (err) {
+                        console.warn('Could not persist Drive file to store:', err);
+                    }
                     closeDriveModal();
                     await loadFile(fileObj);
                 } catch (err) {
@@ -564,13 +570,10 @@ function handleAuthRedirect() {
 export function setupDrivePicker() {
     const loadBtn = document.getElementById('loadFromDriveBtn');
     if (loadBtn) {
-        loadBtn.addEventListener('click', () => {
+        loadBtn.addEventListener('click', async () => {
             hideFileMenu();
-            if (!isTokenValid()) {
-                redirectToGoogleAuth();
-            } else {
-                openDriveModal();
-            }
+            const { openFromProvider } = await import('./fileProviders.js');
+            await openFromProvider('google-drive');
         });
     }
 
