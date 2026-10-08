@@ -4,6 +4,9 @@
 import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
 import { openDriveModal, redirectToGoogleAuth, isTokenValid } from './googleDrive.js';
+import { openTabDownloader } from './tabDownloader.js';
+import { addTabOptionToSong, mapOpenFileToSong } from './libraryStore.js';
+import { inferTuningFromTextOrName } from './utils/tuningUtils.js';
 
 const providers = new Map();
 
@@ -13,7 +16,7 @@ const providers = new Map();
  * @property {string} id - Unique identifier
  * @property {string} name - Display name
  * @property {string} [icon] - Bootstrap icon class
- * @property {function(): Promise<File|void>} open - Handles user interaction and importing
+ * @property {function(Object=): Promise<File|void>} open - Handles user interaction and importing
  */
 
 /**
@@ -47,14 +50,15 @@ export function getFileProviders() {
 /**
  * Execute the open action for a specific provider
  * @param {string} id
+ * @param {Object} [options]
  */
-export async function openFromProvider(id) {
+export async function openFromProvider(id, options = {}) {
     const provider = getFileProvider(id);
     if (!provider) {
         console.error(`File provider "${id}" not found.`);
         return;
     }
-    return provider.open();
+    return provider.open(options);
 }
 
 // --- Built-in Provider: Local Device ---
@@ -62,7 +66,7 @@ export const LocalFileProvider = {
     id: 'local',
     name: 'Local Device',
     icon: 'bi-folder2-open',
-    async open() {
+    async open(options = {}) {
         return new Promise((resolve) => {
             const existingInput = document.getElementById('localFile');
             if (existingInput) {
@@ -71,7 +75,18 @@ export const LocalFileProvider = {
                     const file = e.target.files?.[0];
                     if (file) {
                         try {
-                            await saveStoredFile(file, 'local');
+                            const stored = await saveStoredFile(file, 'local');
+                            if (options.songId || options.targetSong?.id) {
+                                const targetId = options.songId || options.targetSong.id;
+                                await addTabOptionToSong(targetId, {
+                                    name: file.name,
+                                    providerId: 'local',
+                                    relativePath: file.name,
+                                    fileStoreId: stored.id,
+                                    tuning: inferTuningFromTextOrName(file.name),
+                                    fileType: file.name.split('.').pop().toLowerCase()
+                                });
+                            }
                         } catch (err) {
                             console.warn('Could not persist file to store:', err);
                         }
@@ -95,7 +110,18 @@ export const LocalFileProvider = {
                     input.remove();
                     if (file) {
                         try {
-                            await saveStoredFile(file, 'local');
+                            const stored = await saveStoredFile(file, 'local');
+                            if (options.songId || options.targetSong?.id) {
+                                const targetId = options.songId || options.targetSong.id;
+                                await addTabOptionToSong(targetId, {
+                                    name: file.name,
+                                    providerId: 'local',
+                                    relativePath: file.name,
+                                    fileStoreId: stored.id,
+                                    tuning: inferTuningFromTextOrName(file.name),
+                                    fileType: file.name.split('.').pop().toLowerCase()
+                                });
+                            }
                         } catch (err) {
                             console.warn('Could not persist file to store:', err);
                         }
@@ -116,15 +142,48 @@ export const GoogleDriveFileProvider = {
     id: 'google-drive',
     name: 'Google Drive',
     icon: 'bi-google',
-    async open() {
+    async open(options = {}) {
+        const searchQuery = options.query || options.songName || '';
         if (isTokenValid()) {
             openDriveModal();
+            if (searchQuery) {
+                const driveSearchInput = document.getElementById('driveSearchInput');
+                if (driveSearchInput) {
+                    driveSearchInput.value = searchQuery;
+                    driveSearchInput.dispatchEvent(new Event('input'));
+                }
+            }
         } else {
             redirectToGoogleAuth();
         }
     }
 };
 
+// --- Built-in Provider: Tab Downloader (Native / Web) ---
+export const TabDownloaderNativeProvider = {
+    id: 'tab-downloader',
+    name: 'Tab Downloader',
+    icon: 'bi-cloud-arrow-down',
+    async open(options = {}) {
+        return openTabDownloader(options);
+    }
+};
+
+export const TabDownloaderWebProvider = {
+    id: 'tab-downloader-web',
+    name: 'Tab Downloader (Web)',
+    icon: 'bi-cloud-arrow-down',
+    async open(options = {}) {
+        return openTabDownloader(options);
+    }
+};
+
 // Register built-in providers
 registerFileProvider(LocalFileProvider);
 registerFileProvider(GoogleDriveFileProvider);
+
+if (typeof window !== 'undefined' && window.__TAURI__) {
+    registerFileProvider(TabDownloaderNativeProvider);
+} else {
+    registerFileProvider(TabDownloaderWebProvider);
+}

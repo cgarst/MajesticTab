@@ -79,6 +79,13 @@ const allowedRemoteHosts = new Set([
   'yt.artemislena.eu',
   'youtu.be',
   'www.w3.org',
+  'musicbrainz.org',
+  'coverartarchive.org',
+  'archive.org',
+  'www.ultimate-guitar.com',
+  'ultimate-guitar.com',
+  'metaltabs.org',
+  'www.metaltabs.org',
 ]);
 
 async function copyAsset(source, destination) {

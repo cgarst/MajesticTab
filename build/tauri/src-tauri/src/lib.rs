@@ -37,6 +37,84 @@ fn get_opened_file(state: tauri::State<'_, OpenedFilesState>) -> Option<OpenedFi
     state.0.lock().ok()?.pop()
 }
 
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+pub struct DownloadedTabPayload {
+    pub name: String,
+    pub path: Option<String>,
+    pub data: Option<Vec<u8>>,
+}
+
+#[tauri::command]
+async fn open_tab_downloader(
+    app: tauri::AppHandle,
+    url: String,
+    userscript: Option<String>,
+) -> Result<(), String> {
+    if let Some(existing) = app.get_webview_window("tab-downloader") {
+        if let Ok(parsed_url) = url.parse::<tauri::Url>() {
+            let _ = existing.navigate(parsed_url);
+            let _ = existing.show();
+            let _ = existing.set_focus();
+            if let Some(js) = userscript {
+                if !js.is_empty() {
+                    let _ = existing.eval(&js);
+                }
+            }
+            return Ok(());
+        }
+    }
+
+    let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
+    let mut builder = tauri::WebviewWindowBuilder::new(
+        &app,
+        "tab-downloader",
+        tauri::WebviewUrl::External(parsed_url),
+    )
+    .title("Tab Downloader - MajesticTab")
+    .inner_size(1100.0, 750.0);
+
+    if let Some(ref js) = userscript {
+        if !js.is_empty() {
+            builder = builder.initialization_script(js);
+        }
+    }
+
+    let app_handle = app.clone();
+    builder = builder.on_download(move |_webview, event| {
+        match event {
+            tauri::webview::DownloadEvent::Requested { .. } => true,
+            tauri::webview::DownloadEvent::Finished { path, success, .. } => {
+                if success {
+                    if let Some(p) = path {
+                        let filename = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "downloaded.gp".to_string());
+                        let data = std::fs::read(&p).ok();
+                        let payload = DownloadedTabPayload {
+                            name: filename,
+                            path: Some(p.to_string_lossy().to_string()),
+                            data,
+                        };
+                        let _ = app_handle.emit("tab-downloaded", payload);
+                    } else {
+                        let payload = DownloadedTabPayload {
+                            name: "downloaded.tab".to_string(),
+                            path: None,
+                            data: None,
+                        };
+                        let _ = app_handle.emit("tab-downloaded", payload);
+                    }
+                }
+                true
+            }
+            _ => true,
+        }
+    });
+
+    let window = builder.build().map_err(|e| e.to_string())?;
+    let _ = window.show();
+    let _ = window.set_focus();
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(feature = "debug-tools")]
@@ -55,6 +133,7 @@ pub fn run() {
 
     let builder = tauri::Builder::default()
         .manage(OpenedFilesState(Mutex::new(initial_files)))
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_oauth::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_google_auth::init())
@@ -71,13 +150,15 @@ pub fn run() {
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         get_opened_file,
+        open_tab_downloader,
         youtube_macos::youtube_player_update,
         youtube_macos::youtube_player_command
     ]);
 
     #[cfg(not(target_os = "macos"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
-        get_opened_file
+        get_opened_file,
+        open_tab_downloader
     ]);
 
     let app = builder

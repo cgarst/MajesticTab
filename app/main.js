@@ -17,6 +17,10 @@ import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
 import { saveStoredFile } from './fileStore.js';
 import { openFromProvider } from './fileProviders.js';
+import { openLibraryModal } from './libraryModal.js';
+import { initTauriDownloadListener } from './tabDownloader.js';
+import { addRecentOpened } from './libraryStore.js';
+import { inferTuningFromTextOrName } from './utils/tuningUtils.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -707,6 +711,15 @@ window.addEventListener('DOMContentLoaded', async () => {
     initYouTubePlayer();
     initSynthPlayer();
     setupGlobalRewindButton();
+    initTauriDownloadListener();
+
+    document.getElementById('libraryToggleBtn')?.addEventListener('click', () => {
+        openLibraryModal('library');
+    });
+    document.getElementById('openLibraryBtn')?.addEventListener('click', () => {
+        fileMenu.hide();
+        openLibraryModal('library');
+    });
 
     let hasNativeFile = false;
     if (window.__TAURI__) {
@@ -922,6 +935,17 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     // Update YouTube player metadata with filename
     updateSongForYouTube({ filename: file.name });
     
+    // Record to recents
+    const detectedTuning = inferTuningFromTextOrName(file.name);
+    addRecentOpened({
+        id: file.name,
+        name: file.name,
+        providerId: 'local',
+        relativePath: file.name,
+        songTitle: file.name.replace(/\.[^/.]+$/, ''),
+        tunings: detectedTuning ? [detectedTuning] : []
+    }).catch(() => {});
+
     // Show navigation controls for all supported file types
     navButtons.style.display = 'flex';
     modeButtons.style.display = 'flex';

@@ -64,6 +64,13 @@
       </button>
     </div>
 
+    <!-- Library Toggle -->
+    <div id="libraryPill" class="hud-pill-group" role="group" aria-label="Tab Library">
+      <button class="btn btn-sm" id="libraryToggleBtn" title="Tab Library">
+        <i class="bi-music-player"></i><span class="d-none d-sm-inline ms-1">Library</span>
+      </button>
+    </div>
+
     <!-- Fullscreen Toggle -->
     <div id="fullscreenPill" class="hud-pill-group" role="group" aria-label="Fullscreen">
       <button class="btn btn-sm" id="fullscreenToggleBtn" title="Toggle Fullscreen">
@@ -288,6 +295,9 @@
   <div class="theme-modal-card drive-modal-card">
     <div class="theme-modal-header">
       <div class="theme-modal-title-group">
+        <button type="button" class="brand-btn theme-modal-back-btn p-1 px-2" id="driveModalBackBtn" title="Go up one folder" aria-label="Go up one folder" style="display:none;">
+          <i class="bi-arrow-left"></i>
+        </button>
         <div class="brand-btn p-2" style="width: 36px; height: 36px;">
           <i class="bi-google text-primary"></i>
         </div>
@@ -354,6 +364,9 @@
       <div class="settings-header-label">
         <i class="bi-folder2-open text-primary"></i> Load Tab
       </div>
+      <button class="btn btn-outline-info w-100 d-flex align-items-center justify-content-center gap-2 mb-2" id="openLibraryBtn">
+        <i class="bi-music-player"></i> Tab Library
+      </button>
       <div>
         <label id="localFileSourceLabel" class="form-label mb-1 small text-white-50">From local device:</label>
         <input type="file" class="form-control" id="localFile" accept=".pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt">

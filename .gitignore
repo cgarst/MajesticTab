@@ -10,7 +10,9 @@
 /build/tauri/src-tauri/target/
 /build/tauri/target/
 /build/tauri/plugins/*/android/.tauri/
+/build/tauri/plugins/*/android/.gradle/
 /build/tauri/plugins/*/android/build/
+.gradle/
 /node_modules
 .env
 .env.*
