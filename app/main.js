@@ -15,6 +15,8 @@ import { initSynthPlayer, hideSynthPlayer } from './gpProcessor/gpPlayer.js';
 import { initTheming } from './themeEngine.js';
 import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
+import { saveStoredFile } from './fileStore.js';
+import { openFromProvider } from './fileProviders.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -660,6 +662,11 @@ async function checkNativeOpenedFiles() {
             if (opened && opened.name && opened.data) {
                 const blob = new Blob([new Uint8Array(opened.data)]);
                 const file = new File([blob], opened.name, { type: blob.type || 'application/octet-stream' });
+                try {
+                    await saveStoredFile(file, 'local');
+                } catch (err) {
+                    console.warn('Could not persist native opened file to store:', err);
+                }
                 await loadFile(file);
             }
         });
@@ -670,6 +677,11 @@ async function checkNativeOpenedFiles() {
         if (opened && opened.name && opened.data) {
             const blob = new Blob([new Uint8Array(opened.data)]);
             const file = new File([blob], opened.name, { type: blob.type || 'application/octet-stream' });
+            try {
+                await saveStoredFile(file, 'local');
+            } catch (err) {
+                console.warn('Could not persist native opened file to store:', err);
+            }
             await loadFile(file);
             return true;
         }
@@ -794,6 +806,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 fileInput.addEventListener('change', async e => {
     const file = e.target.files[0];
     if (!file) return;
+    try {
+        await saveStoredFile(file, 'local');
+    } catch (err) {
+        console.warn('Could not persist file to store:', err);
+    }
     await loadFile(file);
 });
 
