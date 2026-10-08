@@ -115,7 +115,7 @@ async function copyBundleArtifacts(bundleDir, extension) {
       const entryPath = path.join(directory, entry.name);
       if (entry.isDirectory()) {
         await collect(entryPath);
-      } else if (entry.isFile() && entry.name.endsWith(extension)) {
+      } else if (entry.isFile() && entry.name.endsWith(extension) && !entry.name.startsWith('rw.') && !entry.name.startsWith('.')) {
         files.push(entryPath);
       }
     }
@@ -276,8 +276,8 @@ if (target === 'android') {
   if (macosX64) buildArgs.push('--target', 'x86_64-apple-darwin');
   run('npm', buildArgs, { env: buildEnv });
   const bundleDir = macosX64
-    ? path.join(tauriDir, 'target', 'x86_64-apple-darwin', 'release', 'bundle')
-    : path.join(tauriDir, 'target', 'release', 'bundle');
+    ? path.join(tauriDir, 'target', 'x86_64-apple-darwin', 'release', 'bundle', bundle)
+    : path.join(tauriDir, 'target', 'release', 'bundle', bundle);
   await copyBundleArtifacts(bundleDir, extension);
 }
 
