@@ -1,13 +1,16 @@
 // fileStore.js
 // IndexedDB-backed persistent file store for MajesticTab tab files across all platforms.
 
-const DB_NAME = 'majestictab_db';
-const DB_VERSION = 1;
-const STORE_NAME = 'stored_files';
+export const DB_NAME = 'majestictab_db';
+export const DB_VERSION = 2;
+export const STORE_NAME = 'stored_files';
+export const STORE_SONGS = 'library_songs';
+export const STORE_COLLECTIONS = 'library_collections';
+export const STORE_RECENTS = 'library_recents';
 
 let dbPromise = null;
 
-function getDB() {
+export function getDB() {
     if (dbPromise) return dbPromise;
 
     dbPromise = new Promise((resolve, reject) => {
@@ -25,6 +28,20 @@ function getDB() {
                 store.createIndex('name', 'name', { unique: false });
                 store.createIndex('providerId', 'providerId', { unique: false });
                 store.createIndex('savedAt', 'savedAt', { unique: false });
+            }
+            if (!db.objectStoreNames.contains(STORE_SONGS)) {
+                const songStore = db.createObjectStore(STORE_SONGS, { keyPath: 'id' });
+                songStore.createIndex('collectionId', 'collectionId', { unique: false });
+                songStore.createIndex('artist', 'artist', { unique: false });
+                songStore.createIndex('album', 'album', { unique: false });
+                songStore.createIndex('addedAt', 'addedAt', { unique: false });
+            }
+            if (!db.objectStoreNames.contains(STORE_COLLECTIONS)) {
+                db.createObjectStore(STORE_COLLECTIONS, { keyPath: 'id' });
+            }
+            if (!db.objectStoreNames.contains(STORE_RECENTS)) {
+                const recentsStore = db.createObjectStore(STORE_RECENTS, { keyPath: 'id' });
+                recentsStore.createIndex('openedAt', 'openedAt', { unique: false });
             }
         };
 
