@@ -26,6 +26,29 @@
     "active": true,
     "targets": "all",
     "category": "Education",
+    "fileAssociations": [
+      {
+        "ext": ["gp", "gp3", "gp4", "gp5", "gpx"],
+        "name": "Guitar Pro Score",
+        "description": "Guitar Pro Score File",
+        "role": "Viewer",
+        "mimeType": "application/x-guitar-pro"
+      },
+      {
+        "ext": ["pdf"],
+        "name": "PDF Document",
+        "description": "Portable Document Format",
+        "role": "Viewer",
+        "mimeType": "application/pdf"
+      },
+      {
+        "ext": ["txt"],
+        "name": "Plain Text Tab",
+        "description": "Plain Text Tablature",
+        "role": "Viewer",
+        "mimeType": "text/plain"
+      }
+    ],
     "linux": {
       "appimage": {
         "bundleMediaFramework": true

@@ -646,6 +646,36 @@ function setupExtensionSettings() {
     });
 }
 
+async function checkNativeOpenedFiles() {
+    if (!window.__TAURI__?.core?.invoke) return false;
+
+    // Listen for runtime file open events
+    if (window.__TAURI__?.event?.listen) {
+        window.__TAURI__.event.listen('app-open-file', async (event) => {
+            const opened = event.payload;
+            if (opened && opened.name && opened.data) {
+                const blob = new Blob([new Uint8Array(opened.data)]);
+                const file = new File([blob], opened.name, { type: blob.type || 'application/octet-stream' });
+                await loadFile(file);
+            }
+        });
+    }
+
+    try {
+        const opened = await window.__TAURI__.core.invoke('get_opened_file');
+        if (opened && opened.name && opened.data) {
+            const blob = new Blob([new Uint8Array(opened.data)]);
+            const file = new File([blob], opened.name, { type: blob.type || 'application/octet-stream' });
+            await loadFile(file);
+            return true;
+        }
+    } catch (e) {
+        console.warn('[Native Open] Failed to get opened file:', e);
+    }
+
+    return false;
+}
+
 // --- INITIALIZATION ---
 window.addEventListener('DOMContentLoaded', async () => {
     // Debug: Always log that we're starting
@@ -661,6 +691,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     initYouTubePlayer();
     initSynthPlayer();
     setupGlobalRewindButton();
+
+    let hasNativeFile = false;
+    if (window.__TAURI__) {
+        hasNativeFile = await checkNativeOpenedFiles();
+    }
 
     // Check for test mode URL parameter
     const urlParams = new URLSearchParams(window.location.search);
@@ -695,7 +730,7 @@ window.addEventListener('DOMContentLoaded', async () => {
             alert(`Test mode error: Could not load tests/${testFile}\n${error.message}`);
             fileMenu.show();
         }
-    } else {
+    } else if (!hasNativeFile) {
         // Show the file menu on initial load (normal mode), unless the Drive modal was
         // just reopened after the OAuth redirect (the offcanvas focus trap would steal
         // focus from the Drive search input)
