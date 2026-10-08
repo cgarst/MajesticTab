@@ -8,7 +8,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 node "$ROOT_DIR/build/build-tauri.mjs" macos "$@"
 
 # Find the generated DMG in dist/
-DMG_PATH=$(find "$ROOT_DIR/dist" -maxdepth 1 -name "*.dmg" -print -quit)
+DMG_PATH=$(find "$ROOT_DIR/dist" -maxdepth 1 -name "MajesticTab*.dmg" ! -name "rw.*" -print | sort | tail -n 1)
 
 if [ -z "$DMG_PATH" ] || [ ! -f "$DMG_PATH" ]; then
     echo "Error: No DMG found in $ROOT_DIR/dist" >&2
@@ -40,3 +40,4 @@ else
     exit 1
 fi
 
+open /Applications/MajesticTab.app
