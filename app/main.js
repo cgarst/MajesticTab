@@ -361,6 +361,10 @@ function setupSettings() {
             loadFile(currentFile); // Reload current file with new settings
         }
     });
+
+    document.getElementById('bulkExportBtn')?.addEventListener('click', () => {
+        window.location.href = 'batchExport.html';
+    });
 }
 
 function setupExtensionSettings() {
