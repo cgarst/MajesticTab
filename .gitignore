@@ -12,3 +12,5 @@
 /build/tauri/plugins/*/android/.tauri/
 /build/tauri/plugins/*/android/build/
 /node_modules
+.env
+.env.*
