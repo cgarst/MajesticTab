@@ -320,6 +320,11 @@ function renderBreadcrumbs() {
         });
     });
 
+    const backBtn = document.getElementById('driveModalBackBtn');
+    if (backBtn) {
+        backBtn.style.display = (folderHistory.length > 1 && !currentSearchQuery) ? 'inline-flex' : 'none';
+    }
+
     const resetRootBtn = document.getElementById('driveResetTabsDirectoryBtn');
     if (resetRootBtn) resetRootBtn.hidden = !tabsDirectory;
 }
@@ -576,6 +581,16 @@ export function setupDrivePicker() {
             await openFromProvider('google-drive');
         });
     }
+
+    const backBtn = document.getElementById('driveModalBackBtn');
+    backBtn?.addEventListener('click', () => {
+        if (folderHistory.length > 1) {
+            folderHistory.pop();
+            currentFolderId = folderHistory[folderHistory.length - 1].id;
+            saveCurrentFolder();
+            loadDriveFiles();
+        }
+    });
 
     const closeBtn = document.getElementById('driveModalCloseBtn');
     closeBtn?.addEventListener('click', closeDriveModal);

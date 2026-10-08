@@ -4,6 +4,8 @@ import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
 import { attachAlphaTabApi, detachAlphaTabApi } from './gpPlayer.js';
+import { extractScoreTunings } from '../utils/tuningUtils.js';
+import { addRecentOpened } from '../libraryStore.js';
 
 const PAGE_PADDING = 10;
 
@@ -92,6 +94,18 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
                 scoreTitle: api.score.title,
                 scoreArtist: api.score.artist
             });
+
+            const tunings = extractScoreTunings(api.score);
+            addRecentOpened({
+                id: file.name,
+                name: file.name,
+                providerId: 'local',
+                relativePath: file.name,
+                songTitle: api.score.title || file.name.replace(/\.[^/.]+$/, ''),
+                artist: api.score.artist || '',
+                album: api.score.album || '',
+                tunings
+            }).catch(() => {});
         }
 
         // Render directly in the active mode

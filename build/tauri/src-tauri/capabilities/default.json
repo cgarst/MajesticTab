@@ -17,6 +17,8 @@
     "oauth:allow-cancel",
     "opener:allow-open-url",
     "opener:allow-default-urls",
-    "google-auth:allow-authorize"
+    "google-auth:allow-authorize",
+    "fs:default",
+    "core:event:allow-emit"
   ]
 }
