@@ -107,7 +107,10 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                 },
                 display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE },
                 notation: {
-                    rhythmMode: alphaTab.TabRhythmMode.ShowWithBars
+                    rhythmMode: alphaTab.TabRhythmMode.ShowWithBars,
+                    elements: {
+                        guitarTuning: true
+                    }
                 }
             });
 
@@ -116,6 +119,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                 applyGpScoreTransforms(newScore);
                 newScore.stylesheet.hideEmptyStaves = true;
                 newScore.stylesheet.hideEmptyStavesInFirstSystem = true;
+                newScore.stylesheet.globalDisplayTuning = true;
 
                 if (debug) {
                     console.log("Hide empty staves enabled:", newScore.stylesheet.hideEmptyStaves);
