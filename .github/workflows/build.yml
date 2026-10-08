@@ -15,6 +15,7 @@ on:
 env:
   MAJESTICTAB_CHANNEL: ${{ inputs.channel }}
   MAJESTICTAB_BUILD_ID: ${{ inputs.build_id }}
+  GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
 
 jobs:
   desktop:

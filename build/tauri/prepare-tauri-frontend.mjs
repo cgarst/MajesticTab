@@ -145,16 +145,19 @@ async function validateRemoteUrls(directory) {
   }
 }
 
-async function hasDesktopClientSecret() {
-  let config;
-  try {
-    config = await readFile(path.join(sourceDir, 'googleDrive.local.js'), 'utf8');
-  } catch {
-    return false;
+async function getDesktopClientSecret() {
+  const envSecret = (process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_DESKTOP_CLIENT_SECRET || '').trim();
+  if (envSecret && envSecret !== 'REPLACE_WITH_DESKTOP_CLIENT_SECRET') {
+    return envSecret;
   }
-
-  const secret = /export\s+const\s+TAURI_CLIENT_SECRET\s*=\s*(['"])(.*?)\1\s*;?/.exec(config)?.[2]?.trim();
-  return Boolean(secret && secret !== 'REPLACE_WITH_DESKTOP_CLIENT_SECRET');
+  try {
+    const config = await readFile(path.join(sourceDir, 'googleDrive.local.js'), 'utf8');
+    const secret = /export\s+const\s+TAURI_CLIENT_SECRET\s*=\s*(['"])(.*?)\1\s*;?/.exec(config)?.[2]?.trim();
+    if (secret && secret !== 'REPLACE_WITH_DESKTOP_CLIENT_SECRET') {
+      return secret;
+    }
+  } catch {}
+  return null;
 }
 
 async function writeBuildInfo() {
@@ -189,7 +192,11 @@ try {
   await cp(sourceDir, frontendDir, { recursive: true });
   await cp(path.join(rootDir, 'icons'), path.join(frontendDir, 'icons'), { recursive: true });
   await writeBuildInfo();
-  if (!androidBuild && !(await hasDesktopClientSecret())) {
+  const desktopSecret = await getDesktopClientSecret();
+  if (desktopSecret) {
+    await writeFile(path.join(frontendDir, 'googleDrive.local.js'), `export const TAURI_CLIENT_SECRET = '${desktopSecret}';\n`);
+  }
+  if (!androidBuild && !desktopSecret) {
     await hideUnavailableDriveOptions();
     console.log('Google Drive hidden: no Desktop OAuth client secret configured.');
   }
