@@ -267,14 +267,17 @@ pub fn wrap_userscript(raw_js: &str) -> String {
 pub fn identify_tab_extension(bytes: &[u8], filename: &str) -> Option<&'static str> {
     let lower_name = filename.to_lowercase();
 
-    // 1. Check known binary file magic headers first
-    if bytes.starts_with(b"FICHIER GUITAR PRO v3") {
-        return Some("gp3");
-    }
-    if bytes.starts_with(b"FICHIER GUITAR PRO v4") {
-        return Some("gp4");
-    }
-    if bytes.starts_with(b"FICHIER GUITAR PRO v5") || bytes.starts_with(b"FICHIER GUITAR PRO") {
+    // 1. Check known binary file magic headers first (handling Pascal-string 1-byte prefix \x18/\x19/\x1a)
+    let is_gp_pascal = bytes.len() > 20 && (&bytes[1..]).starts_with(b"FICHIER GUITAR PRO");
+    let is_gp_raw = bytes.starts_with(b"FICHIER GUITAR PRO");
+    if is_gp_pascal || is_gp_raw {
+        let gp_slice = if is_gp_pascal { &bytes[1..] } else { bytes };
+        if gp_slice.starts_with(b"FICHIER GUITAR PRO v3") {
+            return Some("gp3");
+        }
+        if gp_slice.starts_with(b"FICHIER GUITAR PRO v4") {
+            return Some("gp4");
+        }
         return Some("gp5");
     }
     if bytes.starts_with(b"BCFB") {
