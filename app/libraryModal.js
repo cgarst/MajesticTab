@@ -426,7 +426,7 @@ async function renderLibraryBrowseView(container) {
             <input type="text" class="search-input" id="libFilterInput" placeholder="${
               libraryBrowseMode === 'tunings'
                 ? (selectedTuning ? `Filter songs in ${selectedTuning}...` : 'Filter tunings in library...')
-                : (selectedAlbum ? 'Filter tracks in album...' : selectedArtist ? 'Filter albums by title...' : 'Filter artists in library...')
+                : (selectedAlbum ? 'Filter tracks in album...' : selectedArtist ? 'Filter albums or songs...' : 'Filter artists, albums, or songs...')
             }" autocomplete="off" spellcheck="false" aria-label="Filter library">
             <button class="search-clear-btn" type="button" id="libFilterClearBtn" title="Clear filter" aria-label="Clear filter" style="display: none;">
               <i class="bi-x-lg"></i>
@@ -573,10 +573,13 @@ async function renderLibraryBrowseView(container) {
                         path: subPath,
                         year: alb.year || null,
                         coverUrl: alb.coverUrl || null,
-                        songsCount: 0
+                        songsCount: 0,
+                        songs: []
                     });
                 }
-                subfolderMap.get(immediateName).songsCount += alb.songs.length;
+                const subEntry = subfolderMap.get(immediateName);
+                subEntry.songsCount += alb.songs.length;
+                subEntry.songs.push(...alb.songs);
             }
             const currentSubfolders = Array.from(subfolderMap.values());
 
@@ -729,8 +732,10 @@ async function renderLibraryBrowseView(container) {
                     <div class="library-albums-grid mb-3" id="libAlbumsGrid">
                       ${currentSubfolders.map(sub => {
                         const cover = sub.coverUrl || (isCustomArtist ? null : getPlaceholderCoverSvg(sub.name));
+                        const subSongNames = (sub.songs || []).map(s => s.title || s.name || '');
+                        const albumSearchTerms = [sub.name, sub.year, ...subSongNames].filter(Boolean).join(' ').toLowerCase();
                         return `
-                        <div class="library-card album-card p-3" data-album-title="${escapeHtml(sub.name)}" data-folder-name="${escapeHtml(sub.name)}">
+                        <div class="library-card album-card p-3" data-album-title="${escapeHtml(sub.name)}" data-folder-name="${escapeHtml(sub.name)}" data-search-terms="${escapeHtml(albumSearchTerms)}">
                           <div class="album-cover-container mb-2 position-relative d-flex align-items-center justify-content-center" style="background: rgba(255, 255, 255, 0.03); border-radius: 8px; height: 130px;">
                             ${cover
                                 ? `<img src="${cover}" class="album-cover-img w-100 h-100" alt="${escapeHtml(sub.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(sub.name)}'">`
@@ -785,9 +790,15 @@ async function renderLibraryBrowseView(container) {
                 const albumCount = artist.albums.length;
                 const songCount = (artist.songs ? artist.songs.length : 0) + artist.albums.reduce((acc, a) => acc + a.songs.length, 0);
                 const firstCover = artist.albums.find(a => a.coverUrl)?.coverUrl || (isCustomArtist ? null : getPlaceholderCoverSvg(artist.name));
+                const albumNames = artist.albums.map(a => a.name || a.title || '');
+                const songNames = [
+                    ...(artist.songs || []).map(s => s.title || s.name || ''),
+                    ...artist.albums.flatMap(a => (a.songs || []).map(s => s.title || s.name || ''))
+                ];
+                const artistSearchTerms = [artist.name, ...albumNames, ...songNames].filter(Boolean).join(' ').toLowerCase();
 
                 return `
-                <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}">
+                <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" data-search-terms="${escapeHtml(artistSearchTerms)}">
                   <div class="d-flex align-items-center gap-3 min-w-0">
                     ${firstCover
                         ? `<img src="${firstCover}" class="artist-thumbnail flex-shrink-0" alt="${escapeHtml(artist.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(artist.name)}'">`
@@ -1048,8 +1059,8 @@ function setupLibraryFilter(container) {
             let visibleCount = 0;
             albumCards.forEach(card => {
                 const title = (card.dataset.albumTitle || '').toLowerCase();
-                const year = (card.dataset.albumYear || '').toLowerCase();
-                const matches = !query || title.includes(query) || year.includes(query);
+                const terms = (card.dataset.searchTerms || '').toLowerCase();
+                const matches = !query || title.includes(query) || terms.includes(query);
                 card.style.display = matches ? '' : 'none';
                 if (matches) visibleCount++;
             });
@@ -1058,7 +1069,7 @@ function setupLibraryFilter(container) {
                 const emptyMsg = document.createElement('div');
                 emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
                 emptyMsg.style.gridColumn = '1 / -1';
-                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No albums match "${escapeHtml(query)}"`;
+                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No albums or songs match "${escapeHtml(query)}"`;
                 albumsGrid.appendChild(emptyMsg);
             }
             return;
@@ -1070,7 +1081,8 @@ function setupLibraryFilter(container) {
             let visibleCount = 0;
             artistCards.forEach(card => {
                 const name = (card.dataset.artistName || '').toLowerCase();
-                const matches = !query || name.includes(query);
+                const terms = (card.dataset.searchTerms || '').toLowerCase();
+                const matches = !query || name.includes(query) || terms.includes(query);
                 card.style.display = matches ? '' : 'none';
                 if (matches) visibleCount++;
             });
@@ -1079,7 +1091,7 @@ function setupLibraryFilter(container) {
                 const emptyMsg = document.createElement('div');
                 emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
                 emptyMsg.style.gridColumn = '1 / -1';
-                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No artists match "${escapeHtml(query)}"`;
+                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No artists, albums, or songs match "${escapeHtml(query)}"`;
                 artistsGrid.appendChild(emptyMsg);
             }
             return;
