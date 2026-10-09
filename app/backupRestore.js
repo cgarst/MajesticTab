@@ -21,6 +21,21 @@ let modalElement = null;
 let currentBackupFile = null;
 let currentParsedBackup = null;
 
+let activeReloadState = {
+    running: false,
+    abortController: null,
+    progress: {
+        current: 0,
+        total: 0,
+        percent: 0,
+        phase: '',
+        name: '',
+        stats: { addedDurations: 0, addedCovers: 0, updatedTunings: 0 }
+    },
+    listeners: new Set(),
+    completionListeners: new Set()
+};
+
 const APP_SETTINGS_KEYS = [
     'majestictab_theme',
     'majestictab_sheet_mode',
@@ -528,6 +543,8 @@ export function closeBackupModal() {
     document.body.style.overflow = '';
     currentBackupFile = null;
     currentParsedBackup = null;
+    activeReloadState.listeners.clear();
+    activeReloadState.completionListeners.clear();
 }
 
 /**
@@ -842,9 +859,9 @@ async function renderModal(modal, activeTab = 'backup') {
           <div id="reloadStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
 
           <div class="d-flex justify-content-end gap-2 pt-1">
-            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="reloadCancelBtn">Cancel</button>
-            <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="reloadExecuteBtn" ${(!libraryData.songs || libraryData.songs.length === 0) ? 'disabled' : ''}>
-              <i class="bi-arrow-repeat"></i> Reload Library Metadata
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="reloadCancelBtn">${activeReloadState.running ? 'Stop / Cancel' : 'Cancel'}</button>
+            <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="reloadExecuteBtn" ${(activeReloadState.running || !libraryData.songs || libraryData.songs.length === 0) ? 'disabled' : ''}>
+              ${activeReloadState.running ? '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Reloading...' : '<i class="bi-arrow-repeat"></i> Reload Library Metadata'}
             </button>
           </div>
         </div>
@@ -1224,7 +1241,6 @@ function attachModalHandlers(modal) {
     });
 
     // --- RELOAD METADATA ACTION ---
-    let activeReloadAbortController = null;
     const reloadExecuteBtn = modal.querySelector('#reloadExecuteBtn');
     const reloadCancelBtn = modal.querySelector('#reloadCancelBtn');
     const reloadProgressContainer = modal.querySelector('#reloadProgressContainer');
@@ -1235,81 +1251,92 @@ function attachModalHandlers(modal) {
     const reloadStatsLiveLabel = modal.querySelector('#reloadStatsLiveLabel');
     const reloadStatusAlert = modal.querySelector('#reloadStatusAlert');
 
-    reloadCancelBtn?.addEventListener('click', () => {
-        if (activeReloadAbortController) {
-            activeReloadAbortController.abort();
-            activeReloadAbortController = null;
-            if (reloadCancelBtn) reloadCancelBtn.textContent = 'Cancel';
-        } else {
-            closeBackupModal();
+    const updateReloadProgressUI = (progress) => {
+        if (!progress) return;
+        const { current = 0, total = 0, percent = 0, phase = '', name = '', stats: curStats = {} } = progress;
+        if (reloadPercentLabel) reloadPercentLabel.textContent = `${percent}%`;
+        if (reloadProgressBar) reloadProgressBar.style.width = `${percent}%`;
+        if (reloadCurrentActionLabel) {
+            reloadCurrentActionLabel.innerHTML = `
+              <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></span>
+              <span class="text-truncate">${escapeHtml(name || 'Fetching metadata...')}</span>
+            `;
         }
-    });
+        if (reloadItemsCountLabel) {
+            const phaseLabel = phase === 'album' ? 'album' : (phase === 'tuning' ? 'tab file' : 'song');
+            reloadItemsCountLabel.textContent = `Processed ${current} of ${total} (${phaseLabel})`;
+        }
+        if (reloadStatsLiveLabel) {
+            reloadStatsLiveLabel.textContent = `Durations: ${curStats.addedDurations || 0} • Artwork: ${curStats.addedCovers || 0} • Tunings: ${curStats.updatedTunings || 0}`;
+        }
+    };
 
-    reloadExecuteBtn?.addEventListener('click', async () => {
-        activeReloadAbortController = new AbortController();
-        reloadExecuteBtn.disabled = true;
-        reloadExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Reloading...';
+    // Check if reload is already running when opening/rendering modal
+    if (activeReloadState.running) {
+        if (reloadExecuteBtn) {
+            reloadExecuteBtn.disabled = true;
+            reloadExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Reloading...';
+        }
         if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop / Cancel';
-
         if (reloadProgressContainer) reloadProgressContainer.style.display = 'block';
         if (reloadStatusAlert) {
             reloadStatusAlert.style.display = 'none';
             reloadStatusAlert.innerHTML = '';
         }
+        updateReloadProgressUI(activeReloadState.progress);
+    }
 
-        try {
-            const stats = await reloadAllLibraryMetadata({
-                onProgress: ({ current, total, percent, phase, name, stats: curStats }) => {
-                    if (reloadPercentLabel) reloadPercentLabel.textContent = `${percent}%`;
-                    if (reloadProgressBar) reloadProgressBar.style.width = `${percent}%`;
-                    if (reloadCurrentActionLabel) {
-                        reloadCurrentActionLabel.innerHTML = `
-                          <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></span>
-                          <span class="text-truncate">${escapeHtml(name || 'Fetching metadata...')}</span>
-                        `;
-                    }
-                    if (reloadItemsCountLabel) {
-                        const phaseLabel = phase === 'album' ? 'album' : (phase === 'tuning' ? 'tab file' : 'song');
-                        reloadItemsCountLabel.textContent = `Processed ${current} of ${total} (${phaseLabel})`;
-                    }
-                    if (reloadStatsLiveLabel) {
-                        reloadStatsLiveLabel.textContent = `Durations: ${curStats.addedDurations} • Artwork: ${curStats.addedCovers} • Tunings: ${curStats.updatedTunings || 0}`;
-                    }
-                },
-                signal: activeReloadAbortController.signal,
-                forceRefresh: true
-            });
+    const progressListener = (p) => {
+        updateReloadProgressUI(p);
+    };
+    activeReloadState.listeners.add(progressListener);
 
-            if (reloadProgressContainer) reloadProgressContainer.style.display = 'none';
+    const completionListener = async ({ stats, error, aborted }) => {
+        if (reloadProgressContainer) reloadProgressContainer.style.display = 'none';
+        if (reloadCancelBtn) reloadCancelBtn.textContent = 'Cancel';
 
-            if (activeReloadAbortController?.signal?.aborted) {
-                if (reloadStatusAlert) {
-                    reloadStatusAlert.style.display = 'block';
-                    reloadStatusAlert.className = 'small mb-2 text-warning fw-semibold';
-                    reloadStatusAlert.innerHTML = '<i class="bi-exclamation-triangle-fill me-1"></i> Metadata reload was cancelled by user.';
-                }
-            } else {
-                if (reloadStatusAlert) {
-                    reloadStatusAlert.style.display = 'block';
-                    reloadStatusAlert.className = 'small mb-2 text-success fw-semibold';
-                    const details = [];
-                    if (stats.updatedAlbums > 0) details.push(`${stats.updatedAlbums} albums refreshed`);
-                    if (stats.updatedSongs > 0) details.push(`${stats.updatedSongs} songs updated`);
-                    if (stats.updatedTunings > 0) details.push(`${stats.updatedTunings} song tunings detected from tab files`);
-                    if (stats.addedDurations > 0) details.push(`${stats.addedDurations} track durations added`);
-                    if (stats.addedCovers > 0) details.push(`${stats.addedCovers} album covers added`);
-                    const summaryText = details.length > 0 ? details.join(', ') : 'All tracks and tab tunings are up to date';
+        if (aborted) {
+            if (reloadStatusAlert) {
+                reloadStatusAlert.style.display = 'block';
+                reloadStatusAlert.className = 'small mb-2 text-warning fw-semibold';
+                reloadStatusAlert.innerHTML = '<i class="bi-exclamation-triangle-fill me-1"></i> Metadata reload was cancelled by user.';
+            }
+            if (reloadExecuteBtn) {
+                reloadExecuteBtn.disabled = false;
+                reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Reload Library Metadata';
+            }
+        } else if (error) {
+            if (reloadStatusAlert) {
+                reloadStatusAlert.style.display = 'block';
+                reloadStatusAlert.className = 'small mb-2 text-danger fw-semibold';
+                reloadStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to reload metadata: ${escapeHtml(error.message)}`;
+            }
+            if (reloadExecuteBtn) {
+                reloadExecuteBtn.disabled = false;
+                reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Try Again';
+            }
+        } else if (stats) {
+            if (reloadStatusAlert) {
+                reloadStatusAlert.style.display = 'block';
+                reloadStatusAlert.className = 'small mb-2 text-success fw-semibold';
+                const details = [];
+                if (stats.updatedAlbums > 0) details.push(`${stats.updatedAlbums} albums refreshed`);
+                if (stats.updatedSongs > 0) details.push(`${stats.updatedSongs} songs updated`);
+                if (stats.updatedTunings > 0) details.push(`${stats.updatedTunings} song tunings detected from tab files`);
+                if (stats.addedDurations > 0) details.push(`${stats.addedDurations} track durations added`);
+                if (stats.addedCovers > 0) details.push(`${stats.addedCovers} album covers added`);
+                const summaryText = details.length > 0 ? details.join(', ') : 'All tracks and tab tunings are up to date';
 
-                    reloadStatusAlert.innerHTML = `
-                      <div class="d-flex align-items-center gap-2 mb-1">
-                        <i class="bi-check-circle-fill text-success fs-6"></i>
-                        <strong>Metadata Reload Complete!</strong>
-                      </div>
-                      <div class="text-white-50 small">${escapeHtml(summaryText)}.</div>
-                    `;
-                }
+                reloadStatusAlert.innerHTML = `
+                  <div class="d-flex align-items-center gap-2 mb-1">
+                    <i class="bi-check-circle-fill text-success fs-6"></i>
+                    <strong>Metadata Reload Complete!</strong>
+                  </div>
+                  <div class="text-white-50 small">${escapeHtml(summaryText)}.</div>
+                `;
+            }
 
-                // Update live modal stats
+            try {
                 const updatedLib = await getAllLibraryData();
                 const updatedMissingDur = (updatedLib.songs || []).filter(s => !s.length || s.length <= 0).length;
                 const updatedMissingCov = (updatedLib.songs || []).filter(s => !s.coverUrl || s.coverUrl.includes('data:image/svg+xml')).length;
@@ -1324,26 +1351,80 @@ function attachModalHandlers(modal) {
                     statMissingCov.textContent = updatedMissingCov;
                     statMissingCov.className = `text-white fw-bold fs-6 ${updatedMissingCov > 0 ? 'text-warning' : 'text-success'}`;
                 }
-            }
+            } catch {}
 
-            reloadExecuteBtn.innerHTML = '<i class="bi-check2"></i> Finished';
-            setTimeout(() => {
-                reloadExecuteBtn.disabled = false;
-                reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Reload Library Metadata';
-            }, 3000);
+            if (reloadExecuteBtn) {
+                reloadExecuteBtn.innerHTML = '<i class="bi-check2"></i> Finished';
+                setTimeout(() => {
+                    if (reloadExecuteBtn) {
+                        reloadExecuteBtn.disabled = false;
+                        reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Reload Library Metadata';
+                    }
+                }, 3000);
+            }
+        }
+    };
+    activeReloadState.completionListeners.add(completionListener);
+
+    reloadCancelBtn?.addEventListener('click', () => {
+        if (activeReloadState.running && activeReloadState.abortController) {
+            activeReloadState.abortController.abort();
+            if (reloadCancelBtn) reloadCancelBtn.textContent = 'Cancel';
+        } else {
+            closeBackupModal();
+        }
+    });
+
+    reloadExecuteBtn?.addEventListener('click', async () => {
+        if (activeReloadState.running) return;
+
+        activeReloadState.running = true;
+        activeReloadState.abortController = new AbortController();
+        activeReloadState.progress = {
+            current: 0,
+            total: 0,
+            percent: 0,
+            phase: 'start',
+            name: 'Connecting to MusicBrainz & analyzing tab files...',
+            stats: { addedDurations: 0, addedCovers: 0, updatedTunings: 0 }
+        };
+
+        reloadExecuteBtn.disabled = true;
+        reloadExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Reloading...';
+        if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop / Cancel';
+
+        if (reloadProgressContainer) reloadProgressContainer.style.display = 'block';
+        if (reloadStatusAlert) {
+            reloadStatusAlert.style.display = 'none';
+            reloadStatusAlert.innerHTML = '';
+        }
+        updateReloadProgressUI(activeReloadState.progress);
+
+        try {
+            const stats = await reloadAllLibraryMetadata({
+                onProgress: (p) => {
+                    activeReloadState.progress = p;
+                    for (const l of activeReloadState.listeners) {
+                        try { l(p); } catch {}
+                    }
+                },
+                signal: activeReloadState.abortController.signal,
+                forceRefresh: true
+            });
+
+            const aborted = Boolean(activeReloadState.abortController?.signal?.aborted);
+            for (const cl of activeReloadState.completionListeners) {
+                try { cl({ stats, aborted }); } catch {}
+            }
         } catch (err) {
             console.error('Metadata reload failed:', err);
-            if (reloadProgressContainer) reloadProgressContainer.style.display = 'none';
-            if (reloadStatusAlert) {
-                reloadStatusAlert.style.display = 'block';
-                reloadStatusAlert.className = 'small mb-2 text-danger fw-semibold';
-                reloadStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to reload metadata: ${escapeHtml(err.message)}`;
+            const aborted = Boolean(activeReloadState.abortController?.signal?.aborted);
+            for (const cl of activeReloadState.completionListeners) {
+                try { cl({ error: err, aborted }); } catch {}
             }
-            reloadExecuteBtn.disabled = false;
-            reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Try Again';
         } finally {
-            activeReloadAbortController = null;
-            if (reloadCancelBtn) reloadCancelBtn.textContent = 'Cancel';
+            activeReloadState.running = false;
+            activeReloadState.abortController = null;
         }
     });
 }
