@@ -1,5 +1,6 @@
 import { getCurrentFile, getCondensedCanvases, getPdfPages } from './main.js';
 import { gpState } from './gpProcessor/gpHandler.js';
+import { showToast } from './utils/toast.js';
 
 async function getAlphaTabFontCss() {
   const rules = [];
@@ -261,7 +262,7 @@ export function setupExportPDFButton() {
     const hasPDF = (condensedCanvases && condensedCanvases.length > 0) || (pdfPages && pdfPages.length > 0);
 
     if (!hasGP && !hasPDF) {
-      alert('A supported PDF or Guitar Pro file is not currently opened.');
+      showToast('A supported PDF or Guitar Pro file is not currently opened.', 'warning');
       return;
     }
 
@@ -284,7 +285,7 @@ export function setupExportPDFButton() {
       }
     } catch (err) {
       console.error('Error during PDF export:', err);
-      alert('An error occurred while generating the PDF.');
+      showToast('An error occurred while generating the PDF.', 'error');
     } finally {
       if (progressContainer) progressContainer.style.display = 'none';
     }
