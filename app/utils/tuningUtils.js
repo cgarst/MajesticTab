@@ -224,10 +224,12 @@ export function getTuningCategory(tuningInputOrGroup) {
     let name = '';
 
     if (typeof tuningInputOrGroup === 'object' && tuningInputOrGroup !== null) {
-        stringCount = tuningInputOrGroup.stringCount || 6;
-        notes = tuningInputOrGroup.notes || '';
-        defaultName = tuningInputOrGroup.defaultName || '';
-        name = tuningInputOrGroup.name || '';
+        const info = (tuningInputOrGroup.key || tuningInputOrGroup.tuning) ? getTuningInfo(tuningInputOrGroup.key || tuningInputOrGroup.tuning) : null;
+        notes = tuningInputOrGroup.notes || info?.notes || '';
+        const noteTokenCount = notes ? notes.trim().split(/\s+/).length : 0;
+        stringCount = info?.stringCount || (noteTokenCount >= 3 ? noteTokenCount : (tuningInputOrGroup.stringCount || 6));
+        defaultName = tuningInputOrGroup.defaultName || info?.defaultName || '';
+        name = tuningInputOrGroup.name || info?.displayName || '';
     } else if (typeof tuningInputOrGroup === 'string') {
         const info = getTuningInfo(tuningInputOrGroup);
         if (info) {
