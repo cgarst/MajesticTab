@@ -394,10 +394,10 @@ async function renderLibraryBrowseView(container) {
             <h5 class="text-white fw-semibold">This Collection is Empty</h5>
             <p class="small text-muted mb-4">Add your favorite songs and albums to build your personalized tab catalog, or open a tab file directly.</p>
             <div class="d-flex justify-content-center gap-2 flex-wrap">
-              <button class="btn btn-theme-outline btn-sm px-3" id="emptyStateOpenFileBtn">
+              <button class="btn btn-theme-outline btn-sm px-3 rounded-pill" id="emptyStateOpenFileBtn">
                 <i class="bi-folder2-open me-1"></i> Open File
               </button>
-              <button class="btn btn-theme-primary btn-sm px-3" id="emptyStateAddBtn">
+              <button class="btn btn-theme-primary btn-sm px-3 rounded-pill" id="emptyStateAddBtn">
                 <i class="bi-plus-circle me-1"></i> Add Music
               </button>
             </div>
