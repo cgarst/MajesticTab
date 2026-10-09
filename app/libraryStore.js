@@ -2,7 +2,7 @@
 // Storage and querying layer for Collections > Artists > Albums > Songs and Recents.
 
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile } from './fileStore.js';
-import { extractScoreTunings, inferTuningFromTextOrName } from './utils/tuningUtils.js';
+import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
@@ -115,6 +115,7 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             artistMap.set(artistName, {
                 name: artistName,
                 artistMbid: song.artistMbid || null,
+                isCustom: Boolean(song.isCustom),
                 albums: new Map()
             });
         }
@@ -127,6 +128,9 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
                 albumMbid: song.albumMbid || null,
                 coverUrl: song.coverUrl || null,
                 year: song.year || null,
+                isCustom: Boolean(song.isCustom),
+                tabOptions: [],
+                defaultTabId: null,
                 songs: []
             });
         }
@@ -137,14 +141,23 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
         if (!album.year && song.year) {
             album.year = song.year;
         }
-        album.songs.push(song);
+
+        if (song.isAlbumTabContainer) {
+            album.tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
+            album.defaultTabId = song.defaultTabId || (album.tabOptions[0]?.id || null);
+        } else {
+            album.songs.push(song);
+        }
     }
 
     // Convert map to sorted arrays
     const artists = Array.from(artistMap.values()).map(artist => {
         const albums = Array.from(artist.albums.values()).map(album => {
-            // Sort songs by medium number (CD1, CD2, etc.), then track number or title
+            // Sort songs: pinned first, then medium number, then track number or title
             album.songs.sort((a, b) => {
+                if (Boolean(b.pinned) !== Boolean(a.pinned)) {
+                    return b.pinned ? 1 : -1;
+                }
                 const medA = a.mediumNumber || 1;
                 const medB = b.mediumNumber || 1;
                 if (medA !== medB) return medA - medB;
@@ -165,6 +178,7 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
         return {
             name: artist.name,
             artistMbid: artist.artistMbid,
+            isCustom: artist.isCustom,
             albums
         };
     });
@@ -175,6 +189,63 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
     return {
         collectionId,
         artists
+    };
+}
+
+/**
+ * Return library organized by Tuning groups -> Song lists
+ */
+export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTION_ID) {
+    const songs = await getSongsByCollection(collectionId);
+    const tuningMap = new Map();
+
+    for (const song of songs) {
+        if (song.isAlbumTabContainer) continue;
+
+        const tunings = Array.isArray(song.tunings) && song.tunings.length > 0
+            ? song.tunings
+            : (song.tabOptions?.map(t => t.tuning).filter(Boolean) || []);
+
+        const effectiveTunings = tunings.length > 0 ? tunings : ['Untuned / Other'];
+
+        for (const tuning of effectiveTunings) {
+            if (!tuningMap.has(tuning)) {
+                let inferredStrings = 6;
+                if (tuning.includes('8-String')) inferredStrings = 8;
+                else if (tuning.includes('7-String')) inferredStrings = 7;
+                else if (tuning.includes('5-String')) inferredStrings = 5;
+                else if (tuning.includes('6-String')) inferredStrings = 6;
+                else if (tuning.includes('Bass')) inferredStrings = 4;
+
+                tuningMap.set(tuning, {
+                    tuning,
+                    stringCount: song.stringCount || inferredStrings,
+                    songs: []
+                });
+            }
+            const group = tuningMap.get(tuning);
+            if (!group.songs.some(s => s.id === song.id)) {
+                group.songs.push(song);
+            }
+        }
+    }
+
+    const tuningsList = Array.from(tuningMap.values()).map(tGroup => {
+        tGroup.songs.sort((a, b) => {
+            if (Boolean(b.pinned) !== Boolean(a.pinned)) return b.pinned ? 1 : -1;
+            const artDiff = (a.artist || '').localeCompare(b.artist || '');
+            if (artDiff !== 0) return artDiff;
+            return (a.title || '').localeCompare(b.title || '');
+        });
+        return tGroup;
+    });
+
+    // Sort tunings by song count descending, then alphabetically
+    tuningsList.sort((a, b) => b.songs.length - a.songs.length || a.tuning.localeCompare(b.tuning));
+
+    return {
+        collectionId,
+        tunings: tuningsList
     };
 }
 
@@ -201,7 +272,13 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
         recordingMbid: songData.recordingMbid || null,
         coverUrl: songData.coverUrl || null,
         tunings: Array.isArray(songData.tunings) ? songData.tunings : [],
+        stringCount: songData.stringCount || null,
         tabOptions: Array.isArray(songData.tabOptions) ? songData.tabOptions : [],
+        defaultTabId: songData.defaultTabId || null,
+        pinned: Boolean(songData.pinned),
+        isCustom: Boolean(songData.isCustom),
+        folderPath: songData.folderPath || null,
+        isAlbumTabContainer: Boolean(songData.isAlbumTabContainer),
         addedAt: songData.addedAt || Date.now(),
         lastOpenedAt: songData.lastOpenedAt || null
     };
@@ -325,6 +402,7 @@ export async function addTabOptionToSong(songId, tabOption) {
     if (!song) throw new Error(`Song not found: ${songId}`);
 
     const optionId = tabOption.id || `tab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const stringCount = tabOption.stringCount || (tabOption.tuning?.includes('8-String') ? 8 : tabOption.tuning?.includes('7-String') ? 7 : 6);
     const newOption = {
         id: optionId,
         name: tabOption.name || 'Tab',
@@ -332,7 +410,9 @@ export async function addTabOptionToSong(songId, tabOption) {
         relativePath: tabOption.relativePath || tabOption.name || '',
         fileStoreId: tabOption.fileStoreId || null,
         tuning: tabOption.tuning || null,
+        stringCount,
         fileType: tabOption.fileType || 'gp',
+        isDefault: Boolean(tabOption.isDefault),
         addedAt: Date.now()
     };
 
@@ -348,13 +428,50 @@ export async function addTabOptionToSong(songId, tabOption) {
         song.tabOptions.push(newOption);
     }
 
-    // Merge tuning into song's tunings
-    if (newOption.tuning && !song.tunings.includes(newOption.tuning)) {
+    if (!song.defaultTabId || song.tabOptions.length === 1 || newOption.isDefault) {
+        song.defaultTabId = newOption.id;
+    }
+
+    if (newOption.stringCount && (!song.stringCount || newOption.stringCount > song.stringCount)) {
+        song.stringCount = newOption.stringCount;
+    }
+
+    // Merge tunings
+    if (Array.isArray(tabOption.tunings)) {
+        for (const t of tabOption.tunings) {
+            if (t && !song.tunings.includes(t)) song.tunings.push(t);
+        }
+    } else if (newOption.tuning && !song.tunings.includes(newOption.tuning)) {
         song.tunings.push(newOption.tuning);
     }
 
     await saveSongToLibrary(song, song.collectionId);
     return newOption;
+}
+
+/**
+ * Set the default tab option for a song
+ */
+export async function setDefaultTabOption(songId, tabId) {
+    const song = await getSongById(songId);
+    if (!song || !Array.isArray(song.tabOptions)) return false;
+    song.defaultTabId = tabId;
+    for (const t of song.tabOptions) {
+        t.isDefault = (t.id === tabId);
+    }
+    await saveSongToLibrary(song, song.collectionId);
+    return true;
+}
+
+/**
+ * Toggle pin status of a song
+ */
+export async function togglePinSong(songId) {
+    const song = await getSongById(songId);
+    if (!song) return false;
+    song.pinned = !Boolean(song.pinned);
+    await saveSongToLibrary(song, song.collectionId);
+    return song.pinned;
 }
 
 /**
@@ -365,8 +482,111 @@ export async function removeTabOptionFromSong(songId, tabOptionId) {
     if (!song || !Array.isArray(song.tabOptions)) return;
 
     song.tabOptions = song.tabOptions.filter(t => t.id !== tabOptionId);
+    if (song.defaultTabId === tabOptionId) {
+        song.defaultTabId = song.tabOptions[0]?.id || null;
+    }
     song.tunings = Array.from(new Set(song.tabOptions.map(t => t.tuning).filter(Boolean)));
     await saveSongToLibrary(song, song.collectionId);
+}
+
+// -----------------------------------------------------------------------------
+// ALBUM-LEVEL TABS (e.g. Full Album Tab Books)
+// -----------------------------------------------------------------------------
+
+function getAlbumTabSongId(collectionId, artistName, albumTitle) {
+    return `album_tab_${collectionId}_${artistName}_${albumTitle}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+/**
+ * Get album-level tab options
+ */
+export async function getAlbumTabOptions(collectionId, artistName, albumTitle) {
+    const albumSongId = getAlbumTabSongId(collectionId, artistName, albumTitle);
+    const albumRecord = await getSongById(albumSongId);
+    return albumRecord?.tabOptions || [];
+}
+
+/**
+ * Add a tab option to an album
+ */
+export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, tabOption) {
+    const albumSongId = getAlbumTabSongId(collectionId, artistName, albumTitle);
+    let albumRecord = await getSongById(albumSongId);
+    if (!albumRecord) {
+        albumRecord = {
+            id: albumSongId,
+            collectionId: collectionId || DEFAULT_COLLECTION_ID,
+            title: albumTitle,
+            artist: artistName,
+            album: albumTitle,
+            isAlbumTabContainer: true,
+            tabOptions: [],
+            tunings: [],
+            addedAt: Date.now()
+        };
+    }
+
+    const optionId = tabOption.id || `tab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const newOption = {
+        id: optionId,
+        name: tabOption.name || 'Album Tab Book',
+        providerId: tabOption.providerId || 'local',
+        relativePath: tabOption.relativePath || tabOption.name || '',
+        fileStoreId: tabOption.fileStoreId || null,
+        tuning: tabOption.tuning || null,
+        stringCount: tabOption.stringCount || 6,
+        fileType: tabOption.fileType || 'pdf',
+        isDefault: Boolean(tabOption.isDefault),
+        addedAt: Date.now()
+    };
+
+    if (!Array.isArray(albumRecord.tabOptions)) {
+        albumRecord.tabOptions = [];
+    }
+
+    const existingIdx = albumRecord.tabOptions.findIndex(t => (t.fileStoreId && t.fileStoreId === newOption.fileStoreId) || (t.id === newOption.id));
+    if (existingIdx >= 0) {
+        albumRecord.tabOptions[existingIdx] = newOption;
+    } else {
+        albumRecord.tabOptions.push(newOption);
+    }
+
+    if (!albumRecord.defaultTabId || albumRecord.tabOptions.length === 1 || newOption.isDefault) {
+        albumRecord.defaultTabId = newOption.id;
+    }
+
+    await saveSongToLibrary(albumRecord, collectionId);
+    return newOption;
+}
+
+/**
+ * Remove an album-level tab option
+ */
+export async function removeTabOptionFromAlbum(collectionId, artistName, albumTitle, tabOptionId) {
+    const albumSongId = getAlbumTabSongId(collectionId, artistName, albumTitle);
+    const albumRecord = await getSongById(albumSongId);
+    if (!albumRecord || !Array.isArray(albumRecord.tabOptions)) return;
+
+    albumRecord.tabOptions = albumRecord.tabOptions.filter(t => t.id !== tabOptionId);
+    if (albumRecord.defaultTabId === tabOptionId) {
+        albumRecord.defaultTabId = albumRecord.tabOptions[0]?.id || null;
+    }
+    await saveSongToLibrary(albumRecord, collectionId);
+}
+
+/**
+ * Set default tab option for an album
+ */
+export async function setDefaultAlbumTabOption(collectionId, artistName, albumTitle, tabId) {
+    const albumSongId = getAlbumTabSongId(collectionId, artistName, albumTitle);
+    const albumRecord = await getSongById(albumSongId);
+    if (!albumRecord || !Array.isArray(albumRecord.tabOptions)) return false;
+    albumRecord.defaultTabId = tabId;
+    for (const t of albumRecord.tabOptions) {
+        t.isDefault = (t.id === tabId);
+    }
+    await saveSongToLibrary(albumRecord, collectionId);
+    return true;
 }
 
 /**
@@ -386,14 +606,16 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
         throw new Error('Target song does not exist in library.');
     }
 
-    const detectedTuning = inferTuningFromTextOrName(file.name);
+    const meta = await detectFileMetadata(file, file.name);
     const tabOption = {
         id: `tab_${Date.now()}`,
         name: tabName || file.name,
         providerId,
         relativePath: relativePath || file.name,
         fileStoreId: stored.id,
-        tuning: detectedTuning,
+        tuning: meta.primaryTuning,
+        tunings: meta.tunings,
+        stringCount: meta.stringCount,
         fileType: file.name.split('.').pop().toLowerCase()
     };
 
@@ -469,6 +691,20 @@ export async function clearRecents() {
         const tx = db.transaction(STORE_RECENTS, 'readwrite');
         const store = tx.objectStore(STORE_RECENTS);
         const req = store.clear();
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+/**
+ * Delete a single item from recents
+ */
+export async function deleteRecentItem(id) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_RECENTS, 'readwrite');
+        const store = tx.objectStore(STORE_RECENTS);
+        const req = store.delete(id);
         req.onsuccess = () => resolve(true);
         req.onerror = () => reject(req.error);
     });
