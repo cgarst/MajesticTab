@@ -247,22 +247,50 @@ async function exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar
   return true;
 }
 
+export function exportSourceTabFile() {
+  const currentFile = getCurrentFile();
+  if (!currentFile) {
+    showToast('No tab file is currently opened.', 'warning');
+    return false;
+  }
+
+  const filename = currentFile.name || (currentFile.songTitle ? `${currentFile.songTitle}.tab` : 'tab_source');
+  const url = URL.createObjectURL(currentFile);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.style.position = 'fixed';
+  a.style.top = '-9999px';
+  a.style.left = '-9999px';
+  a.style.opacity = '0';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+  showToast(`Exported ${filename}`, 'success');
+  return true;
+}
+
 export function setupExportPDFButton() {
   const exportBtn = document.getElementById('exportPDFBtn');
+  const exportSourceBtn = document.getElementById('exportSourceTabBtn');
   const progressContainer = document.getElementById('exportProgressContainer');
   const progressBar = document.getElementById('exportProgressBar');
+
+  if (exportSourceBtn) {
+    exportSourceBtn.addEventListener('click', () => {
+      exportSourceTabFile();
+    });
+  }
 
   if (!exportBtn) return;
 
   exportBtn.addEventListener('click', async () => {
     const currentFile = getCurrentFile();
-    const condensedCanvases = getCondensedCanvases();
-    const pdfPages = getPdfPages();
     const hasGP = Boolean(gpState.canvases[0]?.container);
-    const hasPDF = (condensedCanvases && condensedCanvases.length > 0) || (pdfPages && pdfPages.length > 0);
 
-    if (!hasGP && !hasPDF) {
-      showToast('A supported PDF or Guitar Pro file is not currently opened.', 'warning');
+    if (!hasGP) {
+      showToast('A Guitar Pro file is not currently opened.', 'warning');
       return;
     }
 
@@ -277,12 +305,7 @@ export function setupExportPDFButton() {
 
     try {
       const { jsPDF } = window.jspdf;
-      if (hasGP) {
-        await exportGPToPDF(jsPDF, progressContainer, progressBar, filename);
-      } else if (hasPDF) {
-        const canvasesToExport = (condensedCanvases && condensedCanvases.length > 0) ? condensedCanvases : pdfPages;
-        await exportPDFCanvases(canvasesToExport, jsPDF, progressContainer, progressBar, filename);
-      }
+      await exportGPToPDF(jsPDF, progressContainer, progressBar, filename);
     } catch (err) {
       console.error('Error during PDF export:', err);
       showToast('An error occurred while generating the PDF.', 'error');
