@@ -286,13 +286,7 @@ pub fn identify_tab_extension(bytes: &[u8], filename: &str) -> Option<&'static s
     if bytes.starts_with(b"%PDF") {
         return Some("pdf");
     }
-    if bytes.starts_with(b"PTAB") {
-        return Some("ptb");
-    }
-    if bytes.starts_with(b"MThd") {
-        return Some("mid");
-    }
-    // Zip container (could be Guitar Pro 7/8 container .gp or .gpx)
+    // Zip container (Guitar Pro 7 .gp or .gpx container)
     if bytes.starts_with(b"PK\x03\x04") {
         if lower_name.ends_with(".gp") {
             return Some("gp");
@@ -300,7 +294,7 @@ pub fn identify_tab_extension(bytes: &[u8], filename: &str) -> Option<&'static s
         return Some("gpx");
     }
 
-    // 2. Check file extension
+    // 2. Check file extension for supported formats
     if lower_name.ends_with(".gp") {
         return Some("gp");
     }
@@ -318,24 +312,6 @@ pub fn identify_tab_extension(bytes: &[u8], filename: &str) -> Option<&'static s
     }
     if lower_name.ends_with(".gp7") {
         return Some("gp7");
-    }
-    if lower_name.ends_with(".gp8") {
-        return Some("gp8");
-    }
-    if lower_name.ends_with(".gtp") {
-        return Some("gtp");
-    }
-    if lower_name.ends_with(".ptb") {
-        return Some("ptb");
-    }
-    if lower_name.ends_with(".cap") {
-        return Some("cap");
-    }
-    if lower_name.ends_with(".tg") {
-        return Some("tg");
-    }
-    if lower_name.ends_with(".mid") || lower_name.ends_with(".midi") {
-        return Some("mid");
     }
     if lower_name.ends_with(".pdf") {
         return Some("pdf");
