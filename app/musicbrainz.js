@@ -123,49 +123,63 @@ export async function searchMusicBrainz(query, type = 'artist') {
         }
 
         case 'album': {
-            const url = `${MB_BASE}/release-group?query=${encodeURIComponent(cleanQuery)}&limit=25&fmt=json`;
+            const url = `${MB_BASE}/release-group?query=${encodeURIComponent(cleanQuery)}&limit=40&fmt=json`;
             const data = await fetchMusicBrainz(url);
-            return (data['release-groups'] || []).map(rg => {
-                const artistCredit = rg['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist';
-                const year = rg['first-release-date'] ? parseInt(rg['first-release-date'].slice(0, 4), 10) : null;
-                return {
-                    id: rg.id,
-                    title: rg.title,
-                    artist: artistCredit,
-                    artistMbid: rg['artist-credit']?.[0]?.artist?.id || '',
-                    primaryType: rg['primary-type'] || 'Album',
-                    secondaryTypes: rg['secondary-types'] || [],
-                    year,
-                    coverUrl: getCoverArtUrl(rg.id),
-                    score: rg.score || 0
-                };
-            });
+            return (data['release-groups'] || [])
+                .filter(rg => {
+                    const sec = (rg['secondary-types'] || []).map(t => String(t).toLowerCase());
+                    return !sec.includes('live');
+                })
+                .slice(0, 25)
+                .map(rg => {
+                    const artistCredit = rg['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist';
+                    const year = rg['first-release-date'] ? parseInt(rg['first-release-date'].slice(0, 4), 10) : null;
+                    return {
+                        id: rg.id,
+                        title: rg.title,
+                        artist: artistCredit,
+                        artistMbid: rg['artist-credit']?.[0]?.artist?.id || '',
+                        primaryType: rg['primary-type'] || 'Album',
+                        secondaryTypes: rg['secondary-types'] || [],
+                        year,
+                        coverUrl: getCoverArtUrl(rg.id),
+                        score: rg.score || 0
+                    };
+                });
         }
 
         case 'song': {
-            const url = `${MB_BASE}/recording?query=${encodeURIComponent(cleanQuery)}&limit=25&fmt=json`;
+            const url = `${MB_BASE}/recording?query=${encodeURIComponent(cleanQuery)}&limit=40&fmt=json`;
             const data = await fetchMusicBrainz(url);
-            return (data.recordings || []).map(rec => {
-                const artistCredit = rec['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist';
-                const firstRel = rec.releases?.[0];
-                const releaseGroup = firstRel?.['release-group'];
-                const albumTitle = releaseGroup?.title || firstRel?.title || '';
-                const albumMbid = releaseGroup?.id || firstRel?.id || '';
-                const year = rec['first-release-date'] ? parseInt(rec['first-release-date'].slice(0, 4), 10) : (firstRel?.date ? parseInt(firstRel.date.slice(0, 4), 10) : null);
-                return {
-                    id: rec.id,
-                    recordingMbid: rec.id,
-                    title: rec.title,
-                    artist: artistCredit,
-                    artistMbid: rec['artist-credit']?.[0]?.artist?.id || '',
-                    album: albumTitle,
-                    albumMbid: albumMbid,
-                    year,
-                    length: rec.length ? Math.round(rec.length / 1000) : null,
-                    coverUrl: getCoverArtUrl(albumMbid),
-                    score: rec.score || 0
-                };
-            });
+            return (data.recordings || [])
+                .filter(rec => {
+                    // Filter out recordings with obvious live titles
+                    const title = (rec.title || '').toLowerCase();
+                    const isLive = title.includes('(live') || title.includes('[live') || title.includes(' - live');
+                    return !isLive;
+                })
+                .slice(0, 25)
+                .map(rec => {
+                    const artistCredit = rec['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist';
+                    const firstRel = rec.releases?.[0];
+                    const releaseGroup = firstRel?.['release-group'];
+                    const albumTitle = releaseGroup?.title || firstRel?.title || '';
+                    const albumMbid = releaseGroup?.id || firstRel?.id || '';
+                    const year = rec['first-release-date'] ? parseInt(rec['first-release-date'].slice(0, 4), 10) : (firstRel?.date ? parseInt(firstRel.date.slice(0, 4), 10) : null);
+                    return {
+                        id: rec.id,
+                        recordingMbid: rec.id,
+                        title: rec.title,
+                        artist: artistCredit,
+                        artistMbid: rec['artist-credit']?.[0]?.artist?.id || '',
+                        album: albumTitle,
+                        albumMbid: albumMbid,
+                        year,
+                        length: rec.length ? Math.round(rec.length / 1000) : null,
+                        coverUrl: getCoverArtUrl(albumMbid),
+                        score: rec.score || 0
+                    };
+                });
         }
 
         case 'musician': {
@@ -189,7 +203,7 @@ export async function searchMusicBrainz(query, type = 'artist') {
 }
 
 /**
- * Get all release groups (albums / EPs) for an artist
+ * Get all release groups (albums / EPs) for an artist, filtered to studio releases only
  */
 export async function getArtistAlbums(artistMbid) {
     if (!artistMbid) return [];
@@ -197,20 +211,32 @@ export async function getArtistAlbums(artistMbid) {
     const data = await fetchMusicBrainz(url);
     const groups = data['release-groups'] || [];
 
-    // Filter out obvious bootlegs/compilations unless studio
-    const albums = groups.map(rg => {
-        const year = rg['first-release-date'] ? parseInt(rg['first-release-date'].slice(0, 4), 10) : null;
-        return {
-            id: rg.id,
-            title: rg.title,
-            primaryType: rg['primary-type'] || 'Album',
-            secondaryTypes: rg['secondary-types'] || [],
-            year,
-            coverUrl: getCoverArtUrl(rg.id)
-        };
-    });
+    // Filter to studio albums only (exclude Live, Compilation, DJ-mix, Interview, Demo)
+    const albums = groups
+        .filter(rg => {
+            const sec = (rg['secondary-types'] || []).map(t => String(t).toLowerCase());
+            const title = (rg.title || '').toLowerCase();
+            if (sec.includes('live') || sec.includes('compilation') || sec.includes('dj-mix') || sec.includes('interview') || sec.includes('demo')) {
+                return false;
+            }
+            if (title.includes('(live') || title.includes('[live') || title.includes(' - live')) {
+                return false;
+            }
+            return true;
+        })
+        .map(rg => {
+            const year = rg['first-release-date'] ? parseInt(rg['first-release-date'].slice(0, 4), 10) : null;
+            return {
+                id: rg.id,
+                title: rg.title,
+                primaryType: rg['primary-type'] || 'Album',
+                secondaryTypes: rg['secondary-types'] || [],
+                year,
+                coverUrl: getCoverArtUrl(rg.id)
+            };
+        });
 
-    // Sort chronologically
+    // Sort chronologically (oldest first)
     albums.sort((a, b) => (a.year || 9999) - (b.year || 9999));
     return albums;
 }
