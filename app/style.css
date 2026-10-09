@@ -2313,8 +2313,65 @@ body:not(.synth-playback-started) .at-highlight {
 .hud-pill-group .w-33 { width: 33.333%; }
 
 /* --------------------------------------------------------------------------
-   Tab Library Page & Tab Downloader Modals
+   Tab Library Page & Top Bar Integration
    -------------------------------------------------------------------------- */
+#libraryNavButtons,
+#libraryRightControls {
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#topBar .theme-select,
+#topBar select.form-select,
+.library-page-view .theme-select,
+.library-page-view select.form-select {
+  background-color: var(--bg-card-solid) !important;
+  border: 1px solid var(--border-subtle) !important;
+  color: var(--text-primary) !important;
+  border-radius: 9999px !important;
+  padding: 0.25rem 1.75rem 0.25rem 0.75rem !important;
+  font-size: 0.8rem !important;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+#topBar .theme-select:hover,
+#topBar select.form-select:hover,
+.library-page-view .theme-select:hover,
+.library-page-view select.form-select:hover {
+  background-color: var(--bg-card-hover) !important;
+  border-color: var(--accent-primary) !important;
+  color: #ffffff !important;
+}
+
+#topBar .theme-select:focus,
+#topBar select.form-select:focus,
+.library-page-view .theme-select:focus,
+.library-page-view select.form-select:focus {
+  outline: none !important;
+  border-color: var(--accent-primary) !important;
+  box-shadow: 0 0 0 2px var(--accent-primary-alpha) !important;
+}
+
+#topBar .theme-select option,
+#topBar select.form-select option,
+.library-page-view .theme-select option,
+.library-page-view select.form-select option {
+  background: var(--bg-modal) !important;
+  color: var(--text-primary) !important;
+}
+
+#libraryReturnToSongBtn {
+  transition: all 0.2s ease;
+}
+
+#libraryReturnToSongBtn:hover {
+  border-color: var(--accent-primary) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
 .library-page-view {
   flex: 1;
   display: flex;
@@ -2323,23 +2380,10 @@ body:not(.synth-playback-started) .at-highlight {
   max-height: calc(100vh - 50px);
   width: 100%;
   overflow: hidden;
-  background: var(--bg-app);
+  background: transparent;
   color: var(--text-primary);
   position: relative;
   z-index: 50;
-}
-
-.library-page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.65rem 1.25rem;
-  background: var(--bg-card-solid);
-  border-bottom: 1px solid var(--border-subtle);
-  gap: 0.75rem;
-  flex-shrink: 0;
-  z-index: 10;
-  flex-wrap: wrap;
 }
 
 .library-page-body {
@@ -2353,6 +2397,16 @@ body:not(.synth-playback-started) .at-highlight {
   max-width: 1140px;
   margin: 0 auto;
   width: 100%;
+}
+
+.library-body-header {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  padding: 0.65rem 1rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 .library-modal-card {
@@ -2416,37 +2470,19 @@ body:not(.synth-playback-started) .at-highlight {
   font-weight: 600;
 }
 
-
-.library-nav-bar {
-  background: var(--bg-card-solid);
-  border-bottom: 1px solid var(--border-subtle) !important;
-  gap: 0.5rem;
-  flex-shrink: 0;
-  min-height: 48px;
-  position: relative;
-  z-index: 15;
-}
-
-.search-sticky-header {
-  position: sticky;
-  top: -1rem;
-  background: var(--bg-modal);
-  z-index: 10;
-  padding-top: 0.25rem;
-  padding-bottom: 0.75rem;
-  margin-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
+.search-sticky-header,
 .library-sticky-breadcrumbs {
   position: sticky;
-  top: -1rem;
-  background: var(--bg-modal);
+  top: -1.25rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   z-index: 10;
-  padding-top: 0.25rem;
-  padding-bottom: 0.75rem;
-  margin-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.65rem 1rem;
+  margin-bottom: 0.85rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
 /* Grids */
@@ -2824,6 +2860,8 @@ body:not(.synth-playback-started) .at-highlight {
   background: var(--bg-card-hover);
 }
 
+.library-page-view .form-control,
+.library-page-view .form-select,
 .library-modal-card .form-control,
 .library-modal-card .form-select,
 .tab-downloader-card .form-control,
@@ -2833,6 +2871,8 @@ body:not(.synth-playback-started) .at-highlight {
   color: var(--text-primary) !important;
 }
 
+.library-page-view .form-control:focus,
+.library-page-view .form-select:focus,
 .library-modal-card .form-control:focus,
 .library-modal-card .form-select:focus,
 .tab-downloader-card .form-control:focus,
@@ -2843,12 +2883,14 @@ body:not(.synth-playback-started) .at-highlight {
   box-shadow: 0 0 0 0.2rem var(--accent-primary-alpha) !important;
 }
 
+.library-page-view .form-control::placeholder,
 .library-modal-card .form-control::placeholder,
 .tab-downloader-card .form-control::placeholder {
   color: var(--text-dim) !important;
   opacity: 0.85;
 }
 
+.library-page-view .input-group-text,
 .library-modal-card .input-group-text,
 .tab-downloader-card .input-group-text {
   background: var(--bg-card-solid) !important;
@@ -2856,6 +2898,7 @@ body:not(.synth-playback-started) .at-highlight {
   color: var(--text-muted) !important;
 }
 
+.library-page-view .border-secondary-subtle,
 .library-modal-card .border-secondary-subtle,
 .tab-downloader-card .border-secondary-subtle {
   border-color: var(--border-subtle) !important;

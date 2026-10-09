@@ -28,6 +28,18 @@ let searchHistory = [];
 let isSearching = false;
 let searchDebounceTimer = null;
 
+let topBarInitialized = false;
+
+function initLibraryTopBar() {
+    if (topBarInitialized) return;
+    topBarInitialized = true;
+
+    document.getElementById('libraryBackBtn')?.addEventListener('click', handleBack);
+    document.getElementById('navBtnLibrary')?.addEventListener('click', () => switchView('library'));
+    document.getElementById('navBtnRecents')?.addEventListener('click', () => switchView('recents'));
+    document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', closeLibraryModal);
+}
+
 /**
  * Check if the library page can go back to a parent view
  */
@@ -122,9 +134,9 @@ export async function handleBack() {
 }
 
 function updateBackBtnVisibility() {
-    const backBtn = document.getElementById('libraryModalBackBtn');
+    const backBtn = document.getElementById('libraryBackBtn');
     if (backBtn) {
-        backBtn.style.display = canGoBack() ? 'inline-flex' : 'none';
+        backBtn.style.display = (isLibraryOpen() && canGoBack()) ? 'inline-flex' : 'none';
     }
 }
 
@@ -140,6 +152,7 @@ export function isLibraryOpen() {
  * Open the Tab Library Page
  */
 export async function openLibraryModal(initialView = 'library') {
+    initLibraryTopBar();
     if (initialView !== activeView) {
         viewHistory = [];
     }
@@ -153,8 +166,34 @@ export async function openLibraryModal(initialView = 'library') {
     const mainContent = document.getElementById('mainContent');
     if (mainContent) mainContent.style.display = 'none';
 
-    const libToggleBtn = document.getElementById('libraryToggleBtn');
-    if (libToggleBtn) libToggleBtn.classList.add('active');
+    // Update top bar for Library Mode
+    const libraryNav = document.getElementById('libraryNavButtons');
+    const modeButtons = document.getElementById('modeButtons');
+    const libraryRight = document.getElementById('libraryRightControls');
+    const libraryPill = document.getElementById('libraryPill');
+    const globalAudio = document.getElementById('globalAudioControls');
+    const audioSourcePill = document.getElementById('audioSourcePill');
+    const navButtons = document.getElementById('navButtons');
+    const returnBtn = document.getElementById('libraryReturnToSongBtn');
+    const returnName = document.getElementById('libraryReturnSongName');
+    const currentOpen = getCurrentFile();
+
+    if (libraryNav) libraryNav.style.display = 'flex';
+    if (modeButtons) modeButtons.style.display = 'none';
+    if (libraryRight) libraryRight.style.display = 'flex';
+    if (libraryPill) libraryPill.style.display = 'none';
+    if (globalAudio) globalAudio.style.display = 'none';
+    if (audioSourcePill) audioSourcePill.style.display = 'none';
+    if (navButtons) navButtons.style.display = 'none';
+
+    if (returnBtn) {
+        if (currentOpen && currentOpen.name) {
+            returnBtn.style.display = 'inline-flex';
+            if (returnName) returnName.textContent = currentOpen.name;
+        } else {
+            returnBtn.style.display = 'none';
+        }
+    }
 
     page.style.display = 'flex';
     await renderLibraryModal();
@@ -163,17 +202,30 @@ export async function openLibraryModal(initialView = 'library') {
 /**
  * Close the Tab Library Page and return to tab viewer if a file is loaded
  */
-export function closeLibraryModal() {
+export function closeLibraryModal(force = false) {
     const page = document.getElementById('libraryPage');
     const currentOpen = getCurrentFile();
 
-    if (currentOpen && page) {
-        page.style.display = 'none';
+    if (force || currentOpen) {
+        if (page) page.style.display = 'none';
         const mainContent = document.getElementById('mainContent');
         if (mainContent) mainContent.style.display = '';
 
-        const libToggleBtn = document.getElementById('libraryToggleBtn');
-        if (libToggleBtn) libToggleBtn.classList.remove('active');
+        // Restore top bar for Song Mode
+        const libraryNav = document.getElementById('libraryNavButtons');
+        const modeButtons = document.getElementById('modeButtons');
+        const libraryRight = document.getElementById('libraryRightControls');
+        const libraryPill = document.getElementById('libraryPill');
+        const libraryBackBtn = document.getElementById('libraryBackBtn');
+
+        if (libraryNav) libraryNav.style.display = 'none';
+        if (modeButtons) modeButtons.style.display = 'flex';
+        if (libraryRight) libraryRight.style.display = 'none';
+        if (libraryPill) {
+            libraryPill.style.display = '';
+            document.getElementById('libraryToggleBtn')?.classList.remove('active');
+        }
+        if (libraryBackBtn) libraryBackBtn.style.display = 'none';
     }
 }
 
@@ -211,6 +263,7 @@ function createLibraryPageElement() {
  * Main render function for Tab Library Page
  */
 export async function renderLibraryModal() {
+    initLibraryTopBar();
     const page = document.getElementById('libraryPage') || createLibraryPageElement();
     if (!page) return;
 
@@ -219,89 +272,30 @@ export async function renderLibraryModal() {
     activeCollectionId = currentCollection.id;
 
     const currentOpen = getCurrentFile();
-    const showBack = canGoBack();
-
-    page.innerHTML = `
-    <!-- Library Page Top Header -->
-    <header class="library-page-header">
-      <div class="d-flex align-items-center gap-2">
-        <button type="button" class="brand-btn theme-modal-back-btn p-1 px-2" id="libraryModalBackBtn" title="Go back" aria-label="Go back" style="${showBack ? 'display:inline-flex;' : 'display:none;'}">
-          <i class="bi-arrow-left"></i>
-        </button>
-        <div class="brand-btn p-2" style="width: 36px; height: 36px;">
-          <i class="bi-music-player-fill text-info"></i>
-        </div>
-        <div>
-          <h6 class="mb-0 fw-bold text-white text-truncate">Tab Library</h6>
-        </div>
-      </div>
-
-      <!-- Navigation: Library, Recents, and Add to Library Action Button -->
-      <div class="d-flex align-items-center gap-2 flex-wrap">
-        <div class="hud-pill-group flex-nowrap" role="group">
-          <button type="button" class="btn btn-sm ${activeView === 'library' ? 'active' : ''}" id="tabBtnLibrary">
-            <i class="bi-collection-play me-1"></i> Library
-          </button>
-          <button type="button" class="btn btn-sm ${activeView === 'recents' ? 'active' : ''}" id="tabBtnRecents">
-            <i class="bi-clock-history me-1"></i> Recents
-          </button>
-        </div>
-
-        <button type="button" class="btn btn-sm ${activeView === 'search' ? 'btn-theme-primary' : 'btn-theme-outline'} d-flex align-items-center gap-1.5 px-3" id="actionBtnAddToLibrary" title="Search music and add to library">
-          <i class="bi-plus-circle"></i> <span>Add to Library</span>
-        </button>
-      </div>
-
-      <!-- Collections & Return to Score Action -->
-      <div class="d-flex align-items-center gap-2">
-        <div class="d-none d-md-flex align-items-center gap-1">
-          <select class="form-select form-select-sm" id="libCollectionSelect" style="max-width: 150px; font-size: 0.78rem;">
-            ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
-          </select>
-          <button class="btn btn-sm btn-theme-outline py-1 px-2" id="libNewCollectionBtn" title="New Collection">
-            <i class="bi-folder-plus"></i>
-          </button>
-        </div>
-
-        ${currentOpen ? `
-          <button type="button" class="btn btn-sm btn-theme-outline d-flex align-items-center gap-1.5 py-1 px-2.5" id="libraryModalCloseBtn" title="Return to active score">
-            <i class="bi-arrow-return-left text-info"></i>
-            <span class="d-none d-lg-inline text-truncate" style="max-width:130px;">${escapeHtml(currentOpen.name)}</span>
-            <i class="bi-x-lg ms-1"></i>
-          </button>
-        ` : ''}
-      </div>
-    </header>
-
-    <!-- Page Body Content Area -->
-    <div class="library-page-body" id="libraryModalContent">
-      <!-- Injected dynamically -->
-    </div>
-    `;
-
-    // Event listeners
-    page.querySelector('#libraryModalBackBtn')?.addEventListener('click', handleBack);
-    page.querySelector('#libraryModalCloseBtn')?.addEventListener('click', closeLibraryModal);
-    page.querySelector('#tabBtnLibrary')?.addEventListener('click', () => switchView('library'));
-    page.querySelector('#tabBtnRecents')?.addEventListener('click', () => switchView('recents'));
-    page.querySelector('#actionBtnAddToLibrary')?.addEventListener('click', () => switchView('search'));
-
-    const collectionSelect = page.querySelector('#libCollectionSelect');
-    collectionSelect?.addEventListener('change', (e) => {
-        activeCollectionId = e.target.value;
-        selectedArtist = null;
-        selectedAlbum = null;
-        renderView();
-    });
-
-    page.querySelector('#libNewCollectionBtn')?.addEventListener('click', async () => {
-        const name = prompt('Enter name for new collection:');
-        if (name && name.trim()) {
-            const col = await createCollection(name.trim());
-            activeCollectionId = col.id;
-            await renderLibraryModal();
+    const returnBtn = document.getElementById('libraryReturnToSongBtn');
+    const returnName = document.getElementById('libraryReturnSongName');
+    if (returnBtn) {
+        if (currentOpen) {
+            returnBtn.style.display = 'inline-flex';
+            if (returnName) returnName.textContent = currentOpen.name;
+        } else {
+            returnBtn.style.display = 'none';
         }
-    });
+    }
+
+    const navLib = document.getElementById('navBtnLibrary');
+    const navRec = document.getElementById('navBtnRecents');
+    if (navLib) navLib.classList.toggle('active', activeView === 'library' || activeView === 'search');
+    if (navRec) navRec.classList.toggle('active', activeView === 'recents');
+
+    updateBackBtnVisibility();
+
+    // Ensure content container is present
+    let content = document.getElementById('libraryModalContent');
+    if (!content) {
+        page.innerHTML = `<div class="library-page-body" id="libraryModalContent"></div>`;
+        content = document.getElementById('libraryModalContent');
+    }
 
     await renderView();
 }
@@ -336,27 +330,12 @@ async function renderView() {
 // 1. LIBRARY BROWSER VIEW (Collection > Artist > Album > Song)
 // -----------------------------------------------------------------------------
 async function renderLibraryBrowseView(container) {
+    const collections = await getCollections();
+    const currentCollection = collections.find(c => c.id === activeCollectionId) || collections[0] || { id: DEFAULT_COLLECTION_ID, name: 'My Library' };
+    activeCollectionId = currentCollection.id;
+
     const hierarchy = await getLibraryHierarchy(activeCollectionId);
     const artists = hierarchy.artists || [];
-
-    if (artists.length === 0) {
-        container.innerHTML = `
-        <div class="library-page-container">
-          <div class="text-center py-5 text-muted">
-            <i class="bi-music-note-list fs-1 mb-2 d-block text-white-50"></i>
-            <h5 class="text-white fw-semibold">Your Library is Empty</h5>
-            <p class="small text-muted mb-4">Add your favorite songs and albums to build your personalized tab catalog.</p>
-            <div class="d-flex justify-content-center gap-2">
-              <button class="btn btn-theme-primary btn-sm px-3" id="emptyStateAddBtn">
-                <i class="bi-plus-circle me-1"></i> Add to Library
-              </button>
-            </div>
-          </div>
-        </div>
-        `;
-        container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => switchView('search'));
-        return;
-    }
 
     // Re-sync selectedArtist and selectedAlbum against latest hierarchy data
     if (selectedArtist) {
@@ -366,12 +345,63 @@ async function renderLibraryBrowseView(container) {
         selectedAlbum = selectedArtist.albums.find(a => a.title === selectedAlbum.title || (selectedAlbum.albumMbid && a.albumMbid === selectedAlbum.albumMbid)) || null;
     }
 
-    // Breadcrumb Navigation
-    let breadcrumbHtml = `
+    // Top Library Body Toolbar (Collection Selector + Add Music + Filter)
+    const headerHtml = `
     <div class="library-page-container">
-      <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-        <div class="d-flex align-items-center gap-1.5 small overflow-x-auto">
-          <button class="theme-breadcrumb-btn ${!selectedArtist ? 'active' : ''}" id="bcRoot">
+      <div class="library-body-header d-flex align-items-center justify-content-between gap-3 mb-3">
+        <!-- Collection Selector with Label & New Collection Button -->
+        <div class="d-flex align-items-center gap-2">
+          <label for="libCollectionSelect" class="small text-muted mb-0 fw-semibold text-nowrap d-inline-flex align-items-center gap-1.5">
+            <i class="bi-folder2 text-info"></i> Collection:
+          </label>
+          <div class="d-flex align-items-center gap-1.5">
+            <select class="form-select form-select-sm theme-select" id="libCollectionSelect" style="min-width: 150px; font-size: 0.8rem;">
+              ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+            </select>
+            <button class="btn btn-sm btn-theme-outline py-1 px-2" id="libNewCollectionBtn" title="New Collection" style="border-radius: 9999px;">
+              <i class="bi-folder-plus"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Add Music Button & Filter Input -->
+        <div class="d-flex align-items-center gap-2.5">
+          ${artists.length > 0 ? `
+          <input type="text" class="form-control form-control-sm" id="libFilterInput" placeholder="Filter songs..." style="max-width: 180px; font-size: 0.78rem;">
+          ` : ''}
+          <button type="button" class="btn btn-sm btn-theme-primary d-inline-flex align-items-center gap-1.5 px-3 py-1 text-nowrap" id="libAddMusicBtn" title="Search and add music" style="border-radius: 9999px;">
+            <i class="bi-plus-circle"></i> <span>Add Music</span>
+          </button>
+        </div>
+      </div>
+    `;
+
+    if (artists.length === 0) {
+        container.innerHTML = headerHtml + `
+          <div class="text-center py-5 text-muted">
+            <i class="bi-music-note-list fs-1 mb-2 d-block text-white-50"></i>
+            <h5 class="text-white fw-semibold">This Collection is Empty</h5>
+            <p class="small text-muted mb-4">Add your favorite songs and albums to build your personalized tab catalog.</p>
+            <div class="d-flex justify-content-center gap-2">
+              <button class="btn btn-theme-primary btn-sm px-3" id="emptyStateAddBtn">
+                <i class="bi-plus-circle me-1"></i> Add Music
+              </button>
+            </div>
+          </div>
+        </div>
+        `;
+
+        bindLibraryToolbarEvents(container);
+        container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => switchView('search'));
+        return;
+    }
+
+    // Breadcrumb Navigation (if drilled down)
+    let breadcrumbHtml = '';
+    if (selectedArtist || selectedAlbum) {
+        breadcrumbHtml = `
+        <div class="library-sticky-breadcrumbs d-flex align-items-center gap-1.5 small mb-3">
+          <button class="theme-breadcrumb-btn" id="bcRoot">
             <i class="bi-collection me-1"></i> All Artists (${artists.length})
           </button>
           ${selectedArtist ? `
@@ -385,11 +415,8 @@ async function renderLibraryBrowseView(container) {
             <span class="theme-breadcrumb-btn active">${escapeHtml(selectedAlbum.title)}</span>
           ` : ''}
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <input type="text" class="form-control form-control-sm" id="libFilterInput" placeholder="Filter songs..." style="max-width: 180px; font-size: 0.75rem;">
-        </div>
-      </div>
-    `;
+        `;
+    }
 
     let bodyHtml = '';
 
@@ -471,7 +498,9 @@ async function renderLibraryBrowseView(container) {
         `;
     }
 
-    container.innerHTML = breadcrumbHtml + bodyHtml;
+    container.innerHTML = headerHtml + breadcrumbHtml + bodyHtml;
+
+    bindLibraryToolbarEvents(container);
 
     // Breadcrumb clicks
     container.querySelector('#bcRoot')?.addEventListener('click', () => {
@@ -519,6 +548,29 @@ async function renderLibraryBrowseView(container) {
 
     // Song actions: Play tab, Import tab, Delete song, Switch tabs
     setupSongRowActions(container);
+}
+
+function bindLibraryToolbarEvents(container) {
+    const collectionSelect = container.querySelector('#libCollectionSelect');
+    collectionSelect?.addEventListener('change', (e) => {
+        activeCollectionId = e.target.value;
+        selectedArtist = null;
+        selectedAlbum = null;
+        renderLibraryBrowseView(container);
+    });
+
+    container.querySelector('#libNewCollectionBtn')?.addEventListener('click', async () => {
+        const name = prompt('Enter name for new collection:');
+        if (name && name.trim()) {
+            const col = await createCollection(name.trim());
+            activeCollectionId = col.id;
+            await renderLibraryBrowseView(container);
+        }
+    });
+
+    container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
+        switchView('search');
+    });
 }
 
 function renderSongRow(song) {
@@ -715,7 +767,12 @@ function renderSearchMusicBrainzView(container) {
       <!-- Search Sticky Toolbar -->
       <div class="search-sticky-header mb-3">
         <div class="d-flex align-items-center justify-content-between mb-2">
-          <label class="form-label small fw-semibold text-white-50 mb-0">Search by:</label>
+          <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-theme-outline py-0.5 px-2" id="searchBackToLibBtn" title="Back to Library">
+              <i class="bi-arrow-left me-1"></i> Library
+            </button>
+            <span class="small fw-semibold text-white-50">Search Music:</span>
+          </div>
           <div class="hud-pill-group" role="group" id="searchTypePill">
             <button type="button" class="btn btn-sm ${searchType === 'song' ? 'active' : ''}" data-type="song">Song</button>
             <button type="button" class="btn btn-sm ${searchType === 'album' ? 'active' : ''}" data-type="album">Album</button>
@@ -727,7 +784,7 @@ function renderSearchMusicBrainzView(container) {
         <form id="mbSearchForm" class="d-flex align-items-center gap-2">
           <div class="input-group input-group-sm flex-grow-1">
             <span class="input-group-text"><i class="bi-search"></i></span>
-            <input type="text" class="form-control" id="mbSearchInput" placeholder="Search ${searchType}..." autofocus>
+            <input type="text" class="form-control" id="mbSearchInput" placeholder="Search ${searchType} to add music..." autofocus>
           </div>
           <button type="submit" class="btn btn-theme-primary btn-sm px-3" id="mbSearchSubmitBtn">
             Search
@@ -739,11 +796,13 @@ function renderSearchMusicBrainzView(container) {
       <div id="mbSearchResultsContainer" class="search-results-container">
         <div class="text-center py-5 text-muted">
           <i class="bi-compass fs-2 mb-2 d-block text-white-50"></i>
-          <div>Search across songs, albums, and artists to add to your library</div>
+          <div>Search across songs, albums, and artists to add music to your library</div>
         </div>
       </div>
     </div>
     `;
+
+    container.querySelector('#searchBackToLibBtn')?.addEventListener('click', () => switchView('library'));
 
     // Type pills
     container.querySelectorAll('#searchTypePill button').forEach(btn => {
@@ -1238,8 +1297,8 @@ async function renderRecentsView(container) {
 
     container.innerHTML = `
     <div class="library-page-container recents-view">
-      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-        <span class="small text-white-50">Recently Opened (${recents.length})</span>
+      <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
+        <span class="small fw-semibold text-white-50"><i class="bi-clock-history me-1.5 text-info"></i>Recently Opened (${recents.length})</span>
         <button class="btn btn-sm btn-theme-icon p-1 px-2" id="clearRecentsBtn">
           <i class="bi-trash me-1"></i> Clear History
         </button>
