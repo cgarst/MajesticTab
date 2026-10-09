@@ -4,7 +4,7 @@ import { saveStoredFile } from './fileStore.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
 const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
-const SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+const SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
 const STORAGE_KEY = 'gdrive_auth';
 const FOLDER_STORAGE_KEY = 'gdrive_last_folder';
 const TABS_DIRECTORY_STORAGE_KEY = 'gdrive_tabs_directory';
@@ -233,7 +233,10 @@ function storeGoogleAuth(accessToken, expiresIn) {
     return true;
 }
 
-export function openDriveModal() {
+let activeDriveTargetSongId = null;
+
+export function openDriveModal(options = {}) {
+    activeDriveTargetSongId = options.songId || options.targetSong?.id || null;
     const modal = document.getElementById('driveModal');
     if (!modal) return;
     modal.style.display = 'flex';
@@ -247,6 +250,7 @@ export function openDriveModal() {
 }
 
 export function closeDriveModal() {
+    activeDriveTargetSongId = null;
     const modal = document.getElementById('driveModal');
     if (!modal) return;
     modal.style.display = 'none';
@@ -390,7 +394,7 @@ async function loadDriveFiles() {
             <div class="text-center py-4 text-white-50">
                 <i class="bi-exclamation-triangle text-warning fs-3 mb-2 d-block"></i>
                 <div>Failed to load files from Google Drive.</div>
-                <button class="btn btn-outline-primary btn-sm mt-3" id="driveRetryBtn">Try Again</button>
+                <button class="btn btn-theme-primary btn-sm mt-3" id="driveRetryBtn">Try Again</button>
             </div>
         `;
         document.getElementById('driveRetryBtn')?.addEventListener('click', loadDriveFiles);
@@ -530,11 +534,27 @@ function renderFileList(files) {
 
                     const blob = await res.blob();
                     const fileObj = new File([blob], fileName, { type: mimeType || 'application/octet-stream' });
-                    try {
-                        await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
-                    } catch (err) {
-                        console.warn('Could not persist Drive file to store:', err);
+                    const targetSongId = activeDriveTargetSongId;
+                    activeDriveTargetSongId = null;
+
+                    if (targetSongId) {
+                        try {
+                            const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
+                            const { addTabOptionToSong } = await import('./libraryStore.js');
+                            const { inferTuningFromTextOrName } = await import('./utils/tuningUtils.js');
+                            await addTabOptionToSong(targetSongId, {
+                                name: fileObj.name,
+                                providerId: 'google-drive',
+                                relativePath: fileObj.name,
+                                fileStoreId: stored.id,
+                                tuning: inferTuningFromTextOrName(fileObj.name),
+                                fileType: fileObj.name.split('.').pop().toLowerCase()
+                            });
+                        } catch (err) {
+                            console.warn('Could not persist Drive file to store:', err);
+                        }
                     }
+
                     closeDriveModal();
                     await loadFile(fileObj);
                 } catch (err) {
@@ -645,5 +665,53 @@ export function setupDrivePicker() {
     // Check if returning from Google OAuth redirect
     handleAuthRedirect();
 }
+
+/**
+ * Upload a file/blob to Google Drive in the current or specified folder
+ * @param {Blob|File} fileBlob
+ * @param {string} filename
+ * @param {string} [folderId]
+ * @returns {Promise<object>} Upload response containing file id and name
+ */
+export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.json', folderId = null) {
+    if (!isTokenValid()) {
+        throw new Error('Google Drive is not connected. Please connect your Google account.');
+    }
+
+    const targetFolder = folderId || currentFolderId || (tabsDirectory ? tabsDirectory.id : 'root');
+    const metadata = {
+        name: filename,
+        mimeType: fileBlob.type || 'application/json'
+    };
+
+    if (targetFolder && targetFolder !== 'root') {
+        metadata.parents = [targetFolder];
+    }
+
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', fileBlob, filename);
+
+    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        body: form
+    });
+
+    if (!response.ok) {
+        let errorMsg = response.statusText;
+        try {
+            const errData = await response.json();
+            errorMsg = errData.error?.message || errorMsg;
+        } catch (e) {}
+        throw new Error(`Google Drive upload failed: ${errorMsg}`);
+    }
+
+    const result = await response.json();
+    return result;
+}
+
 
 
