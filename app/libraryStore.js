@@ -142,8 +142,11 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
     // Convert map to sorted arrays
     const artists = Array.from(artistMap.values()).map(artist => {
         const albums = Array.from(artist.albums.values()).map(album => {
-            // Sort songs by track number or title
+            // Sort songs by medium number (CD1, CD2, etc.), then track number or title
             album.songs.sort((a, b) => {
+                const medA = a.mediumNumber || 1;
+                const medB = b.mediumNumber || 1;
+                if (medA !== medB) return medA - medB;
                 if (a.trackNumber && b.trackNumber) return a.trackNumber - b.trackNumber;
                 return (a.title || '').localeCompare(b.title || '');
             });
@@ -191,6 +194,9 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
         year: songData.year || null,
         length: typeof songData.length === 'number' ? songData.length : (songData.length ? parseInt(songData.length, 10) : null),
         trackNumber: songData.trackNumber || null,
+        mediumNumber: songData.mediumNumber || 1,
+        mediumTitle: songData.mediumTitle || null,
+        mediumFormat: songData.mediumFormat || null,
         recordingMbid: songData.recordingMbid || null,
         coverUrl: songData.coverUrl || null,
         tunings: Array.isArray(songData.tunings) ? songData.tunings : [],
@@ -216,7 +222,9 @@ export async function addAlbumToLibrary(albumData, tracks = [], collectionId = D
     const results = [];
 
     for (const track of tracks) {
-        const id = `song_${albumData.artistMbid || albumData.artist}_${albumData.releaseGroupId || albumData.title}_${track.recordingMbid || track.title}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const medNum = track.mediumNumber || 1;
+        const trackNum = track.trackNumber || '';
+        const id = `song_${albumData.artistMbid || albumData.artist}_${albumData.releaseGroupId || albumData.title}_m${medNum}_${track.recordingMbid || trackNum || track.title}`.replace(/[^a-zA-Z0-9_-]/g, '_');
         const song = {
             id,
             collectionId,
@@ -228,6 +236,9 @@ export async function addAlbumToLibrary(albumData, tracks = [], collectionId = D
             year: albumData.year || null,
             length: typeof track.length === 'number' ? track.length : (track.length ? parseInt(track.length, 10) : null),
             trackNumber: track.trackNumber || null,
+            mediumNumber: track.mediumNumber || 1,
+            mediumTitle: track.mediumTitle || null,
+            mediumFormat: track.mediumFormat || null,
             recordingMbid: track.recordingMbid || null,
             coverUrl: albumData.coverUrl || track.coverUrl || null,
             tunings: [],
@@ -250,19 +261,27 @@ export async function addAlbumToLibrary(albumData, tracks = [], collectionId = D
 /**
  * Delete an entire album and all of its songs from the library
  */
-export async function deleteAlbumFromLibrary(artistName, albumTitle, collectionId = DEFAULT_COLLECTION_ID) {
+export async function deleteAlbumFromLibrary(artistName, albumTitle, collectionId = DEFAULT_COLLECTION_ID, songIds = []) {
     const db = await getDB();
     const songs = await getSongsByCollection(collectionId);
-    const songsToDelete = songs.filter(s => 
-        (s.artist || '').trim().toLowerCase() === (artistName || '').trim().toLowerCase() &&
-        (s.album || '').trim().toLowerCase() === (albumTitle || '').trim().toLowerCase()
-    );
+    const idSet = new Set(Array.isArray(songIds) ? songIds : []);
+    const songsToDelete = songs.filter(s => {
+        if (idSet.has(s.id)) return true;
+        const sArtist = (s.artist || '').trim().toLowerCase();
+        const sAlbum = (s.album || '').trim().toLowerCase();
+        const targetArtist = (artistName || '').trim().toLowerCase();
+        const targetAlbum = (albumTitle || '').trim().toLowerCase();
+        return sArtist === targetArtist && sAlbum === targetAlbum;
+    });
 
     return new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_SONGS, 'readwrite');
         const store = tx.objectStore(STORE_SONGS);
         for (const s of songsToDelete) {
             store.delete(s.id);
+        }
+        for (const id of idSet) {
+            store.delete(id);
         }
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => reject(tx.error);

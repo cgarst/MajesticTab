@@ -558,7 +558,7 @@ async function renderLibraryBrowseView(container) {
 
           <!-- Songs List -->
           <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
-            ${album.songs.map(song => renderSongRow(song)).join('')}
+            ${renderAlbumSongsList(album.songs)}
           </div>
         </div>
         </div>
@@ -850,6 +850,57 @@ function renderSongRow(song) {
     `;
 }
 
+function renderAlbumSongsList(songs) {
+    if (!songs || songs.length === 0) {
+        return '<div class="text-muted p-4 text-center">No songs in this album.</div>';
+    }
+
+    // Group songs by mediumNumber
+    const mediaGroups = new Map();
+    for (const song of songs) {
+        const medNum = song.mediumNumber || 1;
+        if (!mediaGroups.has(medNum)) {
+            mediaGroups.set(medNum, {
+                mediumNumber: medNum,
+                mediumTitle: song.mediumTitle || '',
+                mediumFormat: song.mediumFormat || 'CD',
+                songs: []
+            });
+        }
+        const grp = mediaGroups.get(medNum);
+        if (!grp.mediumTitle && song.mediumTitle) grp.mediumTitle = song.mediumTitle;
+        if (!grp.mediumFormat && song.mediumFormat) grp.mediumFormat = song.mediumFormat;
+        grp.songs.push(song);
+    }
+
+    const groups = Array.from(mediaGroups.values()).sort((a, b) => a.mediumNumber - b.mediumNumber);
+
+    // If only 1 medium and no specific medium title, render song rows directly
+    if (groups.length === 1 && !groups[0].mediumTitle) {
+        return groups[0].songs.map(song => renderSongRow(song)).join('');
+    }
+
+    // Multi-disc / multi-medium rendering
+    return groups.map(grp => {
+        const formatLabel = grp.mediumFormat || 'CD';
+        const discTitle = grp.mediumTitle ? `: ${escapeHtml(grp.mediumTitle)}` : '';
+        const headerText = `${formatLabel} ${grp.mediumNumber}${discTitle}`;
+
+        return `
+        <div class="library-medium-section mb-2">
+          <div class="library-disc-header d-flex align-items-center gap-2 py-1.5 px-2.5 mb-2">
+            <i class="bi-disc text-accent"></i>
+            <span class="fw-bold small text-white text-uppercase" style="letter-spacing: 0.04em; font-size: 0.78rem;">${headerText}</span>
+            <span class="badge badge-theme-secondary py-0 px-1.5 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.songs.length} ${grp.songs.length === 1 ? 'Track' : 'Tracks'}</span>
+          </div>
+          <div class="d-flex flex-column gap-2">
+            ${grp.songs.map(song => renderSongRow(song)).join('')}
+          </div>
+        </div>
+        `;
+    }).join('');
+}
+
 function setupSongRowActions(container) {
     // Toggle Album Edit Mode
     container.querySelector('#toggleAlbumEditBtn')?.addEventListener('click', (e) => {
@@ -859,15 +910,26 @@ function setupSongRowActions(container) {
     });
 
     // Delete Entire Album
-    container.querySelector('#deleteAlbumBtn')?.addEventListener('click', async (e) => {
+    const deleteAlbumBtn = container.querySelector('#deleteAlbumBtn');
+    deleteAlbumBtn?.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (!selectedArtist || !selectedAlbum) return;
-        const confirmMsg = `Remove "${selectedAlbum.title}" and all of its tracks from your library?`;
-        if (confirm(confirmMsg)) {
-            await deleteAlbumFromLibrary(selectedArtist.name, selectedAlbum.title, activeCollectionId);
+
+        if (deleteAlbumBtn.dataset.confirming === 'true') {
+            const songIds = (selectedAlbum.songs || []).map(s => s.id);
+            await deleteAlbumFromLibrary(selectedArtist.name, selectedAlbum.title, activeCollectionId, songIds);
             selectedAlbum = null;
             isAlbumEditMode = false;
             await renderView();
+        } else {
+            deleteAlbumBtn.dataset.confirming = 'true';
+            deleteAlbumBtn.innerHTML = '<i class="bi-exclamation-triangle-fill me-1"></i> <span class="d-none d-sm-inline">Confirm Delete Album?</span><span class="d-inline d-sm-none">Confirm?</span>';
+            setTimeout(() => {
+                if (deleteAlbumBtn.dataset.confirming === 'true') {
+                    deleteAlbumBtn.dataset.confirming = 'false';
+                    deleteAlbumBtn.innerHTML = '<i class="bi-trash"></i> <span class="d-none d-sm-inline">Delete Album</span>';
+                }
+            }, 4000);
         }
     });
 
@@ -913,9 +975,7 @@ function setupSongRowActions(container) {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const songId = btn.dataset.songId;
-            const song = await getSongById(songId);
-            const songTitle = song?.title || 'this song';
-            if (confirm(`Remove "${songTitle}" from your library?`)) {
+            if (btn.dataset.confirming === 'true') {
                 await deleteSongFromLibrary(songId);
                 const hierarchy = await getLibraryHierarchy(activeCollectionId);
                 const currentArtist = hierarchy.artists.find(a => a.name === selectedArtist?.name);
@@ -925,6 +985,17 @@ function setupSongRowActions(container) {
                     isAlbumEditMode = false;
                 }
                 await renderView();
+            } else {
+                btn.dataset.confirming = 'true';
+                btn.innerHTML = '<i class="bi-exclamation-triangle-fill"></i>';
+                btn.title = 'Click again to confirm delete';
+                setTimeout(() => {
+                    if (btn.dataset.confirming === 'true') {
+                        btn.dataset.confirming = 'false';
+                        btn.innerHTML = '<i class="bi-trash"></i>';
+                        btn.title = 'Remove song from library';
+                    }
+                }, 3000);
             }
         });
     });
@@ -1626,17 +1697,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
 
           <!-- Tracks Checklist -->
           <div class="d-flex flex-column gap-1.5" id="albumTracksChecklist">
-            ${albumData.tracks.map((t, idx) => `
-              <div class="library-track-row p-2 d-flex align-items-center justify-content-between gap-2">
-                <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
-                  <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
-                  <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
-                </div>
-                <button class="btn btn-sm btn-theme-outline py-0.5 px-2 add-single-track-btn flex-shrink-0" data-track-idx="${idx}">
-                  <i class="bi-plus"></i> Add
-                </button>
-              </div>
-            `).join('')}
+            ${renderAddAlbumTracksList(albumData.tracks)}
           </div>
         </div>
         `;
@@ -1659,11 +1720,15 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
                     artist: albumData.artist,
                     artistMbid: albumData.artistMbid,
                     album: albumData.title,
-                    albumMbid: albumData.releaseGroupId,
+                    albumMbid: albumData.releaseGroupId || albumData.releaseId || null,
                     year: albumData.year,
+                    length: track.length || null,
                     trackNumber: track.trackNumber,
+                    mediumNumber: track.mediumNumber || 1,
+                    mediumTitle: track.mediumTitle || null,
+                    mediumFormat: track.mediumFormat || null,
                     recordingMbid: track.recordingMbid,
-                    coverUrl: albumData.coverUrl
+                    coverUrl: albumData.coverUrl || track.coverUrl || null
                 };
                 await saveSongToLibrary(song, activeCollectionId);
                 btn.className = 'btn btn-sm btn-theme-success py-0.5 px-2 disabled flex-shrink-0';
@@ -1673,6 +1738,71 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
     } catch (err) {
         container.innerHTML = `<div class="text-danger">Failed to load tracklist: ${escapeHtml(err.message)}</div>`;
     }
+}
+
+function renderAddAlbumTracksList(tracks) {
+    if (!tracks || tracks.length === 0) return '';
+    const mediaGroups = new Map();
+    tracks.forEach((t, idx) => {
+        const medNum = t.mediumNumber || 1;
+        if (!mediaGroups.has(medNum)) {
+            mediaGroups.set(medNum, {
+                mediumNumber: medNum,
+                mediumTitle: t.mediumTitle || '',
+                mediumFormat: t.mediumFormat || 'CD',
+                items: []
+            });
+        }
+        const grp = mediaGroups.get(medNum);
+        if (!grp.mediumTitle && t.mediumTitle) grp.mediumTitle = t.mediumTitle;
+        if (!grp.mediumFormat && t.mediumFormat) grp.mediumFormat = t.mediumFormat;
+        grp.items.push({ track: t, idx });
+    });
+
+    const groups = Array.from(mediaGroups.values()).sort((a, b) => a.mediumNumber - b.mediumNumber);
+
+    if (groups.length === 1 && !groups[0].mediumTitle) {
+        return groups[0].items.map(({ track: t, idx }) => `
+            <div class="library-track-row p-2 d-flex align-items-center justify-content-between gap-2">
+              <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
+                <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
+                <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
+              </div>
+              <button class="btn btn-sm btn-theme-outline py-0.5 px-2 add-single-track-btn flex-shrink-0" data-track-idx="${idx}">
+                <i class="bi-plus"></i> Add
+              </button>
+            </div>
+        `).join('');
+    }
+
+    return groups.map(grp => {
+        const formatLabel = grp.mediumFormat || 'CD';
+        const discTitle = grp.mediumTitle ? `: ${escapeHtml(grp.mediumTitle)}` : '';
+        const headerText = `${formatLabel} ${grp.mediumNumber}${discTitle}`;
+
+        return `
+        <div class="library-medium-section mb-2">
+          <div class="library-disc-header d-flex align-items-center gap-2 py-1.5 px-2.5 mb-2">
+            <i class="bi-disc text-accent"></i>
+            <span class="fw-bold small text-white text-uppercase" style="letter-spacing: 0.04em; font-size: 0.78rem;">${headerText}</span>
+            <span class="badge badge-theme-secondary py-0 px-1.5 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.items.length} ${grp.items.length === 1 ? 'Track' : 'Tracks'}</span>
+          </div>
+          <div class="d-flex flex-column gap-1.5">
+            ${grp.items.map(({ track: t, idx }) => `
+              <div class="library-track-row p-2 d-flex align-items-center justify-content-between gap-2">
+                <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
+                  <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
+                  <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
+                </div>
+                <button class="btn btn-sm btn-theme-outline py-0.5 px-2 add-single-track-btn flex-shrink-0" data-track-idx="${idx}">
+                  <i class="bi-plus"></i> Add
+                </button>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+        `;
+    }).join('');
 }
 
 // -----------------------------------------------------------------------------
