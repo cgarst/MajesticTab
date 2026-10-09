@@ -55,7 +55,12 @@ function loadTabsDirectory() {
     }
 }
 
+let activeDriveBackupOnly = false;
+
 function getDriveRoot() {
+    if (activeDriveBackupOnly) {
+        return { id: 'root', name: 'My Drive' };
+    }
     return tabsDirectory || { id: 'root', name: 'My Drive' };
 }
 
@@ -239,6 +244,7 @@ let activeDriveTargetAlbum = null;
 let activeDriveOnFileSelected = null;
 
 export function openDriveModal(options = {}) {
+    activeDriveBackupOnly = Boolean(options.backupOnly);
     activeDriveOnFileSelected = options.onFileSelected || null;
     activeDriveTargetSongId = options.songId || options.targetSong?.id || null;
     if (options.isAlbumTab && options.albumTitle) {
@@ -252,6 +258,16 @@ export function openDriveModal(options = {}) {
     }
     const modal = document.getElementById('driveModal');
     if (!modal) return;
+
+    if (options.backupOnly) {
+        modal.style.zIndex = '1065';
+        currentFolderId = 'root';
+        folderHistory = [{ id: 'root', name: 'My Drive' }];
+    } else {
+        modal.style.zIndex = '';
+        if (folderHistory[0]?.id !== getDriveRoot().id) resetFolderToDriveRoot();
+    }
+
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
@@ -263,11 +279,13 @@ export function openDriveModal(options = {}) {
 }
 
 export function closeDriveModal() {
+    activeDriveBackupOnly = false;
     activeDriveTargetSongId = null;
     activeDriveTargetAlbum = null;
     activeDriveOnFileSelected = null;
     const modal = document.getElementById('driveModal');
     if (!modal) return;
+    modal.style.zIndex = '';
     modal.style.display = 'none';
     document.body.style.overflow = '';
 }
@@ -304,6 +322,9 @@ function getFileIconClass(mimeType, name = '') {
     }
     if (lower.endsWith('.txt')) {
         return { icon: 'bi-file-earmark-text-fill', color: 'text-secondary' };
+    }
+    if (lower.endsWith('.mtbackup')) {
+        return { icon: 'bi-archive-fill', color: 'text-info' };
     }
     if (lower.endsWith('.json') || lower.endsWith('.majestictab')) {
         return { icon: 'bi-file-earmark-code-fill', color: 'text-warning' };
@@ -378,7 +399,17 @@ async function loadDriveFiles() {
 
     try {
         let files;
-        if (currentSearchQuery.trim()) {
+        if (activeDriveBackupOnly) {
+            if (currentSearchQuery.trim()) {
+                const cleanSearch = currentSearchQuery.trim().replace(/'/g, "\\'");
+                const query = `trashed = false and name contains '.mtbackup' and name contains '${cleanSearch}'`;
+                files = await fetchDriveFiles(query);
+            } else {
+                let query = "trashed = false and (mimeType = 'application/vnd.google-apps.folder' or name contains '.mtbackup')";
+                query += ` and '${currentFolderId}' in parents`;
+                files = await fetchDriveFiles(query);
+            }
+        } else if (currentSearchQuery.trim()) {
             const cleanSearch = currentSearchQuery.trim().replace(/'/g, "\\'");
             files = await searchDriveFolderTree(getDriveRoot().id, cleanSearch);
         } else {
