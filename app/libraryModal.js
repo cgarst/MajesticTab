@@ -596,14 +596,67 @@ async function renderLibraryBrowseView(container) {
         });
     });
 
-    // Album click
+    // Album click & drag-and-drop
     container.querySelectorAll('.album-card').forEach(card => {
+        const albumTitle = card.dataset.albumTitle;
+        const album = selectedArtist?.albums?.find(a => a.title === albumTitle);
+
         card.addEventListener('click', () => {
-            const albumTitle = card.dataset.albumTitle;
-            selectedAlbum = selectedArtist?.albums.find(a => a.title === albumTitle);
+            selectedAlbum = album;
             isAlbumEditMode = false;
             renderLibraryBrowseView(container);
         });
+
+        if (album) {
+            card.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+                card.classList.add('album-drop-active');
+            });
+
+            card.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+                if (!card.classList.contains('album-drop-active')) {
+                    card.classList.add('album-drop-active');
+                }
+            });
+
+            card.addEventListener('dragleave', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!card.contains(e.relatedTarget)) {
+                    card.classList.remove('album-drop-active');
+                }
+            });
+
+            card.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                card.classList.remove('album-drop-active');
+
+                const files = Array.from(e.dataTransfer?.files || []);
+                if (files.length === 0) return;
+
+                let attachedCount = 0;
+                for (const file of files) {
+                    const matchedSong = matchSongInAlbum(album.songs, file.name);
+                    if (matchedSong) {
+                        const ok = await attachFileToSong(file, matchedSong.id);
+                        if (ok) attachedCount++;
+                    } else if (album.songs?.length > 0) {
+                        const ok = await attachFileToSong(file, album.songs[0].id);
+                        if (ok) attachedCount++;
+                    }
+                }
+
+                if (attachedCount > 0) {
+                    await renderView();
+                }
+            });
+        }
     });
 
     // Search / Filter setup
@@ -909,29 +962,22 @@ function setupSongRowActions(container) {
         });
     });
 
-    // Drag & Drop tab files onto song rows
+    // Drag & Drop tab files onto individual song rows
     container.querySelectorAll('.library-song-row').forEach(row => {
         const songId = row.dataset.songId;
         if (!songId) return;
 
-        let dragCounter = 0;
-
         row.addEventListener('dragenter', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dragCounter++;
-            if (e.dataTransfer) {
-                e.dataTransfer.dropEffect = 'copy';
-            }
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
             row.classList.add('song-drop-active');
         });
 
         row.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (e.dataTransfer) {
-                e.dataTransfer.dropEffect = 'copy';
-            }
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
             if (!row.classList.contains('song-drop-active')) {
                 row.classList.add('song-drop-active');
             }
@@ -940,9 +986,7 @@ function setupSongRowActions(container) {
         row.addEventListener('dragleave', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dragCounter--;
-            if (dragCounter <= 0) {
-                dragCounter = 0;
+            if (!row.contains(e.relatedTarget)) {
                 row.classList.remove('song-drop-active');
             }
         });
@@ -950,7 +994,6 @@ function setupSongRowActions(container) {
         row.addEventListener('drop', async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            dragCounter = 0;
             row.classList.remove('song-drop-active');
 
             const files = Array.from(e.dataTransfer?.files || []);
@@ -958,20 +1001,8 @@ function setupSongRowActions(container) {
 
             let addedCount = 0;
             for (const file of files) {
-                try {
-                    const stored = await saveStoredFile(file, 'local');
-                    await addTabOptionToSong(songId, {
-                        name: file.name,
-                        providerId: 'local',
-                        relativePath: file.name,
-                        fileStoreId: stored.id,
-                        tuning: inferTuningFromTextOrName(file.name),
-                        fileType: file.name.split('.').pop().toLowerCase()
-                    });
-                    addedCount++;
-                } catch (err) {
-                    console.error('Error attaching dropped tab to song:', err);
-                }
+                const ok = await attachFileToSong(file, songId);
+                if (ok) addedCount++;
             }
 
             if (addedCount > 0) {
@@ -979,6 +1010,112 @@ function setupSongRowActions(container) {
             }
         });
     });
+
+    // Drag & Drop tab files onto album detail page container (auto-matches song)
+    const albumDetailView = container.querySelector('.album-detail-view');
+    if (albumDetailView && selectedAlbum) {
+        albumDetailView.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        });
+
+        albumDetailView.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        });
+
+        albumDetailView.addEventListener('drop', async (e) => {
+            if (e.target.closest('.library-song-row')) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const files = Array.from(e.dataTransfer?.files || []);
+            if (files.length === 0) return;
+
+            let addedCount = 0;
+            for (const file of files) {
+                const matchedSong = matchSongInAlbum(selectedAlbum.songs, file.name);
+                if (matchedSong) {
+                    const ok = await attachFileToSong(file, matchedSong.id);
+                    if (ok) addedCount++;
+                } else if (selectedAlbum.songs?.length > 0) {
+                    const ok = await attachFileToSong(file, selectedAlbum.songs[0].id);
+                    if (ok) addedCount++;
+                }
+            }
+
+            if (addedCount > 0) {
+                await renderView();
+            }
+        });
+    }
+}
+
+/**
+ * Helper to save a file to persistent store and attach it as a tab option on a song
+ */
+async function attachFileToSong(file, songId) {
+    try {
+        const stored = await saveStoredFile(file, 'local');
+        await addTabOptionToSong(songId, {
+            name: file.name,
+            providerId: 'local',
+            relativePath: file.name,
+            fileStoreId: stored.id,
+            tuning: inferTuningFromTextOrName(file.name),
+            fileType: file.name.split('.').pop().toLowerCase()
+        });
+        return true;
+    } catch (err) {
+        console.error('Error attaching dropped tab to song:', err);
+        return false;
+    }
+}
+
+/**
+ * Match a tab file name against songs in an album
+ */
+function matchSongInAlbum(songs, fileName) {
+    if (!Array.isArray(songs) || songs.length === 0) return null;
+
+    const base = fileName.replace(/\.[^/.]+$/, '').trim();
+    const cleanBase = base
+        .replace(/^(\d+[\s.-]+|track\s*\d+[\s.-]+|\d+-\d+[\s.-]+)/i, '')
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim().toLowerCase();
+
+    // 1. Direct match
+    for (const song of songs) {
+        const cleanTitle = (song.title || '')
+            .replace(/[^\w\s]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim().toLowerCase();
+        if (cleanTitle && (cleanTitle === cleanBase || cleanBase.includes(cleanTitle) || cleanTitle.includes(cleanBase))) {
+            return song;
+        }
+    }
+
+    // 2. Word overlap match
+    const baseWords = cleanBase.split(' ').filter(w => w.length >= 3);
+    if (baseWords.length > 0) {
+        let bestMatch = null;
+        let maxOverlap = 0;
+        for (const song of songs) {
+            const cleanTitle = (song.title || '').toLowerCase();
+            let overlap = 0;
+            for (const w of baseWords) {
+                if (cleanTitle.includes(w)) overlap++;
+            }
+            if (overlap > maxOverlap) {
+                maxOverlap = overlap;
+                bestMatch = song;
+            }
+        }
+        if (maxOverlap > 0) return bestMatch;
+    }
+
+    return songs.length === 1 ? songs[0] : null;
 }
 
 /**

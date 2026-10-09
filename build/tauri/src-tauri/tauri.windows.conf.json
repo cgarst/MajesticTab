@@ -8,7 +8,8 @@
         "devtools": false,
         "minWidth": 760,
         "minHeight": 560,
-        "decorations": false
+        "decorations": false,
+        "dragDropEnabled": false
       }
     ]
   },

@@ -10,27 +10,14 @@ import { openLibraryModal } from './libraryModal.js';
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 
 export const UG_DEFAULT_USERSCRIPT = `
-// MajesticTab UG Userscript v9-clean-responsive
+// MajesticTab UG Userscript v10-focus
 (function() {
-    // 1. Responsive layout fix & CSS hiding of tab player
-    const STYLE_ID = 'majestic-ug-custom-style-v9';
+    // 1. Hide and remove sticky tab player on song pages
+    const STYLE_ID = 'majestic-ug-custom-style-v10';
     if (!document.getElementById(STYLE_ID)) {
         const style = document.createElement('style');
         style.id = STYLE_ID;
         style.textContent = \`
-            html, body {
-                overflow-x: hidden !important;
-                max-width: 100% !important;
-                width: 100% !important;
-            }
-            main, section, article, header, footer,
-            [class*="content"], [class*="wrapper"], [class*="container"], [class*="page"], [class*="layout"], [class*="main"], [class*="body"] {
-                max-width: 100% !important;
-                box-sizing: border-box !important;
-            }
-            table, iframe, svg, img {
-                max-width: 100% !important;
-            }
             /* Hide the sticky tab player on Guitar Pro song pages */
             .is_sticky_player,
             [class*="is_sticky_player"],
@@ -43,37 +30,51 @@ export const UG_DEFAULT_USERSCRIPT = `
         (document.head || document.documentElement).appendChild(style);
     }
 
-    // 2. Remove sticky player DOM element on song pages
-    document.querySelectorAll('.is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], #pro-player-scroll-container').forEach(el => {
+    document.querySelectorAll('.is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], #pro-player-scroll-container, [id*="pro-player"]').forEach(el => {
         try {
             const container = el.closest('.is_sticky_player') || el.closest('[class*="sticky_player"]') || el;
             container.remove();
         } catch(e) {}
     });
 
-    // 3. Hide promotional "Official" & "Pro" tabs in search results only
-    function cleanSearchRows() {
-        if (!window.location.pathname.includes('search') && !window.location.pathname.includes('explore')) return;
+    // 2. Hide "Official" tabs in search results and listings
+    function hideOfficialTabRow(el) {
+        let cur = el.parentElement;
+        while (cur && cur !== document.body && cur !== document.documentElement) {
+            const tag = cur.tagName.toLowerCase();
+            if (tag === 'article' || tag === 'main' || tag === 'section' || tag === 'header' || tag === 'nav') break;
+            const tabLinks = cur.querySelectorAll('a[href*="/tab/"], a[href*="/pro/"]');
+            if (tabLinks.length > 3) break;
 
-        document.querySelectorAll('a[href*="/pro/"], a[href*="/pro?"], a[href*="/tab/official/"], a[href*="marketing_type=official"]').forEach(link => {
-            let cur = link.parentElement;
-            while (cur && cur !== document.body && cur !== document.documentElement) {
-                const tag = cur.tagName.toLowerCase();
-                if (tag === 'article' || tag === 'main' || tag === 'section' || tag === 'header' || tag === 'nav') break;
-                const tabLinks = cur.querySelectorAll('a[href*="/tab/"], a[href*="/pro/"]');
-                if (tabLinks.length > 3) break;
-                
-                if (cur.nextElementSibling || cur.previousElementSibling) {
-                    if (tabLinks.length >= 1 && tabLinks.length <= 3) {
-                        cur.style.setProperty('display', 'none', 'important');
-                        break;
+            if (tag === 'tr' || cur.nextElementSibling || cur.previousElementSibling) {
+                if (tabLinks.length >= 1 && tabLinks.length <= 3) {
+                    const artistLink = cur.querySelector('a[href*="/artist/"]');
+                    if (artistLink && cur.nextElementSibling) {
+                        const nextRowFirstCell = cur.nextElementSibling.firstElementChild;
+                        if (nextRowFirstCell && !nextRowFirstCell.querySelector('a[href*="/artist/"]')) {
+                            nextRowFirstCell.innerHTML = artistLink.outerHTML;
+                        }
                     }
+                    cur.style.setProperty('display', 'none', 'important');
+                    break;
                 }
-                cur = cur.parentElement;
             }
-        });
+            cur = cur.parentElement;
+        }
     }
-    cleanSearchRows();
+
+    // Hide by link pattern
+    document.querySelectorAll('a[href*="/pro/"], a[href*="/pro?"], a[href*="/tab/official/"], a[href*="marketing_type=official"]').forEach(hideOfficialTabRow);
+
+    // Hide by "Official" label / badge text
+    document.querySelectorAll('div, span').forEach(el => {
+        if (el.children.length === 0) {
+            const text = el.textContent.trim().toLowerCase();
+            if (text === 'official' || text === 'official tab') {
+                hideOfficialTabRow(el);
+            }
+        }
+    });
 })();
 `;
 
@@ -177,7 +178,7 @@ export function getSources() {
                             existing.queryFormat = seed.queryFormat;
                         }
                         // If userscript is missing, empty, or an older stock script version, update it to the latest seed script
-                        if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v9-clean-responsive')) {
+                        if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v10-focus')) {
                             existing.userscript = seed.userscript;
                         }
                     }

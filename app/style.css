@@ -2820,6 +2820,13 @@ body:not(.synth-playback-started) .at-highlight {
   z-index: 10;
 }
 
+.album-card.album-drop-active,
+.album-detail-view.album-drop-active {
+  border: 1.5px dashed var(--accent-primary) !important;
+  background: var(--bg-card-hover) !important;
+  box-shadow: 0 0 16px var(--accent-glow) !important;
+}
+
 /* Thumbnails & Covers */
 .artist-thumbnail {
   width: 52px;
