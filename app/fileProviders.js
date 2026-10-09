@@ -84,13 +84,42 @@ export async function openFromProvider(id, options = {}) {
     return provider.open(options);
 }
 
+/**
+ * Get all registered file providers that support saving (excludes tab downloader)
+ * @returns {Array<FileProvider>}
+ */
+export function getSaveProviders() {
+    return getFileProviders().filter(p => !p.id.startsWith('tab-downloader') && typeof p.save === 'function');
+}
+
+/**
+ * Save a file/blob to a specific provider
+ * @param {string} id - Provider ID
+ * @param {Blob|File} fileBlob
+ * @param {string} filename
+ * @param {Object} [options]
+ */
+export async function saveToProvider(id, fileBlob, filename, options = {}) {
+    const provider = getFileProvider(id);
+    if (!provider) {
+        throw new Error(`File provider "${id}" not found.`);
+    }
+    if (provider.id.startsWith('tab-downloader')) {
+        throw new Error('Tab Downloader does not support saving files.');
+    }
+    if (typeof provider.save !== 'function') {
+        throw new Error(`Provider "${provider.name}" does not support saving files.`);
+    }
+    return provider.save(fileBlob, filename, options);
+}
+
 // --- Built-in Provider: Local Device ---
 export const LocalFileProvider = {
     id: 'local',
     name: 'Local Device',
     icon: 'bi-folder2-open',
     iconColorClass: 'text-primary',
-    description: 'Browse Guitar Pro (.gp, .gpx, .gp3–5), PDF, or TXT tabs from your device',
+    description: 'Save or browse files on your local computer or device',
     badge: 'Device',
     actionLabel: 'Browse Files',
     open(options = {}) {
@@ -107,10 +136,10 @@ export const LocalFileProvider = {
             const file = input.files?.[0];
             input.remove();
             if (file) {
-                try {
-                    const stored = await saveStoredFile(file, 'local');
-                    const targetId = options.songId || options.targetSong?.id;
-                    if (targetId) {
+                const targetId = options.songId || options.targetSong?.id;
+                if (targetId) {
+                    try {
+                        const stored = await saveStoredFile(file, 'local');
                         await addTabOptionToSong(targetId, {
                             name: file.name,
                             providerId: 'local',
@@ -119,9 +148,9 @@ export const LocalFileProvider = {
                             tuning: inferTuningFromTextOrName(file.name),
                             fileType: file.name.split('.').pop().toLowerCase()
                         });
+                    } catch (err) {
+                        console.warn('Could not persist file to store:', err);
                     }
-                } catch (err) {
-                    console.warn('Could not persist file to store:', err);
                 }
                 await loadFile(file);
             }
@@ -129,6 +158,19 @@ export const LocalFileProvider = {
 
         // Synchronously trigger file picker in user event
         input.click();
+    },
+    async save(fileBlob, filename = 'MajesticTab-backup.json') {
+        const url = URL.createObjectURL(fileBlob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.position = 'fixed';
+        a.style.top = '-9999px';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        return { success: true, name: filename, providerId: 'local' };
     }
 };
 
@@ -138,15 +180,24 @@ export const GoogleDriveFileProvider = {
     name: 'Google Drive',
     icon: 'bi-google',
     iconColorClass: 'text-danger',
-    description: 'Access and load tab files directly from your Google Drive account',
+    description: 'Save or load tab files and backups directly to your Google Drive account',
     badge: 'Cloud',
     actionLabel: 'Connect & Open',
     async open(options = {}) {
         if (isTokenValid()) {
-            openDriveModal();
+            openDriveModal(options);
         } else {
             redirectToGoogleAuth();
         }
+    },
+    async save(fileBlob, filename = 'MajesticTab-backup.json', options = {}) {
+        const { saveFileToDrive, isTokenValid: checkToken, redirectToGoogleAuth: authDrive } = await import('./googleDrive.js');
+        if (!checkToken()) {
+            authDrive();
+            throw new Error('Please authorize Google Drive to save the file.');
+        }
+        const result = await saveFileToDrive(fileBlob, filename, options.folderId);
+        return { success: true, name: filename, id: result.id, providerId: 'google-drive' };
     }
 };
 
@@ -183,5 +234,6 @@ registerFileProvider(GoogleDriveFileProvider);
 
 registerFileProvider(TabDownloaderNativeProvider);
 registerFileProvider(TabDownloaderWebProvider);
+
 
 
