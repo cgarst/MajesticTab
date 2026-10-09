@@ -2760,7 +2760,7 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 .library-row-card {
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.15rem;
 }
 
 .library-row-card:hover {
@@ -2773,7 +2773,7 @@ body:not(.synth-playback-started) .at-highlight {
   background: var(--bg-card-solid);
   border: 1px solid var(--border-subtle);
   border-radius: 0.85rem;
-  padding: 1rem;
+  padding: 1rem 1.25rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   min-width: 0;
 }
@@ -2833,6 +2833,7 @@ body:not(.synth-playback-started) .at-highlight {
   background: var(--bg-card-solid);
   border: 1px solid var(--border-subtle);
   border-radius: 0.5rem;
+  padding: 0.5rem 0.85rem;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 

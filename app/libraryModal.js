@@ -513,7 +513,7 @@ async function renderLibraryBrowseView(container) {
             <div class="library-card album-card p-3" data-album-title="${escapeHtml(album.title)}" data-album-year="${album.year || ''}">
               <div class="album-cover-container mb-2 position-relative">
                 <img src="${cover}" class="album-cover-img w-100" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
-                ${album.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-1.5">${album.year}</span>` : ''}
+                ${album.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${album.year}</span>` : ''}
               </div>
               <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</h6>
               <div class="small text-muted text-truncate">${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
@@ -534,7 +534,7 @@ async function renderLibraryBrowseView(container) {
 
         bodyHtml = `
         <div class="album-detail-view">
-          <div class="library-album-banner d-flex align-items-center justify-content-between gap-3 mb-3 p-3 rounded" style="background: var(--bg-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));">
+          <div class="library-album-banner d-flex align-items-center justify-content-between gap-3 mb-3">
             <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
               <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
               <div class="min-w-0 flex-grow-1">
@@ -546,16 +546,16 @@ async function renderLibraryBrowseView(container) {
               </div>
             </div>
 
-            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
               ${isAlbumEditMode ? `
-                <button class="btn btn-sm btn-theme-danger d-flex align-items-center gap-1.5 delete-album-btn" id="deleteAlbumBtn" title="Delete entire album and songs from library">
+                <button class="btn btn-sm btn-theme-danger d-flex align-items-center gap-2 delete-album-btn" id="deleteAlbumBtn" title="Delete entire album and songs from library">
                   <i class="bi-trash"></i> <span class="d-none d-sm-inline">Delete Album</span>
                 </button>
-                <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-1.5 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Done editing">
+                <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-2 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Done editing">
                   <i class="bi-check-lg"></i> <span class="d-none d-sm-inline">Done</span>
                 </button>
               ` : `
-                <button class="btn btn-sm btn-theme-outline d-flex align-items-center gap-1.5 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Edit album tracks">
+                <button class="btn btn-sm btn-theme-outline d-flex align-items-center gap-2 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Edit album tracks">
                   <i class="bi-pencil"></i> <span class="d-none d-sm-inline">Edit</span>
                 </button>
               `}
@@ -794,17 +794,17 @@ function renderSongRow(song) {
     const durationText = formatTrackDuration(song.length);
 
     return `
-    <div class="library-song-row d-flex flex-column gap-2.5 position-relative" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
+    <div class="library-song-row d-flex flex-column gap-2 position-relative" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
       <div class="d-flex align-items-center justify-content-between gap-3">
         <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
           <span class="badge-track-num flex-shrink-0">${song.trackNumber || '•'}</span>
           <div class="min-w-0 flex-grow-1">
             <div class="d-flex align-items-center gap-2 min-w-0 flex-wrap">
               <span class="fw-semibold text-white text-truncate" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
-              ${durationText ? `<span class="badge badge-theme-secondary py-0.5 px-1.5 text-muted font-monospace" style="font-size:0.68rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
+              ${durationText ? `<span class="badge badge-theme-secondary py-1 px-2 text-muted font-monospace" style="font-size:0.68rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
             </div>
             ${(tunings.length > 0 || hasTabs) ? `
-              <div class="d-flex align-items-center gap-2 flex-wrap mt-1.5">
+              <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
                 ${tunings.map(t => `<span class="badge badge-tuning">${escapeHtml(t)}</span>`).join('')}
                 ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : ''}
               </div>
@@ -815,14 +815,14 @@ function renderSongRow(song) {
         <!-- Action Buttons -->
         <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
           ${hasTabs ? `
-            <button class="btn btn-sm btn-theme-primary py-1 px-2.5 d-flex align-items-center gap-1 play-default-tab-btn" data-song-id="${song.id}" title="Play Tab">
+            <button class="btn btn-sm btn-theme-primary py-1 px-3 d-flex align-items-center gap-1 play-default-tab-btn" data-song-id="${song.id}" title="Play Tab">
               <i class="bi-play-fill"></i> <span class="d-none d-sm-inline">Play</span>
             </button>
           ` : ''}
 
           <!-- Import / Download Tab Dropdown -->
           <div class="dropdown">
-            <button class="btn btn-sm btn-theme-outline py-1 px-2.5 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
+            <button class="btn btn-sm btn-theme-outline py-1 px-3 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
               <i class="bi-plus-lg"></i> <span>Tab</span>
             </button>
             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
@@ -843,12 +843,12 @@ function renderSongRow(song) {
 
       <!-- Multiple Tab Options List (if has tabs) -->
       ${hasTabs ? `
-        <div class="tab-options-container pt-2.5 mt-1 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-2">
+        <div class="tab-options-container pt-2 mt-1 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-2">
           <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;">Tabs:</span>
           ${tabOptions.map(t => `
             <div class="tab-option-chip play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Load ${escapeHtml(t.name)}">
               <span class="text-truncate" style="max-width: 160px;">${escapeHtml(t.name)}</span>
-              ${t.tuning ? `<span class="badge badge-theme-secondary py-0 px-1.5" style="font-size:0.62rem;">${escapeHtml(t.tuning)}</span>` : ''}
+              ${t.tuning ? `<span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.62rem;">${escapeHtml(t.tuning)}</span>` : ''}
               <button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
             </div>
           `).join('')}
@@ -896,10 +896,10 @@ function renderAlbumSongsList(songs) {
 
         return `
         <div class="library-medium-section mb-2">
-          <div class="library-disc-header d-flex align-items-center gap-2 py-1.5 px-2.5 mb-2">
+          <div class="library-disc-header d-flex align-items-center gap-2 py-2 px-3 mb-2">
             <i class="bi-disc text-accent"></i>
             <span class="fw-bold small text-white text-uppercase" style="letter-spacing: 0.04em; font-size: 0.78rem;">${headerText}</span>
-            <span class="badge badge-theme-secondary py-0 px-1.5 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.songs.length} ${grp.songs.length === 1 ? 'Track' : 'Tracks'}</span>
+            <span class="badge badge-theme-secondary py-0 px-2 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.songs.length} ${grp.songs.length === 1 ? 'Track' : 'Tracks'}</span>
           </div>
           <div class="d-flex flex-column gap-2">
             ${grp.songs.map(song => renderSongRow(song)).join('')}
@@ -1381,13 +1381,13 @@ function renderSearchResults(results, type, container) {
         container.innerHTML = `
         <div class="d-flex flex-column gap-2">
           ${results.map(a => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-2">
+            <div class="library-row-card d-flex align-items-center justify-content-between gap-3">
               <div class="min-w-0 flex-grow-1">
                 <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</h6>
                 <div class="small text-muted text-truncate">${a.type || 'Artist'} • ${a.country || 'International'} ${a.lifeSpan ? `• ${a.lifeSpan}` : ''}</div>
                 ${a.disambiguation ? `<div class="small text-white-50 text-truncate" style="font-size:0.75rem;" title="${escapeHtml(a.disambiguation)}">${escapeHtml(a.disambiguation)}</div>` : ''}
               </div>
-              <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+              <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
                 <!-- 'Add Artist' button hidden per requirements -->
                 <button class="btn btn-sm btn-theme-outline explore-artist-btn" data-artist-id="${a.id}" data-artist-name="${escapeHtml(a.name)}" data-is-musician="${type === 'musician'}">
                   <i class="bi-${type === 'musician' ? 'people' : 'disc'} me-1"></i> ${type === 'musician' ? 'View Bands' : 'Browse Albums'}
@@ -1424,7 +1424,7 @@ function renderSearchResults(results, type, container) {
                 ${rg.inLibrary ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
                 ${escapeHtml(rg.artist)} ${rg.year ? `• ${rg.year}` : ''}
               </div>
-              <div class="d-flex gap-1.5 mt-2">
+              <div class="d-flex gap-2 mt-2">
                 <button class="btn btn-sm btn-theme-primary flex-grow-1 add-album-btn" data-rg-id="${rg.id}" data-rg-title="${escapeHtml(rg.title)}">
                   <i class="bi-plus-lg me-1"></i> Add Album
                 </button>
@@ -1556,7 +1556,7 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
               <img src="${a.coverUrl || getPlaceholderCoverSvg(a.title)}" class="album-cover-img w-100 mb-2" alt="${escapeHtml(a.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(a.title)}'">
               <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h6>
               <div class="small text-muted text-truncate">${a.year || 'Album'}</div>
-              <div class="d-flex gap-1.5 mt-2">
+              <div class="d-flex gap-2 mt-2">
                 <button class="btn btn-sm btn-theme-primary flex-grow-1 add-album-btn" data-rg-id="${a.id}" data-rg-title="${escapeHtml(a.title)}">
                   <i class="bi-plus-lg me-1"></i> Add Album
                 </button>
@@ -1626,12 +1626,12 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
         </div>
         <div class="d-flex flex-column gap-2">
           ${bands.map(b => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-2">
+            <div class="library-row-card d-flex align-items-center justify-content-between gap-3">
               <div class="min-w-0 flex-grow-1">
                 <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</h6>
                 <div class="small text-muted text-truncate">${b.role ? escapeHtml(b.role) : 'Band Member'}</div>
               </div>
-              <button class="btn btn-sm btn-theme-outline flex-shrink-0 explore-band-albums-btn" data-band-id="${b.id}" data-band-name="${escapeHtml(b.name)}">
+              <button class="btn btn-sm btn-theme-outline flex-shrink-0 ms-2 explore-band-albums-btn" data-band-id="${b.id}" data-band-name="${escapeHtml(b.name)}">
                 <i class="bi-disc me-1"></i> View Albums
               </button>
             </div>
@@ -1704,7 +1704,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
           </div>
 
           <!-- Tracks Checklist -->
-          <div class="d-flex flex-column gap-1.5" id="albumTracksChecklist">
+          <div class="d-flex flex-column gap-2" id="albumTracksChecklist">
             ${renderAddAlbumTracksList(albumData.tracks)}
           </div>
         </div>
@@ -1739,7 +1739,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
                     coverUrl: albumData.coverUrl || track.coverUrl || null
                 };
                 await saveSongToLibrary(song, activeCollectionId);
-                btn.className = 'btn btn-sm btn-theme-success py-0.5 px-2 disabled flex-shrink-0';
+                btn.className = 'btn btn-sm btn-theme-success py-1 px-3 disabled flex-shrink-0 ms-2';
                 btn.innerHTML = '<i class="bi-check"></i> Added';
             });
         });
@@ -1776,7 +1776,7 @@ function renderAddAlbumTracksList(tracks) {
                 <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
                 <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
               </div>
-              <button class="btn btn-sm btn-theme-outline py-1 px-2.5 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
+              <button class="btn btn-sm btn-theme-outline py-1 px-3 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
                 <i class="bi-plus"></i> Add
               </button>
             </div>
@@ -1790,10 +1790,10 @@ function renderAddAlbumTracksList(tracks) {
 
         return `
         <div class="library-medium-section mb-2">
-          <div class="library-disc-header d-flex align-items-center gap-2 py-1.5 px-2.5 mb-2">
+          <div class="library-disc-header d-flex align-items-center gap-2 py-2 px-3 mb-2">
             <i class="bi-disc text-accent"></i>
             <span class="fw-bold small text-white text-uppercase" style="letter-spacing: 0.04em; font-size: 0.78rem;">${headerText}</span>
-            <span class="badge badge-theme-secondary py-0 px-1.5 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.items.length} ${grp.items.length === 1 ? 'Track' : 'Tracks'}</span>
+            <span class="badge badge-theme-secondary py-0 px-2 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.items.length} ${grp.items.length === 1 ? 'Track' : 'Tracks'}</span>
           </div>
           <div class="d-flex flex-column gap-2">
             ${grp.items.map(({ track: t, idx }) => `
@@ -1802,7 +1802,7 @@ function renderAddAlbumTracksList(tracks) {
                   <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
                   <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
                 </div>
-                <button class="btn btn-sm btn-theme-outline py-1 px-2.5 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
+                <button class="btn btn-sm btn-theme-outline py-1 px-3 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
                   <i class="bi-plus"></i> Add
                 </button>
               </div>
@@ -1835,7 +1835,7 @@ async function renderRecentsView(container) {
     container.innerHTML = `
     <div class="library-page-container recents-view">
       <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
-        <span class="small fw-semibold text-white-50"><i class="bi-clock-history me-1.5 text-info"></i>Recently Opened (${recents.length})</span>
+        <span class="small fw-semibold text-white-50"><i class="bi-clock-history me-2 text-info"></i>Recently Opened (${recents.length})</span>
         <button class="btn btn-sm btn-theme-icon p-1 px-2" id="clearRecentsBtn">
           <i class="bi-trash me-1"></i> Clear History
         </button>
@@ -1852,16 +1852,16 @@ async function renderRecentsView(container) {
               <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
                 <img src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="${escapeHtml(r.songTitle || r.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
                 <div class="min-w-0 flex-grow-1">
-                  <h6 class="mb-0.5 fw-bold text-white text-truncate" title="${escapeHtml(r.songTitle || r.name)}">${escapeHtml(r.songTitle || r.name)}</h6>
+                  <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(r.songTitle || r.name)}">${escapeHtml(r.songTitle || r.name)}</h6>
                   <div class="small text-muted text-truncate" title="${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}">${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}</div>
-                  <div class="d-flex align-items-center gap-1.5 mt-1 flex-wrap">
+                  <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
                     ${tunings.map(t => `<span class="badge badge-tuning">${escapeHtml(t)}</span>`).join('')}
                     <span class="small text-white-50" style="font-size:0.7rem;"><i class="bi-clock me-1"></i>${timeAgo}</span>
                   </div>
                 </div>
               </div>
 
-              <div class="d-flex align-items-center gap-2 flex-shrink-0">
+              <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
                 <button class="btn btn-sm btn-theme-primary py-1 px-3 open-recent-btn" data-recent='${escapeHtml(JSON.stringify(r))}'>
                   <i class="bi-play-fill me-1"></i> Open
                 </button>

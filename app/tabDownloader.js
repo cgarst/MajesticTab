@@ -435,7 +435,7 @@ function renderTabDownloaderModal(initialQuery = '') {
 
           <!-- Song Context Pill (if attached to a song) -->
           ${activeTargetSong ? `
-            <span class="badge bg-secondary text-truncate d-none d-lg-inline-flex align-items-center gap-1 flex-shrink-0 py-1.5 px-2" style="max-width: 220px;" title="${escapeHtml(activeTargetSong.artist)} — ${escapeHtml(activeTargetSong.title)}">
+            <span class="badge bg-secondary text-truncate d-none d-lg-inline-flex align-items-center gap-1 flex-shrink-0 py-1 px-2" style="max-width: 220px;" title="${escapeHtml(activeTargetSong.artist)} — ${escapeHtml(activeTargetSong.title)}">
               <i class="bi-music-note"></i> ${escapeHtml(activeTargetSong.artist)} — ${escapeHtml(activeTargetSong.title)}
             </span>
           ` : ''}
@@ -446,14 +446,14 @@ function renderTabDownloaderModal(initialQuery = '') {
               <span class="input-group-text bg-dark border-secondary text-white-50"><i class="bi-search"></i></span>
               <input type="text" class="form-control bg-dark text-white border-secondary" id="downloaderSearchInput" value="${escapeHtml(currentSearchQuery)}" placeholder="Search song or artist...">
             </div>
-            <button type="submit" class="btn btn-theme-primary btn-sm px-2.5 flex-shrink-0" id="downloaderGoBtn" title="Search">
+            <button type="submit" class="btn btn-theme-primary btn-sm px-3 flex-shrink-0" id="downloaderGoBtn" title="Search">
               <i class="bi-arrow-right"></i>
             </button>
           </form>
         </div>
 
         <!-- Header Actions -->
-        <div class="d-flex align-items-center gap-1.5 ms-2 flex-shrink-0">
+        <div class="d-flex align-items-center gap-2 ms-2 flex-shrink-0">
           ${(isNative && isDebugToolsEnabled) ? `
             <button type="button" class="btn btn-sm ${isDebugDrawerOpen ? 'btn-theme-primary' : 'btn-theme-outline'} py-1 px-2" id="downloaderToggleDebugBtn" title="Toggle Webview Debug Console">
               <i class="bi-terminal"></i>

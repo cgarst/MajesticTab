@@ -67,31 +67,31 @@ function renderModalContent(modal) {
               </span>
               <span class="fw-bold text-white small">Why add tabs to your Library?</span>
             </div>
-            <button type="button" class="btn btn-sm btn-theme-outline py-0.5 px-2.5 d-flex align-items-center gap-1.5" id="openFileSwitchToLibraryBtn" style="font-size: 0.75rem;">
+            <button type="button" class="btn btn-sm btn-theme-outline py-1 px-3 d-flex align-items-center gap-2" id="openFileSwitchToLibraryBtn" style="font-size: 0.75rem;">
               <i class="bi-plus-lg"></i> Add to Library
             </button>
           </div>
-          <p class="small text-white-50 mb-2.5" style="line-height: 1.45; font-size: 0.8rem;">
+          <p class="small text-white-50 mb-2" style="line-height: 1.45; font-size: 0.8rem;">
             Opening a file directly loads it for a quick one-off session. Adding tabs into your <strong>Tab Library</strong> provides significant advantages:
           </p>
           <div class="d-flex flex-column gap-2">
             <div class="d-flex align-items-start gap-2 small text-white-50" style="font-size: 0.78rem;">
-              <i class="bi-collection-play text-info mt-0.5 flex-shrink-0 fs-6"></i>
+              <i class="bi-collection-play text-info mt-1 flex-shrink-0 fs-6"></i>
               <div><strong class="text-white">Smart Music Catalog:</strong> Automatically categorizes songs by Artist &amp; Album with official cover art, release years, and tracklists.</div>
             </div>
             <div class="d-flex align-items-start gap-2 small text-white-50" style="font-size: 0.78rem;">
-              <i class="bi-music-note-list text-warning mt-0.5 flex-shrink-0 fs-6"></i>
+              <i class="bi-music-note-list text-warning mt-1 flex-shrink-0 fs-6"></i>
               <div><strong class="text-white">Multiple Tab Variations:</strong> Attach multiple tabs to a single song.</div>
             </div>
             <div class="d-flex align-items-start gap-2 small text-white-50" style="font-size: 0.78rem;">
-              <i class="bi-lightning-charge text-success mt-0.5 flex-shrink-0 fs-6"></i>
+              <i class="bi-lightning-charge text-success mt-1 flex-shrink-0 fs-6"></i>
               <div><strong class="text-white">Instant 1-Click Access:</strong> Launch and switch tabs instantly anytime without digging through folders or cloud dialogs.</div>
             </div>
           </div>
         </div>
 
         <!-- Section Header -->
-        <div class="d-flex align-items-center justify-content-between mt-1 mb-2 px-0.5">
+        <div class="d-flex align-items-center justify-content-between mt-1 mb-2 px-1">
           <span class="small fw-semibold text-white-50" style="font-size: 0.78rem; letter-spacing: 0.02em;">CHOOSE A FILE PROVIDER TO OPEN DIRECTLY</span>
         </div>
 
@@ -104,9 +104,9 @@ function renderModalContent(modal) {
                   <i class="${escapeHtml(p.icon || 'bi-file-earmark')} ${escapeHtml(p.iconColorClass || 'text-primary')} fs-4"></i>
                 </div>
                 <div class="min-w-0">
-                  <div class="d-flex align-items-center gap-2 mb-0.5">
+                  <div class="d-flex align-items-center gap-2 mb-1">
                     <span class="fw-bold text-white small">${escapeHtml(p.name)}</span>
-                    ${p.badge ? `<span class="badge badge-theme-secondary py-0.5 px-1.5" style="font-size: 0.65rem;">${escapeHtml(p.badge)}</span>` : ''}
+                    ${p.badge ? `<span class="badge badge-theme-secondary py-0 px-2" style="font-size: 0.65rem;">${escapeHtml(p.badge)}</span>` : ''}
                   </div>
                   <div class="small text-muted text-truncate-2" style="font-size: 0.76rem; line-height: 1.35;">
                     ${escapeHtml(p.description || 'Load tabs from this provider')}
