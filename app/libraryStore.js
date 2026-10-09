@@ -316,6 +316,7 @@ export async function removeTabOptionFromSong(songId, tabOptionId) {
     if (!song || !Array.isArray(song.tabOptions)) return;
 
     song.tabOptions = song.tabOptions.filter(t => t.id !== tabOptionId);
+    song.tunings = Array.from(new Set(song.tabOptions.map(t => t.tuning).filter(Boolean)));
     await saveSongToLibrary(song, song.collectionId);
 }
 
