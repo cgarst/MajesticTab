@@ -164,6 +164,155 @@ export function getCoverArtUrl(releaseGroupMbid, releaseMbid, size = 250) {
 }
 
 /**
+ * Score, rank, and deduplicate MusicBrainz recording results so canonical studio tracks
+ * from major releases appear first, while live bootlegs, karaoke, tributes, and covers are demoted.
+ */
+function scoreAndRankRecordings(recordings, query) {
+    if (!Array.isArray(recordings) || recordings.length === 0) return [];
+    const qLower = query.toLowerCase().trim();
+
+    const scored = recordings.map(rec => {
+        const title = (rec.title || '').toLowerCase().trim();
+        const artistCredit = rec['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist';
+        const artistLower = artistCredit.toLowerCase().trim();
+        const disambig = (rec.disambiguation || '').toLowerCase().trim();
+        
+        let score = (rec.score || 50) * 2;
+
+        // 1. Exact vs partial title match
+        if (title === qLower) {
+            score += 120;
+        } else if (title.startsWith(qLower) || title.endsWith(qLower)) {
+            score += 40;
+        } else if (title.includes(qLower)) {
+            score += 20;
+        }
+
+        // Artist query match (e.g. user typed 'Metallica Master of Puppets')
+        if (qLower.includes(artistLower) && artistLower.length > 2) {
+            score += 100;
+        }
+
+        // 2. Heavy penalties for negative keywords in title, disambiguation, or artist name
+        const negativeKeywords = [
+            'live', 'bootleg', 'karaoke', 'tribute', 'cover', 'instrumental', 
+            'remix', 'rehearsal', 'demo', 'interview', 'medley', 'parody', 
+            'acoustic version', 'string quartet', 'orchestra', 'lullaby', 
+            'tribute band', 'piano version', 'backing track', 'acoustic tribute',
+            'originally performed', 'fitness', 'workout', '8-bit', 'rso performs',
+            'great metal covers', 'dark trance'
+        ];
+        for (const kw of negativeKeywords) {
+            if (!qLower.includes(kw)) {
+                if (title.includes(kw)) score -= 120;
+                if (disambig.includes(kw)) score -= 100;
+                if (artistLower.includes(kw)) score -= 110;
+            }
+        }
+
+        if (rec.video) score -= 80;
+
+        // 3. Release scoring & Best release selection
+        let bestRelease = null;
+        let bestRelScore = -999;
+        const releases = rec.releases || [];
+
+        // Track total releases count as a strong indicator of canonical hit tracks
+        score += Math.min(releases.length * 2, 100);
+
+        for (const rel of releases) {
+            let rScore = 0;
+            const relTitle = (rel.title || '').toLowerCase();
+            const status = rel.status || '';
+            const rg = rel['release-group'] || {};
+            const primaryType = rg['primary-type'] || '';
+            const secTypes = (rg['secondary-types'] || []).map(t => String(t).toLowerCase());
+            const country = (rel.country || '').toUpperCase();
+
+            if (status === 'Official') rScore += 50;
+            else if (status === 'Bootleg') rScore -= 100;
+            else if (status === 'Promotion') rScore += 10;
+
+            // Big boost for full studio Albums over Singles/EPs
+            if (primaryType === 'Album') rScore += 60;
+            else if (primaryType === 'Single' || primaryType === 'EP') rScore += 25;
+
+            // Secondary types penalties
+            if (secTypes.includes('live')) rScore -= 90;
+            if (secTypes.includes('compilation')) rScore -= 45;
+            if (secTypes.includes('tribute') || secTypes.includes('dj-mix') || secTypes.includes('soundtrack')) rScore -= 70;
+
+            // Release title junk filter
+            if (relTitle.includes('tribute') || relTitle.includes('karaoke') || relTitle.includes('fitness') || 
+                relTitle.includes('workout') || relTitle.includes('party') || relTitle.includes('greatest') || 
+                relTitle.includes('compilation') || relTitle.includes('hits') || relTitle.includes('cover') ||
+                relTitle.includes('8-bit') || relTitle.includes('lullaby') || relTitle.includes('dark trance')) {
+                rScore -= 60;
+            }
+
+            // Country preference (US / UK / Europe / Worldwide)
+            if (country === 'US') rScore += 20;
+            else if (country === 'GB' || country === 'UK') rScore += 15;
+            else if (country === 'XW' || country === 'XE') rScore += 10;
+
+            // Same name as album (title track on an Album)
+            if (relTitle === title && primaryType === 'Album') rScore += 30;
+
+            if (rScore > bestRelScore) {
+                bestRelScore = rScore;
+                bestRelease = rel;
+            }
+        }
+
+        if (bestRelease) {
+            score += Math.max(bestRelScore, 0);
+        } else {
+            score -= 50; // No releases associated
+        }
+
+        // Earliest release date bonus (original release year)
+        const year = rec['first-release-date'] ? parseInt(rec['first-release-date'].slice(0, 4), 10) : (bestRelease?.date ? parseInt(bestRelease.date.slice(0, 4), 10) : null);
+        if (year && year >= 1950 && year <= 2030) {
+            score += (2030 - year) / 3;
+        }
+
+        const releaseGroup = bestRelease?.['release-group'];
+        const albumTitle = releaseGroup?.title || bestRelease?.title || '';
+        const albumMbid = releaseGroup?.id || bestRelease?.id || '';
+
+        return {
+            id: rec.id,
+            recordingMbid: rec.id,
+            title: rec.title,
+            artist: artistCredit,
+            artistMbid: rec['artist-credit']?.[0]?.artist?.id || '',
+            album: albumTitle,
+            albumMbid: albumMbid,
+            year,
+            length: rec.length ? Math.round(rec.length / 1000) : null,
+            coverUrl: getCoverArtUrl(albumMbid),
+            score
+        };
+    });
+
+    // Sort by calculated score descending
+    scored.sort((a, b) => b.score - a.score);
+
+    // Deduplicate by artist + title so the user gets distinct, high quality options
+    const seen = new Set();
+    const deduped = [];
+    for (const item of scored) {
+        const key = item.artist.toLowerCase() + '___' + item.title.toLowerCase();
+        if (!seen.has(key)) {
+            seen.add(key);
+            deduped.push(item);
+        }
+    }
+
+    return deduped.slice(0, 25);
+}
+
+/**
  * Search MusicBrainz by entity type (artist, album, song, musician)
  */
 export async function searchMusicBrainz(query, type = 'artist') {
@@ -212,37 +361,11 @@ export async function searchMusicBrainz(query, type = 'artist') {
         }
 
         case 'song': {
-            const url = `${MB_BASE}/recording?query=${encodeURIComponent(cleanQuery)}&limit=40&fmt=json`;
+            // High-precision Lucene query: exact title boosted, term matches, title track release matches, and live exclusion
+            const lucene = `(recording:"${cleanQuery}"^10 OR recording:(${cleanQuery})^4 OR (recording:(${cleanQuery}) AND release:(${cleanQuery})^3) OR (recording:(${cleanQuery}) AND artist:(${cleanQuery})^5)) AND NOT comment:live AND NOT video:true`;
+            const url = `${MB_BASE}/recording?query=${encodeURIComponent(lucene)}&limit=100&fmt=json`;
             const data = await fetchMusicBrainz(url);
-            return (data.recordings || [])
-                .filter(rec => {
-                    // Filter out recordings with obvious live titles
-                    const title = (rec.title || '').toLowerCase();
-                    const isLive = title.includes('(live') || title.includes('[live') || title.includes(' - live');
-                    return !isLive;
-                })
-                .slice(0, 25)
-                .map(rec => {
-                    const artistCredit = rec['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist';
-                    const firstRel = rec.releases?.[0];
-                    const releaseGroup = firstRel?.['release-group'];
-                    const albumTitle = releaseGroup?.title || firstRel?.title || '';
-                    const albumMbid = releaseGroup?.id || firstRel?.id || '';
-                    const year = rec['first-release-date'] ? parseInt(rec['first-release-date'].slice(0, 4), 10) : (firstRel?.date ? parseInt(firstRel.date.slice(0, 4), 10) : null);
-                    return {
-                        id: rec.id,
-                        recordingMbid: rec.id,
-                        title: rec.title,
-                        artist: artistCredit,
-                        artistMbid: rec['artist-credit']?.[0]?.artist?.id || '',
-                        album: albumTitle,
-                        albumMbid: albumMbid,
-                        year,
-                        length: rec.length ? Math.round(rec.length / 1000) : null,
-                        coverUrl: getCoverArtUrl(albumMbid),
-                        score: rec.score || 0
-                    };
-                });
+            return scoreAndRankRecordings(data.recordings || [], cleanQuery);
         }
 
         case 'musician': {
