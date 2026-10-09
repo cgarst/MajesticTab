@@ -446,6 +446,31 @@ function setupSettings() {
 
     // Initialize Backup & Restore
     initBackupRestore();
+
+    // Setup Quit App button (Native clients only)
+    if (window.__TAURI__) {
+        const fileMenuFooter = document.getElementById('fileMenuFooter');
+        if (fileMenuFooter) fileMenuFooter.style.display = '';
+        document.getElementById('menuQuitAppBtn')?.addEventListener('click', async () => {
+            try {
+                const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
+                if (appWindow) {
+                    await appWindow.close();
+                    return;
+                }
+            } catch (e) {
+                console.warn('appWindow.close() failed:', e);
+            }
+            try {
+                if (window.__TAURI__.process?.exit) {
+                    await window.__TAURI__.process.exit(0);
+                    return;
+                }
+            } catch (e) {
+                console.warn('process.exit() failed:', e);
+            }
+        });
+    }
 }
 
 function setupExtensionSettings() {
