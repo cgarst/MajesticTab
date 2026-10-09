@@ -2,7 +2,7 @@
 // Storage and querying layer for Collections > Artists > Albums > Songs and Recents.
 
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile } from './fileStore.js';
-import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo } from './utils/tuningUtils.js';
+import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory } from './utils/tuningUtils.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
@@ -289,6 +289,7 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
             tGroup.notes = info.notes;
             tGroup.defaultName = info.defaultName;
         }
+        tGroup.category = getTuningCategory(tGroup);
 
         tGroup.songs.sort((a, b) => {
             if (Boolean(b.pinned) !== Boolean(a.pinned)) return b.pinned ? 1 : -1;
@@ -299,8 +300,13 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
         return tGroup;
     });
 
-    // Sort tunings by song count descending, then alphabetically
-    tuningsList.sort((a, b) => b.songs.length - a.songs.length || (a.name || a.key).localeCompare(b.name || b.key));
+    // Sort tunings by section order, then by song count descending, then alphabetically
+    tuningsList.sort((a, b) => {
+        const orderA = a.category?.order ?? 99;
+        const orderB = b.category?.order ?? 99;
+        if (orderA !== orderB) return orderA - orderB;
+        return b.songs.length - a.songs.length || (a.name || a.key).localeCompare(b.name || b.key);
+    });
 
     return {
         collectionId,

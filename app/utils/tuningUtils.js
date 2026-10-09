@@ -75,6 +75,35 @@ export function setCustomTuningName(tuningKey, name) {
     }
 }
 
+function noteToPitchClass(noteStr) {
+    const clean = (noteStr || '').replace(/[^a-zA-Z#b]/g, '').toUpperCase();
+    const map = {
+        'C': 0, 'B#': 0,
+        'C#': 1, 'DB': 1,
+        'D': 2,
+        'D#': 3, 'EB': 3,
+        'E': 4, 'FB': 4,
+        'F': 5, 'E#': 5,
+        'F#': 6, 'GB': 6,
+        'G': 7,
+        'G#': 8, 'AB': 8,
+        'A': 9,
+        'A#': 10, 'BB': 10,
+        'B': 11, 'CB': 11
+    };
+    return map[clean] ?? null;
+}
+
+function arePitchClassesEqual(arr1, arr2) {
+    if (!arr1 || !arr2 || arr1.length !== arr2.length) return false;
+    for (let i = 0; i < arr1.length; i++) {
+        const p1 = noteToPitchClass(arr1[i]);
+        const p2 = noteToPitchClass(arr2[i]);
+        if (p1 === null || p2 === null || p1 !== p2) return false;
+    }
+    return true;
+}
+
 /**
  * Returns structured tuning metadata: canonical key (e.g. EADGBE), notes (e.g. E A D G B E),
  * default name, display name (with user override), and string count.
@@ -111,7 +140,7 @@ export function getTuningInfo(tuningInput) {
         }
     }
 
-    // 2. Check if string contains parentheses with notes, e.g. "Custom (D A D G B E)"
+    // 2. Check if string contains parentheses with notes, e.g. "Custom (D A D G B E)" or is note string
     let noteSource = trimmed;
     const parenMatch = trimmed.match(/\(([^)]+)\)/);
     if (parenMatch) {
@@ -119,7 +148,7 @@ export function getTuningInfo(tuningInput) {
     }
 
     // Extract note tokens (A-G with optional sharp/flat)
-    const notePattern = /(?:[A-G][b#]?)(?=[0-9]|\b|\s|-|\/|$)/gi;
+    const notePattern = /[A-G][b#]?/gi;
     const matches = noteSource.match(notePattern);
     if (matches && matches.length >= 3) {
         const noteArr = matches.map(n => {
@@ -130,17 +159,19 @@ export function getTuningInfo(tuningInput) {
         const key = noteArr.join('');
         const notes = noteArr.join(' ');
 
-        // Check if this key matches a known tuning
+        // Check if this matches a known tuning by pitch classes (handles enharmonics)
         for (const known of KNOWN_TUNINGS) {
             const kArr = [...known.strings].reverse().map(s => s.replace(/[^a-zA-Z#b]/g, ''));
-            if (kArr.join('').toLowerCase() === key.toLowerCase()) {
+            if (arePitchClassesEqual(noteArr, kArr)) {
+                const kKey = kArr.join('');
+                const kNotes = kArr.join(' ');
                 const defaultName = known.shortName === 'E Standard' ? 'Standard' : (known.shortName || known.name.split('(')[0].trim());
-                const customName = getCustomTuningName(key);
+                const customName = getCustomTuningName(kKey) || getCustomTuningName(key);
                 return {
-                    key,
-                    notes,
+                    key: kKey,
+                    notes: kNotes,
                     defaultName,
-                    displayName: customName || defaultName || notes,
+                    displayName: customName || defaultName || kNotes,
                     stringCount: known.strings.length
                 };
             }
@@ -173,6 +204,142 @@ export function getTuningInfo(tuningInput) {
         defaultName: trimmed,
         displayName: customName || trimmed,
         stringCount: 6
+    };
+}
+
+/**
+ * Categorizes a tuning into string-count sections:
+ * 1. 6-String (Standard guitar range: lowest string above B)
+ * 2. 6-String Baritone (6-string guitar with lowest string at B or below)
+ * 3. 7-String
+ * 4. 8-String
+ * 5. 9-String+
+ * 6. 5-String (Bass / Extended)
+ * 7. 4-String (Bass / Standard)
+ */
+export function getTuningCategory(tuningInputOrGroup) {
+    let stringCount = 6;
+    let notes = '';
+    let defaultName = '';
+    let name = '';
+
+    if (typeof tuningInputOrGroup === 'object' && tuningInputOrGroup !== null) {
+        stringCount = tuningInputOrGroup.stringCount || 6;
+        notes = tuningInputOrGroup.notes || '';
+        defaultName = tuningInputOrGroup.defaultName || '';
+        name = tuningInputOrGroup.name || '';
+    } else if (typeof tuningInputOrGroup === 'string') {
+        const info = getTuningInfo(tuningInputOrGroup);
+        if (info) {
+            stringCount = info.stringCount;
+            notes = info.notes;
+            defaultName = info.defaultName;
+            name = info.displayName;
+        }
+    }
+
+    const isBass = (defaultName && defaultName.toLowerCase().includes('bass')) ||
+                   (name && name.toLowerCase().includes('bass'));
+
+    if (stringCount === 6 && !isBass) {
+        const noteTokens = (notes || '').trim().split(/\s+/);
+        const lowestNote = (noteTokens[0] || '').replace(/[^a-zA-Z#b]/g, '');
+
+        // Standard 6-string lowest notes above B are C, C#, Db, D, D#, Eb, E, F (octave 2)
+        // Baritone lowest notes at B or below are B, Bb, A#, A, Ab, G#, G, Gb, F# (octave 1)
+        const BARITONE_LOWEST_NOTES = ['B', 'Bb', 'A#', 'A', 'Ab', 'G#', 'G', 'Gb', 'F#'];
+        const isBaritone = BARITONE_LOWEST_NOTES.includes(lowestNote) ||
+            (defaultName && defaultName.toLowerCase().includes('baritone')) ||
+            (defaultName && defaultName.toLowerCase().includes('drop b')) ||
+            (defaultName && defaultName.toLowerCase().includes('b standard')) ||
+            (defaultName && defaultName.toLowerCase().includes('drop a#')) ||
+            (defaultName && defaultName.toLowerCase().includes('drop a')) ||
+            (defaultName && defaultName.toLowerCase().includes('drop g')) ||
+            (defaultName && defaultName.toLowerCase().includes('drop f'));
+
+        if (isBaritone) {
+            return {
+                id: '6-string-baritone',
+                title: '6-String Baritone',
+                label: '6-String Baritone',
+                order: 2,
+                stringCount: 6,
+                isBaritone: true
+            };
+        }
+
+        return {
+            id: '6-string',
+            title: '6-String',
+            label: '6-String',
+            order: 1,
+            stringCount: 6,
+            isBaritone: false
+        };
+    }
+
+    if (stringCount === 7) {
+        return {
+            id: '7-string',
+            title: '7-String',
+            label: '7-String',
+            order: 3,
+            stringCount: 7,
+            isBaritone: false
+        };
+    }
+
+    if (stringCount === 8) {
+        return {
+            id: '8-string',
+            title: '8-String',
+            label: '8-String',
+            order: 4,
+            stringCount: 8,
+            isBaritone: false
+        };
+    }
+
+    if (stringCount > 8) {
+        return {
+            id: `${stringCount}-string`,
+            title: `${stringCount}-String`,
+            label: `${stringCount}-String`,
+            order: 5,
+            stringCount,
+            isBaritone: false
+        };
+    }
+
+    if (stringCount === 5) {
+        return {
+            id: '5-string',
+            title: isBass ? '5-String Bass' : '5-String',
+            label: isBass ? '5-String Bass' : '5-String',
+            order: 6,
+            stringCount: 5,
+            isBaritone: false
+        };
+    }
+
+    if (stringCount === 4) {
+        return {
+            id: '4-string',
+            title: isBass ? '4-String Bass' : '4-String',
+            label: isBass ? '4-String Bass' : '4-String',
+            order: 7,
+            stringCount: 4,
+            isBaritone: false
+        };
+    }
+
+    return {
+        id: `${stringCount}-string`,
+        title: `${stringCount}-String`,
+        label: `${stringCount}-String`,
+        order: 8,
+        stringCount,
+        isBaritone: false
     };
 }
 
