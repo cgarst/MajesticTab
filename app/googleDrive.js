@@ -305,6 +305,9 @@ function getFileIconClass(mimeType, name = '') {
     if (lower.endsWith('.txt')) {
         return { icon: 'bi-file-earmark-text-fill', color: 'text-secondary' };
     }
+    if (lower.endsWith('.json') || lower.endsWith('.majestictab')) {
+        return { icon: 'bi-file-earmark-code-fill', color: 'text-warning' };
+    }
     return { icon: 'bi-file-earmark-fill', color: 'text-light' };
 }
 
@@ -379,7 +382,7 @@ async function loadDriveFiles() {
             const cleanSearch = currentSearchQuery.trim().replace(/'/g, "\\'");
             files = await searchDriveFolderTree(getDriveRoot().id, cleanSearch);
         } else {
-            let query = "trashed = false and (mimeType = 'application/vnd.google-apps.folder' or name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt')";
+            let query = "trashed = false and (mimeType = 'application/vnd.google-apps.folder' or name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt' or name contains '.json' or name contains '.majestictab')";
             query += ` and '${currentFolderId}' in parents`;
 
             files = await fetchDriveFiles(query);
@@ -449,7 +452,7 @@ async function searchDriveFolderTree(rootFolderId, searchTerm) {
     const pendingFolderIds = [rootFolderId];
     const visitedFolderIds = new Set();
     const matchingFiles = [];
-    const supportedFileQuery = "name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt'";
+    const supportedFileQuery = "name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt' or name contains '.json' or name contains '.majestictab'";
 
     while (pendingFolderIds.length > 0) {
         const folderId = pendingFolderIds.pop();
@@ -480,7 +483,7 @@ function renderFileList(files) {
         listContainer.innerHTML = `
             <div class="text-center py-5 text-white-50">
                 <i class="bi-folder2 text-secondary fs-2 mb-2 d-block"></i>
-                <div>No supported tab files found (.gp, .pdf, .txt) in this location.</div>
+                <div>No supported files found (.gp, .pdf, .txt, .json) in this location.</div>
             </div>
         `;
         return;
@@ -553,16 +556,23 @@ function renderFileList(files) {
                     const targetAlbum = activeDriveTargetAlbum;
 
                     if (typeof activeDriveOnFileSelected === 'function') {
+                        const cb = activeDriveOnFileSelected;
+                        closeDriveModal();
                         try {
+                            const isBackup = fileName.toLowerCase().endsWith('.json') || fileName.toLowerCase().endsWith('.majestictab');
+                            if (isBackup) {
+                                cb({ file: fileObj, providerId: 'google-drive', name: fileObj.name });
+                                return;
+                            }
                             const { detectFileMetadata } = await import('./utils/tuningUtils.js');
                             const meta = await detectFileMetadata(fileObj, fileObj.name);
                             const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
-                            const cb = activeDriveOnFileSelected;
-                            closeDriveModal();
                             cb({ file: fileObj, providerId: 'google-drive', fileStoreId: stored.id, name: fileObj.name, meta });
                             return;
                         } catch (err) {
                             console.warn('Could not process selected Drive file:', err);
+                            cb({ file: fileObj, providerId: 'google-drive', name: fileObj.name });
+                            return;
                         }
                     }
 
