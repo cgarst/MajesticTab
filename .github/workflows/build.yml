@@ -104,7 +104,13 @@ jobs:
         with:
           workspaces: build/tauri/src-tauri -> ../target
       - name: Locate Android NDK
-        run: echo "NDK_HOME=$ANDROID_NDK_HOME" >> "$GITHUB_ENV"
+        run: |
+          if [ -d "$ANDROID_HOME/ndk" ]; then
+            NDK_PATH=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+            echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          elif [ -n "$ANDROID_NDK_HOME" ]; then
+            echo "NDK_HOME=$ANDROID_NDK_HOME" >> "$GITHUB_ENV"
+          fi
       - name: Restore release keystore
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}

@@ -172,9 +172,18 @@ if (target === 'android') {
   }
 
   const androidSdk = process.env.ANDROID_HOME ?? process.env.ANDROID_SDK_ROOT;
-  const androidNdk = process.env.NDK_HOME ?? process.env.ANDROID_NDK_HOME;
+  let androidNdk = process.env.NDK_HOME ?? process.env.ANDROID_NDK_HOME;
   if (!androidSdk || !(await stat(androidSdk).catch(() => null))) {
     fail('Android builds require ANDROID_HOME or ANDROID_SDK_ROOT pointing to the Android SDK.');
+  }
+  if (!androidNdk || !(await stat(androidNdk).catch(() => null))) {
+    const ndkRoot = path.join(androidSdk, 'ndk');
+    try {
+      const versions = (await readdir(ndkRoot)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+      if (versions.length > 0) {
+        androidNdk = path.join(ndkRoot, versions[versions.length - 1]);
+      }
+    } catch {}
   }
   if (!androidNdk || !(await stat(androidNdk).catch(() => null))) {
     fail('Install the Android NDK (Side by side) and set NDK_HOME to its installed directory.');
