@@ -16,9 +16,15 @@
 </head>
 <body>
   <div id="updateBanner" class="update-banner" hidden role="status">
-    <span id="updateBannerText"></span>
-    <button type="button" class="btn btn-sm btn-theme-primary" id="updateDownloadBtn">Download</button>
-    <button type="button" class="btn btn-sm btn-theme-outline" id="updateDismissBtn" aria-label="Dismiss"><i class="bi-x-lg"></i></button>
+    <i class="bi bi-cloud-arrow-down-fill update-banner-icon"></i>
+    <div class="update-banner-content">
+      <span class="update-banner-title">Update Available</span>
+      <span id="updateBannerText" class="update-banner-text"></span>
+    </div>
+    <div class="update-banner-actions">
+      <button type="button" class="btn btn-sm btn-theme-primary" id="updateDownloadBtn">Download</button>
+      <button type="button" class="btn btn-sm btn-theme-outline" id="updateDismissBtn" aria-label="Dismiss" title="Dismiss"><i class="bi-x-lg"></i></button>
+    </div>
   </div>
 
 <!-- Modern Minimal Top Bar (Floating HUD) -->
@@ -499,7 +505,7 @@
     <!-- Updates (native app only) -->
     <div class="settings-card" id="updateSettingsCard" hidden>
       <div class="settings-header-label">
-        <i class="bi-cloud-arrow-down text-danger"></i> Updates
+        <i class="bi-cloud-arrow-down" style="color: var(--accent-primary);"></i> Updates
       </div>
       <div class="small text-white-50 mb-2" id="updateCurrentVersion"></div>
       <label class="form-label d-block mb-1 small text-white-50">Check for:</label>
