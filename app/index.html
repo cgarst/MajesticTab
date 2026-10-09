@@ -134,6 +134,11 @@
     </button>
   </div>
   <div class="synth-panel-body">
+    <!-- Section 1: Playback & Audio Controls -->
+    <div class="synth-section-heading">
+      <i class="bi-play-circle-fill"></i> Playback &amp; Audio
+    </div>
+
     <!-- Scrubber / Timeline -->
     <div class="mb-3">
       <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
@@ -165,7 +170,7 @@
     </div>
 
     <div class="mb-3">
-      <label class="form-label small mb-1 fw-semibold text-muted">SoundFont Tracks:</label>
+      <label class="form-label small mb-1 fw-semibold text-muted">Audio Tracks:</label>
       <div class="hud-pill-group w-100" role="group" aria-label="SoundFont track mode">
         <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackFullBand" value="fullBand" autocomplete="off" checked>
         <label class="btn btn-sm" for="synthTrackFullBand" style="flex: 1;">Full Band</label>
@@ -173,26 +178,6 @@
         <label class="btn btn-sm" for="synthTrackGuitarsOnly" style="flex: 1;">Guitars Only</label>
         <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackNoGuitars" value="noGuitars" autocomplete="off">
         <label class="btn btn-sm" for="synthTrackNoGuitars" style="flex: 1;">No Guitars</label>
-      </div>
-    </div>
-
-    <!-- Visible Guitar Tracks (Notation) -->
-    <div class="mb-3" id="synthTrackVisibilitySection" style="display: none;">
-      <div class="d-flex align-items-center justify-content-between mb-1">
-        <label class="form-label small mb-0 fw-semibold text-muted">Visible Guitar Tracks:</label>
-        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show All</button>
-      </div>
-      <div id="synthTrackList" class="d-flex flex-column gap-1"></div>
-    </div>
-
-    <!-- Notation Style -->
-    <div class="mb-3">
-      <label class="form-label small mb-1 fw-semibold text-muted">Notation Style:</label>
-      <div class="hud-pill-group w-100" role="group" aria-label="Notation Style">
-        <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationTabOnly" value="tab" autocomplete="off" checked>
-        <label class="btn btn-sm" for="synthNotationTabOnly" style="flex: 1;"><i class="bi-file-earmark-music me-1"></i>Tab Only</label>
-        <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationScoreTab" value="scoreTab" autocomplete="off">
-        <label class="btn btn-sm" for="synthNotationScoreTab" style="flex: 1;"><i class="bi-music-note-list me-1"></i>Tab + Standard</label>
       </div>
     </div>
 
@@ -213,7 +198,7 @@
     </div>
 
     <!-- Metronome & Count-in -->
-    <div class="d-flex align-items-center justify-content-between pt-2 border-top border-secondary-subtle">
+    <div class="d-flex align-items-center justify-content-between">
       <div class="form-check form-switch mb-0">
         <input class="form-check-input theme-switch" type="checkbox" id="synthMetronomeSwitch">
         <label class="form-check-label small" for="synthMetronomeSwitch">Metronome</label>
@@ -221,6 +206,33 @@
       <div class="form-check form-switch mb-0">
         <input class="form-check-input theme-switch" type="checkbox" id="synthCountInSwitch">
         <label class="form-check-label small" for="synthCountInSwitch">Count-in</label>
+      </div>
+    </div>
+
+    <!-- Section 2: Visual & Notation Settings -->
+    <div class="synth-section-divider">
+      <div class="synth-section-heading">
+        <i class="bi-layout-text-window-reverse"></i> Visual &amp; Notation
+      </div>
+
+      <!-- Notation Style -->
+      <div class="mb-3">
+        <label class="form-label small mb-1 fw-semibold text-muted">Notation Style:</label>
+        <div class="hud-pill-group w-100" role="group" aria-label="Notation Style">
+          <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationTabOnly" value="tab" autocomplete="off" checked>
+          <label class="btn btn-sm" for="synthNotationTabOnly" style="flex: 1;"><i class="bi-file-earmark-music me-1"></i>Tab Only</label>
+          <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationScoreTab" value="scoreTab" autocomplete="off">
+          <label class="btn btn-sm" for="synthNotationScoreTab" style="flex: 1;"><i class="bi-music-note-list me-1"></i>Tab + Standard</label>
+        </div>
+      </div>
+
+      <!-- Visible Guitar Tracks -->
+      <div id="synthTrackVisibilitySection" style="display: none;">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <label class="form-label small mb-0 fw-semibold text-muted">Visible Guitar Tracks:</label>
+          <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show All</button>
+        </div>
+        <div id="synthTrackList" class="d-flex flex-column gap-1"></div>
       </div>
     </div>
   </div>
@@ -529,14 +541,6 @@
           <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
           <label class="btn btn-sm w-50" for="pageAdvance2">2 Pages</label>
         </div>
-      </div>
-
-      <div id="gpActiveTracksSettingGroup" style="display: none;">
-        <div class="d-flex align-items-center justify-content-between mb-1">
-          <label class="form-label small mb-0 text-white-50">Visible Guitar Tracks:</label>
-          <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="settingsShowAllTracksBtn">Show All</button>
-        </div>
-        <div id="settingsTrackList" class="d-flex flex-column gap-1"></div>
       </div>
 
     </div>

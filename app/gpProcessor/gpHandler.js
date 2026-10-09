@@ -22,13 +22,9 @@ export const gpState = {
         this.currentPageIndex = 0;
         this.lastLayoutDimensions = null;
         const synthSection = document.getElementById('synthTrackVisibilitySection');
-        const settingsGroup = document.getElementById('gpActiveTracksSettingGroup');
         const synthList = document.getElementById('synthTrackList');
-        const settingsList = document.getElementById('settingsTrackList');
         if (synthSection) synthSection.style.display = 'none';
-        if (settingsGroup) settingsGroup.style.display = 'none';
         if (synthList) synthList.innerHTML = '';
-        if (settingsList) settingsList.innerHTML = '';
     }
 };
 
@@ -551,47 +547,38 @@ export function applyGpTrackSelection(visibleTrackIndices) {
  */
 export function updateTrackSelectionUI(visibleIndices) {
     const synthList = document.getElementById('synthTrackList');
-    const settingsList = document.getElementById('settingsTrackList');
+    if (!synthList) return;
     const isSingleVisible = visibleIndices.length === 1;
 
-    [synthList, settingsList].forEach(list => {
-        if (!list) return;
-        list.querySelectorAll('.gp-track-checkbox').forEach(cb => {
-            const idx = parseInt(cb.dataset.trackIndex, 10);
-            const isChecked = visibleIndices.includes(idx);
-            cb.checked = isChecked;
-            cb.disabled = isChecked && isSingleVisible;
-        });
+    synthList.querySelectorAll('.gp-track-checkbox').forEach(cb => {
+        const idx = parseInt(cb.dataset.trackIndex, 10);
+        const isChecked = visibleIndices.includes(idx);
+        cb.checked = isChecked;
+        cb.disabled = isChecked && isSingleVisible;
     });
 }
 
 /**
- * Populate track selection lists in synth panel and settings offcanvas
+ * Populate track selection list in synth panel
  */
 export function populateGpTrackSelectionUI(api) {
     const synthSection = document.getElementById('synthTrackVisibilitySection');
-    const settingsGroup = document.getElementById('gpActiveTracksSettingGroup');
     const synthList = document.getElementById('synthTrackList');
-    const settingsList = document.getElementById('settingsTrackList');
     const synthShowAllBtn = document.getElementById('synthShowAllTracksBtn');
-    const settingsShowAllBtn = document.getElementById('settingsShowAllTracksBtn');
 
-    if (!synthList || !settingsList || !api?.score?.tracks) return;
+    if (!synthList || !api?.score?.tracks) return;
 
     const guitarTracks = getGuitarTracks(api.score);
     if (guitarTracks.length <= 1) {
         if (synthSection) synthSection.style.display = 'none';
-        if (settingsGroup) settingsGroup.style.display = 'none';
         synthList.innerHTML = '';
-        settingsList.innerHTML = '';
         return;
     }
 
     if (synthSection) synthSection.style.display = 'block';
-    if (settingsGroup) settingsGroup.style.display = 'block';
 
-    const renderTrackRow = (ti, prefix) => {
-        const id = `${prefix}_track_${ti.index}`;
+    const renderTrackRow = (ti) => {
+        const id = `synth_track_${ti.index}`;
         return `
           <div class="gp-track-row d-flex align-items-center justify-content-between">
             <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
@@ -603,8 +590,7 @@ export function populateGpTrackSelectionUI(api) {
         `;
     };
 
-    synthList.innerHTML = guitarTracks.map(ti => renderTrackRow(ti, 'synth')).join('');
-    settingsList.innerHTML = guitarTracks.map(ti => renderTrackRow(ti, 'settings')).join('');
+    synthList.innerHTML = guitarTracks.map(ti => renderTrackRow(ti)).join('');
 
     const handleToggle = (trackIndex, isChecked) => {
         const currentRendered = (api.tracks || []).map(t => t.index);
@@ -632,23 +618,20 @@ export function populateGpTrackSelectionUI(api) {
     };
 
     // Attach listeners
-    [synthList, settingsList].forEach(list => {
-        list.querySelectorAll('.gp-track-checkbox').forEach(cb => {
-            cb.addEventListener('change', (e) => {
-                const idx = parseInt(e.target.dataset.trackIndex, 10);
-                handleToggle(idx, e.target.checked);
-            });
+    synthList.querySelectorAll('.gp-track-checkbox').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            const idx = parseInt(e.target.dataset.trackIndex, 10);
+            handleToggle(idx, e.target.checked);
         });
-        list.querySelectorAll('.gp-track-only-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const idx = parseInt(e.currentTarget.dataset.trackIndex, 10);
-                handleOnly(idx);
-            });
+    });
+    synthList.querySelectorAll('.gp-track-only-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const idx = parseInt(e.currentTarget.dataset.trackIndex, 10);
+            handleOnly(idx);
         });
     });
 
     if (synthShowAllBtn) synthShowAllBtn.onclick = handleShowAll;
-    if (settingsShowAllBtn) settingsShowAllBtn.onclick = handleShowAll;
 
     const currentRendered = (api.tracks || []).map(t => t.index);
     updateTrackSelectionUI(currentRendered);

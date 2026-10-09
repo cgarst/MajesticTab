@@ -751,6 +751,29 @@ body {
   padding: 1rem;
 }
 
+.synth-section-heading {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.75rem;
+}
+
+.synth-section-heading i {
+  color: var(--accent-primary);
+  font-size: 0.85rem;
+}
+
+.synth-section-divider {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 0.9rem;
+  margin-top: 0.9rem;
+}
+
 .synth-panel .form-control {
   background: var(--bg-card);
   border-color: var(--border-subtle);
