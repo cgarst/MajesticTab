@@ -43,6 +43,65 @@ export const KNOWN_TUNINGS = [
 ];
 
 export const CUSTOM_TUNINGS_STORAGE_KEY = 'majestictab_custom_tuning_names';
+export const INSTRUMENT_MODE_STORAGE_KEY = 'majestictab_instrument_mode';
+
+export function getInstrumentMode() {
+    try {
+        if (typeof localStorage === 'undefined') return 'guitar';
+        const mode = localStorage.getItem('instrumentMode') || localStorage.getItem(INSTRUMENT_MODE_STORAGE_KEY);
+        return mode === 'bass' ? 'bass' : 'guitar';
+    } catch {
+        return 'guitar';
+    }
+}
+
+export function setInstrumentMode(mode) {
+    const safeMode = mode === 'bass' ? 'bass' : 'guitar';
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('instrumentMode', safeMode);
+            localStorage.setItem(INSTRUMENT_MODE_STORAGE_KEY, safeMode);
+        }
+    } catch (e) {
+        console.warn('Could not save instrument mode:', e);
+    }
+    return safeMode;
+}
+
+export function isBassTuning(tuningInput) {
+    if (!tuningInput) return false;
+    const str = typeof tuningInput === 'string' ? tuningInput.trim() : '';
+    if (str && /\bbass\b/i.test(str)) return true;
+
+    const info = (typeof tuningInput === 'object' && tuningInput !== null && tuningInput.key)
+        ? tuningInput
+        : getTuningInfo(tuningInput);
+
+    if (!info) {
+        return /\bbass\b/i.test(str);
+    }
+
+    if (info.stringCount === 4 || info.stringCount === 5) {
+        return true;
+    }
+    if (/\bbass\b/i.test(info.displayName || '') ||
+        /\bbass\b/i.test(info.defaultName || '') ||
+        /\bbass\b/i.test(info.notes || '')) {
+        return true;
+    }
+    if (info.key && (info.key.toLowerCase().includes('bass') || info.key === 'EADG' || info.key === 'DADG' || info.key === 'BEADG' || info.key === 'BEADGC')) {
+        return true;
+    }
+    return false;
+}
+
+export function isGuitarTuning(tuningInput) {
+    return !isBassTuning(tuningInput);
+}
+
+export function isTuningMatchingInstrument(tuningInput, instrumentMode = getInstrumentMode()) {
+    return instrumentMode === 'bass' ? isBassTuning(tuningInput) : isGuitarTuning(tuningInput);
+}
 
 export function getCustomTuningNames() {
     try {
@@ -118,10 +177,9 @@ export function getTuningInfo(tuningInput) {
         const noteArr = [...known.strings].reverse().map(s => s.replace(/[^a-zA-Z#b]/g, ''));
         const key = noteArr.join('');
         const notes = noteArr.join(' ');
-        const defaultName = known.shortName === 'E Standard' ? 'Standard' : (known.shortName || known.name.split('(')[0].trim());
-
-        const trimmedEscaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const wordBoundaryMatch = new RegExp(`(^|[^a-zA-Z0-9#b])${trimmedEscaped}([^a-zA-Z0-9#b]|$)`, 'i').test(known.name);
+        const nameBeforeParen = known.name.split('(')[0].trim();
+        const notesInsideParen = known.name.match(/\(([^)]+)\)/)?.[1]?.trim() || '';
+        const defaultName = known.shortName === 'E Standard' ? 'Standard' : (known.shortName || nameBeforeParen);
 
         if (
             trimmed.toLowerCase() === key.toLowerCase() ||
@@ -129,8 +187,9 @@ export function getTuningInfo(tuningInput) {
             trimmed.toLowerCase() === known.name.toLowerCase() ||
             trimmed.toLowerCase() === (known.shortName || '').toLowerCase() ||
             trimmed.toLowerCase() === defaultName.toLowerCase() ||
-            (known.shortName === 'E Standard' && trimmed.toLowerCase() === 'standard') ||
-            (wordBoundaryMatch && trimmed.length >= 3)
+            trimmed.toLowerCase() === nameBeforeParen.toLowerCase() ||
+            (notesInsideParen && trimmed.toLowerCase() === notesInsideParen.toLowerCase()) ||
+            (known.shortName === 'E Standard' && trimmed.toLowerCase() === 'standard')
         ) {
             const customName = getCustomTuningName(key);
             return {
@@ -210,6 +269,134 @@ export function getTuningInfo(tuningInput) {
     };
 }
 
+export const GUITAR_PROGRAM_WHITELIST = [24, 25, 26, 27, 28, 29, 30, 31];
+export const BASS_PROGRAM_WHITELIST = [32, 33, 34, 35, 36, 37, 38, 39];
+
+export function isTrackPercussion(track) {
+    if (!track) return false;
+    return Boolean(
+        track.isPercussion ||
+        track.playbackInfo?.isPercussion ||
+        track.staves?.some(s => s.isPercussion)
+    );
+}
+
+export function isTrackBass(track) {
+    if (!track || isTrackPercussion(track)) return false;
+    const program = track.playbackInfo?.program ?? track.program;
+    if (typeof program === 'number' && BASS_PROGRAM_WHITELIST.includes(program)) {
+        return true;
+    }
+    const name = (track.name || '').toLowerCase();
+    if (/\bbass\b/i.test(name)) {
+        return true;
+    }
+
+    // Check staff strings and tuning
+    let maxStrings = 0;
+    let hasBassTuning = false;
+    for (const staff of (track.staves || [])) {
+        if (staff.isPercussion) continue;
+        const tunings = staff.stringTuning?.tunings || [];
+        if (tunings.length > maxStrings) maxStrings = tunings.length;
+        if (tunings.length > 0) {
+            const formatted = formatTuningFromMidi(tunings);
+            if (formatted && isBassTuning(formatted)) {
+                hasBassTuning = true;
+            }
+        }
+    }
+    if (track.tuning && Array.isArray(track.tuning) && track.tuning.length > 0) {
+        if (track.tuning.length > maxStrings) maxStrings = track.tuning.length;
+        const formatted = formatTuningFromMidi(track.tuning);
+        if (formatted && isBassTuning(formatted)) {
+            hasBassTuning = true;
+        }
+    }
+
+    if (hasBassTuning) return true;
+    if ((maxStrings === 4 || maxStrings === 5) && !name.includes('ukulele') && !name.includes('banjo') && !name.includes('mandolin') && !name.includes('violin') && !name.includes('cello')) {
+        return true;
+    }
+
+    return false;
+}
+
+export function isTrackGuitar(track) {
+    if (!track || isTrackPercussion(track)) return false;
+    if (isTrackBass(track)) return false;
+    const program = track.playbackInfo?.program ?? track.program;
+    if (typeof program === 'number' && GUITAR_PROGRAM_WHITELIST.includes(program)) {
+        return true;
+    }
+    const name = (track.name || '').toLowerCase();
+    if (
+        name.includes('guitar') ||
+        name.includes('gtr') ||
+        name.includes('rhythm') ||
+        name.includes('lead') ||
+        name.includes('clean') ||
+        name.includes('distort') ||
+        name.includes('overdrive') ||
+        name.includes('acoustic') ||
+        name.includes('electric')
+    ) {
+        return true;
+    }
+
+    let maxStrings = 0;
+    for (const staff of (track.staves || [])) {
+        if (staff.isPercussion) continue;
+        const tunings = staff.stringTuning?.tunings || [];
+        if (tunings.length > maxStrings) maxStrings = tunings.length;
+    }
+    if (track.tuning && Array.isArray(track.tuning)) {
+        if (track.tuning.length > maxStrings) maxStrings = track.tuning.length;
+    }
+    if (maxStrings >= 6) return true;
+
+    // If program is unspecified/default (e.g. 24 or 25) and not an excluded non-guitar instrument
+    const nonGuitarTerms = ['piano', 'organ', 'keyboard', 'synth', 'vocal', 'voice', 'strings', 'brass', 'sax', 'trumpet', 'flute', 'drum'];
+    if (!nonGuitarTerms.some(term => name.includes(term))) {
+        return true;
+    }
+
+    return false;
+}
+
+export function getGuitarTracks(score) {
+    if (!score || !Array.isArray(score.tracks)) return [];
+    return score.tracks
+        .map((track, index) => ({ track, index }))
+        .filter(ti => isTrackGuitar(ti.track));
+}
+
+export function getBassTracks(score) {
+    if (!score || !Array.isArray(score.tracks)) return [];
+    return score.tracks
+        .map((track, index) => ({ track, index }))
+        .filter(ti => isTrackBass(ti.track));
+}
+
+export function getActiveInstrumentTracks(score, mode = getInstrumentMode()) {
+    if (!score || !Array.isArray(score.tracks)) return [];
+    if (mode === 'bass') {
+        const bass = getBassTracks(score);
+        if (bass.length > 0) return bass;
+        const nonPerc = score.tracks
+            .map((track, index) => ({ track, index }))
+            .filter(ti => !isTrackPercussion(ti.track));
+        return nonPerc.length > 0 ? nonPerc : score.tracks.map((track, index) => ({ track, index }));
+    } else {
+        const guitar = getGuitarTracks(score);
+        if (guitar.length > 0) return guitar;
+        const nonPerc = score.tracks
+            .map((track, index) => ({ track, index }))
+            .filter(ti => !isTrackPercussion(ti.track));
+        return nonPerc.length > 0 ? nonPerc : score.tracks.map((track, index) => ({ track, index }));
+    }
+}
+
 /**
  * Categorizes a tuning into string-count sections:
  * 1. 6-String (Standard guitar range: lowest string above B)
@@ -220,7 +407,7 @@ export function getTuningInfo(tuningInput) {
  * 6. 5-String (Bass / Extended)
  * 7. 4-String (Bass / Standard)
  */
-export function getTuningCategory(tuningInputOrGroup) {
+export function getTuningCategory(tuningInputOrGroup, instrumentMode = getInstrumentMode()) {
     let stringCount = 6;
     let notes = '';
     let defaultName = '';
@@ -244,7 +431,20 @@ export function getTuningCategory(tuningInputOrGroup) {
     }
 
     const isBass = (defaultName && defaultName.toLowerCase().includes('bass')) ||
-                   (name && name.toLowerCase().includes('bass'));
+                   (name && name.toLowerCase().includes('bass')) ||
+                   stringCount === 4 || stringCount === 5 ||
+                   isBassTuning(tuningInputOrGroup);
+
+    if (stringCount === 6 && isBass) {
+        return {
+            id: '6-string-bass',
+            title: '6-String Bass',
+            label: '6-String Bass',
+            order: instrumentMode === 'bass' ? 3 : 8,
+            stringCount: 6,
+            isBaritone: false
+        };
+    }
 
     if (stringCount === 6 && !isBass) {
         const noteTokens = (notes || '').trim().split(/\s+/);
@@ -325,7 +525,7 @@ export function getTuningCategory(tuningInputOrGroup) {
             id: '5-string',
             title: isBass ? '5-String Bass' : '5-String',
             label: isBass ? '5-String Bass' : '5-String',
-            order: 6,
+            order: instrumentMode === 'bass' ? 2 : 6,
             stringCount: 5,
             isBaritone: false
         };
@@ -336,7 +536,7 @@ export function getTuningCategory(tuningInputOrGroup) {
             id: '4-string',
             title: isBass ? '4-String Bass' : '4-String',
             label: isBass ? '4-String Bass' : '4-String',
-            order: 7,
+            order: instrumentMode === 'bass' ? 1 : 7,
             stringCount: 4,
             isBaritone: false
         };
@@ -388,27 +588,40 @@ export function formatTuningFromMidi(midiArray) {
     if (normalized.length === 7) return `7-String (${notes})`;
     if (normalized.length === 8) return `8-String (${notes})`;
     if (normalized.length > 8) return `${normalized.length}-String (${notes})`;
+    if (normalized.length === 4) return `Bass (${notes})`;
+    if (normalized.length === 5) return `5-String Bass (${notes})`;
     return notes;
 }
 
 /**
  * Extract rich score metadata including tunings, max guitar string count, primary tuning, title, artist, album.
  */
-export function extractScoreMetadata(score) {
+export function extractScoreMetadata(score, instrumentMode = getInstrumentMode()) {
     if (!score || !Array.isArray(score.tracks)) {
-        return { tunings: [], stringCount: 6, primaryTuning: null, title: null, artist: null, album: null };
+        return {
+            tunings: [],
+            stringCount: instrumentMode === 'bass' ? 4 : 6,
+            primaryTuning: null,
+            title: null,
+            artist: null,
+            album: null,
+            guitarTunings: [],
+            bassTunings: [],
+            allTunings: [],
+            primaryGuitarTuning: null,
+            primaryBassTuning: null
+        };
     }
 
     const guitarTunings = [];
     const bassTunings = [];
     const otherTunings = [];
     let maxGuitarStrings = 0;
+    let maxBassStrings = 0;
 
     for (const track of score.tracks) {
-        const isPercussion = track.isPercussion || track.playbackInfo?.isPercussion || track.staves?.some(s => s.isPercussion);
-        if (isPercussion) continue;
+        if (isTrackPercussion(track)) continue;
 
-        const trackNameLower = (track.name || '').toLowerCase();
         const staffTunings = [];
         for (const staff of (track.staves || [])) {
             if (staff.isPercussion) continue;
@@ -420,21 +633,8 @@ export function extractScoreMetadata(score) {
             staffTunings.push(track.tuning);
         }
 
-        const maxStaffStrings = staffTunings.reduce((max, st) => Math.max(max, st.length), 0);
-        const program = track.playbackInfo?.program ?? track.program ?? 25;
-        const isBass = (program >= 32 && program <= 39) || trackNameLower.includes('bass');
-        const isGuitar = !isBass && (
-            (program >= 24 && program <= 31) ||
-            maxStaffStrings >= 6 ||
-            trackNameLower.includes('guitar') ||
-            trackNameLower.includes('rhythm') ||
-            trackNameLower.includes('lead') ||
-            trackNameLower.includes('clean') ||
-            trackNameLower.includes('distort') ||
-            trackNameLower.includes('overdrive') ||
-            trackNameLower.includes('acoustic') ||
-            trackNameLower.includes('electric')
-        );
+        const isBass = isTrackBass(track);
+        const isGuitar = !isBass && isTrackGuitar(track);
 
         for (const rawTuning of staffTunings) {
             const formatted = formatTuningFromMidi(rawTuning);
@@ -445,13 +645,21 @@ export function extractScoreMetadata(score) {
                     guitarTunings.push({ tuning: formatted, strings: strCount });
                 }
             } else if (isBass) {
+                if (strCount > maxBassStrings) maxBassStrings = strCount;
                 if (formatted && !bassTunings.some(b => b.tuning === formatted)) {
                     bassTunings.push({ tuning: formatted, strings: strCount });
                 }
             } else {
-                if (strCount >= 6 && strCount > maxGuitarStrings) maxGuitarStrings = strCount;
-                if (formatted && !otherTunings.some(o => o.tuning === formatted)) {
-                    otherTunings.push({ tuning: formatted, strings: strCount });
+                if (isBassTuning(formatted) || strCount <= 5) {
+                    if (strCount > maxBassStrings) maxBassStrings = strCount;
+                    if (formatted && !bassTunings.some(b => b.tuning === formatted)) {
+                        bassTunings.push({ tuning: formatted, strings: strCount });
+                    }
+                } else {
+                    if (strCount >= 6 && strCount > maxGuitarStrings) maxGuitarStrings = strCount;
+                    if (formatted && !otherTunings.some(o => o.tuning === formatted)) {
+                        otherTunings.push({ tuning: formatted, strings: strCount });
+                    }
                 }
             }
         }
@@ -473,32 +681,47 @@ export function extractScoreMetadata(score) {
         ...bassTuningNames
     ]));
 
+    const primaryGuitarTuning = guitarTuningNames[0] || otherTuningNames[0] || null;
+    const primaryBassTuning = bassTuningNames[0] || null;
+
+    let activeTunings = [];
     let defaultStringCount = 6;
-    if (maxGuitarStrings > 0) {
-        defaultStringCount = maxGuitarStrings;
-    } else if (allTunings.length > 0) {
-        if (allTunings[0].includes('8-String')) defaultStringCount = 8;
-        else if (allTunings[0].includes('7-String')) defaultStringCount = 7;
-        else if (allTunings[0].includes('5-String')) defaultStringCount = 5;
-        else if (allTunings[0].includes('6-String')) defaultStringCount = 6;
-        else if (allTunings[0].includes('Bass')) defaultStringCount = 4;
+    let primaryTuning = null;
+
+    if (instrumentMode === 'bass') {
+        activeTunings = bassTuningNames.length > 0 ? bassTuningNames : (otherTuningNames.length > 0 ? otherTuningNames : guitarTuningNames);
+        primaryTuning = primaryBassTuning || primaryGuitarTuning || (allTunings[0] || null);
+        defaultStringCount = maxBassStrings > 0 ? maxBassStrings : (primaryTuning?.includes('5-String') ? 5 : 4);
+    } else {
+        activeTunings = guitarTuningNames.length > 0 ? guitarTuningNames : (otherTuningNames.length > 0 ? otherTuningNames : bassTuningNames);
+        primaryTuning = primaryGuitarTuning || primaryBassTuning || (allTunings[0] || null);
+        if (maxGuitarStrings > 0) {
+            defaultStringCount = maxGuitarStrings;
+        } else if (primaryTuning) {
+            if (primaryTuning.includes('8-String')) defaultStringCount = 8;
+            else if (primaryTuning.includes('7-String')) defaultStringCount = 7;
+            else defaultStringCount = 6;
+        }
     }
 
-    const primaryTuning = allTunings[0] || null;
-
     return {
-        tunings: allTunings,
+        tunings: activeTunings,
         stringCount: defaultStringCount,
         primaryTuning,
         tuning: primaryTuning,
+        guitarTunings: guitarTuningNames,
+        bassTunings: bassTuningNames,
+        allTunings,
+        primaryGuitarTuning,
+        primaryBassTuning,
         title: score.title?.trim() || null,
         artist: score.artist?.trim() || null,
         album: score.album?.trim() || null
     };
 }
 
-export function extractScoreTunings(score) {
-    const meta = extractScoreMetadata(score);
+export function extractScoreTunings(score, instrumentMode = getInstrumentMode()) {
+    const meta = extractScoreMetadata(score, instrumentMode);
     return meta.tunings;
 }
 

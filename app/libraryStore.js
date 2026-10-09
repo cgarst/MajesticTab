@@ -2,7 +2,7 @@
 // Storage and querying layer for Collections > Artists > Albums > Songs and Recents.
 
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile } from './fileStore.js';
-import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory } from './utils/tuningUtils.js';
+import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
@@ -244,7 +244,7 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
 /**
  * Return library organized by Tuning groups -> Song lists
  */
-export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTION_ID) {
+export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTION_ID, instrumentMode = getInstrumentMode()) {
     const songs = await getSongsByCollection(collectionId);
     const tuningMap = new Map();
 
@@ -255,8 +255,8 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
             ? song.tunings
             : (song.tabOptions?.flatMap(t => Array.isArray(t.tunings) && t.tunings.length > 0 ? t.tunings : (t.tuning ? [t.tuning] : [])).filter(Boolean) || (song.tuning ? [song.tuning] : []));
 
-        // Filter out 'Untuned / Other' or empty / null values
-        const validTunings = tunings.filter(t => t && typeof t === 'string' && t.trim() && t !== 'Untuned / Other' && t.toLowerCase() !== 'untuned');
+        // Filter out 'Untuned / Other' or empty / null values and tunings not matching active instrument mode
+        const validTunings = tunings.filter(t => t && typeof t === 'string' && t.trim() && t !== 'Untuned / Other' && t.toLowerCase() !== 'untuned' && isTuningMatchingInstrument(t, instrumentMode));
 
         for (const rawTuning of validTunings) {
             const info = getTuningInfo(rawTuning);
@@ -271,7 +271,7 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
                     notes: info.notes,
                     name: info.displayName,
                     defaultName: info.defaultName,
-                    stringCount: info.stringCount || song.stringCount || 6,
+                    stringCount: info.stringCount || song.stringCount || (instrumentMode === 'bass' ? 4 : 6),
                     songs: []
                 });
             }
@@ -292,7 +292,7 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
                 tGroup.stringCount = info.stringCount;
             }
         }
-        tGroup.category = getTuningCategory(tGroup);
+        tGroup.category = getTuningCategory(tGroup, instrumentMode);
 
         tGroup.songs.sort((a, b) => {
             if (Boolean(b.pinned) !== Boolean(a.pinned)) return b.pinned ? 1 : -1;

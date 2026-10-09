@@ -52,7 +52,9 @@ const APP_SETTINGS_KEYS = [
     'tab_downloader_sources',
     'gdrive_last_folder',
     'gdrive_tabs_directory',
-    'majestictab_custom_tuning_names'
+    'majestictab_custom_tuning_names',
+    'instrumentMode',
+    'majestictab_instrument_mode'
 ];
 
 /**
@@ -635,6 +637,11 @@ function applyRestoredPreferences() {
         const radio = document.querySelector(`input[name="updateChannelRadio"][value="${updateChannel}"]`);
         if (radio) radio.checked = true;
     }
+
+    // Instrument mode
+    const instMode = localStorage.getItem('instrumentMode') || localStorage.getItem('majestictab_instrument_mode') || 'guitar';
+    const instRadio = document.querySelector(`input[name="instrumentModeRadio"][value="${instMode}"]`);
+    if (instRadio) instRadio.checked = true;
 }
 
 /**

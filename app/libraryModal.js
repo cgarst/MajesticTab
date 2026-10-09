@@ -17,7 +17,7 @@ import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { openOpenFileModal } from './openFileModal.js';
-import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName, getTuningCategory } from './utils/tuningUtils.js';
+import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState } from './gpProcessor/gpPlayer.js';
@@ -834,7 +834,7 @@ async function renderLibraryBrowseView(container) {
                             </button>
                             <i class="bi-file-earmark-music text-info me-1"></i>
                             <span class="text-truncate" style="max-width: 220px;">${escapeHtml(t.name)}</span>
-                            ${t.tuning ? (() => {
+                            ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
                               const info = getTuningInfo(t.tuning);
                               const label = info?.displayName || t.tuning;
                               return `<button class="badge badge-tuning badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
@@ -1424,7 +1424,7 @@ function renderPinnedSongTile(song) {
 function renderSongRow(song, options = {}) {
     const tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
     const hasTabs = tabOptions.length > 0;
-    const tunings = Array.isArray(song.tunings) ? song.tunings : [];
+    const tunings = (Array.isArray(song.tunings) ? song.tunings : []).filter(t => isTuningMatchingInstrument(t));
     const durationText = formatTrackDuration(song.length);
     const isPinned = Boolean(song.pinned);
     const defaultTabId = song.defaultTabId || (tabOptions[0]?.id || null);
@@ -1514,7 +1514,7 @@ function renderSongRow(song, options = {}) {
               <i class="${iconClass} me-1" style="font-size: 0.78rem;"></i>
               <span class="text-truncate" style="max-width: 160px;">${escapeHtml(t.name)}</span>
               ${(t.startPage && t.endPage) ? `<span class="badge badge-theme-warning py-0 px-1 ms-1" style="font-size:0.6rem;">pp. ${t.startPage}-${t.endPage}</span>` : ''}
-              ${t.tuning ? (() => {
+              ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
                 const info = getTuningInfo(t.tuning);
                 const label = info?.displayName || t.tuning;
                 return `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2 ms-1" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
@@ -3239,7 +3239,7 @@ async function renderRecentsView(container) {
       <div class="d-flex flex-column gap-2" id="recentsList">
         ${recents.map(r => {
             const cover = r.coverUrl || getPlaceholderCoverSvg(r.songTitle || r.name);
-            const tunings = Array.isArray(r.tunings) ? r.tunings : [];
+            const tunings = (Array.isArray(r.tunings) ? r.tunings : []).filter(t => isTuningMatchingInstrument(t));
             const timeAgo = formatTimeAgo(r.openedAt);
 
             return `

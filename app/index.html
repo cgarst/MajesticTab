@@ -207,9 +207,9 @@
         <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackFullBand" value="fullBand" autocomplete="off" checked>
         <label class="btn btn-sm" for="synthTrackFullBand" style="flex: 1;">Full Band</label>
         <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackGuitarsOnly" value="guitarsOnly" autocomplete="off">
-        <label class="btn btn-sm" for="synthTrackGuitarsOnly" style="flex: 1;">Guitars Only</label>
+        <label class="btn btn-sm" id="synthTrackGuitarsOnlyLabel" for="synthTrackGuitarsOnly" style="flex: 1;">Guitars Only</label>
         <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackNoGuitars" value="noGuitars" autocomplete="off">
-        <label class="btn btn-sm" for="synthTrackNoGuitars" style="flex: 1;">No Guitars</label>
+        <label class="btn btn-sm" id="synthTrackNoGuitarsLabel" for="synthTrackNoGuitars" style="flex: 1;">No Guitars</label>
       </div>
     </div>
 
@@ -475,6 +475,18 @@
         <i class="bi-layout-text-window-reverse text-warning"></i> Viewing Preferences
       </div>
       
+      <!-- Instrument Mode Toggle (Guitar vs Bass) -->
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Instrument Mode:</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeGuitar" value="guitar" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="instrumentModeGuitar"><i class="bi-music-note me-1"></i> Guitar</label>
+
+          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeBass" value="bass" autocomplete="off">
+          <label class="btn btn-sm w-50" for="instrumentModeBass"><i class="bi-soundwave me-1"></i> Bass</label>
+        </div>
+      </div>
+
       <div>
         <label class="form-label d-block mb-1 small text-white-50">Tab Size (Guitar Pro &amp; TXT):</label>
         <div class="d-flex align-items-center gap-2">

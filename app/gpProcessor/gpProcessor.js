@@ -1,6 +1,21 @@
-// gpProcessor.js
 import { applyGpScoreTransforms } from '../fileAdapters.js';
 import { showToast } from '../utils/toast.js';
+import {
+    getInstrumentMode,
+    getGuitarTracks,
+    getBassTracks,
+    getActiveInstrumentTracks,
+    GUITAR_PROGRAM_WHITELIST,
+    BASS_PROGRAM_WHITELIST
+} from '../utils/tuningUtils.js';
+
+export {
+    getGuitarTracks,
+    getBassTracks,
+    getActiveInstrumentTracks,
+    GUITAR_PROGRAM_WHITELIST,
+    BASS_PROGRAM_WHITELIST
+};
 
 export const DEFAULT_GP_DISPLAY_SCALE = 1.0;
 export let GP_DISPLAY_SCALE = DEFAULT_GP_DISPLAY_SCALE;
@@ -41,21 +56,6 @@ export function setGpDisplayScale(percent) {
 
 export function applySavedGpDisplayScale() {
     return setGpDisplayScale(getGpDisplayScalePercent());
-}
-
-export const GUITAR_PROGRAM_WHITELIST = [24, 25, 26, 27, 28, 29, 30, 31];
-
-export function getGuitarTracks(score) {
-    if (!score || !Array.isArray(score.tracks)) return [];
-    return score.tracks
-        .map((track, index) => ({ track, index }))
-        .filter(ti => {
-            const isPercussion = ti.track.isPercussion
-                || ti.track.playbackInfo?.isPercussion
-                || ti.track.staves?.some(staff => staff.isPercussion);
-            const program = ti.track.playbackInfo?.program ?? ti.track.program;
-            return !isPercussion && GUITAR_PROGRAM_WHITELIST.includes(program);
-        });
 }
 
 export const DEFAULT_GP_NOTATION_MODE = 'tab';
@@ -124,12 +124,13 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                 }
             }
 
-            // Step 2: filter guitar tracks by MIDI program
-            const guitarTrackIndices = getGuitarTracks(score).map(ti => ti.index);
+            // Step 2: filter tracks by active instrument mode (guitar vs bass)
+            const activeTracks = getActiveInstrumentTracks(score);
+            const activeTrackIndices = activeTracks.map(ti => ti.index);
 
             if (debug) {
-                console.log("Guitar tracks found:", guitarTrackIndices.length);
-                console.log("Guitar track indices:", guitarTrackIndices);
+                console.log(`[GP] Active tracks (${getInstrumentMode()} mode) found:`, activeTrackIndices.length);
+                console.log("[GP] Active track indices:", activeTrackIndices);
             }
 
             // Step 3: dispose of temporary API
@@ -137,7 +138,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
 
             // Step 4: re-create API with filtered tracks and SoundFont synth player
             const api = new alphaTab.AlphaTabApi(container, {
-                core: { file, tracks: guitarTrackIndices, enableLazyLoading: false },
+                core: { file, tracks: activeTrackIndices, enableLazyLoading: false },
                 player: {
                     enablePlayer: true,
                     playerMode: alphaTab.PlayerMode.EnabledSynthesizer,
