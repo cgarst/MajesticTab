@@ -30,6 +30,22 @@
     <span class="brand-title" id="brand-text" data-tauri-drag-region>
       Majestic<span class="brand-title-accent">Tab</span>
     </span>
+
+    <!-- Return to Song Button (in Library View when a song is open) -->
+    <button type="button" class="btn btn-sm btn-theme-outline align-items-center gap-2 py-1 px-3" id="libraryReturnToSongBtn" title="Return to active score" style="border-radius: 9999px; display: none;">
+      <i class="bi-music-note-beamed text-info"></i>
+      <span class="d-none d-sm-inline text-truncate" id="libraryReturnSongName" style="max-width:140px;"></span>
+      <i class="bi-arrow-up-right small text-white-50"></i>
+    </button>
+
+    <!-- Song Mode Document Breadcrumb -->
+    <div id="songBreadcrumb" class="align-items-center gap-2" style="display:none;" data-tauri-drag-region>
+      <button class="brand-btn breadcrumb-back-btn py-1 px-2" id="topBarBackToLibraryBtn" type="button" title="Back to Tab Library">
+        <i class="bi-chevron-left me-1"></i><span>Library</span>
+      </button>
+      <span class="breadcrumb-divider text-muted opacity-50" data-tauri-drag-region>/</span>
+      <span class="breadcrumb-song-title text-truncate fw-semibold text-white" id="topBarSongTitle" data-tauri-drag-region></span>
+    </div>
   </div>
 
   <div id="centerSection" data-tauri-drag-region>
@@ -73,22 +89,6 @@
       </button>
       <button class="btn btn-sm" id="ytToggleBtn" title="YouTube Audio & Controls" style="display:none;">
         <i class="bi-youtube"></i>
-      </button>
-    </div>
-
-    <!-- Library Toggle (Song Mode) -->
-    <div id="libraryPill" class="hud-pill-group" role="group" aria-label="Tab Library" style="display:none;">
-      <button class="btn btn-sm" id="libraryToggleBtn" title="Tab Library">
-        <i class="bi-music-player"></i><span class="d-none d-sm-inline ms-1">Library</span>
-      </button>
-    </div>
-
-    <!-- Library Mode Controls (Right Section in Library View) -->
-    <div id="libraryRightControls" style="display:none;">
-      <!-- Return to Song Button (when a song is open) -->
-      <button type="button" class="btn btn-sm btn-theme-outline align-items-center gap-2 py-1 px-3" id="libraryReturnToSongBtn" title="Return to active score" style="border-radius: 9999px; display: none;">
-        <i class="bi-arrow-return-left text-info me-1"></i>
-        <span class="d-none d-lg-inline text-truncate" id="libraryReturnSongName" style="max-width:130px;"></span>
       </button>
     </div>
 

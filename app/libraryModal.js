@@ -213,27 +213,28 @@ export async function openLibraryModal(initialView = 'library') {
     // Update top bar for Library Mode
     const libraryNav = document.getElementById('libraryNavButtons');
     const modeButtons = document.getElementById('modeButtons');
-    const libraryRight = document.getElementById('libraryRightControls');
-    const libraryPill = document.getElementById('libraryPill');
     const globalAudio = document.getElementById('globalAudioControls');
     const audioSourcePill = document.getElementById('audioSourcePill');
     const navButtons = document.getElementById('navButtons');
     const returnBtn = document.getElementById('libraryReturnToSongBtn');
     const returnName = document.getElementById('libraryReturnSongName');
+    const brandText = document.getElementById('brand-text');
+    const songBreadcrumb = document.getElementById('songBreadcrumb');
     const currentOpen = getCurrentFile();
 
     if (libraryNav) libraryNav.style.display = 'flex';
     if (modeButtons) modeButtons.style.display = 'none';
-    if (libraryRight) libraryRight.style.display = 'flex';
-    if (libraryPill) libraryPill.style.display = 'none';
     if (globalAudio) globalAudio.style.display = 'none';
     if (audioSourcePill) audioSourcePill.style.display = 'none';
     if (navButtons) navButtons.style.display = 'none';
+    if (songBreadcrumb) songBreadcrumb.style.display = 'none';
+    if (brandText) brandText.style.display = 'inline-flex';
 
     if (returnBtn) {
         if (currentOpen && currentOpen.name) {
             returnBtn.style.display = 'inline-flex';
-            if (returnName) returnName.textContent = currentOpen.name;
+            if (returnName) returnName.textContent = currentOpen.name.replace(/\.[^/.]+$/, '');
+            returnBtn.title = `Return to score: ${currentOpen.name}`;
         } else {
             returnBtn.style.display = 'none';
         }
@@ -258,17 +259,28 @@ export function closeLibraryModal(force = false) {
         // Restore top bar for Song Mode
         const libraryNav = document.getElementById('libraryNavButtons');
         const modeButtons = document.getElementById('modeButtons');
-        const libraryRight = document.getElementById('libraryRightControls');
-        const libraryPill = document.getElementById('libraryPill');
         const navButtons = document.getElementById('navButtons');
+        const returnBtn = document.getElementById('libraryReturnToSongBtn');
+        const brandText = document.getElementById('brand-text');
+        const songBreadcrumb = document.getElementById('songBreadcrumb');
+        const songTitleEl = document.getElementById('topBarSongTitle');
 
         if (libraryNav) libraryNav.style.display = 'none';
         if (modeButtons) modeButtons.style.display = currentOpen ? 'flex' : 'none';
-        if (libraryRight) libraryRight.style.display = 'none';
-        if (libraryPill) {
-            libraryPill.style.display = '';
-            document.getElementById('libraryToggleBtn')?.classList.remove('active');
+        if (returnBtn) returnBtn.style.display = 'none';
+
+        if (currentOpen) {
+            if (brandText) brandText.style.display = 'none';
+            if (songBreadcrumb) songBreadcrumb.style.display = 'inline-flex';
+            if (songTitleEl && currentOpen.name) {
+                songTitleEl.textContent = currentOpen.name.replace(/\.[^/.]+$/, '');
+                songTitleEl.title = currentOpen.name;
+            }
+        } else {
+            if (brandText) brandText.style.display = 'inline-flex';
+            if (songBreadcrumb) songBreadcrumb.style.display = 'none';
         }
+
         if (navButtons && currentOpen) {
             navButtons.style.display = 'flex';
         }
@@ -323,9 +335,10 @@ export async function renderLibraryModal() {
     const returnBtn = document.getElementById('libraryReturnToSongBtn');
     const returnName = document.getElementById('libraryReturnSongName');
     if (returnBtn) {
-        if (currentOpen) {
+        if (currentOpen && currentOpen.name) {
             returnBtn.style.display = 'inline-flex';
-            if (returnName) returnName.textContent = currentOpen.name;
+            if (returnName) returnName.textContent = currentOpen.name.replace(/\.[^/.]+$/, '');
+            returnBtn.title = `Return to score: ${currentOpen.name}`;
         } else {
             returnBtn.style.display = 'none';
         }
