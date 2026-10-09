@@ -171,6 +171,7 @@ pub fn run() {
         tab_downloader_native::tab_downloader_hide,
         tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
+        tab_downloader_native::tab_downloader_is_debug_tools_enabled,
         youtube_macos::youtube_player_update,
         youtube_macos::youtube_player_command
     ]);
@@ -183,7 +184,8 @@ pub fn run() {
         tab_downloader_native::tab_downloader_nav,
         tab_downloader_native::tab_downloader_hide,
         tab_downloader_native::tab_downloader_eval,
-        tab_downloader_native::tab_downloader_open_devtools
+        tab_downloader_native::tab_downloader_open_devtools,
+        tab_downloader_native::tab_downloader_is_debug_tools_enabled
     ]);
 
     let app = builder

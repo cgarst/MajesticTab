@@ -423,3 +423,16 @@ pub fn tab_downloader_open_devtools(app: AppHandle) -> Result<(), String> {
     }
     Ok(())
 }
+
+#[tauri::command]
+pub fn tab_downloader_is_debug_tools_enabled() -> bool {
+    #[cfg(feature = "debug-tools")]
+    {
+        true
+    }
+    #[cfg(not(feature = "debug-tools"))]
+    {
+        false
+    }
+}
+
