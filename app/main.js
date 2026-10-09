@@ -155,6 +155,14 @@ if (topBar) {
         }
     }, true);
 }
+
+// Prevent browser from opening dropped files as webpages outside drop targets
+window.addEventListener('dragover', (e) => {
+    e.preventDefault();
+}, false);
+window.addEventListener('drop', (e) => {
+    e.preventDefault();
+}, false);
 let currentScale = 1;
 const MIN_SCALE = 1.0; // Changed to 1.0 to prevent zooming out beyond initial scale
 const MAX_SCALE = 3;
