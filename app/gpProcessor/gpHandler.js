@@ -1,4 +1,4 @@
-import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks, getGpNotationMode, setGpNotationMode, getGpStaveProfile } from './gpProcessor.js';
+import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks, getActiveInstrumentTracks, getGpNotationMode, setGpNotationMode, getGpStaveProfile } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
@@ -586,8 +586,8 @@ export function populateGpTrackSelectionUI(api) {
 
     if (!synthList || !api?.score?.tracks) return;
 
-    const guitarTracks = getGuitarTracks(api.score);
-    if (guitarTracks.length <= 1) {
+    const activeTracks = getActiveInstrumentTracks(api.score);
+    if (activeTracks.length <= 1) {
         if (synthSection) synthSection.style.display = 'none';
         synthList.innerHTML = '';
         return;
@@ -608,7 +608,7 @@ export function populateGpTrackSelectionUI(api) {
         `;
     };
 
-    synthList.innerHTML = guitarTracks.map(ti => renderTrackRow(ti)).join('');
+    synthList.innerHTML = activeTracks.map(ti => renderTrackRow(ti)).join('');
 
     const handleToggle = (trackIndex, isChecked) => {
         const currentRendered = (api.tracks || []).map(t => t.index);
@@ -631,7 +631,7 @@ export function populateGpTrackSelectionUI(api) {
     };
 
     const handleShowAll = () => {
-        const allIndices = guitarTracks.map(ti => ti.index);
+        const allIndices = activeTracks.map(ti => ti.index);
         applyGpTrackSelection(allIndices);
     };
 

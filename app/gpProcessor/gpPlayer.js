@@ -4,11 +4,11 @@ import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
 import { gpState } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
+import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
 
 let currentApi = null;
 let currentScore = null;
 let isSeeking = false;
-const GUITAR_PROGRAMS = new Set([24, 25, 26, 27, 28, 29, 30, 31]);
 
 export const synthPlayerState = {
     isOpen: false,
@@ -28,24 +28,35 @@ export const synthPlayerState = {
     loopEndMeasure: 1
 };
 
+export function syncSynthTrackModeLabels() {
+    const isBass = getInstrumentMode() === 'bass';
+    const soloLabel = document.getElementById('synthTrackGuitarsOnlyLabel') || document.querySelector('label[for="synthTrackGuitarsOnly"]');
+    const muteLabel = document.getElementById('synthTrackNoGuitarsLabel') || document.querySelector('label[for="synthTrackNoGuitars"]');
+    if (soloLabel) soloLabel.textContent = isBass ? 'Bass Only' : 'Guitars Only';
+    if (muteLabel) muteLabel.textContent = isBass ? 'No Bass' : 'No Guitars';
+}
+
 function applySynthTrackMode() {
     if (!currentApi || !currentScore?.tracks) return;
+
+    syncSynthTrackModeLabels();
 
     const trackModeRadios = document.querySelectorAll('input[name="synthTrackMode"]');
     trackModeRadios.forEach(radio => {
         radio.checked = radio.value === synthPlayerState.trackMode;
     });
 
-    const guitarTracks = [];
+    const isBassMode = getInstrumentMode() === 'bass';
+    const targetTracks = [];
     const otherTracks = [];
     currentScore.tracks.forEach((track, index) => {
-        const program = track.playbackInfo?.program ?? track.program;
-        (GUITAR_PROGRAMS.has(program) ? guitarTracks : otherTracks).push(index);
+        const isTarget = isBassMode ? isTrackBass(track) : isTrackGuitar(track);
+        (isTarget ? targetTracks : otherTracks).push(index);
     });
 
-    const muteGuitars = synthPlayerState.trackMode === 'noGuitars';
+    const muteTarget = synthPlayerState.trackMode === 'noGuitars';
     const muteOtherTracks = synthPlayerState.trackMode === 'guitarsOnly';
-    if (guitarTracks.length) currentApi.changeTrackMute(guitarTracks, muteGuitars);
+    if (targetTracks.length) currentApi.changeTrackMute(targetTracks, muteTarget);
     if (otherTracks.length) currentApi.changeTrackMute(otherTracks, muteOtherTracks);
 }
 
@@ -1003,6 +1014,7 @@ export function toggleSynthPanel(forceState = null) {
  */
 export function initSynthPlayer() {
     hideSynthPlayer();
+    syncSynthTrackModeLabels();
     const toggleBtn = document.getElementById('synthToggleBtn');
     const closeBtn = document.getElementById('synthPanelCloseBtn');
     const metronomeQuickBtn = document.getElementById('synthMetronomeQuickBtn');
