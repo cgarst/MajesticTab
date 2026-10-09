@@ -472,9 +472,16 @@ function renderGPPageMode(output) {
  * @param {HTMLElement} output - The output container element
  * @returns {boolean} Whether navigation was successful
  */
-export function nextGPPage(output) {
+export function nextGPPage(output, step = null) {
     if (!gpState.pages.length) return false;
-    const newIndex = Math.min(gpState.currentPageIndex + 1, Math.max(0, gpState.pages.length - getPagesPerView()));
+    const pagesPerView = getPagesPerView(true);
+    let advanceStep = step;
+    if (advanceStep === null) {
+        const selected = document.querySelector('input[name="pageAdvanceRadio"]:checked');
+        const advancePages = selected ? parseInt(selected.value, 10) : 2;
+        advanceStep = advancePages === 1 ? 1 : pagesPerView;
+    }
+    const newIndex = Math.min(gpState.currentPageIndex + advanceStep, Math.max(0, gpState.pages.length - pagesPerView));
     if (newIndex !== gpState.currentPageIndex) {
         gpState.currentPageIndex = newIndex;
         if (output) {
@@ -488,11 +495,18 @@ export function nextGPPage(output) {
 /**
  * Navigate to previous GP page and re-render
  * @param {HTMLElement} output - The output container element
+ * @param {number|null} step - Optional page step count
  * @returns {boolean} Whether navigation was successful
  */
-export function prevGPPage(output) {
+export function prevGPPage(output, step = null) {
     if (!gpState.pages.length) return false;
-    const newIndex = Math.max(0, gpState.currentPageIndex - 1);
+    let advanceStep = step;
+    if (advanceStep === null) {
+        const selected = document.querySelector('input[name="pageAdvanceRadio"]:checked');
+        const advancePages = selected ? parseInt(selected.value, 10) : 2;
+        advanceStep = advancePages === 1 ? 1 : getPagesPerView(true);
+    }
+    const newIndex = Math.max(0, gpState.currentPageIndex - advanceStep);
     if (newIndex !== gpState.currentPageIndex) {
         gpState.currentPageIndex = newIndex;
         if (output) {

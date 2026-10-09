@@ -1,22 +1,37 @@
 import { enableContinuousScrollTracking, disableContinuousScrollTracking, scrollToPage } from './scrollUtils.js';
 
 /**
- * Get number of pages to show based on available window width
+ * Get current landscape page layout preference ('dual' or 'single')
+ * @returns {string} 'dual' for 2 pages side-by-side, 'single' for 1 page fitting both dimensions
+ */
+export function getLandscapePageLayout() {
+    return localStorage.getItem('landscapePageLayout') || 'dual';
+}
+
+/**
+ * Set landscape page layout preference ('dual' or 'single')
+ * @param {string} layout 
+ */
+export function setLandscapePageLayout(layout) {
+    localStorage.setItem('landscapePageLayout', layout);
+}
+
+/**
+ * Get number of pages to show based on available window width and landscape preference
  * @param {boolean} isGuitarPro - Whether this is for Guitar Pro mode
  * @returns {number} Number of pages to show
  */
 export function getPagesPerView(isGuitarPro = false) {
-    if (isGuitarPro) {
-        // For Guitar Pro: use portrait/landscape detection
-        const aspectRatio = window.innerWidth / window.innerHeight;
-        // When taller than wide (height >= width): show 1 page
-        // When wider than tall (width > height): show 2 pages
-        return aspectRatio <= 1.0 ? 1 : 2;
+    const aspectRatio = window.innerWidth / window.innerHeight;
+    // When taller than wide (height >= width, i.e. portrait): show 1 page
+    if (aspectRatio <= 1.0) {
+        return 1;
     }
 
-    // For PDF mode: same portrait/landscape detection as Guitar Pro
-    const aspectRatio = window.innerWidth / window.innerHeight;
-    return aspectRatio <= 1.0 ? 1 : 2;
+    // When wider than tall (width > height, i.e. landscape):
+    // Check landscape page mode preference: 'dual' (2 pages) or 'single' (1 page)
+    const layout = getLandscapePageLayout();
+    return layout === 'single' ? 1 : 2;
 }
 
 export function switchToContinuous(output, condensedCanvases, onPageChange) {
