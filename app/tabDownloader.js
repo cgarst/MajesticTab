@@ -10,10 +10,10 @@ import { openLibraryModal } from './libraryModal.js';
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 
 export const UG_DEFAULT_USERSCRIPT = `
-// MajesticTab UG Userscript v8-native-stream
+// MajesticTab UG Userscript v9-clean-responsive
 (function() {
     // 1. Responsive layout fix & CSS hiding of tab player
-    const STYLE_ID = 'majestic-ug-custom-style-v8';
+    const STYLE_ID = 'majestic-ug-custom-style-v9';
     if (!document.getElementById(STYLE_ID)) {
         const style = document.createElement('style');
         style.id = STYLE_ID;
@@ -24,23 +24,19 @@ export const UG_DEFAULT_USERSCRIPT = `
                 width: 100% !important;
             }
             main, section, article, header, footer,
-            div.js-page, div.cy3pC, div.C3TYC, div.qvYYh, div._5nhnB, div._62GmN, div._9w4TK,
-            [class*="content"], [class*="wrapper"], [class*="container"] {
+            [class*="content"], [class*="wrapper"], [class*="container"], [class*="page"], [class*="layout"], [class*="main"], [class*="body"] {
                 max-width: 100% !important;
                 box-sizing: border-box !important;
             }
-            div._9w4TK {
-                width: 100% !important;
-            }
-            div._9w4TK > div {
-                width: 100% !important;
-                box-sizing: border-box !important;
+            table, iframe, svg, img {
+                max-width: 100% !important;
             }
             /* Hide the sticky tab player on Guitar Pro song pages */
             .is_sticky_player,
             [class*="is_sticky_player"],
             [class*="sticky_player"],
-            #pro-player-scroll-container {
+            #pro-player-scroll-container,
+            [id*="pro-player"] {
                 display: none !important;
             }
         \`;
@@ -181,7 +177,7 @@ export function getSources() {
                             existing.queryFormat = seed.queryFormat;
                         }
                         // If userscript is missing, empty, or an older stock script version, update it to the latest seed script
-                        if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v8-native-stream')) {
+                        if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v9-clean-responsive')) {
                             existing.userscript = seed.userscript;
                         }
                     }
@@ -301,6 +297,8 @@ export function initTauriDownloadListener() {
     }
 }
 
+let isDebugToolsEnabled = false;
+
 /**
  * Open the In-App Tab Downloader UI
  * @param {Object} [options]
@@ -317,6 +315,20 @@ export async function openTabDownloader(options = {}) {
 
     activeArtistName = options.artist || activeTargetSong?.artist || '';
     activeSongName = options.songName || activeTargetSong?.title || '';
+
+    if (window.__TAURI__?.core?.invoke) {
+        try {
+            isDebugToolsEnabled = await window.__TAURI__.core.invoke('tab_downloader_is_debug_tools_enabled');
+        } catch {
+            isDebugToolsEnabled = false;
+        }
+    } else {
+        isDebugToolsEnabled = false;
+    }
+
+    if (!isDebugToolsEnabled) {
+        isDebugDrawerOpen = false;
+    }
 
     const sources = getSources();
     const activeSource = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
@@ -441,10 +453,7 @@ function renderTabDownloaderModal(initialQuery = '') {
 
         <!-- Header Actions -->
         <div class="d-flex align-items-center gap-1.5 ms-2 flex-shrink-0">
-          ${isNative ? `
-            <button type="button" class="btn btn-sm btn-theme-primary py-1 px-2.5 d-flex align-items-center gap-1" id="downloaderDirectDownloadBtn" title="Download Guitar Pro Tab from current page">
-              <i class="bi-cloud-arrow-down-fill"></i> <span class="d-none d-sm-inline">Download Tab</span>
-            </button>
+          ${(isNative && isDebugToolsEnabled) ? `
             <button type="button" class="btn btn-sm ${isDebugDrawerOpen ? 'btn-theme-primary' : 'btn-theme-outline'} py-1 px-2" id="downloaderToggleDebugBtn" title="Toggle Webview Debug Console">
               <i class="bi-terminal"></i>
             </button>
@@ -458,7 +467,8 @@ function renderTabDownloaderModal(initialQuery = '') {
         </div>
       </div>
 
-      <!-- Live Debug Drawer (Collapsible) -->
+      <!-- Live Debug Drawer (Collapsible) - Only when debug-tools feature enabled -->
+      ${(isNative && isDebugToolsEnabled) ? `
       <div class="tab-downloader-debug-drawer" id="tabDownloaderDebugDrawer" style="${isDebugDrawerOpen ? 'display: block;' : 'display: none;'} background: #0b0f19; color: #cbd5e1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.72rem; border-bottom: 1px solid var(--border-subtle); max-height: 150px; overflow-y: auto; padding: 6px 12px; z-index: 20; position: relative;">
         <div class="d-flex align-items-center justify-content-between mb-1 pb-1 border-bottom border-secondary-subtle">
           <span class="text-info fw-bold"><i class="bi-terminal me-1"></i> Webview Debug Console</span>
@@ -471,9 +481,10 @@ function renderTabDownloaderModal(initialQuery = '') {
           ${debugLogs.length === 0 ? '<div class="text-muted small">Listening for webview console events and downloads...</div>' : debugLogs.map(l => `<div class="text-break">${escapeHtml(l)}</div>`).join('')}
         </div>
       </div>
+      ` : ''}
 
       <!-- Source Tabs Row -->
-      <div class="tab-downloader-nav d-flex align-items-center gap-1 px-3 pt-2 overflow-x-auto border-bottom border-secondary-subtle" id="downloaderTabsList">
+      <div class="tab-downloader-nav d-flex align-items-center gap-1 px-3 pt-2 overflow-x-auto overflow-y-hidden border-bottom border-secondary-subtle" id="downloaderTabsList">
         ${sources.map(s => `
           <button type="button" class="btn btn-sm downloader-tab-btn ${s.id === activeSourceId ? 'active' : ''}" data-source-id="${s.id}">
             <i class="bi bi-globe me-1"></i> ${s.name}
@@ -541,16 +552,6 @@ function renderTabDownloaderModal(initialQuery = '') {
         });
         modal.querySelector('#downloaderBrowserReloadBtn')?.addEventListener('click', () => {
             window.__TAURI__.core.invoke('tab_downloader_nav', { action: 'reload' }).catch(() => {});
-        });
-
-        // Direct download button in header toolbar
-        modal.querySelector('#downloaderDirectDownloadBtn')?.addEventListener('click', () => {
-            appendDebugLog('[Direct Download] Triggering __majesticDownloadCurrentTab from header button...');
-            window.__TAURI__.core.invoke('tab_downloader_eval', {
-                script: "if (typeof window.__majesticDownloadCurrentTab === 'function') { window.__majesticDownloadCurrentTab(); } else { alert('Download handler is initializing or this page does not contain a Guitar Pro tab.'); }"
-            }).catch(err => {
-                appendDebugLog(`[Direct Download Error] ${err}`);
-            });
         });
 
         // Debug drawer toggle

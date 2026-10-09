@@ -2669,6 +2669,13 @@ body:not(.synth-playback-started) .at-highlight {
   overflow: hidden;
 }
 
+.tab-downloader-nav {
+  overflow-x: auto;
+  overflow-y: hidden !important;
+  scrollbar-width: thin;
+  flex-shrink: 0;
+}
+
 .downloader-tab-btn {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
