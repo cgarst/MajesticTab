@@ -259,55 +259,142 @@ export function setupKeyboardNavigation(getConfig) {
 }
 
 /**
+ * Unified application back handler across Android system back button, Mouse 4, and browser popstate
+ * @param {Function|null} getConfig Function to get current navigation configuration
+ * @returns {boolean} Whether a back action was performed
+ */
+export function performAppBack(getConfig = null) {
+    // 1. If any synth/score/youtube dropdown panels are open, dismiss them
+    const openSynth = document.getElementById('synthDropdownPanel');
+    if (openSynth && openSynth.style.display !== 'none') {
+        openSynth.style.display = 'none';
+        return true;
+    }
+    const openScore = document.getElementById('scoreOptionsDropdownPanel');
+    if (openScore && openScore.style.display !== 'none') {
+        openScore.style.display = 'none';
+        return true;
+    }
+    const openYt = document.getElementById('ytDropdownPanel');
+    if (openYt && openYt.style.display !== 'none') {
+        openYt.style.display = 'none';
+        return true;
+    }
+
+    // 2. If an open modal or offcanvas is present, dismiss it first
+    const openBackdrops = Array.from(document.querySelectorAll('.theme-modal-backdrop')).filter(el => el.style.display === 'flex' || el.style.display === 'block');
+    if (openBackdrops.length > 0) {
+        const topModal = openBackdrops[openBackdrops.length - 1];
+        const closeBtn = topModal.querySelector('.theme-modal-close-btn, .btn-close, [data-bs-dismiss="modal"]');
+        if (closeBtn) {
+            closeBtn.click();
+            return true;
+        }
+        topModal.style.display = 'none';
+        return true;
+    }
+
+    const openModal = document.querySelector('.modal.show, .offcanvas.show');
+    if (openModal) {
+        const closeBtn = openModal.querySelector('[data-bs-dismiss="modal"], [data-bs-dismiss="offcanvas"], .btn-close, .theme-modal-close-btn');
+        if (closeBtn) {
+            closeBtn.click();
+            return true;
+        }
+    }
+
+    // 3. If Library Page is currently open
+    const libPage = document.getElementById('libraryPage');
+    const isLibOpen = libPage && libPage.style.display !== 'none';
+    if (isLibOpen) {
+        const libBackBtn = document.getElementById('libBrowseBackBtn');
+        if (libBackBtn && libBackBtn.offsetParent !== null && libBackBtn.style.display !== 'none') {
+            libBackBtn.click();
+            return true;
+        }
+        const libSearchBackBtn = document.getElementById('libSearchBackBtn');
+        if (libSearchBackBtn && libSearchBackBtn.offsetParent !== null && libSearchBackBtn.style.display !== 'none') {
+            libSearchBackBtn.click();
+            return true;
+        }
+        const returnSongBtn = document.getElementById('libraryReturnToSongBtn');
+        if (returnSongBtn && returnSongBtn.style.display !== 'none') {
+            returnSongBtn.click();
+            return true;
+        }
+        return false;
+    }
+
+    // 4. In Score View: return to library
+    const backToLibBtn = document.getElementById('topBarBackToLibraryBtn');
+    if (backToLibBtn && backToLibBtn.offsetParent !== null && backToLibBtn.style.display !== 'none') {
+        backToLibBtn.click();
+        return true;
+    }
+
+    // 5. In Score View fallback: navigate previous page if configured
+    if (typeof getConfig === 'function') {
+        const config = getConfig();
+        if (config && config.currentFile) {
+            const navigationHandler = new NavigationHandler(config);
+            const result = navigationHandler.handleAction(NavigationAction.PREV);
+            if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
+                config.setCurrentPageIndex(result.newPageIndex);
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Handle system back button and gesture navigation (Android & popstate)
+ * @param {Function} getConfig Function to get current navigation configuration
+ */
+export function setupSystemBackNavigation(getConfig) {
+    let lastNavTime = 0;
+
+    const handleBack = () => {
+        const now = Date.now();
+        if (now - lastNavTime < 180) return true;
+        lastNavTime = now;
+        return performAppBack(getConfig);
+    };
+
+    if (typeof window !== 'undefined' && window.history) {
+        try {
+            if (!window.history.state?.appNav) {
+                window.history.replaceState({ appNav: true, depth: 0 }, '');
+            }
+            window.history.pushState({ appNav: true, depth: 1 }, '');
+        } catch {}
+
+        window.addEventListener('popstate', () => {
+            const handled = handleBack();
+            if (handled) {
+                try {
+                    window.history.pushState({ appNav: true, depth: 1 }, '');
+                } catch {}
+            }
+        });
+    }
+
+    if (typeof window !== 'undefined' && window.__TAURI__?.event) {
+        window.__TAURI__.event.listen('tauri://back', handleBack).catch(() => {});
+        window.__TAURI__.event.listen('tauri://back-button', handleBack).catch(() => {});
+        window.__TAURI__.event.listen('android:back', handleBack).catch(() => {});
+    }
+}
+
+/**
  * Handle mouse button navigation (Mouse 4 / Mouse 5) like a browser across native clients and web
  * @param {Function} getConfig Function to get current navigation configuration
  */
 export function setupMouseNavigation(getConfig) {
     let lastNavTime = 0;
 
-    const performBack = () => {
-        // 1. If an open modal or offcanvas is present, dismiss it first
-        const openModal = document.querySelector('.modal.show, .offcanvas.show');
-        if (openModal) {
-            const closeBtn = openModal.querySelector('[data-bs-dismiss="modal"], [data-bs-dismiss="offcanvas"], .btn-close, .theme-modal-close-btn');
-            if (closeBtn) {
-                closeBtn.click();
-                return;
-            }
-        }
-
-        // 2. If Library Page is currently open
-        const libPage = document.getElementById('libraryPage');
-        const isLibOpen = libPage && libPage.style.display !== 'none';
-        if (isLibOpen) {
-            const libBackBtn = document.getElementById('libBrowseBackBtn');
-            if (libBackBtn && libBackBtn.offsetParent !== null) {
-                libBackBtn.click();
-                return;
-            }
-            const returnSongBtn = document.getElementById('libraryReturnToSongBtn');
-            if (returnSongBtn && returnSongBtn.style.display !== 'none') {
-                returnSongBtn.click();
-                return;
-            }
-            return;
-        }
-
-        // 3. In Score View: navigate previous page or return to Library if at first page
-        const config = getConfig();
-        if (!config || !config.currentFile) return;
-
-        const navigationHandler = new NavigationHandler(config);
-        const result = navigationHandler.handleAction(NavigationAction.PREV);
-
-        if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
-            config.setCurrentPageIndex(result.newPageIndex);
-        } else if (result?.atStart) {
-            // If already at beginning of score, return to library
-            const backToLibBtn = document.getElementById('topBarBackToLibraryBtn');
-            if (backToLibBtn) backToLibBtn.click();
-        }
-    };
+    const performBack = () => performAppBack(getConfig);
 
     const performForward = () => {
         // 1. If Library Page is open and a song is loaded, forward returns to score
