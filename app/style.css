@@ -2363,7 +2363,14 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 #libraryReturnToSongBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   transition: all 0.2s ease;
+}
+
+#libraryReturnToSongBtn i.bi-arrow-return-left {
+  margin-right: 0.15rem;
 }
 
 #libraryReturnToSongBtn:hover {
@@ -2459,12 +2466,19 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 .collection-pill-group .collection-select-input {
-  background: transparent !important;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  background-color: transparent !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.75rem center !important;
+  background-size: 11px 11px !important;
   border: none !important;
   color: var(--text-primary) !important;
   font-size: 0.8rem !important;
   font-weight: 500;
-  padding: 0.3rem 1.8rem 0.3rem 0.85rem !important;
+  padding: 0.3rem 2.1rem 0.3rem 0.85rem !important;
   cursor: pointer;
   outline: none !important;
   box-shadow: none !important;
@@ -2472,7 +2486,10 @@ body:not(.synth-playback-started) .at-highlight {
   min-width: 130px;
 }
 
-.collection-pill-group .collection-select-input:hover {
+.collection-pill-group:hover .collection-select-input,
+.collection-pill-group .collection-select-input:hover,
+.collection-pill-group .collection-select-input:focus {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e") !important;
   color: #ffffff !important;
 }
 
@@ -2566,19 +2583,29 @@ body:not(.synth-playback-started) .at-highlight {
   color: #ffffff;
 }
 
-/* Add Music CTA Button */
+/* Primary CTAs: Open File & Add Music */
+.lib-open-file-btn,
 .lib-add-music-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
   padding: 0.35rem 1rem !important;
   font-size: 0.82rem !important;
-  font-weight: 600 !important;
   border-radius: 9999px !important;
   white-space: nowrap;
   letter-spacing: 0.01em;
+  transition: all 0.2s ease;
 }
 
+.lib-open-file-btn {
+  font-weight: 500;
+}
+
+.lib-add-music-btn {
+  font-weight: 600 !important;
+}
+
+.lib-open-file-btn i,
 .lib-add-music-btn i {
   font-size: 0.85rem;
   line-height: 1;
@@ -3187,12 +3214,5 @@ body:not(.synth-playback-started) .at-highlight {
   box-shadow: 0 0 12px var(--accent-glow);
 }
 
-.lib-open-file-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-weight: 500;
-  transition: all 0.15s ease;
-}
 
 
