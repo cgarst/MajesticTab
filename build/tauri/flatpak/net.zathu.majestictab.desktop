@@ -5,5 +5,6 @@ Exec=majestictab %U
 Icon=net.zathu.majestictab
 Terminal=false
 Type=Application
+StartupWMClass=majestictab
 Categories=AudioVideo;Education;
 MimeType=application/pdf;text/plain;application/x-guitar-pro;application/x-gtp;

@@ -149,8 +149,10 @@ const GENERATORS = {
     }
   },
   async linux() {
-    const out = await generatePngs('linux', PLATFORMS.linux, [32, 128, 256, 512]);
-    await copyTopLevel(out, path.join(iconsDir, 'linux'), (file) => file.endsWith('.png'));
+    const out = await generatePngs('linux', PLATFORMS.linux, [16, 24, 32, 48, 64, 128, 256, 512]);
+    const target = path.join(iconsDir, 'linux');
+    await copyTopLevel(out, target, (file) => file.endsWith('.png'));
+    await writeFile(path.join(target, 'net.zathu.majestictab.svg'), composeSvg(PLATFORMS.linux));
   },
   async macos() {
     const sizes = [...new Set(ICNS_TYPES.map(([, size]) => size))];
