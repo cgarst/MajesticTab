@@ -209,6 +209,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 pub struct TabDownloaderState {
     pub current_url: Mutex<Option<String>>,
     pub active_userscript: Mutex<Option<String>>,
+    pub pending_downloads: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
+    pub last_destination: Mutex<Option<std::path::PathBuf>>,
 }
 
 pub fn wrap_userscript(raw_js: &str) -> String {
@@ -426,14 +428,39 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                     }
                 }
 
-                *destination = dest_dir.join(&filename);
-                eprintln!("[Tab Downloader] Native download requested -> destination={:?}, url={}", destination, url);
+                let final_dest = dest_dir.join(&filename);
+                *destination = final_dest.clone();
+
+                if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
+                    if let Ok(mut pending) = state.pending_downloads.lock() {
+                        pending.insert(url.to_string(), final_dest.clone());
+                    }
+                    if let Ok(mut last) = state.last_destination.lock() {
+                        *last = Some(final_dest.clone());
+                    }
+                }
+
+                eprintln!("[Tab Downloader] Native download requested -> destination={:?}, url={}", final_dest, url);
                 true
             }
             tauri::webview::DownloadEvent::Finished { url, path, success, .. } => {
                 eprintln!("[Tab Downloader] Native download finished: success={}, url={}, path={:?}", success, url, path);
                 if success {
-                    if let Some(p) = path {
+                    let resolved_path = path.or_else(|| {
+                        if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
+                            if let Ok(mut pending) = state.pending_downloads.lock() {
+                                if let Some(p) = pending.remove(&url.to_string()) {
+                                    return Some(p);
+                                }
+                            }
+                            if let Ok(mut last) = state.last_destination.lock() {
+                                return last.take();
+                            }
+                        }
+                        None
+                    });
+
+                    if let Some(p) = resolved_path {
                         let mut filename = p
                             .file_name()
                             .map(|f| f.to_string_lossy().to_string())
@@ -449,7 +476,7 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                                     }
                                 }
 
-                                eprintln!("[Tab Downloader] Ingested tab download: {} ({} bytes)", filename, bytes.len());
+                                eprintln!("[Tab Downloader] Ingested tab download: {:?} -> {} ({} bytes)", p, filename, bytes.len());
                                 let payload = DownloadedTabPayload {
                                     name: filename,
                                     path: Some(p.to_string_lossy().to_string()),
