@@ -14,6 +14,16 @@
 - **Form Controls & Inputs:** Inputs, dropdowns, and switches must reuse theme styles (`.form-control`, `.form-select` with theme background/borders, `.form-check-input.theme-switch`, `.hud-pill-group`).
 - **Multi-Theme Verification:** Match existing controls' themed active, inactive, hover, and disabled states. Verify new UI in at least two finish themes (e.g., Mystic Dream, Blue Pearl, Ember Glow) to ensure colors, contrast, and selected states remain legible and consistent across all themes.
 
+## UI Spacing & Layout Consistency
+
+- **Never Use Non-Existent or Tailwind-Style Spacing Classes:** Bootstrap 5 only supports standard integer spacing utility steps (`0`, `1`, `2`, `3`, `4`, `5`). Do **NOT** use Tailwind-like fractional or decimal spacing classes (such as `px-3.5`, `py-2.5`, `gap-3.5`, `m-1.5`, etc.). Browsers silently ignore unrecognized classes, resetting paddings/gaps to `0` and causing buttons, text, and badges to collide directly against outer borders.
+- **Explicit CSS Padding for Cards & Rows:** Always define proper explicit padding in `app/style.css` for reusable card and row containers (e.g. `.library-song-row`, `.library-track-row`, `.library-card`, `.library-album-banner`) rather than relying solely on inline utility classes.
+- **Prevent Edge & Sibling Collisions:**
+  - **Leading Badges & Numbers:** Always assign fixed dimensions and `flex-shrink: 0` (e.g. `.badge-track-num { min-width: 28px; width: 28px; height: 28px; flex-shrink: 0; }`) with adequate gap (`gap-2.5` or `gap-3`) to song titles.
+  - **Trailing Action Buttons & Dropdowns:** Always mark trailing action button groups with `flex-shrink: 0` and provide left separation (e.g. `ms-2`, `gap-2`) so buttons like `+ Tab`, edit, or delete never crash into the right card border or overlap titles.
+  - **Sub-Containers & Chip Lists:** Structure sub-sections (e.g. `.tab-options-container`) with full-width alignment, top separation, and subtle divider borders (`pt-2.5 mt-1 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-2`) rather than arbitrary left padding offsets (`ps-4`) that break grid alignment.
+  - **Vertical Text & Pill Rhythm:** Maintain comfortable vertical spacing between song titles and subtitle badge rows (`mt-1.5` / `mt-2` or `gap-2.5`) to prevent text and badges from visually bunching together.
+
 ## Test Procedures
 
 ### Local Dev Server
