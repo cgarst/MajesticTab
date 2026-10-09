@@ -30,16 +30,32 @@
     <span class="brand-title" id="brand-text" data-tauri-drag-region>
       Majestic<span class="brand-title-accent">Tab</span>
     </span>
+    <!-- Library Back button: visible when navigating inside nested library / search / recents views -->
+    <button type="button" class="brand-btn theme-modal-back-btn p-1 px-2" id="libraryBackBtn" title="Go back" aria-label="Go back" style="display:none;">
+      <i class="bi-arrow-left"></i>
+    </button>
   </div>
 
   <div id="centerSection" data-tauri-drag-region>
-    <!-- View Mode Switcher -->
+    <!-- View Mode Switcher (Song Mode) -->
     <div id="modeButtons" class="hud-pill-group" role="group" aria-label="Display Mode" style="display:none;">
       <input type="radio" class="btn-check" name="modeRadio" id="pageModeRadio" autocomplete="off" tabindex="-1" checked>
       <label class="btn btn-sm" for="pageModeRadio" tabindex="-1" title="Page View Mode"><i class="bi-book me-1"></i><span class="mode-btn-text">Page</span></label>
       
       <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off" tabindex="-1">
       <label class="btn btn-sm" for="continuousModeRadio" tabindex="-1" title="Continuous Scroll Mode"><i class="bi-arrow-down-up me-1"></i><span class="mode-btn-text">Scroll</span></label>
+    </div>
+
+    <!-- Library Mode Navigation (Library View) -->
+    <div id="libraryNavButtons" style="display:none;">
+      <div class="hud-pill-group" role="group" aria-label="Library Navigation">
+        <button type="button" class="btn btn-sm active" id="navBtnLibrary" title="Tab Library">
+          <i class="bi-collection-play me-1"></i><span class="d-none d-sm-inline">Library</span>
+        </button>
+        <button type="button" class="btn btn-sm" id="navBtnRecents" title="Recently Opened Tabs">
+          <i class="bi-clock-history me-1"></i><span class="d-none d-sm-inline">Recents</span>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -64,10 +80,20 @@
       </button>
     </div>
 
-    <!-- Library Toggle -->
-    <div id="libraryPill" class="hud-pill-group" role="group" aria-label="Tab Library">
+    <!-- Library Toggle (Song Mode) -->
+    <div id="libraryPill" class="hud-pill-group" role="group" aria-label="Tab Library" style="display:none;">
       <button class="btn btn-sm" id="libraryToggleBtn" title="Tab Library">
         <i class="bi-music-player"></i><span class="d-none d-sm-inline ms-1">Library</span>
+      </button>
+    </div>
+
+    <!-- Library Mode Controls (Right Section in Library View) -->
+    <div id="libraryRightControls" style="display:none;">
+      <!-- Return to Song Button (when a song is open) -->
+      <button type="button" class="btn btn-sm btn-theme-outline align-items-center gap-1.5 py-1 px-2.5" id="libraryReturnToSongBtn" title="Return to active score" style="border-radius: 9999px; display: none;">
+        <i class="bi-arrow-return-left text-info"></i>
+        <span class="d-none d-lg-inline text-truncate" id="libraryReturnSongName" style="max-width:130px;"></span>
+        <i class="bi-x-lg ms-1" style="font-size: 0.75rem;"></i>
       </button>
     </div>
 
@@ -364,9 +390,6 @@
       <div class="settings-header-label">
         <i class="bi-folder2-open text-primary"></i> Load Tab
       </div>
-      <button class="btn btn-outline-info w-100 d-flex align-items-center justify-content-center gap-2 mb-2" id="openLibraryBtn">
-        <i class="bi-music-player"></i> Tab Library
-      </button>
       <div>
         <label id="localFileSourceLabel" class="form-label mb-1 small text-white-50">From local device:</label>
         <input type="file" class="form-control" id="localFile" accept=".pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt">
