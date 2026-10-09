@@ -640,6 +640,12 @@ async function renderLibraryBrowseView(container) {
                       : `${currentSongs.length} ${currentSongs.length === 1 ? 'Song' : 'Songs'}`
                   }
                 </span>
+                ${(!isStandardAlbumView && (currentSongs.length > 0 || isCustomArtist)) ? `
+                  <button class="btn btn-sm ${isAlbumEditMode ? 'btn-theme-primary' : 'btn-theme-outline'} py-1 px-3 d-inline-flex align-items-center gap-1 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">
+                    <i class="bi-${isAlbumEditMode ? 'check-lg' : 'pencil'}"></i>
+                    <span>${isAlbumEditMode ? 'Done' : 'Edit'}</span>
+                  </button>
+                ` : ''}
               </div>
             </div>
             `;
@@ -1463,8 +1469,14 @@ function setupSongRowActions(container) {
                 const hierarchy = await getLibraryHierarchy(activeCollectionId);
                 const currentArtist = hierarchy.artists.find(a => a.name === selectedArtist?.name);
                 const currentAlbum = currentArtist?.albums.find(a => a.title === selectedAlbum?.title);
-                if (!currentAlbum || currentAlbum.songs.length === 0) {
+                if (selectedAlbum && (!currentAlbum || currentAlbum.songs.length === 0)) {
                     selectedAlbum = null;
+                    isAlbumEditMode = false;
+                }
+                if (!currentArtist || (currentArtist.songs.length === 0 && currentArtist.albums.length === 0)) {
+                    selectedArtist = null;
+                    selectedAlbum = null;
+                    selectedFolderPath = [];
                     isAlbumEditMode = false;
                 }
                 await renderView();
