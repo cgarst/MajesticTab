@@ -263,10 +263,14 @@ if (target === 'android') {
   run('npm', ['run', 'tauri', '--', 'build', '--no-bundle']);
   const repoDir = path.join(tauriDir, 'target', 'flatpak-repo');
   const buildDir = path.join(tauriDir, 'target', 'flatpak-build');
-  // A cached target/ can restore an empty repo dir that flatpak-builder cannot open.
+  const flatpakCacheDir = path.join(rootDir, '.flatpak-builder');
+  // Clear any cached Flatpak build/repo directories to avoid stale artifacts
   await rm(repoDir, { recursive: true, force: true });
+  await rm(buildDir, { recursive: true, force: true });
+  await rm(flatpakCacheDir, { recursive: true, force: true });
   run('flatpak-builder', [
     '--force-clean',
+    '--disable-cache',
     `--repo=${repoDir}`,
     buildDir,
     path.join(tauriDir, 'flatpak', 'manifest.yml'),
