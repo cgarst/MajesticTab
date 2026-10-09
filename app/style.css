@@ -2848,7 +2848,21 @@ body:not(.synth-playback-started) .at-highlight {
   flex-shrink: 0;
 }
 
+.album-cover-container {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .album-cover-img {
+  width: 100%;
+  height: 100%;
   aspect-ratio: 1 / 1;
   object-fit: cover;
   border-radius: 0.5rem;
