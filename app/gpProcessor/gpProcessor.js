@@ -58,6 +58,22 @@ export function getGuitarTracks(score) {
         });
 }
 
+export const DEFAULT_GP_NOTATION_MODE = 'tab';
+
+export function getGpNotationMode() {
+    if (typeof localStorage === 'undefined') return DEFAULT_GP_NOTATION_MODE;
+    const saved = localStorage.getItem('gpNotationMode');
+    return saved === 'scoreTab' ? 'scoreTab' : DEFAULT_GP_NOTATION_MODE;
+}
+
+export function setGpNotationMode(mode) {
+    const safeMode = mode === 'scoreTab' ? 'scoreTab' : 'tab';
+    if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('gpNotationMode', safeMode);
+    }
+    return safeMode;
+}
+
 export function loadGuitarPro(file, container, { debug = false } = {}) {
     return new Promise((resolve, reject) => {
         if (!container) {
@@ -68,7 +84,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
         // Create AlphaTab API
         const tempApi = new alphaTab.AlphaTabApi(container, {
             core: { file, enableLazyLoading: false },
-            display: { staveProfile: "tab" }
+            display: { staveProfile: getGpNotationMode() === 'scoreTab' ? "Default" : "Tab" }
         });
 
         // Handle file loading errors
@@ -111,7 +127,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                     enableElementHighlighting: true,
                     scrollMode: alphaTab.ScrollMode.Off
                 },
-                display: { staveProfile: "Tab", layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE },
+                display: { staveProfile: getGpNotationMode() === 'scoreTab' ? "Default" : "Tab", layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE },
                 notation: {
                     rhythmMode: alphaTab.TabRhythmMode.ShowWithBars,
                     elements: {
