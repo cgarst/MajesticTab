@@ -137,6 +137,18 @@ export const LocalFileProvider = {
             const file = input.files?.[0];
             input.remove();
             if (file) {
+                if (typeof options.onFileSelected === 'function') {
+                    try {
+                        const meta = await detectFileMetadata(file, file.name);
+                        const stored = await saveStoredFile(file, 'local');
+                        options.onFileSelected({ file, providerId: 'local', fileStoreId: stored.id, name: file.name, meta });
+                    } catch (err) {
+                        console.warn('Could not persist file to store:', err);
+                        showToast('Error attaching tab file', 'error');
+                    }
+                    return;
+                }
+
                 const targetId = options.songId || options.targetSong?.id;
                 const isAlbumTab = Boolean(options.isAlbumTab && options.albumTitle);
 

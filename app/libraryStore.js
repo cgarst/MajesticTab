@@ -110,48 +110,88 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
     const artistMap = new Map();
 
     for (const song of songs) {
-        const artistName = (song.artist || 'Unknown Artist').trim();
+        let isCustom = Boolean(song.isCustom);
+        let artistName = (song.artist || '').trim();
+
+        if (isCustom) {
+            if (!artistName || artistName === 'Student Documents') {
+                artistName = 'Custom Music';
+            }
+        } else if (!artistName) {
+            artistName = 'Unknown Artist';
+        }
+
         if (!artistMap.has(artistName)) {
             artistMap.set(artistName, {
                 name: artistName,
                 artistMbid: song.artistMbid || null,
-                isCustom: Boolean(song.isCustom),
+                isCustom: isCustom,
+                songs: [],
                 albums: new Map()
             });
         }
         const artist = artistMap.get(artistName);
+        if (isCustom) artist.isCustom = true;
 
-        const albumName = (song.album || 'Singles / Other').trim();
-        if (!artist.albums.has(albumName)) {
-            artist.albums.set(albumName, {
-                title: albumName,
-                albumMbid: song.albumMbid || null,
-                coverUrl: song.coverUrl || null,
-                year: song.year || null,
-                isCustom: Boolean(song.isCustom),
-                tabOptions: [],
-                defaultTabId: null,
-                songs: []
-            });
-        }
-        const album = artist.albums.get(albumName);
-        if (!album.coverUrl && song.coverUrl) {
-            album.coverUrl = song.coverUrl;
-        }
-        if (!album.year && song.year) {
-            album.year = song.year;
+        let rawAlbum = (song.album || '').trim();
+        let folderPath = (song.folderPath || rawAlbum).trim();
+
+        if (isCustom) {
+            if (folderPath === 'Student Documents/General' || folderPath === 'General' || folderPath === 'Student Documents') {
+                folderPath = '';
+                rawAlbum = '';
+            } else if (folderPath.startsWith('Student Documents/')) {
+                folderPath = folderPath.replace(/^Student Documents\//, '');
+                rawAlbum = folderPath;
+            }
         }
 
-        if (song.isAlbumTabContainer) {
-            album.tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
-            album.defaultTabId = song.defaultTabId || (album.tabOptions[0]?.id || null);
+        const isRootLayer = isCustom && (!folderPath || folderPath === '' || folderPath === 'Custom Music');
+
+        if (isRootLayer) {
+            if (!song.isAlbumTabContainer) {
+                artist.songs.push(song);
+            }
         } else {
-            album.songs.push(song);
+            const albumName = folderPath || rawAlbum || 'Singles / Other';
+            if (!artist.albums.has(albumName)) {
+                artist.albums.set(albumName, {
+                    title: albumName,
+                    albumMbid: song.albumMbid || null,
+                    coverUrl: song.coverUrl || null,
+                    year: song.year || null,
+                    isCustom: isCustom,
+                    folderPath: isCustom ? albumName : null,
+                    tabOptions: [],
+                    defaultTabId: null,
+                    songs: []
+                });
+            }
+            const album = artist.albums.get(albumName);
+            if (!album.coverUrl && song.coverUrl) {
+                album.coverUrl = song.coverUrl;
+            }
+            if (!album.year && song.year) {
+                album.year = song.year;
+            }
+
+            if (song.isAlbumTabContainer) {
+                album.tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
+                album.defaultTabId = song.defaultTabId || (album.tabOptions[0]?.id || null);
+            } else {
+                album.songs.push(song);
+            }
         }
     }
 
     // Convert map to sorted arrays
     const artists = Array.from(artistMap.values()).map(artist => {
+        // Sort direct songs: pinned first, then title
+        artist.songs.sort((a, b) => {
+            if (Boolean(b.pinned) !== Boolean(a.pinned)) return b.pinned ? 1 : -1;
+            return (a.title || '').localeCompare(b.title || '');
+        });
+
         const albums = Array.from(artist.albums.values()).map(album => {
             // Sort songs: pinned first, then medium number, then track number or title
             album.songs.sort((a, b) => {
@@ -179,6 +219,7 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             name: artist.name,
             artistMbid: artist.artistMbid,
             isCustom: artist.isCustom,
+            songs: artist.songs,
             albums
         };
     });
