@@ -3,7 +3,7 @@ import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
-import { attachAlphaTabApi, detachAlphaTabApi } from './gpPlayer.js';
+import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions } from './gpPlayer.js';
 import { extractScoreTunings, extractScoreMetadata } from '../utils/tuningUtils.js';
 import { addRecentOpened, updateLibrarySongFromScore } from '../libraryStore.js';
 
@@ -17,6 +17,7 @@ export const gpState = {
     lastLayoutDimensions: null, // Cache layout dimensions
     reset() {
         detachAlphaTabApi();
+        hideScoreOptions();
         this.canvases.length = 0;
         this.pages.length = 0;
         this.currentPageIndex = 0;
@@ -90,6 +91,9 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
         // Attach to synth player
         attachAlphaTabApi(api);
+
+        // Show Score Options button
+        showScoreOptions();
 
         // Populate track selection UI
         populateGpTrackSelectionUI(api);
