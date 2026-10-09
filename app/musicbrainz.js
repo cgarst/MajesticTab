@@ -467,8 +467,85 @@ export async function getMusicianRelations(musicianMbid) {
 }
 
 /**
+ * Detect whether a medium format or medium title indicates a DVD, Blu-ray, or non-CD video medium.
+ * Preserves CD audio formats (including Blu-spec CD, SACD, Digital Media, Vinyl, Cassette).
+ */
+export function isDvdOrBlurayMedium(mediumOrFormat) {
+    if (!mediumOrFormat) return false;
+    const format = typeof mediumOrFormat === 'string'
+        ? mediumOrFormat
+        : (mediumOrFormat.mediumFormat || mediumOrFormat.format || '');
+    const title = typeof mediumOrFormat === 'object'
+        ? (mediumOrFormat.mediumTitle || mediumOrFormat.title || '')
+        : '';
+
+    const fLower = format.toLowerCase().trim();
+    const tLower = title.toLowerCase().trim();
+
+    // Preserve Blu-spec CD / BSCD (which are standard audio CDs, NOT Blu-ray)
+    if (fLower.includes('blu-spec') || fLower.includes('bscd') || tLower.includes('blu-spec') || tLower.includes('bscd')) {
+        return false;
+    }
+
+    // Match DVD formats: DVD, DVD-Video, DVD-Audio, DVD-R, DVD+R, DVD-RAM, HD-DVD
+    if (/\bdvd\b/i.test(fLower) || fLower.includes('dvd-') || fLower.includes('-dvd') || fLower.startsWith('dvd') || fLower.endsWith('dvd')) {
+        return true;
+    }
+
+    // Match Blu-ray / BD formats: Blu-ray, Blu-ray-R, BD-Video, BD-Audio, BD-R, BD
+    if (fLower.includes('blu-ray') || fLower.includes('bluray') || fLower === 'bd' || fLower.startsWith('bd-') || fLower.includes('bd-video') || fLower.includes('bd-audio')) {
+        return true;
+    }
+
+    // Video media formats
+    if (['vcd', 'svcd', 'vhs', 'laserdisc', 'umd', 'betamax', 'video8', 'hd-dvd'].includes(fLower)) {
+        return true;
+    }
+
+    // Also check medium title if title explicitly mentions DVD / Blu-ray (e.g. "Bonus DVD", "Live Blu-ray", "DVD: ...")
+    if (/\b(dvd|blu-ray|bluray|vhs|laserdisc)\b/i.test(tLower)) {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Detect whether a medium format or medium title indicates a Vinyl or Cassette/Tape medium.
+ */
+export function isVinylOrTapeMedium(mediumOrFormat) {
+    if (!mediumOrFormat) return false;
+    const format = typeof mediumOrFormat === 'string'
+        ? mediumOrFormat
+        : (mediumOrFormat.mediumFormat || mediumOrFormat.format || '');
+    const title = typeof mediumOrFormat === 'object'
+        ? (mediumOrFormat.mediumTitle || mediumOrFormat.title || '')
+        : '';
+
+    const fLower = format.toLowerCase().trim();
+    const tLower = title.toLowerCase().trim();
+
+    if (fLower.includes('vinyl') || fLower.includes('cassette') || fLower.includes('tape') || fLower === 'lp' || fLower.includes('flexi-disc')) {
+        return true;
+    }
+    if (/\b(vinyl|cassette|tape|flexi-disc)\b/i.test(tLower)) {
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Detect whether a medium is non-CD (DVD, Blu-ray, or Vinyl/Tape when CD is present).
+ */
+export function isNonCdMedium(mediumOrFormat, hasCdMedia = true) {
+    if (isDvdOrBlurayMedium(mediumOrFormat)) return true;
+    if (hasCdMedia && isVinylOrTapeMedium(mediumOrFormat)) return true;
+    return false;
+}
+
+/**
  * Get album details and full tracklist from MusicBrainz.
- * Explicitly prefers US CD/Digital releases and original release dates.
+ * Explicitly prefers US CD/Digital releases, filters out DVD/Blu-ray/Vinyl media (when CD is present), and preserves original release dates.
  */
 export async function getAlbumTracks(releaseGroupMbid) {
     if (!releaseGroupMbid) return null;
@@ -490,7 +567,7 @@ export async function getAlbumTracks(releaseGroupMbid) {
 
     if (releases.length === 0) return null;
 
-    // Sort & select best release (prefer US CD / Digital Media releases, official status, original year)
+    // Sort & select best release (prefer pure CD / Digital Media releases, official status, original year, penalize Vinyl & DVD-only)
     const scoredReleases = releases.map(rel => {
         let score = 0;
         const country = (rel.country || '').toUpperCase();
@@ -502,10 +579,16 @@ export async function getAlbumTracks(releaseGroupMbid) {
         else if (rel.status === 'Promotion' || rel.status === 'Bootleg') score -= 60;
 
         const formats = (rel.media || []).map(m => m.format).filter(Boolean);
-        const hasCdOrDigital = formats.some(f => ['CD', 'Digital Media', 'Enhanced CD', 'Hybrid SACD', 'SACD'].includes(f));
-        const hasVinylOrTape = formats.some(f => f.includes('Vinyl') || f === 'Cassette');
-        if (hasCdOrDigital) score += 120;
-        else if (hasVinylOrTape) score -= 50;
+        const hasCdOrDigital = formats.some(f => !isDvdOrBlurayMedium(f) && !isVinylOrTapeMedium(f) && ['CD', 'Digital Media', 'Enhanced CD', 'Hybrid SACD', 'SACD', 'Blu-spec CD', 'Blu-spec CD2', 'SHM-CD', 'HQCD'].some(cf => f.toLowerCase().includes(cf.toLowerCase())));
+        const hasVinylOrTape = formats.some(f => isVinylOrTapeMedium(f));
+        const isAllVideoOrDvd = formats.length > 0 && formats.every(f => isDvdOrBlurayMedium(f));
+        const isPureCdOrDigital = formats.length > 0 && formats.every(f => !isDvdOrBlurayMedium(f) && !isVinylOrTapeMedium(f));
+
+        if (isPureCdOrDigital) score += 160;
+        else if (hasCdOrDigital) score += 80;
+
+        if (hasVinylOrTape) score -= 120;
+        if (isAllVideoOrDvd) score -= 300;
 
         const dateStr = rel.date || '';
         if (dateStr && dateStr.length >= 4 && /^\d{4}/.test(dateStr)) {
@@ -525,53 +608,92 @@ export async function getAlbumTracks(releaseGroupMbid) {
     });
 
     scoredReleases.sort((a, b) => b.score - a.score);
-    const chosenRelease = scoredReleases[0].rel;
 
-    // 3. Fetch full release details with recordings
-    const releaseDetailUrl = `${MB_BASE}/release/${chosenRelease.id}?inc=recordings+artists+media&fmt=json`;
-    const detailData = await fetchMusicBrainz(releaseDetailUrl);
+    // 3. Fetch candidate release details, filtering out DVD, Blu-ray, and Vinyl media (when CD media exist)
+    let chosenRelease = null;
+    let detailData = null;
+    let tracks = [];
+    const scrubbedRecordingMbids = new Set();
+    const scrubbedMediumNumbers = new Set();
 
-    const artistCredit = detailData['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist';
-    const year = detailData.date ? parseInt(detailData.date.slice(0, 4), 10) : null;
-    const coverUrl = getCoverArtUrl(releaseGroupMbid, chosenRelease.id);
+    // Try top candidate releases to ensure we extract CD tracks
+    const candidatesToTry = scoredReleases.slice(0, 5);
+    for (const { rel } of candidatesToTry) {
+        const releaseDetailUrl = `${MB_BASE}/release/${rel.id}?inc=recordings+artists+media&fmt=json`;
+        const candidateDetail = await fetchMusicBrainz(releaseDetailUrl);
+        const candidateMedia = candidateDetail.media || [];
+        const candidateTracks = [];
 
-    const tracks = [];
-    const media = detailData.media || [];
+        const hasAnyCdOrDigital = candidateMedia.some(m => !isDvdOrBlurayMedium(m) && !isVinylOrTapeMedium(m));
 
-    for (const medium of media) {
-        const mediumTitle = medium.title || '';
-        const mediumFormat = medium.format || 'CD';
-        const mediumNumber = medium.position || 1;
+        for (const medium of candidateMedia) {
+            const mediumTitle = medium.title || '';
+            const mediumFormat = medium.format || 'CD';
+            const mediumNumber = medium.position || 1;
 
-        for (const tr of medium.tracks || []) {
-            const recording = tr.recording || {};
-            let title = tr.title || recording.title || 'Untitled Track';
-            const disambig = (tr.disambiguation || recording.disambiguation || '').trim();
-            if (disambig) {
-                const cleanD = disambig.replace(/^\((.+)\)$/, '$1').trim();
-                if (cleanD && !title.toLowerCase().includes(cleanD.toLowerCase())) {
-                    title = `${title} (${cleanD})`;
+            const isDvd = isDvdOrBlurayMedium(medium);
+            const isVinyl = isVinylOrTapeMedium(medium);
+
+            // Filter out DVD/Blu-ray always, and filter out Vinyl/Tape if CD/Digital media exist in the release
+            if (isDvd || (isVinyl && hasAnyCdOrDigital)) {
+                scrubbedMediumNumbers.add(mediumNumber);
+                for (const tr of medium.tracks || []) {
+                    const recording = tr.recording || {};
+                    if (recording.id) scrubbedRecordingMbids.add(recording.id);
+                    if (tr.id) scrubbedRecordingMbids.add(tr.id);
                 }
+                continue;
             }
 
-            const parsedTrackNum = typeof tr.position === 'number' ? tr.position : (parseInt(tr.position || tr.number, 10) || tracks.length + 1);
+            for (const tr of medium.tracks || []) {
+                const recording = tr.recording || {};
+                let title = tr.title || recording.title || 'Untitled Track';
+                const disambig = (tr.disambiguation || recording.disambiguation || '').trim();
+                if (disambig) {
+                    const cleanD = disambig.replace(/^\((.+)\)$/, '$1').trim();
+                    if (cleanD && !title.toLowerCase().includes(cleanD.toLowerCase())) {
+                        title = `${title} (${cleanD})`;
+                    }
+                }
 
-            tracks.push({
-                id: recording.id || tr.id,
-                recordingMbid: recording.id || '',
-                trackNumber: parsedTrackNum,
-                mediumNumber,
-                mediumTitle,
-                mediumFormat,
-                title,
-                length: tr.length ? Math.round(tr.length / 1000) : (recording.length ? Math.round(recording.length / 1000) : null),
-                artist: artistCredit,
-                album: detailData.title,
-                year,
-                coverUrl
-            });
+                const parsedTrackNum = typeof tr.position === 'number' ? tr.position : (parseInt(tr.position || tr.number, 10) || candidateTracks.length + 1);
+
+                candidateTracks.push({
+                    id: recording.id || tr.id,
+                    recordingMbid: recording.id || '',
+                    trackNumber: parsedTrackNum,
+                    mediumNumber,
+                    mediumTitle,
+                    mediumFormat,
+                    title,
+                    length: tr.length ? Math.round(tr.length / 1000) : (recording.length ? Math.round(recording.length / 1000) : null),
+                    artist: candidateDetail['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist',
+                    album: candidateDetail.title,
+                    year: candidateDetail.date ? parseInt(candidateDetail.date.slice(0, 4), 10) : originalYear,
+                    coverUrl: getCoverArtUrl(releaseGroupMbid, rel.id)
+                });
+            }
+        }
+
+        if (candidateTracks.length > 0 || !chosenRelease) {
+            chosenRelease = rel;
+            detailData = candidateDetail;
+            tracks = candidateTracks;
+            if (candidateTracks.length > 0) {
+                break;
+            }
         }
     }
+
+    if (!chosenRelease || !detailData) {
+        chosenRelease = scoredReleases[0].rel;
+        const releaseDetailUrl = `${MB_BASE}/release/${chosenRelease.id}?inc=recordings+artists+media&fmt=json`;
+        detailData = await fetchMusicBrainz(releaseDetailUrl);
+    }
+
+    const artistCredit = detailData['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist';
+    const year = detailData.date ? parseInt(detailData.date.slice(0, 4), 10) : originalYear;
+    const coverUrl = getCoverArtUrl(releaseGroupMbid, chosenRelease.id);
 
     return {
         releaseGroupId: releaseGroupMbid,
@@ -582,6 +704,9 @@ export async function getAlbumTracks(releaseGroupMbid) {
         country: chosenRelease.country || 'US',
         year,
         coverUrl,
-        tracks
+        tracks,
+        hasCdMedia: Boolean(tracks.some(t => !isVinylOrTapeMedium(t) && !isDvdOrBlurayMedium(t))),
+        scrubbedRecordingMbids: Array.from(scrubbedRecordingMbids),
+        scrubbedMediumNumbers: Array.from(scrubbedMediumNumbers)
     };
 }

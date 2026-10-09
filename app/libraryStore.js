@@ -3,7 +3,7 @@
 
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile } from './fileStore.js';
 import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory } from './utils/tuningUtils.js';
-import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl } from './musicbrainz.js';
+import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
 
@@ -361,13 +361,15 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
 }
 
 /**
- * Add an entire album with tracklist to library
+ * Add an entire album with tracklist to library (filtering out DVD/Blu-ray media)
  */
 export async function addAlbumToLibrary(albumData, tracks = [], collectionId = DEFAULT_COLLECTION_ID) {
     const db = await getDB();
     const results = [];
+    const hasCdTracks = tracks.some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
+    const cleanTracks = tracks.filter(t => !isDvdOrBlurayMedium(t) && !(hasCdTracks && isVinylOrTapeMedium(t)));
 
-    for (const track of tracks) {
+    for (const track of cleanTracks) {
         const medNum = track.mediumNumber || 1;
         const trackNum = track.trackNumber || '';
         const id = `song_${albumData.artistMbid || albumData.artist}_${albumData.releaseGroupId || albumData.title}_m${medNum}_${track.recordingMbid || trackNum || track.title}`.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -1091,8 +1093,25 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         addedCovers: 0,
         addedYears: 0,
         updatedTunings: 0,
+        scrubbedNonCdTracks: 0,
+        get scrubbedDvdTracks() { return this.scrubbedNonCdTracks; },
         errors: []
     };
+
+    const scrubbedSongIds = new Set();
+
+    // 0. Retroactively scrub any existing library songs that have explicit DVD/Blu-ray medium format or title
+    for (const song of songs) {
+        if (!song.isCustom && isDvdOrBlurayMedium(song)) {
+            try {
+                await deleteSongFromLibrary(song.id);
+                scrubbedSongIds.add(song.id);
+                stats.scrubbedNonCdTracks++;
+            } catch (err) {
+                console.warn(`[reloadMetadata] Error scrubbing DVD song ${song.title}:`, err);
+            }
+        }
+    }
 
     // Helper to analyze attached tabs from persistent fileStore and detect tunings & string counts
     const enrichSongWithTabMetadata = async (song) => {
@@ -1178,6 +1197,8 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
     const standaloneSongs = [];
 
     for (const song of songs) {
+        if (scrubbedSongIds.has(song.id)) continue;
+
         const artist = (song.artist || '').trim();
         const album = (song.album || '').trim();
         const albumMbid = (song.albumMbid || '').trim();
@@ -1254,112 +1275,141 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                 }
             }
 
-            if (albumData && albumData.tracks && albumData.tracks.length > 0) {
-                stats.updatedAlbums++;
-                const tracks = albumData.tracks;
+            if (albumData) {
+                const scrubbedRecs = new Set(albumData.scrubbedRecordingMbids || []);
+                const scrubbedMeds = new Set(albumData.scrubbedMediumNumbers || []);
+                const hasCdMedia = Boolean(albumData.hasCdMedia || (albumData.tracks && albumData.tracks.some(t => !isVinylOrTapeMedium(t) && !isDvdOrBlurayMedium(t))));
 
-                for (const song of grp.songs) {
-                    if (signal?.aborted) break;
+                if (albumData.tracks && albumData.tracks.length > 0) {
+                    stats.updatedAlbums++;
+                    const tracks = albumData.tracks;
 
-                    // Match track in albumData.tracks
-                    let matchedTrack = null;
-                    if (song.recordingMbid) {
-                        matchedTrack = tracks.find(t => t.recordingMbid && t.recordingMbid === song.recordingMbid);
-                    }
-                    if (!matchedTrack && song.trackNumber) {
-                        matchedTrack = tracks.find(t =>
-                            t.trackNumber === song.trackNumber &&
-                            (t.mediumNumber || 1) === (song.mediumNumber || 1)
-                        );
-                    }
-                    if (!matchedTrack) {
-                        const sClean = cleanTitle(song.title);
-                        matchedTrack = tracks.find(t => cleanTitle(t.title) === sClean);
-                    }
-                    if (!matchedTrack) {
-                        const sClean = cleanTitle(song.title);
-                        matchedTrack = tracks.find(t => {
-                            const tClean = cleanTitle(t.title);
-                            return sClean && tClean && (tClean.includes(sClean) || sClean.includes(tClean));
-                        });
-                    }
+                    for (const song of grp.songs) {
+                        if (signal?.aborted) break;
+                        if (scrubbedSongIds.has(song.id)) continue;
 
-                    let songUpdated = false;
+                        const isScrubbedRec = song.recordingMbid && scrubbedRecs.has(song.recordingMbid);
+                        const isScrubbedMed = song.mediumNumber && scrubbedMeds.has(song.mediumNumber);
+                        const isDvd = isDvdOrBlurayMedium(song);
+                        const isVinylWithCd = hasCdMedia && isVinylOrTapeMedium(song);
 
-                    // Update album-level fields
-                    if (albumData.artist && song.artist !== albumData.artist) {
-                        song.artist = albumData.artist;
-                        songUpdated = true;
-                    }
-                    if (albumData.artistMbid && song.artistMbid !== albumData.artistMbid) {
-                        song.artistMbid = albumData.artistMbid;
-                        songUpdated = true;
-                    }
-                    if (albumData.title && song.album !== albumData.title) {
-                        song.album = albumData.title;
-                        songUpdated = true;
-                    }
-                    if (albumData.releaseGroupId && song.albumMbid !== albumData.releaseGroupId) {
-                        song.albumMbid = albumData.releaseGroupId;
-                        songUpdated = true;
-                    }
-                    if (albumData.year && song.year !== albumData.year) {
-                        if (!song.year) stats.addedYears++;
-                        song.year = albumData.year;
-                        songUpdated = true;
-                    }
-                    if (albumData.coverUrl && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml') || song.coverUrl !== albumData.coverUrl)) {
-                        if (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml')) stats.addedCovers++;
-                        song.coverUrl = albumData.coverUrl;
-                        songUpdated = true;
-                    }
+                        if (!song.isCustom && (isScrubbedRec || isDvd || isVinylWithCd)) {
+                            await deleteSongFromLibrary(song.id);
+                            scrubbedSongIds.add(song.id);
+                            stats.scrubbedNonCdTracks++;
+                            continue;
+                        }
 
-                    if (matchedTrack) {
-                        if (typeof matchedTrack.length === 'number' && matchedTrack.length > 0) {
-                            if (!song.length || song.length <= 0) stats.addedDurations++;
-                            song.length = matchedTrack.length;
-                            songUpdated = true;
+                        // Match track in albumData.tracks
+                        let matchedTrack = null;
+                        if (song.recordingMbid) {
+                            matchedTrack = tracks.find(t => t.recordingMbid && t.recordingMbid === song.recordingMbid);
                         }
-                        if (matchedTrack.trackNumber && song.trackNumber !== matchedTrack.trackNumber) {
-                            song.trackNumber = matchedTrack.trackNumber;
-                            songUpdated = true;
+                        if (!matchedTrack && song.trackNumber) {
+                            matchedTrack = tracks.find(t =>
+                                t.trackNumber === song.trackNumber &&
+                                (t.mediumNumber || 1) === (song.mediumNumber || 1)
+                            );
                         }
-                        if (matchedTrack.mediumNumber && song.mediumNumber !== matchedTrack.mediumNumber) {
-                            song.mediumNumber = matchedTrack.mediumNumber;
-                            songUpdated = true;
+                        if (!matchedTrack) {
+                            const sClean = cleanTitle(song.title);
+                            matchedTrack = tracks.find(t => cleanTitle(t.title) === sClean);
                         }
-                        if (matchedTrack.mediumTitle && song.mediumTitle !== matchedTrack.mediumTitle) {
-                            song.mediumTitle = matchedTrack.mediumTitle;
-                            songUpdated = true;
+                        if (!matchedTrack) {
+                            const sClean = cleanTitle(song.title);
+                            matchedTrack = tracks.find(t => {
+                                const tClean = cleanTitle(t.title);
+                                return sClean && tClean && (tClean.includes(sClean) || sClean.includes(tClean));
+                            });
                         }
-                        if (matchedTrack.mediumFormat && song.mediumFormat !== matchedTrack.mediumFormat) {
-                            song.mediumFormat = matchedTrack.mediumFormat;
-                            songUpdated = true;
-                        }
-                        if (matchedTrack.recordingMbid && song.recordingMbid !== matchedTrack.recordingMbid) {
-                            song.recordingMbid = matchedTrack.recordingMbid;
-                            songUpdated = true;
-                        }
-                        if (matchedTrack.coverUrl && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml'))) {
-                            song.coverUrl = matchedTrack.coverUrl;
-                            stats.addedCovers++;
-                            songUpdated = true;
-                        }
-                    } else {
-                        // Song not matched in album tracks -> fallback to standalone song query
-                        standaloneSongs.push(song);
-                    }
 
-                    if (songUpdated) {
-                        await saveSongToLibrary(song, song.collectionId);
-                        updatedSongMap.set(song.id, song);
-                        stats.updatedSongs++;
+                        // If not matched, but it was on a scrubbed medium number or vinyl medium when CD exists, delete it
+                        if (!matchedTrack && (isScrubbedMed || isVinylWithCd) && !song.isCustom) {
+                            await deleteSongFromLibrary(song.id);
+                            scrubbedSongIds.add(song.id);
+                            stats.scrubbedNonCdTracks++;
+                            continue;
+                        }
+
+                        if (matchedTrack) {
+                            let songUpdated = false;
+
+                            // Update album-level fields
+                            if (albumData.artist && song.artist !== albumData.artist) {
+                                song.artist = albumData.artist;
+                                songUpdated = true;
+                            }
+                            if (albumData.artistMbid && song.artistMbid !== albumData.artistMbid) {
+                                song.artistMbid = albumData.artistMbid;
+                                songUpdated = true;
+                            }
+                            if (albumData.title && song.album !== albumData.title) {
+                                song.album = albumData.title;
+                                songUpdated = true;
+                            }
+                            if (albumData.releaseGroupId && song.albumMbid !== albumData.releaseGroupId) {
+                                song.albumMbid = albumData.releaseGroupId;
+                                songUpdated = true;
+                            }
+                            if (albumData.year && song.year !== albumData.year) {
+                                if (!song.year) stats.addedYears++;
+                                song.year = albumData.year;
+                                songUpdated = true;
+                            }
+                            if (albumData.coverUrl && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml') || song.coverUrl !== albumData.coverUrl)) {
+                                if (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml')) stats.addedCovers++;
+                                song.coverUrl = albumData.coverUrl;
+                                songUpdated = true;
+                            }
+
+                            if (typeof matchedTrack.length === 'number' && matchedTrack.length > 0) {
+                                if (!song.length || song.length <= 0) stats.addedDurations++;
+                                song.length = matchedTrack.length;
+                                songUpdated = true;
+                            }
+                            if (matchedTrack.trackNumber && song.trackNumber !== matchedTrack.trackNumber) {
+                                song.trackNumber = matchedTrack.trackNumber;
+                                songUpdated = true;
+                            }
+                            if (matchedTrack.mediumNumber && song.mediumNumber !== matchedTrack.mediumNumber) {
+                                song.mediumNumber = matchedTrack.mediumNumber;
+                                songUpdated = true;
+                            }
+                            if (matchedTrack.mediumTitle !== undefined && song.mediumTitle !== matchedTrack.mediumTitle) {
+                                song.mediumTitle = matchedTrack.mediumTitle;
+                                songUpdated = true;
+                            }
+                            if (matchedTrack.mediumFormat !== undefined && song.mediumFormat !== matchedTrack.mediumFormat) {
+                                song.mediumFormat = matchedTrack.mediumFormat;
+                                songUpdated = true;
+                            }
+                            if (matchedTrack.recordingMbid && song.recordingMbid !== matchedTrack.recordingMbid) {
+                                song.recordingMbid = matchedTrack.recordingMbid;
+                                songUpdated = true;
+                            }
+                            if (matchedTrack.coverUrl && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml'))) {
+                                song.coverUrl = matchedTrack.coverUrl;
+                                stats.addedCovers++;
+                                songUpdated = true;
+                            }
+
+                            if (songUpdated) {
+                                await saveSongToLibrary(song, song.collectionId);
+                                updatedSongMap.set(song.id, song);
+                                stats.updatedSongs++;
+                            }
+                        } else {
+                            // Song not matched in album tracks -> fallback to standalone song query
+                            standaloneSongs.push(song);
+                        }
                     }
-                }
-            } else {
-                // Album not found on MusicBrainz -> queue its songs as standalone songs
-                for (const song of grp.songs) {
-                    standaloneSongs.push(song);
+                } else {
+                    // Album not found on MusicBrainz -> queue its songs as standalone songs
+                    for (const song of grp.songs) {
+                        if (!scrubbedSongIds.has(song.id)) {
+                            standaloneSongs.push(song);
+                        }
+                    }
                 }
             }
         } catch (err) {
@@ -1371,6 +1421,16 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
     // 2. Process Standalone Songs
     for (const song of standaloneSongs) {
         if (signal?.aborted) break;
+        if (scrubbedSongIds.has(song.id)) continue;
+        if (!song.isCustom && isDvdOrBlurayMedium(song)) {
+            try {
+                await deleteSongFromLibrary(song.id);
+                scrubbedSongIds.add(song.id);
+                stats.scrubbedNonCdTracks++;
+            } catch (err) {}
+            continue;
+        }
+
         currentStep++;
         report(`${song.artist || 'Unknown'} - ${song.title}`, 'song');
 
@@ -1485,6 +1545,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
     // 3. Scan all library songs to ensure stored tab files have tunings & string counts detected
     for (const song of songs) {
         if (signal?.aborted) break;
+        if (scrubbedSongIds.has(song.id)) continue;
         currentStep++;
         report(`${song.artist ? `${song.artist} - ` : ''}${song.title} (Scanning tabs)`, 'tuning');
         try {
@@ -1502,13 +1563,21 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         }
     }
 
-    // 4. Update matching recents if any were modified
-    if (updatedSongMap.size > 0) {
+    // 4. Update matching recents and purge scrubbed songs from recents
+    if (updatedSongMap.size > 0 || scrubbedSongIds.size > 0) {
         try {
             const recents = await getRecents(500);
             const db = await getDB();
             for (const rec of recents) {
-                if (rec.librarySongId && updatedSongMap.has(rec.librarySongId)) {
+                if (rec.librarySongId && scrubbedSongIds.has(rec.librarySongId)) {
+                    await new Promise((res, rej) => {
+                        const tx = db.transaction(STORE_RECENTS, 'readwrite');
+                        const store = tx.objectStore(STORE_RECENTS);
+                        const req = store.delete(rec.id);
+                        req.onsuccess = () => res();
+                        req.onerror = () => rej(req.error);
+                    });
+                } else if (rec.librarySongId && updatedSongMap.has(rec.librarySongId)) {
                     const updatedSong = updatedSongMap.get(rec.librarySongId);
                     rec.songTitle = updatedSong.title || rec.songTitle;
                     rec.artist = updatedSong.artist || rec.artist;

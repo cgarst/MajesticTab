@@ -10,7 +10,7 @@ import {
 } from './libraryStore.js';
 import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
-    getCoverArtUrl, getPlaceholderCoverSvg
+    getCoverArtUrl, getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium
 } from './musicbrainz.js';
 import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
@@ -1372,13 +1372,15 @@ function renderSongRow(song, options = {}) {
 }
 
 function renderAlbumSongsList(songs) {
-    if (!songs || songs.length === 0) {
+    const hasCd = (songs || []).some(s => !isDvdOrBlurayMedium(s) && !isVinylOrTapeMedium(s));
+    const cleanSongs = (songs || []).filter(s => !isDvdOrBlurayMedium(s) && !(hasCd && isVinylOrTapeMedium(s)));
+    if (!cleanSongs || cleanSongs.length === 0) {
         return '<div class="text-muted p-4 text-center">No songs in this album.</div>';
     }
 
     // Group songs by mediumNumber
     const mediaGroups = new Map();
-    for (const song of songs) {
+    for (const song of cleanSongs) {
         const medNum = song.mediumNumber || 1;
         if (!mediaGroups.has(medNum)) {
             mediaGroups.set(medNum, {
@@ -2240,9 +2242,17 @@ async function performMusicBrainzSearch(query, type) {
     try {
         const rawResults = await searchMusicBrainz(query, type);
 
-        // Fetch artists already in library to prioritize them in search results (Point 6)
-        const hierarchy = await getLibraryHierarchy(activeCollectionId);
-        const existingArtists = new Set((hierarchy.artists || []).map(a => a.name.toLowerCase().trim()));
+        // Fetch existing library songs to check actual album / song / artist presence
+        const songs = await getSongsByCollection(activeCollectionId);
+        const existingArtists = new Set(songs.map(s => (s.artist || '').toLowerCase().trim()));
+        const existingAlbumKeys = new Set(songs.map(s => {
+            if (s.albumMbid) return `mbid:${s.albumMbid}`;
+            return `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`;
+        }));
+        const existingSongKeys = new Set(songs.map(s => {
+            if (s.recordingMbid) return `rec:${s.recordingMbid}`;
+            return `${(s.artist || '').toLowerCase().trim()}:::${(s.title || '').toLowerCase().trim()}`;
+        }));
 
         let sortedResults = rawResults;
         if (type === 'song' || type === 'album') {
@@ -2251,15 +2261,33 @@ async function performMusicBrainzSearch(query, type) {
 
             for (const item of rawResults) {
                 const artistName = (item.artist || '').toLowerCase().trim();
-                const isInLib = existingArtists.has(artistName);
-                const enriched = { ...item, inLibrary: isInLib };
-                if (isInLib) {
+                const artistInLib = existingArtists.has(artistName);
+
+                let isItemInLib = false;
+                if (type === 'album') {
+                    isItemInLib = (item.id && existingAlbumKeys.has(`mbid:${item.id}`)) ||
+                                  existingAlbumKeys.has(`${artistName}:::${(item.title || '').toLowerCase().trim()}`);
+                } else if (type === 'song') {
+                    isItemInLib = (item.recordingMbid && existingSongKeys.has(`rec:${item.recordingMbid}`)) ||
+                                  (item.id && existingSongKeys.has(`rec:${item.id}`)) ||
+                                  existingSongKeys.has(`${artistName}:::${(item.title || '').toLowerCase().trim()}`);
+                }
+
+                const enriched = { ...item, inLibrary: isItemInLib, artistInLibrary: artistInLib };
+                // Prioritize results from artists in your library or items already in library
+                if (isItemInLib || artistInLib) {
                     inLib.push(enriched);
                 } else {
                     notInLib.push(enriched);
                 }
             }
             sortedResults = [...inLib, ...notInLib];
+        } else if (type === 'artist' || type === 'musician') {
+            sortedResults = rawResults.map(a => ({
+                ...a,
+                inLibrary: existingArtists.has((a.name || '').toLowerCase().trim())
+            }));
+            sortedResults.sort((a, b) => (b.inLibrary ? 1 : 0) - (a.inLibrary ? 1 : 0));
         }
 
         currentSearchResults = sortedResults;
@@ -2339,8 +2367,8 @@ function renderSearchResults(results, type, container) {
                 ${escapeHtml(rg.artist)} ${rg.year ? `• ${rg.year}` : ''}
               </div>
               <div class="d-flex gap-2 mt-2">
-                <button class="btn btn-sm btn-theme-primary flex-grow-1 add-album-btn" data-rg-id="${rg.id}" data-rg-title="${escapeHtml(rg.title)}">
-                  <i class="bi-plus-lg me-1"></i> Add Album
+                <button class="btn btn-sm ${rg.inLibrary ? 'btn-theme-success disabled' : 'btn-theme-primary'} flex-grow-1 add-album-btn" data-rg-id="${rg.id}" data-rg-title="${escapeHtml(rg.title)}">
+                  <i class="${rg.inLibrary ? 'bi-check-lg' : 'bi-plus-lg'} me-1"></i> ${rg.inLibrary ? 'In Library' : 'Add Album'}
                 </button>
                 <button class="btn btn-sm btn-theme-outline view-album-tracks-btn px-2 flex-shrink-0" data-rg-id="${rg.id}" title="View Tracks">
                   <i class="bi-music-note-list"></i>
@@ -2376,8 +2404,8 @@ function renderSearchResults(results, type, container) {
                   ${escapeHtml(song.artist)} • ${escapeHtml(song.album || 'Single')} ${song.year ? `• ${song.year}` : ''}
                 </div>
               </div>
-              <button class="btn btn-sm btn-theme-primary flex-shrink-0 add-single-song-btn" data-song='${escapeHtml(JSON.stringify(song))}'>
-                <i class="bi-plus-lg me-1"></i> Add Song
+              <button class="btn btn-sm ${song.inLibrary ? 'btn-theme-success disabled' : 'btn-theme-primary'} flex-shrink-0 add-single-song-btn" data-song='${escapeHtml(JSON.stringify(song))}'>
+                <i class="${song.inLibrary ? 'bi-check-lg' : 'bi-plus-lg'} me-1"></i> ${song.inLibrary ? 'In Library' : 'Add Song'}
               </button>
             </div>
           `).join('')}
@@ -2389,15 +2417,12 @@ function renderSearchResults(results, type, container) {
                 const songData = JSON.parse(btn.dataset.song);
                 await saveSongToLibrary(songData, activeCollectionId);
                 btn.className = 'btn btn-sm btn-theme-success flex-shrink-0 disabled';
-                btn.innerHTML = '<i class="bi-check-lg me-1"></i> Added';
+                btn.innerHTML = '<i class="bi-check-lg me-1"></i> In Library';
             });
         });
     }
 }
 
-/**
- * Add an album and all of its tracks into the library
- */
 async function handleAddAlbum(releaseGroupMbid, btn) {
     if (!btn || btn.disabled) return;
     const origHtml = btn.innerHTML;
@@ -2415,7 +2440,7 @@ async function handleAddAlbum(releaseGroupMbid, btn) {
 
         const added = await addAlbumToLibrary(albumData, albumData.tracks, activeCollectionId);
         btn.className = 'btn btn-sm btn-theme-success flex-grow-1 disabled';
-        btn.innerHTML = `<i class="bi-check-lg me-1"></i> Added (${added.length} tracks)`;
+        btn.innerHTML = `<i class="bi-check-lg me-1"></i> In Library (${added.length} tracks)`;
     } catch (err) {
         console.error('Failed to add album:', err);
         btn.className = 'btn btn-sm btn-theme-danger flex-grow-1';
@@ -2455,6 +2480,12 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
             return;
         }
 
+        const existingSongs = await getSongsByCollection(activeCollectionId);
+        const existingAlbumKeys = new Set(existingSongs.map(s => {
+            if (s.albumMbid) return `mbid:${s.albumMbid}`;
+            return `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`;
+        }));
+
         container.innerHTML = `
         <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2 pb-2 border-bottom border-secondary-subtle">
           <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchResultsBtn">
@@ -2465,24 +2496,31 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
           </div>
         </div>
         <div class="library-albums-grid">
-          ${albums.map(a => `
+          ${albums.map(a => {
+            const isAlbumInLib = (a.id && existingAlbumKeys.has(`mbid:${a.id}`)) ||
+                                 existingAlbumKeys.has(`${artistName.toLowerCase().trim()}:::${(a.title || '').toLowerCase().trim()}`);
+            return `
             <div class="library-card album-card p-3">
               <div class="album-cover-container mb-2">
                 <img src="${a.coverUrl || getPlaceholderCoverSvg(a.title)}" class="album-cover-img" alt="${escapeHtml(a.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(a.title)}'">
                 ${a.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${a.year}</span>` : ''}
               </div>
               <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h6>
-              <div class="small text-muted text-truncate">${a.year || 'Album'}</div>
+              <div class="small text-muted text-truncate">
+                ${isAlbumInLib ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
+                ${a.year || 'Album'}
+              </div>
               <div class="d-flex gap-2 mt-2">
-                <button class="btn btn-sm btn-theme-primary flex-grow-1 add-album-btn" data-rg-id="${a.id}" data-rg-title="${escapeHtml(a.title)}">
-                  <i class="bi-plus-lg me-1"></i> Add Album
+                <button class="btn btn-sm ${isAlbumInLib ? 'btn-theme-success disabled' : 'btn-theme-primary'} flex-grow-1 add-album-btn" data-rg-id="${a.id}" data-rg-title="${escapeHtml(a.title)}">
+                  <i class="${isAlbumInLib ? 'bi-check-lg' : 'bi-plus-lg'} me-1"></i> ${isAlbumInLib ? 'In Library' : 'Add Album'}
                 </button>
                 <button class="btn btn-sm btn-theme-outline view-album-tracks-btn px-2 flex-shrink-0" data-rg-id="${a.id}" title="View Tracks">
                   <i class="bi-music-note-list"></i>
                 </button>
               </div>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
         `;
 
@@ -2666,9 +2704,11 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
 }
 
 function renderAddAlbumTracksList(tracks) {
-    if (!tracks || tracks.length === 0) return '';
+    const hasCd = (tracks || []).some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
+    const cleanTracks = (tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
+    if (!cleanTracks || cleanTracks.length === 0) return '';
     const mediaGroups = new Map();
-    tracks.forEach((t, idx) => {
+    cleanTracks.forEach((t, idx) => {
         const medNum = t.mediumNumber || 1;
         if (!mediaGroups.has(medNum)) {
             mediaGroups.set(medNum, {
