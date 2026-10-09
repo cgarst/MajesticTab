@@ -17,6 +17,193 @@ use crate::DownloadedTabPayload;
 #[allow(dead_code)]
 pub const DOWNLOADER_LABEL: &str = "tab-downloader";
 
+pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
+    if (window.__majesticDownloaderShimInitialized) return;
+    window.__majesticDownloaderShimInitialized = true;
+
+    // 1. Force window.open to redirect in the single active webview
+    const origOpen = window.open;
+    window.open = function(url, target, features) {
+        if (url) {
+            try {
+                window.location.href = url;
+            } catch (e) {
+                console.error('[MajesticTab] window.open redirect failed:', e);
+            }
+            return window;
+        }
+        return origOpen ? origOpen.call(window, url, target, features) : null;
+    };
+
+    // 2. Force HTMLFormElement.prototype.submit to always stay in the single webview (_self)
+    const origFormSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function() {
+        this.target = '_self';
+        return origFormSubmit.apply(this, arguments);
+    };
+
+    // 3. Helper to send client-side captured binary data (e.g. blobs/data URLs) to MajesticTab shell
+    function triggerMajesticDownload(filename, base64Data) {
+        const a = document.createElement('a');
+        a.href = 'majestictab://download?name=' + encodeURIComponent(filename) + '&data=' + encodeURIComponent(base64Data);
+        (document.body || document.documentElement).appendChild(a);
+        a.click();
+        setTimeout(() => a.remove(), 200);
+    }
+
+    // 4. Helper to read Blob, Data, or Object URLs and forward to native shell
+    function handleBlobOrDataUrl(url, suggestedFilename) {
+        fetch(url)
+            .then(r => r.arrayBuffer())
+            .then(buf => {
+                const bytes = new Uint8Array(buf);
+                let binary = '';
+                for (let i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                const b64 = btoa(binary);
+                const name = suggestedFilename || 'downloaded.gp';
+                triggerMajesticDownload(name, b64);
+            })
+            .catch(err => {
+                console.error('[MajesticTab] Failed to read blob download:', err);
+            });
+    }
+
+    // 5. Intercept HTMLAnchorElement.prototype.click to catch dynamic JS downloads
+    const origAnchorClick = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function() {
+        if (this.target && this.target !== '_self') {
+            this.target = '_self';
+        }
+        const href = this.href || this.getAttribute('href') || '';
+        const downloadAttr = this.getAttribute('download') || this.download;
+        if (href.startsWith('blob:') || href.startsWith('data:')) {
+            handleBlobOrDataUrl(href, downloadAttr);
+            return;
+        }
+        return origAnchorClick.apply(this, arguments);
+    };
+
+    // 6. Generic DOM target sanitizer (neutralizes target="_blank" on any site)
+    function sanitizeTargets(root) {
+        try {
+            if (!root || !root.querySelectorAll) return;
+            const elements = root.querySelectorAll('a[target], form[target], area[target], base[target]');
+            for (let i = 0; i < elements.length; i++) {
+                const el = elements[i];
+                const t = (el.getAttribute('target') || '').toLowerCase();
+                if (t && t !== '_self') {
+                    el.setAttribute('target', '_self');
+                    el.target = '_self';
+                }
+            }
+        } catch (e) {}
+    }
+
+    // 7. Global Capture Phase Click & Submit Listeners (executes BEFORE any website event handlers)
+    window.addEventListener('click', function(e) {
+        const el = e.target && e.target.closest ? e.target.closest('a, button, input[type="submit"], input[type="button"], form') : null;
+        if (!el) return;
+
+        if (el.tagName === 'A') {
+            if (el.target && el.target !== '_self') {
+                el.target = '_self';
+                el.setAttribute('target', '_self');
+            }
+            const href = el.getAttribute('href') || el.href || '';
+            const downloadAttr = el.getAttribute('download') || el.download;
+
+            if (href.startsWith('blob:') || href.startsWith('data:')) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleBlobOrDataUrl(href, downloadAttr);
+                return;
+            }
+        }
+
+        if (el.form && el.form.target && el.form.target !== '_self') {
+            el.form.target = '_self';
+            el.form.setAttribute('target', '_self');
+        }
+    }, true);
+
+    window.addEventListener('submit', function(e) {
+        if (e.target && e.target.tagName === 'FORM') {
+            if (e.target.target && e.target.target !== '_self') {
+                e.target.target = '_self';
+                e.target.setAttribute('target', '_self');
+            }
+        }
+    }, true);
+
+    // 8. Observe DOM mutations to sanitize any dynamically inserted links, buttons, and forms
+    const observer = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            if (m.type === 'childList') {
+                for (const node of m.addedNodes) {
+                    if (node.nodeType === 1) {
+                        sanitizeTargets(node);
+                    }
+                }
+            } else if (m.type === 'attributes' && m.attributeName === 'target') {
+                if (m.target && m.target.getAttribute) {
+                    const t = (m.target.getAttribute('target') || '').toLowerCase();
+                    if (t && t !== '_self') {
+                        m.target.setAttribute('target', '_self');
+                        m.target.target = '_self';
+                    }
+                }
+            }
+        }
+    });
+
+    const initObserver = () => {
+        sanitizeTargets(document);
+        const target = document.body || document.documentElement;
+        if (target) {
+            observer.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ['target'] });
+        }
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initObserver);
+    } else {
+        initObserver();
+    }
+    window.addEventListener('load', initObserver);
+
+    // 9. Webview console log bridge to parent app
+    function bridgeLog(type, args) {
+        try {
+            const msg = '[' + type.toUpperCase() + '] ' + Array.from(args).map(a => {
+                if (typeof a === 'object') {
+                    try { return JSON.stringify(a); } catch (e) { return String(a); }
+                }
+                return String(a);
+            }).join(' ');
+            const img = new Image();
+            img.src = 'majestictab://log?msg=' + encodeURIComponent(msg);
+        } catch (e) {}
+    }
+
+    const origLog = console.log;
+    console.log = function() {
+        bridgeLog('log', arguments);
+        origLog.apply(console, arguments);
+    };
+    const origWarn = console.warn;
+    console.warn = function() {
+        bridgeLog('warn', arguments);
+        origWarn.apply(console, arguments);
+    };
+    const origError = console.error;
+    console.error = function() {
+        bridgeLog('error', arguments);
+        origError.apply(console, arguments);
+    };
+})();"#;
+
 #[derive(Default)]
 #[allow(dead_code)]
 pub struct TabDownloaderState {
@@ -27,143 +214,8 @@ pub struct TabDownloaderState {
 pub fn wrap_userscript(raw_js: &str) -> String {
     let trimmed = raw_js.trim();
     format!(
-        r#"(function() {{
-    if (!window.__majesticWindowOpenOverridden) {{
-        window.__majesticWindowOpenOverridden = true;
-        const origOpen = window.open;
-        window.open = function(url, target, features) {{
-            if (url) {{
-                window.location.href = url;
-                return window;
-            }}
-            return origOpen ? origOpen.call(window, url, target, features) : null;
-        }};
-
-        // Form submit override to avoid _blank popup loss
-        const origFormSubmit = HTMLFormElement.prototype.submit;
-        HTMLFormElement.prototype.submit = function() {{
-            this.target = '_self';
-            return origFormSubmit.apply(this, arguments);
-        }};
-
-        document.addEventListener('submit', function(e) {{
-            if (e.target && e.target.tagName === 'FORM') {{
-                e.target.target = '_self';
-            }}
-        }}, true);
-
-        function triggerMajesticDownload(filename, base64) {{
-            const a = document.createElement('a');
-            a.href = 'majestictab://download?name=' + encodeURIComponent(filename) + '&data=' + encodeURIComponent(base64);
-            document.body.appendChild(a);
-            a.click();
-            setTimeout(() => a.remove(), 200);
-        }}
-
-        function downloadFromUrl(fetchUrl, suggestedName) {{
-            fetch(fetchUrl, {{ credentials: 'include' }})
-                .then(r => {{
-                    if (!r.ok) throw new Error('HTTP ' + r.status);
-                    const disp = r.headers.get('Content-Disposition') || '';
-                    let filename = suggestedName || '';
-                    const match = /filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i.exec(disp);
-                    if (match && match[1]) filename = decodeURIComponent(match[1]);
-                    if (!filename) {{
-                        const cleanPath = fetchUrl.split('?')[0].split('#')[0];
-                        filename = cleanPath.split('/').pop() || 'downloaded.gp';
-                    }}
-                    return r.arrayBuffer().then(buf => ({{ filename, buf }}));
-                }})
-                .then(({{ filename, buf }}) => {{
-                    const bytes = new Uint8Array(buf);
-                    let binary = '';
-                    for (let i = 0; i < bytes.byteLength; i++) {{
-                        binary += String.fromCharCode(bytes[i]);
-                    }}
-                    const base64 = btoa(binary);
-                    triggerMajesticDownload(filename, base64);
-                }})
-                .catch(err => {{
-                    console.warn('[MajesticTab] Tab download fetch error, falling back to navigation:', err);
-                    window.location.href = fetchUrl;
-                }});
-        }}
-
-        document.addEventListener('click', function(e) {{
-            const el = e.target && e.target.closest ? e.target.closest('a, button, input[type="submit"]') : null;
-            if (el) {{
-                if (el.tagName === 'A') {{
-                    if (el.target === '_blank') el.target = '_self';
-                    const href = el.getAttribute('href') || '';
-                    const downloadAttr = el.getAttribute('download');
-                    
-                    // Capture blob: or data: client-side downloads generically
-                    if (href.startsWith('blob:') || href.startsWith('data:')) {{
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const filename = downloadAttr || 'downloaded.gp';
-                        fetch(href)
-                            .then(r => r.arrayBuffer())
-                            .then(buf => {{
-                                const bytes = new Uint8Array(buf);
-                                let binary = '';
-                                for (let i = 0; i < bytes.byteLength; i++) {{
-                                    binary += String.fromCharCode(bytes[i]);
-                                }}
-                                const base64 = btoa(binary);
-                                triggerMajesticDownload(filename, base64);
-                            }})
-                            .catch(err => console.error('[MajesticTab] Blob capture error:', err));
-                        return;
-                    }}
-
-                    const isDownloadLink = href.match(/\\.(gp|gp3|gp4|gp5|gpx|ptb|cap|tg|mid|midi|pdf)($|\\?)/i) || 
-                        href.includes('/download') || 
-                        href.includes('tab/download') ||
-                        Boolean(downloadAttr);
-
-                    if (isDownloadLink) {{
-                        e.preventDefault();
-                        e.stopPropagation();
-                        downloadFromUrl(el.href, downloadAttr);
-                        return;
-                    }}
-                }}
-                if (el.form && el.form.target === '_blank') el.form.target = '_self';
-            }}
-        }}, true);
-
-        // Webview console log bridge to parent app
-        function bridgeLog(type, args) {{
-            try {{
-                const msg = '[' + type.toUpperCase() + '] ' + Array.from(args).map(a => {{
-                    if (typeof a === 'object') {{
-                        try {{ return JSON.stringify(a); }} catch (e) {{ return String(a); }}
-                    }}
-                    return String(a);
-                }}).join(' ');
-                const img = new Image();
-                img.src = 'majestictab://log?msg=' + encodeURIComponent(msg);
-            }} catch (e) {{}}
-        }}
-
-        const origLog = console.log;
-        console.log = function() {{
-            bridgeLog('log', arguments);
-            origLog.apply(console, arguments);
-        }};
-        const origWarn = console.warn;
-        console.warn = function() {{
-            bridgeLog('warn', arguments);
-            origWarn.apply(console, arguments);
-        }};
-        const origError = console.error;
-        console.error = function() {{
-            bridgeLog('error', arguments);
-            origError.apply(console, arguments);
-        }};
-    }}
-
+        r#"{CORE_DOWNLOADER_SHIM}
+(function() {{
     window.__majesticActiveUserscript = function() {{
         try {{
             {trimmed}
@@ -211,6 +263,96 @@ pub fn wrap_userscript(raw_js: &str) -> String {
     )
 }
 
+/// Identifies if a downloaded file represents a supported tab/score format by extension or file header magic bytes
+pub fn identify_tab_extension(bytes: &[u8], filename: &str) -> Option<&'static str> {
+    let lower_name = filename.to_lowercase();
+
+    // 1. Check known binary file magic headers first
+    if bytes.starts_with(b"FICHIER GUITAR PRO v3") {
+        return Some("gp3");
+    }
+    if bytes.starts_with(b"FICHIER GUITAR PRO v4") {
+        return Some("gp4");
+    }
+    if bytes.starts_with(b"FICHIER GUITAR PRO v5") || bytes.starts_with(b"FICHIER GUITAR PRO") {
+        return Some("gp5");
+    }
+    if bytes.starts_with(b"BCFB") {
+        return Some("gpx");
+    }
+    if bytes.starts_with(b"%PDF") {
+        return Some("pdf");
+    }
+    if bytes.starts_with(b"PTAB") {
+        return Some("ptb");
+    }
+    if bytes.starts_with(b"MThd") {
+        return Some("mid");
+    }
+    // Zip container (could be Guitar Pro 7/8 container .gp or .gpx)
+    if bytes.starts_with(b"PK\x03\x04") {
+        if lower_name.ends_with(".gp") {
+            return Some("gp");
+        }
+        return Some("gpx");
+    }
+
+    // 2. Check file extension
+    if lower_name.ends_with(".gp") {
+        return Some("gp");
+    }
+    if lower_name.ends_with(".gp3") {
+        return Some("gp3");
+    }
+    if lower_name.ends_with(".gp4") {
+        return Some("gp4");
+    }
+    if lower_name.ends_with(".gp5") {
+        return Some("gp5");
+    }
+    if lower_name.ends_with(".gpx") {
+        return Some("gpx");
+    }
+    if lower_name.ends_with(".gp7") {
+        return Some("gp7");
+    }
+    if lower_name.ends_with(".gp8") {
+        return Some("gp8");
+    }
+    if lower_name.ends_with(".gtp") {
+        return Some("gtp");
+    }
+    if lower_name.ends_with(".ptb") {
+        return Some("ptb");
+    }
+    if lower_name.ends_with(".cap") {
+        return Some("cap");
+    }
+    if lower_name.ends_with(".tg") {
+        return Some("tg");
+    }
+    if lower_name.ends_with(".mid") || lower_name.ends_with(".midi") {
+        return Some("mid");
+    }
+    if lower_name.ends_with(".pdf") {
+        return Some("pdf");
+    }
+    if lower_name.ends_with(".txt") {
+        return Some("txt");
+    }
+
+    // 3. ASCII/UTF-8 Text containing tab notation (e.g. |-- or [Tab])
+    if bytes.len() > 10 && bytes.len() < 10_000_000 {
+        if let Ok(text) = std::str::from_utf8(bytes) {
+            if text.contains("|--") || text.contains("| -") || text.contains("|- -") || text.contains("[Tab") || text.contains("[tab") {
+                return Some("txt");
+            }
+        }
+    }
+
+    None
+}
+
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     app.manage(TabDownloaderState::default());
@@ -221,7 +363,9 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     let builder = WebviewBuilder::new(
         DOWNLOADER_LABEL,
         WebviewUrl::External("https://www.ultimate-guitar.com/".parse().unwrap()),
-    );
+    )
+    .initialization_script(CORE_DOWNLOADER_SHIM);
+
     #[cfg(feature = "debug-tools")]
     let builder = builder.devtools(true);
 
@@ -242,7 +386,7 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
             return false;
         }
 
-        // 2. Direct download capture scheme: majestictab://download?name=...&data=...
+        // 2. Direct client-side download capture scheme: majestictab://download?name=...&data=...
         if url.scheme() == "majestictab" && (url.host_str() == Some("download") || url_str.starts_with("majestictab://download")) {
             let name = url
                 .query_pairs()
@@ -287,18 +431,28 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     let app_handle_for_download = app.handle().clone();
     let builder = builder.on_download(move |_webview, event| {
         match event {
-            tauri::webview::DownloadEvent::Requested { destination, .. } => {
+            tauri::webview::DownloadEvent::Requested { destination, url } => {
                 let dest_dir = std::env::temp_dir().join("majestictab_downloads");
                 let _ = std::fs::create_dir_all(&dest_dir);
-                let filename = destination
+                let mut filename = destination
                     .file_name()
                     .map(|f| f.to_string_lossy().to_string())
                     .unwrap_or_else(|| "downloaded.gp".to_string());
+
+                if filename == "download" || !filename.contains('.') {
+                    if let Some(segment) = url.path_segments().and_then(|s| s.last()) {
+                        if segment.contains('.') {
+                            filename = segment.to_string();
+                        }
+                    }
+                }
+
                 *destination = dest_dir.join(&filename);
-                eprintln!("[Tab Downloader] Native download requested -> {:?}", destination);
+                eprintln!("[Tab Downloader] Native download requested -> destination={:?}, url={}", destination, url);
                 true
             }
-            tauri::webview::DownloadEvent::Finished { path, success, .. } => {
+            tauri::webview::DownloadEvent::Finished { url, path, success, .. } => {
+                eprintln!("[Tab Downloader] Native download finished: success={}, url={}, path={:?}", success, url, path);
                 if success {
                     if let Some(p) = path {
                         let mut filename = p
@@ -308,28 +462,25 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                         let data = std::fs::read(&p).ok();
 
                         if let Some(ref bytes) = data {
-                            if !filename.contains('.') || filename == "download" {
-                                if bytes.starts_with(b"FICHIER GUITAR PRO") {
-                                    filename.push_str(".gp5");
-                                } else if bytes.starts_with(b"%PDF") {
-                                    filename.push_str(".pdf");
-                                } else if bytes.starts_with(b"BCFB") || bytes.starts_with(b"PK\x03\x04") {
-                                    filename.push_str(".gpx");
-                                } else if bytes.starts_with(b"PTAB") {
-                                    filename.push_str(".ptb");
-                                } else {
-                                    filename.push_str(".gp");
+                            let identified_ext = identify_tab_extension(bytes, &filename);
+                            if let Some(ext) = identified_ext {
+                                if !filename.to_lowercase().ends_with(&format!(".{}", ext)) {
+                                    if !filename.contains('.') || filename.starts_with("download") {
+                                        filename = format!("{}.{}", filename, ext);
+                                    }
                                 }
+
+                                eprintln!("[Tab Downloader] Ingested tab download: {} ({} bytes)", filename, bytes.len());
+                                let payload = DownloadedTabPayload {
+                                    name: filename,
+                                    path: Some(p.to_string_lossy().to_string()),
+                                    data: Some(bytes.clone()),
+                                };
+                                let _ = app_handle_for_download.emit("tab-downloaded", payload);
+                            } else {
+                                eprintln!("[Tab Downloader] Downloaded file {} ({} bytes) did not match tab requirements", filename, bytes.len());
                             }
                         }
-
-                        eprintln!("[Tab Downloader] Native download finished: {:?} -> {} ({} bytes)", p, filename, data.as_ref().map(|d| d.len()).unwrap_or(0));
-                        let payload = DownloadedTabPayload {
-                            name: filename,
-                            path: Some(p.to_string_lossy().to_string()),
-                            data,
-                        };
-                        let _ = app_handle_for_download.emit("tab-downloaded", payload);
                     }
                 }
                 true
@@ -507,7 +658,6 @@ pub fn tab_downloader_hide(app: AppHandle) -> Result<(), String> {
 }
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
-#[tauri::command]
 pub fn tab_downloader_hide(_app: AppHandle) -> Result<(), String> {
     Ok(())
 }
@@ -553,4 +703,3 @@ pub fn tab_downloader_is_debug_tools_enabled() -> bool {
         false
     }
 }
-
