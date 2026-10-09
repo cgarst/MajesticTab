@@ -453,12 +453,27 @@ export async function openTabDownloader(options = {}) {
 /**
  * Closes the Tab Downloader Modal & hides native child webview
  */
+let lastSyncedWebview = {
+    left: null,
+    top: null,
+    width: null,
+    height: null,
+    visible: null,
+    url: null,
+    userscript: null
+};
+
+/**
+ * Closes the Tab Downloader Modal & hides native child webview
+ */
 export function closeTabDownloaderModal() {
     activeDownloaderOnFileSelected = null;
     activeTargetSong = null;
     activeTargetAlbum = null;
     const modal = document.getElementById('tabDownloaderModal');
     if (modal) modal.style.display = 'none';
+
+    lastSyncedWebview.visible = false;
 
     if (nativeResizeObserver) {
         nativeResizeObserver.disconnect();
@@ -487,14 +502,33 @@ async function syncNativeWebview(url = null, userscript = null) {
     const targetUrl = url || buildSearchUrl(source, currentSearchQuery);
     const targetScript = userscript !== null ? userscript : (source.userscriptEnabled ? (source.userscript || '') : '');
 
+    const left = Math.round(rect.left);
+    const top = Math.round(rect.top);
+    const width = Math.round(rect.width);
+    const height = Math.round(rect.height);
+
+    if (
+        lastSyncedWebview.left === left &&
+        lastSyncedWebview.top === top &&
+        lastSyncedWebview.width === width &&
+        lastSyncedWebview.height === height &&
+        lastSyncedWebview.visible === isVisible &&
+        lastSyncedWebview.url === targetUrl &&
+        lastSyncedWebview.userscript === targetScript
+    ) {
+        return;
+    }
+
+    lastSyncedWebview = { left, top, width, height, visible: isVisible, url: targetUrl, userscript: targetScript };
+
     try {
         await window.__TAURI__.core.invoke('tab_downloader_update', {
             url: targetUrl,
             userscript: targetScript || null,
-            left: Math.round(rect.left),
-            top: Math.round(rect.top),
-            width: Math.round(rect.width),
-            height: Math.round(rect.height),
+            left,
+            top,
+            width,
+            height,
             visible: isVisible
         });
     } catch (err) {
@@ -503,7 +537,76 @@ async function syncNativeWebview(url = null, userscript = null) {
 }
 
 /**
- * Renders the In-App Tab Downloader Modal
+ * Switch the active tab source smoothly without tearing down the browser modal DOM
+ */
+export function selectTabSource(sourceId) {
+    activeSourceId = sourceId;
+    const sources = getSources();
+    const source = sources.find(s => s.id === sourceId) || sources[0] || DEFAULT_SOURCES[0];
+
+    let nextQuery = currentSearchQuery;
+    if (activeSongName || activeArtistName) {
+        nextQuery = formatSearchQueryForSource(source, activeArtistName, activeSongName);
+    }
+    currentSearchQuery = nextQuery;
+
+    const modal = document.getElementById('tabDownloaderModal');
+    if (!modal) return;
+
+    modal.querySelectorAll('.downloader-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sourceId === sourceId);
+    });
+
+    const targetUrl = buildSearchUrl(source, currentSearchQuery);
+    updateUrlBar(targetUrl);
+
+    if (window.__TAURI__) {
+        syncNativeWebview(targetUrl);
+    } else {
+        const webTitle = modal.querySelector('#downloaderWebSourceTitle');
+        const webLink = modal.querySelector('#downloaderWebSearchLink');
+        if (webTitle) webTitle.textContent = `Search Tabs on ${source.name}`;
+        if (webLink) {
+            webLink.href = targetUrl;
+            webLink.innerHTML = `<i class="bi-box-arrow-up-right me-1"></i> Open Search on ${escapeHtml(source.name)}`;
+        }
+    }
+}
+
+/**
+ * Render the source tabs list inside the modal header
+ */
+function renderSourceTabs(modal) {
+    const tabsList = modal.querySelector('#downloaderTabsList');
+    if (!tabsList) return;
+    const sources = getSources();
+    tabsList.innerHTML = `
+        ${sources.map(s => `
+          <button type="button" class="btn btn-sm downloader-tab-btn ${s.id === activeSourceId ? 'active' : ''}" data-source-id="${s.id}">
+            <i class="bi bi-globe me-1"></i> ${escapeHtml(s.name)}
+          </button>
+        `).join('')}
+        <button type="button" class="btn btn-sm btn-theme-outline py-0 px-2" id="downloaderAddSourceTabBtn" title="Add Source">
+          <i class="bi-plus-lg"></i>
+        </button>
+    `;
+
+    tabsList.querySelectorAll('.downloader-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            selectTabSource(btn.dataset.sourceId);
+        });
+    });
+
+    tabsList.querySelector('#downloaderAddSourceTabBtn')?.addEventListener('click', () => {
+        if (window.__TAURI__?.core) {
+            window.__TAURI__.core.invoke('tab_downloader_hide').catch(() => {});
+        }
+        openSourceEditorModal();
+    });
+}
+
+/**
+ * Renders or updates the In-App Tab Downloader Modal
  */
 function renderTabDownloaderModal(initialQuery = '') {
     let modal = document.getElementById('tabDownloaderModal');
@@ -519,6 +622,26 @@ function renderTabDownloaderModal(initialQuery = '') {
     const sources = getSources();
     const activeSource = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
     activeSourceId = activeSource.id;
+
+    // If modal card structure already exists, update dynamic parts in-place
+    const existingCard = modal.querySelector('.tab-downloader-card');
+    if (existingCard) {
+        const songPill = modal.querySelector('#downloaderSongContextPill');
+        if (songPill) {
+            songPill.innerHTML = activeTargetSong ? `
+              <span class="badge bg-secondary text-truncate d-none d-lg-inline-flex align-items-center gap-1 flex-shrink-0 py-1 px-2" style="max-width: 220px;" title="${escapeHtml(activeTargetSong.artist)} — ${escapeHtml(activeTargetSong.title)}">
+                <i class="bi-music-note"></i> ${escapeHtml(activeTargetSong.artist)} — ${escapeHtml(activeTargetSong.title)}
+              </span>
+            ` : '';
+        }
+
+        renderSourceTabs(modal);
+        selectTabSource(activeSourceId);
+        if (isNative) {
+            syncNativeWebview();
+        }
+        return;
+    }
 
     const currentUrl = buildSearchUrl(activeSource, currentSearchQuery);
 
@@ -543,11 +666,13 @@ function renderTabDownloaderModal(initialQuery = '') {
           ` : ''}
 
           <!-- Song Context Pill (if attached to a song) -->
-          ${activeTargetSong ? `
-            <span class="badge bg-secondary text-truncate d-none d-lg-inline-flex align-items-center gap-1 flex-shrink-0 py-1 px-2" style="max-width: 220px;" title="${escapeHtml(activeTargetSong.artist)} — ${escapeHtml(activeTargetSong.title)}">
-              <i class="bi-music-note"></i> ${escapeHtml(activeTargetSong.artist)} — ${escapeHtml(activeTargetSong.title)}
-            </span>
-          ` : ''}
+          <div id="downloaderSongContextPill" class="d-inline-flex align-items-center">
+            ${activeTargetSong ? `
+              <span class="badge bg-secondary text-truncate d-none d-lg-inline-flex align-items-center gap-1 flex-shrink-0 py-1 px-2" style="max-width: 220px;" title="${escapeHtml(activeTargetSong.artist)} — ${escapeHtml(activeTargetSong.title)}">
+                <i class="bi-music-note"></i> ${escapeHtml(activeTargetSong.artist)} — ${escapeHtml(activeTargetSong.title)}
+              </span>
+            ` : ''}
+          </div>
 
           <!-- In-App Browser URL Bar (Read-Only) -->
           <div class="input-group input-group-sm flex-grow-1 min-w-0" id="downloaderUrlGroup">
@@ -590,14 +715,6 @@ function renderTabDownloaderModal(initialQuery = '') {
 
       <!-- Source Tabs Row -->
       <div class="tab-downloader-nav d-flex align-items-center gap-1 px-3 pt-2 overflow-x-auto overflow-y-hidden border-bottom border-secondary-subtle" id="downloaderTabsList">
-        ${sources.map(s => `
-          <button type="button" class="btn btn-sm downloader-tab-btn ${s.id === activeSourceId ? 'active' : ''}" data-source-id="${s.id}">
-            <i class="bi bi-globe me-1"></i> ${s.name}
-          </button>
-        `).join('')}
-        <button type="button" class="btn btn-sm btn-theme-outline py-0 px-2" id="downloaderAddSourceTabBtn" title="Add Source">
-          <i class="bi-plus-lg"></i>
-        </button>
       </div>
 
       <!-- In-App Browser View Container -->
@@ -612,11 +729,11 @@ function renderTabDownloaderModal(initialQuery = '') {
               </div>
             </div>
 
-            <h6 class="text-white mb-2">Search Tabs on ${escapeHtml(activeSource.name)}</h6>
+            <h6 class="text-white mb-2" id="downloaderWebSourceTitle">Search Tabs on ${escapeHtml(activeSource.name)}</h6>
             <p class="small text-muted mb-3" style="max-width: 500px;">
               Click below to search in a browser tab, then drag and drop the downloaded file here.
             </p>
-            <a href="${escapeHtml(currentUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-theme-primary btn-sm px-4 mb-4">
+            <a href="${escapeHtml(currentUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-theme-primary btn-sm px-4 mb-4" id="downloaderWebSearchLink">
               <i class="bi-box-arrow-up-right me-1"></i> Open Search on ${escapeHtml(activeSource.name)}
             </a>
             <!-- Dropzone -->
@@ -634,6 +751,9 @@ function renderTabDownloaderModal(initialQuery = '') {
       </div>
     </div>
     `;
+
+    // Render source tabs
+    renderSourceTabs(modal);
 
     // Back to Library / Viewer
     modal.querySelector('#tabDownloaderBackBtn')?.addEventListener('click', () => {
@@ -686,31 +806,6 @@ function renderTabDownloaderModal(initialQuery = '') {
         });
     }
 
-    // Source tab switching
-    modal.querySelectorAll('.downloader-tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const nextSourceId = btn.dataset.sourceId;
-            activeSourceId = nextSourceId;
-            const sources = getSources();
-            const nextSource = sources.find(s => s.id === nextSourceId) || sources[0];
-
-            let nextQuery = currentSearchQuery;
-            if (activeSongName || activeArtistName) {
-                nextQuery = formatSearchQueryForSource(nextSource, activeArtistName, activeSongName);
-            }
-            currentSearchQuery = nextQuery;
-            renderTabDownloaderModal(nextQuery);
-        });
-    });
-
-    // Add source button
-    modal.querySelector('#downloaderAddSourceTabBtn')?.addEventListener('click', () => {
-        if (isNative && window.__TAURI__?.core) {
-            window.__TAURI__.core.invoke('tab_downloader_hide').catch(() => {});
-        }
-        openSourceEditorModal();
-    });
-
     // Manage sources button
     modal.querySelector('#downloaderManageSourcesBtn')?.addEventListener('click', () => {
         if (isNative && window.__TAURI__?.core) {
@@ -723,11 +818,8 @@ function renderTabDownloaderModal(initialQuery = '') {
     if (isNative) {
         const container = modal.querySelector('#tabDownloaderBrowserContainer');
         if (container) {
-            // Initial multi-pass positioning
             syncNativeWebview();
             requestAnimationFrame(() => syncNativeWebview());
-            setTimeout(() => syncNativeWebview(), 80);
-            setTimeout(() => syncNativeWebview(), 250);
 
             if (nativeResizeObserver) nativeResizeObserver.disconnect();
             nativeResizeObserver = new ResizeObserver(() => {
