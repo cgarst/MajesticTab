@@ -487,6 +487,32 @@ body {
   box-shadow: 0 0 12px -2px var(--accent-glow);
 }
 
+.top-bar-song-btn.is-static,
+.top-bar-song-btn.disabled,
+.top-bar-song-btn[disabled] {
+  cursor: default;
+  pointer-events: none;
+  background: var(--bg-card-solid);
+  border-color: var(--border-subtle);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  color: #ffffff;
+}
+
+.top-bar-song-btn.is-static:hover,
+.top-bar-song-btn.disabled:hover,
+.top-bar-song-btn[disabled]:hover {
+  background: var(--bg-card-solid);
+  border-color: var(--border-subtle);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  color: #ffffff;
+}
+
+.top-bar-song-btn.is-static .song-title-chevron,
+.top-bar-song-btn.disabled .song-title-chevron,
+.top-bar-song-btn[disabled] .song-title-chevron {
+  display: none !important;
+}
+
 .top-bar-song-btn:active,
 .top-bar-song-btn.active {
   background: var(--bg-card-hover);
