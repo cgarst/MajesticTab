@@ -406,7 +406,7 @@ async function loadCurrentTrack(autoplay = false) {
         if (iframe) {
             iframe.style.display = 'block';
             const autoplayParam = autoplay ? '1' : '0';
-            const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+            const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
             embedUrl.searchParams.set('autoplay', autoplayParam);
             embedUrl.searchParams.set('enablejsapi', '1');
             embedUrl.searchParams.set('origin', window.location.origin);
@@ -631,17 +631,41 @@ function closePanelWhenPlaying(timeoutMs = 8000) {
 }
 
 /**
+ * Open YouTube/Google sign in window
+ */
+export function openYouTubeSignIn(targetUrl = null) {
+    if (window.__TAURI__) {
+        window.__TAURI__.core.invoke('youtube_open_auth', { url: targetUrl }).catch(() => {});
+    } else {
+        window.open(targetUrl || 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F', '_blank');
+    }
+}
+
+/**
  * Initialize YouTube Player controls and event listeners
  */
 export function initYouTubePlayer() {
     const toggleBtn = document.getElementById('ytToggleBtn');
     const closeBtn = document.getElementById('ytPanelCloseBtn');
+    const signInBtn = document.getElementById('ytSignInBtn');
+    const promptSignInBtn = document.getElementById('ytPromptSignInBtn');
     const cancelSearchBtn = document.getElementById('ytCancelSearchBtn');
     const originalRadio = document.getElementById('ytTrackOriginal');
     const backingRadio = document.getElementById('ytTrackBacking');
     const searchBtn = document.getElementById('ytSearchBtn');
     const searchInput = document.getElementById('ytSearchInput');
     const ytApiKeyInput = document.getElementById('ytApiKeyInput');
+
+    // Sign in buttons
+    signInBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openYouTubeSignIn();
+    });
+
+    promptSignInBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openYouTubeSignIn();
+    });
 
     // Load saved API Key if any
     if (ytApiKeyInput) {
@@ -815,6 +839,18 @@ export function initYouTubePlayer() {
     if (isNativeMacPlayer()) {
         window.__TAURI__.event.listen('youtube-player-state', ({ payload }) => {
             window.dispatchEvent(new MessageEvent('message', { data: payload }));
+        });
+    }
+
+    if (window.__TAURI__) {
+        window.__TAURI__.event.listen('youtube-auth-completed', () => {
+            const iframe = document.getElementById('ytIframe');
+            if (iframe && iframe.src) {
+                iframe.src = iframe.src;
+            }
+            if (playerState.currentVideoId) {
+                loadCurrentTrack(playerState.isPlaying || playerState.hasStarted);
+            }
         });
     }
 

@@ -209,9 +209,14 @@
       </div>
       <span class="yt-panel-title text-truncate" id="ytPanelTitle">YouTube Audio</span>
     </div>
-    <button class="brand-btn p-1 px-2 text-muted" id="ytPanelCloseBtn" title="Close">
-      <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
-    </button>
+    <div class="d-flex align-items-center gap-1">
+      <button class="brand-btn p-1 px-2 text-muted" id="ytSignInBtn" title="Sign In to YouTube" style="font-size: 0.75rem;">
+        <i class="bi-person-circle me-1"></i>Sign In
+      </button>
+      <button class="brand-btn p-1 px-2 text-muted" id="ytPanelCloseBtn" title="Close">
+        <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
+      </button>
+    </div>
   </div>
   <div class="yt-panel-body">
     <div class="yt-mode-selector mb-3" role="group" aria-label="Track Mode">
@@ -225,7 +230,7 @@
       </label>
     </div>
     <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-3">
-      <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+      <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
       
       <!-- Loading Indicator with Cancel Button -->
       <div id="ytLoadingIndicator" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
@@ -245,10 +250,15 @@
           <i class="bi-youtube"></i>
         </div>
         <div class="small fw-semibold text-white mb-1" id="ytPromptTitle">Find Video on YouTube</div>
-        <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link below or search directly</div>
-        <a class="btn btn-sm btn-theme-danger px-3 py-1 mb-1" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem;">
-          <i class="bi-search me-1"></i> Search on YouTube <i class="bi-box-arrow-up-right ms-1"></i>
-        </a>
+        <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link below, search, or sign in to verify</div>
+        <div class="d-flex flex-wrap gap-2 justify-content-center mb-1">
+          <a class="btn btn-sm btn-theme-danger px-3 py-1" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem;">
+            <i class="bi-search me-1"></i> Search on YouTube <i class="bi-box-arrow-up-right ms-1"></i>
+          </a>
+          <button type="button" class="btn btn-sm btn-theme-outline px-3 py-1" id="ytPromptSignInBtn" style="font-size: 0.78rem;">
+            <i class="bi-person-circle me-1"></i> Sign In
+          </button>
+        </div>
       </div>
     </div>
     <div class="input-group input-group-sm yt-search-group">
