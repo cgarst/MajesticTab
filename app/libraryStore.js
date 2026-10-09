@@ -1185,7 +1185,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         }
     }
 
-    const totalSteps = albumGroups.size + standaloneSongs.length;
+    const totalSteps = albumGroups.size + standaloneSongs.length + songs.length;
     let currentStep = 0;
 
     const report = (name, phase = 'album') => {
@@ -1461,6 +1461,8 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
     // 3. Scan all library songs to ensure stored tab files have tunings & string counts detected
     for (const song of songs) {
         if (signal?.aborted) break;
+        currentStep++;
+        report(`${song.artist ? `${song.artist} - ` : ''}${song.title} (Scanning tabs)`, 'tuning');
         try {
             const tabUpdated = await enrichSongWithTabMetadata(song);
             if (tabUpdated) {
