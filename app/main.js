@@ -11,7 +11,7 @@ import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
-import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, hideScoreOptions } from './gpProcessor/gpPlayer.js';
+import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
 import { initTheming } from './themeEngine.js';
 import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
@@ -19,7 +19,7 @@ import { openFromProvider } from './fileProviders.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
 import { addRecentOpened } from './libraryStore.js';
-import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
+import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
 import { showToast } from './utils/toast.js';
 
@@ -318,6 +318,29 @@ function setupSettings() {
         radio.addEventListener('change', () => {
             if (radio.checked) {
                 localStorage.setItem('pageAdvancePages', radio.value);
+            }
+        });
+    });
+
+    // Setup Instrument Mode selector (Guitar vs Bass)
+    const activeInstrumentMode = getInstrumentMode();
+    const instrumentModeRadios = document.querySelectorAll('input[name="instrumentModeRadio"]');
+    instrumentModeRadios.forEach(radio => {
+        if (radio.value === activeInstrumentMode) {
+            radio.checked = true;
+        }
+        radio.addEventListener('change', async () => {
+            if (radio.checked) {
+                setInstrumentMode(radio.value);
+                syncSynthTrackModeLabels();
+                // If a GP file is loaded, re-load/re-render to swap tracks
+                if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
+                    await loadFile(currentFile, { hideMenu: false });
+                }
+                // If library is open, re-render library view
+                if (isLibraryOpen()) {
+                    import('./libraryModal.js').then(m => m.renderLibraryModal());
+                }
             }
         });
     });
