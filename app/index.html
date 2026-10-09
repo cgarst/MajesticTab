@@ -176,6 +176,15 @@
       </div>
     </div>
 
+    <!-- Visible Guitar Tracks (Notation) -->
+    <div class="mb-3" id="synthTrackVisibilitySection" style="display: none;">
+      <div class="d-flex align-items-center justify-content-between mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted">Visible Guitar Tracks:</label>
+        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show All</button>
+      </div>
+      <div id="synthTrackList" class="d-flex flex-column gap-1"></div>
+    </div>
+
     <div class="mb-3">
       <div class="d-flex align-items-center justify-content-between mb-2">
         <label class="form-label small mb-0 fw-semibold text-muted" for="synthLoopSwitch">Loop Measures</label>
@@ -498,6 +507,14 @@
           <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
           <label class="btn btn-sm w-50" for="pageAdvance2">2 Pages</label>
         </div>
+      </div>
+
+      <div id="gpActiveTracksSettingGroup" style="display: none;">
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <label class="form-label small mb-0 text-white-50">Visible Guitar Tracks:</label>
+          <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="settingsShowAllTracksBtn">Show All</button>
+        </div>
+        <div id="settingsTrackList" class="d-flex flex-column gap-1"></div>
       </div>
 
     </div>
