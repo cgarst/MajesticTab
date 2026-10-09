@@ -16,7 +16,7 @@ import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { openOpenFileModal } from './openFileModal.js';
-import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName } from './utils/tuningUtils.js';
+import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName, getTuningCategory } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { showToast } from './utils/toast.js';
 
@@ -487,6 +487,7 @@ async function renderLibraryBrowseView(container) {
             // Tuning Detail View
             const currentGroup = tuningGroups.find(g => g.key === selectedTuning || g.tuning === selectedTuning || g.name === selectedTuning)
                 || { key: selectedTuning, tuning: selectedTuning, name: selectedTuning, notes: selectedTuning, stringCount: 6, songs: [] };
+            const currentCat = currentGroup.category || getTuningCategory(currentGroup);
 
             breadcrumbHtml = `
             <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between gap-3 small mb-3">
@@ -510,7 +511,7 @@ async function renderLibraryBrowseView(container) {
                   ${escapeHtml(currentGroup.notes || currentGroup.key || currentGroup.tuning)}
                 </span>
                 <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.72rem;">
-                  ${currentGroup.stringCount}-String
+                  ${escapeHtml(currentCat.label || `${currentGroup.stringCount}-String`)}
                 </span>
                 <span class="badge badge-theme-primary py-1 px-2" style="font-size: 0.72rem;">
                   ${currentGroup.songs.length} ${currentGroup.songs.length === 1 ? 'Song' : 'Songs'}
@@ -539,27 +540,58 @@ async function renderLibraryBrowseView(container) {
                 </div>
                 `;
             } else {
+                // Group tuningGroups into string count / baritone sections
+                const sectionsMap = new Map();
+                for (const group of tuningGroups) {
+                    const cat = group.category || getTuningCategory(group);
+                    const catId = cat.id || `${group.stringCount || 6}-string`;
+                    if (!sectionsMap.has(catId)) {
+                        sectionsMap.set(catId, {
+                            id: catId,
+                            title: cat.title || `${group.stringCount || 6}-String`,
+                            order: cat.order ?? 99,
+                            groups: []
+                        });
+                    }
+                    sectionsMap.get(catId).groups.push(group);
+                }
+
+                const sortedSections = Array.from(sectionsMap.values()).sort((a, b) => a.order - b.order);
+
                 bodyHtml = `
-                <div class="library-tunings-grid" id="libTuningsGrid">
-                  ${tuningGroups.map(group => {
-                    const sampleArtists = Array.from(new Set(group.songs.map(s => s.artist).filter(Boolean))).slice(0, 3).join(', ');
-                    return `
-                    <div class="library-card tuning-card p-3 position-relative" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}">
-                      <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-                        <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.68rem;">${group.stringCount || 6}-String</span>
-                        <button class="btn btn-sm theme-control-btn edit-tuning-btn p-1 px-2" data-tuning-key="${escapeHtml(group.key || group.tuning)}" title="Edit Tuning Name" aria-label="Edit Tuning Name">
-                          <i class="bi-pencil"></i>
-                        </button>
+                <div class="library-tunings-container d-flex flex-column gap-4" id="libTuningsGrid">
+                  ${sortedSections.map(sec => `
+                    <div class="library-tuning-section" data-tuning-section="${escapeHtml(sec.id)}">
+                      <div class="d-flex align-items-center justify-content-between mb-2">
+                        <div class="small fw-semibold text-white d-flex align-items-center gap-2">
+                          <i class="bi-music-note-list text-info"></i> ${escapeHtml(sec.title)}
+                          <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${sec.groups.length} ${sec.groups.length === 1 ? 'Tuning' : 'Tunings'}</span>
+                        </div>
                       </div>
-                      <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(group.name)}">${escapeHtml(group.name)}</h6>
-                      <div class="fw-semibold text-info small mb-2" style="font-family: var(--font-monospace, monospace); letter-spacing: 0.06em; font-size: 0.78rem;" title="Tuning Notes">
-                        ${escapeHtml(group.notes || group.key || group.tuning)}
+                      <div class="library-tunings-grid">
+                        ${sec.groups.map(group => {
+                          const sampleArtists = Array.from(new Set(group.songs.map(s => s.artist).filter(Boolean))).slice(0, 3).join(', ');
+                          const cat = group.category || getTuningCategory(group);
+                          return `
+                          <div class="library-card tuning-card p-3 position-relative" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}">
+                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                              <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.68rem;">${escapeHtml(cat.label || `${group.stringCount || 6}-String`)}</span>
+                              <button class="btn btn-sm theme-control-btn edit-tuning-btn p-1 px-2" data-tuning-key="${escapeHtml(group.key || group.tuning)}" title="Edit Tuning Name" aria-label="Edit Tuning Name">
+                                <i class="bi-pencil"></i>
+                              </button>
+                            </div>
+                            <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(group.name)}">${escapeHtml(group.name)}</h6>
+                            <div class="fw-semibold text-info small mb-2" style="font-family: var(--font-monospace, monospace); letter-spacing: 0.06em; font-size: 0.78rem;" title="Tuning Notes">
+                              ${escapeHtml(group.notes || group.key || group.tuning)}
+                            </div>
+                            <div class="small text-muted text-truncate mb-1">${group.songs.length} ${group.songs.length === 1 ? 'Song' : 'Songs'}</div>
+                            ${sampleArtists ? `<div class="small text-white-50 text-truncate" style="font-size: 0.74rem;">${escapeHtml(sampleArtists)}</div>` : ''}
+                          </div>
+                          `;
+                        }).join('')}
                       </div>
-                      <div class="small text-muted text-truncate mb-1">${group.songs.length} ${group.songs.length === 1 ? 'Song' : 'Songs'}</div>
-                      ${sampleArtists ? `<div class="small text-white-50 text-truncate" style="font-size: 0.74rem;">${escapeHtml(sampleArtists)}</div>` : ''}
                     </div>
-                    `;
-                  }).join('')}
+                  `).join('')}
                 </div>
                 </div>
                 `;
@@ -1122,20 +1154,39 @@ function setupLibraryFilter(container) {
         // 2. Tunings Grid View
         const tuningCards = container.querySelectorAll('.library-tunings-grid .tuning-card');
         if (tuningCards.length > 0) {
-            let visibleCount = 0;
-            tuningCards.forEach(card => {
-                const name = (card.dataset.tuningName || '').toLowerCase();
-                const notes = (card.dataset.tuningNotes || '').toLowerCase();
-                const key = (card.dataset.tuningKey || '').toLowerCase();
-                const text = (card.textContent || '').toLowerCase();
-                const matches = !query || name.includes(query) || notes.includes(query) || key.includes(query) || text.includes(query);
-                card.style.display = matches ? '' : 'none';
-                if (matches) visibleCount++;
-            });
+            let totalVisibleCount = 0;
+            const sections = container.querySelectorAll('.library-tuning-section');
+            if (sections.length > 0) {
+                sections.forEach(sec => {
+                    const cards = sec.querySelectorAll('.tuning-card');
+                    let secVisible = 0;
+                    cards.forEach(card => {
+                        const name = (card.dataset.tuningName || '').toLowerCase();
+                        const notes = (card.dataset.tuningNotes || '').toLowerCase();
+                        const key = (card.dataset.tuningKey || '').toLowerCase();
+                        const text = (card.textContent || '').toLowerCase();
+                        const matches = !query || name.includes(query) || notes.includes(query) || key.includes(query) || text.includes(query);
+                        card.style.display = matches ? '' : 'none';
+                        if (matches) secVisible++;
+                    });
+                    sec.style.display = (!query || secVisible > 0) ? '' : 'none';
+                    totalVisibleCount += secVisible;
+                });
+            } else {
+                tuningCards.forEach(card => {
+                    const name = (card.dataset.tuningName || '').toLowerCase();
+                    const notes = (card.dataset.tuningNotes || '').toLowerCase();
+                    const key = (card.dataset.tuningKey || '').toLowerCase();
+                    const text = (card.textContent || '').toLowerCase();
+                    const matches = !query || name.includes(query) || notes.includes(query) || key.includes(query) || text.includes(query);
+                    card.style.display = matches ? '' : 'none';
+                    if (matches) totalVisibleCount++;
+                });
+            }
             const tuningsGrid = container.querySelector('#libTuningsGrid');
-            if (tuningsGrid && visibleCount === 0 && query) {
+            if (tuningsGrid && totalVisibleCount === 0 && query) {
                 const emptyMsg = document.createElement('div');
-                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
+                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted w-100';
                 emptyMsg.style.gridColumn = '1 / -1';
                 emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No tunings match "${escapeHtml(query)}"`;
                 tuningsGrid.appendChild(emptyMsg);
