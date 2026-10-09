@@ -1702,7 +1702,8 @@ input[type=range]::-webkit-slider-thumb:hover {
 }
 
 .offcanvas .btn-theme-outline,
-.offcanvas .btn-theme-primary {
+.offcanvas .btn-theme-primary,
+.offcanvas .btn-theme-danger {
   border-radius: 0.5rem;
   font-size: 0.82rem;
   padding: 0.45rem 0.75rem;
@@ -2945,11 +2946,20 @@ body:not(.synth-playback-started) .at-highlight {
   background: rgba(239, 68, 68, 0.15) !important;
   color: #fca5a5 !important;
   border: 1px solid rgba(239, 68, 68, 0.4) !important;
+  transition: all 0.2s ease;
 }
 
-.btn-theme-danger:hover {
-  background: rgba(239, 68, 68, 0.28) !important;
+.btn-theme-danger:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.3) !important;
+  border-color: rgba(239, 68, 68, 0.7) !important;
   color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
+}
+
+.btn-theme-danger:disabled,
+.btn-theme-danger.disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .btn-theme-icon {
