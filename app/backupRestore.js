@@ -572,7 +572,7 @@ async function renderModal(modal, activeTab = 'backup') {
         <button type="button" class="btn btn-sm ${activeTab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnRestore">
           <i class="bi-cloud-arrow-down me-1.5"></i> Restore from Backup
         </button>
-        <button type="button" class="btn btn-sm ${activeTab === 'delete' ? 'btn-theme-danger' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnDelete">
+        <button type="button" class="btn btn-sm ${activeTab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnDelete">
           <i class="bi-trash3 me-1.5"></i> Delete All Data
         </button>
       </div>
@@ -856,7 +856,7 @@ function attachModalHandlers(modal) {
     const switchTab = (tab) => {
         if (tabBtnBackup) tabBtnBackup.className = `btn btn-sm ${tab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
         if (tabBtnRestore) tabBtnRestore.className = `btn btn-sm ${tab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
-        if (tabBtnDelete) tabBtnDelete.className = `btn btn-sm ${tab === 'delete' ? 'btn-theme-danger' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
+        if (tabBtnDelete) tabBtnDelete.className = `btn btn-sm ${tab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
 
         if (backupContent) backupContent.style.display = tab === 'backup' ? 'block' : 'none';
         if (restoreContent) restoreContent.style.display = tab === 'restore' ? 'block' : 'none';
