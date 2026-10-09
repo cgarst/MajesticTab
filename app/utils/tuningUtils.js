@@ -117,18 +117,32 @@ export function extractScoreMetadata(score) {
             const strCount = rawTuning.length;
             if (isGuitar) {
                 if (strCount > maxGuitarStrings) maxGuitarStrings = strCount;
-                if (formatted && !guitarTunings.includes(formatted)) guitarTunings.push(formatted);
+                if (formatted && !guitarTunings.some(g => g.tuning === formatted)) {
+                    guitarTunings.push({ tuning: formatted, strings: strCount });
+                }
             } else if (isBass) {
-                if (formatted && !bassTunings.includes(formatted)) bassTunings.push(formatted);
+                if (formatted && !bassTunings.some(b => b.tuning === formatted)) {
+                    bassTunings.push({ tuning: formatted, strings: strCount });
+                }
             } else {
-                if (formatted && !otherTunings.includes(formatted)) otherTunings.push(formatted);
+                if (formatted && !otherTunings.some(o => o.tuning === formatted)) {
+                    otherTunings.push({ tuning: formatted, strings: strCount });
+                }
             }
         }
     }
 
-    const allTunings = guitarTunings.length > 0
-        ? guitarTunings
-        : (bassTunings.length > 0 ? bassTunings : otherTunings);
+    // Sort guitar tunings so that the maximum string count comes first (e.g. 8-string tuning before 7-string)
+    guitarTunings.sort((a, b) => b.strings - a.strings);
+    bassTunings.sort((a, b) => b.strings - a.strings);
+
+    const guitarTuningNames = guitarTunings.map(g => g.tuning);
+    const bassTuningNames = bassTunings.map(b => b.tuning);
+    const otherTuningNames = otherTunings.map(o => o.tuning);
+
+    const allTunings = guitarTuningNames.length > 0
+        ? guitarTuningNames
+        : (bassTuningNames.length > 0 ? bassTuningNames : otherTuningNames);
 
     let defaultStringCount = 6;
     if (maxGuitarStrings > 0) {
@@ -141,10 +155,13 @@ export function extractScoreMetadata(score) {
         else if (allTunings[0].includes('Bass')) defaultStringCount = 4;
     }
 
+    const primaryTuning = allTunings[0] || null;
+
     return {
         tunings: allTunings,
         stringCount: defaultStringCount,
-        primaryTuning: allTunings[0] || null,
+        primaryTuning,
+        tuning: primaryTuning,
         title: score.title?.trim() || null,
         artist: score.artist?.trim() || null,
         album: score.album?.trim() || null
