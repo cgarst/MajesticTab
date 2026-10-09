@@ -1322,6 +1322,8 @@ function attachModalHandlers(modal) {
                 const details = [];
                 if (stats.updatedAlbums > 0) details.push(`${stats.updatedAlbums} albums refreshed`);
                 if (stats.updatedSongs > 0) details.push(`${stats.updatedSongs} songs updated`);
+                const scrubbedCount = stats.scrubbedNonCdTracks || stats.scrubbedDvdTracks || 0;
+                if (scrubbedCount > 0) details.push(`${scrubbedCount} non-CD (DVD/Vinyl) tracks removed`);
                 if (stats.updatedTunings > 0) details.push(`${stats.updatedTunings} song tunings detected from tab files`);
                 if (stats.addedDurations > 0) details.push(`${stats.addedDurations} track durations added`);
                 if (stats.addedCovers > 0) details.push(`${stats.addedCovers} album covers added`);
