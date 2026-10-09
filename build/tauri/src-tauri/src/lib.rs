@@ -218,8 +218,11 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             youtube_macos::install(_app)?;
             tab_downloader_native::install(_app)?;
-            #[cfg(feature = "debug-tools")]
             if let Some(window) = _app.get_webview_window("main") {
+                if let Some(icon) = _app.default_window_icon() {
+                    let _ = window.set_icon(icon.clone());
+                }
+                #[cfg(feature = "debug-tools")]
                 window.open_devtools();
             }
             Ok(())
