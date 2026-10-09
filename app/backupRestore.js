@@ -1277,6 +1277,7 @@ function attachModalHandlers(modal) {
                     const details = [];
                     if (stats.updatedAlbums > 0) details.push(`${stats.updatedAlbums} albums refreshed`);
                     if (stats.updatedSongs > 0) details.push(`${stats.updatedSongs} songs updated`);
+                    if (stats.updatedTunings > 0) details.push(`${stats.updatedTunings} song tunings detected`);
                     if (stats.addedDurations > 0) details.push(`${stats.addedDurations} track times added`);
                     if (stats.addedCovers > 0) details.push(`${stats.addedCovers} covers added`);
                     const summaryText = details.length > 0 ? details.join(', ') : 'All tracks were already up to date';
