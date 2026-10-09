@@ -76,8 +76,12 @@ async fn open_tab_downloader(
         tauri::WebviewUrl::External(parsed_url),
     )
     .title("Tab Downloader - MajesticTab")
-    .inner_size(1100.0, 750.0)
     .initialization_script(tab_downloader_native::CORE_DOWNLOADER_SHIM);
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        builder = builder.inner_size(1100.0, 750.0);
+    }
 
     if let Some(ref js) = userscript {
         if !js.is_empty() {
@@ -156,15 +160,19 @@ async fn youtube_open_auth(app: tauri::AppHandle, url: Option<String>) -> Result
     #[cfg(not(any(target_os = "macos", target_os = "windows")))]
     let ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
-    let builder = tauri::WebviewWindowBuilder::new(
+    #[allow(unused_mut)]
+    let mut builder = tauri::WebviewWindowBuilder::new(
         &app,
         label,
         tauri::WebviewUrl::External(auth_url),
     )
     .title("Sign In - YouTube")
-    .inner_size(650.0, 780.0)
-    .center()
     .user_agent(ua);
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        builder = builder.inner_size(650.0, 780.0).center();
+    }
 
     let window = builder.build().map_err(|e| e.to_string())?;
     let _ = window.show();
