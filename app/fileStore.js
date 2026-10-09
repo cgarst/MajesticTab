@@ -53,16 +53,37 @@ export function getDB() {
 }
 
 export function arrayBufferToBase64(buffer) {
-    let binary = '';
+    if (!buffer || buffer.byteLength === 0) return '';
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-        binary += String.fromCharCode(bytes[i]);
+    const CHUNK_SIZE = 0x8000; // 32KB chunks to prevent stack/string overflow
+    const chunks = [];
+    for (let i = 0; i < len; i += CHUNK_SIZE) {
+        chunks.push(String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK_SIZE)));
     }
-    return btoa(binary);
+    return btoa(chunks.join(''));
+}
+
+export async function arrayBufferToBase64Async(buffer) {
+    if (!buffer || buffer.byteLength === 0) return '';
+    if (typeof FileReader !== 'undefined') {
+        return new Promise((resolve, reject) => {
+            const blob = new Blob([buffer]);
+            const reader = new FileReader();
+            reader.onload = () => {
+                const dataUrl = reader.result;
+                const commaIdx = dataUrl.indexOf(',');
+                resolve(commaIdx !== -1 ? dataUrl.slice(commaIdx + 1) : '');
+            };
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+        });
+    }
+    return arrayBufferToBase64(buffer);
 }
 
 export function base64ToArrayBuffer(base64) {
+    if (!base64) return new ArrayBuffer(0);
     const binaryString = atob(base64);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
@@ -131,6 +152,22 @@ export async function getStoredFile(id) {
             });
             resolve({ record, file });
         };
+        req.onerror = () => reject(req.error);
+    });
+}
+
+/**
+ * Retrieve a raw stored file record by ID (including binary data).
+ * @param {string} id
+ * @returns {Promise<object|null>}
+ */
+export async function getStoredFileRecord(id) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result || null);
         req.onerror = () => reject(req.error);
     });
 }
