@@ -11,7 +11,7 @@ import {
     reloadAllLibraryMetadata
 } from './libraryStore.js';
 import {
-    getSaveProviders, saveToProvider
+    getSaveProviders, saveToProvider, openFromProvider
 } from './fileProviders.js';
 import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
@@ -670,10 +670,15 @@ async function renderModal(modal, activeTab = 'backup') {
             <input type="file" id="restoreFileInput" accept=".json,.majestictab,application/json" class="d-none">
             <i class="bi-file-earmark-arrow-up text-info fs-1 mb-2 d-block"></i>
             <div class="fw-bold text-white small mb-1">Select or drop a MajesticTab backup file (.json)</div>
-            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Single-file backup bundle exported from MajesticTab</div>
-            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreBrowseBtn">
-              <i class="bi-folder2-open me-1"></i> Browse Backup File
-            </button>
+            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Single-file backup bundle exported from MajesticTab or stored in Google Drive</div>
+            <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreBrowseBtn">
+                <i class="bi-folder2-open text-primary"></i> <span>Browse Local File</span>
+              </button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
+                <i class="bi-google text-danger"></i> <span>Load from Google Drive</span>
+              </button>
+            </div>
           </div>
 
           <!-- Step 2: Inspection Card (Hidden until file selected) -->
@@ -1016,6 +1021,15 @@ function attachModalHandlers(modal) {
 
     restoreBrowseBtn?.addEventListener('click', () => restoreFileInput?.click());
 
+    const restoreDriveBtn = modal.querySelector('#restoreDriveBtn');
+    restoreDriveBtn?.addEventListener('click', () => {
+        openFromProvider('google-drive', {
+            onFileSelected: ({ file, name }) => {
+                if (file) handleSelectedBackupFile(file, 'Google Drive');
+            }
+        });
+    });
+
     // Drag and drop handlers
     ['dragenter', 'dragover'].forEach(eventName => {
         restoreDropzone?.addEventListener(eventName, (e) => {
@@ -1035,15 +1049,15 @@ function attachModalHandlers(modal) {
 
     restoreDropzone?.addEventListener('drop', (e) => {
         const file = e.dataTransfer?.files?.[0];
-        if (file) handleSelectedBackupFile(file);
+        if (file) handleSelectedBackupFile(file, 'Local Device');
     });
 
     restoreFileInput?.addEventListener('change', () => {
         const file = restoreFileInput.files?.[0];
-        if (file) handleSelectedBackupFile(file);
+        if (file) handleSelectedBackupFile(file, 'Local Device');
     });
 
-    const handleSelectedBackupFile = async (file) => {
+    const handleSelectedBackupFile = async (file, source = 'Local Device') => {
         try {
             const text = await file.text();
             const inspection = inspectBackupFile(text);
@@ -1061,7 +1075,9 @@ function attachModalHandlers(modal) {
 
             // Populate Inspection Card
             const filenameLabel = modal.querySelector('#restoreFilenameLabel');
-            if (filenameLabel) filenameLabel.textContent = file.name || 'Backup file';
+            if (filenameLabel) {
+                filenameLabel.textContent = `${source === 'Google Drive' ? 'Drive: ' : ''}${file.name || 'Backup file'}`;
+            }
             modal.querySelector('#restoreExportedDate').textContent = inspection.exportedAt;
             modal.querySelector('#restoreTabsCount').textContent = inspection.tabsCount;
             modal.querySelector('#restoreSongsCount').textContent = inspection.songsCount;
