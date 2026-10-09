@@ -50,7 +50,7 @@
         <i class="bi-chevron-left me-1"></i><span>Library</span>
       </button>
       <span class="breadcrumb-divider text-muted opacity-50" data-tauri-drag-region>/</span>
-      <button type="button" class="btn btn-sm top-bar-song-btn" id="topBarSongTitleBtn" title="Tracks &amp; Notation Options" aria-label="Tracks and Notation Options" aria-expanded="false">
+      <button type="button" class="btn btn-sm top-bar-song-btn" id="topBarSongTitleBtn" title="Notation Options" aria-label="Notation Options" aria-expanded="false">
         <span class="breadcrumb-song-title text-truncate fw-semibold" id="topBarSongTitle"></span>
         <i class="bi-chevron-down song-title-chevron" aria-hidden="true"></i>
       </button>
@@ -130,14 +130,14 @@
   <div class="synth-panel-header">
     <div class="d-flex align-items-center text-truncate me-2">
       <i class="bi-layers-half text-info me-2 fs-6"></i>
-      <span class="synth-panel-title text-truncate" id="scoreOptionsPanelTitle">Tracks &amp; Notation</span>
+      <span class="synth-panel-title text-truncate" id="scoreOptionsPanelTitle">Notation</span>
     </div>
     <button class="brand-btn p-1 px-2 text-muted" id="scoreOptionsPanelCloseBtn" title="Close">
       <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
     </button>
   </div>
   <div class="synth-panel-body">
-    <!-- Notation Style -->
+    <!-- Notation Style (GP only) -->
     <div class="mb-3" id="scoreOptionsNotationStyleSection">
       <label class="form-label small mb-1 fw-semibold text-muted">Notation Style:</label>
       <div class="hud-pill-group w-100" role="group" aria-label="Notation Style">
@@ -148,13 +148,41 @@
       </div>
     </div>
 
-    <!-- Visible Guitar Tracks -->
-    <div id="synthTrackVisibilitySection" style="display: none;">
+    <!-- Visible Guitar Tracks (GP only) -->
+    <div id="synthTrackVisibilitySection" class="mb-3" style="display: none;">
       <div class="d-flex align-items-center justify-content-between mb-1">
         <label class="form-label small mb-0 fw-semibold text-muted">Visible Guitar Tracks:</label>
         <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show All</button>
       </div>
       <div id="synthTrackList" class="d-flex flex-column gap-1 mb-1"></div>
+    </div>
+
+    <!-- PDF Options (PDF only) -->
+    <div id="scoreOptionsPdfSection" class="mb-3" style="display: none;">
+      <label class="form-label small mb-2 fw-semibold text-muted">PDF Rendering:</label>
+      <div class="form-check form-switch mb-2">
+        <input class="form-check-input theme-switch" type="checkbox" id="condensePdfMode">
+        <label class="form-check-label small text-white" for="condensePdfMode">Condense PDF <span class="settings-beta-badge">Experimental</span></label>
+      </div>
+      <div class="form-check form-switch mb-0">
+        <input class="form-check-input theme-switch" type="checkbox" id="debugMode">
+        <label class="form-check-label small text-white" for="debugMode">Debug PDF Overlay</label>
+      </div>
+    </div>
+
+    <!-- Export Actions -->
+    <div class="pt-2 border-top border-secondary-subtle d-flex flex-column gap-2" id="scoreOptionsExportSection">
+      <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="exportPDFBtn" type="button" style="display: none;">
+        <i class="bi-file-earmark-pdf text-danger"></i> Export as PDF
+      </button>
+      <div id="exportProgressContainer" style="display:none; margin-top:2px; margin-bottom:2px;">
+        <div class="progress settings-progress" style="height: 6px;">
+          <div id="exportProgressBar" class="progress-bar settings-progress-bar" role="progressbar" style="width:0%">0%</div>
+        </div>
+      </div>
+      <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="exportSourceTabBtn" type="button">
+        <i class="bi-download text-info"></i> Export Source Tab
+      </button>
     </div>
   </div>
 </div>
@@ -586,29 +614,7 @@
       <div class="small text-white-50 mt-2" id="updateStatus" role="status"></div>
     </div>
 
-    <!-- Section 4: PDF Tools & Exports -->
-    <div class="settings-card">
-      <div class="settings-header-label">
-        <i class="bi-tools text-danger"></i> PDF Tools & Export
-      </div>
-      <button class="btn btn-theme-outline w-100 mb-2" id="exportPDFBtn">Export Current File as PDF</button>
-      <button class="btn btn-theme-outline w-100 mb-2" id="bulkExportBtn">Bulk Export PDFs</button>
-      <div id="exportProgressContainer" style="display:none; margin-top:5px;">
-        <div class="progress settings-progress" style="height: 6px;">
-          <div id="exportProgressBar" class="progress-bar settings-progress-bar" role="progressbar" style="width:0%">0%</div>
-        </div>
-      </div>
-      <div class="form-check form-switch mb-1">
-        <input class="form-check-input" type="checkbox" id="condensePdfMode">
-        <label class="form-check-label small text-white" for="condensePdfMode">Condense PDF <span class="settings-beta-badge">Experimental</span></label>
-      </div>
-      <div class="form-check form-switch mb-2">
-        <input class="form-check-input" type="checkbox" id="debugMode">
-        <label class="form-check-label small text-white" for="debugMode">Debug PDF Overlay</label>
-      </div>
-    </div>
-
-    <!-- Section 5: Data Management -->
+    <!-- Section 4: Data Management -->
     <div class="settings-card">
       <div class="settings-header-label">
         <i class="bi-database-gear text-primary"></i> Data Management
@@ -619,6 +625,9 @@
         </button>
         <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="restoreDataBtn" type="button">
           <i class="bi-cloud-arrow-down"></i> Restore from Backup...
+        </button>
+        <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="bulkExportBtn" type="button">
+          <i class="bi-file-earmark-pdf text-danger"></i> Bulk Export PDFs...
         </button>
         <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="reloadLibraryMetadataBtn" type="button">
           <i class="bi-arrow-repeat text-info"></i> Reload Library Metadata...

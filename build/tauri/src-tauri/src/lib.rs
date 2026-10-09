@@ -219,6 +219,7 @@ pub fn run() {
             youtube_macos::install(_app)?;
             tab_downloader_native::install(_app)?;
             if let Some(window) = _app.get_webview_window("main") {
+                #[cfg(not(any(target_os = "android", target_os = "ios")))]
                 if let Some(icon) = _app.default_window_icon() {
                     let _ = window.set_icon(icon.clone());
                 }

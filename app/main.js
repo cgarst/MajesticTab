@@ -11,7 +11,7 @@ import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
-import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
+import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
 import { initTheming } from './themeEngine.js';
 import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
@@ -426,17 +426,17 @@ function setupSettings() {
     });
 
     // Setup event listeners for settings changes
-    debugMode.addEventListener('change', () => {
+    debugMode?.addEventListener('change', () => {
         localStorage.setItem('debugMode', debugMode.checked);
-        if (currentFile && currentFile.type.includes('pdf')) {
-            loadFile(currentFile); // Reload current file with new settings
+        if (currentFile && isFileType(currentFile, ['pdf'])) {
+            loadFile(currentFile, { hideMenu: false }); // Reload current file with new settings
         }
     });
 
-    condensePdfMode.addEventListener('change', () => {
+    condensePdfMode?.addEventListener('change', () => {
         localStorage.setItem('condensePdfMode', condensePdfMode.checked);
-        if (currentFile && currentFile.type.includes('pdf')) {
-            loadFile(currentFile); // Reload current file with new settings
+        if (currentFile && isFileType(currentFile, ['pdf'])) {
+            loadFile(currentFile, { hideMenu: false }); // Reload current file with new settings
         }
     });
 
@@ -1089,14 +1089,14 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     }
 
     if (isFileType(file, ['pdf'])) {
-        hideScoreOptions();
+        showScoreOptions('pdf');
         await loadPDF(fileToLoad);
     } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
         showProgress(progressContainer, progressBar);
         await loadGP(fileToLoad, output, pageModeRadio, continuousModeRadio);
         hideProgress(progressContainer, progressBar);
     } else if (isFileType(file, ['txt'])) {
-        hideScoreOptions();
+        showScoreOptions('txt');
         await loadText(fileToLoad, output, pageModeRadio, continuousModeRadio);
         hideProgress(progressContainer, progressBar);
     } else {
