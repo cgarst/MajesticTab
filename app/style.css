@@ -2708,6 +2708,11 @@ body:not(.synth-playback-started) .at-highlight {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
+/* Helper Utilities */
+.min-w-0 {
+  min-width: 0 !important;
+}
+
 /* Grids */
 .library-artists-grid {
   display: grid;
@@ -2721,6 +2726,11 @@ body:not(.synth-playback-started) .at-highlight {
   gap: 1rem;
 }
 
+.library-artists-grid > *,
+.library-albums-grid > * {
+  min-width: 0;
+}
+
 /* Interactive Themed Cards & Rows */
 .library-card,
 .library-row-card {
@@ -2728,6 +2738,7 @@ body:not(.synth-playback-started) .at-highlight {
   border: 1px solid var(--border-subtle);
   border-radius: 0.75rem;
   transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  min-width: 0;
 }
 
 .library-card {
@@ -2757,6 +2768,7 @@ body:not(.synth-playback-started) .at-highlight {
   border-radius: 0.85rem;
   padding: 1rem;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  min-width: 0;
 }
 
 /* Song Row & Track Row */
@@ -2766,6 +2778,7 @@ body:not(.synth-playback-started) .at-highlight {
   border: 1px solid var(--border-subtle);
   border-radius: 0.65rem;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  min-width: 0;
 }
 
 .library-song-row:hover,
@@ -2782,6 +2795,7 @@ body:not(.synth-playback-started) .at-highlight {
   border-radius: 50%;
   border: 2px solid var(--border-subtle);
   background: var(--bg-card-solid);
+  flex-shrink: 0;
 }
 
 .album-cover-img {
@@ -2791,6 +2805,7 @@ body:not(.synth-playback-started) .at-highlight {
   background: var(--bg-card-solid);
   border: 1px solid var(--border-subtle);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
 }
 
 .album-cover-banner {
@@ -2801,6 +2816,7 @@ body:not(.synth-playback-started) .at-highlight {
   background: var(--bg-card-solid);
   border: 1px solid var(--border-subtle);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
 }
 
 /* Themed Badges */
