@@ -3,8 +3,8 @@
 
 import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
-import { addTabOptionToSong, getSongById } from './libraryStore.js';
-import { inferTuningFromTextOrName } from './utils/tuningUtils.js';
+import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryStore.js';
+import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
 import { openLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
 
@@ -105,6 +105,7 @@ export const DEFAULT_SOURCES = [
 ];
 
 let activeTargetSong = null;
+let activeTargetAlbum = null;
 let activeArtistName = '';
 let activeSongName = '';
 let activeSourceId = 'ug';
@@ -263,12 +264,14 @@ export function initTauriDownloadListener() {
                 const file = new File([blob], name || 'downloaded.gp', { type: blob.type, lastModified: Date.now() });
 
                 const targetSong = activeTargetSong;
+                const targetAlbum = activeTargetAlbum;
 
                 // Close downloader modal first
                 closeTabDownloaderModal();
 
-                // Only persist to file store and attach to library song if bound to a target song
+                // Only persist to file store and attach to library song/album if bound
                 if (targetSong?.id) {
+                    const meta = await detectFileMetadata(file, file.name);
                     const stored = await saveStoredFile(file, 'tab-downloader', {
                         name: file.name,
                         relativePath: path || file.name,
@@ -280,9 +283,38 @@ export function initTauriDownloadListener() {
                         providerId: 'tab-downloader',
                         relativePath: path || file.name,
                         fileStoreId: stored.id,
-                        tuning: inferTuningFromTextOrName(file.name),
+                        tuning: meta.primaryTuning,
+                        tunings: meta.tunings,
+                        stringCount: meta.stringCount,
                         fileType: file.name.split('.').pop().toLowerCase()
                     });
+
+                    showToast(`Added "${file.name}" to song`, 'success');
+                    window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                    return;
+                }
+
+                if (targetAlbum?.albumTitle) {
+                    const meta = await detectFileMetadata(file, file.name);
+                    const stored = await saveStoredFile(file, 'tab-downloader', {
+                        name: file.name,
+                        relativePath: path || file.name
+                    });
+
+                    await addTabOptionToAlbum(targetAlbum.collectionId, targetAlbum.artistName, targetAlbum.albumTitle, {
+                        name: file.name,
+                        providerId: 'tab-downloader',
+                        relativePath: path || file.name,
+                        fileStoreId: stored.id,
+                        tuning: meta.primaryTuning,
+                        tunings: meta.tunings,
+                        stringCount: meta.stringCount,
+                        fileType: file.name.split('.').pop().toLowerCase()
+                    });
+
+                    showToast(`Added "${file.name}" to album`, 'success');
+                    window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                    return;
                 }
 
                 // Load file directly into player viewer
@@ -315,8 +347,18 @@ export async function openTabDownloader(options = {}) {
         try { activeTargetSong = await getSongById(options.songId); } catch {}
     }
 
-    activeArtistName = options.artist || activeTargetSong?.artist || '';
-    activeSongName = options.songName || activeTargetSong?.title || '';
+    if (options.isAlbumTab && options.albumTitle) {
+        activeTargetAlbum = {
+            collectionId: options.collectionId,
+            artistName: options.artistName,
+            albumTitle: options.albumTitle
+        };
+    } else {
+        activeTargetAlbum = null;
+    }
+
+    activeArtistName = options.artist || activeTargetSong?.artist || activeTargetAlbum?.artistName || '';
+    activeSongName = options.songName || activeTargetSong?.title || activeTargetAlbum?.albumTitle || '';
 
     if (window.__TAURI__?.core?.invoke) {
         try {
@@ -688,25 +730,60 @@ function setupWebDropzone(modal) {
 
 async function handleImportedDownloadedFile(file) {
     try {
-        if (activeTargetSong?.id) {
+        const targetSong = activeTargetSong;
+        const targetAlbum = activeTargetAlbum;
+
+        if (targetSong?.id) {
+            const meta = await detectFileMetadata(file, file.name);
             const stored = await saveStoredFile(file, 'tab-downloader-web', {
                 name: file.name,
                 relativePath: file.name,
-                targetSongId: activeTargetSong.id
+                targetSongId: targetSong.id
             });
 
-            await addTabOptionToSong(activeTargetSong.id, {
+            await addTabOptionToSong(targetSong.id, {
                 name: file.name,
                 providerId: 'tab-downloader-web',
                 relativePath: file.name,
                 fileStoreId: stored.id,
-                tuning: inferTuningFromTextOrName(file.name),
+                tuning: meta.primaryTuning,
+                tunings: meta.tunings,
+                stringCount: meta.stringCount,
                 fileType: file.name.split('.').pop().toLowerCase()
             });
+
+            closeTabDownloaderModal();
+            showToast(`Added "${file.name}" to song`, 'success');
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+            return;
         }
 
-        await loadFile(file);
+        if (targetAlbum?.albumTitle) {
+            const meta = await detectFileMetadata(file, file.name);
+            const stored = await saveStoredFile(file, 'tab-downloader-web', {
+                name: file.name,
+                relativePath: file.name
+            });
+
+            await addTabOptionToAlbum(targetAlbum.collectionId, targetAlbum.artistName, targetAlbum.albumTitle, {
+                name: file.name,
+                providerId: 'tab-downloader-web',
+                relativePath: file.name,
+                fileStoreId: stored.id,
+                tuning: meta.primaryTuning,
+                tunings: meta.tunings,
+                stringCount: meta.stringCount,
+                fileType: file.name.split('.').pop().toLowerCase()
+            });
+
+            closeTabDownloaderModal();
+            showToast(`Added "${file.name}" to album`, 'success');
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+            return;
+        }
+
         closeTabDownloaderModal();
+        await loadFile(file);
     } catch (err) {
         console.error('Error importing downloaded tab file:', err);
         showToast(`Error importing tab: ${err.message}`, 'error');
