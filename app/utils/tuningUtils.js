@@ -42,7 +42,141 @@ export const KNOWN_TUNINGS = [
     { name: '6-String Bass (B E A D G C)', shortName: '6-String Bass', midi: [48, 43, 38, 33, 28, 23], strings: ['C3', 'G2', 'D2', 'A1', 'E1', 'B0'] },
 ];
 
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+export const CUSTOM_TUNINGS_STORAGE_KEY = 'majestictab_custom_tuning_names';
+
+export function getCustomTuningNames() {
+    try {
+        if (typeof localStorage === 'undefined') return {};
+        const raw = localStorage.getItem(CUSTOM_TUNINGS_STORAGE_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+export function getCustomTuningName(tuningKey) {
+    if (!tuningKey) return null;
+    const names = getCustomTuningNames();
+    return names[tuningKey] || null;
+}
+
+export function setCustomTuningName(tuningKey, name) {
+    if (!tuningKey || typeof localStorage === 'undefined') return;
+    const names = getCustomTuningNames();
+    if (name && name.trim()) {
+        names[tuningKey] = name.trim();
+    } else {
+        delete names[tuningKey];
+    }
+    try {
+        localStorage.setItem(CUSTOM_TUNINGS_STORAGE_KEY, JSON.stringify(names));
+    } catch (e) {
+        console.warn('Could not save custom tuning name:', e);
+    }
+}
+
+/**
+ * Returns structured tuning metadata: canonical key (e.g. EADGBE), notes (e.g. E A D G B E),
+ * default name, display name (with user override), and string count.
+ */
+export function getTuningInfo(tuningInput) {
+    if (!tuningInput || typeof tuningInput !== 'string') return null;
+    const trimmed = tuningInput.trim();
+    if (!trimmed || trimmed === 'Untuned / Other' || trimmed.toLowerCase() === 'untuned' || trimmed.toLowerCase() === 'other') return null;
+
+    // 1. Direct match on KNOWN_TUNINGS by name, shortName, key, notes, etc.
+    for (const known of KNOWN_TUNINGS) {
+        const noteArr = [...known.strings].reverse().map(s => s.replace(/[^a-zA-Z#b]/g, ''));
+        const key = noteArr.join('');
+        const notes = noteArr.join(' ');
+        const defaultName = known.shortName === 'E Standard' ? 'Standard' : (known.shortName || known.name.split('(')[0].trim());
+
+        if (
+            trimmed.toLowerCase() === key.toLowerCase() ||
+            trimmed.toLowerCase() === notes.toLowerCase() ||
+            trimmed.toLowerCase() === known.name.toLowerCase() ||
+            trimmed.toLowerCase() === (known.shortName || '').toLowerCase() ||
+            trimmed.toLowerCase() === defaultName.toLowerCase() ||
+            (known.shortName === 'E Standard' && trimmed.toLowerCase() === 'standard') ||
+            (known.name.toLowerCase().includes(trimmed.toLowerCase()) && trimmed.length >= 3)
+        ) {
+            const customName = getCustomTuningName(key);
+            return {
+                key,
+                notes,
+                defaultName,
+                displayName: customName || defaultName || notes,
+                stringCount: known.strings.length
+            };
+        }
+    }
+
+    // 2. Check if string contains parentheses with notes, e.g. "Custom (D A D G B E)"
+    let noteSource = trimmed;
+    const parenMatch = trimmed.match(/\(([^)]+)\)/);
+    if (parenMatch) {
+        noteSource = parenMatch[1];
+    }
+
+    // Extract note tokens (A-G with optional sharp/flat)
+    const notePattern = /(?:[A-G][b#]?)(?=[0-9]|\b|\s|-|\/|$)/gi;
+    const matches = noteSource.match(notePattern);
+    if (matches && matches.length >= 3) {
+        const noteArr = matches.map(n => {
+            const clean = n.replace(/[^a-zA-Z#b]/g, '');
+            if (clean.length === 1) return clean.toUpperCase();
+            return clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+        });
+        const key = noteArr.join('');
+        const notes = noteArr.join(' ');
+
+        // Check if this key matches a known tuning
+        for (const known of KNOWN_TUNINGS) {
+            const kArr = [...known.strings].reverse().map(s => s.replace(/[^a-zA-Z#b]/g, ''));
+            if (kArr.join('').toLowerCase() === key.toLowerCase()) {
+                const defaultName = known.shortName === 'E Standard' ? 'Standard' : (known.shortName || known.name.split('(')[0].trim());
+                const customName = getCustomTuningName(key);
+                return {
+                    key,
+                    notes,
+                    defaultName,
+                    displayName: customName || defaultName || notes,
+                    stringCount: known.strings.length
+                };
+            }
+        }
+
+        const customName = getCustomTuningName(key);
+        const inferredName = noteArr.length === 4 ? `Bass (${notes})` : (noteArr.length > 6 ? `${noteArr.length}-String (${notes})` : notes);
+        return {
+            key,
+            notes,
+            defaultName: inferredName,
+            displayName: customName || inferredName,
+            stringCount: noteArr.length
+        };
+    }
+
+    // 3. Fallback: if inferTuningFromTextOrName can detect a known tuning name
+    const inferred = inferTuningFromTextOrName(trimmed);
+    if (inferred && inferred !== trimmed) {
+        const result = getTuningInfo(inferred);
+        if (result) return result;
+    }
+
+    const cleanKey = trimmed.replace(/[^a-zA-Z0-9#]/g, '');
+    if (!cleanKey) return null;
+    const customName = getCustomTuningName(cleanKey);
+    return {
+        key: cleanKey,
+        notes: trimmed,
+        defaultName: trimmed,
+        displayName: customName || trimmed,
+        stringCount: 6
+    };
+}
+
+export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 export function midiToNoteName(midiNumber) {
     if (typeof midiNumber !== 'number' || isNaN(midiNumber)) return '';

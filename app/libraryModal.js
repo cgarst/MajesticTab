@@ -16,7 +16,7 @@ import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { openOpenFileModal } from './openFileModal.js';
-import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
+import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { showToast } from './utils/toast.js';
 
@@ -485,11 +485,12 @@ async function renderLibraryBrowseView(container) {
 
         if (selectedTuning) {
             // Tuning Detail View
-            const currentGroup = tuningGroups.find(g => g.tuning === selectedTuning) || { tuning: selectedTuning, stringCount: 6, songs: [] };
+            const currentGroup = tuningGroups.find(g => g.key === selectedTuning || g.tuning === selectedTuning || g.name === selectedTuning)
+                || { key: selectedTuning, tuning: selectedTuning, name: selectedTuning, notes: selectedTuning, stringCount: 6, songs: [] };
 
             breadcrumbHtml = `
             <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between gap-3 small mb-3">
-              <div class="d-flex align-items-center gap-3 flex-wrap min-w-0">
+              <div class="d-flex align-items-center gap-2 flex-wrap min-w-0">
                 <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="libBrowseBackBtn" title="Back to All Tunings">
                   <i class="bi-arrow-left"></i> <span>Back</span>
                 </button>
@@ -498,10 +499,16 @@ async function renderLibraryBrowseView(container) {
                     <i class="bi-music-note"></i> <span>All Tunings</span>
                   </button>
                   <i class="bi-chevron-right breadcrumb-separator flex-shrink-0"></i>
-                  <span class="theme-breadcrumb-btn active text-truncate" style="max-width: 260px;">${escapeHtml(selectedTuning)}</span>
+                  <span class="theme-breadcrumb-btn active text-truncate" style="max-width: 220px;">${escapeHtml(currentGroup.name)}</span>
+                  <button class="btn btn-sm theme-control-btn edit-tuning-btn p-1 px-2 ms-1 flex-shrink-0" data-tuning-key="${escapeHtml(currentGroup.key || currentGroup.tuning)}" title="Edit Tuning Name" aria-label="Edit Tuning Name">
+                    <i class="bi-pencil"></i>
+                  </button>
                 </div>
               </div>
               <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <span class="badge badge-theme-primary py-1 px-2" style="font-family: var(--font-monospace, monospace); font-size: 0.72rem; letter-spacing: 0.05em;" title="Tuning Notes">
+                  ${escapeHtml(currentGroup.notes || currentGroup.key || currentGroup.tuning)}
+                </span>
                 <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.72rem;">
                   ${currentGroup.stringCount}-String
                 </span>
@@ -522,24 +529,41 @@ async function renderLibraryBrowseView(container) {
             `;
         } else {
             // Tunings Grid
-            bodyHtml = `
-            <div class="library-tunings-grid" id="libTuningsGrid">
-              ${tuningGroups.map(group => {
-                const sampleArtists = Array.from(new Set(group.songs.map(s => s.artist).filter(Boolean))).slice(0, 3).join(', ');
-                return `
-                <div class="library-card tuning-card p-3" data-tuning-name="${escapeHtml(group.tuning)}">
-                  <div class="d-flex align-items-center justify-content-end gap-2 mb-2">
-                    <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.68rem;">${group.stringCount || 6}-String</span>
-                  </div>
-                  <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(group.tuning)}">${escapeHtml(group.tuning)}</h6>
-                  <div class="small text-muted text-truncate mb-2">${group.songs.length} ${group.songs.length === 1 ? 'Song' : 'Songs'}</div>
-                  ${sampleArtists ? `<div class="small text-white-50 text-truncate" style="font-size: 0.74rem;">${escapeHtml(sampleArtists)}</div>` : ''}
+            if (tuningGroups.length === 0) {
+                bodyHtml = `
+                <div class="text-center py-5 text-muted">
+                  <i class="bi-music-note fs-1 mb-2 d-block text-white-50"></i>
+                  <h6 class="text-white fw-semibold mb-1">No Tunings Found</h6>
+                  <p class="small text-muted mb-3">Add tab files with guitar or bass scores to see your songs categorized by tuning.</p>
+                </div>
                 </div>
                 `;
-              }).join('')}
-            </div>
-            </div>
-            `;
+            } else {
+                bodyHtml = `
+                <div class="library-tunings-grid" id="libTuningsGrid">
+                  ${tuningGroups.map(group => {
+                    const sampleArtists = Array.from(new Set(group.songs.map(s => s.artist).filter(Boolean))).slice(0, 3).join(', ');
+                    return `
+                    <div class="library-card tuning-card p-3 position-relative" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}">
+                      <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                        <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.68rem;">${group.stringCount || 6}-String</span>
+                        <button class="btn btn-sm theme-control-btn edit-tuning-btn p-1 px-2" data-tuning-key="${escapeHtml(group.key || group.tuning)}" title="Edit Tuning Name" aria-label="Edit Tuning Name">
+                          <i class="bi-pencil"></i>
+                        </button>
+                      </div>
+                      <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(group.name)}">${escapeHtml(group.name)}</h6>
+                      <div class="fw-semibold text-info small mb-2" style="font-family: var(--font-monospace, monospace); letter-spacing: 0.06em; font-size: 0.78rem;" title="Tuning Notes">
+                        ${escapeHtml(group.notes || group.key || group.tuning)}
+                      </div>
+                      <div class="small text-muted text-truncate mb-1">${group.songs.length} ${group.songs.length === 1 ? 'Song' : 'Songs'}</div>
+                      ${sampleArtists ? `<div class="small text-white-50 text-truncate" style="font-size: 0.74rem;">${escapeHtml(sampleArtists)}</div>` : ''}
+                    </div>
+                    `;
+                  }).join('')}
+                </div>
+                </div>
+                `;
+            }
         }
     } else {
         // ==========================================
@@ -714,7 +738,11 @@ async function renderLibraryBrowseView(container) {
                             </button>
                             <i class="bi-file-earmark-music text-info me-1"></i>
                             <span class="text-truncate" style="max-width: 220px;">${escapeHtml(t.name)}</span>
-                            ${t.tuning ? `<button class="badge badge-tuning badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(t.tuning)}" style="font-size:0.62rem;">${escapeHtml(t.tuning)}</button>` : ''}
+                            ${t.tuning ? (() => {
+                              const info = getTuningInfo(t.tuning);
+                              const label = info ? `${info.displayName}${info.notes && info.notes !== info.displayName ? ` (${info.notes})` : ''}` : t.tuning;
+                              return `<button class="badge badge-tuning badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
+                            })() : ''}
                             <button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" title="Remove album tab"><i class="bi-x"></i></button>
                           </div>
                           `;
@@ -896,12 +924,36 @@ async function renderLibraryBrowseView(container) {
         });
     });
 
-    // Tuning card clicks
+    // Tuning card clicks & edit buttons
     container.querySelectorAll('.tuning-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const tuningName = card.dataset.tuningName;
-            selectedTuning = tuningName;
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.edit-tuning-btn')) return;
+            const tuningKey = card.dataset.tuningKey || card.dataset.tuningName;
+            selectedTuning = tuningKey;
             renderLibraryBrowseView(container);
+        });
+    });
+
+    // Edit tuning name buttons (in grid cards and detail header)
+    container.querySelectorAll('.edit-tuning-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const key = btn.dataset.tuningKey;
+            if (!key) return;
+            const info = getTuningInfo(key) || { key, notes: key, displayName: key, defaultName: key };
+            openThemedInputModal({
+                title: 'Edit Tuning Name',
+                subtitle: `Tuning Notes: ${info.notes} (${info.key})`,
+                icon: 'bi-pencil-square',
+                inputLabel: 'Tuning Display Name',
+                placeholder: `e.g. ${info.defaultName || info.notes}`,
+                initialValue: info.displayName,
+                confirmText: 'Save Name',
+                onConfirm: async (newName) => {
+                    setCustomTuningName(key, newName);
+                    await renderLibraryBrowseView(container);
+                }
+            });
         });
     });
 
@@ -1073,7 +1125,10 @@ function setupLibraryFilter(container) {
             let visibleCount = 0;
             tuningCards.forEach(card => {
                 const name = (card.dataset.tuningName || '').toLowerCase();
-                const matches = !query || name.includes(query);
+                const notes = (card.dataset.tuningNotes || '').toLowerCase();
+                const key = (card.dataset.tuningKey || '').toLowerCase();
+                const text = (card.textContent || '').toLowerCase();
+                const matches = !query || name.includes(query) || notes.includes(query) || key.includes(query) || text.includes(query);
                 card.style.display = matches ? '' : 'none';
                 if (matches) visibleCount++;
             });
@@ -1183,7 +1238,11 @@ function renderSongRow(song, options = {}) {
             ` : ''}
             ${(tunings.length > 0 || hasTabs) ? `
               <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
-                ${tunings.map(t => `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(t)}" title="Browse songs in ${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}
+                ${tunings.map(t => {
+                  const info = getTuningInfo(t);
+                  const label = info ? `${info.displayName}${info.notes && info.notes !== info.displayName ? ` (${info.notes})` : ''}` : t;
+                  return `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(info?.key || t)}" title="Browse songs in ${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</button>`;
+                }).join('')}
                 ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : ''}
               </div>
             ` : ''}
@@ -1236,7 +1295,11 @@ function renderSongRow(song, options = {}) {
                 <i class="bi-star${isDefault ? '-fill' : ''}"></i>
               </button>
               <span class="text-truncate" style="max-width: 160px;">${escapeHtml(t.name)}</span>
-              ${t.tuning ? `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(t.tuning)}">${escapeHtml(t.tuning)}</button>` : ''}
+              ${t.tuning ? (() => {
+                const info = getTuningInfo(t.tuning);
+                const label = info ? `${info.displayName}${info.notes && info.notes !== info.displayName ? ` (${info.notes})` : ''}` : t.tuning;
+                return `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
+              })() : ''}
               <button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
             </div>
             `;
@@ -1458,9 +1521,10 @@ function setupSongRowActions(container) {
             e.stopPropagation();
             const tuning = badge.dataset.tuningTarget;
             if (tuning) {
+                const info = getTuningInfo(tuning);
                 activeView = 'library';
                 libraryBrowseMode = 'tunings';
-                selectedTuning = tuning;
+                selectedTuning = info?.key || tuning;
                 renderLibraryModal();
             }
         });
@@ -2658,7 +2722,11 @@ async function renderRecentsView(container) {
                   <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(r.songTitle || r.name)}">${escapeHtml(r.songTitle || r.name)}</h6>
                   <div class="small text-muted text-truncate" title="${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}">${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}</div>
                   <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
-                    ${tunings.map(t => `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(t)}" title="Browse songs in ${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}
+                    ${tunings.map(t => {
+                      const info = getTuningInfo(t);
+                      const label = info ? `${info.displayName}${info.notes && info.notes !== info.displayName ? ` (${info.notes})` : ''}` : t;
+                      return `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(info?.key || t)}" title="Browse songs in ${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</button>`;
+                    }).join('')}
                     <span class="small text-white-50" style="font-size:0.7rem;"><i class="bi-clock me-1"></i>${timeAgo}</span>
                   </div>
                 </div>
@@ -2737,9 +2805,10 @@ async function renderRecentsView(container) {
             e.stopPropagation();
             const tuning = badge.dataset.tuningTarget;
             if (tuning) {
+                const info = getTuningInfo(tuning);
                 activeView = 'library';
                 libraryBrowseMode = 'tunings';
-                selectedTuning = tuning;
+                selectedTuning = info?.key || tuning;
                 renderLibraryModal();
             }
         });
