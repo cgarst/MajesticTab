@@ -17,8 +17,8 @@
 <body>
   <div id="updateBanner" class="update-banner" hidden role="status">
     <span id="updateBannerText"></span>
-    <button type="button" class="btn btn-sm btn-outline-primary" id="updateDownloadBtn">Download</button>
-    <button type="button" class="btn btn-sm btn-outline-primary" id="updateDismissBtn" aria-label="Dismiss"><i class="bi-x-lg"></i></button>
+    <button type="button" class="btn btn-sm btn-theme-primary" id="updateDownloadBtn">Download</button>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="updateDismissBtn" aria-label="Dismiss"><i class="bi-x-lg"></i></button>
   </div>
 
 <!-- Modern Minimal Top Bar (Floating HUD) -->
@@ -234,7 +234,7 @@
         </div>
         <div class="small fw-bold text-white mb-1">Searching YouTube...</div>
         <div class="text-muted text-truncate px-3 mb-2" id="ytLoadingQueryText" style="font-size: 0.72rem; max-width: 100%;"></div>
-        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 mt-1" id="ytCancelSearchBtn" style="font-size: 0.75rem;">
+        <button type="button" class="btn btn-sm btn-theme-outline py-0 px-2 mt-1" id="ytCancelSearchBtn" style="font-size: 0.75rem;">
           <i class="bi-x-circle me-1"></i> Cancel Search
         </button>
       </div>
@@ -246,7 +246,7 @@
         </div>
         <div class="small fw-semibold text-white mb-1" id="ytPromptTitle">Find Video on YouTube</div>
         <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link below or search directly</div>
-        <a class="btn btn-sm btn-danger px-3 py-1 mb-1" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem;">
+        <a class="btn btn-sm btn-theme-danger px-3 py-1 mb-1" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem;">
           <i class="bi-search me-1"></i> Search on YouTube <i class="bi-box-arrow-up-right ms-1"></i>
         </a>
       </div>
@@ -328,7 +328,7 @@
         </div>
       </div>
       <div class="theme-modal-actions">
-        <button type="button" class="btn btn-outline-secondary btn-sm py-1 px-2 text-white" id="driveSignOutBtn" title="Disconnect Google Account">
+        <button type="button" class="btn btn-theme-outline btn-sm py-1 px-2" id="driveSignOutBtn" title="Disconnect Google Account">
           <i class="bi-box-arrow-right me-1"></i><span class="d-none d-sm-inline">Disconnect</span>
         </button>
         <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="driveModalCloseBtn" aria-label="Close modal">
@@ -343,13 +343,13 @@
         <span class="input-group-text bg-dark border-secondary text-white-50"><i class="bi-search"></i></span>
         <input type="text" class="form-control bg-dark text-white border-secondary" id="driveSearchInput" placeholder="Search tabs by name...">
       </div>
-      <button class="btn btn-outline-secondary btn-sm text-white" id="driveRefreshBtn" title="Refresh file list">
+      <button class="btn btn-theme-outline btn-sm" id="driveRefreshBtn" title="Refresh file list">
         <i class="bi-arrow-clockwise"></i>
       </button>
-      <button class="btn btn-outline-secondary btn-sm text-white text-nowrap" id="driveSetTabsDirectoryBtn" title="Use the current folder as the tabs directory" aria-label="Use the current folder as the tabs directory">
+      <button class="btn btn-theme-outline btn-sm text-nowrap" id="driveSetTabsDirectoryBtn" title="Use the current folder as the tabs directory" aria-label="Use the current folder as the tabs directory">
         <i class="bi-folder2-open me-1"></i><span class="d-none d-md-inline">Set root</span>
       </button>
-      <button class="btn btn-outline-secondary btn-sm text-white" id="driveResetTabsDirectoryBtn" title="Reset tabs directory to My Drive" aria-label="Reset tabs directory" hidden>
+      <button class="btn btn-theme-outline btn-sm" id="driveResetTabsDirectoryBtn" title="Reset tabs directory to My Drive" aria-label="Reset tabs directory" hidden>
         <i class="bi-house"></i>
       </button>
     </div>
@@ -503,7 +503,7 @@
         <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelStable" value="stable" autocomplete="off" checked>
         <label class="btn btn-sm w-33" for="updateChannelStable">Stable</label>
       </div>
-      <button class="btn btn-outline-primary w-100" id="updateCheckBtn" type="button">Check Now</button>
+      <button class="btn btn-theme-outline w-100" id="updateCheckBtn" type="button">Check Now</button>
       <div class="small text-white-50 mt-2" id="updateStatus" role="status"></div>
     </div>
 
@@ -512,8 +512,8 @@
       <div class="settings-header-label">
         <i class="bi-tools text-danger"></i> PDF Tools & Export
       </div>
-      <button class="btn btn-outline-primary w-100 mb-2" id="exportPDFBtn">Export Current File as PDF</button>
-      <button class="btn btn-outline-primary w-100 mb-2" id="bulkExportBtn">Bulk Export PDFs</button>
+      <button class="btn btn-theme-outline w-100 mb-2" id="exportPDFBtn">Export Current File as PDF</button>
+      <button class="btn btn-theme-outline w-100 mb-2" id="bulkExportBtn">Bulk Export PDFs</button>
       <div id="exportProgressContainer" style="display:none; margin-top:5px;">
         <div class="progress settings-progress" style="height: 6px;">
           <div id="exportProgressBar" class="progress-bar settings-progress-bar" role="progressbar" style="width:0%">0%</div>
@@ -526,6 +526,21 @@
       <div class="form-check form-switch mb-2">
         <input class="form-check-input" type="checkbox" id="debugMode">
         <label class="form-check-label small text-white" for="debugMode">Debug PDF Overlay</label>
+      </div>
+    </div>
+
+    <!-- Section 5: Backup & Restore -->
+    <div class="settings-card">
+      <div class="settings-header-label">
+        <i class="bi-shield-arrow-up text-primary"></i> Backup &amp; Restore
+      </div>
+      <div class="d-flex flex-column gap-2">
+        <button class="btn btn-theme-primary w-100 d-flex align-items-center justify-content-center gap-2" id="backupDataBtn" type="button">
+          <i class="bi-cloud-arrow-up"></i> Create Backup...
+        </button>
+        <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="restoreDataBtn" type="button">
+          <i class="bi-cloud-arrow-down"></i> Restore from Backup...
+        </button>
       </div>
     </div>
 
@@ -586,7 +601,7 @@
       </div>
       <div class="small text-white-50">Extension code runs in this browser and may access page data. Only paste code you trust.</div>
       <div class="d-flex flex-wrap align-items-center gap-2">
-        <button class="btn btn-outline-primary flex-grow-1" id="saveExtension" type="button"><i class="bi-check2 me-1"></i>Save extension</button>
+        <button class="btn btn-theme-primary flex-grow-1" id="saveExtension" type="button"><i class="bi-check2 me-1"></i>Save extension</button>
         <button class="btn theme-control-btn" id="cancelExtensionEdit" type="button">Cancel</button>
       </div>
       <div class="small text-danger-emphasis" id="extensionEditorStatus" role="status" aria-live="polite"></div>

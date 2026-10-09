@@ -2,9 +2,17 @@
 
 ## UI Theme Consistency
 
-- New UI elements must follow the active theme. Reuse the CSS variables and themed component classes in `app/style.css` instead of hard-coded colors or default Bootstrap styling that bypasses the theme.
-- Match existing controls' themed active, inactive, hover, and disabled states; extend shared styles when needed rather than styling one element in isolation.
-- Verify new UI in at least two themes to ensure colors, contrast, and selected states remain legible and consistent.
+- **Never Use Bootstrap Default Button Classes:** Do NOT use Bootstrap's color button classes (`btn-primary`, `btn-outline-primary`, `btn-secondary`, `btn-outline-secondary`, `btn-danger`, `btn-outline-danger`, `btn-success`, `btn-outline-success`, `btn-info`, `btn-outline-info`, `btn-warning`, `btn-outline-warning`, `btn-light`, `btn-outline-light`, `btn-dark`, `btn-outline-dark`). These apply hard-coded Bootstrap colors (e.g., `#0d6efd` blue) that ignore and break MajesticTab's dynamic finish themes (`data-theme`).
+- **Use MajesticTab Themed Button Classes:** Always use the standard themed button classes defined in `app/style.css`:
+  - `btn-theme-primary`: Primary call-to-action buttons. Applies `--accent-gradient`, `--accent-glow`, white text, and themed hover elevation.
+  - `btn-theme-outline`: Secondary / neutral action buttons. Applies `--bg-card-solid`, `--border-subtle`, and accent-glow on hover.
+  - `btn-theme-danger`: Destructive / delete actions. Applies themed red tint, border, and hover contrast.
+  - `btn-theme-success`: Affirmative actions. Applies themed green tint and border.
+  - `btn-theme-icon`: Compact icon-only toolbar buttons.
+  - `theme-control-btn`: Standard offcanvas settings / toolbar control buttons.
+- **Modal & Dialog Consistency:** Modals must use themed containers (`.theme-modal-backdrop`, `.theme-modal-card`, `.theme-modal-header`, `.theme-modal-body`, `.theme-modal-footer`, `.brand-btn.theme-modal-close-btn`). Modal action buttons must strictly use `btn-theme-primary` for the confirm/submit action and `btn-theme-outline` or `theme-control-btn` for cancel/dismiss.
+- **Form Controls & Inputs:** Inputs, dropdowns, and switches must reuse theme styles (`.form-control`, `.form-select` with theme background/borders, `.form-check-input.theme-switch`, `.hud-pill-group`).
+- **Multi-Theme Verification:** Match existing controls' themed active, inactive, hover, and disabled states. Verify new UI in at least two finish themes (e.g., Mystic Dream, Blue Pearl, Ember Glow) to ensure colors, contrast, and selected states remain legible and consistent across all themes.
 
 ## Test Procedures
 

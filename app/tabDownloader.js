@@ -269,15 +269,14 @@ export function initTauriDownloadListener() {
                 // Close downloader modal first
                 closeTabDownloaderModal();
 
-                // Save to file store
-                const stored = await saveStoredFile(file, 'tab-downloader', {
-                    name: file.name,
-                    relativePath: path || file.name,
-                    targetSongId: targetSong?.id || null
-                });
-
-                // Attach to library song if target active
+                // Only persist to file store and attach to library song if bound to a target song
                 if (targetSong?.id) {
+                    const stored = await saveStoredFile(file, 'tab-downloader', {
+                        name: file.name,
+                        relativePath: path || file.name,
+                        targetSongId: targetSong.id
+                    });
+
                     await addTabOptionToSong(targetSong.id, {
                         name: file.name,
                         providerId: 'tab-downloader',
@@ -434,7 +433,7 @@ function renderTabDownloaderModal(initialQuery = '') {
               <span class="input-group-text bg-dark border-secondary text-white-50"><i class="bi-search"></i></span>
               <input type="text" class="form-control bg-dark text-white border-secondary" id="downloaderSearchInput" value="${escapeHtml(currentSearchQuery)}" placeholder="Search song or artist...">
             </div>
-            <button type="submit" class="btn btn-primary btn-sm px-2.5 flex-shrink-0" id="downloaderGoBtn" title="Search">
+            <button type="submit" class="btn btn-theme-primary btn-sm px-2.5 flex-shrink-0" id="downloaderGoBtn" title="Search">
               <i class="bi-arrow-right"></i>
             </button>
           </form>
@@ -446,7 +445,7 @@ function renderTabDownloaderModal(initialQuery = '') {
             <button type="button" class="btn btn-sm btn-theme-primary py-1 px-2.5 d-flex align-items-center gap-1" id="downloaderDirectDownloadBtn" title="Download Guitar Pro Tab from current page">
               <i class="bi-cloud-arrow-down-fill"></i> <span class="d-none d-sm-inline">Download Tab</span>
             </button>
-            <button type="button" class="btn btn-sm ${isDebugDrawerOpen ? 'btn-info' : 'btn-theme-outline'} py-1 px-2" id="downloaderToggleDebugBtn" title="Toggle Webview Debug Console">
+            <button type="button" class="btn btn-sm ${isDebugDrawerOpen ? 'btn-theme-primary' : 'btn-theme-outline'} py-1 px-2" id="downloaderToggleDebugBtn" title="Toggle Webview Debug Console">
               <i class="bi-terminal"></i>
             </button>
           ` : ''}
@@ -464,8 +463,8 @@ function renderTabDownloaderModal(initialQuery = '') {
         <div class="d-flex align-items-center justify-content-between mb-1 pb-1 border-bottom border-secondary-subtle">
           <span class="text-info fw-bold"><i class="bi-terminal me-1"></i> Webview Debug Console</span>
           <div class="d-flex align-items-center gap-1">
-            <button class="btn btn-sm btn-outline-secondary py-0 px-1 text-white-50" id="downloaderClearLogsBtn" style="font-size: 0.68rem;">Clear Logs</button>
-            <button class="btn btn-sm btn-outline-info py-0 px-1" id="downloaderInspectBtn" style="font-size: 0.68rem;"><i class="bi-bug me-1"></i> DevTools</button>
+            <button class="btn btn-sm btn-theme-outline py-0 px-1 text-white-50" id="downloaderClearLogsBtn" style="font-size: 0.68rem;">Clear Logs</button>
+            <button class="btn btn-sm btn-theme-outline py-0 px-1" id="downloaderInspectBtn" style="font-size: 0.68rem;"><i class="bi-bug me-1"></i> DevTools</button>
           </div>
         </div>
         <div id="downloaderLogsContent" class="d-flex flex-column gap-1">
@@ -480,7 +479,7 @@ function renderTabDownloaderModal(initialQuery = '') {
             <i class="bi bi-globe me-1"></i> ${s.name}
           </button>
         `).join('')}
-        <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="downloaderAddSourceTabBtn" title="Add Source">
+        <button type="button" class="btn btn-sm btn-theme-outline py-0 px-2" id="downloaderAddSourceTabBtn" title="Add Source">
           <i class="bi-plus-lg"></i>
         </button>
       </div>
@@ -493,7 +492,7 @@ function renderTabDownloaderModal(initialQuery = '') {
             <p class="small text-muted mb-3" style="max-width: 500px;">
               Click below to search in a browser tab, then drag and drop the downloaded file here.
             </p>
-            <a href="${escapeHtml(currentUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm px-4 mb-4">
+            <a href="${escapeHtml(currentUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-theme-primary btn-sm px-4 mb-4">
               <i class="bi-box-arrow-up-right me-1"></i> Open Search on ${escapeHtml(activeSource.name)}
             </a>
             <!-- Dropzone -->
@@ -501,7 +500,7 @@ function renderTabDownloaderModal(initialQuery = '') {
               <i class="bi-cloud-arrow-up text-info fs-1 mb-2 d-block"></i>
               <div class="fw-semibold text-white mb-1">Drop downloaded tab here</div>
               <div class="small text-muted mb-2">Supports .gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt</div>
-              <label class="btn btn-outline-light btn-sm px-3">
+              <label class="btn btn-theme-outline btn-sm px-3">
                 <i class="bi-folder2-open me-1"></i> Browse File
                 <input type="file" class="d-none" id="downloaderFileInput" accept=".pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt">
               </label>
@@ -553,7 +552,7 @@ function renderTabDownloaderModal(initialQuery = '') {
             const btn = modal.querySelector('#downloaderToggleDebugBtn');
             if (drawer) drawer.style.display = isDebugDrawerOpen ? 'block' : 'none';
             if (btn) {
-                btn.className = `btn btn-sm ${isDebugDrawerOpen ? 'btn-info' : 'btn-theme-outline'} py-1 px-2`;
+                btn.className = `btn btn-sm ${isDebugDrawerOpen ? 'btn-theme-primary' : 'btn-theme-outline'} py-1 px-2`;
             }
             syncNativeWebview();
         });
@@ -678,13 +677,13 @@ function setupWebDropzone(modal) {
 
 async function handleImportedDownloadedFile(file) {
     try {
-        const stored = await saveStoredFile(file, 'tab-downloader-web', {
-            name: file.name,
-            relativePath: file.name,
-            targetSongId: activeTargetSong?.id || null
-        });
-
         if (activeTargetSong?.id) {
+            const stored = await saveStoredFile(file, 'tab-downloader-web', {
+                name: file.name,
+                relativePath: file.name,
+                targetSongId: activeTargetSong.id
+            });
+
             await addTabOptionToSong(activeTargetSong.id, {
                 name: file.name,
                 providerId: 'tab-downloader-web',
@@ -745,7 +744,7 @@ export function openSourceEditorModal(editingSourceId = null) {
         <!-- Source Selector & Add New -->
         <div class="d-flex align-items-center justify-content-between mb-2">
           <label class="form-label small fw-semibold text-muted mb-0">Select Source:</label>
-          <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="sourceCreateNewBtn">
+          <button type="button" class="btn btn-sm btn-theme-outline py-0 px-2" id="sourceCreateNewBtn">
             <i class="bi-plus-lg me-1"></i> New Source
           </button>
         </div>
@@ -796,14 +795,14 @@ export function openSourceEditorModal(editingSourceId = null) {
           <div class="d-flex align-items-center justify-content-between gap-2">
             <div>
               ${currentEditing && !currentEditing.isSeed ? `
-                <button type="button" class="btn btn-sm btn-outline-danger" id="deleteSourceBtn">
+                <button type="button" class="btn btn-sm btn-theme-danger" id="deleteSourceBtn">
                   <i class="bi-trash me-1"></i> Delete
                 </button>
               ` : ''}
             </div>
             <div class="d-flex gap-2">
               <button type="button" class="btn btn-sm theme-control-btn" id="cancelSourceEditBtn">Cancel</button>
-              <button type="submit" class="btn btn-sm btn-primary px-3">Save Changes</button>
+              <button type="submit" class="btn btn-sm btn-theme-primary px-3">Save Changes</button>
             </div>
           </div>
         </form>

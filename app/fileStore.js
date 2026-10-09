@@ -52,7 +52,7 @@ export function getDB() {
     return dbPromise;
 }
 
-function arrayBufferToBase64(buffer) {
+export function arrayBufferToBase64(buffer) {
     let binary = '';
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
@@ -62,7 +62,7 @@ function arrayBufferToBase64(buffer) {
     return btoa(binary);
 }
 
-function base64ToArrayBuffer(base64) {
+export function base64ToArrayBuffer(base64) {
     const binaryString = atob(base64);
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
@@ -178,6 +178,35 @@ export async function deleteStoredFile(id) {
 }
 
 /**
+ * Clear all file records from the store.
+ */
+export async function clearAllStoredFiles() {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.clear();
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+/**
+ * Get all stored file records with their raw binary data.
+ * @returns {Promise<Array<object>>}
+ */
+export async function getAllStoredFilesWithData() {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+/**
  * Export all files in the file store to a portable JSON string for easy transfer between platforms.
  * @returns {Promise<string>}
  */
@@ -240,3 +269,4 @@ export async function importFileStore(exportedData) {
 
     return count;
 }
+

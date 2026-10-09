@@ -11,7 +11,7 @@ import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
     getCoverArtUrl, getPlaceholderCoverSvg
 } from './musicbrainz.js';
-import { getStoredFile, saveStoredFile } from './fileStore.js';
+import { getStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { openOpenFileModal } from './openFileModal.js';
@@ -1451,7 +1451,7 @@ async function renderRecentsView(container) {
             await renderRecentsView(container);
         } else {
             clearBtn.dataset.confirming = 'true';
-            clearBtn.className = 'btn btn-sm btn-outline-danger p-1 px-2';
+            clearBtn.className = 'btn btn-sm btn-theme-danger p-1 px-2';
             clearBtn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> Confirm Clear?';
             setTimeout(() => {
                 if (clearBtn.dataset.confirming === 'true') {
