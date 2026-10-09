@@ -90,6 +90,10 @@ const allowedRemoteHosts = new Set([
   'tabs.ultimate-guitar.com',
   'metaltabs.org',
   'www.metaltabs.org',
+  'gprotab.net',
+  'www.gprotab.net',
+  'guitarprotabs.org',
+  'www.guitarprotabs.org',
 ]);
 
 async function copyAsset(source, destination) {
