@@ -50,7 +50,10 @@
         <i class="bi-chevron-left me-1"></i><span>Library</span>
       </button>
       <span class="breadcrumb-divider text-muted opacity-50" data-tauri-drag-region>/</span>
-      <span class="breadcrumb-song-title text-truncate fw-semibold text-white" id="topBarSongTitle" data-tauri-drag-region></span>
+      <button type="button" class="btn btn-sm top-bar-song-btn" id="topBarSongTitleBtn" title="Tracks &amp; Notation Options" aria-label="Tracks and Notation Options" aria-expanded="false">
+        <span class="breadcrumb-song-title text-truncate fw-semibold" id="topBarSongTitle"></span>
+        <i class="bi-chevron-down song-title-chevron" aria-hidden="true"></i>
+      </button>
     </div>
   </div>
 
@@ -62,10 +65,6 @@
       
       <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off" tabindex="-1">
       <label class="btn btn-sm" for="continuousModeRadio" tabindex="-1" title="Continuous Scroll Mode"><i class="bi-arrow-down-up me-1"></i><span class="mode-btn-text">Scroll</span></label>
-
-      <button type="button" class="btn btn-sm" id="scoreOptionsToggleBtn" title="Tracks & Notation Options" style="display:none;">
-        <i class="bi-layers me-1"></i><span class="mode-btn-text">Tracks</span>
-      </button>
     </div>
 
     <!-- Library Mode Navigation (Library View) -->

@@ -278,6 +278,10 @@ export function closeLibraryModal(force = false) {
                 const displayName = currentOpen.songTitle || currentOpen.librarySongTitle || (currentOpen.name ? currentOpen.name.replace(/\.[^/.]+$/, '') : '');
                 songTitleEl.textContent = displayName;
                 songTitleEl.title = displayName || currentOpen.name || '';
+                const songTitleBtn = document.getElementById('topBarSongTitleBtn');
+                if (songTitleBtn) {
+                    songTitleBtn.title = displayName ? `${displayName} - Tracks & Notation Options` : 'Tracks & Notation Options';
+                }
             }
         } else {
             if (brandText) brandText.style.display = 'inline-flex';
