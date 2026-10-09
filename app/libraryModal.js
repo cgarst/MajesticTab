@@ -32,6 +32,7 @@ let selectedTuning = null;
 let isAlbumEditMode = false;
 let isRecentsEditMode = false;
 let searchType = 'song'; // 'song' (default), 'album', 'artist', 'musician', 'custom'
+let currentSearchQuery = '';
 let currentSearchResults = [];
 let searchSubView = null; // null | { type: 'albums', artistMbid, artistName } | { type: 'bands', musicianMbid, musicianName } | { type: 'tracks', releaseGroupMbid, parentView }
 let viewHistory = [];
@@ -151,28 +152,37 @@ export async function handleBack() {
             return;
         }
     } else if (activeView === 'search') {
+        const searchHeader = document.querySelector('.search-sticky-header');
+        let resContainer = document.getElementById('mbSearchResultsContainer');
+        if (!searchHeader || !resContainer) {
+            renderSearchMusicBrainzView(content);
+            resContainer = document.getElementById('mbSearchResultsContainer') || content;
+        }
+
         if (searchHistory.length > 0) {
             const prevSearch = searchHistory.pop();
             if (prevSearch.type === 'results') {
                 searchSubView = null;
-                const searchHeader = document.querySelector('.search-sticky-header');
-                if (searchHeader) searchHeader.style.display = '';
-                const resContainer = document.getElementById('mbSearchResultsContainer') || content;
+                const header = document.querySelector('.search-sticky-header');
+                if (header) header.style.display = '';
                 renderSearchResults(currentSearchResults, searchType, resContainer);
             } else if (prevSearch.type === 'albums') {
                 searchSubView = prevSearch;
-                await exploreArtistAlbums(prevSearch.artistMbid, prevSearch.artistName, content, false);
+                const header = document.querySelector('.search-sticky-header');
+                if (header) header.style.display = 'none';
+                await exploreArtistAlbums(prevSearch.artistMbid, prevSearch.artistName, resContainer, false);
             } else if (prevSearch.type === 'bands') {
                 searchSubView = prevSearch;
-                await exploreMusicianBands(prevSearch.musicianMbid, prevSearch.musicianName, content, false);
+                const header = document.querySelector('.search-sticky-header');
+                if (header) header.style.display = 'none';
+                await exploreMusicianBands(prevSearch.musicianMbid, prevSearch.musicianName, resContainer, false);
             }
             return;
         }
         if (searchSubView) {
             searchSubView = null;
-            const searchHeader = document.querySelector('.search-sticky-header');
-            if (searchHeader) searchHeader.style.display = '';
-            const resContainer = document.getElementById('mbSearchResultsContainer') || content;
+            const header = document.querySelector('.search-sticky-header');
+            if (header) header.style.display = '';
             renderSearchResults(currentSearchResults, searchType, resContainer);
             return;
         }
@@ -181,6 +191,8 @@ export async function handleBack() {
             activeView = prev.view || 'library';
             selectedArtist = prev.selectedArtist || null;
             selectedAlbum = prev.selectedAlbum || null;
+            selectedFolderPath = prev.selectedFolderPath || [];
+            selectedTuning = prev.selectedTuning || null;
             searchSubView = prev.searchSubView || null;
             await renderLibraryModal();
             return;
@@ -2166,7 +2178,7 @@ function renderSearchMusicBrainzView(container) {
           <form id="mbSearchForm" class="d-flex align-items-center gap-2">
             <div class="input-group input-group-sm flex-grow-1">
               <span class="input-group-text"><i class="bi-search"></i></span>
-              <input type="text" class="form-control" id="mbSearchInput" placeholder="Search ${searchType} to add music..." autofocus>
+              <input type="text" class="form-control" id="mbSearchInput" placeholder="Search ${searchType} to add music..." value="${escapeHtml(currentSearchQuery)}" autofocus>
             </div>
             <button type="submit" class="btn btn-theme-primary btn-sm px-3" id="mbSearchSubmitBtn">
               Search
@@ -2192,8 +2204,13 @@ function renderSearchMusicBrainzView(container) {
     // Type pills
     container.querySelectorAll('#searchTypePill button').forEach(btn => {
         btn.addEventListener('click', () => {
-            searchType = btn.dataset.type;
-            renderSearchMusicBrainzView(container);
+            if (searchType !== btn.dataset.type) {
+                searchType = btn.dataset.type;
+                currentSearchResults = [];
+                searchSubView = null;
+                searchHistory = [];
+                renderSearchMusicBrainzView(container);
+            }
         });
     });
 
@@ -2504,6 +2521,7 @@ function setupCustomDocForm(container) {
 }
 
 async function performMusicBrainzSearch(query, type) {
+    currentSearchQuery = query;
     const resultsContainer = document.getElementById('mbSearchResultsContainer');
     if (!resultsContainer) return;
 
@@ -2734,9 +2752,10 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
     searchSubView = { type: 'albums', artistMbid, artistName };
     updateBackBtnVisibility();
 
+    const targetContainer = (activeView === 'search' ? (document.getElementById('mbSearchResultsContainer') || container) : container);
     const thisFetchToken = ++currentExploreArtistToken;
 
-    container.innerHTML = `
+    targetContainer.innerHTML = `
     <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between pb-2 border-bottom border-secondary-subtle">
       <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="cancelExploreArtistBtn">
         <i class="bi-arrow-left"></i> <span>Back</span>
@@ -2755,22 +2774,22 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
         currentExploreArtistToken++;
         handleBack();
     };
-    container.querySelector('#cancelExploreArtistBtn')?.addEventListener('click', handleCancelFetch);
-    container.querySelector('#cancelExploreArtistActionBtn')?.addEventListener('click', handleCancelFetch);
+    targetContainer.querySelector('#cancelExploreArtistBtn')?.addEventListener('click', handleCancelFetch);
+    targetContainer.querySelector('#cancelExploreArtistActionBtn')?.addEventListener('click', handleCancelFetch);
 
     try {
         const albums = await getArtistAlbums(artistMbid);
         if (thisFetchToken !== currentExploreArtistToken) return;
 
         if (albums.length === 0) {
-            container.innerHTML = `
+            targetContainer.innerHTML = `
             <div class="mb-3">
               <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
                 <i class="bi-arrow-left"></i> <span>Back to Search</span>
               </button>
             </div>
             <div class="text-center py-4 text-muted">No studio albums found for ${escapeHtml(artistName)}.</div>`;
-            container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
+            targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
             return;
         }
 
@@ -2780,7 +2799,7 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
             return `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`;
         }));
 
-        container.innerHTML = `
+        targetContainer.innerHTML = `
         <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2 pb-2 border-bottom border-secondary-subtle">
           <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchResultsBtn">
             <i class="bi-arrow-left"></i> <span>Back to Search</span>
@@ -2818,29 +2837,29 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
         </div>
         `;
 
-        container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
+        targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
 
-        container.querySelectorAll('.add-album-btn').forEach(btn => {
+        targetContainer.querySelectorAll('.add-album-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 await handleAddAlbum(btn.dataset.rgId, btn);
             });
         });
 
-        container.querySelectorAll('.view-album-tracks-btn').forEach(btn => {
+        targetContainer.querySelectorAll('.view-album-tracks-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                await exploreAlbumTracklist(btn.dataset.rgId, container);
+                await exploreAlbumTracklist(btn.dataset.rgId, targetContainer);
             });
         });
     } catch (err) {
         if (thisFetchToken !== currentExploreArtistToken) return;
-        container.innerHTML = `
+        targetContainer.innerHTML = `
         <div class="mb-3">
           <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
             <i class="bi-arrow-left"></i> <span>Back</span>
           </button>
         </div>
         <div class="text-danger py-4 text-center">Failed to load albums: ${escapeHtml(err.message)}</div>`;
-        container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
+        targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
     }
 }
 
@@ -2853,9 +2872,10 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
     }
     searchSubView = { type: 'bands', musicianMbid, musicianName };
 
+    const targetContainer = (activeView === 'search' ? (document.getElementById('mbSearchResultsContainer') || container) : container);
     const thisFetchToken = ++currentExploreMusicianToken;
 
-    container.innerHTML = `
+    targetContainer.innerHTML = `
     <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between pb-2 border-bottom border-secondary-subtle">
       <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="cancelExploreMusicianBtn">
         <i class="bi-arrow-left"></i> <span>Back</span>
@@ -2874,29 +2894,29 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
         currentExploreMusicianToken++;
         handleBack();
     };
-    container.querySelector('#cancelExploreMusicianBtn')?.addEventListener('click', handleCancelFetch);
-    container.querySelector('#cancelExploreMusicianActionBtn')?.addEventListener('click', handleCancelFetch);
+    targetContainer.querySelector('#cancelExploreMusicianBtn')?.addEventListener('click', handleCancelFetch);
+    targetContainer.querySelector('#cancelExploreMusicianActionBtn')?.addEventListener('click', handleCancelFetch);
 
     try {
         const bands = await getMusicianRelations(musicianMbid);
         if (thisFetchToken !== currentExploreMusicianToken) return;
 
         if (bands.length === 0) {
-            container.innerHTML = `
+            targetContainer.innerHTML = `
             <div class="mb-3">
               <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
                 <i class="bi-arrow-left"></i> <span>Back to Search</span>
               </button>
             </div>
             <div class="text-center py-4 text-muted">No associated bands found for ${escapeHtml(musicianName)}.</div>`;
-            container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
+            targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
             return;
         }
 
-        container.innerHTML = `
+        targetContainer.innerHTML = `
         <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between pb-2 border-bottom border-secondary-subtle">
           <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchResultsBtn">
-            <i class="bi-arrow-left"></i> <span>Back to Search</span>
+            <i class="bi-arrow-left"></i> <span>Back</span>
           </button>
           <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(musicianName)}">${escapeHtml(musicianName)} — Associated Bands</h6>
         </div>
@@ -2915,23 +2935,23 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
         </div>
         `;
 
-        container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
+        targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
 
-        container.querySelectorAll('.explore-band-albums-btn').forEach(btn => {
+        targetContainer.querySelectorAll('.explore-band-albums-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
-                await exploreArtistAlbums(btn.dataset.bandId, btn.dataset.bandName, container);
+                await exploreArtistAlbums(btn.dataset.bandId, btn.dataset.bandName, targetContainer);
             });
         });
     } catch (err) {
         if (thisFetchToken !== currentExploreMusicianToken) return;
-        container.innerHTML = `
+        targetContainer.innerHTML = `
         <div class="mb-3">
           <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
             <i class="bi-arrow-left"></i> <span>Back</span>
           </button>
         </div>
         <div class="text-danger py-4 text-center">Failed to load bands: ${escapeHtml(err.message)}</div>`;
-        container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
+        targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
     }
 }
 
@@ -2945,9 +2965,10 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
     const fromView = searchSubView?.fromView || (activeView === 'library' ? 'library' : 'search');
     searchSubView = { type: 'tracks', releaseGroupMbid, fromView };
 
+    const targetContainer = (activeView === 'search' ? (document.getElementById('mbSearchResultsContainer') || container) : container);
     const thisFetchToken = ++currentExploreTracklistToken;
 
-    container.innerHTML = `
+    targetContainer.innerHTML = `
     <div class="album-tracks-view">
       <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
         <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="cancelFetchTracklistBtn">
@@ -2968,22 +2989,22 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
         currentExploreTracklistToken++;
         handleBack();
     };
-    container.querySelector('#cancelFetchTracklistBtn')?.addEventListener('click', handleCancelFetch);
-    container.querySelector('#cancelFetchTracklistActionBtn')?.addEventListener('click', handleCancelFetch);
+    targetContainer.querySelector('#cancelFetchTracklistBtn')?.addEventListener('click', handleCancelFetch);
+    targetContainer.querySelector('#cancelFetchTracklistActionBtn')?.addEventListener('click', handleCancelFetch);
 
     try {
         const albumData = await getAlbumTracks(releaseGroupMbid);
         if (thisFetchToken !== currentExploreTracklistToken) return;
 
         if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
-            container.innerHTML = `
+            targetContainer.innerHTML = `
             <div class="mb-3">
               <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToAlbumsListBtn">
                 <i class="bi-arrow-left"></i> <span>Back</span>
               </button>
             </div>
             <div class="text-center py-4 text-muted">No tracklist available for this album.</div>`;
-            container.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
+            targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
             return;
         }
 
@@ -3029,7 +3050,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
             `;
         }
 
-        container.innerHTML = `
+        targetContainer.innerHTML = `
         <div class="album-tracks-view">
           <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
             <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToAlbumsListBtn">
@@ -3054,11 +3075,11 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
         </div>
         `;
 
-        container.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
+        targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
 
         // Add missing tracks or full album button
         if (!allInLib) {
-            container.querySelector('#addAllAlbumTracksBtn')?.addEventListener('click', async () => {
+            targetContainer.querySelector('#addAllAlbumTracksBtn')?.addEventListener('click', async () => {
                 const tracksToAdd = partialInLib ? missingTracks : albumData.tracks;
                 await addAlbumToLibrary(albumData, tracksToAdd, activeCollectionId);
                 showToast(`Added ${tracksToAdd.length} ${tracksToAdd.length === 1 ? 'track' : 'tracks'} to library`, 'success');
@@ -3068,7 +3089,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
         }
 
         // Add single track
-        container.querySelectorAll('.add-single-track-btn').forEach(btn => {
+        targetContainer.querySelectorAll('.add-single-track-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const idx = parseInt(btn.dataset.trackIdx, 10);
                 const track = albumData.tracks[idx];
@@ -3095,14 +3116,14 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
         });
     } catch (err) {
         if (thisFetchToken !== currentExploreTracklistToken) return;
-        container.innerHTML = `
+        targetContainer.innerHTML = `
         <div class="mb-3">
           <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToAlbumsListBtn">
             <i class="bi-arrow-left"></i> <span>Back</span>
           </button>
         </div>
         <div class="text-danger py-4 text-center">Failed to load tracklist: ${escapeHtml(err.message)}</div>`;
-        container.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
+        targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
     }
 }
 
