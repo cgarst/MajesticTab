@@ -408,10 +408,7 @@ export function extractScoreMetadata(score) {
         const isPercussion = track.isPercussion || track.playbackInfo?.isPercussion || track.staves?.some(s => s.isPercussion);
         if (isPercussion) continue;
 
-        const program = track.playbackInfo?.program ?? track.program ?? 25;
-        const isGuitar = (program >= 24 && program <= 31) || (track.name && track.name.toLowerCase().includes('guitar'));
-        const isBass = (program >= 32 && program <= 39) || (track.name && track.name.toLowerCase().includes('bass'));
-
+        const trackNameLower = (track.name || '').toLowerCase();
         const staffTunings = [];
         for (const staff of (track.staves || [])) {
             if (staff.isPercussion) continue;
@@ -422,6 +419,22 @@ export function extractScoreMetadata(score) {
         if (staffTunings.length === 0 && track.tuning && Array.isArray(track.tuning) && track.tuning.length > 0) {
             staffTunings.push(track.tuning);
         }
+
+        const maxStaffStrings = staffTunings.reduce((max, st) => Math.max(max, st.length), 0);
+        const program = track.playbackInfo?.program ?? track.program ?? 25;
+        const isBass = (program >= 32 && program <= 39) || trackNameLower.includes('bass');
+        const isGuitar = !isBass && (
+            (program >= 24 && program <= 31) ||
+            maxStaffStrings >= 6 ||
+            trackNameLower.includes('guitar') ||
+            trackNameLower.includes('rhythm') ||
+            trackNameLower.includes('lead') ||
+            trackNameLower.includes('clean') ||
+            trackNameLower.includes('distort') ||
+            trackNameLower.includes('overdrive') ||
+            trackNameLower.includes('acoustic') ||
+            trackNameLower.includes('electric')
+        );
 
         for (const rawTuning of staffTunings) {
             const formatted = formatTuningFromMidi(rawTuning);
@@ -436,6 +449,7 @@ export function extractScoreMetadata(score) {
                     bassTunings.push({ tuning: formatted, strings: strCount });
                 }
             } else {
+                if (strCount >= 6 && strCount > maxGuitarStrings) maxGuitarStrings = strCount;
                 if (formatted && !otherTunings.some(o => o.tuning === formatted)) {
                     otherTunings.push({ tuning: formatted, strings: strCount });
                 }
@@ -443,17 +457,21 @@ export function extractScoreMetadata(score) {
         }
     }
 
-    // Sort guitar tunings so that the maximum string count comes first (e.g. 8-string tuning before 7-string)
+    // Sort tunings so maximum string count comes first
     guitarTunings.sort((a, b) => b.strings - a.strings);
     bassTunings.sort((a, b) => b.strings - a.strings);
+    otherTunings.sort((a, b) => b.strings - a.strings);
 
     const guitarTuningNames = guitarTunings.map(g => g.tuning);
     const bassTuningNames = bassTunings.map(b => b.tuning);
     const otherTuningNames = otherTunings.map(o => o.tuning);
 
-    const allTunings = guitarTuningNames.length > 0
-        ? guitarTuningNames
-        : (bassTuningNames.length > 0 ? bassTuningNames : otherTuningNames);
+    // Combine all unique tunings across guitar, other, and bass tracks
+    const allTunings = Array.from(new Set([
+        ...guitarTuningNames,
+        ...otherTuningNames,
+        ...bassTuningNames
+    ]));
 
     let defaultStringCount = 6;
     if (maxGuitarStrings > 0) {
