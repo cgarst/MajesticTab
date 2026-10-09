@@ -134,105 +134,105 @@
     </button>
   </div>
   <div class="synth-panel-body">
-    <!-- Section 1: Playback & Audio Controls -->
+    <!-- Section 1: Visual & Notation Settings -->
     <div class="synth-section-heading">
-      <i class="bi-play-circle-fill"></i> Playback &amp; Audio
+      <i class="bi-layout-text-window-reverse"></i> Visual &amp; Notation
     </div>
 
-    <!-- Scrubber / Timeline -->
+    <!-- Notation Style -->
     <div class="mb-3">
-      <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
-        <span id="synthCurrentTimeText">0:00</span>
-        <span class="fw-semibold text-white" id="synthPositionPercent">0%</span>
-        <span id="synthTotalTimeText">0:00</span>
-      </div>
-      <input type="range" id="synthSeekSlider" min="0" max="1000" value="0" step="1" disabled>
-    </div>
-
-    <!-- Speed / Tempo Control -->
-    <div class="mb-3">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <label class="form-label small mb-0 fw-semibold text-muted">Playback Speed:</label>
-        <div class="d-flex align-items-center gap-1">
-          <button type="button" class="btn btn-sm theme-control-btn" id="synthSpeedMinusBtn" title="Decrease speed by 1%">-1%</button>
-          <span class="theme-value-badge" id="synthSpeedBadge">100%</span>
-          <button type="button" class="btn btn-sm theme-control-btn" id="synthSpeedPlusBtn" title="Increase speed by 1%">+1%</button>
-        </div>
-      </div>
-      <div class="btn-group btn-group-sm w-100 mt-1" role="group" id="synthSpeedButtons">
-        <button type="button" class="btn theme-control-btn" data-speed="0.5">50%</button>
-        <button type="button" class="btn theme-control-btn" data-speed="0.75">75%</button>
-        <button type="button" class="btn theme-control-btn" data-speed="0.9">90%</button>
-        <button type="button" class="btn theme-control-btn active" data-speed="1.0">100%</button>
-        <button type="button" class="btn theme-control-btn" data-speed="1.1">110%</button>
-        <button type="button" class="btn theme-control-btn" data-speed="1.25">125%</button>
+      <label class="form-label small mb-1 fw-semibold text-muted">Notation Style:</label>
+      <div class="hud-pill-group w-100" role="group" aria-label="Notation Style">
+        <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationTabOnly" value="tab" autocomplete="off" checked>
+        <label class="btn btn-sm" for="synthNotationTabOnly" style="flex: 1;"><i class="bi-file-earmark-music me-1"></i>Tab Only</label>
+        <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationScoreTab" value="scoreTab" autocomplete="off">
+        <label class="btn btn-sm" for="synthNotationScoreTab" style="flex: 1;"><i class="bi-music-note-list me-1"></i>Tab + Standard</label>
       </div>
     </div>
 
-    <div class="mb-3">
-      <label class="form-label small mb-1 fw-semibold text-muted">Audio Tracks:</label>
-      <div class="hud-pill-group w-100" role="group" aria-label="SoundFont track mode">
-        <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackFullBand" value="fullBand" autocomplete="off" checked>
-        <label class="btn btn-sm" for="synthTrackFullBand" style="flex: 1;">Full Band</label>
-        <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackGuitarsOnly" value="guitarsOnly" autocomplete="off">
-        <label class="btn btn-sm" for="synthTrackGuitarsOnly" style="flex: 1;">Guitars Only</label>
-        <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackNoGuitars" value="noGuitars" autocomplete="off">
-        <label class="btn btn-sm" for="synthTrackNoGuitars" style="flex: 1;">No Guitars</label>
+    <!-- Visible Guitar Tracks -->
+    <div id="synthTrackVisibilitySection" style="display: none;">
+      <div class="d-flex align-items-center justify-content-between mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted">Visible Guitar Tracks:</label>
+        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show All</button>
       </div>
+      <div id="synthTrackList" class="d-flex flex-column gap-1 mb-3"></div>
     </div>
 
-    <div class="mb-3">
-      <div class="d-flex align-items-center justify-content-between mb-2">
-        <label class="form-label small mb-0 fw-semibold text-muted" for="synthLoopSwitch">Loop Measures</label>
-        <div class="form-check form-switch mb-0">
-          <input class="form-check-input theme-switch" type="checkbox" id="synthLoopSwitch">
-          <label class="form-check-label small" for="synthLoopSwitch">On</label>
-        </div>
-      </div>
-      <div class="d-flex align-items-center gap-2">
-        <label class="small text-muted" for="synthLoopStartMeasure">First</label>
-        <input class="form-control form-control-sm" type="number" id="synthLoopStartMeasure" min="1" value="1" aria-label="First measure to loop">
-        <label class="small text-muted" for="synthLoopEndMeasure">Last</label>
-        <input class="form-control form-control-sm" type="number" id="synthLoopEndMeasure" min="1" value="1" aria-label="Last measure to loop">
-      </div>
-    </div>
-
-    <!-- Metronome & Count-in -->
-    <div class="d-flex align-items-center justify-content-between">
-      <div class="form-check form-switch mb-0">
-        <input class="form-check-input theme-switch" type="checkbox" id="synthMetronomeSwitch">
-        <label class="form-check-label small" for="synthMetronomeSwitch">Metronome</label>
-      </div>
-      <div class="form-check form-switch mb-0">
-        <input class="form-check-input theme-switch" type="checkbox" id="synthCountInSwitch">
-        <label class="form-check-label small" for="synthCountInSwitch">Count-in</label>
-      </div>
-    </div>
-
-    <!-- Section 2: Visual & Notation Settings -->
+    <!-- Section 2: Playback & Audio Controls -->
     <div class="synth-section-divider">
       <div class="synth-section-heading">
-        <i class="bi-layout-text-window-reverse"></i> Visual &amp; Notation
+        <i class="bi-play-circle-fill"></i> Playback &amp; Audio
       </div>
 
-      <!-- Notation Style -->
+      <!-- Scrubber / Timeline -->
       <div class="mb-3">
-        <label class="form-label small mb-1 fw-semibold text-muted">Notation Style:</label>
-        <div class="hud-pill-group w-100" role="group" aria-label="Notation Style">
-          <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationTabOnly" value="tab" autocomplete="off" checked>
-          <label class="btn btn-sm" for="synthNotationTabOnly" style="flex: 1;"><i class="bi-file-earmark-music me-1"></i>Tab Only</label>
-          <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationScoreTab" value="scoreTab" autocomplete="off">
-          <label class="btn btn-sm" for="synthNotationScoreTab" style="flex: 1;"><i class="bi-music-note-list me-1"></i>Tab + Standard</label>
+        <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
+          <span id="synthCurrentTimeText">0:00</span>
+          <span class="fw-semibold text-white" id="synthPositionPercent">0%</span>
+          <span id="synthTotalTimeText">0:00</span>
+        </div>
+        <input type="range" id="synthSeekSlider" min="0" max="1000" value="0" step="1" disabled>
+      </div>
+
+      <!-- Speed / Tempo Control -->
+      <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <label class="form-label small mb-0 fw-semibold text-muted">Playback Speed:</label>
+          <div class="d-flex align-items-center gap-1">
+            <button type="button" class="btn btn-sm theme-control-btn" id="synthSpeedMinusBtn" title="Decrease speed by 1%">-1%</button>
+            <span class="theme-value-badge" id="synthSpeedBadge">100%</span>
+            <button type="button" class="btn btn-sm theme-control-btn" id="synthSpeedPlusBtn" title="Increase speed by 1%">+1%</button>
+          </div>
+        </div>
+        <div class="btn-group btn-group-sm w-100 mt-1" role="group" id="synthSpeedButtons">
+          <button type="button" class="btn theme-control-btn" data-speed="0.5">50%</button>
+          <button type="button" class="btn theme-control-btn" data-speed="0.75">75%</button>
+          <button type="button" class="btn theme-control-btn" data-speed="0.9">90%</button>
+          <button type="button" class="btn theme-control-btn active" data-speed="1.0">100%</button>
+          <button type="button" class="btn theme-control-btn" data-speed="1.1">110%</button>
+          <button type="button" class="btn theme-control-btn" data-speed="1.25">125%</button>
         </div>
       </div>
 
-      <!-- Visible Guitar Tracks -->
-      <div id="synthTrackVisibilitySection" style="display: none;">
-        <div class="d-flex align-items-center justify-content-between mb-1">
-          <label class="form-label small mb-0 fw-semibold text-muted">Visible Guitar Tracks:</label>
-          <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show All</button>
+      <div class="mb-3">
+        <label class="form-label small mb-1 fw-semibold text-muted">Audio Tracks:</label>
+        <div class="hud-pill-group w-100" role="group" aria-label="SoundFont track mode">
+          <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackFullBand" value="fullBand" autocomplete="off" checked>
+          <label class="btn btn-sm" for="synthTrackFullBand" style="flex: 1;">Full Band</label>
+          <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackGuitarsOnly" value="guitarsOnly" autocomplete="off">
+          <label class="btn btn-sm" for="synthTrackGuitarsOnly" style="flex: 1;">Guitars Only</label>
+          <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackNoGuitars" value="noGuitars" autocomplete="off">
+          <label class="btn btn-sm" for="synthTrackNoGuitars" style="flex: 1;">No Guitars</label>
         </div>
-        <div id="synthTrackList" class="d-flex flex-column gap-1"></div>
+      </div>
+
+      <div class="mb-3">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <label class="form-label small mb-0 fw-semibold text-muted" for="synthLoopSwitch">Loop Measures</label>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input theme-switch" type="checkbox" id="synthLoopSwitch">
+            <label class="form-check-label small" for="synthLoopSwitch">On</label>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <label class="small text-muted" for="synthLoopStartMeasure">First</label>
+          <input class="form-control form-control-sm" type="number" id="synthLoopStartMeasure" min="1" value="1" aria-label="First measure to loop">
+          <label class="small text-muted" for="synthLoopEndMeasure">Last</label>
+          <input class="form-control form-control-sm" type="number" id="synthLoopEndMeasure" min="1" value="1" aria-label="Last measure to loop">
+        </div>
+      </div>
+
+      <!-- Metronome & Count-in -->
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input theme-switch" type="checkbox" id="synthMetronomeSwitch">
+          <label class="form-check-label small" for="synthMetronomeSwitch">Metronome</label>
+        </div>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input theme-switch" type="checkbox" id="synthCountInSwitch">
+          <label class="form-check-label small" for="synthCountInSwitch">Count-in</label>
+        </div>
       </div>
     </div>
   </div>
