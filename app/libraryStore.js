@@ -271,7 +271,7 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
                     notes: info.notes,
                     name: info.displayName,
                     defaultName: info.defaultName,
-                    stringCount: song.stringCount || info.stringCount || 6,
+                    stringCount: info.stringCount || song.stringCount || 6,
                     songs: []
                 });
             }
@@ -288,6 +288,9 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
             tGroup.name = info.displayName;
             tGroup.notes = info.notes;
             tGroup.defaultName = info.defaultName;
+            if (info.stringCount) {
+                tGroup.stringCount = info.stringCount;
+            }
         }
         tGroup.category = getTuningCategory(tGroup);
 
