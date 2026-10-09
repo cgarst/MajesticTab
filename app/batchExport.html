@@ -91,19 +91,22 @@
 </head>
 <body>
 
+  <!-- Windows native shell: custom window controls (shown via .tauri-windows) -->
+  <div id="winControls" role="group" aria-label="Window controls">
+    <button type="button" class="win-ctrl-btn" id="winMinBtn" title="Minimize" aria-label="Minimize"><i class="bi-dash-lg"></i></button>
+    <button type="button" class="win-ctrl-btn" id="winMaxBtn" title="Maximize" aria-label="Maximize"><i class="bi-square" id="winMaxIcon"></i></button>
+    <button type="button" class="win-ctrl-btn win-ctrl-close" id="winCloseBtn" title="Close" aria-label="Close"><i class="bi-x-lg"></i></button>
+  </div>
+
   <!-- Minimal Header Bar -->
-  <header id="topBar">
-    <div id="brandSection">
+  <header id="topBar" data-tauri-drag-region>
+    <div id="brandSection" data-tauri-drag-region>
       <a href="./" class="brand-btn text-decoration-none" title="Return to MajesticTab">
         <i class="bi-arrow-left me-1"></i> Back to App
       </a>
       <span class="fs-6 fw-bold tracking-tight text-white ms-2">MajesticTab</span>
     </div>
-    <div id="rightSection">
-      <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="brand-btn text-decoration-none" title="View Source on GitHub">
-        <i class="bi-github"></i>
-      </a>
-    </div>
+    <div id="rightSection" data-tauri-drag-region></div>
   </header>
 
   <main class="export-container">
@@ -161,6 +164,66 @@
 
     // Initialize active theme
     initTheming();
+
+    // Native macOS shell uses an overlay title bar; reserve room for the traffic lights.
+    if (window.__TAURI__ && /Mac/i.test(navigator.platform)) {
+      const root = document.documentElement;
+      const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
+      let syncToken = 0;
+      const syncTitleBarInset = async () => {
+        const token = ++syncToken;
+        let fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        if (!fs && appWindow) {
+          try { fs = await appWindow.isFullscreen(); } catch {}
+        }
+        if (token === syncToken) root.classList.toggle('tauri-macos', !fs);
+      };
+      let settleTimer = 0;
+      const scheduleSync = () => {
+        syncTitleBarInset();
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(syncTitleBarInset, 600);
+      };
+      syncTitleBarInset();
+      window.addEventListener('resize', scheduleSync);
+      document.addEventListener('fullscreenchange', scheduleSync);
+      document.addEventListener('webkitfullscreenchange', scheduleSync);
+    }
+
+    // Native Windows shell is undecorated; draw window controls on the right and shift the top bar controls left.
+    if (window.__TAURI__ && /Win/i.test(navigator.platform)) {
+      const root = document.documentElement;
+      const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
+      const maxIcon = document.getElementById('winMaxIcon');
+      const maxBtn = document.getElementById('winMaxBtn');
+      let syncToken = 0;
+      const syncWindowState = async () => {
+        const token = ++syncToken;
+        let fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        let maximized = false;
+        if (appWindow) {
+          try { if (!fs) fs = await appWindow.isFullscreen(); } catch {}
+          try { maximized = await appWindow.isMaximized(); } catch {}
+        }
+        if (token !== syncToken) return;
+        root.classList.toggle('tauri-windows', !fs);
+        if (maxIcon) maxIcon.className = maximized ? 'bi-fullscreen-exit' : 'bi-square';
+        if (maxBtn) { const t = maximized ? 'Restore' : 'Maximize'; maxBtn.title = t; maxBtn.setAttribute('aria-label', t); }
+      };
+      let settleTimer = 0;
+      const scheduleSync = () => {
+        syncWindowState();
+        clearTimeout(settleTimer);
+        settleTimer = setTimeout(syncWindowState, 400);
+      };
+      document.getElementById('winMinBtn')?.addEventListener('click', () => appWindow?.minimize());
+      maxBtn?.addEventListener('click', () => appWindow?.toggleMaximize());
+      document.getElementById('winCloseBtn')?.addEventListener('click', () => appWindow?.close());
+      syncWindowState();
+      window.addEventListener('resize', scheduleSync);
+      document.addEventListener('fullscreenchange', scheduleSync);
+      document.addEventListener('webkitfullscreenchange', scheduleSync);
+    }
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
