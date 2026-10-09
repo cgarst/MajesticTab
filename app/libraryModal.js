@@ -4,7 +4,7 @@
 import {
     getCollections, createCollection, deleteCollection, getLibraryHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
-    getSongById, addTabOptionToSong, removeTabOptionFromSong, mapOpenFileToSong,
+    deleteAlbumFromLibrary, getSongById, addTabOptionToSong, removeTabOptionFromSong, mapOpenFileToSong,
     getRecents, clearRecents, addRecentOpened, DEFAULT_COLLECTION_ID
 } from './libraryStore.js';
 import {
@@ -22,6 +22,7 @@ let activeView = 'library'; // 'library', 'search', 'recents'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let selectedArtist = null;
 let selectedAlbum = null;
+let isAlbumEditMode = false;
 let searchType = 'song'; // 'song' (default), 'album', 'artist', 'musician'
 let currentSearchResults = [];
 let searchSubView = null; // null | { type: 'albums', artistMbid, artistName } | { type: 'bands', musicianMbid, musicianName } | { type: 'tracks', releaseGroupMbid, parentView }
@@ -29,6 +30,18 @@ let viewHistory = [];
 let searchHistory = [];
 let isSearching = false;
 let searchDebounceTimer = null;
+
+function formatTrackDuration(duration) {
+    if (!duration || duration <= 0) return '';
+    let totalSecs = Number(duration);
+    if (isNaN(totalSecs) || totalSecs <= 0) return '';
+    if (totalSecs > 10000) {
+        totalSecs = Math.round(totalSecs / 1000);
+    }
+    const mins = Math.floor(totalSecs / 60);
+    const secs = Math.floor(totalSecs % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+}
 
 let topBarInitialized = false;
 
@@ -58,11 +71,13 @@ export async function handleBack() {
     if (activeView === 'library') {
         if (selectedAlbum) {
             selectedAlbum = null;
+            isAlbumEditMode = false;
             await renderView();
             return;
         }
         if (selectedArtist) {
             selectedArtist = null;
+            isAlbumEditMode = false;
             await renderView();
             return;
         }
@@ -71,6 +86,7 @@ export async function handleBack() {
             activeView = prev.view || 'library';
             selectedArtist = prev.selectedArtist || null;
             selectedAlbum = prev.selectedAlbum || null;
+            isAlbumEditMode = false;
             searchSubView = prev.searchSubView || null;
             await renderLibraryModal();
             return;
@@ -505,14 +521,38 @@ async function renderLibraryBrowseView(container) {
         // Render Songs List for selected album
         const album = selectedAlbum;
         const cover = album.coverUrl || getPlaceholderCoverSvg(album.title);
+        
+        // Calculate total album duration if tracks have length
+        const totalDurationSecs = album.songs.reduce((acc, s) => acc + (typeof s.length === 'number' ? s.length : 0), 0);
+        const albumDurationText = totalDurationSecs > 0 ? formatTrackDuration(totalDurationSecs) : '';
+
         bodyHtml = `
         <div class="album-detail-view">
-          <div class="library-album-banner d-flex align-items-center gap-3 mb-3">
-            <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
-            <div class="min-w-0 flex-grow-1">
-              <span class="badge badge-theme-primary mb-1" style="font-size:0.68rem;">Album</span>
-              <h5 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</h5>
-              <div class="small text-muted text-truncate" title="${escapeHtml(selectedArtist.name)}">${escapeHtml(selectedArtist.name)} ${album.year ? `• ${album.year}` : ''} • ${album.songs.length} Tracks</div>
+          <div class="library-album-banner d-flex align-items-center justify-content-between gap-3 mb-3 p-3 rounded" style="background: var(--bg-card, rgba(255,255,255,0.03)); border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));">
+            <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+              <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
+              <div class="min-w-0 flex-grow-1">
+                <span class="badge badge-theme-primary mb-1" style="font-size:0.68rem;">Album</span>
+                <h5 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</h5>
+                <div class="small text-muted text-truncate" title="${escapeHtml(selectedArtist.name)}">
+                  ${escapeHtml(selectedArtist.name)} ${album.year ? `• ${album.year}` : ''} • ${album.songs.length} ${album.songs.length === 1 ? 'Track' : 'Tracks'} ${albumDurationText ? `• ${albumDurationText}` : ''}
+                </div>
+              </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+              ${isAlbumEditMode ? `
+                <button class="btn btn-sm btn-theme-danger d-flex align-items-center gap-1.5 delete-album-btn" id="deleteAlbumBtn" title="Delete entire album and songs from library">
+                  <i class="bi-trash"></i> <span class="d-none d-sm-inline">Delete Album</span>
+                </button>
+                <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-1.5 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Done editing">
+                  <i class="bi-check-lg"></i> <span class="d-none d-sm-inline">Done</span>
+                </button>
+              ` : `
+                <button class="btn btn-sm btn-theme-outline d-flex align-items-center gap-1.5 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Edit album tracks">
+                  <i class="bi-pencil"></i> <span class="d-none d-sm-inline">Edit</span>
+                </button>
+              `}
             </div>
           </div>
 
@@ -536,10 +576,12 @@ async function renderLibraryBrowseView(container) {
     container.querySelector('#bcRoot')?.addEventListener('click', () => {
         selectedArtist = null;
         selectedAlbum = null;
+        isAlbumEditMode = false;
         renderLibraryBrowseView(container);
     });
     container.querySelector('#bcArtist')?.addEventListener('click', () => {
         selectedAlbum = null;
+        isAlbumEditMode = false;
         renderLibraryBrowseView(container);
     });
 
@@ -549,6 +591,7 @@ async function renderLibraryBrowseView(container) {
             const artistName = card.dataset.artistName;
             selectedArtist = artists.find(a => a.name === artistName);
             selectedAlbum = null;
+            isAlbumEditMode = false;
             renderLibraryBrowseView(container);
         });
     });
@@ -558,6 +601,7 @@ async function renderLibraryBrowseView(container) {
         card.addEventListener('click', () => {
             const albumTitle = card.dataset.albumTitle;
             selectedAlbum = selectedArtist?.albums.find(a => a.title === albumTitle);
+            isAlbumEditMode = false;
             renderLibraryBrowseView(container);
         });
     });
@@ -575,6 +619,7 @@ function bindLibraryToolbarEvents(container) {
         activeCollectionId = e.target.value;
         selectedArtist = null;
         selectedAlbum = null;
+        isAlbumEditMode = false;
         renderLibraryBrowseView(container);
     });
 
@@ -687,6 +732,7 @@ function renderSongRow(song) {
     const tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
     const hasTabs = tabOptions.length > 0;
     const tunings = Array.isArray(song.tunings) ? song.tunings : [];
+    const durationText = formatTrackDuration(song.length);
 
     return `
     <div class="library-song-row p-2.5 d-flex flex-column gap-2 position-relative" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
@@ -694,7 +740,10 @@ function renderSongRow(song) {
         <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
           <span class="badge-track-num">${song.trackNumber || '•'}</span>
           <div class="min-w-0 flex-grow-1">
-            <span class="fw-semibold text-white text-truncate d-block" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
+            <div class="d-flex align-items-center gap-2 min-w-0 flex-wrap">
+              <span class="fw-semibold text-white text-truncate" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
+              ${durationText ? `<span class="badge badge-theme-secondary py-0 px-1.5 text-muted font-monospace" style="font-size:0.68rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
+            </div>
             <div class="d-flex align-items-center gap-1.5 flex-wrap mt-0.5">
               ${tunings.map(t => `<span class="badge badge-tuning">${escapeHtml(t)}</span>`).join('')}
               ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : '<span class="badge badge-no-tab"><i class="bi-exclamation-circle me-1"></i>No tab attached</span>'}
@@ -722,10 +771,12 @@ function renderSongRow(song) {
             </ul>
           </div>
 
-          <!-- Song options (Delete) -->
-          <button class="btn btn-sm btn-theme-icon p-1 px-1.5 delete-song-btn" data-song-id="${song.id}" title="Remove song from library">
-            <i class="bi-trash"></i>
-          </button>
+          <!-- Song options (Delete) - only visible in Edit Mode -->
+          ${isAlbumEditMode ? `
+            <button class="btn btn-sm btn-theme-danger p-1 px-1.5 delete-song-btn" data-song-id="${song.id}" title="Remove song from library">
+              <i class="bi-trash"></i>
+            </button>
+          ` : ''}
         </div>
       </div>
 
@@ -747,6 +798,26 @@ function renderSongRow(song) {
 }
 
 function setupSongRowActions(container) {
+    // Toggle Album Edit Mode
+    container.querySelector('#toggleAlbumEditBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        isAlbumEditMode = !isAlbumEditMode;
+        renderLibraryBrowseView(container);
+    });
+
+    // Delete Entire Album
+    container.querySelector('#deleteAlbumBtn')?.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!selectedArtist || !selectedAlbum) return;
+        const confirmMsg = `Remove "${selectedAlbum.title}" and all of its tracks from your library?`;
+        if (confirm(confirmMsg)) {
+            await deleteAlbumFromLibrary(selectedArtist.name, selectedAlbum.title, activeCollectionId);
+            selectedAlbum = null;
+            isAlbumEditMode = false;
+            await renderView();
+        }
+    });
+
     // Play default tab
     container.querySelectorAll('.play-default-tab-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -784,13 +855,24 @@ function setupSongRowActions(container) {
         });
     });
 
-    // Delete song from library
+    // Delete song from library (in Edit Mode)
     container.querySelectorAll('.delete-song-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const songId = btn.dataset.songId;
-            await deleteSongFromLibrary(songId);
-            await renderView();
+            const song = await getSongById(songId);
+            const songTitle = song?.title || 'this song';
+            if (confirm(`Remove "${songTitle}" from your library?`)) {
+                await deleteSongFromLibrary(songId);
+                const hierarchy = await getLibraryHierarchy(activeCollectionId);
+                const currentArtist = hierarchy.artists.find(a => a.name === selectedArtist?.name);
+                const currentAlbum = currentArtist?.albums.find(a => a.title === selectedAlbum?.title);
+                if (!currentAlbum || currentAlbum.songs.length === 0) {
+                    selectedAlbum = null;
+                    isAlbumEditMode = false;
+                }
+                await renderView();
+            }
         });
     });
 
