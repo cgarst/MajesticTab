@@ -454,6 +454,7 @@ export async function addTabOptionToSong(songId, tabOption) {
         relativePath: tabOption.relativePath || tabOption.name || '',
         fileStoreId: tabOption.fileStoreId || null,
         tuning: tabOption.tuning || null,
+        tunings: Array.isArray(tabOption.tunings) ? tabOption.tunings : (tabOption.tuning ? [tabOption.tuning] : []),
         stringCount,
         fileType: tabOption.fileType || 'gp',
         isDefault: Boolean(tabOption.isDefault),
@@ -481,6 +482,9 @@ export async function addTabOptionToSong(songId, tabOption) {
     }
 
     // Merge tunings
+    if (!Array.isArray(song.tunings)) {
+        song.tunings = [];
+    }
     if (Array.isArray(tabOption.tunings)) {
         for (const t of tabOption.tunings) {
             if (t && !song.tunings.includes(t)) song.tunings.push(t);
@@ -1088,17 +1092,24 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                                 tab.tunings = meta.tunings;
                                 changed = true;
                             }
-                            if (!song.tuning && meta.primaryTuning) {
-                                song.tuning = meta.primaryTuning;
-                                changed = true;
+                            if (!song.tuning || tab.isDefault) {
+                                if (meta.primaryTuning && song.tuning !== meta.primaryTuning) {
+                                    song.tuning = meta.primaryTuning;
+                                    changed = true;
+                                }
                             }
-                            if (!song.stringCount && meta.stringCount) {
+                            if (meta.stringCount && (!song.stringCount || meta.stringCount > song.stringCount)) {
                                 song.stringCount = meta.stringCount;
                                 changed = true;
                             }
-                            if ((!song.tunings || song.tunings.length === 0) && meta.tunings?.length) {
-                                song.tunings = meta.tunings;
-                                changed = true;
+                            if (Array.isArray(meta.tunings) && meta.tunings.length > 0) {
+                                if (!Array.isArray(song.tunings)) song.tunings = [];
+                                for (const t of meta.tunings) {
+                                    if (t && !song.tunings.includes(t)) {
+                                        song.tunings.push(t);
+                                        changed = true;
+                                    }
+                                }
                             }
                         }
                     } catch (e) {
@@ -1110,8 +1121,16 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                         tab.tuning = meta.primaryTuning;
                         changed = true;
                     }
+                    if (meta.stringCount && !tab.stringCount) {
+                        tab.stringCount = meta.stringCount;
+                        changed = true;
+                    }
                     if (!song.tuning && meta.primaryTuning) {
                         song.tuning = meta.primaryTuning;
+                        changed = true;
+                    }
+                    if (!song.stringCount && meta.stringCount) {
+                        song.stringCount = meta.stringCount;
                         changed = true;
                     }
                 }
