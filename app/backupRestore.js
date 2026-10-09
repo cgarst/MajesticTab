@@ -7,7 +7,7 @@ import {
     arrayBufferToBase64, base64ToArrayBuffer
 } from './fileStore.js';
 import {
-    getAllLibraryData, importLibraryData, clearAllLibraryData
+    ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData
 } from './libraryStore.js';
 import {
     getSaveProviders, saveToProvider
@@ -376,6 +376,42 @@ export async function restoreBackup(bundle, { mode = 'merge' } = {}) {
 }
 
 /**
+ * Completely delete all local application data, tabs, library, custom extensions, and settings.
+ */
+export async function deleteAllAppData() {
+    // 1. Wipe IndexedDB stored files and library
+    await clearAllStoredFiles();
+    await clearAllLibraryData();
+    await ensureDefaultCollection();
+
+    // 2. Wipe settings and extensions from localStorage
+    for (const key of APP_SETTINGS_KEYS) {
+        localStorage.removeItem(key);
+    }
+    localStorage.removeItem('customExtensions');
+
+    // 3. Wipe caches
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('yt_cache_') || k.startsWith('tab_downloader_'))) {
+            keysToRemove.push(k);
+        }
+    }
+    for (const k of keysToRemove) localStorage.removeItem(k);
+
+    // 4. Reset extensions
+    try {
+        installExtensionSources([]);
+    } catch (e) {
+        console.warn('Could not reset extensions:', e);
+    }
+
+    // 5. Reset UI preferences to defaults
+    applyRestoredPreferences();
+}
+
+/**
  * Apply restored preferences to active DOM and modules
  */
 function applyRestoredPreferences() {
@@ -462,8 +498,8 @@ function getOrCreateModal() {
 }
 
 /**
- * Open the Backup / Restore modal
- * @param {'backup'|'restore'} initialTab
+ * Open the Data Management modal
+ * @param {'backup'|'restore'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup') {
     const modal = getOrCreateModal();
@@ -481,7 +517,7 @@ export async function openBackupModal(initialTab = 'backup') {
 }
 
 /**
- * Close the Backup / Restore modal
+ * Close the Data Management modal
  */
 export function closeBackupModal() {
     if (modalElement) {
@@ -493,14 +529,14 @@ export function closeBackupModal() {
 }
 
 /**
- * Renders the Backup & Restore Modal content
+ * Renders the Data Management Modal content
  */
 async function renderModal(modal, activeTab = 'backup') {
     const providers = getSaveProviders();
     const today = new Date().toISOString().split('T')[0];
     const defaultFilename = `MajesticTab-backup-${today}.json`;
 
-    // Live counts for backup summary
+    // Live counts for backup / delete summary
     const [storedFiles, libraryData] = await Promise.all([
         getAllStoredFilesWithData(),
         getAllLibraryData()
@@ -514,11 +550,11 @@ async function renderModal(modal, activeTab = 'backup') {
       <div class="theme-modal-header">
         <div class="theme-modal-title-group">
           <div class="brand-btn p-2 theme-modal-icon" style="width: 38px; height: 38px;">
-            <i class="bi-shield-check text-primary fs-5"></i>
+            <i class="bi-database-gear text-primary fs-5"></i>
           </div>
           <div class="theme-modal-titles">
-            <h5 class="mb-0 fw-bold text-white fs-6" id="backupModalTitle">Backup &amp; Restore</h5>
-            <small class="text-muted d-none d-sm-block" style="font-size: 0.75rem;">Single-file bundle for all settings, extensions, tabs, and library</small>
+            <h5 class="mb-0 fw-bold text-white fs-6" id="backupModalTitle">Data Management</h5>
+            <small class="text-muted d-none d-sm-block" style="font-size: 0.75rem;">Backup, restore, or manage stored tabs, library, and settings</small>
           </div>
         </div>
         <div class="theme-modal-actions">
@@ -535,6 +571,9 @@ async function renderModal(modal, activeTab = 'backup') {
         </button>
         <button type="button" class="btn btn-sm ${activeTab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnRestore">
           <i class="bi-cloud-arrow-down me-1.5"></i> Restore from Backup
+        </button>
+        <button type="button" class="btn btn-sm ${activeTab === 'delete' ? 'btn-theme-danger' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnDelete">
+          <i class="bi-trash3 me-1.5"></i> Delete All Data
         </button>
       </div>
 
@@ -715,6 +754,76 @@ async function renderModal(modal, activeTab = 'backup') {
             </button>
           </div>
         </div>
+
+        <!-- TAB 3: DELETE ALL DATA -->
+        <div id="deleteTabContent" style="display: ${activeTab === 'delete' ? 'block' : 'none'};">
+          <!-- Data Summary Overview -->
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-1.5">
+              <i class="bi-exclamation-octagon text-danger"></i> Data to be Erased
+            </div>
+            <div class="row g-2 text-white-50 small">
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6" id="deleteStatTabs">${storedFiles.length}</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Stored Tabs (${formatBytes(tabsTotalSize)})</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6" id="deleteStatSongs">${libraryData.songs?.length || 0}</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Library Songs</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6" id="deleteStatExt">${extensions.length}</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Custom Extensions</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6"><i class="bi-gear text-warning"></i></div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">All Settings &amp; Cache</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Danger Warning Card -->
+          <div class="p-3 rounded-3 mb-3" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.35);">
+            <div class="d-flex align-items-start gap-2.5 mb-2">
+              <i class="bi-exclamation-triangle-fill text-danger fs-5 flex-shrink-0 mt-0.5"></i>
+              <div>
+                <div class="fw-bold text-white small mb-1">Permanent Data Deletion Warning</div>
+                <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
+                  This action permanently removes all locally stored tab files, library tracks, playlists, collections, custom extensions, and resets all application settings to factory defaults.
+                </div>
+              </div>
+            </div>
+            <div class="text-white-50 small p-2 rounded-2 mt-2" style="background: rgba(0,0,0,0.25); font-size: 0.74rem;">
+              <i class="bi-info-circle text-info me-1"></i> Tip: If you want to keep a copy of your current files and settings, create a backup using the <strong>Create Backup</strong> tab first.
+            </div>
+          </div>
+
+          <!-- Confirmation Checkbox -->
+          <div class="form-check mb-3 p-2.5 rounded-2 bg-danger bg-opacity-10 border border-danger border-opacity-25">
+            <input class="form-check-input ms-0 me-2" type="checkbox" id="deleteAllConfirmCheckbox">
+            <label class="form-check-label small text-danger fw-semibold" for="deleteAllConfirmCheckbox" style="font-size: 0.78rem; cursor: pointer;">
+              I understand this action is permanent and cannot be undone. Delete all my data.
+            </label>
+          </div>
+
+          <!-- Status / Action -->
+          <div id="deleteStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="deleteCancelBtn">Cancel</button>
+            <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="deleteExecuteBtn" disabled>
+              <i class="bi-trash3-fill"></i> Delete All Data
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     `;
@@ -724,13 +833,14 @@ async function renderModal(modal, activeTab = 'backup') {
 }
 
 /**
- * Attach interactive handlers to the Backup & Restore modal
+ * Attach interactive handlers to the Data Management modal
  */
 function attachModalHandlers(modal) {
     // Close button & backdrop click
     modal.querySelector('#backupModalCloseBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#backupCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#restoreCancelBtn')?.addEventListener('click', closeBackupModal);
+    modal.querySelector('#deleteCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.onclick = (e) => {
         if (e.target === modal) closeBackupModal();
     };
@@ -738,25 +848,24 @@ function attachModalHandlers(modal) {
     // Tab Switchers
     const tabBtnBackup = modal.querySelector('#tabBtnBackup');
     const tabBtnRestore = modal.querySelector('#tabBtnRestore');
+    const tabBtnDelete = modal.querySelector('#tabBtnDelete');
     const backupContent = modal.querySelector('#backupTabContent');
     const restoreContent = modal.querySelector('#restoreTabContent');
+    const deleteContent = modal.querySelector('#deleteTabContent');
 
     const switchTab = (tab) => {
-        if (tab === 'backup') {
-            tabBtnBackup.className = 'btn btn-sm btn-theme-primary flex-grow-1 py-1.5';
-            tabBtnRestore.className = 'btn btn-sm btn-theme-outline flex-grow-1 py-1.5';
-            backupContent.style.display = 'block';
-            restoreContent.style.display = 'none';
-        } else {
-            tabBtnBackup.className = 'btn btn-sm btn-theme-outline flex-grow-1 py-1.5';
-            tabBtnRestore.className = 'btn btn-sm btn-theme-primary flex-grow-1 py-1.5';
-            backupContent.style.display = 'none';
-            restoreContent.style.display = 'block';
-        }
+        if (tabBtnBackup) tabBtnBackup.className = `btn btn-sm ${tab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
+        if (tabBtnRestore) tabBtnRestore.className = `btn btn-sm ${tab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
+        if (tabBtnDelete) tabBtnDelete.className = `btn btn-sm ${tab === 'delete' ? 'btn-theme-danger' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
+
+        if (backupContent) backupContent.style.display = tab === 'backup' ? 'block' : 'none';
+        if (restoreContent) restoreContent.style.display = tab === 'restore' ? 'block' : 'none';
+        if (deleteContent) deleteContent.style.display = tab === 'delete' ? 'block' : 'none';
     };
 
     tabBtnBackup?.addEventListener('click', () => switchTab('backup'));
     tabBtnRestore?.addEventListener('click', () => switchTab('restore'));
+    tabBtnDelete?.addEventListener('click', () => switchTab('delete'));
 
     // --- CREATE BACKUP ACTION ---
     const backupExecuteBtn = modal.querySelector('#backupExecuteBtn');
@@ -955,12 +1064,61 @@ function attachModalHandlers(modal) {
             restoreExecuteBtn.innerHTML = '<i class="bi-cloud-arrow-down"></i> Try Again';
         }
     });
+
+    // --- DELETE ALL DATA ACTION ---
+    const deleteAllConfirmCheckbox = modal.querySelector('#deleteAllConfirmCheckbox');
+    const deleteExecuteBtn = modal.querySelector('#deleteExecuteBtn');
+    const deleteStatusAlert = modal.querySelector('#deleteStatusAlert');
+
+    deleteAllConfirmCheckbox?.addEventListener('change', () => {
+        if (deleteExecuteBtn) {
+            deleteExecuteBtn.disabled = !deleteAllConfirmCheckbox.checked;
+        }
+    });
+
+    deleteExecuteBtn?.addEventListener('click', async () => {
+        if (!deleteAllConfirmCheckbox?.checked) return;
+
+        deleteExecuteBtn.disabled = true;
+        deleteExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status"></span> Deleting All Data...';
+        deleteStatusAlert.style.display = 'block';
+        deleteStatusAlert.className = 'small mb-2 text-info';
+        deleteStatusAlert.textContent = 'Clearing stored tabs, library, extensions, and settings...';
+
+        try {
+            await deleteAllAppData();
+
+            deleteStatusAlert.className = 'small mb-2 text-success fw-semibold';
+            deleteStatusAlert.innerHTML = '<i class="bi-check-circle-fill me-1"></i> All application data and settings deleted successfully.';
+            deleteExecuteBtn.innerHTML = '<i class="bi-check2"></i> Deleted';
+
+            // Refresh live stat numbers to 0
+            const statTabs = modal.querySelector('#deleteStatTabs');
+            const statSongs = modal.querySelector('#deleteStatSongs');
+            const statExt = modal.querySelector('#deleteStatExt');
+            if (statTabs) statTabs.textContent = '0';
+            if (statSongs) statSongs.textContent = '0';
+            if (statExt) statExt.textContent = '0';
+
+            setTimeout(() => {
+                closeBackupModal();
+                window.location.reload();
+            }, 1200);
+        } catch (err) {
+            console.error('Delete all data failed:', err);
+            deleteStatusAlert.className = 'small mb-2 text-danger fw-semibold';
+            deleteStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to delete data: ${escapeHtml(err.message)}`;
+            deleteExecuteBtn.disabled = false;
+            deleteExecuteBtn.innerHTML = '<i class="bi-trash3-fill"></i> Delete All Data';
+        }
+    });
 }
 
 /**
- * Initialize Backup & Restore triggers in UI
+ * Initialize Data Management triggers in UI
  */
 export function initBackupRestore() {
     document.getElementById('backupDataBtn')?.addEventListener('click', () => openBackupModal('backup'));
     document.getElementById('restoreDataBtn')?.addEventListener('click', () => openBackupModal('restore'));
+    document.getElementById('deleteAllDataBtn')?.addEventListener('click', () => openBackupModal('delete'));
 }
