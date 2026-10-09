@@ -1,5 +1,6 @@
 // gpProcessor.js
 import { applyGpScoreTransforms } from '../fileAdapters.js';
+import { showToast } from '../utils/toast.js';
 
 export const DEFAULT_GP_DISPLAY_SCALE = 1.0;
 export let GP_DISPLAY_SCALE = DEFAULT_GP_DISPLAY_SCALE;
@@ -60,9 +61,9 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             console.error('[AlphaTab API Error]', error);
 
             if (error?.message?.includes("No compatible importer found for file")) {
-                alert("Unable to load this Guitar Pro file. Ensure the tab is not locked.");
+                showToast("Unable to load this Guitar Pro file. Ensure the tab is not locked.", "error");
             } else {
-                alert("AlphaTab error: " + (error.message));
+                showToast("AlphaTab error: " + (error.message), "error");
             }
 
             tempApi.destroy();

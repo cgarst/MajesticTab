@@ -17,6 +17,7 @@ import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { openOpenFileModal } from './openFileModal.js';
 import { extractScoreTunings, inferTuningFromTextOrName } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
+import { showToast } from './utils/toast.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -1229,11 +1230,11 @@ async function loadSongTab(song, tabOption) {
                 tunings: song.tunings
             });
         } else {
-            alert(`Tab file not found locally. Please re-import tab for ${song.title}.`);
+            showToast(`Tab file not found locally. Please re-import tab for ${song.title}.`, 'warning');
         }
     } catch (err) {
         console.error('Failed to load song tab:', err);
-        alert(`Error opening tab: ${err.message}`);
+        showToast(`Error opening tab: ${err.message}`, 'error');
     }
 }
 
@@ -1903,7 +1904,7 @@ async function renderRecentsView(container) {
                     return;
                 }
             }
-            alert(`File "${r.name}" could not be restored from storage.`);
+            showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
         });
     });
 }

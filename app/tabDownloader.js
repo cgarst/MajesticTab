@@ -6,6 +6,7 @@ import { loadFile } from './main.js';
 import { addTabOptionToSong, getSongById } from './libraryStore.js';
 import { inferTuningFromTextOrName } from './utils/tuningUtils.js';
 import { openLibraryModal } from './libraryModal.js';
+import { showToast } from './utils/toast.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 
@@ -708,7 +709,7 @@ async function handleImportedDownloadedFile(file) {
         closeTabDownloaderModal();
     } catch (err) {
         console.error('Error importing downloaded tab file:', err);
-        alert(`Error importing tab: ${err.message}`);
+        showToast(`Error importing tab: ${err.message}`, 'error');
     }
 }
 

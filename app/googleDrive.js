@@ -1,6 +1,7 @@
 // googleDrive.js
 import { loadFile, hideFileMenu } from './main.js';
 import { saveStoredFile } from './fileStore.js';
+import { showToast } from './utils/toast.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
 const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
@@ -127,7 +128,7 @@ async function startAndroidGoogleAuth() {
         openDriveModal();
     } catch (error) {
         console.error('Failed to authorize Google Drive on Android:', error);
-        alert('Could not connect to Google Drive. Please try again.');
+        showToast('Could not connect to Google Drive. Please try again.', 'error');
     }
 }
 
@@ -164,7 +165,7 @@ async function startTauriGoogleAuth() {
             const authorizationCode = callbackUrl.searchParams.get('code');
             if (!authorizationCode) {
                 console.error('Google OAuth callback did not contain an authorization code.');
-                alert('Google authorization was not completed. Please try again.');
+                showToast('Google authorization was not completed. Please try again.', 'warning');
                 return;
             }
 
@@ -188,7 +189,7 @@ async function startTauriGoogleAuth() {
                 openDriveModal();
             } catch (error) {
                 console.error('Failed to exchange Google authorization code:', error);
-                alert('Could not connect to Google Drive. Please try again.');
+                showToast('Could not connect to Google Drive. Please try again.', 'error');
             }
         });
 
@@ -211,7 +212,7 @@ async function startTauriGoogleAuth() {
             await tauri.core.invoke('plugin:oauth|cancel', { port }).catch(() => {});
         }
         console.error('Failed to start Google OAuth:', error);
-        alert('Could not connect to Google Drive. Please try again.');
+        showToast('Could not connect to Google Drive. Please try again.', 'error');
     }
 }
 
@@ -559,7 +560,7 @@ function renderFileList(files) {
                     await loadFile(fileObj);
                 } catch (err) {
                     console.error('Error downloading file from Drive:', err);
-                    alert('Failed to download file from Google Drive.');
+                    showToast('Failed to download file from Google Drive.', 'error');
                     item.innerHTML = originalContent;
                     item.style.opacity = '1';
                     item.style.pointerEvents = 'auto';
@@ -642,7 +643,7 @@ export function setupDrivePicker() {
         currentFolderId = 'root';
         folderHistory = [{ id: 'root', name: 'My Drive' }];
         closeDriveModal();
-        alert('Disconnected Google Drive account.');
+        showToast('Disconnected Google Drive account.', 'info');
     });
 
     const searchInput = document.getElementById('driveSearchInput');

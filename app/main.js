@@ -21,6 +21,7 @@ import { initTauriDownloadListener } from './tabDownloader.js';
 import { addRecentOpened } from './libraryStore.js';
 import { inferTuningFromTextOrName } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
+import { showToast } from './utils/toast.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -755,7 +756,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         } catch (error) {
             console.error('[Test Mode] ❌ Failed to load test file:', error);
             console.error('[Test Mode] Error stack:', error.stack);
-            alert(`Test mode error: Could not load tests/${testFile}\n${error.message}`);
+            showToast(`Test mode error: Could not load tests/${testFile}\n${error.message}`, 'error');
             openLibraryModal('library');
         }
     } else if (!hasNativeFile) {
@@ -977,7 +978,7 @@ export async function loadFile(file, { hideMenu = true } = {}) {
             fileToLoad = await applyFileAdapters(file);
         } catch (error) {
             console.error('Error applying file adapters:', error);
-            alert(error?.message || 'Unable to process this file.');
+            showToast(error?.message || 'Unable to process this file.', 'error');
             return;
         } finally {
             hideProgress(progressContainer, progressBar);
