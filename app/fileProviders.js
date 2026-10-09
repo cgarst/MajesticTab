@@ -138,7 +138,7 @@ export const GoogleDriveFileProvider = {
     name: 'Google Drive',
     icon: 'bi-google',
     iconColorClass: 'text-danger',
-    description: 'Access and load tab files directly from your Google Drive cloud account',
+    description: 'Access and load tab files directly from your Google Drive account',
     badge: 'Cloud',
     actionLabel: 'Connect & Open',
     async open(options = {}) {
@@ -156,7 +156,7 @@ export const TabDownloaderNativeProvider = {
     name: 'Tab Downloader',
     icon: 'bi-cloud-arrow-down',
     iconColorClass: 'text-info',
-    description: 'Search, preview, and download guitar tabs from Songsterr and online archives',
+    description: 'Search and download guitar tabs from online archives',
     badge: 'Online',
     actionLabel: 'Search Tabs',
     async open(options = {}) {
@@ -169,7 +169,7 @@ export const TabDownloaderWebProvider = {
     name: 'Tab Downloader',
     icon: 'bi-cloud-arrow-down',
     iconColorClass: 'text-info',
-    description: 'Search, preview, and download guitar tabs from Songsterr and online archives',
+    description: 'Search and download guitar tabs from online archives',
     badge: 'Online',
     actionLabel: 'Search Tabs',
     async open(options = {}) {

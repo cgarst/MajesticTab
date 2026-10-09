@@ -81,7 +81,7 @@ function renderModalContent(modal) {
             </div>
             <div class="d-flex align-items-start gap-2 small text-white-50" style="font-size: 0.78rem;">
               <i class="bi-music-note-list text-warning mt-0.5 flex-shrink-0 fs-6"></i>
-              <div><strong class="text-white">Multiple Tab Variations:</strong> Attach multiple lead, rhythm, bass, and alternate tuning tabs (PDF &amp; Guitar Pro) to a single song.</div>
+              <div><strong class="text-white">Multiple Tab Variations:</strong> Attach multiple tabs to a single song.</div>
             </div>
             <div class="d-flex align-items-start gap-2 small text-white-50" style="font-size: 0.78rem;">
               <i class="bi-lightning-charge text-success mt-0.5 flex-shrink-0 fs-6"></i>
