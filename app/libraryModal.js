@@ -384,6 +384,7 @@ async function renderLibraryBrowseView(container) {
 
     const hierarchy = await getLibraryHierarchy(activeCollectionId);
     const artists = hierarchy.artists || [];
+    const pinnedSongs = hierarchy.pinnedSongs || [];
 
     // Re-sync selectedArtist and selectedAlbum against latest hierarchy data
     if (selectedArtist) {
@@ -782,37 +783,58 @@ async function renderLibraryBrowseView(container) {
                 `;
             }
         } else {
-            // Render Artists Grid (Top Level)
-            bodyHtml = `
-            <div class="library-artists-grid" id="libArtistsGrid">
-              ${artists.map(artist => {
-                const isCustomArtist = Boolean(artist.isCustom);
-                const albumCount = artist.albums.length;
-                const songCount = (artist.songs ? artist.songs.length : 0) + artist.albums.reduce((acc, a) => acc + a.songs.length, 0);
-                const firstCover = artist.albums.find(a => a.coverUrl)?.coverUrl || (isCustomArtist ? null : getPlaceholderCoverSvg(artist.name));
-                const albumNames = artist.albums.map(a => a.name || a.title || '');
-                const songNames = [
-                    ...(artist.songs || []).map(s => s.title || s.name || ''),
-                    ...artist.albums.flatMap(a => (a.songs || []).map(s => s.title || s.name || ''))
-                ];
-                const artistSearchTerms = [artist.name, ...albumNames, ...songNames].filter(Boolean).join(' ').toLowerCase();
-
-                return `
-                <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" data-search-terms="${escapeHtml(artistSearchTerms)}">
-                  <div class="d-flex align-items-center gap-3 min-w-0">
-                    ${firstCover
-                        ? `<img src="${firstCover}" class="artist-thumbnail flex-shrink-0" alt="${escapeHtml(artist.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(artist.name)}'">`
-                        : `<div class="artist-thumbnail flex-shrink-0 d-flex align-items-center justify-content-center" style="background: rgba(255, 255, 255, 0.05); border-radius: 8px;"><i class="bi-music-note-list text-info fs-4"></i></div>`
-                    }
-                    <div class="min-w-0 flex-grow-1">
-                      <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
-                      <div class="small text-muted text-truncate">${albumCount > 0 ? `${albumCount} ${albumCount === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')} • ` : ''}${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+            // Render Pinned Songs (if any) and Artists Grid (Top Level)
+            let pinnedHtml = '';
+            if (pinnedSongs.length > 0) {
+                pinnedHtml = `
+                <div class="library-pinned-section mb-4" id="libPinnedSection">
+                  <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="small fw-semibold text-white d-flex align-items-center gap-2">
+                      <i class="bi-pin-angle-fill text-warning"></i> Pinned Songs
+                      <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${pinnedSongs.length}</span>
                     </div>
-                    <i class="bi-chevron-right text-muted flex-shrink-0"></i>
+                  </div>
+                  <div class="library-songs-list d-flex flex-column gap-2" id="libPinnedSongsList">
+                    ${pinnedSongs.map(song => renderSongRow(song, { showArtistAlbum: true })).join('')}
                   </div>
                 </div>
                 `;
-              }).join('')}
+            }
+
+            bodyHtml = `
+            <div class="collection-root-view">
+              ${pinnedHtml}
+              ${pinnedHtml ? `<div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2"><i class="bi-person me-1 text-info"></i> Artists</div>` : ''}
+              <div class="library-artists-grid" id="libArtistsGrid">
+                ${artists.map(artist => {
+                  const isCustomArtist = Boolean(artist.isCustom);
+                  const albumCount = artist.albums.length;
+                  const songCount = (artist.songs ? artist.songs.length : 0) + artist.albums.reduce((acc, a) => acc + a.songs.length, 0);
+                  const firstCover = artist.albums.find(a => a.coverUrl)?.coverUrl || (isCustomArtist ? null : getPlaceholderCoverSvg(artist.name));
+                  const albumNames = artist.albums.map(a => a.name || a.title || '');
+                  const songNames = [
+                      ...(artist.songs || []).map(s => s.title || s.name || ''),
+                      ...artist.albums.flatMap(a => (a.songs || []).map(s => s.title || s.name || ''))
+                  ];
+                  const artistSearchTerms = [artist.name, ...albumNames, ...songNames].filter(Boolean).join(' ').toLowerCase();
+
+                  return `
+                  <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" data-search-terms="${escapeHtml(artistSearchTerms)}">
+                    <div class="d-flex align-items-center gap-3 min-w-0">
+                      ${firstCover
+                          ? `<img src="${firstCover}" class="artist-thumbnail flex-shrink-0" alt="${escapeHtml(artist.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(artist.name)}'">`
+                          : `<div class="artist-thumbnail flex-shrink-0 d-flex align-items-center justify-content-center" style="background: rgba(255, 255, 255, 0.05); border-radius: 8px;"><i class="bi-music-note-list text-info fs-4"></i></div>`
+                      }
+                      <div class="min-w-0 flex-grow-1">
+                        <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
+                        <div class="small text-muted text-truncate">${albumCount > 0 ? `${albumCount} ${albumCount === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')} • ` : ''}${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+                      </div>
+                      <i class="bi-chevron-right text-muted flex-shrink-0"></i>
+                    </div>
+                  </div>
+                  `;
+                }).join('')}
+              </div>
             </div>
             </div>
             `;
@@ -1053,6 +1075,21 @@ function setupLibraryFilter(container) {
             return;
         }
 
+        // Filter collection-level pinned section if visible
+        const pinnedSection = container.querySelector('#libPinnedSection');
+        if (pinnedSection) {
+            const pinnedRows = pinnedSection.querySelectorAll('.library-song-row');
+            let visiblePinned = 0;
+            pinnedRows.forEach(row => {
+                const title = (row.dataset.songTitle || '').toLowerCase();
+                const artist = (row.dataset.songArtist || '').toLowerCase();
+                const matches = !query || title.includes(query) || artist.includes(query);
+                row.style.display = matches ? '' : 'none';
+                if (matches) visiblePinned++;
+            });
+            pinnedSection.style.display = (!query || visiblePinned > 0) ? '' : 'none';
+        }
+
         // 3. Albums Grid View (Artist Detail)
         const albumCards = container.querySelectorAll('.library-albums-grid .album-card');
         if (albumCards.length > 0) {
@@ -1143,7 +1180,7 @@ function renderSongRow(song, options = {}) {
         <!-- Action Buttons -->
         <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
           <!-- Pin Song Button -->
-          <button class="btn btn-sm btn-theme-icon p-1 px-2 pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song' : 'Pin song to top'}">
+          <button class="btn btn-sm btn-theme-icon p-1 px-2 pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song from collection' : 'Pin song to collection'}">
             <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
           </button>
 
@@ -1286,7 +1323,7 @@ function setupSongRowActions(container) {
             e.stopPropagation();
             const songId = btn.dataset.songId;
             const pinned = await togglePinSong(songId);
-            showToast(pinned ? 'Song pinned to top' : 'Song unpinned', 'info');
+            showToast(pinned ? 'Song pinned to collection' : 'Song unpinned from collection', 'info');
             await renderView();
         });
     });

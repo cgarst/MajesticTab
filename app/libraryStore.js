@@ -196,11 +196,8 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
         });
 
         const albums = Array.from(artist.albums.values()).map(album => {
-            // Sort songs: pinned first, then medium number, then track number or title
+            // Sort songs strictly in album track order: medium number, then track number or title
             album.songs.sort((a, b) => {
-                if (Boolean(b.pinned) !== Boolean(a.pinned)) {
-                    return b.pinned ? 1 : -1;
-                }
                 const medA = a.mediumNumber || 1;
                 const medB = b.mediumNumber || 1;
                 if (medA !== medB) return medA - medB;
@@ -230,8 +227,16 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
     // Sort artists alphabetically
     artists.sort((a, b) => a.name.localeCompare(b.name));
 
+    const pinnedSongs = songs.filter(s => s.pinned && !s.isAlbumTabContainer);
+    pinnedSongs.sort((a, b) => {
+        const artDiff = (a.artist || '').localeCompare(b.artist || '');
+        if (artDiff !== 0) return artDiff;
+        return (a.title || '').localeCompare(b.title || '');
+    });
+
     return {
         collectionId,
+        pinnedSongs,
         artists
     };
 }
