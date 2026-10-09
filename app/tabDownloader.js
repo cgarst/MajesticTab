@@ -10,6 +10,10 @@ import { showToast } from './utils/toast.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 
+export function isNative() {
+    return typeof window !== 'undefined' && Boolean(window.__TAURI__);
+}
+
 export function isDesktopNative() {
     return typeof window !== 'undefined' && Boolean(window.__TAURI__) && !/android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
 }
@@ -526,15 +530,26 @@ async function syncNativeWebview(url = null, userscript = null) {
     lastSyncedWebview = { left, top, width, height, visible: isVisible, url: targetUrl, userscript: targetScript };
 
     try {
-        await window.__TAURI__.core.invoke('tab_downloader_update', {
-            url: targetUrl,
-            userscript: targetScript || null,
-            left,
-            top,
-            width,
-            height,
-            visible: isVisible
-        });
+        if (!isDesktopNative()) {
+            if (isVisible) {
+                await window.__TAURI__.core.invoke('open_tab_downloader', {
+                    url: targetUrl,
+                    userscript: targetScript || null
+                });
+            } else {
+                await window.__TAURI__.core.invoke('tab_downloader_hide');
+            }
+        } else {
+            await window.__TAURI__.core.invoke('tab_downloader_update', {
+                url: targetUrl,
+                userscript: targetScript || null,
+                left,
+                top,
+                width,
+                height,
+                visible: isVisible
+            });
+        }
     } catch (err) {
         console.error('[Tab Downloader] Failed to sync native webview:', err);
     }
@@ -564,7 +579,7 @@ export function selectTabSource(sourceId) {
     const targetUrl = buildSearchUrl(source, currentSearchQuery);
     updateUrlBar(targetUrl);
 
-    if (isDesktopNative()) {
+    if (isNative()) {
         syncNativeWebview(targetUrl);
     } else {
         const webTitle = modal.querySelector('#downloaderWebSourceTitle');
@@ -622,6 +637,7 @@ function renderTabDownloaderModal(initialQuery = '') {
     }
     modal.style.display = 'flex';
 
+    const isNativeApp = isNative();
     const isDesktop = isDesktopNative();
     const sources = getSources();
     const activeSource = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
@@ -641,7 +657,7 @@ function renderTabDownloaderModal(initialQuery = '') {
 
         renderSourceTabs(modal);
         selectTabSource(activeSourceId);
-        if (isDesktop) {
+        if (isNativeApp) {
             syncNativeWebview();
         }
         return;
@@ -654,8 +670,8 @@ function renderTabDownloaderModal(initialQuery = '') {
       <!-- In-App Browser Header & Navigation Bar -->
       <div class="theme-modal-header py-2 px-3 border-bottom border-secondary-subtle">
         <div class="d-flex align-items-center gap-2 flex-grow-1 min-w-0">
-          <!-- Browser History Navigation (Desktop Native Mode) -->
-          ${isDesktop ? `
+          <!-- Browser History Navigation (Native Mode) -->
+          ${isNativeApp ? `
             <div class="btn-group btn-group-sm flex-shrink-0" role="group">
               <button type="button" class="btn btn-theme-outline py-1 px-2" id="downloaderBrowserBackBtn" title="Go Back">
                 <i class="bi-chevron-left"></i>
@@ -687,7 +703,7 @@ function renderTabDownloaderModal(initialQuery = '') {
 
         <!-- Header Actions -->
         <div class="d-flex align-items-center gap-2 ms-2 flex-shrink-0">
-          ${(isDesktop && isDebugToolsEnabled) ? `
+          ${(isNativeApp && isDebugToolsEnabled) ? `
             <button type="button" class="btn btn-sm ${isDebugDrawerOpen ? 'btn-theme-primary' : 'btn-theme-outline'} py-1 px-2" id="downloaderToggleDebugBtn" title="Toggle Webview Debug Console">
               <i class="bi-terminal"></i>
             </button>
@@ -702,7 +718,7 @@ function renderTabDownloaderModal(initialQuery = '') {
       </div>
 
       <!-- Live Debug Drawer (Collapsible) - Only when debug-tools feature enabled -->
-      ${(isDesktop && isDebugToolsEnabled) ? `
+      ${(isNativeApp && isDebugToolsEnabled) ? `
       <div class="tab-downloader-debug-drawer" id="tabDownloaderDebugDrawer" style="${isDebugDrawerOpen ? 'display: block;' : 'display: none;'} background: #0b0f19; color: #cbd5e1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.72rem; border-bottom: 1px solid var(--border-subtle); max-height: 150px; overflow-y: auto; padding: 6px 12px; z-index: 20; position: relative;">
         <div class="d-flex align-items-center justify-content-between mb-1 pb-1 border-bottom border-secondary-subtle">
           <span class="text-info fw-bold"><i class="bi-terminal me-1"></i> Webview Debug Console</span>
@@ -723,25 +739,15 @@ function renderTabDownloaderModal(initialQuery = '') {
 
       <!-- In-App Browser View Container -->
       <div class="tab-downloader-browser-container" id="tabDownloaderBrowserContainer">
-        ${!isDesktop ? `
+        ${!isNativeApp ? `
           <div class="p-4 d-flex flex-column align-items-center justify-content-center h-100 text-center">
-            ${!window.__TAURI__ ? `
             <!-- Web App Limitation Disclaimer -->
             <div class="p-3 rounded-3 mb-3 d-flex align-items-center gap-3 text-start w-100" style="max-width: 500px; background: var(--bg-card-solid); border: 1px solid var(--border-subtle);">
               <i class="bi-info-circle text-info fs-4 flex-shrink-0"></i>
               <div class="small text-white-50" style="font-size: 0.8rem; line-height: 1.45;">
-                <span class="text-white fw-semibold">Web App Notice:</span> Browser tab search functionality is limited in the web app. Full integrated tab browsing is available on our <span class="text-white fw-semibold">Desktop</span> app.
+                <span class="text-white fw-semibold">Web App Notice:</span> Browser tab search functionality is limited in the web app. Full integrated tab browsing is available on our native apps.
               </div>
             </div>
-            ` : `
-            <!-- Mobile App Notice -->
-            <div class="p-3 rounded-3 mb-3 d-flex align-items-center gap-3 text-start w-100" style="max-width: 500px; background: var(--bg-card-solid); border: 1px solid var(--border-subtle);">
-              <i class="bi-info-circle text-info fs-4 flex-shrink-0"></i>
-              <div class="small text-white-50" style="font-size: 0.8rem; line-height: 1.45;">
-                <span class="text-white fw-semibold">Search & Import:</span> Search tabs in your browser below, then select or drop your downloaded file to load or attach it to your library.
-              </div>
-            </div>
-            `}
 
             <h6 class="text-white mb-2" id="downloaderWebSourceTitle">Search Tabs on ${escapeHtml(activeSource.name)}</h6>
             <p class="small text-muted mb-3" style="max-width: 500px;">
@@ -781,8 +787,8 @@ function renderTabDownloaderModal(initialQuery = '') {
         if (e.target === modal) closeTabDownloaderModal();
     });
 
-    // Browser navigation controls (Desktop native mode)
-    if (isDesktop) {
+    // Browser navigation controls (Native mode)
+    if (isNativeApp) {
         modal.querySelector('#downloaderBrowserBackBtn')?.addEventListener('click', () => {
             window.__TAURI__.core.invoke('tab_downloader_nav', { action: 'back' }).catch(() => {});
         });
@@ -822,14 +828,14 @@ function renderTabDownloaderModal(initialQuery = '') {
 
     // Manage sources button
     modal.querySelector('#downloaderManageSourcesBtn')?.addEventListener('click', () => {
-        if (isDesktop && window.__TAURI__?.core) {
+        if (isNativeApp && window.__TAURI__?.core) {
             window.__TAURI__.core.invoke('tab_downloader_hide').catch(() => {});
         }
         openSourceEditorModal();
     });
 
     // Native child webview positioning & resize observer
-    if (isDesktop) {
+    if (isNativeApp) {
         const container = modal.querySelector('#tabDownloaderBrowserContainer');
         if (container) {
             syncNativeWebview();
@@ -982,7 +988,7 @@ export function openSourceEditorModal(editingSourceId = null) {
         document.body.appendChild(modal);
     }
 
-    const isDesktop = isDesktopNative();
+    const isNativeApp = isNative();
     const sources = getSources();
     let currentEditing = editingSourceId ? sources.find(s => s.id === editingSourceId) : (sources[0] || DEFAULT_SOURCES[0]);
     if (!currentEditing && sources.length > 0) currentEditing = sources[0];
@@ -999,7 +1005,7 @@ export function openSourceEditorModal(editingSourceId = null) {
           </div>
           <div class="theme-modal-titles">
             <h6 class="mb-0 fw-bold text-white">Configure Tab Sources</h6>
-            <small class="text-muted">${isDesktop ? 'Manage search providers and custom userscripts' : 'Manage search providers'}</small>
+            <small class="text-muted">${isNativeApp ? 'Manage search providers and custom userscripts' : 'Manage search providers'}</small>
           </div>
         </div>
         <div class="theme-modal-actions">
@@ -1049,8 +1055,8 @@ export function openSourceEditorModal(editingSourceId = null) {
             <div class="text-muted mt-1" style="font-size: 0.72rem;">Controls whether search queries sent to this provider include the artist name or only the song title.</div>
           </div>
 
-          <!-- Userscript Section (Desktop Native Only) -->
-          ${isDesktop ? `
+          <!-- Userscript Section (Native App Only) -->
+          ${isNativeApp ? `
           <div class="p-2 rounded-2 mb-3" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <div class="form-check form-switch mb-0">

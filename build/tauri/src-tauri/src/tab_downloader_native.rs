@@ -726,10 +726,24 @@ pub fn tab_downloader_nav(
 #[cfg(any(target_os = "android", target_os = "ios"))]
 #[tauri::command]
 pub fn tab_downloader_nav(
-    _app: AppHandle,
+    app: AppHandle,
     _state: State<'_, TabDownloaderState>,
-    _action: String,
+    action: String,
 ) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+        match action.as_str() {
+            "back" => {
+                let _ = w.eval("window.history.back()");
+            }
+            "forward" => {
+                let _ = w.eval("window.history.forward()");
+            }
+            "reload" => {
+                let _ = w.eval("window.location.reload()");
+            }
+            _ => {}
+        }
+    }
     Ok(())
 }
 
@@ -749,7 +763,10 @@ pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>)
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
 #[tauri::command]
-pub fn tab_downloader_hide(_app: AppHandle, _state: State<'_, TabDownloaderState>) -> Result<(), String> {
+pub fn tab_downloader_hide(app: AppHandle, _state: State<'_, TabDownloaderState>) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+        let _ = w.hide();
+    }
     Ok(())
 }
 
@@ -764,7 +781,10 @@ pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String>
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
 #[tauri::command]
-pub fn tab_downloader_eval(_app: AppHandle, _script: String) -> Result<(), String> {
+pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String> {
+    if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+        let _ = w.eval(&script);
+    }
     Ok(())
 }
 
