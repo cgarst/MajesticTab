@@ -428,7 +428,12 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                     }
                 }
 
-                let final_dest = dest_dir.join(&filename);
+                let now_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis())
+                    .unwrap_or(0);
+                let unique_temp_name = format!("{}_{}", now_ms, filename);
+                let final_dest = dest_dir.join(&unique_temp_name);
                 *destination = final_dest.clone();
 
                 if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
@@ -445,29 +450,38 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
             }
             tauri::webview::DownloadEvent::Finished { url, path, success, .. } => {
                 eprintln!("[Tab Downloader] Native download finished: success={}, url={}, path={:?}", success, url, path);
-                if success {
-                    let resolved_path = path.or_else(|| {
-                        if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
-                            if let Ok(mut pending) = state.pending_downloads.lock() {
-                                if let Some(p) = pending.remove(&url.to_string()) {
-                                    return Some(p);
-                                }
-                            }
-                            if let Ok(mut last) = state.last_destination.lock() {
-                                return last.take();
+                let resolved_path = path.or_else(|| {
+                    if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
+                        if let Ok(mut pending) = state.pending_downloads.lock() {
+                            if let Some(p) = pending.remove(&url.to_string()) {
+                                return Some(p);
                             }
                         }
-                        None
-                    });
+                        if let Ok(mut last) = state.last_destination.lock() {
+                            return last.take();
+                        }
+                    }
+                    None
+                });
 
-                    if let Some(p) = resolved_path {
-                        let mut filename = p
-                            .file_name()
-                            .map(|f| f.to_string_lossy().to_string())
-                            .unwrap_or_else(|| "downloaded.gp".to_string());
-                        let data = std::fs::read(&p).ok();
+                if let Some(p) = resolved_path {
+                    let raw_name = p
+                        .file_name()
+                        .map(|f| f.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "downloaded.gp".to_string());
+                    let mut filename = if let Some(idx) = raw_name.find('_') {
+                        if raw_name[..idx].chars().all(|c| c.is_ascii_digit()) {
+                            raw_name[idx + 1..].to_string()
+                        } else {
+                            raw_name
+                        }
+                    } else {
+                        raw_name
+                    };
 
-                        if let Some(ref bytes) = data {
+                    let data = std::fs::read(&p).ok();
+                    if let Some(ref bytes) = data {
+                        if !bytes.is_empty() {
                             let identified_ext = identify_tab_extension(bytes, &filename);
                             if let Some(ext) = identified_ext {
                                 if !filename.to_lowercase().ends_with(&format!(".{}", ext)) {
