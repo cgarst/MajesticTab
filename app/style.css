@@ -2470,8 +2470,9 @@ body:not(.synth-playback-started) .at-highlight {
 
 .lib-toolbar-center {
   justify-self: center;
-  width: 100%;
-  max-width: 380px;
+  width: 340px;
+  min-width: 280px;
+  max-width: 420px;
 }
 
 .lib-toolbar-right {
