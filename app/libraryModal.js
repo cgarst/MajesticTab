@@ -231,10 +231,11 @@ export async function openLibraryModal(initialView = 'library') {
     if (brandText) brandText.style.display = 'inline-flex';
 
     if (returnBtn) {
-        if (currentOpen && currentOpen.name) {
+        if (currentOpen && (currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name)) {
+            const displayName = currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name.replace(/\.[^/.]+$/, '');
             returnBtn.style.display = 'inline-flex';
-            if (returnName) returnName.textContent = currentOpen.name.replace(/\.[^/.]+$/, '');
-            returnBtn.title = `Return to score: ${currentOpen.name}`;
+            if (returnName) returnName.textContent = displayName;
+            returnBtn.title = `Return to score: ${displayName}`;
         } else {
             returnBtn.style.display = 'none';
         }
@@ -272,9 +273,10 @@ export function closeLibraryModal(force = false) {
         if (currentOpen) {
             if (brandText) brandText.style.display = 'none';
             if (songBreadcrumb) songBreadcrumb.style.display = 'inline-flex';
-            if (songTitleEl && currentOpen.name) {
-                songTitleEl.textContent = currentOpen.name.replace(/\.[^/.]+$/, '');
-                songTitleEl.title = currentOpen.name;
+            if (songTitleEl) {
+                const displayName = currentOpen.songTitle || currentOpen.librarySongTitle || (currentOpen.name ? currentOpen.name.replace(/\.[^/.]+$/, '') : '');
+                songTitleEl.textContent = displayName;
+                songTitleEl.title = displayName || currentOpen.name || '';
             }
         } else {
             if (brandText) brandText.style.display = 'inline-flex';
@@ -335,10 +337,11 @@ export async function renderLibraryModal() {
     const returnBtn = document.getElementById('libraryReturnToSongBtn');
     const returnName = document.getElementById('libraryReturnSongName');
     if (returnBtn) {
-        if (currentOpen && currentOpen.name) {
+        if (currentOpen && (currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name)) {
+            const displayName = currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name.replace(/\.[^/.]+$/, '');
             returnBtn.style.display = 'inline-flex';
-            if (returnName) returnName.textContent = currentOpen.name.replace(/\.[^/.]+$/, '');
-            returnBtn.title = `Return to score: ${currentOpen.name}`;
+            if (returnName) returnName.textContent = displayName;
+            returnBtn.title = `Return to score: ${displayName}`;
         } else {
             returnBtn.style.display = 'none';
         }
@@ -1835,6 +1838,10 @@ async function loadSongTab(song, tabOption) {
         }
 
         if (file) {
+            file.songTitle = song.title;
+            file.librarySongTitle = song.title;
+            file.artist = song.artist;
+            file.album = song.album;
             closeLibraryModal();
             await loadFile(file);
 
@@ -2891,6 +2898,10 @@ async function renderRecentsView(container) {
             if (r.fileStoreId) {
                 const stored = await getStoredFile(r.fileStoreId);
                 if (stored?.file) {
+                    stored.file.songTitle = r.songTitle || r.name;
+                    stored.file.librarySongTitle = r.songTitle || r.name;
+                    stored.file.artist = r.artist || '';
+                    stored.file.album = r.album || '';
                     closeLibraryModal();
                     await loadFile(stored.file);
                     return;
