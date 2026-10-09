@@ -281,8 +281,9 @@ export async function importFileStore(exportedData) {
     let count = 0;
 
     for (const item of parsed.files) {
-        if (!item.id || !item.name || !item.dataBase64) continue;
+        if (!item || !item.id || !item.name || !item.dataBase64) continue;
         const arrayBuffer = base64ToArrayBuffer(item.dataBase64);
+        item.dataBase64 = null; // Free memory immediately
         const record = {
             id: item.id,
             name: item.name,

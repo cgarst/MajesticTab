@@ -329,10 +329,10 @@ export function inspectBackupFile(fileContent) {
 /**
  * Restore a backup bundle with either 'merge' or 'wipe' mode
  * @param {object} bundle - Parsed backup bundle
- * @param {object} options - { mode: 'merge' | 'wipe' }
+ * @param {object} options - { mode: 'merge' | 'wipe', onProgress?: function(current: number, total: number): void }
  * @returns {Promise<object>} Results of the restore operation
  */
-export async function restoreBackup(bundle, { mode = 'merge' } = {}) {
+export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {}) {
     if (!bundle || typeof bundle !== 'object') {
         throw new Error('Invalid backup bundle provided.');
     }
@@ -365,10 +365,19 @@ export async function restoreBackup(bundle, { mode = 'merge' } = {}) {
 
     // 2. Restore / Merge File Store (Stored Tabs)
     const files = bundle.fileStore?.files || (Array.isArray(bundle.files) ? bundle.files : []);
-    for (const item of files) {
+    const totalFiles = files.length;
+    for (let i = 0; i < totalFiles; i++) {
+        const item = files[i];
         if (!item || !item.id || !item.name || !item.dataBase64) continue;
 
+        if (typeof onProgress === 'function') {
+            onProgress(i + 1, totalFiles);
+        }
+
         const arrayBuffer = base64ToArrayBuffer(item.dataBase64);
+        // Dereference base64 string immediately so garbage collection can free it
+        item.dataBase64 = null;
+
         const record = {
             id: item.id,
             name: item.name,
@@ -1252,7 +1261,16 @@ function attachModalHandlers(modal) {
         restoreStatusAlert.textContent = mode === 'wipe' ? 'Wiping and restoring fresh from backup...' : 'Merging missing tabs and settings...';
 
         try {
-            const results = await restoreBackup(currentParsedBackup, { mode });
+            const results = await restoreBackup(currentParsedBackup, {
+                mode,
+                onProgress: (current, total) => {
+                    if (total > 0) {
+                        restoreStatusAlert.textContent = `Restoring tab ${current} of ${total}...`;
+                    }
+                }
+            });
+
+            currentParsedBackup = null;
 
             restoreStatusAlert.className = 'small mb-2 text-success fw-semibold';
             const details = [];
