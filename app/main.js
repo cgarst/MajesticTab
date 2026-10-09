@@ -398,18 +398,12 @@ function setupSettings() {
                 localStorage.setItem('landscapePageLayout', radio.value);
                 if (currentFile && pageModeRadio && pageModeRadio.checked) {
                     if (isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
-                        const pagesPerView = getPagesPerView(true);
+                        const pagesPerView = getPagesPerView('gp');
                         if (gpState.pages?.length) {
                             gpState.currentPageIndex = Math.min(gpState.currentPageIndex, Math.max(0, gpState.pages.length - pagesPerView));
                         }
                         gpState.lastLayoutDimensions = null;
                         renderGPPage(output, true, continuousModeRadio);
-                    } else if (isFileType(currentFile, ['pdf'])) {
-                        const pagesPerView = getPagesPerView(false);
-                        if (pages?.length) {
-                            currentPageIndex = Math.min(currentPageIndex, Math.max(0, pages.length - pagesPerView));
-                        }
-                        doLayoutPages();
                     } else if (isFileType(currentFile, ['txt'])) {
                         await loadFile(currentFile, { hideMenu: false });
                     }

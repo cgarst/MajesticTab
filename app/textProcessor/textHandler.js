@@ -117,7 +117,7 @@ export async function loadText(file, output, pageModeRadio, continuousModeRadio)
  */
 export function nextTextPage(step = null) {
     if (!textState.pages.length) return false;
-    const pagesPerView = getPagesPerView(false); // false = PDF/TXT mode
+    const pagesPerView = getPagesPerView('txt');
     let advanceStep = step;
     if (advanceStep === null) {
         const selected = document.querySelector('input[name="pageAdvanceRadio"]:checked');
@@ -143,7 +143,7 @@ export function prevTextPage(step = null) {
     if (advanceStep === null) {
         const selected = document.querySelector('input[name="pageAdvanceRadio"]:checked');
         const advancePages = selected ? parseInt(selected.value, 10) : 2;
-        advanceStep = advancePages === 1 ? 1 : getPagesPerView(false);
+        advanceStep = advancePages === 1 ? 1 : getPagesPerView('txt');
     }
     const newIndex = Math.max(0, textState.currentPageIndex - advanceStep);
     if (newIndex !== textState.currentPageIndex) {
