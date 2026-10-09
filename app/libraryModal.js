@@ -922,7 +922,8 @@ async function renderLibraryBrowseView(container) {
             renderLibraryBrowseView(container);
         });
 
-        if (album) {
+        const targetAlbum = selectedArtist?.albums?.find(a => (a.folderPath || a.title) === folderName);
+        if (targetAlbum) {
             card.addEventListener('dragenter', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -957,18 +958,18 @@ async function renderLibraryBrowseView(container) {
 
                 let attachedCount = 0;
                 for (const file of files) {
-                    const matchedSong = matchSongInAlbum(album.songs, file.name);
+                    const matchedSong = matchSongInAlbum(targetAlbum.songs, file.name);
                     if (matchedSong) {
                         const ok = await attachFileToSong(file, matchedSong.id);
                         if (ok) attachedCount++;
-                    } else if (album.songs?.length > 0) {
-                        const ok = await attachFileToSong(file, album.songs[0].id);
+                    } else if (targetAlbum.songs?.length > 0) {
+                        const ok = await attachFileToSong(file, targetAlbum.songs[0].id);
                         if (ok) attachedCount++;
                     }
                 }
 
                 if (attachedCount > 0) {
-                    await renderView();
+                    await renderLibraryBrowseView(container);
                 }
             });
         }
