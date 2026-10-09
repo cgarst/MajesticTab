@@ -49,11 +49,25 @@ export function getFileProvider(id) {
 }
 
 /**
- * Get all registered file providers
+ * Get all registered file providers (filtered for current environment)
  * @returns {Array<FileProvider>}
  */
 export function getFileProviders() {
-    return Array.from(providers.values());
+    const isTauri = typeof window !== 'undefined' && Boolean(window.__TAURI__);
+    const result = [];
+    const seen = new Set();
+
+    for (const [id, provider] of providers.entries()) {
+        if (id === 'tab-downloader-web' && isTauri) continue;
+        if (id === 'tab-downloader' && !isTauri && providers.has('tab-downloader-web')) continue;
+
+        const canonicalId = (id === 'tab-downloader-web') ? 'tab-downloader' : id;
+        if (!seen.has(canonicalId)) {
+            seen.add(canonicalId);
+            result.push(provider);
+        }
+    }
+    return result;
 }
 
 /**
@@ -75,6 +89,10 @@ export const LocalFileProvider = {
     id: 'local',
     name: 'Local Device',
     icon: 'bi-folder2-open',
+    iconColorClass: 'text-primary',
+    description: 'Browse Guitar Pro (.gp, .gpx, .gp3–5), PDF, or TXT tabs from your device',
+    badge: 'Device',
+    actionLabel: 'Browse Files',
     open(options = {}) {
         const input = document.createElement('input');
         input.type = 'file';
@@ -119,6 +137,10 @@ export const GoogleDriveFileProvider = {
     id: 'google-drive',
     name: 'Google Drive',
     icon: 'bi-google',
+    iconColorClass: 'text-danger',
+    description: 'Access and load tab files directly from your Google Drive cloud account',
+    badge: 'Cloud',
+    actionLabel: 'Connect & Open',
     async open(options = {}) {
         if (isTokenValid()) {
             openDriveModal();
@@ -133,6 +155,10 @@ export const TabDownloaderNativeProvider = {
     id: 'tab-downloader',
     name: 'Tab Downloader',
     icon: 'bi-cloud-arrow-down',
+    iconColorClass: 'text-info',
+    description: 'Search, preview, and download guitar tabs from Songsterr and online archives',
+    badge: 'Online',
+    actionLabel: 'Search Tabs',
     async open(options = {}) {
         return openTabDownloader(options);
     }
@@ -140,8 +166,12 @@ export const TabDownloaderNativeProvider = {
 
 export const TabDownloaderWebProvider = {
     id: 'tab-downloader-web',
-    name: 'Tab Downloader (Web)',
+    name: 'Tab Downloader',
     icon: 'bi-cloud-arrow-down',
+    iconColorClass: 'text-info',
+    description: 'Search, preview, and download guitar tabs from Songsterr and online archives',
+    badge: 'Online',
+    actionLabel: 'Search Tabs',
     async open(options = {}) {
         return openTabDownloader(options);
     }
@@ -153,4 +183,5 @@ registerFileProvider(GoogleDriveFileProvider);
 
 registerFileProvider(TabDownloaderNativeProvider);
 registerFileProvider(TabDownloaderWebProvider);
+
 
