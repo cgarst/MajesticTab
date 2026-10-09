@@ -2777,14 +2777,40 @@ body:not(.synth-playback-started) .at-highlight {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   border-radius: 0.65rem;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   min-width: 0;
+  position: relative;
 }
 
 .library-song-row:hover,
 .library-track-row:hover {
   background: var(--bg-card-hover);
   border-color: var(--border-prominent);
+}
+
+.library-song-row.song-drop-active {
+  border: 1.5px dashed var(--accent-primary) !important;
+  background: var(--bg-card-hover) !important;
+  box-shadow: 0 0 16px var(--accent-glow) !important;
+  transform: scale(1.008);
+}
+
+.library-song-row.song-drop-active::after {
+  content: 'Drop tab to upload (.gp, .pdf, .txt)';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg-card-solid);
+  color: var(--accent-text);
+  border: 1px solid var(--accent-primary);
+  border-radius: 9999px;
+  padding: 0.2rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  pointer-events: none;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+  z-index: 10;
 }
 
 /* Thumbnails & Covers */

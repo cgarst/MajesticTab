@@ -11,7 +11,7 @@ import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
     getCoverArtUrl, getPlaceholderCoverSvg
 } from './musicbrainz.js';
-import { getStoredFile } from './fileStore.js';
+import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { openOpenFileModal } from './openFileModal.js';
@@ -689,12 +689,12 @@ function renderSongRow(song) {
     const tunings = Array.isArray(song.tunings) ? song.tunings : [];
 
     return `
-    <div class="library-song-row p-2.5 d-flex flex-column gap-2" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}">
+    <div class="library-song-row p-2.5 d-flex flex-column gap-2 position-relative" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
       <div class="d-flex align-items-center justify-content-between gap-2">
         <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
           <span class="badge-track-num">${song.trackNumber || '•'}</span>
-          <div class="min-w-0">
-            <span class="fw-semibold text-white text-truncate d-block">${escapeHtml(song.title)}</span>
+          <div class="min-w-0 flex-grow-1">
+            <span class="fw-semibold text-white text-truncate d-block" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
             <div class="d-flex align-items-center gap-1.5 flex-wrap mt-0.5">
               ${tunings.map(t => `<span class="badge badge-tuning">${escapeHtml(t)}</span>`).join('')}
               ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : '<span class="badge badge-no-tab"><i class="bi-exclamation-circle me-1"></i>No tab attached</span>'}
@@ -824,6 +824,77 @@ function setupSongRowActions(container) {
                     query: `${song.artist} ${song.title}`
                 });
             });
+        });
+    });
+
+    // Drag & Drop tab files onto song rows
+    container.querySelectorAll('.library-song-row').forEach(row => {
+        const songId = row.dataset.songId;
+        if (!songId) return;
+
+        let dragCounter = 0;
+
+        row.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter++;
+            if (e.dataTransfer) {
+                e.dataTransfer.dropEffect = 'copy';
+            }
+            row.classList.add('song-drop-active');
+        });
+
+        row.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (e.dataTransfer) {
+                e.dataTransfer.dropEffect = 'copy';
+            }
+            if (!row.classList.contains('song-drop-active')) {
+                row.classList.add('song-drop-active');
+            }
+        });
+
+        row.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter--;
+            if (dragCounter <= 0) {
+                dragCounter = 0;
+                row.classList.remove('song-drop-active');
+            }
+        });
+
+        row.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            dragCounter = 0;
+            row.classList.remove('song-drop-active');
+
+            const files = Array.from(e.dataTransfer?.files || []);
+            if (files.length === 0) return;
+
+            let addedCount = 0;
+            for (const file of files) {
+                try {
+                    const stored = await saveStoredFile(file, 'local');
+                    await addTabOptionToSong(songId, {
+                        name: file.name,
+                        providerId: 'local',
+                        relativePath: file.name,
+                        fileStoreId: stored.id,
+                        tuning: inferTuningFromTextOrName(file.name),
+                        fileType: file.name.split('.').pop().toLowerCase()
+                    });
+                    addedCount++;
+                } catch (err) {
+                    console.error('Error attaching dropped tab to song:', err);
+                }
+            }
+
+            if (addedCount > 0) {
+                await renderView();
+            }
         });
     });
 }
