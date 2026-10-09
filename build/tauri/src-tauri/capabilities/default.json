@@ -13,6 +13,7 @@
     "core:window:allow-close",
     "core:window:allow-is-maximized",
     "core:window:allow-is-fullscreen",
+    "core:app:allow-exit",
     "oauth:allow-start",
     "oauth:allow-cancel",
     "opener:allow-open-url",
