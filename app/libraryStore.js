@@ -189,6 +189,7 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
         album: songData.album || 'Unknown Album',
         albumMbid: songData.albumMbid || null,
         year: songData.year || null,
+        length: typeof songData.length === 'number' ? songData.length : (songData.length ? parseInt(songData.length, 10) : null),
         trackNumber: songData.trackNumber || null,
         recordingMbid: songData.recordingMbid || null,
         coverUrl: songData.coverUrl || null,
@@ -225,6 +226,7 @@ export async function addAlbumToLibrary(albumData, tracks = [], collectionId = D
             album: albumData.title,
             albumMbid: albumData.releaseGroupId || albumData.releaseId || null,
             year: albumData.year || null,
+            length: typeof track.length === 'number' ? track.length : (track.length ? parseInt(track.length, 10) : null),
             trackNumber: track.trackNumber || null,
             recordingMbid: track.recordingMbid || null,
             coverUrl: albumData.coverUrl || track.coverUrl || null,
@@ -243,6 +245,28 @@ export async function addAlbumToLibrary(albumData, tracks = [], collectionId = D
     }
 
     return results;
+}
+
+/**
+ * Delete an entire album and all of its songs from the library
+ */
+export async function deleteAlbumFromLibrary(artistName, albumTitle, collectionId = DEFAULT_COLLECTION_ID) {
+    const db = await getDB();
+    const songs = await getSongsByCollection(collectionId);
+    const songsToDelete = songs.filter(s => 
+        (s.artist || '').trim().toLowerCase() === (artistName || '').trim().toLowerCase() &&
+        (s.album || '').trim().toLowerCase() === (albumTitle || '').trim().toLowerCase()
+    );
+
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_SONGS, 'readwrite');
+        const store = tx.objectStore(STORE_SONGS);
+        for (const s of songsToDelete) {
+            store.delete(s.id);
+        }
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+    });
 }
 
 /**
