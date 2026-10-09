@@ -253,7 +253,7 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
 
         const tunings = Array.isArray(song.tunings) && song.tunings.length > 0
             ? song.tunings
-            : (song.tabOptions?.map(t => t.tuning).filter(Boolean) || (song.tuning ? [song.tuning] : []));
+            : (song.tabOptions?.flatMap(t => Array.isArray(t.tunings) && t.tunings.length > 0 ? t.tunings : (t.tuning ? [t.tuning] : [])).filter(Boolean) || (song.tuning ? [song.tuning] : []));
 
         // Filter out 'Untuned / Other' or empty / null values
         const validTunings = tunings.filter(t => t && typeof t === 'string' && t.trim() && t !== 'Untuned / Other' && t.toLowerCase() !== 'untuned');
@@ -559,7 +559,7 @@ export async function removeTabOptionFromSong(songId, tabOptionId) {
     if (song.defaultTabId === tabOptionId) {
         song.defaultTabId = song.tabOptions[0]?.id || null;
     }
-    song.tunings = Array.from(new Set(song.tabOptions.map(t => t.tuning).filter(Boolean)));
+    song.tunings = Array.from(new Set(song.tabOptions.flatMap(t => Array.isArray(t.tunings) && t.tunings.length > 0 ? t.tunings : (t.tuning ? [t.tuning] : []))));
     await saveSongToLibrary(song, song.collectionId);
 }
 
