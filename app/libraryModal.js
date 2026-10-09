@@ -52,6 +52,12 @@ function initLibraryTopBar() {
     document.getElementById('navBtnLibrary')?.addEventListener('click', () => switchView('library'));
     document.getElementById('navBtnRecents')?.addEventListener('click', () => switchView('recents'));
     document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', closeLibraryModal);
+
+    window.addEventListener('libraryDataChanged', () => {
+        if (isLibraryOpen()) {
+            renderLibraryModal();
+        }
+    });
 }
 
 /**
