@@ -2783,7 +2783,8 @@ body:not(.synth-playback-started) .at-highlight {
 .library-track-row {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 0.65rem;
+  border-radius: 0.75rem;
+  padding: 0.9rem 1.25rem;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   min-width: 0;
   position: relative;
@@ -2907,8 +2908,9 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 .badge-track-num {
-  min-width: 26px;
-  height: 26px;
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2918,6 +2920,7 @@ body:not(.synth-playback-started) .at-highlight {
   border-radius: 50% !important;
   font-size: 0.72rem;
   font-weight: 600;
+  flex-shrink: 0;
 }
 
 .badge-tuning {
