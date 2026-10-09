@@ -488,6 +488,14 @@ function renderTabDownloaderModal(initialQuery = '') {
       <div class="tab-downloader-browser-container" id="tabDownloaderBrowserContainer">
         ${!isNative ? `
           <div class="p-4 d-flex flex-column align-items-center justify-content-center h-100 text-center">
+            <!-- Web App Limitation Disclaimer -->
+            <div class="p-3 rounded-3 mb-3 d-flex align-items-center gap-3 text-start w-100" style="max-width: 500px; background: var(--bg-card-solid); border: 1px solid var(--border-subtle);">
+              <i class="bi-info-circle text-info fs-4 flex-shrink-0"></i>
+              <div class="small text-white-50" style="font-size: 0.8rem; line-height: 1.45;">
+                <span class="text-white fw-semibold">Web App Notice:</span> Browser tab search functionality is limited in the web app. Full integrated tab browsing is available on our <span class="text-white fw-semibold">Desktop</span> and <span class="text-white fw-semibold">Android</span> clients.
+              </div>
+            </div>
+
             <h6 class="text-white mb-2">Search Tabs on ${escapeHtml(activeSource.name)}</h6>
             <p class="small text-muted mb-3" style="max-width: 500px;">
               Click below to search in a browser tab, then drag and drop the downloaded file here.
@@ -714,6 +722,7 @@ export function openSourceEditorModal(editingSourceId = null) {
         document.body.appendChild(modal);
     }
 
+    const isNative = !!(window.__TAURI__);
     const sources = getSources();
     let currentEditing = editingSourceId ? sources.find(s => s.id === editingSourceId) : (sources[0] || DEFAULT_SOURCES[0]);
     if (!currentEditing && sources.length > 0) currentEditing = sources[0];
@@ -730,7 +739,7 @@ export function openSourceEditorModal(editingSourceId = null) {
           </div>
           <div class="theme-modal-titles">
             <h6 class="mb-0 fw-bold text-white">Configure Tab Sources</h6>
-            <small class="text-muted">Manage search providers and custom userscripts</small>
+            <small class="text-muted">${isNative ? 'Manage search providers and custom userscripts' : 'Manage search providers'}</small>
           </div>
         </div>
         <div class="theme-modal-actions">
@@ -780,7 +789,8 @@ export function openSourceEditorModal(editingSourceId = null) {
             <div class="text-muted mt-1" style="font-size: 0.72rem;">Controls whether search queries sent to this provider include the artist name or only the song title.</div>
           </div>
 
-          <!-- Userscript Section -->
+          <!-- Userscript Section (Native Only) -->
+          ${isNative ? `
           <div class="p-2 rounded-2 mb-3" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <div class="form-check form-switch mb-0">
@@ -791,6 +801,7 @@ export function openSourceEditorModal(editingSourceId = null) {
             </div>
             <textarea class="form-control form-control-sm bg-dark text-white border-secondary font-monospace" id="editUserscriptCode" rows="4" style="font-size: 0.78rem;" placeholder="// Custom JavaScript injected into webview">${currentEditing?.userscript || ''}</textarea>
           </div>
+          ` : ''}
 
           <div class="d-flex align-items-center justify-content-between gap-2">
             <div>
@@ -880,8 +891,10 @@ export function openSourceEditorModal(editingSourceId = null) {
         const name = modal.querySelector('#editSourceName').value.trim();
         const urlTemplate = modal.querySelector('#editSourceUrl').value.trim();
         const queryFormat = modal.querySelector('#editQueryFormat')?.value || 'artist_song';
-        const userscriptEnabled = modal.querySelector('#editUserscriptEnabled').checked;
-        const userscript = modal.querySelector('#editUserscriptCode').value;
+        const editUserscriptEnabled = modal.querySelector('#editUserscriptEnabled');
+        const editUserscriptCode = modal.querySelector('#editUserscriptCode');
+        const userscriptEnabled = editUserscriptEnabled ? editUserscriptEnabled.checked : (currentEditing?.userscriptEnabled ?? false);
+        const userscript = editUserscriptCode ? editUserscriptCode.value : (currentEditing?.userscript ?? '');
 
         if (currentEditing) {
             const idx = curSources.findIndex(s => s.id === currentEditing.id);
