@@ -1,4 +1,4 @@
-import { loadGuitarPro, GP_DISPLAY_SCALE } from './gpProcessor.js';
+import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
@@ -21,6 +21,14 @@ export const gpState = {
         this.pages.length = 0;
         this.currentPageIndex = 0;
         this.lastLayoutDimensions = null;
+        const synthSection = document.getElementById('synthTrackVisibilitySection');
+        const settingsGroup = document.getElementById('gpActiveTracksSettingGroup');
+        const synthList = document.getElementById('synthTrackList');
+        const settingsList = document.getElementById('settingsTrackList');
+        if (synthSection) synthSection.style.display = 'none';
+        if (settingsGroup) settingsGroup.style.display = 'none';
+        if (synthList) synthList.innerHTML = '';
+        if (settingsList) settingsList.innerHTML = '';
     }
 };
 
@@ -86,6 +94,9 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
         // Attach to synth player
         attachAlphaTabApi(api);
+
+        // Populate track selection UI
+        populateGpTrackSelectionUI(api);
 
         // Update YouTube player with parsed score metadata
         if (api.score) {
@@ -490,4 +501,155 @@ export function prevGPPage(output) {
         return true;
     }
     return false;
+}
+
+/**
+ * Apply selected tracks to AlphaTab renderer and re-paginate in Page Mode
+ */
+export function applyGpTrackSelection(visibleTrackIndices) {
+    const api = gpState.canvases[0]?.api;
+    const container = gpState.canvases[0]?.container;
+    const output = document.getElementById('output');
+    if (!api || !container || !api.score?.tracks || !visibleTrackIndices?.length) return;
+
+    const tracksToRender = api.score.tracks.filter(t => visibleTrackIndices.includes(t.index));
+    if (!tracksToRender.length) return;
+
+    const pageModeRadio = document.getElementById('pageModeRadio');
+    const isPageMode = pageModeRadio ? pageModeRadio.checked : true;
+
+    if (!isPageMode) {
+        api.renderTracks(tracksToRender);
+        updateTrackSelectionUI(visibleTrackIndices);
+        return;
+    }
+
+    // In Page mode: park container offscreen while AlphaTab re-renders with new tracks
+    const offscreenHolder = document.createElement('div');
+    offscreenHolder.style.cssText = 'position:absolute;visibility:hidden;width:0;height:0;overflow:hidden;';
+    document.body.appendChild(offscreenHolder);
+    if (container.parentNode) container.parentNode.removeChild(container);
+    offscreenHolder.appendChild(container);
+
+    const renderToken = ++gpRenderToken;
+    const unsub = api.postRenderFinished.on(() => {
+        unsub();
+        if (offscreenHolder.parentNode) document.body.removeChild(offscreenHolder);
+        if (renderToken !== gpRenderToken) return;
+        gpState.lastLayoutDimensions = null;
+        gpState.pages = [];
+        gpState.currentPageIndex = Math.min(gpState.currentPageIndex, Math.max(0, gpState.pages.length - 1));
+        renderGPPageMode(output);
+        updateTrackSelectionUI(visibleTrackIndices);
+    });
+
+    api.renderTracks(tracksToRender);
+}
+
+/**
+ * Update checkboxes and buttons in track selection UI
+ */
+export function updateTrackSelectionUI(visibleIndices) {
+    const synthList = document.getElementById('synthTrackList');
+    const settingsList = document.getElementById('settingsTrackList');
+    const isSingleVisible = visibleIndices.length === 1;
+
+    [synthList, settingsList].forEach(list => {
+        if (!list) return;
+        list.querySelectorAll('.gp-track-checkbox').forEach(cb => {
+            const idx = parseInt(cb.dataset.trackIndex, 10);
+            const isChecked = visibleIndices.includes(idx);
+            cb.checked = isChecked;
+            cb.disabled = isChecked && isSingleVisible;
+        });
+    });
+}
+
+/**
+ * Populate track selection lists in synth panel and settings offcanvas
+ */
+export function populateGpTrackSelectionUI(api) {
+    const synthSection = document.getElementById('synthTrackVisibilitySection');
+    const settingsGroup = document.getElementById('gpActiveTracksSettingGroup');
+    const synthList = document.getElementById('synthTrackList');
+    const settingsList = document.getElementById('settingsTrackList');
+    const synthShowAllBtn = document.getElementById('synthShowAllTracksBtn');
+    const settingsShowAllBtn = document.getElementById('settingsShowAllTracksBtn');
+
+    if (!synthList || !settingsList || !api?.score?.tracks) return;
+
+    const guitarTracks = getGuitarTracks(api.score);
+    if (guitarTracks.length <= 1) {
+        if (synthSection) synthSection.style.display = 'none';
+        if (settingsGroup) settingsGroup.style.display = 'none';
+        synthList.innerHTML = '';
+        settingsList.innerHTML = '';
+        return;
+    }
+
+    if (synthSection) synthSection.style.display = 'block';
+    if (settingsGroup) settingsGroup.style.display = 'block';
+
+    const renderTrackRow = (ti, prefix) => {
+        const id = `${prefix}_track_${ti.index}`;
+        return `
+          <div class="gp-track-row d-flex align-items-center justify-content-between">
+            <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+              <input class="form-check-input theme-switch gp-track-checkbox" type="checkbox" id="${id}" data-track-index="${ti.index}" checked>
+              <label class="form-check-label small text-truncate" for="${id}" style="max-width: 170px;" title="${ti.track.name || `Track ${ti.index + 1}`}">${ti.track.name || `Track ${ti.index + 1}`}</label>
+            </div>
+            <button type="button" class="btn btn-sm theme-control-btn gp-track-only-btn" data-track-index="${ti.index}" title="Show only this track">Only</button>
+          </div>
+        `;
+    };
+
+    synthList.innerHTML = guitarTracks.map(ti => renderTrackRow(ti, 'synth')).join('');
+    settingsList.innerHTML = guitarTracks.map(ti => renderTrackRow(ti, 'settings')).join('');
+
+    const handleToggle = (trackIndex, isChecked) => {
+        const currentRendered = (api.tracks || []).map(t => t.index);
+        let newIndices;
+        if (isChecked) {
+            newIndices = [...new Set([...currentRendered, trackIndex])];
+        } else {
+            newIndices = currentRendered.filter(idx => idx !== trackIndex);
+            if (newIndices.length === 0) {
+                // Keep at least one track visible
+                updateTrackSelectionUI(currentRendered);
+                return;
+            }
+        }
+        applyGpTrackSelection(newIndices);
+    };
+
+    const handleOnly = (trackIndex) => {
+        applyGpTrackSelection([trackIndex]);
+    };
+
+    const handleShowAll = () => {
+        const allIndices = guitarTracks.map(ti => ti.index);
+        applyGpTrackSelection(allIndices);
+    };
+
+    // Attach listeners
+    [synthList, settingsList].forEach(list => {
+        list.querySelectorAll('.gp-track-checkbox').forEach(cb => {
+            cb.addEventListener('change', (e) => {
+                const idx = parseInt(e.target.dataset.trackIndex, 10);
+                handleToggle(idx, e.target.checked);
+            });
+        });
+        list.querySelectorAll('.gp-track-only-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const idx = parseInt(e.currentTarget.dataset.trackIndex, 10);
+                handleOnly(idx);
+            });
+        });
+    });
+
+    if (synthShowAllBtn) synthShowAllBtn.onclick = handleShowAll;
+    if (settingsShowAllBtn) settingsShowAllBtn.onclick = handleShowAll;
+
+    const currentRendered = (api.tracks || []).map(t => t.index);
+    updateTrackSelectionUI(currentRendered);
 }

@@ -2380,6 +2380,34 @@ body:not(.synth-playback-started) .at-highlight {
 }
 .hud-pill-group .w-33 { width: 33.333%; }
 
+/* Guitar Pro Track Selection */
+.gp-track-row {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 0.35rem 0.6rem;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.gp-track-row:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-prominent);
+}
+.gp-track-row .form-check-label {
+  color: var(--text-primary);
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+.gp-track-row .gp-track-only-btn {
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  padding: 0.1rem 0.55rem;
+  line-height: 1.3;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
 /* --------------------------------------------------------------------------
    Tab Library Page & Top Bar Integration
    -------------------------------------------------------------------------- */
