@@ -49,6 +49,17 @@ function applySynthTrackMode() {
     if (otherTracks.length) currentApi.changeTrackMute(otherTracks, muteOtherTracks);
 }
 
+function isWithinLoopRange() {
+    if (!currentApi || !currentScore?.masterBars?.length) return false;
+    const firstBar = currentScore.masterBars[synthPlayerState.loopStartMeasure - 1];
+    const lastBar = currentScore.masterBars[synthPlayerState.loopEndMeasure - 1];
+    if (!firstBar || !lastBar) return false;
+    const startTick = firstBar.start;
+    const endTick = lastBar.start + lastBar.calculateDuration();
+    const currentTick = currentApi.tickPosition ?? 0;
+    return currentTick >= startTick && currentTick < endTick;
+}
+
 function seekToLoopStart() {
     const firstBar = currentScore?.masterBars?.[synthPlayerState.loopStartMeasure - 1];
     if (currentApi && firstBar) {
@@ -662,7 +673,9 @@ export function playPauseSynth() {
         pauseYouTube();
         applyLoopSettings();
         if (!synthPlayerState.isPlaying && synthPlayerState.loopEnabled) {
-            seekToLoopStart();
+            if (!isWithinLoopRange()) {
+                seekToLoopStart();
+            }
         }
         currentApi.playPause();
     } catch (e) {
@@ -899,7 +912,7 @@ export function initSynthPlayer() {
     loopSwitch?.addEventListener('change', () => {
         synthPlayerState.loopEnabled = loopSwitch.checked;
         applyLoopSettings();
-        if (synthPlayerState.loopEnabled) {
+        if (synthPlayerState.loopEnabled && !isWithinLoopRange()) {
             seekToLoopStart();
         }
         updateSynthUI();
