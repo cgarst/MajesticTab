@@ -1,6 +1,6 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
-import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel } from './gpProcessor/gpPlayer.js';
+import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel } from './gpProcessor/gpPlayer.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 
 let activeSearchController = null;
@@ -505,8 +505,9 @@ export function toggleYouTubePanel(forceState = null) {
 
     if (newState) {
         setActiveAudioMode('youtube');
-        // Ensure Synth / SoundFont panel is closed and synth playback paused when opening YouTube panel
+        // Ensure Synth / SoundFont panel and Score Options panel are closed and synth playback paused when opening YouTube panel
         toggleSynthPanel(false);
+        toggleScoreOptionsPanel(false);
         pauseSynthPlayer();
         clearSynthHighlights();
 
