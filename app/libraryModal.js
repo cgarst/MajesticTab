@@ -317,7 +317,7 @@ export function closeLibraryModal(force = false) {
                 const songTitleBtn = document.getElementById('topBarSongTitleBtn');
                 if (songTitleBtn) {
                     if (scoreOptionsState.isAvailable) {
-                        songTitleBtn.title = displayName ? `${displayName} - Tracks & Notation Options` : 'Tracks & Notation Options';
+                        songTitleBtn.title = displayName ? `${displayName} - Notation Options` : 'Notation Options';
                     } else {
                         songTitleBtn.title = displayName || '';
                     }
