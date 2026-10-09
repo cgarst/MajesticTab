@@ -17,7 +17,7 @@ import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
 import { saveStoredFile } from './fileStore.js';
 import { openFromProvider } from './fileProviders.js';
-import { openLibraryModal } from './libraryModal.js';
+import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
 import { addRecentOpened } from './libraryStore.js';
 import { inferTuningFromTextOrName } from './utils/tuningUtils.js';
@@ -714,7 +714,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     initTauriDownloadListener();
 
     document.getElementById('libraryToggleBtn')?.addEventListener('click', () => {
-        openLibraryModal('library');
+        if (isLibraryOpen() && getCurrentFile()) {
+            closeLibraryModal();
+        } else {
+            openLibraryModal('library');
+        }
     });
     document.getElementById('openLibraryBtn')?.addEventListener('click', () => {
         fileMenu.hide();
@@ -757,19 +761,14 @@ window.addEventListener('DOMContentLoaded', async () => {
             console.error('[Test Mode] ❌ Failed to load test file:', error);
             console.error('[Test Mode] Error stack:', error.stack);
             alert(`Test mode error: Could not load tests/${testFile}\n${error.message}`);
-            fileMenu.show();
+            openLibraryModal('library');
         }
     } else if (!hasNativeFile) {
-        // Show the file menu on initial load (normal mode), unless the Drive modal was
-        // just reopened after the OAuth redirect (the offcanvas focus trap would steal
-        // focus from the Drive search input)
         const driveModalEl = document.getElementById('driveModal');
         const driveModalOpen = driveModalEl && driveModalEl.style.display === 'flex';
-        if (driveModalOpen) {
-            console.log('[Normal Mode] Drive modal open, not showing file menu');
-        } else {
-            console.log('[Normal Mode] No test parameter found, showing file menu');
-            fileMenu.show();
+        if (!driveModalOpen) {
+            console.log('[Normal Mode] Opening Tab Library as default home page');
+            openLibraryModal('library');
         }
     }
 
@@ -926,6 +925,7 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     if (hideMenu) {
         fileMenu.hide();
     }
+    closeLibraryModal();
     resetView();
 
     currentFile = file;

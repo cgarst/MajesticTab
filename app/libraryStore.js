@@ -150,8 +150,13 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             return album;
         });
 
-        // Sort albums by year
-        albums.sort((a, b) => (a.year || 9999) - (b.year || 9999));
+        // Sort albums by release date (oldest first), then by title
+        albums.sort((a, b) => {
+            const yA = parseInt(a.year, 10) || 9999;
+            const yB = parseInt(b.year, 10) || 9999;
+            if (yA !== yB) return yA - yB;
+            return (a.title || '').localeCompare(b.title || '');
+        });
 
         return {
             name: artist.name,

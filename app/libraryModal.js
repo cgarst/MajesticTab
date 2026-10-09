@@ -1,5 +1,5 @@
 // libraryModal.js
-// Artwork-rich MusicBrainz-powered Tab Library Modal aligned to themes.
+// Artwork-rich MusicBrainz-powered Tab Library Page aligned to themes.
 
 import {
     getCollections, createCollection, deleteCollection, getLibraryHierarchy,
@@ -16,21 +16,20 @@ import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { extractScoreTunings, inferTuningFromTextOrName } from './utils/tuningUtils.js';
 
-let activeView = 'library'; // 'library', 'search', 'recents', 'map'
+let activeView = 'library'; // 'library', 'search', 'recents'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let selectedArtist = null;
 let selectedAlbum = null;
-let searchType = 'artist'; // 'artist', 'album', 'song', 'musician'
+let searchType = 'song'; // 'song' (default), 'album', 'artist', 'musician'
 let currentSearchResults = [];
 let searchSubView = null; // null | { type: 'albums', artistMbid, artistName } | { type: 'bands', musicianMbid, musicianName } | { type: 'tracks', releaseGroupMbid, parentView }
 let viewHistory = [];
 let searchHistory = [];
 let isSearching = false;
 let searchDebounceTimer = null;
-let artistAlbumsCache = new Map();
 
 /**
- * Check if the modal can go back
+ * Check if the library page can go back to a parent view
  */
 export function canGoBack() {
     if (activeView === 'library' && (selectedArtist || selectedAlbum)) return true;
@@ -39,7 +38,7 @@ export function canGoBack() {
 }
 
 /**
- * Unified back handler for library modal
+ * Unified back handler for library page
  */
 export async function handleBack() {
     const content = document.getElementById('libraryModalContent');
@@ -101,8 +100,11 @@ export async function handleBack() {
             searchSubView = prev.searchSubView || null;
             await renderLibraryModal();
             return;
+        } else {
+            await switchView('library', false);
+            return;
         }
-    } else if (activeView === 'recents' || activeView === 'map') {
+    } else if (activeView === 'recents') {
         if (viewHistory.length > 0) {
             const prev = viewHistory.pop();
             activeView = prev.view || 'library';
@@ -127,51 +129,90 @@ function updateBackBtnVisibility() {
 }
 
 /**
- * Open the Tab Library Modal
+ * Check if the library page is currently visible
+ */
+export function isLibraryOpen() {
+    const page = document.getElementById('libraryPage');
+    return page && page.style.display !== 'none';
+}
+
+/**
+ * Open the Tab Library Page
  */
 export async function openLibraryModal(initialView = 'library') {
     if (initialView !== activeView) {
         viewHistory = [];
     }
     activeView = initialView;
-    let modal = document.getElementById('libraryModal');
-    if (!modal) {
-        modal = createLibraryModalElement();
+
+    let page = document.getElementById('libraryPage');
+    if (!page) {
+        page = createLibraryPageElement();
     }
-    modal.style.display = 'flex';
+
+    const mainContent = document.getElementById('mainContent');
+    if (mainContent) mainContent.style.display = 'none';
+
+    const libToggleBtn = document.getElementById('libraryToggleBtn');
+    if (libToggleBtn) libToggleBtn.classList.add('active');
+
+    page.style.display = 'flex';
     await renderLibraryModal();
 }
 
 /**
- * Close the Tab Library Modal
+ * Close the Tab Library Page and return to tab viewer if a file is loaded
  */
 export function closeLibraryModal() {
-    const modal = document.getElementById('libraryModal');
-    if (modal) modal.style.display = 'none';
+    const page = document.getElementById('libraryPage');
+    const currentOpen = getCurrentFile();
+
+    if (currentOpen && page) {
+        page.style.display = 'none';
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent) mainContent.style.display = '';
+
+        const libToggleBtn = document.getElementById('libraryToggleBtn');
+        if (libToggleBtn) libToggleBtn.classList.remove('active');
+    }
 }
 
 /**
- * Create DOM element for Library Modal
+ * Toggle Tab Library Page
  */
-function createLibraryModalElement() {
-    const modal = document.createElement('div');
-    modal.id = 'libraryModal';
-    modal.className = 'theme-modal-backdrop';
-    document.body.appendChild(modal);
-
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeLibraryModal();
-    });
-
-    return modal;
+export function toggleLibraryModal() {
+    if (isLibraryOpen() && getCurrentFile()) {
+        closeLibraryModal();
+    } else {
+        openLibraryModal(activeView || 'library');
+    }
 }
 
 /**
- * Main render function
+ * Create DOM element for Library Page if needed
+ */
+function createLibraryPageElement() {
+    let page = document.getElementById('libraryPage');
+    if (!page) {
+        page = document.createElement('div');
+        page.id = 'libraryPage';
+        page.className = 'library-page-view';
+        const mainContent = document.getElementById('mainContent');
+        if (mainContent && mainContent.parentNode) {
+            mainContent.parentNode.insertBefore(page, mainContent);
+        } else {
+            document.body.appendChild(page);
+        }
+    }
+    return page;
+}
+
+/**
+ * Main render function for Tab Library Page
  */
 export async function renderLibraryModal() {
-    const modal = document.getElementById('libraryModal');
-    if (!modal) return;
+    const page = document.getElementById('libraryPage') || createLibraryPageElement();
+    if (!page) return;
 
     const collections = await getCollections();
     const currentCollection = collections.find(c => c.id === activeCollectionId) || collections[0] || { id: DEFAULT_COLLECTION_ID, name: 'My Library' };
@@ -180,81 +221,72 @@ export async function renderLibraryModal() {
     const currentOpen = getCurrentFile();
     const showBack = canGoBack();
 
-    modal.innerHTML = `
-    <div class="theme-modal-card library-modal-card">
-      <!-- Modal Header -->
-      <div class="theme-modal-header">
-        <div class="theme-modal-title-group">
-          <button type="button" class="brand-btn theme-modal-back-btn p-1 px-2" id="libraryModalBackBtn" title="Go back" aria-label="Go back" style="${showBack ? 'display:inline-flex;' : 'display:none;'}">
-            <i class="bi-arrow-left"></i>
-          </button>
-          <div class="brand-btn p-2" style="width: 36px; height: 36px;">
-            <i class="bi-music-player-fill text-info"></i>
-          </div>
-          <div class="theme-modal-titles">
-            <h6 class="mb-0 fw-bold text-white text-truncate">Tab Library</h6>
-          </div>
+    page.innerHTML = `
+    <!-- Library Page Top Header -->
+    <header class="library-page-header">
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="brand-btn theme-modal-back-btn p-1 px-2" id="libraryModalBackBtn" title="Go back" aria-label="Go back" style="${showBack ? 'display:inline-flex;' : 'display:none;'}">
+          <i class="bi-arrow-left"></i>
+        </button>
+        <div class="brand-btn p-2" style="width: 36px; height: 36px;">
+          <i class="bi-music-player-fill text-info"></i>
         </div>
-
-        <!-- Collections Selector & Actions -->
-        <div class="theme-modal-actions">
-          <div class="d-none d-md-flex align-items-center gap-1">
-            <select class="form-select form-select-sm" id="libCollectionSelect" style="max-width: 160px; font-size: 0.78rem;">
-              ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
-            </select>
-            <button class="btn btn-sm btn-theme-outline py-1 px-2" id="libNewCollectionBtn" title="New Collection">
-              <i class="bi-folder-plus"></i>
-            </button>
-          </div>
-          <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="libraryModalCloseBtn" aria-label="Close modal">
-            <i class="bi-x-lg"></i>
-          </button>
+        <div>
+          <h6 class="mb-0 fw-bold text-white text-truncate">Tab Library</h6>
         </div>
       </div>
 
-      <!-- Top Navigation Tabs (Library, Add to Library, Recents, Map Open File) -->
-      <div class="library-nav-bar px-3 pt-2 border-bottom border-secondary-subtle d-flex align-items-center justify-content-between overflow-x-auto">
+      <!-- Navigation: Library, Recents, and Add to Library Action Button -->
+      <div class="d-flex align-items-center gap-2 flex-wrap">
         <div class="hud-pill-group flex-nowrap" role="group">
           <button type="button" class="btn btn-sm ${activeView === 'library' ? 'active' : ''}" id="tabBtnLibrary">
             <i class="bi-collection-play me-1"></i> Library
           </button>
-          <button type="button" class="btn btn-sm ${activeView === 'search' ? 'active' : ''}" id="tabBtnSearch">
-            <i class="bi-plus-circle me-1"></i> Add to Library
-          </button>
           <button type="button" class="btn btn-sm ${activeView === 'recents' ? 'active' : ''}" id="tabBtnRecents">
             <i class="bi-clock-history me-1"></i> Recents
           </button>
-          ${currentOpen ? `
-            <button type="button" class="btn btn-sm ${activeView === 'map' ? 'active' : ''}" id="tabBtnMap">
-              <i class="bi-link-45deg me-1"></i> Map Open File
-            </button>
-          ` : ''}
         </div>
 
-        ${currentOpen && activeView !== 'map' ? `
-          <button class="btn btn-sm btn-theme-outline py-0 px-2 d-none d-lg-flex align-items-center gap-1" id="quickMapFileBtn" style="font-size:0.75rem;" title="Map active file to a library song">
-            <i class="bi-link-45deg text-info"></i> <span class="text-truncate" style="max-width:140px;">${escapeHtml(currentOpen.name)}</span>
+        <button type="button" class="btn btn-sm ${activeView === 'search' ? 'btn-theme-primary' : 'btn-theme-outline'} d-flex align-items-center gap-1.5 px-3" id="actionBtnAddToLibrary" title="Search music and add to library">
+          <i class="bi-plus-circle"></i> <span>Add to Library</span>
+        </button>
+      </div>
+
+      <!-- Collections & Return to Score Action -->
+      <div class="d-flex align-items-center gap-2">
+        <div class="d-none d-md-flex align-items-center gap-1">
+          <select class="form-select form-select-sm" id="libCollectionSelect" style="max-width: 150px; font-size: 0.78rem;">
+            ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+          </select>
+          <button class="btn btn-sm btn-theme-outline py-1 px-2" id="libNewCollectionBtn" title="New Collection">
+            <i class="bi-folder-plus"></i>
+          </button>
+        </div>
+
+        ${currentOpen ? `
+          <button type="button" class="btn btn-sm btn-theme-outline d-flex align-items-center gap-1.5 py-1 px-2.5" id="libraryModalCloseBtn" title="Return to active score">
+            <i class="bi-arrow-return-left text-info"></i>
+            <span class="d-none d-lg-inline text-truncate" style="max-width:130px;">${escapeHtml(currentOpen.name)}</span>
+            <i class="bi-x-lg ms-1"></i>
           </button>
         ` : ''}
       </div>
+    </header>
 
-      <!-- Modal Body Content -->
-      <div class="theme-modal-body p-3" id="libraryModalContent">
-        <!-- Injected dynamically -->
-      </div>
+    <!-- Page Body Content Area -->
+    <div class="library-page-body" id="libraryModalContent">
+      <!-- Injected dynamically -->
     </div>
     `;
 
     // Event listeners
-    modal.querySelector('#libraryModalBackBtn')?.addEventListener('click', handleBack);
-    modal.querySelector('#libraryModalCloseBtn')?.addEventListener('click', closeLibraryModal);
-    modal.querySelector('#tabBtnLibrary')?.addEventListener('click', () => switchView('library'));
-    modal.querySelector('#tabBtnSearch')?.addEventListener('click', () => switchView('search'));
-    modal.querySelector('#tabBtnRecents')?.addEventListener('click', () => switchView('recents'));
-    modal.querySelector('#tabBtnMap')?.addEventListener('click', () => switchView('map'));
-    modal.querySelector('#quickMapFileBtn')?.addEventListener('click', () => switchView('map'));
+    page.querySelector('#libraryModalBackBtn')?.addEventListener('click', handleBack);
+    page.querySelector('#libraryModalCloseBtn')?.addEventListener('click', closeLibraryModal);
+    page.querySelector('#tabBtnLibrary')?.addEventListener('click', () => switchView('library'));
+    page.querySelector('#tabBtnRecents')?.addEventListener('click', () => switchView('recents'));
+    page.querySelector('#actionBtnAddToLibrary')?.addEventListener('click', () => switchView('search'));
 
-    const collectionSelect = modal.querySelector('#libCollectionSelect');
+    const collectionSelect = page.querySelector('#libCollectionSelect');
     collectionSelect?.addEventListener('change', (e) => {
         activeCollectionId = e.target.value;
         selectedArtist = null;
@@ -262,7 +294,7 @@ export async function renderLibraryModal() {
         renderView();
     });
 
-    modal.querySelector('#libNewCollectionBtn')?.addEventListener('click', async () => {
+    page.querySelector('#libNewCollectionBtn')?.addEventListener('click', async () => {
         const name = prompt('Enter name for new collection:');
         if (name && name.trim()) {
             const col = await createCollection(name.trim());
@@ -284,9 +316,6 @@ async function switchView(view, pushHistory = true) {
         });
     }
     activeView = view;
-    if (view === 'library') {
-        // Keep current selectedArtist / album unless switching from another tab
-    }
     await renderLibraryModal();
 }
 
@@ -300,8 +329,6 @@ async function renderView() {
         renderSearchMusicBrainzView(content);
     } else if (activeView === 'recents') {
         await renderRecentsView(content);
-    } else if (activeView === 'map') {
-        await renderMapFileView(content);
     }
 }
 
@@ -314,17 +341,20 @@ async function renderLibraryBrowseView(container) {
 
     if (artists.length === 0) {
         container.innerHTML = `
-        <div class="text-center py-5 text-muted">
-          <i class="bi-music-note-list fs-1 mb-2 d-block text-white-50"></i>
-          <h6 class="text-white fw-semibold">Your Library is Empty</h6>
-          <p class="small text-muted mb-3">Add your favorite artists, albums, and songs to your library, or map your open files.</p>
-          <div class="d-flex justify-content-center gap-2">
-            <button class="btn btn-theme-primary btn-sm px-3" onclick="document.getElementById('tabBtnSearch').click()">
-              <i class="bi-plus-circle me-1"></i> Add to Library
-            </button>
+        <div class="library-page-container">
+          <div class="text-center py-5 text-muted">
+            <i class="bi-music-note-list fs-1 mb-2 d-block text-white-50"></i>
+            <h5 class="text-white fw-semibold">Your Library is Empty</h5>
+            <p class="small text-muted mb-4">Add your favorite songs and albums to build your personalized tab catalog.</p>
+            <div class="d-flex justify-content-center gap-2">
+              <button class="btn btn-theme-primary btn-sm px-3" id="emptyStateAddBtn">
+                <i class="bi-plus-circle me-1"></i> Add to Library
+              </button>
+            </div>
           </div>
         </div>
         `;
+        container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => switchView('search'));
         return;
     }
 
@@ -338,6 +368,7 @@ async function renderLibraryBrowseView(container) {
 
     // Breadcrumb Navigation
     let breadcrumbHtml = `
+    <div class="library-page-container">
       <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
         <div class="d-flex align-items-center gap-1.5 small overflow-x-auto">
           <button class="theme-breadcrumb-btn ${!selectedArtist ? 'active' : ''}" id="bcRoot">
@@ -385,13 +416,21 @@ async function renderLibraryBrowseView(container) {
             `;
         }).join('')}
         </div>
+        </div>
         `;
     } else if (!selectedAlbum) {
-        // Render Albums Grid for selected artist
+        // Render Albums Grid for selected artist (sorted by release date, oldest first)
         const artist = artists.find(a => a.name === selectedArtist.name) || selectedArtist;
+        const sortedAlbums = [...artist.albums].sort((a, b) => {
+            const yA = parseInt(a.year, 10) || 9999;
+            const yB = parseInt(b.year, 10) || 9999;
+            if (yA !== yB) return yA - yB;
+            return (a.title || '').localeCompare(b.title || '');
+        });
+
         bodyHtml = `
         <div class="library-albums-grid">
-          ${artist.albums.map(album => {
+          ${sortedAlbums.map(album => {
             const cover = album.coverUrl || getPlaceholderCoverSvg(album.title);
             const songCount = album.songs.length;
             return `
@@ -405,6 +444,7 @@ async function renderLibraryBrowseView(container) {
             </div>
             `;
         }).join('')}
+        </div>
         </div>
         `;
     } else {
@@ -426,6 +466,7 @@ async function renderLibraryBrowseView(container) {
           <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
             ${album.songs.map(song => renderSongRow(song)).join('')}
           </div>
+        </div>
         </div>
         `;
     }
@@ -519,7 +560,7 @@ function renderSongRow(song) {
             </ul>
           </div>
 
-          <!-- Song options dropdown (Delete, etc.) -->
+          <!-- Song options (Delete) -->
           <button class="btn btn-sm btn-theme-icon p-1 px-1.5 delete-song-btn" data-song-id="${song.id}" title="Remove song from library">
             <i class="bi-trash"></i>
           </button>
@@ -591,24 +632,35 @@ function setupSongRowActions(container) {
         });
     });
 
-    // Import Tab with Provider (feeds search query based on song name + artist!)
+    // Import Tab with Provider (Local, Drive, Tab Downloader)
     container.querySelectorAll('.import-tab-provider-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', (e) => {
             const songId = btn.dataset.songId;
             const providerId = btn.dataset.providerId;
-            const song = await getSongById(songId);
-            if (!song) return;
 
-            // Target provider ID: 'local', 'google-drive', 'tab-downloader' (or 'tab-downloader-web')
+            if (providerId === 'local') {
+                // Open local file picker synchronously in user click gesture
+                openFromProvider('local', { songId });
+                return;
+            }
+
+            if (providerId === 'google-drive') {
+                // Open Google drive picker cleanly without forwarding search query
+                openFromProvider('google-drive', { songId });
+                return;
+            }
+
+            // Tab downloader
             const targetProviderId = (providerId === 'tab-downloader' && !window.__TAURI__) ? 'tab-downloader-web' : providerId;
-
-            closeLibraryModal();
-            await openFromProvider(targetProviderId, {
-                songId: song.id,
-                targetSong: song,
-                songName: song.title,
-                artist: song.artist,
-                query: `${song.artist} ${song.title}`
+            getSongById(songId).then(song => {
+                if (!song) return;
+                openFromProvider(targetProviderId, {
+                    songId: song.id,
+                    targetSong: song,
+                    songName: song.title,
+                    artist: song.artist,
+                    query: `${song.artist} ${song.title}`
+                });
             });
         });
     });
@@ -646,7 +698,6 @@ async function loadSongTab(song, tabOption) {
                 tunings: song.tunings
             });
         } else {
-            // Prompt re-download or re-import
             alert(`Tab file not found locally. Please re-import tab for ${song.title}.`);
         }
     } catch (err) {
@@ -656,19 +707,19 @@ async function loadSongTab(song, tabOption) {
 }
 
 // -----------------------------------------------------------------------------
-// 2. SEARCH & ADD TO LIBRARY VIEW (Artist, Album, Song, Musician)
+// 2. SEARCH & ADD TO LIBRARY VIEW (Defaults to Song Search Mode)
 // -----------------------------------------------------------------------------
 function renderSearchMusicBrainzView(container) {
     container.innerHTML = `
-    <div class="search-mb-view">
-      <!-- Search Input & Type Selector (Sticky Header) -->
+    <div class="library-page-container search-mb-view">
+      <!-- Search Sticky Toolbar -->
       <div class="search-sticky-header mb-3">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <label class="form-label small fw-semibold text-white-50 mb-0">Search by:</label>
           <div class="hud-pill-group" role="group" id="searchTypePill">
-            <button type="button" class="btn btn-sm ${searchType === 'artist' ? 'active' : ''}" data-type="artist">Artist</button>
-            <button type="button" class="btn btn-sm ${searchType === 'album' ? 'active' : ''}" data-type="album">Album</button>
             <button type="button" class="btn btn-sm ${searchType === 'song' ? 'active' : ''}" data-type="song">Song</button>
+            <button type="button" class="btn btn-sm ${searchType === 'album' ? 'active' : ''}" data-type="album">Album</button>
+            <button type="button" class="btn btn-sm ${searchType === 'artist' ? 'active' : ''}" data-type="artist">Artist</button>
             <button type="button" class="btn btn-sm ${searchType === 'musician' ? 'active' : ''}" data-type="musician">Musician</button>
           </div>
         </div>
@@ -688,7 +739,7 @@ function renderSearchMusicBrainzView(container) {
       <div id="mbSearchResultsContainer" class="search-results-container">
         <div class="text-center py-5 text-muted">
           <i class="bi-compass fs-2 mb-2 d-block text-white-50"></i>
-          <div>Search across artists, albums, and songs to add to your library</div>
+          <div>Search across songs, albums, and artists to add to your library</div>
         </div>
       </div>
     </div>
@@ -738,9 +789,32 @@ async function performMusicBrainzSearch(query, type) {
     `;
 
     try {
-        const results = await searchMusicBrainz(query, type);
-        currentSearchResults = results;
-        renderSearchResults(results, type, resultsContainer);
+        const rawResults = await searchMusicBrainz(query, type);
+
+        // Fetch artists already in library to prioritize them in search results (Point 6)
+        const hierarchy = await getLibraryHierarchy(activeCollectionId);
+        const existingArtists = new Set((hierarchy.artists || []).map(a => a.name.toLowerCase().trim()));
+
+        let sortedResults = rawResults;
+        if (type === 'song' || type === 'album') {
+            const inLib = [];
+            const notInLib = [];
+
+            for (const item of rawResults) {
+                const artistName = (item.artist || '').toLowerCase().trim();
+                const isInLib = existingArtists.has(artistName);
+                const enriched = { ...item, inLibrary: isInLib };
+                if (isInLib) {
+                    inLib.push(enriched);
+                } else {
+                    notInLib.push(enriched);
+                }
+            }
+            sortedResults = [...inLib, ...notInLib];
+        }
+
+        currentSearchResults = sortedResults;
+        renderSearchResults(sortedResults, type, resultsContainer);
     } catch (err) {
         resultsContainer.innerHTML = `
         <div class="text-center py-4 text-danger-emphasis">
@@ -776,11 +850,7 @@ function renderSearchResults(results, type, container) {
                 ${a.disambiguation ? `<div class="small text-white-50 text-truncate" style="font-size:0.75rem;">${escapeHtml(a.disambiguation)}</div>` : ''}
               </div>
               <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
-                ${type === 'artist' ? `
-                  <button class="btn btn-sm btn-theme-primary add-artist-btn" data-artist-id="${a.id}" data-artist-name="${escapeHtml(a.name)}" title="Add all albums and songs by this artist">
-                    <i class="bi-plus-circle me-1"></i> Add Artist
-                  </button>
-                ` : ''}
+                <!-- 'Add Artist' button hidden per requirements -->
                 <button class="btn btn-sm btn-theme-outline explore-artist-btn" data-artist-id="${a.id}" data-artist-name="${escapeHtml(a.name)}" data-is-musician="${type === 'musician'}">
                   <i class="bi-${type === 'musician' ? 'people' : 'disc'} me-1"></i> ${type === 'musician' ? 'View Bands' : 'Browse Albums'}
                 </button>
@@ -789,12 +859,6 @@ function renderSearchResults(results, type, container) {
           `).join('')}
         </div>
         `;
-
-        container.querySelectorAll('.add-artist-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                await handleAddArtist(btn.dataset.artistId, btn.dataset.artistName, btn);
-            });
-        });
 
         container.querySelectorAll('.explore-artist-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -818,7 +882,10 @@ function renderSearchResults(results, type, container) {
             <div class="library-card album-card p-3">
               <img src="${cover}" class="album-cover-img w-100 mb-2" alt="${escapeHtml(rg.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(rg.title)}'">
               <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(rg.title)}">${escapeHtml(rg.title)}</h6>
-              <div class="small text-muted text-truncate">${escapeHtml(rg.artist)} ${rg.year ? `• ${rg.year}` : ''}</div>
+              <div class="small text-muted text-truncate">
+                ${rg.inLibrary ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
+                ${escapeHtml(rg.artist)} ${rg.year ? `• ${rg.year}` : ''}
+              </div>
               <div class="d-flex gap-1.5 mt-2">
                 <button class="btn btn-sm btn-theme-primary flex-grow-1 add-album-btn" data-rg-id="${rg.id}" data-rg-title="${escapeHtml(rg.title)}">
                   <i class="bi-plus-lg me-1"></i> Add Album
@@ -852,7 +919,10 @@ function renderSearchResults(results, type, container) {
             <div class="library-row-card d-flex align-items-center justify-content-between gap-3">
               <div class="min-w-0 flex-grow-1">
                 <h6 class="mb-0 fw-bold text-white text-truncate">${escapeHtml(song.title)}</h6>
-                <div class="small text-muted">${escapeHtml(song.artist)} • ${escapeHtml(song.album || 'Single')} ${song.year ? `• ${song.year}` : ''}</div>
+                <div class="small text-muted">
+                  ${song.inLibrary ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
+                  ${escapeHtml(song.artist)} • ${escapeHtml(song.album || 'Single')} ${song.year ? `• ${song.year}` : ''}
+                </div>
               </div>
               <button class="btn btn-sm btn-theme-primary flex-shrink-0 add-single-song-btn" data-song='${escapeHtml(JSON.stringify(song))}'>
                 <i class="bi-plus-lg me-1"></i> Add Song
@@ -870,48 +940,6 @@ function renderSearchResults(results, type, container) {
                 btn.innerHTML = '<i class="bi-check-lg me-1"></i> Added';
             });
         });
-    }
-}
-
-/**
- * Recursively add an artist and all of their albums and songs into the library
- */
-async function handleAddArtist(artistMbid, artistName, btn) {
-    if (!btn || btn.disabled) return;
-    const origHtml = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Loading albums...';
-
-    try {
-        const albums = await getArtistAlbums(artistMbid);
-        if (!albums || albums.length === 0) {
-            btn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> No albums found';
-            setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 3000);
-            return;
-        }
-
-        let totalSongsAdded = 0;
-        for (let i = 0; i < albums.length; i++) {
-            const alb = albums[i];
-            btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status"></span> Adding (${i + 1}/${albums.length})...`;
-            try {
-                const albumData = await getAlbumTracks(alb.id);
-                if (albumData && albumData.tracks?.length > 0) {
-                    const added = await addAlbumToLibrary(albumData, albumData.tracks, activeCollectionId);
-                    totalSongsAdded += added.length;
-                }
-            } catch (err) {
-                console.warn(`Failed to fetch tracks for album "${alb.title}":`, err);
-            }
-        }
-
-        btn.className = 'btn btn-sm btn-theme-success flex-shrink-0 disabled';
-        btn.innerHTML = `<i class="bi-check-lg me-1"></i> Added (${totalSongsAdded} songs)`;
-    } catch (err) {
-        console.error('Failed to add artist:', err);
-        btn.className = 'btn btn-sm btn-theme-danger flex-shrink-0';
-        btn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> Failed';
-        setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 3000);
     }
 }
 
@@ -956,7 +984,7 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
     container.innerHTML = `
     <div class="text-center py-5 text-muted">
       <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
-      <div>Loading albums for ${escapeHtml(artistName)}...</div>
+      <div>Loading studio albums for ${escapeHtml(artistName)}...</div>
     </div>
     `;
 
@@ -969,7 +997,7 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
                 <i class="bi-arrow-left me-1"></i> Back to Search
               </button>
             </div>
-            <div class="text-center py-4 text-muted">No albums found for ${escapeHtml(artistName)}.</div>`;
+            <div class="text-center py-4 text-muted">No studio albums found for ${escapeHtml(artistName)}.</div>`;
             container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
             return;
         }
@@ -980,10 +1008,7 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
             <i class="bi-arrow-left me-1"></i> Back to Search
           </button>
           <div class="d-flex align-items-center gap-2">
-            <h6 class="mb-0 fw-bold text-white">${escapeHtml(artistName)} (${albums.length} Albums)</h6>
-            <button class="btn btn-sm btn-theme-primary add-artist-btn" data-artist-id="${artistMbid}" data-artist-name="${escapeHtml(artistName)}" title="Add all albums and songs by this artist">
-              <i class="bi-plus-circle me-1"></i> Add All Albums
-            </button>
+            <h6 class="mb-0 fw-bold text-white">${escapeHtml(artistName)} (${albums.length} Studio Albums)</h6>
           </div>
         </div>
         <div class="library-albums-grid">
@@ -1006,12 +1031,6 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
         `;
 
         container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
-
-        container.querySelectorAll('.add-artist-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                await handleAddArtist(btn.dataset.artistId, btn.dataset.artistName, btn);
-            });
-        });
 
         container.querySelectorAll('.add-album-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -1141,7 +1160,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
           <div class="library-album-banner d-flex align-items-center gap-3 mb-3">
             <img src="${cover}" class="album-cover-banner" alt="${escapeHtml(albumData.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(albumData.title)}'">
             <div class="min-w-0 flex-grow-1">
-              <span class="badge badge-theme-success mb-1" style="font-size:0.68rem;">US Release (${albumData.country})</span>
+              <span class="badge badge-theme-success mb-1" style="font-size:0.68rem;">Release (${albumData.country})</span>
               <h5 class="mb-0 fw-bold text-white text-truncate">${escapeHtml(albumData.title)}</h5>
               <div class="small text-muted">${escapeHtml(albumData.artist)} ${albumData.year ? `• ${albumData.year}` : ''} • ${albumData.tracks.length} Tracks</div>
             </div>
@@ -1206,17 +1225,19 @@ async function renderRecentsView(container) {
 
     if (recents.length === 0) {
         container.innerHTML = `
-        <div class="text-center py-5 text-muted">
-          <i class="bi-clock-history fs-1 mb-2 d-block text-white-50"></i>
-          <h6 class="text-white fw-semibold">No Recent Files</h6>
-          <p class="small text-muted">Files and tabs you open will appear here with rich metadata and artwork.</p>
+        <div class="library-page-container">
+          <div class="text-center py-5 text-muted">
+            <i class="bi-clock-history fs-1 mb-2 d-block text-white-50"></i>
+            <h6 class="text-white fw-semibold">No Recent Files</h6>
+            <p class="small text-muted">Files and tabs you open will appear here with rich metadata and artwork.</p>
+          </div>
         </div>
         `;
         return;
     }
 
     container.innerHTML = `
-    <div class="recents-view">
+    <div class="library-page-container recents-view">
       <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
         <span class="small text-white-50">Recently Opened (${recents.length})</span>
         <button class="btn btn-sm btn-theme-icon p-1 px-2" id="clearRecentsBtn">
@@ -1256,10 +1277,22 @@ async function renderRecentsView(container) {
     </div>
     `;
 
-    container.querySelector('#clearRecentsBtn')?.addEventListener('click', async () => {
-        if (confirm('Clear all recent files history?')) {
+    const clearBtn = container.querySelector('#clearRecentsBtn');
+    clearBtn?.addEventListener('click', async () => {
+        if (clearBtn.dataset.confirming === 'true') {
             await clearRecents();
             await renderRecentsView(container);
+        } else {
+            clearBtn.dataset.confirming = 'true';
+            clearBtn.className = 'btn btn-sm btn-outline-danger p-1 px-2';
+            clearBtn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> Confirm Clear?';
+            setTimeout(() => {
+                if (clearBtn.dataset.confirming === 'true') {
+                    clearBtn.dataset.confirming = 'false';
+                    clearBtn.className = 'btn btn-sm btn-theme-icon p-1 px-2';
+                    clearBtn.innerHTML = '<i class="bi-trash me-1"></i> Clear History';
+                }
+            }, 4000);
         }
     });
 
@@ -1275,77 +1308,6 @@ async function renderRecentsView(container) {
                 }
             }
             alert(`File "${r.name}" could not be restored from storage.`);
-        });
-    });
-}
-
-// -----------------------------------------------------------------------------
-// 4. MAP OPEN FILE VIEW
-// -----------------------------------------------------------------------------
-async function renderMapFileView(container) {
-    const currentOpen = getCurrentFile();
-    if (!currentOpen) {
-        container.innerHTML = `
-        <div class="text-center py-5 text-muted">
-          <i class="bi-link-45deg fs-1 mb-2 d-block text-white-50"></i>
-          <div>No file is currently loaded in MajesticTab.</div>
-        </div>
-        `;
-        return;
-    }
-
-    const songs = await getSongsByCollection(activeCollectionId);
-    const inferredTuning = inferTuningFromTextOrName(currentOpen.name);
-
-    container.innerHTML = `
-    <div class="map-file-view">
-      <div class="library-album-banner mb-3">
-        <span class="badge badge-theme-info mb-1">Active Loaded File</span>
-        <h5 class="mb-1 fw-bold text-white text-truncate">${escapeHtml(currentOpen.name)}</h5>
-        <div class="small text-muted">Detected Tuning: <strong class="text-accent">${inferredTuning || 'Standard'}</strong> • Size: ${(currentOpen.size / 1024).toFixed(1)} KB</div>
-      </div>
-
-      <h6 class="mb-2 fw-semibold text-white">Select a Library Song to Map this File To:</h6>
-      <div class="input-group input-group-sm mb-3">
-        <span class="input-group-text"><i class="bi-search"></i></span>
-        <input type="text" class="form-control" id="mapSearchFilter" placeholder="Filter library songs...">
-      </div>
-
-      <div class="d-flex flex-column gap-2" style="max-height: 320px; overflow-y: auto;" id="mapSongsList">
-        ${songs.length === 0 ? '<div class="text-muted small">No songs in library. Add music from the Add to Library tab first.</div>' : ''}
-        ${songs.map(song => `
-          <div class="library-row-card map-song-target-row d-flex align-items-center justify-content-between gap-2" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}">
-            <div class="min-w-0">
-              <h6 class="mb-0 fw-bold text-white text-truncate">${escapeHtml(song.title)}</h6>
-              <div class="small text-muted">${escapeHtml(song.artist)} • ${escapeHtml(song.album)}</div>
-            </div>
-            <button class="btn btn-sm btn-theme-primary py-1 px-3 select-map-target-btn" data-song-id="${song.id}">
-              <i class="bi-link-45deg me-1"></i> Map Here
-            </button>
-          </div>
-        `).join('')}
-      </div>
-    </div>
-    `;
-
-    container.querySelector('#mapSearchFilter')?.addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase().trim();
-        container.querySelectorAll('.map-song-target-row').forEach(row => {
-            const title = (row.dataset.songTitle || '').toLowerCase();
-            row.style.display = title.includes(q) ? '' : 'none';
-        });
-    });
-
-    container.querySelectorAll('.select-map-target-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-            const songId = btn.dataset.songId;
-            try {
-                await mapOpenFileToSong(currentOpen, songId, currentOpen.name, 'local', currentOpen.name);
-                alert(`Successfully mapped "${currentOpen.name}" to library song!`);
-                switchView('library');
-            } catch (err) {
-                alert(`Mapping failed: ${err.message}`);
-            }
         });
     });
 }

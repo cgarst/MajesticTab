@@ -75,74 +75,42 @@ export const LocalFileProvider = {
     id: 'local',
     name: 'Local Device',
     icon: 'bi-folder2-open',
-    async open(options = {}) {
-        return new Promise((resolve) => {
-            const existingInput = document.getElementById('localFile');
-            if (existingInput) {
-                const handleChange = async (e) => {
-                    existingInput.removeEventListener('change', handleChange);
-                    const file = e.target.files?.[0];
-                    if (file) {
-                        try {
-                            const stored = await saveStoredFile(file, 'local');
-                            if (options.songId || options.targetSong?.id) {
-                                const targetId = options.songId || options.targetSong.id;
-                                await addTabOptionToSong(targetId, {
-                                    name: file.name,
-                                    providerId: 'local',
-                                    relativePath: file.name,
-                                    fileStoreId: stored.id,
-                                    tuning: inferTuningFromTextOrName(file.name),
-                                    fileType: file.name.split('.').pop().toLowerCase()
-                                });
-                            }
-                        } catch (err) {
-                            console.warn('Could not persist file to store:', err);
-                        }
-                        await loadFile(file);
-                        resolve(file);
-                    } else {
-                        resolve(null);
-                    }
-                };
-                existingInput.addEventListener('change', handleChange);
-                existingInput.click();
-            } else {
-                const input = document.createElement('input');
-                input.type = 'file';
-                input.accept = '.pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt';
-                input.style.display = 'none';
-                document.body.appendChild(input);
+    open(options = {}) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt';
+        input.style.position = 'fixed';
+        input.style.top = '-9999px';
+        input.style.left = '-9999px';
+        input.style.opacity = '0';
+        document.body.appendChild(input);
 
-                input.addEventListener('change', async () => {
-                    const file = input.files?.[0];
-                    input.remove();
-                    if (file) {
-                        try {
-                            const stored = await saveStoredFile(file, 'local');
-                            if (options.songId || options.targetSong?.id) {
-                                const targetId = options.songId || options.targetSong.id;
-                                await addTabOptionToSong(targetId, {
-                                    name: file.name,
-                                    providerId: 'local',
-                                    relativePath: file.name,
-                                    fileStoreId: stored.id,
-                                    tuning: inferTuningFromTextOrName(file.name),
-                                    fileType: file.name.split('.').pop().toLowerCase()
-                                });
-                            }
-                        } catch (err) {
-                            console.warn('Could not persist file to store:', err);
-                        }
-                        await loadFile(file);
-                        resolve(file);
-                    } else {
-                        resolve(null);
+        input.addEventListener('change', async () => {
+            const file = input.files?.[0];
+            input.remove();
+            if (file) {
+                try {
+                    const stored = await saveStoredFile(file, 'local');
+                    const targetId = options.songId || options.targetSong?.id;
+                    if (targetId) {
+                        await addTabOptionToSong(targetId, {
+                            name: file.name,
+                            providerId: 'local',
+                            relativePath: file.name,
+                            fileStoreId: stored.id,
+                            tuning: inferTuningFromTextOrName(file.name),
+                            fileType: file.name.split('.').pop().toLowerCase()
+                        });
                     }
-                });
-                input.click();
+                } catch (err) {
+                    console.warn('Could not persist file to store:', err);
+                }
+                await loadFile(file);
             }
         });
+
+        // Synchronously trigger file picker in user event
+        input.click();
     }
 };
 
@@ -152,16 +120,8 @@ export const GoogleDriveFileProvider = {
     name: 'Google Drive',
     icon: 'bi-google',
     async open(options = {}) {
-        const searchQuery = options.query || options.songName || '';
         if (isTokenValid()) {
             openDriveModal();
-            if (searchQuery) {
-                const driveSearchInput = document.getElementById('driveSearchInput');
-                if (driveSearchInput) {
-                    driveSearchInput.value = searchQuery;
-                    driveSearchInput.dispatchEvent(new Event('input'));
-                }
-            }
         } else {
             redirectToGoogleAuth();
         }
