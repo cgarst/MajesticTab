@@ -222,6 +222,10 @@ pub fn run() {
                 if let Some(icon) = _app.default_window_icon() {
                     let _ = window.set_icon(icon.clone());
                 }
+                #[cfg(target_os = "linux")]
+                if std::env::var("GAMESCOPE_WAYLAND_DISPLAY").is_ok() || std::env::var("STEAM_DECK").is_ok() {
+                    let _ = window.maximize();
+                }
                 #[cfg(feature = "debug-tools")]
                 window.open_devtools();
             }
