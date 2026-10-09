@@ -19,7 +19,7 @@ import { openFromProvider } from './fileProviders.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
 import { addRecentOpened } from './libraryStore.js';
-import { inferTuningFromTextOrName } from './utils/tuningUtils.js';
+import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
 import { showToast } from './utils/toast.js';
 
@@ -919,15 +919,29 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     updateSongForYouTube({ filename: file.name });
     
     // Record to recents
-    const detectedTuning = inferTuningFromTextOrName(file.name);
-    addRecentOpened({
-        id: file.name,
-        name: file.name,
-        providerId: 'local',
-        relativePath: file.name,
-        songTitle: file.name.replace(/\.[^/.]+$/, ''),
-        tunings: detectedTuning ? [detectedTuning] : []
-    }).catch(() => {});
+    detectFileMetadata(file, file.name).then(meta => {
+        addRecentOpened({
+            id: file.name,
+            name: file.name,
+            providerId: 'local',
+            relativePath: file.name,
+            songTitle: file.name.replace(/\.[^/.]+$/, ''),
+            tuning: meta.primaryTuning,
+            stringCount: meta.stringCount,
+            tunings: meta.tunings || []
+        }).catch(() => {});
+    }).catch(() => {
+        const detectedTuning = inferTuningFromTextOrName(file.name);
+        addRecentOpened({
+            id: file.name,
+            name: file.name,
+            providerId: 'local',
+            relativePath: file.name,
+            songTitle: file.name.replace(/\.[^/.]+$/, ''),
+            tuning: detectedTuning,
+            tunings: detectedTuning ? [detectedTuning] : []
+        }).catch(() => {});
+    });
 
     // Show navigation controls for all supported file types
     navButtons.style.display = 'flex';

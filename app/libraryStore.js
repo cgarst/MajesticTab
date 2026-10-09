@@ -628,6 +628,88 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
 // -----------------------------------------------------------------------------
 
 /**
+ * Update library song and its attached tab tuning & string count on the fly when score is parsed
+ */
+export async function updateLibrarySongFromScore({ fileName, title, artist, album, primaryTuning, stringCount, tunings }) {
+    if (!primaryTuning && !stringCount) return false;
+    try {
+        const songs = await getAllSongs();
+        if (!songs || songs.length === 0) return false;
+
+        const clean = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+        const cTitle = clean(title);
+        const cArtist = clean(artist);
+        const cFile = clean((fileName || '').replace(/\.[^/.]+$/, ''));
+
+        let matchedSong = null;
+        let matchedTab = null;
+
+        for (const song of songs) {
+            // Check attached tabs
+            if (Array.isArray(song.tabOptions)) {
+                for (const t of song.tabOptions) {
+                    if ((t.name && clean(t.name) === cFile) || (t.relativePath && clean(t.relativePath) === cFile)) {
+                        matchedSong = song;
+                        matchedTab = t;
+                        break;
+                    }
+                }
+            }
+            if (matchedSong) break;
+
+            // Check by title and artist match
+            const sTitle = clean(song.title);
+            const sArtist = clean(song.artist);
+            if (cTitle && sTitle && (cTitle === sTitle || cTitle.includes(sTitle) || sTitle.includes(cTitle))) {
+                if (!cArtist || !sArtist || cArtist === sArtist || cArtist.includes(sArtist) || sArtist.includes(cArtist)) {
+                    matchedSong = song;
+                    break;
+                }
+            }
+        }
+
+        if (matchedSong) {
+            let updated = false;
+            if (matchedTab) {
+                if (primaryTuning && matchedTab.tuning !== primaryTuning) {
+                    matchedTab.tuning = primaryTuning;
+                    updated = true;
+                }
+                if (stringCount && matchedTab.stringCount !== stringCount) {
+                    matchedTab.stringCount = stringCount;
+                    updated = true;
+                }
+                if (Array.isArray(tunings) && tunings.length > 0) {
+                    matchedTab.tunings = tunings;
+                    updated = true;
+                }
+            }
+
+            if (primaryTuning && matchedSong.tuning !== primaryTuning) {
+                matchedSong.tuning = primaryTuning;
+                updated = true;
+            }
+            if (stringCount && matchedSong.stringCount !== stringCount) {
+                matchedSong.stringCount = stringCount;
+                updated = true;
+            }
+            if (Array.isArray(tunings) && tunings.length > 0) {
+                matchedSong.tunings = tunings;
+                updated = true;
+            }
+
+            if (updated) {
+                await saveSongToLibrary(matchedSong, matchedSong.collectionId);
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn('[updateLibrarySongFromScore] Error:', e);
+    }
+    return false;
+}
+
+/**
  * Add or update a recently opened file with library/metadata enrichment
  */
 export async function addRecentOpened(fileInfo) {
@@ -644,7 +726,9 @@ export async function addRecentOpened(fileInfo) {
         artist: fileInfo.artist || '',
         album: fileInfo.album || '',
         coverUrl: fileInfo.coverUrl || null,
-        tunings: Array.isArray(fileInfo.tunings) ? fileInfo.tunings : [],
+        tuning: fileInfo.tuning || null,
+        stringCount: fileInfo.stringCount || null,
+        tunings: Array.isArray(fileInfo.tunings) ? fileInfo.tunings : (fileInfo.tuning ? [fileInfo.tuning] : []),
         openedAt: Date.now()
     };
 
@@ -934,7 +1018,62 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         addedDurations: 0,
         addedCovers: 0,
         addedYears: 0,
+        updatedTunings: 0,
         errors: []
+    };
+
+    // Helper to analyze attached tabs from persistent fileStore and detect tunings & string counts
+    const enrichSongWithTabMetadata = async (song) => {
+        let changed = false;
+        if (Array.isArray(song.tabOptions) && song.tabOptions.length > 0) {
+            for (const tab of song.tabOptions) {
+                if (tab.fileStoreId) {
+                    try {
+                        const stored = await getStoredFile(tab.fileStoreId);
+                        if (stored && stored.file) {
+                            const meta = await detectFileMetadata(stored.file, stored.file.name || tab.name);
+                            if (meta.primaryTuning && tab.tuning !== meta.primaryTuning) {
+                                tab.tuning = meta.primaryTuning;
+                                changed = true;
+                            }
+                            if (meta.stringCount && tab.stringCount !== meta.stringCount) {
+                                tab.stringCount = meta.stringCount;
+                                changed = true;
+                            }
+                            if (Array.isArray(meta.tunings) && meta.tunings.length > 0) {
+                                tab.tunings = meta.tunings;
+                                changed = true;
+                            }
+                            if (!song.tuning && meta.primaryTuning) {
+                                song.tuning = meta.primaryTuning;
+                                changed = true;
+                            }
+                            if (!song.stringCount && meta.stringCount) {
+                                song.stringCount = meta.stringCount;
+                                changed = true;
+                            }
+                            if ((!song.tunings || song.tunings.length === 0) && meta.tunings?.length) {
+                                song.tunings = meta.tunings;
+                                changed = true;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn(`[enrichSongWithTabMetadata] Error analyzing tab ${tab.name}:`, e);
+                    }
+                } else if (tab.name && (!tab.tuning || !tab.stringCount)) {
+                    const meta = await detectFileMetadata(null, tab.name);
+                    if (meta.primaryTuning && !tab.tuning) {
+                        tab.tuning = meta.primaryTuning;
+                        changed = true;
+                    }
+                    if (!song.tuning && meta.primaryTuning) {
+                        song.tuning = meta.primaryTuning;
+                        changed = true;
+                    }
+                }
+            }
+        }
+        return changed;
     };
 
     // Helper for title cleaning and matching
@@ -1256,7 +1395,25 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         }
     }
 
-    // 3. Update matching recents if any were modified
+    // 3. Scan all library songs to ensure stored tab files have tunings & string counts detected
+    for (const song of songs) {
+        if (signal?.aborted) break;
+        try {
+            const tabUpdated = await enrichSongWithTabMetadata(song);
+            if (tabUpdated) {
+                stats.updatedTunings++;
+                await saveSongToLibrary(song, song.collectionId);
+                if (!updatedSongMap.has(song.id)) {
+                    updatedSongMap.set(song.id, song);
+                    stats.updatedSongs++;
+                }
+            }
+        } catch (e) {
+            console.warn(`[reloadMetadata] Error enriching tab metadata for ${song.title}:`, e);
+        }
+    }
+
+    // 4. Update matching recents if any were modified
     if (updatedSongMap.size > 0) {
         try {
             const recents = await getRecents(500);
