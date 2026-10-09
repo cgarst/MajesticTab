@@ -850,9 +850,9 @@ async function renderModal(modal, activeTab = 'backup') {
         <div id="restoreTabContent" style="display: ${activeTab === 'restore' ? 'block' : 'none'};">
           <!-- Step 1: File Picker / Dropzone -->
           <div class="backup-dropzone p-4 rounded-3 text-center mb-3" id="restoreDropzone">
-            <input type="file" id="restoreFileInput" accept=".mtbackup,.json.gz,.json,.majestictab,application/gzip,application/json,application/x-gzip" class="d-none">
+            <input type="file" id="restoreFileInput" accept=".mtbackup" class="d-none">
             <i class="bi-file-earmark-arrow-up text-info fs-1 mb-2 d-block"></i>
-            <div class="fw-bold text-white small mb-1">Select or drop a MajesticTab backup file (.mtbackup, .json.gz, .json)</div>
+            <div class="fw-bold text-white small mb-1">Select or drop a MajesticTab backup file (.mtbackup)</div>
             <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Single-file backup bundle exported from MajesticTab or stored in Google Drive</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreBrowseBtn">
@@ -1209,6 +1209,7 @@ function attachModalHandlers(modal) {
     const restoreDriveBtn = modal.querySelector('#restoreDriveBtn');
     restoreDriveBtn?.addEventListener('click', () => {
         openFromProvider('google-drive', {
+            backupOnly: true,
             onFileSelected: ({ file, name }) => {
                 if (file) handleSelectedBackupFile(file, 'Google Drive');
             }
@@ -1244,6 +1245,20 @@ function attachModalHandlers(modal) {
 
     const handleSelectedBackupFile = async (file, source = 'Local Device') => {
         try {
+            restoreStatusAlert.style.display = 'block';
+            restoreStatusAlert.className = 'small mb-2 text-info text-center';
+            restoreStatusAlert.innerHTML = `
+                <div class="d-flex align-items-center justify-content-center gap-2 py-2">
+                    <span class="spinner-border spinner-border-sm" role="status"></span>
+                    <span>Reading and verifying backup (${formatBytes(file.size)})...</span>
+                </div>
+            `;
+            restoreInspectionCard.style.display = 'none';
+            restoreExecuteBtn.disabled = true;
+
+            // Allow UI to render spinner before decompressing/parsing
+            await new Promise(resolve => setTimeout(resolve, 50));
+
             const text = await readBackupFileText(file);
             const inspection = inspectBackupFile(text);
             if (!inspection.valid) {
@@ -1353,6 +1368,14 @@ function attachModalHandlers(modal) {
               </div>
               <div class="text-white-50 small">${escapeHtml(summaryStr)}.</div>
             `;
+
+            // Auto-refresh Tab Library UI
+            try {
+                const { renderLibraryModal } = await import('./libraryModal.js');
+                await renderLibraryModal();
+            } catch (e) {
+                console.warn('Could not refresh library view:', e);
+            }
 
             restoreExecuteBtn.innerHTML = '<i class="bi-check2"></i> Restored';
             setTimeout(() => {
