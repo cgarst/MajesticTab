@@ -68,10 +68,15 @@ function initLibraryTopBar() {
     });
 }
 
+let currentExploreTracklistToken = 0;
+let currentExploreArtistToken = 0;
+let currentExploreMusicianToken = 0;
+
 /**
  * Check if the library page can go back to a parent view
  */
 export function canGoBack() {
+    if (searchSubView) return true;
     if (activeView === 'library') {
         if (libraryBrowseMode === 'tunings' && selectedTuning) return true;
         if (selectedFolderPath.length > 0) return true;
@@ -86,6 +91,24 @@ export function canGoBack() {
  */
 export async function handleBack() {
     const content = document.getElementById('libraryModalContent');
+    if (searchSubView && searchSubView.fromView === 'library') {
+        searchSubView = null;
+        if (viewHistory.length > 0) {
+            const prev = viewHistory.pop();
+            activeView = prev.view || 'library';
+            libraryBrowseMode = prev.libraryBrowseMode || 'artists';
+            selectedArtist = prev.selectedArtist || null;
+            selectedAlbum = prev.selectedAlbum || null;
+            selectedFolderPath = prev.selectedFolderPath || [];
+            selectedTuning = prev.selectedTuning || null;
+            isAlbumEditMode = false;
+            await renderLibraryModal();
+            return;
+        } else {
+            await renderLibraryModal();
+            return;
+        }
+    }
     if (activeView === 'library') {
         if (libraryBrowseMode === 'tunings' && selectedTuning) {
             selectedTuning = null;
@@ -755,6 +778,12 @@ async function renderLibraryBrowseView(container) {
                       </div>
 
                       <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+                        ${!isCustomArtist ? `
+                          <button class="btn btn-sm btn-theme-outline py-1 px-3 d-flex align-items-center gap-1" id="exploreLibAlbumTracklistBtn" title="Fetch complete album tracklist from MusicBrainz to view all tracks and add missing songs">
+                            <i class="bi-music-note-list text-info"></i> <span class="d-none d-sm-inline">Explore Tracklist</span><span class="d-inline d-sm-none">Tracks</span>
+                          </button>
+                        ` : ''}
+
                         <div class="dropdown">
                           <button class="btn btn-sm btn-theme-outline py-1 px-3 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach full album tab book or document">
                             <i class="bi-journal-album"></i> <span>+ Album Tab</span>
@@ -1710,6 +1739,53 @@ function setupSongRowActions(container) {
         });
     });
 
+    // Explore Tracklist from Library Album Detail View
+    const exploreLibBtn = container.querySelector('#exploreLibAlbumTracklistBtn');
+    exploreLibBtn?.addEventListener('click', async () => {
+        if (!selectedArtist || !selectedAlbum) return;
+        const origHtml = exploreLibBtn.innerHTML;
+        exploreLibBtn.disabled = true;
+        exploreLibBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Looking up...';
+
+        try {
+            let releaseGroupMbid = selectedAlbum.albumMbid || selectedAlbum.songs?.find(s => s.albumMbid)?.albumMbid;
+            if (!releaseGroupMbid) {
+                const q = `${selectedArtist.name} ${selectedAlbum.title}`;
+                const results = await searchMusicBrainz(q, 'album');
+                const match = results.find(r => (r.title || '').toLowerCase() === selectedAlbum.title.toLowerCase()) || results[0];
+                if (match) {
+                    releaseGroupMbid = match.id;
+                }
+            }
+
+            if (!releaseGroupMbid) {
+                showToast(`Could not find "${selectedAlbum.title}" on MusicBrainz.`, 'warning');
+                exploreLibBtn.innerHTML = origHtml;
+                exploreLibBtn.disabled = false;
+                return;
+            }
+
+            // Save library view state to viewHistory
+            viewHistory.push({
+                view: 'library',
+                libraryBrowseMode,
+                selectedArtist,
+                selectedAlbum,
+                selectedFolderPath: [...selectedFolderPath],
+                selectedTuning
+            });
+
+            searchSubView = { type: 'tracks', releaseGroupMbid, fromView: 'library' };
+            const content = document.getElementById('libraryModalContent') || container;
+            await exploreAlbumTracklist(releaseGroupMbid, content, false);
+        } catch (err) {
+            console.error('Failed to explore album tracklist:', err);
+            showToast(`Failed to load tracklist: ${err.message}`, 'error');
+            exploreLibBtn.innerHTML = origHtml;
+            exploreLibBtn.disabled = false;
+        }
+    });
+
     // Album Tabs Actions
     container.querySelectorAll('.import-album-tab-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -2658,15 +2734,34 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
     searchSubView = { type: 'albums', artistMbid, artistName };
     updateBackBtnVisibility();
 
+    const thisFetchToken = ++currentExploreArtistToken;
+
     container.innerHTML = `
+    <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between pb-2 border-bottom border-secondary-subtle">
+      <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="cancelExploreArtistBtn">
+        <i class="bi-arrow-left"></i> <span>Back</span>
+      </button>
+    </div>
     <div class="text-center py-5 text-muted">
       <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
-      <div>Loading studio albums for ${escapeHtml(artistName)}...</div>
+      <div class="mb-3">Loading studio albums for ${escapeHtml(artistName)}...</div>
+      <button class="btn btn-sm btn-theme-outline px-3" id="cancelExploreArtistActionBtn">
+        <i class="bi-x-lg me-1"></i> Cancel
+      </button>
     </div>
     `;
 
+    const handleCancelFetch = () => {
+        currentExploreArtistToken++;
+        handleBack();
+    };
+    container.querySelector('#cancelExploreArtistBtn')?.addEventListener('click', handleCancelFetch);
+    container.querySelector('#cancelExploreArtistActionBtn')?.addEventListener('click', handleCancelFetch);
+
     try {
         const albums = await getArtistAlbums(artistMbid);
+        if (thisFetchToken !== currentExploreArtistToken) return;
+
         if (albums.length === 0) {
             container.innerHTML = `
             <div class="mb-3">
@@ -2737,7 +2832,15 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
             });
         });
     } catch (err) {
-        container.innerHTML = `<div class="text-danger">Failed to load albums: ${escapeHtml(err.message)}</div>`;
+        if (thisFetchToken !== currentExploreArtistToken) return;
+        container.innerHTML = `
+        <div class="mb-3">
+          <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
+            <i class="bi-arrow-left"></i> <span>Back</span>
+          </button>
+        </div>
+        <div class="text-danger py-4 text-center">Failed to load albums: ${escapeHtml(err.message)}</div>`;
+        container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
     }
 }
 
@@ -2750,15 +2853,34 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
     }
     searchSubView = { type: 'bands', musicianMbid, musicianName };
 
+    const thisFetchToken = ++currentExploreMusicianToken;
+
     container.innerHTML = `
+    <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between pb-2 border-bottom border-secondary-subtle">
+      <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="cancelExploreMusicianBtn">
+        <i class="bi-arrow-left"></i> <span>Back</span>
+      </button>
+    </div>
     <div class="text-center py-5 text-muted">
       <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
-      <div>Finding bands &amp; projects for ${escapeHtml(musicianName)}...</div>
+      <div class="mb-3">Finding bands &amp; projects for ${escapeHtml(musicianName)}...</div>
+      <button class="btn btn-sm btn-theme-outline px-3" id="cancelExploreMusicianActionBtn">
+        <i class="bi-x-lg me-1"></i> Cancel
+      </button>
     </div>
     `;
 
+    const handleCancelFetch = () => {
+        currentExploreMusicianToken++;
+        handleBack();
+    };
+    container.querySelector('#cancelExploreMusicianBtn')?.addEventListener('click', handleCancelFetch);
+    container.querySelector('#cancelExploreMusicianActionBtn')?.addEventListener('click', handleCancelFetch);
+
     try {
         const bands = await getMusicianRelations(musicianMbid);
+        if (thisFetchToken !== currentExploreMusicianToken) return;
+
         if (bands.length === 0) {
             container.innerHTML = `
             <div class="mb-3">
@@ -2801,7 +2923,15 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
             });
         });
     } catch (err) {
-        container.innerHTML = `<div class="text-danger">Failed to load bands: ${escapeHtml(err.message)}</div>`;
+        if (thisFetchToken !== currentExploreMusicianToken) return;
+        container.innerHTML = `
+        <div class="mb-3">
+          <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
+            <i class="bi-arrow-left"></i> <span>Back</span>
+          </button>
+        </div>
+        <div class="text-danger py-4 text-center">Failed to load bands: ${escapeHtml(err.message)}</div>`;
+        container.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
     }
 }
 
@@ -2812,17 +2942,39 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
     if (pushHistory) {
         searchHistory.push(searchSubView ? { ...searchSubView } : { type: 'results' });
     }
-    searchSubView = { type: 'tracks', releaseGroupMbid };
+    const fromView = searchSubView?.fromView || (activeView === 'library' ? 'library' : 'search');
+    searchSubView = { type: 'tracks', releaseGroupMbid, fromView };
+
+    const thisFetchToken = ++currentExploreTracklistToken;
 
     container.innerHTML = `
-    <div class="text-center py-5 text-muted">
-      <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
-      <div>Fetching album tracklist...</div>
+    <div class="album-tracks-view">
+      <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
+        <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="cancelFetchTracklistBtn">
+          <i class="bi-arrow-left"></i> <span>Back</span>
+        </button>
+      </div>
+      <div class="text-center py-5 text-muted">
+        <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
+        <div class="mb-3">Fetching album tracklist...</div>
+        <button class="btn btn-sm btn-theme-outline px-3" id="cancelFetchTracklistActionBtn">
+          <i class="bi-x-lg me-1"></i> Cancel
+        </button>
+      </div>
     </div>
     `;
 
+    const handleCancelFetch = () => {
+        currentExploreTracklistToken++;
+        handleBack();
+    };
+    container.querySelector('#cancelFetchTracklistBtn')?.addEventListener('click', handleCancelFetch);
+    container.querySelector('#cancelFetchTracklistActionBtn')?.addEventListener('click', handleCancelFetch);
+
     try {
         const albumData = await getAlbumTracks(releaseGroupMbid);
+        if (thisFetchToken !== currentExploreTracklistToken) return;
+
         if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
             container.innerHTML = `
             <div class="mb-3">
@@ -2835,7 +2987,47 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
             return;
         }
 
+        const existingSongs = await getSongsByCollection(activeCollectionId);
+        const existingSongKeys = new Set(existingSongs.map(s => {
+            if (s.recordingMbid) return `rec:${s.recordingMbid}`;
+            return `${(s.artist || '').toLowerCase().trim()}:::${(s.title || '').toLowerCase().trim()}`;
+        }));
+
+        const hasCd = (albumData.tracks || []).some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
+        const cleanTracks = (albumData.tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
+
+        const missingTracks = cleanTracks.filter(t => {
+            const inLib = (t.recordingMbid && existingSongKeys.has(`rec:${t.recordingMbid}`)) ||
+                          (t.id && existingSongKeys.has(`rec:${t.id}`)) ||
+                          existingSongKeys.has(`${(albumData.artist || '').toLowerCase().trim()}:::${(t.title || '').toLowerCase().trim()}`);
+            return !inLib;
+        });
+
+        const allInLib = cleanTracks.length > 0 && missingTracks.length === 0;
+        const partialInLib = missingTracks.length > 0 && missingTracks.length < cleanTracks.length;
+
         const cover = albumData.coverUrl || getPlaceholderCoverSvg(albumData.title);
+
+        let addAllBtnHtml = '';
+        if (allInLib) {
+            addAllBtnHtml = `
+            <button class="btn btn-sm btn-theme-success px-3 flex-shrink-0 disabled" id="addAllAlbumTracksBtn">
+              <i class="bi-check-lg me-1"></i> All Tracks in Library
+            </button>
+            `;
+        } else if (partialInLib) {
+            addAllBtnHtml = `
+            <button class="btn btn-sm btn-theme-primary px-3 flex-shrink-0" id="addAllAlbumTracksBtn">
+              <i class="bi-plus-circle me-1"></i> Add Missing Tracks (${missingTracks.length})
+            </button>
+            `;
+        } else {
+            addAllBtnHtml = `
+            <button class="btn btn-sm btn-theme-primary px-3 flex-shrink-0" id="addAllAlbumTracksBtn">
+              <i class="bi-plus-circle me-1"></i> Add Full Album to Library
+            </button>
+            `;
+        }
 
         container.innerHTML = `
         <div class="album-tracks-view">
@@ -2843,15 +3035,13 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
             <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToAlbumsListBtn">
               <i class="bi-arrow-left"></i> <span>Back</span>
             </button>
-            <button class="btn btn-sm btn-theme-primary px-3 flex-shrink-0" id="addAllAlbumTracksBtn">
-              <i class="bi-plus-circle me-1"></i> Add Full Album to Library
-            </button>
+            ${addAllBtnHtml}
           </div>
 
           <div class="library-album-banner d-flex align-items-center gap-3 mb-3">
             <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(albumData.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(albumData.title)}'">
             <div class="min-w-0 flex-grow-1">
-              <span class="badge badge-theme-success mb-1" style="font-size:0.68rem;">Release (${albumData.country})</span>
+              <span class="badge badge-theme-success mb-1" style="font-size:0.68rem;">Release (${albumData.country || 'International'})</span>
               <h5 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(albumData.title)}">${escapeHtml(albumData.title)}</h5>
               <div class="small text-muted text-truncate" title="${escapeHtml(albumData.artist)}">${escapeHtml(albumData.artist)} ${albumData.year ? `• ${albumData.year}` : ''} • ${albumData.tracks.length} Tracks</div>
             </div>
@@ -2859,18 +3049,23 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
 
           <!-- Tracks Checklist -->
           <div class="d-flex flex-column gap-2" id="albumTracksChecklist">
-            ${renderAddAlbumTracksList(albumData.tracks)}
+            ${renderAddAlbumTracksList(albumData.tracks, existingSongKeys, albumData.artist)}
           </div>
         </div>
         `;
 
         container.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
 
-        // Add full album button
-        container.querySelector('#addAllAlbumTracksBtn')?.addEventListener('click', async () => {
-            await addAlbumToLibrary(albumData, albumData.tracks, activeCollectionId);
-            await switchView('library');
-        });
+        // Add missing tracks or full album button
+        if (!allInLib) {
+            container.querySelector('#addAllAlbumTracksBtn')?.addEventListener('click', async () => {
+                const tracksToAdd = partialInLib ? missingTracks : albumData.tracks;
+                await addAlbumToLibrary(albumData, tracksToAdd, activeCollectionId);
+                showToast(`Added ${tracksToAdd.length} ${tracksToAdd.length === 1 ? 'track' : 'tracks'} to library`, 'success');
+                window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                await handleBack();
+            });
+        }
 
         // Add single track
         container.querySelectorAll('.add-single-track-btn').forEach(btn => {
@@ -2893,16 +3088,25 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
                     coverUrl: albumData.coverUrl || track.coverUrl || null
                 };
                 await saveSongToLibrary(song, activeCollectionId);
+                window.dispatchEvent(new CustomEvent('libraryDataChanged'));
                 btn.className = 'btn btn-sm btn-theme-success py-1 px-3 disabled flex-shrink-0 ms-2';
-                btn.innerHTML = '<i class="bi-check"></i> Added';
+                btn.innerHTML = '<i class="bi-check-lg me-1"></i> In Library';
             });
         });
     } catch (err) {
-        container.innerHTML = `<div class="text-danger">Failed to load tracklist: ${escapeHtml(err.message)}</div>`;
+        if (thisFetchToken !== currentExploreTracklistToken) return;
+        container.innerHTML = `
+        <div class="mb-3">
+          <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToAlbumsListBtn">
+            <i class="bi-arrow-left"></i> <span>Back</span>
+          </button>
+        </div>
+        <div class="text-danger py-4 text-center">Failed to load tracklist: ${escapeHtml(err.message)}</div>`;
+        container.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
     }
 }
 
-function renderAddAlbumTracksList(tracks) {
+function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistName = '') {
     const hasCd = (tracks || []).some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
     const cleanTracks = (tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
     if (!cleanTracks || cleanTracks.length === 0) return '';
@@ -2925,18 +3129,31 @@ function renderAddAlbumTracksList(tracks) {
 
     const groups = Array.from(mediaGroups.values()).sort((a, b) => a.mediumNumber - b.mediumNumber);
 
+    const renderTrackItem = (t, idx) => {
+        const isSongInLib = (t.recordingMbid && existingSongKeys.has(`rec:${t.recordingMbid}`)) ||
+                            (t.id && existingSongKeys.has(`rec:${t.id}`)) ||
+                            existingSongKeys.has(`${(artistName || '').toLowerCase().trim()}:::${(t.title || '').toLowerCase().trim()}`);
+        return `
+        <div class="library-track-row d-flex align-items-center justify-content-between gap-3">
+          <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+            <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
+            <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
+          </div>
+          ${isSongInLib ? `
+            <button class="btn btn-sm btn-theme-success py-1 px-3 disabled flex-shrink-0 ms-2" title="Track already in library">
+              <i class="bi-check-lg me-1"></i> In Library
+            </button>
+          ` : `
+            <button class="btn btn-sm btn-theme-outline py-1 px-3 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
+              <i class="bi-plus"></i> Add
+            </button>
+          `}
+        </div>
+        `;
+    };
+
     if (groups.length === 1 && !groups[0].mediumTitle) {
-        return groups[0].items.map(({ track: t, idx }) => `
-            <div class="library-track-row d-flex align-items-center justify-content-between gap-3">
-              <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-                <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
-                <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
-              </div>
-              <button class="btn btn-sm btn-theme-outline py-1 px-3 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
-                <i class="bi-plus"></i> Add
-              </button>
-            </div>
-        `).join('');
+        return groups[0].items.map(({ track: t, idx }) => renderTrackItem(t, idx)).join('');
     }
 
     return groups.map(grp => {
@@ -2952,17 +3169,7 @@ function renderAddAlbumTracksList(tracks) {
             <span class="badge badge-theme-secondary py-0 px-2 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.items.length} ${grp.items.length === 1 ? 'Track' : 'Tracks'}</span>
           </div>
           <div class="d-flex flex-column gap-2">
-            ${grp.items.map(({ track: t, idx }) => `
-              <div class="library-track-row d-flex align-items-center justify-content-between gap-3">
-                <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-                  <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
-                  <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
-                </div>
-                <button class="btn btn-sm btn-theme-outline py-1 px-3 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
-                  <i class="bi-plus"></i> Add
-                </button>
-              </div>
-            `).join('')}
+            ${grp.items.map(({ track: t, idx }) => renderTrackItem(t, idx)).join('')}
           </div>
         </div>
         `;
