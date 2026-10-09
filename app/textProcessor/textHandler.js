@@ -115,10 +115,16 @@ export async function loadText(file, output, pageModeRadio, continuousModeRadio)
  * Navigate to next text page, considering two-page view
  * @returns {boolean} Whether navigation was successful
  */
-export function nextTextPage() {
+export function nextTextPage(step = null) {
     if (!textState.pages.length) return false;
-    const pagesPerView = getPagesPerView(false); // false = PDF mode
-    const newIndex = Math.min(textState.currentPageIndex + 1, Math.max(0, textState.pages.length - pagesPerView));
+    const pagesPerView = getPagesPerView(false); // false = PDF/TXT mode
+    let advanceStep = step;
+    if (advanceStep === null) {
+        const selected = document.querySelector('input[name="pageAdvanceRadio"]:checked');
+        const advancePages = selected ? parseInt(selected.value, 10) : 2;
+        advanceStep = advancePages === 1 ? 1 : pagesPerView;
+    }
+    const newIndex = Math.min(textState.currentPageIndex + advanceStep, Math.max(0, textState.pages.length - pagesPerView));
     if (newIndex !== textState.currentPageIndex) {
         textState.currentPageIndex = newIndex;
         return true;
@@ -128,11 +134,18 @@ export function nextTextPage() {
 
 /**
  * Navigate to previous text page
+ * @param {number|null} step - Optional page step count
  * @returns {boolean} Whether navigation was successful
  */
-export function prevTextPage() {
+export function prevTextPage(step = null) {
     if (!textState.pages.length) return false;
-    const newIndex = Math.max(0, textState.currentPageIndex - 1);
+    let advanceStep = step;
+    if (advanceStep === null) {
+        const selected = document.querySelector('input[name="pageAdvanceRadio"]:checked');
+        const advancePages = selected ? parseInt(selected.value, 10) : 2;
+        advanceStep = advancePages === 1 ? 1 : getPagesPerView(false);
+    }
+    const newIndex = Math.max(0, textState.currentPageIndex - advanceStep);
     if (newIndex !== textState.currentPageIndex) {
         textState.currentPageIndex = newIndex;
         return true;
