@@ -4,8 +4,17 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+ARGS=()
+for arg in "$@"; do
+    if [ "$arg" = "--debug" ]; then
+        ARGS+=("--debug-tools")
+    else
+        ARGS+=("$arg")
+    fi
+done
+
 # Run macOS Tauri build
-node "$ROOT_DIR/build/build-tauri.mjs" macos "$@"
+node "$ROOT_DIR/build/build-tauri.mjs" macos "${ARGS[@]+"${ARGS[@]}"}"
 
 # Find the generated DMG in dist/
 DMG_PATH=$(find "$ROOT_DIR/dist" -maxdepth 1 -name "MajesticTab*.dmg" ! -name "rw.*" -print | sort | tail -n 1)

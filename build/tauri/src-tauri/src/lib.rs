@@ -1,6 +1,8 @@
 use std::sync::Mutex;
 use tauri::{Emitter, Manager, RunEvent};
 
+mod tab_downloader_native;
+
 #[cfg(target_os = "macos")]
 mod youtube_macos;
 
@@ -57,7 +59,8 @@ async fn open_tab_downloader(
             let _ = existing.set_focus();
             if let Some(js) = userscript {
                 if !js.is_empty() {
-                    let _ = existing.eval(&js);
+                    let wrapped = tab_downloader_native::wrap_userscript(&js);
+                    let _ = existing.eval(&wrapped);
                 }
             }
             return Ok(());
@@ -75,14 +78,24 @@ async fn open_tab_downloader(
 
     if let Some(ref js) = userscript {
         if !js.is_empty() {
-            builder = builder.initialization_script(js);
+            let wrapped = tab_downloader_native::wrap_userscript(js);
+            builder = builder.initialization_script(&wrapped);
         }
     }
 
     let app_handle = app.clone();
     builder = builder.on_download(move |_webview, event| {
         match event {
-            tauri::webview::DownloadEvent::Requested { .. } => true,
+            tauri::webview::DownloadEvent::Requested { destination, .. } => {
+                let dest_dir = std::env::temp_dir().join("majestictab_downloads");
+                let _ = std::fs::create_dir_all(&dest_dir);
+                let filename = destination
+                    .file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "downloaded.gp".to_string());
+                *destination = dest_dir.join(&filename);
+                true
+            }
             tauri::webview::DownloadEvent::Finished { path, success, .. } => {
                 if success {
                     if let Some(p) = path {
@@ -133,6 +146,7 @@ pub fn run() {
 
     let builder = tauri::Builder::default()
         .manage(OpenedFilesState(Mutex::new(initial_files)))
+        .manage(tab_downloader_native::TabDownloaderState::default())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_oauth::init())
         .plugin(tauri_plugin_opener::init())
@@ -140,6 +154,7 @@ pub fn run() {
         .setup(|_app| {
             #[cfg(target_os = "macos")]
             youtube_macos::install(_app)?;
+            tab_downloader_native::install(_app)?;
             #[cfg(feature = "debug-tools")]
             if let Some(window) = _app.get_webview_window("main") {
                 window.open_devtools();
@@ -151,6 +166,11 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         get_opened_file,
         open_tab_downloader,
+        tab_downloader_native::tab_downloader_update,
+        tab_downloader_native::tab_downloader_nav,
+        tab_downloader_native::tab_downloader_hide,
+        tab_downloader_native::tab_downloader_eval,
+        tab_downloader_native::tab_downloader_open_devtools,
         youtube_macos::youtube_player_update,
         youtube_macos::youtube_player_command
     ]);
@@ -158,7 +178,12 @@ pub fn run() {
     #[cfg(not(target_os = "macos"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
         get_opened_file,
-        open_tab_downloader
+        open_tab_downloader,
+        tab_downloader_native::tab_downloader_update,
+        tab_downloader_native::tab_downloader_nav,
+        tab_downloader_native::tab_downloader_hide,
+        tab_downloader_native::tab_downloader_eval,
+        tab_downloader_native::tab_downloader_open_devtools
     ]);
 
     let app = builder

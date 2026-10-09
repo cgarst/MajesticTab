@@ -135,6 +135,7 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
 - Redirect output to a file and read it, e.g. `... > /tmp/tauri-dev.log 2>&1` (async terminal). Do not pipe through `tail`; it buffers until exit.
 - The dev watcher rebuilds and relaunches automatically when files under `build/tauri/src-tauri` change; no manual restart needed. Check `pgrep -fl majestictab` to confirm the process is running.
 - Rust-side logs (`eprintln!`) appear in that log; JS console output appears in the devtools console, not the terminal.
+- To inspect an installed macOS app build (e.g. `/Applications/MajesticTab.app`), enable WebKit developer extras with `defaults write net.zathu.majestictab WebKitDeveloperExtras -bool true`, then attach via Safari menu: **Develop** -> *<Mac name>* -> **MajesticTab**.
 - Before a direct Cargo check, prepare the generated frontend from `build/tauri`: `npm run prepare:frontend`.
 - Compile-only check: `cargo check --manifest-path build/tauri/src-tauri/Cargo.toml`.
 - macOS-only config lives in `src-tauri/tauri.macos.conf.json` (merged over `tauri.conf.json`). Plugins that don't exist on other platforms must stay in macOS-only deps/capabilities.

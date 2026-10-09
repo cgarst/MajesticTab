@@ -9,7 +9,7 @@ const tauriDir = path.join(scriptDir, 'tauri');
 const distDir = path.join(rootDir, 'dist');
 const target = process.argv[2];
 const buildOptions = process.argv.slice(3);
-const debugTools = buildOptions.includes('--debug-tools');
+const debugTools = buildOptions.includes('--debug-tools') || buildOptions.includes('--debug');
 const macosX64 = buildOptions.includes('--x86_64');
 const validTargets = ['windows', 'macos', 'linux', 'android'];
 async function loadEnvFiles() {
@@ -55,11 +55,12 @@ function fail(message) {
 }
 
 if (!validTargets.includes(target)
-  || buildOptions.some((option) => option !== '--debug-tools' && option !== '--x86_64')
+  || buildOptions.some((option) => option !== '--debug-tools' && option !== '--debug' && option !== '--x86_64')
   || new Set(buildOptions).size !== buildOptions.length
+  || (buildOptions.includes('--debug-tools') && buildOptions.includes('--debug'))
   || (debugTools && target === 'android')
   || (macosX64 && target !== 'macos')) {
-  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools] [--x86_64 (macos only)]`);
+  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools|--debug] [--x86_64 (macos only)]`);
   process.exit(2);
 }
 

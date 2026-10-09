@@ -328,6 +328,14 @@ async function renderLibraryBrowseView(container) {
         return;
     }
 
+    // Re-sync selectedArtist and selectedAlbum against latest hierarchy data
+    if (selectedArtist) {
+        selectedArtist = artists.find(a => a.name === selectedArtist.name || (selectedArtist.artistMbid && a.artistMbid === selectedArtist.artistMbid)) || null;
+    }
+    if (selectedAlbum && selectedArtist) {
+        selectedAlbum = selectedArtist.albums.find(a => a.title === selectedAlbum.title || (selectedAlbum.albumMbid && a.albumMbid === selectedAlbum.albumMbid)) || null;
+    }
+
     // Breadcrumb Navigation
     let breadcrumbHtml = `
       <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
@@ -523,10 +531,9 @@ function renderSongRow(song) {
         <div class="tab-options-container ps-4 pt-1 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-1.5">
           <span class="small text-muted" style="font-size: 0.7rem;">Tabs:</span>
           ${tabOptions.map(t => `
-            <div class="tab-option-chip">
-              <span class="text-truncate" style="max-width: 140px;" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</span>
+            <div class="tab-option-chip play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Load ${escapeHtml(t.name)}">
+              <span class="text-truncate" style="max-width: 140px;">${escapeHtml(t.name)}</span>
               ${t.tuning ? `<span class="badge badge-theme-secondary py-0 px-1" style="font-size:0.6rem;">${escapeHtml(t.tuning)}</span>` : ''}
-              <button class="btn btn-link p-0 text-info play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Load this tab"><i class="bi-play-circle-fill"></i></button>
               <button class="btn btn-link p-0 text-muted remove-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
             </div>
           `).join('')}
@@ -551,6 +558,7 @@ function setupSongRowActions(container) {
     // Play specific tab chip
     container.querySelectorAll('.play-tab-chip-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
+            if (e.target.closest('.remove-tab-chip-btn')) return;
             e.stopPropagation();
             const songId = btn.dataset.songId;
             const tabId = btn.dataset.tabId;
@@ -568,21 +576,18 @@ function setupSongRowActions(container) {
             e.stopPropagation();
             const songId = btn.dataset.songId;
             const tabId = btn.dataset.tabId;
-            if (confirm('Remove this tab option?')) {
-                await removeTabOptionFromSong(songId, tabId);
-                await renderView();
-            }
+            await removeTabOptionFromSong(songId, tabId);
+            await renderView();
         });
     });
 
     // Delete song from library
     container.querySelectorAll('.delete-song-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
             const songId = btn.dataset.songId;
-            if (confirm('Delete this song from library?')) {
-                await deleteSongFromLibrary(songId);
-                await renderView();
-            }
+            await deleteSongFromLibrary(songId);
+            await renderView();
         });
     });
 

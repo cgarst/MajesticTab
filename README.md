@@ -145,11 +145,22 @@ node build/build-tauri.mjs linux
 node build/build-tauri.mjs android
 ```
 
-Desktop builds disable the JavaScript inspector by default. Add `--debug-tools` to a macOS, Windows, or Linux command to enable and open it for debugging, for example:
+Desktop builds disable the JavaScript inspector and webview devtools by default for performance and security. Pass `--debug-tools` (or `--debug`) to a macOS, Windows, or Linux build command, or use `./build/build-macos.sh --debug`, to enable devtools in both the main window and embedded child webviews (e.g. the native tab downloader browser):
 
 ```bash
 node build/build-tauri.mjs macos --debug-tools
+# or for macOS build & auto-install:
+./build/build-macos.sh --debug
 ```
+
+For live local development with devtools enabled, run:
+
+```bash
+cd build/tauri
+npm run tauri:dev -- --features debug-tools
+```
+
+This compiles the Rust backend with the `debug-tools` feature (`tauri/devtools`), permitting web inspector inspection and devtools console logging.
 
 Build macOS and Windows installers on their respective operating systems. The Linux target builds a Flatpak and requires `flatpak` and `flatpak-builder`. Android requires Android Studio's SDK Platform, Platform-Tools, Command-line Tools, NDK (Side by side), JDK 17-26 (JDK 17 recommended), and `ANDROID_HOME`, `NDK_HOME`, and `JAVA_HOME` configured per the Tauri guide. The build script checks the selected JDK before running Gradle. Android produces a debug APK for testing; release distribution needs signing. All generated bundles and Cargo output go under the git-ignored `dist/` directory. Desktop builds are unsigned unless signing credentials are configured.
 

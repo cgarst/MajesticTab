@@ -36,7 +36,16 @@ export function registerFileProvider(provider) {
  * @returns {FileProvider|undefined}
  */
 export function getFileProvider(id) {
-    return providers.get(id);
+    if (providers.has(id)) {
+        return providers.get(id);
+    }
+    if (id === 'tab-downloader' && providers.has('tab-downloader-web')) {
+        return providers.get('tab-downloader-web');
+    }
+    if (id === 'tab-downloader-web' && providers.has('tab-downloader')) {
+        return providers.get('tab-downloader');
+    }
+    return undefined;
 }
 
 /**
@@ -182,8 +191,6 @@ export const TabDownloaderWebProvider = {
 registerFileProvider(LocalFileProvider);
 registerFileProvider(GoogleDriveFileProvider);
 
-if (typeof window !== 'undefined' && window.__TAURI__) {
-    registerFileProvider(TabDownloaderNativeProvider);
-} else {
-    registerFileProvider(TabDownloaderWebProvider);
-}
+registerFileProvider(TabDownloaderNativeProvider);
+registerFileProvider(TabDownloaderWebProvider);
+

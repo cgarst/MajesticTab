@@ -84,6 +84,7 @@ const allowedRemoteHosts = new Set([
   'archive.org',
   'www.ultimate-guitar.com',
   'ultimate-guitar.com',
+  'tabs.ultimate-guitar.com',
   'metaltabs.org',
   'www.metaltabs.org',
 ]);
