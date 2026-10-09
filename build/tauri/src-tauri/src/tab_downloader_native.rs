@@ -52,6 +52,43 @@ pub fn wrap_userscript(raw_js: &str) -> String {
             }}
         }}, true);
 
+        function triggerMajesticDownload(filename, base64) {{
+            const a = document.createElement('a');
+            a.href = 'majestictab://download?name=' + encodeURIComponent(filename) + '&data=' + encodeURIComponent(base64);
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => a.remove(), 200);
+        }}
+
+        function downloadFromUrl(fetchUrl, suggestedName) {{
+            fetch(fetchUrl, {{ credentials: 'include' }})
+                .then(r => {{
+                    if (!r.ok) throw new Error('HTTP ' + r.status);
+                    const disp = r.headers.get('Content-Disposition') || '';
+                    let filename = suggestedName || '';
+                    const match = /filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i.exec(disp);
+                    if (match && match[1]) filename = decodeURIComponent(match[1]);
+                    if (!filename) {{
+                        const cleanPath = fetchUrl.split('?')[0].split('#')[0];
+                        filename = cleanPath.split('/').pop() || 'downloaded.gp';
+                    }}
+                    return r.arrayBuffer().then(buf => ({{ filename, buf }}));
+                }})
+                .then(({{ filename, buf }}) => {{
+                    const bytes = new Uint8Array(buf);
+                    let binary = '';
+                    for (let i = 0; i < bytes.byteLength; i++) {{
+                        binary += String.fromCharCode(bytes[i]);
+                    }}
+                    const base64 = btoa(binary);
+                    triggerMajesticDownload(filename, base64);
+                }})
+                .catch(err => {{
+                    console.warn('[MajesticTab] Tab download fetch error, falling back to navigation:', err);
+                    window.location.href = fetchUrl;
+                }});
+        }}
+
         document.addEventListener('click', function(e) {{
             const el = e.target && e.target.closest ? e.target.closest('a, button, input[type="submit"]') : null;
             if (el) {{
@@ -74,18 +111,22 @@ pub fn wrap_userscript(raw_js: &str) -> String {
                                     binary += String.fromCharCode(bytes[i]);
                                 }}
                                 const base64 = btoa(binary);
-                                const a = document.createElement('a');
-                                a.href = 'majestictab://download?name=' + encodeURIComponent(filename) + '&data=' + encodeURIComponent(base64);
-                                document.body.appendChild(a);
-                                a.click();
-                                setTimeout(() => a.remove(), 200);
+                                triggerMajesticDownload(filename, base64);
                             }})
                             .catch(err => console.error('[MajesticTab] Blob capture error:', err));
                         return;
                     }}
 
-                    if (href.match(/\\.(gp|gp3|gp4|gp5|gpx|ptb|cap|tg|mid|midi|pdf)($|\\?)/i) || href.includes('/download') || downloadAttr) {{
-                        el.target = '_self';
+                    const isDownloadLink = href.match(/\\.(gp|gp3|gp4|gp5|gpx|ptb|cap|tg|mid|midi|pdf)($|\\?)/i) || 
+                        href.includes('/download') || 
+                        href.includes('tab/download') ||
+                        Boolean(downloadAttr);
+
+                    if (isDownloadLink) {{
+                        e.preventDefault();
+                        e.stopPropagation();
+                        downloadFromUrl(el.href, downloadAttr);
+                        return;
                     }}
                 }}
                 if (el.form && el.form.target === '_blank') el.form.target = '_self';
@@ -198,6 +239,29 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                 .unwrap_or_default();
             eprintln!("[Tab Downloader Webview Log] {}", msg);
             let _ = app_handle_for_nav.emit("tab-downloader-log", msg);
+            return false;
+        }
+
+        // 2. Direct download capture scheme: majestictab://download?name=...&data=...
+        if url.scheme() == "majestictab" && (url.host_str() == Some("download") || url_str.starts_with("majestictab://download")) {
+            let name = url
+                .query_pairs()
+                .find(|(k, _)| k == "name")
+                .map(|(_, v)| v.into_owned())
+                .unwrap_or_else(|| "downloaded.gp".to_string());
+            let b64_data = url
+                .query_pairs()
+                .find(|(k, _)| k == "data")
+                .map(|(_, v)| v.into_owned())
+                .unwrap_or_default();
+            let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64_data).ok();
+            eprintln!("[Tab Downloader] Captured client-side download: {} ({} bytes)", name, data.as_ref().map(|d| d.len()).unwrap_or(0));
+            let payload = DownloadedTabPayload {
+                name,
+                path: None,
+                data,
+            };
+            let _ = app_handle_for_nav.emit("tab-downloaded", payload);
             return false;
         }
 
