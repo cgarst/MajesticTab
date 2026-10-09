@@ -36,17 +36,25 @@ let activeReloadState = {
     completionListeners: new Set()
 };
 
-const APP_SETTINGS_KEYS = [
+const EXCLUDED_SETTINGS_KEYS = [
     'majestictab_theme',
     'majestictab_sheet_mode',
     'gpSheetScale',
+    'theme',
+    'majestictab_theme_sheet',
     'pageAdvancePages',
+    'advanceOnePage',
     'landscapePageLayout',
     'gpDefaultView',
     'pdfDefaultView',
     'txtDefaultView',
-    'debugMode',
     'condensePdfMode',
+    'gpNotationMode',
+    'majestictab_gp_notation_mode'
+];
+
+const BACKUP_SETTINGS_KEYS = [
+    'debugMode',
     'majestictab_update_channel',
     'youtubeApiKey',
     'tab_downloader_sources',
@@ -86,7 +94,7 @@ function escapeHtml(str) {
  */
 export function collectAllSettings() {
     const settings = {};
-    for (const key of APP_SETTINGS_KEYS) {
+    for (const key of BACKUP_SETTINGS_KEYS) {
         const val = localStorage.getItem(key);
         if (val !== null) {
             if (val.startsWith('{') || val.startsWith('[')) {
@@ -501,6 +509,11 @@ export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {})
     let settingsApplied = 0;
     if (bundle.settings && typeof bundle.settings === 'object') {
         for (const [key, val] of Object.entries(bundle.settings)) {
+            // Strictly exclude appearance/theme and viewing preferences
+            if (EXCLUDED_SETTINGS_KEYS.includes(key)) {
+                continue;
+            }
+
             if (key === 'ytCache' && typeof val === 'object') {
                 for (const [ytKey, ytVal] of Object.entries(val)) {
                     if (wipe || localStorage.getItem(ytKey) === null) {
@@ -510,7 +523,7 @@ export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {})
                 continue;
             }
 
-            if (APP_SETTINGS_KEYS.includes(key)) {
+            if (BACKUP_SETTINGS_KEYS.includes(key)) {
                 const serialized = typeof val === 'object' ? JSON.stringify(val) : String(val);
                 localStorage.setItem(key, serialized);
                 settingsApplied++;
@@ -542,8 +555,8 @@ export async function deleteAllAppData() {
     await clearAllLibraryData();
     await ensureDefaultCollection();
 
-    // 2. Wipe settings and extensions from localStorage
-    for (const key of APP_SETTINGS_KEYS) {
+    // 2. Wipe settings and extensions from localStorage (keeping theme and viewing preferences intact)
+    for (const key of BACKUP_SETTINGS_KEYS) {
         localStorage.removeItem(key);
     }
     localStorage.removeItem('customExtensions');
