@@ -3438,7 +3438,77 @@ body:not(.synth-playback-started) .at-highlight {
   border-color: rgba(16, 185, 129, 0.4);
 }
 
+/* Clickable Tuning Badges */
+.badge-tuning-clickable {
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
 
+.badge-tuning-clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 0 8px var(--accent-glow);
+  filter: brightness(1.15);
+}
 
+/* Default Tab Option Chip */
+.tab-option-chip.tab-option-chip-default {
+  border-color: var(--accent-primary) !important;
+  background: var(--bg-card-hover) !important;
+  box-shadow: 0 0 6px var(--accent-glow);
+}
 
+.set-default-tab-btn,
+.set-default-album-tab-btn {
+  line-height: 1;
+  transition: transform 0.15s ease, color 0.15s ease;
+}
 
+.set-default-tab-btn:hover,
+.set-default-album-tab-btn:hover {
+  transform: scale(1.2);
+  color: #fbbf24 !important;
+}
+
+/* Song Pinning */
+.pin-song-btn {
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+.pin-song-btn:hover {
+  transform: scale(1.15);
+  color: #fbbf24 !important;
+}
+
+.library-song-row-pinned {
+  border-left: 3px solid #f59e0b !important;
+}
+
+.badge-theme-warning {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.45) !important;
+  font-weight: 600;
+}
+
+/* Album Tabs Container */
+.album-tabs-container {
+  width: 100%;
+}
+
+/* Tuning Grid */
+.library-tunings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 0.85rem;
+}
+
+.tuning-card {
+  cursor: pointer;
+}
+
+/* Custom Document Card */
+.custom-doc-card {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.85rem;
+}
