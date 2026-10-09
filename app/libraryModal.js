@@ -883,7 +883,7 @@ async function renderLibraryBrowseView(container) {
             bodyHtml = `
             <div class="collection-root-view">
               ${pinnedHtml}
-              ${pinnedHtml ? `<div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2"><i class="bi-person me-1 text-info"></i> Artists</div>` : ''}
+              ${pinnedHtml ? `<div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2" id="libArtistsSectionHeading"><i class="bi-person me-1 text-info"></i> Artists</div>` : ''}
               <div class="library-artists-grid" id="libArtistsGrid">
                 ${artists.map(artist => {
                   const isCustomArtist = Boolean(artist.isCustom);
@@ -1144,9 +1144,10 @@ function setupLibraryFilter(container) {
         // Clean up previous filter empty message if any
         container.querySelectorAll('.library-filter-empty-msg').forEach(el => el.remove());
 
-        // 1. Song List View (Album Detail or Tuning Detail)
-        const songRows = container.querySelectorAll('.library-song-row');
-        if (songRows.length > 0) {
+        // 1. Song List View (Album Detail or Tuning Detail - specifically #libSongsList)
+        const songsList = container.querySelector('#libSongsList');
+        if (songsList) {
+            const songRows = songsList.querySelectorAll('.library-song-row');
             let visibleCount = 0;
             songRows.forEach(row => {
                 const title = (row.dataset.songTitle || '').toLowerCase();
@@ -1155,8 +1156,7 @@ function setupLibraryFilter(container) {
                 row.style.display = matches ? '' : 'none';
                 if (matches) visibleCount++;
             });
-            const songsList = container.querySelector('#libSongsList');
-            if (songsList && visibleCount === 0 && query) {
+            if (visibleCount === 0 && query) {
                 const emptyMsg = document.createElement('div');
                 emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
                 emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No songs match "${escapeHtml(query)}"`;
@@ -1165,11 +1165,12 @@ function setupLibraryFilter(container) {
             return;
         }
 
-        // 2. Tunings Grid View
-        const tuningCards = container.querySelectorAll('.library-tunings-grid .tuning-card');
-        if (tuningCards.length > 0) {
+        // 2. Tunings Grid View (#libTuningsGrid)
+        const tuningsGrid = container.querySelector('#libTuningsGrid');
+        if (tuningsGrid) {
+            const tuningCards = tuningsGrid.querySelectorAll('.tuning-card');
             let totalVisibleCount = 0;
-            const sections = container.querySelectorAll('.library-tuning-section');
+            const sections = tuningsGrid.querySelectorAll('.library-tuning-section');
             if (sections.length > 0) {
                 sections.forEach(sec => {
                     const cards = sec.querySelectorAll('.tuning-card');
@@ -1197,8 +1198,7 @@ function setupLibraryFilter(container) {
                     if (matches) totalVisibleCount++;
                 });
             }
-            const tuningsGrid = container.querySelector('#libTuningsGrid');
-            if (tuningsGrid && totalVisibleCount === 0 && query) {
+            if (totalVisibleCount === 0 && query) {
                 const emptyMsg = document.createElement('div');
                 emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted w-100';
                 emptyMsg.style.gridColumn = '1 / -1';
@@ -1208,24 +1208,10 @@ function setupLibraryFilter(container) {
             return;
         }
 
-        // Filter collection-level pinned section if visible
-        const pinnedSection = container.querySelector('#libPinnedSection');
-        if (pinnedSection) {
-            const pinnedRows = pinnedSection.querySelectorAll('.library-song-row');
-            let visiblePinned = 0;
-            pinnedRows.forEach(row => {
-                const title = (row.dataset.songTitle || '').toLowerCase();
-                const artist = (row.dataset.songArtist || '').toLowerCase();
-                const matches = !query || title.includes(query) || artist.includes(query);
-                row.style.display = matches ? '' : 'none';
-                if (matches) visiblePinned++;
-            });
-            pinnedSection.style.display = (!query || visiblePinned > 0) ? '' : 'none';
-        }
-
-        // 3. Albums Grid View (Artist Detail)
-        const albumCards = container.querySelectorAll('.library-albums-grid .album-card');
-        if (albumCards.length > 0) {
+        // 3. Albums Grid View (Artist Detail - #libAlbumsGrid)
+        const albumsGrid = container.querySelector('#libAlbumsGrid');
+        if (albumsGrid) {
+            const albumCards = albumsGrid.querySelectorAll('.album-card');
             let visibleCount = 0;
             albumCards.forEach(card => {
                 const title = (card.dataset.albumTitle || '').toLowerCase();
@@ -1234,8 +1220,7 @@ function setupLibraryFilter(container) {
                 card.style.display = matches ? '' : 'none';
                 if (matches) visibleCount++;
             });
-            const albumsGrid = container.querySelector('#libAlbumsGrid');
-            if (albumsGrid && visibleCount === 0 && query) {
+            if (visibleCount === 0 && query) {
                 const emptyMsg = document.createElement('div');
                 emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
                 emptyMsg.style.gridColumn = '1 / -1';
@@ -1245,24 +1230,46 @@ function setupLibraryFilter(container) {
             return;
         }
 
-        // 4. Artists Grid View (Top Level)
-        const artistCards = container.querySelectorAll('.library-artists-grid .artist-card');
-        if (artistCards.length > 0) {
-            let visibleCount = 0;
-            artistCards.forEach(card => {
-                const name = (card.dataset.artistName || '').toLowerCase();
-                const terms = (card.dataset.searchTerms || '').toLowerCase();
-                const matches = !query || name.includes(query) || terms.includes(query);
-                card.style.display = matches ? '' : 'none';
-                if (matches) visibleCount++;
-            });
-            const artistsGrid = container.querySelector('#libArtistsGrid');
-            if (artistsGrid && visibleCount === 0 && query) {
-                const emptyMsg = document.createElement('div');
-                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
-                emptyMsg.style.gridColumn = '1 / -1';
-                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No artists, albums, or songs match "${escapeHtml(query)}"`;
-                artistsGrid.appendChild(emptyMsg);
+        // 4. Collection Root View (#libArtistsGrid and optional #libPinnedSection)
+        const artistsGrid = container.querySelector('#libArtistsGrid');
+        const pinnedSection = container.querySelector('#libPinnedSection');
+        if (artistsGrid || pinnedSection) {
+            let visiblePinned = 0;
+            if (pinnedSection) {
+                const pinnedRows = pinnedSection.querySelectorAll('.library-song-row');
+                pinnedRows.forEach(row => {
+                    const title = (row.dataset.songTitle || '').toLowerCase();
+                    const artist = (row.dataset.songArtist || '').toLowerCase();
+                    const matches = !query || title.includes(query) || artist.includes(query);
+                    row.style.display = matches ? '' : 'none';
+                    if (matches) visiblePinned++;
+                });
+                pinnedSection.style.display = (!query || visiblePinned > 0) ? '' : 'none';
+            }
+
+            let visibleArtists = 0;
+            if (artistsGrid) {
+                const artistCards = artistsGrid.querySelectorAll('.artist-card');
+                artistCards.forEach(card => {
+                    const name = (card.dataset.artistName || '').toLowerCase();
+                    const terms = (card.dataset.searchTerms || '').toLowerCase();
+                    const matches = !query || name.includes(query) || terms.includes(query);
+                    card.style.display = matches ? '' : 'none';
+                    if (matches) visibleArtists++;
+                });
+
+                const artistsHeading = container.querySelector('#libArtistsSectionHeading');
+                if (artistsHeading) {
+                    artistsHeading.style.display = (!query || visibleArtists > 0) ? '' : 'none';
+                }
+
+                if (visibleArtists === 0 && visiblePinned === 0 && query) {
+                    const emptyMsg = document.createElement('div');
+                    emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
+                    emptyMsg.style.gridColumn = '1 / -1';
+                    emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No artists, albums, or songs match "${escapeHtml(query)}"`;
+                    artistsGrid.appendChild(emptyMsg);
+                }
             }
             return;
         }
