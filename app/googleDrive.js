@@ -236,8 +236,10 @@ function storeGoogleAuth(accessToken, expiresIn) {
 
 let activeDriveTargetSongId = null;
 let activeDriveTargetAlbum = null;
+let activeDriveOnFileSelected = null;
 
 export function openDriveModal(options = {}) {
+    activeDriveOnFileSelected = options.onFileSelected || null;
     activeDriveTargetSongId = options.songId || options.targetSong?.id || null;
     if (options.isAlbumTab && options.albumTitle) {
         activeDriveTargetAlbum = {
@@ -263,6 +265,7 @@ export function openDriveModal(options = {}) {
 export function closeDriveModal() {
     activeDriveTargetSongId = null;
     activeDriveTargetAlbum = null;
+    activeDriveOnFileSelected = null;
     const modal = document.getElementById('driveModal');
     if (!modal) return;
     modal.style.display = 'none';
@@ -548,6 +551,20 @@ function renderFileList(files) {
                     const fileObj = new File([blob], fileName, { type: mimeType || 'application/octet-stream' });
                     const targetSongId = activeDriveTargetSongId;
                     const targetAlbum = activeDriveTargetAlbum;
+
+                    if (typeof activeDriveOnFileSelected === 'function') {
+                        try {
+                            const { detectFileMetadata } = await import('./utils/tuningUtils.js');
+                            const meta = await detectFileMetadata(fileObj, fileObj.name);
+                            const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
+                            const cb = activeDriveOnFileSelected;
+                            closeDriveModal();
+                            cb({ file: fileObj, providerId: 'google-drive', fileStoreId: stored.id, name: fileObj.name, meta });
+                            return;
+                        } catch (err) {
+                            console.warn('Could not process selected Drive file:', err);
+                        }
+                    }
 
                     if (targetSongId) {
                         try {
