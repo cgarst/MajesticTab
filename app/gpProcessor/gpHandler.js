@@ -1,4 +1,4 @@
-import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks, getGpNotationMode, setGpNotationMode } from './gpProcessor.js';
+import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks, getGpNotationMode, setGpNotationMode, getGpStaveProfile } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
@@ -655,7 +655,18 @@ export function applyGpNotationMode(mode) {
 
     if (!api || !container) return;
 
-    api.settings.display.staveProfile = safeMode === 'scoreTab' ? 'Default' : 'Tab';
+    if (api.score && Array.isArray(api.score.tracks)) {
+        for (const track of api.score.tracks) {
+            if (Array.isArray(track.staves)) {
+                for (const staff of track.staves) {
+                    staff.showStandardNotation = true;
+                    staff.showTablature = true;
+                }
+            }
+        }
+    }
+
+    api.settings.display.staveProfile = getGpStaveProfile(safeMode);
     api.updateSettings();
 
     const pageModeRadio = document.getElementById('pageModeRadio');

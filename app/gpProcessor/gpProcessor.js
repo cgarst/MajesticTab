@@ -74,6 +74,14 @@ export function setGpNotationMode(mode) {
     return safeMode;
 }
 
+export function getGpStaveProfile(mode = getGpNotationMode()) {
+    const isScoreTab = mode === 'scoreTab';
+    if (typeof alphaTab !== 'undefined' && alphaTab.StaveProfile) {
+        return isScoreTab ? alphaTab.StaveProfile.ScoreTab : alphaTab.StaveProfile.Tab;
+    }
+    return isScoreTab ? 1 : 3;
+}
+
 export function loadGuitarPro(file, container, { debug = false } = {}) {
     return new Promise((resolve, reject) => {
         if (!container) {
@@ -84,7 +92,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
         // Create AlphaTab API
         const tempApi = new alphaTab.AlphaTabApi(container, {
             core: { file, enableLazyLoading: false },
-            display: { staveProfile: getGpNotationMode() === 'scoreTab' ? "Default" : "Tab" }
+            display: { staveProfile: getGpStaveProfile() }
         });
 
         // Handle file loading errors
@@ -104,6 +112,17 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
         tempApi.scoreLoaded.on((score) => {
             applyGpScoreTransforms(score);
             if (debug) console.log("Tracks:", score.tracks);
+
+            if (Array.isArray(score.tracks)) {
+                for (const track of score.tracks) {
+                    if (Array.isArray(track.staves)) {
+                        for (const staff of track.staves) {
+                            staff.showStandardNotation = true;
+                            staff.showTablature = true;
+                        }
+                    }
+                }
+            }
 
             // Step 2: filter guitar tracks by MIDI program
             const guitarTrackIndices = getGuitarTracks(score).map(ti => ti.index);
@@ -127,7 +146,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                     enableElementHighlighting: true,
                     scrollMode: alphaTab.ScrollMode.Off
                 },
-                display: { staveProfile: getGpNotationMode() === 'scoreTab' ? "Default" : "Tab", layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE },
+                display: { staveProfile: getGpStaveProfile(), layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE },
                 notation: {
                     rhythmMode: alphaTab.TabRhythmMode.ShowWithBars,
                     elements: {
@@ -142,6 +161,17 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                 newScore.stylesheet.hideEmptyStaves = true;
                 newScore.stylesheet.hideEmptyStavesInFirstSystem = true;
                 newScore.stylesheet.globalDisplayTuning = true;
+
+                if (Array.isArray(newScore.tracks)) {
+                    for (const track of newScore.tracks) {
+                        if (Array.isArray(track.staves)) {
+                            for (const staff of track.staves) {
+                                staff.showStandardNotation = true;
+                                staff.showTablature = true;
+                            }
+                        }
+                    }
+                }
 
                 if (debug) {
                     console.log("Hide empty staves enabled:", newScore.stylesheet.hideEmptyStaves);

@@ -803,22 +803,58 @@ export function toggleCountIn(force = null) {
 }
 
 export const scoreOptionsState = {
-    isOpen: false
+    isOpen: false,
+    isAvailable: false
 };
 
 /**
- * Show / Hide top bar Score Options button
+ * Show / Enable top bar Score Options button (when tracks/notation options are available)
  */
 export function showScoreOptions() {
+    scoreOptionsState.isAvailable = true;
     const btn = document.getElementById('topBarSongTitleBtn');
+    const chevron = btn?.querySelector('.song-title-chevron');
+    const notationSection = document.getElementById('scoreOptionsNotationStyleSection');
     if (btn) {
-        btn.classList.remove('disabled');
+        btn.classList.remove('disabled', 'is-static');
+        btn.removeAttribute('disabled');
         btn.setAttribute('aria-expanded', 'false');
+        btn.setAttribute('aria-disabled', 'false');
+        const songTitleEl = document.getElementById('topBarSongTitle');
+        const displayName = songTitleEl?.textContent || '';
+        btn.title = displayName ? `${displayName} - Tracks & Notation Options` : 'Tracks & Notation Options';
+    }
+    if (chevron) {
+        chevron.style.display = '';
+    }
+    if (notationSection) {
+        notationSection.style.display = '';
     }
 }
 
+/**
+ * Hide / Disable top bar Score Options (when showing PDF, TXT, or no options)
+ */
 export function hideScoreOptions() {
+    scoreOptionsState.isAvailable = false;
     toggleScoreOptionsPanel(false);
+    const btn = document.getElementById('topBarSongTitleBtn');
+    const chevron = btn?.querySelector('.song-title-chevron');
+    const notationSection = document.getElementById('scoreOptionsNotationStyleSection');
+    if (btn) {
+        btn.classList.add('disabled', 'is-static');
+        btn.removeAttribute('aria-expanded');
+        btn.setAttribute('aria-disabled', 'true');
+        const songTitleEl = document.getElementById('topBarSongTitle');
+        const displayName = songTitleEl?.textContent || '';
+        btn.title = displayName || '';
+    }
+    if (chevron) {
+        chevron.style.display = 'none';
+    }
+    if (notationSection) {
+        notationSection.style.display = 'none';
+    }
 }
 
 export function updateScoreOptionsPanelPosition() {
@@ -844,6 +880,14 @@ export function toggleScoreOptionsPanel(forceState = null) {
     const toggleBtn = document.getElementById('topBarSongTitleBtn');
 
     if (!panel) return;
+
+    if (!scoreOptionsState.isAvailable && forceState !== false) {
+        panel.style.display = 'none';
+        toggleBtn?.classList.remove('active');
+        toggleBtn?.setAttribute('aria-expanded', 'false');
+        scoreOptionsState.isOpen = false;
+        return;
+    }
 
     const newState = forceState !== null ? forceState : !scoreOptionsState.isOpen;
     scoreOptionsState.isOpen = newState;
@@ -874,6 +918,7 @@ export function initScoreOptionsPanel() {
 
     toggleBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (!scoreOptionsState.isAvailable) return;
         toggleScoreOptionsPanel();
     });
 

@@ -11,7 +11,7 @@ import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
-import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel } from './gpProcessor/gpPlayer.js';
+import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, hideScoreOptions } from './gpProcessor/gpPlayer.js';
 import { initTheming } from './themeEngine.js';
 import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
@@ -1036,16 +1036,18 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     }
 
     if (isFileType(file, ['pdf'])) {
+        hideScoreOptions();
         await loadPDF(fileToLoad);
     } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
         showProgress(progressContainer, progressBar);
         await loadGP(fileToLoad, output, pageModeRadio, continuousModeRadio);
         hideProgress(progressContainer, progressBar);
     } else if (isFileType(file, ['txt'])) {
-        showProgress(progressContainer, progressBar);
+        hideScoreOptions();
         await loadText(fileToLoad, output, pageModeRadio, continuousModeRadio);
         hideProgress(progressContainer, progressBar);
     } else {
+        hideScoreOptions();
         console.warn('Unsupported file type:', file.name.split('.').pop().toLowerCase());
         // Hide navigation controls for unsupported files
         navButtons.style.display = 'none';

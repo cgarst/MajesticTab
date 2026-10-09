@@ -20,6 +20,7 @@ import { openOpenFileModal } from './openFileModal.js';
 import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName, getTuningCategory } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { showToast } from './utils/toast.js';
+import { scoreOptionsState } from './gpProcessor/gpPlayer.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -280,7 +281,11 @@ export function closeLibraryModal(force = false) {
                 songTitleEl.title = displayName || currentOpen.name || '';
                 const songTitleBtn = document.getElementById('topBarSongTitleBtn');
                 if (songTitleBtn) {
-                    songTitleBtn.title = displayName ? `${displayName} - Tracks & Notation Options` : 'Tracks & Notation Options';
+                    if (scoreOptionsState.isAvailable) {
+                        songTitleBtn.title = displayName ? `${displayName} - Tracks & Notation Options` : 'Tracks & Notation Options';
+                    } else {
+                        songTitleBtn.title = displayName || '';
+                    }
                 }
             }
         } else {
