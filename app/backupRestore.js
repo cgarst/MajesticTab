@@ -803,12 +803,12 @@ async function renderModal(modal, activeTab = 'backup') {
             <div class="d-flex align-items-start gap-3">
               <i class="bi-info-circle-fill text-info fs-5 flex-shrink-0 mt-1"></i>
               <div>
-                <div class="fw-bold text-white small mb-1">Refresh All Metadata from MusicBrainz</div>
+                <div class="fw-bold text-white small mb-1">Refresh All Metadata from MusicBrainz &amp; Guitar Pro Files</div>
                 <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
-                  Triggers a fresh pull from MusicBrainz for every album and track in your library. Automatically fetches canonical <strong>track times / durations</strong>, official track numbers, release years, and high-resolution cover artwork.
+                  Performs a comprehensive refresh of all library metadata: queries MusicBrainz for canonical <strong>track durations</strong>, official track numbers, release years, and cover artwork, while re-analyzing all stored Guitar Pro tab files to extract accurate guitar &amp; bass tunings and string counts.
                 </div>
                 <div class="text-white-50 small mt-2 pt-2 border-top border-secondary border-opacity-25" style="font-size: 0.74rem;">
-                  <i class="bi-shield-check text-success me-1"></i> Your attached tabs, custom tunings, and collections will remain completely intact.
+                  <i class="bi-shield-check text-success me-1"></i> Your attached tabs, custom tab assignments, and collections will remain completely intact.
                 </div>
               </div>
             </div>
@@ -819,7 +819,7 @@ async function renderModal(modal, activeTab = 'backup') {
             <div class="d-flex align-items-center justify-content-between mb-2">
               <span class="small fw-semibold text-white d-flex align-items-center gap-2 min-w-0 me-2" id="reloadCurrentActionLabel">
                 <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></span>
-                <span class="text-truncate">Connecting to MusicBrainz...</span>
+                <span class="text-truncate">Connecting to MusicBrainz &amp; analyzing tab files...</span>
               </span>
               <span class="small text-white-50 font-monospace flex-shrink-0" id="reloadPercentLabel">0%</span>
             </div>
@@ -828,7 +828,7 @@ async function renderModal(modal, activeTab = 'backup') {
             </div>
             <div class="d-flex justify-content-between text-white-50 small" style="font-size: 0.72rem;">
               <span id="reloadItemsCountLabel">0 / 0</span>
-              <span id="reloadStatsLiveLabel">Durations added: 0 • Artwork: 0</span>
+              <span id="reloadStatsLiveLabel">Durations: 0 • Artwork: 0 • Tunings: 0</span>
             </div>
           </div>
 
@@ -1252,10 +1252,11 @@ function attachModalHandlers(modal) {
                         `;
                     }
                     if (reloadItemsCountLabel) {
-                        reloadItemsCountLabel.textContent = `Processed ${current} of ${total} (${phase === 'album' ? 'album' : 'song'})`;
+                        const phaseLabel = phase === 'album' ? 'album' : (phase === 'tuning' ? 'tab file' : 'song');
+                        reloadItemsCountLabel.textContent = `Processed ${current} of ${total} (${phaseLabel})`;
                     }
                     if (reloadStatsLiveLabel) {
-                        reloadStatsLiveLabel.textContent = `Durations added: ${curStats.addedDurations} • Artwork: ${curStats.addedCovers}`;
+                        reloadStatsLiveLabel.textContent = `Durations: ${curStats.addedDurations} • Artwork: ${curStats.addedCovers} • Tunings: ${curStats.updatedTunings || 0}`;
                     }
                 },
                 signal: activeReloadAbortController.signal,
@@ -1277,10 +1278,10 @@ function attachModalHandlers(modal) {
                     const details = [];
                     if (stats.updatedAlbums > 0) details.push(`${stats.updatedAlbums} albums refreshed`);
                     if (stats.updatedSongs > 0) details.push(`${stats.updatedSongs} songs updated`);
-                    if (stats.updatedTunings > 0) details.push(`${stats.updatedTunings} song tunings detected`);
-                    if (stats.addedDurations > 0) details.push(`${stats.addedDurations} track times added`);
-                    if (stats.addedCovers > 0) details.push(`${stats.addedCovers} covers added`);
-                    const summaryText = details.length > 0 ? details.join(', ') : 'All tracks were already up to date';
+                    if (stats.updatedTunings > 0) details.push(`${stats.updatedTunings} song tunings detected from tab files`);
+                    if (stats.addedDurations > 0) details.push(`${stats.addedDurations} track durations added`);
+                    if (stats.addedCovers > 0) details.push(`${stats.addedCovers} album covers added`);
+                    const summaryText = details.length > 0 ? details.join(', ') : 'All tracks and tab tunings are up to date';
 
                     reloadStatusAlert.innerHTML = `
                       <div class="d-flex align-items-center gap-2 mb-1">
