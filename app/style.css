@@ -3131,3 +3131,68 @@ body:not(.synth-playback-started) .at-highlight {
   border-color: var(--border-subtle) !important;
 }
 
+/* --------------------------------------------------------------------------
+   Open Tab File Modal & Provider Cards
+   -------------------------------------------------------------------------- */
+.open-file-modal-card {
+  max-width: 640px;
+}
+
+.open-file-benefits-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, var(--accent-primary-alpha) 100%), var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--accent-primary);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.open-file-benefits-card:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 6px 20px -4px var(--accent-glow);
+}
+
+.open-file-provider-item {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.open-file-provider-item:hover,
+.open-file-provider-item:focus-visible {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  box-shadow: 0 4px 16px -2px var(--accent-glow);
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.open-file-provider-item .provider-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.open-file-provider-item:hover .provider-icon-wrapper {
+  border-color: var(--accent-primary);
+  transform: scale(1.05);
+}
+
+.open-file-provider-item:hover .provider-action-trigger {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+  box-shadow: 0 0 12px var(--accent-glow);
+}
+
+.lib-open-file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+
+

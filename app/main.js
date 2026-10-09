@@ -192,8 +192,6 @@ mainContent.addEventListener('wheel', (e) => {
     }
 });
 
-// Elements
-const fileInput = document.getElementById('localFile');
 const debugMode = document.getElementById('debugMode');
 const condensePdfMode = document.getElementById('condensePdfMode');
 const firstBtn = document.getElementById('firstPage');
@@ -808,18 +806,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupKeyboardNavigation(getNavigationConfig);
     setupViewModeToggles(pageModeRadio, continuousModeRadio, getNavigationConfig);
     setupTapClickNavigation(output, getNavigationConfig);
-});
-
-// --- FILE LOADING ---
-fileInput.addEventListener('change', async e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    try {
-        await saveStoredFile(file, 'local');
-    } catch (err) {
-        console.warn('Could not persist file to store:', err);
-    }
-    await loadFile(file);
 });
 
 // --- LOAD PDF ---
