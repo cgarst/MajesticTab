@@ -1,4 +1,4 @@
-import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks } from './gpProcessor.js';
+import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks, getGpNotationMode, setGpNotationMode } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
@@ -652,4 +652,60 @@ export function populateGpTrackSelectionUI(api) {
 
     const currentRendered = (api.tracks || []).map(t => t.index);
     updateTrackSelectionUI(currentRendered);
+}
+
+/**
+ * Switch Guitar Pro notation mode (Tab Only vs Tab + Standard)
+ */
+export function applyGpNotationMode(mode) {
+    const safeMode = setGpNotationMode(mode);
+    const api = gpState.canvases[0]?.api;
+    const container = gpState.canvases[0]?.container;
+    const output = document.getElementById('output');
+
+    // Sync radio controls
+    syncGpNotationRadios(safeMode);
+
+    if (!api || !container) return;
+
+    api.settings.display.staveProfile = safeMode === 'scoreTab' ? 'Default' : 'Tab';
+    api.updateSettings();
+
+    const pageModeRadio = document.getElementById('pageModeRadio');
+    const isPageMode = pageModeRadio ? pageModeRadio.checked : true;
+
+    if (!isPageMode) {
+        api.render();
+        return;
+    }
+
+    // In Page mode: park container offscreen while AlphaTab re-renders
+    const offscreenHolder = document.createElement('div');
+    offscreenHolder.style.cssText = 'position:absolute;visibility:hidden;width:0;height:0;overflow:hidden;';
+    document.body.appendChild(offscreenHolder);
+    if (container.parentNode) container.parentNode.removeChild(container);
+    offscreenHolder.appendChild(container);
+
+    const renderToken = ++gpRenderToken;
+    const unsub = api.postRenderFinished.on(() => {
+        unsub();
+        if (offscreenHolder.parentNode) document.body.removeChild(offscreenHolder);
+        if (renderToken !== gpRenderToken) return;
+        gpState.lastLayoutDimensions = null;
+        gpState.pages = [];
+        gpState.currentPageIndex = Math.min(gpState.currentPageIndex, Math.max(0, gpState.pages.length - 1));
+        renderGPPageMode(output);
+    });
+
+    api.render();
+}
+
+/**
+ * Synchronize all Guitar Pro notation radio buttons
+ */
+export function syncGpNotationRadios(mode = getGpNotationMode()) {
+    const notationRadios = document.querySelectorAll('input[name="gpNotationRadio"], input[name="synthNotationRadio"]');
+    notationRadios.forEach(radio => {
+        radio.checked = radio.value === mode;
+    });
 }

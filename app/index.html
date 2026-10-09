@@ -185,6 +185,17 @@
       <div id="synthTrackList" class="d-flex flex-column gap-1"></div>
     </div>
 
+    <!-- Notation Style -->
+    <div class="mb-3">
+      <label class="form-label small mb-1 fw-semibold text-muted">Notation Style:</label>
+      <div class="hud-pill-group w-100" role="group" aria-label="Notation Style">
+        <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationTabOnly" value="tab" autocomplete="off" checked>
+        <label class="btn btn-sm" for="synthNotationTabOnly" style="flex: 1;"><i class="bi-file-earmark-music me-1"></i>Tab Only</label>
+        <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationScoreTab" value="scoreTab" autocomplete="off">
+        <label class="btn btn-sm" for="synthNotationScoreTab" style="flex: 1;"><i class="bi-music-note-list me-1"></i>Tab + Standard</label>
+      </div>
+    </div>
+
     <div class="mb-3">
       <div class="d-flex align-items-center justify-content-between mb-2">
         <label class="form-label small mb-0 fw-semibold text-muted" for="synthLoopSwitch">Loop Measures</label>
@@ -471,6 +482,17 @@
 
           <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultContinuous" value="continuous" autocomplete="off" checked>
           <label class="btn btn-sm w-50" for="gpDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Notation (Guitar Pro):</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="gpNotationRadio" id="gpNotationTabOnly" value="tab" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="gpNotationTabOnly"><i class="bi-file-earmark-music me-1"></i> Tab Only</label>
+
+          <input type="radio" class="btn-check" name="gpNotationRadio" id="gpNotationScoreTab" value="scoreTab" autocomplete="off">
+          <label class="btn btn-sm w-50" for="gpNotationScoreTab"><i class="bi-music-note-list me-1"></i> Tab + Standard</label>
         </div>
       </div>
 
