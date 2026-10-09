@@ -35,7 +35,8 @@ const APP_SETTINGS_KEYS = [
     'youtubeApiKey',
     'tab_downloader_sources',
     'gdrive_last_folder',
-    'gdrive_tabs_directory'
+    'gdrive_tabs_directory',
+    'majestictab_custom_tuning_names'
 ];
 
 /**
