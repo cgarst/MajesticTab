@@ -748,6 +748,7 @@ pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>)
 }
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
 pub fn tab_downloader_hide(_app: AppHandle, _state: State<'_, TabDownloaderState>) -> Result<(), String> {
     Ok(())
 }
