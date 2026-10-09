@@ -409,7 +409,14 @@ async function loadCurrentTrack(autoplay = false) {
             const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
             embedUrl.searchParams.set('autoplay', autoplayParam);
             embedUrl.searchParams.set('enablejsapi', '1');
-            embedUrl.searchParams.set('origin', window.location.origin);
+            const isStandardWebOrigin = typeof window !== 'undefined' &&
+                (window.location.protocol === 'http:' || window.location.protocol === 'https:') &&
+                !window.location.hostname.includes('localhost') &&
+                !window.location.hostname.includes('127.0.0.1') &&
+                !window.__TAURI__;
+            if (isStandardWebOrigin && window.location.origin && window.location.origin !== 'null') {
+                embedUrl.searchParams.set('origin', window.location.origin);
+            }
             if (playerState.currentTime > 0) {
                 embedUrl.searchParams.set('start', String(Math.floor(playerState.currentTime)));
             }
