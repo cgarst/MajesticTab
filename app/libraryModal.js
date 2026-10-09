@@ -888,7 +888,7 @@ async function renderLibraryBrowseView(container) {
                   const isCustomArtist = Boolean(artist.isCustom);
                   const albumCount = artist.albums.length;
                   const songCount = (artist.songs ? artist.songs.length : 0) + artist.albums.reduce((acc, a) => acc + a.songs.length, 0);
-                  const firstCover = artist.albums.find(a => a.coverUrl)?.coverUrl || (isCustomArtist ? null : getPlaceholderCoverSvg(artist.name));
+                  const collageHtml = renderArtistCollageHtml(artist);
                   const albumNames = artist.albums.map(a => a.name || a.title || '');
                   const songNames = [
                       ...(artist.songs || []).map(s => s.title || s.name || ''),
@@ -899,10 +899,7 @@ async function renderLibraryBrowseView(container) {
                   return `
                   <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" data-search-terms="${escapeHtml(artistSearchTerms)}">
                     <div class="d-flex align-items-center gap-3 min-w-0">
-                      ${firstCover
-                          ? `<img src="${firstCover}" class="artist-thumbnail flex-shrink-0" alt="${escapeHtml(artist.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(artist.name)}'">`
-                          : `<div class="artist-thumbnail flex-shrink-0 d-flex align-items-center justify-content-center" style="background: rgba(255, 255, 255, 0.05); border-radius: 8px;"><i class="bi-music-note-list text-info fs-4"></i></div>`
-                      }
+                      ${collageHtml}
                       <div class="min-w-0 flex-grow-1">
                         <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
                         <div class="small text-muted text-truncate">${albumCount > 0 ? `${albumCount} ${albumCount === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')} • ` : ''}${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
@@ -1274,6 +1271,49 @@ function setupLibraryFilter(container) {
         applyFilter();
         filterInput.focus();
     });
+}
+
+function renderArtistCollageHtml(artist) {
+    const isCustom = Boolean(artist.isCustom);
+    const covers = Array.from(new Set(
+        (artist.albums || []).map(a => a.coverUrl).filter(Boolean)
+    )).slice(0, 4);
+
+    if (covers.length === 0) {
+        if (isCustom) {
+            return `<div class="artist-thumbnail artist-thumbnail-empty flex-shrink-0 d-flex align-items-center justify-content-center" style="background: rgba(255, 255, 255, 0.05); border-radius: 50%;"><i class="bi-music-note-list text-info fs-4"></i></div>`;
+        }
+        return `<img src="${getPlaceholderCoverSvg(artist.name)}" class="artist-thumbnail flex-shrink-0" alt="${escapeHtml(artist.name)}">`;
+    }
+
+    if (covers.length === 1) {
+        return `<div class="artist-thumbnail artist-thumbnail-collage artist-collage-1 flex-shrink-0"><img src="${covers[0]}" class="artist-collage-img" alt="${escapeHtml(artist.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(artist.name)}'"></div>`;
+    }
+
+    if (covers.length === 2) {
+        return `
+        <div class="artist-thumbnail artist-thumbnail-collage artist-collage-2 flex-shrink-0" title="${escapeHtml(artist.name)}">
+          <img src="${covers[0]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+          <img src="${covers[1]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+        </div>`;
+    }
+
+    if (covers.length === 3) {
+        return `
+        <div class="artist-thumbnail artist-thumbnail-collage artist-collage-3 flex-shrink-0" title="${escapeHtml(artist.name)}">
+          <img src="${covers[0]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+          <img src="${covers[1]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+          <img src="${covers[2]}" class="artist-collage-img artist-collage-span-2" alt="" onerror="this.style.display='none'">
+        </div>`;
+    }
+
+    return `
+    <div class="artist-thumbnail artist-thumbnail-collage artist-collage-4 flex-shrink-0" title="${escapeHtml(artist.name)}">
+      <img src="${covers[0]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+      <img src="${covers[1]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+      <img src="${covers[2]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+      <img src="${covers[3]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+    </div>`;
 }
 
 function renderSongRow(song, options = {}) {
