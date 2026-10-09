@@ -131,9 +131,11 @@ export function collectExtensions() {
 /**
  * Create a complete single-file backup bundle Blob without holding all binary data in memory simultaneously.
  * @param {function(current: number, total: number): void} [onProgress]
- * @returns {Promise<Blob>} Complete backup bundle as Blob
+ * @param {object} [options]
+ * @param {boolean} [options.compress=true] - Whether to compress with Gzip
+ * @returns {Promise<Blob>} Complete backup bundle as Blob (compressed by default)
  */
-export async function createBackupBlob(onProgress) {
+export async function createBackupBlob(onProgress, { compress = true } = {}) {
     const [fileMetas, libraryData] = await Promise.all([
         getAllStoredFiles(),
         getAllLibraryData()
@@ -200,7 +202,43 @@ export async function createBackupBlob(onProgress) {
     }
 
     blobParts.push(']}}');
-    return new Blob(blobParts, { type: 'application/json' });
+    const jsonBlob = new Blob(blobParts, { type: 'application/json' });
+    if (compress && typeof CompressionStream !== 'undefined') {
+        try {
+            const stream = jsonBlob.stream().pipeThrough(new CompressionStream('gzip'));
+            return await new Response(stream).blob();
+        } catch (e) {
+            console.warn('[Backup] CompressionStream failed, using uncompressed JSON:', e);
+            return jsonBlob;
+        }
+    }
+    return jsonBlob;
+}
+
+/**
+ * Read backup file content as text, automatically decompressing if Gzip compressed.
+ * @param {Blob|File} file - Backup file
+ * @returns {Promise<string>} Uncompressed JSON text
+ */
+export async function readBackupFileText(file) {
+    if (!file) throw new Error('No file provided');
+
+    // Check first 2 bytes for GZIP magic number: 0x1F, 0x8B
+    try {
+        const slice = file.slice(0, 2);
+        const headerBuffer = await slice.arrayBuffer();
+        const bytes = new Uint8Array(headerBuffer);
+        const isGzip = bytes.length >= 2 && bytes[0] === 0x1F && bytes[1] === 0x8B;
+
+        if (isGzip && typeof DecompressionStream !== 'undefined') {
+            const stream = file.stream().pipeThrough(new DecompressionStream('gzip'));
+            const response = new Response(stream);
+            return await response.text();
+        }
+    } catch (e) {
+        console.warn('[Restore] DecompressionStream attempt failed, falling back to raw text:', e);
+    }
+    return await file.text();
 }
 
 /**
@@ -653,7 +691,7 @@ export function closeBackupModal() {
 async function renderModal(modal, activeTab = 'backup') {
     const providers = getSaveProviders();
     const today = new Date().toISOString().split('T')[0];
-    const defaultFilename = `MajesticTab-backup-${today}.json`;
+    const defaultFilename = `MajesticTab-backup-${today}.mtbackup`;
 
     // Live counts for backup / reload / delete summary
     const [storedFiles, libraryData] = await Promise.all([
@@ -785,9 +823,9 @@ async function renderModal(modal, activeTab = 'backup') {
         <div id="restoreTabContent" style="display: ${activeTab === 'restore' ? 'block' : 'none'};">
           <!-- Step 1: File Picker / Dropzone -->
           <div class="backup-dropzone p-4 rounded-3 text-center mb-3" id="restoreDropzone">
-            <input type="file" id="restoreFileInput" accept=".json,.majestictab,application/json" class="d-none">
+            <input type="file" id="restoreFileInput" accept=".mtbackup,.json.gz,.json,.majestictab,application/gzip,application/json,application/x-gzip" class="d-none">
             <i class="bi-file-earmark-arrow-up text-info fs-1 mb-2 d-block"></i>
-            <div class="fw-bold text-white small mb-1">Select or drop a MajesticTab backup file (.json)</div>
+            <div class="fw-bold text-white small mb-1">Select or drop a MajesticTab backup file (.mtbackup, .json.gz, .json)</div>
             <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Single-file backup bundle exported from MajesticTab or stored in Google Drive</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreBrowseBtn">
@@ -1092,9 +1130,9 @@ function attachModalHandlers(modal) {
         const selectedProviderEl = modal.querySelector('input[name="backupTargetProvider"]:checked');
         const providerId = selectedProviderEl?.value || 'local';
         let filename = (backupFilenameInput?.value || '').trim();
-        if (!filename) filename = `MajesticTab-backup-${new Date().toISOString().split('T')[0]}.json`;
-        if (!filename.endsWith('.json') && !filename.endsWith('.majestictab')) {
-            filename += '.json';
+        if (!filename) filename = `MajesticTab-backup-${new Date().toISOString().split('T')[0]}.mtbackup`;
+        if (!filename.includes('.')) {
+            filename += '.mtbackup';
         }
 
         backupExecuteBtn.disabled = true;
@@ -1179,7 +1217,7 @@ function attachModalHandlers(modal) {
 
     const handleSelectedBackupFile = async (file, source = 'Local Device') => {
         try {
-            const text = await file.text();
+            const text = await readBackupFileText(file);
             const inspection = inspectBackupFile(text);
             if (!inspection.valid) {
                 restoreStatusAlert.style.display = 'block';
