@@ -235,9 +235,19 @@ function storeGoogleAuth(accessToken, expiresIn) {
 }
 
 let activeDriveTargetSongId = null;
+let activeDriveTargetAlbum = null;
 
 export function openDriveModal(options = {}) {
     activeDriveTargetSongId = options.songId || options.targetSong?.id || null;
+    if (options.isAlbumTab && options.albumTitle) {
+        activeDriveTargetAlbum = {
+            collectionId: options.collectionId,
+            artistName: options.artistName,
+            albumTitle: options.albumTitle
+        };
+    } else {
+        activeDriveTargetAlbum = null;
+    }
     const modal = document.getElementById('driveModal');
     if (!modal) return;
     modal.style.display = 'flex';
@@ -252,6 +262,7 @@ export function openDriveModal(options = {}) {
 
 export function closeDriveModal() {
     activeDriveTargetSongId = null;
+    activeDriveTargetAlbum = null;
     const modal = document.getElementById('driveModal');
     if (!modal) return;
     modal.style.display = 'none';
@@ -536,23 +547,55 @@ function renderFileList(files) {
                     const blob = await res.blob();
                     const fileObj = new File([blob], fileName, { type: mimeType || 'application/octet-stream' });
                     const targetSongId = activeDriveTargetSongId;
-                    activeDriveTargetSongId = null;
+                    const targetAlbum = activeDriveTargetAlbum;
 
                     if (targetSongId) {
                         try {
+                            const { detectFileMetadata } = await import('./utils/tuningUtils.js');
+                            const meta = await detectFileMetadata(fileObj, fileObj.name);
                             const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
                             const { addTabOptionToSong } = await import('./libraryStore.js');
-                            const { inferTuningFromTextOrName } = await import('./utils/tuningUtils.js');
                             await addTabOptionToSong(targetSongId, {
                                 name: fileObj.name,
                                 providerId: 'google-drive',
                                 relativePath: fileObj.name,
                                 fileStoreId: stored.id,
-                                tuning: inferTuningFromTextOrName(fileObj.name),
+                                tuning: meta.primaryTuning,
+                                tunings: meta.tunings,
+                                stringCount: meta.stringCount,
                                 fileType: fileObj.name.split('.').pop().toLowerCase()
                             });
+                            closeDriveModal();
+                            showToast(`Added "${fileObj.name}" to song`, 'success');
+                            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                            return;
                         } catch (err) {
                             console.warn('Could not persist Drive file to store:', err);
+                        }
+                    }
+
+                    if (targetAlbum?.albumTitle) {
+                        try {
+                            const { detectFileMetadata } = await import('./utils/tuningUtils.js');
+                            const meta = await detectFileMetadata(fileObj, fileObj.name);
+                            const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
+                            const { addTabOptionToAlbum } = await import('./libraryStore.js');
+                            await addTabOptionToAlbum(targetAlbum.collectionId, targetAlbum.artistName, targetAlbum.albumTitle, {
+                                name: fileObj.name,
+                                providerId: 'google-drive',
+                                relativePath: fileObj.name,
+                                fileStoreId: stored.id,
+                                tuning: meta.primaryTuning,
+                                tunings: meta.tunings,
+                                stringCount: meta.stringCount,
+                                fileType: fileObj.name.split('.').pop().toLowerCase()
+                            });
+                            closeDriveModal();
+                            showToast(`Added "${fileObj.name}" to album`, 'success');
+                            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                            return;
+                        } catch (err) {
+                            console.warn('Could not persist Drive file to album:', err);
                         }
                     }
 

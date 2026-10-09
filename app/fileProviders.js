@@ -5,8 +5,9 @@ import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
 import { openDriveModal, redirectToGoogleAuth, isTokenValid } from './googleDrive.js';
 import { openTabDownloader } from './tabDownloader.js';
-import { addTabOptionToSong, mapOpenFileToSong } from './libraryStore.js';
-import { inferTuningFromTextOrName } from './utils/tuningUtils.js';
+import { addTabOptionToSong, addTabOptionToAlbum, mapOpenFileToSong } from './libraryStore.js';
+import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
+import { showToast } from './utils/toast.js';
 
 const providers = new Map();
 
@@ -137,21 +138,54 @@ export const LocalFileProvider = {
             input.remove();
             if (file) {
                 const targetId = options.songId || options.targetSong?.id;
+                const isAlbumTab = Boolean(options.isAlbumTab && options.albumTitle);
+
                 if (targetId) {
                     try {
+                        const meta = await detectFileMetadata(file, file.name);
                         const stored = await saveStoredFile(file, 'local');
                         await addTabOptionToSong(targetId, {
                             name: file.name,
                             providerId: 'local',
                             relativePath: file.name,
                             fileStoreId: stored.id,
-                            tuning: inferTuningFromTextOrName(file.name),
+                            tuning: meta.primaryTuning,
+                            tunings: meta.tunings,
+                            stringCount: meta.stringCount,
                             fileType: file.name.split('.').pop().toLowerCase()
                         });
+                        showToast(`Added "${file.name}" to song`, 'success');
+                        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
                     } catch (err) {
                         console.warn('Could not persist file to store:', err);
+                        showToast('Error attaching tab file', 'error');
                     }
+                    return; // Do not auto-open when adding a tab to a song
                 }
+
+                if (isAlbumTab) {
+                    try {
+                        const meta = await detectFileMetadata(file, file.name);
+                        const stored = await saveStoredFile(file, 'local');
+                        await addTabOptionToAlbum(options.collectionId, options.artistName, options.albumTitle, {
+                            name: file.name,
+                            providerId: 'local',
+                            relativePath: file.name,
+                            fileStoreId: stored.id,
+                            tuning: meta.primaryTuning,
+                            tunings: meta.tunings,
+                            stringCount: meta.stringCount,
+                            fileType: file.name.split('.').pop().toLowerCase()
+                        });
+                        showToast(`Added "${file.name}" to album`, 'success');
+                        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                    } catch (err) {
+                        console.warn('Could not persist album tab to store:', err);
+                        showToast('Error attaching album tab file', 'error');
+                    }
+                    return; // Do not auto-open when adding a tab to an album
+                }
+
                 await loadFile(file);
             }
         });
