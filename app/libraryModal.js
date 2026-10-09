@@ -528,8 +528,7 @@ async function renderLibraryBrowseView(container) {
                 const sampleArtists = Array.from(new Set(group.songs.map(s => s.artist).filter(Boolean))).slice(0, 3).join(', ');
                 return `
                 <div class="library-card tuning-card p-3" data-tuning-name="${escapeHtml(group.tuning)}">
-                  <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-                    <span class="badge badge-tuning font-monospace" style="font-size: 0.78rem;">${escapeHtml(group.tuning)}</span>
+                  <div class="d-flex align-items-center justify-content-end gap-2 mb-2">
                     <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.68rem;">${group.stringCount || 6}-String</span>
                   </div>
                   <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(group.tuning)}">${escapeHtml(group.tuning)}</h6>
