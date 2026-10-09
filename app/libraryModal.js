@@ -16,6 +16,7 @@ import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { openOpenFileModal } from './openFileModal.js';
 import { extractScoreTunings, inferTuningFromTextOrName } from './utils/tuningUtils.js';
+import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -208,13 +209,21 @@ export function closeLibraryModal(force = false) {
         const libraryNav = document.getElementById('libraryNavButtons');
         const modeButtons = document.getElementById('modeButtons');
         const libraryRight = document.getElementById('libraryRightControls');
+        const libraryPill = document.getElementById('libraryPill');
+        const navButtons = document.getElementById('navButtons');
+
         if (libraryNav) libraryNav.style.display = 'none';
-        if (modeButtons) modeButtons.style.display = 'flex';
+        if (modeButtons) modeButtons.style.display = currentOpen ? 'flex' : 'none';
         if (libraryRight) libraryRight.style.display = 'none';
         if (libraryPill) {
             libraryPill.style.display = '';
             document.getElementById('libraryToggleBtn')?.classList.remove('active');
         }
+        if (navButtons && currentOpen) {
+            navButtons.style.display = 'flex';
+        }
+
+        updateGlobalAudioControls();
     }
 }
 

@@ -6,7 +6,7 @@ import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPP
 import { setGpDisplayScale, applySavedGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
-import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton } from './utils/navigationUtils.js';
+import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
@@ -930,6 +930,7 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     // Show navigation controls for all supported file types
     navButtons.style.display = 'flex';
     modeButtons.style.display = 'flex';
+    updateGlobalAudioControls();
     
     // Make output focusable and focus it for keyboard navigation
     output.tabIndex = 0;
