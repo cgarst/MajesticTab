@@ -10,7 +10,8 @@ import {
 } from './libraryStore.js';
 import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
-    getCoverArtUrl, getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium
+    getCoverArtUrl, getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium,
+    hydrateCachedImages
 } from './musicbrainz.js';
 import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
@@ -1073,6 +1074,9 @@ async function renderLibraryBrowseView(container) {
 
     // Song actions & album tab actions
     setupSongRowActions(container);
+
+    // Hydrate cached images
+    hydrateCachedImages(container);
 }
 
 function bindLibraryToolbarEvents(container) {
@@ -2965,6 +2969,8 @@ async function renderRecentsView(container) {
             }
         });
     });
+
+    hydrateCachedImages(container);
 }
 
 // -----------------------------------------------------------------------------
