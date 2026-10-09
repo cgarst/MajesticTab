@@ -17,6 +17,7 @@ modules:
       - install -Dm755 majestictab /app/bin/majestictab.bin
       - install -Dm755 majestictab-wrapper.sh /app/bin/majestictab
       - install -Dm644 net.zathu.majestictab.desktop /app/share/applications/net.zathu.majestictab.desktop
+      - install -Dm644 net.zathu.majestictab.metainfo.xml /app/share/metainfo/net.zathu.majestictab.metainfo.xml
       - install -Dm644 net.zathu.majestictab-16.png /app/share/icons/hicolor/16x16/apps/net.zathu.majestictab.png
       - install -Dm644 net.zathu.majestictab-24.png /app/share/icons/hicolor/24x24/apps/net.zathu.majestictab.png
       - install -Dm644 net.zathu.majestictab-32.png /app/share/icons/hicolor/32x32/apps/net.zathu.majestictab.png
@@ -35,6 +36,8 @@ modules:
         dest-filename: majestictab-wrapper.sh
       - type: file
         path: net.zathu.majestictab.desktop
+      - type: file
+        path: net.zathu.majestictab.metainfo.xml
       - type: file
         path: ../src-tauri/icons/linux/16x16.png
         dest-filename: net.zathu.majestictab-16.png
