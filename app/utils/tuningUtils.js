@@ -81,15 +81,12 @@ export function isBassTuning(tuningInput) {
         return /\bbass\b/i.test(str);
     }
 
-    if (info.stringCount === 4 || info.stringCount === 5) {
-        return true;
-    }
     if (/\bbass\b/i.test(info.displayName || '') ||
         /\bbass\b/i.test(info.defaultName || '') ||
         /\bbass\b/i.test(info.notes || '')) {
         return true;
     }
-    if (info.key && (info.key.toLowerCase().includes('bass') || info.key === 'EADG' || info.key === 'DADG' || info.key === 'BEADG' || info.key === 'BEADGC')) {
+    if (info.key && (info.key.toLowerCase().includes('bass') || info.key === 'EADG' || info.key === 'DADG' || info.key === 'BEADG' || info.key === 'BEADGC' || info.key === 'AEADG' || info.key === 'EbAbDbGb' || info.key === 'DGCF')) {
         return true;
     }
     return false;
@@ -210,13 +207,23 @@ export function getTuningInfo(tuningInput) {
     }
 
     // Extract note tokens (A-G with optional sharp/flat)
-    const notePattern = /[A-G][b#]?/gi;
-    const matches = noteSource.match(notePattern);
-    if (matches && matches.length >= 3) {
-        const noteArr = matches.map(n => {
-            const clean = n.replace(/[^a-zA-Z#b]/g, '');
+    let noteTokens = [];
+    if (/\s+/.test(noteSource.trim())) {
+        const tokens = noteSource.trim().split(/\s+/);
+        noteTokens = tokens.map(t => {
+            const m = t.match(/^[A-G](?:#+|b+|♭)?/i);
+            return m ? m[0] : null;
+        }).filter(Boolean);
+    } else {
+        const matches = noteSource.match(/[A-G](?:#+|b+|♭)?/g);
+        noteTokens = matches || [];
+    }
+
+    if (noteTokens.length >= 3) {
+        const noteArr = noteTokens.map(n => {
+            const clean = n.replace(/[^a-zA-Z#b♭]/g, '');
             if (clean.length === 1) return clean.toUpperCase();
-            return clean.charAt(0).toUpperCase() + clean.slice(1).toLowerCase();
+            return clean.charAt(0).toUpperCase() + clean.slice(1);
         });
         const key = noteArr.join('');
         const notes = noteArr.join(' ');
@@ -432,7 +439,7 @@ export function getTuningCategory(tuningInputOrGroup, instrumentMode = getInstru
 
     const isBass = (defaultName && defaultName.toLowerCase().includes('bass')) ||
                    (name && name.toLowerCase().includes('bass')) ||
-                   stringCount === 4 || stringCount === 5 ||
+                   (instrumentMode === 'bass') ||
                    isBassTuning(tuningInputOrGroup);
 
     if (stringCount === 6 && isBass) {
