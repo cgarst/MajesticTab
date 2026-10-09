@@ -8,6 +8,8 @@ use tauri::{
 };
 
 const PLAYER_LABEL: &str = "youtubeplayer";
+const SAFARI_USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15";
+
 const PLAYER_HTML: &str = r##"<!doctype html>
 <html lang="en">
 <head>
@@ -19,7 +21,7 @@ const PLAYER_HTML: &str = r##"<!doctype html>
     </style>
 </head>
 <body>
-    <iframe id="player" title="YouTube player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+    <iframe id="player" title="YouTube player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
     <script>
         const player = document.getElementById('player');
         let playerReady = false;
@@ -80,14 +82,70 @@ pub struct PlayerState {
     video_id: Mutex<Option<String>>,
 }
 
+pub fn open_youtube_auth_window(app: &AppHandle, url: tauri::Url) {
+    let label = "youtube-auth";
+    if let Some(existing) = app.get_webview_window(label) {
+        let _ = existing.navigate(url);
+        let _ = existing.show();
+        let _ = existing.set_focus();
+    } else {
+        let app_handle = app.clone();
+        if let Ok(window) = tauri::WebviewWindowBuilder::new(
+            app,
+            label,
+            tauri::WebviewUrl::External(url),
+        )
+        .title("Sign In - YouTube")
+        .inner_size(650.0, 780.0)
+        .center()
+        .user_agent(SAFARI_USER_AGENT)
+        .build()
+        {
+            window.on_window_event(move |event| {
+                if let tauri::WindowEvent::CloseRequested { .. } = event {
+                    if let Some(player) = app_handle.get_webview(PLAYER_LABEL) {
+                        let _ = player.eval("if (player && player.src) { player.src = player.src; }");
+                    }
+                }
+            });
+            let _ = window.show();
+            let _ = window.set_focus();
+        }
+    }
+}
+
 pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     app.manage(PlayerState::default());
     let main = app
         .get_webview_window("main")
         .ok_or(tauri::Error::WebviewNotFound)?;
+
+    let app_handle_new_win = app.handle().clone();
+    let app_handle_nav = app.handle().clone();
+
     let player = main.as_ref().window().add_child(
         WebviewBuilder::new(PLAYER_LABEL, WebviewUrl::App("index.html".into()))
-            .initialization_script(PLAYER_BRIDGE),
+            .initialization_script(PLAYER_BRIDGE)
+            .user_agent(SAFARI_USER_AGENT)
+            .on_new_window(move |url, _features| {
+                let app = app_handle_new_win.clone();
+                let _ = tauri::async_runtime::spawn(async move {
+                    open_youtube_auth_window(&app, url);
+                });
+                tauri::webview::NewWindowResponse::Deny
+            })
+            .on_navigation(move |url| {
+                let host = url.host_str().unwrap_or_default();
+                if host == "net.zathu.majestictab" || host.is_empty() {
+                    return true;
+                }
+                let app = app_handle_nav.clone();
+                let target_url = url.clone();
+                let _ = tauri::async_runtime::spawn(async move {
+                    open_youtube_auth_window(&app, target_url);
+                });
+                false
+            }),
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(1.0, 1.0),
     )?;
@@ -98,6 +156,8 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
             layer.setCornerRadius(11.0);
             layer.setMasksToBounds(true);
         }
+        let ua = NSString::from_str(SAFARI_USER_AGENT);
+        webview.setCustomUserAgent(Some(&ua));
         let html = NSString::from_str(PLAYER_HTML);
         let base_url = NSString::from_str("https://net.zathu.majestictab");
         if let Some(base_url) = NSURL::URLWithString(&base_url) {
@@ -176,7 +236,7 @@ pub fn youtube_player_update(
         .map_err(|_| "Native YouTube player state is unavailable".to_string())?;
     if current_video.as_deref() != Some(video_id.as_str()) {
         let mut url = tauri::webview::Url::parse(&format!(
-            "https://www.youtube-nocookie.com/embed/{video_id}"
+            "https://www.youtube.com/embed/{video_id}"
         ))
         .map_err(|error| error.to_string())?;
         url.query_pairs_mut()

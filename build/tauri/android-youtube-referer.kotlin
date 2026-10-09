@@ -33,7 +33,7 @@
         val uri = request.url
         val host = uri.host?.lowercase() ?: return null
         if (request.method != "GET" ||
-            (host != "youtube-nocookie.com" && host != "www.youtube-nocookie.com") ||
+            (host != "youtube.com" && host != "www.youtube.com" && host != "youtube-nocookie.com" && host != "www.youtube-nocookie.com") ||
             !uri.path.orEmpty().startsWith("/embed/")
         ) {
             return null
