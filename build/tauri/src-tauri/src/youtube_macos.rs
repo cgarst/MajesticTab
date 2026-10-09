@@ -173,8 +173,9 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                     let _ = tauri::async_runtime::spawn(async move {
                         open_youtube_auth_window(&app, target_url);
                     });
+                    return false;
                 }
-                false
+                true
             }),
         LogicalPosition::new(0.0, 0.0),
         LogicalSize::new(1.0, 1.0),
