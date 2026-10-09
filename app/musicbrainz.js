@@ -5,10 +5,81 @@ const MB_BASE = 'https://musicbrainz.org/ws/2';
 const USER_AGENT = 'MajesticTab/1.0.0 (https://github.com/cgarst/MajesticTab; admin@localhost)';
 const CACHE_PREFIX = 'mb_cache_';
 
-// Polite rate limiting (1 request every 1.1s)
+// Polite rate limiting (1 request every 1.15s with exponential backoff on rate limits)
+const MIN_REQUEST_INTERVAL = 1150;
+const MAX_RETRIES = 4;
+
 let lastRequestTime = 0;
 const requestQueue = [];
 let isProcessingQueue = false;
+const inFlightRequests = new Map();
+
+/**
+ * Execute a single HTTP request to MusicBrainz with automatic exponential backoff retry.
+ */
+async function executeWithRetry(url, maxRetries = MAX_RETRIES) {
+    let attempt = 0;
+    let delay = 1500;
+
+    while (attempt <= maxRetries) {
+        // Enforce minimum rate limiting interval before each request
+        const now = Date.now();
+        const elapsed = now - lastRequestTime;
+        if (elapsed < MIN_REQUEST_INTERVAL) {
+            await new Promise(r => setTimeout(r, MIN_REQUEST_INTERVAL - elapsed));
+        }
+        lastRequestTime = Date.now();
+
+        try {
+            const res = await fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'User-Agent': USER_AGENT
+                }
+            });
+            lastRequestTime = Date.now();
+
+            if (res.ok) {
+                return await res.json();
+            }
+
+            const status = res.status;
+            // Retryable HTTP statuses (429 Rate Limit, 503 Unavailable, 502 Bad Gateway, 504 Gateway Timeout, 500 Server Error)
+            const isRetryable = status === 429 || status === 503 || status === 502 || status === 504 || status === 500;
+
+            if (isRetryable && attempt < maxRetries) {
+                attempt++;
+                // Check Retry-After header if provided
+                const retryAfterHeader = res.headers?.get ? res.headers.get('Retry-After') : null;
+                let waitTime = delay + Math.floor(Math.random() * 500); // add jitter
+                if (retryAfterHeader) {
+                    const parsedSeconds = parseInt(retryAfterHeader, 10);
+                    if (!isNaN(parsedSeconds) && parsedSeconds > 0) {
+                        waitTime = Math.max(parsedSeconds * 1000, waitTime);
+                    }
+                }
+                console.warn(`[MusicBrainz] HTTP ${status} for ${url}. Retrying attempt ${attempt}/${maxRetries} in ${waitTime}ms...`);
+                await new Promise(r => setTimeout(r, waitTime));
+                delay *= 2; // exponential backoff (1.5s -> 3s -> 6s -> 12s)
+                continue;
+            }
+
+            throw new Error(`MusicBrainz HTTP ${status}`);
+        } catch (err) {
+            lastRequestTime = Date.now();
+            const isNetworkError = !err.message?.startsWith('MusicBrainz HTTP');
+            if (isNetworkError && attempt < maxRetries) {
+                attempt++;
+                const waitTime = delay + Math.floor(Math.random() * 500);
+                console.warn(`[MusicBrainz] Network error (${err.message}). Retrying attempt ${attempt}/${maxRetries} in ${waitTime}ms...`);
+                await new Promise(r => setTimeout(r, waitTime));
+                delay *= 2;
+                continue;
+            }
+            throw err;
+        }
+    }
+}
 
 async function processQueue() {
     if (isProcessingQueue || requestQueue.length === 0) return;
@@ -16,39 +87,9 @@ async function processQueue() {
 
     while (requestQueue.length > 0) {
         const item = requestQueue.shift();
-        const now = Date.now();
-        const elapsed = now - lastRequestTime;
-        if (elapsed < 1100) {
-            await new Promise(r => setTimeout(r, 1100 - elapsed));
-        }
-        lastRequestTime = Date.now();
-
         try {
-            const res = await fetch(item.url, {
-                headers: {
-                    'Accept': 'application/json',
-                    'User-Agent': USER_AGENT
-                }
-            });
-
-            if (res.status === 429 || res.status === 503) {
-                // Rate limited, wait 2s and retry
-                await new Promise(r => setTimeout(r, 2000));
-                const retryRes = await fetch(item.url, {
-                    headers: { 'Accept': 'application/json', 'User-Agent': USER_AGENT }
-                });
-                if (!retryRes.ok) {
-                    item.reject(new Error(`MusicBrainz HTTP ${retryRes.status}`));
-                } else {
-                    const data = await retryRes.json();
-                    item.resolve(data);
-                }
-            } else if (!res.ok) {
-                item.reject(new Error(`MusicBrainz HTTP ${res.status}`));
-            } else {
-                const data = await res.json();
-                item.resolve(data);
-            }
+            const data = await executeWithRetry(item.url);
+            item.resolve(data);
         } catch (err) {
             item.reject(err);
         }
@@ -57,7 +98,7 @@ async function processQueue() {
     isProcessingQueue = false;
 }
 
-function fetchMusicBrainz(url) {
+export function fetchMusicBrainz(url) {
     // Check in-memory/session cache
     try {
         const cached = sessionStorage.getItem(CACHE_PREFIX + url);
@@ -66,19 +107,41 @@ function fetchMusicBrainz(url) {
         }
     } catch {}
 
-    return new Promise((resolve, reject) => {
+    // Check if there is already an in-flight request for this exact URL
+    if (inFlightRequests.has(url)) {
+        return inFlightRequests.get(url);
+    }
+
+    const promise = new Promise((resolve, reject) => {
         requestQueue.push({
             url,
             resolve: (data) => {
+                inFlightRequests.delete(url);
                 try {
                     sessionStorage.setItem(CACHE_PREFIX + url, JSON.stringify(data));
-                } catch {}
+                } catch {
+                    // If sessionStorage is full, prune old mb_cache keys
+                    try {
+                        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                            const key = sessionStorage.key(i);
+                            if (key && key.startsWith(CACHE_PREFIX)) {
+                                sessionStorage.removeItem(key);
+                            }
+                        }
+                    } catch {}
+                }
                 resolve(data);
             },
-            reject
+            reject: (err) => {
+                inFlightRequests.delete(url);
+                reject(err);
+            }
         });
         processQueue();
     });
+
+    inFlightRequests.set(url, promise);
+    return promise;
 }
 
 /**

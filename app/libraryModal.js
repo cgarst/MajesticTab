@@ -1124,6 +1124,7 @@ async function handleAddAlbum(releaseGroupMbid, btn) {
     try {
         const albumData = await getAlbumTracks(releaseGroupMbid);
         if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
+            btn.className = 'btn btn-sm btn-theme-outline flex-grow-1';
             btn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> No tracks found';
             setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 3000);
             return;
@@ -1135,8 +1136,8 @@ async function handleAddAlbum(releaseGroupMbid, btn) {
     } catch (err) {
         console.error('Failed to add album:', err);
         btn.className = 'btn btn-sm btn-theme-danger flex-grow-1';
-        btn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> Failed';
-        setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 3000);
+        btn.innerHTML = '<i class="bi-arrow-clockwise me-1"></i> Retry Add';
+        btn.disabled = false;
     }
 }
 
