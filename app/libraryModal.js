@@ -2,10 +2,11 @@
 // Artwork-rich MusicBrainz-powered Tab Library Page aligned to themes.
 
 import {
-    getCollections, createCollection, deleteCollection, getLibraryHierarchy,
+    getCollections, createCollection, deleteCollection, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
-    deleteAlbumFromLibrary, getSongById, addTabOptionToSong, removeTabOptionFromSong, mapOpenFileToSong,
-    getRecents, clearRecents, addRecentOpened, DEFAULT_COLLECTION_ID
+    deleteAlbumFromLibrary, getSongById, addTabOptionToSong, removeTabOptionFromSong, setDefaultTabOption,
+    togglePinSong, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
+    mapOpenFileToSong, getRecents, clearRecents, deleteRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
 } from './libraryStore.js';
 import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
@@ -15,16 +16,19 @@ import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { openOpenFileModal } from './openFileModal.js';
-import { extractScoreTunings, inferTuningFromTextOrName } from './utils/tuningUtils.js';
+import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { showToast } from './utils/toast.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
+let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let selectedArtist = null;
 let selectedAlbum = null;
+let selectedTuning = null;
 let isAlbumEditMode = false;
-let searchType = 'song'; // 'song' (default), 'album', 'artist', 'musician'
+let isRecentsEditMode = false;
+let searchType = 'song'; // 'song' (default), 'album', 'artist', 'musician', 'custom'
 let currentSearchResults = [];
 let searchSubView = null; // null | { type: 'albums', artistMbid, artistName } | { type: 'bands', musicianMbid, musicianName } | { type: 'tracks', releaseGroupMbid, parentView }
 let viewHistory = [];
@@ -65,7 +69,10 @@ function initLibraryTopBar() {
  * Check if the library page can go back to a parent view
  */
 export function canGoBack() {
-    if (activeView === 'library' && (selectedArtist || selectedAlbum)) return true;
+    if (activeView === 'library') {
+        if (libraryBrowseMode === 'tunings' && selectedTuning) return true;
+        if (selectedArtist || selectedAlbum) return true;
+    }
     if (activeView === 'search' && (searchSubView || searchHistory.length > 0)) return true;
     return viewHistory.length > 0;
 }
@@ -76,6 +83,11 @@ export function canGoBack() {
 export async function handleBack() {
     const content = document.getElementById('libraryModalContent');
     if (activeView === 'library') {
+        if (libraryBrowseMode === 'tunings' && selectedTuning) {
+            selectedTuning = null;
+            await renderView();
+            return;
+        }
         if (selectedAlbum) {
             selectedAlbum = null;
             isAlbumEditMode = false;
@@ -91,8 +103,10 @@ export async function handleBack() {
         if (viewHistory.length > 0) {
             const prev = viewHistory.pop();
             activeView = prev.view || 'library';
+            libraryBrowseMode = prev.libraryBrowseMode || 'artists';
             selectedArtist = prev.selectedArtist || null;
             selectedAlbum = prev.selectedAlbum || null;
+            selectedTuning = prev.selectedTuning || null;
             isAlbumEditMode = false;
             searchSubView = prev.searchSubView || null;
             await renderLibraryModal();
@@ -347,8 +361,8 @@ async function renderView() {
     }
 }
 
-// -----------------------------------------------------------------------------
-// 1. LIBRARY BROWSER VIEW (Collection > Artist > Album > Song)
+// // -----------------------------------------------------------------------------
+// 1. LIBRARY BROWSER VIEW (Collection > Artist > Album > Song / Tunings)
 // -----------------------------------------------------------------------------
 async function renderLibraryBrowseView(container) {
     const collections = await getCollections();
@@ -366,15 +380,12 @@ async function renderLibraryBrowseView(container) {
         selectedAlbum = selectedArtist.albums.find(a => a.title === selectedAlbum.title || (selectedAlbum.albumMbid && a.albumMbid === selectedAlbum.albumMbid)) || null;
     }
 
-    // Top Library Body Toolbar (Collection Selector + Universal Search/Filter + Add Music)
+    // Top Library Body Toolbar (Collection Selector + Mode Selector + Universal Search/Filter + Add Music)
     const headerHtml = `
     <div class="library-page-container">
       <div class="library-body-header mb-3">
-        <!-- Collection Selector Group (Left) -->
-        <div class="lib-toolbar-left d-flex align-items-center gap-2">
-          <label for="libCollectionSelect" class="small text-muted mb-0 fw-semibold text-nowrap d-none d-lg-inline-flex align-items-center gap-2">
-            <i class="bi-folder2 text-info"></i> <span>Collection:</span>
-          </label>
+        <!-- Collection Selector & Browse Mode Group (Left) -->
+        <div class="lib-toolbar-left d-flex align-items-center gap-2 flex-wrap">
           <div class="collection-pill-group">
             <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
               ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
@@ -383,13 +394,27 @@ async function renderLibraryBrowseView(container) {
               <i class="bi-plus-lg"></i>
             </button>
           </div>
+
+          <!-- Browse Mode Toggle (Artists vs Tunings) -->
+          <div class="hud-pill-group" role="group" id="libBrowseModePill">
+            <button type="button" class="btn btn-sm ${libraryBrowseMode === 'artists' ? 'active' : ''}" data-mode="artists" title="Browse by Artist &amp; Album">
+              <i class="bi-person me-1"></i>Artists
+            </button>
+            <button type="button" class="btn btn-sm ${libraryBrowseMode === 'tunings' ? 'active' : ''}" data-mode="tunings" title="Browse songs by Guitar &amp; Bass Tuning">
+              <i class="bi-music-note me-1"></i>Tunings
+            </button>
+          </div>
         </div>
 
         <!-- Universal Search & Filter Bar (True Center) -->
         <div class="lib-toolbar-center">
           <div class="library-search-bar">
             <i class="bi-search search-icon"></i>
-            <input type="text" class="search-input" id="libFilterInput" placeholder="${selectedAlbum ? 'Filter tracks in album...' : selectedArtist ? 'Filter albums by title...' : 'Filter artists in library...'}" autocomplete="off" spellcheck="false" aria-label="Filter library">
+            <input type="text" class="search-input" id="libFilterInput" placeholder="${
+              libraryBrowseMode === 'tunings'
+                ? (selectedTuning ? `Filter songs in ${selectedTuning}...` : 'Filter tunings in library...')
+                : (selectedAlbum ? 'Filter tracks in album...' : selectedArtist ? 'Filter albums by title...' : 'Filter artists in library...')
+            }" autocomplete="off" spellcheck="false" aria-label="Filter library">
             <button class="search-clear-btn" type="button" id="libFilterClearBtn" title="Clear filter" aria-label="Clear filter" style="display: none;">
               <i class="bi-x-lg"></i>
             </button>
@@ -402,7 +427,7 @@ async function renderLibraryBrowseView(container) {
             <i class="bi-folder2-open"></i>
             <span>Open File</span>
           </button>
-          <button type="button" class="btn btn-sm btn-theme-primary lib-add-music-btn" id="libAddMusicBtn" title="Search catalog to add music">
+          <button type="button" class="btn btn-sm btn-theme-primary lib-add-music-btn" id="libAddMusicBtn" title="Search catalog or add custom documents">
             <i class="bi-plus-lg"></i>
             <span>Add Music</span>
           </button>
@@ -415,7 +440,7 @@ async function renderLibraryBrowseView(container) {
           <div class="text-center py-5 text-muted">
             <i class="bi-music-note-list fs-1 mb-2 d-block text-white-50"></i>
             <h5 class="text-white fw-semibold">This Collection is Empty</h5>
-            <p class="small text-muted mb-4">Add your favorite songs and albums to build your personalized tab catalog, or open a tab file directly.</p>
+            <p class="small text-muted mb-4">Add your favorite songs and albums to build your personalized tab catalog, or add student documents and exercises.</p>
             <div class="d-flex justify-content-center gap-2 flex-wrap">
               <button class="btn btn-theme-outline btn-sm px-3 rounded-pill" id="emptyStateOpenFileBtn">
                 <i class="bi-folder2-open me-1"></i> Open File
@@ -434,142 +459,249 @@ async function renderLibraryBrowseView(container) {
         return;
     }
 
-    // Breadcrumb Navigation with integrated in-view Back Button
     let breadcrumbHtml = '';
-    if (selectedArtist || selectedAlbum) {
-        breadcrumbHtml = `
-        <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between gap-3 small mb-3">
-          <div class="d-flex align-items-center gap-3 flex-wrap min-w-0">
-            <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="libBrowseBackBtn" title="${selectedAlbum ? 'Back to ' + escapeHtml(selectedArtist.name) : 'Back to All Artists'}">
-              <i class="bi-arrow-left"></i> <span>Back</span>
-            </button>
-            <div class="library-breadcrumbs-trail d-flex align-items-center min-w-0">
-              <button class="theme-breadcrumb-btn flex-shrink-0" id="bcRoot">
-                <i class="bi-collection"></i> <span>All Artists</span>
-              </button>
-              ${selectedArtist ? `
-                <i class="bi-chevron-right breadcrumb-separator flex-shrink-0"></i>
-                <button class="theme-breadcrumb-btn ${!selectedAlbum ? 'active' : ''} text-truncate" id="bcArtist" title="${escapeHtml(selectedArtist.name)}" style="max-width: 240px;">
-                  <span class="text-truncate">${escapeHtml(selectedArtist.name)}</span>
-                </button>
-              ` : ''}
-              ${selectedAlbum ? `
-                <i class="bi-chevron-right breadcrumb-separator flex-shrink-0"></i>
-                <span class="theme-breadcrumb-btn active text-truncate" title="${escapeHtml(selectedAlbum.title)}" style="max-width: 240px;">${escapeHtml(selectedAlbum.title)}</span>
-              ` : ''}
-            </div>
-          </div>
-          <div class="d-flex align-items-center gap-2 flex-shrink-0">
-            <span class="badge badge-theme-secondary d-none d-sm-inline-flex py-1 px-2" style="font-size: 0.72rem;">
-              ${selectedAlbum ? `${selectedAlbum.songs.length} ${selectedAlbum.songs.length === 1 ? 'Track' : 'Tracks'}` : `${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'Album' : 'Albums'}`}
-            </span>
-          </div>
-        </div>
-        `;
-    }
-
     let bodyHtml = '';
 
-    if (!selectedArtist) {
-        // Render Artists Grid
-        bodyHtml = `
-        <div class="library-artists-grid" id="libArtistsGrid">
-          ${artists.map(artist => {
-            const albumCount = artist.albums.length;
-            const songCount = artist.albums.reduce((acc, a) => acc + a.songs.length, 0);
-            const firstCover = artist.albums.find(a => a.coverUrl)?.coverUrl || getPlaceholderCoverSvg(artist.name);
+    // ==========================================
+    // A. TUNINGS BROWSE MODE
+    // ==========================================
+    if (libraryBrowseMode === 'tunings') {
+        const tuningsHierarchy = await getLibraryTuningsHierarchy(activeCollectionId);
+        const tuningGroups = tuningsHierarchy.tunings || [];
 
-            return `
-            <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}">
-              <div class="d-flex align-items-center gap-3 min-w-0">
-                <img src="${firstCover}" class="artist-thumbnail flex-shrink-0" alt="${escapeHtml(artist.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(artist.name)}'">
-                <div class="min-w-0 flex-grow-1">
-                  <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
-                  <div class="small text-muted text-truncate">${albumCount} ${albumCount === 1 ? 'Album' : 'Albums'} • ${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+        if (selectedTuning) {
+            // Tuning Detail View
+            const currentGroup = tuningGroups.find(g => g.tuning === selectedTuning) || { tuning: selectedTuning, stringCount: 6, songs: [] };
+
+            breadcrumbHtml = `
+            <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between gap-3 small mb-3">
+              <div class="d-flex align-items-center gap-3 flex-wrap min-w-0">
+                <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="libBrowseBackBtn" title="Back to All Tunings">
+                  <i class="bi-arrow-left"></i> <span>Back</span>
+                </button>
+                <div class="library-breadcrumbs-trail d-flex align-items-center min-w-0">
+                  <button class="theme-breadcrumb-btn flex-shrink-0" id="bcTuningRoot">
+                    <i class="bi-music-note"></i> <span>All Tunings</span>
+                  </button>
+                  <i class="bi-chevron-right breadcrumb-separator flex-shrink-0"></i>
+                  <span class="theme-breadcrumb-btn active text-truncate" style="max-width: 260px;">${escapeHtml(selectedTuning)}</span>
                 </div>
-                <i class="bi-chevron-right text-muted flex-shrink-0"></i>
+              </div>
+              <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.72rem;">
+                  ${currentGroup.stringCount}-String
+                </span>
+                <span class="badge badge-theme-primary py-1 px-2" style="font-size: 0.72rem;">
+                  ${currentGroup.songs.length} ${currentGroup.songs.length === 1 ? 'Song' : 'Songs'}
+                </span>
               </div>
             </div>
             `;
-          }).join('')}
-        </div>
-        </div>
-        `;
-    } else if (!selectedAlbum) {
-        // Render Albums Grid for selected artist (sorted by release date, oldest first)
-        const artist = artists.find(a => a.name === selectedArtist.name) || selectedArtist;
-        const sortedAlbums = [...artist.albums].sort((a, b) => {
-            const yA = parseInt(a.year, 10) || 9999;
-            const yB = parseInt(b.year, 10) || 9999;
-            if (yA !== yB) return yA - yB;
-            return (a.title || '').localeCompare(b.title || '');
-        });
 
-        bodyHtml = `
-        <div class="library-albums-grid" id="libAlbumsGrid">
-          ${sortedAlbums.map(album => {
-            const cover = album.coverUrl || getPlaceholderCoverSvg(album.title);
-            const songCount = album.songs.length;
-            return `
-            <div class="library-card album-card p-3" data-album-title="${escapeHtml(album.title)}" data-album-year="${album.year || ''}">
-              <div class="album-cover-container mb-2 position-relative">
-                <img src="${cover}" class="album-cover-img w-100" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
-                ${album.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${album.year}</span>` : ''}
+            bodyHtml = `
+            <div class="tuning-detail-view">
+              <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
+                ${currentGroup.songs.map(song => renderSongRow(song, { showArtistAlbum: true })).join('')}
               </div>
-              <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</h6>
-              <div class="small text-muted text-truncate">${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+            </div>
             </div>
             `;
-          }).join('')}
-        </div>
-        </div>
-        `;
+        } else {
+            // Tunings Grid
+            bodyHtml = `
+            <div class="library-tunings-grid" id="libTuningsGrid">
+              ${tuningGroups.map(group => {
+                const sampleArtists = Array.from(new Set(group.songs.map(s => s.artist).filter(Boolean))).slice(0, 3).join(', ');
+                return `
+                <div class="library-card tuning-card p-3" data-tuning-name="${escapeHtml(group.tuning)}">
+                  <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                    <span class="badge badge-tuning font-monospace" style="font-size: 0.78rem;">${escapeHtml(group.tuning)}</span>
+                    <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.68rem;">${group.stringCount || 6}-String</span>
+                  </div>
+                  <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(group.tuning)}">${escapeHtml(group.tuning)}</h6>
+                  <div class="small text-muted text-truncate mb-2">${group.songs.length} ${group.songs.length === 1 ? 'Song' : 'Songs'}</div>
+                  ${sampleArtists ? `<div class="small text-white-50 text-truncate" style="font-size: 0.74rem;">${escapeHtml(sampleArtists)}</div>` : ''}
+                </div>
+                `;
+              }).join('')}
+            </div>
+            </div>
+            `;
+        }
     } else {
-        // Render Songs List for selected album
-        const album = selectedAlbum;
-        const cover = album.coverUrl || getPlaceholderCoverSvg(album.title);
-        
-        // Calculate total album duration if tracks have length
-        const totalDurationSecs = album.songs.reduce((acc, s) => acc + (typeof s.length === 'number' ? s.length : 0), 0);
-        const albumDurationText = totalDurationSecs > 0 ? formatTrackDuration(totalDurationSecs) : '';
-
-        bodyHtml = `
-        <div class="album-detail-view">
-          <div class="library-album-banner d-flex align-items-center justify-content-between gap-3 mb-3">
-            <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-              <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
-              <div class="min-w-0 flex-grow-1">
-                <span class="badge badge-theme-primary mb-1" style="font-size:0.68rem;">Album</span>
-                <h5 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</h5>
-                <div class="small text-muted text-truncate" title="${escapeHtml(selectedArtist.name)}">
-                  ${escapeHtml(selectedArtist.name)} ${album.year ? `• ${album.year}` : ''} • ${album.songs.length} ${album.songs.length === 1 ? 'Track' : 'Tracks'} ${albumDurationText ? `• ${albumDurationText}` : ''}
+        // ==========================================
+        // B. ARTISTS / ALBUMS / TRACKS BROWSE MODE
+        // ==========================================
+        if (selectedArtist || selectedAlbum) {
+            breadcrumbHtml = `
+            <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between gap-3 small mb-3">
+              <div class="d-flex align-items-center gap-3 flex-wrap min-w-0">
+                <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="libBrowseBackBtn" title="${selectedAlbum ? 'Back to ' + escapeHtml(selectedArtist.name) : 'Back to All Artists'}">
+                  <i class="bi-arrow-left"></i> <span>Back</span>
+                </button>
+                <div class="library-breadcrumbs-trail d-flex align-items-center min-w-0">
+                  <button class="theme-breadcrumb-btn flex-shrink-0" id="bcRoot">
+                    <i class="bi-collection"></i> <span>All Artists</span>
+                  </button>
+                  ${selectedArtist ? `
+                    <i class="bi-chevron-right breadcrumb-separator flex-shrink-0"></i>
+                    <button class="theme-breadcrumb-btn ${!selectedAlbum ? 'active' : ''} text-truncate" id="bcArtist" title="${escapeHtml(selectedArtist.name)}" style="max-width: 240px;">
+                      <span class="text-truncate">${escapeHtml(selectedArtist.name)}</span>
+                    </button>
+                  ` : ''}
+                  ${selectedAlbum ? `
+                    <i class="bi-chevron-right breadcrumb-separator flex-shrink-0"></i>
+                    <span class="theme-breadcrumb-btn active text-truncate" title="${escapeHtml(selectedAlbum.title)}" style="max-width: 240px;">${escapeHtml(selectedAlbum.title)}</span>
+                  ` : ''}
                 </div>
               </div>
+              <div class="d-flex align-items-center gap-2 flex-shrink-0">
+                <span class="badge badge-theme-secondary d-none d-sm-inline-flex py-1 px-2" style="font-size: 0.72rem;">
+                  ${selectedAlbum ? `${selectedAlbum.songs.length} ${selectedAlbum.songs.length === 1 ? 'Track' : 'Tracks'}` : `${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'Album' : 'Albums'}`}
+                </span>
+              </div>
             </div>
+            `;
+        }
 
-            <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
-              ${isAlbumEditMode ? `
-                <button class="btn btn-sm btn-theme-danger d-flex align-items-center gap-2 delete-album-btn" id="deleteAlbumBtn" title="Delete entire album and songs from library">
-                  <i class="bi-trash"></i> <span class="d-none d-sm-inline">Delete Album</span>
-                </button>
-                <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-2 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Done editing">
-                  <i class="bi-check-lg"></i> <span class="d-none d-sm-inline">Done</span>
-                </button>
-              ` : `
-                <button class="btn btn-sm btn-theme-outline d-flex align-items-center gap-2 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Edit album tracks">
-                  <i class="bi-pencil"></i> <span class="d-none d-sm-inline">Edit</span>
-                </button>
-              `}
+        if (!selectedArtist) {
+            // Render Artists Grid
+            bodyHtml = `
+            <div class="library-artists-grid" id="libArtistsGrid">
+              ${artists.map(artist => {
+                const albumCount = artist.albums.length;
+                const songCount = artist.albums.reduce((acc, a) => acc + a.songs.length, 0);
+                const firstCover = artist.albums.find(a => a.coverUrl)?.coverUrl || getPlaceholderCoverSvg(artist.name);
+
+                return `
+                <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}">
+                  <div class="d-flex align-items-center gap-3 min-w-0">
+                    <img src="${firstCover}" class="artist-thumbnail flex-shrink-0" alt="${escapeHtml(artist.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(artist.name)}'">
+                    <div class="min-w-0 flex-grow-1">
+                      <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
+                      <div class="small text-muted text-truncate">${albumCount} ${albumCount === 1 ? 'Album' : 'Albums'} • ${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+                    </div>
+                    <i class="bi-chevron-right text-muted flex-shrink-0"></i>
+                  </div>
+                </div>
+                `;
+              }).join('')}
             </div>
-          </div>
+            </div>
+            `;
+        } else if (!selectedAlbum) {
+            // Render Albums Grid for selected artist (sorted by release date, oldest first)
+            const artist = artists.find(a => a.name === selectedArtist.name) || selectedArtist;
+            const sortedAlbums = [...artist.albums].sort((a, b) => {
+                const yA = parseInt(a.year, 10) || 9999;
+                const yB = parseInt(b.year, 10) || 9999;
+                if (yA !== yB) return yA - yB;
+                return (a.title || '').localeCompare(b.title || '');
+            });
 
-          <!-- Songs List -->
-          <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
-            ${renderAlbumSongsList(album.songs)}
-          </div>
-        </div>
-        </div>
-        `;
+            bodyHtml = `
+            <div class="library-albums-grid" id="libAlbumsGrid">
+              ${sortedAlbums.map(album => {
+                const cover = album.coverUrl || getPlaceholderCoverSvg(album.title);
+                const songCount = album.songs.length;
+                return `
+                <div class="library-card album-card p-3" data-album-title="${escapeHtml(album.title)}" data-album-year="${album.year || ''}">
+                  <div class="album-cover-container mb-2 position-relative">
+                    <img src="${cover}" class="album-cover-img w-100" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
+                    ${album.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${album.year}</span>` : ''}
+                  </div>
+                  <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</h6>
+                  <div class="small text-muted text-truncate">${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+                </div>
+                `;
+              }).join('')}
+            </div>
+            </div>
+            `;
+        } else {
+            // Render Songs List for selected album & album-level tabs
+            const album = selectedAlbum;
+            const cover = album.coverUrl || getPlaceholderCoverSvg(album.title);
+            const totalDurationSecs = album.songs.reduce((acc, s) => acc + (typeof s.length === 'number' ? s.length : 0), 0);
+            const albumDurationText = totalDurationSecs > 0 ? formatTrackDuration(totalDurationSecs) : '';
+
+            // Load album-level tabs
+            const albumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, album.title);
+            const hasAlbumTabs = albumTabs.length > 0;
+            const defaultAlbumTabId = album.defaultTabId || (albumTabs[0]?.id || null);
+
+            bodyHtml = `
+            <div class="album-detail-view">
+              <div class="library-album-banner d-flex flex-column gap-3 mb-3">
+                <div class="d-flex align-items-center justify-content-between gap-3 min-w-0">
+                  <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+                    <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
+                    <div class="min-w-0 flex-grow-1">
+                      <span class="badge badge-theme-primary mb-1" style="font-size:0.68rem;">Album</span>
+                      <h5 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</h5>
+                      <div class="small text-muted text-truncate" title="${escapeHtml(selectedArtist.name)}">
+                        ${escapeHtml(selectedArtist.name)} ${album.year ? `• ${album.year}` : ''} • ${album.songs.length} ${album.songs.length === 1 ? 'Track' : 'Tracks'} ${albumDurationText ? `• ${albumDurationText}` : ''}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+                    <!-- + Album Tab dropdown (for whole-album tab books / complete PDF) -->
+                    <div class="dropdown">
+                      <button class="btn btn-sm btn-theme-outline py-1 px-3 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach full album tab book or document">
+                        <i class="bi-journal-album"></i> <span>+ Album Tab</span>
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
+                        <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>
+                        <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
+                        <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
+                      </ul>
+                    </div>
+
+                    ${isAlbumEditMode ? `
+                      <button class="btn btn-sm btn-theme-danger d-flex align-items-center gap-2 delete-album-btn" id="deleteAlbumBtn" title="Delete entire album and songs from library">
+                        <i class="bi-trash"></i> <span class="d-none d-sm-inline">Delete Album</span>
+                      </button>
+                      <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-2 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Done editing">
+                        <i class="bi-check-lg"></i> <span class="d-none d-sm-inline">Done</span>
+                      </button>
+                    ` : `
+                      <button class="btn btn-sm btn-theme-outline d-flex align-items-center gap-2 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Edit album tracks">
+                        <i class="bi-pencil"></i> <span class="d-none d-sm-inline">Edit</span>
+                      </button>
+                    `}
+                  </div>
+                </div>
+
+                ${hasAlbumTabs ? `
+                  <div class="album-tabs-container pt-2 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-2">
+                    <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;"><i class="bi-journal-bookmark me-1 text-info"></i>Album Tabs:</span>
+                    ${albumTabs.map((t, idx) => {
+                      const isDefault = (t.id === defaultAlbumTabId) || (!defaultAlbumTabId && idx === 0);
+                      return `
+                      <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-album-tab-chip-btn" data-tab-id="${t.id}" title="Open Album Tab: ${escapeHtml(t.name)}">
+                        <button class="btn btn-link p-0 set-default-album-tab-btn ${isDefault ? 'text-warning' : 'text-muted'} me-1" data-tab-id="${t.id}" title="${isDefault ? 'Default Album Tab' : 'Set as default album tab'}">
+                          <i class="bi-star${isDefault ? '-fill' : ''}"></i>
+                        </button>
+                        <i class="bi-file-earmark-music text-info me-1"></i>
+                        <span class="text-truncate" style="max-width: 220px;">${escapeHtml(t.name)}</span>
+                        ${t.tuning ? `<button class="badge badge-tuning badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(t.tuning)}" style="font-size:0.62rem;">${escapeHtml(t.tuning)}</button>` : ''}
+                        <button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" title="Remove album tab"><i class="bi-x"></i></button>
+                      </div>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : ''}
+              </div>
+
+              <!-- Songs List -->
+              <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
+                ${renderAlbumSongsList(album.songs)}
+              </div>
+            </div>
+            </div>
+            `;
+        }
     }
 
     container.innerHTML = headerHtml + breadcrumbHtml + bodyHtml;
@@ -591,14 +723,27 @@ async function renderLibraryBrowseView(container) {
         isAlbumEditMode = false;
         renderLibraryBrowseView(container);
     });
+    container.querySelector('#bcTuningRoot')?.addEventListener('click', () => {
+        selectedTuning = null;
+        renderLibraryBrowseView(container);
+    });
 
-    // Artist click
+    // Artist card clicks
     container.querySelectorAll('.artist-card').forEach(card => {
         card.addEventListener('click', () => {
             const artistName = card.dataset.artistName;
             selectedArtist = artists.find(a => a.name === artistName);
             selectedAlbum = null;
             isAlbumEditMode = false;
+            renderLibraryBrowseView(container);
+        });
+    });
+
+    // Tuning card clicks
+    container.querySelectorAll('.tuning-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const tuningName = card.dataset.tuningName;
+            selectedTuning = tuningName;
             renderLibraryBrowseView(container);
         });
     });
@@ -669,7 +814,7 @@ async function renderLibraryBrowseView(container) {
     // Search / Filter setup
     setupLibraryFilter(container);
 
-    // Song actions: Play tab, Import tab, Delete song, Switch tabs
+    // Song actions & album tab actions
     setupSongRowActions(container);
 }
 
@@ -679,8 +824,24 @@ function bindLibraryToolbarEvents(container) {
         activeCollectionId = e.target.value;
         selectedArtist = null;
         selectedAlbum = null;
+        selectedTuning = null;
         isAlbumEditMode = false;
         renderLibraryBrowseView(container);
+    });
+
+    // Browse Mode Switcher (Artists vs Tunings)
+    container.querySelectorAll('#libBrowseModePill button').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const mode = btn.dataset.mode;
+            if (mode && mode !== libraryBrowseMode) {
+                libraryBrowseMode = mode;
+                selectedArtist = null;
+                selectedAlbum = null;
+                selectedTuning = null;
+                isAlbumEditMode = false;
+                renderLibraryBrowseView(container);
+            }
+        });
     });
 
     container.querySelector('#libNewCollectionBtn')?.addEventListener('click', async () => {
@@ -715,13 +876,14 @@ function setupLibraryFilter(container) {
         // Clean up previous filter empty message if any
         container.querySelectorAll('.library-filter-empty-msg').forEach(el => el.remove());
 
-        // 1. Song List View (Album Detail)
+        // 1. Song List View (Album Detail or Tuning Detail)
         const songRows = container.querySelectorAll('.library-song-row');
         if (songRows.length > 0) {
             let visibleCount = 0;
             songRows.forEach(row => {
                 const title = (row.dataset.songTitle || '').toLowerCase();
-                const matches = !query || title.includes(query);
+                const artist = (row.dataset.songArtist || '').toLowerCase();
+                const matches = !query || title.includes(query) || artist.includes(query);
                 row.style.display = matches ? '' : 'none';
                 if (matches) visibleCount++;
             });
@@ -735,7 +897,28 @@ function setupLibraryFilter(container) {
             return;
         }
 
-        // 2. Albums Grid View (Artist Detail)
+        // 2. Tunings Grid View
+        const tuningCards = container.querySelectorAll('.library-tunings-grid .tuning-card');
+        if (tuningCards.length > 0) {
+            let visibleCount = 0;
+            tuningCards.forEach(card => {
+                const name = (card.dataset.tuningName || '').toLowerCase();
+                const matches = !query || name.includes(query);
+                card.style.display = matches ? '' : 'none';
+                if (matches) visibleCount++;
+            });
+            const tuningsGrid = container.querySelector('#libTuningsGrid');
+            if (tuningsGrid && visibleCount === 0 && query) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
+                emptyMsg.style.gridColumn = '1 / -1';
+                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No tunings match "${escapeHtml(query)}"`;
+                tuningsGrid.appendChild(emptyMsg);
+            }
+            return;
+        }
+
+        // 3. Albums Grid View (Artist Detail)
         const albumCards = container.querySelectorAll('.library-albums-grid .album-card');
         if (albumCards.length > 0) {
             let visibleCount = 0;
@@ -757,7 +940,7 @@ function setupLibraryFilter(container) {
             return;
         }
 
-        // 3. Artists Grid View (Top Level)
+        // 4. Artists Grid View (Top Level)
         const artistCards = container.querySelectorAll('.library-artists-grid .artist-card');
         if (artistCards.length > 0) {
             let visibleCount = 0;
@@ -788,25 +971,33 @@ function setupLibraryFilter(container) {
     });
 }
 
-function renderSongRow(song) {
+function renderSongRow(song, options = {}) {
     const tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
     const hasTabs = tabOptions.length > 0;
     const tunings = Array.isArray(song.tunings) ? song.tunings : [];
     const durationText = formatTrackDuration(song.length);
+    const isPinned = Boolean(song.pinned);
+    const defaultTabId = song.defaultTabId || (tabOptions[0]?.id || null);
 
     return `
-    <div class="library-song-row d-flex flex-column gap-2 position-relative" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
+    <div class="library-song-row d-flex flex-column gap-2 position-relative ${isPinned ? 'library-song-row-pinned' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
       <div class="d-flex align-items-center justify-content-between gap-3">
         <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
           <span class="badge-track-num flex-shrink-0">${song.trackNumber || '•'}</span>
           <div class="min-w-0 flex-grow-1">
             <div class="d-flex align-items-center gap-2 min-w-0 flex-wrap">
               <span class="fw-semibold text-white text-truncate" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
+              ${isPinned ? `<span class="badge badge-theme-warning py-0 px-2" style="font-size:0.62rem;"><i class="bi-pin-angle-fill me-1"></i>Pinned</span>` : ''}
               ${durationText ? `<span class="badge badge-theme-secondary py-1 px-2 text-muted font-monospace" style="font-size:0.68rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
             </div>
+            ${options.showArtistAlbum ? `
+              <div class="small text-muted text-truncate mt-1" title="${escapeHtml(song.artist || '')} • ${escapeHtml(song.album || '')}">
+                ${escapeHtml(song.artist || 'Unknown Artist')}${song.album ? ` • ${escapeHtml(song.album)}` : ''}
+              </div>
+            ` : ''}
             ${(tunings.length > 0 || hasTabs) ? `
               <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
-                ${tunings.map(t => `<span class="badge badge-tuning">${escapeHtml(t)}</span>`).join('')}
+                ${tunings.map(t => `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(t)}" title="Browse songs in ${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}
                 ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : ''}
               </div>
             ` : ''}
@@ -815,8 +1006,13 @@ function renderSongRow(song) {
 
         <!-- Action Buttons -->
         <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+          <!-- Pin Song Button -->
+          <button class="btn btn-sm btn-theme-icon p-1 px-2 pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song' : 'Pin song to top'}">
+            <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
+          </button>
+
           ${hasTabs ? `
-            <button class="btn btn-sm btn-theme-primary py-1 px-3 d-flex align-items-center gap-1 play-default-tab-btn" data-song-id="${song.id}" title="Play Tab">
+            <button class="btn btn-sm btn-theme-primary py-1 px-3 d-flex align-items-center gap-1 play-default-tab-btn" data-song-id="${song.id}" title="Play Default Tab">
               <i class="bi-play-fill"></i> <span class="d-none d-sm-inline">Play</span>
             </button>
           ` : ''}
@@ -846,13 +1042,19 @@ function renderSongRow(song) {
       ${hasTabs ? `
         <div class="tab-options-container pt-2 mt-1 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-2">
           <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;">Tabs:</span>
-          ${tabOptions.map(t => `
-            <div class="tab-option-chip play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Load ${escapeHtml(t.name)}">
+          ${tabOptions.map((t, idx) => {
+            const isDefault = (t.id === defaultTabId) || (!defaultTabId && idx === 0);
+            return `
+            <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Load ${escapeHtml(t.name)}">
+              <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'text-warning' : 'text-muted'} me-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="${isDefault ? 'Default Tab' : 'Set as default tab'}">
+                <i class="bi-star${isDefault ? '-fill' : ''}"></i>
+              </button>
               <span class="text-truncate" style="max-width: 160px;">${escapeHtml(t.name)}</span>
-              ${t.tuning ? `<span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.62rem;">${escapeHtml(t.tuning)}</span>` : ''}
+              ${t.tuning ? `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(t.tuning)}">${escapeHtml(t.tuning)}</button>` : ''}
               <button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       ` : ''}
     </div>
@@ -942,13 +1144,37 @@ function setupSongRowActions(container) {
         }
     });
 
+    // Toggle Pin Song
+    container.querySelectorAll('.pin-song-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const songId = btn.dataset.songId;
+            const pinned = await togglePinSong(songId);
+            showToast(pinned ? 'Song pinned to top' : 'Song unpinned', 'info');
+            await renderView();
+        });
+    });
+
+    // Set Default Tab for Song
+    container.querySelectorAll('.set-default-tab-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const songId = btn.dataset.songId;
+            const tabId = btn.dataset.tabId;
+            await setDefaultTabOption(songId, tabId);
+            showToast('Set default tab', 'success');
+            await renderView();
+        });
+    });
+
     // Play default tab
     container.querySelectorAll('.play-default-tab-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const songId = btn.dataset.songId;
             const song = await getSongById(songId);
             if (song && song.tabOptions?.length > 0) {
-                await loadSongTab(song, song.tabOptions[0]);
+                const targetTab = (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song.tabOptions[0];
+                await loadSongTab(song, targetTab);
             }
         });
     });
@@ -956,7 +1182,7 @@ function setupSongRowActions(container) {
     // Play specific tab chip
     container.querySelectorAll('.play-tab-chip-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            if (e.target.closest('.remove-tab-chip-btn')) return;
+            if (e.target.closest('.remove-tab-chip-btn') || e.target.closest('.set-default-tab-btn') || e.target.closest('.badge-tuning-clickable')) return;
             e.stopPropagation();
             const songId = btn.dataset.songId;
             const tabId = btn.dataset.tabId;
@@ -976,6 +1202,81 @@ function setupSongRowActions(container) {
             const tabId = btn.dataset.tabId;
             await removeTabOptionFromSong(songId, tabId);
             await renderView();
+        });
+    });
+
+    // Album Tabs Actions
+    container.querySelectorAll('.import-album-tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            if (!selectedArtist || !selectedAlbum) return;
+            const providerId = btn.dataset.providerId;
+            const targetProviderId = (providerId === 'tab-downloader' && !window.__TAURI__) ? 'tab-downloader-web' : providerId;
+            openFromProvider(targetProviderId, {
+                isAlbumTab: true,
+                collectionId: activeCollectionId,
+                artistName: selectedArtist.name,
+                albumTitle: selectedAlbum.title,
+                artist: selectedArtist.name,
+                songName: selectedAlbum.title,
+                query: `${selectedArtist.name} ${selectedAlbum.title}`
+            });
+        });
+    });
+
+    container.querySelectorAll('.play-album-tab-chip-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            if (e.target.closest('.remove-album-tab-chip-btn') || e.target.closest('.set-default-album-tab-btn') || e.target.closest('.badge-tuning-clickable')) return;
+            e.stopPropagation();
+            if (!selectedArtist || !selectedAlbum) return;
+            const tabId = btn.dataset.tabId;
+            const albumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, selectedAlbum.title);
+            const tab = albumTabs.find(t => t.id === tabId);
+            if (tab) {
+                const albumSongId = `album_tab_${activeCollectionId}_${selectedArtist.name}_${selectedAlbum.title}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+                await loadSongTab({
+                    id: albumSongId,
+                    title: selectedAlbum.title,
+                    artist: selectedArtist.name,
+                    album: selectedAlbum.title,
+                    coverUrl: selectedAlbum.coverUrl
+                }, tab);
+            }
+        });
+    });
+
+    container.querySelectorAll('.set-default-album-tab-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!selectedArtist || !selectedAlbum) return;
+            const tabId = btn.dataset.tabId;
+            await setDefaultAlbumTabOption(activeCollectionId, selectedArtist.name, selectedAlbum.title, tabId);
+            showToast('Set default album tab', 'success');
+            await renderView();
+        });
+    });
+
+    container.querySelectorAll('.remove-album-tab-chip-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!selectedArtist || !selectedAlbum) return;
+            const tabId = btn.dataset.tabId;
+            await removeTabOptionFromAlbum(activeCollectionId, selectedArtist.name, selectedAlbum.title, tabId);
+            showToast('Removed album tab', 'info');
+            await renderView();
+        });
+    });
+
+    // Tuning badge clicks to navigate to tuning view
+    container.querySelectorAll('.badge-tuning-clickable').forEach(badge => {
+        badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tuning = badge.dataset.tuningTarget;
+            if (tuning) {
+                activeView = 'library';
+                libraryBrowseMode = 'tunings';
+                selectedTuning = tuning;
+                renderLibraryModal();
+            }
         });
     });
 
@@ -1016,13 +1317,11 @@ function setupSongRowActions(container) {
             const providerId = btn.dataset.providerId;
 
             if (providerId === 'local') {
-                // Open local file picker synchronously in user click gesture
                 openFromProvider('local', { songId });
                 return;
             }
 
             if (providerId === 'google-drive') {
-                // Open Google drive picker cleanly without forwarding search query
                 openFromProvider('google-drive', { songId });
                 return;
             }
@@ -1124,7 +1423,7 @@ function setupSongRowActions(container) {
                 }
             }
 
-            if (addedCount > 0) {
+            if (attachedCount > 0) {
                 await renderView();
             }
         });
@@ -1136,18 +1435,23 @@ function setupSongRowActions(container) {
  */
 async function attachFileToSong(file, songId) {
     try {
+        const meta = await detectFileMetadata(file, file.name);
         const stored = await saveStoredFile(file, 'local');
         await addTabOptionToSong(songId, {
             name: file.name,
             providerId: 'local',
             relativePath: file.name,
             fileStoreId: stored.id,
-            tuning: inferTuningFromTextOrName(file.name),
+            tuning: meta.primaryTuning,
+            tunings: meta.tunings,
+            stringCount: meta.stringCount,
             fileType: file.name.split('.').pop().toLowerCase()
         });
+        showToast(`Added "${file.name}" to song`, 'success');
         return true;
     } catch (err) {
         console.error('Error attaching dropped tab to song:', err);
+        showToast(`Error attaching tab: ${err.message}`, 'error');
         return false;
     }
 }
@@ -1239,45 +1543,52 @@ async function loadSongTab(song, tabOption) {
 }
 
 // -----------------------------------------------------------------------------
-// 2. SEARCH & ADD TO LIBRARY VIEW (Defaults to Song Search Mode)
+// 2. SEARCH & ADD TO LIBRARY VIEW (Supports Song, Album, Artist, Musician, Custom Docs)
 // -----------------------------------------------------------------------------
 function renderSearchMusicBrainzView(container) {
     container.innerHTML = `
     <div class="library-page-container search-mb-view">
       <!-- Search Sticky Toolbar -->
       <div class="search-sticky-header mb-3">
-        <div class="d-flex align-items-center justify-content-between mb-2">
+        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
           <div class="d-flex align-items-center gap-2">
             <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="searchBackToLibBtn" title="Back to Library">
               <i class="bi-arrow-left"></i> <span>Library</span>
             </button>
-            <span class="small fw-semibold text-white-50">Search Music:</span>
+            <span class="small fw-semibold text-white-50">Add Music:</span>
           </div>
           <div class="hud-pill-group" role="group" id="searchTypePill">
             <button type="button" class="btn btn-sm ${searchType === 'song' ? 'active' : ''}" data-type="song">Song</button>
             <button type="button" class="btn btn-sm ${searchType === 'album' ? 'active' : ''}" data-type="album">Album</button>
             <button type="button" class="btn btn-sm ${searchType === 'artist' ? 'active' : ''}" data-type="artist">Artist</button>
             <button type="button" class="btn btn-sm ${searchType === 'musician' ? 'active' : ''}" data-type="musician">Musician</button>
+            <button type="button" class="btn btn-sm ${searchType === 'custom' ? 'active' : ''}" data-type="custom" title="Add student documents and custom folder structure">
+              <i class="bi-folder-plus me-1"></i>Student / Custom
+            </button>
           </div>
         </div>
 
-        <form id="mbSearchForm" class="d-flex align-items-center gap-2">
-          <div class="input-group input-group-sm flex-grow-1">
-            <span class="input-group-text"><i class="bi-search"></i></span>
-            <input type="text" class="form-control" id="mbSearchInput" placeholder="Search ${searchType} to add music..." autofocus>
-          </div>
-          <button type="submit" class="btn btn-theme-primary btn-sm px-3" id="mbSearchSubmitBtn">
-            Search
-          </button>
-        </form>
+        ${searchType === 'custom' ? '' : `
+          <form id="mbSearchForm" class="d-flex align-items-center gap-2">
+            <div class="input-group input-group-sm flex-grow-1">
+              <span class="input-group-text"><i class="bi-search"></i></span>
+              <input type="text" class="form-control" id="mbSearchInput" placeholder="Search ${searchType} to add music..." autofocus>
+            </div>
+            <button type="submit" class="btn btn-theme-primary btn-sm px-3" id="mbSearchSubmitBtn">
+              Search
+            </button>
+          </form>
+        `}
       </div>
 
-      <!-- Search Results Area -->
+      <!-- Search Results / Custom Form Area -->
       <div id="mbSearchResultsContainer" class="search-results-container">
-        <div class="text-center py-5 text-muted">
-          <i class="bi-compass fs-2 mb-2 d-block text-white-50"></i>
-          <div>Search across songs, albums, and artists to add music to your library</div>
-        </div>
+        ${searchType === 'custom' ? renderCustomDocFormHtml() : `
+          <div class="text-center py-5 text-muted">
+            <i class="bi-compass fs-2 mb-2 d-block text-white-50"></i>
+            <div>Search across songs, albums, and artists to add music to your library</div>
+          </div>
+        `}
       </div>
     </div>
     `;
@@ -1291,6 +1602,11 @@ function renderSearchMusicBrainzView(container) {
             renderSearchMusicBrainzView(container);
         });
     });
+
+    if (searchType === 'custom') {
+        setupCustomDocForm(container);
+        return;
+    }
 
     // Form submit
     const searchForm = container.querySelector('#mbSearchForm');
@@ -1313,6 +1629,142 @@ function renderSearchMusicBrainzView(container) {
                 performMusicBrainzSearch(query, searchType);
             }, 500);
         }
+    });
+}
+
+function renderCustomDocFormHtml() {
+    return `
+    <div class="library-card p-4 custom-doc-card">
+      <div class="d-flex align-items-center gap-3 mb-3">
+        <i class="bi-folder-plus text-info fs-3"></i>
+        <div>
+          <h6 class="text-white fw-bold mb-0">Add Custom Document / Student Lesson</h6>
+          <div class="small text-muted">Add non-MusicBrainz exercises, student lessons, and organize into custom folders and subfolders.</div>
+        </div>
+      </div>
+
+      <form id="customDocForm" class="d-flex flex-column gap-3">
+        <div>
+          <label class="form-label small text-white-50 mb-1 fw-semibold">Document Title *</label>
+          <input type="text" class="form-control form-control-sm" id="customDocTitle" placeholder="e.g. Major Triad Inversions, Sweep Picking #1" required autofocus>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small text-white-50 mb-1 fw-semibold">Folder / Student / Category</label>
+            <input type="text" class="form-control form-control-sm" id="customDocFolder" placeholder="e.g. Student Lessons, Technique, Theory" value="Student Documents">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-white-50 mb-1 fw-semibold">Subfolder / Topic (Optional)</label>
+            <input type="text" class="form-control form-control-sm" id="customDocSubfolder" placeholder="e.g. Scales, John Doe, Week 1">
+          </div>
+        </div>
+
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label small text-white-50 mb-1 fw-semibold">Tuning</label>
+            <select class="form-select form-select-sm" id="customDocTuning">
+              <option value="E Standard">E Standard (6-String)</option>
+              <option value="Drop D">Drop D (6-String)</option>
+              <option value="Eb Standard">Eb Standard (6-String)</option>
+              <option value="D Standard">D Standard (6-String)</option>
+              <option value="Drop C">Drop C (6-String)</option>
+              <option value="7-String Standard">7-String Standard (B E A D G B E)</option>
+              <option value="7-String Drop A">7-String Drop A</option>
+              <option value="8-String Standard">8-String Standard</option>
+              <option value="Bass Standard">Bass Standard (4-String)</option>
+              <option value="5-String Bass Standard">5-String Bass Standard</option>
+              <option value="6-String Bass Standard">6-String Bass Standard</option>
+              <option value="Open D">Open D</option>
+              <option value="DADGAD">DADGAD</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small text-white-50 mb-1 fw-semibold">String Count</label>
+            <select class="form-select form-select-sm" id="customDocStrings">
+              <option value="6">6 Strings (Guitar)</option>
+              <option value="7">7 Strings</option>
+              <option value="8">8 Strings</option>
+              <option value="4">4 Strings (Bass / Ukulele)</option>
+              <option value="5">5 Strings (Bass / Banjo)</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="form-label small text-white-50 mb-1 fw-semibold">Attach Tab / Score File (Optional)</label>
+          <input type="file" id="customDocFileInput" class="form-control form-control-sm" accept=".gp,.gp3,.gp4,.gp5,.gpx,.pdf,.txt">
+          <div class="small text-muted mt-1" style="font-size:0.75rem;">Supports Guitar Pro (.gp, .gp5), PDF documents, and Text tabs. You can also add more tabs later.</div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 pt-2 border-top border-secondary-subtle">
+          <button type="button" class="btn btn-sm btn-theme-outline px-3" id="customDocCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-theme-primary px-4" id="customDocSaveBtn">
+            <i class="bi-check-lg me-1"></i> Save to Library
+          </button>
+        </div>
+      </form>
+    </div>
+    `;
+}
+
+function setupCustomDocForm(container) {
+    const form = container.querySelector('#customDocForm');
+    if (!form) return;
+
+    container.querySelector('#customDocCancelBtn')?.addEventListener('click', () => switchView('library'));
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const title = form.querySelector('#customDocTitle')?.value?.trim();
+        if (!title) return;
+
+        const folder = form.querySelector('#customDocFolder')?.value?.trim() || 'Student Documents';
+        const subfolder = form.querySelector('#customDocSubfolder')?.value?.trim() || 'General';
+        const tuning = form.querySelector('#customDocTuning')?.value || 'E Standard';
+        const stringCount = parseInt(form.querySelector('#customDocStrings')?.value, 10) || 6;
+        const fileInput = form.querySelector('#customDocFileInput');
+        const file = fileInput?.files?.[0];
+
+        const songId = `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+        const tabOptions = [];
+
+        if (file) {
+            const meta = await detectFileMetadata(file, file.name);
+            const stored = await saveStoredFile(file, 'local');
+            tabOptions.push({
+                id: `tab_${Date.now()}`,
+                name: file.name,
+                providerId: 'local',
+                relativePath: file.name,
+                fileStoreId: stored.id,
+                tuning: meta.primaryTuning || tuning,
+                tunings: meta.tunings?.length > 0 ? meta.tunings : [tuning],
+                stringCount: meta.stringCount || stringCount,
+                fileType: file.name.split('.').pop().toLowerCase(),
+                isDefault: true
+            });
+        }
+
+        const song = {
+            id: songId,
+            collectionId: activeCollectionId,
+            title,
+            artist: folder,
+            album: subfolder,
+            folderPath: `${folder}/${subfolder}`,
+            isCustom: true,
+            tunings: tabOptions[0]?.tunings || [tuning],
+            stringCount: tabOptions[0]?.stringCount || stringCount,
+            tabOptions,
+            defaultTabId: tabOptions[0]?.id || null,
+            addedAt: Date.now()
+        };
+
+        await saveSongToLibrary(song, activeCollectionId);
+        showToast(`Added "${title}" to ${folder} / ${subfolder}`, 'success');
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+        await switchView('library');
     });
 }
 
@@ -1815,7 +2267,7 @@ function renderAddAlbumTracksList(tracks) {
 }
 
 // -----------------------------------------------------------------------------
-// 3. RECENTS VIEW (Enriched with Library & Metadata)
+// 3. RECENTS VIEW (Enriched with Library & Metadata, Edit Mode & Individual Delete)
 // -----------------------------------------------------------------------------
 async function renderRecentsView(container) {
     const recents = await getRecents(40);
@@ -1837,9 +2289,20 @@ async function renderRecentsView(container) {
     <div class="library-page-container recents-view">
       <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
         <span class="small fw-semibold text-white-50"><i class="bi-clock-history me-2 text-info"></i>Recently Opened (${recents.length})</span>
-        <button class="btn btn-sm btn-theme-icon p-1 px-2" id="clearRecentsBtn">
-          <i class="bi-trash me-1"></i> Clear History
-        </button>
+        <div class="d-flex align-items-center gap-2">
+          ${isRecentsEditMode ? `
+            <button class="btn btn-sm btn-theme-danger p-1 px-3 d-flex align-items-center gap-1" id="clearRecentsBtn" title="Clear all recent history">
+              <i class="bi-trash"></i> <span>Clear History</span>
+            </button>
+            <button class="btn btn-sm btn-theme-primary p-1 px-3 d-flex align-items-center gap-1" id="toggleRecentsEditBtn" title="Done editing">
+              <i class="bi-check-lg"></i> <span>Done</span>
+            </button>
+          ` : `
+            <button class="btn btn-sm btn-theme-outline p-1 px-3 d-flex align-items-center gap-1" id="toggleRecentsEditBtn" title="Edit recents list">
+              <i class="bi-pencil"></i> <span>Edit</span>
+            </button>
+          `}
+        </div>
       </div>
 
       <div class="d-flex flex-column gap-2" id="recentsList">
@@ -1849,23 +2312,29 @@ async function renderRecentsView(container) {
             const timeAgo = formatTimeAgo(r.openedAt);
 
             return `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3">
+            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" data-recent-id="${escapeHtml(r.id)}">
               <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
                 <img src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="${escapeHtml(r.songTitle || r.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
                 <div class="min-w-0 flex-grow-1">
                   <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(r.songTitle || r.name)}">${escapeHtml(r.songTitle || r.name)}</h6>
                   <div class="small text-muted text-truncate" title="${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}">${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}</div>
                   <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
-                    ${tunings.map(t => `<span class="badge badge-tuning">${escapeHtml(t)}</span>`).join('')}
+                    ${tunings.map(t => `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(t)}" title="Browse songs in ${escapeHtml(t)}">${escapeHtml(t)}</button>`).join('')}
                     <span class="small text-white-50" style="font-size:0.7rem;"><i class="bi-clock me-1"></i>${timeAgo}</span>
                   </div>
                 </div>
               </div>
 
               <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
-                <button class="btn btn-sm btn-theme-primary py-1 px-3 open-recent-btn" data-recent='${escapeHtml(JSON.stringify(r))}'>
-                  <i class="bi-play-fill me-1"></i> Open
-                </button>
+                ${isRecentsEditMode ? `
+                  <button class="btn btn-sm btn-theme-danger p-1 px-2 delete-recent-item-btn" data-recent-id="${escapeHtml(r.id)}" title="Delete from recents">
+                    <i class="bi-trash"></i>
+                  </button>
+                ` : `
+                  <button class="btn btn-sm btn-theme-primary py-1 px-3 open-recent-btn" data-recent='${escapeHtml(JSON.stringify(r))}'>
+                    <i class="bi-play-fill me-1"></i> Open
+                  </button>
+                `}
               </div>
             </div>
             `;
@@ -1874,20 +2343,35 @@ async function renderRecentsView(container) {
     </div>
     `;
 
+    container.querySelector('#toggleRecentsEditBtn')?.addEventListener('click', () => {
+        isRecentsEditMode = !isRecentsEditMode;
+        renderRecentsView(container);
+    });
+
+    container.querySelectorAll('.delete-recent-item-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.recentId;
+            await deleteRecentItem(id);
+            showToast('Removed item from recents', 'info');
+            await renderRecentsView(container);
+        });
+    });
+
     const clearBtn = container.querySelector('#clearRecentsBtn');
     clearBtn?.addEventListener('click', async () => {
         if (clearBtn.dataset.confirming === 'true') {
             await clearRecents();
+            isRecentsEditMode = false;
+            showToast('Cleared recent history', 'info');
             await renderRecentsView(container);
         } else {
             clearBtn.dataset.confirming = 'true';
-            clearBtn.className = 'btn btn-sm btn-theme-danger p-1 px-2';
-            clearBtn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> Confirm Clear?';
+            clearBtn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> Confirm Clear All?';
             setTimeout(() => {
                 if (clearBtn.dataset.confirming === 'true') {
                     clearBtn.dataset.confirming = 'false';
-                    clearBtn.className = 'btn btn-sm btn-theme-icon p-1 px-2';
-                    clearBtn.innerHTML = '<i class="bi-trash me-1"></i> Clear History';
+                    clearBtn.innerHTML = '<i class="bi-trash"></i> <span>Clear History</span>';
                 }
             }, 4000);
         }
@@ -1905,6 +2389,20 @@ async function renderRecentsView(container) {
                 }
             }
             showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
+        });
+    });
+
+    // Handle tuning badge clicks in recents view
+    container.querySelectorAll('.badge-tuning-clickable').forEach(badge => {
+        badge.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const tuning = badge.dataset.tuningTarget;
+            if (tuning) {
+                activeView = 'library';
+                libraryBrowseMode = 'tunings';
+                selectedTuning = tuning;
+                renderLibraryModal();
+            }
         });
     });
 }
