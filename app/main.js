@@ -720,10 +720,6 @@ window.addEventListener('DOMContentLoaded', async () => {
             openLibraryModal('library');
         }
     });
-    document.getElementById('openLibraryBtn')?.addEventListener('click', () => {
-        fileMenu.hide();
-        openLibraryModal('library');
-    });
 
     let hasNativeFile = false;
     if (window.__TAURI__) {
@@ -925,10 +921,9 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     if (hideMenu) {
         fileMenu.hide();
     }
-    closeLibraryModal();
-    resetView();
-
     currentFile = file;
+    closeLibraryModal(true);
+    resetView();
     currentProcessing.aborted = true;
     currentProcessing = { aborted: false };
     
