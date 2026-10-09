@@ -34,7 +34,6 @@ function initLibraryTopBar() {
     if (topBarInitialized) return;
     topBarInitialized = true;
 
-    document.getElementById('libraryBackBtn')?.addEventListener('click', handleBack);
     document.getElementById('navBtnLibrary')?.addEventListener('click', () => switchView('library'));
     document.getElementById('navBtnRecents')?.addEventListener('click', () => switchView('recents'));
     document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', closeLibraryModal);
@@ -50,7 +49,7 @@ export function canGoBack() {
 }
 
 /**
- * Unified back handler for library page
+ * Unified back handler for library page (used by in-view back buttons & shortcuts)
  */
 export async function handleBack() {
     const content = document.getElementById('libraryModalContent');
@@ -58,13 +57,11 @@ export async function handleBack() {
         if (selectedAlbum) {
             selectedAlbum = null;
             await renderView();
-            updateBackBtnVisibility();
             return;
         }
         if (selectedArtist) {
             selectedArtist = null;
             await renderView();
-            updateBackBtnVisibility();
             return;
         }
         if (viewHistory.length > 0) {
@@ -92,7 +89,6 @@ export async function handleBack() {
                 searchSubView = prevSearch;
                 await exploreMusicianBands(prevSearch.musicianMbid, prevSearch.musicianName, content, false);
             }
-            updateBackBtnVisibility();
             return;
         }
         if (searchSubView) {
@@ -101,7 +97,6 @@ export async function handleBack() {
             if (searchHeader) searchHeader.style.display = '';
             const resContainer = document.getElementById('mbSearchResultsContainer') || content;
             renderSearchResults(currentSearchResults, searchType, resContainer);
-            updateBackBtnVisibility();
             return;
         }
         if (viewHistory.length > 0) {
@@ -134,10 +129,7 @@ export async function handleBack() {
 }
 
 function updateBackBtnVisibility() {
-    const backBtn = document.getElementById('libraryBackBtn');
-    if (backBtn) {
-        backBtn.style.display = (isLibraryOpen() && canGoBack()) ? 'inline-flex' : 'none';
-    }
+    // Navigation is now handled by in-view back buttons and breadcrumbs
 }
 
 /**
@@ -215,9 +207,6 @@ export function closeLibraryModal(force = false) {
         const libraryNav = document.getElementById('libraryNavButtons');
         const modeButtons = document.getElementById('modeButtons');
         const libraryRight = document.getElementById('libraryRightControls');
-        const libraryPill = document.getElementById('libraryPill');
-        const libraryBackBtn = document.getElementById('libraryBackBtn');
-
         if (libraryNav) libraryNav.style.display = 'none';
         if (modeButtons) modeButtons.style.display = 'flex';
         if (libraryRight) libraryRight.style.display = 'none';
@@ -225,7 +214,6 @@ export function closeLibraryModal(force = false) {
             libraryPill.style.display = '';
             document.getElementById('libraryToggleBtn')?.classList.remove('active');
         }
-        if (libraryBackBtn) libraryBackBtn.style.display = 'none';
     }
 }
 
@@ -345,32 +333,41 @@ async function renderLibraryBrowseView(container) {
         selectedAlbum = selectedArtist.albums.find(a => a.title === selectedAlbum.title || (selectedAlbum.albumMbid && a.albumMbid === selectedAlbum.albumMbid)) || null;
     }
 
-    // Top Library Body Toolbar (Collection Selector + Add Music + Filter)
+    // Top Library Body Toolbar (Collection Selector + Universal Search/Filter + Add Music)
     const headerHtml = `
     <div class="library-page-container">
-      <div class="library-body-header d-flex align-items-center justify-content-between gap-3 mb-3">
-        <!-- Collection Selector with Label & New Collection Button -->
-        <div class="d-flex align-items-center gap-2">
-          <label for="libCollectionSelect" class="small text-muted mb-0 fw-semibold text-nowrap d-inline-flex align-items-center gap-1.5">
-            <i class="bi-folder2 text-info"></i> Collection:
+      <div class="library-body-header mb-3">
+        <!-- Collection Selector Group (Left) -->
+        <div class="lib-toolbar-left d-flex align-items-center gap-2">
+          <label for="libCollectionSelect" class="small text-muted mb-0 fw-semibold text-nowrap d-none d-lg-inline-flex align-items-center gap-2">
+            <i class="bi-folder2 text-info"></i> <span>Collection:</span>
           </label>
-          <div class="d-flex align-items-center gap-1.5">
-            <select class="form-select form-select-sm theme-select" id="libCollectionSelect" style="min-width: 150px; font-size: 0.8rem;">
+          <div class="collection-pill-group">
+            <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
               ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
             </select>
-            <button class="btn btn-sm btn-theme-outline py-1 px-2" id="libNewCollectionBtn" title="New Collection" style="border-radius: 9999px;">
-              <i class="bi-folder-plus"></i>
+            <button class="btn collection-add-btn" id="libNewCollectionBtn" title="Create New Collection" aria-label="New Collection">
+              <i class="bi-plus-lg"></i>
             </button>
           </div>
         </div>
 
-        <!-- Add Music Button & Filter Input -->
-        <div class="d-flex align-items-center gap-2.5">
-          ${artists.length > 0 ? `
-          <input type="text" class="form-control form-control-sm" id="libFilterInput" placeholder="Filter songs..." style="max-width: 180px; font-size: 0.78rem;">
-          ` : ''}
-          <button type="button" class="btn btn-sm btn-theme-primary d-inline-flex align-items-center gap-1.5 px-3 py-1 text-nowrap" id="libAddMusicBtn" title="Search and add music" style="border-radius: 9999px;">
-            <i class="bi-plus-circle"></i> <span>Add Music</span>
+        <!-- Universal Search & Filter Bar (True Center) -->
+        <div class="lib-toolbar-center">
+          <div class="library-search-bar">
+            <i class="bi-search search-icon"></i>
+            <input type="text" class="search-input" id="libFilterInput" placeholder="${selectedAlbum ? 'Filter tracks in album...' : selectedArtist ? 'Filter albums by title...' : 'Filter artists in library...'}" autocomplete="off" spellcheck="false" aria-label="Filter library">
+            <button class="search-clear-btn" type="button" id="libFilterClearBtn" title="Clear filter" aria-label="Clear filter" style="display: none;">
+              <i class="bi-x-lg"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Primary CTA: Add Music (Right) -->
+        <div class="lib-toolbar-right">
+          <button type="button" class="btn btn-sm btn-theme-primary lib-add-music-btn" id="libAddMusicBtn" title="Search catalog to add music">
+            <i class="bi-plus-lg"></i>
+            <span>Add Music</span>
           </button>
         </div>
       </div>
@@ -396,24 +393,36 @@ async function renderLibraryBrowseView(container) {
         return;
     }
 
-    // Breadcrumb Navigation (if drilled down)
+    // Breadcrumb Navigation with integrated in-view Back Button
     let breadcrumbHtml = '';
     if (selectedArtist || selectedAlbum) {
         breadcrumbHtml = `
-        <div class="library-sticky-breadcrumbs d-flex align-items-center gap-1.5 small mb-3">
-          <button class="theme-breadcrumb-btn" id="bcRoot">
-            <i class="bi-collection me-1"></i> All Artists (${artists.length})
-          </button>
-          ${selectedArtist ? `
-            <i class="bi-chevron-right text-muted" style="font-size:0.7rem;"></i>
-            <button class="theme-breadcrumb-btn ${!selectedAlbum ? 'active' : ''}" id="bcArtist">
-              ${escapeHtml(selectedArtist.name)}
+        <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between gap-3 small mb-3">
+          <div class="d-flex align-items-center gap-3 flex-wrap min-w-0">
+            <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="libBrowseBackBtn" title="${selectedAlbum ? 'Back to ' + escapeHtml(selectedArtist.name) : 'Back to All Artists'}">
+              <i class="bi-arrow-left"></i> <span>Back</span>
             </button>
-          ` : ''}
-          ${selectedAlbum ? `
-            <i class="bi-chevron-right text-muted" style="font-size:0.7rem;"></i>
-            <span class="theme-breadcrumb-btn active">${escapeHtml(selectedAlbum.title)}</span>
-          ` : ''}
+            <div class="library-breadcrumbs-trail d-flex align-items-center min-w-0">
+              <button class="theme-breadcrumb-btn" id="bcRoot">
+                <i class="bi-collection"></i> <span>All Artists</span>
+              </button>
+              ${selectedArtist ? `
+                <i class="bi-chevron-right breadcrumb-separator"></i>
+                <button class="theme-breadcrumb-btn ${!selectedAlbum ? 'active' : ''}" id="bcArtist">
+                  <span>${escapeHtml(selectedArtist.name)}</span>
+                </button>
+              ` : ''}
+              ${selectedAlbum ? `
+                <i class="bi-chevron-right breadcrumb-separator"></i>
+                <span class="theme-breadcrumb-btn active text-truncate" style="max-width: 250px;">${escapeHtml(selectedAlbum.title)}</span>
+              ` : ''}
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <span class="badge badge-theme-secondary d-none d-sm-inline-flex py-1 px-2" style="font-size: 0.72rem;">
+              ${selectedAlbum ? `${selectedAlbum.songs.length} ${selectedAlbum.songs.length === 1 ? 'Track' : 'Tracks'}` : `${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'Album' : 'Albums'}`}
+            </span>
+          </div>
         </div>
         `;
     }
@@ -423,7 +432,7 @@ async function renderLibraryBrowseView(container) {
     if (!selectedArtist) {
         // Render Artists Grid
         bodyHtml = `
-        <div class="library-artists-grid">
+        <div class="library-artists-grid" id="libArtistsGrid">
           ${artists.map(artist => {
             const albumCount = artist.albums.length;
             const songCount = artist.albums.reduce((acc, a) => acc + a.songs.length, 0);
@@ -456,12 +465,12 @@ async function renderLibraryBrowseView(container) {
         });
 
         bodyHtml = `
-        <div class="library-albums-grid">
+        <div class="library-albums-grid" id="libAlbumsGrid">
           ${sortedAlbums.map(album => {
             const cover = album.coverUrl || getPlaceholderCoverSvg(album.title);
             const songCount = album.songs.length;
             return `
-            <div class="library-card album-card p-3" data-album-title="${escapeHtml(album.title)}">
+            <div class="library-card album-card p-3" data-album-title="${escapeHtml(album.title)}" data-album-year="${album.year || ''}">
               <div class="album-cover-container mb-2 position-relative">
                 <img src="${cover}" class="album-cover-img w-100" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
                 ${album.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-1.5">${album.year}</span>` : ''}
@@ -502,17 +511,18 @@ async function renderLibraryBrowseView(container) {
 
     bindLibraryToolbarEvents(container);
 
+    // In-view Back button click
+    container.querySelector('#libBrowseBackBtn')?.addEventListener('click', handleBack);
+
     // Breadcrumb clicks
     container.querySelector('#bcRoot')?.addEventListener('click', () => {
         selectedArtist = null;
         selectedAlbum = null;
         renderLibraryBrowseView(container);
-        updateBackBtnVisibility();
     });
     container.querySelector('#bcArtist')?.addEventListener('click', () => {
         selectedAlbum = null;
         renderLibraryBrowseView(container);
-        updateBackBtnVisibility();
     });
 
     // Artist click
@@ -522,7 +532,6 @@ async function renderLibraryBrowseView(container) {
             selectedArtist = artists.find(a => a.name === artistName);
             selectedAlbum = null;
             renderLibraryBrowseView(container);
-            updateBackBtnVisibility();
         });
     });
 
@@ -532,19 +541,11 @@ async function renderLibraryBrowseView(container) {
             const albumTitle = card.dataset.albumTitle;
             selectedAlbum = selectedArtist?.albums.find(a => a.title === albumTitle);
             renderLibraryBrowseView(container);
-            updateBackBtnVisibility();
         });
     });
 
-    // Filter input
-    const filterInput = container.querySelector('#libFilterInput');
-    filterInput?.addEventListener('input', (e) => {
-        const query = e.target.value.toLowerCase().trim();
-        container.querySelectorAll('.library-song-row').forEach(row => {
-            const title = (row.dataset.songTitle || '').toLowerCase();
-            row.style.display = title.includes(query) ? '' : 'none';
-        });
-    });
+    // Search / Filter setup
+    setupLibraryFilter(container);
 
     // Song actions: Play tab, Import tab, Delete song, Switch tabs
     setupSongRowActions(container);
@@ -570,6 +571,93 @@ function bindLibraryToolbarEvents(container) {
 
     container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
         switchView('search');
+    });
+}
+
+function setupLibraryFilter(container) {
+    const filterInput = container.querySelector('#libFilterInput');
+    const clearBtn = container.querySelector('#libFilterClearBtn');
+    if (!filterInput) return;
+
+    const applyFilter = () => {
+        const query = (filterInput.value || '').toLowerCase().trim();
+        if (clearBtn) {
+            clearBtn.style.display = query.length > 0 ? 'inline-flex' : 'none';
+        }
+
+        // Clean up previous filter empty message if any
+        container.querySelectorAll('.library-filter-empty-msg').forEach(el => el.remove());
+
+        // 1. Song List View (Album Detail)
+        const songRows = container.querySelectorAll('.library-song-row');
+        if (songRows.length > 0) {
+            let visibleCount = 0;
+            songRows.forEach(row => {
+                const title = (row.dataset.songTitle || '').toLowerCase();
+                const matches = !query || title.includes(query);
+                row.style.display = matches ? '' : 'none';
+                if (matches) visibleCount++;
+            });
+            const songsList = container.querySelector('#libSongsList');
+            if (songsList && visibleCount === 0 && query) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
+                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No songs match "${escapeHtml(query)}"`;
+                songsList.appendChild(emptyMsg);
+            }
+            return;
+        }
+
+        // 2. Albums Grid View (Artist Detail)
+        const albumCards = container.querySelectorAll('.library-albums-grid .album-card');
+        if (albumCards.length > 0) {
+            let visibleCount = 0;
+            albumCards.forEach(card => {
+                const title = (card.dataset.albumTitle || '').toLowerCase();
+                const year = (card.dataset.albumYear || '').toLowerCase();
+                const matches = !query || title.includes(query) || year.includes(query);
+                card.style.display = matches ? '' : 'none';
+                if (matches) visibleCount++;
+            });
+            const albumsGrid = container.querySelector('#libAlbumsGrid');
+            if (albumsGrid && visibleCount === 0 && query) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
+                emptyMsg.style.gridColumn = '1 / -1';
+                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No albums match "${escapeHtml(query)}"`;
+                albumsGrid.appendChild(emptyMsg);
+            }
+            return;
+        }
+
+        // 3. Artists Grid View (Top Level)
+        const artistCards = container.querySelectorAll('.library-artists-grid .artist-card');
+        if (artistCards.length > 0) {
+            let visibleCount = 0;
+            artistCards.forEach(card => {
+                const name = (card.dataset.artistName || '').toLowerCase();
+                const matches = !query || name.includes(query);
+                card.style.display = matches ? '' : 'none';
+                if (matches) visibleCount++;
+            });
+            const artistsGrid = container.querySelector('#libArtistsGrid');
+            if (artistsGrid && visibleCount === 0 && query) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
+                emptyMsg.style.gridColumn = '1 / -1';
+                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No artists match "${escapeHtml(query)}"`;
+                artistsGrid.appendChild(emptyMsg);
+            }
+            return;
+        }
+    };
+
+    filterInput.addEventListener('input', applyFilter);
+
+    clearBtn?.addEventListener('click', () => {
+        filterInput.value = '';
+        applyFilter();
+        filterInput.focus();
     });
 }
 
@@ -768,8 +856,8 @@ function renderSearchMusicBrainzView(container) {
       <div class="search-sticky-header mb-3">
         <div class="d-flex align-items-center justify-content-between mb-2">
           <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-sm btn-theme-outline py-0.5 px-2" id="searchBackToLibBtn" title="Back to Library">
-              <i class="bi-arrow-left me-1"></i> Library
+            <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="searchBackToLibBtn" title="Back to Library">
+              <i class="bi-arrow-left"></i> <span>Library</span>
             </button>
             <span class="small fw-semibold text-white-50">Search Music:</span>
           </div>
@@ -1052,8 +1140,8 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
         if (albums.length === 0) {
             container.innerHTML = `
             <div class="mb-3">
-              <button class="btn btn-sm btn-theme-outline" id="backToSearchResultsBtn">
-                <i class="bi-arrow-left me-1"></i> Back to Search
+              <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
+                <i class="bi-arrow-left"></i> <span>Back to Search</span>
               </button>
             </div>
             <div class="text-center py-4 text-muted">No studio albums found for ${escapeHtml(artistName)}.</div>`;
@@ -1063,8 +1151,8 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
 
         container.innerHTML = `
         <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2 pb-2 border-bottom border-secondary-subtle">
-          <button class="btn btn-sm btn-theme-outline" id="backToSearchResultsBtn">
-            <i class="bi-arrow-left me-1"></i> Back to Search
+          <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
+            <i class="bi-arrow-left"></i> <span>Back to Search</span>
           </button>
           <div class="d-flex align-items-center gap-2">
             <h6 class="mb-0 fw-bold text-white">${escapeHtml(artistName)} (${albums.length} Studio Albums)</h6>
@@ -1115,7 +1203,6 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
         searchHistory.push({ type: 'results' });
     }
     searchSubView = { type: 'bands', musicianMbid, musicianName };
-    updateBackBtnVisibility();
 
     container.innerHTML = `
     <div class="text-center py-5 text-muted">
@@ -1129,8 +1216,8 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
         if (bands.length === 0) {
             container.innerHTML = `
             <div class="mb-3">
-              <button class="btn btn-sm btn-theme-outline" id="backToSearchResultsBtn">
-                <i class="bi-arrow-left me-1"></i> Back to Search
+              <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
+                <i class="bi-arrow-left"></i> <span>Back to Search</span>
               </button>
             </div>
             <div class="text-center py-4 text-muted">No associated bands found for ${escapeHtml(musicianName)}.</div>`;
@@ -1140,8 +1227,8 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
 
         container.innerHTML = `
         <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between pb-2 border-bottom border-secondary-subtle">
-          <button class="btn btn-sm btn-theme-outline" id="backToSearchResultsBtn">
-            <i class="bi-arrow-left me-1"></i> Back to Search
+          <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
+            <i class="bi-arrow-left"></i> <span>Back to Search</span>
           </button>
           <h6 class="mb-0 fw-bold text-white">${escapeHtml(musicianName)} — Associated Bands</h6>
         </div>
@@ -1180,7 +1267,6 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
         searchHistory.push(searchSubView ? { ...searchSubView } : { type: 'results' });
     }
     searchSubView = { type: 'tracks', releaseGroupMbid };
-    updateBackBtnVisibility();
 
     container.innerHTML = `
     <div class="text-center py-5 text-muted">
@@ -1194,8 +1280,8 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
         if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
             container.innerHTML = `
             <div class="mb-3">
-              <button class="btn btn-sm btn-theme-outline" id="backToAlbumsListBtn">
-                <i class="bi-arrow-left me-1"></i> Back
+              <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToAlbumsListBtn">
+                <i class="bi-arrow-left"></i> <span>Back</span>
               </button>
             </div>
             <div class="text-center py-4 text-muted">No tracklist available for this album.</div>`;
@@ -1208,8 +1294,8 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
         container.innerHTML = `
         <div class="album-tracks-view">
           <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-            <button class="btn btn-sm btn-theme-outline" id="backToAlbumsListBtn">
-              <i class="bi-arrow-left me-1"></i> Back
+            <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToAlbumsListBtn">
+              <i class="bi-arrow-left"></i> <span>Back</span>
             </button>
             <button class="btn btn-sm btn-theme-primary px-3" id="addAllAlbumTracksBtn">
               <i class="bi-plus-circle me-1"></i> Add Full Album to Library
