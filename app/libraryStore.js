@@ -137,12 +137,15 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
         let folderPath = (song.folderPath || rawAlbum).trim();
 
         if (isCustom) {
-            if (folderPath === 'Student Documents/General' || folderPath === 'General' || folderPath === 'Student Documents') {
+            if (folderPath === 'Student Documents/General' || folderPath === 'General' || folderPath === 'Student Documents' || folderPath === 'Unknown Album' || folderPath === 'Singles / Other') {
                 folderPath = '';
                 rawAlbum = '';
             } else if (folderPath.startsWith('Student Documents/')) {
                 folderPath = folderPath.replace(/^Student Documents\//, '');
                 rawAlbum = folderPath;
+            }
+            if (rawAlbum === 'Unknown Album' || rawAlbum === 'General' || rawAlbum === 'Singles / Other') {
+                rawAlbum = '';
             }
         }
 
@@ -300,9 +303,9 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
         id,
         collectionId: songData.collectionId || collectionId,
         title: songData.title || 'Untitled Song',
-        artist: songData.artist || 'Unknown Artist',
+        artist: songData.isCustom ? (songData.artist || 'Custom Music') : (songData.artist || 'Unknown Artist'),
         artistMbid: songData.artistMbid || null,
-        album: songData.album || 'Unknown Album',
+        album: songData.isCustom ? (songData.album || songData.folderPath || '') : (songData.album || 'Unknown Album'),
         albumMbid: songData.albumMbid || null,
         year: songData.year || null,
         length: typeof songData.length === 'number' ? songData.length : (songData.length ? parseInt(songData.length, 10) : null),
