@@ -794,24 +794,26 @@ function renderSongRow(song) {
     const durationText = formatTrackDuration(song.length);
 
     return `
-    <div class="library-song-row p-2.5 d-flex flex-column gap-2 position-relative" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
-      <div class="d-flex align-items-center justify-content-between gap-2">
-        <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
-          <span class="badge-track-num">${song.trackNumber || '•'}</span>
+    <div class="library-song-row d-flex flex-column gap-2.5 position-relative" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
+      <div class="d-flex align-items-center justify-content-between gap-3">
+        <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+          <span class="badge-track-num flex-shrink-0">${song.trackNumber || '•'}</span>
           <div class="min-w-0 flex-grow-1">
             <div class="d-flex align-items-center gap-2 min-w-0 flex-wrap">
               <span class="fw-semibold text-white text-truncate" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
-              ${durationText ? `<span class="badge badge-theme-secondary py-0 px-1.5 text-muted font-monospace" style="font-size:0.68rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
+              ${durationText ? `<span class="badge badge-theme-secondary py-0.5 px-1.5 text-muted font-monospace" style="font-size:0.68rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
             </div>
-            <div class="d-flex align-items-center gap-1.5 flex-wrap mt-0.5">
-              ${tunings.map(t => `<span class="badge badge-tuning">${escapeHtml(t)}</span>`).join('')}
-              ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : '<span class="badge badge-no-tab"><i class="bi-exclamation-circle me-1"></i>No tab attached</span>'}
-            </div>
+            ${(tunings.length > 0 || hasTabs) ? `
+              <div class="d-flex align-items-center gap-2 flex-wrap mt-1.5">
+                ${tunings.map(t => `<span class="badge badge-tuning">${escapeHtml(t)}</span>`).join('')}
+                ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : ''}
+              </div>
+            ` : ''}
           </div>
         </div>
 
         <!-- Action Buttons -->
-        <div class="d-flex align-items-center gap-1.5 flex-shrink-0">
+        <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
           ${hasTabs ? `
             <button class="btn btn-sm btn-theme-primary py-1 px-2.5 d-flex align-items-center gap-1 play-default-tab-btn" data-song-id="${song.id}" title="Play Tab">
               <i class="bi-play-fill"></i> <span class="d-none d-sm-inline">Play</span>
@@ -820,8 +822,8 @@ function renderSongRow(song) {
 
           <!-- Import / Download Tab Dropdown -->
           <div class="dropdown">
-            <button class="btn btn-sm btn-theme-outline py-1 px-2 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
-              <i class="bi-plus-lg me-1"></i> Tab
+            <button class="btn btn-sm btn-theme-outline py-1 px-2.5 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
+              <i class="bi-plus-lg"></i> <span>Tab</span>
             </button>
             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>
@@ -832,7 +834,7 @@ function renderSongRow(song) {
 
           <!-- Song options (Delete) - only visible in Edit Mode -->
           ${isAlbumEditMode ? `
-            <button class="btn btn-sm btn-theme-danger p-1 px-1.5 delete-song-btn" data-song-id="${song.id}" title="Remove song from library">
+            <button class="btn btn-sm btn-theme-danger p-1 px-2 delete-song-btn ms-1" data-song-id="${song.id}" title="Remove song from library">
               <i class="bi-trash"></i>
             </button>
           ` : ''}
@@ -841,13 +843,13 @@ function renderSongRow(song) {
 
       <!-- Multiple Tab Options List (if has tabs) -->
       ${hasTabs ? `
-        <div class="tab-options-container ps-4 pt-1 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-1.5">
-          <span class="small text-muted" style="font-size: 0.7rem;">Tabs:</span>
+        <div class="tab-options-container pt-2.5 mt-1 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-2">
+          <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;">Tabs:</span>
           ${tabOptions.map(t => `
             <div class="tab-option-chip play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Load ${escapeHtml(t.name)}">
-              <span class="text-truncate" style="max-width: 140px;">${escapeHtml(t.name)}</span>
-              ${t.tuning ? `<span class="badge badge-theme-secondary py-0 px-1" style="font-size:0.6rem;">${escapeHtml(t.tuning)}</span>` : ''}
-              <button class="btn btn-link p-0 text-muted remove-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
+              <span class="text-truncate" style="max-width: 160px;">${escapeHtml(t.name)}</span>
+              ${t.tuning ? `<span class="badge badge-theme-secondary py-0 px-1.5" style="font-size:0.62rem;">${escapeHtml(t.tuning)}</span>` : ''}
+              <button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
             </div>
           `).join('')}
         </div>
@@ -1769,12 +1771,12 @@ function renderAddAlbumTracksList(tracks) {
 
     if (groups.length === 1 && !groups[0].mediumTitle) {
         return groups[0].items.map(({ track: t, idx }) => `
-            <div class="library-track-row p-2 d-flex align-items-center justify-content-between gap-2">
-              <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
+            <div class="library-track-row d-flex align-items-center justify-content-between gap-3">
+              <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
                 <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
                 <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
               </div>
-              <button class="btn btn-sm btn-theme-outline py-0.5 px-2 add-single-track-btn flex-shrink-0" data-track-idx="${idx}">
+              <button class="btn btn-sm btn-theme-outline py-1 px-2.5 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
                 <i class="bi-plus"></i> Add
               </button>
             </div>
@@ -1793,14 +1795,14 @@ function renderAddAlbumTracksList(tracks) {
             <span class="fw-bold small text-white text-uppercase" style="letter-spacing: 0.04em; font-size: 0.78rem;">${headerText}</span>
             <span class="badge badge-theme-secondary py-0 px-1.5 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.items.length} ${grp.items.length === 1 ? 'Track' : 'Tracks'}</span>
           </div>
-          <div class="d-flex flex-column gap-1.5">
+          <div class="d-flex flex-column gap-2">
             ${grp.items.map(({ track: t, idx }) => `
-              <div class="library-track-row p-2 d-flex align-items-center justify-content-between gap-2">
-                <div class="d-flex align-items-center gap-2.5 min-w-0 flex-grow-1">
+              <div class="library-track-row d-flex align-items-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
                   <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
                   <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
                 </div>
-                <button class="btn btn-sm btn-theme-outline py-0.5 px-2 add-single-track-btn flex-shrink-0" data-track-idx="${idx}">
+                <button class="btn btn-sm btn-theme-outline py-1 px-2.5 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
                   <i class="bi-plus"></i> Add
                 </button>
               </div>
