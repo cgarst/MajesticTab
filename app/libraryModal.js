@@ -507,9 +507,6 @@ async function renderLibraryBrowseView(container) {
                 </div>
               </div>
               <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                <span class="badge badge-theme-primary py-1 px-2" style="font-family: var(--font-monospace, monospace); font-size: 0.72rem; letter-spacing: 0.05em;" title="Tuning Notes">
-                  ${escapeHtml(currentGroup.notes || currentGroup.key || currentGroup.tuning)}
-                </span>
                 <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.72rem;">
                   ${escapeHtml(currentCat.label || `${currentGroup.stringCount}-String`)}
                 </span>
@@ -772,7 +769,7 @@ async function renderLibraryBrowseView(container) {
                             <span class="text-truncate" style="max-width: 220px;">${escapeHtml(t.name)}</span>
                             ${t.tuning ? (() => {
                               const info = getTuningInfo(t.tuning);
-                              const label = info ? `${info.displayName}${info.notes && info.notes !== info.displayName ? ` (${info.notes})` : ''}` : t.tuning;
+                              const label = info?.displayName || t.tuning;
                               return `<button class="badge badge-tuning badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
                             })() : ''}
                             <button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" title="Remove album tab"><i class="bi-x"></i></button>
@@ -1291,7 +1288,7 @@ function renderSongRow(song, options = {}) {
               <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
                 ${tunings.map(t => {
                   const info = getTuningInfo(t);
-                  const label = info ? `${info.displayName}${info.notes && info.notes !== info.displayName ? ` (${info.notes})` : ''}` : t;
+                  const label = info?.displayName || t;
                   return `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(info?.key || t)}" title="Browse songs in ${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</button>`;
                 }).join('')}
                 ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : ''}
@@ -1348,7 +1345,7 @@ function renderSongRow(song, options = {}) {
               <span class="text-truncate" style="max-width: 160px;">${escapeHtml(t.name)}</span>
               ${t.tuning ? (() => {
                 const info = getTuningInfo(t.tuning);
-                const label = info ? `${info.displayName}${info.notes && info.notes !== info.displayName ? ` (${info.notes})` : ''}` : t.tuning;
+                const label = info?.displayName || t.tuning;
                 return `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
               })() : ''}
               <button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
@@ -2775,7 +2772,7 @@ async function renderRecentsView(container) {
                   <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
                     ${tunings.map(t => {
                       const info = getTuningInfo(t);
-                      const label = info ? `${info.displayName}${info.notes && info.notes !== info.displayName ? ` (${info.notes})` : ''}` : t;
+                      const label = info?.displayName || t;
                       return `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(info?.key || t)}" title="Browse songs in ${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</button>`;
                     }).join('')}
                     <span class="small text-white-50" style="font-size:0.7rem;"><i class="bi-clock me-1"></i>${timeAgo}</span>
