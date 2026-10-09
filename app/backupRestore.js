@@ -571,17 +571,17 @@ async function renderModal(modal, activeTab = 'backup') {
 
       <!-- Tab Switcher Navigation -->
       <div class="backup-nav-tabs px-3 pt-2 pb-1 d-flex flex-wrap gap-2">
-        <button type="button" class="btn btn-sm ${activeTab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnBackup">
-          <i class="bi-cloud-arrow-up me-1.5"></i> Create Backup
+        <button type="button" class="btn btn-sm ${activeTab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnBackup">
+          <i class="bi-cloud-arrow-up me-2"></i> Create Backup
         </button>
-        <button type="button" class="btn btn-sm ${activeTab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnRestore">
-          <i class="bi-cloud-arrow-down me-1.5"></i> Restore from Backup
+        <button type="button" class="btn btn-sm ${activeTab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnRestore">
+          <i class="bi-cloud-arrow-down me-2"></i> Restore from Backup
         </button>
-        <button type="button" class="btn btn-sm ${activeTab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnReload">
-          <i class="bi-arrow-repeat me-1.5"></i> Reload Metadata
+        <button type="button" class="btn btn-sm ${activeTab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnReload">
+          <i class="bi-arrow-repeat me-2"></i> Reload Metadata
         </button>
-        <button type="button" class="btn btn-sm ${activeTab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnDelete">
-          <i class="bi-trash3 me-1.5"></i> Delete All Data
+        <button type="button" class="btn btn-sm ${activeTab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnDelete">
+          <i class="bi-trash3 me-2"></i> Delete All Data
         </button>
       </div>
 
@@ -591,7 +591,7 @@ async function renderModal(modal, activeTab = 'backup') {
         <div id="backupTabContent" style="display: ${activeTab === 'backup' ? 'block' : 'none'};">
           <!-- Bundle Contents Overview -->
           <div class="backup-summary-box p-3 rounded-3 mb-3">
-            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-1.5">
+            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
               <i class="bi-collection text-info"></i> Data Included in this Bundle
             </div>
             <div class="row g-2 text-white-50 small">
@@ -624,13 +624,13 @@ async function renderModal(modal, activeTab = 'backup') {
 
           <!-- Destination Provider Selector -->
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-white-50 mb-1.5 d-block">
+            <label class="form-label small fw-semibold text-white-50 mb-2 d-block">
               Save Backup Destination:
             </label>
             <div class="d-flex flex-column gap-2" id="backupProviderList">
               ${providers.map((p, idx) => `
-                <label class="backup-provider-option p-2.5 rounded-3 d-flex align-items-center justify-content-between gap-2" style="cursor: pointer;">
-                  <div class="d-flex align-items-center gap-2.5 min-w-0">
+                <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center justify-content-between gap-2" style="cursor: pointer;">
+                  <div class="d-flex align-items-center gap-3 min-w-0">
                     <input class="form-check-input theme-radio m-0" type="radio" name="backupTargetProvider" value="${escapeHtml(p.id)}" ${idx === 0 ? 'checked' : ''}>
                     <div class="provider-mini-icon">
                       <i class="${escapeHtml(p.icon || 'bi-folder')} ${escapeHtml(p.iconColorClass || 'text-primary')} fs-5"></i>
@@ -640,7 +640,7 @@ async function renderModal(modal, activeTab = 'backup') {
                       <div class="text-muted text-truncate" style="font-size: 0.73rem;">${escapeHtml(p.description || '')}</div>
                     </div>
                   </div>
-                  ${p.badge ? `<span class="badge badge-theme-secondary py-0.5 px-2" style="font-size: 0.65rem;">${escapeHtml(p.badge)}</span>` : ''}
+                  ${p.badge ? `<span class="badge badge-theme-secondary py-0 px-2" style="font-size: 0.65rem;">${escapeHtml(p.badge)}</span>` : ''}
                 </label>
               `).join('')}
             </div>
@@ -712,15 +712,15 @@ async function renderModal(modal, activeTab = 'backup') {
             </div>
 
             <!-- Restore Mode Options -->
-            <label class="form-label small fw-semibold text-white-50 mb-1.5 d-block">Choose Restore Method:</label>
+            <label class="form-label small fw-semibold text-white-50 mb-2 d-block">Choose Restore Method:</label>
             <div class="d-flex flex-column gap-2 mb-3">
               <!-- Merge Mode Option (Recommended) -->
-              <label class="restore-mode-card p-2.5 rounded-3 d-flex align-items-start gap-2.5" style="cursor: pointer;">
+              <label class="restore-mode-card p-3 rounded-3 d-flex align-items-start gap-3" style="cursor: pointer;">
                 <input class="form-check-input theme-radio mt-1" type="radio" name="restoreModeRadio" value="merge" checked>
                 <div class="min-w-0">
-                  <div class="d-flex align-items-center gap-1.5 mb-0.5">
+                  <div class="d-flex align-items-center gap-2 mb-1">
                     <span class="fw-bold text-white small">Merge with Existing Data</span>
-                    <span class="badge badge-theme-secondary py-0.2 px-1.5" style="font-size:0.62rem;">Recommended</span>
+                    <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.62rem;">Recommended</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
                     Safely adds any missing tabs, songs, collections, extensions, and preferences from the backup. Keeps your existing tabs intact.
@@ -729,12 +729,12 @@ async function renderModal(modal, activeTab = 'backup') {
               </label>
 
               <!-- Wipe & Replace Option -->
-              <label class="restore-mode-card p-2.5 rounded-3 d-flex align-items-start gap-2.5" style="cursor: pointer;">
+              <label class="restore-mode-card p-3 rounded-3 d-flex align-items-start gap-3" style="cursor: pointer;">
                 <input class="form-check-input theme-radio mt-1" type="radio" name="restoreModeRadio" value="wipe">
                 <div class="min-w-0">
-                  <div class="d-flex align-items-center gap-1.5 mb-0.5">
+                  <div class="d-flex align-items-center gap-2 mb-1">
                     <span class="fw-bold text-danger-emphasis small">Wipe &amp; Replace Everything</span>
-                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger-subtle py-0.2 px-1.5" style="font-size:0.62rem;">Clean Slate</span>
+                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger-subtle py-0 px-2" style="font-size:0.62rem;">Clean Slate</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
                     Erases all current local stored tabs, library entries, extensions, and settings, and replaces them cleanly with this backup.
@@ -767,7 +767,7 @@ async function renderModal(modal, activeTab = 'backup') {
         <div id="reloadTabContent" style="display: ${activeTab === 'reload' ? 'block' : 'none'};">
           <!-- Library Metadata Status Overview -->
           <div class="backup-summary-box p-3 rounded-3 mb-3">
-            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-1.5">
+            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
               <i class="bi-music-note-list text-info"></i> Library Metadata Status
             </div>
             <div class="row g-2 text-white-50 small">
@@ -800,8 +800,8 @@ async function renderModal(modal, activeTab = 'backup') {
 
           <!-- Informational Card -->
           <div class="p-3 rounded-3 mb-3" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
-            <div class="d-flex align-items-start gap-2.5">
-              <i class="bi-info-circle-fill text-info fs-5 flex-shrink-0 mt-0.5"></i>
+            <div class="d-flex align-items-start gap-3">
+              <i class="bi-info-circle-fill text-info fs-5 flex-shrink-0 mt-1"></i>
               <div>
                 <div class="fw-bold text-white small mb-1">Refresh All Metadata from MusicBrainz</div>
                 <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
@@ -816,8 +816,8 @@ async function renderModal(modal, activeTab = 'backup') {
 
           <!-- Live Progress Box (Hidden until running) -->
           <div id="reloadProgressContainer" class="p-3 rounded-3 mb-3" style="display:none; background: var(--bg-card); border: 1px solid var(--border-prominent);">
-            <div class="d-flex align-items-center justify-content-between mb-1.5">
-              <span class="small fw-semibold text-white d-flex align-items-center gap-1.5 min-w-0 me-2" id="reloadCurrentActionLabel">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <span class="small fw-semibold text-white d-flex align-items-center gap-2 min-w-0 me-2" id="reloadCurrentActionLabel">
                 <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></span>
                 <span class="text-truncate">Connecting to MusicBrainz...</span>
               </span>
@@ -847,7 +847,7 @@ async function renderModal(modal, activeTab = 'backup') {
         <div id="deleteTabContent" style="display: ${activeTab === 'delete' ? 'block' : 'none'};">
           <!-- Data Summary Overview -->
           <div class="backup-summary-box p-3 rounded-3 mb-3">
-            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-1.5">
+            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
               <i class="bi-exclamation-octagon text-danger"></i> Data to be Erased
             </div>
             <div class="row g-2 text-white-50 small">
@@ -880,8 +880,8 @@ async function renderModal(modal, activeTab = 'backup') {
 
           <!-- Danger Warning Card -->
           <div class="p-3 rounded-3 mb-3" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.35);">
-            <div class="d-flex align-items-start gap-2.5 mb-2">
-              <i class="bi-exclamation-triangle-fill text-danger fs-5 flex-shrink-0 mt-0.5"></i>
+            <div class="d-flex align-items-start gap-3 mb-2">
+              <i class="bi-exclamation-triangle-fill text-danger fs-5 flex-shrink-0 mt-1"></i>
               <div>
                 <div class="fw-bold text-white small mb-1">Permanent Data Deletion Warning</div>
                 <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
@@ -895,7 +895,7 @@ async function renderModal(modal, activeTab = 'backup') {
           </div>
 
           <!-- Confirmation Checkbox -->
-          <div class="form-check mb-3 p-2.5 rounded-2 bg-danger bg-opacity-10 border border-danger border-opacity-25">
+          <div class="form-check mb-3 p-3 rounded-2 bg-danger bg-opacity-10 border border-danger border-opacity-25">
             <input class="form-check-input ms-0 me-2" type="checkbox" id="deleteAllConfirmCheckbox">
             <label class="form-check-label small text-danger fw-semibold" for="deleteAllConfirmCheckbox" style="font-size: 0.78rem; cursor: pointer;">
               I understand this action is permanent and cannot be undone. Delete all my data.
@@ -944,10 +944,10 @@ function attachModalHandlers(modal) {
     const deleteContent = modal.querySelector('#deleteTabContent');
 
     const switchTab = (tab) => {
-        if (tabBtnBackup) tabBtnBackup.className = `btn btn-sm ${tab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
-        if (tabBtnRestore) tabBtnRestore.className = `btn btn-sm ${tab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
-        if (tabBtnReload) tabBtnReload.className = `btn btn-sm ${tab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
-        if (tabBtnDelete) tabBtnDelete.className = `btn btn-sm ${tab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
+        if (tabBtnBackup) tabBtnBackup.className = `btn btn-sm ${tab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
+        if (tabBtnRestore) tabBtnRestore.className = `btn btn-sm ${tab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
+        if (tabBtnReload) tabBtnReload.className = `btn btn-sm ${tab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
+        if (tabBtnDelete) tabBtnDelete.className = `btn btn-sm ${tab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
 
         if (backupContent) backupContent.style.display = tab === 'backup' ? 'block' : 'none';
         if (restoreContent) restoreContent.style.display = tab === 'restore' ? 'block' : 'none';
@@ -975,7 +975,7 @@ function attachModalHandlers(modal) {
         }
 
         backupExecuteBtn.disabled = true;
-        backupExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status"></span> Creating Backup...';
+        backupExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Creating Backup...';
         backupStatusAlert.style.display = 'block';
         backupStatusAlert.className = 'small mb-2 text-info';
         backupStatusAlert.textContent = 'Packaging settings, extensions, and stored tabs...';
@@ -1119,7 +1119,7 @@ function attachModalHandlers(modal) {
         }
 
         restoreExecuteBtn.disabled = true;
-        restoreExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status"></span> Restoring Data...';
+        restoreExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Restoring Data...';
         restoreStatusAlert.style.display = 'block';
         restoreStatusAlert.className = 'small mb-2 text-info';
         restoreStatusAlert.textContent = mode === 'wipe' ? 'Wiping and restoring fresh from backup...' : 'Merging missing tabs and settings...';
@@ -1137,7 +1137,7 @@ function attachModalHandlers(modal) {
 
             const summaryStr = details.length > 0 ? details.join(', ') : 'All data up to date';
             restoreStatusAlert.innerHTML = `
-              <div class="d-flex align-items-center gap-1.5 mb-1">
+              <div class="d-flex align-items-center gap-2 mb-1">
                 <i class="bi-check-circle-fill text-success fs-6"></i>
                 <strong>Restore Complete! (${mode === 'wipe' ? 'Wipe & Replace' : 'Merged'})</strong>
               </div>
@@ -1173,7 +1173,7 @@ function attachModalHandlers(modal) {
         if (!deleteAllConfirmCheckbox?.checked) return;
 
         deleteExecuteBtn.disabled = true;
-        deleteExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status"></span> Deleting All Data...';
+        deleteExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Deleting All Data...';
         deleteStatusAlert.style.display = 'block';
         deleteStatusAlert.className = 'small mb-2 text-info';
         deleteStatusAlert.textContent = 'Clearing stored tabs, library, extensions, and settings...';
@@ -1231,7 +1231,7 @@ function attachModalHandlers(modal) {
     reloadExecuteBtn?.addEventListener('click', async () => {
         activeReloadAbortController = new AbortController();
         reloadExecuteBtn.disabled = true;
-        reloadExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status"></span> Reloading...';
+        reloadExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Reloading...';
         if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop / Cancel';
 
         if (reloadProgressContainer) reloadProgressContainer.style.display = 'block';
@@ -1282,7 +1282,7 @@ function attachModalHandlers(modal) {
                     const summaryText = details.length > 0 ? details.join(', ') : 'All tracks were already up to date';
 
                     reloadStatusAlert.innerHTML = `
-                      <div class="d-flex align-items-center gap-1.5 mb-1">
+                      <div class="d-flex align-items-center gap-2 mb-1">
                         <i class="bi-check-circle-fill text-success fs-6"></i>
                         <strong>Metadata Reload Complete!</strong>
                       </div>
