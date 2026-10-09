@@ -1007,13 +1007,20 @@ function bindLibraryToolbarEvents(container) {
         });
     });
 
-    container.querySelector('#libNewCollectionBtn')?.addEventListener('click', async () => {
-        const name = prompt('Enter name for new collection:');
-        if (name && name.trim()) {
-            const col = await createCollection(name.trim());
-            activeCollectionId = col.id;
-            await renderLibraryBrowseView(container);
-        }
+    container.querySelector('#libNewCollectionBtn')?.addEventListener('click', () => {
+        openThemedInputModal({
+            title: 'New Collection',
+            subtitle: 'Create a dedicated tab collection',
+            icon: 'bi-folder-plus',
+            inputLabel: 'Collection Name',
+            placeholder: 'e.g. Live Setlist, Favorites, Acoustic...',
+            confirmText: 'Create Collection',
+            onConfirm: async (name) => {
+                const col = await createCollection(name);
+                activeCollectionId = col.id;
+                await renderLibraryBrowseView(container);
+            }
+        });
     });
 
     container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => {
@@ -2754,4 +2761,99 @@ function formatTimeAgo(timestamp) {
     if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
     return `${Math.floor(diff / 86400)}d ago`;
+}
+
+/**
+ * Displays a themed input modal for text prompts (such as naming collections or editing tuning names)
+ */
+export function openThemedInputModal({
+    title = 'Input',
+    subtitle = '',
+    icon = 'bi-pencil-square',
+    inputLabel = '',
+    placeholder = '',
+    initialValue = '',
+    confirmText = 'Save',
+    onConfirm = () => {}
+} = {}) {
+    let modal = document.getElementById('themedInputModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'themedInputModal';
+        modal.className = 'theme-modal-backdrop';
+        document.body.appendChild(modal);
+    }
+
+    modal.innerHTML = `
+    <div class="theme-modal-card" style="max-width: 440px; width: 90%;">
+      <div class="theme-modal-header">
+        <div class="theme-modal-title-group">
+          <div class="theme-modal-icon">
+            <i class="${icon} text-primary fs-5"></i>
+          </div>
+          <div class="theme-modal-titles">
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">${escapeHtml(title)}</h5>
+            ${subtitle ? `<div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(subtitle)}</div>` : ''}
+          </div>
+        </div>
+        <div class="theme-modal-actions">
+          <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="themedInputCloseBtn" aria-label="Close">
+            <i class="bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+      <form id="themedInputForm">
+        <div class="theme-modal-body p-3">
+          ${inputLabel ? `<label class="form-label small text-white-50 mb-2">${escapeHtml(inputLabel)}</label>` : ''}
+          <input type="text" class="form-control" id="themedInputField" value="${escapeHtml(initialValue || '')}" placeholder="${escapeHtml(placeholder || '')}" autocomplete="off" required>
+        </div>
+        <div class="d-flex justify-content-end gap-2 p-3 pt-0 border-0">
+          <button type="button" class="btn btn-sm btn-theme-outline px-3" id="themedInputCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-theme-primary px-4" id="themedInputConfirmBtn">${escapeHtml(confirmText)}</button>
+        </div>
+      </form>
+    </div>
+    `;
+
+    const inputField = modal.querySelector('#themedInputField');
+    const form = modal.querySelector('#themedInputForm');
+    const closeBtn = modal.querySelector('#themedInputCloseBtn');
+    const cancelBtn = modal.querySelector('#themedInputCancelBtn');
+
+    const closeModal = () => {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape') {
+            closeModal();
+        }
+    };
+
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    modal.onclick = (e) => {
+        if (e.target === modal) closeModal();
+    };
+
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const value = (inputField?.value || '').trim();
+        if (value) {
+            closeModal();
+            await onConfirm(value);
+        }
+    });
+
+    document.addEventListener('keydown', handleKeyDown);
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+    setTimeout(() => {
+        if (inputField) {
+            inputField.focus();
+            inputField.select();
+        }
+    }, 50);
 }
