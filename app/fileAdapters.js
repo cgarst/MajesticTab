@@ -94,7 +94,28 @@ export function applyGpScoreTransforms(score) {
     return score;
 }
 
+export function ensureExtensionsLoaded() {
+    if (adapters.length > 0 || scoreTransforms.length > 0) return;
+    try {
+        if (typeof localStorage !== 'undefined') {
+            const raw = localStorage.getItem('majesticTab_custom_extensions');
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    const active = parsed.filter(e => e && e.enabled && typeof e.source === 'string');
+                    if (active.length > 0) {
+                        installExtensionSources(active);
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[fileAdapters] Could not auto-load saved extensions:', e);
+    }
+}
+
 export async function applyFileAdapters(file) {
+    ensureExtensionsLoaded();
     let result = file;
 
     for (const adapter of adapters) {
