@@ -2827,6 +2827,14 @@ body:not(.synth-playback-started) .at-highlight {
   box-shadow: 0 0 16px var(--accent-glow) !important;
 }
 
+/* Multi-Disc Headers */
+.library-disc-header {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
 /* Thumbnails & Covers */
 .artist-thumbnail {
   width: 52px;

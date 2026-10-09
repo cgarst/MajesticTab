@@ -280,10 +280,18 @@ function scoreAndRankRecordings(recordings, query) {
         const albumTitle = releaseGroup?.title || bestRelease?.title || '';
         const albumMbid = releaseGroup?.id || bestRelease?.id || '';
 
+        let recTitle = rec.title || 'Untitled';
+        if (disambig) {
+            const cleanD = disambig.replace(/^\((.+)\)$/, '$1').trim();
+            if (cleanD && !recTitle.toLowerCase().includes(cleanD.toLowerCase())) {
+                recTitle = `${recTitle} (${cleanD})`;
+            }
+        }
+
         return {
             id: rec.id,
             recordingMbid: rec.id,
-            title: rec.title,
+            title: recTitle,
             artist: artistCredit,
             artistMbid: rec['artist-credit']?.[0]?.artist?.id || '',
             album: albumTitle,
@@ -498,14 +506,31 @@ export async function getAlbumTracks(releaseGroupMbid) {
     const media = detailData.media || [];
 
     for (const medium of media) {
+        const mediumTitle = medium.title || '';
+        const mediumFormat = medium.format || 'CD';
+        const mediumNumber = medium.position || 1;
+
         for (const tr of medium.tracks || []) {
             const recording = tr.recording || {};
+            let title = tr.title || recording.title || 'Untitled Track';
+            const disambig = (tr.disambiguation || recording.disambiguation || '').trim();
+            if (disambig) {
+                const cleanD = disambig.replace(/^\((.+)\)$/, '$1').trim();
+                if (cleanD && !title.toLowerCase().includes(cleanD.toLowerCase())) {
+                    title = `${title} (${cleanD})`;
+                }
+            }
+
+            const parsedTrackNum = typeof tr.position === 'number' ? tr.position : (parseInt(tr.position || tr.number, 10) || tracks.length + 1);
+
             tracks.push({
                 id: recording.id || tr.id,
                 recordingMbid: recording.id || '',
-                trackNumber: tr.position || tr.number || tracks.length + 1,
-                mediumNumber: medium.position || 1,
-                title: tr.title || recording.title || 'Untitled Track',
+                trackNumber: parsedTrackNum,
+                mediumNumber,
+                mediumTitle,
+                mediumFormat,
+                title,
                 length: tr.length ? Math.round(tr.length / 1000) : (recording.length ? Math.round(recording.length / 1000) : null),
                 artist: artistCredit,
                 album: detailData.title,
