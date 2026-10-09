@@ -41,6 +41,7 @@ const APP_SETTINGS_KEYS = [
     'majestictab_sheet_mode',
     'gpSheetScale',
     'pageAdvancePages',
+    'landscapePageLayout',
     'gpDefaultView',
     'pdfDefaultView',
     'txtDefaultView',
@@ -609,6 +610,12 @@ function applyRestoredPreferences() {
     const pageAdvance = localStorage.getItem('pageAdvancePages');
     if (pageAdvance) {
         const radio = document.querySelector(`input[name="pageAdvanceRadio"][value="${pageAdvance}"]`);
+        if (radio) radio.checked = true;
+    }
+
+    const landscapeLayout = localStorage.getItem('landscapePageLayout');
+    if (landscapeLayout) {
+        const radio = document.querySelector(`input[name="landscapePageLayoutRadio"][value="${landscapeLayout}"]`);
         if (radio) radio.checked = true;
     }
 
