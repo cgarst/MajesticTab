@@ -101,6 +101,28 @@ export const DEFAULT_SOURCES = [
         userscript: '',
         defaultUserscript: '',
         isSeed: true
+    },
+    {
+        id: 'gprotab',
+        name: 'GProTab',
+        urlTemplate: 'https://gprotab.net/en/search?type=song&q=SEARCH+TERM',
+        defaultUrl: 'https://gprotab.net/en/search?type=song&q=SEARCH+TERM',
+        queryFormat: 'song_only',
+        userscriptEnabled: false,
+        userscript: '',
+        defaultUserscript: '',
+        isSeed: true
+    },
+    {
+        id: 'guitarprotabs',
+        name: 'guitarprotabs.org',
+        urlTemplate: 'https://guitarprotabs.org/search.php?search=SEARCH+TERM&in=songs&page=1',
+        defaultUrl: 'https://guitarprotabs.org/search.php?search=SEARCH+TERM&in=songs&page=1',
+        queryFormat: 'song_only',
+        userscriptEnabled: false,
+        userscript: '',
+        defaultUserscript: '',
+        isSeed: true
     }
 ];
 
@@ -191,13 +213,17 @@ export function getSources() {
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
                         existing.defaultUserscript = seed.defaultUserscript;
-                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'song_only') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song')) {
+                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'song_only') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'guitarprotabs' && existing.queryFormat !== 'song_only')) {
                             existing.queryFormat = seed.queryFormat;
                         }
                         // If userscript is missing, empty, or an older stock script version, update it to the latest seed script
-                        if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v10-focus')) {
-                            existing.userscript = seed.userscript;
+                        if (existing.id === 'ug') {
+                            if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v10-focus')) {
+                                existing.userscript = seed.userscript;
+                            }
                         }
+                    } else if (!existing) {
+                        parsed.push(JSON.parse(JSON.stringify(seed)));
                     }
                 }
                 return parsed;
@@ -236,6 +262,8 @@ export function buildSearchUrl(source, query) {
     if (!term) {
         if (source.id === 'ug') return 'https://www.ultimate-guitar.com/';
         if (source.id === 'metaltabs') return 'https://metaltabs.org/';
+        if (source.id === 'gprotab') return 'https://gprotab.net/';
+        if (source.id === 'guitarprotabs') return 'https://guitarprotabs.org/';
         if (source.defaultUrl) {
             return source.defaultUrl.replace('SEARCH+TERM', '').replace('{search}', '');
         }
