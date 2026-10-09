@@ -120,6 +120,9 @@ export function getTuningInfo(tuningInput) {
         const notes = noteArr.join(' ');
         const defaultName = known.shortName === 'E Standard' ? 'Standard' : (known.shortName || known.name.split('(')[0].trim());
 
+        const trimmedEscaped = trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const wordBoundaryMatch = new RegExp(`(^|[^a-zA-Z0-9#b])${trimmedEscaped}([^a-zA-Z0-9#b]|$)`, 'i').test(known.name);
+
         if (
             trimmed.toLowerCase() === key.toLowerCase() ||
             trimmed.toLowerCase() === notes.toLowerCase() ||
@@ -127,7 +130,7 @@ export function getTuningInfo(tuningInput) {
             trimmed.toLowerCase() === (known.shortName || '').toLowerCase() ||
             trimmed.toLowerCase() === defaultName.toLowerCase() ||
             (known.shortName === 'E Standard' && trimmed.toLowerCase() === 'standard') ||
-            (known.name.toLowerCase().includes(trimmed.toLowerCase()) && trimmed.length >= 3)
+            (wordBoundaryMatch && trimmed.length >= 3)
         ) {
             const customName = getCustomTuningName(key);
             return {
@@ -251,13 +254,17 @@ export function getTuningCategory(tuningInputOrGroup) {
         // Baritone lowest notes at B or below are B, Bb, A#, A, Ab, G#, G, Gb, F# (octave 1)
         const BARITONE_LOWEST_NOTES = ['B', 'Bb', 'A#', 'A', 'Ab', 'G#', 'G', 'Gb', 'F#'];
         const isBaritone = BARITONE_LOWEST_NOTES.includes(lowestNote) ||
-            (defaultName && defaultName.toLowerCase().includes('baritone')) ||
-            (defaultName && defaultName.toLowerCase().includes('drop b')) ||
-            (defaultName && defaultName.toLowerCase().includes('b standard')) ||
-            (defaultName && defaultName.toLowerCase().includes('drop a#')) ||
-            (defaultName && defaultName.toLowerCase().includes('drop a')) ||
-            (defaultName && defaultName.toLowerCase().includes('drop g')) ||
-            (defaultName && defaultName.toLowerCase().includes('drop f'));
+            /\bbaritone\b/i.test(defaultName) ||
+            /\bdrop b\b/i.test(defaultName) ||
+            /\bb standard\b/i.test(defaultName) ||
+            /\bdrop a#\b/i.test(defaultName) ||
+            /\bdrop bb\b/i.test(defaultName) ||
+            /\bdrop a\b/i.test(defaultName) ||
+            /\bdrop g#\b/i.test(defaultName) ||
+            /\bdrop ab\b/i.test(defaultName) ||
+            /\bdrop g\b/i.test(defaultName) ||
+            /\bdrop f#\b/i.test(defaultName) ||
+            /\bdrop f\b/i.test(defaultName);
 
         if (isBaritone) {
             return {
