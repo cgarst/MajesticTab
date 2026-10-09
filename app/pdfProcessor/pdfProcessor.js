@@ -13,7 +13,7 @@ import { updateProgress } from '../utils/fileHandlingUtils.js';
 
 const canvasCache = new WeakMap();
 
-export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal, scale }) {
+export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal, scale, startPage, endPage }) {
   // Create a scaled config if a custom scale is provided
   const config = scale ? createScaledConfig(scale) : CONFIG;
   
@@ -25,6 +25,10 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   if (abortSignal?.aborted) return;
   
+  const actualStart = Math.max(1, Math.min(pdf.numPages, parseInt(startPage || file.startPage || 1, 10)));
+  const actualEnd = Math.max(actualStart, Math.min(pdf.numPages, parseInt(endPage || file.endPage || pdf.numPages, 10)));
+  const totalRangePages = actualEnd - actualStart + 1;
+
   // Switch to determinate progress bar now that we know the total pages
   progressBar.classList.remove('indeterminate');
   progressBar.style.width = '0%';
@@ -34,15 +38,16 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
   const cacheKey = debugMode.checked ? 'debug' : (originalMode?.checked ? 'original' : 'normal');
   let copyrightCanvasMemory = null;
 
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+  for (let pageNum = actualStart; pageNum <= actualEnd; pageNum++) {
     if (abortSignal?.aborted) return;
+    const progressPercent = ((pageNum - actualStart + 1) / totalRangePages * 100);
 
     // Return cached canvas if exists
     if (fileCache[cacheKey][pageNum - 1]) {
       const cachedCanvas = fileCache[cacheKey][pageNum - 1];
       condensedCanvases.push(cachedCanvas);
       onCanvasRendered(cachedCanvas);
-      updateProgress(progressBar, (pageNum / pdf.numPages * 100));
+      updateProgress(progressBar, progressPercent);
       continue;
     }
 
@@ -61,7 +66,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
       condensedCanvases.push(canvas);
       fileCache[cacheKey][pageNum - 1] = canvas;
       onCanvasRendered(canvas);
-      progressBar.style.width = `${(pageNum / pdf.numPages * 100).toFixed(1)}%`;
+      progressBar.style.width = `${progressPercent.toFixed(1)}%`;
       continue;
     }
 

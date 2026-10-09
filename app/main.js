@@ -865,6 +865,8 @@ async function loadPDF(file) {
         progressContainer,
         progressBar,
         condensedCanvases,
+        startPage: file.startPage,
+        endPage: file.endPage,
         abortSignal: processing,
         onCanvasRendered: (canvas) => {
             if (processing.aborted) return;

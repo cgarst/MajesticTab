@@ -799,7 +799,7 @@ async function renderLibraryBrowseView(container) {
 
                   <!-- Songs List -->
                   <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
-                    ${renderAlbumSongsList(album.songs)}
+                    ${renderAlbumSongsList(album.songs, { albumTabs })}
                   </div>
                 </div>
                 </div>
@@ -1327,6 +1327,7 @@ function renderSongRow(song, options = {}) {
     const durationText = formatTrackDuration(song.length);
     const isPinned = Boolean(song.pinned);
     const defaultTabId = song.defaultTabId || (tabOptions[0]?.id || null);
+    const albumPdfTabs = (options.albumTabs || []).filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
 
     return `
     <div class="library-song-row d-flex flex-column gap-2 position-relative ${isPinned ? 'library-song-row-pinned' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
@@ -1376,6 +1377,10 @@ function renderSongRow(song, options = {}) {
               <i class="bi-plus-lg"></i> <span>Tab</span>
             </button>
             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
+              ${albumPdfTabs.length > 0 ? `
+                <li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Set Album PDF Pages...</button></li>
+                <li><hr class="dropdown-divider"></li>
+              ` : ''}
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
@@ -1397,16 +1402,20 @@ function renderSongRow(song, options = {}) {
           <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;">Tabs:</span>
           ${tabOptions.map((t, idx) => {
             const isDefault = (t.id === defaultTabId) || (!defaultTabId && idx === 0);
+            const isPdfRange = Boolean(t.isAlbumRange || t.startPage);
+            const iconClass = isPdfRange ? 'bi-file-earmark-pdf text-warning' : 'bi-file-earmark-music text-info';
             return `
             <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Load ${escapeHtml(t.name)}">
               <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'text-warning' : 'text-muted'} me-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="${isDefault ? 'Default Tab' : 'Set as default tab'}">
                 <i class="bi-star${isDefault ? '-fill' : ''}"></i>
               </button>
+              <i class="${iconClass} me-1" style="font-size: 0.78rem;"></i>
               <span class="text-truncate" style="max-width: 160px;">${escapeHtml(t.name)}</span>
+              ${(t.startPage && t.endPage) ? `<span class="badge badge-theme-warning py-0 px-1 ms-1" style="font-size:0.6rem;">pp. ${t.startPage}-${t.endPage}</span>` : ''}
               ${t.tuning ? (() => {
                 const info = getTuningInfo(t.tuning);
                 const label = info?.displayName || t.tuning;
-                return `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
+                return `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2 ms-1" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
               })() : ''}
               <button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
             </div>
@@ -1418,7 +1427,7 @@ function renderSongRow(song, options = {}) {
     `;
 }
 
-function renderAlbumSongsList(songs) {
+function renderAlbumSongsList(songs, options = {}) {
     const hasCd = (songs || []).some(s => !isDvdOrBlurayMedium(s) && !isVinylOrTapeMedium(s));
     const cleanSongs = (songs || []).filter(s => !isDvdOrBlurayMedium(s) && !(hasCd && isVinylOrTapeMedium(s)));
     if (!cleanSongs || cleanSongs.length === 0) {
@@ -1447,7 +1456,7 @@ function renderAlbumSongsList(songs) {
 
     // If only 1 medium and no specific medium title, render song rows directly
     if (groups.length === 1 && !groups[0].mediumTitle) {
-        return groups[0].songs.map(song => renderSongRow(song)).join('');
+        return groups[0].songs.map(song => renderSongRow(song, options)).join('');
     }
 
     // Multi-disc / multi-medium rendering
@@ -1464,7 +1473,7 @@ function renderAlbumSongsList(songs) {
             <span class="badge badge-theme-secondary py-0 px-2 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.songs.length} ${grp.songs.length === 1 ? 'Track' : 'Tracks'}</span>
           </div>
           <div class="d-flex flex-column gap-2">
-            ${grp.songs.map(song => renderSongRow(song)).join('')}
+            ${grp.songs.map(song => renderSongRow(song, options)).join('')}
           </div>
         </div>
         `;
@@ -1561,6 +1570,25 @@ function setupSongRowActions(container) {
             const tabId = btn.dataset.tabId;
             await removeTabOptionFromSong(songId, tabId);
             await renderView();
+        });
+    });
+
+    // Set Album PDF page range for song
+    container.querySelectorAll('.set-album-pdf-pages-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const songId = btn.dataset.songId;
+            const song = await getSongById(songId);
+            if (!song) return;
+            const albumTabs = (selectedArtist && selectedAlbum)
+                ? await getAlbumTabOptions(activeCollectionId, selectedArtist.name, selectedAlbum.title)
+                : [];
+            const albumPdfTabs = albumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
+            if (albumPdfTabs.length === 0) {
+                showToast('No whole-album PDF found for this album.', 'warning');
+                return;
+            }
+            openSetAlbumPdfPagesModal(song, albumPdfTabs);
         });
     });
 
@@ -1886,13 +1914,15 @@ async function loadSongTab(song, tabOption) {
             file.librarySongTitle = song.title;
             file.artist = song.artist;
             file.album = song.album;
+            file.startPage = tabOption.startPage;
+            file.endPage = tabOption.endPage;
             closeLibraryModal();
             await loadFile(file);
 
             // Record recent with full library metadata
             await addRecentOpened({
-                id: file.name,
-                name: file.name,
+                id: file.name + (tabOption.startPage ? `_p${tabOption.startPage}_${tabOption.endPage}` : ''),
+                name: tabOption.name || file.name,
                 fileStoreId: tabOption.fileStoreId,
                 providerId: tabOption.providerId || 'local',
                 relativePath: tabOption.relativePath || file.name,
@@ -3084,3 +3114,156 @@ export function openThemedInputModal({
         }
     }, 50);
 }
+
+/**
+ * Themed dialog to configure start and end page range from an album-level PDF for a specific track.
+ */
+export function openSetAlbumPdfPagesModal(song, albumPdfTabs = []) {
+    if (!albumPdfTabs || albumPdfTabs.length === 0) {
+        showToast('No whole-album PDF found for this album.', 'warning');
+        return;
+    }
+
+    let modal = document.getElementById('themedAlbumPdfModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'themedAlbumPdfModal';
+        modal.className = 'theme-modal-backdrop';
+        document.body.appendChild(modal);
+    }
+
+    const firstTab = albumPdfTabs[0];
+
+    modal.innerHTML = `
+    <div class="theme-modal-card" style="max-width: 480px; width: 90%;">
+      <div class="theme-modal-header">
+        <div class="theme-modal-title-group">
+          <div class="theme-modal-icon">
+            <i class="bi-file-earmark-pdf text-primary fs-5"></i>
+          </div>
+          <div class="theme-modal-titles">
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Set Album PDF Pages</h5>
+            <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(song.title)}</div>
+          </div>
+        </div>
+        <div class="theme-modal-actions">
+          <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="themedAlbumPdfCloseBtn" aria-label="Close">
+            <i class="bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+      <form id="themedAlbumPdfForm">
+        <div class="theme-modal-body p-3 d-flex flex-column gap-3">
+          ${albumPdfTabs.length > 1 ? `
+            <div>
+              <label class="form-label small text-white-50 mb-1">Album PDF Source</label>
+              <select class="form-select form-select-sm" id="albumPdfSourceSelect">
+                ${albumPdfTabs.map((t, idx) => `<option value="${escapeHtml(t.id)}" ${idx === 0 ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}
+              </select>
+            </div>
+          ` : `
+            <div>
+              <label class="form-label small text-white-50 mb-1">Album PDF Source</label>
+              <div class="small text-white fw-semibold"><i class="bi-file-earmark-pdf text-warning me-1"></i>${escapeHtml(firstTab.name)}</div>
+            </div>
+          `}
+          <div class="row g-2">
+            <div class="col-6">
+              <label class="form-label small text-white-50 mb-1">Start Page</label>
+              <input type="number" class="form-control" id="albumPdfStartPage" min="1" step="1" value="1" required>
+            </div>
+            <div class="col-6">
+              <label class="form-label small text-white-50 mb-1">End Page</label>
+              <input type="number" class="form-control" id="albumPdfEndPage" min="1" step="1" value="1" required>
+            </div>
+          </div>
+          <div>
+            <label class="form-label small text-white-50 mb-1">Tab Name (optional)</label>
+            <input type="text" class="form-control" id="albumPdfTabName" placeholder="${escapeHtml(firstTab.name)} (pp. 1-1)">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 p-3 pt-0 border-0">
+          <button type="button" class="btn btn-sm btn-theme-outline px-3" id="themedAlbumPdfCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-theme-primary px-4" id="themedAlbumPdfConfirmBtn">Save Tab Range</button>
+        </div>
+      </form>
+    </div>
+    `;
+
+    const form = modal.querySelector('#themedAlbumPdfForm');
+    const closeBtn = modal.querySelector('#themedAlbumPdfCloseBtn');
+    const cancelBtn = modal.querySelector('#themedAlbumPdfCancelBtn');
+    const sourceSelect = modal.querySelector('#albumPdfSourceSelect');
+    const startInput = modal.querySelector('#albumPdfStartPage');
+    const endInput = modal.querySelector('#albumPdfEndPage');
+    const nameInput = modal.querySelector('#albumPdfTabName');
+
+    const updateNamePlaceholder = () => {
+        const selId = sourceSelect ? sourceSelect.value : firstTab.id;
+        const selTab = albumPdfTabs.find(t => t.id === selId) || firstTab;
+        const s = parseInt(startInput.value, 10) || 1;
+        const e = parseInt(endInput.value, 10) || s;
+        nameInput.placeholder = `${selTab.name} (pp. ${s}-${e})`;
+    };
+
+    startInput.addEventListener('input', () => {
+        if (parseInt(endInput.value, 10) < parseInt(startInput.value, 10)) {
+            endInput.value = startInput.value;
+        }
+        updateNamePlaceholder();
+    });
+    endInput.addEventListener('input', updateNamePlaceholder);
+    sourceSelect?.addEventListener('change', updateNamePlaceholder);
+
+    const closeModal = () => {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+
+    const handleKeyDown = (e) => {
+        if (e.key === 'Escape') closeModal();
+    };
+
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    modal.onclick = (e) => {
+        if (e.target === modal) closeModal();
+    };
+
+    form?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const selId = sourceSelect ? sourceSelect.value : firstTab.id;
+        const selTab = albumPdfTabs.find(t => t.id === selId) || firstTab;
+        const startPage = parseInt(startInput.value, 10) || 1;
+        const endPage = parseInt(endInput.value, 10) || startPage;
+        const customName = (nameInput.value || '').trim() || `${selTab.name} (pp. ${startPage}-${endPage})`;
+
+        await addTabOptionToSong(song.id, {
+            name: customName,
+            fileStoreId: selTab.fileStoreId,
+            providerId: selTab.providerId || 'local',
+            relativePath: selTab.relativePath || selTab.name,
+            startPage: startPage,
+            endPage: endPage,
+            isAlbumRange: true,
+            tuning: selTab.tuning || song.tunings?.[0] || 'E Standard',
+            tunings: selTab.tunings || song.tunings || ['E Standard']
+        });
+
+        closeModal();
+        showToast(`Saved PDF page range for ${song.title}`, 'success');
+        await renderView();
+    });
+
+    document.addEventListener('keydown', handleKeyDown);
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+    setTimeout(() => {
+        if (startInput) {
+            startInput.focus();
+            startInput.select();
+        }
+    }, 50);
+}
+
