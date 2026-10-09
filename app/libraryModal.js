@@ -14,6 +14,7 @@ import {
 import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
+import { openOpenFileModal } from './openFileModal.js';
 import { extractScoreTunings, inferTuningFromTextOrName } from './utils/tuningUtils.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents'
@@ -363,8 +364,12 @@ async function renderLibraryBrowseView(container) {
           </div>
         </div>
 
-        <!-- Primary CTA: Add Music (Right) -->
-        <div class="lib-toolbar-right">
+        <!-- Primary CTAs: Open File + Add Music (Right) -->
+        <div class="lib-toolbar-right d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libOpenFileBtn" title="Open a tab file directly">
+            <i class="bi-folder2-open"></i>
+            <span>Open File</span>
+          </button>
           <button type="button" class="btn btn-sm btn-theme-primary lib-add-music-btn" id="libAddMusicBtn" title="Search catalog to add music">
             <i class="bi-plus-lg"></i>
             <span>Add Music</span>
@@ -378,8 +383,11 @@ async function renderLibraryBrowseView(container) {
           <div class="text-center py-5 text-muted">
             <i class="bi-music-note-list fs-1 mb-2 d-block text-white-50"></i>
             <h5 class="text-white fw-semibold">This Collection is Empty</h5>
-            <p class="small text-muted mb-4">Add your favorite songs and albums to build your personalized tab catalog.</p>
-            <div class="d-flex justify-content-center gap-2">
+            <p class="small text-muted mb-4">Add your favorite songs and albums to build your personalized tab catalog, or open a tab file directly.</p>
+            <div class="d-flex justify-content-center gap-2 flex-wrap">
+              <button class="btn btn-theme-outline btn-sm px-3" id="emptyStateOpenFileBtn">
+                <i class="bi-folder2-open me-1"></i> Open File
+              </button>
               <button class="btn btn-theme-primary btn-sm px-3" id="emptyStateAddBtn">
                 <i class="bi-plus-circle me-1"></i> Add Music
               </button>
@@ -390,6 +398,7 @@ async function renderLibraryBrowseView(container) {
 
         bindLibraryToolbarEvents(container);
         container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => switchView('search'));
+        container.querySelector('#emptyStateOpenFileBtn')?.addEventListener('click', openOpenFileModal);
         return;
     }
 
@@ -567,6 +576,10 @@ function bindLibraryToolbarEvents(container) {
             activeCollectionId = col.id;
             await renderLibraryBrowseView(container);
         }
+    });
+
+    container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => {
+        openOpenFileModal();
     });
 
     container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
