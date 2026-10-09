@@ -1,5 +1,7 @@
 use std::sync::Mutex;
-use tauri::{Emitter, Manager, RunEvent};
+use tauri::{Emitter, Manager};
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use tauri::RunEvent;
 
 mod tab_downloader_native;
 
@@ -192,16 +194,17 @@ pub fn run() {
         .build(context)
         .expect("error while building MajesticTab");
 
-    app.run(|app_handle, event| {
-        if let RunEvent::Opened { urls } = event {
+    app.run(|_app_handle, _event| {
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        if let RunEvent::Opened { urls } = _event {
             for url in urls {
                 if let Some(payload) = load_file_from_path_or_url(url.as_str()) {
-                    if let Some(state) = app_handle.try_state::<OpenedFilesState>() {
+                    if let Some(state) = _app_handle.try_state::<OpenedFilesState>() {
                         if let Ok(mut lock) = state.0.lock() {
                             lock.push(payload.clone());
                         }
                     }
-                    let _ = app_handle.emit("app-open-file", payload);
+                    let _ = _app_handle.emit("app-open-file", payload);
                 }
             }
         }
