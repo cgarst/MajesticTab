@@ -720,27 +720,16 @@ body {
 @keyframes panelSlideDown {
   from {
     opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-}
-
-.yt-panel {
-  animation-name: ytPanelSlideDown;
-}
-
-@keyframes ytPanelSlideDown {
-  from {
-    opacity: 0;
     transform: translateX(-50%) translateY(-8px) scale(0.98);
   }
   to {
     opacity: 1;
     transform: translateX(-50%) translateY(0) scale(1);
   }
+}
+
+.yt-panel {
+  animation-name: panelSlideDown;
 }
 
 .synth-panel-header, .yt-panel-header {
