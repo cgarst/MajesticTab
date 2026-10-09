@@ -1,7 +1,9 @@
 use std::sync::Mutex;
+use tauri::{App, AppHandle, Manager, State, Wry};
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use tauri::{
-    webview::WebviewBuilder, App, AppHandle, Emitter, LogicalPosition, LogicalSize, Manager,
-    State, WebviewUrl, Wry,
+    webview::WebviewBuilder, Emitter, LogicalPosition, LogicalSize, WebviewUrl,
 };
 
 #[cfg(target_os = "macos")]
@@ -9,11 +11,14 @@ use objc2_foundation::NSString;
 #[cfg(target_os = "macos")]
 use objc2_web_kit::WKWebView;
 
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 use crate::DownloadedTabPayload;
 
+#[allow(dead_code)]
 pub const DOWNLOADER_LABEL: &str = "tab-downloader";
 
 #[derive(Default)]
+#[allow(dead_code)]
 pub struct TabDownloaderState {
     pub current_url: Mutex<Option<String>>,
     pub active_userscript: Mutex<Option<String>>,
@@ -165,6 +170,7 @@ pub fn wrap_userscript(raw_js: &str) -> String {
     )
 }
 
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     app.manage(TabDownloaderState::default());
     let window = app
@@ -290,6 +296,13 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
+pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
+    app.manage(TabDownloaderState::default());
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 pub fn tab_downloader_update(
     app: AppHandle,
@@ -352,6 +365,23 @@ pub fn tab_downloader_update(
     Ok(())
 }
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+pub fn tab_downloader_update(
+    _app: AppHandle,
+    _state: State<'_, TabDownloaderState>,
+    _url: String,
+    _userscript: Option<String>,
+    _left: f64,
+    _top: f64,
+    _width: f64,
+    _height: f64,
+    _visible: bool,
+) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 pub fn tab_downloader_nav(
     app: AppHandle,
@@ -391,6 +421,17 @@ pub fn tab_downloader_nav(
     Ok(())
 }
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+pub fn tab_downloader_nav(
+    _app: AppHandle,
+    _state: State<'_, TabDownloaderState>,
+    _action: String,
+) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 pub fn tab_downloader_hide(app: AppHandle) -> Result<(), String> {
     if let Some(wv) = app.get_webview(DOWNLOADER_LABEL) {
@@ -401,6 +442,13 @@ pub fn tab_downloader_hide(app: AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+pub fn tab_downloader_hide(_app: AppHandle) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String> {
     if let Some(wv) = app.get_webview(DOWNLOADER_LABEL) {
@@ -409,15 +457,21 @@ pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String>
     Ok(())
 }
 
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+pub fn tab_downloader_eval(_app: AppHandle, _script: String) -> Result<(), String> {
+    Ok(())
+}
+
 #[tauri::command]
 pub fn tab_downloader_open_devtools(app: AppHandle) -> Result<(), String> {
-    #[cfg(feature = "debug-tools")]
+    #[cfg(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))]
     {
         if let Some(wv) = app.get_webview(DOWNLOADER_LABEL) {
             wv.open_devtools();
         }
     }
-    #[cfg(not(feature = "debug-tools"))]
+    #[cfg(not(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios")))))]
     {
         let _ = app;
     }
@@ -426,11 +480,11 @@ pub fn tab_downloader_open_devtools(app: AppHandle) -> Result<(), String> {
 
 #[tauri::command]
 pub fn tab_downloader_is_debug_tools_enabled() -> bool {
-    #[cfg(feature = "debug-tools")]
+    #[cfg(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))]
     {
         true
     }
-    #[cfg(not(feature = "debug-tools"))]
+    #[cfg(not(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios")))))]
     {
         false
     }
