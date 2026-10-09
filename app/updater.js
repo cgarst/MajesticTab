@@ -79,7 +79,7 @@ function showUpdateBanner(update) {
     const banner = document.getElementById('updateBanner');
     const text = document.getElementById('updateBannerText');
     if (!banner || !text) return;
-    text.textContent = `Update available: ${update.label}`;
+    text.textContent = update.label;
     banner.hidden = false;
     document.getElementById('updateDownloadBtn').onclick = () => openExternal(update.url);
     document.getElementById('updateDismissBtn').onclick = () => {
