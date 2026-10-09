@@ -7,7 +7,8 @@ import {
     arrayBufferToBase64, base64ToArrayBuffer
 } from './fileStore.js';
 import {
-    ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData
+    ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData,
+    reloadAllLibraryMetadata
 } from './libraryStore.js';
 import {
     getSaveProviders, saveToProvider
@@ -499,7 +500,7 @@ function getOrCreateModal() {
 
 /**
  * Open the Data Management modal
- * @param {'backup'|'restore'|'delete'} initialTab
+ * @param {'backup'|'restore'|'reload'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup') {
     const modal = getOrCreateModal();
@@ -536,13 +537,17 @@ async function renderModal(modal, activeTab = 'backup') {
     const today = new Date().toISOString().split('T')[0];
     const defaultFilename = `MajesticTab-backup-${today}.json`;
 
-    // Live counts for backup / delete summary
+    // Live counts for backup / reload / delete summary
     const [storedFiles, libraryData] = await Promise.all([
         getAllStoredFilesWithData(),
         getAllLibraryData()
     ]);
     const extensions = collectExtensions();
     const tabsTotalSize = storedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+
+    const songsMissingDuration = (libraryData.songs || []).filter(s => !s.length || s.length <= 0).length;
+    const songsMissingCover = (libraryData.songs || []).filter(s => !s.coverUrl || s.coverUrl.includes('data:image/svg+xml')).length;
+    const uniqueAlbumsCount = new Set((libraryData.songs || []).map(s => `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`).filter(Boolean)).size;
 
     modal.innerHTML = `
     <div class="theme-modal-card backup-modal-card">
@@ -554,7 +559,7 @@ async function renderModal(modal, activeTab = 'backup') {
           </div>
           <div class="theme-modal-titles">
             <h5 class="mb-0 fw-bold text-white fs-6" id="backupModalTitle">Data Management</h5>
-            <small class="text-muted d-none d-sm-block" style="font-size: 0.75rem;">Backup, restore, or manage stored tabs, library, and settings</small>
+            <small class="text-muted d-none d-sm-block" style="font-size: 0.75rem;">Backup, restore, reload metadata, or manage stored tabs, library, and settings</small>
           </div>
         </div>
         <div class="theme-modal-actions">
@@ -565,12 +570,15 @@ async function renderModal(modal, activeTab = 'backup') {
       </div>
 
       <!-- Tab Switcher Navigation -->
-      <div class="backup-nav-tabs px-3 pt-2 pb-1 d-flex gap-2">
+      <div class="backup-nav-tabs px-3 pt-2 pb-1 d-flex flex-wrap gap-2">
         <button type="button" class="btn btn-sm ${activeTab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnBackup">
           <i class="bi-cloud-arrow-up me-1.5"></i> Create Backup
         </button>
         <button type="button" class="btn btn-sm ${activeTab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnRestore">
           <i class="bi-cloud-arrow-down me-1.5"></i> Restore from Backup
+        </button>
+        <button type="button" class="btn btn-sm ${activeTab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnReload">
+          <i class="bi-arrow-repeat me-1.5"></i> Reload Metadata
         </button>
         <button type="button" class="btn btn-sm ${activeTab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5" id="tabBtnDelete">
           <i class="bi-trash3 me-1.5"></i> Delete All Data
@@ -755,7 +763,87 @@ async function renderModal(modal, activeTab = 'backup') {
           </div>
         </div>
 
-        <!-- TAB 3: DELETE ALL DATA -->
+        <!-- TAB 3: RELOAD METADATA -->
+        <div id="reloadTabContent" style="display: ${activeTab === 'reload' ? 'block' : 'none'};">
+          <!-- Library Metadata Status Overview -->
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-1.5">
+              <i class="bi-music-note-list text-info"></i> Library Metadata Status
+            </div>
+            <div class="row g-2 text-white-50 small">
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6" id="reloadStatTotalSongs">${libraryData.songs?.length || 0}</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Total Songs</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6" id="reloadStatAlbums">${uniqueAlbumsCount}</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Albums</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6 ${songsMissingDuration > 0 ? 'text-warning' : 'text-success'}" id="reloadStatMissingDuration">${songsMissingDuration}</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Missing Track Times</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6 ${songsMissingCover > 0 ? 'text-warning' : 'text-success'}" id="reloadStatMissingCovers">${songsMissingCover}</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Missing Cover Art</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Informational Card -->
+          <div class="p-3 rounded-3 mb-3" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
+            <div class="d-flex align-items-start gap-2.5">
+              <i class="bi-info-circle-fill text-info fs-5 flex-shrink-0 mt-0.5"></i>
+              <div>
+                <div class="fw-bold text-white small mb-1">Refresh All Metadata from MusicBrainz</div>
+                <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
+                  Triggers a fresh pull from MusicBrainz for every album and track in your library. Automatically fetches canonical <strong>track times / durations</strong>, official track numbers, release years, and high-resolution cover artwork.
+                </div>
+                <div class="text-white-50 small mt-2 pt-2 border-top border-secondary border-opacity-25" style="font-size: 0.74rem;">
+                  <i class="bi-shield-check text-success me-1"></i> Your attached tabs, custom tunings, and collections will remain completely intact.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Progress Box (Hidden until running) -->
+          <div id="reloadProgressContainer" class="p-3 rounded-3 mb-3" style="display:none; background: var(--bg-card); border: 1px solid var(--border-prominent);">
+            <div class="d-flex align-items-center justify-content-between mb-1.5">
+              <span class="small fw-semibold text-white d-flex align-items-center gap-1.5 min-w-0 me-2" id="reloadCurrentActionLabel">
+                <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></span>
+                <span class="text-truncate">Connecting to MusicBrainz...</span>
+              </span>
+              <span class="small text-white-50 font-monospace flex-shrink-0" id="reloadPercentLabel">0%</span>
+            </div>
+            <div class="progress mb-2" style="height: 6px; background: rgba(255,255,255,0.1);">
+              <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="reloadProgressBar" role="progressbar" style="width: 0%;"></div>
+            </div>
+            <div class="d-flex justify-content-between text-white-50 small" style="font-size: 0.72rem;">
+              <span id="reloadItemsCountLabel">0 / 0</span>
+              <span id="reloadStatsLiveLabel">Durations added: 0 • Artwork: 0</span>
+            </div>
+          </div>
+
+          <!-- Status / Results Alert -->
+          <div id="reloadStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="reloadCancelBtn">Cancel</button>
+            <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="reloadExecuteBtn" ${(!libraryData.songs || libraryData.songs.length === 0) ? 'disabled' : ''}>
+              <i class="bi-arrow-repeat"></i> Reload Library Metadata
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 4: DELETE ALL DATA -->
         <div id="deleteTabContent" style="display: ${activeTab === 'delete' ? 'block' : 'none'};">
           <!-- Data Summary Overview -->
           <div class="backup-summary-box p-3 rounded-3 mb-3">
@@ -848,23 +936,28 @@ function attachModalHandlers(modal) {
     // Tab Switchers
     const tabBtnBackup = modal.querySelector('#tabBtnBackup');
     const tabBtnRestore = modal.querySelector('#tabBtnRestore');
+    const tabBtnReload = modal.querySelector('#tabBtnReload');
     const tabBtnDelete = modal.querySelector('#tabBtnDelete');
     const backupContent = modal.querySelector('#backupTabContent');
     const restoreContent = modal.querySelector('#restoreTabContent');
+    const reloadContent = modal.querySelector('#reloadTabContent');
     const deleteContent = modal.querySelector('#deleteTabContent');
 
     const switchTab = (tab) => {
         if (tabBtnBackup) tabBtnBackup.className = `btn btn-sm ${tab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
         if (tabBtnRestore) tabBtnRestore.className = `btn btn-sm ${tab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
+        if (tabBtnReload) tabBtnReload.className = `btn btn-sm ${tab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
         if (tabBtnDelete) tabBtnDelete.className = `btn btn-sm ${tab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1.5`;
 
         if (backupContent) backupContent.style.display = tab === 'backup' ? 'block' : 'none';
         if (restoreContent) restoreContent.style.display = tab === 'restore' ? 'block' : 'none';
+        if (reloadContent) reloadContent.style.display = tab === 'reload' ? 'block' : 'none';
         if (deleteContent) deleteContent.style.display = tab === 'delete' ? 'block' : 'none';
     };
 
     tabBtnBackup?.addEventListener('click', () => switchTab('backup'));
     tabBtnRestore?.addEventListener('click', () => switchTab('restore'));
+    tabBtnReload?.addEventListener('click', () => switchTab('reload'));
     tabBtnDelete?.addEventListener('click', () => switchTab('delete'));
 
     // --- CREATE BACKUP ACTION ---
@@ -1112,6 +1205,128 @@ function attachModalHandlers(modal) {
             deleteExecuteBtn.innerHTML = '<i class="bi-trash3-fill"></i> Delete All Data';
         }
     });
+
+    // --- RELOAD METADATA ACTION ---
+    let activeReloadAbortController = null;
+    const reloadExecuteBtn = modal.querySelector('#reloadExecuteBtn');
+    const reloadCancelBtn = modal.querySelector('#reloadCancelBtn');
+    const reloadProgressContainer = modal.querySelector('#reloadProgressContainer');
+    const reloadProgressBar = modal.querySelector('#reloadProgressBar');
+    const reloadPercentLabel = modal.querySelector('#reloadPercentLabel');
+    const reloadCurrentActionLabel = modal.querySelector('#reloadCurrentActionLabel');
+    const reloadItemsCountLabel = modal.querySelector('#reloadItemsCountLabel');
+    const reloadStatsLiveLabel = modal.querySelector('#reloadStatsLiveLabel');
+    const reloadStatusAlert = modal.querySelector('#reloadStatusAlert');
+
+    reloadCancelBtn?.addEventListener('click', () => {
+        if (activeReloadAbortController) {
+            activeReloadAbortController.abort();
+            activeReloadAbortController = null;
+            if (reloadCancelBtn) reloadCancelBtn.textContent = 'Cancel';
+        } else {
+            closeBackupModal();
+        }
+    });
+
+    reloadExecuteBtn?.addEventListener('click', async () => {
+        activeReloadAbortController = new AbortController();
+        reloadExecuteBtn.disabled = true;
+        reloadExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1.5" role="status"></span> Reloading...';
+        if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop / Cancel';
+
+        if (reloadProgressContainer) reloadProgressContainer.style.display = 'block';
+        if (reloadStatusAlert) {
+            reloadStatusAlert.style.display = 'none';
+            reloadStatusAlert.innerHTML = '';
+        }
+
+        try {
+            const stats = await reloadAllLibraryMetadata({
+                onProgress: ({ current, total, percent, phase, name, stats: curStats }) => {
+                    if (reloadPercentLabel) reloadPercentLabel.textContent = `${percent}%`;
+                    if (reloadProgressBar) reloadProgressBar.style.width = `${percent}%`;
+                    if (reloadCurrentActionLabel) {
+                        reloadCurrentActionLabel.innerHTML = `
+                          <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></span>
+                          <span class="text-truncate">${escapeHtml(name || 'Fetching metadata...')}</span>
+                        `;
+                    }
+                    if (reloadItemsCountLabel) {
+                        reloadItemsCountLabel.textContent = `Processed ${current} of ${total} (${phase === 'album' ? 'album' : 'song'})`;
+                    }
+                    if (reloadStatsLiveLabel) {
+                        reloadStatsLiveLabel.textContent = `Durations added: ${curStats.addedDurations} • Artwork: ${curStats.addedCovers}`;
+                    }
+                },
+                signal: activeReloadAbortController.signal,
+                forceRefresh: true
+            });
+
+            if (reloadProgressContainer) reloadProgressContainer.style.display = 'none';
+
+            if (activeReloadAbortController?.signal?.aborted) {
+                if (reloadStatusAlert) {
+                    reloadStatusAlert.style.display = 'block';
+                    reloadStatusAlert.className = 'small mb-2 text-warning fw-semibold';
+                    reloadStatusAlert.innerHTML = '<i class="bi-exclamation-triangle-fill me-1"></i> Metadata reload was cancelled by user.';
+                }
+            } else {
+                if (reloadStatusAlert) {
+                    reloadStatusAlert.style.display = 'block';
+                    reloadStatusAlert.className = 'small mb-2 text-success fw-semibold';
+                    const details = [];
+                    if (stats.updatedAlbums > 0) details.push(`${stats.updatedAlbums} albums refreshed`);
+                    if (stats.updatedSongs > 0) details.push(`${stats.updatedSongs} songs updated`);
+                    if (stats.addedDurations > 0) details.push(`${stats.addedDurations} track times added`);
+                    if (stats.addedCovers > 0) details.push(`${stats.addedCovers} covers added`);
+                    const summaryText = details.length > 0 ? details.join(', ') : 'All tracks were already up to date';
+
+                    reloadStatusAlert.innerHTML = `
+                      <div class="d-flex align-items-center gap-1.5 mb-1">
+                        <i class="bi-check-circle-fill text-success fs-6"></i>
+                        <strong>Metadata Reload Complete!</strong>
+                      </div>
+                      <div class="text-white-50 small">${escapeHtml(summaryText)}.</div>
+                    `;
+                }
+
+                // Update live modal stats
+                const updatedLib = await getAllLibraryData();
+                const updatedMissingDur = (updatedLib.songs || []).filter(s => !s.length || s.length <= 0).length;
+                const updatedMissingCov = (updatedLib.songs || []).filter(s => !s.coverUrl || s.coverUrl.includes('data:image/svg+xml')).length;
+
+                const statMissingDur = modal.querySelector('#reloadStatMissingDuration');
+                const statMissingCov = modal.querySelector('#reloadStatMissingCovers');
+                if (statMissingDur) {
+                    statMissingDur.textContent = updatedMissingDur;
+                    statMissingDur.className = `text-white fw-bold fs-6 ${updatedMissingDur > 0 ? 'text-warning' : 'text-success'}`;
+                }
+                if (statMissingCov) {
+                    statMissingCov.textContent = updatedMissingCov;
+                    statMissingCov.className = `text-white fw-bold fs-6 ${updatedMissingCov > 0 ? 'text-warning' : 'text-success'}`;
+                }
+            }
+
+            reloadExecuteBtn.innerHTML = '<i class="bi-check2"></i> Finished';
+            setTimeout(() => {
+                reloadExecuteBtn.disabled = false;
+                reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Reload Library Metadata';
+            }, 3000);
+        } catch (err) {
+            console.error('Metadata reload failed:', err);
+            if (reloadProgressContainer) reloadProgressContainer.style.display = 'none';
+            if (reloadStatusAlert) {
+                reloadStatusAlert.style.display = 'block';
+                reloadStatusAlert.className = 'small mb-2 text-danger fw-semibold';
+                reloadStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to reload metadata: ${escapeHtml(err.message)}`;
+            }
+            reloadExecuteBtn.disabled = false;
+            reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Try Again';
+        } finally {
+            activeReloadAbortController = null;
+            if (reloadCancelBtn) reloadCancelBtn.textContent = 'Cancel';
+        }
+    });
 }
 
 /**
@@ -1120,5 +1335,6 @@ function attachModalHandlers(modal) {
 export function initBackupRestore() {
     document.getElementById('backupDataBtn')?.addEventListener('click', () => openBackupModal('backup'));
     document.getElementById('restoreDataBtn')?.addEventListener('click', () => openBackupModal('restore'));
+    document.getElementById('reloadLibraryMetadataBtn')?.addEventListener('click', () => openBackupModal('reload'));
     document.getElementById('deleteAllDataBtn')?.addEventListener('click', () => openBackupModal('delete'));
 }

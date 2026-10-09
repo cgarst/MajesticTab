@@ -3,6 +3,7 @@
 
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile } from './fileStore.js';
 import { extractScoreTunings, inferTuningFromTextOrName } from './utils/tuningUtils.js';
+import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
 
@@ -185,7 +186,7 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
     const id = songData.id || `song_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
     const song = {
         id,
-        collectionId,
+        collectionId: songData.collectionId || collectionId,
         title: songData.title || 'Untitled Song',
         artist: songData.artist || 'Unknown Artist',
         artistMbid: songData.artistMbid || null,
@@ -651,5 +652,408 @@ export async function importLibraryData(data = {}, { wipe = false } = {}) {
         songsCount,
         recentsCount
     };
+}
+
+/**
+ * Reload all library metadata from MusicBrainz.
+ * Re-queries MusicBrainz for all albums and songs in the library, filling in any missing fields
+ * (such as track times/lengths, track numbers, release years, cover artwork, and MBIDs).
+ * Attached tabs, file links, custom tunings, and collections remain strictly intact.
+ *
+ * @param {object} options
+ * @param {function} [options.onProgress] - Progress callback: ({ current, total, percent, phase, name, stats })
+ * @param {AbortSignal} [options.signal] - AbortSignal to cancel reload operation
+ * @param {boolean} [options.forceRefresh=true] - If true, clears session cache to force fresh MusicBrainz queries
+ * @returns {Promise<object>} Stats summary of reloaded items
+ */
+export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal = null, forceRefresh = true } = {}) {
+    if (forceRefresh) {
+        try {
+            for (let i = sessionStorage.length - 1; i >= 0; i--) {
+                const key = sessionStorage.key(i);
+                if (key && key.startsWith('mb_cache_')) {
+                    sessionStorage.removeItem(key);
+                }
+            }
+        } catch {}
+    }
+
+    const songs = await getAllSongs();
+    if (!songs || songs.length === 0) {
+        return {
+            totalSongs: 0,
+            updatedSongs: 0,
+            updatedAlbums: 0,
+            addedDurations: 0,
+            addedCovers: 0,
+            addedYears: 0,
+            errors: []
+        };
+    }
+
+    const stats = {
+        totalSongs: songs.length,
+        updatedSongs: 0,
+        updatedAlbums: 0,
+        addedDurations: 0,
+        addedCovers: 0,
+        addedYears: 0,
+        errors: []
+    };
+
+    // Helper for title cleaning and matching
+    const cleanTitle = (t) => {
+        return (t || '')
+            .toLowerCase()
+            .replace(/\(.*\)/g, '')
+            .replace(/\[.*\]/g, '')
+            .replace(/[^a-z0-9]/g, '')
+            .trim();
+    };
+
+    // Group songs into Album Groups and Standalone Songs
+    const albumGroups = new Map();
+    const standaloneSongs = [];
+
+    for (const song of songs) {
+        const artist = (song.artist || '').trim();
+        const album = (song.album || '').trim();
+        const albumMbid = (song.albumMbid || '').trim();
+
+        const isSingleOrUnknown = !album ||
+            album.toLowerCase() === 'singles / other' ||
+            album.toLowerCase() === 'unknown album' ||
+            album.toLowerCase() === 'single' ||
+            album.toLowerCase() === 'singles';
+
+        if (!isSingleOrUnknown && (albumMbid || (artist && album))) {
+            const groupKey = albumMbid ? `mbid:${albumMbid}` : `name:${artist.toLowerCase()}:::${album.toLowerCase()}`;
+            if (!albumGroups.has(groupKey)) {
+                albumGroups.set(groupKey, {
+                    artist,
+                    album,
+                    albumMbid: albumMbid || null,
+                    artistMbid: song.artistMbid || null,
+                    songs: []
+                });
+            }
+            const grp = albumGroups.get(groupKey);
+            if (!grp.artist && artist) grp.artist = artist;
+            if (!grp.artistMbid && song.artistMbid) grp.artistMbid = song.artistMbid;
+            if (!grp.albumMbid && albumMbid) grp.albumMbid = albumMbid;
+            grp.songs.push(song);
+        } else {
+            standaloneSongs.push(song);
+        }
+    }
+
+    const totalSteps = albumGroups.size + standaloneSongs.length;
+    let currentStep = 0;
+
+    const report = (name, phase = 'album') => {
+        const percent = totalSteps > 0 ? Math.round((currentStep / totalSteps) * 100) : 100;
+        onProgress({
+            current: currentStep,
+            total: totalSteps,
+            percent,
+            phase,
+            name,
+            stats
+        });
+    };
+
+    const updatedSongMap = new Map();
+
+    // 1. Process Album Groups
+    for (const [key, grp] of albumGroups.entries()) {
+        if (signal?.aborted) break;
+        currentStep++;
+        report(`${grp.artist} - ${grp.album}`, 'album');
+
+        try {
+            let albumData = null;
+            if (grp.albumMbid) {
+                albumData = await getAlbumTracks(grp.albumMbid);
+            }
+
+            if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
+                // Search by artist and album title
+                const query = `${grp.artist} ${grp.album}`.trim();
+                const searchResults = await searchMusicBrainz(query, 'album');
+                if (searchResults && searchResults.length > 0) {
+                    const match = searchResults.find(rg =>
+                        cleanTitle(rg.artist).includes(cleanTitle(grp.artist)) ||
+                        cleanTitle(grp.artist).includes(cleanTitle(rg.artist))
+                    ) || searchResults[0];
+
+                    if (match && match.id) {
+                        albumData = await getAlbumTracks(match.id);
+                    }
+                }
+            }
+
+            if (albumData && albumData.tracks && albumData.tracks.length > 0) {
+                stats.updatedAlbums++;
+                const tracks = albumData.tracks;
+
+                for (const song of grp.songs) {
+                    if (signal?.aborted) break;
+
+                    // Match track in albumData.tracks
+                    let matchedTrack = null;
+                    if (song.recordingMbid) {
+                        matchedTrack = tracks.find(t => t.recordingMbid && t.recordingMbid === song.recordingMbid);
+                    }
+                    if (!matchedTrack && song.trackNumber) {
+                        matchedTrack = tracks.find(t =>
+                            t.trackNumber === song.trackNumber &&
+                            (t.mediumNumber || 1) === (song.mediumNumber || 1)
+                        );
+                    }
+                    if (!matchedTrack) {
+                        const sClean = cleanTitle(song.title);
+                        matchedTrack = tracks.find(t => cleanTitle(t.title) === sClean);
+                    }
+                    if (!matchedTrack) {
+                        const sClean = cleanTitle(song.title);
+                        matchedTrack = tracks.find(t => {
+                            const tClean = cleanTitle(t.title);
+                            return sClean && tClean && (tClean.includes(sClean) || sClean.includes(tClean));
+                        });
+                    }
+
+                    let songUpdated = false;
+
+                    // Update album-level fields
+                    if (albumData.artist && song.artist !== albumData.artist) {
+                        song.artist = albumData.artist;
+                        songUpdated = true;
+                    }
+                    if (albumData.artistMbid && song.artistMbid !== albumData.artistMbid) {
+                        song.artistMbid = albumData.artistMbid;
+                        songUpdated = true;
+                    }
+                    if (albumData.title && song.album !== albumData.title) {
+                        song.album = albumData.title;
+                        songUpdated = true;
+                    }
+                    if (albumData.releaseGroupId && song.albumMbid !== albumData.releaseGroupId) {
+                        song.albumMbid = albumData.releaseGroupId;
+                        songUpdated = true;
+                    }
+                    if (albumData.year && song.year !== albumData.year) {
+                        if (!song.year) stats.addedYears++;
+                        song.year = albumData.year;
+                        songUpdated = true;
+                    }
+                    if (albumData.coverUrl && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml') || song.coverUrl !== albumData.coverUrl)) {
+                        if (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml')) stats.addedCovers++;
+                        song.coverUrl = albumData.coverUrl;
+                        songUpdated = true;
+                    }
+
+                    if (matchedTrack) {
+                        if (typeof matchedTrack.length === 'number' && matchedTrack.length > 0) {
+                            if (!song.length || song.length <= 0) stats.addedDurations++;
+                            song.length = matchedTrack.length;
+                            songUpdated = true;
+                        }
+                        if (matchedTrack.trackNumber && song.trackNumber !== matchedTrack.trackNumber) {
+                            song.trackNumber = matchedTrack.trackNumber;
+                            songUpdated = true;
+                        }
+                        if (matchedTrack.mediumNumber && song.mediumNumber !== matchedTrack.mediumNumber) {
+                            song.mediumNumber = matchedTrack.mediumNumber;
+                            songUpdated = true;
+                        }
+                        if (matchedTrack.mediumTitle && song.mediumTitle !== matchedTrack.mediumTitle) {
+                            song.mediumTitle = matchedTrack.mediumTitle;
+                            songUpdated = true;
+                        }
+                        if (matchedTrack.mediumFormat && song.mediumFormat !== matchedTrack.mediumFormat) {
+                            song.mediumFormat = matchedTrack.mediumFormat;
+                            songUpdated = true;
+                        }
+                        if (matchedTrack.recordingMbid && song.recordingMbid !== matchedTrack.recordingMbid) {
+                            song.recordingMbid = matchedTrack.recordingMbid;
+                            songUpdated = true;
+                        }
+                        if (matchedTrack.coverUrl && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml'))) {
+                            song.coverUrl = matchedTrack.coverUrl;
+                            stats.addedCovers++;
+                            songUpdated = true;
+                        }
+                    } else {
+                        // Song not matched in album tracks -> fallback to standalone song query
+                        standaloneSongs.push(song);
+                    }
+
+                    if (songUpdated) {
+                        await saveSongToLibrary(song, song.collectionId);
+                        updatedSongMap.set(song.id, song);
+                        stats.updatedSongs++;
+                    }
+                }
+            } else {
+                // Album not found on MusicBrainz -> queue its songs as standalone songs
+                for (const song of grp.songs) {
+                    standaloneSongs.push(song);
+                }
+            }
+        } catch (err) {
+            console.warn(`[reloadMetadata] Error processing album ${grp.artist} - ${grp.album}:`, err);
+            stats.errors.push(`${grp.artist} - ${grp.album}: ${err.message}`);
+        }
+    }
+
+    // 2. Process Standalone Songs
+    for (const song of standaloneSongs) {
+        if (signal?.aborted) break;
+        currentStep++;
+        report(`${song.artist || 'Unknown'} - ${song.title}`, 'song');
+
+        try {
+            let songUpdated = false;
+
+            if (song.recordingMbid) {
+                const url = `https://musicbrainz.org/ws/2/recording/${song.recordingMbid}?inc=artists+releases+media&fmt=json`;
+                const recData = await fetchMusicBrainz(url);
+                if (recData) {
+                    const lenSec = recData.length ? Math.round(recData.length / 1000) : null;
+                    if (lenSec && lenSec > 0) {
+                        if (!song.length || song.length <= 0) stats.addedDurations++;
+                        song.length = lenSec;
+                        songUpdated = true;
+                    }
+                    const artistCredit = recData['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('');
+                    if (artistCredit && song.artist !== artistCredit) {
+                        song.artist = artistCredit;
+                        songUpdated = true;
+                    }
+                    const artistMbid = recData['artist-credit']?.[0]?.artist?.id;
+                    if (artistMbid && song.artistMbid !== artistMbid) {
+                        song.artistMbid = artistMbid;
+                        songUpdated = true;
+                    }
+                    const bestRelease = recData.releases?.[0];
+                    if (bestRelease) {
+                        const rgId = bestRelease['release-group']?.id || bestRelease.id;
+                        if (rgId && song.albumMbid !== rgId) {
+                            song.albumMbid = rgId;
+                            songUpdated = true;
+                        }
+                        if (bestRelease.title && (!song.album || song.album === 'Singles / Other' || song.album === 'Unknown Album')) {
+                            song.album = bestRelease.title;
+                            songUpdated = true;
+                        }
+                        if (bestRelease.date && !song.year) {
+                            song.year = parseInt(bestRelease.date.slice(0, 4), 10);
+                            stats.addedYears++;
+                            songUpdated = true;
+                        }
+                        if (rgId && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml'))) {
+                            const cov = getCoverArtUrl(rgId);
+                            if (cov) {
+                                song.coverUrl = cov;
+                                stats.addedCovers++;
+                                songUpdated = true;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // Search recording by artist & title
+                const query = `${song.artist} ${song.title}`.trim();
+                const searchResults = await searchMusicBrainz(query, 'song');
+                if (searchResults && searchResults.length > 0) {
+                    const sClean = cleanTitle(song.title);
+                    const aClean = cleanTitle(song.artist);
+                    const match = searchResults.find(r =>
+                        (cleanTitle(r.title) === sClean || cleanTitle(r.title).includes(sClean) || sClean.includes(cleanTitle(r.title))) &&
+                        (cleanTitle(r.artist).includes(aClean) || aClean.includes(cleanTitle(r.artist)))
+                    ) || searchResults[0];
+
+                    if (match) {
+                        if (typeof match.length === 'number' && match.length > 0) {
+                            if (!song.length || song.length <= 0) stats.addedDurations++;
+                            song.length = match.length;
+                            songUpdated = true;
+                        }
+                        if (match.recordingMbid && song.recordingMbid !== match.recordingMbid) {
+                            song.recordingMbid = match.recordingMbid;
+                            songUpdated = true;
+                        }
+                        if (match.artistMbid && song.artistMbid !== match.artistMbid) {
+                            song.artistMbid = match.artistMbid;
+                            songUpdated = true;
+                        }
+                        if (match.albumMbid && song.albumMbid !== match.albumMbid) {
+                            song.albumMbid = match.albumMbid;
+                            songUpdated = true;
+                        }
+                        if (match.album && (!song.album || song.album === 'Singles / Other' || song.album === 'Unknown Album')) {
+                            song.album = match.album;
+                            songUpdated = true;
+                        }
+                        if (match.year && song.year !== match.year) {
+                            if (!song.year) stats.addedYears++;
+                            song.year = match.year;
+                            songUpdated = true;
+                        }
+                        if (match.coverUrl && (!song.coverUrl || song.coverUrl.includes('data:image/svg+xml'))) {
+                            song.coverUrl = match.coverUrl;
+                            stats.addedCovers++;
+                            songUpdated = true;
+                        }
+                    }
+                }
+            }
+
+            if (songUpdated) {
+                await saveSongToLibrary(song, song.collectionId);
+                updatedSongMap.set(song.id, song);
+                stats.updatedSongs++;
+            }
+        } catch (err) {
+            console.warn(`[reloadMetadata] Error processing song ${song.title}:`, err);
+            stats.errors.push(`${song.title}: ${err.message}`);
+        }
+    }
+
+    // 3. Update matching recents if any were modified
+    if (updatedSongMap.size > 0) {
+        try {
+            const recents = await getRecents(500);
+            const db = await getDB();
+            for (const rec of recents) {
+                if (rec.librarySongId && updatedSongMap.has(rec.librarySongId)) {
+                    const updatedSong = updatedSongMap.get(rec.librarySongId);
+                    rec.songTitle = updatedSong.title || rec.songTitle;
+                    rec.artist = updatedSong.artist || rec.artist;
+                    rec.album = updatedSong.album || rec.album;
+                    rec.coverUrl = updatedSong.coverUrl || rec.coverUrl;
+                    await new Promise((res, rej) => {
+                        const tx = db.transaction(STORE_RECENTS, 'readwrite');
+                        const store = tx.objectStore(STORE_RECENTS);
+                        const req = store.put(rec);
+                        req.onsuccess = () => res();
+                        req.onerror = () => rej(req.error);
+                    });
+                }
+            }
+        } catch (e) {
+            console.warn('Could not update recents:', e);
+        }
+    }
+
+    currentStep = totalSteps;
+    report('Completed', 'complete');
+
+    // Notify UI / other components that library data has updated
+    try {
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    } catch {}
+
+    return stats;
 }
 
