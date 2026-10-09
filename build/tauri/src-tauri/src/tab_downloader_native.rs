@@ -173,7 +173,39 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     }
     window.addEventListener('load', initObserver);
 
-    // 9. Webview console log bridge to parent app
+    // 9. Webview URL change reporter to parent app
+    function reportUrl() {
+        try {
+            const u = window.location.href;
+            if (u && !u.startsWith('about:blank') && !u.startsWith('majestictab:')) {
+                const img = new Image();
+                img.src = 'majestictab://url?url=' + encodeURIComponent(u);
+            }
+        } catch (e) {}
+    }
+
+    const origPushState = history.pushState;
+    history.pushState = function() {
+        const ret = origPushState.apply(this, arguments);
+        reportUrl();
+        return ret;
+    };
+    const origReplaceState = history.replaceState;
+    history.replaceState = function() {
+        const ret = origReplaceState.apply(this, arguments);
+        reportUrl();
+        return ret;
+    };
+    window.addEventListener('popstate', reportUrl);
+    window.addEventListener('hashchange', reportUrl);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', reportUrl);
+    } else {
+        reportUrl();
+    }
+    window.addEventListener('load', reportUrl);
+
+    // 10. Webview console log bridge to parent app
     function bridgeLog(type, args) {
         try {
             const msg = '[' + type.toUpperCase() + '] ' + Array.from(args).map(a => {
@@ -367,7 +399,20 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
             return false;
         }
 
-        // 2. Direct client-side download capture scheme: majestictab://download?name=...&data=...
+        // 2. URL update notification scheme: majestictab://url?url=...
+        if url.scheme() == "majestictab" && (url.host_str() == Some("url") || url_str.starts_with("majestictab://url")) {
+            let target_url = url
+                .query_pairs()
+                .find(|(k, _)| k == "url")
+                .map(|(_, v)| v.into_owned())
+                .unwrap_or_default();
+            if !target_url.is_empty() {
+                let _ = app_handle_for_nav.emit("tab-downloader-url-changed", target_url);
+            }
+            return false;
+        }
+
+        // 3. Direct client-side download capture scheme: majestictab://download?name=...&data=...
         if url.scheme() == "majestictab" && (url.host_str() == Some("download") || url_str.starts_with("majestictab://download")) {
             let name = url
                 .query_pairs()
@@ -390,12 +435,22 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
             return false;
         }
 
+        if url.scheme() == "http" || url.scheme() == "https" {
+            let _ = app_handle_for_nav.emit("tab-downloader-url-changed", url_str.to_string());
+        }
+
         true
     });
 
     let app_handle_for_load = app.handle().clone();
     let builder = builder.on_page_load(move |webview, payload| {
         if let tauri::webview::PageLoadEvent::Finished = payload.event() {
+            if let Ok(cur_url) = webview.url() {
+                let s = cur_url.to_string();
+                if s.starts_with("http://") || s.starts_with("https://") {
+                    let _ = app_handle_for_load.emit("tab-downloader-url-changed", s);
+                }
+            }
             if let Some(state) = app_handle_for_load.try_state::<TabDownloaderState>() {
                 if let Ok(guard) = state.active_userscript.lock() {
                     if let Some(ref js) = *guard {
