@@ -429,3 +429,184 @@ export async function clearRecents() {
         req.onerror = () => reject(req.error);
     });
 }
+
+/**
+ * Get all library songs
+ */
+export async function getAllSongs() {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_SONGS, 'readonly');
+        const store = tx.objectStore(STORE_SONGS);
+        const req = store.getAll();
+        req.onsuccess = () => resolve(req.result || []);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+/**
+ * Export all library data (collections, songs, and recents)
+ */
+export async function getAllLibraryData() {
+    const collections = await getCollections();
+    const songs = await getAllSongs();
+    const recents = await getRecents(500);
+    return {
+        collections,
+        songs,
+        recents
+    };
+}
+
+/**
+ * Clear all library stores
+ */
+export async function clearAllLibraryData() {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction([STORE_COLLECTIONS, STORE_SONGS, STORE_RECENTS], 'readwrite');
+        tx.objectStore(STORE_COLLECTIONS).clear();
+        tx.objectStore(STORE_SONGS).clear();
+        tx.objectStore(STORE_RECENTS).clear();
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => reject(tx.error);
+    });
+}
+
+/**
+ * Import or restore library data
+ * @param {object} data - { collections, songs, recents }
+ * @param {object} options - { wipe: boolean }
+ */
+export async function importLibraryData(data = {}, { wipe = false } = {}) {
+    if (wipe) {
+        await clearAllLibraryData();
+    }
+
+    await ensureDefaultCollection();
+    const db = await getDB();
+
+    const collections = Array.isArray(data.collections) ? data.collections : [];
+    const songs = Array.isArray(data.songs) ? data.songs : [];
+    const recents = Array.isArray(data.recents) ? data.recents : [];
+
+    let collectionsCount = 0;
+    let songsCount = 0;
+    let recentsCount = 0;
+
+    // 1. Collections
+    for (const col of collections) {
+        if (!col || !col.id) continue;
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_COLLECTIONS, 'readwrite');
+            const store = tx.objectStore(STORE_COLLECTIONS);
+            if (wipe) {
+                const req = store.put(col);
+                req.onsuccess = () => { collectionsCount++; resolve(); };
+                req.onerror = () => reject(req.error);
+            } else {
+                const checkReq = store.get(col.id);
+                checkReq.onsuccess = () => {
+                    if (!checkReq.result) {
+                        const putReq = store.put(col);
+                        putReq.onsuccess = () => { collectionsCount++; resolve(); };
+                        putReq.onerror = () => reject(putReq.error);
+                    } else {
+                        resolve();
+                    }
+                };
+                checkReq.onerror = () => reject(checkReq.error);
+            }
+        });
+    }
+
+    // 2. Songs
+    for (const song of songs) {
+        if (!song || !song.id) continue;
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_SONGS, 'readwrite');
+            const store = tx.objectStore(STORE_SONGS);
+            if (wipe) {
+                const req = store.put(song);
+                req.onsuccess = () => { songsCount++; resolve(); };
+                req.onerror = () => reject(req.error);
+            } else {
+                const checkReq = store.get(song.id);
+                checkReq.onsuccess = () => {
+                    const existing = checkReq.result;
+                    if (!existing) {
+                        const putReq = store.put(song);
+                        putReq.onsuccess = () => { songsCount++; resolve(); };
+                        putReq.onerror = () => reject(putReq.error);
+                    } else {
+                        // Merge tab options and tunings into existing song
+                        const existingTabs = Array.isArray(existing.tabOptions) ? existing.tabOptions : [];
+                        const incomingTabs = Array.isArray(song.tabOptions) ? song.tabOptions : [];
+                        let tabsAdded = false;
+
+                        for (const inTab of incomingTabs) {
+                            const match = existingTabs.some(t =>
+                                (t.id && inTab.id && t.id === inTab.id) ||
+                                (t.fileStoreId && inTab.fileStoreId && t.fileStoreId === inTab.fileStoreId) ||
+                                (t.name && inTab.name && t.name === inTab.name && t.relativePath === inTab.relativePath)
+                            );
+                            if (!match) {
+                                existingTabs.push(inTab);
+                                tabsAdded = true;
+                            }
+                        }
+
+                        const mergedTunings = Array.from(new Set([
+                            ...(Array.isArray(existing.tunings) ? existing.tunings : []),
+                            ...(Array.isArray(song.tunings) ? song.tunings : [])
+                        ]));
+
+                        if (tabsAdded || mergedTunings.length !== (existing.tunings?.length || 0)) {
+                            existing.tabOptions = existingTabs;
+                            existing.tunings = mergedTunings;
+                            const putReq = store.put(existing);
+                            putReq.onsuccess = () => { songsCount++; resolve(); };
+                            putReq.onerror = () => reject(putReq.error);
+                        } else {
+                            resolve();
+                        }
+                    }
+                };
+                checkReq.onerror = () => reject(checkReq.error);
+            }
+        });
+    }
+
+    // 3. Recents
+    for (const recent of recents) {
+        if (!recent || !recent.id) continue;
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_RECENTS, 'readwrite');
+            const store = tx.objectStore(STORE_RECENTS);
+            if (wipe) {
+                const req = store.put(recent);
+                req.onsuccess = () => { recentsCount++; resolve(); };
+                req.onerror = () => reject(req.error);
+            } else {
+                const checkReq = store.get(recent.id);
+                checkReq.onsuccess = () => {
+                    if (!checkReq.result) {
+                        const putReq = store.put(recent);
+                        putReq.onsuccess = () => { recentsCount++; resolve(); };
+                        putReq.onerror = () => reject(putReq.error);
+                    } else {
+                        resolve();
+                    }
+                };
+                checkReq.onerror = () => reject(checkReq.error);
+            }
+        });
+    }
+
+    return {
+        collectionsCount,
+        songsCount,
+        recentsCount
+    };
+}
+
