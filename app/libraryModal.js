@@ -873,8 +873,8 @@ async function renderLibraryBrowseView(container) {
                       <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${pinnedSongs.length}</span>
                     </div>
                   </div>
-                  <div class="library-songs-list d-flex flex-column gap-2" id="libPinnedSongsList">
-                    ${pinnedSongs.map(song => renderSongRow(song, { showArtistAlbum: true })).join('')}
+                  <div class="library-pinned-grid" id="libPinnedSongsList">
+                    ${pinnedSongs.map(song => renderPinnedSongTile(song)).join('')}
                   </div>
                 </div>
                 `;
@@ -1236,11 +1236,12 @@ function setupLibraryFilter(container) {
         if (artistsGrid || pinnedSection) {
             let visiblePinned = 0;
             if (pinnedSection) {
-                const pinnedRows = pinnedSection.querySelectorAll('.library-song-row');
+                const pinnedRows = pinnedSection.querySelectorAll('.library-pinned-card, .library-song-row');
                 pinnedRows.forEach(row => {
                     const title = (row.dataset.songTitle || '').toLowerCase();
                     const artist = (row.dataset.songArtist || '').toLowerCase();
-                    const matches = !query || title.includes(query) || artist.includes(query);
+                    const album = (row.dataset.songAlbum || '').toLowerCase();
+                    const matches = !query || title.includes(query) || artist.includes(query) || album.includes(query);
                     row.style.display = matches ? '' : 'none';
                     if (matches) visiblePinned++;
                 });
@@ -1325,6 +1326,49 @@ function renderArtistCollageHtml(artist) {
       <img src="${covers[2]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
       <img src="${covers[3]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
     </div>`;
+}
+
+function renderPinnedSongTile(song) {
+    const artistName = song.artist || '';
+    const albumName = song.album || '';
+    const subtext = [artistName, albumName].filter(Boolean).join(' • ');
+
+    return `
+    <div class="library-pinned-card d-flex align-items-center gap-2 p-2 rounded-3 position-relative" 
+         data-song-id="${song.id}" 
+         data-song-title="${escapeHtml(song.title)}" 
+         data-song-artist="${escapeHtml(artistName)}" 
+         data-song-album="${escapeHtml(albumName)}"
+         title="Play ${escapeHtml(song.title)}">
+      
+      <div class="pinned-play-badge flex-shrink-0" title="Play default tab">
+        <i class="bi-play-fill"></i>
+      </div>
+
+      <div class="min-w-0 flex-grow-1 pinned-info-zone">
+        <div class="fw-bold text-white text-truncate song-title" style="font-size: 0.88rem;">${escapeHtml(song.title)}</div>
+        <div class="small text-muted text-truncate song-subtitle" style="font-size: 0.72rem;">${escapeHtml(subtext || 'Unknown Artist')}</div>
+      </div>
+
+      <div class="d-flex align-items-center gap-1 flex-shrink-0 ms-1">
+        ${(artistName || albumName) ? `
+          <button type="button" class="btn btn-sm btn-theme-icon navigate-to-album-btn p-1 px-2" 
+                  data-song-id="${song.id}"
+                  data-artist-name="${escapeHtml(artistName)}" 
+                  data-album-title="${escapeHtml(albumName)}" 
+                  title="${albumName ? `Go to album: ${escapeHtml(albumName)}` : `Go to artist: ${escapeHtml(artistName)}`}">
+            <i class="bi-folder2-open text-info"></i>
+          </button>
+        ` : ''}
+
+        <button type="button" class="btn btn-sm btn-theme-icon pin-song-btn text-warning p-1 px-2" 
+                data-song-id="${song.id}" 
+                title="Unpin from collection">
+          <i class="bi-pin-angle-fill"></i>
+        </button>
+      </div>
+    </div>
+    `;
 }
 
 function renderSongRow(song, options = {}) {
@@ -1528,6 +1572,63 @@ function setupSongRowActions(container) {
             const pinned = await togglePinSong(songId);
             showToast(pinned ? 'Song pinned to collection' : 'Song unpinned from collection', 'info');
             await renderView();
+        });
+    });
+
+    // Navigate to Album / Folder from Pinned Song Tile
+    container.querySelectorAll('.navigate-to-album-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const songId = btn.dataset.songId;
+            const artistName = btn.dataset.artistName;
+            const albumTitle = btn.dataset.albumTitle;
+
+            const hierarchy = await getLibraryHierarchy(activeCollectionId);
+            const artists = hierarchy.artists || [];
+
+            const targetArtist = artists.find(a => a.name === artistName) ||
+                                 artists.find(a => (a.songs && a.songs.some(s => s.id === songId)) ||
+                                                  (a.albums && a.albums.some(al => al.songs && al.songs.some(s => s.id === songId))));
+            if (targetArtist) {
+                selectedArtist = targetArtist;
+                if (albumTitle) {
+                    selectedAlbum = targetArtist.albums?.find(a => a.title === albumTitle || a.name === albumTitle || a.folderPath === albumTitle) || null;
+                    selectedFolderPath = selectedAlbum ? (selectedAlbum.folderPath ? selectedAlbum.folderPath.split('/') : [selectedAlbum.title || selectedAlbum.name]) : [];
+                } else {
+                    selectedAlbum = null;
+                    selectedFolderPath = [];
+                }
+                isAlbumEditMode = false;
+                await renderLibraryBrowseView(container);
+            }
+        });
+    });
+
+    // Pinned Card Click -> Play Default Tab or Jump to Album
+    container.querySelectorAll('.library-pinned-card').forEach(card => {
+        card.addEventListener('click', async (e) => {
+            if (e.target.closest('.navigate-to-album-btn') || e.target.closest('.pin-song-btn')) return;
+            const songId = card.dataset.songId;
+            const song = await getSongById(songId);
+            if (song && song.tabOptions?.length > 0) {
+                const targetTab = (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song.tabOptions[0];
+                await loadSongTab(song, targetTab);
+            } else if (song) {
+                const artistName = card.dataset.songArtist;
+                const albumTitle = card.dataset.songAlbum;
+                const hierarchy = await getLibraryHierarchy(activeCollectionId);
+                const artists = hierarchy.artists || [];
+                const targetArtist = artists.find(a => a.name === artistName);
+                if (targetArtist) {
+                    selectedArtist = targetArtist;
+                    selectedAlbum = targetArtist.albums?.find(a => a.title === albumTitle || a.name === albumTitle) || null;
+                    selectedFolderPath = selectedAlbum ? [selectedAlbum.title || selectedAlbum.name] : [];
+                    isAlbumEditMode = false;
+                    await renderLibraryBrowseView(container);
+                } else {
+                    showToast('No tab attached to this song yet', 'info');
+                }
+            }
         });
     });
 
