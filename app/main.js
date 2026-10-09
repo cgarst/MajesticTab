@@ -6,7 +6,7 @@ import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPP
 import { setGpDisplayScale, applySavedGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
-import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls } from './utils/navigationUtils.js';
+import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
@@ -821,6 +821,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupFirstPageNavigation(firstBtn, getNavigationConfig);
     setupPrevNextNavigation(prevBtn, nextBtn, getNavigationConfig);
     setupKeyboardNavigation(getNavigationConfig);
+    setupMouseNavigation(getNavigationConfig);
     setupViewModeToggles(pageModeRadio, continuousModeRadio, getNavigationConfig);
     setupTapClickNavigation(output, getNavigationConfig);
 });

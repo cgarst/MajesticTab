@@ -259,6 +259,54 @@ export function setupKeyboardNavigation(getConfig) {
 }
 
 /**
+ * Handle mouse button navigation (Mouse 4 / Mouse 5)
+ * @param {Function} getConfig Function to get current navigation configuration
+ */
+export function setupMouseNavigation(getConfig) {
+    const handleMouseNav = (e) => {
+        // e.button === 3: Browser Back (Mouse 4)
+        // e.button === 4: Browser Forward (Mouse 5)
+        if (e.button !== 3 && e.button !== 4) return;
+
+        // Avoid handling when focused on editable text elements
+        const activeEl = document.activeElement;
+        const isTextInput = activeEl && (
+            (activeEl.tagName === 'INPUT' && !['radio', 'checkbox', 'button', 'submit', 'range'].includes(activeEl.type)) ||
+            activeEl.tagName === 'TEXTAREA' ||
+            activeEl.tagName === 'SELECT' ||
+            activeEl.isContentEditable
+        );
+        if (isTextInput) return;
+
+        e.preventDefault();
+
+        const config = getConfig();
+        if (!config.currentFile) return;
+
+        const isNext = (e.button === 4);
+        const navigationHandler = new NavigationHandler(config);
+        const action = isNext ? NavigationAction.NEXT : NavigationAction.PREV;
+        const result = navigationHandler.handleAction(action);
+
+        if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
+            config.setCurrentPageIndex(result.newPageIndex);
+        }
+    };
+
+    window.addEventListener('mouseup', handleMouseNav);
+    window.addEventListener('mousedown', (e) => {
+        if (e.button === 3 || e.button === 4) {
+            e.preventDefault();
+        }
+    });
+    window.addEventListener('auxclick', (e) => {
+        if (e.button === 3 || e.button === 4) {
+            e.preventDefault();
+        }
+    });
+}
+
+/**
  * Setup first page button navigation
  */
 export function setupFirstPageNavigation(firstBtn, getConfig) {
