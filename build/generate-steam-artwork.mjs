@@ -51,7 +51,7 @@ function composeSteamVerticalCapsule(w = 600, h = 900) {
     </g>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
     <text x="${w / 2}" y="575" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="48" font-weight="800" fill="#ffffff" letter-spacing="1">Majestic<tspan fill="url(#steamTextAccentV)">Tab</tspan></text>
-    <text x="${w / 2}" y="620" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="rgba(255,255,255,0.5)" letter-spacing="6">GUITAR PRO &amp; PDF VIEWER</text>
+    <text x="${w / 2}" y="620" text-anchor="middle" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="600" fill="rgba(255,255,255,0.5)" letter-spacing="6">GUITAR TAB VIEWER</text>
   </svg>`;
 }
 
@@ -88,7 +88,7 @@ function composeSteamHorizontalCapsule(w = 920, h = 430) {
     </g>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
     <text x="${340 * scale}" y="${230 * scale}" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="${64 * scale}" font-weight="800" fill="#ffffff" letter-spacing="${1 * scale}">Majestic<tspan fill="url(#steamTextAccentH_${w})">Tab</tspan></text>
-    <text x="${345 * scale}" y="${278 * scale}" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="${18 * scale}" font-weight="600" fill="rgba(255,255,255,0.5)" letter-spacing="${5 * scale}">GUITAR PRO &amp; PDF VIEWER</text>
+    <text x="${345 * scale}" y="${278 * scale}" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="${18 * scale}" font-weight="600" fill="rgba(255,255,255,0.5)" letter-spacing="${5 * scale}">GUITAR TAB VIEWER</text>
   </svg>`;
 }
 
@@ -130,7 +130,7 @@ function composeSteamHero(w = 3840, h = 1240) {
     </g>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
     <text x="${180 * scale}" y="${h / 2 + 25 * scale}" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="${110 * scale}" font-weight="800" fill="#ffffff" letter-spacing="${2 * scale}">Majestic<tspan fill="url(#steamTextAccentHero_${w})">Tab</tspan></text>
-    <text x="${185 * scale}" y="${h / 2 + 105 * scale}" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="${28 * scale}" font-weight="600" fill="rgba(255,255,255,0.55)" letter-spacing="${8 * scale}">GUITAR PRO &amp; PDF TABLATURE VIEWER</text>
+    <text x="${185 * scale}" y="${h / 2 + 105 * scale}" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="${28 * scale}" font-weight="600" fill="rgba(255,255,255,0.55)" letter-spacing="${8 * scale}">GUITAR TAB VIEWER</text>
   </svg>`;
 }
 
