@@ -756,127 +756,115 @@
 
       <!-- Vector Controller Diagram -->
       <div class="controller-diagram-container mb-3 text-center">
-        <svg class="controller-svg-diagram" viewBox="0 0 600 325" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Game Controller Layout Diagram">
+        <svg class="controller-svg-diagram" viewBox="-90 55 790 450" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Game Controller Layout Diagram">
           <defs>
             <linearGradient id="ctrlBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#28243c" />
-              <stop offset="45%" stop-color="#191626" />
+              <stop offset="0%" stop-color="#2a253e" />
+              <stop offset="45%" stop-color="#1a1626" />
               <stop offset="100%" stop-color="#0e0c16" />
             </linearGradient>
-            <linearGradient id="ctrlGripGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stop-color="#342e4d" stop-opacity="0.45"/>
-              <stop offset="100%" stop-color="#08060e" stop-opacity="0.75"/>
-            </linearGradient>
-            <linearGradient id="ctrlTriggerGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#3b3552" />
-              <stop offset="100%" stop-color="#181524" />
-            </linearGradient>
-            <linearGradient id="ctrlBumperGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stop-color="#322c47" />
-              <stop offset="100%" stop-color="#1e1a2d" />
-            </linearGradient>
             <filter id="ctrlGlow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="5" stdDeviation="7" flood-color="#000" flood-opacity="0.65" />
+              <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.65" />
             </filter>
           </defs>
 
-          <!-- Triggers (LT and RT) peaking out behind shoulders -->
-          <path d="M 115 55 C 118 36, 135 22, 160 20 C 178 18, 195 24, 202 32 L 190 48 C 165 42, 135 44, 115 55 Z" fill="url(#ctrlTriggerGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
-          <path d="M 485 55 C 482 36, 465 22, 440 20 C 422 18, 405 24, 398 32 L 410 48 C 435 42, 465 44, 485 55 Z" fill="url(#ctrlTriggerGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="1.2"/>
-          <text x="156" y="32" fill="#94a3b8" font-size="8.5" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">LT</text>
-          <text x="444" y="32" fill="#94a3b8" font-size="8.5" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">RT</text>
+          <!-- Traced Exact Xbox One Body Contour -->
+          <path d="M505.765,151.733c-16.255-10.392-4.528-16.329-21.353-29.193c-16.824-12.864-85.104-34.639-96.983-24.743s-25.233,11.873-25.233,11.873h-72.112h-0.122h-72.118c0,0-13.36-1.977-25.233-11.873c-11.873-9.896-80.16,11.873-96.983,24.743c-16.824,12.864-5.098,18.801-21.353,29.193C58.02,162.125,15.467,305.619,15.467,305.619s-55.417,159.824,43.544,179.12c0,0,24.248-15.336,45.025-40.079c20.784-24.743,61.353-59.872,83.128-60.368c21.298-0.483,99.389-0.019,102.792,0l0,0c0,0,0.024,0,0.061,0c0.043,0,0.062,0,0.062,0l0,0c3.403-0.019,81.494-0.483,102.792,0c21.769,0.496,62.345,35.625,83.128,60.368s45.024,40.079,45.024,40.079c98.961-19.296,43.544-179.12,43.544-179.12S522.02,162.125,505.765,151.733z"
+                fill="url(#ctrlBodyGrad)" stroke="rgba(255,255,255,0.22)" stroke-width="2.5" filter="url(#ctrlGlow)"/>
 
-          <!-- Main Controller Body Contour (Xbox shape, generic styled) -->
-          <path d="M 300 48 C 265 48, 235 52, 205 52 C 165 46, 130 48, 104 62 C 86 72, 76 86, 73 105 C 70 125, 76 145, 74 165 C 70 205, 56 250, 52 278 C 48 300, 62 316, 88 316 C 114 316, 138 298, 160 268 C 192 225, 232 196, 275 190 C 288 188, 295 188, 300 188 C 305 188, 312 188, 325 190 C 368 196, 408 225, 440 268 C 462 298, 486 316, 512 316 C 538 316, 552 300, 548 278 C 544 250, 530 205, 526 165 C 524 145, 530 125, 527 105 C 524 86, 514 72, 496 62 C 470 48, 435 46, 395 52 C 365 52, 335 48, 300 48 Z"
-                fill="url(#ctrlBodyGrad)" stroke="rgba(255,255,255,0.18)" stroke-width="2" filter="url(#ctrlGlow)"/>
+          <!-- Bumper Seams -->
+          <path d="M 32 185 C 50 155, 95 125, 168 115 C 190 112, 217 111.4, 217.8 111.4" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.8"/>
+          <path d="M 548 185 C 530 155, 485 125, 412 115 C 390 112, 363 111.4, 362.2 111.4" fill="none" stroke="rgba(255,255,255,0.12)" stroke-width="1.8"/>
 
-          <!-- Grip Panels -->
-          <path d="M 104 62 C 86 72, 76 86, 73 105 C 70 125, 76 145, 74 165 C 70 205, 56 250, 52 278 C 48 300, 62 316, 88 316 C 96 316, 105 312, 114 305 C 100 270, 96 215, 98 165 C 100 125, 105 90, 104 62 Z" fill="url(#ctrlGripGrad)"/>
-          <path d="M 496 62 C 514 72, 524 86, 527 105 C 530 125, 524 145, 526 165 C 530 205, 544 250, 548 278 C 552 300, 538 316, 512 316 C 504 316, 495 312, 486 305 C 500 270, 504 215, 502 165 C 500 125, 495 90, 496 62 Z" fill="url(#ctrlGripGrad)"/>
+          <!-- Grip Seams -->
+          <path d="M 32 185 C 18 245, 12 335, 42 415 C 55 450, 75 480, 104 444" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+          <path d="M 548 185 C 562 245, 568 335, 538 415 C 525 450, 505 480, 476 444" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
 
-          <!-- Bumpers (LB and RB) embedded on top shoulders -->
-          <path d="M 205 52 C 168 46, 135 48, 106 62 C 100 65, 96 72, 94 80 L 208 68 C 207 62, 206 56, 205 52 Z" fill="url(#ctrlBumperGrad)" stroke="rgba(255,255,255,0.2)" stroke-width="1.2"/>
-          <path d="M 395 52 C 432 46, 465 48, 494 62 C 500 65, 504 72, 506 80 L 392 68 C 393 62, 394 56, 395 52 Z" fill="url(#ctrlBumperGrad)" stroke="rgba(255,255,255,0.2)" stroke-width="1.2"/>
-          <text x="150" y="58" fill="#cbd5e1" font-size="9.5" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">LB (Prev Page)</text>
-          <text x="450" y="58" fill="#cbd5e1" font-size="9.5" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">RB (Next Page)</text>
+          <!-- Left Shoulder LB / LT -->
+          <text x="142" y="82" fill="#cbd5e1" font-size="13.5" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">LB (Prev Page)</text>
+          <text x="-5" y="142" fill="#94a3b8" font-size="12" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">LT</text>
 
-          <!-- Center Guide Button Area (Xbox shape, generic sleek look) -->
-          <circle cx="300" cy="80" r="16" fill="#13101f" stroke="rgba(255,255,255,0.25)" stroke-width="1.5"/>
-          <circle cx="300" cy="80" r="11" fill="#1f1a30" stroke="#a855f7" stroke-width="1.2"/>
-          <circle cx="300" cy="80" r="4" fill="#a855f7"/>
+          <!-- Right Shoulder RB / RT -->
+          <text x="438" y="82" fill="#cbd5e1" font-size="13.5" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">RB (Next Page)</text>
+          <text x="585" y="142" fill="#94a3b8" font-size="12" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">RT</text>
 
-          <!-- View / Back Button -->
-          <circle cx="255" cy="115" r="9" fill="#242033" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
-          <rect x="251" y="111" width="5" height="5" fill="none" stroke="#94a3b8" stroke-width="1" />
-          <rect x="254" y="114" width="5" height="5" fill="none" stroke="#94a3b8" stroke-width="1" />
-          <text x="255" y="99" fill="#94a3b8" font-size="8.5" font-family="system-ui, sans-serif" text-anchor="middle">View (Audio/Help)</text>
-
-          <!-- Menu / Start Button -->
-          <circle cx="345" cy="115" r="9" fill="#242033" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
-          <line x1="341" y1="112" x2="349" y2="112" stroke="#94a3b8" stroke-width="1.2" />
-          <line x1="341" y1="115" x2="349" y2="115" stroke="#94a3b8" stroke-width="1.2" />
-          <line x1="341" y1="118" x2="349" y2="118" stroke="#94a3b8" stroke-width="1.2" />
-          <text x="345" y="99" fill="#94a3b8" font-size="8.5" font-family="system-ui, sans-serif" text-anchor="middle">Menu (Notation)</text>
-
-          <!-- Left Analog Stick (LS) -->
-          <g transform="translate(170, 120)">
-            <circle cx="0" cy="0" r="28" fill="#171424" stroke="rgba(255,255,255,0.25)" stroke-width="2" />
-            <circle cx="0" cy="0" r="20" fill="#272238" stroke="#38bdf8" stroke-width="1.2" />
-            <circle cx="0" cy="0" r="7" fill="#171424" />
-            <text x="0" y="3.5" fill="#f8fafc" font-size="9" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">LS</text>
+          <!-- Left Analog Stick (LS) at (142.1, 211.1) -->
+          <g transform="translate(142.139, 211.103)">
+            <circle cx="0" cy="0" r="49" fill="#151222" stroke="rgba(255,255,255,0.25)" stroke-width="2.5" />
+            <circle cx="0" cy="0" r="33.2" fill="#252035" stroke="#38bdf8" stroke-width="1.8" />
+            <circle cx="0" cy="0" r="27.1" fill="#1b1828" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" />
+            <text x="0" y="5.5" fill="#f8fafc" font-size="13" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">LS</text>
           </g>
-          <text x="170" y="163" fill="#94a3b8" font-size="9" font-family="system-ui, sans-serif" text-anchor="middle">Scroll / (L3) Mode</text>
+          <text x="142" y="278" fill="#94a3b8" font-size="12" font-family="system-ui, sans-serif" text-anchor="middle">Scroll / (L3) Mode</text>
 
-          <!-- D-Pad (Cross shaped, Xbox faceted style) -->
-          <g transform="translate(230, 175)">
-            <path d="M -9 -25 L 9 -25 L 9 -9 L 25 -9 L 25 9 L 9 9 L 9 25 L -9 25 L -9 9 L -25 9 L -25 -9 L -9 -9 Z"
-                  fill="#1c182a" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" />
-            <polygon points="0,-19 -4,-14 4,-14" fill="#94a3b8" />
-            <polygon points="0,19 -4,14 4,14" fill="#94a3b8" />
-            <polygon points="-19,0 -14,-4 -14,4" fill="#94a3b8" />
-            <polygon points="19,0 14,-4 14,4" fill="#94a3b8" />
+          <!-- D-Pad at (205.8, 305.4) -->
+          <g transform="translate(205.8, 305.4)">
+            <path d="M-12,-35 L12,-35 L12,-12 L35,-12 L35,12 L12,12 L12,35 L-12,35 L-12,12 L-35,12 L-35,-12 L-12,-12 Z"
+                  fill="#1c182a" stroke="rgba(255,255,255,0.3)" stroke-width="2" />
+            <polygon points="0,-26 -5,-19 5,-19" fill="#94a3b8" />
+            <polygon points="0,26 -5,19 5,19" fill="#94a3b8" />
+            <polygon points="-26,0 -19,-5 -19,5" fill="#94a3b8" />
+            <polygon points="26,0 19,-5 19,5" fill="#94a3b8" />
           </g>
-          <text x="230" y="215" fill="#94a3b8" font-size="9" font-family="system-ui, sans-serif" text-anchor="middle">Measure / Fine Scroll</text>
+          <text x="206" y="362" fill="#94a3b8" font-size="12" font-family="system-ui, sans-serif" text-anchor="middle">Measure / Fine Scroll</text>
 
-          <!-- Right Analog Stick (RS) -->
-          <g transform="translate(370, 175)">
-            <circle cx="0" cy="0" r="28" fill="#171424" stroke="rgba(255,255,255,0.25)" stroke-width="2" />
-            <circle cx="0" cy="0" r="20" fill="#272238" stroke="#a855f7" stroke-width="1.2" />
-            <circle cx="0" cy="0" r="7" fill="#171424" />
-            <text x="0" y="3.5" fill="#f8fafc" font-size="9" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">RS</text>
+          <!-- Right Analog Stick (RS) at (365.3, 300.7) -->
+          <g transform="translate(365.299, 300.662)">
+            <circle cx="0" cy="0" r="49" fill="#151222" stroke="rgba(255,255,255,0.25)" stroke-width="2.5" />
+            <circle cx="0" cy="0" r="33.2" fill="#252035" stroke="#a855f7" stroke-width="1.8" />
+            <circle cx="0" cy="0" r="27.1" fill="#1b1828" stroke="rgba(255,255,255,0.15)" stroke-width="1.2" />
+            <text x="0" y="5.5" fill="#f8fafc" font-size="13" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">RS</text>
           </g>
-          <text x="370" y="215" fill="#94a3b8" font-size="9" font-family="system-ui, sans-serif" text-anchor="middle">Zoom / (R3) Reset</text>
+          <text x="365" y="368" fill="#94a3b8" font-size="12" font-family="system-ui, sans-serif" text-anchor="middle">Zoom / (R3) Reset</text>
+
+          <!-- Center Guide Button Area at (290, 148.2) -->
+          <circle cx="290.022" cy="148.202" r="26" fill="#13101f" stroke="rgba(255,255,255,0.25)" stroke-width="2"/>
+          <circle cx="290.022" cy="148.202" r="17" fill="#201b33" stroke="#a855f7" stroke-width="1.8"/>
+          <circle cx="290.022" cy="148.202" r="5" fill="#a855f7"/>
+
+          <!-- View / Back Button at (249, 212.1) -->
+          <circle cx="249.019" cy="212.094" r="13" fill="#242033" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" />
+          <rect x="244" y="207" width="6" height="6" fill="none" stroke="#94a3b8" stroke-width="1.2" />
+          <rect x="247" y="210" width="6" height="6" fill="none" stroke="#94a3b8" stroke-width="1.2" />
+          <text x="226" y="190" fill="#94a3b8" font-size="11" font-family="system-ui, sans-serif" text-anchor="middle">View (Audio/Help)</text>
+
+          <!-- Menu / Start Button at (332.1, 212.1) -->
+          <circle cx="332.146" cy="212.094" r="13" fill="#242033" stroke="rgba(255,255,255,0.25)" stroke-width="1.2" />
+          <line x1="327" y1="208" x2="337" y2="208" stroke="#94a3b8" stroke-width="1.5" />
+          <line x1="327" y1="212" x2="337" y2="212" stroke="#94a3b8" stroke-width="1.5" />
+          <line x1="327" y1="216" x2="337" y2="216" stroke="#94a3b8" stroke-width="1.5" />
+          <text x="354" y="190" fill="#94a3b8" font-size="11" font-family="system-ui, sans-serif" text-anchor="middle">Menu (Notation)</text>
 
           <!-- ABXY Face Buttons -->
-          <!-- Y Button (Amber) -->
-          <g transform="translate(430, 92)">
-            <circle cx="0" cy="0" r="13" fill="#291e0a" stroke="#f59e0b" stroke-width="2" />
-            <text x="0" y="4" fill="#f59e0b" font-size="11" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">Y</text>
+          <!-- Y Button (Amber) at (438, 174) -->
+          <g transform="translate(438.047, 173.997)">
+            <circle cx="0" cy="0" r="18.77" fill="#291e0a" stroke="#f59e0b" stroke-width="2.2" />
+            <text x="0" y="5.5" fill="#f59e0b" font-size="15" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">Y</text>
           </g>
-          <text x="495" y="92" fill="#f59e0b" font-size="10" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="start">Top Bar (Zen)</text>
-          <line x1="445" y1="92" x2="490" y2="92" stroke="#f59e0b" stroke-dasharray="2 2" stroke-width="1" />
+          <text x="535" y="174" fill="#f59e0b" font-size="13" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="start">Top Bar (Zen)</text>
+          <line x1="462" y1="174" x2="525" y2="174" stroke="#f59e0b" stroke-dasharray="3 3" stroke-width="1.5" />
 
-          <!-- X Button (Blue) -->
-          <g transform="translate(398, 120)">
-            <circle cx="0" cy="0" r="13" fill="#0c2340" stroke="#38bdf8" stroke-width="2" />
-            <text x="0" y="4" fill="#38bdf8" font-size="11" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">X</text>
+          <!-- X Button (Blue) at (400, 212.1) -->
+          <g transform="translate(399.932, 212.094)">
+            <circle cx="0" cy="0" r="18.77" fill="#0c2340" stroke="#38bdf8" stroke-width="2.2" />
+            <text x="0" y="5.5" fill="#38bdf8" font-size="15" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">X</text>
           </g>
 
-          <!-- B Button (Red) -->
-          <g transform="translate(462, 120)">
-            <circle cx="0" cy="0" r="13" fill="#3b1114" stroke="#ef4444" stroke-width="2" />
-            <text x="0" y="4" fill="#ef4444" font-size="11" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">B</text>
+          <!-- B Button (Red) at (479.1, 212.1) -->
+          <g transform="translate(479.1, 212.094)">
+            <circle cx="0" cy="0" r="18.77" fill="#3b1114" stroke="#ef4444" stroke-width="2.2" />
+            <text x="0" y="5.5" fill="#ef4444" font-size="15" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">B</text>
           </g>
-          <text x="500" y="124" fill="#ef4444" font-size="10" font-family="system-ui, sans-serif" text-anchor="start">Back / Library</text>
-          <line x1="477" y1="120" x2="495" y2="120" stroke="#ef4444" stroke-dasharray="2 2" stroke-width="1" />
+          <text x="535" y="217" fill="#ef4444" font-size="13" font-family="system-ui, sans-serif" text-anchor="start">Back / Library</text>
+          <line x1="503" y1="212" x2="525" y2="212" stroke="#ef4444" stroke-dasharray="3 3" stroke-width="1.5" />
 
-          <!-- A Button (Green) -->
-          <g transform="translate(430, 148)">
-            <circle cx="0" cy="0" r="13" fill="#092d1f" stroke="#10b981" stroke-width="2" />
-            <text x="0" y="4" fill="#10b981" font-size="11" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+          <!-- A Button (Green) at (438, 252.2) -->
+          <g transform="translate(438.047, 252.192)">
+            <circle cx="0" cy="0" r="18.77" fill="#092d1f" stroke="#10b981" stroke-width="2.2" />
+            <text x="0" y="5.5" fill="#10b981" font-size="15" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">A</text>
           </g>
-          <text x="495" y="152" fill="#10b981" font-size="10" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="start">Play / Pause</text>
-          <line x1="445" y1="148" x2="490" y2="148" stroke="#10b981" stroke-dasharray="2 2" stroke-width="1" />
+          <text x="535" y="256" fill="#10b981" font-size="13" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="start">Play / Pause</text>
+          <line x1="462" y1="252" x2="525" y2="252" stroke="#10b981" stroke-dasharray="3 3" stroke-width="1.5" />
         </svg>
       </div>
 
