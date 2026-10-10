@@ -819,13 +819,18 @@ export const scoreOptionsState = {
 };
 
 /**
- * Show / Enable top bar Score Options button (when tracks/notation options are available)
+ * Show / Enable top bar Score Options button (when notation options are available)
  */
-export function showScoreOptions() {
+export function showScoreOptions(fileType = 'gp') {
     scoreOptionsState.isAvailable = true;
     const btn = document.getElementById('topBarSongTitleBtn');
     const chevron = btn?.querySelector('.song-title-chevron');
     const notationSection = document.getElementById('scoreOptionsNotationStyleSection');
+    const tracksSection = document.getElementById('synthTrackVisibilitySection');
+    const pdfSection = document.getElementById('scoreOptionsPdfSection');
+    const exportPdfBtn = document.getElementById('exportPDFBtn');
+    const exportSourceBtn = document.getElementById('exportSourceTabBtn');
+
     if (btn) {
         btn.classList.remove('disabled', 'is-static');
         btn.removeAttribute('disabled');
@@ -833,18 +838,35 @@ export function showScoreOptions() {
         btn.setAttribute('aria-disabled', 'false');
         const songTitleEl = document.getElementById('topBarSongTitle');
         const displayName = songTitleEl?.textContent || '';
-        btn.title = displayName ? `${displayName} - Tracks & Notation Options` : 'Tracks & Notation Options';
+        btn.title = displayName ? `${displayName} - Notation Options` : 'Notation Options';
     }
     if (chevron) {
         chevron.style.display = '';
     }
-    if (notationSection) {
-        notationSection.style.display = '';
+
+    if (fileType === 'gp') {
+        if (notationSection) notationSection.style.display = '';
+        if (pdfSection) pdfSection.style.display = 'none';
+        if (exportPdfBtn) exportPdfBtn.style.display = '';
+    } else if (fileType === 'pdf') {
+        if (notationSection) notationSection.style.display = 'none';
+        if (tracksSection) tracksSection.style.display = 'none';
+        if (pdfSection) pdfSection.style.display = '';
+        if (exportPdfBtn) exportPdfBtn.style.display = 'none';
+    } else {
+        // txt or other
+        if (notationSection) notationSection.style.display = 'none';
+        if (tracksSection) tracksSection.style.display = 'none';
+        if (pdfSection) pdfSection.style.display = 'none';
+        if (exportPdfBtn) exportPdfBtn.style.display = 'none';
+    }
+    if (exportSourceBtn) {
+        exportSourceBtn.style.display = '';
     }
 }
 
 /**
- * Hide / Disable top bar Score Options (when showing PDF, TXT, or no options)
+ * Hide / Disable top bar Score Options (when no file is loaded)
  */
 export function hideScoreOptions() {
     scoreOptionsState.isAvailable = false;
@@ -852,6 +874,11 @@ export function hideScoreOptions() {
     const btn = document.getElementById('topBarSongTitleBtn');
     const chevron = btn?.querySelector('.song-title-chevron');
     const notationSection = document.getElementById('scoreOptionsNotationStyleSection');
+    const tracksSection = document.getElementById('synthTrackVisibilitySection');
+    const pdfSection = document.getElementById('scoreOptionsPdfSection');
+    const exportPdfBtn = document.getElementById('exportPDFBtn');
+    const exportSourceBtn = document.getElementById('exportSourceTabBtn');
+
     if (btn) {
         btn.classList.add('disabled', 'is-static');
         btn.removeAttribute('aria-expanded');
@@ -865,6 +892,18 @@ export function hideScoreOptions() {
     }
     if (notationSection) {
         notationSection.style.display = 'none';
+    }
+    if (tracksSection) {
+        tracksSection.style.display = 'none';
+    }
+    if (pdfSection) {
+        pdfSection.style.display = 'none';
+    }
+    if (exportPdfBtn) {
+        exportPdfBtn.style.display = 'none';
+    }
+    if (exportSourceBtn) {
+        exportSourceBtn.style.display = 'none';
     }
 }
 
