@@ -395,7 +395,7 @@ export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {})
         await clearAllLibraryData();
 
         // Clear settings
-        for (const key of APP_SETTINGS_KEYS) {
+        for (const key of BACKUP_SETTINGS_KEYS) {
             localStorage.removeItem(key);
         }
         localStorage.removeItem('customExtensions');
@@ -683,7 +683,7 @@ function getOrCreateModal() {
  * Open the Data Management modal
  * @param {'backup'|'restore'|'reload'|'delete'} initialTab
  */
-export async function openBackupModal(initialTab = 'backup') {
+export async function openBackupModal(initialTab = 'backup', options = {}) {
     const modal = getOrCreateModal();
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -695,7 +695,7 @@ export async function openBackupModal(initialTab = 'backup') {
         offcanvas?.hide();
     }
 
-    await renderModal(modal, initialTab);
+    await renderModal(modal, initialTab, options);
 }
 
 /**
@@ -715,7 +715,7 @@ export function closeBackupModal() {
 /**
  * Renders the Data Management Modal content
  */
-async function renderModal(modal, activeTab = 'backup') {
+async function renderModal(modal, activeTab = 'backup', options = {}) {
     const providers = getSaveProviders();
     const today = new Date().toISOString().split('T')[0];
     const defaultFilename = `MajesticTab-backup-${today}.mtbackup`;
@@ -1127,13 +1127,13 @@ async function renderModal(modal, activeTab = 'backup') {
     `;
 
     // Attach Event Handlers
-    attachModalHandlers(modal);
+    attachModalHandlers(modal, options);
 }
 
 /**
  * Attach interactive handlers to the Data Management modal
  */
-function attachModalHandlers(modal) {
+function attachModalHandlers(modal, options = {}) {
     // Close button & backdrop click
     modal.querySelector('#backupModalCloseBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#backupCancelBtn')?.addEventListener('click', closeBackupModal);
@@ -1327,7 +1327,23 @@ function attachModalHandlers(modal) {
                     console.error('Failed to download Drive backup:', dlErr);
                     if (restoreDriveError) {
                         restoreDriveError.style.display = 'block';
-                        restoreDriveError.textContent = `Failed to download "${b.name}": ${dlErr.message}`;
+                        const isAuthError = dlErr.message.includes('authorization') || dlErr.message.includes('expired') || dlErr.message.includes('connect');
+                        if (isAuthError) {
+                            restoreDriveError.innerHTML = `
+                                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                    <span>Failed to download "${escapeHtml(b.name)}": ${escapeHtml(dlErr.message)}</span>
+                                    <button type="button" class="btn btn-sm btn-theme-outline" id="restoreDriveReconnectBtn">
+                                        <i class="bi-box-arrow-in-right me-1"></i> Reconnect Google Drive
+                                    </button>
+                                </div>
+                            `;
+                            modal.querySelector('#restoreDriveReconnectBtn')?.addEventListener('click', async () => {
+                                const { redirectToGoogleAuth } = await import('./googleDrive.js');
+                                redirectToGoogleAuth('restore_backup');
+                            });
+                        } else {
+                            restoreDriveError.textContent = `Failed to download "${b.name}": ${dlErr.message}`;
+                        }
                     }
                     restoreDriveList.querySelectorAll('.drive-backup-item').forEach(el => {
                         el.style.pointerEvents = '';
@@ -1348,6 +1364,9 @@ function attachModalHandlers(modal) {
     };
 
     restoreDriveBtn?.addEventListener('click', loadGoogleDriveBackups);
+    if (options.autoLoadDrive) {
+        loadGoogleDriveBackups();
+    }
     restoreDriveCloseBtn?.addEventListener('click', () => {
         if (restoreDriveContainer) restoreDriveContainer.style.display = 'none';
     });
