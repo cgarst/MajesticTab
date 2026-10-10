@@ -3,8 +3,8 @@ use std::sync::Mutex;
 use objc2_foundation::{NSString, NSURL};
 use objc2_web_kit::WKWebView;
 use tauri::{
-    utils::config::WebviewUrl, webview::WebviewBuilder, App, AppHandle, LogicalPosition,
-    LogicalSize, Manager, State, Wry,
+    utils::config::WebviewUrl, webview::WebviewBuilder, App, AppHandle, Emitter, LogicalPosition,
+    LogicalSize, Manager, State, Url, Wry,
 };
 
 const PLAYER_LABEL: &str = "youtubeplayer";
@@ -106,6 +106,7 @@ pub fn open_youtube_auth_window(app: &AppHandle, url: tauri::Url) {
                     if let Some(player) = app_handle.get_webview(PLAYER_LABEL) {
                         let _ = player.eval("if (player && player.src) { player.src = player.src; }");
                     }
+                    let _ = app_handle.emit("youtube-auth-completed", ());
                 }
             });
             let _ = window.show();
@@ -122,28 +123,57 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
 
     let app_handle_new_win = app.handle().clone();
     let app_handle_nav = app.handle().clone();
+    let blank_url = Url::parse("about:blank").map_err(tauri::Error::InvalidUrl)?;
 
     let player = main.as_ref().window().add_child(
-        WebviewBuilder::new(PLAYER_LABEL, WebviewUrl::App("index.html".into()))
+        WebviewBuilder::new(PLAYER_LABEL, WebviewUrl::External(blank_url))
             .initialization_script(PLAYER_BRIDGE)
             .user_agent(SAFARI_USER_AGENT)
             .on_new_window(move |url, _features| {
-                let app = app_handle_new_win.clone();
-                let _ = tauri::async_runtime::spawn(async move {
-                    open_youtube_auth_window(&app, url);
-                });
+                let host = url.host_str().unwrap_or_default();
+                if host.is_empty()
+                    || host == "net.zathu.majestictab"
+                    || host == "localhost"
+                    || host == "tauri.localhost"
+                    || url.scheme() == "tauri"
+                    || url.scheme() == "about"
+                {
+                    return tauri::webview::NewWindowResponse::Deny;
+                }
+                let is_auth_or_verification = host.contains("accounts.google.com")
+                    || (host.contains("youtube.com") && (url.path().contains("signin") || url.path().contains("ServiceLogin")))
+                    || url.path().contains("sorry")
+                    || url.path().contains("captcha");
+                if is_auth_or_verification {
+                    let app = app_handle_new_win.clone();
+                    let _ = tauri::async_runtime::spawn(async move {
+                        open_youtube_auth_window(&app, url);
+                    });
+                }
                 tauri::webview::NewWindowResponse::Deny
             })
             .on_navigation(move |url| {
                 let host = url.host_str().unwrap_or_default();
-                if host == "net.zathu.majestictab" || host.is_empty() {
+                if host.is_empty()
+                    || host == "net.zathu.majestictab"
+                    || host == "localhost"
+                    || host == "tauri.localhost"
+                    || url.scheme() == "tauri"
+                    || url.scheme() == "about"
+                {
                     return true;
                 }
-                let app = app_handle_nav.clone();
-                let target_url = url.clone();
-                let _ = tauri::async_runtime::spawn(async move {
-                    open_youtube_auth_window(&app, target_url);
-                });
+                let is_auth_or_verification = host.contains("accounts.google.com")
+                    || (host.contains("youtube.com") && (url.path().contains("signin") || url.path().contains("ServiceLogin")))
+                    || url.path().contains("sorry")
+                    || url.path().contains("captcha");
+                if is_auth_or_verification {
+                    let app = app_handle_nav.clone();
+                    let target_url = url.clone();
+                    let _ = tauri::async_runtime::spawn(async move {
+                        open_youtube_auth_window(&app, target_url);
+                    });
+                }
                 false
             }),
         LogicalPosition::new(0.0, 0.0),
