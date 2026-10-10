@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>net.zathu.majestictab</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>MajesticTab</name>
+  <summary>Guitar Pro and PDF guitar tab viewer</summary>
+  <description>
+    <p>
+      MajesticTab is a fast, modern tablature viewer and practice companion for Guitar Pro files, PDF sheet music, and plain text tabs.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>High-quality Guitar Pro score rendering and multi-track audio playback with soundfonts</li>
+      <li>Smart PDF tab condensing and page layout optimization</li>
+      <li>Integrated YouTube video player synchronized with tabs</li>
+      <li>Custom finish themes and palettes</li>
+      <li>Offline and local file library support</li>
+    </ul>
+  </description>
+  <launchable type="desktop-id">net.zathu.majestictab.desktop</launchable>
+  <url type="homepage">https://github.com/cgarst/MajesticTab</url>
+  <url type="bugtracker">https://github.com/cgarst/MajesticTab/issues</url>
+  <developer id="net.zathu">
+    <name>MajesticTab Developers</name>
+  </developer>
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/main/img/screenshots/gp_page.png</image>
+      <caption>Guitar Pro tablature page view</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/main/img/screenshots/gp_themed.png</image>
+      <caption>Themed view mode</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/main/img/screenshots/pdf_page.png</image>
+      <caption>PDF sheet music viewer</caption>
+    </screenshot>
+  </screenshots>
+  <categories>
+    <category>AudioVideo</category>
+    <category>Audio</category>
+    <category>Music</category>
+    <category>Education</category>
+  </categories>
+  <provides>
+    <mediatype>application/x-guitar-pro</mediatype>
+    <mediatype>application/x-gtp</mediatype>
+    <mediatype>application/pdf</mediatype>
+    <mediatype>text/plain</mediatype>
+  </provides>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="1.0.0" date="2026-01-01">
+      <description>
+        <p>Initial release of MajesticTab.</p>
+      </description>
+    </release>
+  </releases>
+</component>
