@@ -4,8 +4,8 @@ import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
 import { attachAlphaTabApi, detachAlphaTabApi } from './gpPlayer.js';
-import { extractScoreTunings } from '../utils/tuningUtils.js';
-import { addRecentOpened } from '../libraryStore.js';
+import { extractScoreTunings, extractScoreMetadata } from '../utils/tuningUtils.js';
+import { addRecentOpened, updateLibrarySongFromScore } from '../libraryStore.js';
 
 const PAGE_PADDING = 10;
 
@@ -95,7 +95,11 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
                 scoreArtist: api.score.artist
             });
 
-            const tunings = extractScoreTunings(api.score);
+            const scoreMeta = extractScoreMetadata(api.score);
+            const tunings = scoreMeta.tunings || [];
+            const primaryTuning = scoreMeta.tuning || (tunings[0] || null);
+            const stringCount = scoreMeta.stringCount || null;
+
             addRecentOpened({
                 id: file.name,
                 name: file.name,
@@ -104,6 +108,18 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
                 songTitle: api.score.title || file.name.replace(/\.[^/.]+$/, ''),
                 artist: api.score.artist || '',
                 album: api.score.album || '',
+                tuning: primaryTuning,
+                stringCount: stringCount,
+                tunings
+            }).catch(() => {});
+
+            updateLibrarySongFromScore({
+                fileName: file.name,
+                title: api.score.title,
+                artist: api.score.artist,
+                album: api.score.album,
+                primaryTuning,
+                stringCount,
                 tunings
             }).catch(() => {});
         }
