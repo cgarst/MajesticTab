@@ -880,9 +880,11 @@ window.addEventListener('DOMContentLoaded', async () => {
             openLibraryModal('library');
         }
     } else if (!hasNativeFile) {
+        const hash = window.location.hash || '';
+        const isAuthRedirect = hash.includes('access_token=') || hash.includes('state=restore_backup') || hash.includes('state=open_');
         const driveModalEl = document.getElementById('driveModal');
         const driveModalOpen = driveModalEl && driveModalEl.style.display === 'flex';
-        if (!driveModalOpen) {
+        if (!driveModalOpen && !isAuthRedirect) {
             console.log('[Normal Mode] Opening Tab Library as default home page');
             openLibraryModal('library');
         }

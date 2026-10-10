@@ -118,6 +118,7 @@ export function redirectToGoogleAuth(targetState = 'open_drive_browser') {
         `&response_type=token` +
         `&scope=${encodeURIComponent(SCOPE)}` +
         `&include_granted_scopes=true` +
+        `&prompt=select_account` +
         `&state=${encodeURIComponent(targetState)}`;
 
     window.location.href = authUrl;
@@ -132,6 +133,10 @@ async function startAndroidGoogleAuth(targetState = 'open_drive_browser') {
         window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
         if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
             openDriveModal();
+        } else if (targetState === 'restore_backup') {
+            import('./backupRestore.js').then(({ openBackupModal }) => {
+                openBackupModal('restore', { autoLoadDrive: true });
+            });
         }
     } catch (error) {
         console.error('Failed to authorize Google Drive on Android:', error);
@@ -196,6 +201,10 @@ async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
                 window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
                 if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
                     openDriveModal();
+                } else if (targetState === 'restore_backup') {
+                    import('./backupRestore.js').then(({ openBackupModal }) => {
+                        openBackupModal('restore', { autoLoadDrive: true });
+                    });
                 }
             } catch (error) {
                 console.error('Failed to exchange Google authorization code:', error);
@@ -676,7 +685,7 @@ function handleAuthRedirect() {
             openDriveModal();
         } else if (state === 'restore_backup') {
             import('./backupRestore.js').then(({ openBackupModal }) => {
-                openBackupModal('restore');
+                openBackupModal('restore', { autoLoadDrive: true });
             });
         }
         return true;
@@ -837,19 +846,25 @@ export async function fetchDriveBackups() {
  */
 export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbackup') {
     if (!isTokenValid()) {
-        throw new Error('Google Drive is not connected.');
+        throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
 
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, {
         headers: { Authorization: `Bearer ${token}` }
     });
 
     if (!res.ok) {
+        let errorDetail = res.statusText;
+        try {
+            const errData = await res.json();
+            errorDetail = errData.error?.message || errorDetail;
+        } catch (_) {}
+
         if (res.status === 401) {
             clearStoredToken();
-            redirectToGoogleAuth('restore_backup');
+            throw new Error(`Google Drive authorization expired: ${errorDetail}. Please reconnect Google Drive.`);
         }
-        throw new Error(`Download failed: ${res.statusText}`);
+        throw new Error(`Download failed (${res.status}): ${errorDetail}`);
     }
 
     const blob = await res.blob();
