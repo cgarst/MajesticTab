@@ -191,6 +191,35 @@ async fn youtube_open_auth(app: tauri::AppHandle, url: Option<String>) -> Result
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
+fn is_gamescope_or_steam_deck() -> bool {
+    if std::env::var("GAMESCOPE_WAYLAND_DISPLAY").is_ok()
+        || std::env::var("GAMESCOPE_WIDTH").is_ok()
+        || std::env::var("GAMESCOPE_HEIGHT").is_ok()
+        || std::env::var("STEAM_DECK").is_ok()
+        || std::env::var("SteamDeck").is_ok()
+        || std::env::var("STEAM_ZEN").is_ok()
+    {
+        return true;
+    }
+
+    if let Ok(desktop) = std::env::var("XDG_CURRENT_DESKTOP") {
+        let l = desktop.to_lowercase();
+        if l.contains("gamescope") || l.contains("steamos") {
+            return true;
+        }
+    }
+
+    if let Ok(product) = std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_name") {
+        let p = product.trim();
+        if p == "Jupiter" || p == "Galileo" || p.contains("Steam Deck") {
+            return true;
+        }
+    }
+
+    false
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(feature = "debug-tools")]
@@ -224,8 +253,10 @@ pub fn run() {
                     let _ = window.set_icon(icon.clone());
                 }
                 #[cfg(target_os = "linux")]
-                if std::env::var("GAMESCOPE_WAYLAND_DISPLAY").is_ok() || std::env::var("STEAM_DECK").is_ok() {
-                    let _ = window.maximize();
+                if is_gamescope_or_steam_deck() {
+                    let _ = window.set_decorations(false);
+                    let _ = window.set_fullscreen(true);
+                    let _ = window.eval("document.documentElement.classList.add('tauri-gamescope');");
                 }
                 #[cfg(feature = "debug-tools")]
                 window.open_devtools();
