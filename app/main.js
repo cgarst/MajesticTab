@@ -11,7 +11,7 @@ import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
-import { initSynthPlayer, hideSynthPlayer } from './gpProcessor/gpPlayer.js';
+import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel } from './gpProcessor/gpPlayer.js';
 import { initTheming } from './themeEngine.js';
 import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
@@ -738,6 +738,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initUpdater();
     initYouTubePlayer();
     initSynthPlayer();
+    initScoreOptionsPanel();
     setupGlobalRewindButton();
     initTauriDownloadListener();
 

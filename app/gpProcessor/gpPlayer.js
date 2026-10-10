@@ -802,6 +802,96 @@ export function toggleCountIn(force = null) {
     updateSynthUI();
 }
 
+export const scoreOptionsState = {
+    isOpen: false
+};
+
+/**
+ * Show / Hide top bar Score Options button
+ */
+export function showScoreOptions() {
+    const btn = document.getElementById('scoreOptionsToggleBtn');
+    if (btn) btn.style.display = 'inline-flex';
+}
+
+export function hideScoreOptions() {
+    const btn = document.getElementById('scoreOptionsToggleBtn');
+    if (btn) btn.style.display = 'none';
+    toggleScoreOptionsPanel(false);
+}
+
+export function updateScoreOptionsPanelPosition() {
+    const panel = document.getElementById('scoreOptionsDropdownPanel');
+    const toggleBtn = document.getElementById('scoreOptionsToggleBtn');
+    if (!panel || !toggleBtn || !scoreOptionsState.isOpen) return;
+
+    const rect = toggleBtn.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.top = `${rect.bottom + 8}px`;
+    const centerX = rect.left + rect.width / 2;
+    const halfPanelWidth = Math.min(185, (window.innerWidth - 24) / 2);
+    const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
+    panel.style.left = `${clampedLeft}px`;
+    panel.style.transform = 'translateX(-50%)';
+}
+
+/**
+ * Toggle collapsible score & notation options panel
+ */
+export function toggleScoreOptionsPanel(forceState = null) {
+    const panel = document.getElementById('scoreOptionsDropdownPanel');
+    const toggleBtn = document.getElementById('scoreOptionsToggleBtn');
+
+    if (!panel) return;
+
+    const newState = forceState !== null ? forceState : !scoreOptionsState.isOpen;
+    scoreOptionsState.isOpen = newState;
+
+    if (newState) {
+        // Close other panels if open, without interrupting audio playback
+        toggleSynthPanel(false);
+        toggleYouTubePanel(false);
+
+        updateScoreOptionsPanelPosition();
+        panel.style.display = 'block';
+        toggleBtn?.classList.add('active');
+    } else {
+        panel.style.display = 'none';
+        toggleBtn?.classList.remove('active');
+    }
+}
+
+/**
+ * Initialize all DOM event listeners for the Score Options Panel
+ */
+export function initScoreOptionsPanel() {
+    hideScoreOptions();
+    const toggleBtn = document.getElementById('scoreOptionsToggleBtn');
+    const closeBtn = document.getElementById('scoreOptionsPanelCloseBtn');
+
+    toggleBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleScoreOptionsPanel();
+    });
+
+    closeBtn?.addEventListener('click', () => {
+        toggleScoreOptionsPanel(false);
+    });
+
+    // Close panel when clicking outside
+    document.addEventListener('click', (e) => {
+        const panel = document.getElementById('scoreOptionsDropdownPanel');
+        const toggleBtn = document.getElementById('scoreOptionsToggleBtn');
+
+        if (scoreOptionsState.isOpen && panel && !panel.contains(e.target) && !toggleBtn?.contains(e.target)) {
+            toggleScoreOptionsPanel(false);
+        }
+    });
+
+    window.addEventListener('resize', updateScoreOptionsPanelPosition);
+    document.addEventListener('fullscreenchange', updateScoreOptionsPanelPosition);
+}
+
 /**
  * Show / Hide top bar Synth container
  */
@@ -846,8 +936,9 @@ export function toggleSynthPanel(forceState = null) {
 
     if (newState) {
         setActiveAudioMode('synth');
-        // Ensure YouTube panel is closed and YouTube playback paused when opening synth panel
+        // Ensure YouTube panel and Score Options panel are closed and YouTube playback paused when opening synth panel
         toggleYouTubePanel(false);
+        toggleScoreOptionsPanel(false);
         pauseYouTube();
 
         updateSynthPanelPosition();
