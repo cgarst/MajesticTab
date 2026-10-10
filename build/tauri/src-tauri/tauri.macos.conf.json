@@ -3,8 +3,8 @@
     "windows": [
       {
         "title": "MajesticTab",
-        "width": 1280,
-        "height": 800,
+        "width": 1440,
+        "height": 960,
         "devtools": false,
         "minWidth": 760,
         "minHeight": 560,
