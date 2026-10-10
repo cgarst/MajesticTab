@@ -366,7 +366,7 @@ def main():
                     if has_backup:
                         navigate_library_to_song(
                             page, base_url,
-                            artist="Megadeth", album="Rust in Peace", song="Hangar 18",
+                            artist="Symphony X", album="The Divine Wings of Tragedy", song="Of Sins and Shadows",
                             mode="continuous"
                         )
                     else:
