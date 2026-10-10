@@ -163,6 +163,85 @@ export function getCoverArtUrl(releaseGroupMbid, releaseMbid, size = 250) {
     return null;
 }
 
+const ART_CACHE_NAME = 'majestictab_art_cache_v1';
+const artMemoryCache = new Map();
+const inFlightArt = new Map();
+
+/**
+ * Get or fetch cached artwork as a local blob URL.
+ * Stored persistently in Cache Storage (separate from database backups).
+ */
+export async function getCachedArtUrl(url) {
+    if (!url || typeof url !== 'string') return url;
+    if (url.startsWith('data:') || url.startsWith('blob:')) return url;
+
+    if (artMemoryCache.has(url)) {
+        return artMemoryCache.get(url);
+    }
+
+    if (inFlightArt.has(url)) {
+        return inFlightArt.get(url);
+    }
+
+    const promise = (async () => {
+        try {
+            if (typeof caches !== 'undefined') {
+                const cache = await caches.open(ART_CACHE_NAME);
+                const matched = await cache.match(url);
+                if (matched && matched.ok) {
+                    const blob = await matched.blob();
+                    if (blob && blob.size > 0) {
+                        const objUrl = URL.createObjectURL(blob);
+                        artMemoryCache.set(url, objUrl);
+                        return objUrl;
+                    }
+                }
+
+                // Fetch and store in cache
+                const res = await fetch(url, { mode: 'cors' });
+                if (res.ok) {
+                    try {
+                        await cache.put(url, res.clone());
+                    } catch {}
+                    const blob = await res.blob();
+                    const objUrl = URL.createObjectURL(blob);
+                    artMemoryCache.set(url, objUrl);
+                    return objUrl;
+                }
+            }
+        } catch (e) {
+            // Silently fall back to remote URL on error
+        }
+        return url;
+    })();
+
+    inFlightArt.set(url, promise);
+    try {
+        const result = await promise;
+        return result;
+    } finally {
+        inFlightArt.delete(url);
+    }
+}
+
+/**
+ * Hydrate remote cover images in a DOM container from the persistent art cache
+ */
+export function hydrateCachedImages(container) {
+    if (!container || typeof document === 'undefined') return;
+    const images = container.querySelectorAll('img.album-cover-img, img.album-cover-banner, img.artist-collage-img, img.artist-thumbnail, img.recent-cover-img');
+    images.forEach(img => {
+        const src = img.getAttribute('src');
+        if (src && src.startsWith('https://coverartarchive.org')) {
+            getCachedArtUrl(src).then(cached => {
+                if (cached && cached !== src && img.isConnected) {
+                    img.src = cached;
+                }
+            }).catch(() => {});
+        }
+    });
+}
+
 /**
  * Score, rank, and deduplicate MusicBrainz recording results so canonical studio tracks
  * from major releases appear first, while live bootlegs, karaoke, tributes, and covers are demoted.
