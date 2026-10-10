@@ -3655,7 +3655,7 @@ body:not(.synth-playback-started) .at-highlight {
   color: #fbbf24 !important;
 }
 
-/* Song Pinning */
+/* Song Pinning & Pinned Grid */
 .pin-song-btn {
   transition: transform 0.15s ease, color 0.15s ease;
 }
@@ -3667,6 +3667,49 @@ body:not(.synth-playback-started) .at-highlight {
 
 .library-song-row-pinned {
   border-left: 3px solid #f59e0b !important;
+}
+
+.library-pinned-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.65rem;
+}
+
+.library-pinned-card {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid #f59e0b !important;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  height: 52px;
+  min-width: 0;
+}
+
+.library-pinned-card:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+.pinned-play-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent-primary);
+  font-size: 1.15rem;
+  transition: all 0.2s ease;
+}
+
+.library-pinned-card:hover .pinned-play-badge {
+  background: var(--accent-gradient);
+  color: #ffffff;
+  box-shadow: 0 2px 8px var(--accent-glow);
 }
 
 .badge-theme-warning {
