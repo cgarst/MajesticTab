@@ -316,6 +316,22 @@ body {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
   cursor: default;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), margin-top 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+
+#topBar.hud-hidden {
+  transform: translateY(-100%);
+  margin-top: -56px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+#topBar.hud-hidden.hud-transient {
+  transform: translateY(0);
+  margin-top: 0;
+  opacity: 1;
+  pointer-events: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), 0 0 15px -3px var(--accent-glow);
 }
 
 .tauri-gamescope #topBar {
@@ -3859,3 +3875,112 @@ body:not(.synth-playback-started) .at-highlight {
   border: 1px solid var(--border-subtle);
   border-radius: 0.85rem;
 }
+
+/* --------------------------------------------------------------------------
+   Game Controller Guide & Overlay Styles
+   -------------------------------------------------------------------------- */
+.controller-help-modal-card {
+  max-width: 660px;
+  width: 95%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.controller-modal-body {
+  overflow-y: auto;
+  padding: 1rem 1.25rem;
+  scrollbar-width: thin;
+}
+
+.controller-zen-banner {
+  background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-card-solid));
+  border: 1px solid color-mix(in srgb, var(--accent-primary) 40%, transparent);
+  box-shadow: 0 2px 14px -3px var(--accent-glow);
+}
+
+.controller-diagram-container {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.controller-svg-diagram {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
+}
+
+.controller-ref-card {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  height: 100%;
+}
+
+.controller-ref-title {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 0.4rem;
+}
+
+.controller-ref-item {
+  min-height: 26px;
+}
+
+.badge-controller-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-card-solid);
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.badge-btn-y {
+  border-color: #f59e0b;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.16);
+  box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+}
+
+.badge-btn-a {
+  border-color: #10b981;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.16);
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.25);
+}
+
+.badge-btn-x {
+  border-color: #38bdf8;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.16);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+}
+
+.badge-btn-b {
+  border-color: #ef4444;
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.16);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.25);
+}
+
+#controllerPill .btn {
+  transition: all 0.2s ease;
+}
+
+#controllerPill .btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+

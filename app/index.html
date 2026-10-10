@@ -101,6 +101,14 @@
       </button>
     </div>
 
+    <!-- Game Controller Pill -->
+    <div id="controllerPill" class="hud-pill-group" role="group" aria-label="Game Controller" style="display:none;">
+      <button class="btn btn-sm" id="controllerHelpBtn" title="Game Controller Connected (Click for Controls Guide)">
+        <i class="bi-controller text-info" id="controllerStatusIcon"></i>
+        <span class="d-none d-md-inline ms-1 small" id="controllerNameBadge">Gamepad</span>
+      </button>
+    </div>
+
     <!-- Fullscreen Toggle -->
     <div id="fullscreenPill" class="hud-pill-group" role="group" aria-label="Fullscreen">
       <button class="btn btn-sm" id="fullscreenToggleBtn" title="Toggle Fullscreen">
@@ -638,6 +646,10 @@
       </div>
     </div>
 
+    <button class="btn theme-control-btn w-100 d-flex align-items-center justify-content-center gap-2 mb-2" id="openControllerHelpMenuBtn" type="button">
+      <i class="bi-controller text-info"></i> Controller Guide
+    </button>
+
     <button class="btn theme-control-btn w-100 d-flex align-items-center justify-content-center gap-2" id="openExtensions" type="button">
       <i class="bi-puzzle text-info"></i> Extensions
     </button>
@@ -706,6 +718,249 @@
       </div>
       <div class="small text-danger-emphasis" id="extensionEditorStatus" role="status" aria-live="polite"></div>
     </div>
+  </section>
+</div>
+
+<!-- Game Controller Guide & Interactive Layout Modal -->
+<div id="controllerHelpModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="controllerHelpModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card controller-help-modal-card">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
+          <i class="bi-controller text-info fs-5"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title" id="controllerHelpModalTitle">Game Controller Controls</h2>
+          <span class="theme-modal-subtitle">XInput / Xbox / Steam Deck Quick Reference</span>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="controllerHelpModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="theme-modal-body controller-modal-body">
+      <!-- Highlight Callout Banner: Top Bar Zen Mode -->
+      <div class="controller-zen-banner mb-3 p-2 rounded-3 d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge-controller-btn badge-btn-y fw-bold">Y</span>
+          <div>
+            <div class="fw-semibold text-white small">Toggle Top Bar (Zen Mode)</div>
+            <div class="text-white-50" style="font-size: 0.75rem;">Hide top navigation anytime during tab reading to maximize sheet music vertical area.</div>
+          </div>
+        </div>
+        <span class="badge rounded-pill text-bg-warning px-2 py-1 small d-none d-sm-inline">Primary Feature</span>
+      </div>
+
+      <!-- Vector Controller Diagram -->
+      <div class="controller-diagram-container mb-3 text-center">
+        <svg class="controller-svg-diagram" viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Game Controller Layout Diagram">
+          <defs>
+            <linearGradient id="ctrlBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#242132" />
+              <stop offset="100%" stop-color="#12101b" />
+            </linearGradient>
+            <linearGradient id="ctrlGripGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#1e1b29" />
+              <stop offset="100%" stop-color="#0e0d16" />
+            </linearGradient>
+            <filter id="ctrlGlow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.6" />
+            </filter>
+          </defs>
+
+          <!-- Outer Controller Contour -->
+          <path d="M 170 45 C 230 40, 370 40, 430 45 C 480 50, 525 80, 545 130 C 565 180, 540 265, 490 280 C 455 290, 420 250, 400 200 C 350 205, 250 205, 200 200 C 180 250, 145 290, 110 280 C 60 265, 35 180, 55 130 C 75 80, 120 50, 170 45 Z"
+                fill="url(#ctrlBodyGrad)" stroke="rgba(255,255,255,0.12)" stroke-width="2" filter="url(#ctrlGlow)" />
+
+          <!-- Left & Right Grips Shading -->
+          <path d="M 55 130 C 65 170, 75 240, 110 280 C 85 270, 45 220, 55 130 Z" fill="url(#ctrlGripGrad)" opacity="0.6" />
+          <path d="M 545 130 C 535 170, 525 240, 490 280 C 515 270, 555 220, 545 130 Z" fill="url(#ctrlGripGrad)" opacity="0.6" />
+
+          <!-- Left Shoulder (LB & LT) -->
+          <rect x="130" y="24" width="70" height="16" rx="5" fill="#2d283e" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+          <text x="165" y="36" fill="#cbd5e1" font-size="10" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">LB (Prev Page)</text>
+
+          <!-- Right Shoulder (RB & RT) -->
+          <rect x="400" y="24" width="70" height="16" rx="5" fill="#2d283e" stroke="rgba(255,255,255,0.2)" stroke-width="1.5" />
+          <text x="435" y="36" fill="#cbd5e1" font-size="10" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">RB (Next Page)</text>
+
+          <!-- Left Analog Stick (LS) -->
+          <g transform="translate(170, 125)">
+            <circle cx="0" cy="0" r="30" fill="#1b1826" stroke="rgba(255,255,255,0.2)" stroke-width="2" />
+            <circle cx="0" cy="0" r="22" fill="#2d293d" stroke="#38bdf8" stroke-width="1" />
+            <circle cx="0" cy="0" r="8" fill="#1e1b29" />
+            <text x="0" y="4" fill="#f8fafc" font-size="9" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">LS</text>
+          </g>
+          <text x="170" y="172" fill="#94a3b8" font-size="9" font-family="system-ui, sans-serif" text-anchor="middle">Scroll / (L3) Mode</text>
+
+          <!-- D-Pad -->
+          <g transform="translate(235, 185)">
+            <path d="M -10 -28 L 10 -28 L 10 -10 L 28 -10 L 28 10 L 10 10 L 10 28 L -10 28 L -10 10 L -28 10 L -28 -10 L -10 -10 Z"
+                  fill="#1f1c2b" stroke="rgba(255,255,255,0.25)" stroke-width="1.5" />
+            <polygon points="0,-22 -5,-16 5,-16" fill="#94a3b8" />
+            <polygon points="0,22 -5,16 5,16" fill="#94a3b8" />
+            <polygon points="-22,0 -16,-5 -16,5" fill="#94a3b8" />
+            <polygon points="22,0 16,-5 16,5" fill="#94a3b8" />
+          </g>
+          <text x="235" y="228" fill="#94a3b8" font-size="9" font-family="system-ui, sans-serif" text-anchor="middle">Measure / Fine Scroll</text>
+
+          <!-- Center Buttons: View & Menu -->
+          <!-- View / Back -->
+          <circle cx="265" cy="115" r="9" fill="#242033" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+          <rect x="261" y="111" width="5" height="5" fill="none" stroke="#94a3b8" stroke-width="1" />
+          <rect x="264" y="114" width="5" height="5" fill="none" stroke="#94a3b8" stroke-width="1" />
+          <text x="265" y="98" fill="#94a3b8" font-size="8.5" font-family="system-ui, sans-serif" text-anchor="middle">View (Audio/Help)</text>
+
+          <!-- Menu / Start -->
+          <circle cx="335" cy="115" r="9" fill="#242033" stroke="rgba(255,255,255,0.2)" stroke-width="1" />
+          <line x1="331" y1="112" x2="339" y2="112" stroke="#94a3b8" stroke-width="1.2" />
+          <line x1="331" y1="115" x2="339" y2="115" stroke="#94a3b8" stroke-width="1.2" />
+          <line x1="331" y1="118" x2="339" y2="118" stroke="#94a3b8" stroke-width="1.2" />
+          <text x="335" y="98" fill="#94a3b8" font-size="8.5" font-family="system-ui, sans-serif" text-anchor="middle">Menu (Notation)</text>
+
+          <!-- Right Analog Stick (RS) -->
+          <g transform="translate(365, 185)">
+            <circle cx="0" cy="0" r="30" fill="#1b1826" stroke="rgba(255,255,255,0.2)" stroke-width="2" />
+            <circle cx="0" cy="0" r="22" fill="#2d293d" stroke="#a855f7" stroke-width="1" />
+            <circle cx="0" cy="0" r="8" fill="#1e1b29" />
+            <text x="0" y="4" fill="#f8fafc" font-size="9" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">RS</text>
+          </g>
+          <text x="365" y="228" fill="#94a3b8" font-size="9" font-family="system-ui, sans-serif" text-anchor="middle">Zoom / (R3) Reset</text>
+
+          <!-- ABXY Face Buttons -->
+          <!-- Y Button (Amber) -->
+          <g transform="translate(430, 95)">
+            <circle cx="0" cy="0" r="13" fill="#291e0a" stroke="#f59e0b" stroke-width="2" />
+            <text x="0" y="4" fill="#f59e0b" font-size="11" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">Y</text>
+          </g>
+          <text x="495" y="95" fill="#f59e0b" font-size="10" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="start">Top Bar (Zen)</text>
+          <line x1="445" y1="95" x2="490" y2="95" stroke="#f59e0b" stroke-dasharray="2 2" stroke-width="1" />
+
+          <!-- X Button (Blue) -->
+          <g transform="translate(398, 125)">
+            <circle cx="0" cy="0" r="13" fill="#0c2340" stroke="#38bdf8" stroke-width="2" />
+            <text x="0" y="4" fill="#38bdf8" font-size="11" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">X</text>
+          </g>
+
+          <!-- B Button (Red) -->
+          <g transform="translate(462, 125)">
+            <circle cx="0" cy="0" r="13" fill="#3b1114" stroke="#ef4444" stroke-width="2" />
+            <text x="0" y="4" fill="#ef4444" font-size="11" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">B</text>
+          </g>
+          <text x="500" y="129" fill="#ef4444" font-size="10" font-family="system-ui, sans-serif" text-anchor="start">Back / Library</text>
+          <line x1="477" y1="125" x2="495" y2="125" stroke="#ef4444" stroke-dasharray="2 2" stroke-width="1" />
+
+          <!-- A Button (Green) -->
+          <g transform="translate(430, 155)">
+            <circle cx="0" cy="0" r="13" fill="#092d1f" stroke="#10b981" stroke-width="2" />
+            <text x="0" y="4" fill="#10b981" font-size="11" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">A</text>
+          </g>
+          <text x="495" y="159" fill="#10b981" font-size="10" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="start">Play / Pause</text>
+          <line x1="445" y1="155" x2="490" y2="155" stroke="#10b981" stroke-dasharray="2 2" stroke-width="1" />
+        </svg>
+      </div>
+
+      <!-- Dual Mode Detailed Reference Cards -->
+      <div class="row g-2 controller-ref-grid">
+        <div class="col-12 col-md-6">
+          <div class="controller-ref-card p-2 rounded-2">
+            <div class="controller-ref-title mb-2 d-flex align-items-center gap-1">
+              <i class="bi-music-note-beamed text-info"></i>
+              <span class="fw-semibold text-white small">Score & Playback Mode</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn badge-btn-y me-1">Y</span> Top Bar</span>
+              <span class="small text-white fw-semibold">Toggle Zen Fullscreen</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn badge-btn-a me-1">A</span> Playback</span>
+              <span class="small text-white fw-semibold">Play / Pause Audio</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn badge-btn-x me-1">X</span> Rewind</span>
+              <span class="small text-white fw-semibold">Back 10s / Measure</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn badge-btn-b me-1">B</span> Exit</span>
+              <span class="small text-white fw-semibold">Return to Library</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn me-1">LB</span> / <span class="badge-controller-btn me-1">RB</span> Page</span>
+              <span class="small text-white fw-semibold">Previous / Next Page</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn me-1">LT</span> / <span class="badge-controller-btn me-1">RT</span> Triggers</span>
+              <span class="small text-white fw-semibold">Variable Speed Boost</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn me-1">LS</span> Left Stick</span>
+              <span class="small text-white fw-semibold">Smooth Analog Scroll</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn me-1">RS</span> Right Stick</span>
+              <span class="small text-white fw-semibold">Zoom (In / Out)</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1">
+              <span class="small text-white-50"><span class="badge-controller-btn me-1">L3</span> / <span class="badge-controller-btn me-1">R3</span> Clicks</span>
+              <span class="small text-white fw-semibold">View Mode / Reset 100%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6">
+          <div class="controller-ref-card p-2 rounded-2">
+            <div class="controller-ref-title mb-2 d-flex align-items-center gap-1">
+              <i class="bi-collection-play text-info"></i>
+              <span class="fw-semibold text-white small">Library & Menu Mode</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn badge-btn-a me-1">A</span> Select</span>
+              <span class="small text-white fw-semibold">Open Selected Tab</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn badge-btn-b me-1">B</span> Back</span>
+              <span class="small text-white fw-semibold">Close Modal / Back</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn badge-btn-x me-1">X</span> Search</span>
+              <span class="small text-white fw-semibold">Focus Search / OSK</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn badge-btn-y me-1">Y</span> HUD</span>
+              <span class="small text-white fw-semibold">Toggle Top Bar</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn me-1">D-Pad</span> Navigation</span>
+              <span class="small text-white fw-semibold">Move Focus Ring</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn me-1">LB</span> / <span class="badge-controller-btn me-1">RB</span> Tabs</span>
+              <span class="small text-white fw-semibold">Library / Recents</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50"><span class="badge-controller-btn me-1">View</span> Audio / Help</span>
+              <span class="small text-white fw-semibold">Cycle Audio • Hold Guide</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between py-1">
+              <span class="small text-white-50"><span class="badge-controller-btn me-1">Menu</span> Return</span>
+              <span class="small text-white fw-semibold">Resume Active Score</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="theme-modal-footer d-flex justify-content-between align-items-center">
+      <div class="small text-white-50">
+        <i class="bi-info-circle me-1 text-info"></i> Tip: Hold <span class="badge-controller-btn me-1">View</span> or click the top bar icon to reopen anytime.
+      </div>
+      <button type="button" class="btn btn-theme-primary px-3" onclick="import('./utils/gamepadManager.js').then(m => m.gamepadManager.closeHelpModal())">
+        Got It (Press B)
+      </button>
+    </footer>
   </section>
 </div>
 
