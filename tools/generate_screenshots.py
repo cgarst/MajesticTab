@@ -181,6 +181,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--only", nargs="*", help="Only capture these shot names")
     parser.add_argument("--backup-file", default=str(DEFAULT_BACKUP), help="Path to .mtbackup file")
+    parser.add_argument("--base-url", default=None, help="Custom base URL (e.g. https://majestictab.zathu.net)")
     args = parser.parse_args()
 
     try:
@@ -189,7 +190,11 @@ def main():
         raise SystemExit("Playwright not installed: pip install playwright && playwright install chromium")
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    httpd, base_url = start_server()
+    httpd = None
+    if args.base_url:
+        base_url = args.base_url.rstrip("/")
+    else:
+        httpd, base_url = start_server()
     print(f"[server] {base_url}")
 
     def wanted(name):
@@ -199,11 +204,18 @@ def main():
 
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True, args=["--disable-dev-shm-usage", "--no-sandbox"])
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--disable-dev-shm-usage", "--no-sandbox", "--disable-blink-features=AutomationControlled"]
+            )
             for vp_name, vp, is_mobile, scale, suffix in VIEWPORTS:
                 print(f"[{vp_name}] {vp['width']}x{vp['height']}")
                 context = browser.new_context(
-                    viewport=vp, is_mobile=is_mobile, has_touch=is_mobile, device_scale_factor=scale
+                    viewport=vp,
+                    is_mobile=is_mobile,
+                    has_touch=is_mobile,
+                    device_scale_factor=scale,
+                    user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
                 )
                 context.add_init_script("""
                     try {
@@ -309,31 +321,21 @@ def main():
 
                 # 7. YouTube Player Drawer: Dream Theater - The Mirror with embed loaded
                 if wanted("youtube_player"):
-                    if has_backup:
-                        load_stored_tab(page, base_url, "7 The Mirror.gp", "continuous")
+                    yt_base_url = "https://majestictab.zathu.net" if ("127.0.0.1" in base_url or "localhost" in base_url) else base_url
+                    yt_has_backup = has_backup
+                    if yt_base_url != base_url and backup_path.exists():
+                        yt_has_backup = restore_backup(page, yt_base_url, backup_path)
+
+                    if yt_has_backup:
+                        load_stored_tab(page, yt_base_url, "7 The Mirror.gp", "continuous")
                     else:
-                        load_file(page, base_url, GP_FILE, "continuous")
+                        load_file(page, yt_base_url, GP_FILE, "continuous")
                     page.click("#ytToggleBtn")
-                    page.wait_for_timeout(1000)
-                    page.evaluate("""() => {
-                        const vid = 'SA5q9KL7XGA';
-                        const ifr = document.getElementById('ytIframe');
-                        if (ifr) {
-                            ifr.src = `https://www.youtube.com/embed/${vid}`;
-                            ifr.style.display = 'block';
-                        }
-                        const loadInd = document.getElementById('ytLoadingIndicator');
-                        if (loadInd) loadInd.style.setProperty('display', 'none', 'important');
-                        const prompt = document.getElementById('ytPlaceholderPrompt');
-                        if (prompt) prompt.style.setProperty('display', 'none', 'important');
-                        const title = document.getElementById('ytPanelTitle');
-                        if (title) title.textContent = 'Dream Theater - The Mirror (Backing Track)';
-                        const inp = document.getElementById('ytSearchInput');
-                        if (inp) inp.value = `https://www.youtube.com/watch?v=${vid}`;
-                        const backingRadio = document.getElementById('ytTrackBacking');
-                        if (backingRadio) backingRadio.checked = true;
-                    }""")
-                    page.wait_for_timeout(4000)
+                    try:
+                        page.wait_for_selector("#ytIframe[data-loaded='true']", timeout=15000)
+                    except Exception as e:
+                        print(f"  [youtube_player warning] wait for embed timed out: {e}")
+                    page.wait_for_timeout(3500)
                     save("youtube_player")
 
                 # 8. Game Controller Modal: Haken - 1985
