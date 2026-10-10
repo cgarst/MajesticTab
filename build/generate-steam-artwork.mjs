@@ -12,6 +12,7 @@ const outDir = path.join(rootDir, 'img', 'steam');
 
 const require = createRequire(path.join(scriptDir, 'tauri', 'package.json'));
 const { Resvg } = require('@resvg/resvg-js');
+const { zipSync, strToU8 } = require('fflate');
 
 const source = await readFile(sourceSvg, 'utf8');
 const viewBox = /viewBox="([^"]+)"/.exec(source)?.[1];
@@ -181,14 +182,43 @@ const assets = [
   ['icon_512x512.png', composeIcon(512)],
 ];
 
+const zipEntries = {};
+
 for (const [file, svg] of assets) {
   const resvg = new Resvg(svg);
   const png = resvg.render().asPng();
   await writeFile(path.join(outDir, file), png);
+  zipEntries[file] = png;
 }
+
+const readmeText = `MajesticTab - Steam Big Picture & Steam Deck Custom Artwork
+===========================================================
+Custom artwork assets for adding MajesticTab to Steam / Steam Deck Big Picture mode.
+
+Files included:
+- grid_600x900.png    -> Steam Capsule / Portrait Grid (Library view)
+- grid_920x430.png    -> Steam Banner / Wide Grid (Recent games view)
+- hero_3840x1240.png  -> Steam Hero Background (Game details header)
+- logo_1280x720.png   -> Steam Logo Overlay (Transparent title art)
+- icon_512x512.png    -> Steam shortcut icon
+
+How to apply custom artwork in Steam Desktop / Steam Deck:
+1. Open Steam and right-click MajesticTab in your Library (or click the Settings gear icon).
+2. Choose "Properties" -> click the icon square to select "icon_512x512.png".
+3. Right-click the game hero background -> "Set Custom Background" -> choose "hero_3840x1240.png".
+4. Right-click the game logo area -> "Set Custom Logo" -> choose "logo_1280x720.png".
+5. In your Library grid view, right-click the MajesticTab poster -> "Manage" -> "Set custom artwork" -> choose "grid_600x900.png" (and "grid_920x430.png" when prompted for wide grid).
+`;
+
+zipEntries['README.txt'] = strToU8(readmeText);
+
+const zipBuffer = zipSync(zipEntries);
+const zipFileName = 'steam_deck_artwork.zip';
+await writeFile(path.join(outDir, zipFileName), zipBuffer);
 
 console.log(`Steam Big Picture & Grid artwork successfully generated in ${outDir}:`);
 console.log('  - Grid: grid_600x900.png (vertical), grid_920x430.png (horizontal)');
 console.log('  - Hero: hero_3840x1240.png');
 console.log('  - Logo: logo_1280x720.png');
 console.log('  - Icon: icon_512x512.png');
+console.log(`  - Zip:  ${zipFileName} (${zipBuffer.byteLength} bytes)`);
