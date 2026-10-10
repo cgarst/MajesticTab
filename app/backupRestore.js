@@ -862,6 +862,28 @@ async function renderModal(modal, activeTab = 'backup') {
                 <i class="bi-google text-danger"></i> <span>Load from Google Drive</span>
               </button>
             </div>
+
+            <!-- Inline Google Drive Backup Selector -->
+            <div id="restoreDriveContainer" class="mt-3 pt-3 border-top border-secondary-subtle text-start" style="display: none;">
+              <div class="d-flex align-items-center justify-content-between mb-2">
+                <span class="small fw-semibold text-white d-flex align-items-center gap-1">
+                  <i class="bi-google text-danger"></i> <span>Google Drive Backups:</span>
+                </span>
+                <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none" id="restoreDriveCloseBtn" title="Close" aria-label="Close Google Drive backups">
+                  <i class="bi-x-lg"></i>
+                </button>
+              </div>
+              <div id="restoreDriveLoading" class="py-3 text-center text-white-50 small" style="display: none;">
+                <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
+                <span>Searching Google Drive for .mtbackup files...</span>
+              </div>
+              <div id="restoreDriveEmpty" class="py-3 text-center text-white-50 small" style="display: none;">
+                <i class="bi-archive text-secondary fs-4 d-block mb-1"></i>
+                <div>No <code>.mtbackup</code> files found in your Google Drive.</div>
+              </div>
+              <div id="restoreDriveError" class="py-2 text-danger small" style="display: none;"></div>
+              <div id="restoreDriveList" class="d-flex flex-column gap-2" style="max-height: 220px; overflow-y: auto;"></div>
+            </div>
           </div>
 
           <!-- Step 2: Inspection Card (Hidden until file selected) -->
@@ -1158,7 +1180,10 @@ function attachModalHandlers(modal) {
         const providerId = selectedProviderEl?.value || 'local';
         let filename = (backupFilenameInput?.value || '').trim();
         if (!filename) filename = `MajesticTab-backup-${new Date().toISOString().split('T')[0]}.mtbackup`;
-        if (!filename.includes('.')) {
+        if (filename.toLowerCase().endsWith('.json')) {
+            filename = filename.slice(0, -5) + '.mtbackup';
+        }
+        if (!filename.toLowerCase().endsWith('.mtbackup')) {
             filename += '.mtbackup';
         }
 
@@ -1207,14 +1232,132 @@ function attachModalHandlers(modal) {
     restoreBrowseBtn?.addEventListener('click', () => restoreFileInput?.click());
 
     const restoreDriveBtn = modal.querySelector('#restoreDriveBtn');
-    restoreDriveBtn?.addEventListener('click', () => {
-        openFromProvider('google-drive', {
-            backupOnly: true,
-            onFileSelected: ({ file, name }) => {
-                if (file) handleSelectedBackupFile(file, 'Google Drive');
+    const restoreDriveContainer = modal.querySelector('#restoreDriveContainer');
+    const restoreDriveCloseBtn = modal.querySelector('#restoreDriveCloseBtn');
+    const restoreDriveLoading = modal.querySelector('#restoreDriveLoading');
+    const restoreDriveEmpty = modal.querySelector('#restoreDriveEmpty');
+    const restoreDriveError = modal.querySelector('#restoreDriveError');
+    const restoreDriveList = modal.querySelector('#restoreDriveList');
+
+    const loadGoogleDriveBackups = async () => {
+        const { isTokenValid, redirectToGoogleAuth, fetchDriveBackups } = await import('./googleDrive.js');
+
+        if (!isTokenValid()) {
+            redirectToGoogleAuth('restore_backup');
+            return;
+        }
+
+        if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
+        if (restoreDriveLoading) restoreDriveLoading.style.display = 'block';
+        if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
+        if (restoreDriveError) restoreDriveError.style.display = 'none';
+        if (restoreDriveList) restoreDriveList.innerHTML = '';
+        if (restoreDriveBtn) restoreDriveBtn.disabled = true;
+
+        try {
+            const backups = await fetchDriveBackups();
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
+            if (restoreDriveBtn) restoreDriveBtn.disabled = false;
+
+            if (!backups || backups.length === 0) {
+                if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'block';
+                return;
             }
+
+            renderDriveBackupsList(backups);
+        } catch (err) {
+            console.error('Failed to fetch Drive backups:', err);
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
+            if (restoreDriveBtn) restoreDriveBtn.disabled = false;
+            if (restoreDriveError) {
+                restoreDriveError.style.display = 'block';
+                restoreDriveError.textContent = `Could not load backups from Google Drive: ${err.message}`;
+            }
+        }
+    };
+
+    const renderDriveBackupsList = (backups) => {
+        if (!restoreDriveList) return;
+        restoreDriveList.innerHTML = '';
+
+        backups.forEach(b => {
+            const dateStr = b.modifiedTime
+                ? new Date(b.modifiedTime).toLocaleString(undefined, {
+                    year: 'numeric', month: 'short', day: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                })
+                : 'Unknown date';
+            const sizeStr = formatBytes(b.size);
+
+            const item = document.createElement('div');
+            item.className = 'drive-backup-item d-flex align-items-center justify-content-between p-2 rounded-2';
+            item.style.cursor = 'pointer';
+            item.setAttribute('data-file-id', b.id);
+            item.setAttribute('data-file-name', b.name);
+            item.innerHTML = `
+                <div class="d-flex align-items-center gap-2 min-w-0 me-2 text-start">
+                    <i class="bi-archive-fill text-info flex-shrink-0 fs-5"></i>
+                    <div class="text-truncate">
+                        <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</div>
+                        <div class="text-white-50" style="font-size: 0.7rem;">${dateStr} • ${sizeStr}</div>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0 d-inline-flex align-items-center gap-1 select-drive-backup-btn" style="font-size: 0.72rem;">
+                    <i class="bi-download"></i> <span>Select</span>
+                </button>
+            `;
+
+            const onSelect = async (e) => {
+                e.stopPropagation();
+                restoreDriveList.querySelectorAll('.drive-backup-item').forEach(el => {
+                    el.style.pointerEvents = 'none';
+                    el.style.opacity = '0.6';
+                });
+                const btn = item.querySelector('.select-drive-backup-btn');
+                if (btn) {
+                    btn.disabled = true;
+                    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> <span class="ms-1">Loading...</span>';
+                }
+
+                try {
+                    const { downloadDriveBackupFile } = await import('./googleDrive.js');
+                    const fileObj = await downloadDriveBackupFile(b.id, b.name);
+                    await handleSelectedBackupFile(fileObj, 'Google Drive');
+                } catch (dlErr) {
+                    console.error('Failed to download Drive backup:', dlErr);
+                    if (restoreDriveError) {
+                        restoreDriveError.style.display = 'block';
+                        restoreDriveError.textContent = `Failed to download "${b.name}": ${dlErr.message}`;
+                    }
+                    restoreDriveList.querySelectorAll('.drive-backup-item').forEach(el => {
+                        el.style.pointerEvents = '';
+                        el.style.opacity = '';
+                    });
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="bi-download"></i> <span>Select</span>';
+                    }
+                }
+            };
+
+            item.addEventListener('click', onSelect);
+            item.querySelector('.select-drive-backup-btn')?.addEventListener('click', onSelect);
+
+            restoreDriveList.appendChild(item);
         });
+    };
+
+    restoreDriveBtn?.addEventListener('click', loadGoogleDriveBackups);
+    restoreDriveCloseBtn?.addEventListener('click', () => {
+        if (restoreDriveContainer) restoreDriveContainer.style.display = 'none';
     });
+
+    const onAuthSuccess = (e) => {
+        if (e.detail?.state === 'restore_backup') {
+            loadGoogleDriveBackups();
+        }
+    };
+    window.addEventListener('googleAuthSuccess', onAuthSuccess);
 
     // Drag and drop handlers
     ['dragenter', 'dragover'].forEach(eventName => {
@@ -1245,6 +1388,16 @@ function attachModalHandlers(modal) {
 
     const handleSelectedBackupFile = async (file, source = 'Local Device') => {
         try {
+            if (!file.name.toLowerCase().endsWith('.mtbackup')) {
+                restoreStatusAlert.style.display = 'block';
+                restoreStatusAlert.className = 'small mb-2 text-danger fw-semibold text-center';
+                restoreStatusAlert.textContent = 'Only .mtbackup backup files are supported.';
+                restoreInspectionCard.style.display = 'none';
+                restoreDropzone.style.display = 'block';
+                restoreExecuteBtn.disabled = true;
+                return;
+            }
+
             restoreStatusAlert.style.display = 'block';
             restoreStatusAlert.className = 'small mb-2 text-info text-center';
             restoreStatusAlert.innerHTML = `

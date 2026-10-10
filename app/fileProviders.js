@@ -213,7 +213,7 @@ export const LocalFileProvider = {
         // Synchronously trigger file picker in user event
         input.click();
     },
-    async save(fileBlob, filename = 'MajesticTab-backup.json') {
+    async save(fileBlob, filename = 'MajesticTab-backup.mtbackup') {
         const url = URL.createObjectURL(fileBlob);
         const a = document.createElement('a');
         a.href = url;
@@ -244,7 +244,7 @@ export const GoogleDriveFileProvider = {
             redirectToGoogleAuth();
         }
     },
-    async save(fileBlob, filename = 'MajesticTab-backup.json', options = {}) {
+    async save(fileBlob, filename = 'MajesticTab-backup.mtbackup', options = {}) {
         const { saveFileToDrive, isTokenValid: checkToken, redirectToGoogleAuth: authDrive } = await import('./googleDrive.js');
         if (!checkToken()) {
             authDrive();

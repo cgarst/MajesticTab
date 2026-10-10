@@ -55,12 +55,7 @@ function loadTabsDirectory() {
     }
 }
 
-let activeDriveBackupOnly = false;
-
 function getDriveRoot() {
-    if (activeDriveBackupOnly) {
-        return { id: 'root', name: 'My Drive' };
-    }
     return tabsDirectory || { id: 'root', name: 'My Drive' };
 }
 
@@ -101,14 +96,18 @@ function getRedirectUri() {
     return window.location.origin + window.location.pathname;
 }
 
-export function redirectToGoogleAuth() {
+let pendingAuthState = 'open_drive_browser';
+
+export function redirectToGoogleAuth(targetState = 'open_drive_browser') {
+    pendingAuthState = targetState;
+
     if (window.__TAURI__?.core?.invoke && /android/i.test(navigator.userAgent)) {
-        startAndroidGoogleAuth();
+        startAndroidGoogleAuth(targetState);
         return;
     }
 
     if (window.__TAURI__?.core?.invoke && window.__TAURI__?.event?.listen) {
-        startTauriGoogleAuth();
+        startTauriGoogleAuth(targetState);
         return;
     }
 
@@ -119,25 +118,28 @@ export function redirectToGoogleAuth() {
         `&response_type=token` +
         `&scope=${encodeURIComponent(SCOPE)}` +
         `&include_granted_scopes=true` +
-        `&state=open_drive_browser`;
+        `&state=${encodeURIComponent(targetState)}`;
 
     window.location.href = authUrl;
 }
 
-async function startAndroidGoogleAuth() {
+async function startAndroidGoogleAuth(targetState = 'open_drive_browser') {
     try {
         const authData = await window.__TAURI__.core.invoke('plugin:google-auth|authorize');
         if (!storeGoogleAuth(authData.accessToken, authData.expiresIn)) {
             throw new Error('Google authorization did not return an access token.');
         }
-        openDriveModal();
+        window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
+        if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
+            openDriveModal();
+        }
     } catch (error) {
         console.error('Failed to authorize Google Drive on Android:', error);
         showToast('Could not connect to Google Drive. Please try again.', 'error');
     }
 }
 
-async function startTauriGoogleAuth() {
+async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
     const tauri = window.__TAURI__;
     let port = null;
     let unlisten = null;
@@ -191,7 +193,10 @@ async function startTauriGoogleAuth() {
                 if (!response.ok || !storeGoogleAuth(authData.access_token, authData.expires_in)) {
                     throw new Error(authData.error_description || 'Google token exchange failed.');
                 }
-                openDriveModal();
+                window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
+                if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
+                    openDriveModal();
+                }
             } catch (error) {
                 console.error('Failed to exchange Google authorization code:', error);
                 showToast('Could not connect to Google Drive. Please try again.', 'error');
@@ -244,7 +249,6 @@ let activeDriveTargetAlbum = null;
 let activeDriveOnFileSelected = null;
 
 export function openDriveModal(options = {}) {
-    activeDriveBackupOnly = Boolean(options.backupOnly);
     activeDriveOnFileSelected = options.onFileSelected || null;
     activeDriveTargetSongId = options.songId || options.targetSong?.id || null;
     if (options.isAlbumTab && options.albumTitle) {
@@ -259,14 +263,7 @@ export function openDriveModal(options = {}) {
     const modal = document.getElementById('driveModal');
     if (!modal) return;
 
-    if (options.backupOnly) {
-        modal.style.zIndex = '1065';
-        currentFolderId = 'root';
-        folderHistory = [{ id: 'root', name: 'My Drive' }];
-    } else {
-        modal.style.zIndex = '';
-        if (folderHistory[0]?.id !== getDriveRoot().id) resetFolderToDriveRoot();
-    }
+    if (folderHistory[0]?.id !== getDriveRoot().id) resetFolderToDriveRoot();
 
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -279,13 +276,11 @@ export function openDriveModal(options = {}) {
 }
 
 export function closeDriveModal() {
-    activeDriveBackupOnly = false;
     activeDriveTargetSongId = null;
     activeDriveTargetAlbum = null;
     activeDriveOnFileSelected = null;
     const modal = document.getElementById('driveModal');
     if (!modal) return;
-    modal.style.zIndex = '';
     modal.style.display = 'none';
     document.body.style.overflow = '';
 }
@@ -399,21 +394,11 @@ async function loadDriveFiles() {
 
     try {
         let files;
-        if (activeDriveBackupOnly) {
-            if (currentSearchQuery.trim()) {
-                const cleanSearch = currentSearchQuery.trim().replace(/'/g, "\\'");
-                const query = `trashed = false and name contains '.mtbackup' and name contains '${cleanSearch}'`;
-                files = await fetchDriveFiles(query);
-            } else {
-                let query = "trashed = false and (mimeType = 'application/vnd.google-apps.folder' or name contains '.mtbackup')";
-                query += ` and '${currentFolderId}' in parents`;
-                files = await fetchDriveFiles(query);
-            }
-        } else if (currentSearchQuery.trim()) {
+        if (currentSearchQuery.trim()) {
             const cleanSearch = currentSearchQuery.trim().replace(/'/g, "\\'");
             files = await searchDriveFolderTree(getDriveRoot().id, cleanSearch);
         } else {
-            let query = "trashed = false and (mimeType = 'application/vnd.google-apps.folder' or name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt' or name contains '.json' or name contains '.majestictab')";
+            let query = "trashed = false and (mimeType = 'application/vnd.google-apps.folder' or name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt')";
             query += ` and '${currentFolderId}' in parents`;
 
             files = await fetchDriveFiles(query);
@@ -483,7 +468,7 @@ async function searchDriveFolderTree(rootFolderId, searchTerm) {
     const pendingFolderIds = [rootFolderId];
     const visitedFolderIds = new Set();
     const matchingFiles = [];
-    const supportedFileQuery = "name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt' or name contains '.json' or name contains '.majestictab'";
+    const supportedFileQuery = "name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt'";
 
     while (pendingFolderIds.length > 0) {
         const folderId = pendingFolderIds.pop();
@@ -514,7 +499,7 @@ function renderFileList(files) {
         listContainer.innerHTML = `
             <div class="text-center py-5 text-white-50">
                 <i class="bi-folder2 text-secondary fs-2 mb-2 d-block"></i>
-                <div>No supported files found (.gp, .pdf, .txt, .json) in this location.</div>
+                <div>No supported tab files found (.gp, .pdf, .txt) in this location.</div>
             </div>
         `;
         return;
@@ -590,7 +575,7 @@ function renderFileList(files) {
                         const cb = activeDriveOnFileSelected;
                         closeDriveModal();
                         try {
-                            const isBackup = fileName.toLowerCase().endsWith('.json') || fileName.toLowerCase().endsWith('.majestictab');
+                            const isBackup = fileName.toLowerCase().endsWith('.mtbackup');
                             if (isBackup) {
                                 cb({ file: fileObj, providerId: 'google-drive', name: fileObj.name });
                                 return;
@@ -682,12 +667,17 @@ function handleAuthRedirect() {
 
     if (accessToken) {
         storeGoogleAuth(accessToken, expiresIn);
+        window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state } }));
 
         const cleanUrl = window.location.pathname + window.location.search;
         window.history.replaceState(null, '', cleanUrl);
 
         if (state === 'open_drive_browser' || state === 'open_picker') {
             openDriveModal();
+        } else if (state === 'restore_backup') {
+            import('./backupRestore.js').then(({ openBackupModal }) => {
+                openBackupModal('restore');
+            });
         }
         return true;
     }
@@ -775,15 +765,15 @@ export function setupDrivePicker() {
  * @param {string} [folderId]
  * @returns {Promise<object>} Upload response containing file id and name
  */
-export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.json', folderId = null) {
+export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.mtbackup', folderId = null) {
     if (!isTokenValid()) {
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
 
-    const targetFolder = folderId || currentFolderId || (tabsDirectory ? tabsDirectory.id : 'root');
+    const targetFolder = folderId || (tabsDirectory ? tabsDirectory.id : 'root');
     const metadata = {
         name: filename,
-        mimeType: fileBlob.type || 'application/json'
+        mimeType: fileBlob.type || 'application/octet-stream'
     };
 
     if (targetFolder && targetFolder !== 'root') {
@@ -813,6 +803,57 @@ export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.j
 
     const result = await response.json();
     return result;
+}
+
+/**
+ * Non-recursively fetch .mtbackup files located in the known path (Drive root / tabs directory).
+ * @returns {Promise<Array<object>>} List of Drive files sorted by modifiedTime descending
+ */
+export async function fetchDriveBackups() {
+    if (!isTokenValid()) {
+        throw new Error('Google Drive is not connected. Please connect your Google account.');
+    }
+
+    const folderIds = ['root'];
+    if (tabsDirectory && tabsDirectory.id && tabsDirectory.id !== 'root') {
+        folderIds.push(tabsDirectory.id);
+    }
+
+    const parentConditions = folderIds.map(id => `'${id}' in parents`).join(' or ');
+    const query = `trashed = false and name contains '.mtbackup' and (${parentConditions})`;
+
+    const files = await fetchDriveFiles(query);
+    const mtbackupFiles = files.filter(f => f.name && f.name.toLowerCase().endsWith('.mtbackup'));
+
+    mtbackupFiles.sort((a, b) => new Date(b.modifiedTime || 0) - new Date(a.modifiedTime || 0));
+    return mtbackupFiles;
+}
+
+/**
+ * Download a backup file from Google Drive as a File object.
+ * @param {string} fileId
+ * @param {string} fileName
+ * @returns {Promise<File>}
+ */
+export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbackup') {
+    if (!isTokenValid()) {
+        throw new Error('Google Drive is not connected.');
+    }
+
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (!res.ok) {
+        if (res.status === 401) {
+            clearStoredToken();
+            redirectToGoogleAuth('restore_backup');
+        }
+        throw new Error(`Download failed: ${res.statusText}`);
+    }
+
+    const blob = await res.blob();
+    return new File([blob], fileName, { type: 'application/octet-stream' });
 }
 
 
