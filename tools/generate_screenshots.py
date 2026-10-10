@@ -30,7 +30,11 @@ VIEWPORTS = [
 
 FORCE_DEFAULT_THEME_JS = """
 () => {
-  try { localStorage.removeItem('majestictab_theme'); localStorage.removeItem('majestictab_sheet_mode'); } catch (e) {}
+  try {
+    localStorage.removeItem('majestictab_theme');
+    localStorage.removeItem('majestictab_sheet_mode');
+    localStorage.setItem('hasSeenControllerGuide', 'true');
+  } catch (e) {}
   document.documentElement.setAttribute('data-theme', 'Mystic Dream');
 }
 """
@@ -100,7 +104,7 @@ def load_file(page, base_url, path, mode, condense=False):
     With condense=True the (experimental) Condense PDF option is enabled first.
     """
     filename = Path(path).name
-    page.goto(f"{base_url}/app/?test={filename}", wait_until="networkidle", timeout=60000)
+    page.goto(f"{base_url}/app/?test={filename}", wait_until="load", timeout=60000)
     page.evaluate(FORCE_DEFAULT_THEME_JS)
     if condense:
         page.evaluate("document.querySelector('#condensePdfMode').click()")
@@ -171,6 +175,16 @@ def main():
                 context = browser.new_context(
                     viewport=vp, is_mobile=is_mobile, has_touch=is_mobile, device_scale_factor=scale
                 )
+                context.add_init_script("""
+                    try {
+                        Object.defineProperty(navigator, 'getGamepads', {
+                            value: () => [],
+                            configurable: true,
+                            writable: true
+                        });
+                        localStorage.setItem('hasSeenControllerGuide', 'true');
+                    } catch (e) {}
+                """)
                 page = context.new_page()
 
                 def save(name):
@@ -298,9 +312,11 @@ def main():
                         load_stored_tab(page, base_url, "Haken - 1985.gp5", "continuous")
                     else:
                         load_file(page, base_url, GP_FILE, "continuous")
-                    page.evaluate("document.getElementById('controllerHelpModal').style.display = 'flex'")
+                    page.evaluate("import('/app/utils/gamepadManager.js').then(m => m.gamepadManager.openHelpModal())")
                     page.wait_for_timeout(1000)
                     save("controller_modal")
+                    page.evaluate("import('/app/utils/gamepadManager.js').then(m => m.gamepadManager.closeHelpModal())")
+                    page.wait_for_timeout(500)
 
                 # 9. Tracks & Notation Panel (desktop only)
                 if wanted("notation_options") and not is_mobile:
