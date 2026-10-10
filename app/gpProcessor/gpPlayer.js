@@ -810,19 +810,20 @@ export const scoreOptionsState = {
  * Show / Hide top bar Score Options button
  */
 export function showScoreOptions() {
-    const btn = document.getElementById('scoreOptionsToggleBtn');
-    if (btn) btn.style.display = 'inline-flex';
+    const btn = document.getElementById('topBarSongTitleBtn');
+    if (btn) {
+        btn.classList.remove('disabled');
+        btn.setAttribute('aria-expanded', 'false');
+    }
 }
 
 export function hideScoreOptions() {
-    const btn = document.getElementById('scoreOptionsToggleBtn');
-    if (btn) btn.style.display = 'none';
     toggleScoreOptionsPanel(false);
 }
 
 export function updateScoreOptionsPanelPosition() {
     const panel = document.getElementById('scoreOptionsDropdownPanel');
-    const toggleBtn = document.getElementById('scoreOptionsToggleBtn');
+    const toggleBtn = document.getElementById('topBarSongTitleBtn');
     if (!panel || !toggleBtn || !scoreOptionsState.isOpen) return;
 
     const rect = toggleBtn.getBoundingClientRect();
@@ -840,7 +841,7 @@ export function updateScoreOptionsPanelPosition() {
  */
 export function toggleScoreOptionsPanel(forceState = null) {
     const panel = document.getElementById('scoreOptionsDropdownPanel');
-    const toggleBtn = document.getElementById('scoreOptionsToggleBtn');
+    const toggleBtn = document.getElementById('topBarSongTitleBtn');
 
     if (!panel) return;
 
@@ -855,9 +856,11 @@ export function toggleScoreOptionsPanel(forceState = null) {
         updateScoreOptionsPanelPosition();
         panel.style.display = 'block';
         toggleBtn?.classList.add('active');
+        toggleBtn?.setAttribute('aria-expanded', 'true');
     } else {
         panel.style.display = 'none';
         toggleBtn?.classList.remove('active');
+        toggleBtn?.setAttribute('aria-expanded', 'false');
     }
 }
 
@@ -866,7 +869,7 @@ export function toggleScoreOptionsPanel(forceState = null) {
  */
 export function initScoreOptionsPanel() {
     hideScoreOptions();
-    const toggleBtn = document.getElementById('scoreOptionsToggleBtn');
+    const toggleBtn = document.getElementById('topBarSongTitleBtn');
     const closeBtn = document.getElementById('scoreOptionsPanelCloseBtn');
 
     toggleBtn?.addEventListener('click', (e) => {
@@ -881,7 +884,7 @@ export function initScoreOptionsPanel() {
     // Close panel when clicking outside
     document.addEventListener('click', (e) => {
         const panel = document.getElementById('scoreOptionsDropdownPanel');
-        const toggleBtn = document.getElementById('scoreOptionsToggleBtn');
+        const toggleBtn = document.getElementById('topBarSongTitleBtn');
 
         if (scoreOptionsState.isOpen && panel && !panel.contains(e.target) && !toggleBtn?.contains(e.target)) {
             toggleScoreOptionsPanel(false);

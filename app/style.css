@@ -463,20 +463,68 @@ body {
   flex-shrink: 0;
 }
 
-.breadcrumb-song-title {
+.top-bar-song-btn {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  padding: 0.25rem 0.65rem 0.25rem 0.75rem;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  max-width: 280px;
+  min-width: 0;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.top-bar-song-btn:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+  box-shadow: 0 0 12px -2px var(--accent-glow);
+}
+
+.top-bar-song-btn:active,
+.top-bar-song-btn.active {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 12px var(--accent-glow);
+  color: #ffffff;
+}
+
+.top-bar-song-btn .song-title-chevron {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.top-bar-song-btn:hover .song-title-chevron,
+.top-bar-song-btn.active .song-title-chevron {
+  color: #ffffff;
+}
+
+.top-bar-song-btn.active .song-title-chevron {
+  transform: rotate(180deg);
+}
+
+.top-bar-song-btn .breadcrumb-song-title {
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: #ffffff;
-  max-width: 280px;
+  color: inherit;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  user-select: text;
+  user-select: none;
+  line-height: 1.2;
 }
 
 @media (min-width: 1400px) {
-  .breadcrumb-song-title {
+  .top-bar-song-btn {
     max-width: 440px;
   }
 }
