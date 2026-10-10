@@ -1328,12 +1328,13 @@ function renderSongRow(song, options = {}) {
     const isPinned = Boolean(song.pinned);
     const defaultTabId = song.defaultTabId || (tabOptions[0]?.id || null);
     const albumPdfTabs = (options.albumTabs || []).filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
+    const showTrackNumber = options.showTrackNumber !== undefined ? options.showTrackNumber : !options.showArtistAlbum;
 
     return `
     <div class="library-song-row d-flex flex-column gap-2 position-relative ${isPinned ? 'library-song-row-pinned' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
       <div class="d-flex align-items-center justify-content-between gap-3">
         <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-          <span class="badge-track-num flex-shrink-0">${song.trackNumber || '•'}</span>
+          ${showTrackNumber ? `<span class="badge-track-num flex-shrink-0">${song.trackNumber || '•'}</span>` : ''}
           <div class="min-w-0 flex-grow-1">
             <div class="d-flex align-items-center gap-2 min-w-0 flex-wrap">
               <span class="fw-semibold text-white text-truncate" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
