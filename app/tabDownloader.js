@@ -106,6 +106,7 @@ export const DEFAULT_SOURCES = [
 
 let activeTargetSong = null;
 let activeTargetAlbum = null;
+let activeDownloaderOnFileSelected = null;
 let activeArtistName = '';
 let activeSongName = '';
 let activeSourceId = 'ug';
@@ -265,9 +266,20 @@ export function initTauriDownloadListener() {
 
                 const targetSong = activeTargetSong;
                 const targetAlbum = activeTargetAlbum;
+                const onFileSelectedCb = activeDownloaderOnFileSelected;
 
                 // Close downloader modal first
                 closeTabDownloaderModal();
+
+                if (typeof onFileSelectedCb === 'function') {
+                    const meta = await detectFileMetadata(file, file.name);
+                    const stored = await saveStoredFile(file, 'tab-downloader', {
+                        name: file.name,
+                        relativePath: path || file.name
+                    });
+                    onFileSelectedCb({ file, providerId: 'tab-downloader', fileStoreId: stored.id, name: file.name, meta });
+                    return;
+                }
 
                 // Only persist to file store and attach to library song/album if bound
                 if (targetSong?.id) {
@@ -342,6 +354,7 @@ let isDebugToolsEnabled = false;
  * @param {Object} [options.targetSong]
  */
 export async function openTabDownloader(options = {}) {
+    activeDownloaderOnFileSelected = options.onFileSelected || null;
     activeTargetSong = options.targetSong || null;
     if (options.songId && !activeTargetSong) {
         try { activeTargetSong = await getSongById(options.songId); } catch {}
@@ -391,6 +404,9 @@ export async function openTabDownloader(options = {}) {
  * Closes the Tab Downloader Modal & hides native child webview
  */
 export function closeTabDownloaderModal() {
+    activeDownloaderOnFileSelected = null;
+    activeTargetSong = null;
+    activeTargetAlbum = null;
     const modal = document.getElementById('tabDownloaderModal');
     if (modal) modal.style.display = 'none';
 
@@ -732,6 +748,18 @@ async function handleImportedDownloadedFile(file) {
     try {
         const targetSong = activeTargetSong;
         const targetAlbum = activeTargetAlbum;
+        const onFileSelectedCb = activeDownloaderOnFileSelected;
+
+        if (typeof onFileSelectedCb === 'function') {
+            const meta = await detectFileMetadata(file, file.name);
+            const stored = await saveStoredFile(file, 'tab-downloader-web', {
+                name: file.name,
+                relativePath: file.name
+            });
+            closeTabDownloaderModal();
+            onFileSelectedCb({ file, providerId: 'tab-downloader-web', fileStoreId: stored.id, name: file.name, meta });
+            return;
+        }
 
         if (targetSong?.id) {
             const meta = await detectFileMetadata(file, file.name);
