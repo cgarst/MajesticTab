@@ -5,6 +5,7 @@ import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
 import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
+import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { openLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
 
@@ -886,6 +887,12 @@ function setupWebDropzone(modal) {
         ['dragenter', 'dragover'].forEach(name => {
             dropzone.addEventListener(name, (e) => {
                 e.preventDefault();
+                if (!canAcceptTabDrop(e)) {
+                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+                    dropzone.classList.remove('border-primary');
+                    return;
+                }
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
                 dropzone.classList.add('border-primary');
             });
         });
@@ -896,6 +903,8 @@ function setupWebDropzone(modal) {
             });
         });
         dropzone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('border-primary');
             const file = e.dataTransfer?.files?.[0];
             if (file) await handleImportedDownloadedFile(file);
         });
@@ -903,6 +912,11 @@ function setupWebDropzone(modal) {
 }
 
 async function handleImportedDownloadedFile(file) {
+    if (!file) return;
+    if (!(await isSupportedTabFile(file))) {
+        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+        return;
+    }
     try {
         const targetSong = activeTargetSong;
         const targetAlbum = activeTargetAlbum;

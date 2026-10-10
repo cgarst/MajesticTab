@@ -251,6 +251,16 @@ body {
   user-select: none;
 }
 
+/* Prevent dragging images from the app */
+img {
+  -webkit-user-drag: none;
+  -khtml-user-drag: none;
+  -moz-user-drag: none;
+  -o-user-drag: none;
+  user-drag: none;
+  user-select: none;
+}
+
 /* Keep selection working in editable fields and the extension code editor. */
 input,
 textarea,

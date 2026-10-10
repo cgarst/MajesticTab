@@ -231,6 +231,7 @@ export function hydrateCachedImages(container) {
     if (!container || typeof document === 'undefined') return;
     const images = container.querySelectorAll('img.album-cover-img, img.album-cover-banner, img.artist-collage-img, img.artist-thumbnail, img.recent-cover-img');
     images.forEach(img => {
+        img.setAttribute('draggable', 'false');
         const src = img.getAttribute('src');
         if (src && src.startsWith('https://coverartarchive.org')) {
             getCachedArtUrl(src).then(cached => {

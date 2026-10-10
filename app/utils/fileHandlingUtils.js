@@ -32,6 +32,60 @@ export function isFileType(file, extensions) {
 }
 
 /**
+ * Standard tab file extensions natively supported by MajesticTab
+ */
+export const SUPPORTED_TAB_EXTENSIONS = ['gp', 'gp3', 'gp4', 'gp5', 'gpx', 'pdf', 'txt'];
+
+/**
+ * Check if a file is a supported tab format or matches an active file adapter
+ * @param {File|Blob|{name: string}} file File to check
+ * @returns {Promise<boolean>}
+ */
+export async function isSupportedTabFile(file) {
+    if (!file) return false;
+    const name = typeof file === 'string' ? file : (file.name || '');
+    if (!name) return false;
+    const ext = name.split('.').pop().toLowerCase();
+    if (SUPPORTED_TAB_EXTENSIONS.includes(ext)) {
+        return true;
+    }
+    if (typeof file === 'object' && (file instanceof Blob || file instanceof File)) {
+        try {
+            const { hasMatchingFileAdapter } = await import('../fileAdapters.js');
+            if (typeof hasMatchingFileAdapter === 'function') {
+                return await hasMatchingFileAdapter(file);
+            }
+        } catch {
+            // ignore
+        }
+    }
+    return false;
+}
+
+/**
+ * Test whether drag dataTransfer items contain acceptable files during dragover/dragenter.
+ * Rejects obvious non-file drags or non-tab MIME types (images, videos, audio).
+ * @param {DragEvent} e
+ * @returns {boolean}
+ */
+export function canAcceptTabDrop(e) {
+    if (!e || !e.dataTransfer) return false;
+    const types = Array.from(e.dataTransfer.types || []);
+    if (!types.includes('Files')) return false;
+
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+        for (const item of e.dataTransfer.items) {
+            if (item.kind !== 'file') return false;
+            const type = (item.type || '').toLowerCase();
+            if (type.startsWith('image/') || type.startsWith('audio/') || type.startsWith('video/')) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+/**
  * Show loading progress UI
  * @param {HTMLElement} container Progress container element
  * @param {HTMLElement} bar Progress bar element
