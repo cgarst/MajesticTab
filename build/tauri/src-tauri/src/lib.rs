@@ -220,8 +220,22 @@ fn is_gamescope_or_steam_deck() -> bool {
     false
 }
 
+#[cfg(target_os = "linux")]
+extern "C" {
+    fn g_set_prgname(prgname: *const std::ffi::c_char);
+    fn g_set_application_name(application_name: *const std::ffi::c_char);
+    fn gtk_window_set_default_icon_name(name: *const std::ffi::c_char);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "linux")]
+    unsafe {
+        g_set_prgname(b"net.zathu.majestictab\0".as_ptr() as *const _);
+        g_set_application_name(b"MajesticTab\0".as_ptr() as *const _);
+        gtk_window_set_default_icon_name(b"net.zathu.majestictab\0".as_ptr() as *const _);
+    }
+
     #[cfg(feature = "debug-tools")]
     let mut context = tauri::generate_context!();
     #[cfg(not(feature = "debug-tools"))]
