@@ -160,6 +160,14 @@ if (topBar) {
     }, true);
 }
 
+// Prevent dragging images from the app
+window.addEventListener('dragstart', (e) => {
+    const target = e.target;
+    if (target && (target.nodeName === 'IMG' || target.nodeName === 'image' || (target.closest && target.closest('img, image')))) {
+        e.preventDefault();
+    }
+}, true);
+
 // Prevent browser from opening dropped files as webpages outside drop targets
 window.addEventListener('dragover', (e) => {
     e.preventDefault();

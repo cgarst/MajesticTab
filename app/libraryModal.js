@@ -19,6 +19,7 @@ import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { openOpenFileModal } from './openFileModal.js';
 import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
+import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState } from './gpProcessor/gpPlayer.js';
 
@@ -779,7 +780,7 @@ async function renderLibraryBrowseView(container) {
                   <div class="library-album-banner d-flex flex-column gap-3 mb-3">
                     <div class="d-flex align-items-center justify-content-between gap-3 min-w-0">
                       <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-                        <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(album.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
+                        <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(album.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
                         <div class="min-w-0 flex-grow-1">
                           <span class="badge badge-theme-primary mb-1" style="font-size:0.68rem;">Album</span>
                           <h5 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</h5>
@@ -868,7 +869,7 @@ async function renderLibraryBrowseView(container) {
                         <div class="library-card album-card p-3" data-album-title="${escapeHtml(sub.name)}" data-folder-name="${escapeHtml(sub.name)}" data-search-terms="${escapeHtml(albumSearchTerms)}">
                           <div class="album-cover-container mb-2">
                             ${cover
-                                ? `<img src="${cover}" class="album-cover-img" alt="${escapeHtml(sub.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(sub.name)}'">`
+                                ? `<img src="${cover}" class="album-cover-img" alt="${escapeHtml(sub.name)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(sub.name)}'">`
                                 : `<i class="bi-folder2 fs-1 text-info opacity-75"></i>`
                             }
                             ${sub.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${sub.year}</span>` : ''}
@@ -1071,6 +1072,10 @@ async function renderLibraryBrowseView(container) {
             card.addEventListener('dragenter', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (!canAcceptTabDrop(e)) {
+                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+                    return;
+                }
                 if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
                 card.classList.add('album-drop-active');
             });
@@ -1078,6 +1083,11 @@ async function renderLibraryBrowseView(container) {
             card.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (!canAcceptTabDrop(e)) {
+                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+                    card.classList.remove('album-drop-active');
+                    return;
+                }
                 if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
                 if (!card.classList.contains('album-drop-active')) {
                     card.classList.add('album-drop-active');
@@ -1109,6 +1119,10 @@ async function renderLibraryBrowseView(container) {
                     } else if (targetAlbum.songs?.length > 0) {
                         const ok = await attachFileToSong(file, targetAlbum.songs[0].id);
                         if (ok) attachedCount++;
+                    } else {
+                        if (!(await isSupportedTabFile(file))) {
+                            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+                        }
                     }
                 }
 
@@ -1345,36 +1359,36 @@ function renderArtistCollageHtml(artist) {
         if (isCustom) {
             return `<div class="artist-thumbnail artist-thumbnail-empty flex-shrink-0 d-flex align-items-center justify-content-center" style="background: rgba(255, 255, 255, 0.05); border-radius: 50%;"><i class="bi-music-note-list text-info fs-4"></i></div>`;
         }
-        return `<img src="${getPlaceholderCoverSvg(artist.name)}" class="artist-thumbnail flex-shrink-0" alt="${escapeHtml(artist.name)}">`;
+        return `<img src="${getPlaceholderCoverSvg(artist.name)}" class="artist-thumbnail flex-shrink-0" alt="${escapeHtml(artist.name)}" draggable="false">`;
     }
 
     if (covers.length === 1) {
-        return `<div class="artist-thumbnail artist-thumbnail-collage artist-collage-1 flex-shrink-0"><img src="${covers[0]}" class="artist-collage-img" alt="${escapeHtml(artist.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(artist.name)}'"></div>`;
+        return `<div class="artist-thumbnail artist-thumbnail-collage artist-collage-1 flex-shrink-0"><img src="${covers[0]}" class="artist-collage-img" alt="${escapeHtml(artist.name)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(artist.name)}'"></div>`;
     }
 
     if (covers.length === 2) {
         return `
         <div class="artist-thumbnail artist-thumbnail-collage artist-collage-2 flex-shrink-0" title="${escapeHtml(artist.name)}">
-          <img src="${covers[0]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
-          <img src="${covers[1]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+          <img src="${covers[0]}" class="artist-collage-img" alt="" draggable="false" onerror="this.style.display='none'">
+          <img src="${covers[1]}" class="artist-collage-img" alt="" draggable="false" onerror="this.style.display='none'">
         </div>`;
     }
 
     if (covers.length === 3) {
         return `
         <div class="artist-thumbnail artist-thumbnail-collage artist-collage-3 flex-shrink-0" title="${escapeHtml(artist.name)}">
-          <img src="${covers[0]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
-          <img src="${covers[1]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
-          <img src="${covers[2]}" class="artist-collage-img artist-collage-span-2" alt="" onerror="this.style.display='none'">
+          <img src="${covers[0]}" class="artist-collage-img" alt="" draggable="false" onerror="this.style.display='none'">
+          <img src="${covers[1]}" class="artist-collage-img" alt="" draggable="false" onerror="this.style.display='none'">
+          <img src="${covers[2]}" class="artist-collage-img artist-collage-span-2" alt="" draggable="false" onerror="this.style.display='none'">
         </div>`;
     }
 
     return `
     <div class="artist-thumbnail artist-thumbnail-collage artist-collage-4 flex-shrink-0" title="${escapeHtml(artist.name)}">
-      <img src="${covers[0]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
-      <img src="${covers[1]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
-      <img src="${covers[2]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
-      <img src="${covers[3]}" class="artist-collage-img" alt="" onerror="this.style.display='none'">
+      <img src="${covers[0]}" class="artist-collage-img" alt="" draggable="false" onerror="this.style.display='none'">
+      <img src="${covers[1]}" class="artist-collage-img" alt="" draggable="false" onerror="this.style.display='none'">
+      <img src="${covers[2]}" class="artist-collage-img" alt="" draggable="false" onerror="this.style.display='none'">
+      <img src="${covers[3]}" class="artist-collage-img" alt="" draggable="false" onerror="this.style.display='none'">
     </div>`;
 }
 
@@ -1949,6 +1963,10 @@ function setupSongRowActions(container) {
         row.addEventListener('dragenter', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (!canAcceptTabDrop(e)) {
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+                return;
+            }
             if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
             row.classList.add('song-drop-active');
         });
@@ -1956,6 +1974,11 @@ function setupSongRowActions(container) {
         row.addEventListener('dragover', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (!canAcceptTabDrop(e)) {
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+                row.classList.remove('song-drop-active');
+                return;
+            }
             if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
             if (!row.classList.contains('song-drop-active')) {
                 row.classList.add('song-drop-active');
@@ -1995,11 +2018,19 @@ function setupSongRowActions(container) {
     if (albumDetailView && selectedAlbum) {
         albumDetailView.addEventListener('dragenter', (e) => {
             e.preventDefault();
+            if (!canAcceptTabDrop(e)) {
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+                return;
+            }
             if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
         });
 
         albumDetailView.addEventListener('dragover', (e) => {
             e.preventDefault();
+            if (!canAcceptTabDrop(e)) {
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+                return;
+            }
             if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
         });
 
@@ -2020,10 +2051,14 @@ function setupSongRowActions(container) {
                 } else if (selectedAlbum.songs?.length > 0) {
                     const ok = await attachFileToSong(file, selectedAlbum.songs[0].id);
                     if (ok) addedCount++;
+                } else {
+                    if (!(await isSupportedTabFile(file))) {
+                        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+                    }
                 }
             }
 
-            if (attachedCount > 0) {
+            if (addedCount > 0) {
                 await renderView();
             }
         });
@@ -2034,6 +2069,11 @@ function setupSongRowActions(container) {
  * Helper to save a file to persistent store and attach it as a tab option on a song
  */
 async function attachFileToSong(file, songId) {
+    if (!file) return false;
+    if (!(await isSupportedTabFile(file))) {
+        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+        return false;
+    }
     try {
         const meta = await detectFileMetadata(file, file.name);
         const stored = await saveStoredFile(file, 'local');
@@ -2448,6 +2488,12 @@ function setupCustomDocForm(container) {
             dropzone.addEventListener(name, (e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                if (!canAcceptTabDrop(e)) {
+                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
+                    dropzone.classList.remove('border-info');
+                    return;
+                }
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
                 dropzone.classList.add('border-info');
             });
         });
@@ -2461,6 +2507,10 @@ function setupCustomDocForm(container) {
         dropzone.addEventListener('drop', async (e) => {
             const file = e.dataTransfer?.files?.[0];
             if (file) {
+                if (!(await isSupportedTabFile(file))) {
+                    showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+                    return;
+                }
                 const meta = await detectFileMetadata(file, file.name);
                 const stored = await saveStoredFile(file, 'local');
                 handleFileAttached({ file, providerId: 'local', fileStoreId: stored.id, name: file.name, meta });
@@ -2651,7 +2701,7 @@ function renderSearchResults(results, type, container) {
             return `
             <div class="library-card album-card p-3">
               <div class="album-cover-container mb-2">
-                <img src="${cover}" class="album-cover-img" alt="${escapeHtml(rg.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(rg.title)}'">
+                <img src="${cover}" class="album-cover-img" alt="${escapeHtml(rg.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(rg.title)}'">
                 ${rg.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${rg.year}</span>` : ''}
               </div>
               <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(rg.title)}">${escapeHtml(rg.title)}</h6>
@@ -2815,7 +2865,7 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
             return `
             <div class="library-card album-card p-3">
               <div class="album-cover-container mb-2">
-                <img src="${a.coverUrl || getPlaceholderCoverSvg(a.title)}" class="album-cover-img" alt="${escapeHtml(a.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(a.title)}'">
+                <img src="${a.coverUrl || getPlaceholderCoverSvg(a.title)}" class="album-cover-img" alt="${escapeHtml(a.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(a.title)}'">
                 ${a.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${a.year}</span>` : ''}
               </div>
               <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h6>
@@ -3060,7 +3110,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
           </div>
 
           <div class="library-album-banner d-flex align-items-center gap-3 mb-3">
-            <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(albumData.title)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(albumData.title)}'">
+            <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(albumData.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(albumData.title)}'">
             <div class="min-w-0 flex-grow-1">
               <span class="badge badge-theme-success mb-1" style="font-size:0.68rem;">Release (${albumData.country || 'International'})</span>
               <h5 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(albumData.title)}">${escapeHtml(albumData.title)}</h5>
@@ -3245,7 +3295,7 @@ async function renderRecentsView(container) {
             return `
             <div class="library-row-card d-flex align-items-center justify-content-between gap-3" data-recent-id="${escapeHtml(r.id)}">
               <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-                <img src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="${escapeHtml(r.songTitle || r.name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
+                <img src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="${escapeHtml(r.songTitle || r.name)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
                 <div class="min-w-0 flex-grow-1">
                   <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(r.songTitle || r.name)}">${escapeHtml(r.songTitle || r.name)}</h6>
                   <div class="small text-muted text-truncate" title="${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}">${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}</div>
