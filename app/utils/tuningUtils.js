@@ -1,5 +1,6 @@
 // tuningUtils.js
 // Helpers for parsing, formatting, and detecting guitar tunings & string counts from score data and binary files.
+import { applyFileAdapters } from '../fileAdapters.js';
 
 export const KNOWN_TUNINGS = [
     { name: 'Standard (E A D G B E)', shortName: 'E Standard', midi: [64, 59, 55, 50, 45, 40], strings: ['E4', 'B3', 'G3', 'D3', 'A2', 'E2'] },
@@ -228,14 +229,32 @@ export async function detectFileMetadata(fileOrData, fileName = '') {
     }
 
     try {
+        let fileObj = null;
+        if (fileOrData instanceof File) {
+            fileObj = fileOrData;
+        } else if (fileOrData instanceof Blob) {
+            fileObj = new File([fileOrData], name || 'score.gp', { type: fileOrData.type || 'application/octet-stream' });
+        } else if (fileOrData instanceof Uint8Array || fileOrData instanceof ArrayBuffer) {
+            fileObj = new File([fileOrData], name || 'score.gp', { type: 'application/octet-stream' });
+        }
+
+        // Run any registered file adapter extensions (e.g. decrypting locked GP files)
+        if (fileObj) {
+            try {
+                fileObj = await applyFileAdapters(fileObj);
+            } catch (adapterErr) {
+                console.warn('[detectFileMetadata] File adapter error:', adapterErr);
+            }
+        }
+
         let uint8 = null;
-        if (fileOrData instanceof Uint8Array) {
+        if (fileObj) {
+            const buf = await fileObj.arrayBuffer();
+            uint8 = new Uint8Array(buf);
+        } else if (fileOrData instanceof Uint8Array) {
             uint8 = fileOrData;
         } else if (fileOrData instanceof ArrayBuffer) {
             uint8 = new Uint8Array(fileOrData);
-        } else if (typeof fileOrData.arrayBuffer === 'function') {
-            const buf = await fileOrData.arrayBuffer();
-            uint8 = new Uint8Array(buf);
         }
 
         if (!uint8) return fallback;
