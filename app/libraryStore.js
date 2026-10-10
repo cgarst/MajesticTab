@@ -2,7 +2,7 @@
 // Storage and querying layer for Collections > Artists > Albums > Songs and Recents.
 
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile } from './fileStore.js';
-import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
+import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo } from './utils/tuningUtils.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
@@ -253,26 +253,29 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
 
         const tunings = Array.isArray(song.tunings) && song.tunings.length > 0
             ? song.tunings
-            : (song.tabOptions?.map(t => t.tuning).filter(Boolean) || []);
+            : (song.tabOptions?.map(t => t.tuning).filter(Boolean) || (song.tuning ? [song.tuning] : []));
 
-        const effectiveTunings = tunings.length > 0 ? tunings : ['Untuned / Other'];
+        // Filter out 'Untuned / Other' or empty / null values
+        const validTunings = tunings.filter(t => t && typeof t === 'string' && t.trim() && t !== 'Untuned / Other' && t.toLowerCase() !== 'untuned');
 
-        for (const tuning of effectiveTunings) {
-            if (!tuningMap.has(tuning)) {
-                let inferredStrings = 6;
-                if (tuning.includes('8-String')) inferredStrings = 8;
-                else if (tuning.includes('7-String')) inferredStrings = 7;
-                else if (tuning.includes('5-String')) inferredStrings = 5;
-                else if (tuning.includes('6-String')) inferredStrings = 6;
-                else if (tuning.includes('Bass')) inferredStrings = 4;
+        for (const rawTuning of validTunings) {
+            const info = getTuningInfo(rawTuning);
+            if (!info || !info.key) continue;
 
-                tuningMap.set(tuning, {
-                    tuning,
-                    stringCount: song.stringCount || inferredStrings,
+            const tuningKey = info.key;
+
+            if (!tuningMap.has(tuningKey)) {
+                tuningMap.set(tuningKey, {
+                    key: tuningKey,
+                    tuning: tuningKey,
+                    notes: info.notes,
+                    name: info.displayName,
+                    defaultName: info.defaultName,
+                    stringCount: song.stringCount || info.stringCount || 6,
                     songs: []
                 });
             }
-            const group = tuningMap.get(tuning);
+            const group = tuningMap.get(tuningKey);
             if (!group.songs.some(s => s.id === song.id)) {
                 group.songs.push(song);
             }
@@ -280,6 +283,13 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
     }
 
     const tuningsList = Array.from(tuningMap.values()).map(tGroup => {
+        const info = getTuningInfo(tGroup.key);
+        if (info) {
+            tGroup.name = info.displayName;
+            tGroup.notes = info.notes;
+            tGroup.defaultName = info.defaultName;
+        }
+
         tGroup.songs.sort((a, b) => {
             if (Boolean(b.pinned) !== Boolean(a.pinned)) return b.pinned ? 1 : -1;
             const artDiff = (a.artist || '').localeCompare(b.artist || '');
@@ -290,7 +300,7 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
     });
 
     // Sort tunings by song count descending, then alphabetically
-    tuningsList.sort((a, b) => b.songs.length - a.songs.length || a.tuning.localeCompare(b.tuning));
+    tuningsList.sort((a, b) => b.songs.length - a.songs.length || (a.name || a.key).localeCompare(b.name || b.key));
 
     return {
         collectionId,
