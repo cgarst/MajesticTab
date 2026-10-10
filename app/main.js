@@ -1226,14 +1226,32 @@ export function getPdfPages() {
     const root = document.documentElement;
     const nativeImmersive = window.AndroidImmersive;
     let immersive = false;
+    const appWindow = window.__TAURI__?.window?.getCurrentWindow?.();
     const request = root.requestFullscreen || root.webkitRequestFullscreen;
-    if (!request && !nativeImmersive) { btn.parentElement.style.display = "none"; return; }
-    // The native macOS green button handles fullscreen in the Tauri build.
-    if (window.__TAURI__ && /Mac/i.test(navigator.platform)) { btn.parentElement.style.display = "none"; return; }
-    const getFsElement = () => nativeImmersive ? (immersive || null) : (document.fullscreenElement || document.webkitFullscreenElement);
+
+    // The native macOS green button handles fullscreen on macOS.
+    // Gamescope / Steam Deck Gaming Mode is dedicated fullscreen.
+    if (root.classList.contains('tauri-gamescope') || (window.__TAURI__ && /Mac/i.test(navigator.platform))) {
+        if (btn.parentElement) btn.parentElement.style.display = "none";
+        return;
+    }
+
+    if (!request && !nativeImmersive && !appWindow) {
+        if (btn.parentElement) btn.parentElement.style.display = "none";
+        return;
+    }
+
+    const getFsState = async () => {
+        if (nativeImmersive) return !!immersive;
+        if (appWindow?.isFullscreen) {
+            try { return await appWindow.isFullscreen(); } catch {}
+        }
+        return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    };
+
     const exit = () => (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-    btn.addEventListener("click", () => {
-        console.log("Fullscreen button clicked; currently fullscreen:", !!getFsElement());
+
+    btn.addEventListener("click", async () => {
         if (nativeImmersive) {
             immersive = !immersive;
             nativeImmersive.setImmersive(immersive);
@@ -1241,19 +1259,35 @@ export function getPdfPages() {
             btn.blur();
             return;
         }
+        if (appWindow?.isFullscreen && appWindow?.setFullscreen) {
+            try {
+                const current = await appWindow.isFullscreen();
+                await appWindow.setFullscreen(!current);
+                onChange();
+            } catch (err) {
+                console.error("Tauri setFullscreen failed:", err);
+            }
+            btn.blur();
+            return;
+        }
         try {
-            const result = getFsElement() ? exit() : request.call(root);
+            const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            const result = isFs ? exit() : request.call(root);
             if (result && result.catch) result.catch(err => console.error("Fullscreen failed:", err));
         } catch (err) {
             console.error("Fullscreen failed:", err);
         }
         btn.blur();
     });
-    const onChange = () => {
-        const fs = !!getFsElement();
+
+    const onChange = async () => {
+        const fs = await getFsState();
         icon.className = fs ? "bi-fullscreen-exit" : "bi-arrows-fullscreen";
         btn.title = fs ? "Exit Fullscreen" : "Enter Fullscreen";
     };
+
+    window.addEventListener("resize", onChange);
     document.addEventListener("fullscreenchange", onChange);
     document.addEventListener("webkitfullscreenchange", onChange);
+    onChange();
 })();
