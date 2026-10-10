@@ -241,6 +241,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 pub struct TabDownloaderState {
     pub current_url: Mutex<Option<String>>,
     pub active_userscript: Mutex<Option<String>>,
+    pub last_bounds: Mutex<Option<(i32, i32, u32, u32, bool)>>,
     pub pending_downloads: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
     pub last_destination: Mutex<Option<std::path::PathBuf>>,
 }
@@ -609,23 +610,35 @@ pub fn tab_downloader_update(
         .get_webview(DOWNLOADER_LABEL)
         .ok_or_else(|| "Tab downloader webview is unavailable".to_string())?;
 
+    let bounds_tuple = (left.round() as i32, top.round() as i32, width.round() as u32, height.round() as u32, visible);
+    let bounds_changed = {
+        let mut last_bounds_guard = state.last_bounds.lock().map_err(|e| e.to_string())?;
+        if *last_bounds_guard != Some(bounds_tuple) {
+            *last_bounds_guard = Some(bounds_tuple);
+            true
+        } else {
+            false
+        }
+    };
+
     if !visible || width <= 0.0 || height <= 0.0 {
-        downloader
-            .set_position(LogicalPosition::new(-10000.0, -10000.0))
-            .map_err(|e| e.to_string())?;
-        downloader
-            .set_size(LogicalSize::new(1.0, 1.0))
-            .map_err(|e| e.to_string())?;
-        downloader.hide().map_err(|e| e.to_string())?;
+        if bounds_changed {
+            let _ = downloader.set_position(LogicalPosition::new(-10000.0, -10000.0));
+            let _ = downloader.set_size(LogicalSize::new(1.0, 1.0));
+            let _ = downloader.hide();
+        }
         return Ok(());
     }
 
-    downloader
-        .set_position(LogicalPosition::new(left, top))
-        .map_err(|e| e.to_string())?;
-    downloader
-        .set_size(LogicalSize::new(width, height))
-        .map_err(|e| e.to_string())?;
+    if bounds_changed {
+        downloader
+            .set_position(LogicalPosition::new(left, top))
+            .map_err(|e| e.to_string())?;
+        downloader
+            .set_size(LogicalSize::new(width, height))
+            .map_err(|e| e.to_string())?;
+        downloader.show().map_err(|e| e.to_string())?;
+    }
 
     let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
 
@@ -650,7 +663,6 @@ pub fn tab_downloader_update(
         *stored_script = userscript;
     }
 
-    downloader.show().map_err(|e| e.to_string())?;
     let _ = downloader.set_focus();
     Ok(())
 }
@@ -723,7 +735,10 @@ pub fn tab_downloader_nav(
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
-pub fn tab_downloader_hide(app: AppHandle) -> Result<(), String> {
+pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>) -> Result<(), String> {
+    if let Ok(mut last_bounds_guard) = state.last_bounds.lock() {
+        *last_bounds_guard = Some((-10000, -10000, 1, 1, false));
+    }
     if let Some(wv) = app.get_webview(DOWNLOADER_LABEL) {
         let _ = wv.set_position(LogicalPosition::new(-10000.0, -10000.0));
         let _ = wv.set_size(LogicalSize::new(1.0, 1.0));
@@ -733,7 +748,7 @@ pub fn tab_downloader_hide(app: AppHandle) -> Result<(), String> {
 }
 
 #[cfg(any(target_os = "android", target_os = "ios"))]
-pub fn tab_downloader_hide(_app: AppHandle) -> Result<(), String> {
+pub fn tab_downloader_hide(_app: AppHandle, _state: State<'_, TabDownloaderState>) -> Result<(), String> {
     Ok(())
 }
 
