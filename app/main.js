@@ -515,8 +515,23 @@ function setupExtensionSettings() {
             deleteButton.title = `Delete ${label}`;
             deleteButton.setAttribute('aria-label', `Delete ${label}`);
             deleteButton.innerHTML = '<i class="bi-trash"></i>';
+            let confirmingDelete = false;
+            let resetConfirmTimer = null;
             deleteButton.addEventListener('click', () => {
-                if (!window.confirm(`Delete "${label}"?`)) return;
+                if (!confirmingDelete) {
+                    confirmingDelete = true;
+                    deleteButton.classList.add('text-danger');
+                    deleteButton.innerHTML = '<i class="bi-exclamation-triangle-fill"></i>';
+                    deleteButton.title = `Click again to confirm delete "${label}"`;
+                    resetConfirmTimer = setTimeout(() => {
+                        confirmingDelete = false;
+                        deleteButton.classList.remove('text-danger');
+                        deleteButton.innerHTML = '<i class="bi-trash"></i>';
+                        deleteButton.title = `Delete ${label}`;
+                    }, 3000);
+                    return;
+                }
+                clearTimeout(resetConfirmTimer);
                 extensions = extensions.filter(item => item.id !== extension.id);
                 saveExtensions();
                 refreshInstalledExtensions();
