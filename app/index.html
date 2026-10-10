@@ -38,7 +38,7 @@
     </span>
 
     <!-- Return to Song Button (in Library View when a song is open) -->
-    <button type="button" class="btn btn-sm btn-theme-outline align-items-center gap-2 py-1 px-3" id="libraryReturnToSongBtn" title="Return to active score" style="border-radius: 9999px; display: none;">
+    <button type="button" class="btn btn-sm btn-theme-outline align-items-center gap-2" id="libraryReturnToSongBtn" title="Return to active score" style="display: none;">
       <i class="bi-music-note-beamed text-info"></i>
       <span class="d-none d-sm-inline text-truncate" id="libraryReturnSongName" style="max-width:140px;"></span>
       <i class="bi-arrow-up-right small text-white-50"></i>
@@ -46,7 +46,7 @@
 
     <!-- Song Mode Document Breadcrumb -->
     <div id="songBreadcrumb" class="align-items-center gap-2" style="display:none;" data-tauri-drag-region>
-      <button class="brand-btn breadcrumb-back-btn py-1 px-2" id="topBarBackToLibraryBtn" type="button" title="Back to Tab Library">
+      <button class="brand-btn breadcrumb-back-btn" id="topBarBackToLibraryBtn" type="button" title="Back to Tab Library">
         <i class="bi-chevron-left me-1"></i><span>Library</span>
       </button>
       <span class="breadcrumb-divider text-muted opacity-50" data-tauri-drag-region>/</span>
