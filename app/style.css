@@ -489,10 +489,23 @@ body {
 }
 
 .breadcrumb-back-btn {
+  height: 35px;
+  box-sizing: border-box;
   border-radius: 9999px;
+  padding: 0 0.65rem;
   font-weight: 500;
   white-space: nowrap;
   gap: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#libraryReturnToSongBtn {
+  height: 35px;
+  box-sizing: border-box;
+  border-radius: 9999px;
+  padding: 0 0.75rem;
 }
 
 .breadcrumb-divider {
@@ -506,7 +519,9 @@ body {
   background: var(--bg-card-solid);
   border: 1px solid var(--border-subtle);
   border-radius: 9999px;
-  padding: 0.25rem 0.65rem 0.25rem 0.75rem;
+  height: 35px;
+  box-sizing: border-box;
+  padding: 0 0.65rem 0 0.75rem;
   color: #ffffff;
   display: inline-flex;
   align-items: center;
@@ -614,6 +629,8 @@ body {
   border-radius: 9999px;
   padding: 2px;
   gap: 2px;
+  height: 35px;
+  box-sizing: border-box;
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
 }
 
@@ -621,7 +638,9 @@ body {
 .hud-pill-group .btn-check + .btn {
   border-radius: 9999px !important;
   border: none !important;
-  padding: 0.3rem 0.65rem;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 0.65rem;
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-muted) !important;
@@ -685,6 +704,8 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: 9999px;
   padding: 2px;
+  height: 35px;
+  box-sizing: border-box;
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.3);
 }
 
@@ -697,7 +718,9 @@ body {
   background: transparent;
   color: var(--text-muted);
   border-radius: 9999px;
-  padding: 0.3rem 0.55rem;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 0.55rem;
   font-size: 0.82rem;
   display: inline-flex;
   align-items: center;
@@ -784,6 +807,7 @@ body {
   border: 1px solid var(--border-subtle);
   border-radius: 9999px;
   padding: 2px 6px;
+  height: 35px;
   min-height: 35px;
   box-sizing: border-box;
 }
@@ -793,8 +817,13 @@ body {
   background: transparent;
   color: var(--text-primary);
   border-radius: 9999px;
-  padding: 0.25rem 0.45rem;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 0.45rem;
   font-size: 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #navButtons .btn:hover:not(:disabled) {
@@ -2416,6 +2445,14 @@ body:not(.synth-playback-started) .at-highlight {
   .hud-pill-group {
     padding: 1px;
     gap: 1px;
+    height: 30px;
+  }
+
+  #globalAudioControls,
+  #audioSourcePill,
+  #synthMiniPill,
+  #ytMiniPill {
+    height: 30px;
   }
 
   .menu-toggle-btn {
@@ -2428,10 +2465,22 @@ body:not(.synth-playback-started) .at-highlight {
     font-size: 1rem;
   }
 
+  .hud-pill-group .btn,
   .hud-pill-group .btn-check + .btn,
   #globalAudioControls .btn,
   #audioSourcePill .btn,
-  #fullscreenPill .btn,
+  #fullscreenPill .btn {
+    padding: 0 0.4rem;
+    font-size: 0.78rem;
+  }
+
+  .breadcrumb-back-btn,
+  .top-bar-song-btn,
+  #libraryReturnToSongBtn {
+    height: 30px;
+    padding: 0 0.5rem;
+  }
+
   .brand-btn {
     padding: 0.25rem 0.4rem;
     font-size: 0.78rem;
@@ -2440,11 +2489,12 @@ body:not(.synth-playback-started) .at-highlight {
   #navButtons {
     padding: 1px 4px;
     gap: 0.15rem;
+    height: 30px;
     min-height: 30px;
   }
 
   #navButtons .btn {
-    padding: 0.2rem 0.35rem;
+    padding: 0 0.35rem;
     font-size: 0.75rem;
   }
 
