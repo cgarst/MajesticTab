@@ -97,6 +97,7 @@
         <a href="#views" class="hover:text-white transition">Views</a>
         <a href="#topbar-tour" class="hover:text-white transition">Top Bar UI</a>
         <a href="#library" class="hover:text-white transition">Tab Library</a>
+        <a href="#data" class="hover:text-white transition">Your Data</a>
         <a href="#multitrack" class="hover:text-white transition">Multi-Track</a>
         <a href="#youtube" class="hover:text-white transition">YouTube &amp; Audio</a>
         <a href="#export" class="hover:text-white transition">PDF Export</a>
@@ -314,13 +315,12 @@
       </div>
 
       <div class="glass-card p-6 sm:p-10 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900/95 via-emerald-950/20 to-slate-900/95 shadow-2xl space-y-8">
-        <!-- Library Screenshot with Device and View Mode Toggles -->
+        <!-- Library Screenshot with View Mode Toggles -->
         <div class="flex flex-wrap justify-center gap-2">
-          <div class="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold" role="tablist" aria-label="Library screenshot device">
+          <div class="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold" role="tablist" aria-label="Library screenshot view">
             <button type="button" data-shot="lib-desktop" role="tab" aria-selected="true" class="shot-toggle px-3.5 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-layer-group text-purple-400"></i> Artists &amp; Albums</button>
             <button type="button" data-shot="lib-parasomnia" role="tab" aria-selected="false" class="shot-toggle px-3.5 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-compact-disc text-emerald-400"></i> Album Songs (Parasomnia)</button>
             <button type="button" data-shot="lib-tunings" role="tab" aria-selected="false" class="shot-toggle px-3.5 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-sliders text-cyan-400"></i> Tunings View</button>
-            <button type="button" data-shot="lib-mobile" role="tab" aria-selected="false" class="shot-toggle px-3.5 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-mobile-screen-button text-amber-400"></i> Mobile</button>
           </div>
         </div>
 
@@ -328,7 +328,6 @@
           <img data-shot-img="lib-desktop" src="img/screenshots/library_grid.png" alt="MajesticTab library view showing artists, albums, and track listings" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
           <img data-shot-img="lib-parasomnia" src="img/screenshots/library_album_parasomnia.png" alt="MajesticTab album detail view for Dream Theater - Parasomnia showing song list and tab formats" loading="lazy" hidden class="w-full h-auto rounded-xl object-contain border border-slate-800">
           <img data-shot-img="lib-tunings" src="img/screenshots/library_tunings.png" alt="MajesticTab tunings view grouping songs by standard, drop, and custom tunings" loading="lazy" hidden class="w-full h-auto rounded-xl object-contain border border-slate-800">
-          <img data-shot-img="lib-mobile" src="img/screenshots/library_grid_mobile.png" alt="MajesticTab library view on mobile phone" loading="lazy" hidden class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800">
         </div>
 
         <!-- Library Features Grid -->
@@ -353,6 +352,104 @@
       </div>
     </section>
 
+    <!-- Bring Your Own Data: 3 Offered File Providers -->
+    <section id="data" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Bring Your Own Data</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold">Your music, your privacy, <span class="gradient-text">your choice.</span></p>
+        <p class="text-xs sm:text-sm text-slate-300">
+          No mandatory subscriptions, no proprietary cloud locks, and no walled gardens. MajesticTab puts you in complete control with three flexible file providers for opening, organizing, and backing up your tab collection.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Provider 1: Local Device -->
+        <div class="glass-card p-6 sm:p-7 rounded-2xl space-y-4 border border-slate-800 hover:border-emerald-500/40 transition flex flex-col justify-between">
+          <div class="space-y-4">
+            <div class="w-12 h-12 rounded-xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl">
+              <i class="fa-solid fa-hard-drive"></i>
+            </div>
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white">Local Device</h3>
+                <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Offline-First</span>
+              </div>
+              <p class="text-xs text-slate-400">Direct disk and filesystem access</p>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Open and store tabs directly from your computer, SSD, phone, or tablet. Supports Guitar Pro (<code class="text-purple-300">.gp</code>, <code class="text-purple-300">.gp3–.gp5</code>, <code class="text-purple-300">.gpx</code>), text tabs, and PDFs. Tabs remain 100% on your device with zero cloud dependency.
+            </p>
+          </div>
+          <div class="pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-check text-emerald-400"></i>
+            <span>Fully private &bull; Instant local load &bull; Offline ready</span>
+          </div>
+        </div>
+
+        <!-- Provider 2: Google Drive -->
+        <div class="glass-card p-6 sm:p-7 rounded-2xl space-y-4 border border-slate-800 hover:border-purple-500/40 transition flex flex-col justify-between">
+          <div class="space-y-4">
+            <div class="w-12 h-12 rounded-xl bg-red-500/15 border border-red-500/30 flex items-center justify-center text-red-400 text-xl">
+              <i class="fa-brands fa-google-drive"></i>
+            </div>
+            <div class="space-y-1">
+              <div class="flex items-center justify-between">
+                <h3 class="text-base font-bold text-white">Google Drive</h3>
+                <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">Cloud Sync</span>
+              </div>
+              <p class="text-xs text-slate-400">Personal cloud storage without middleman servers</p>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Connect your personal Google Drive account via direct client-side OAuth. Browse folders, open scores seamlessly across desktop, laptop, and mobile devices, and save full-library <code class="text-purple-300">.mtbackup</code> archives directly to your cloud drive.
+            </p>
+          </div>
+          <div class="pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-check text-cyan-400"></i>
+            <span>Direct Google OAuth &bull; Cross-device access &bull; Cloud backups</span>
+          </div>
+        </div>
+
+        <!-- Provider 3: Tab Downloader (Native Clients Only) -->
+        <div class="glass-card p-6 sm:p-7 rounded-2xl space-y-4 border border-slate-800 hover:border-amber-500/40 transition flex flex-col justify-between">
+          <div class="space-y-4">
+            <div class="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xl">
+              <i class="fa-solid fa-cloud-arrow-down"></i>
+            </div>
+            <div class="space-y-1">
+              <div class="flex items-center justify-between gap-2">
+                <h3 class="text-base font-bold text-white">Tab Downloader</h3>
+                <span class="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 flex-shrink-0">Native Apps Only</span>
+              </div>
+              <p class="text-xs text-slate-400">Integrated online tab search engine</p>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Find and download tabs directly from public guitar tab web archives without leaving the app. Available exclusively in native client builds (Windows, macOS, Linux, Steam Deck, Android) to bypass web browser cross-origin network limits. Downloaded tabs are automatically cataloged into your library, complete with album metadata, tunings, and track variations.
+            </p>
+          </div>
+          <div class="pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center gap-1.5">
+            <i class="fa-solid fa-circle-info text-amber-400"></i>
+            <span>Native client only &bull; 1-click search &bull; Instant library import</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Backup / Portability banner -->
+      <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-purple-950/40 via-slate-900/80 to-emerald-950/40 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-box-archive text-lg"></i>
+          </div>
+          <div>
+            <h4 class="text-xs sm:text-sm font-bold text-white">Universal Portability &amp; Single-File Backups</h4>
+            <p class="text-[11px] sm:text-xs text-slate-400">Export or restore your entire collection, settings, and custom extensions anytime with portable <code class="text-purple-300">.mtbackup</code> files. Move between web, desktop, and Steam Deck freely.</p>
+          </div>
+        </div>
+        <a href="app/" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold flex-shrink-0">
+          Try Tab Library
+        </a>
+      </div>
+    </section>
+
     <!-- Featured: multi-track guitar view -->
     <section id="multitrack">
       <div class="glass-card p-6 sm:p-10 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900/95 via-emerald-950/20 to-slate-900/95 shadow-2xl space-y-8">
@@ -362,15 +459,8 @@
             See all your guitar parts together in one multi-track view, without drums, bass, keys or vocals cluttering the page. No more switching between tracks while you play through a song. It reads like a professional tab book.
           </p>
         </div>
-        <div class="flex justify-center">
-          <div class="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold" role="tablist" aria-label="Screenshot device">
-            <button type="button" data-shot="multi-desktop" role="tab" aria-selected="true" class="shot-toggle px-4 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-desktop"></i> Desktop/Tablet</button>
-            <button type="button" data-shot="multi-mobile" role="tab" aria-selected="false" class="shot-toggle px-4 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-mobile-screen-button"></i> Mobile</button>
-          </div>
-        </div>
         <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
-          <img data-shot-img="multi-desktop" src="img/screenshots/multitrack.png" alt="Multi-track guitar tab showing rhythm and lead guitar staves together" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
-          <img data-shot-img="multi-mobile" src="img/screenshots/multitrack_mobile.png" alt="Multi-track guitar tab on mobile" loading="lazy" hidden class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800">
+          <img src="img/screenshots/multitrack.png" alt="Multi-track guitar tab showing rhythm and lead guitar staves together" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-slate-300">
           <div class="flex items-start gap-3"><i class="fa-solid fa-layer-group text-emerald-400 mt-0.5"></i><span><strong class="text-white">All guitars at once.</strong> Rhythm and lead stack together, so the whole arrangement is in front of you.</span></div>
@@ -492,89 +582,105 @@
     <section id="themes">
       <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl space-y-8">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          <div class="space-y-4">
-            <h2 class="text-2xl sm:text-3xl font-extrabold">Guitar Inspired Themes</h2>
-            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Make the app yours with color schemes inspired by legendary electric guitar finishes and bursts, with <strong>Mystic Dream</strong> as the signature default.
-            </p>
+          <div class="space-y-6">
+            <!-- UI Finish Themes -->
+            <div class="space-y-3">
+              <div class="space-y-1">
+                <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 text-[10px] font-bold uppercase tracking-wider">
+                  <i class="fa-solid fa-paintbrush text-xs text-purple-400"></i> App Interface
+                </div>
+                <h2 class="text-2xl sm:text-3xl font-extrabold text-white">UI Finish Themes</h2>
+                <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Color schemes inspired by iconic electric guitar finishes and bursts, with <strong>Mystic Dream</strong> as the signature default. The whole application interface—toolbars, HUD controls, menus, and modals—adapts dynamically.
+                </p>
+              </div>
 
-            <!-- Sheet Light / Dark / Theme Mode Selector Feature Highlight -->
-            <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-white flex items-center gap-2"><i class="fa-solid fa-file-lines text-cyan-400"></i> Tab Sheet Styling</span>
-                <span class="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Light &bull; Dark &bull; Theme</span>
+              <!-- Theme Swatches Grid -->
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
+                <div class="p-2.5 rounded-xl bg-purple-950/40 border border-emerald-500/50 ring-1 ring-emerald-500/40 space-y-1">
+                  <div class="w-full h-4 rounded bg-gradient-to-r from-purple-700 via-cyan-500 to-emerald-500 shadow-inner"></div>
+                  <div class="flex items-center justify-between">
+                    <p class="text-[11px] font-bold text-white truncate">Mystic Dream</p>
+                  </div>
+                  <p class="text-[9px] text-slate-400">Signature shift</p>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                  <div class="w-full h-4 rounded bg-gradient-to-r from-purple-900 via-purple-600 to-indigo-400"></div>
+                  <p class="text-[11px] font-bold text-white truncate">Purple Nebula</p>
+                  <p class="text-[9px] text-slate-400">Deep cosmic burst</p>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                  <div class="w-full h-4 rounded bg-gradient-to-r from-red-800 via-rose-600 to-pink-500"></div>
+                  <p class="text-[11px] font-bold text-white truncate">Red Nebula</p>
+                  <p class="text-[9px] text-slate-400">Vibrant ruby flame</p>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                  <div class="w-full h-4 rounded bg-gradient-to-r from-cyan-600 via-sky-500 to-blue-400"></div>
+                  <p class="text-[11px] font-bold text-white truncate">Cerulean Paradise</p>
+                  <p class="text-[9px] text-slate-400">Tropical aqua burst</p>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                  <div class="w-full h-4 rounded bg-gradient-to-r from-sky-600 via-blue-500 to-indigo-400"></div>
+                  <p class="text-[11px] font-bold text-white truncate">Blue Pearl</p>
+                  <p class="text-[9px] text-slate-400">Shimmering metallic</p>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                  <div class="w-full h-4 rounded bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-950"></div>
+                  <p class="text-[11px] font-bold text-white truncate">Dark Side</p>
+                  <p class="text-[9px] text-slate-400">Monochrome stealth</p>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                  <div class="w-full h-4 rounded bg-gradient-to-r from-amber-700 via-amber-500 to-orange-400"></div>
+                  <p class="text-[11px] font-bold text-white truncate">Ember Glow</p>
+                  <p class="text-[9px] text-slate-400">Warm flame maple</p>
+                </div>
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
+                  <div class="w-full h-4 rounded bg-gradient-to-r from-red-900 via-rose-700 to-amber-600"></div>
+                  <p class="text-[11px] font-bold text-white truncate">Red Pearl Burst</p>
+                  <p class="text-[9px] text-slate-400">Deep crimson edge</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab Sheet Styling (Positioned below UI Theme Options) -->
+            <div class="p-4 sm:p-5 rounded-2xl bg-slate-950/90 border border-slate-800 space-y-3">
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-2">
+                  <div class="w-7 h-7 rounded-lg bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 text-xs">
+                    <i class="fa-solid fa-file-lines"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-bold text-white">Tab Sheet Styling</h3>
+                    <p class="text-[10px] text-slate-400">Independent score notation rendering</p>
+                  </div>
+                </div>
+                <span class="text-[10px] font-semibold text-cyan-400 px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30">Independent of UI</span>
               </div>
               <p class="text-xs text-slate-300 leading-relaxed">
-                Choose how your sheet music renders independently from the UI theme:
+                Choose how your sheet music notation renders independently from your UI theme. Perfect for switching between crisp paper contrast and dark stage lighting:
               </p>
               <div class="grid grid-cols-3 gap-2 text-center text-xs">
-                <div class="p-2 rounded-xl bg-slate-900 border border-slate-700/80">
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-700/80">
                   <i class="fa-solid fa-sun text-amber-400 mb-1 block"></i>
                   <strong class="text-white text-[11px] block">Light Sheet</strong>
                   <span class="text-[10px] text-slate-400">Crisp paper white</span>
                 </div>
-                <div class="p-2 rounded-xl bg-slate-900 border border-slate-700/80">
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-700/80">
                   <i class="fa-solid fa-moon text-indigo-400 mb-1 block"></i>
                   <strong class="text-white text-[11px] block">Dark Sheet</strong>
                   <span class="text-[10px] text-slate-400">Late-night stage black</span>
                 </div>
-                <div class="p-2 rounded-xl bg-slate-900 border border-purple-500/50">
+                <div class="p-2.5 rounded-xl bg-slate-900 border border-purple-500/50">
                   <i class="fa-solid fa-palette text-purple-400 mb-1 block"></i>
                   <strong class="text-white text-[11px] block">Theme Match</strong>
                   <span class="text-[10px] text-purple-300">Custom guitar tint</span>
                 </div>
               </div>
             </div>
-
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
-              <div class="p-2.5 rounded-xl bg-purple-950/40 border border-emerald-500/50 ring-1 ring-emerald-500/40 space-y-1">
-                <div class="w-full h-4 rounded bg-gradient-to-r from-purple-700 via-cyan-500 to-emerald-500 shadow-inner"></div>
-                <div class="flex items-center justify-between">
-                  <p class="text-[11px] font-bold text-white truncate">Mystic Dream</p>
-                </div>
-                <p class="text-[9px] text-slate-400">Iridescent shift</p>
-              </div>
-              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                <div class="w-full h-4 rounded bg-gradient-to-r from-purple-900 via-purple-600 to-indigo-400"></div>
-                <p class="text-[11px] font-bold text-white truncate">Purple Nebula</p>
-                <p class="text-[9px] text-slate-400">Deep cosmic burst</p>
-              </div>
-              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                <div class="w-full h-4 rounded bg-gradient-to-r from-red-800 via-rose-600 to-pink-500"></div>
-                <p class="text-[11px] font-bold text-white truncate">Red Nebula</p>
-                <p class="text-[9px] text-slate-400">Vibrant ruby flame</p>
-              </div>
-              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                <div class="w-full h-4 rounded bg-gradient-to-r from-cyan-600 via-sky-500 to-blue-400"></div>
-                <p class="text-[11px] font-bold text-white truncate">Cerulean Paradise</p>
-                <p class="text-[9px] text-slate-400">Tropical aqua burst</p>
-              </div>
-              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                <div class="w-full h-4 rounded bg-gradient-to-r from-sky-600 via-blue-500 to-indigo-400"></div>
-                <p class="text-[11px] font-bold text-white truncate">Blue Pearl</p>
-                <p class="text-[9px] text-slate-400">Shimmering metallic</p>
-              </div>
-              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                <div class="w-full h-4 rounded bg-gradient-to-r from-slate-900 via-slate-700 to-indigo-950"></div>
-                <p class="text-[11px] font-bold text-white truncate">Dark Side</p>
-                <p class="text-[9px] text-slate-400">Monochrome stealth</p>
-              </div>
-              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                <div class="w-full h-4 rounded bg-gradient-to-r from-amber-700 via-amber-500 to-orange-400"></div>
-                <p class="text-[11px] font-bold text-white truncate">Ember Glow</p>
-                <p class="text-[9px] text-slate-400">Warm flame maple</p>
-              </div>
-              <div class="p-2.5 rounded-xl bg-slate-900 border border-slate-800 space-y-1">
-                <div class="w-full h-4 rounded bg-gradient-to-r from-red-900 via-rose-700 to-amber-600"></div>
-                <p class="text-[11px] font-bold text-white truncate">Red Pearl Burst</p>
-                <p class="text-[9px] text-slate-400">Deep crimson edge</p>
-              </div>
-            </div>
           </div>
           <div class="space-y-2">
             <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
-              <img data-shot-img="desktop" src="img/screenshots/theme_palettes.png" alt="MajesticTab theme selector with light, dark, and theme sheet options" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
-              <img data-shot-img="mobile" src="img/screenshots/theme_palettes_mobile.png" alt="MajesticTab theme selector on mobile" loading="lazy" hidden class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800">
+              <img src="img/screenshots/theme_palettes.png" alt="MajesticTab theme selector with light, dark, and theme sheet options" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
             </div>
             <p class="text-center text-[11px] text-slate-400">Pick a finish and sheet mode, and the whole interface adapts instantly.</p>
           </div>
@@ -685,7 +791,10 @@
           <div data-platform="linux" class="glass-card-interactive p-5 rounded-2xl space-y-3">
             <div class="flex items-center gap-3"><i class="fa-brands fa-linux text-2xl text-amber-300"></i><h3 class="text-base font-bold">Linux &amp; Steam Deck</h3></div>
             <p class="text-xs text-slate-300">Flatpak bundle (.flatpak) with Steam Big Picture artwork.</p>
-            <a data-asset="linux" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Download</a>
+            <div class="flex flex-wrap gap-2">
+              <a data-asset="linux" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Flatpak</a>
+              <a href="img/steam/steam_deck_artwork.zip" download class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-file-zipper text-amber-400"></i> Steam Deck Art (.zip)</a>
+            </div>
           </div>
           <div data-platform="android" class="glass-card-interactive p-5 rounded-2xl space-y-3">
             <div class="flex items-center gap-3"><i class="fa-brands fa-android text-2xl text-emerald-400"></i><h3 class="text-base font-bold">Android</h3></div>
