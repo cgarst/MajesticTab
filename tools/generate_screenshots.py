@@ -135,46 +135,117 @@ def load_file(page, base_url, path, mode, condense=False, scale=None):
     page.wait_for_timeout(2000)
 
 
-def load_stored_tab(page, base_url, search_query, mode="continuous", scale=None):
-    """Load a tab directly from IndexedDB fileStore by partial filename match."""
+def navigate_library_to_song(page, base_url, artist, album, song, mode="continuous", scale=None):
+    """Navigate through the Tab Library UI to open a song by Artist -> Album -> Song."""
+    print(f"[library] navigating to {artist} > {album} > {song}...")
     page.goto(f"{base_url}/app/", wait_until="networkidle", timeout=60000)
     page.evaluate(FORCE_DEFAULT_THEME_JS)
-    page.wait_for_timeout(1000)
-    res = page.evaluate(
-        """async ({ query, scale }) => {
-        if (scale) {
-            try {
-                localStorage.setItem('gpSheetScale', String(scale));
+    if scale:
+        page.evaluate(f"""async () => {{
+            try {{
+                localStorage.setItem('gpSheetScale', String('{scale}'));
                 const gpMod = await import('/app/gpProcessor/gpProcessor.js');
-                gpMod.setGpDisplayScale(scale);
-                const scaleInput = document.getElementById('gpSheetScale');
+                gpMod.setGpDisplayScale({scale});
+                const input = document.getElementById('gpSheetScale');
                 const scaleVal = document.getElementById('gpSheetScaleValue');
-                if (scaleInput) scaleInput.value = String(scale);
-                if (scaleVal) scaleVal.textContent = `${scale}%`;
-            } catch (e) {}
-        }
-        const fsMod = await import('/app/fileStore.js');
-        const files = await fsMod.getAllStoredFiles();
-        const f = files.find(x => x.name.toLowerCase().includes(query.toLowerCase()));
-        if (!f) return { error: 'Tab not found in fileStore: ' + query };
-        const stored = await fsMod.getStoredFile(f.id);
-        const main = await import('/app/main.js');
-        await main.loadFile(stored.file);
-        return { success: true, name: f.name };
-    }""",
-        {"query": search_query, "scale": scale},
-    )
-    if res and res.get("error"):
-        print(f"[warning] {res['error']}, falling back to test tab...")
-        load_file(page, base_url, GP_FILE, mode, scale=scale)
-        return False
-    print(f"[tab] loaded stored tab: {res.get('name')}")
+                if (input) {{
+                    input.value = '{scale}';
+                    input.dispatchEvent(new Event('input'));
+                    input.dispatchEvent(new Event('change'));
+                }}
+                if (scaleVal) scaleVal.textContent = '{scale}%';
+            }} catch (e) {{}}
+        }}""")
+        page.wait_for_timeout(1000)
+
+    # 1. Wait for Artist card and click it
+    page.wait_for_selector(f".artist-card[data-artist-name='{artist}']", timeout=20000)
+    art_card = page.locator(f".artist-card[data-artist-name='{artist}']")
+    art_card.scroll_into_view_if_needed()
+    art_card.click()
+    page.wait_for_timeout(1000)
+
+    # 2. Wait for Album card and click it
+    page.wait_for_selector(f".album-card[data-album-title='{album}']", timeout=20000)
+    alb_card = page.locator(f".album-card[data-album-title='{album}']")
+    alb_card.scroll_into_view_if_needed()
+    alb_card.click()
+    page.wait_for_selector(".library-song-row", timeout=20000)
+    page.wait_for_timeout(500)
+
+    # 3. Locate song row (exact or substring match)
+    song_row = page.locator(f".library-song-row[data-song-title='{song}']")
+    if song_row.count() == 0:
+        rows = page.locator(".library-song-row")
+        for i in range(rows.count()):
+            r = rows.nth(i)
+            t = r.get_attribute("data-song-title") or ""
+            if song.lower() in t.lower() or t.lower() in song.lower():
+                song_row = r
+                break
+
+    if not song_row or song_row.count() == 0:
+        raise RuntimeError(f"Could not find song row for '{song}' in album '{album}'")
+
+    # 4. Click Play button on the song row
+    play_btn = song_row.locator(".play-default-tab-btn")
+    if play_btn.count() == 0:
+        play_btn = song_row.locator(".play-tab-chip-btn").first
+    play_btn.scroll_into_view_if_needed()
+    play_btn.click()
+
+    # 5. Wait for score to render
     page.wait_for_selector("#output canvas, #output svg", timeout=90000)
     page.wait_for_timeout(3000)
+
+    # 6. Apply continuous or page display mode
     radio = "#continuousModeRadio" if mode == "continuous" else "#pageModeRadio"
     page.evaluate(f"document.querySelector('{radio}').click()")
     page.wait_for_timeout(2500)
     return True
+
+
+def load_stored_tab(page, base_url, search_query, mode="continuous", scale=None):
+    """Navigate to a tab through the library by finding its library entry, or fallback to test tab."""
+    page.goto(f"{base_url}/app/", wait_until="networkidle", timeout=60000)
+    page.evaluate(FORCE_DEFAULT_THEME_JS)
+    page.wait_for_timeout(1000)
+    meta = page.evaluate(
+        """async (query) => {
+        try {
+            const libMod = await import('/app/libraryStore.js');
+            const hierarchy = await libMod.getLibraryHierarchy();
+            const q = query.toLowerCase();
+            for (const artist of hierarchy.artists || []) {
+                for (const album of artist.albums || []) {
+                    for (const s of album.songs || []) {
+                        const titleMatch = (s.title || '').toLowerCase().includes(q);
+                        const tabMatch = (s.tabOptions || []).some(t => (t.name || '').toLowerCase().includes(q));
+                        if (titleMatch || tabMatch) {
+                            return { artist: artist.name, album: album.title, song: s.title };
+                        }
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('Failed to look up song in library:', e);
+        }
+        return null;
+    }""",
+        search_query,
+    )
+    if meta and meta.get("artist") and meta.get("album") and meta.get("song"):
+        return navigate_library_to_song(
+            page, base_url,
+            artist=meta["artist"],
+            album=meta["album"],
+            song=meta["song"],
+            mode=mode,
+            scale=scale,
+        )
+    print(f"[warning] Song matching '{search_query}' not found in library, falling back to test tab...")
+    load_file(page, base_url, GP_FILE, mode, scale=scale)
+    return False
 
 
 def main():
@@ -269,7 +340,11 @@ def main():
                 # 3. Continuous Scroll View: Opeth - Ghost of Perdition (at 50% tab size)
                 if wanted("gp_scroll"):
                     if has_backup:
-                        load_stored_tab(page, base_url, "ghost_of_perdition", "continuous", scale=70)
+                        navigate_library_to_song(
+                            page, base_url,
+                            artist="Opeth", album="Ghost Reveries", song="Ghost of Perdition",
+                            mode="continuous", scale=70
+                        )
                     else:
                         load_file(page, base_url, GP_FILE, "continuous", scale=50)
                     save("gp_scroll")
@@ -277,7 +352,11 @@ def main():
                 # 4. Page View: Opeth - Ghost of Perdition (at 50% tab size, same song as scroll view)
                 if wanted("gp_page"):
                     if has_backup:
-                        load_stored_tab(page, base_url, "ghost_of_perdition", "page", scale=70)
+                        navigate_library_to_song(
+                            page, base_url,
+                            artist="Opeth", album="Ghost Reveries", song="Ghost of Perdition",
+                            mode="page", scale=70
+                        )
                     else:
                         load_file(page, base_url, GP_FILE, "page", scale=50)
                     save("gp_page")
@@ -285,7 +364,11 @@ def main():
                 # 5. Top Bar HUD crop (desktop only): Megadeth - Hangar 18 (NO gamepad pill, clipped 2px bottom)
                 if wanted("topbar_hud") and not is_mobile:
                     if has_backup:
-                        load_stored_tab(page, base_url, "Megadeth - Hangar 18.gp", "continuous")
+                        navigate_library_to_song(
+                            page, base_url,
+                            artist="Megadeth", album="Rust in Peace", song="Hangar 18",
+                            mode="continuous"
+                        )
                     else:
                         load_file(page, base_url, GP_FILE, "continuous")
                     page.evaluate("""() => {
@@ -314,7 +397,11 @@ def main():
                 # 6. Multi-Track View: Between the Buried and Me - White Walls
                 if wanted("multitrack"):
                     if has_backup:
-                        load_stored_tab(page, base_url, "8 White Walls.gp", "continuous")
+                        navigate_library_to_song(
+                            page, base_url,
+                            artist="Between the Buried and Me", album="Colors", song="White Walls",
+                            mode="continuous"
+                        )
                     else:
                         load_file(page, base_url, GP_FILE, "continuous")
                     save("multitrack")
@@ -327,7 +414,11 @@ def main():
                         yt_has_backup = restore_backup(page, yt_base_url, backup_path)
 
                     if yt_has_backup:
-                        load_stored_tab(page, yt_base_url, "7 The Mirror.gp", "continuous")
+                        navigate_library_to_song(
+                            page, yt_base_url,
+                            artist="Dream Theater", album="Awake", song="The Mirror",
+                            mode="continuous"
+                        )
                     else:
                         load_file(page, yt_base_url, GP_FILE, "continuous")
                     page.click("#ytToggleBtn")
@@ -341,7 +432,11 @@ def main():
                 # 8. Game Controller Modal: Haken - 1985
                 if wanted("controller_modal"):
                     if has_backup:
-                        load_stored_tab(page, base_url, "Haken - 1985.gp5", "continuous")
+                        navigate_library_to_song(
+                            page, base_url,
+                            artist="Haken", album="Affinity", song="1985",
+                            mode="continuous"
+                        )
                     else:
                         load_file(page, base_url, GP_FILE, "continuous")
                     page.evaluate("import('/app/utils/gamepadManager.js').then(m => m.gamepadManager.openHelpModal())")
@@ -353,7 +448,11 @@ def main():
                 # 9. Tracks & Notation Panel (desktop only)
                 if wanted("notation_options") and not is_mobile:
                     if has_backup:
-                        load_stored_tab(page, base_url, "Megadeth - Hangar 18.gp", "continuous")
+                        navigate_library_to_song(
+                            page, base_url,
+                            artist="Megadeth", album="Rust in Peace", song="Hangar 18",
+                            mode="continuous"
+                        )
                     else:
                         load_file(page, base_url, GP_FILE, "continuous")
                     page.click("#topBarSongTitleBtn")
