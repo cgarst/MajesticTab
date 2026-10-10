@@ -76,7 +76,8 @@ async fn open_tab_downloader(
         tauri::WebviewUrl::External(parsed_url),
     )
     .title("Tab Downloader - MajesticTab")
-    .inner_size(1100.0, 750.0);
+    .inner_size(1100.0, 750.0)
+    .initialization_script(tab_downloader_native::CORE_DOWNLOADER_SHIM);
 
     if let Some(ref js) = userscript {
         if !js.is_empty() {
@@ -101,21 +102,23 @@ async fn open_tab_downloader(
             tauri::webview::DownloadEvent::Finished { path, success, .. } => {
                 if success {
                     if let Some(p) = path {
-                        let filename = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "downloaded.gp".to_string());
+                        let mut filename = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "downloaded.gp".to_string());
                         let data = std::fs::read(&p).ok();
-                        let payload = DownloadedTabPayload {
-                            name: filename,
-                            path: Some(p.to_string_lossy().to_string()),
-                            data,
-                        };
-                        let _ = app_handle.emit("tab-downloaded", payload);
-                    } else {
-                        let payload = DownloadedTabPayload {
-                            name: "downloaded.tab".to_string(),
-                            path: None,
-                            data: None,
-                        };
-                        let _ = app_handle.emit("tab-downloaded", payload);
+                        if let Some(ref bytes) = data {
+                            if let Some(ext) = tab_downloader_native::identify_tab_extension(bytes, &filename) {
+                                if !filename.to_lowercase().ends_with(&format!(".{}", ext)) {
+                                    if !filename.contains('.') || filename.starts_with("download") {
+                                        filename = format!("{}.{}", filename, ext);
+                                    }
+                                }
+                                let payload = DownloadedTabPayload {
+                                    name: filename,
+                                    path: Some(p.to_string_lossy().to_string()),
+                                    data: Some(bytes.clone()),
+                                };
+                                let _ = app_handle.emit("tab-downloaded", payload);
+                            }
+                        }
                     }
                 }
                 true
