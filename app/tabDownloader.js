@@ -111,9 +111,23 @@ let activeArtistName = '';
 let activeSongName = '';
 let activeSourceId = 'ug';
 let currentSearchQuery = '';
+let currentDisplayedUrl = '';
 let nativeResizeObserver = null;
 let lastDownloadedTime = 0;
 let lastDownloadedName = '';
+
+/**
+ * Update the read-only URL bar in the downloader modal
+ */
+export function updateUrlBar(url) {
+    if (!url) return;
+    currentDisplayedUrl = url;
+    const input = document.getElementById('downloaderUrlInput');
+    if (input) {
+        input.value = url;
+        input.title = url;
+    }
+}
 
 /**
  * Format search query for a specific source configuration
@@ -340,6 +354,14 @@ export function initTauriDownloadListener() {
             console.log('[Tab Downloader Webview]', msg);
             appendDebugLog(msg);
         });
+
+        // URL change event from webview
+        window.__TAURI__.event.listen('tab-downloader-url-changed', (event) => {
+            const url = event.payload || '';
+            if (url) {
+                updateUrlBar(url);
+            }
+        });
     }
 }
 
@@ -499,16 +521,11 @@ function renderTabDownloaderModal(initialQuery = '') {
             </span>
           ` : ''}
 
-          <!-- Search / Address Bar -->
-          <form id="downloaderSearchForm" class="d-flex align-items-center flex-grow-1 min-w-0 gap-1 mb-0">
-            <div class="input-group input-group-sm flex-grow-1 min-w-0">
-              <span class="input-group-text bg-dark border-secondary text-white-50"><i class="bi-search"></i></span>
-              <input type="text" class="form-control bg-dark text-white border-secondary" id="downloaderSearchInput" value="${escapeHtml(currentSearchQuery)}" placeholder="Search song or artist...">
-            </div>
-            <button type="submit" class="btn btn-theme-primary btn-sm px-3 flex-shrink-0" id="downloaderGoBtn" title="Search">
-              <i class="bi-arrow-right"></i>
-            </button>
-          </form>
+          <!-- In-App Browser URL Bar (Read-Only) -->
+          <div class="input-group input-group-sm flex-grow-1 min-w-0" id="downloaderUrlGroup">
+            <span class="input-group-text bg-dark border-secondary text-white-50"><i class="bi-globe2"></i></span>
+            <input type="text" class="form-control bg-dark text-white border-secondary font-monospace" id="downloaderUrlInput" value="${escapeHtml(currentUrl)}" readonly style="user-select: all; font-size: 0.78rem; text-overflow: ellipsis;" placeholder="URL..." title="${escapeHtml(currentUrl)}">
+          </div>
         </div>
 
         <!-- Header Actions -->
@@ -656,20 +673,6 @@ function renderTabDownloaderModal(initialQuery = '') {
             currentSearchQuery = nextQuery;
             renderTabDownloaderModal(nextQuery);
         });
-    });
-
-    // Search submit
-    const searchForm = modal.querySelector('#downloaderSearchForm');
-    searchForm?.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const inputVal = modal.querySelector('#downloaderSearchInput')?.value || '';
-        currentSearchQuery = inputVal;
-        const newUrl = buildSearchUrl(activeSource, inputVal);
-        if (isNative) {
-            syncNativeWebview(newUrl);
-        } else {
-            renderTabDownloaderModal(inputVal);
-        }
     });
 
     // Add source button
