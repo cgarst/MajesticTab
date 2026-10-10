@@ -8,13 +8,14 @@ finish-args:
   - --share=network
   - --socket=pulseaudio
   - --socket=wayland
-  - --socket=fallback-x11
+  - --socket=x11
   - --device=dri
 modules:
   - name: majestictab
     buildsystem: simple
     build-commands:
-      - install -Dm755 majestictab /app/bin/majestictab
+      - install -Dm755 majestictab /app/bin/majestictab.bin
+      - install -Dm755 majestictab-wrapper.sh /app/bin/majestictab
       - install -Dm644 net.zathu.majestictab.desktop /app/share/applications/net.zathu.majestictab.desktop
       - install -Dm644 net.zathu.majestictab-16.png /app/share/icons/hicolor/16x16/apps/net.zathu.majestictab.png
       - install -Dm644 net.zathu.majestictab-24.png /app/share/icons/hicolor/24x24/apps/net.zathu.majestictab.png
@@ -29,6 +30,9 @@ modules:
       - type: file
         path: ../target/release/majestictab
         dest-filename: majestictab
+      - type: file
+        path: majestictab-wrapper.sh
+        dest-filename: majestictab-wrapper.sh
       - type: file
         path: net.zathu.majestictab.desktop
       - type: file
