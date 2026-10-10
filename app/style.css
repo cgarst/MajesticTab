@@ -1457,6 +1457,13 @@ input[type=range]::-webkit-slider-thumb:hover {
   gap: 1.1rem;
 }
 
+.offcanvas-footer {
+  border-top: 1px solid var(--border-subtle);
+  padding: 0.85rem 1.25rem;
+  background: var(--bg-card-solid);
+  flex-shrink: 0;
+}
+
 .settings-card {
   background: var(--bg-card-solid);
   border: 1px solid var(--border-subtle);
