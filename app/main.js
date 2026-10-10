@@ -28,7 +28,7 @@ let resizeTimeout;
 window.addEventListener('resize', () => {
     // Debounce resize handling
     clearTimeout(resizeTimeout);
-    resizeTimeout = setTimeout(() => {
+    resizeTimeout = setTimeout(async () => {
         const pageModeRadio = document.getElementById('pageModeRadio');
         const continuousModeRadio = document.getElementById('continuousModeRadio');
         const output = document.getElementById('output');
@@ -39,9 +39,12 @@ window.addEventListener('resize', () => {
                 // For GP files in page mode, recalculate pages based on new dimensions
                 const pageHeight = output.clientHeight - 20;
                 gpState.pages = layoutGPPages(gpState.canvases[0].container, pageHeight);
+                renderGPPage(output, pageModeRadio.checked, continuousModeRadio);
+            } else if (isFileType(currentFile, ['pdf']) && pageModeRadio.checked) {
+                doLayoutPages();
+            } else if (isFileType(currentFile, ['txt']) && pageModeRadio.checked) {
+                await loadFile(currentFile, { hideMenu: false });
             }
-            // Re-render after layout recalculation
-            renderGPPage(output, pageModeRadio.checked, continuousModeRadio);
         }
     }, 250); // Wait for resize to finish
 });
@@ -356,6 +359,38 @@ function setupSettings() {
         radio.addEventListener('change', () => {
             if (radio.checked) {
                 localStorage.setItem('txtDefaultView', radio.value);
+            }
+        });
+    });
+
+    // Setup Landscape in Page Mode selector (dual vs single page)
+    let savedLandscapeLayout = localStorage.getItem('landscapePageLayout') || 'dual';
+    const landscapeLayoutRadios = document.querySelectorAll('input[name="landscapePageLayoutRadio"]');
+    landscapeLayoutRadios.forEach(radio => {
+        if (radio.value === savedLandscapeLayout) {
+            radio.checked = true;
+        }
+        radio.addEventListener('change', async () => {
+            if (radio.checked) {
+                localStorage.setItem('landscapePageLayout', radio.value);
+                if (currentFile && pageModeRadio && pageModeRadio.checked) {
+                    if (isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
+                        const pagesPerView = getPagesPerView(true);
+                        if (gpState.pages?.length) {
+                            gpState.currentPageIndex = Math.min(gpState.currentPageIndex, Math.max(0, gpState.pages.length - pagesPerView));
+                        }
+                        gpState.lastLayoutDimensions = null;
+                        renderGPPage(output, true, continuousModeRadio);
+                    } else if (isFileType(currentFile, ['pdf'])) {
+                        const pagesPerView = getPagesPerView(false);
+                        if (pages?.length) {
+                            currentPageIndex = Math.min(currentPageIndex, Math.max(0, pages.length - pagesPerView));
+                        }
+                        doLayoutPages();
+                    } else if (isFileType(currentFile, ['txt'])) {
+                        await loadFile(currentFile, { hideMenu: false });
+                    }
+                }
             }
         });
     });
