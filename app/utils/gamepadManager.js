@@ -343,19 +343,19 @@ class GamepadManager {
                 break;
 
             case GamepadButton.DPAD_LEFT:
-                this.handleDpadLeft(isLibOpen);
+                this.handleDpadLeft(isLibOpen, isModalOpen);
                 break;
 
             case GamepadButton.DPAD_RIGHT:
-                this.handleDpadRight(isLibOpen);
+                this.handleDpadRight(isLibOpen, isModalOpen);
                 break;
 
             case GamepadButton.DPAD_UP:
-                this.handleDpadUp(isLibOpen);
+                this.handleDpadUp(isLibOpen, isModalOpen);
                 break;
 
             case GamepadButton.DPAD_DOWN:
-                this.handleDpadDown(isLibOpen);
+                this.handleDpadDown(isLibOpen, isModalOpen);
                 break;
         }
     }
@@ -499,13 +499,34 @@ class GamepadManager {
         }
 
         if (isLibOpen) {
-            const focusedCard = document.querySelector('.library-song-row:focus, .library-card:focus, .library-track-row:focus');
+            const activeEl = document.activeElement;
+            if (activeEl && typeof activeEl.click === 'function' && activeEl !== document.body && activeEl !== document.documentElement) {
+                // If focused directly on a song row with tabs, play its default tab
+                if (activeEl.classList?.contains('library-song-row')) {
+                    const playBtn = activeEl.querySelector('.play-default-tab-btn');
+                    if (playBtn) {
+                        playBtn.click();
+                        return;
+                    }
+                }
+                activeEl.click();
+                return;
+            }
+
+            const focusedCard = document.querySelector('.library-song-row:focus, .library-card:focus, .library-pinned-card:focus, .library-track-row:focus, .tab-option-chip:focus');
             if (focusedCard) {
+                if (focusedCard.classList.contains('library-song-row')) {
+                    const playBtn = focusedCard.querySelector('.play-default-tab-btn');
+                    if (playBtn) {
+                        playBtn.click();
+                        return;
+                    }
+                }
                 focusedCard.click();
                 return;
             }
-            // If nothing focused, click the first available song row
-            const firstRow = document.querySelector('.library-song-row, .library-card');
+            // If nothing focused, click the first available song row or card
+            const firstRow = document.querySelector('.library-song-row, .library-card, .library-pinned-card');
             firstRow?.click();
             return;
         }
@@ -586,46 +607,103 @@ class GamepadManager {
         }
     }
 
-    handleDpadLeft(isLibOpen) {
-        if (isLibOpen) return;
+    handleDpadLeft(isLibOpen, isModalOpen) {
+        if (isLibOpen || isModalOpen) {
+            this.navigateFocus(-1);
+            return;
+        }
         document.getElementById('prevPage')?.click();
     }
 
-    handleDpadRight(isLibOpen) {
-        if (isLibOpen) return;
+    handleDpadRight(isLibOpen, isModalOpen) {
+        if (isLibOpen || isModalOpen) {
+            this.navigateFocus(1);
+            return;
+        }
         document.getElementById('nextPage')?.click();
     }
 
-    handleDpadUp(isLibOpen) {
-        if (isLibOpen) {
-            this.navigateFocusVertical(-1);
+    handleDpadUp(isLibOpen, isModalOpen) {
+        if (isLibOpen || isModalOpen) {
+            this.navigateFocus(-1);
             return;
         }
         this.scrollActiveContainer(-140);
     }
 
-    handleDpadDown(isLibOpen) {
-        if (isLibOpen) {
-            this.navigateFocusVertical(1);
+    handleDpadDown(isLibOpen, isModalOpen) {
+        if (isLibOpen || isModalOpen) {
+            this.navigateFocus(1);
             return;
         }
         this.scrollActiveContainer(140);
     }
 
-    navigateFocusVertical(direction) {
-        const focusable = Array.from(document.querySelectorAll(
-            '.library-song-row, .library-card, .library-track-row, button:not([disabled]):not([style*="display: none"]), input:not([type="hidden"])'
-        )).filter(el => el.offsetParent !== null);
+    getActiveFocusContainer() {
+        // 1. If an offcanvas drawer is open (Menu / Settings)
+        const openOffcanvas = document.querySelector('.offcanvas.show');
+        if (openOffcanvas) return openOffcanvas;
+
+        // 2. If a theme modal is open (e.g. Colorway finish picker, Controller guide, Open file)
+        const openBackdrops = Array.from(document.querySelectorAll('.theme-modal-backdrop'))
+            .filter(el => el.style.display === 'flex' || el.style.display === 'block');
+        if (openBackdrops.length > 0) {
+            const topModal = openBackdrops[openBackdrops.length - 1];
+            const modalCard = topModal.querySelector('.theme-modal-card');
+            return modalCard || topModal;
+        }
+
+        // 3. If Tab Library is open
+        const libPage = document.getElementById('libraryPage');
+        if (libPage && libPage.style.display !== 'none') {
+            return libPage;
+        }
+
+        return document;
+    }
+
+    getFocusableElements(container = document) {
+        const selector = [
+            '.library-song-row',
+            '.library-card',
+            '.library-pinned-card',
+            '.library-track-row',
+            '.tab-option-chip',
+            'button:not([disabled])',
+            'a[href]',
+            'input:not([type="hidden"]):not([disabled])',
+            'select:not([disabled])',
+            'textarea:not([disabled])',
+            '[tabindex]:not([tabindex="-1"])'
+        ].join(', ');
+
+        return Array.from(container.querySelectorAll(selector)).filter(el => {
+            if (el.offsetParent === null) return false;
+            const style = window.getComputedStyle(el);
+            return style.display !== 'none' && style.visibility !== 'hidden';
+        });
+    }
+
+    navigateFocus(direction) {
+        const container = this.getActiveFocusContainer();
+        const focusable = this.getFocusableElements(container);
 
         if (!focusable.length) return;
 
-        const currentIdx = focusable.indexOf(document.activeElement);
+        const currentActive = document.activeElement;
+        const currentIdx = focusable.indexOf(currentActive);
         let nextIdx = 0;
         if (currentIdx !== -1) {
-            nextIdx = Math.max(0, Math.min(focusable.length - 1, currentIdx + direction));
+            nextIdx = (currentIdx + direction + focusable.length) % focusable.length;
+        } else {
+            nextIdx = direction > 0 ? 0 : focusable.length - 1;
         }
-        focusable[nextIdx]?.focus({ preventScroll: false });
-        focusable[nextIdx]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+
+        const targetEl = focusable[nextIdx];
+        if (targetEl) {
+            targetEl.focus({ preventScroll: false });
+            targetEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
     }
 
     toggleViewMode() {
