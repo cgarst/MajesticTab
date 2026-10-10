@@ -281,9 +281,6 @@ if (target === 'android') {
     path.join(distDir, 'MajesticTab.flatpak'),
     'net.zathu.majestictab',
   ], { cwd: rootDir });
-  const steamDistDir = path.join(distDir, 'steam');
-  await mkdir(steamDistDir, { recursive: true });
-  await cp(path.join(tauriDir, 'src-tauri', 'icons', 'steam'), steamDistDir, { recursive: true });
 } else {
   const bundle = target === 'macos' ? 'dmg' : 'nsis';
   const extension = target === 'macos' ? '.dmg' : '.exe';
