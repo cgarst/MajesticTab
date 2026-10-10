@@ -22,6 +22,7 @@ import { addRecentOpened } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
 import { showToast } from './utils/toast.js';
+import { initGamepadManager } from './utils/gamepadManager.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -826,6 +827,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initScoreOptionsPanel();
     setupGlobalRewindButton();
     initTauriDownloadListener();
+    initGamepadManager();
 
     document.getElementById('topBarBackToLibraryBtn')?.addEventListener('click', () => {
         openLibraryModal('library');
