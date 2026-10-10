@@ -3,8 +3,8 @@
 // Bundles all settings, custom extensions, downloaded tabs local store, and library hierarchy.
 
 import {
-    getDB, STORE_NAME, getAllStoredFilesWithData, clearAllStoredFiles,
-    arrayBufferToBase64, base64ToArrayBuffer
+    getDB, STORE_NAME, getAllStoredFiles, getStoredFileRecord, clearAllStoredFiles,
+    arrayBufferToBase64, arrayBufferToBase64Async, base64ToArrayBuffer
 } from './fileStore.js';
 import {
     ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData,
@@ -129,30 +129,121 @@ export function collectExtensions() {
 }
 
 /**
- * Create a complete single-file backup bundle object
- * @returns {Promise<object>} Complete backup bundle
+ * Create a complete single-file backup bundle Blob without holding all binary data in memory simultaneously.
+ * @param {function(current: number, total: number): void} [onProgress]
+ * @returns {Promise<Blob>} Complete backup bundle as Blob
  */
-export async function createBackupBundle() {
-    const [storedFilesWithData, libraryData] = await Promise.all([
-        getAllStoredFilesWithData(),
+export async function createBackupBlob(onProgress) {
+    const [fileMetas, libraryData] = await Promise.all([
+        getAllStoredFiles(),
         getAllLibraryData()
     ]);
 
     const settings = collectAllSettings();
     const extensions = collectExtensions();
 
-    // Map files with base64 encoded binary data
-    const files = storedFilesWithData.map(file => ({
-        id: file.id,
-        name: file.name,
-        type: file.type || 'application/octet-stream',
-        size: file.size || (file.data ? file.data.byteLength : 0),
-        providerId: file.providerId || 'local',
-        metadata: file.metadata || {},
-        savedAt: file.savedAt || Date.now(),
-        lastModified: file.lastModified || Date.now(),
-        dataBase64: file.data ? arrayBufferToBase64(file.data) : ''
-    }));
+    const summary = {
+        tabsCount: fileMetas.length,
+        totalTabsSize: fileMetas.reduce((acc, f) => acc + (f.size || 0), 0),
+        songsCount: libraryData.songs?.length || 0,
+        collectionsCount: libraryData.collections?.length || 0,
+        recentsCount: libraryData.recents?.length || 0,
+        extensionsCount: extensions.length
+    };
+
+    const header = {
+        app: 'MajesticTab',
+        format: 'majestictab_backup',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        summary,
+        settings,
+        extensions,
+        library: libraryData
+    };
+
+    const headerJson = JSON.stringify(header);
+    // Slice off closing '}' so we can append fileStore files array
+    const prefix = headerJson.slice(0, -1) + ',"fileStore":{"files":[';
+    const blobParts = [prefix];
+
+    for (let i = 0; i < fileMetas.length; i++) {
+        const meta = fileMetas[i];
+        const record = await getStoredFileRecord(meta.id);
+        let dataBase64 = '';
+        if (record && record.data) {
+            try {
+                dataBase64 = await arrayBufferToBase64Async(record.data);
+            } catch {
+                dataBase64 = arrayBufferToBase64(record.data);
+            }
+        }
+
+        const fileEntry = {
+            id: meta.id,
+            name: meta.name,
+            type: meta.type || 'application/octet-stream',
+            size: meta.size || (record?.data ? record.data.byteLength : 0),
+            providerId: meta.providerId || 'local',
+            metadata: meta.metadata || {},
+            savedAt: meta.savedAt || Date.now(),
+            lastModified: meta.lastModified || Date.now(),
+            dataBase64
+        };
+
+        const fileJson = (i > 0 ? ',' : '') + JSON.stringify(fileEntry);
+        blobParts.push(fileJson);
+
+        if (typeof onProgress === 'function') {
+            onProgress(i + 1, fileMetas.length);
+        }
+    }
+
+    blobParts.push(']}}');
+    return new Blob(blobParts, { type: 'application/json' });
+}
+
+/**
+ * Create a complete single-file backup bundle object
+ * @param {function(current: number, total: number): void} [onProgress]
+ * @returns {Promise<object>} Complete backup bundle
+ */
+export async function createBackupBundle(onProgress) {
+    const [fileMetas, libraryData] = await Promise.all([
+        getAllStoredFiles(),
+        getAllLibraryData()
+    ]);
+
+    const settings = collectAllSettings();
+    const extensions = collectExtensions();
+
+    const files = [];
+    for (let i = 0; i < fileMetas.length; i++) {
+        const meta = fileMetas[i];
+        const record = await getStoredFileRecord(meta.id);
+        let dataBase64 = '';
+        if (record && record.data) {
+            try {
+                dataBase64 = await arrayBufferToBase64Async(record.data);
+            } catch {
+                dataBase64 = arrayBufferToBase64(record.data);
+            }
+        }
+        files.push({
+            id: meta.id,
+            name: meta.name,
+            type: meta.type || 'application/octet-stream',
+            size: meta.size || (record?.data ? record.data.byteLength : 0),
+            providerId: meta.providerId || 'local',
+            metadata: meta.metadata || {},
+            savedAt: meta.savedAt || Date.now(),
+            lastModified: meta.lastModified || Date.now(),
+            dataBase64
+        });
+        if (typeof onProgress === 'function') {
+            onProgress(i + 1, fileMetas.length);
+        }
+    }
 
     const now = new Date();
     const bundle = {
@@ -557,7 +648,7 @@ async function renderModal(modal, activeTab = 'backup') {
 
     // Live counts for backup / reload / delete summary
     const [storedFiles, libraryData] = await Promise.all([
-        getAllStoredFilesWithData(),
+        getAllStoredFiles(),
         getAllLibraryData()
     ]);
     const extensions = collectExtensions();
@@ -1004,9 +1095,11 @@ function attachModalHandlers(modal) {
         backupStatusAlert.textContent = 'Packaging settings, extensions, and stored tabs...';
 
         try {
-            const bundle = await createBackupBundle();
-            const jsonStr = JSON.stringify(bundle, null, 2);
-            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const blob = await createBackupBlob((current, total) => {
+                if (total > 0) {
+                    backupStatusAlert.textContent = `Packaging tab ${current} of ${total}...`;
+                }
+            });
 
             backupStatusAlert.textContent = `Saving to ${selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId}...`;
             const saveResult = await saveToProvider(providerId, blob, filename);
