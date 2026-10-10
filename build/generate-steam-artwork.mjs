@@ -134,8 +134,6 @@ function composeHero(w = 3840, h = 1240) {
       <line x1="0" y1="${h - 60 * scale}" x2="${w}" y2="${h - 60 * scale}"/>
     </g>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
-    <text x="${180 * scale}" y="${h / 2 + 25 * scale}" font-family="${FONT_FAMILY}" font-size="${110 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="url(#accentGrad)">Tab</tspan></text>
-    <text x="${185 * scale}" y="${h / 2 + 105 * scale}" font-family="${FONT_FAMILY}" font-size="${28 * scale}" font-weight="600" fill="rgba(255,255,255,0.55)" letter-spacing="${8 * scale}">GUITAR TAB VIEWER</text>
   </svg>`;
 }
 
@@ -171,32 +169,16 @@ await mkdir(outDir, { recursive: true });
 const assets = [
   // 1. Grid (Capsules)
   ['grid_600x900.png', composeGridVertical(600, 900)],
-  ['grid_300x450.png', composeGridVertical(300, 450)],
-  ['grid_460x215.png', composeGridHorizontal(460, 215)],
   ['grid_920x430.png', composeGridHorizontal(920, 430)],
-  ['grid_poster.png', composeGridVertical(600, 900)],
-  ['grid_capsule_main.png', composeGridHorizontal(920, 430)],
-  ['grid_header.png', composeGridHorizontal(460, 215)],
 
-  // 2. Hero (Library Banners)
-  ['hero_1920x620.png', composeHero(1920, 620)],
+  // 2. Hero (Library Banner)
   ['hero_3840x1240.png', composeHero(3840, 1240)],
-  ['hero.png', composeHero(1920, 620)],
 
-  // 3. Logo (Transparent Overlays)
+  // 3. Logo (Transparent Overlay)
   ['logo_1280x720.png', composeLogo(1280, 720)],
-  ['logo_800x450.png', composeLogo(800, 450)],
-  ['logo_640x360.png', composeLogo(640, 360)],
-  ['logo.png', composeLogo(1280, 720)],
 
-  // 4. Icon (Square App Icons)
-  ['icon_1024x1024.png', composeIcon(1024)],
+  // 4. Icon (Square App Icon)
   ['icon_512x512.png', composeIcon(512)],
-  ['icon_256x256.png', composeIcon(256)],
-  ['icon_128x128.png', composeIcon(128)],
-  ['icon_64x64.png', composeIcon(64)],
-  ['icon_32x32.png', composeIcon(32)],
-  ['icon.png', composeIcon(512)],
 ];
 
 for (const [file, svg] of assets) {
@@ -206,7 +188,7 @@ for (const [file, svg] of assets) {
 }
 
 console.log(`Steam Big Picture & Grid artwork successfully generated in ${outDir}:`);
-console.log('  - Grid (Capsules): grid_600x900, grid_300x450, grid_460x215, grid_920x430, grid_poster, grid_capsule_main, grid_header');
-console.log('  - Hero (Banners): hero_1920x620, hero_3840x1240, hero.png');
-console.log('  - Logo (Transparent Overlays): logo_1280x720, logo_800x450, logo_640x360, logo.png');
-console.log('  - Icon (Square Icons): icon_1024x1024, icon_512x512, icon_256x256, icon_128x128, icon_64x64, icon_32x32, icon.png');
+console.log('  - Grid: grid_600x900.png (vertical), grid_920x430.png (horizontal)');
+console.log('  - Hero: hero_3840x1240.png');
+console.log('  - Logo: logo_1280x720.png');
+console.log('  - Icon: icon_512x512.png');
