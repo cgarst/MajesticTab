@@ -26,7 +26,6 @@ DEFAULT_BACKUP = Path.home() / "Downloads" / "MajesticTab-backup-2026-10-10.mtba
 
 VIEWPORTS = [
     ("desktop", {"width": 1440, "height": 900}, False, 1, ""),
-    ("mobile", {"width": 390, "height": 844}, True, 2, "_mobile"),
 ]
 
 FORCE_DEFAULT_THEME_JS = """
