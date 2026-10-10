@@ -94,13 +94,12 @@
         <span class="font-extrabold tracking-tight text-lg">Majestic<span class="gradient-text">Tab</span></span>
       </a>
       <nav class="hidden md:flex items-center gap-4 lg:gap-5 text-xs font-semibold text-slate-300">
+        <a href="#multitrack" class="hover:text-white transition">Multi-Track</a>
         <a href="#views" class="hover:text-white transition">Views</a>
         <a href="#topbar-tour" class="hover:text-white transition">Top Bar UI</a>
         <a href="#library" class="hover:text-white transition">Tab Library</a>
         <a href="#data" class="hover:text-white transition">Your Data</a>
-        <a href="#multitrack" class="hover:text-white transition">Multi-Track</a>
         <a href="#youtube" class="hover:text-white transition">YouTube &amp; Audio</a>
-        <a href="#export" class="hover:text-white transition">PDF Export</a>
         <a href="#themes" class="hover:text-white transition">Themes</a>
         <a href="#gamepad" class="hover:text-white transition">Controllers &amp; Pedals</a>
         <a href="#download" class="hover:text-white transition">Download</a>
@@ -146,15 +145,15 @@
 
 
     <!-- Featured: multi-track guitar view -->
-    <section id="multitrack">
+    <section id="multitrack" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Multi-Track Focus</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold">Every guitar track. <span class="gradient-text">Nothing else.</span></p>
+        <p class="text-xs sm:text-sm md:text-base text-slate-300 leading-relaxed pt-1">
+          See all your guitar parts together in one multi-track view, without drums, bass, keys or vocals cluttering the page. No more switching between tracks while you play through a song. It reads like a professional tab book.
+        </p>
+      </div>
       <div class="glass-card p-6 sm:p-10 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900/95 via-emerald-950/20 to-slate-900/95 shadow-2xl space-y-8">
-        <div class="text-center space-y-2 max-w-3xl mx-auto">
-          <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Multi-Track Focus</h2>
-          <p class="text-2xl sm:text-4xl font-extrabold">Every guitar track. <span class="gradient-text">Nothing else.</span></p>
-          <p class="text-xs sm:text-sm md:text-base text-slate-300 leading-relaxed pt-1">
-            See all your guitar parts together in one multi-track view, without drums, bass, keys or vocals cluttering the page. No more switching between tracks while you play through a song. It reads like a professional tab book.
-          </p>
-        </div>
         <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
           <img src="img/screenshots/multitrack.png" alt="Multi-track guitar tab showing rhythm and lead guitar staves together" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
         </div>
@@ -168,13 +167,13 @@
     </section>
 
     <!-- Views: Continuous Scroll vs Book-like Pages (Feature Section) -->
-    <section id="views">
-      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl space-y-8">
-        <div class="text-center space-y-2 max-w-3xl mx-auto">
-          <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Two Ways to Read</h2>
-          <p class="text-2xl sm:text-3xl font-extrabold">Continuous scroll or book-like pages</p>
-          <p class="text-xs sm:text-sm text-slate-300">Switch with one tap, any time, on any file.</p>
-        </div>
+    <section id="views" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Two Ways to Read</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold">Continuous scroll or book-like pages</p>
+        <p class="text-xs sm:text-sm text-slate-300">Switch with one tap, any time, on any file.</p>
+      </div>
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <!-- Scroll mock -->
           <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3">
@@ -197,7 +196,7 @@
     </section>
 
     <!-- NEW SECTION: Top Bar UI Helper Graphic -->
-    <section id="topbar-tour" class="space-y-6">
+    <section id="topbar-tour" class="space-y-8">
       <div class="text-center space-y-2 max-w-3xl mx-auto">
         <h2 class="text-xs font-bold uppercase tracking-widest text-cyan-400">Intuitive Floating HUD</h2>
         <p class="text-2xl sm:text-4xl font-extrabold">Everything at your fingertips. <span class="gradient-text">Nothing in your way.</span></p>
@@ -518,64 +517,56 @@
       </div>
     </section>
 
-    <!-- Practice / ease of use -->
+    <!-- Practice / ease of use & PDF utilities -->
     <section id="practice" class="space-y-8">
       <div class="text-center space-y-2 max-w-3xl mx-auto">
         <h2 class="text-xs font-bold uppercase tracking-widest text-purple-400">Built for Practice</h2>
-        <p class="text-2xl sm:text-3xl font-extrabold">Less fiddling. More playing.</p>
-        <p class="text-xs sm:text-sm text-slate-400">Composition suites are made for writing music. MajesticTab is made for reading it while your hands are busy.</p>
+        <p class="text-2xl sm:text-4xl font-extrabold">Less fiddling. More playing.</p>
+        <p class="text-xs sm:text-sm text-slate-400">Composition suites are made for writing music. MajesticTab is made for reading, practicing, and sharing it without the bloat.</p>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
           <div class="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/30 text-purple-400 flex items-center justify-center text-lg"><i class="fa-solid fa-file-arrow-up"></i></div>
           <h3 class="text-base font-bold">Open and go</h3>
-          <p class="text-xs text-slate-300 leading-relaxed">Pick a PDF, Guitar Pro (GP, GPX, GP5, GP4, GP3) or text file. No project setup, no tracks to configure, no accounts to create.</p>
+          <p class="text-xs text-slate-300 leading-relaxed">Pick a PDF, Guitar Pro (GP, GPX, GP5, GP4, GP3) or text file. No project setup, no tracks to configure, and no accounts to create.</p>
         </div>
         <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
           <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 flex items-center justify-center text-lg"><i class="fa-solid fa-expand"></i></div>
           <h3 class="text-base font-bold">Fills your screen</h3>
-          <p class="text-xs text-slate-300 leading-relaxed">Margins are trimmed and tab is sized to your display, so you see more music per screen and turn fewer pages.</p>
+          <p class="text-xs text-slate-300 leading-relaxed">Margins are auto-trimmed and notation scales to your display so you see more music per screen and turn fewer pages.</p>
         </div>
-        <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
-          <div class="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/30 text-cyan-400 flex items-center justify-center text-lg"><i class="fa-solid fa-palette"></i></div>
-          <h3 class="text-base font-bold">Easy on the eyes</h3>
-          <p class="text-xs text-slate-300 leading-relaxed">Light, dark, or guitar-finish themes for the sheet. Dark mode inverts black-on-white PDFs for the stage or late-night sessions.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Export + Condense -->
-    <section id="export" class="space-y-8">
-      <div class="text-center space-y-2 max-w-3xl mx-auto">
-        <h2 class="text-xs font-bold uppercase tracking-widest text-indigo-400">Take It with You</h2>
-        <p class="text-2xl sm:text-3xl font-extrabold">PDF export and condensing</p>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
           <div class="w-10 h-10 rounded-xl bg-pink-500/20 border border-pink-500/30 text-pink-400 flex items-center justify-center text-lg"><i class="fa-solid fa-file-pdf"></i></div>
           <h3 class="text-base font-bold">Export to PDF</h3>
-          <p class="text-xs text-slate-300 leading-relaxed">Save what you see as a clean, printable A4 PDF. Print it, share it, or load it on any other device.</p>
+          <p class="text-xs text-slate-300 leading-relaxed">Save what you see as a clean, printable A4 PDF. Print it, share it with bandmates, or load it on any other device.</p>
         </div>
         <div class="glass-card-interactive p-6 rounded-2xl space-y-3">
           <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center text-lg"><i class="fa-solid fa-compress"></i></div>
           <h3 class="text-base font-bold flex items-center gap-2">Condense PDF <span class="px-1.5 py-0.5 rounded bg-amber-400 text-slate-900 text-[10px] font-bold">EXPERIMENTAL</span></h3>
-          <p class="text-xs text-slate-300 leading-relaxed">For multi-track tab PDFs, MajesticTab detects staves with notes, drops empty ones, and redraws the groupings. Tabs with many rhythm and lead tracks can shrink to a fraction of the pages.</p>
+          <p class="text-xs text-slate-300 leading-relaxed">For multi-track tab PDFs, detect staves with notes, drop empty resting ones, and redraw groupings to shrink pages drastically.</p>
         </div>
       </div>
     </section>
 
     <!-- Guitar finish themes & Sheet Modes -->
-    <section id="themes">
-      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl space-y-8">
+    <section id="themes" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-purple-400">Visual Finishes</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold text-white">Guitar-inspired finish themes</p>
+        <p class="text-xs sm:text-sm text-slate-300 leading-relaxed pt-1">
+          Color schemes inspired by iconic electric guitar finishes and bursts, with <strong>Mystic Dream</strong> as the signature default. The whole application interface—toolbars, HUD controls, menus, and modals—adapts dynamically.
+        </p>
+      </div>
+
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
           <div class="space-y-6">
             <!-- UI Finish Themes -->
             <div class="space-y-3">
-              <div class="space-y-2">
-                <h2 class="text-xs font-bold uppercase tracking-widest text-purple-400">Visual Finishes</h2>
-                <p class="text-2xl sm:text-3xl font-extrabold text-white">Guitar-inspired finish themes</p>
-                <p class="text-xs sm:text-sm text-slate-300 leading-relaxed pt-1">
-                  Color schemes inspired by iconic electric guitar finishes and bursts, with <strong>Mystic Dream</strong> as the signature default. The whole application interface—toolbars, HUD controls, menus, and modals—adapts dynamically.
+              <div class="space-y-1">
+                <h3 class="text-xl sm:text-2xl font-bold text-white">Dynamic UI Finishes</h3>
+                <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                  Choose from vibrant color bursts and metallic finishes that reskin the entire interface to match your style.
                 </p>
               </div>
 
@@ -748,14 +739,15 @@
     </section>
 
     <!-- Download -->
-    <section id="download">
+    <section id="download" class="space-y-8">
+      <div class="max-w-3xl mx-auto text-center space-y-2">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Cross-Platform</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold">One app. <span class="gradient-text">Every device.</span></p>
+        <p class="text-xs sm:text-sm text-slate-300 pt-1">Native builds are tuned for each operating system and work fully offline. The web version runs the same app in any modern browser.</p>
+        <p id="downloadVersion" class="text-[11px] text-slate-400" hidden></p>
+      </div>
+
       <div class="glass-card p-6 sm:p-10 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900/95 via-emerald-950/20 to-slate-900/95 shadow-2xl space-y-8">
-        <div class="max-w-3xl mx-auto text-center space-y-2">
-          <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Cross-Platform</h2>
-          <p class="text-2xl sm:text-3xl font-extrabold">One app. <span class="gradient-text">Every device.</span></p>
-          <p class="text-xs sm:text-sm text-slate-300 pt-1">Native builds are tuned for each operating system and work fully offline. The web version runs the same app in any modern browser.</p>
-          <p id="downloadVersion" class="text-[11px] text-slate-400" hidden></p>
-        </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div data-platform="windows" class="glass-card-interactive p-5 rounded-2xl space-y-3">
             <div class="flex items-center gap-3"><i class="fa-brands fa-windows text-2xl text-sky-400"></i><h3 class="text-base font-bold">Windows</h3></div>
