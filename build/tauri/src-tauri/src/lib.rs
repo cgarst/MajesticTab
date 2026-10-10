@@ -270,7 +270,15 @@ pub fn run() {
                 if is_gamescope_or_steam_deck() {
                     let _ = window.set_decorations(false);
                     let _ = window.set_fullscreen(true);
-                    let _ = window.eval("document.documentElement.classList.add('tauri-gamescope');");
+                    let _ = window.eval(
+                        "document.documentElement.classList.add('tauri-gamescope'); \
+                        try { \
+                            if (localStorage.getItem('gpDefaultView') === null) localStorage.setItem('gpDefaultView', 'page'); \
+                            if (localStorage.getItem('txtDefaultView') === null) localStorage.setItem('txtDefaultView', 'page'); \
+                            if (localStorage.getItem('pdfDefaultView') === null) localStorage.setItem('pdfDefaultView', 'page'); \
+                            if (localStorage.getItem('landscapePageLayout') === null) localStorage.setItem('landscapePageLayout', 'single'); \
+                        } catch {}"
+                    );
                 }
                 #[cfg(feature = "debug-tools")]
                 window.open_devtools();

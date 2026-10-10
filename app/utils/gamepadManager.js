@@ -12,36 +12,9 @@ const BUTTON_REPEAT_DELAY_MS = 360;
 const BUTTON_REPEAT_INTERVAL_MS = 90;
 const ZOOM_REPEAT_INTERVAL_MS = 200;
 
-// Detect if running on Steam Deck / Linux Steam environment
-let _isSteamDeckCached = null;
+import { isSteamDeck, setIsSteamDeck, applyPlatformDefaults } from './platformUtils.js';
 
-export function isSteamDeck() {
-    if (_isSteamDeckCached !== null) return _isSteamDeckCached;
-    if (typeof document !== 'undefined' && document.documentElement?.classList?.contains('tauri-gamescope')) {
-        _isSteamDeckCached = true;
-        return true;
-    }
-    if (typeof navigator !== 'undefined') {
-        if (/steam/i.test(navigator.userAgent)) {
-            _isSteamDeckCached = true;
-            return true;
-        }
-        if (typeof navigator.getGamepads === 'function') {
-            try {
-                const gamepads = navigator.getGamepads();
-                if (gamepads && Array.from(gamepads).some(gp => gp && /steam/i.test(gp.id))) {
-                    _isSteamDeckCached = true;
-                    return true;
-                }
-            } catch {}
-        }
-    }
-    return false;
-}
-
-export function setIsSteamDeck(val) {
-    _isSteamDeckCached = val;
-}
+export { isSteamDeck, setIsSteamDeck };
 
 let customButtonX = null;
 let customButtonY = null;
@@ -157,7 +130,8 @@ class GamepadManager {
     handleGamepadConnected(gamepad) {
         if (!gamepad) return;
         if (/steam/i.test(gamepad.id)) {
-            _isSteamDeckCached = true;
+            setIsSteamDeck(true);
+            applyPlatformDefaults();
         }
         this.connectedGamepads.set(gamepad.index, gamepad);
         if (this.activeGamepadIndex === null) {
@@ -260,8 +234,9 @@ class GamepadManager {
             return;
         }
 
-        if (!_isSteamDeckCached && activeGp && /steam/i.test(activeGp.id)) {
-            _isSteamDeckCached = true;
+        if (!isSteamDeck() && activeGp && /steam/i.test(activeGp.id)) {
+            setIsSteamDeck(true);
+            applyPlatformDefaults();
         }
 
         // If pill was hidden but gamepad is active, reveal pill

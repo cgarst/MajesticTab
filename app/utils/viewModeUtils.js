@@ -1,11 +1,12 @@
 import { enableContinuousScrollTracking, disableContinuousScrollTracking, scrollToPage } from './scrollUtils.js';
+import { getDefaultLandscapePageLayout } from './platformUtils.js';
 
 /**
  * Get current landscape page layout preference ('dual' or 'single')
  * @returns {string} 'dual' for 2 pages side-by-side, 'single' for 1 page fitting both dimensions
  */
 export function getLandscapePageLayout() {
-    return localStorage.getItem('landscapePageLayout') || 'dual';
+    return localStorage.getItem('landscapePageLayout') || getDefaultLandscapePageLayout();
 }
 
 /**
