@@ -18,18 +18,22 @@ export function setLandscapePageLayout(layout) {
 
 /**
  * Get number of pages to show based on available window width and landscape preference
- * @param {boolean} isGuitarPro - Whether this is for Guitar Pro mode
+ * @param {string|boolean} fileType - File type ('gp', 'txt', 'pdf') or boolean (true=gp, false=pdf)
  * @returns {number} Number of pages to show
  */
-export function getPagesPerView(isGuitarPro = false) {
+export function getPagesPerView(fileType = 'gp') {
     const aspectRatio = window.innerWidth / window.innerHeight;
     // When taller than wide (height >= width, i.e. portrait): show 1 page
     if (aspectRatio <= 1.0) {
         return 1;
     }
 
-    // When wider than tall (width > height, i.e. landscape):
-    // Check landscape page mode preference: 'dual' (2 pages) or 'single' (1 page)
+    // PDF mode in landscape is always dual-page (2 pages) and not affected by "Landscape in Page Mode" setting
+    if (fileType === 'pdf' || fileType === false) {
+        return 2;
+    }
+
+    // For Guitar Pro and TXT tabs: respect the landscape page layout preference ('dual' (2) or 'single' (1))
     const layout = getLandscapePageLayout();
     return layout === 'single' ? 1 : 2;
 }
