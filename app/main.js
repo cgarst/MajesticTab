@@ -728,6 +728,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupGlobalRewindButton();
     initTauriDownloadListener();
 
+    document.getElementById('topBarBackToLibraryBtn')?.addEventListener('click', () => {
+        openLibraryModal('library');
+    });
+
     document.getElementById('libraryToggleBtn')?.addEventListener('click', () => {
         if (isLibraryOpen() && getCurrentFile()) {
             closeLibraryModal();

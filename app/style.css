@@ -442,6 +442,44 @@ body {
   color: transparent;
 }
 
+#songBreadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.breadcrumb-back-btn {
+  border-radius: 9999px;
+  font-weight: 500;
+  white-space: nowrap;
+  gap: 0.25rem;
+}
+
+.breadcrumb-divider {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.breadcrumb-song-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  max-width: 280px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+
+@media (min-width: 1400px) {
+  .breadcrumb-song-title {
+    max-width: 440px;
+  }
+}
 
 #centerSection {
   display: flex;
@@ -2205,6 +2243,19 @@ body:not(.synth-playback-started) .at-highlight {
 
   .brand-title {
     display: none;
+  }
+  
+  .breadcrumb-song-title {
+    max-width: 120px;
+    font-size: 0.8rem;
+  }
+
+  .breadcrumb-back-btn span {
+    display: none;
+  }
+
+  .breadcrumb-back-btn i {
+    margin-right: 0 !important;
   }
   
   #modeButtons .mode-btn-text {
