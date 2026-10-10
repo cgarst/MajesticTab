@@ -1,6 +1,6 @@
 [Desktop Entry]
 Name=MajesticTab
-Comment=Guitar Pro and PDF guitar tab viewer
+Comment=Guitar tab viewer
 Exec=majestictab %U
 Icon=net.zathu.majestictab
 Terminal=false
