@@ -4060,3 +4060,42 @@ body:not(.synth-playback-started) .at-highlight {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
+/* Controller & Keyboard Navigation: Visible Focus Rings for Library & Menu Mode */
+.library-page-view .library-song-row:focus-visible,
+.library-page-view .library-card:focus-visible,
+.library-page-view .library-pinned-card:focus-visible,
+.library-page-view .library-track-row:focus-visible,
+.library-page-view .tab-option-chip:focus-visible,
+.library-page-view button:focus-visible,
+.library-page-view a:focus-visible,
+.library-page-view input:focus-visible,
+.library-page-view select:focus-visible,
+.offcanvas button:focus-visible,
+.offcanvas a:focus-visible,
+.offcanvas input:not(.btn-check):focus-visible,
+.offcanvas select:focus-visible,
+.theme-modal-backdrop .theme-modal-card button:focus-visible,
+.theme-modal-backdrop .theme-modal-card a:focus-visible,
+.theme-modal-backdrop .theme-modal-card input:not(.btn-check):focus-visible,
+.theme-modal-backdrop .theme-modal-card select:focus-visible,
+.theme-modal-backdrop .theme-modal-card [tabindex="0"]:focus-visible {
+  outline: 2px solid var(--accent-primary) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 14px var(--accent-glow) !important;
+  border-color: var(--accent-primary) !important;
+}
+
+/* Offcanvas and Modal segmented radio / pill button focus indicators */
+.offcanvas .btn-check:focus + .btn,
+.offcanvas .btn-check:focus-visible + .btn,
+.theme-modal-backdrop .btn-check:focus + .btn,
+.theme-modal-backdrop .btn-check:focus-visible + .btn,
+.library-page-view .btn-check:focus + .btn,
+.library-page-view .btn-check:focus-visible + .btn {
+  outline: 2px solid var(--accent-primary) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 14px var(--accent-glow) !important;
+  position: relative;
+  z-index: 2;
+}
+

@@ -632,7 +632,7 @@ async function renderLibraryBrowseView(container) {
                           const sampleArtists = Array.from(new Set(group.songs.map(s => s.artist).filter(Boolean))).slice(0, 3).join(', ');
                           const cat = group.category || getTuningCategory(group);
                           return `
-                          <div class="library-card tuning-card p-3 position-relative" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}">
+                          <div class="library-card tuning-card p-3 position-relative" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}" role="button" tabindex="0">
                             <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
                               <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.68rem;">${escapeHtml(cat.label || `${group.stringCount || 6}-String`)}</span>
                               <button class="btn btn-sm theme-control-btn edit-tuning-btn p-1 px-2" data-tuning-key="${escapeHtml(group.key || group.tuning)}" title="Edit Tuning Name" aria-label="Edit Tuning Name">
@@ -829,7 +829,7 @@ async function renderLibraryBrowseView(container) {
                         ${albumTabs.map((t, idx) => {
                           const isDefault = (t.id === defaultAlbumTabId) || (!defaultAlbumTabId && idx === 0);
                           return `
-                          <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-album-tab-chip-btn" data-tab-id="${t.id}" title="Open Album Tab: ${escapeHtml(t.name)}">
+                          <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-album-tab-chip-btn" data-tab-id="${t.id}" role="button" tabindex="0" title="Open Album Tab: ${escapeHtml(t.name)}">
                             <button class="btn btn-link p-0 set-default-album-tab-btn ${isDefault ? 'text-warning' : 'text-muted'} me-1" data-tab-id="${t.id}" title="${isDefault ? 'Default Album Tab' : 'Set as default album tab'}">
                               <i class="bi-star${isDefault ? '-fill' : ''}"></i>
                             </button>
@@ -866,7 +866,7 @@ async function renderLibraryBrowseView(container) {
                         const subSongNames = (sub.songs || []).map(s => s.title || s.name || '');
                         const albumSearchTerms = [sub.name, sub.year, ...subSongNames].filter(Boolean).join(' ').toLowerCase();
                         return `
-                        <div class="library-card album-card p-3" data-album-title="${escapeHtml(sub.name)}" data-folder-name="${escapeHtml(sub.name)}" data-search-terms="${escapeHtml(albumSearchTerms)}">
+                        <div class="library-card album-card p-3" data-album-title="${escapeHtml(sub.name)}" data-folder-name="${escapeHtml(sub.name)}" data-search-terms="${escapeHtml(albumSearchTerms)}" role="button" tabindex="0">
                           <div class="album-cover-container mb-2">
                             ${cover
                                 ? `<img src="${cover}" class="album-cover-img" alt="${escapeHtml(sub.name)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(sub.name)}'">`
@@ -949,7 +949,7 @@ async function renderLibraryBrowseView(container) {
                   const artistSearchTerms = [artist.name, ...albumNames, ...songNames].filter(Boolean).join(' ').toLowerCase();
 
                   return `
-                  <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" data-search-terms="${escapeHtml(artistSearchTerms)}">
+                  <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" data-search-terms="${escapeHtml(artistSearchTerms)}" role="button" tabindex="0">
                     <div class="d-flex align-items-center gap-3 min-w-0">
                       ${collageHtml}
                       <div class="min-w-0 flex-grow-1">
@@ -1403,6 +1403,8 @@ function renderPinnedSongTile(song) {
          data-song-title="${escapeHtml(song.title)}" 
          data-song-artist="${escapeHtml(artistName)}" 
          data-song-album="${escapeHtml(albumName)}"
+         role="button"
+         tabindex="0"
          title="Play ${escapeHtml(song.title)}">
       
       <div class="pinned-play-badge flex-shrink-0" title="Play default tab">
@@ -1446,7 +1448,7 @@ function renderSongRow(song, options = {}) {
     const showTrackNumber = options.showTrackNumber !== undefined ? options.showTrackNumber : !options.showArtistAlbum;
 
     return `
-    <div class="library-song-row d-flex flex-column gap-2 position-relative ${isPinned ? 'library-song-row-pinned' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
+    <div class="library-song-row d-flex flex-column gap-2 position-relative ${isPinned ? 'library-song-row-pinned' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
       <div class="d-flex align-items-center justify-content-between gap-3">
         <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
           ${showTrackNumber ? `<span class="badge-track-num flex-shrink-0">${song.trackNumber || '•'}</span>` : ''}
@@ -1521,7 +1523,7 @@ function renderSongRow(song, options = {}) {
             const isPdfRange = Boolean(t.isAlbumRange || t.startPage);
             const iconClass = isPdfRange ? 'bi-file-earmark-pdf text-warning' : 'bi-file-earmark-music text-info';
             return `
-            <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" title="Load ${escapeHtml(t.name)}">
+            <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" role="button" tabindex="0" title="Load ${escapeHtml(t.name)}">
               <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'text-warning' : 'text-muted'} me-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="${isDefault ? 'Default Tab' : 'Set as default tab'}">
                 <i class="bi-star${isDefault ? '-fill' : ''}"></i>
               </button>
@@ -2699,7 +2701,7 @@ function renderSearchResults(results, type, container) {
           ${results.map(rg => {
             const cover = rg.coverUrl || getPlaceholderCoverSvg(rg.title);
             return `
-            <div class="library-card album-card p-3">
+            <div class="library-card album-card p-3" role="button" tabindex="0">
               <div class="album-cover-container mb-2">
                 <img src="${cover}" class="album-cover-img" alt="${escapeHtml(rg.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(rg.title)}'">
                 ${rg.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${rg.year}</span>` : ''}
@@ -2863,7 +2865,7 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
             const isAlbumInLib = (a.id && existingAlbumKeys.has(`mbid:${a.id}`)) ||
                                  existingAlbumKeys.has(`${artistName.toLowerCase().trim()}:::${(a.title || '').toLowerCase().trim()}`);
             return `
-            <div class="library-card album-card p-3">
+            <div class="library-card album-card p-3" role="button" tabindex="0">
               <div class="album-cover-container mb-2">
                 <img src="${a.coverUrl || getPlaceholderCoverSvg(a.title)}" class="album-cover-img" alt="${escapeHtml(a.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(a.title)}'">
                 ${a.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${a.year}</span>` : ''}
@@ -3205,7 +3207,7 @@ function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistNa
                             (t.id && existingSongKeys.has(`rec:${t.id}`)) ||
                             existingSongKeys.has(`${(artistName || '').toLowerCase().trim()}:::${(t.title || '').toLowerCase().trim()}`);
         return `
-        <div class="library-track-row d-flex align-items-center justify-content-between gap-3">
+        <div class="library-track-row d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0">
           <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
             <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
             <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
