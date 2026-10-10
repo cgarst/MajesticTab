@@ -1191,6 +1191,20 @@ input[type=range]::-webkit-slider-thumb:hover {
   flex: 1;
 }
 
+.theme-modal-title,
+.theme-modal-titles h1,
+.theme-modal-titles h2,
+.theme-modal-titles h3,
+.theme-modal-titles h4,
+.theme-modal-titles h5,
+.theme-modal-titles h6 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 0;
+  line-height: 1.25;
+}
+
 .theme-modal-actions {
   display: flex;
   align-items: center;
