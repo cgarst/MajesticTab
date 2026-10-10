@@ -43,6 +43,21 @@ export function applySavedGpDisplayScale() {
     return setGpDisplayScale(getGpDisplayScalePercent());
 }
 
+export const GUITAR_PROGRAM_WHITELIST = [24, 25, 26, 27, 28, 29, 30, 31];
+
+export function getGuitarTracks(score) {
+    if (!score || !Array.isArray(score.tracks)) return [];
+    return score.tracks
+        .map((track, index) => ({ track, index }))
+        .filter(ti => {
+            const isPercussion = ti.track.isPercussion
+                || ti.track.playbackInfo?.isPercussion
+                || ti.track.staves?.some(staff => staff.isPercussion);
+            const program = ti.track.playbackInfo?.program ?? ti.track.program;
+            return !isPercussion && GUITAR_PROGRAM_WHITELIST.includes(program);
+        });
+}
+
 export function loadGuitarPro(file, container, { debug = false } = {}) {
     return new Promise((resolve, reject) => {
         if (!container) {
@@ -75,17 +90,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             if (debug) console.log("Tracks:", score.tracks);
 
             // Step 2: filter guitar tracks by MIDI program
-            const guitarProgramWhitelist = [24, 25, 26, 27, 28, 29, 30, 31];
-            const guitarTrackIndices = score.tracks
-                .map((track, index) => ({ track, index }))
-                .filter(ti => {
-                    const isPercussion = ti.track.isPercussion
-                        || ti.track.playbackInfo?.isPercussion
-                        || ti.track.staves?.some(staff => staff.isPercussion);
-                    const program = ti.track.playbackInfo?.program ?? ti.track.program;
-                    return !isPercussion && guitarProgramWhitelist.includes(program);
-                })
-                .map(ti => ti.index);
+            const guitarTrackIndices = getGuitarTracks(score).map(ti => ti.index);
 
             if (debug) {
                 console.log("Guitar tracks found:", guitarTrackIndices.length);
