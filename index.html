@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>MajesticTab - Free, Open-Source Tab Reader for Guitarists</title>
-  <meta name="description" content="Practice guitar tabs without the fiddling. Free, open-source tab viewer for PDF, Guitar Pro, and plain-text tab files. Native apps for Windows, macOS, Linux and Android that work offline, plus web and iOS home-screen versions. Nothing is uploaded.">
+  <meta name="description" content="Practice guitar tabs without the fiddling. Free, open-source tab viewer for PDF, Guitar Pro, and plain-text tab files with built-in library, gamepad and Steam Deck support, SoundFont synth, and YouTube backing tracks. Native apps for Windows, macOS, Linux, Steam Deck and Android.">
   <meta name="theme-color" content="#06050a">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32x32.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -63,6 +63,19 @@
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #06050a; }
     ::-webkit-scrollbar-thumb { background: #1f1730; border-radius: 3px; }
+
+    /* Top bar diagram callout card styles */
+    .topbar-callout-pill {
+      background: rgba(22, 17, 34, 0.92);
+      border: 1px solid rgba(168, 85, 247, 0.28);
+      backdrop-filter: blur(8px);
+      transition: all 0.2s ease;
+    }
+    .topbar-callout-pill:hover {
+      border-color: rgba(16, 185, 129, 0.6);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px -2px rgba(16, 185, 129, 0.25);
+    }
   </style>
 </head>
 <body class="min-h-screen selection:bg-purple-600 selection:text-white flex flex-col">
@@ -80,13 +93,15 @@
         <img src="icons/android-chrome-192x192.png" alt="" class="w-8 h-8 rounded-lg transition-transform group-hover:scale-105">
         <span class="font-extrabold tracking-tight text-lg">Majestic<span class="gradient-text">Tab</span></span>
       </a>
-      <nav class="hidden md:flex items-center gap-5 text-xs font-semibold text-slate-300">
-        <a href="#multitrack" class="hover:text-white transition">Multi-Track</a>
-        <a href="#practice" class="hover:text-white transition">Practice</a>
+      <nav class="hidden md:flex items-center gap-4 lg:gap-5 text-xs font-semibold text-slate-300">
         <a href="#views" class="hover:text-white transition">Views</a>
-        <a href="#pedals" class="hover:text-white transition">Page Turners</a>
+        <a href="#topbar-tour" class="hover:text-white transition">Top Bar UI</a>
+        <a href="#library" class="hover:text-white transition">Tab Library</a>
+        <a href="#multitrack" class="hover:text-white transition">Multi-Track</a>
+        <a href="#youtube" class="hover:text-white transition">YouTube &amp; Audio</a>
         <a href="#export" class="hover:text-white transition">PDF Export</a>
-        <a href="#privacy" class="hover:text-white transition">Privacy</a>
+        <a href="#themes" class="hover:text-white transition">Themes</a>
+        <a href="#gamepad" class="hover:text-white transition">Controllers &amp; Pedals</a>
         <a href="#download" class="hover:text-white transition">Download</a>
         <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800/60 transition" title="View Source on GitHub" aria-label="GitHub"><i class="fa-brands fa-github text-base"></i></a>
         <a href="app/" class="px-3.5 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-emerald-600 hover:from-purple-500 hover:to-emerald-500 text-white font-bold">Open App</a>
@@ -101,14 +116,14 @@
     <section class="text-center space-y-6 max-w-4xl mx-auto pt-4">
       <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-200 text-xs font-semibold">
         <i class="fa-solid fa-guitar text-emerald-400"></i>
-        <span>Free &amp; Open Source Tab Reader</span>
+        <span>Free &amp; Open Source Tab Reader &amp; Practice Companion</span>
       </div>
       <h1 class="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight leading-tight">
         Just open your tab<br>
         <span class="gradient-text">and start playing.</span>
       </h1>
       <p class="text-sm sm:text-base md:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto">
-        MajesticTab is a distraction-free viewer for guitar tabs. See every guitar track in one clean multi-track view, with no other instruments in the way. Drop in a PDF, Guitar Pro, or plain-text tab file and practice in seconds, with none of the fiddling that tab-composition software demands. Play along with soundfonts or YouTube backing tracks. Get a native app for your platform, or run it right in your browser.
+        MajesticTab is a distraction-free viewer and manager for guitar tabs. See every guitar track in one clean multi-track view, manage your entire song collection in the built-in library, navigate with game controllers and Steam Deck, and play along with SoundFont synth or YouTube backing tracks.
       </p>
       <div class="flex flex-wrap items-center justify-center gap-3 pt-2">
         <a id="heroDownload" href="#download" class="px-6 py-3 rounded-xl bg-gradient-to-r from-purple-600 via-cyan-600 to-emerald-600 hover:from-purple-500 hover:via-cyan-500 hover:to-emerald-500 text-white font-bold text-sm shadow-xl shadow-purple-500/30 transition transform hover:-translate-y-0.5 flex items-center gap-2">
@@ -120,10 +135,221 @@
       </div>
       <p id="heroDownloadMeta" class="text-[11px] text-slate-400" hidden></p>
       <div class="flex flex-wrap items-center justify-center gap-2 pt-4 text-xs text-slate-400 font-medium">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-tag text-emerald-400"></i> Free forever</span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-lock text-cyan-400"></i> Files never leave your device</span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-brands fa-bluetooth-b text-sky-400"></i> Page turner ready</span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-plane text-purple-400"></i> Works offline</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-tag text-emerald-400"></i> Free &amp; Open Source</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-lock text-cyan-400"></i> Local &amp; Private</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-gamepad text-purple-400"></i> Steam Deck &amp; Controllers</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-brands fa-youtube text-red-400"></i> YouTube Sync</span>
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-slate-900/80 border border-slate-800"><i class="fa-solid fa-plane text-emerald-400"></i> Works Offline</span>
+      </div>
+    </section>
+
+    <!-- Views: Continuous Scroll vs Book-like Pages (First Feature Section) -->
+    <section id="views">
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl space-y-8">
+        <div class="text-center space-y-2 max-w-3xl mx-auto">
+          <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Two ways to read</h2>
+          <p class="text-2xl sm:text-3xl font-extrabold">Continuous scroll or book-like pages</p>
+          <p class="text-xs sm:text-sm text-slate-300">Switch with one tap, any time, on any file.</p>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Scroll mock -->
+          <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center gap-2 text-sm font-bold"><i class="fa-solid fa-arrow-down-up text-cyan-400"></i> Scroll (Continuous Flow)</div>
+            <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 p-1">
+              <img src="img/screenshots/gp_scroll.png" alt="Continuous scroll view with Rush - Tom Sawyer" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">Endless vertical flow with a progress indicator. Ideal for learning a song section by section, or when you'd rather not break the flow.</p>
+          </div>
+          <!-- Page mock -->
+          <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3">
+            <div class="flex items-center gap-2 text-sm font-bold"><i class="fa-solid fa-book-open text-purple-400"></i> Page (Spread View)</div>
+            <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 p-1">
+              <img src="img/screenshots/gp_page.png" alt="Two-page book spread view with Rush - Tom Sawyer" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed">Like a real book. One page on a phone, two side by side on a wide screen. Choose to advance one page or two at a time.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEW SECTION: Top Bar UI Helper Graphic -->
+    <section id="topbar-tour" class="space-y-6">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-cyan-400">Intuitive Floating HUD</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold">Everything at your fingertips. <span class="gradient-text">Nothing in your way.</span></p>
+        <p class="text-xs sm:text-sm text-slate-300">
+          When viewing a Guitar Pro tab or PDF, MajesticTab's minimal floating top bar keeps navigation, score layout, audio sync, and display options one click away.
+        </p>
+      </div>
+
+      <div class="glass-card p-4 sm:p-8 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl space-y-6">
+        <!-- Crop graphic container with pointer callouts -->
+        <div class="space-y-4">
+          <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-2 sm:p-3">
+            <div class="text-[10px] uppercase font-bold tracking-wider text-slate-400 mb-2 px-1 flex items-center justify-between">
+              <span><i class="fa-solid fa-window-maximize text-emerald-400 me-1.5"></i> Active Score Top Bar (Guitar Pro Loaded)</span>
+              <span class="text-purple-300">Floating Glass HUD</span>
+            </div>
+            <img src="img/screenshots/topbar_hud_2x.png" alt="MajesticTab active score top bar HUD with breadcrumb, view switchers, audio controls, and gamepad indicators" class="w-full h-auto rounded-xl object-contain border border-slate-800/90 shadow-md">
+          </div>
+
+          <!-- Responsive Diagram Leader Map: 3 Columns matching Top Bar layout -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            <!-- Left Section Callouts -->
+            <div class="space-y-3">
+              <div class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-purple-400"></span> Left: Navigation &amp; Score
+              </div>
+              
+              <div class="topbar-callout-pill p-3.5 rounded-xl space-y-1">
+                <div class="flex items-center gap-2 text-xs font-bold text-white">
+                  <i class="fa-solid fa-bars text-purple-400"></i>
+                  <span>Menu &amp; Settings Drawer</span>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Quick access to guitar finish themes, sheet scale, custom tunings, Google Drive cloud backup, and PDF export.
+                </p>
+              </div>
+
+              <div class="topbar-callout-pill p-3.5 rounded-xl space-y-1">
+                <div class="flex items-center gap-2 text-xs font-bold text-white">
+                  <i class="fa-solid fa-chevron-left text-emerald-400"></i>
+                  <span>Library Navigator</span>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Return to your multi-artist tab library or recent history in one click without losing score position.
+                </p>
+              </div>
+
+              <div class="topbar-callout-pill p-3.5 rounded-xl space-y-1">
+                <div class="flex items-center gap-2 text-xs font-bold text-white">
+                  <i class="fa-solid fa-sliders text-cyan-400"></i>
+                  <span>Song Title &amp; Notation Options</span>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Click the active song title to toggle between <strong>Tab Only</strong> or <strong>Tab + Standard Notation</strong>, or selectively mute and show individual rhythm and lead guitar staves.
+                </p>
+              </div>
+            </div>
+
+            <!-- Center Section Callouts -->
+            <div class="space-y-3">
+              <div class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Center: Reading View
+              </div>
+
+              <div class="topbar-callout-pill p-3.5 rounded-xl space-y-1 border-cyan-500/40">
+                <div class="flex items-center gap-2 text-xs font-bold text-white">
+                  <i class="fa-solid fa-book-open text-cyan-400"></i>
+                  <i class="fa-solid fa-arrow-down-up text-emerald-400"></i>
+                  <span>Page vs. Continuous Scroll</span>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Symmetrically centered mode switcher. Switch instantly between a 2-page book spread (optimized for pedals and shoulder buttons) or smooth endless vertical scrolling.
+                </p>
+              </div>
+
+              <div class="topbar-callout-pill p-3.5 rounded-xl space-y-1">
+                <div class="flex items-center gap-2 text-xs font-bold text-white">
+                  <i class="fa-solid fa-eye-slash text-purple-400"></i>
+                  <span>Auto Staff Grouping</span>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  All active guitars are grouped together. Empty staves are automatically hidden when instruments rest, maximizing music density.
+                </p>
+              </div>
+            </div>
+
+            <!-- Right Section Callouts -->
+            <div class="space-y-3">
+              <div class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-emerald-400"></span> Right: Audio &amp; Handheld
+              </div>
+
+              <div class="topbar-callout-pill p-3.5 rounded-xl space-y-1">
+                <div class="flex items-center gap-2 text-xs font-bold text-white">
+                  <i class="fa-solid fa-play text-emerald-400"></i>
+                  <i class="fa-solid fa-rotate-left text-cyan-400"></i>
+                  <span>Global Audio &amp; 10s Rewind</span>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Unified playback HUD controls both MIDI Synth and YouTube. One-click instant 10-second rewind for practicing tricky riffs.
+                </p>
+              </div>
+
+              <div class="topbar-callout-pill p-3.5 rounded-xl space-y-1">
+                <div class="flex items-center gap-2 text-xs font-bold text-white">
+                  <i class="fa-solid fa-wave-square text-indigo-400"></i>
+                  <i class="fa-brands fa-youtube text-red-400"></i>
+                  <span>Audio Source Selectors</span>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  Toggle the multi-track SoundFont synth engine or stream real YouTube backing tracks with speed scaling and auto-search.
+                </p>
+              </div>
+
+              <div class="topbar-callout-pill p-3.5 rounded-xl space-y-1">
+                <div class="flex items-center gap-2 text-xs font-bold text-white">
+                  <i class="fa-solid fa-expand text-sky-400"></i>
+                  <span>Fullscreen Stage Mode</span>
+                </div>
+                <p class="text-[11px] text-slate-300 leading-relaxed">
+                  One-tap fullscreen toggle to hide browser chrome and OS bars, optimizing sheet space for performance and live rehearsals.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NEW SECTION: Tab Library & Collection Management -->
+    <section id="library" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Your Complete Collection</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold">Built-in Tab Library. <span class="gradient-text">Organized automatically.</span></p>
+        <p class="text-xs sm:text-sm text-slate-300">
+          Drop hundreds of Guitar Pro and PDF tab files into MajesticTab. Your songs are cataloged by artist and album, enhanced with MusicBrainz metadata, and backed up in a single file.
+        </p>
+      </div>
+
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-emerald-500/30 bg-gradient-to-br from-slate-900/95 via-emerald-950/20 to-slate-900/95 shadow-2xl space-y-8">
+        <!-- Library Screenshot with Device and View Mode Toggles -->
+        <div class="flex flex-wrap justify-center gap-2">
+          <div class="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold" role="tablist" aria-label="Library screenshot device">
+            <button type="button" data-shot="lib-desktop" role="tab" aria-selected="true" class="shot-toggle px-3.5 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-layer-group text-purple-400"></i> Artists &amp; Albums</button>
+            <button type="button" data-shot="lib-parasomnia" role="tab" aria-selected="false" class="shot-toggle px-3.5 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-compact-disc text-emerald-400"></i> Album Songs (Parasomnia)</button>
+            <button type="button" data-shot="lib-tunings" role="tab" aria-selected="false" class="shot-toggle px-3.5 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-sliders text-cyan-400"></i> Tunings View</button>
+            <button type="button" data-shot="lib-mobile" role="tab" aria-selected="false" class="shot-toggle px-3.5 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-mobile-screen-button text-amber-400"></i> Mobile</button>
+          </div>
+        </div>
+
+        <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
+          <img data-shot-img="lib-desktop" src="img/screenshots/library_grid.png" alt="MajesticTab library view showing artists, albums, and track listings" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
+          <img data-shot-img="lib-parasomnia" src="img/screenshots/library_album_parasomnia.png" alt="MajesticTab album detail view for Dream Theater - Parasomnia showing song list and tab formats" loading="lazy" hidden class="w-full h-auto rounded-xl object-contain border border-slate-800">
+          <img data-shot-img="lib-tunings" src="img/screenshots/library_tunings.png" alt="MajesticTab tunings view grouping songs by standard, drop, and custom tunings" loading="lazy" hidden class="w-full h-auto rounded-xl object-contain border border-slate-800">
+          <img data-shot-img="lib-mobile" src="img/screenshots/library_grid_mobile.png" alt="MajesticTab library view on mobile phone" loading="lazy" hidden class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800">
+        </div>
+
+        <!-- Library Features Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-slate-300">
+          <div class="flex items-start gap-3">
+            <i class="fa-solid fa-music text-emerald-400 mt-0.5 text-base"></i>
+            <span><strong class="text-white">MusicBrainz Metadata.</strong> Automatic artist discographies, album covers, release years, and track orders fetched automatically.</span>
+          </div>
+          <div class="flex items-start gap-3">
+            <i class="fa-solid fa-folder-tree text-purple-400 mt-0.5 text-base"></i>
+            <span><strong class="text-white">Custom Collections.</strong> Group tabs by custom playlists, live sets, tuning categories (Drop D, 7-string, Eb Standard), or exercises.</span>
+          </div>
+          <div class="flex items-start gap-3">
+            <i class="fa-solid fa-cloud-arrow-up text-cyan-400 mt-0.5 text-base"></i>
+            <span><strong class="text-white">Google Drive &amp; Single-File Backup.</strong> Export or restore your entire library, settings, and custom extensions in a single portable <code>.mtbackup</code> bundle.</span>
+          </div>
+          <div class="flex items-start gap-3">
+            <i class="fa-solid fa-clock-rotate-left text-amber-400 mt-0.5 text-base"></i>
+            <span><strong class="text-white">Recents &amp; Instant Filter.</strong> Filter hundreds of songs by title, artist, or album in real time. Pick up right where you left off.</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -138,19 +364,80 @@
         </div>
         <div class="flex justify-center">
           <div class="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-700 text-xs font-semibold" role="tablist" aria-label="Screenshot device">
-            <button type="button" data-shot="desktop" role="tab" aria-selected="true" class="shot-toggle px-4 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-desktop"></i> Desktop/Tablet</button>
-            <button type="button" data-shot="mobile" role="tab" aria-selected="false" class="shot-toggle px-4 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-mobile-screen-button"></i> Mobile</button>
+            <button type="button" data-shot="multi-desktop" role="tab" aria-selected="true" class="shot-toggle px-4 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-desktop"></i> Desktop/Tablet</button>
+            <button type="button" data-shot="multi-mobile" role="tab" aria-selected="false" class="shot-toggle px-4 py-1.5 rounded-lg transition flex items-center gap-2"><i class="fa-solid fa-mobile-screen-button"></i> Mobile</button>
           </div>
         </div>
         <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
-          <img data-shot-img="desktop" src="img/screenshots/gp_scroll.png" alt="Multi-track guitar tab showing rhythm and lead guitar staves together" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
-          <img data-shot-img="mobile" src="img/screenshots/gp_scroll_mobile.png" alt="Multi-track guitar tab on mobile" loading="lazy" hidden class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800">
+          <img data-shot-img="multi-desktop" src="img/screenshots/multitrack.png" alt="Multi-track guitar tab showing rhythm and lead guitar staves together" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
+          <img data-shot-img="multi-mobile" src="img/screenshots/multitrack_mobile.png" alt="Multi-track guitar tab on mobile" loading="lazy" hidden class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800">
         </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-slate-300">
           <div class="flex items-start gap-3"><i class="fa-solid fa-layer-group text-emerald-400 mt-0.5"></i><span><strong class="text-white">All guitars at once.</strong> Rhythm and lead stack together, so the whole arrangement is in front of you.</span></div>
           <div class="flex items-start gap-3"><i class="fa-solid fa-eye-slash text-purple-400 mt-0.5"></i><span><strong class="text-white">No clutter.</strong> Drums, bass, keys and vocals are left out of the view.</span></div>
           <div class="flex items-start gap-3"><i class="fa-solid fa-compress text-amber-400 mt-0.5"></i><span><strong class="text-white">Empty staves hidden.</strong> When a guitar rests, its staff disappears from that group, so every line shows only what is playing and you turn fewer pages.</span></div>
           <div class="flex items-start gap-3"><i class="fa-solid fa-book-open text-cyan-400 mt-0.5"></i><span><strong class="text-white">Tab-book layout.</strong> Clean margins and tightly grouped staves, like the printed books.</span></div>
+        </div>
+      </div>
+    </section>
+
+
+
+    <!-- NEW SECTION: YouTube & Audio Backing Tracks -->
+    <section id="youtube" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-red-400">Practice In Sync</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold">YouTube Audio &amp; Backing Tracks</p>
+        <p class="text-xs sm:text-sm text-slate-300">
+          Stream original recordings and backing tracks right above your tab. Speed up, slow down, or loop tricky sections without juggling multiple apps.
+        </p>
+      </div>
+
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-red-500/30 bg-gradient-to-br from-slate-900/95 via-rose-950/20 to-slate-900/95 shadow-2xl">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          <div class="space-y-2 order-2 lg:order-1">
+            <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
+              <img src="img/screenshots/youtube_player.png" alt="MajesticTab YouTube backing track player integrated into top bar" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
+            </div>
+            <p class="text-center text-[11px] text-slate-400">Compact floating drawer with speed controls, manual URL paste, and auto backing track search.</p>
+          </div>
+
+          <div class="space-y-4 order-1 lg:order-2">
+            <h3 class="text-2xl sm:text-3xl font-extrabold">Play along with the real masters</h3>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              When a tab loads, MajesticTab automatically suggests original tracks or instrument-free backing tracks from YouTube. Keep your eyes on the sheet and practice at your own tempo.
+            </p>
+            <div class="space-y-3 text-xs text-slate-300">
+              <div class="flex items-start gap-3">
+                <i class="fa-solid fa-magnifying-glass text-red-400 mt-1"></i>
+                <div>
+                  <strong class="text-white">Smart Backing Track Search:</strong>
+                  <span>Automatically queries for isolated guitar backing tracks or official audio matching your song title.</span>
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <i class="fa-solid fa-gauge-high text-cyan-400 mt-1"></i>
+                <div>
+                  <strong class="text-white">Tempo &amp; Speed Controls:</strong>
+                  <span>Slow down to 0.75x or 0.5x to practice intricate solos and speed up as you get comfortable.</span>
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <i class="fa-solid fa-rotate-left text-emerald-400 mt-1"></i>
+                <div>
+                  <strong class="text-white">Instant 10-Second Rewind:</strong>
+                  <span>One tap on the top bar jumps back 10 seconds so you can repeat difficult bars without losing your flow.</span>
+                </div>
+              </div>
+              <div class="flex items-start gap-3">
+                <i class="fa-solid fa-compact-disc text-purple-400 mt-1"></i>
+                <div>
+                  <strong class="text-white">Offline SoundFont MIDI Synth:</strong>
+                  <span>No internet? Use the built-in multi-track SoundFont synthesizer to hear the tab playback offline.</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -181,61 +468,6 @@
       </div>
     </section>
 
-    <!-- Views -->
-    <section id="views">
-      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl space-y-8">
-        <div class="text-center space-y-2 max-w-3xl mx-auto">
-          <h2 class="text-xs font-bold uppercase tracking-widest text-emerald-400">Two ways to read</h2>
-          <p class="text-2xl sm:text-3xl font-extrabold">Continuous scroll or book-like pages</p>
-          <p class="text-xs sm:text-sm text-slate-300">Switch with one tap, any time, on any file.</p>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Scroll mock -->
-          <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3">
-            <div class="flex items-center gap-2 text-sm font-bold"><i class="fa-solid fa-arrow-down-up text-cyan-400"></i> Scroll</div>
-            <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 p-1">
-              <img src="img/screenshots/gp_scroll.png" alt="Continuous scroll view" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
-            </div>
-            <p class="text-xs text-slate-300 leading-relaxed">Endless vertical flow with a progress indicator. Ideal for learning a song section by section, or when you'd rather not break the flow.</p>
-          </div>
-          <!-- Page mock -->
-          <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-4 space-y-3">
-            <div class="flex items-center gap-2 text-sm font-bold"><i class="fa-solid fa-book-open text-purple-400"></i> Page</div>
-            <div class="rounded-xl overflow-hidden border border-slate-800 bg-slate-950 p-1">
-              <img src="img/screenshots/gp_page.png" alt="Page view" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
-            </div>
-            <p class="text-xs text-slate-300 leading-relaxed">Like a real book. One page on a phone, two side by side on a wide screen. Choose to advance one page or two at a time.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Pedals -->
-    <section id="pedals">
-      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/95 shadow-2xl">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          <div class="space-y-4">
-            <h2 class="text-2xl sm:text-3xl font-extrabold">Works with Bluetooth page turners</h2>
-            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">Keep both hands on the guitar. Most Bluetooth foot pedals and page turners (AirTurn, PageFlip and similar) act as a keyboard, and MajesticTab already speaks keyboard.</p>
-            <ul class="space-y-2 text-xs text-slate-300">
-              <li class="flex gap-2"><i class="fa-solid fa-check text-emerald-400 mt-0.5"></i> Arrow keys, Page Up and Page Down</li>
-              <li class="flex gap-2"><i class="fa-solid fa-check text-emerald-400 mt-0.5"></i> Works in both page and scroll modes</li>
-              <li class="flex gap-2"><i class="fa-solid fa-check text-emerald-400 mt-0.5"></i> Also tap, click, mouse and on-screen buttons</li>
-            </ul>
-          </div>
-          <div class="rounded-2xl bg-slate-950/90 border border-slate-800 p-6 space-y-4">
-            <div class="flex flex-wrap gap-2 justify-center">
-              <span class="kbd px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm">&larr;</span>
-              <span class="kbd px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm">&rarr;</span>
-              <span class="kbd px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm">PgUp</span>
-              <span class="kbd px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm">PgDn</span>
-            </div>
-            <p class="text-[11px] text-slate-400 text-center">Pair your pedal, open a tab, and press. Compatibility varies by device, so check your pedal's keyboard mode.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- Export + Condense -->
     <section id="export" class="space-y-8">
       <div class="text-center space-y-2 max-w-3xl mx-auto">
@@ -256,15 +488,44 @@
       </div>
     </section>
 
-    <!-- Guitar finish themes -->
+    <!-- Guitar finish themes & Sheet Modes -->
     <section id="themes">
-      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl">
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-purple-500/30 bg-gradient-to-br from-slate-900/95 via-purple-950/20 to-slate-900/95 shadow-2xl space-y-8">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
           <div class="space-y-4">
             <h2 class="text-2xl sm:text-3xl font-extrabold">Guitar Inspired Themes</h2>
             <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              Make the app yours with color schemes inspired by legendary electric guitar finishes and bursts, with <strong>Mystic Dream</strong> as the signature default. Your sheet can follow the theme too, or stay light or dark.
+              Make the app yours with color schemes inspired by legendary electric guitar finishes and bursts, with <strong>Mystic Dream</strong> as the signature default.
             </p>
+
+            <!-- Sheet Light / Dark / Theme Mode Selector Feature Highlight -->
+            <div class="p-4 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-white flex items-center gap-2"><i class="fa-solid fa-file-lines text-cyan-400"></i> Tab Sheet Styling</span>
+                <span class="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider">Light &bull; Dark &bull; Theme</span>
+              </div>
+              <p class="text-xs text-slate-300 leading-relaxed">
+                Choose how your sheet music renders independently from the UI theme:
+              </p>
+              <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                <div class="p-2 rounded-xl bg-slate-900 border border-slate-700/80">
+                  <i class="fa-solid fa-sun text-amber-400 mb-1 block"></i>
+                  <strong class="text-white text-[11px] block">Light Sheet</strong>
+                  <span class="text-[10px] text-slate-400">Crisp paper white</span>
+                </div>
+                <div class="p-2 rounded-xl bg-slate-900 border border-slate-700/80">
+                  <i class="fa-solid fa-moon text-indigo-400 mb-1 block"></i>
+                  <strong class="text-white text-[11px] block">Dark Sheet</strong>
+                  <span class="text-[10px] text-slate-400">Late-night stage black</span>
+                </div>
+                <div class="p-2 rounded-xl bg-slate-900 border border-purple-500/50">
+                  <i class="fa-solid fa-palette text-purple-400 mb-1 block"></i>
+                  <strong class="text-white text-[11px] block">Theme Match</strong>
+                  <span class="text-[10px] text-purple-300">Custom guitar tint</span>
+                </div>
+              </div>
+            </div>
+
             <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
               <div class="p-2.5 rounded-xl bg-purple-950/40 border border-emerald-500/50 ring-1 ring-emerald-500/40 space-y-1">
                 <div class="w-full h-4 rounded bg-gradient-to-r from-purple-700 via-cyan-500 to-emerald-500 shadow-inner"></div>
@@ -312,10 +573,58 @@
           </div>
           <div class="space-y-2">
             <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
-              <img data-shot-img="desktop" src="img/screenshots/theme_palettes.png" alt="MajesticTab theme selector" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
+              <img data-shot-img="desktop" src="img/screenshots/theme_palettes.png" alt="MajesticTab theme selector with light, dark, and theme sheet options" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
               <img data-shot-img="mobile" src="img/screenshots/theme_palettes_mobile.png" alt="MajesticTab theme selector on mobile" loading="lazy" hidden class="w-full max-w-xs mx-auto h-auto rounded-xl object-contain border border-slate-800">
             </div>
-            <p class="text-center text-[11px] text-slate-400">Pick a finish and the whole interface adapts instantly.</p>
+            <p class="text-center text-[11px] text-slate-400">Pick a finish and sheet mode, and the whole interface adapts instantly.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Combined: Gamepad & Bluetooth Page Turner Support -->
+    <section id="gamepad" class="space-y-8">
+      <div class="text-center space-y-2 max-w-3xl mx-auto">
+        <h2 class="text-xs font-bold uppercase tracking-widest text-purple-400">Hands-Free Control</h2>
+        <p class="text-2xl sm:text-4xl font-extrabold">Gamepad &amp; Bluetooth Page Turner Support</p>
+        <p class="text-xs sm:text-sm text-slate-300">
+          Keep both hands on your instrument. Navigate scores, turn pages, and practice seamlessly with game controllers, foot pedals, or your handheld Steam Deck.
+        </p>
+      </div>
+
+      <div class="glass-card p-6 sm:p-10 rounded-3xl border border-indigo-500/30 bg-gradient-to-br from-slate-900/95 via-indigo-950/30 to-slate-900/95 shadow-2xl space-y-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+          <div class="space-y-4">
+            <h3 class="text-2xl sm:text-3xl font-extrabold">Controllers, Foot Pedals &amp; Steam Deck</h3>
+            <p class="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              MajesticTab connects directly to the W3C Gamepad API with full native support for Xbox controllers, DualShock/DualSense, 8BitDo gamepads, and Steam Deck handhelds, as well as Bluetooth foot pedals (AirTurn, PageFlip, and Donner).
+            </p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300 pt-1">
+              <div class="space-y-2">
+                <div class="text-xs font-bold text-white flex items-center gap-1.5"><i class="fa-solid fa-gamepad text-purple-400"></i> Gamepad &amp; Handheld</div>
+                <ul class="space-y-1.5 text-[11px] text-slate-300">
+                  <li class="flex items-center gap-2"><span class="kbd px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-bold">LB / RB</span> Page Turn</li>
+                  <li class="flex items-center gap-2"><span class="kbd px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-cyan-400 font-bold">LT / RT</span> Analog Scroll</li>
+                  <li class="flex items-center gap-2"><span class="kbd px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-amber-400 font-bold">Y</span> Zen Mode (Hide HUD)</li>
+                  <li class="flex items-center gap-2"><span class="kbd px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-purple-400 font-bold">A / B</span> Play/Pause &amp; Back</li>
+                </ul>
+              </div>
+              <div class="space-y-2">
+                <div class="text-xs font-bold text-white flex items-center gap-1.5"><i class="fa-solid fa-shoe-prints text-emerald-400"></i> Bluetooth Foot Pedals</div>
+                <ul class="space-y-1.5 text-[11px] text-slate-300">
+                  <li class="flex items-center gap-2"><span class="kbd px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-bold">&larr; / &rarr;</span> Prev / Next Page</li>
+                  <li class="flex items-center gap-2"><span class="kbd px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-cyan-400 font-bold">PgUp / PgDn</span> Scroll Step</li>
+                  <li class="flex items-center gap-2"><span class="kbd px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-amber-400 font-bold">Space</span> Play / Pause</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="rounded-2xl border border-slate-700/80 overflow-hidden bg-slate-950 shadow-2xl p-1.5">
+              <img src="img/screenshots/controller_modal.png" alt="MajesticTab Game Controller Quick Reference Guide with full Xbox, Steam Deck, and foot pedal mappings" loading="lazy" class="w-full h-auto rounded-xl object-contain border border-slate-800">
+            </div>
+            <p class="text-center text-[11px] text-slate-400">Interactive controller guide overlay accessible anytime with your controller or keyboard shortcuts.</p>
           </div>
         </div>
       </div>
@@ -374,8 +683,8 @@
             </div>
           </div>
           <div data-platform="linux" class="glass-card-interactive p-5 rounded-2xl space-y-3">
-            <div class="flex items-center gap-3"><i class="fa-brands fa-linux text-2xl text-amber-300"></i><h3 class="text-base font-bold">Linux</h3></div>
-            <p class="text-xs text-slate-300">Flatpak bundle (.flatpak).</p>
+            <div class="flex items-center gap-3"><i class="fa-brands fa-linux text-2xl text-amber-300"></i><h3 class="text-base font-bold">Linux &amp; Steam Deck</h3></div>
+            <p class="text-xs text-slate-300">Flatpak bundle (.flatpak) with Steam Big Picture artwork.</p>
             <a data-asset="linux" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Download</a>
           </div>
           <div data-platform="android" class="glass-card-interactive p-5 rounded-2xl space-y-3">
@@ -427,12 +736,24 @@
     document.querySelectorAll('.shot-toggle').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var which = btn.getAttribute('data-shot');
-        document.querySelectorAll('.shot-toggle').forEach(function (b) {
-          b.setAttribute('aria-selected', String(b === btn));
-        });
-        document.querySelectorAll('[data-shot-img]').forEach(function (img) {
-          img.hidden = img.getAttribute('data-shot-img') !== which;
-        });
+        if (!which) return;
+        var prefix = which.indexOf('-') > -1 ? which.split('-')[0] + '-' : '';
+        
+        if (prefix) {
+          document.querySelectorAll('.shot-toggle[data-shot^="' + prefix + '"]').forEach(function (b) {
+            b.setAttribute('aria-selected', String(b === btn));
+          });
+          document.querySelectorAll('[data-shot-img^="' + prefix + '"]').forEach(function (img) {
+            img.hidden = img.getAttribute('data-shot-img') !== which;
+          });
+        } else {
+          document.querySelectorAll('.shot-toggle:not([data-shot*="-"])').forEach(function (b) {
+            b.setAttribute('aria-selected', String(b === btn));
+          });
+          document.querySelectorAll('[data-shot-img]:not([data-shot-img*="-"])').forEach(function (img) {
+            img.hidden = img.getAttribute('data-shot-img') !== which;
+          });
+        }
       });
     });
   </script>
