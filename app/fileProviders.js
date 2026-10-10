@@ -7,6 +7,7 @@ import { openDriveModal, redirectToGoogleAuth, isTokenValid } from './googleDriv
 import { openTabDownloader } from './tabDownloader.js';
 import { addTabOptionToSong, addTabOptionToAlbum, mapOpenFileToSong } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
+import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
 
 const providers = new Map();
@@ -137,6 +138,13 @@ export const LocalFileProvider = {
             const file = input.files?.[0];
             input.remove();
             if (file) {
+                if (typeof options.onFileSelected === 'function' || options.songId || options.targetSong?.id || options.isAlbumTab) {
+                    if (!(await isSupportedTabFile(file))) {
+                        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+                        return;
+                    }
+                }
+
                 if (typeof options.onFileSelected === 'function') {
                     try {
                         const meta = await detectFileMetadata(file, file.name);

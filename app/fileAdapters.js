@@ -134,3 +134,15 @@ export async function applyFileAdapters(file) {
 
     return result;
 }
+
+export async function hasMatchingFileAdapter(file) {
+    ensureExtensionsLoaded();
+    for (const adapter of adapters) {
+        try {
+            if (await adapter.matches(file)) return true;
+        } catch {
+            // ignore error in adapter match check
+        }
+    }
+    return false;
+}
