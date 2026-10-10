@@ -817,6 +817,21 @@ export function hideSynthPlayer() {
     updateGlobalRewindButton();
 }
 
+export function updateSynthPanelPosition() {
+    const panel = document.getElementById('synthDropdownPanel');
+    const toggleBtn = document.getElementById('synthToggleBtn');
+    if (!panel || !toggleBtn || !synthPlayerState.isOpen) return;
+
+    const rect = toggleBtn.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.top = `${rect.bottom + 8}px`;
+    const centerX = rect.left + rect.width / 2;
+    const halfPanelWidth = Math.min(185, (window.innerWidth - 24) / 2);
+    const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
+    panel.style.left = `${clampedLeft}px`;
+    panel.style.transform = 'translateX(-50%)';
+}
+
 /**
  * Toggle collapsible synth settings panel
  */
@@ -835,16 +850,7 @@ export function toggleSynthPanel(forceState = null) {
         toggleYouTubePanel(false);
         pauseYouTube();
 
-        if (toggleBtn) {
-            const rect = toggleBtn.getBoundingClientRect();
-            panel.style.position = 'fixed';
-            panel.style.top = `${rect.bottom + 8}px`;
-            const centerX = rect.left + rect.width / 2;
-            const halfPanelWidth = Math.min(180, (window.innerWidth - 24) / 2);
-            const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
-            panel.style.left = `${clampedLeft}px`;
-            panel.style.transform = 'translateX(-50%)';
-        }
+        updateSynthPanelPosition();
         panel.style.display = 'block';
         toggleBtn?.classList.add('active');
     } else {
@@ -1006,6 +1012,9 @@ export function initSynthPlayer() {
             toggleSynthPanel(false);
         }
     });
+
+    window.addEventListener('resize', updateSynthPanelPosition);
+    document.addEventListener('fullscreenchange', updateSynthPanelPosition);
 
     updateSynthUI();
 }
