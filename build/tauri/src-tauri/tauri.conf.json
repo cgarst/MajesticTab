@@ -11,8 +11,8 @@
     "windows": [
       {
         "title": "MajesticTab",
-        "width": 1440,
-        "height": 960,
+        "width": 1280,
+        "height": 800,
         "devtools": false,
         "minWidth": 760,
         "minHeight": 560,
