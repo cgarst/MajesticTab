@@ -468,33 +468,66 @@ export async function getMusicianRelations(musicianMbid) {
 
 /**
  * Get album details and full tracklist from MusicBrainz.
- * Explicitly prefers US release as specified in requirements.
+ * Explicitly prefers US CD/Digital releases and original release dates.
  */
 export async function getAlbumTracks(releaseGroupMbid) {
     if (!releaseGroupMbid) return null;
 
-    // 1. Fetch releases in this release-group
-    const releasesUrl = `${MB_BASE}/release?release-group=${releaseGroupMbid}&limit=50&fmt=json`;
+    // 1. Fetch release group details to know the canonical first release date
+    let originalYear = null;
+    try {
+        const rgUrl = `${MB_BASE}/release-group/${releaseGroupMbid}?fmt=json`;
+        const rgData = await fetchMusicBrainz(rgUrl);
+        if (rgData && rgData['first-release-date']) {
+            originalYear = parseInt(rgData['first-release-date'].slice(0, 4), 10);
+        }
+    } catch {}
+
+    // 2. Fetch releases in this release-group with media formats included
+    const releasesUrl = `${MB_BASE}/release?release-group=${releaseGroupMbid}&inc=media&limit=100&fmt=json`;
     const releasesData = await fetchMusicBrainz(releasesUrl);
     const releases = releasesData.releases || [];
 
     if (releases.length === 0) return null;
 
-    // Sort & select best release (prefer US release, official status)
+    // Sort & select best release (prefer US CD / Digital Media releases, official status, original year)
     const scoredReleases = releases.map(rel => {
         let score = 0;
         const country = (rel.country || '').toUpperCase();
         if (country === 'US') score += 100;
-        if (country === 'GB' || country === 'UK') score += 30;
-        if (rel.status === 'Official') score += 50;
-        if (rel.date) score += 10;
+        else if (country === 'GB' || country === 'UK') score += 50;
+        else if (country === 'XE' || country === 'XW' || country === 'CA') score += 30;
+
+        if (rel.status === 'Official') score += 80;
+        else if (rel.status === 'Promotion' || rel.status === 'Bootleg') score -= 60;
+
+        const formats = (rel.media || []).map(m => m.format).filter(Boolean);
+        const hasCdOrDigital = formats.some(f => ['CD', 'Digital Media', 'Enhanced CD', 'Hybrid SACD', 'SACD'].includes(f));
+        const hasVinylOrTape = formats.some(f => f.includes('Vinyl') || f === 'Cassette');
+        if (hasCdOrDigital) score += 120;
+        else if (hasVinylOrTape) score -= 50;
+
+        const dateStr = rel.date || '';
+        if (dateStr && dateStr.length >= 4 && /^\d{4}/.test(dateStr)) {
+            const relYear = parseInt(dateStr.slice(0, 4), 10);
+            if (originalYear) {
+                if (relYear === originalYear) {
+                    score += 80;
+                } else {
+                    score += Math.max(0, 50 - Math.abs(relYear - originalYear) * 4);
+                }
+            } else {
+                score += 20;
+            }
+        }
+
         return { rel, score };
     });
 
     scoredReleases.sort((a, b) => b.score - a.score);
     const chosenRelease = scoredReleases[0].rel;
 
-    // 2. Fetch full release details with recordings
+    // 3. Fetch full release details with recordings
     const releaseDetailUrl = `${MB_BASE}/release/${chosenRelease.id}?inc=recordings+artists+media&fmt=json`;
     const detailData = await fetchMusicBrainz(releaseDetailUrl);
 
