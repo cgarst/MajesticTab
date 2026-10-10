@@ -2,8 +2,8 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
-import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages } from './gpProcessor/gpHandler.js';
-import { setGpDisplayScale, applySavedGpDisplayScale } from './gpProcessor/gpProcessor.js';
+import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios } from './gpProcessor/gpHandler.js';
+import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode } from './gpProcessor/gpProcessor.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls } from './utils/navigationUtils.js';
@@ -356,6 +356,19 @@ function setupSettings() {
         radio.addEventListener('change', () => {
             if (radio.checked) {
                 localStorage.setItem('txtDefaultView', radio.value);
+            }
+        });
+    });
+
+    // Guitar Pro Notation Mode (Tab Only vs Tab + Standard)
+    const savedGpNotation = getGpNotationMode();
+    syncGpNotationRadios(savedGpNotation);
+
+    const gpNotationRadios = document.querySelectorAll('input[name="gpNotationRadio"], input[name="synthNotationRadio"]');
+    gpNotationRadios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                applyGpNotationMode(radio.value);
             }
         });
     });
