@@ -2,62 +2,8 @@
 
 MajesticTab is a guitar tab viewer designed for practice, learning, and focused reading on desktop, mobile, and tablet screens. It lets you open Guitar Pro files directly, load tab PDFs, or view text tabs in clean page or continuous scroll modes with minimal distractions.
 
- - [See more about MajesticTab here](https://cgarst.github.io/MajesticTab/)
- - [Try MajesticTab here](https://cgarst.github.io/MajesticTab/app/)
-
----
-
-## What MajesticTab does
-
-MajesticTab is built for guitarists who want a clean way to read tablature without the clutter of a full DAW or score editor. It combines:
-
-- Guitar Pro viewing for `.gp`, `.gp3`, `.gp4`, `.gp5`, and `.gpx` files
-- Plain-text tab and chord sheet viewing for `.txt` files, with a configurable default view and tab size
-- PDF tab viewing for multi-track tablature exports and other tab PDFs
-- Responsive layout for desktop, tablet, and mobile devices
-- Page and continuous reading modes
-- Dark mode, finish-inspired themes, and adjustable sheet sizing
-- SoundFont playback for Guitar Pro files with speed control, metronome, and count-in
-- YouTube audio support for original-song and backing-track practice
-- Google Drive import for tabs stored in the cloud
-- PDF cleanup tools for condensing and simplifying tab layouts
-
----
-
-## Current feature set
-
-### Guitar Pro viewer
-
-- Opens Guitar Pro files directly in the browser
-- Supports standard Guitar Pro formats: `.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`
-- Renders notation and tablature using AlphaTab
-- Supports page mode and continuous scroll mode
-- Adjustable sheet size for legibility and layout control
-- Mouse, touch, and keyboard navigation
-- SoundFont playback for practicing along with the tab
-- Speed controls, timeline scrubbing, metronome, and count-in options
-- YouTube integration for original-song or backing-track practice audio
-- Compatible with Bluetooth page-turner pedals and keyboard shortcuts
-
-### PDF tab viewer
-
-- Loads PDF guitar tabs and other sheet-style tab documents
-- Handles multi-track tab layouts and tab-only exports from Guitar Pro
-- Offers page and continuous-view modes
-- Cleans up empty staves, trims unnecessary whitespace, and re-groups visible content
-- Lets you compare the original PDF with the optimized view
-- Exports a condensed PDF for easier printing or reading on the go
-- Includes beta PDF condensation and debug overlay tools in the settings menu
-
-### Reading experience and UI
-
-- Dark mode and theme-aware presentation with guitar-finish inspired colorways
-- Responsive layout that adapts to screen size and orientation
-- One-page or two-page viewing in page mode depending on the layout
-- Smooth navigation with previous/next controls, scroll, and keyboard shortcuts
-- Local file loading and Google Drive access for tab libraries
-- Fullscreen support and top-bar playback controls for focused practice sessions
-- Local-first app flow: everything runs in the browser and stays on your device
+ - [Read about MajesticTab features here](https://majestictab.zathu.net/)
+ - [Try MajesticTab here](https://majestictab.zathu.net/app/)
 
 ---
 
@@ -65,7 +11,8 @@ MajesticTab is built for guitarists who want a clean way to read tablature witho
 
 ### Prerequisites
 
-- A modern web browser such as Chrome, Edge, Firefox, or Safari
+- Web version supports Chrome, Edge, Firefox, or Safari
+- Native versions include Windows, macOS, Linux, or Android
 
 ### Run locally
 
@@ -81,12 +28,6 @@ Then open:
 
 - `http://localhost:8000/` for the landing page
 - `http://localhost:8000/app/` for the app
-
-### Run through GitHub Pages
-
-The app is fully client-side and can be hosted through GitHub Pages at:
-
-- https://cgarst.github.io/MajesticTab/app/
 
 ---
 
@@ -198,8 +139,6 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 ---
 
 ## Landing page screenshots
-
-The landing page uses screenshots generated from the demo tab in `tests/Keystone.gp` and `tests/Keystone.pdf`.
 
 To regenerate them:
 
