@@ -25,6 +25,20 @@
   - **Vertical Text & Pill Rhythm:** Maintain comfortable vertical spacing between song titles and subtitle badge rows (`mt-1.5` / `mt-2` or `gap-2.5`) to prevent text and badges from visually bunching together.
   - **Top Bar Centering (`#centerSection`):** The middle section (`#centerSection` containing the Page/Scroll mode selector and library navigation buttons) must remain perfectly centered horizontally across all screen sizes and viewport widths. `#topBar` uses a symmetric 3-column grid (`grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr)`). Side containers (`#brandSection` and `#rightSection`) must retain `min-width: 0` so that differing content lengths on the left (e.g. song breadcrumbs) vs right (audio pills) do not distort the `1fr` track distributions and push the center controls off-center.
 
+## Typography & Casing Consistency
+
+To ensure high visual polish, scannability, and consistency across marketing pages and product interfaces, follow these casing and punctuation standards:
+
+- **Section Headlines & Titles (Sentence case):** All major section headlines (e.g., `<h1>`, `<h2>`, hero titles, section value propositions) must use **Sentence case**. Capitalize only the first word and proper nouns/branded names (e.g., *MajesticTab*, *YouTube*, *SoundFont*, *Bluetooth*, *Google Drive*, *PDF*).
+  - *Correct:* `Continuous scroll or book-like pages`, `YouTube audio and backing tracks`, `Gamepad and Bluetooth page turner support`
+  - *Incorrect:* `Continuous Scroll or Book-Like Pages`, `YouTube Audio & Backing Tracks`
+- **Eyebrows & Category Kickers (Title Case):** Sub-headings and kickers positioned above section headlines (often styled with `text-xs font-bold uppercase tracking-widest`) must use **Title Case** in raw HTML text (2–4 words max).
+  - *Correct:* `Two Ways to Read`, `Multi-Track Focus`, `Practice in Sync`, `Hands-Free Control`, `Visual Finishes`
+  - *Incorrect:* `Two ways to read`, `Practice In Sync`
+- **Feature Cards & Sub-Headers (Sentence case):** Card headlines (`<h3>`) and item summaries should use **Sentence case** (e.g., `Export to PDF`, `Fills your screen`, `Easy on the eyes`).
+- **Ampersands vs. "and":** Write out **"and"** in editorial headlines and body copy (e.g., *"Gamepad and Bluetooth page turner support"*, *"PDF export and condensing"*). Reserve the ampersand (`&`) only for compact badges, pill groups, or tight navigation links where space is strictly constrained.
+- **Navigation & CTA Buttons (Title Case):** Navigation links, standalone call-to-action buttons, and modal action triggers should use **Title Case** (e.g., `Download MajesticTab`, `Open App`, `Tab Library`).
+
 ## Test Procedures
 
 ### Local Dev Server
