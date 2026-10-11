@@ -23,6 +23,7 @@ import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setIn
 import { initBackupRestore } from './backupRestore.js';
 import { showToast } from './utils/toast.js';
 import { initGamepadManager } from './utils/gamepadManager.js';
+import { isSteamDeck, applyPlatformDefaults, getDefaultView, getDefaultLandscapePageLayout } from './utils/platformUtils.js';
 
 // Handle window resizing 
 let resizeTimeout;
@@ -242,6 +243,9 @@ let continuous = false;
 
 // --- SETTINGS MANAGEMENT ---
 function setupSettings() {
+    // Apply platform defaults on initial launch/install (e.g. Steam Deck defaults to Page view and 1-page landscape)
+    applyPlatformDefaults();
+
     // Load settings from localStorage
     const savedDebugMode = localStorage.getItem('debugMode') === 'true';
     
@@ -357,7 +361,7 @@ function setupSettings() {
     // Setup Default View selectors for GP and PDF
     document.querySelectorAll('[data-bs-toggle="tooltip"]').forEach(el => new bootstrap.Tooltip(el));
 
-    let savedGpDefaultView = localStorage.getItem('gpDefaultView') || 'continuous';
+    let savedGpDefaultView = localStorage.getItem('gpDefaultView') || getDefaultView('gp');
     const gpDefaultRadios = document.querySelectorAll('input[name="gpDefaultViewRadio"]');
     gpDefaultRadios.forEach(radio => {
         if (radio.value === savedGpDefaultView) {
@@ -370,7 +374,7 @@ function setupSettings() {
         });
     });
 
-    let savedPdfDefaultView = localStorage.getItem('pdfDefaultView') || 'page';
+    let savedPdfDefaultView = localStorage.getItem('pdfDefaultView') || getDefaultView('pdf');
     const pdfDefaultRadios = document.querySelectorAll('input[name="pdfDefaultViewRadio"]');
     pdfDefaultRadios.forEach(radio => {
         if (radio.value === savedPdfDefaultView) {
@@ -383,7 +387,7 @@ function setupSettings() {
         });
     });
 
-    let savedTxtDefaultView = localStorage.getItem('txtDefaultView') || 'continuous';
+    let savedTxtDefaultView = localStorage.getItem('txtDefaultView') || getDefaultView('txt');
     document.querySelectorAll('input[name="txtDefaultViewRadio"]').forEach(radio => {
         if (radio.value === savedTxtDefaultView) {
             radio.checked = true;
@@ -396,7 +400,7 @@ function setupSettings() {
     });
 
     // Setup Landscape in Page Mode selector (dual vs single page)
-    let savedLandscapeLayout = localStorage.getItem('landscapePageLayout') || 'dual';
+    let savedLandscapeLayout = localStorage.getItem('landscapePageLayout') || getDefaultLandscapePageLayout();
     const landscapeLayoutRadios = document.querySelectorAll('input[name="landscapePageLayoutRadio"]');
     landscapeLayoutRadios.forEach(radio => {
         if (radio.value === savedLandscapeLayout) {
@@ -1087,7 +1091,7 @@ export async function loadFile(file, { hideMenu = true } = {}) {
         continuousModeRadio.checked = true;
         pageModeRadio.checked = false;
     } else if (isFileType(file, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
-        const gpDefault = localStorage.getItem('gpDefaultView') || 'continuous';
+        const gpDefault = localStorage.getItem('gpDefaultView') || getDefaultView('gp');
         if (gpDefault === 'continuous') {
             continuousModeRadio.checked = true;
             pageModeRadio.checked = false;
@@ -1096,11 +1100,11 @@ export async function loadFile(file, { hideMenu = true } = {}) {
             continuousModeRadio.checked = false;
         }
     } else if (isFileType(file, ['txt'])) {
-        const txtDefault = localStorage.getItem('txtDefaultView') || 'continuous';
+        const txtDefault = localStorage.getItem('txtDefaultView') || getDefaultView('txt');
         continuousModeRadio.checked = txtDefault === 'continuous';
         pageModeRadio.checked = txtDefault !== 'continuous';
     } else if (isFileType(file, ['pdf'])) {
-        const pdfDefault = localStorage.getItem('pdfDefaultView') || 'page';
+        const pdfDefault = localStorage.getItem('pdfDefaultView') || getDefaultView('pdf');
         if (pdfDefault === 'continuous') {
             continuousModeRadio.checked = true;
             pageModeRadio.checked = false;
