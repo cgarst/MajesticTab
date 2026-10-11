@@ -33,9 +33,11 @@ FORCE_DEFAULT_THEME_JS = """
   try {
     localStorage.removeItem('majestictab_theme');
     localStorage.removeItem('majestictab_sheet_mode');
+    localStorage.removeItem('gpSheetScale');
     localStorage.setItem('hasSeenControllerGuide', 'true');
   } catch (e) {}
   document.documentElement.setAttribute('data-theme', 'Mystic Dream');
+  import('/app/gpProcessor/gpProcessor.js').then(m => m.applySavedGpDisplayScale()).catch(() => {});
 }
 """
 
@@ -98,7 +100,7 @@ def wait_for_album_artwork(page, timeout=12000):
     page.wait_for_timeout(1000)
 
 
-def load_file(page, base_url, path, mode, condense=False):
+def load_file(page, base_url, path, mode, condense=False, scale=None):
     """Open the app fresh with ?test=<filename>, and pick 'page' or 'continuous' view.
 
     With condense=True the (experimental) Condense PDF option is enabled first.
@@ -106,6 +108,23 @@ def load_file(page, base_url, path, mode, condense=False):
     filename = Path(path).name
     page.goto(f"{base_url}/app/?test={filename}", wait_until="load", timeout=60000)
     page.evaluate(FORCE_DEFAULT_THEME_JS)
+    if scale:
+        page.evaluate(f"""async () => {{
+            try {{
+                localStorage.setItem('gpSheetScale', '{scale}');
+                const gpMod = await import('/app/gpProcessor/gpProcessor.js');
+                gpMod.setGpDisplayScale({scale});
+                const input = document.getElementById('gpSheetScale');
+                const scaleVal = document.getElementById('gpSheetScaleValue');
+                if (input) {{
+                    input.value = '{scale}';
+                    input.dispatchEvent(new Event('input'));
+                    input.dispatchEvent(new Event('change'));
+                }}
+                if (scaleVal) scaleVal.textContent = '{scale}%';
+            }} catch (e) {{}}
+        }}""")
+        page.wait_for_timeout(2000)
     if condense:
         page.evaluate("document.querySelector('#condensePdfMode').click()")
     page.wait_for_selector("#output canvas, #output svg", timeout=90000)
@@ -116,13 +135,24 @@ def load_file(page, base_url, path, mode, condense=False):
     page.wait_for_timeout(2000)
 
 
-def load_stored_tab(page, base_url, search_query, mode="continuous"):
+def load_stored_tab(page, base_url, search_query, mode="continuous", scale=None):
     """Load a tab directly from IndexedDB fileStore by partial filename match."""
     page.goto(f"{base_url}/app/", wait_until="networkidle", timeout=60000)
     page.evaluate(FORCE_DEFAULT_THEME_JS)
     page.wait_for_timeout(1000)
     res = page.evaluate(
-        """async (query) => {
+        """async ({ query, scale }) => {
+        if (scale) {
+            try {
+                localStorage.setItem('gpSheetScale', String(scale));
+                const gpMod = await import('/app/gpProcessor/gpProcessor.js');
+                gpMod.setGpDisplayScale(scale);
+                const scaleInput = document.getElementById('gpSheetScale');
+                const scaleVal = document.getElementById('gpSheetScaleValue');
+                if (scaleInput) scaleInput.value = String(scale);
+                if (scaleVal) scaleVal.textContent = `${scale}%`;
+            } catch (e) {}
+        }
         const fsMod = await import('/app/fileStore.js');
         const files = await fsMod.getAllStoredFiles();
         const f = files.find(x => x.name.toLowerCase().includes(query.toLowerCase()));
@@ -132,11 +162,11 @@ def load_stored_tab(page, base_url, search_query, mode="continuous"):
         await main.loadFile(stored.file);
         return { success: true, name: f.name };
     }""",
-        search_query,
+        {"query": search_query, "scale": scale},
     )
     if res and res.get("error"):
         print(f"[warning] {res['error']}, falling back to test tab...")
-        load_file(page, base_url, GP_FILE, mode)
+        load_file(page, base_url, GP_FILE, mode, scale=scale)
         return False
     print(f"[tab] loaded stored tab: {res.get('name')}")
     page.wait_for_selector("#output canvas, #output svg", timeout=90000)
@@ -224,20 +254,20 @@ def main():
                     wait_for_album_artwork(page)
                     save("library_album_parasomnia")
 
-                # 3. Continuous Scroll View: Rush - Tom Sawyer
+                # 3. Continuous Scroll View: Opeth - Ghost of Perdition (at 50% tab size)
                 if wanted("gp_scroll"):
                     if has_backup:
-                        load_stored_tab(page, base_url, "rush_tom_sawyer.gp4", "continuous")
+                        load_stored_tab(page, base_url, "ghost_of_perdition", "continuous", scale=70)
                     else:
-                        load_file(page, base_url, GP_FILE, "continuous")
+                        load_file(page, base_url, GP_FILE, "continuous", scale=50)
                     save("gp_scroll")
 
-                # 4. Page View: Rush - Tom Sawyer (same song as scroll view)
+                # 4. Page View: Opeth - Ghost of Perdition (at 50% tab size, same song as scroll view)
                 if wanted("gp_page"):
                     if has_backup:
-                        load_stored_tab(page, base_url, "rush_tom_sawyer.gp4", "page")
+                        load_stored_tab(page, base_url, "ghost_of_perdition", "page", scale=70)
                     else:
-                        load_file(page, base_url, GP_FILE, "page")
+                        load_file(page, base_url, GP_FILE, "page", scale=50)
                     save("gp_page")
 
                 # 5. Top Bar HUD crop (desktop only): Megadeth - Hangar 18 (NO gamepad pill, clipped 2px bottom)
