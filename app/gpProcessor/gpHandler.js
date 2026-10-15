@@ -112,13 +112,23 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
             const stringCount = scoreMeta.stringCount || null;
 
             addRecentOpened({
-                id: file.name,
-                name: file.name,
-                providerId: 'local',
-                relativePath: file.name,
-                songTitle: api.score.title || file.name.replace(/\.[^/.]+$/, ''),
-                artist: api.score.artist || '',
-                album: api.score.album || '',
+                id: (file.librarySongId && file.tabId) 
+                    ? `${file.librarySongId}_tab_${file.tabId}` 
+                    : (file.name + (file.startPage ? `_p${file.startPage}_${file.endPage}` : '')),
+                name: file.tabName || file.name,
+                fileName: file.name,
+                tabId: file.tabId || null,
+                tabName: file.tabName || file.name,
+                startPage: file.startPage || null,
+                endPage: file.endPage || null,
+                fileStoreId: file.fileStoreId || null,
+                librarySongId: file.librarySongId || null,
+                providerId: file.providerId || 'local',
+                relativePath: file.relativePath || file.name,
+                songTitle: file.librarySongTitle || file.songTitle || api.score.title || file.name.replace(/\.[^/.]+$/, ''),
+                artist: file.artist || api.score.artist || '',
+                album: file.album || api.score.album || '',
+                coverUrl: file.coverUrl || null,
                 tuning: primaryTuning,
                 stringCount: stringCount,
                 tunings

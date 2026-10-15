@@ -788,10 +788,15 @@ export async function updateLibrarySongFromScore({ fileName, title, artist, albu
  */
 export async function addRecentOpened(fileInfo) {
     const db = await getDB();
-    const id = fileInfo.id || fileInfo.name || `recent_${Date.now()}`;
+    const id = fileInfo.id || ((fileInfo.librarySongId && fileInfo.tabId) ? `${fileInfo.librarySongId}_tab_${fileInfo.tabId}` : fileInfo.name) || `recent_${Date.now()}`;
     const recent = {
         id,
         name: fileInfo.name,
+        fileName: fileInfo.fileName || fileInfo.name,
+        tabId: fileInfo.tabId || null,
+        tabName: fileInfo.tabName || fileInfo.name || null,
+        startPage: fileInfo.startPage !== undefined ? fileInfo.startPage : null,
+        endPage: fileInfo.endPage !== undefined ? fileInfo.endPage : null,
         fileStoreId: fileInfo.fileStoreId || null,
         providerId: fileInfo.providerId || 'local',
         relativePath: fileInfo.relativePath || fileInfo.name,
