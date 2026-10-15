@@ -208,6 +208,7 @@ export function setupKeyboardNavigation(getConfig) {
         const prevPageKeys = ['ArrowLeft', 'ArrowUp', 'PageUp'];
 
         const isSpace = (e.key === ' ' || e.code === 'Space');
+        const isB = (e.key === 'b' || e.key === 'B');
 
         // Avoid handling keys when focused on editable text elements
         const activeEl = document.activeElement;
@@ -218,6 +219,15 @@ export function setupKeyboardNavigation(getConfig) {
             activeEl.isContentEditable
         );
         if (isTextInput) return;
+
+        // B key rewinds audio playback by 10 seconds
+        if (isB && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            if (isSynthAvailable() || isYouTubeAvailable() || isSynthPlaying() || isYouTubePlaying()) {
+                e.preventDefault();
+                handleGlobalRewind10Seconds();
+                return;
+            }
+        }
 
         // Prevent default browser scrolling and radio group switching for navigation and spacebar
         if (nextPageKeys.includes(e.key) || prevPageKeys.includes(e.key) || isSpace) {
