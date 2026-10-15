@@ -82,6 +82,39 @@ export function getGpStaveProfile(mode = getGpNotationMode()) {
     return isScoreTab ? 1 : 3;
 }
 
+export function getSavedHiddenTracks(file, instrumentMode = getInstrumentMode()) {
+    if (!file || typeof localStorage === 'undefined') return null;
+    const fileId = file.tabId || file.fileStoreId || file.name;
+    if (!fileId) return null;
+    const key = `gp_hidden_tracks_${instrumentMode}_${fileId.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return null;
+        return JSON.parse(raw);
+    } catch {
+        return null;
+    }
+}
+
+export function saveHiddenTracks(file, hiddenIndices, activeTracks = [], instrumentMode = getInstrumentMode()) {
+    if (!file || typeof localStorage === 'undefined') return;
+    const fileId = file.tabId || file.fileStoreId || file.name;
+    if (!fileId) return;
+    const key = `gp_hidden_tracks_${instrumentMode}_${fileId.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
+    try {
+        if (!hiddenIndices || hiddenIndices.length === 0) {
+            localStorage.removeItem(key);
+            return;
+        }
+        const hiddenNames = (activeTracks || [])
+            .filter(ti => hiddenIndices.includes(ti.index))
+            .map(ti => ti.track?.name || `Track ${ti.index + 1}`);
+        localStorage.setItem(key, JSON.stringify({ hiddenIndices, hiddenNames }));
+    } catch (e) {
+        console.warn('Could not save hidden tracks:', e);
+    }
+}
+
 export function loadGuitarPro(file, container, { debug = false } = {}) {
     return new Promise((resolve, reject) => {
         if (!container) {
@@ -126,7 +159,16 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
 
             // Step 2: filter tracks by active instrument mode (guitar vs bass)
             const activeTracks = getActiveInstrumentTracks(score);
-            const activeTrackIndices = activeTracks.map(ti => ti.index);
+            let activeTrackIndices = activeTracks.map(ti => ti.index);
+
+            // Step 2b: filter out any saved hidden tracks for this tab file
+            const savedHidden = getSavedHiddenTracks(file);
+            if (savedHidden && Array.isArray(savedHidden.hiddenIndices) && savedHidden.hiddenIndices.length > 0) {
+                const remaining = activeTrackIndices.filter(idx => !savedHidden.hiddenIndices.includes(idx));
+                if (remaining.length > 0) {
+                    activeTrackIndices = remaining;
+                }
+            }
 
             if (debug) {
                 console.log(`[GP] Active tracks (${getInstrumentMode()} mode) found:`, activeTrackIndices.length);
