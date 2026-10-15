@@ -281,11 +281,37 @@ export const BASS_PROGRAM_WHITELIST = [32, 33, 34, 35, 36, 37, 38, 39];
 
 export function isTrackPercussion(track) {
     if (!track) return false;
-    return Boolean(
+    if (
         track.isPercussion ||
         track.playbackInfo?.isPercussion ||
         track.staves?.some(s => s.isPercussion)
-    );
+    ) {
+        return true;
+    }
+
+    // Check MIDI channel 10 (channel index 9 in 0-indexed MIDI)
+    const primaryChannel = track.playbackInfo?.primaryChannel;
+    const secondaryChannel = track.playbackInfo?.secondaryChannel;
+    if (primaryChannel === 9 || secondaryChannel === 9) {
+        return true;
+    }
+
+    // Check GM Percussion program numbers (112-119: tinkle bell, agogo, steel drums, woodblock, taiko, melodic tom, synth drum, reverse cymbal)
+    const program = track.playbackInfo?.program ?? track.program;
+    if (typeof program === 'number' && (program >= 112 && program <= 119)) {
+        return true;
+    }
+
+    const name = (track.name || '').toLowerCase();
+    const percussionTerms = [
+        'drum', 'drums', 'percussion', 'batterie', 'schlagzeug',
+        'cymbals', 'cymbal', 'snare', 'hi-hat', 'hihat', 'kick drum', 'bass drum', 'toms'
+    ];
+    if (percussionTerms.some(term => name.includes(term))) {
+        return true;
+    }
+
+    return false;
 }
 
 export function isTrackBass(track) {
@@ -322,7 +348,8 @@ export function isTrackBass(track) {
     }
 
     if (hasBassTuning) return true;
-    if ((maxStrings === 4 || maxStrings === 5) && !name.includes('ukulele') && !name.includes('banjo') && !name.includes('mandolin') && !name.includes('violin') && !name.includes('cello')) {
+    const nonBassTerms = ['ukulele', 'banjo', 'mandolin', 'violin', 'cello', 'piano', 'keyboard', 'organ', 'flute', 'trumpet', 'drum'];
+    if ((maxStrings === 4 || maxStrings === 5) && !nonBassTerms.some(t => name.includes(t))) {
         return true;
     }
 
@@ -332,14 +359,12 @@ export function isTrackBass(track) {
 export function isTrackGuitar(track) {
     if (!track || isTrackPercussion(track)) return false;
     if (isTrackBass(track)) return false;
-    const program = track.playbackInfo?.program ?? track.program;
-    if (typeof program === 'number' && GUITAR_PROGRAM_WHITELIST.includes(program)) {
-        return true;
-    }
+
     const name = (track.name || '').toLowerCase();
-    if (
+    const hasGuitarName = (
         name.includes('guitar') ||
         name.includes('gtr') ||
+        /\bgit\b/.test(name) ||
         name.includes('rhythm') ||
         name.includes('lead') ||
         name.includes('clean') ||
@@ -347,10 +372,39 @@ export function isTrackGuitar(track) {
         name.includes('overdrive') ||
         name.includes('acoustic') ||
         name.includes('electric')
-    ) {
+    );
+
+    const nonGuitarTerms = [
+        'piano', 'keyboard', 'keys', 'organ', 'synth', 'synthesizer',
+        'vocal', 'voice', 'choir', 'strings', 'violin', 'viola', 'cello',
+        'contrabass', 'brass', 'horn', 'trumpet', 'trombone', 'tuba',
+        'sax', 'saxophone', 'flute', 'clarinet', 'oboe', 'bassoon',
+        'harp', 'accordion', 'harmonica'
+    ];
+    const hasNonGuitarTerm = nonGuitarTerms.some(term => name.includes(term));
+
+    // If the name explicitly mentions a non-guitar instrument (and doesn't explicitly mention guitar), reject
+    if (hasNonGuitarTerm && !name.includes('guitar') && !name.includes('gtr')) {
+        return false;
+    }
+
+    const program = track.playbackInfo?.program ?? track.program;
+    if (typeof program === 'number') {
+        if (GUITAR_PROGRAM_WHITELIST.includes(program)) {
+            return true;
+        }
+        // If program is explicitly set to a non-guitar GM category (e.g. Piano: 0-7, Chromatic: 8-15, Organ: 16-23, Strings/Ensemble/Brass/etc.: 40-127)
+        // and track name does NOT explicitly indicate guitar, reject
+        if (!hasGuitarName && (program < 24 || program > 31)) {
+            return false;
+        }
+    }
+
+    if (hasGuitarName) {
         return true;
     }
 
+    // Check staff strings and tuning
     let maxStrings = 0;
     for (const staff of (track.staves || [])) {
         if (staff.isPercussion) continue;
@@ -360,11 +414,9 @@ export function isTrackGuitar(track) {
     if (track.tuning && Array.isArray(track.tuning)) {
         if (track.tuning.length > maxStrings) maxStrings = track.tuning.length;
     }
-    if (maxStrings >= 6) return true;
 
-    // If program is unspecified/default (e.g. 24 or 25) and not an excluded non-guitar instrument
-    const nonGuitarTerms = ['piano', 'organ', 'keyboard', 'synth', 'vocal', 'voice', 'strings', 'brass', 'sax', 'trumpet', 'flute', 'drum'];
-    if (!nonGuitarTerms.some(term => name.includes(term))) {
+    // Only treat as guitar if strings >= 6 AND not excluded by nonGuitarTerms
+    if (maxStrings >= 6 && !hasNonGuitarTerm) {
         return true;
     }
 
