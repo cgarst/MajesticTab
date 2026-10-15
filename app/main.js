@@ -1049,28 +1049,34 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     updateSongForYouTube({ filename: file.name });
     
     // Record to recents
+    const buildRecentPayload = (primaryTuning, stringCount, tunings) => ({
+        id: (file.librarySongId && file.tabId) 
+            ? `${file.librarySongId}_tab_${file.tabId}` 
+            : (file.name + (file.startPage ? `_p${file.startPage}_${file.endPage}` : '')),
+        name: file.tabName || file.name,
+        fileName: file.name,
+        tabId: file.tabId || null,
+        tabName: file.tabName || file.name,
+        startPage: file.startPage || null,
+        endPage: file.endPage || null,
+        fileStoreId: file.fileStoreId || null,
+        librarySongId: file.librarySongId || null,
+        providerId: file.providerId || 'local',
+        relativePath: file.relativePath || file.name,
+        songTitle: file.librarySongTitle || file.songTitle || file.name.replace(/\.[^/.]+$/, ''),
+        artist: file.artist || '',
+        album: file.album || '',
+        coverUrl: file.coverUrl || null,
+        tuning: primaryTuning,
+        stringCount: stringCount,
+        tunings: tunings || []
+    });
+
     detectFileMetadata(file, file.name).then(meta => {
-        addRecentOpened({
-            id: file.name,
-            name: file.name,
-            providerId: 'local',
-            relativePath: file.name,
-            songTitle: file.name.replace(/\.[^/.]+$/, ''),
-            tuning: meta.primaryTuning,
-            stringCount: meta.stringCount,
-            tunings: meta.tunings || []
-        }).catch(() => {});
+        addRecentOpened(buildRecentPayload(meta.primaryTuning, meta.stringCount, meta.tunings)).catch(() => {});
     }).catch(() => {
         const detectedTuning = inferTuningFromTextOrName(file.name);
-        addRecentOpened({
-            id: file.name,
-            name: file.name,
-            providerId: 'local',
-            relativePath: file.name,
-            songTitle: file.name.replace(/\.[^/.]+$/, ''),
-            tuning: detectedTuning,
-            tunings: detectedTuning ? [detectedTuning] : []
-        }).catch(() => {});
+        addRecentOpened(buildRecentPayload(detectedTuning, null, detectedTuning ? [detectedTuning] : [])).catch(() => {});
     });
 
     // Show navigation controls for all supported file types
