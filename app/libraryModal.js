@@ -778,8 +778,8 @@ async function renderLibraryBrowseView(container) {
                 bodyHtml = `
                 <div class="album-detail-view">
                   <div class="library-album-banner d-flex flex-column gap-3 mb-3">
-                    <div class="d-flex align-items-center justify-content-between gap-3 min-w-0">
-                      <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+                    <div class="album-banner-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 min-w-0">
+                      <div class="d-flex align-items-center gap-3 min-w-0 w-100 flex-grow-1">
                         <img src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(album.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
                         <div class="min-w-0 flex-grow-1">
                           <span class="badge badge-theme-primary mb-1" style="font-size:0.68rem;">Album</span>
@@ -790,15 +790,15 @@ async function renderLibraryBrowseView(container) {
                         </div>
                       </div>
 
-                      <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+                      <div class="album-banner-actions d-flex align-items-center gap-2 flex-wrap flex-shrink-0">
                         ${!isCustomArtist ? `
-                          <button class="btn btn-sm btn-theme-outline py-1 px-3 d-flex align-items-center gap-1" id="exploreLibAlbumTracklistBtn" title="Fetch complete album tracklist from MusicBrainz to view all tracks and add missing songs">
+                          <button class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 d-flex align-items-center gap-1" id="exploreLibAlbumTracklistBtn" title="Fetch complete album tracklist from MusicBrainz to view all tracks and add missing songs">
                             <i class="bi-music-note-list text-info"></i> <span class="d-none d-sm-inline">Explore Tracklist</span><span class="d-inline d-sm-none">Tracks</span>
                           </button>
                         ` : ''}
 
                         <div class="dropdown">
-                          <button class="btn btn-sm btn-theme-outline py-1 px-3 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach full album tab book or document">
+                          <button class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach full album tab book or document">
                             <i class="bi-journal-album"></i> <span>+ Album Tab</span>
                           </button>
                           <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
@@ -1449,22 +1449,23 @@ function renderSongRow(song, options = {}) {
 
     return `
     <div class="library-song-row d-flex flex-column gap-2 position-relative ${isPinned ? 'library-song-row-pinned' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
-      <div class="d-flex align-items-center justify-content-between gap-3">
-        <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+      <div class="d-flex align-items-center justify-content-between gap-2 gap-sm-3">
+        <div class="d-flex align-items-center gap-2 gap-sm-3 min-w-0 flex-grow-1">
           ${showTrackNumber ? `<span class="badge-track-num flex-shrink-0">${song.trackNumber || '•'}</span>` : ''}
           <div class="min-w-0 flex-grow-1">
             <div class="d-flex align-items-center gap-2 min-w-0 flex-wrap">
-              <span class="fw-semibold text-white text-truncate" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
+              <span class="library-song-title fw-semibold text-white" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
               ${isPinned ? `<span class="badge badge-theme-warning py-0 px-2" style="font-size:0.62rem;"><i class="bi-pin-angle-fill me-1"></i>Pinned</span>` : ''}
-              ${durationText ? `<span class="badge badge-theme-secondary py-1 px-2 text-muted font-monospace" style="font-size:0.68rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
+              ${durationText ? `<span class="badge badge-theme-secondary py-1 px-2 text-muted font-monospace d-none d-sm-inline-block" style="font-size:0.68rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
             </div>
             ${options.showArtistAlbum ? `
               <div class="small text-muted text-truncate mt-1" title="${escapeHtml(song.artist || '')} • ${escapeHtml(song.album || '')}">
                 ${escapeHtml(song.artist || 'Unknown Artist')}${song.album ? ` • ${escapeHtml(song.album)}` : ''}
               </div>
             ` : ''}
-            ${(tunings.length > 0 || hasTabs) ? `
+            ${(tunings.length > 0 || hasTabs || durationText) ? `
               <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
+                ${durationText ? `<span class="badge badge-theme-secondary py-0 px-1 text-muted font-monospace d-inline-block d-sm-none" style="font-size:0.65rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
                 ${tunings.map(t => {
                   const info = getTuningInfo(t);
                   const label = info?.displayName || t;
@@ -1477,22 +1478,22 @@ function renderSongRow(song, options = {}) {
         </div>
 
         <!-- Action Buttons -->
-        <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+        <div class="d-flex align-items-center gap-1 gap-sm-2 flex-shrink-0 ms-1 ms-sm-2">
           <!-- Pin Song Button -->
           <button class="btn btn-sm btn-theme-icon p-1 px-2 pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song from collection' : 'Pin song to collection'}">
             <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
           </button>
 
           ${hasTabs ? `
-            <button class="btn btn-sm btn-theme-primary py-1 px-3 d-flex align-items-center gap-1 play-default-tab-btn" data-song-id="${song.id}" title="Play Default Tab">
+            <button class="btn btn-sm btn-theme-primary py-1 px-2 px-sm-3 d-flex align-items-center gap-1 play-default-tab-btn" data-song-id="${song.id}" title="Play Default Tab">
               <i class="bi-play-fill"></i> <span class="d-none d-sm-inline">Play</span>
             </button>
           ` : ''}
 
           <!-- Import / Download Tab Dropdown -->
           <div class="dropdown">
-            <button class="btn btn-sm btn-theme-outline py-1 px-3 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
-              <i class="bi-plus-lg"></i> <span>Tab</span>
+            <button class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
+              <i class="bi-plus-lg"></i> <span class="d-none d-sm-inline">Tab</span>
             </button>
             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
               ${albumPdfTabs.length > 0 ? `
@@ -3221,17 +3222,17 @@ function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistNa
                             (t.id && existingSongKeys.has(`rec:${t.id}`)) ||
                             existingSongKeys.has(`${(artistName || '').toLowerCase().trim()}:::${(t.title || '').toLowerCase().trim()}`);
         return `
-        <div class="library-track-row d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0">
-          <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
+        <div class="library-track-row d-flex align-items-center justify-content-between gap-2 gap-sm-3" role="button" tabindex="0">
+          <div class="d-flex align-items-center gap-2 gap-sm-3 min-w-0 flex-grow-1">
             <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
-            <span class="text-white text-truncate fw-semibold" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
+            <span class="library-song-title fw-semibold text-white" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
           </div>
           ${isSongInLib ? `
-            <button class="btn btn-sm btn-theme-success py-1 px-3 disabled flex-shrink-0 ms-2" title="Track already in library">
-              <i class="bi-check-lg me-1"></i> In Library
+            <button class="btn btn-sm btn-theme-success py-1 px-2 px-sm-3 disabled flex-shrink-0 ms-1 ms-sm-2" title="Track already in library">
+              <i class="bi-check-lg me-1"></i> <span class="d-none d-sm-inline">In Library</span><span class="d-inline d-sm-none">Saved</span>
             </button>
           ` : `
-            <button class="btn btn-sm btn-theme-outline py-1 px-3 add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
+            <button class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 add-single-track-btn flex-shrink-0 ms-1 ms-sm-2" data-track-idx="${idx}">
               <i class="bi-plus"></i> Add
             </button>
           `}
