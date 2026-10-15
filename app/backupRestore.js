@@ -242,9 +242,23 @@ export async function readBackupFileText(file) {
         const isGzip = bytes.length >= 2 && bytes[0] === 0x1F && bytes[1] === 0x8B;
 
         if (isGzip && typeof DecompressionStream !== 'undefined') {
-            const stream = file.stream().pipeThrough(new DecompressionStream('gzip'));
-            const response = new Response(stream);
-            return await response.text();
+            const rawStream = (typeof file.stream === 'function')
+                ? file.stream()
+                : new Response(file).body;
+
+            if (rawStream) {
+                const decompressedStream = rawStream.pipeThrough(new DecompressionStream('gzip'));
+                const reader = decompressedStream.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let result = '';
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    result += decoder.decode(value, { stream: true });
+                }
+                result += decoder.decode();
+                return result;
+            }
         }
     } catch (e) {
         console.warn('[Restore] DecompressionStream attempt failed, falling back to raw text:', e);
