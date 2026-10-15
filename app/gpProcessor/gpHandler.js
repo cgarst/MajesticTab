@@ -1,4 +1,4 @@
-import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks, getActiveInstrumentTracks, getGpNotationMode, setGpNotationMode, getGpStaveProfile } from './gpProcessor.js';
+import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks, getActiveInstrumentTracks, getGpNotationMode, setGpNotationMode, getGpStaveProfile, saveHiddenTracks } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
@@ -38,6 +38,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
     // Reset state and clear output
     gpState.reset();
+    gpState.currentFile = file;
     gpState.lastLayoutDimensions = null; // Force fresh layout calculation
     clearOutput(output);
 
@@ -634,15 +635,22 @@ export function populateGpTrackSelectionUI(api) {
             }
         }
         applyGpTrackSelection(newIndices);
+        const allIndices = activeTracks.map(ti => ti.index);
+        const hiddenIndices = allIndices.filter(idx => !newIndices.includes(idx));
+        saveHiddenTracks(gpState.currentFile, hiddenIndices, activeTracks);
     };
 
     const handleOnly = (trackIndex) => {
         applyGpTrackSelection([trackIndex]);
+        const allIndices = activeTracks.map(ti => ti.index);
+        const hiddenIndices = allIndices.filter(idx => idx !== trackIndex);
+        saveHiddenTracks(gpState.currentFile, hiddenIndices, activeTracks);
     };
 
     const handleShowAll = () => {
         const allIndices = activeTracks.map(ti => ti.index);
         applyGpTrackSelection(allIndices);
+        saveHiddenTracks(gpState.currentFile, [], activeTracks);
     };
 
     // Attach listeners
