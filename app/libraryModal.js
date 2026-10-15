@@ -2162,15 +2162,29 @@ async function loadSongTab(song, tabOption) {
             file.librarySongTitle = song.title;
             file.artist = song.artist;
             file.album = song.album;
+            file.coverUrl = song.coverUrl;
+            file.tunings = song.tunings;
             file.startPage = tabOption.startPage;
             file.endPage = tabOption.endPage;
+            file.tabId = tabOption.id;
+            file.tabName = tabOption.name || file.name;
+            file.fileStoreId = tabOption.fileStoreId;
+            file.librarySongId = song.id;
             closeLibraryModal();
             await loadFile(file);
 
-            // Record recent with full library metadata
+            // Record recent with full library and specific tab metadata
+            const recentId = (song.id && tabOption.id) 
+                ? `${song.id}_tab_${tabOption.id}` 
+                : (file.name + (tabOption.startPage ? `_p${tabOption.startPage}_${tabOption.endPage}` : ''));
             await addRecentOpened({
-                id: file.name + (tabOption.startPage ? `_p${tabOption.startPage}_${tabOption.endPage}` : ''),
+                id: recentId,
                 name: tabOption.name || file.name,
+                fileName: file.name,
+                tabId: tabOption.id,
+                tabName: tabOption.name || file.name,
+                startPage: tabOption.startPage,
+                endPage: tabOption.endPage,
                 fileStoreId: tabOption.fileStoreId,
                 providerId: tabOption.providerId || 'local',
                 relativePath: tabOption.relativePath || file.name,
@@ -3294,6 +3308,9 @@ async function renderRecentsView(container) {
             const tunings = (Array.isArray(r.tunings) ? r.tunings : []).filter(t => isTuningMatchingInstrument(t));
             const timeAgo = formatTimeAgo(r.openedAt);
 
+            const tabLabel = r.tabName || r.fileName || ((r.name && r.name !== r.songTitle) ? r.name : '');
+            const isPdf = Boolean((r.fileName || r.name || '').toLowerCase().endsWith('.pdf') || r.startPage);
+
             return `
             <div class="library-row-card d-flex align-items-center justify-content-between gap-3" data-recent-id="${escapeHtml(r.id)}">
               <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
@@ -3301,6 +3318,12 @@ async function renderRecentsView(container) {
                 <div class="min-w-0 flex-grow-1">
                   <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(r.songTitle || r.name)}">${escapeHtml(r.songTitle || r.name)}</h6>
                   <div class="small text-muted text-truncate" title="${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}">${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}</div>
+                  ${tabLabel ? `
+                    <div class="small text-white-50 text-truncate mt-1 d-flex align-items-center gap-1" style="font-size: 0.72rem;">
+                      <i class="bi-${isPdf ? 'file-earmark-pdf text-warning' : 'file-earmark-music text-info'}"></i>
+                      <span class="text-truncate fw-medium">${escapeHtml(tabLabel)}${r.startPage ? ` (p. ${r.startPage}${r.endPage && r.endPage !== r.startPage ? `-${r.endPage}` : ''})` : ''}</span>
+                    </div>
+                  ` : ''}
                   <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
                     ${tunings.map(t => {
                       const info = getTuningInfo(t);
@@ -3367,6 +3390,25 @@ async function renderRecentsView(container) {
     container.querySelectorAll('.open-recent-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
             const r = JSON.parse(btn.dataset.recent);
+
+            // 1. If associated with a library song, load that specific tab
+            if (r.librarySongId) {
+                const song = await getSongById(r.librarySongId);
+                if (song && Array.isArray(song.tabOptions) && song.tabOptions.length > 0) {
+                    const specificTab = (r.tabId && song.tabOptions.find(t => t.id === r.tabId))
+                        || (r.fileStoreId && song.tabOptions.find(t => t.fileStoreId === r.fileStoreId))
+                        || (r.name && song.tabOptions.find(t => t.name === r.name || t.relativePath === r.name))
+                        || (r.fileName && song.tabOptions.find(t => t.name === r.fileName || t.relativePath === r.fileName))
+                        || (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId))
+                        || song.tabOptions[0];
+                    if (specificTab) {
+                        await loadSongTab(song, specificTab);
+                        return;
+                    }
+                }
+            }
+
+            // 2. Direct fileStoreId loading
             if (r.fileStoreId) {
                 const stored = await getStoredFile(r.fileStoreId);
                 if (stored?.file) {
@@ -3374,6 +3416,11 @@ async function renderRecentsView(container) {
                     stored.file.librarySongTitle = r.songTitle || r.name;
                     stored.file.artist = r.artist || '';
                     stored.file.album = r.album || '';
+                    stored.file.startPage = r.startPage || null;
+                    stored.file.endPage = r.endPage || null;
+                    stored.file.tabId = r.tabId || null;
+                    stored.file.tabName = r.tabName || r.name;
+                    stored.file.fileStoreId = r.fileStoreId;
                     closeLibraryModal();
                     await loadFile(stored.file);
                     return;
