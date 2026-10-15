@@ -399,6 +399,12 @@ export function initTauriDownloadListener() {
                 updateUrlBar(url);
             }
         });
+
+        // Window closed event from native webview toolbar
+        window.__TAURI__.event.listen('tab-downloader-closed', () => {
+            console.log('[Tab Downloader] Received close event from native webview');
+            closeTabDownloaderModal();
+        });
     }
 }
 
@@ -533,9 +539,25 @@ async function syncNativeWebview(url = null, userscript = null) {
     try {
         if (!isDesktopNative()) {
             if (isVisible) {
+                const config = {
+                    showToolbar: true,
+                    activeSourceId: activeSourceId,
+                    artist: activeArtistName || null,
+                    song: activeSongName || null,
+                    sources: sources.map(s => ({
+                        id: s.id,
+                        name: s.name,
+                        urlTemplate: s.urlTemplate,
+                        defaultUrl: s.defaultUrl,
+                        queryFormat: s.queryFormat,
+                        userscriptEnabled: Boolean(s.userscriptEnabled),
+                        userscript: s.userscript || null
+                    }))
+                };
                 await window.__TAURI__.core.invoke('open_tab_downloader', {
                     url: targetUrl,
-                    userscript: targetScript || null
+                    userscript: targetScript || null,
+                    config
                 });
             } else {
                 await window.__TAURI__.core.invoke('tab_downloader_hide');

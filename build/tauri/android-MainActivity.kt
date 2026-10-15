@@ -24,6 +24,12 @@ class MainActivity : TauriActivity() {
 
   // The WebView's requestFullscreen only covers video; the app's immersive mode is toggled natively.
   override fun onWebViewCreate(webView: WebView) {
+    webView.settings.apply {
+      useWideViewPort = true
+      loadWithOverviewMode = true
+      builtInZoomControls = true
+      displayZoomControls = false
+    }
     webView.addJavascriptInterface(object {
       @JavascriptInterface
       fun setImmersive(on: Boolean) {
