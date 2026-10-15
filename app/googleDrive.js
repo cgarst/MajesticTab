@@ -100,6 +100,9 @@ let pendingAuthState = 'open_drive_browser';
 
 export function redirectToGoogleAuth(targetState = 'open_drive_browser') {
     pendingAuthState = targetState;
+    try {
+        localStorage.setItem('gdrive_pending_state', targetState);
+    } catch (_) {}
 
     if (window.__TAURI__?.core?.invoke && /android/i.test(navigator.userAgent)) {
         startAndroidGoogleAuth(targetState);
@@ -672,10 +675,22 @@ function handleAuthRedirect() {
     const params = new URLSearchParams(hash);
     const accessToken = params.get('access_token');
     const expiresIn = params.get('expires_in');
-    const state = params.get('state');
+    const state = params.get('state') || localStorage.getItem('gdrive_pending_state');
 
     if (accessToken) {
         storeGoogleAuth(accessToken, expiresIn);
+        try {
+            localStorage.removeItem('gdrive_pending_state');
+            localStorage.setItem('gdrive_auth_synced', Date.now().toString());
+            if (typeof BroadcastChannel !== 'undefined') {
+                const bc = new BroadcastChannel('majestictab_gdrive_auth');
+                bc.postMessage({ type: 'googleAuthSuccess', state, accessToken, expiresIn });
+                setTimeout(() => {
+                    try { bc.close(); } catch (_) {}
+                }, 1000);
+            }
+        } catch (_) {}
+
         window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state } }));
 
         const cleanUrl = window.location.pathname + window.location.search;
@@ -765,6 +780,61 @@ export function setupDrivePicker() {
 
     // Check if returning from Google OAuth redirect
     handleAuthRedirect();
+
+    // Cross-window / PWA Auth Synchronization (Safari & iOS PWA)
+    try {
+        if (typeof BroadcastChannel !== 'undefined') {
+            const authChannel = new BroadcastChannel('majestictab_gdrive_auth');
+            authChannel.onmessage = (event) => {
+                if (event.data?.type === 'googleAuthSuccess') {
+                    const { state, accessToken, expiresIn } = event.data;
+                    storeGoogleAuth(accessToken, expiresIn);
+                    window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state } }));
+                    if (state === 'restore_backup') {
+                        import('./backupRestore.js').then(({ openBackupModal }) => {
+                            openBackupModal('restore', { autoLoadDrive: true });
+                        });
+                    }
+                }
+            };
+        }
+    } catch (_) {}
+
+    window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_KEY || e.key === 'gdrive_auth_synced') {
+            if (isTokenValid()) {
+                const pending = localStorage.getItem('gdrive_pending_state');
+                if (pending) {
+                    localStorage.removeItem('gdrive_pending_state');
+                    window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: pending } }));
+                    if (pending === 'restore_backup') {
+                        import('./backupRestore.js').then(({ openBackupModal }) => {
+                            openBackupModal('restore', { autoLoadDrive: true });
+                        });
+                    }
+                } else {
+                    window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: 'synced' } }));
+                }
+            }
+        }
+    });
+
+    const handleVisibilitySync = () => {
+        if (document.visibilityState === 'visible' && isTokenValid()) {
+            const pending = localStorage.getItem('gdrive_pending_state');
+            if (pending) {
+                localStorage.removeItem('gdrive_pending_state');
+                window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: pending } }));
+                if (pending === 'restore_backup') {
+                    import('./backupRestore.js').then(({ openBackupModal }) => {
+                        openBackupModal('restore', { autoLoadDrive: true });
+                    });
+                }
+            }
+        }
+    };
+    document.addEventListener('visibilitychange', handleVisibilitySync);
+    window.addEventListener('focus', handleVisibilitySync);
 }
 
 /**
@@ -823,13 +893,7 @@ export async function fetchDriveBackups() {
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
 
-    const folderIds = ['root'];
-    if (tabsDirectory && tabsDirectory.id && tabsDirectory.id !== 'root') {
-        folderIds.push(tabsDirectory.id);
-    }
-
-    const parentConditions = folderIds.map(id => `'${id}' in parents`).join(' or ');
-    const query = `trashed = false and name contains '.mtbackup' and (${parentConditions})`;
+    const query = `trashed = false and name contains '.mtbackup'`;
 
     const files = await fetchDriveFiles(query);
     const mtbackupFiles = files.filter(f => f.name && f.name.toLowerCase().endsWith('.mtbackup'));
@@ -842,7 +906,7 @@ export async function fetchDriveBackups() {
  * Download a backup file from Google Drive as a File object.
  * @param {string} fileId
  * @param {string} fileName
- * @returns {Promise<File>}
+ * @returns {Promise<File|Blob>}
  */
 export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbackup') {
     if (!isTokenValid()) {
@@ -868,7 +932,12 @@ export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbacku
     }
 
     const blob = await res.blob();
-    return new File([blob], fileName, { type: 'application/octet-stream' });
+    try {
+        return new File([blob], fileName, { type: 'application/octet-stream' });
+    } catch (_) {
+        blob.name = fileName;
+        return blob;
+    }
 }
 
 
