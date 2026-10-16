@@ -3591,6 +3591,182 @@ body:not(.synth-playback-started) .at-highlight {
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
 }
 
+/* --------------------------------------------------------------------------
+   Native Tab Downloader Bar (Split-Webview Top Bar)
+   -------------------------------------------------------------------------- */
+.tab-downloader-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1040;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card-solid, #10141f);
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.downloader-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.tauri-macos .downloader-nav-row {
+  padding-left: 84px;
+}
+
+.tauri-windows .downloader-nav-row {
+  padding-right: 148px;
+}
+
+.downloader-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.downloader-nav-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 12px;
+}
+
+.downloader-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.downloader-song-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.downloader-url-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-card, rgba(0, 0, 0, 0.25));
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: 4px 12px;
+  height: 32px;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  transition: border-color 0.15s ease;
+}
+
+.downloader-url-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  letter-spacing: -0.2px;
+}
+
+.downloader-tabs-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-height: 40px;
+}
+
+.downloader-tabs-row::-webkit-scrollbar {
+  display: none;
+}
+
+.downloader-source-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.downloader-source-tab-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--accent-primary-alpha);
+}
+
+.downloader-source-tab-btn.active {
+  background: var(--accent-gradient);
+  border-color: var(--accent-primary);
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.downloader-source-tab-add {
+  border-style: dashed;
+  color: var(--accent-primary);
+}
+
+.downloader-cfg-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.downloader-cfg-pill:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.downloader-cfg-pill.active {
+  background: var(--accent-gradient);
+  border-color: var(--accent-primary);
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
 .library-page-view .form-control,
 .library-page-view .form-select,
 .library-modal-card .form-control,
