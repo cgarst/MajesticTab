@@ -58,6 +58,7 @@ async fn open_tab_downloader(
     if let Some(existing) = app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
         if let Ok(parsed_url) = url.parse::<tauri::Url>() {
             let _ = existing.navigate(parsed_url);
+            let _ = existing.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
             let _ = existing.show();
             let _ = existing.set_focus();
             let wrapped = tab_downloader_native::wrap_userscript(
@@ -147,6 +148,14 @@ async fn open_tab_downloader(
                                     if !filename.contains('.') || filename.starts_with("download") {
                                         filename = format!("{}.{}", filename, ext);
                                     }
+                                }
+                                if let Some(main_win) = app_handle.get_webview_window("main") {
+                                    let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
+                                    let escaped_name = serde_json::to_string(&filename).unwrap_or_default();
+                                    let escaped_b64 = serde_json::to_string(&b64).unwrap_or_default();
+                                    let escaped_path = serde_json::to_string(&p.to_string_lossy()).unwrap_or_default();
+                                    let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {}, {});", escaped_name, escaped_b64, escaped_path);
+                                    let _ = main_win.eval(&eval_script);
                                 }
                                 let payload = DownloadedTabPayload {
                                     name: filename,
