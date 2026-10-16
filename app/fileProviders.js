@@ -41,12 +41,6 @@ export function getFileProvider(id) {
     if (providers.has(id)) {
         return providers.get(id);
     }
-    if (id === 'tab-downloader' && providers.has('tab-downloader-web')) {
-        return providers.get('tab-downloader-web');
-    }
-    if (id === 'tab-downloader-web' && providers.has('tab-downloader')) {
-        return providers.get('tab-downloader');
-    }
     return undefined;
 }
 
@@ -55,21 +49,7 @@ export function getFileProvider(id) {
  * @returns {Array<FileProvider>}
  */
 export function getFileProviders() {
-    const isTauri = typeof window !== 'undefined' && Boolean(window.__TAURI__);
-    const result = [];
-    const seen = new Set();
-
-    for (const [id, provider] of providers.entries()) {
-        if (id === 'tab-downloader-web' && isTauri) continue;
-        if (id === 'tab-downloader' && !isTauri && providers.has('tab-downloader-web')) continue;
-
-        const canonicalId = (id === 'tab-downloader-web') ? 'tab-downloader' : id;
-        if (!seen.has(canonicalId)) {
-            seen.add(canonicalId);
-            result.push(provider);
-        }
-    }
-    return result;
+    return Array.from(providers.values());
 }
 
 /**
@@ -255,22 +235,9 @@ export const GoogleDriveFileProvider = {
     }
 };
 
-// --- Built-in Provider: Tab Downloader (Native / Web) ---
+// --- Built-in Provider: Tab Downloader (Native Only) ---
 export const TabDownloaderNativeProvider = {
     id: 'tab-downloader',
-    name: 'Tab Downloader',
-    icon: 'bi-cloud-arrow-down',
-    iconColorClass: 'text-info',
-    description: 'Search and download guitar tabs from online archives',
-    badge: 'Online',
-    actionLabel: 'Search Tabs',
-    async open(options = {}) {
-        return openTabDownloader(options);
-    }
-};
-
-export const TabDownloaderWebProvider = {
-    id: 'tab-downloader-web',
     name: 'Tab Downloader',
     icon: 'bi-cloud-arrow-down',
     iconColorClass: 'text-info',
@@ -286,8 +253,9 @@ export const TabDownloaderWebProvider = {
 registerFileProvider(LocalFileProvider);
 registerFileProvider(GoogleDriveFileProvider);
 
-registerFileProvider(TabDownloaderNativeProvider);
-registerFileProvider(TabDownloaderWebProvider);
+if (typeof window !== 'undefined' && Boolean(window.__TAURI__)) {
+    registerFileProvider(TabDownloaderNativeProvider);
+}
 
 
 

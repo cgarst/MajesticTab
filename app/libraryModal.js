@@ -802,7 +802,7 @@ async function renderLibraryBrowseView(container) {
                             <i class="bi-journal-album"></i> <span>+ Album Tab</span>
                           </button>
                           <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
-                            <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>
+                            ${window.__TAURI__ ? `<li><button class="dropdown-item small import-album-tab-btn" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>` : ''}
                             <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
                             <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
                           </ul>
@@ -1500,7 +1500,7 @@ function renderSongRow(song, options = {}) {
                 <li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Set Album PDF Pages...</button></li>
                 <li><hr class="dropdown-divider"></li>
               ` : ''}
-              <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>
+              ${window.__TAURI__ ? `<li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>` : ''}
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
             </ul>
@@ -1820,8 +1820,7 @@ function setupSongRowActions(container) {
         btn.addEventListener('click', (e) => {
             if (!selectedArtist || !selectedAlbum) return;
             const providerId = btn.dataset.providerId;
-            const targetProviderId = (providerId === 'tab-downloader' && !window.__TAURI__) ? 'tab-downloader-web' : providerId;
-            openFromProvider(targetProviderId, {
+            openFromProvider(providerId, {
                 isAlbumTab: true,
                 collectionId: activeCollectionId,
                 artistName: selectedArtist.name,
@@ -1944,10 +1943,9 @@ function setupSongRowActions(container) {
             }
 
             // Tab downloader
-            const targetProviderId = (providerId === 'tab-downloader' && !window.__TAURI__) ? 'tab-downloader-web' : providerId;
             getSongById(songId).then(song => {
                 if (!song) return;
-                openFromProvider(targetProviderId, {
+                openFromProvider(providerId, {
                     songId: song.id,
                     targetSong: song,
                     songName: song.title,
@@ -2385,9 +2383,11 @@ function renderCustomDocFormHtml() {
               <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickDriveBtn">
                 <i class="bi-google text-danger"></i> Google Drive
               </button>
-              <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickDownloaderBtn">
-                <i class="bi-cloud-arrow-down text-info"></i> Tab Downloader
-              </button>
+              ${window.__TAURI__ ? `
+                <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickDownloaderBtn">
+                  <i class="bi-cloud-arrow-down text-info"></i> Tab Downloader
+                </button>
+              ` : ''}
             </div>
             <div id="customDocDropzone" class="p-3 text-center border border-secondary-subtle border-dashed rounded-3 text-muted small" style="cursor: pointer; background: rgba(255, 255, 255, 0.02);">
               <i class="bi-cloud-upload d-block fs-4 text-white-50 mb-1"></i>
@@ -2491,8 +2491,7 @@ function setupCustomDocForm(container) {
     // Pick Tab Downloader
     container.querySelector('#customDocPickDownloaderBtn')?.addEventListener('click', () => {
         const query = form.querySelector('#customDocTitle')?.value?.trim() || '';
-        const targetProviderId = !window.__TAURI__ ? 'tab-downloader-web' : 'tab-downloader';
-        openFromProvider(targetProviderId, { query, onFileSelected: handleFileAttached });
+        openFromProvider('tab-downloader', { query, onFileSelected: handleFileAttached });
     });
 
     // Dropzone click / drag-and-drop

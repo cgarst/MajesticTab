@@ -134,6 +134,16 @@ class MainActivity : TauriActivity() {
           mainWebView?.evaluateJavascript(script, null)
         }
       }
+
+      @JavascriptInterface
+      fun saveSources(sourcesJson: String) {
+        android.util.Log.i("MajesticTab", "saveSources received: " + sourcesJson.length + " chars")
+        runOnUiThread {
+          val script = "window.__onSaveSources && window.__onSaveSources(" +
+            org.json.JSONObject.quote(sourcesJson) + ");"
+          mainWebView?.evaluateJavascript(script, null)
+        }
+      }
     }, "MajesticDownloaderNative")
   }
 }
