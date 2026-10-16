@@ -1,24 +1,88 @@
 package net.zathu.majestictab
 
 import android.os.Bundle
+import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
 class MainActivity : TauriActivity() {
+  companion object {
+    @Volatile
+    var instance: MainActivity? = null
+      private set
+  }
+
+  private var container: FrameLayout? = null
+  private var mainWebView: WebView? = null
+  private var downloaderWebView: WebView? = null
+
   override fun onCreate(savedInstanceState: Bundle?) {
+    instance = this
+    WebView.setWebContentsDebuggingEnabled(true)
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
-    // Pad content below/above system bars; insets are zero while bars are hidden (fullscreen).
-    ViewCompat.setOnApplyWindowInsetsListener(findViewById(android.R.id.content)) { v, insets ->
+    val root = findViewById<View>(android.R.id.content)
+    ViewCompat.setOnApplyWindowInsetsListener(root) { v, insets ->
       val bars = insets.getInsets(
         WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
       )
       v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
       WindowInsetsCompat.CONSUMED
+    }
+  }
+
+  override fun onDestroy() {
+    if (instance == this) {
+      instance = null
+    }
+    super.onDestroy()
+  }
+
+  override fun setContentView(view: View?) {
+    if (view == null) {
+      super.setContentView(view)
+      return
+    }
+
+    if (container == null) {
+      container = FrameLayout(this)
+      super.setContentView(container)
+    }
+
+    if (mainWebView == null) {
+      mainWebView = view as? WebView
+      container?.addView(view, FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.MATCH_PARENT,
+        FrameLayout.LayoutParams.MATCH_PARENT
+      ))
+    } else {
+      downloaderWebView?.let { container?.removeView(it) }
+      downloaderWebView = view as? WebView
+      container?.addView(view, FrameLayout.LayoutParams(
+        FrameLayout.LayoutParams.MATCH_PARENT,
+        FrameLayout.LayoutParams.MATCH_PARENT
+      ))
+      downloaderWebView?.visibility = View.VISIBLE
+    }
+  }
+
+  fun hideDownloader() {
+    runOnUiThread {
+      downloaderWebView?.visibility = View.GONE
+      mainWebView?.visibility = View.VISIBLE
+      mainWebView?.requestFocus()
+    }
+  }
+
+  fun showDownloader() {
+    runOnUiThread {
+      downloaderWebView?.visibility = View.VISIBLE
+      downloaderWebView?.requestFocus()
     }
   }
 
@@ -41,6 +105,35 @@ class MainActivity : TauriActivity() {
           else controller.show(WindowInsetsCompat.Type.systemBars())
         }
       }
+
+      @JavascriptInterface
+      fun closeDownloader() {
+        hideDownloader()
+      }
     }, "AndroidImmersive")
+
+    webView.addJavascriptInterface(object {
+      @JavascriptInterface
+      fun close() {
+        hideDownloader()
+      }
+
+      @JavascriptInterface
+      fun show() {
+        showDownloader()
+      }
+
+      @JavascriptInterface
+      fun onTabDownloaded(name: String, base64Data: String) {
+        android.util.Log.i("MajesticTab", "onTabDownloaded received: " + name + " (" + base64Data.length + " chars)")
+        runOnUiThread {
+          hideDownloader()
+          val script = "window.__onTabDownloaded && window.__onTabDownloaded(" +
+            org.json.JSONObject.quote(name) + ", " +
+            org.json.JSONObject.quote(base64Data) + ");"
+          mainWebView?.evaluateJavascript(script, null)
+        }
+      }
+    }, "MajesticDownloaderNative")
   }
 }
