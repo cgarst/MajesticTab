@@ -35,7 +35,7 @@ pub struct TabSourceInfo {
     pub is_seed: bool,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TabDownloaderConfig {
     #[serde(default)]
@@ -52,6 +52,8 @@ pub struct TabDownloaderConfig {
     pub is_debug_tools_enabled: bool,
     #[serde(default)]
     pub sources: Vec<TabSourceInfo>,
+    #[serde(default)]
+    pub platform: Option<String>,
 }
 
 pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
@@ -436,6 +438,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             window.location.href = 'majestictab://save-sources?sources=' + encodeURIComponent(jsonStr);
         }
 
+        const detectedPlatform = config.platform || (/mac/i.test(navigator.platform || navigator.userAgent) ? 'macos' : (/win/i.test(navigator.platform || navigator.userAgent) ? 'windows' : 'other'));
+
         if (isNew) {
             shadow.innerHTML = `
                 <style>
@@ -459,6 +463,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         display: flex;
                         flex-direction: column;
                         transform-origin: top left;
+                        -webkit-app-region: drag;
+                        app-region: drag;
                     }
                     .nav-row {
                         display: flex;
@@ -466,6 +472,18 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         gap: 8px;
                         padding: 8px 12px;
                         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                        -webkit-app-region: drag;
+                        app-region: drag;
+                    }
+                    .toolbar-root.platform-macos .nav-row {
+                        padding-left: 88px;
+                    }
+                    .toolbar-root.platform-windows .nav-row {
+                        padding-right: 152px;
+                    }
+                    button, input, select, textarea, .btn-group, .song-pill, .url-group, .tab-btn, .pill-btn, #settings-overlay {
+                        -webkit-app-region: no-drag;
+                        app-region: no-drag;
                     }
                     .btn-group {
                         display: flex;
@@ -642,8 +660,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         flex-shrink: 0;
                     }
                 </style>
-                <div class="toolbar-root" id="toolbar-root">
-                    <div class="nav-row">
+                <div class="toolbar-root platform-${detectedPlatform}" id="toolbar-root" data-tauri-drag-region>
+                    <div class="nav-row" data-tauri-drag-region>
                         <div class="btn-group">
                             <button type="button" class="tool-btn" id="btn-back" title="Go Back">
                                 <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
@@ -1058,6 +1076,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             });
 
             if (toolbarRoot) {
+                toolbarRoot.classList.toggle('platform-macos', detectedPlatform === 'macos');
+                toolbarRoot.classList.toggle('platform-windows', detectedPlatform === 'windows');
                 const screenW = Math.min(window.screen.width || 1100, window.screen.availWidth || 1100);
                 const viewW = window.innerWidth || 1100;
                 if (viewW > screenW && screenW > 0) {
@@ -1130,10 +1150,30 @@ pub struct TabDownloaderState {
 
 pub fn wrap_userscript(raw_js: &str, config: Option<&TabDownloaderConfig>) -> String {
     let trimmed = raw_js.trim();
-    let config_json = match config {
-        Some(c) => serde_json::to_string(c).unwrap_or_else(|_| "null".to_string()),
-        None => "null".to_string(),
-    };
+    let mut cfg = config.cloned().unwrap_or_default();
+    if cfg.platform.is_none() {
+        #[cfg(target_os = "macos")]
+        {
+            cfg.platform = Some("macos".to_string());
+        }
+        #[cfg(target_os = "windows")]
+        {
+            cfg.platform = Some("windows".to_string());
+        }
+        #[cfg(target_os = "linux")]
+        {
+            cfg.platform = Some("linux".to_string());
+        }
+        #[cfg(target_os = "android")]
+        {
+            cfg.platform = Some("android".to_string());
+        }
+        #[cfg(target_os = "ios")]
+        {
+            cfg.platform = Some("ios".to_string());
+        }
+    }
+    let config_json = serde_json::to_string(&cfg).unwrap_or_else(|_| "null".to_string());
     format!(
         r#"{core_shim}
 (function() {{
