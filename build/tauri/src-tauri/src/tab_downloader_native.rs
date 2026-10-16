@@ -520,7 +520,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     .nav-row {
                         display: flex;
                         align-items: center;
-                        gap: 8px;
+                        gap: 12px;
                         padding: 8px 12px;
                         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
                         -webkit-app-region: drag;
@@ -532,6 +532,34 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     }
                     .toolbar-root.platform-windows .nav-row {
                         padding-right: 152px;
+                    }
+                    .nav-left {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        flex-shrink: 0;
+                        -webkit-app-region: drag;
+                        app-region: drag;
+                    }
+                    .nav-center {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex: 1 1 auto;
+                        min-width: 0;
+                        padding: 0 16px;
+                        -webkit-app-region: drag;
+                        app-region: drag;
+                        cursor: default;
+                    }
+                    .nav-right {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        flex-shrink: 0;
+                        margin-left: auto;
+                        -webkit-app-region: drag;
+                        app-region: drag;
                     }
                     button, input, select, textarea, .btn-group, .tab-btn, .pill-btn, .back-btn, #settings-overlay {
                         -webkit-app-region: no-drag;
@@ -573,13 +601,15 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         display: flex;
                         align-items: center;
                         gap: 6px;
-                        background: #334155;
+                        background: rgba(255, 255, 255, 0.06);
+                        border: 1px solid rgba(255, 255, 255, 0.12);
                         color: #f8fafc;
-                        padding: 4px 10px;
+                        padding: 0 10px;
                         border-radius: 6px;
-                        font-size: 13px;
+                        height: 32px;
+                        font-size: 12px;
                         font-weight: 500;
-                        max-width: 240px;
+                        max-width: 220px;
                         overflow: hidden;
                         text-overflow: ellipsis;
                         white-space: nowrap;
@@ -588,20 +618,25 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         user-select: none;
                         -webkit-user-select: none;
                     }
+                    .song-pill svg {
+                        color: #38bdf8;
+                    }
                     .url-group {
                         display: flex;
                         align-items: center;
-                        flex-grow: 1;
-                        min-width: 0;
+                        width: 100%;
+                        max-width: 360px;
+                        min-width: 140px;
                         background: rgba(255, 255, 255, 0.04);
                         border: 1px solid rgba(255, 255, 255, 0.09);
-                        border-radius: 6px;
-                        padding: 0 10px;
+                        border-radius: 8px;
+                        padding: 0 12px;
                         height: 32px;
                         gap: 8px;
                         cursor: default;
                         user-select: none;
                         -webkit-user-select: none;
+                        transition: all 0.15s ease;
                     }
                     .url-group svg {
                         color: #64748b;
@@ -615,6 +650,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
                         font-size: 11.5px;
                         letter-spacing: -0.2px;
+                        text-align: center;
                         text-overflow: ellipsis;
                         white-space: nowrap;
                         overflow: hidden;
@@ -761,42 +797,48 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 </style>
                 <div class="toolbar-root platform-${detectedPlatform}" id="toolbar-root" data-tauri-drag-region>
                     <div class="nav-row" data-tauri-drag-region>
-                        <div class="btn-group">
-                            <button type="button" class="tool-btn" id="btn-back" title="Go Back">
-                                <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
-                            </button>
-                            <button type="button" class="tool-btn" id="btn-forward" title="Go Forward">
-                                <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
-                            </button>
-                            <button type="button" class="tool-btn" id="btn-reload" title="Reload Page">
-                                <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
-                            </button>
+                        <div class="nav-left" data-tauri-drag-region>
+                            <div class="btn-group">
+                                <button type="button" class="tool-btn" id="btn-back" title="Go Back">
+                                    <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
+                                </button>
+                                <button type="button" class="tool-btn" id="btn-forward" title="Go Forward">
+                                    <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+                                </button>
+                                <button type="button" class="tool-btn" id="btn-reload" title="Reload Page">
+                                    <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>
+                                </button>
+                            </div>
+
+                            <div id="song-pill" class="song-pill" style="display: ${songText ? 'flex' : 'none'};" title="${escapeHtml(songText)}" data-tauri-drag-region>
+                                <svg viewBox="0 0 16 16"><path d="M9 13c0 1.105-1.12 2-2.5 2S4 14.105 4 13s1.12-2 2.5-2 2.5.895 2.5 2z"/><path fill-rule="evenodd" d="M9 3v10H8V3h1z"/><path d="M8 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 13 2.22V4L8 5V2.82z"/></svg>
+                                <span id="song-text">${escapeHtml(songText)}</span>
+                            </div>
                         </div>
 
-                        <div id="song-pill" class="song-pill" style="display: ${songText ? 'flex' : 'none'};" title="${escapeHtml(songText)}" data-tauri-drag-region>
-                            <svg viewBox="0 0 16 16"><path d="M9 13c0 1.105-1.12 2-2.5 2S4 14.105 4 13s1.12-2 2.5-2 2.5.895 2.5 2z"/><path fill-rule="evenodd" d="M9 3v10H8V3h1z"/><path d="M8 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 13 2.22V4L8 5V2.82z"/></svg>
-                            <span id="song-text">${escapeHtml(songText)}</span>
+                        <div class="nav-center" data-tauri-drag-region>
+                            <div class="url-group" id="url-group" title="${escapeHtml(window.location.href)}" data-tauri-drag-region>
+                                <svg viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.87.21-1.688.508-2.428l-.008-.072H1.36a7.03 7.03 0 0 0 0 5h2.648a10.6 10.6 0 0 1-.508-2.428l.008-.072zm.76 3.5c.29 1.05.7 1.93 1.218 2.54.516.61 1.08.96 1.514 1.037V11H4.268zm4.232 0v3.577c.434-.077.998-.427 1.514-1.037.518-.61.928-1.49 1.218-2.54H8.5zm3.41-3.5a10.6 10.6 0 0 1-.508 2.428l.008.072h2.648a7.03 7.03 0 0 0 0-5h-2.648a10.6 10.6 0 0 1 .508 2.428l-.008.072zm-.178-4.5H9.5V1.077c.67.204 1.335.82 1.887 1.855.22.41.4.85.545 1.068zm.908-1.539A9.267 9.267 0 0 0 11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.467c.18.27.38.58.58.928zM8.5 4h2.355a7.97 7.97 0 0 0-.468-1.068C9.835 1.897 9.17 1.28 8.5 1.077V4zM8.5 5v5h3.04a9.63 9.63 0 0 0 .428-2.5c0-.88-.15-1.72-.428-2.5H8.5zM7.5 5H4.46a9.63 9.63 0 0 0-.428 2.5c0 .88.15 1.72.428 2.5H7.5V5z"/></svg>
+                                <span class="url-text" id="url-text">${escapeHtml(window.location.href)}</span>
+                            </div>
                         </div>
 
-                        <div class="url-group" id="url-group" title="${escapeHtml(window.location.href)}" data-tauri-drag-region>
-                            <svg viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.87.21-1.688.508-2.428l-.008-.072H1.36a7.03 7.03 0 0 0 0 5h2.648a10.6 10.6 0 0 1-.508-2.428l.008-.072zm.76 3.5c.29 1.05.7 1.93 1.218 2.54.516.61 1.08.96 1.514 1.037V11H4.268zm4.232 0v3.577c.434-.077.998-.427 1.514-1.037.518-.61.928-1.49 1.218-2.54H8.5zm3.41-3.5a10.6 10.6 0 0 1-.508 2.428l.008.072h2.648a7.03 7.03 0 0 0 0-5h-2.648a10.6 10.6 0 0 1 .508 2.428l-.008.072zm-.178-4.5H9.5V1.077c.67.204 1.335.82 1.887 1.855.22.41.4.85.545 1.068zm.908-1.539A9.267 9.267 0 0 0 11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.467c.18.27.38.58.58.928zM8.5 4h2.355a7.97 7.97 0 0 0-.468-1.068C9.835 1.897 9.17 1.28 8.5 1.077V4zM8.5 5v5h3.04a9.63 9.63 0 0 0 .428-2.5c0-.88-.15-1.72-.428-2.5H8.5zM7.5 5H4.46a9.63 9.63 0 0 0-.428 2.5c0 .88.15 1.72.428 2.5H7.5V5z"/></svg>
-                            <span class="url-text" id="url-text">${escapeHtml(window.location.href)}</span>
+                        <div class="nav-right" data-tauri-drag-region>
+                            ${isDebugTools ? `
+                            <button type="button" class="icon-btn" id="btn-debug" title="Toggle Webview Debug Console">
+                                <svg viewBox="0 0 16 16"><path d="M6 12.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-8a.5.5 0 0 0-.5.5v9zM1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9zm2.146 4.854a.5.5 0 0 1 0-.708l2-2a.5.5 0 1 1 .708.708L4.207 8l1.647 1.646a.5.5 0 0 1-.708.708l-2-2zM8.5 9.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1H9a.5.5 0 0 1-.5-.5z"/></svg>
+                            </button>
+                            ` : ''}
+
+                            <button type="button" class="icon-btn" id="btn-settings" title="Configure Tab Sources">
+                                <svg viewBox="0 0 16 16"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/></svg>
+                            </button>
+
+                            <button type="button" class="back-btn" id="btn-close" title="Back to MajesticTab (Esc)">
+                                <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/></svg>
+                                <span>Back to App</span>
+                            </button>
                         </div>
-
-                        ${isDebugTools ? `
-                        <button type="button" class="icon-btn" id="btn-debug" title="Toggle Webview Debug Console">
-                            <svg viewBox="0 0 16 16"><path d="M6 12.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-8a.5.5 0 0 0-.5.5v9zM1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9zm2.146 4.854a.5.5 0 0 1 0-.708l2-2a.5.5 0 1 1 .708.708L4.207 8l1.647 1.646a.5.5 0 0 1-.708.708l-2-2zM8.5 9.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1H9a.5.5 0 0 1-.5-.5z"/></svg>
-                        </button>
-                        ` : ''}
-
-                        <button type="button" class="icon-btn" id="btn-settings" title="Configure Tab Sources">
-                            <svg viewBox="0 0 16 16"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/></svg>
-                        </button>
-
-                        <button type="button" class="back-btn" id="btn-close" title="Back to MajesticTab (Esc)">
-                            <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/></svg>
-                            <span>Back to App</span>
-                        </button>
                     </div>
 
                     <!-- Live Debug Drawer (if enabled) -->
