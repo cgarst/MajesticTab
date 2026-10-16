@@ -55,7 +55,7 @@ async fn open_tab_downloader(
     userscript: Option<String>,
     config: Option<tab_downloader_native::TabDownloaderConfig>,
 ) -> Result<(), String> {
-    if let Some(existing) = app.get_webview_window("tab-downloader") {
+    if let Some(existing) = app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
         if let Ok(parsed_url) = url.parse::<tauri::Url>() {
             let _ = existing.navigate(parsed_url);
             let _ = existing.show();
@@ -69,15 +69,26 @@ async fn open_tab_downloader(
         }
     }
 
+    static CREATING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if CREATING.compare_exchange(false, true, std::sync::atomic::Ordering::SeqCst, std::sync::atomic::Ordering::SeqCst).is_err() {
+        return Ok(());
+    }
+    struct CreatingGuard;
+    impl Drop for CreatingGuard {
+        fn drop(&mut self) {
+            CREATING.store(false, std::sync::atomic::Ordering::SeqCst);
+        }
+    }
+    let _guard = CreatingGuard;
+
     let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
     let mut builder = tauri::WebviewWindowBuilder::new(
         &app,
-        "tab-downloader",
+        tab_downloader_native::DOWNLOADER_LABEL,
         tauri::WebviewUrl::External(parsed_url),
     )
     .title("Tab Downloader - MajesticTab")
-    .user_agent(tab_downloader_native::DESKTOP_USER_AGENT)
-    .initialization_script(tab_downloader_native::CORE_DOWNLOADER_SHIM);
+    .user_agent(tab_downloader_native::DESKTOP_USER_AGENT);
 
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
@@ -100,11 +111,9 @@ async fn open_tab_downloader(
     let userscript_clone = userscript.clone();
     builder = builder.on_page_load(move |webview, payload| {
         if let tauri::webview::PageLoadEvent::Finished = payload.event() {
-            if let Ok(cur_url) = webview.url() {
-                let s = cur_url.to_string();
-                if s.starts_with("http://") || s.starts_with("https://") {
-                    let _ = app_handle_for_load.emit("tab-downloader-url-changed", s);
-                }
+            let s = payload.url().as_str();
+            if s.starts_with("http://") || s.starts_with("https://") {
+                let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
             }
             let wrapped = tab_downloader_native::wrap_userscript(
                 userscript_clone.as_deref().unwrap_or(""),

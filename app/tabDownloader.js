@@ -20,10 +20,10 @@ export function isDesktopNative() {
 }
 
 export const UG_DEFAULT_USERSCRIPT = `
-// MajesticTab UG Userscript v10-focus
+// MajesticTab UG Userscript v11-focus
 (function() {
     // 1. Hide and remove sticky tab player on song pages
-    const STYLE_ID = 'majestic-ug-custom-style-v10';
+    const STYLE_ID = 'majestic-ug-custom-style-v11';
     if (!document.getElementById(STYLE_ID)) {
         const style = document.createElement('style');
         style.id = STYLE_ID;
@@ -58,10 +58,14 @@ export const UG_DEFAULT_USERSCRIPT = `
 
             if (tag === 'tr' || cur.nextElementSibling || cur.previousElementSibling) {
                 if (tabLinks.length >= 1 && tabLinks.length <= 3) {
+                    if (cur.dataset && cur.dataset.majesticHidden === 'true') break;
+                    if (cur.dataset) cur.dataset.majesticHidden = 'true';
+
                     const artistLink = cur.querySelector('a[href*="/artist/"]');
                     if (artistLink && cur.nextElementSibling) {
                         const nextRowFirstCell = cur.nextElementSibling.firstElementChild;
-                        if (nextRowFirstCell && !nextRowFirstCell.querySelector('a[href*="/artist/"]')) {
+                        if (nextRowFirstCell && !nextRowFirstCell.dataset?.majesticArtistAdded && !nextRowFirstCell.querySelector('a[href*="/artist/"]')) {
+                            if (nextRowFirstCell.dataset) nextRowFirstCell.dataset.majesticArtistAdded = 'true';
                             nextRowFirstCell.innerHTML = artistLink.outerHTML;
                         }
                     }
@@ -76,15 +80,19 @@ export const UG_DEFAULT_USERSCRIPT = `
     // Hide by link pattern
     document.querySelectorAll('a[href*="/pro/"], a[href*="/pro?"], a[href*="/tab/official/"], a[href*="marketing_type=official"]').forEach(hideOfficialTabRow);
 
-    // Hide by "Official" label / badge text
-    document.querySelectorAll('div, span').forEach(el => {
+    // Hide by "Official" label / badge text (targeted lookup, avoids full DOM scan)
+    const candidates = document.querySelectorAll('tr span, tr div, [role="row"] span, [role="row"] div, [class*="badge"], [class*="tag"], [class*="type"], [class*="version"], [class*="label"]');
+    for (let i = 0; i < candidates.length; i++) {
+        const el = candidates[i];
+        if (el.dataset && el.dataset.majesticChecked) continue;
+        if (el.dataset) el.dataset.majesticChecked = '1';
         if (el.children.length === 0) {
             const text = el.textContent.trim().toLowerCase();
             if (text === 'official' || text === 'official tab') {
                 hideOfficialTabRow(el);
             }
         }
-    });
+    }
 })();
 `;
 
@@ -227,7 +235,7 @@ export function getSources() {
                         }
                         // If userscript is missing, empty, or an older stock script version, update it to the latest seed script
                         if (existing.id === 'ug') {
-                            if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v10-focus')) {
+                            if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v11-focus')) {
                                 existing.userscript = seed.userscript;
                             }
                         }
@@ -500,44 +508,64 @@ export function closeTabDownloaderModal() {
     }
 }
 
+let isSyncingWebview = false;
+let pendingSync = null;
+
 /**
  * Synchronize the native child webview position & dimensions with the in-app container
  */
 async function syncNativeWebview(url = null, userscript = null) {
     if (!window.__TAURI__ || !window.__TAURI__.core) return;
-    const container = document.getElementById('tabDownloaderBrowserContainer');
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
-    const modal = document.getElementById('tabDownloaderModal');
-    const isVisible = modal && modal.style.display !== 'none' && rect.width > 10 && rect.height > 10;
-
-    const sources = getSources();
-    const source = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
-    const targetUrl = url || buildSearchUrl(source, currentSearchQuery);
-    const targetScript = userscript !== null ? userscript : (source.userscriptEnabled ? (source.userscript || '') : '');
-
-    const left = Math.round(rect.left);
-    const top = Math.round(rect.top);
-    const width = Math.round(rect.width);
-    const height = Math.round(rect.height);
-
-    if (
-        lastSyncedWebview.left === left &&
-        lastSyncedWebview.top === top &&
-        lastSyncedWebview.width === width &&
-        lastSyncedWebview.height === height &&
-        lastSyncedWebview.visible === isVisible &&
-        lastSyncedWebview.url === targetUrl &&
-        lastSyncedWebview.userscript === targetScript
-    ) {
+    if (isSyncingWebview) {
+        pendingSync = { url, userscript };
         return;
     }
-
-    lastSyncedWebview = { left, top, width, height, visible: isVisible, url: targetUrl, userscript: targetScript };
-
+    isSyncingWebview = true;
     try {
-        if (!isDesktopNative()) {
+        const container = document.getElementById('tabDownloaderBrowserContainer');
+        if (!container) return;
+
+        const rect = container.getBoundingClientRect();
+        const modal = document.getElementById('tabDownloaderModal');
+        const isVisible = modal && modal.style.display !== 'none' && rect.width > 10 && rect.height > 10;
+
+        const sources = getSources();
+        const source = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
+        const targetUrl = url || buildSearchUrl(source, currentSearchQuery);
+        const targetScript = userscript !== null ? userscript : (source.userscriptEnabled ? (source.userscript || '') : '');
+
+        const left = Math.round(rect.left);
+        const top = Math.round(rect.top);
+        const width = Math.round(rect.width);
+        const height = Math.round(rect.height);
+
+        const isDesktop = isDesktopNative();
+
+        if (isDesktop) {
+            if (
+                lastSyncedWebview.left === left &&
+                lastSyncedWebview.top === top &&
+                lastSyncedWebview.width === width &&
+                lastSyncedWebview.height === height &&
+                lastSyncedWebview.visible === isVisible &&
+                lastSyncedWebview.url === targetUrl &&
+                lastSyncedWebview.userscript === targetScript
+            ) {
+                return;
+            }
+        } else {
+            if (
+                lastSyncedWebview.visible === isVisible &&
+                lastSyncedWebview.url === targetUrl &&
+                lastSyncedWebview.userscript === targetScript
+            ) {
+                return;
+            }
+        }
+
+        lastSyncedWebview = { left, top, width, height, visible: isVisible, url: targetUrl, userscript: targetScript };
+
+        if (!isDesktop) {
             if (isVisible) {
                 const config = {
                     showToolbar: true,
@@ -575,6 +603,13 @@ async function syncNativeWebview(url = null, userscript = null) {
         }
     } catch (err) {
         console.error('[Tab Downloader] Failed to sync native webview:', err);
+    } finally {
+        isSyncingWebview = false;
+        if (pendingSync) {
+            const next = pendingSync;
+            pendingSync = null;
+            syncNativeWebview(next.url, next.userscript);
+        }
     }
 }
 
@@ -859,17 +894,21 @@ function renderTabDownloaderModal(initialQuery = '') {
 
     // Native child webview positioning & resize observer
     if (isNativeApp) {
-        const container = modal.querySelector('#tabDownloaderBrowserContainer');
-        if (container) {
+        if (!isDesktopNative()) {
             syncNativeWebview();
-            requestAnimationFrame(() => syncNativeWebview());
-
-            if (nativeResizeObserver) nativeResizeObserver.disconnect();
-            nativeResizeObserver = new ResizeObserver(() => {
+        } else {
+            const container = modal.querySelector('#tabDownloaderBrowserContainer');
+            if (container) {
                 syncNativeWebview();
-            });
-            nativeResizeObserver.observe(container);
-            window.addEventListener('resize', () => syncNativeWebview(), { passive: true });
+                requestAnimationFrame(() => syncNativeWebview());
+
+                if (nativeResizeObserver) nativeResizeObserver.disconnect();
+                nativeResizeObserver = new ResizeObserver(() => {
+                    syncNativeWebview();
+                });
+                nativeResizeObserver.observe(container);
+                window.addEventListener('resize', () => syncNativeWebview(), { passive: true });
+            }
         }
     } else {
         setupWebDropzone(modal);
