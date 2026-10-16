@@ -1265,6 +1265,13 @@ pub fn schedule_toolbar_injection(app_handle: &AppHandle) {
         std::thread::spawn(move || {
             for delay in [25, 80, 200, 500, 1000, 2000, 3500] {
                 std::thread::sleep(std::time::Duration::from_millis(delay));
+                if let Some(state) = handle.try_state::<TabDownloaderState>() {
+                    if let Ok(g) = state.is_open.lock() {
+                        if !*g {
+                            break;
+                        }
+                    }
+                }
                 if let Some(w) = handle.get_webview(DOWNLOADER_LABEL) {
                     let _ = w.eval(&wrapped);
                 } else if let Some(w) = handle.get_webview_window(DOWNLOADER_LABEL) {
@@ -1307,16 +1314,27 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
     // 3. Close webview window scheme: majestictab://close
     if url.scheme() == "majestictab" && (url.host_str() == Some("close") || url_str.starts_with("majestictab://close")) {
         eprintln!("[Tab Downloader] Close requested via majestictab://close");
-        if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
-            let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-            let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
-            let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
-            let _ = w.hide();
-        } else if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
-            let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-            let _ = w.hide();
+        let was_open = if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+            state.is_open.lock().map(|mut g| {
+                let prev = *g;
+                *g = false;
+                prev
+            }).unwrap_or(true)
+        } else {
+            true
+        };
+        if was_open {
+            if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
+                let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+                let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
+                let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
+                let _ = w.hide();
+            } else if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
+                let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+                let _ = w.hide();
+            }
+            let _ = app_handle.emit("tab-downloader-closed", ());
         }
-        let _ = app_handle.emit("tab-downloader-closed", ());
         return false;
     }
 
@@ -1732,9 +1750,18 @@ pub fn tab_downloader_nav(
 
 #[tauri::command]
 pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>) -> Result<(), String> {
-    if let Ok(mut g) = state.is_open.lock() {
+    let was_open = if let Ok(mut g) = state.is_open.lock() {
+        let prev = *g;
         *g = false;
+        prev
+    } else {
+        true
+    };
+
+    if !was_open {
+        return Ok(());
     }
+
     if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
         let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
         let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
