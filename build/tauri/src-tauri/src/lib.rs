@@ -136,10 +136,13 @@ async fn open_tab_downloader(
 
     if let Some(existing) = app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
         if let Ok(parsed_url) = url.parse::<tauri::Url>() {
-            let _ = existing.navigate(parsed_url);
+            if let Some(main_win) = app.get_webview_window("main") {
+                let _ = main_win.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
+            }
             let _ = existing.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
             let _ = existing.show();
             let _ = existing.set_focus();
+            let _ = existing.navigate(parsed_url);
             tab_downloader_native::schedule_toolbar_injection(&app);
             return Ok(());
         }
@@ -214,9 +217,12 @@ async fn open_tab_downloader(
                                     let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {}, {});", escaped_name, escaped_b64, escaped_path);
                                     let _ = main_win.eval(&eval_script);
                                 }
-                                if let Some(downloader_win) = app_handle.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
-                                    let _ = downloader_win.hide();
+                                if let Some(state) = app_handle.try_state::<tab_downloader_native::TabDownloaderState>() {
+                                    if let Ok(mut g) = state.is_open.lock() {
+                                        *g = false;
+                                    }
                                 }
+                                tab_downloader_native::hide_downloader(&app_handle);
                                 let payload = DownloadedTabPayload {
                                     name: filename,
                                     path: Some(p.to_string_lossy().to_string()),
@@ -236,6 +242,9 @@ async fn open_tab_downloader(
     let window = builder.build().map_err(|e| e.to_string())?;
     let _ = window.show();
     let _ = window.set_focus();
+    if let Some(main_win) = app.get_webview_window("main") {
+        let _ = main_win.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
+    }
     Ok(())
 }
 

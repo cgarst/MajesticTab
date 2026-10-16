@@ -1473,6 +1473,10 @@ pub fn hide_downloader(app_handle: &AppHandle) {
         let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
         let _ = w.hide();
     }
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    if let Some(main) = app_handle.get_webview_window("main") {
+        let _ = main.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+    }
 }
 
 pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
