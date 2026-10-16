@@ -94,6 +94,14 @@ async fn open_tab_downloader(
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     {
         builder = builder.inner_size(1100.0, 750.0);
+        if let Some(icon) = app.default_window_icon() {
+            builder = builder.icon(icon.clone()).map_err(|e| e.to_string())?;
+        }
+    }
+
+    #[cfg(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))]
+    {
+        builder = builder.devtools(true);
     }
 
     let wrapped = tab_downloader_native::wrap_userscript(
@@ -157,6 +165,9 @@ async fn open_tab_downloader(
                                     let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {}, {});", escaped_name, escaped_b64, escaped_path);
                                     let _ = main_win.eval(&eval_script);
                                 }
+                                if let Some(downloader_win) = app_handle.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
+                                    let _ = downloader_win.hide();
+                                }
                                 let payload = DownloadedTabPayload {
                                     name: filename,
                                     path: Some(p.to_string_lossy().to_string()),
@@ -176,6 +187,21 @@ async fn open_tab_downloader(
     let window = builder.build().map_err(|e| e.to_string())?;
     let _ = window.show();
     let _ = window.set_focus();
+
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        let app_handle_for_event = app.clone();
+        window.on_window_event(move |event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                if let Some(w) = app_handle_for_event.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
+                    let _ = w.hide();
+                }
+                let _ = app_handle_for_event.emit("tab-downloader-closed", ());
+            }
+        });
+    }
+
     Ok(())
 }
 
@@ -339,6 +365,7 @@ pub fn run() {
         tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
+        tab_downloader_native::tab_downloader_save_sources,
         youtube_macos::youtube_player_update,
         youtube_macos::youtube_player_command
     ]);
@@ -353,7 +380,8 @@ pub fn run() {
         tab_downloader_native::tab_downloader_hide,
         tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
-        tab_downloader_native::tab_downloader_is_debug_tools_enabled
+        tab_downloader_native::tab_downloader_is_debug_tools_enabled,
+        tab_downloader_native::tab_downloader_save_sources
     ]);
 
     let app = builder
