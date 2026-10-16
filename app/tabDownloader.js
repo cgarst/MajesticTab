@@ -6,7 +6,7 @@ import { loadFile } from './main.js';
 import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
-import { openLibraryModal } from './libraryModal.js';
+import { openLibraryModal, closeLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
@@ -20,32 +20,36 @@ export function isDesktopNative() {
 }
 
 export const UG_DEFAULT_USERSCRIPT = `
-// MajesticTab UG Userscript v11-focus
+// MajesticTab UG Userscript v12-focus
 (function() {
-    // 1. Hide and remove sticky tab player on song pages
-    const STYLE_ID = 'majestic-ug-custom-style-v11';
-    if (!document.getElementById(STYLE_ID)) {
-        const style = document.createElement('style');
-        style.id = STYLE_ID;
-        style.textContent = \`
-            /* Hide the sticky tab player on Guitar Pro song pages */
-            .is_sticky_player,
-            [class*="is_sticky_player"],
-            [class*="sticky_player"],
-            #pro-player-scroll-container,
-            [id*="pro-player"] {
-                display: none !important;
-            }
-        \`;
-        (document.head || document.documentElement).appendChild(style);
-    }
+    const isSongPage = window.location.pathname.includes('/tab/');
 
-    document.querySelectorAll('.is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], #pro-player-scroll-container, [id*="pro-player"]').forEach(el => {
-        try {
-            const container = el.closest('.is_sticky_player') || el.closest('[class*="sticky_player"]') || el;
-            container.remove();
-        } catch(e) {}
-    });
+    // 1. Hide and remove sticky tab player strictly on song pages
+    if (isSongPage) {
+        const STYLE_ID = 'majestic-ug-custom-style-v12';
+        if (!document.getElementById(STYLE_ID)) {
+            const style = document.createElement('style');
+            style.id = STYLE_ID;
+            style.textContent = \`
+                /* Hide the sticky tab player on Guitar Pro song pages */
+                .is_sticky_player,
+                [class*="is_sticky_player"],
+                [class*="sticky_player"],
+                #pro-player-scroll-container,
+                [id*="pro-player"] {
+                    display: none !important;
+                }
+            \`;
+            (document.head || document.documentElement).appendChild(style);
+        }
+
+        document.querySelectorAll('.is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], #pro-player-scroll-container, [id*="pro-player"]').forEach(el => {
+            try {
+                const container = el.closest('.is_sticky_player') || el.closest('[class*="sticky_player"]') || el;
+                container.remove();
+            } catch(e) {}
+        });
+    }
 
     // 2. Hide "Official" tabs in search results and listings
     function hideOfficialTabRow(el) {
@@ -56,7 +60,8 @@ export const UG_DEFAULT_USERSCRIPT = `
             const tabLinks = cur.querySelectorAll('a[href*="/tab/"], a[href*="/pro/"]');
             if (tabLinks.length > 3) break;
 
-            if (tag === 'tr' || cur.nextElementSibling || cur.previousElementSibling) {
+            const isRowLike = tag === 'tr' || cur.getAttribute('role') === 'row' || /\\b(row|entry|item)\\b/i.test(cur.className || '');
+            if (isRowLike) {
                 if (tabLinks.length >= 1 && tabLinks.length <= 3) {
                     if (cur.dataset && cur.dataset.majesticHidden === 'true') break;
                     if (cur.dataset) cur.dataset.majesticHidden = 'true';
@@ -235,7 +240,7 @@ export function getSources() {
                         }
                         // If userscript is missing, empty, or an older stock script version, update it to the latest seed script
                         if (existing.id === 'ug') {
-                            if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v11-focus')) {
+                            if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v12-focus')) {
                                 existing.userscript = seed.userscript;
                             }
                         }
@@ -301,6 +306,161 @@ export function buildSearchUrl(source, query) {
 }
 
 /**
+ * Core handler for downloaded tab binary payload across all platforms
+ * @param {string} name
+ * @param {Uint8Array} uint8
+ * @param {string|null} [path]
+ */
+export async function handleDownloadedTabFile(name, uint8, path = null) {
+    console.log('[Tab Downloader] Processing downloaded tab file:', name, uint8?.length, 'bytes');
+    appendDebugLog(`[Download Event] Received ${name} (${uint8?.length || 0} bytes)`);
+
+    const now = Date.now();
+    if (now - lastDownloadedTime < 2000 && lastDownloadedName === name) {
+        console.log('[Tab Downloader] Skipping duplicate download event');
+        return;
+    }
+    lastDownloadedTime = now;
+    lastDownloadedName = name;
+
+    if (!uint8 || !uint8.length) {
+        console.warn('[Tab Downloader] Received empty byte array for download');
+        return;
+    }
+
+    const blob = new Blob([uint8], { type: 'application/octet-stream' });
+    const file = new File([blob], name || 'downloaded.gp', { type: blob.type, lastModified: Date.now() });
+
+    const targetSong = activeTargetSong;
+    const targetAlbum = activeTargetAlbum;
+    const onFileSelectedCb = activeDownloaderOnFileSelected;
+
+    // Reset targets once consumed
+    activeTargetSong = null;
+    activeTargetAlbum = null;
+    activeDownloaderOnFileSelected = null;
+
+    // Close downloader modal first
+    closeTabDownloaderModal();
+
+    if (typeof onFileSelectedCb === 'function') {
+        const meta = await detectFileMetadata(file, file.name);
+        const stored = await saveStoredFile(file, 'tab-downloader', {
+            name: file.name,
+            relativePath: path || file.name
+        });
+        closeLibraryModal(true);
+        onFileSelectedCb({ file, providerId: 'tab-downloader', fileStoreId: stored.id, name: file.name, meta });
+        return;
+    }
+
+    // Persist to file store and attach to library song if bound, then load into player
+    if (targetSong?.id) {
+        const meta = await detectFileMetadata(file, file.name);
+        const stored = await saveStoredFile(file, 'tab-downloader', {
+            name: file.name,
+            relativePath: path || file.name,
+            targetSongId: targetSong.id
+        });
+
+        const addedOption = await addTabOptionToSong(targetSong.id, {
+            name: file.name,
+            providerId: 'tab-downloader',
+            relativePath: path || file.name,
+            fileStoreId: stored.id,
+            tuning: meta.primaryTuning,
+            tunings: meta.tunings,
+            stringCount: meta.stringCount,
+            fileType: file.name.split('.').pop().toLowerCase()
+        });
+
+        showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+
+        // Close library modal so viewer is visible
+        closeLibraryModal(true);
+
+        // Decorate file with library song metadata so loadFile displays song title/artist in header
+        file.librarySongId = targetSong.id;
+        file.librarySongTitle = targetSong.title;
+        file.artist = targetSong.artist;
+        file.album = targetSong.album || '';
+        file.coverUrl = targetSong.coverUrl || null;
+        file.tabId = addedOption?.id || null;
+        file.tabName = addedOption?.name || file.name;
+        file.fileStoreId = stored.id;
+        file.providerId = 'tab-downloader';
+
+        await loadFile(file);
+        return;
+    }
+
+    if (targetAlbum?.albumTitle) {
+        const meta = await detectFileMetadata(file, file.name);
+        const stored = await saveStoredFile(file, 'tab-downloader', {
+            name: file.name,
+            relativePath: path || file.name
+        });
+
+        const addedOption = await addTabOptionToAlbum(targetAlbum.collectionId, targetAlbum.artistName, targetAlbum.albumTitle, {
+            name: file.name,
+            providerId: 'tab-downloader',
+            relativePath: path || file.name,
+            fileStoreId: stored.id,
+            tuning: meta.primaryTuning,
+            tunings: meta.tunings,
+            stringCount: meta.stringCount,
+            fileType: file.name.split('.').pop().toLowerCase()
+        });
+
+        showToast(`Added "${file.name}" to album`, 'success');
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+
+        closeLibraryModal(true);
+
+        file.artist = targetAlbum.artistName;
+        file.album = targetAlbum.albumTitle;
+        file.tabId = addedOption?.id || null;
+        file.tabName = addedOption?.name || file.name;
+        file.fileStoreId = stored.id;
+        file.providerId = 'tab-downloader';
+
+        await loadFile(file);
+        return;
+    }
+
+    // Load file directly into player viewer
+    closeLibraryModal(true);
+    await loadFile(file);
+}
+
+// Global hook for direct evaluation from Kotlin or Rust
+if (typeof window !== 'undefined') {
+    window.__onTabDownloaded = (name, base64OrData, path = null) => {
+        try {
+            let uint8;
+            if (typeof base64OrData === 'string') {
+                const binary = atob(base64OrData);
+                uint8 = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    uint8[i] = binary.charCodeAt(i);
+                }
+            } else if (Array.isArray(base64OrData)) {
+                uint8 = new Uint8Array(base64OrData);
+            } else if (base64OrData instanceof Uint8Array) {
+                uint8 = base64OrData;
+            } else {
+                console.warn('[Tab Downloader] Unknown data format in __onTabDownloaded:', typeof base64OrData);
+                return;
+            }
+            handleDownloadedTabFile(name, uint8, path);
+        } catch (e) {
+            console.error('[Tab Downloader] Error handling downloaded tab:', e);
+        }
+    };
+}
+
+/**
  * Set up Tauri native event listener for completed downloads and debug logs
  */
 export function initTauriDownloadListener() {
@@ -308,88 +468,9 @@ export function initTauriDownloadListener() {
         // Download event
         window.__TAURI__.event.listen('tab-downloaded', async (event) => {
             console.log('[Tab Downloader] Received downloaded file event:', event.payload);
-            appendDebugLog(`[Download Event] Received ${event.payload?.name} (${event.payload?.data?.length || 0} bytes)`);
             const { name, data, path } = event.payload || {};
-            const now = Date.now();
-            if (now - lastDownloadedTime < 2000 && lastDownloadedName === name) {
-                console.log('[Tab Downloader] Skipping duplicate download event');
-                return;
-            }
-            lastDownloadedTime = now;
-            lastDownloadedName = name;
-
             if (data && Array.isArray(data)) {
-                const uint8 = new Uint8Array(data);
-                const blob = new Blob([uint8], { type: 'application/octet-stream' });
-                const file = new File([blob], name || 'downloaded.gp', { type: blob.type, lastModified: Date.now() });
-
-                const targetSong = activeTargetSong;
-                const targetAlbum = activeTargetAlbum;
-                const onFileSelectedCb = activeDownloaderOnFileSelected;
-
-                // Close downloader modal first
-                closeTabDownloaderModal();
-
-                if (typeof onFileSelectedCb === 'function') {
-                    const meta = await detectFileMetadata(file, file.name);
-                    const stored = await saveStoredFile(file, 'tab-downloader', {
-                        name: file.name,
-                        relativePath: path || file.name
-                    });
-                    onFileSelectedCb({ file, providerId: 'tab-downloader', fileStoreId: stored.id, name: file.name, meta });
-                    return;
-                }
-
-                // Only persist to file store and attach to library song/album if bound
-                if (targetSong?.id) {
-                    const meta = await detectFileMetadata(file, file.name);
-                    const stored = await saveStoredFile(file, 'tab-downloader', {
-                        name: file.name,
-                        relativePath: path || file.name,
-                        targetSongId: targetSong.id
-                    });
-
-                    await addTabOptionToSong(targetSong.id, {
-                        name: file.name,
-                        providerId: 'tab-downloader',
-                        relativePath: path || file.name,
-                        fileStoreId: stored.id,
-                        tuning: meta.primaryTuning,
-                        tunings: meta.tunings,
-                        stringCount: meta.stringCount,
-                        fileType: file.name.split('.').pop().toLowerCase()
-                    });
-
-                    showToast(`Added "${file.name}" to song`, 'success');
-                    window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                    return;
-                }
-
-                if (targetAlbum?.albumTitle) {
-                    const meta = await detectFileMetadata(file, file.name);
-                    const stored = await saveStoredFile(file, 'tab-downloader', {
-                        name: file.name,
-                        relativePath: path || file.name
-                    });
-
-                    await addTabOptionToAlbum(targetAlbum.collectionId, targetAlbum.artistName, targetAlbum.albumTitle, {
-                        name: file.name,
-                        providerId: 'tab-downloader',
-                        relativePath: path || file.name,
-                        fileStoreId: stored.id,
-                        tuning: meta.primaryTuning,
-                        tunings: meta.tunings,
-                        stringCount: meta.stringCount,
-                        fileType: file.name.split('.').pop().toLowerCase()
-                    });
-
-                    showToast(`Added "${file.name}" to album`, 'success');
-                    window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                    return;
-                }
-
-                // Load file directly into player viewer
-                await loadFile(file);
+                await handleDownloadedTabFile(name, new Uint8Array(data), path);
             }
         });
 
@@ -469,6 +550,32 @@ export async function openTabDownloader(options = {}) {
         query = formatSearchQueryForSource(activeSource, activeArtistName, activeSongName);
     }
     currentSearchQuery = query;
+
+    if (isNative() && !isDesktopNative()) {
+        const targetUrl = buildSearchUrl(activeSource, currentSearchQuery);
+        const config = {
+            showToolbar: true,
+            activeSourceId: activeSource.id,
+            artist: activeArtistName,
+            song: activeSongName,
+            sources: sources.map(s => ({
+                id: s.id,
+                name: s.name,
+                urlTemplate: s.urlTemplate,
+                defaultUrl: s.defaultUrl,
+                queryFormat: s.queryFormat,
+                userscriptEnabled: Boolean(s.userscriptEnabled),
+                userscript: s.userscript || null
+            }))
+        };
+        const targetScript = activeSource.userscriptEnabled ? (activeSource.userscript || '') : '';
+        await window.__TAURI__.core.invoke('open_tab_downloader', {
+            url: targetUrl,
+            userscript: targetScript || null,
+            config
+        });
+        return;
+    }
 
     renderTabDownloaderModal(query);
 }
