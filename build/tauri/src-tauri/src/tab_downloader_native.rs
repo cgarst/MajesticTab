@@ -205,71 +205,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     } else {
         initObserver();
     }
-    window.addEventListener('load', initObserver);
-
-    // 9. Webview URL change reporter to parent app
-    function reportUrl() {
-        try {
-            const u = window.location.href;
-            if (u && !u.startsWith('about:blank') && !u.startsWith('majestictab:')) {
-                const img = new Image();
-                img.src = 'majestictab://url?url=' + encodeURIComponent(u);
-            }
-        } catch (e) {}
-    }
-
-    const origPushState = history.pushState;
-    history.pushState = function() {
-        const ret = origPushState.apply(this, arguments);
-        reportUrl();
-        return ret;
-    };
-    const origReplaceState = history.replaceState;
-    history.replaceState = function() {
-        const ret = origReplaceState.apply(this, arguments);
-        reportUrl();
-        return ret;
-    };
-    window.addEventListener('popstate', reportUrl);
-    window.addEventListener('hashchange', reportUrl);
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', reportUrl);
-    } else {
-        reportUrl();
-    }
-    window.addEventListener('load', reportUrl);
-
-    // 10. Webview console log bridge to parent app
-    function bridgeLog(type, args) {
-        try {
-            const msg = '[' + type.toUpperCase() + '] ' + Array.from(args).map(a => {
-                if (typeof a === 'object') {
-                    try { return JSON.stringify(a); } catch (e) { return String(a); }
-                }
-                return String(a);
-            }).join(' ');
-            const img = new Image();
-            img.src = 'majestictab://log?msg=' + encodeURIComponent(msg);
-        } catch (e) {}
-    }
-
-    const origLog = console.log;
-    console.log = function() {
-        bridgeLog('log', arguments);
-        origLog.apply(console, arguments);
-    };
-    const origWarn = console.warn;
-    console.warn = function() {
-        bridgeLog('warn', arguments);
-        origWarn.apply(console, arguments);
-    };
-    const origError = console.error;
-    console.error = function() {
-        bridgeLog('error', arguments);
-        origError.apply(console, arguments);
-    };
-
-    // 11. Desktop Environment Spoofing & Viewport Enforcement
+    // 9. Desktop Environment Spoofing & Viewport Enforcement
     try {
         const desktopUa = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
         Object.defineProperty(navigator, 'userAgent', { get: () => desktopUa, configurable: true });
@@ -657,7 +593,10 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         offStyle.id = 'majestic-downloader-offset-style';
                         (document.head || document.documentElement).appendChild(offStyle);
                     }
-                    offStyle.textContent = 'html { margin-top: ' + Math.ceil(h) + 'px !important; }';
+                    const targetCss = 'html { margin-top: ' + Math.ceil(h) + 'px !important; }';
+                    if (offStyle.textContent !== targetCss) {
+                        offStyle.textContent = targetCss;
+                    }
                 }
             }
         }
@@ -670,7 +609,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             window.addEventListener('hashchange', updateToolbarDisplay);
             window.addEventListener('resize', updateToolbarDisplay);
             window.addEventListener('orientationchange', updateToolbarDisplay);
-            setInterval(updateToolbarDisplay, 1000);
+            setInterval(updateToolbarDisplay, 1500);
         }
     };
 
@@ -696,8 +635,81 @@ pub fn wrap_userscript(raw_js: &str, config: Option<&TabDownloaderConfig>) -> St
         None => "null".to_string(),
     };
     format!(
-        "{}\n(function() {{\n    const cfg = {};\n    if (cfg) {{\n        window.__MAJESTIC_TAB_DOWNLOADER_CONFIG__ = cfg;\n        if (typeof window.__initMajesticToolbar === 'function') {{\n            window.__initMajesticToolbar(cfg);\n        }}\n    }}\n    window.__majesticActiveUserscript = function() {{\n        try {{\n            {}\n        }} catch (err) {{\n            console.error(\"[MajesticTab Userscript Error]\", err);\n        }}\n    }};\n\n    if (typeof window.__majesticActiveUserscript === 'function') {{\n        window.__majesticActiveUserscript();\n    }}\n    if (document.readyState === 'loading') {{\n        document.addEventListener('DOMContentLoaded', () => {{\n            if (window.__majesticActiveUserscript) window.__majesticActiveUserscript();\n        }});\n    }}\n    window.addEventListener('load', () => {{\n        if (window.__majesticActiveUserscript) window.__majesticActiveUserscript();\n    }});\n    if (!window.__majesticRunnerInit) {{\n        window.__majesticRunnerInit = true;\n        setInterval(() => {{\n            if (typeof window.__majesticActiveUserscript === 'function') {{\n                window.__majesticActiveUserscript();\n            }}\n        }}, 400);\n        try {{\n            const obs = new MutationObserver(() => {{\n                if (typeof window.__majesticActiveUserscript === 'function') {{\n                    window.__majesticActiveUserscript();\n                }}\n            }});\n            const target = document.body || document.documentElement;\n            if (target) {{\n                obs.observe(target, {{ childList: true, subtree: true }});\n            }} else {{\n                document.addEventListener('DOMContentLoaded', () => {{\n                    const t = document.body || document.documentElement;\n                    if (t) obs.observe(t, {{ childList: true, subtree: true }});\n                }});\n            }}\n        }} catch (e) {{}}\n    }}\n}})();",
-        CORE_DOWNLOADER_SHIM, config_json, trimmed
+        r#"{core_shim}
+(function() {{
+    const cfg = {config_json};
+    if (cfg) {{
+        window.__MAJESTIC_TAB_DOWNLOADER_CONFIG__ = cfg;
+        if (typeof window.__initMajesticToolbar === 'function') {{
+            window.__initMajesticToolbar(cfg);
+        }}
+    }}
+    window.__majesticActiveUserscript = function() {{
+        try {{
+            {userscript}
+        }} catch (err) {{
+            console.error("[MajesticTab Userscript Error]", err);
+        }}
+    }};
+
+    let isExecuting = false;
+    let scheduledTimer = null;
+    function scheduleUserscriptRun() {{
+        if (scheduledTimer) return;
+        scheduledTimer = setTimeout(() => {{
+            scheduledTimer = null;
+            if (isExecuting) return;
+            isExecuting = true;
+            try {{
+                if (typeof window.__majesticActiveUserscript === 'function') {{
+                    window.__majesticActiveUserscript();
+                }}
+            }} catch (e) {{
+            }} finally {{
+                isExecuting = false;
+            }}
+        }}, 300);
+    }}
+
+    scheduleUserscriptRun();
+    if (document.readyState === 'loading') {{
+        document.addEventListener('DOMContentLoaded', scheduleUserscriptRun);
+    }}
+    window.addEventListener('load', scheduleUserscriptRun);
+
+    if (!window.__majesticRunnerInit) {{
+        window.__majesticRunnerInit = true;
+        setInterval(scheduleUserscriptRun, 2000);
+        try {{
+            const obs = new MutationObserver((mutations) => {{
+                let relevant = false;
+                for (let i = 0; i < mutations.length; i++) {{
+                    const m = mutations[i];
+                    const target = m.target;
+                    if (target && target.id === 'majestic-downloader-host') continue;
+                    if (target && target.id === 'majestic-downloader-offset-style') continue;
+                    relevant = true;
+                    break;
+                }}
+                if (relevant) {{
+                    scheduleUserscriptRun();
+                }}
+            }});
+            const target = document.body || document.documentElement;
+            if (target) {{
+                obs.observe(target, {{ childList: true, subtree: true }});
+            }} else {{
+                document.addEventListener('DOMContentLoaded', () => {{
+                    const t = document.body || document.documentElement;
+                    if (t) obs.observe(t, {{ childList: true, subtree: true }});
+                }});
+            }}
+        }} catch (e) {{}}
+    }}
+}})();"#,
+        core_shim = CORE_DOWNLOADER_SHIM,
+        config_json = config_json,
+        userscript = trimmed
     )
 }
 
@@ -864,11 +876,9 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     let app_handle_for_load = app.handle().clone();
     let builder = builder.on_page_load(move |webview, payload| {
         if let tauri::webview::PageLoadEvent::Finished = payload.event() {
-            if let Ok(cur_url) = webview.url() {
-                let s = cur_url.to_string();
-                if s.starts_with("http://") || s.starts_with("https://") {
-                    let _ = app_handle_for_load.emit("tab-downloader-url-changed", s);
-                }
+            let s = payload.url().as_str();
+            if s.starts_with("http://") || s.starts_with("https://") {
+                let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
             }
             if let Some(state) = app_handle_for_load.try_state::<TabDownloaderState>() {
                 if let Ok(guard) = state.active_userscript.lock() {
