@@ -1,16 +1,6 @@
 use std::sync::Mutex;
 use tauri::{App, AppHandle, Emitter, Manager, State, Wry};
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-use tauri::{
-    webview::WebviewBuilder, LogicalPosition, LogicalSize, WebviewUrl,
-};
-
-#[cfg(target_os = "macos")]
-use objc2_foundation::NSString;
-#[cfg(target_os = "macos")]
-use objc2_web_kit::WKWebView;
-
 use crate::DownloadedTabPayload;
 
 #[allow(dead_code)]
@@ -34,6 +24,10 @@ pub struct TabSourceInfo {
     pub userscript_enabled: bool,
     #[serde(default)]
     pub userscript: Option<String>,
+    #[serde(default)]
+    pub default_userscript: Option<String>,
+    #[serde(default)]
+    pub is_seed: bool,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -47,6 +41,10 @@ pub struct TabDownloaderConfig {
     pub artist: Option<String>,
     #[serde(default)]
     pub song: Option<String>,
+    #[serde(default)]
+    pub query: Option<String>,
+    #[serde(default)]
+    pub is_debug_tools_enabled: bool,
     #[serde(default)]
     pub sources: Vec<TabSourceInfo>,
 }
@@ -334,7 +332,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     } else {
         initObserver();
     }
-    // 9. Modeled In-App Shadow DOM Toolbar (for standalone webviews on Android or future native pivots)
+    // 9. Modeled In-App Shadow DOM Toolbar & Source Configuration Panel
     window.__initMajesticToolbar = function(config) {
         if (!config || !config.showToolbar) return;
 
@@ -364,18 +362,22 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 
         if (!shadow) return;
 
-        const sources = config.sources || [];
+        let sources = config.sources || [];
+        let localSources = JSON.parse(JSON.stringify(sources));
         const activeSourceId = config.activeSourceId || (sources[0] ? sources[0].id : 'ug');
         const artist = (config.artist || '').trim();
         const song = (config.song || '').trim();
-        const songText = (artist && song) ? (artist + ' — ' + song) : (song || artist || '');
+        const query = (config.query || '').trim();
+        const songText = (artist && song) ? (artist + ' — ' + song) : (song || query || artist || '');
+        const isDebugTools = Boolean(config.isDebugToolsEnabled);
+        let editingSourceId = activeSourceId;
 
-        function buildSearchUrl(source, art, sng) {
+        function buildSearchUrl(source, art, sng, qry) {
             let term = '';
             if (source.queryFormat === 'song_only') {
-                term = sng || art || '';
+                term = sng || qry || art || '';
             } else {
-                term = (art && sng) ? (art + ' ' + sng) : (sng || art || '');
+                term = (art && sng) ? (art + ' ' + sng) : (qry || sng || art || '');
             }
             term = term.trim();
             if (!term) {
@@ -417,6 +419,16 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 } catch(e) {}
             }
             return activeSourceId;
+        }
+
+        function persistSources(updatedSources) {
+            const jsonStr = JSON.stringify(updatedSources);
+            try {
+                if (window.MajesticDownloaderNative && typeof window.MajesticDownloaderNative.saveSources === 'function') {
+                    window.MajesticDownloaderNative.saveSources(jsonStr);
+                }
+            } catch(e) {}
+            window.location.href = 'majestictab://save-sources?sources=' + encodeURIComponent(jsonStr);
         }
 
         if (isNew) {
@@ -492,7 +504,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         border-radius: 6px;
                         font-size: 13px;
                         font-weight: 500;
-                        max-width: 260px;
+                        max-width: 240px;
                         overflow: hidden;
                         text-overflow: ellipsis;
                         white-space: nowrap;
@@ -523,7 +535,10 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         white-space: nowrap;
                         overflow: hidden;
                     }
-                    .close-btn {
+                    .url-input:focus {
+                        color: #ffffff;
+                    }
+                    .icon-btn {
                         background: rgba(255, 255, 255, 0.06);
                         border: 1px solid rgba(255, 255, 255, 0.15);
                         color: #f1f5f9;
@@ -536,6 +551,10 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         cursor: pointer;
                         flex-shrink: 0;
                         transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+                    }
+                    .icon-btn:hover {
+                        background: rgba(255, 255, 255, 0.15);
+                        color: #ffffff;
                     }
                     .close-btn:hover {
                         background: rgba(239, 68, 68, 0.2);
@@ -584,6 +603,33 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         border-color: #38bdf8;
                         box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
                     }
+                    .tab-btn-add {
+                        border-style: dashed;
+                        color: #38bdf8;
+                    }
+                    .pill-btn {
+                        display: inline-flex;
+                        align-items: center;
+                        padding: 5px 12px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        font-weight: 500;
+                        background: rgba(255, 255, 255, 0.05);
+                        border: 1px solid rgba(255, 255, 255, 0.12);
+                        color: #cbd5e1;
+                        cursor: pointer;
+                        transition: all 0.15s ease;
+                    }
+                    .pill-btn:hover {
+                        background: rgba(255, 255, 255, 0.1);
+                        color: #ffffff;
+                    }
+                    .pill-btn.active {
+                        background: rgba(56, 189, 248, 0.2);
+                        border-color: #38bdf8;
+                        color: #ffffff;
+                        font-weight: 600;
+                    }
                     svg {
                         width: 14px;
                         height: 14px;
@@ -612,21 +658,121 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 
                         <div class="url-group">
                             <svg viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.87.21-1.688.508-2.428l-.008-.072H1.36a7.03 7.03 0 0 0 0 5h2.648a10.6 10.6 0 0 1-.508-2.428l.008-.072zm.76 3.5c.29 1.05.7 1.93 1.218 2.54.516.61 1.08.96 1.514 1.037V11H4.268zm4.232 0v3.577c.434-.077.998-.427 1.514-1.037.518-.61.928-1.49 1.218-2.54H8.5zm3.41-3.5a10.6 10.6 0 0 1-.508 2.428l.008.072h2.648a7.03 7.03 0 0 0 0-5h-2.648a10.6 10.6 0 0 1 .508 2.428l-.008.072zm-.178-4.5H9.5V1.077c.67.204 1.335.82 1.887 1.855.22.41.4.85.545 1.068zm.908-1.539A9.267 9.267 0 0 0 11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.467c.18.27.38.58.58.928zM8.5 4h2.355a7.97 7.97 0 0 0-.468-1.068C9.835 1.897 9.17 1.28 8.5 1.077V4zM8.5 5v5h3.04a9.63 9.63 0 0 0 .428-2.5c0-.88-.15-1.72-.428-2.5H8.5zM7.5 5H4.46a9.63 9.63 0 0 0-.428 2.5c0 .88.15 1.72.428 2.5H7.5V5z"/></svg>
-                            <input type="text" class="url-input" id="url-input" readonly value="${escapeHtml(window.location.href)}" title="${escapeHtml(window.location.href)}">
+                            <input type="text" class="url-input" id="url-input" value="${escapeHtml(window.location.href)}" title="${escapeHtml(window.location.href)}" placeholder="Search or enter URL...">
                         </div>
 
-                        <button type="button" class="close-btn" id="btn-close" title="Close">
+                        ${isDebugTools ? `
+                        <button type="button" class="icon-btn" id="btn-debug" title="Toggle Webview Debug Console">
+                            <svg viewBox="0 0 16 16"><path d="M6 12.5a.5.5 0 0 0 .5.5h8a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-8a.5.5 0 0 0-.5.5v9zM1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9zm2.146 4.854a.5.5 0 0 1 0-.708l2-2a.5.5 0 1 1 .708.708L4.207 8l1.647 1.646a.5.5 0 0 1-.708.708l-2-2zM8.5 9.5a.5.5 0 0 1 .5-.5h2a.5.5 0 0 1 0 1H9a.5.5 0 0 1-.5-.5z"/></svg>
+                        </button>
+                        ` : ''}
+
+                        <button type="button" class="icon-btn" id="btn-settings" title="Configure Tab Sources">
+                            <svg viewBox="0 0 16 16"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/></svg>
+                        </button>
+
+                        <button type="button" class="icon-btn close-btn" id="btn-close" title="Close">
                             <svg viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>
                         </button>
                     </div>
 
-                    <div class="tabs-row" id="tabs-row">
-                        ${sources.map(s => `
-                            <button type="button" class="tab-btn" data-source-id="${escapeHtml(s.id)}" title="${escapeHtml(s.name)}">
-                                <svg viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.87.21-1.688.508-2.428l-.008-.072H1.36a7.03 7.03 0 0 0 0 5h2.648a10.6 10.6 0 0 1-.508-2.428l.008-.072zm.76 3.5c.29 1.05.7 1.93 1.218 2.54.516.61 1.08.96 1.514 1.037V11H4.268zm4.232 0v3.577c.434-.077.998-.427 1.514-1.037.518-.61.928-1.49 1.218-2.54H8.5zm3.41-3.5a10.6 10.6 0 0 1-.508 2.428l.008.072h2.648a7.03 7.03 0 0 0 0-5h-2.648a10.6 10.6 0 0 1 .508 2.428l-.008.072zm-.178-4.5H9.5V1.077c.67.204 1.335.82 1.887 1.855.22.41.4.85.545 1.068zm.908-1.539A9.267 9.267 0 0 0 11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.467c.18.27.38.58.58.928zM8.5 4h2.355a7.97 7.97 0 0 0-.468-1.068C9.835 1.897 9.17 1.28 8.5 1.077V4zM8.5 5v5h3.04a9.63 9.63 0 0 0 .428-2.5c0-.88-.15-1.72-.428-2.5H8.5zM7.5 5H4.46a9.63 9.63 0 0 0-.428 2.5c0 .88.15 1.72.428 2.5H7.5V5z"/></svg>
-                                <span>${escapeHtml(s.name)}</span>
+                    <!-- Live Debug Drawer (if enabled) -->
+                    <div id="debug-drawer" style="display: none; background: #0b0f19; color: #cbd5e1; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.12); max-height: 140px; overflow-y: auto; padding: 6px 12px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                            <span style="color: #38bdf8; font-weight: 600;">Webview Debug Console</span>
+                            <div style="display: flex; gap: 6px;">
+                                <button type="button" id="btn-clear-logs" style="background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: #94a3b8; font-size: 11px; padding: 2px 6px; cursor: pointer;">Clear Logs</button>
+                                <button type="button" id="btn-devtools" style="background: none; border: 1px solid rgba(255,255,255,0.15); border-radius: 4px; color: #cbd5e1; font-size: 11px; padding: 2px 6px; cursor: pointer;">DevTools</button>
+                            </div>
+                        </div>
+                        <div id="debug-logs-content" style="display: flex; flex-direction: column; gap: 2px;"></div>
+                    </div>
+
+                    <!-- Tabs row -->
+                    <div class="tabs-row" id="tabs-row"></div>
+                </div>
+
+                <!-- Modal Overlay for Configure Tab Sources -->
+                <div id="settings-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75); align-items: center; justify-content: center; z-index: 2147483647; padding: 16px; backdrop-filter: blur(4px); box-sizing: border-box;">
+                    <div style="background: #141721; border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto; box-shadow: 0 16px 40px rgba(0,0,0,0.8); color: #f1f5f9; display: flex; flex-direction: column;">
+                        
+                        <!-- Header -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="width: 32px; height: 32px; border-radius: 8px; background: rgba(56, 189, 248, 0.15); color: #38bdf8; display: flex; align-items: center; justify-content: center;">
+                                    <svg viewBox="0 0 16 16"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/></svg>
+                                </div>
+                                <div>
+                                    <div style="font-weight: 600; font-size: 15px;">Configure Tab Sources</div>
+                                    <div style="font-size: 12px; color: #94a3b8;">Manage search providers and custom userscripts</div>
+                                </div>
+                            </div>
+                            <button type="button" class="icon-btn" id="cfg-close-btn" style="width: 28px; height: 28px;">
+                                <svg viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>
                             </button>
-                        `).join('')}
+                        </div>
+
+                        <!-- Body -->
+                        <div style="padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+                            <div>
+                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                    <label style="font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Select Source</label>
+                                    <button type="button" id="cfg-btn-new-source" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #38bdf8; font-size: 12px; padding: 4px 10px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                        <svg viewBox="0 0 16 16" style="width: 12px; height: 12px;"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+                                        <span>New Source</span>
+                                    </button>
+                                </div>
+                                <div id="cfg-source-pills" style="display: flex; flex-wrap: wrap; gap: 6px;"></div>
+                            </div>
+
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 500; color: #cbd5e1; margin-bottom: 4px;">Source Name</label>
+                                    <input type="text" id="cfg-source-name" style="width: 100%; box-sizing: border-box; background: #0b0f19; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 7px 10px; color: #ffffff; font-size: 13px; outline: none;">
+                                </div>
+
+                                <div>
+                                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                                        <label style="font-size: 12px; font-weight: 500; color: #cbd5e1;">Search URL Template</label>
+                                        <button type="button" id="cfg-reset-url-btn" style="background: none; border: none; color: #38bdf8; font-size: 11px; cursor: pointer; padding: 0;">Reset URL</button>
+                                    </div>
+                                    <input type="text" id="cfg-source-url" style="width: 100%; box-sizing: border-box; background: #0b0f19; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 7px 10px; color: #cbd5e1; font-family: ui-monospace, monospace; font-size: 12px; outline: none;">
+                                    <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Use <code style="color: #38bdf8;">SEARCH+TERM</code> where search keywords should be inserted.</div>
+                                </div>
+
+                                <div>
+                                    <label style="display: block; font-size: 12px; font-weight: 500; color: #cbd5e1; margin-bottom: 4px;">Search Query Format</label>
+                                    <select id="cfg-query-format" style="width: 100%; box-sizing: border-box; background: #0b0f19; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 7px 10px; color: #ffffff; font-size: 13px; outline: none;">
+                                        <option value="artist_song">Artist + Song Name (e.g. Metallica Master of Puppets)</option>
+                                        <option value="song_only">Song Name Only (e.g. Master of Puppets)</option>
+                                    </select>
+                                    <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Controls whether search queries sent to this provider include artist name or only song title.</div>
+                                </div>
+
+                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px;">
+                                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: #cbd5e1; cursor: pointer;">
+                                            <input type="checkbox" id="cfg-userscript-enabled" style="accent-color: #38bdf8; cursor: pointer;">
+                                            <span>Inject Userscript (In-App Webview)</span>
+                                        </label>
+                                        <button type="button" id="cfg-reset-script-btn" style="background: none; border: none; color: #38bdf8; font-size: 11px; cursor: pointer; padding: 0;">Reset Script</button>
+                                    </div>
+                                    <textarea id="cfg-userscript-code" rows="5" style="width: 100%; box-sizing: border-box; background: #0b0f19; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 7px 10px; color: #cbd5e1; font-family: ui-monospace, monospace; font-size: 12px; outline: none; resize: vertical;" placeholder="// Custom JavaScript injected into webview"></textarea>
+                                </div>
+                            </div>
+
+                            <!-- Footer -->
+                            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 4px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+                                <button type="button" id="cfg-delete-btn" style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; border-radius: 6px; padding: 7px 14px; font-size: 13px; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                                    <svg viewBox="0 0 16 16" style="width: 13px; height: 13px; fill: currentColor;"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+                                    <span>Delete</span>
+                                </button>
+                                <div style="display: flex; gap: 8px; margin-left: auto;">
+                                    <button type="button" id="cfg-cancel-btn" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #cbd5e1; border-radius: 6px; padding: 7px 16px; font-size: 13px; cursor: pointer;">Cancel</button>
+                                    <button type="button" id="cfg-save-btn" style="background: linear-gradient(135deg, #0284c7, #0369a1); border: 1px solid #38bdf8; color: #ffffff; border-radius: 6px; padding: 7px 18px; font-size: 13px; font-weight: 600; cursor: pointer; box-shadow: 0 0 12px rgba(56, 189, 248, 0.35);">Save Changes</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
@@ -643,25 +789,242 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 window.location.href = 'majestictab://close';
             });
 
-            shadow.getElementById('url-input')?.addEventListener('focus', function() {
-                this.select();
+            shadow.getElementById('btn-settings')?.addEventListener('click', () => {
+                localSources = JSON.parse(JSON.stringify(sources));
+                editingSourceId = detectActiveSourceId();
+                renderSettingsPills();
+                renderSettingsForm(editingSourceId);
+                const overlay = shadow.getElementById('settings-overlay');
+                if (overlay) overlay.style.display = 'flex';
             });
 
-            shadow.querySelectorAll('.tab-btn').forEach(btn => {
+            shadow.getElementById('btn-debug')?.addEventListener('click', () => {
+                const drawer = shadow.getElementById('debug-drawer');
+                if (drawer) {
+                    drawer.style.display = drawer.style.display === 'none' ? 'block' : 'none';
+                    updateToolbarDisplay();
+                }
+            });
+
+            shadow.getElementById('btn-clear-logs')?.addEventListener('click', () => {
+                const content = shadow.getElementById('debug-logs-content');
+                if (content) content.innerHTML = '';
+            });
+
+            shadow.getElementById('btn-devtools')?.addEventListener('click', () => {
+                window.location.href = 'majestictab://devtools';
+            });
+
+            const urlInputEl = shadow.getElementById('url-input');
+            if (urlInputEl) {
+                urlInputEl.addEventListener('focus', function() {
+                    this.select();
+                });
+                urlInputEl.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter') {
+                        const val = this.value.trim();
+                        if (val) {
+                            if (val.startsWith('http://') || val.startsWith('https://')) {
+                                window.location.href = val;
+                            } else {
+                                const currentActiveId = detectActiveSourceId();
+                                const src = sources.find(s => s.id === currentActiveId) || sources[0];
+                                if (src) {
+                                    window.location.href = buildSearchUrl(src, '', '', val);
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Settings modal interactions
+            shadow.getElementById('cfg-close-btn')?.addEventListener('click', () => {
+                const overlay = shadow.getElementById('settings-overlay');
+                if (overlay) overlay.style.display = 'none';
+            });
+            shadow.getElementById('cfg-cancel-btn')?.addEventListener('click', () => {
+                const overlay = shadow.getElementById('settings-overlay');
+                if (overlay) overlay.style.display = 'none';
+            });
+
+            shadow.getElementById('cfg-btn-new-source')?.addEventListener('click', () => {
+                saveCurrentFormValues();
+                const newId = 'source_' + Date.now();
+                const newSrc = {
+                    id: newId,
+                    name: 'Custom Source',
+                    urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=SEARCH+TERM',
+                    defaultUrl: '',
+                    queryFormat: 'artist_song',
+                    userscriptEnabled: false,
+                    userscript: '',
+                    defaultUserscript: '',
+                    isSeed: false
+                };
+                localSources.push(newSrc);
+                editingSourceId = newId;
+                renderSettingsPills();
+                renderSettingsForm(newId);
+            });
+
+            shadow.getElementById('cfg-delete-btn')?.addEventListener('click', () => {
+                const src = localSources.find(s => s.id === editingSourceId);
+                if (!src || src.isSeed) return;
+                localSources = localSources.filter(s => s.id !== editingSourceId);
+                editingSourceId = localSources[0]?.id || null;
+                renderSettingsPills();
+                if (editingSourceId) renderSettingsForm(editingSourceId);
+            });
+
+            shadow.getElementById('cfg-reset-url-btn')?.addEventListener('click', () => {
+                const src = localSources.find(s => s.id === editingSourceId);
+                if (src && src.defaultUrl) {
+                    const inp = shadow.getElementById('cfg-source-url');
+                    if (inp) inp.value = src.defaultUrl;
+                }
+            });
+
+            shadow.getElementById('cfg-reset-script-btn')?.addEventListener('click', () => {
+                const src = localSources.find(s => s.id === editingSourceId);
+                if (src && src.defaultUserscript) {
+                    const txt = shadow.getElementById('cfg-userscript-code');
+                    const chk = shadow.getElementById('cfg-userscript-enabled');
+                    if (txt) txt.value = src.defaultUserscript;
+                    if (chk) chk.checked = true;
+                }
+            });
+
+            shadow.getElementById('cfg-save-btn')?.addEventListener('click', () => {
+                saveCurrentFormValues();
+                sources = JSON.parse(JSON.stringify(localSources));
+                config.sources = sources;
+                persistSources(sources);
+                renderSourceTabs();
+                const overlay = shadow.getElementById('settings-overlay');
+                if (overlay) overlay.style.display = 'none';
+            });
+        }
+
+        function renderSourceTabs() {
+            const tabsRow = shadow.getElementById('tabs-row');
+            if (!tabsRow) return;
+            const currentActiveId = detectActiveSourceId();
+            let html = sources.map(s => `
+                <button type="button" class="tab-btn ${s.id === currentActiveId ? 'active' : ''}" data-source-id="${escapeHtml(s.id)}" title="${escapeHtml(s.name)}">
+                    <svg viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.87.21-1.688.508-2.428l-.008-.072H1.36a7.03 7.03 0 0 0 0 5h2.648a10.6 10.6 0 0 1-.508-2.428l.008-.072zm.76 3.5c.29 1.05.7 1.93 1.218 2.54.516.61 1.08.96 1.514 1.037V11H4.268zm4.232 0v3.577c.434-.077.998-.427 1.514-1.037.518-.61.928-1.49 1.218-2.54H8.5zm3.41-3.5a10.6 10.6 0 0 1-.508 2.428l.008.072h2.648a7.03 7.03 0 0 0 0-5h-2.648a10.6 10.6 0 0 1 .508 2.428l-.008.072zm-.178-4.5H9.5V1.077c.67.204 1.335.82 1.887 1.855.22.41.4.85.545 1.068zm.908-1.539A9.267 9.267 0 0 0 11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.467c.18.27.38.58.58.928zM8.5 4h2.355a7.97 7.97 0 0 0-.468-1.068C9.835 1.897 9.17 1.28 8.5 1.077V4zM8.5 5v5h3.04a9.63 9.63 0 0 0 .428-2.5c0-.88-.15-1.72-.428-2.5H8.5zM7.5 5H4.46a9.63 9.63 0 0 0-.428 2.5c0 .88.15 1.72.428 2.5H7.5V5z"/></svg>
+                    <span>${escapeHtml(s.name)}</span>
+                </button>
+            `).join('');
+
+            html += `
+                <button type="button" class="tab-btn tab-btn-add" id="btn-add-source" title="Add New Tab Source">
+                    <svg viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+                    <span>Add Source</span>
+                </button>
+            `;
+            tabsRow.innerHTML = html;
+
+            tabsRow.querySelectorAll('.tab-btn:not(.tab-btn-add)').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const sid = btn.dataset.sourceId;
                     const src = sources.find(s => s.id === sid);
                     if (src) {
-                        shadow.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+                        tabsRow.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+                        const urlInput = shadow.getElementById('url-input');
                         if (urlInput) {
                             urlInput.value = 'Loading ' + src.name + '...';
                         }
-                        const nextUrl = buildSearchUrl(src, artist, song);
+                        const nextUrl = buildSearchUrl(src, artist, song, query);
                         window.location.href = nextUrl;
                     }
                 });
             });
+
+            tabsRow.querySelector('#btn-add-source')?.addEventListener('click', () => {
+                saveCurrentFormValues();
+                const newId = 'source_' + Date.now();
+                const newSrc = {
+                    id: newId,
+                    name: 'Custom Source',
+                    urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=SEARCH+TERM',
+                    defaultUrl: '',
+                    queryFormat: 'artist_song',
+                    userscriptEnabled: false,
+                    userscript: '',
+                    defaultUserscript: '',
+                    isSeed: false
+                };
+                localSources.push(newSrc);
+                editingSourceId = newId;
+                renderSettingsPills();
+                renderSettingsForm(newId);
+                const overlay = shadow.getElementById('settings-overlay');
+                if (overlay) overlay.style.display = 'flex';
+            });
         }
+
+        function renderSettingsPills() {
+            const container = shadow.getElementById('cfg-source-pills');
+            if (!container) return;
+            container.innerHTML = localSources.map(s => `
+                <button type="button" class="pill-btn ${s.id === editingSourceId ? 'active' : ''}" data-source-id="${escapeHtml(s.id)}">
+                    ${escapeHtml(s.name)}
+                </button>
+            `).join('');
+
+            container.querySelectorAll('.pill-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    saveCurrentFormValues();
+                    editingSourceId = btn.dataset.sourceId;
+                    renderSettingsPills();
+                    renderSettingsForm(editingSourceId);
+                });
+            });
+        }
+
+        function saveCurrentFormValues() {
+            if (!editingSourceId) return;
+            const src = localSources.find(s => s.id === editingSourceId);
+            if (!src) return;
+            const nameInput = shadow.getElementById('cfg-source-name');
+            const urlInput = shadow.getElementById('cfg-source-url');
+            const queryFormatSelect = shadow.getElementById('cfg-query-format');
+            const userscriptEnabledCheckbox = shadow.getElementById('cfg-userscript-enabled');
+            const userscriptCodeTextarea = shadow.getElementById('cfg-userscript-code');
+
+            if (nameInput) src.name = nameInput.value.trim() || src.name;
+            if (urlInput) src.urlTemplate = urlInput.value.trim() || src.urlTemplate;
+            if (queryFormatSelect) src.queryFormat = queryFormatSelect.value;
+            if (userscriptEnabledCheckbox) src.userscriptEnabled = userscriptEnabledCheckbox.checked;
+            if (userscriptCodeTextarea) src.userscript = userscriptCodeTextarea.value;
+        }
+
+        function renderSettingsForm(sourceId) {
+            const src = localSources.find(s => s.id === sourceId) || localSources[0];
+            if (!src) return;
+            editingSourceId = src.id;
+
+            const nameInput = shadow.getElementById('cfg-source-name');
+            const urlInput = shadow.getElementById('cfg-source-url');
+            const resetUrlBtn = shadow.getElementById('cfg-reset-url-btn');
+            const queryFormatSelect = shadow.getElementById('cfg-query-format');
+            const userscriptEnabledCheckbox = shadow.getElementById('cfg-userscript-enabled');
+            const resetScriptBtn = shadow.getElementById('cfg-reset-script-btn');
+            const userscriptCodeTextarea = shadow.getElementById('cfg-userscript-code');
+            const deleteBtn = shadow.getElementById('cfg-delete-btn');
+
+            if (nameInput) nameInput.value = src.name || '';
+            if (urlInput) urlInput.value = src.urlTemplate || '';
+            if (resetUrlBtn) resetUrlBtn.style.display = src.defaultUrl ? 'inline-block' : 'none';
+            if (queryFormatSelect) queryFormatSelect.value = src.queryFormat || 'artist_song';
+            if (userscriptEnabledCheckbox) userscriptEnabledCheckbox.checked = Boolean(src.userscriptEnabled);
+            if (resetScriptBtn) resetScriptBtn.style.display = src.defaultUserscript ? 'inline-block' : 'none';
+            if (userscriptCodeTextarea) userscriptCodeTextarea.value = src.userscript || '';
+            if (deleteBtn) deleteBtn.style.display = src.isSeed ? 'none' : 'flex';
+        }
+
+        renderSourceTabs();
 
         const toolbarRoot = shadow.getElementById('toolbar-root');
         const urlInput = shadow.getElementById('url-input');
@@ -679,13 +1042,13 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         }
 
         function updateToolbarDisplay() {
-            if (urlInput) {
+            if (urlInput && document.activeElement !== urlInput) {
                 const cur = window.location.href;
                 urlInput.value = cur;
                 urlInput.title = cur;
             }
             const currentActiveId = detectActiveSourceId();
-            shadow.querySelectorAll('.tab-btn').forEach(btn => {
+            shadow.querySelectorAll('.tab-btn:not(.tab-btn-add)').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.sourceId === currentActiveId);
             });
 
@@ -900,6 +1263,33 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
         return false;
     }
 
+    // 5. Source configuration persistence: majestictab://save-sources?sources=...
+    if url.scheme() == "majestictab" && (url.host_str() == Some("save-sources") || url_str.starts_with("majestictab://save-sources")) {
+        let sources_json = url
+            .query_pairs()
+            .find(|(k, _)| k == "sources")
+            .map(|(_, v)| v.into_owned())
+            .unwrap_or_default();
+        if !sources_json.is_empty() {
+            if let Some(main_win) = app_handle.get_webview_window("main") {
+                let escaped_json = serde_json::to_string(&sources_json).unwrap_or_default();
+                let eval_script = format!("window.__onSaveSources && window.__onSaveSources({});", escaped_json);
+                let _ = main_win.eval(&eval_script);
+            }
+            let _ = app_handle.emit("tab-downloader-save-sources", sources_json);
+        }
+        return false;
+    }
+
+    // 6. DevTools request: majestictab://devtools
+    if url.scheme() == "majestictab" && (url.host_str() == Some("devtools") || url_str.starts_with("majestictab://devtools")) {
+        #[cfg(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))]
+        if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
+            w.open_devtools();
+        }
+        return false;
+    }
+
     if url.scheme() == "majestictab" {
         return false;
     }
@@ -981,250 +1371,11 @@ pub fn identify_tab_extension(bytes: &[u8], filename: &str) -> Option<&'static s
     None
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
-    app.manage(TabDownloaderState::default());
-    let window = app
-        .get_window("main")
-        .ok_or(tauri::Error::WebviewNotFound)?;
-
-    let builder = WebviewBuilder::new(
-        DOWNLOADER_LABEL,
-        WebviewUrl::External("https://www.ultimate-guitar.com/".parse().unwrap()),
-    )
-    .initialization_script(CORE_DOWNLOADER_SHIM);
-
-    #[cfg(feature = "debug-tools")]
-    let builder = builder.devtools(true);
-
-    let app_handle_for_nav = app.handle().clone();
-    let builder = builder.on_navigation(move |url| {
-        handle_navigation(&app_handle_for_nav, &url)
-    });
-
-    let app_handle_for_load = app.handle().clone();
-    let builder = builder.on_page_load(move |webview, payload| {
-        if let tauri::webview::PageLoadEvent::Finished = payload.event() {
-            let s = payload.url().as_str();
-            if s.starts_with("http://") || s.starts_with("https://") {
-                let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
-            }
-            if let Some(state) = app_handle_for_load.try_state::<TabDownloaderState>() {
-                if let Ok(guard) = state.active_userscript.lock() {
-                    if let Some(ref js) = *guard {
-                        if !js.is_empty() {
-                            let wrapped = wrap_userscript(js, None);
-                            let _ = webview.eval(&wrapped);
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    let app_handle_for_download = app.handle().clone();
-    let builder = builder.on_download(move |_webview, event| {
-        match event {
-            tauri::webview::DownloadEvent::Requested { destination, url } => {
-                let dest_dir = std::env::temp_dir().join("majestictab_downloads");
-                let _ = std::fs::create_dir_all(&dest_dir);
-                let mut filename = destination
-                    .file_name()
-                    .map(|f| f.to_string_lossy().to_string())
-                    .unwrap_or_else(|| "downloaded.gp".to_string());
-
-                if filename == "download" || !filename.contains('.') {
-                    if let Some(segment) = url.path_segments().and_then(|s| s.last()) {
-                        if segment.contains('.') {
-                            filename = segment.to_string();
-                        }
-                    }
-                }
-
-                let now_ms = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_millis())
-                    .unwrap_or(0);
-                let unique_temp_name = format!("{}_{}", now_ms, filename);
-                let final_dest = dest_dir.join(&unique_temp_name);
-                *destination = final_dest.clone();
-
-                if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
-                    if let Ok(mut pending) = state.pending_downloads.lock() {
-                        pending.insert(url.to_string(), final_dest.clone());
-                    }
-                    if let Ok(mut last) = state.last_destination.lock() {
-                        *last = Some(final_dest.clone());
-                    }
-                }
-
-                eprintln!("[Tab Downloader] Native download requested -> destination={:?}, url={}", final_dest, url);
-                true
-            }
-            tauri::webview::DownloadEvent::Finished { url, path, success, .. } => {
-                eprintln!("[Tab Downloader] Native download finished: success={}, url={}, path={:?}", success, url, path);
-                let resolved_path = path.or_else(|| {
-                    if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
-                        if let Ok(mut pending) = state.pending_downloads.lock() {
-                            if let Some(p) = pending.remove(&url.to_string()) {
-                                return Some(p);
-                            }
-                        }
-                        if let Ok(mut last) = state.last_destination.lock() {
-                            return last.take();
-                        }
-                    }
-                    None
-                });
-
-                if let Some(p) = resolved_path {
-                    let raw_name = p
-                        .file_name()
-                        .map(|f| f.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "downloaded.gp".to_string());
-                    let mut filename = if let Some(idx) = raw_name.find('_') {
-                        if raw_name[..idx].chars().all(|c| c.is_ascii_digit()) {
-                            raw_name[idx + 1..].to_string()
-                        } else {
-                            raw_name
-                        }
-                    } else {
-                        raw_name
-                    };
-
-                    let data = std::fs::read(&p).ok();
-                    if let Some(ref bytes) = data {
-                        if !bytes.is_empty() {
-                            let identified_ext = identify_tab_extension(bytes, &filename);
-                            if let Some(ext) = identified_ext {
-                                if !filename.to_lowercase().ends_with(&format!(".{}", ext)) {
-                                    if !filename.contains('.') || filename.starts_with("download") {
-                                        filename = format!("{}.{}", filename, ext);
-                                    }
-                                }
-
-                                eprintln!("[Tab Downloader] Ingested tab download: {:?} -> {} ({} bytes)", p, filename, bytes.len());
-                                let payload = DownloadedTabPayload {
-                                    name: filename,
-                                    path: Some(p.to_string_lossy().to_string()),
-                                    data: Some(bytes.clone()),
-                                };
-                                let _ = app_handle_for_download.emit("tab-downloaded", payload);
-                            } else {
-                                eprintln!("[Tab Downloader] Downloaded file {} ({} bytes) did not match tab requirements", filename, bytes.len());
-                            }
-                        }
-                    }
-                }
-                true
-            }
-            _ => true,
-        }
-    });
-
-    let downloader = window.add_child(
-        builder,
-        LogicalPosition::new(-10000.0, -10000.0),
-        LogicalSize::new(1.0, 1.0),
-    )?;
-
-    #[cfg(target_os = "macos")]
-    downloader.with_webview(|platform| unsafe {
-        let webview = &*platform.inner().cast::<WKWebView>();
-        webview.setWantsLayer(true);
-        if let Some(layer) = webview.layer() {
-            layer.setCornerRadius(8.0);
-            layer.setMasksToBounds(true);
-        }
-        let ua = NSString::from_str("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15");
-        webview.setCustomUserAgent(Some(&ua));
-    })?;
-
-    downloader.hide()?;
-    Ok(())
-}
-
-#[cfg(any(target_os = "android", target_os = "ios"))]
 pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     app.manage(TabDownloaderState::default());
     Ok(())
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-#[tauri::command]
-pub fn tab_downloader_update(
-    app: AppHandle,
-    state: State<'_, TabDownloaderState>,
-    url: String,
-    userscript: Option<String>,
-    left: f64,
-    top: f64,
-    width: f64,
-    height: f64,
-    visible: bool,
-) -> Result<(), String> {
-    let downloader = app
-        .get_webview(DOWNLOADER_LABEL)
-        .ok_or_else(|| "Tab downloader webview is unavailable".to_string())?;
-
-    let bounds_tuple = (left.round() as i32, top.round() as i32, width.round() as u32, height.round() as u32, visible);
-    let bounds_changed = {
-        let mut last_bounds_guard = state.last_bounds.lock().map_err(|e| e.to_string())?;
-        if *last_bounds_guard != Some(bounds_tuple) {
-            *last_bounds_guard = Some(bounds_tuple);
-            true
-        } else {
-            false
-        }
-    };
-
-    if !visible || width <= 0.0 || height <= 0.0 {
-        if bounds_changed {
-            let _ = downloader.set_position(LogicalPosition::new(-10000.0, -10000.0));
-            let _ = downloader.set_size(LogicalSize::new(1.0, 1.0));
-            let _ = downloader.hide();
-        }
-        return Ok(());
-    }
-
-    if bounds_changed {
-        downloader
-            .set_position(LogicalPosition::new(left, top))
-            .map_err(|e| e.to_string())?;
-        downloader
-            .set_size(LogicalSize::new(width, height))
-            .map_err(|e| e.to_string())?;
-        downloader.show().map_err(|e| e.to_string())?;
-    }
-
-    let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
-
-    let mut current_url = state
-        .current_url
-        .lock()
-        .map_err(|e| e.to_string())?;
-
-    if current_url.as_deref() != Some(url.as_str()) {
-        *current_url = Some(url.clone());
-        downloader.navigate(parsed_url).map_err(|e| e.to_string())?;
-    }
-
-    if let Some(ref js) = userscript {
-        if !js.is_empty() {
-            let wrapped = wrap_userscript(js, None);
-            let _ = downloader.eval(&wrapped);
-        }
-    }
-
-    if let Ok(mut stored_script) = state.active_userscript.lock() {
-        *stored_script = userscript;
-    }
-
-    let _ = downloader.set_focus();
-    Ok(())
-}
-
-#[cfg(any(target_os = "android", target_os = "ios"))]
 #[tauri::command]
 pub fn tab_downloader_update(
     _app: AppHandle,
@@ -1240,47 +1391,6 @@ pub fn tab_downloader_update(
     Ok(())
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-#[tauri::command]
-pub fn tab_downloader_nav(
-    app: AppHandle,
-    state: State<'_, TabDownloaderState>,
-    action: String,
-) -> Result<(), String> {
-    let wv = app
-        .get_webview(DOWNLOADER_LABEL)
-        .ok_or_else(|| "Tab downloader webview is not active".to_string())?;
-
-    match action.as_str() {
-        "back" => {
-            wv.eval("window.history.back()")
-                .map_err(|e| e.to_string())?;
-        }
-        "forward" => {
-            wv.eval("window.history.forward()")
-                .map_err(|e| e.to_string())?;
-        }
-        "reload" => {
-            wv.eval("window.location.reload()")
-                .map_err(|e| e.to_string())?;
-        }
-        _ => {}
-    }
-
-    // Re-inject active userscript if applicable
-    if let Ok(guard) = state.active_userscript.lock() {
-        if let Some(ref js) = *guard {
-            if !js.is_empty() {
-                let wrapped = wrap_userscript(js, None);
-                let _ = wv.eval(&wrapped);
-            }
-        }
-    }
-
-    Ok(())
-}
-
-#[cfg(any(target_os = "android", target_os = "ios"))]
 #[tauri::command]
 pub fn tab_downloader_nav(
     app: AppHandle,
@@ -1304,40 +1414,16 @@ pub fn tab_downloader_nav(
     Ok(())
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-#[tauri::command]
-pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>) -> Result<(), String> {
-    if let Ok(mut last_bounds_guard) = state.last_bounds.lock() {
-        *last_bounds_guard = Some((-10000, -10000, 1, 1, false));
-    }
-    if let Some(wv) = app.get_webview(DOWNLOADER_LABEL) {
-        let _ = wv.set_position(LogicalPosition::new(-10000.0, -10000.0));
-        let _ = wv.set_size(LogicalSize::new(1.0, 1.0));
-        let _ = wv.hide();
-    }
-    Ok(())
-}
-
-#[cfg(any(target_os = "android", target_os = "ios"))]
 #[tauri::command]
 pub fn tab_downloader_hide(app: AppHandle, _state: State<'_, TabDownloaderState>) -> Result<(), String> {
     if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
         let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
         let _ = w.hide();
     }
+    let _ = app.emit("tab-downloader-closed", ());
     Ok(())
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
-#[tauri::command]
-pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String> {
-    if let Some(wv) = app.get_webview(DOWNLOADER_LABEL) {
-        wv.eval(&script).map_err(|e| e.to_string())?;
-    }
-    Ok(())
-}
-
-#[cfg(any(target_os = "android", target_os = "ios"))]
 #[tauri::command]
 pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String> {
     if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
@@ -1347,11 +1433,22 @@ pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String>
 }
 
 #[tauri::command]
+pub fn tab_downloader_save_sources(app: AppHandle, sources_json: String) -> Result<(), String> {
+    if let Some(main_win) = app.get_webview_window("main") {
+        let escaped_json = serde_json::to_string(&sources_json).unwrap_or_default();
+        let eval_script = format!("window.__onSaveSources && window.__onSaveSources({});", escaped_json);
+        let _ = main_win.eval(&eval_script);
+    }
+    let _ = app.emit("tab-downloader-save-sources", sources_json);
+    Ok(())
+}
+
+#[tauri::command]
 pub fn tab_downloader_open_devtools(app: AppHandle) -> Result<(), String> {
     #[cfg(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))]
     {
-        if let Some(wv) = app.get_webview(DOWNLOADER_LABEL) {
-            wv.open_devtools();
+        if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+            w.open_devtools();
         }
     }
     #[cfg(not(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios")))))]
@@ -1372,3 +1469,4 @@ pub fn tab_downloader_is_debug_tools_enabled() -> bool {
         false
     }
 }
+
