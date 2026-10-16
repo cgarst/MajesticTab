@@ -1,6 +1,11 @@
 use std::sync::Mutex;
 use tauri::{App, AppHandle, Emitter, Manager, State, Wry};
 
+#[cfg(target_os = "macos")]
+use objc2_foundation::NSString;
+#[cfg(target_os = "macos")]
+use objc2_web_kit::WKWebView;
+
 use crate::DownloadedTabPayload;
 
 #[allow(dead_code)]
@@ -1087,6 +1092,22 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             window.addEventListener('resize', updateToolbarDisplay);
             window.addEventListener('orientationchange', updateToolbarDisplay);
             setInterval(updateToolbarDisplay, 1500);
+
+            window.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    const overlay = shadow.getElementById('settings-overlay');
+                    if (overlay && overlay.style.display !== 'none') {
+                        overlay.style.display = 'none';
+                    } else {
+                        try {
+                            if (window.MajesticDownloaderNative && typeof window.MajesticDownloaderNative.close === 'function') {
+                                window.MajesticDownloaderNative.close();
+                            }
+                        } catch(err) {}
+                        window.location.href = 'majestictab://close';
+                    }
+                }
+            });
         }
     };
 
@@ -1100,6 +1121,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 pub struct TabDownloaderState {
     pub current_url: Mutex<Option<String>>,
     pub active_userscript: Mutex<Option<String>>,
+    pub current_config: Mutex<Option<TabDownloaderConfig>>,
+    pub is_open: Mutex<bool>,
     pub last_bounds: Mutex<Option<(i32, i32, u32, u32, bool)>>,
     pub pending_downloads: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
     pub last_destination: Mutex<Option<std::path::PathBuf>>,
@@ -1222,7 +1245,12 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
     // 3. Close webview window scheme: majestictab://close
     if url.scheme() == "majestictab" && (url.host_str() == Some("close") || url_str.starts_with("majestictab://close")) {
         eprintln!("[Tab Downloader] Close requested via majestictab://close");
-        if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
+        if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
+            let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+            let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
+            let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
+            let _ = w.hide();
+        } else if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
             let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
             let _ = w.hide();
         }
@@ -1244,14 +1272,26 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             .unwrap_or_default();
         let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64_data).ok();
         eprintln!("[Tab Downloader] Captured client-side download: {} ({} bytes)", name, data.as_ref().map(|d| d.len()).unwrap_or(0));
-        if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
+        if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
+            let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+            let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
+            let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
+            let _ = w.hide();
+        } else if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
             let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
             let _ = w.hide();
         }
-        if let Some(main_win) = app_handle.get_webview_window("main") {
-            let escaped_name = serde_json::to_string(&name).unwrap_or_default();
-            let escaped_b64 = serde_json::to_string(&b64_data).unwrap_or_default();
-            let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
+        if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+            if let Ok(mut g) = state.is_open.lock() {
+                *g = false;
+            }
+        }
+        let escaped_name = serde_json::to_string(&name).unwrap_or_default();
+        let escaped_b64 = serde_json::to_string(&b64_data).unwrap_or_default();
+        let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
+        if let Some(main_wv) = app_handle.get_webview("main") {
+            let _ = main_wv.eval(&eval_script);
+        } else if let Some(main_win) = app_handle.get_webview_window("main") {
             let _ = main_win.eval(&eval_script);
         }
         let payload = DownloadedTabPayload {
@@ -1271,9 +1311,11 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             .map(|(_, v)| v.into_owned())
             .unwrap_or_default();
         if !sources_json.is_empty() {
-            if let Some(main_win) = app_handle.get_webview_window("main") {
-                let escaped_json = serde_json::to_string(&sources_json).unwrap_or_default();
-                let eval_script = format!("window.__onSaveSources && window.__onSaveSources({});", escaped_json);
+            let escaped_json = serde_json::to_string(&sources_json).unwrap_or_default();
+            let eval_script = format!("window.__onSaveSources && window.__onSaveSources({});", escaped_json);
+            if let Some(main_wv) = app_handle.get_webview("main") {
+                let _ = main_wv.eval(&eval_script);
+            } else if let Some(main_win) = app_handle.get_webview_window("main") {
                 let _ = main_win.eval(&eval_script);
             }
             let _ = app_handle.emit("tab-downloader-save-sources", sources_json);
@@ -1284,7 +1326,9 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
     // 6. DevTools request: majestictab://devtools
     if url.scheme() == "majestictab" && (url.host_str() == Some("devtools") || url_str.starts_with("majestictab://devtools")) {
         #[cfg(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))]
-        if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
+        if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
+            w.open_devtools();
+        } else if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
             w.open_devtools();
         }
         return false;
@@ -1371,8 +1415,132 @@ pub fn identify_tab_extension(bytes: &[u8], filename: &str) -> Option<&'static s
     None
 }
 
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
-    app.manage(TabDownloaderState::default());
+    let window = app
+        .get_window("main")
+        .ok_or(tauri::Error::WebviewNotFound)?;
+
+    let app_handle_for_nav = app.handle().clone();
+    let app_handle_for_load = app.handle().clone();
+    let app_handle_for_download = app.handle().clone();
+
+    let blank_url = tauri::Url::parse("about:blank").map_err(tauri::Error::InvalidUrl)?;
+
+    let mut builder = tauri::webview::WebviewBuilder::new(
+        DOWNLOADER_LABEL,
+        tauri::WebviewUrl::External(blank_url),
+    )
+    .user_agent(DESKTOP_USER_AGENT);
+
+    #[cfg(feature = "debug-tools")]
+    {
+        builder = builder.devtools(true);
+    }
+
+    builder = builder.on_navigation(move |url| {
+        handle_navigation(&app_handle_for_nav, &url)
+    });
+
+    builder = builder.on_page_load(move |webview, payload| {
+        if let tauri::webview::PageLoadEvent::Finished = payload.event() {
+            let s = payload.url().as_str();
+            if s.starts_with("http://") || s.starts_with("https://") {
+                let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
+            }
+            if let Some(state) = app_handle_for_load.try_state::<TabDownloaderState>() {
+                let js_opt = state.active_userscript.lock().ok().and_then(|g| g.clone());
+                let cfg_opt = state.current_config.lock().ok().and_then(|g| g.clone());
+                let wrapped = wrap_userscript(js_opt.as_deref().unwrap_or(""), cfg_opt.as_ref());
+                let _ = webview.eval(&wrapped);
+            }
+        }
+    });
+
+    builder = builder.on_download(move |_webview, event| {
+        match event {
+            tauri::webview::DownloadEvent::Requested { destination, .. } => {
+                let dest_dir = std::env::temp_dir().join("majestictab_downloads");
+                let _ = std::fs::create_dir_all(&dest_dir);
+                let filename = destination
+                    .file_name()
+                    .map(|f| f.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "downloaded.gp".to_string());
+                *destination = dest_dir.join(&filename);
+                true
+            }
+            tauri::webview::DownloadEvent::Finished { path, success, .. } => {
+                if success {
+                    if let Some(p) = path {
+                        let mut filename = p.file_name().map(|f| f.to_string_lossy().to_string()).unwrap_or_else(|| "downloaded.gp".to_string());
+                        let data = std::fs::read(&p).ok();
+                        if let Some(ref bytes) = data {
+                            if let Some(ext) = identify_tab_extension(bytes, &filename) {
+                                if !filename.to_lowercase().ends_with(&format!(".{}", ext)) {
+                                    if !filename.contains('.') || filename.starts_with("download") {
+                                        filename = format!("{}.{}", filename, ext);
+                                    }
+                                }
+                                if let Some(state) = app_handle_for_download.try_state::<TabDownloaderState>() {
+                                    if let Ok(mut g) = state.is_open.lock() {
+                                        *g = false;
+                                    }
+                                }
+                                let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, bytes);
+                                let escaped_name = serde_json::to_string(&filename).unwrap_or_default();
+                                let escaped_b64 = serde_json::to_string(&b64).unwrap_or_default();
+                                let escaped_path = serde_json::to_string(&p.to_string_lossy()).unwrap_or_default();
+                                let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {}, {});", escaped_name, escaped_b64, escaped_path);
+                                if let Some(main_wv) = app_handle_for_download.get_webview("main") {
+                                    let _ = main_wv.eval(&eval_script);
+                                } else if let Some(main_win) = app_handle_for_download.get_webview_window("main") {
+                                    let _ = main_win.eval(&eval_script);
+                                }
+                                if let Some(downloader) = app_handle_for_download.get_webview(DOWNLOADER_LABEL) {
+                                    let _ = downloader.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
+                                    let _ = downloader.set_size(tauri::LogicalSize::new(1.0, 1.0));
+                                    let _ = downloader.hide();
+                                }
+                                let payload = DownloadedTabPayload {
+                                    name: filename,
+                                    path: Some(p.to_string_lossy().to_string()),
+                                    data: Some(bytes.clone()),
+                                };
+                                let _ = app_handle_for_download.emit("tab-downloaded", payload);
+                            }
+                        }
+                    }
+                }
+                true
+            }
+            _ => true,
+        }
+    });
+
+    let downloader = window.add_child(
+        builder,
+        tauri::LogicalPosition::new(-10000.0, -10000.0),
+        tauri::LogicalSize::new(1.0, 1.0),
+    )?;
+
+    #[cfg(target_os = "macos")]
+    downloader.with_webview(|platform| unsafe {
+        let webview = &*platform.inner().cast::<WKWebView>();
+        webview.setWantsLayer(true);
+        if let Some(layer) = webview.layer() {
+            layer.setCornerRadius(8.0);
+            layer.setMasksToBounds(true);
+        }
+        let ua = NSString::from_str(DESKTOP_USER_AGENT);
+        webview.setCustomUserAgent(Some(&ua));
+    })?;
+
+    downloader.hide()?;
+    Ok(())
+}
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+pub fn install(_app: &mut App<Wry>) -> tauri::Result<()> {
     Ok(())
 }
 
@@ -1397,26 +1565,33 @@ pub fn tab_downloader_nav(
     _state: State<'_, TabDownloaderState>,
     action: String,
 ) -> Result<(), String> {
-    if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
-        match action.as_str() {
-            "back" => {
-                let _ = w.eval("window.history.back()");
-            }
-            "forward" => {
-                let _ = w.eval("window.history.forward()");
-            }
-            "reload" => {
-                let _ = w.eval("window.location.reload()");
-            }
-            _ => {}
+    let script = match action.as_str() {
+        "back" => "window.history.back()",
+        "forward" => "window.history.forward()",
+        "reload" => "window.location.reload()",
+        _ => "",
+    };
+    if !script.is_empty() {
+        if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
+            let _ = w.eval(script);
+        } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+            let _ = w.eval(script);
         }
     }
     Ok(())
 }
 
 #[tauri::command]
-pub fn tab_downloader_hide(app: AppHandle, _state: State<'_, TabDownloaderState>) -> Result<(), String> {
-    if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>) -> Result<(), String> {
+    if let Ok(mut g) = state.is_open.lock() {
+        *g = false;
+    }
+    if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
+        let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+        let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
+        let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
+        let _ = w.hide();
+    } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
         let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
         let _ = w.hide();
     }
@@ -1426,7 +1601,9 @@ pub fn tab_downloader_hide(app: AppHandle, _state: State<'_, TabDownloaderState>
 
 #[tauri::command]
 pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String> {
-    if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+    if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
+        let _ = w.eval(&script);
+    } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
         let _ = w.eval(&script);
     }
     Ok(())
@@ -1434,9 +1611,11 @@ pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String>
 
 #[tauri::command]
 pub fn tab_downloader_save_sources(app: AppHandle, sources_json: String) -> Result<(), String> {
-    if let Some(main_win) = app.get_webview_window("main") {
-        let escaped_json = serde_json::to_string(&sources_json).unwrap_or_default();
-        let eval_script = format!("window.__onSaveSources && window.__onSaveSources({});", escaped_json);
+    let escaped_json = serde_json::to_string(&sources_json).unwrap_or_default();
+    let eval_script = format!("window.__onSaveSources && window.__onSaveSources({});", escaped_json);
+    if let Some(main_wv) = app.get_webview("main") {
+        let _ = main_wv.eval(&eval_script);
+    } else if let Some(main_win) = app.get_webview_window("main") {
         let _ = main_win.eval(&eval_script);
     }
     let _ = app.emit("tab-downloader-save-sources", sources_json);
@@ -1447,7 +1626,9 @@ pub fn tab_downloader_save_sources(app: AppHandle, sources_json: String) -> Resu
 pub fn tab_downloader_open_devtools(app: AppHandle) -> Result<(), String> {
     #[cfg(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))]
     {
-        if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+        if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
+            w.open_devtools();
+        } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
             w.open_devtools();
         }
     }
