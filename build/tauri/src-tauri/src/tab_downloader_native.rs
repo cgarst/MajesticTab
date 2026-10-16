@@ -1296,6 +1296,7 @@ pub struct TabDownloaderState {
     pub active_userscript: Mutex<Option<String>>,
     pub current_config: Mutex<Option<TabDownloaderConfig>>,
     pub is_open: Mutex<bool>,
+    pub is_visible: Mutex<bool>,
     pub top_offset: Mutex<f64>,
     pub last_bounds: Mutex<Option<(i32, i32, u32, u32, bool)>>,
     pub pending_downloads: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
@@ -1899,7 +1900,8 @@ pub fn tab_downloader_update(
         *g = top_offset;
     }
     let is_open = state.is_open.lock().map(|g| *g).unwrap_or(false);
-    if is_open {
+    let is_visible = state.is_visible.lock().map(|g| *g).unwrap_or(true);
+    if is_open && is_visible {
         if let Some(main_win) = app.get_window("main") {
             let scale = main_win.scale_factor().unwrap_or(1.0);
             if let Ok(size) = main_win.inner_size() {
@@ -1921,6 +1923,66 @@ pub fn tab_downloader_update(
     _state: State<'_, TabDownloaderState>,
     _top_offset: f64,
 ) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[tauri::command]
+pub fn tab_downloader_set_visible(
+    app: AppHandle,
+    state: State<'_, TabDownloaderState>,
+    visible: bool,
+) -> Result<(), String> {
+    if let Ok(mut g) = state.is_visible.lock() {
+        *g = visible;
+    }
+    let is_open = state.is_open.lock().map(|g| *g).unwrap_or(false);
+    if !is_open {
+        return Ok(());
+    }
+
+    if let Some(downloader) = app.get_webview(DOWNLOADER_LABEL) {
+        if visible {
+            if let Some(main_win) = app.get_window("main") {
+                let scale = main_win.scale_factor().unwrap_or(1.0);
+                if let Ok(size) = main_win.inner_size() {
+                    let logical = size.to_logical::<f64>(scale);
+                    let top_offset = state.top_offset.lock().map(|g| *g).unwrap_or(84.0);
+                    let _ = downloader.set_position(tauri::LogicalPosition::new(0.0, top_offset));
+                    let _ = downloader.set_size(tauri::LogicalSize::new(logical.width, (logical.height - top_offset).max(1.0)));
+                }
+            }
+            #[cfg(target_os = "macos")]
+            {
+                use objc2_web_kit::WKWebView;
+                let _ = downloader.with_webview(|platform| unsafe {
+                    let webview = &*platform.inner().cast::<WKWebView>();
+                    if let Some(superview) = webview.superview() {
+                        superview.addSubview(webview);
+                    }
+                });
+            }
+            let _ = downloader.show();
+            let _ = downloader.set_focus();
+        } else {
+            let _ = downloader.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
+            let _ = downloader.set_size(tauri::LogicalSize::new(1.0, 1.0));
+            let _ = downloader.hide();
+        }
+    }
+    Ok(())
+}
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+pub fn tab_downloader_set_visible(
+    _app: AppHandle,
+    state: State<'_, TabDownloaderState>,
+    visible: bool,
+) -> Result<(), String> {
+    if let Ok(mut g) = state.is_visible.lock() {
+        *g = visible;
+    }
     Ok(())
 }
 
@@ -1975,6 +2037,10 @@ pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>)
     } else {
         true
     };
+
+    if let Ok(mut g) = state.is_visible.lock() {
+        *g = false;
+    }
 
     if !was_open {
         return Ok(());

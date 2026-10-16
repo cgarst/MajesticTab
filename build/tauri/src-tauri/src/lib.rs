@@ -80,6 +80,9 @@ async fn open_tab_downloader(
         if let Ok(mut g) = state.is_open.lock() {
             *g = true;
         }
+        if let Ok(mut g) = state.is_visible.lock() {
+            *g = true;
+        }
     }
 
     if let Some(main_win) = app.get_window("main") {
@@ -378,7 +381,11 @@ pub fn run() {
                             .try_state::<tab_downloader_native::TabDownloaderState>()
                             .and_then(|st| st.is_open.lock().ok().map(|g| *g))
                             .unwrap_or(false);
-                        if is_open {
+                        let is_visible = app_handle_for_resize
+                            .try_state::<tab_downloader_native::TabDownloaderState>()
+                            .and_then(|st| st.is_visible.lock().ok().map(|g| *g))
+                            .unwrap_or(true);
+                        if is_open && is_visible {
                             if let Some(downloader) = app_handle_for_resize.get_webview(tab_downloader_native::DOWNLOADER_LABEL) {
                                 if let Some(main_win) = app_handle_for_resize.get_window("main") {
                                     let scale = main_win.scale_factor().unwrap_or(1.0);
@@ -423,6 +430,7 @@ pub fn run() {
         tab_downloader_native::tab_downloader_navigate,
         tab_downloader_native::tab_downloader_nav,
         tab_downloader_native::tab_downloader_hide,
+        tab_downloader_native::tab_downloader_set_visible,
         tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
@@ -440,6 +448,7 @@ pub fn run() {
         tab_downloader_native::tab_downloader_navigate,
         tab_downloader_native::tab_downloader_nav,
         tab_downloader_native::tab_downloader_hide,
+        tab_downloader_native::tab_downloader_set_visible,
         tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
