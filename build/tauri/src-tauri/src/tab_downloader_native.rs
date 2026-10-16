@@ -6,6 +6,50 @@ use objc2_foundation::NSString;
 #[cfg(target_os = "macos")]
 use objc2_web_kit::WKWebView;
 
+#[cfg(target_os = "macos")]
+pub fn drag_window_macos(main_win: &tauri::Window) {
+    use objc2_app_kit::{NSApplication, NSEvent, NSEventType};
+    use objc2_foundation::{MainThreadMarker, NSPoint};
+
+    if let Some(mtm) = MainThreadMarker::new() {
+        let app = NSApplication::sharedApplication(mtm);
+        let current_event = app.currentEvent();
+        if let Ok(ns_win_ptr) = main_win.ns_window() {
+            unsafe {
+                let raw_win = &*(ns_win_ptr as *const objc2_app_kit::NSWindow);
+                let is_left_down = current_event
+                    .as_ref()
+                    .map(|e| e.r#type() == NSEventType::LeftMouseDown)
+                    .unwrap_or(false);
+
+                let event_to_use = if is_left_down {
+                    current_event
+                } else {
+                    let loc: NSPoint = NSEvent::mouseLocation();
+                    let mod_flags = current_event.as_ref().map(|e| e.modifierFlags()).unwrap_or(objc2_app_kit::NSEventModifierFlags(0));
+                    let timestamp = current_event.as_ref().map(|e| e.timestamp()).unwrap_or(0.0);
+                    let win_num = raw_win.windowNumber();
+                    NSEvent::mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure(
+                        NSEventType::LeftMouseDown,
+                        loc,
+                        mod_flags,
+                        timestamp,
+                        win_num,
+                        None,
+                        0,
+                        1,
+                        1.0,
+                    )
+                };
+
+                if let Some(ev) = event_to_use {
+                    raw_win.performWindowDragWithEvent(&ev);
+                }
+            }
+        }
+    }
+}
+
 use crate::DownloadedTabPayload;
 
 #[allow(dead_code)]
@@ -441,7 +485,16 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         if (isNew) {
             shadow.innerHTML = `
                 <style>
-                    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+                    * {
+                        box-sizing: border-box;
+                        margin: 0;
+                        padding: 0;
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+                        -webkit-user-select: none;
+                        user-select: none;
+                        -webkit-user-drag: none;
+                        user-drag: none;
+                    }
                     :host {
                         all: initial;
                         display: block;
@@ -450,6 +503,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         left: 0;
                         width: 100%;
                         z-index: 2147483647;
+                        -webkit-user-select: none;
+                        user-select: none;
                     }
                     .toolbar-root {
                         width: 100%;
@@ -457,10 +512,12 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         border-bottom: 1px solid rgba(255, 255, 255, 0.12);
                         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
                         color: #f1f5f9;
+                        -webkit-user-select: none;
                         user-select: none;
                         display: flex;
                         flex-direction: column;
                         transform-origin: top left;
+                        cursor: default;
                         -webkit-app-region: drag;
                         app-region: drag;
                     }
@@ -472,6 +529,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
                         -webkit-app-region: drag;
                         app-region: drag;
+                        cursor: default;
                     }
                     .toolbar-root.platform-macos .nav-row {
                         padding-left: 88px;
@@ -479,7 +537,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     .toolbar-root.platform-windows .nav-row {
                         padding-right: 152px;
                     }
-                    button, input, select, textarea, .btn-group, .song-pill, .url-group, .tab-btn, .pill-btn, #settings-overlay {
+                    button, input, select, textarea, .btn-group, .tab-btn, .pill-btn, .back-btn, #settings-overlay {
                         -webkit-app-region: no-drag;
                         app-region: no-drag;
                     }
@@ -530,34 +588,43 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         text-overflow: ellipsis;
                         white-space: nowrap;
                         flex-shrink: 0;
+                        cursor: default;
+                        user-select: none;
+                        -webkit-user-select: none;
                     }
                     .url-group {
                         display: flex;
                         align-items: center;
                         flex-grow: 1;
                         min-width: 0;
-                        background: #000000;
-                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        background: rgba(255, 255, 255, 0.04);
+                        border: 1px solid rgba(255, 255, 255, 0.09);
                         border-radius: 6px;
-                        padding: 0 8px;
+                        padding: 0 10px;
                         height: 32px;
-                        gap: 6px;
+                        gap: 8px;
+                        cursor: default;
+                        user-select: none;
+                        -webkit-user-select: none;
                     }
-                    .url-input {
+                    .url-group svg {
+                        color: #64748b;
+                        opacity: 0.85;
+                        flex-shrink: 0;
+                    }
+                    .url-text {
                         flex-grow: 1;
                         min-width: 0;
-                        background: transparent;
-                        border: none;
-                        outline: none;
-                        color: #cbd5e1;
+                        color: #94a3b8;
                         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-                        font-size: 12px;
+                        font-size: 11.5px;
+                        letter-spacing: -0.2px;
                         text-overflow: ellipsis;
                         white-space: nowrap;
                         overflow: hidden;
-                    }
-                    .url-input:focus {
-                        color: #ffffff;
+                        cursor: default;
+                        user-select: none;
+                        -webkit-user-select: none;
                     }
                     .icon-btn {
                         background: rgba(255, 255, 255, 0.06);
@@ -572,18 +639,43 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         cursor: pointer;
                         flex-shrink: 0;
                         transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+                        user-select: none;
+                        -webkit-user-select: none;
                     }
                     .icon-btn:hover {
                         background: rgba(255, 255, 255, 0.15);
                         color: #ffffff;
                     }
-                    .close-btn:hover {
-                        background: rgba(239, 68, 68, 0.2);
-                        border-color: rgba(239, 68, 68, 0.5);
-                        color: #fca5a5;
+                    .back-btn {
+                        background: rgba(255, 255, 255, 0.08);
+                        border: 1px solid rgba(255, 255, 255, 0.18);
+                        color: #f1f5f9;
+                        height: 32px;
+                        padding: 0 12px;
+                        border-radius: 6px;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        cursor: pointer;
+                        font-size: 12px;
+                        font-weight: 500;
+                        flex-shrink: 0;
+                        transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+                        user-select: none;
+                        -webkit-user-select: none;
                     }
-                    .close-btn:active {
-                        background: rgba(239, 68, 68, 0.35);
+                    .back-btn:hover {
+                        background: rgba(255, 255, 255, 0.16);
+                        border-color: rgba(255, 255, 255, 0.32);
+                        color: #ffffff;
+                    }
+                    .back-btn:active {
+                        background: rgba(255, 255, 255, 0.22);
+                    }
+                    .back-btn svg {
+                        width: 14px;
+                        height: 14px;
+                        flex-shrink: 0;
                     }
                     .tabs-row {
                         display: flex;
@@ -594,6 +686,9 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         overflow-y: hidden;
                         white-space: nowrap;
                         scrollbar-width: none;
+                        cursor: default;
+                        -webkit-app-region: drag;
+                        app-region: drag;
                     }
                     .tabs-row::-webkit-scrollbar {
                         display: none;
@@ -612,6 +707,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         cursor: pointer;
                         transition: all 0.15s ease;
                         flex-shrink: 0;
+                        user-select: none;
+                        -webkit-user-select: none;
                     }
                     .tab-btn:hover {
                         background: rgba(255, 255, 255, 0.1);
@@ -640,6 +737,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         color: #cbd5e1;
                         cursor: pointer;
                         transition: all 0.15s ease;
+                        user-select: none;
+                        -webkit-user-select: none;
                     }
                     .pill-btn:hover {
                         background: rgba(255, 255, 255, 0.1);
@@ -650,6 +749,12 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         border-color: #38bdf8;
                         color: #ffffff;
                         font-weight: 600;
+                    }
+                    #settings-overlay input,
+                    #settings-overlay textarea {
+                        -webkit-user-select: text;
+                        user-select: text;
+                        cursor: text;
                     }
                     svg {
                         width: 14px;
@@ -672,14 +777,14 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                             </button>
                         </div>
 
-                        <div id="song-pill" class="song-pill" style="display: ${songText ? 'flex' : 'none'};" title="${escapeHtml(songText)}">
+                        <div id="song-pill" class="song-pill" style="display: ${songText ? 'flex' : 'none'};" title="${escapeHtml(songText)}" data-tauri-drag-region>
                             <svg viewBox="0 0 16 16"><path d="M9 13c0 1.105-1.12 2-2.5 2S4 14.105 4 13s1.12-2 2.5-2 2.5.895 2.5 2z"/><path fill-rule="evenodd" d="M9 3v10H8V3h1z"/><path d="M8 2.82a1 1 0 0 1 .804-.98l3-.6A1 1 0 0 1 13 2.22V4L8 5V2.82z"/></svg>
                             <span id="song-text">${escapeHtml(songText)}</span>
                         </div>
 
-                        <div class="url-group">
+                        <div class="url-group" id="url-group" title="${escapeHtml(window.location.href)}" data-tauri-drag-region>
                             <svg viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.87.21-1.688.508-2.428l-.008-.072H1.36a7.03 7.03 0 0 0 0 5h2.648a10.6 10.6 0 0 1-.508-2.428l.008-.072zm.76 3.5c.29 1.05.7 1.93 1.218 2.54.516.61 1.08.96 1.514 1.037V11H4.268zm4.232 0v3.577c.434-.077.998-.427 1.514-1.037.518-.61.928-1.49 1.218-2.54H8.5zm3.41-3.5a10.6 10.6 0 0 1-.508 2.428l.008.072h2.648a7.03 7.03 0 0 0 0-5h-2.648a10.6 10.6 0 0 1 .508 2.428l-.008.072zm-.178-4.5H9.5V1.077c.67.204 1.335.82 1.887 1.855.22.41.4.85.545 1.068zm.908-1.539A9.267 9.267 0 0 0 11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.467c.18.27.38.58.58.928zM8.5 4h2.355a7.97 7.97 0 0 0-.468-1.068C9.835 1.897 9.17 1.28 8.5 1.077V4zM8.5 5v5h3.04a9.63 9.63 0 0 0 .428-2.5c0-.88-.15-1.72-.428-2.5H8.5zM7.5 5H4.46a9.63 9.63 0 0 0-.428 2.5c0 .88.15 1.72.428 2.5H7.5V5z"/></svg>
-                            <input type="text" class="url-input" id="url-input" value="${escapeHtml(window.location.href)}" title="${escapeHtml(window.location.href)}" placeholder="Search or enter URL...">
+                            <span class="url-text" id="url-text">${escapeHtml(window.location.href)}</span>
                         </div>
 
                         ${isDebugTools ? `
@@ -692,8 +797,9 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                             <svg viewBox="0 0 16 16"><path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319z"/></svg>
                         </button>
 
-                        <button type="button" class="icon-btn close-btn" id="btn-close" title="Close">
-                            <svg viewBox="0 0 16 16"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z"/></svg>
+                        <button type="button" class="back-btn" id="btn-close" title="Back to MajesticTab (Esc)">
+                            <svg viewBox="0 0 16 16"><path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/></svg>
+                            <span>Back to App</span>
                         </button>
                     </div>
 
@@ -836,26 +942,25 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 window.location.href = 'majestictab://devtools';
             });
 
-            const urlInputEl = shadow.getElementById('url-input');
-            if (urlInputEl) {
-                urlInputEl.addEventListener('focus', function() {
-                    this.select();
-                });
-                urlInputEl.addEventListener('keydown', function(e) {
-                    if (e.key === 'Enter') {
-                        const val = this.value.trim();
-                        if (val) {
-                            if (val.startsWith('http://') || val.startsWith('https://')) {
-                                window.location.href = val;
-                            } else {
-                                const currentActiveId = detectActiveSourceId();
-                                const src = sources.find(s => s.id === currentActiveId) || sources[0];
-                                if (src) {
-                                    window.location.href = buildSearchUrl(src, '', '', val);
-                                }
-                            }
-                        }
+            const toolbarRootEl = shadow.getElementById('toolbar-root');
+            if (toolbarRootEl) {
+                toolbarRootEl.addEventListener('selectstart', (e) => {
+                    if (!e.target.closest('#settings-overlay')) {
+                        e.preventDefault();
                     }
+                });
+
+                toolbarRootEl.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    const interactive = e.target.closest('button, input, select, textarea, a, .tab-btn, .tool-btn, .icon-btn, .back-btn, #settings-overlay');
+                    if (interactive) return;
+
+                    e.preventDefault();
+                    if (e.detail === 2) {
+                        window.location.href = 'majestictab://toggle-maximize';
+                        return;
+                    }
+                    window.location.href = 'majestictab://drag';
                 });
             }
 
@@ -952,9 +1057,13 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     const src = sources.find(s => s.id === sid);
                     if (src) {
                         tabsRow.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-                        const urlInput = shadow.getElementById('url-input');
-                        if (urlInput) {
-                            urlInput.value = 'Loading ' + src.name + '...';
+                        const urlText = shadow.getElementById('url-text');
+                        const urlGroup = shadow.getElementById('url-group');
+                        if (urlText) {
+                            urlText.textContent = 'Loading ' + src.name + '...';
+                        }
+                        if (urlGroup) {
+                            urlGroup.title = 'Loading ' + src.name + '...';
                         }
                         config.activeSourceId = sid;
                         const nextUrl = buildSearchUrl(src, artist, song, query);
@@ -1049,7 +1158,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         renderSourceTabs();
 
         const toolbarRoot = shadow.getElementById('toolbar-root');
-        const urlInput = shadow.getElementById('url-input');
+        const urlGroup = shadow.getElementById('url-group');
+        const urlText = shadow.getElementById('url-text');
         const songPill = shadow.getElementById('song-pill');
         const songTextSpan = shadow.getElementById('song-text');
 
@@ -1068,10 +1178,12 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 const mount = document.body || document.documentElement;
                 if (mount) mount.appendChild(host);
             }
-            if (urlInput && document.activeElement !== urlInput) {
-                const cur = window.location.href;
-                urlInput.value = cur;
-                urlInput.title = cur;
+            const cur = window.location.href;
+            if (urlText) {
+                urlText.textContent = cur;
+            }
+            if (urlGroup) {
+                urlGroup.title = cur;
             }
             const currentActiveId = detectActiveSourceId();
             shadow.querySelectorAll('.tab-btn:not(.tab-btn-add)').forEach(btn => {
@@ -1462,6 +1574,31 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             w.open_devtools();
         } else if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
             w.open_devtools();
+        }
+        return false;
+    }
+
+    // 8. Window drag scheme: majestictab://drag
+    if url.scheme() == "majestictab" && (url.host_str() == Some("drag") || url_str.starts_with("majestictab://drag")) {
+        if let Some(main_win) = app_handle.get_window("main") {
+            #[cfg(target_os = "macos")]
+            drag_window_macos(&main_win);
+            #[cfg(not(target_os = "macos"))]
+            let _ = main_win.start_dragging();
+        }
+        return false;
+    }
+
+    // 9. Window toggle-maximize scheme: majestictab://toggle-maximize
+    if url.scheme() == "majestictab" && (url.host_str() == Some("toggle-maximize") || url_str.starts_with("majestictab://toggle-maximize")) {
+        if let Some(main_win) = app_handle.get_window("main") {
+            if let Ok(is_max) = main_win.is_maximized() {
+                if is_max {
+                    let _ = main_win.unmaximize();
+                } else {
+                    let _ = main_win.maximize();
+                }
+            }
         }
         return false;
     }
