@@ -867,15 +867,20 @@ async function renderLibraryBrowseView(container) {
                         const albumSearchTerms = [sub.name, sub.year, ...subSongNames].filter(Boolean).join(' ').toLowerCase();
                         return `
                         <div class="library-card album-card p-3" data-album-title="${escapeHtml(sub.name)}" data-folder-name="${escapeHtml(sub.name)}" data-search-terms="${escapeHtml(albumSearchTerms)}" role="button" tabindex="0">
-                          <div class="album-cover-container mb-2">
-                            ${cover
-                                ? `<img src="${cover}" class="album-cover-img" alt="${escapeHtml(sub.name)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(sub.name)}'">`
-                                : `<i class="bi-folder2 fs-1 text-info opacity-75"></i>`
-                            }
-                            ${sub.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${sub.year}</span>` : ''}
+                          <div class="album-card-body d-flex min-w-0">
+                            <div class="album-cover-container">
+                              ${cover
+                                  ? `<img src="${cover}" class="album-cover-img" alt="${escapeHtml(sub.name)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(sub.name)}'">`
+                                  : `<i class="bi-folder2 fs-1 text-info opacity-75"></i>`
+                              }
+                              ${sub.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2 album-year-badge">${sub.year}</span>` : ''}
+                            </div>
+                            <div class="album-card-content min-w-0 flex-grow-1">
+                              <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(sub.name)}">${escapeHtml(sub.name)}</h6>
+                              <div class="small text-muted text-truncate">${sub.year ? `<span class="album-inline-year">${sub.year} • </span>` : ''}${sub.songsCount} ${sub.songsCount === 1 ? 'Song' : 'Songs'}</div>
+                            </div>
+                            <i class="bi-chevron-right text-muted flex-shrink-0 album-card-chevron"></i>
                           </div>
-                          <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(sub.name)}">${escapeHtml(sub.name)}</h6>
-                          <div class="small text-muted text-truncate">${sub.songsCount} ${sub.songsCount === 1 ? 'Song' : 'Songs'}</div>
                         </div>
                         `;
                       }).join('')}
@@ -2716,16 +2721,20 @@ function renderSearchResults(results, type, container) {
             const cover = rg.coverUrl || getPlaceholderCoverSvg(rg.title);
             return `
             <div class="library-card album-card p-3" role="button" tabindex="0">
-              <div class="album-cover-container mb-2">
-                <img src="${cover}" class="album-cover-img" alt="${escapeHtml(rg.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(rg.title)}'">
-                ${rg.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${rg.year}</span>` : ''}
+              <div class="album-card-body d-flex min-w-0">
+                <div class="album-cover-container">
+                  <img src="${cover}" class="album-cover-img" alt="${escapeHtml(rg.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(rg.title)}'">
+                  ${rg.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2 album-year-badge">${rg.year}</span>` : ''}
+                </div>
+                <div class="album-card-content min-w-0 flex-grow-1">
+                  <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(rg.title)}">${escapeHtml(rg.title)}</h6>
+                  <div class="small text-muted text-truncate" title="${escapeHtml(rg.artist)}">
+                    ${rg.inLibrary ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
+                    ${escapeHtml(rg.artist)} ${rg.year ? `• ${rg.year}` : ''}
+                  </div>
+                </div>
               </div>
-              <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(rg.title)}">${escapeHtml(rg.title)}</h6>
-              <div class="small text-muted text-truncate" title="${escapeHtml(rg.artist)}">
-                ${rg.inLibrary ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
-                ${escapeHtml(rg.artist)} ${rg.year ? `• ${rg.year}` : ''}
-              </div>
-              <div class="d-flex gap-2 mt-2">
+              <div class="album-card-actions d-flex gap-2 mt-2">
                 <button class="btn btn-sm ${rg.inLibrary ? 'btn-theme-success disabled' : 'btn-theme-primary'} flex-grow-1 add-album-btn" data-rg-id="${rg.id}" data-rg-title="${escapeHtml(rg.title)}">
                   <i class="${rg.inLibrary ? 'bi-check-lg' : 'bi-plus-lg'} me-1"></i> ${rg.inLibrary ? 'In Library' : 'Add Album'}
                 </button>
@@ -2880,16 +2889,20 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
                                  existingAlbumKeys.has(`${artistName.toLowerCase().trim()}:::${(a.title || '').toLowerCase().trim()}`);
             return `
             <div class="library-card album-card p-3" role="button" tabindex="0">
-              <div class="album-cover-container mb-2">
-                <img src="${a.coverUrl || getPlaceholderCoverSvg(a.title)}" class="album-cover-img" alt="${escapeHtml(a.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(a.title)}'">
-                ${a.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2">${a.year}</span>` : ''}
+              <div class="album-card-body d-flex min-w-0">
+                <div class="album-cover-container">
+                  <img src="${a.coverUrl || getPlaceholderCoverSvg(a.title)}" class="album-cover-img" alt="${escapeHtml(a.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(a.title)}'">
+                  ${a.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2 album-year-badge">${a.year}</span>` : ''}
+                </div>
+                <div class="album-card-content min-w-0 flex-grow-1">
+                  <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h6>
+                  <div class="small text-muted text-truncate">
+                    ${isAlbumInLib ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
+                    ${a.year || 'Album'}
+                  </div>
+                </div>
               </div>
-              <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h6>
-              <div class="small text-muted text-truncate">
-                ${isAlbumInLib ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
-                ${a.year || 'Album'}
-              </div>
-              <div class="d-flex gap-2 mt-2">
+              <div class="album-card-actions d-flex gap-2 mt-2">
                 <button class="btn btn-sm ${isAlbumInLib ? 'btn-theme-success disabled' : 'btn-theme-primary'} flex-grow-1 add-album-btn" data-rg-id="${a.id}" data-rg-title="${escapeHtml(a.title)}">
                   <i class="${isAlbumInLib ? 'bi-check-lg' : 'bi-plus-lg'} me-1"></i> ${isAlbumInLib ? 'In Library' : 'Add Album'}
                 </button>
