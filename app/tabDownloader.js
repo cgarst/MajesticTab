@@ -429,6 +429,397 @@ if (typeof window !== 'undefined') {
     window.__onSaveSources = handleSaveSourcesPayload;
 }
 
+let isDomInitialized = false;
+let resizeObserver = null;
+let currentEditingSourceId = null;
+let localEditingSources = [];
+
+/**
+ * Initialize event listeners for the native split-webview tab downloader top bar and settings modal
+ */
+export function initTabDownloaderDomEvents() {
+    if (isDomInitialized || typeof document === 'undefined') return;
+    isDomInitialized = true;
+
+    // Navigation buttons
+    document.getElementById('downloaderNavBackBtn')?.addEventListener('click', () => {
+        if (window.__TAURI__?.core?.invoke) {
+            window.__TAURI__.core.invoke('tab_downloader_nav', { action: 'back' }).catch(() => {});
+        }
+    });
+
+    document.getElementById('downloaderNavForwardBtn')?.addEventListener('click', () => {
+        if (window.__TAURI__?.core?.invoke) {
+            window.__TAURI__.core.invoke('tab_downloader_nav', { action: 'forward' }).catch(() => {});
+        }
+    });
+
+    document.getElementById('downloaderNavReloadBtn')?.addEventListener('click', () => {
+        if (window.__TAURI__?.core?.invoke) {
+            window.__TAURI__.core.invoke('tab_downloader_nav', { action: 'reload' }).catch(() => {});
+        }
+    });
+
+    // DevTools button
+    document.getElementById('downloaderDevToolsBtn')?.addEventListener('click', () => {
+        if (window.__TAURI__?.core?.invoke) {
+            window.__TAURI__.core.invoke('tab_downloader_open_devtools').catch(() => {});
+        }
+    });
+
+    // Settings button
+    document.getElementById('downloaderSettingsBtn')?.addEventListener('click', () => {
+        openDownloaderSettings();
+    });
+
+    // Close button
+    document.getElementById('downloaderCloseBtn')?.addEventListener('click', () => {
+        closeTabDownloaderModal(true);
+    });
+
+    // Settings modal events
+    document.getElementById('downloaderCfgCloseBtn')?.addEventListener('click', closeDownloaderSettings);
+    document.getElementById('downloaderCfgCancelBtn')?.addEventListener('click', closeDownloaderSettings);
+    document.getElementById('downloaderCfgSaveBtn')?.addEventListener('click', saveAndCloseSettings);
+
+    document.getElementById('downloaderCfgNewBtn')?.addEventListener('click', () => {
+        saveCurrentFormValues();
+        const newId = 'source_' + Date.now();
+        const newSrc = {
+            id: newId,
+            name: 'Custom Source',
+            urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=SEARCH+TERM',
+            defaultUrl: '',
+            queryFormat: 'artist_song',
+            userscriptEnabled: false,
+            userscript: '',
+            defaultUserscript: '',
+            isSeed: false
+        };
+        localEditingSources.push(newSrc);
+        currentEditingSourceId = newId;
+        renderSettingsPills();
+        populateSettingsForm(newId);
+    });
+
+    document.getElementById('downloaderCfgDeleteBtn')?.addEventListener('click', () => {
+        const src = localEditingSources.find(s => s.id === currentEditingSourceId);
+        if (!src || src.isSeed) return;
+        localEditingSources = localEditingSources.filter(s => s.id !== currentEditingSourceId);
+        currentEditingSourceId = localEditingSources[0]?.id || null;
+        renderSettingsPills();
+        if (currentEditingSourceId) {
+            populateSettingsForm(currentEditingSourceId);
+        }
+    });
+
+    document.getElementById('downloaderCfgResetUrlBtn')?.addEventListener('click', () => {
+        const src = localEditingSources.find(s => s.id === currentEditingSourceId);
+        if (src && src.defaultUrl) {
+            const inp = document.getElementById('downloaderCfgUrl');
+            if (inp) inp.value = src.defaultUrl;
+        }
+    });
+
+    document.getElementById('downloaderCfgResetScriptBtn')?.addEventListener('click', () => {
+        const src = localEditingSources.find(s => s.id === currentEditingSourceId);
+        if (src && src.defaultUserscript) {
+            const txt = document.getElementById('downloaderCfgUserscriptCode');
+            const chk = document.getElementById('downloaderCfgUserscriptEnabled');
+            if (txt) txt.value = src.defaultUserscript;
+            if (chk) chk.checked = true;
+        }
+    });
+
+    // Keyboard shortcut Escape
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            const settingsModal = document.getElementById('downloaderSettingsModal');
+            if (settingsModal && settingsModal.style.display !== 'none') {
+                closeDownloaderSettings();
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+            }
+            const bar = document.getElementById('tabDownloaderBar');
+            if (bar && bar.style.display !== 'none') {
+                closeTabDownloaderModal(true);
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }
+    });
+}
+
+/**
+ * Open the Configure Tab Sources modal
+ * @param {string} [targetSourceId]
+ */
+export function openDownloaderSettings(targetSourceId = null) {
+    localEditingSources = JSON.parse(JSON.stringify(getSources()));
+    currentEditingSourceId = targetSourceId || activeSourceId || localEditingSources[0]?.id;
+    renderSettingsPills();
+    if (currentEditingSourceId) {
+        populateSettingsForm(currentEditingSourceId);
+    }
+    const modal = document.getElementById('downloaderSettingsModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+/**
+ * Close the Configure Tab Sources modal
+ */
+export function closeDownloaderSettings() {
+    const modal = document.getElementById('downloaderSettingsModal');
+    if (modal) modal.style.display = 'none';
+}
+
+function renderSettingsPills() {
+    const container = document.getElementById('downloaderCfgSourcePills');
+    if (!container) return;
+    container.innerHTML = localEditingSources.map(s => `
+        <button type="button" class="downloader-cfg-pill ${s.id === currentEditingSourceId ? 'active' : ''}" data-source-id="${s.id}">
+            ${s.name}
+        </button>
+    `).join('');
+
+    container.querySelectorAll('.downloader-cfg-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+            saveCurrentFormValues();
+            currentEditingSourceId = btn.dataset.sourceId;
+            renderSettingsPills();
+            populateSettingsForm(currentEditingSourceId);
+        });
+    });
+}
+
+function populateSettingsForm(sourceId) {
+    const src = localEditingSources.find(s => s.id === sourceId);
+    if (!src) return;
+
+    const nameInp = document.getElementById('downloaderCfgName');
+    const urlInp = document.getElementById('downloaderCfgUrl');
+    const querySel = document.getElementById('downloaderCfgQueryFormat');
+    const scriptChk = document.getElementById('downloaderCfgUserscriptEnabled');
+    const scriptTxt = document.getElementById('downloaderCfgUserscriptCode');
+    const deleteBtn = document.getElementById('downloaderCfgDeleteBtn');
+
+    if (nameInp) nameInp.value = src.name || '';
+    if (urlInp) urlInp.value = src.urlTemplate || '';
+    if (querySel) querySel.value = src.queryFormat || 'artist_song';
+    if (scriptChk) scriptChk.checked = Boolean(src.userscriptEnabled);
+    if (scriptTxt) scriptTxt.value = src.userscript || '';
+    if (deleteBtn) {
+        deleteBtn.disabled = Boolean(src.isSeed);
+        deleteBtn.style.opacity = src.isSeed ? '0.5' : '1';
+        deleteBtn.style.cursor = src.isSeed ? 'not-allowed' : 'pointer';
+    }
+}
+
+function saveCurrentFormValues() {
+    const src = localEditingSources.find(s => s.id === currentEditingSourceId);
+    if (!src) return;
+
+    const nameInp = document.getElementById('downloaderCfgName');
+    const urlInp = document.getElementById('downloaderCfgUrl');
+    const querySel = document.getElementById('downloaderCfgQueryFormat');
+    const scriptChk = document.getElementById('downloaderCfgUserscriptEnabled');
+    const scriptTxt = document.getElementById('downloaderCfgUserscriptCode');
+
+    if (nameInp) src.name = nameInp.value.trim() || src.name;
+    if (urlInp) src.urlTemplate = urlInp.value.trim() || src.urlTemplate;
+    if (querySel) src.queryFormat = querySel.value;
+    if (scriptChk) src.userscriptEnabled = scriptChk.checked;
+    if (scriptTxt) src.userscript = scriptTxt.value;
+}
+
+function saveAndCloseSettings() {
+    saveCurrentFormValues();
+    saveSources(localEditingSources);
+    renderDownloaderTabs();
+    closeDownloaderSettings();
+}
+
+/**
+ * Render tab provider pills in the top bar
+ */
+export function renderDownloaderTabs() {
+    const container = document.getElementById('downloaderTabsRow');
+    if (!container) return;
+
+    const sources = getSources();
+    let html = sources.map(s => `
+        <button type="button" class="downloader-source-tab-btn ${s.id === activeSourceId ? 'active' : ''}" data-source-id="${s.id}" title="${s.name}">
+            <i class="bi-globe"></i>
+            <span>${s.name}</span>
+        </button>
+    `).join('');
+
+    html += `
+        <button type="button" class="downloader-source-tab-btn downloader-source-tab-add" id="downloaderAddSourceBtn" title="Add New Tab Source">
+            <i class="bi-plus-lg"></i>
+            <span>Add Source</span>
+        </button>
+    `;
+
+    container.innerHTML = html;
+
+    container.querySelectorAll('.downloader-source-tab-btn:not(.downloader-source-tab-add)').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const sid = btn.dataset.sourceId;
+            const src = sources.find(s => s.id === sid);
+            if (src) {
+                switchActiveSource(src);
+            }
+        });
+    });
+
+    container.querySelector('#downloaderAddSourceBtn')?.addEventListener('click', () => {
+        openDownloaderSettings();
+        document.getElementById('downloaderCfgNewBtn')?.click();
+    });
+}
+
+/**
+ * Switch active source and navigate the webview
+ * @param {Object} src
+ */
+export function switchActiveSource(src) {
+    activeSourceId = src.id;
+    const container = document.getElementById('downloaderTabsRow');
+    if (container) {
+        container.querySelectorAll('.downloader-source-tab-btn:not(.downloader-source-tab-add)').forEach(b => {
+            b.classList.toggle('active', b.dataset.sourceId === src.id);
+        });
+    }
+
+    const urlText = document.getElementById('downloaderUrlText');
+    const urlGroup = document.getElementById('downloaderUrlGroup');
+    const loadingMsg = 'Loading ' + src.name + '...';
+    if (urlText) urlText.textContent = loadingMsg;
+    if (urlGroup) urlGroup.title = loadingMsg;
+
+    const query = formatSearchQueryForSource(src, activeArtistName, activeSongName) || currentSearchQuery;
+    const nextUrl = buildSearchUrl(src, query);
+    const userscript = src.userscriptEnabled ? (src.userscript || src.defaultUserscript || null) : null;
+
+    if (window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl, userscript }).catch(err => {
+            console.error('[Tab Downloader] Failed to navigate to source:', err);
+        });
+    }
+}
+
+/**
+ * Highlight matching source tab if webview navigates to a known source domain
+ * @param {string} url
+ */
+export function highlightSourceTabForUrl(url) {
+    if (!url) return;
+    try {
+        const u = new URL(url);
+        const host = u.hostname.toLowerCase();
+        let matchedId = null;
+        if (host.includes('ultimate-guitar.com')) matchedId = 'ug';
+        else if (host.includes('metaltabs.org')) matchedId = 'metaltabs';
+        else if (host.includes('gprotab.net')) matchedId = 'gprotab';
+        else if (host.includes('guitarprotabs.org')) matchedId = 'guitarprotabs';
+        else {
+            const sources = getSources();
+            for (const s of sources) {
+                try {
+                    const su = new URL(s.defaultUrl || s.urlTemplate);
+                    if (su.hostname && host.includes(su.hostname)) {
+                        matchedId = s.id;
+                        break;
+                    }
+                } catch {}
+            }
+        }
+        if (matchedId && matchedId !== activeSourceId) {
+            activeSourceId = matchedId;
+            const container = document.getElementById('downloaderTabsRow');
+            if (container) {
+                container.querySelectorAll('.downloader-source-tab-btn:not(.downloader-source-tab-add)').forEach(b => {
+                    b.classList.toggle('active', b.dataset.sourceId === matchedId);
+                });
+            }
+        }
+    } catch {}
+}
+
+/**
+ * Show the native split-webview top bar
+ * @param {boolean} isDebugToolsEnabled
+ */
+export function showTabDownloaderBar(isDebugToolsEnabled = false) {
+    initTabDownloaderDomEvents();
+
+    const topBar = document.getElementById('topBar');
+    if (topBar) topBar.style.display = 'none';
+
+    const bar = document.getElementById('tabDownloaderBar');
+    if (bar) bar.style.display = 'flex';
+
+    // Update song pill
+    const songText = activeArtistName && activeSongName ? `${activeArtistName} - ${activeSongName}` : (activeSongName || activeArtistName || '');
+    const songPill = document.getElementById('downloaderSongPill');
+    const songTextEl = document.getElementById('downloaderSongText');
+    if (songPill && songTextEl) {
+        if (songText) {
+            songTextEl.textContent = songText;
+            songPill.style.display = 'flex';
+            songPill.title = songText;
+        } else {
+            songPill.style.display = 'none';
+        }
+    }
+
+    // DevTools button
+    const devToolsBtn = document.getElementById('downloaderDevToolsBtn');
+    if (devToolsBtn) {
+        devToolsBtn.style.display = isDebugToolsEnabled ? 'inline-flex' : 'none';
+    }
+
+    renderDownloaderTabs();
+
+    // Setup ResizeObserver to synchronize top bar height with native webview
+    if (typeof ResizeObserver !== 'undefined' && bar) {
+        if (resizeObserver) resizeObserver.disconnect();
+        let lastHeight = Math.ceil(bar.getBoundingClientRect().height) || 84;
+        resizeObserver = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const newHeight = Math.ceil(entry.contentRect.height + 1);
+                if (newHeight > 0 && Math.abs(newHeight - lastHeight) >= 2) {
+                    lastHeight = newHeight;
+                    if (window.__TAURI__?.core?.invoke) {
+                        window.__TAURI__.core.invoke('tab_downloader_update', { topOffset: newHeight }).catch(() => {});
+                    }
+                }
+            }
+        });
+        resizeObserver.observe(bar);
+    }
+}
+
+/**
+ * Hide the native split-webview top bar and restore standard top bar
+ */
+export function hideTabDownloaderBar() {
+    if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+    }
+
+    const bar = document.getElementById('tabDownloaderBar');
+    if (bar) bar.style.display = 'none';
+
+    closeDownloaderSettings();
+
+    const topBar = document.getElementById('topBar');
+    if (topBar) topBar.style.display = '';
+}
+
 /**
  * Set up Tauri native event listeners for completed downloads, logs, and closing
  */
@@ -448,6 +839,20 @@ export function initTauriDownloadListener() {
             console.log('[Tab Downloader Webview]', event.payload || '');
         });
 
+        // URL changed event from native webview
+        window.__TAURI__.event.listen('tab-downloader-url-changed', (event) => {
+            const url = event.payload || '';
+            const urlText = document.getElementById('downloaderUrlText');
+            const urlGroup = document.getElementById('downloaderUrlGroup');
+            if (urlText && url) {
+                urlText.textContent = url;
+            }
+            if (urlGroup && url) {
+                urlGroup.title = url;
+            }
+            highlightSourceTabForUrl(url);
+        });
+
         // Window closed event from native webview toolbar
         window.__TAURI__.event.listen('tab-downloader-closed', () => {
             console.log('[Tab Downloader] Received close event from native webview');
@@ -458,6 +863,8 @@ export function initTauriDownloadListener() {
         window.__TAURI__.event.listen('tab-downloader-save-sources', (event) => {
             handleSaveSourcesPayload(event.payload);
         });
+
+        initTabDownloaderDomEvents();
     }
 }
 
@@ -511,9 +918,26 @@ export async function openTabDownloader(options = {}) {
     }
     currentSearchQuery = query;
 
+    const isDesktop = isDesktopNative();
+    let barHeight = 84;
+
+    if (isDesktop) {
+        showTabDownloaderBar(Boolean(isDebugToolsEnabled));
+        const bar = document.getElementById('tabDownloaderBar');
+        if (bar) {
+            barHeight = Math.ceil(bar.getBoundingClientRect().height) || 84;
+        }
+    }
+
     const targetUrl = buildSearchUrl(activeSource, currentSearchQuery);
+    const urlTextEl = document.getElementById('downloaderUrlText');
+    const urlGroupEl = document.getElementById('downloaderUrlGroup');
+    const loadingText = 'Loading ' + activeSource.name + '...';
+    if (urlTextEl) urlTextEl.textContent = loadingText;
+    if (urlGroupEl) urlGroupEl.title = loadingText;
+
     const config = {
-        showToolbar: true,
+        showToolbar: !isDesktop, // Disable injected toolbar on desktop (using native split webview)
         activeSourceId: activeSource.id,
         artist: activeArtistName || null,
         song: activeSongName || null,
@@ -536,7 +960,8 @@ export async function openTabDownloader(options = {}) {
     await window.__TAURI__.core.invoke('open_tab_downloader', {
         url: targetUrl,
         userscript: targetScript || null,
-        config
+        config,
+        topOffset: isDesktop ? barHeight : 0.0
     });
 }
 
@@ -549,7 +974,10 @@ export function closeTabDownloaderModal(invokeNative = true) {
     activeTargetSong = null;
     activeTargetAlbum = null;
 
+    hideTabDownloaderBar();
+
     if (invokeNative && window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke('tab_downloader_hide').catch(() => {});
     }
 }
+

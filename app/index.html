@@ -126,6 +126,60 @@
   </div>
 </nav>
 
+<!-- Native Tab Downloader Top Bar (Split-Webview Header) -->
+<nav id="tabDownloaderBar" class="tab-downloader-bar" style="display:none;" data-tauri-drag-region>
+  <div class="downloader-nav-row" data-tauri-drag-region>
+    <!-- Left: Navigation buttons and Target Song Pill -->
+    <div class="downloader-nav-left" data-tauri-drag-region>
+      <div class="btn-group hud-pill-group" role="group" aria-label="Web Navigation">
+        <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavBackBtn" title="Back">
+          <i class="bi-chevron-left"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavForwardBtn" title="Forward">
+          <i class="bi-chevron-right"></i>
+        </button>
+        <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavReloadBtn" title="Reload">
+          <i class="bi-arrow-clockwise"></i>
+        </button>
+      </div>
+
+      <div class="downloader-song-pill" id="downloaderSongPill" style="display:none;" title="Target Song" data-tauri-drag-region>
+        <i class="bi-music-note-beamed text-info"></i>
+        <span class="text-truncate" id="downloaderSongText"></span>
+      </div>
+    </div>
+
+    <!-- Center: URL / Status Indicator -->
+    <div class="downloader-nav-center" data-tauri-drag-region>
+      <div class="downloader-url-group" id="downloaderUrlGroup" title="Current Web Address" data-tauri-drag-region>
+        <i class="bi-globe2"></i>
+        <span class="downloader-url-text text-truncate" id="downloaderUrlText">Loading...</span>
+      </div>
+    </div>
+
+    <!-- Right: DevTools, Configure Sources, Close -->
+    <div class="downloader-nav-right" data-tauri-drag-region>
+      <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderDevToolsBtn" title="Webview DevTools" style="display:none;">
+        <i class="bi-terminal"></i>
+      </button>
+
+      <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderSettingsBtn" title="Configure Tab Sources">
+        <i class="bi-gear"></i>
+      </button>
+
+      <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="downloaderCloseBtn" title="Return to MajesticTab (Esc)">
+        <i class="bi-x-lg"></i>
+        <span class="d-none d-sm-inline">Back to App</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom: Source Tabs Row -->
+  <div class="downloader-tabs-row" id="downloaderTabsRow" data-tauri-drag-region>
+    <!-- Source pills will be dynamically rendered here -->
+  </div>
+</nav>
+
 <!-- Windows native shell: custom window controls (shown via .tauri-windows) -->
 <div id="winControls" role="group" aria-label="Window controls">
   <button type="button" class="win-ctrl-btn" id="winMinBtn" title="Minimize" aria-label="Minimize"><i class="bi-dash-lg"></i></button>
@@ -941,6 +995,82 @@
       <button type="button" class="btn btn-theme-primary px-3" onclick="import('./utils/gamepadManager.js').then(m => m.gamepadManager.closeHelpModal())">
         Got It (Press B)
       </button>
+    </footer>
+  </section>
+</div>
+
+<!-- Configure Tab Sources Modal -->
+<div id="downloaderSettingsModal" class="theme-modal-backdrop" style="display:none;">
+  <section class="theme-modal-card" style="max-width: 580px; width: 100%;">
+    <header class="theme-modal-header d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi-gear-fill text-info fs-5"></i>
+        <div>
+          <h2 class="h6 mb-0 text-white fw-bold">Configure tab sources</h2>
+          <div class="small text-white-50">Manage search providers and custom userscripts</div>
+        </div>
+      </div>
+      <button type="button" class="brand-btn theme-modal-close-btn" id="downloaderCfgCloseBtn" aria-label="Close" title="Close">
+        <i class="bi-x-lg"></i>
+      </button>
+    </header>
+
+    <div class="theme-modal-body d-flex flex-column gap-3">
+      <div>
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <label class="small text-white-50 text-uppercase fw-semibold" style="letter-spacing: 0.5px;">Select source</label>
+          <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-1" id="downloaderCfgNewBtn">
+            <i class="bi-plus-lg"></i>
+            <span>New Source</span>
+          </button>
+        </div>
+        <div id="downloaderCfgSourcePills" class="d-flex flex-wrap gap-2"></div>
+      </div>
+
+      <div class="d-flex flex-column gap-2">
+        <div>
+          <label class="form-label small text-white-50 mb-1" for="downloaderCfgName">Source name</label>
+          <input type="text" class="form-control form-control-sm" id="downloaderCfgName">
+        </div>
+
+        <div>
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <label class="form-label small text-white-50 mb-0" for="downloaderCfgUrl">Search URL template</label>
+            <button type="button" class="btn btn-link btn-sm text-info text-decoration-none p-0" id="downloaderCfgResetUrlBtn">Reset URL</button>
+          </div>
+          <input type="text" class="form-control form-control-sm font-monospace" id="downloaderCfgUrl">
+          <div class="form-text small text-white-50">Use <code>SEARCH+TERM</code> where search keywords should be inserted.</div>
+        </div>
+
+        <div>
+          <label class="form-label small text-white-50 mb-1" for="downloaderCfgQueryFormat">Search query format</label>
+          <select class="form-select form-select-sm" id="downloaderCfgQueryFormat">
+            <option value="artist_song">Artist and song name (e.g. Metallica Master of Puppets)</option>
+            <option value="song_only">Song name only (e.g. Master of Puppets)</option>
+          </select>
+        </div>
+
+        <div class="p-2 rounded-2 border border-secondary-subtle" style="background: var(--bg-card-solid, rgba(255,255,255,0.03));">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input theme-switch" type="checkbox" id="downloaderCfgUserscriptEnabled">
+              <label class="form-check-label small text-white fw-semibold" for="downloaderCfgUserscriptEnabled">Inject userscript</label>
+            </div>
+            <button type="button" class="btn btn-link btn-sm text-info text-decoration-none p-0" id="downloaderCfgResetScriptBtn">Reset Script</button>
+          </div>
+          <textarea class="form-control form-control-sm font-monospace" id="downloaderCfgUserscriptCode" rows="4" placeholder="// Custom JavaScript injected into webview"></textarea>
+        </div>
+      </div>
+    </div>
+
+    <footer class="theme-modal-footer d-flex align-items-center justify-content-between">
+      <button type="button" class="btn btn-theme-danger btn-sm" id="downloaderCfgDeleteBtn">
+        <i class="bi-trash me-1"></i>Delete
+      </button>
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-theme-outline btn-sm" id="downloaderCfgCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-theme-primary btn-sm" id="downloaderCfgSaveBtn">Save Changes</button>
+      </div>
     </footer>
   </section>
 </div>
