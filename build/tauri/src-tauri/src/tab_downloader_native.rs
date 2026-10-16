@@ -1296,6 +1296,7 @@ pub struct TabDownloaderState {
     pub active_userscript: Mutex<Option<String>>,
     pub current_config: Mutex<Option<TabDownloaderConfig>>,
     pub is_open: Mutex<bool>,
+    pub top_offset: Mutex<f64>,
     pub last_bounds: Mutex<Option<(i32, i32, u32, u32, bool)>>,
     pub pending_downloads: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
     pub last_destination: Mutex<Option<std::path::PathBuf>>,
@@ -1888,16 +1889,46 @@ pub fn install(_app: &mut App<Wry>) -> tauri::Result<()> {
 
 #[tauri::command]
 pub fn tab_downloader_update(
-    _app: AppHandle,
-    _state: State<'_, TabDownloaderState>,
-    _url: String,
-    _userscript: Option<String>,
-    _left: f64,
-    _top: f64,
-    _width: f64,
-    _height: f64,
-    _visible: bool,
+    app: AppHandle,
+    state: State<'_, TabDownloaderState>,
+    top_offset: f64,
 ) -> Result<(), String> {
+    if let Ok(mut g) = state.top_offset.lock() {
+        *g = top_offset;
+    }
+    let is_open = state.is_open.lock().map(|g| *g).unwrap_or(false);
+    if is_open {
+        if let Some(main_win) = app.get_window("main") {
+            let scale = main_win.scale_factor().unwrap_or(1.0);
+            if let Ok(size) = main_win.inner_size() {
+                let logical = size.to_logical::<f64>(scale);
+                if let Some(downloader) = app.get_webview(DOWNLOADER_LABEL) {
+                    let _ = downloader.set_position(tauri::LogicalPosition::new(0.0, top_offset));
+                    let _ = downloader.set_size(tauri::LogicalSize::new(logical.width, (logical.height - top_offset).max(1.0)));
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn tab_downloader_navigate(
+    app: AppHandle,
+    state: State<'_, TabDownloaderState>,
+    url: String,
+    userscript: Option<String>,
+) -> Result<(), String> {
+    let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
+    if let Ok(mut g) = state.active_userscript.lock() {
+        *g = userscript;
+    }
+    if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
+        let _ = w.navigate(parsed_url);
+    } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+        let _ = w.navigate(parsed_url);
+    }
+    schedule_toolbar_injection(&app);
     Ok(())
 }
 
