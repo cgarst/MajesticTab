@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, LogicalPosition, Manager};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use tauri::RunEvent;
 
@@ -48,6 +48,65 @@ pub struct DownloadedTabPayload {
     pub data: Option<Vec<u8>>,
 }
 
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[tauri::command]
+async fn open_tab_downloader(
+    app: tauri::AppHandle,
+    url: String,
+    userscript: Option<String>,
+    config: Option<tab_downloader_native::TabDownloaderConfig>,
+) -> Result<(), String> {
+    let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
+
+    let downloader = app
+        .get_webview(tab_downloader_native::DOWNLOADER_LABEL)
+        .ok_or_else(|| "Tab downloader is unavailable".to_string())?;
+
+    if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
+        if let Ok(mut g) = state.active_userscript.lock() {
+            *g = userscript.clone();
+        }
+        if let Ok(mut g) = state.current_config.lock() {
+            *g = config.clone();
+        }
+        if let Ok(mut g) = state.is_open.lock() {
+            *g = true;
+        }
+    }
+
+    if let Some(main_win) = app.get_window("main") {
+        let scale = main_win.scale_factor().unwrap_or(1.0);
+        if let Ok(size) = main_win.inner_size() {
+            let logical = size.to_logical::<f64>(scale);
+            let _ = downloader.set_position(LogicalPosition::new(0.0, 0.0));
+            let _ = downloader.set_size(logical);
+        }
+    }
+
+    let _ = downloader.navigate(parsed_url);
+    let wrapped = tab_downloader_native::wrap_userscript(
+        userscript.as_deref().unwrap_or(""),
+        config.as_ref(),
+    );
+    let _ = downloader.eval(&wrapped);
+    let _ = downloader.show();
+
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_web_kit::WKWebView;
+        let _ = downloader.with_webview(|platform| unsafe {
+            let webview = &*platform.inner().cast::<WKWebView>();
+            if let Some(superview) = webview.superview() {
+                superview.addSubview(webview);
+            }
+        });
+    }
+
+    let _ = downloader.set_focus();
+    Ok(())
+}
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
 #[tauri::command]
 async fn open_tab_downloader(
     app: tauri::AppHandle,
@@ -90,19 +149,6 @@ async fn open_tab_downloader(
     )
     .title("Tab Downloader - MajesticTab")
     .user_agent(tab_downloader_native::DESKTOP_USER_AGENT);
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    {
-        builder = builder.inner_size(1100.0, 750.0);
-        if let Some(icon) = app.default_window_icon() {
-            builder = builder.icon(icon.clone()).map_err(|e| e.to_string())?;
-        }
-    }
-
-    #[cfg(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))]
-    {
-        builder = builder.devtools(true);
-    }
 
     let wrapped = tab_downloader_native::wrap_userscript(
         userscript.as_deref().unwrap_or(""),
@@ -187,21 +233,6 @@ async fn open_tab_downloader(
     let window = builder.build().map_err(|e| e.to_string())?;
     let _ = window.show();
     let _ = window.set_focus();
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    {
-        let app_handle_for_event = app.clone();
-        window.on_window_event(move |event| {
-            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                if let Some(w) = app_handle_for_event.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
-                    let _ = w.hide();
-                }
-                let _ = app_handle_for_event.emit("tab-downloader-closed", ());
-            }
-        });
-    }
-
     Ok(())
 }
 
@@ -329,27 +360,54 @@ pub fn run() {
             #[cfg(target_os = "macos")]
             youtube_macos::install(_app)?;
             tab_downloader_native::install(_app)?;
-            if let Some(window) = _app.get_webview_window("main") {
+
+            #[cfg(feature = "debug-tools")]
+            if let Some(main_wv) = _app.get_webview("main") {
+                main_wv.open_devtools();
+            }
+
+            if let Some(window) = _app.get_window("main") {
                 #[cfg(not(any(target_os = "android", target_os = "ios")))]
-                if let Some(icon) = _app.default_window_icon() {
-                    let _ = window.set_icon(icon.clone());
+                {
+                    if let Some(icon) = _app.default_window_icon() {
+                        let _ = window.set_icon(icon.clone());
+                    }
+                    let app_handle_for_resize = _app.handle().clone();
+                    window.on_window_event(move |event| {
+                        if let tauri::WindowEvent::Resized(size) = event {
+                            let is_open = app_handle_for_resize
+                                .try_state::<tab_downloader_native::TabDownloaderState>()
+                                .and_then(|st| st.is_open.lock().ok().map(|g| *g))
+                                .unwrap_or(false);
+                            if is_open {
+                                if let Some(downloader) = app_handle_for_resize.get_webview(tab_downloader_native::DOWNLOADER_LABEL) {
+                                    if let Some(main_win) = app_handle_for_resize.get_window("main") {
+                                        let scale = main_win.scale_factor().unwrap_or(1.0);
+                                        let logical = size.to_logical::<f64>(scale);
+                                        let _ = downloader.set_position(LogicalPosition::new(0.0, 0.0));
+                                        let _ = downloader.set_size(logical);
+                                    }
+                                }
+                            }
+                        }
+                    });
                 }
                 #[cfg(target_os = "linux")]
                 if is_gamescope_or_steam_deck() {
                     let _ = window.set_decorations(false);
                     let _ = window.set_fullscreen(true);
-                    let _ = window.eval(
-                        "document.documentElement.classList.add('tauri-gamescope'); \
-                        try { \
-                            if (localStorage.getItem('gpDefaultView') === null) localStorage.setItem('gpDefaultView', 'page'); \
-                            if (localStorage.getItem('txtDefaultView') === null) localStorage.setItem('txtDefaultView', 'page'); \
-                            if (localStorage.getItem('pdfDefaultView') === null) localStorage.setItem('pdfDefaultView', 'page'); \
-                            if (localStorage.getItem('landscapePageLayout') === null) localStorage.setItem('landscapePageLayout', 'single'); \
-                        } catch {}"
-                    );
+                    if let Some(main_wv) = _app.get_webview("main") {
+                        let _ = main_wv.eval(
+                            "document.documentElement.classList.add('tauri-gamescope'); \
+                            try { \
+                                if (localStorage.getItem('gpDefaultView') === null) localStorage.setItem('gpDefaultView', 'page'); \
+                                if (localStorage.getItem('txtDefaultView') === null) localStorage.setItem('txtDefaultView', 'page'); \
+                                if (localStorage.getItem('pdfDefaultView') === null) localStorage.setItem('pdfDefaultView', 'page'); \
+                                if (localStorage.getItem('landscapePageLayout') === null) localStorage.setItem('landscapePageLayout', 'single'); \
+                            } catch {}"
+                        );
+                    }
                 }
-                #[cfg(feature = "debug-tools")]
-                window.open_devtools();
             }
             Ok(())
         });
