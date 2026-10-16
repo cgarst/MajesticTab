@@ -1,5 +1,7 @@
 use std::sync::Mutex;
-use tauri::{Emitter, LogicalPosition, LogicalSize, Manager};
+use tauri::{Emitter, Manager};
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
+use tauri::{LogicalPosition, LogicalSize};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use tauri::RunEvent;
 
@@ -364,36 +366,34 @@ pub fn run() {
                 main_wv.open_devtools();
             }
 
+            #[cfg(not(any(target_os = "android", target_os = "ios")))]
             if let Some(window) = _app.get_window("main") {
-                #[cfg(not(any(target_os = "android", target_os = "ios")))]
-                {
-                    if let Some(icon) = _app.default_window_icon() {
-                        let _ = window.set_icon(icon.clone());
-                    }
-                    let app_handle_for_resize = _app.handle().clone();
-                    window.on_window_event(move |event| {
-                        if let tauri::WindowEvent::Resized(size) = event {
-                            let is_open = app_handle_for_resize
-                                .try_state::<tab_downloader_native::TabDownloaderState>()
-                                .and_then(|st| st.is_open.lock().ok().map(|g| *g))
-                                .unwrap_or(false);
-                            if is_open {
-                                if let Some(downloader) = app_handle_for_resize.get_webview(tab_downloader_native::DOWNLOADER_LABEL) {
-                                    if let Some(main_win) = app_handle_for_resize.get_window("main") {
-                                        let scale = main_win.scale_factor().unwrap_or(1.0);
-                                        let logical = size.to_logical::<f64>(scale);
-                                        let top_offset = app_handle_for_resize
-                                            .try_state::<tab_downloader_native::TabDownloaderState>()
-                                            .and_then(|st| st.top_offset.lock().ok().map(|g| *g))
-                                            .unwrap_or(84.0);
-                                        let _ = downloader.set_position(LogicalPosition::new(0.0, top_offset));
-                                        let _ = downloader.set_size(LogicalSize::new(logical.width, (logical.height - top_offset).max(1.0)));
-                                    }
+                if let Some(icon) = _app.default_window_icon() {
+                    let _ = window.set_icon(icon.clone());
+                }
+                let app_handle_for_resize = _app.handle().clone();
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::Resized(size) = event {
+                        let is_open = app_handle_for_resize
+                            .try_state::<tab_downloader_native::TabDownloaderState>()
+                            .and_then(|st| st.is_open.lock().ok().map(|g| *g))
+                            .unwrap_or(false);
+                        if is_open {
+                            if let Some(downloader) = app_handle_for_resize.get_webview(tab_downloader_native::DOWNLOADER_LABEL) {
+                                if let Some(main_win) = app_handle_for_resize.get_window("main") {
+                                    let scale = main_win.scale_factor().unwrap_or(1.0);
+                                    let logical = size.to_logical::<f64>(scale);
+                                    let top_offset = app_handle_for_resize
+                                        .try_state::<tab_downloader_native::TabDownloaderState>()
+                                        .and_then(|st| st.top_offset.lock().ok().map(|g| *g))
+                                        .unwrap_or(84.0);
+                                    let _ = downloader.set_position(LogicalPosition::new(0.0, top_offset));
+                                    let _ = downloader.set_size(LogicalSize::new(logical.width, (logical.height - top_offset).max(1.0)));
                                 }
                             }
                         }
-                    });
-                }
+                    }
+                });
                 #[cfg(target_os = "linux")]
                 if is_gamescope_or_steam_deck() {
                     let _ = window.set_decorations(false);

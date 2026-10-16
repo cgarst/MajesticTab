@@ -1433,6 +1433,21 @@ pub fn schedule_toolbar_injection(app_handle: &AppHandle) {
     }
 }
 
+pub fn hide_downloader(app_handle: &AppHandle) {
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
+        let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+        let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
+        let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
+        let _ = w.hide();
+        return;
+    }
+    if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
+        let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+        let _ = w.hide();
+    }
+}
+
 pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
     let url_str = url.as_str();
     eprintln!("[Tab Downloader] Navigation requested: {}", url_str);
@@ -1475,15 +1490,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             true
         };
         if was_open {
-            if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
-                let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-                let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
-                let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
-                let _ = w.hide();
-            } else if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
-                let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-                let _ = w.hide();
-            }
+            hide_downloader(app_handle);
             let _ = app_handle.emit("tab-downloader-closed", ());
         }
         return false;
@@ -1546,15 +1553,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             .unwrap_or_default();
         let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64_data).ok();
         eprintln!("[Tab Downloader] Captured client-side download: {} ({} bytes)", name, data.as_ref().map(|d| d.len()).unwrap_or(0));
-        if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
-            let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-            let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
-            let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
-            let _ = w.hide();
-        } else if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
-            let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-            let _ = w.hide();
-        }
+        hide_downloader(app_handle);
         if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
             if let Ok(mut g) = state.is_open.lock() {
                 *g = false;
@@ -1619,6 +1618,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
 
     // 8. Window drag scheme: majestictab://drag
     if url.scheme() == "majestictab" && (url.host_str() == Some("drag") || url_str.starts_with("majestictab://drag")) {
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         if let Some(main_win) = app_handle.get_window("main") {
             #[cfg(target_os = "macos")]
             drag_window_macos(&main_win);
@@ -1630,6 +1630,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
 
     // 9. Window toggle-maximize scheme: majestictab://toggle-maximize
     if url.scheme() == "majestictab" && (url.host_str() == Some("toggle-maximize") || url_str.starts_with("majestictab://toggle-maximize")) {
+        #[cfg(not(any(target_os = "android", target_os = "ios")))]
         if let Some(main_win) = app_handle.get_window("main") {
             if let Ok(is_max) = main_win.is_maximized() {
                 if is_max {
@@ -1887,6 +1888,7 @@ pub fn install(_app: &mut App<Wry>) -> tauri::Result<()> {
     Ok(())
 }
 
+#[cfg(not(any(target_os = "android", target_os = "ios")))]
 #[tauri::command]
 pub fn tab_downloader_update(
     app: AppHandle,
@@ -1909,6 +1911,16 @@ pub fn tab_downloader_update(
             }
         }
     }
+    Ok(())
+}
+
+#[cfg(any(target_os = "android", target_os = "ios"))]
+#[tauri::command]
+pub fn tab_downloader_update(
+    _app: AppHandle,
+    _state: State<'_, TabDownloaderState>,
+    _top_offset: f64,
+) -> Result<(), String> {
     Ok(())
 }
 
@@ -1968,15 +1980,7 @@ pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>)
         return Ok(());
     }
 
-    if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
-        let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-        let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
-        let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
-        let _ = w.hide();
-    } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
-        let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-        let _ = w.hide();
-    }
+    hide_downloader(&app);
     let _ = app.emit("tab-downloader-closed", ());
     Ok(())
 }
