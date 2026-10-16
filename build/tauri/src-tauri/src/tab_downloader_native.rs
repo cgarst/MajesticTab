@@ -417,6 +417,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         let editingSourceId = activeSourceId;
 
         function buildSearchUrl(source, art, sng, qry) {
+            if (!source) return 'https://www.ultimate-guitar.com/';
             let term = '';
             if (source.queryFormat === 'song_only') {
                 term = sng || qry || art || '';
@@ -424,23 +425,39 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 term = (art && sng) ? (art + ' ' + sng) : (qry || sng || art || '');
             }
             term = term.trim();
+            let template = (source.urlTemplate || '').trim();
+            if (template && !/^https?:\/\//i.test(template)) {
+                template = 'https://' + template;
+            }
+            const hasPlaceholder = template.includes('SEARCH+TERM') || template.includes('{search}');
+
+            if (template && !hasPlaceholder) {
+                return template;
+            }
+
             if (!term) {
                 if (source.id === 'ug') return 'https://www.ultimate-guitar.com/';
                 if (source.id === 'metaltabs') return 'https://metaltabs.org/';
                 if (source.id === 'gprotab') return 'https://gprotab.net/';
                 if (source.id === 'guitarprotabs') return 'https://guitarprotabs.org/';
-                if (source.defaultUrl) return source.defaultUrl.replace('SEARCH+TERM', '').replace('{search}', '');
+                if (source.defaultUrl) return source.defaultUrl.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
+                if (template) {
+                    try {
+                        const u = new URL(template);
+                        return u.origin + (u.pathname && u.pathname !== '/' ? u.pathname : '/');
+                    } catch {
+                        return template.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
+                    }
+                }
                 return 'https://www.ultimate-guitar.com/';
             }
             const encodedPlus = encodeURIComponent(term).replace(/%20/g, '+');
             const encodedStandard = encodeURIComponent(term);
-            let url = source.urlTemplate || '';
+            let url = template;
             if (url.includes('SEARCH+TERM')) {
-                url = url.replace('SEARCH+TERM', encodedPlus);
+                url = url.replace(/SEARCH\+TERM/g, encodedPlus);
             } else if (url.includes('{search}')) {
-                url = url.replace('{search}', encodedStandard);
-            } else {
-                url = url + (url.includes('?') ? '&' : '?') + 'q=' + encodedStandard;
+                url = url.replace(/\{search\}/g, encodedStandard);
             }
             return url;
         }
@@ -1163,7 +1180,16 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             const userscriptCodeTextarea = shadow.getElementById('cfg-userscript-code');
 
             if (nameInput) src.name = nameInput.value.trim() || src.name;
-            if (urlInput) src.urlTemplate = urlInput.value.trim() || src.urlTemplate;
+            if (urlInput) {
+                let uVal = urlInput.value.trim() || src.urlTemplate;
+                if (uVal && !/^https?:\/\//i.test(uVal)) {
+                    uVal = 'https://' + uVal;
+                }
+                src.urlTemplate = uVal;
+                if (!src.defaultUrl) {
+                    src.defaultUrl = src.urlTemplate;
+                }
+            }
             if (queryFormatSelect) src.queryFormat = queryFormatSelect.value;
             if (userscriptEnabledCheckbox) src.userscriptEnabled = userscriptEnabledCheckbox.checked;
             if (userscriptCodeTextarea) src.userscript = userscriptCodeTextarea.value;
@@ -2063,6 +2089,15 @@ pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String>
 
 #[tauri::command]
 pub fn tab_downloader_save_sources(app: AppHandle, sources_json: String) -> Result<(), String> {
+    if let Ok(updated_sources) = serde_json::from_str::<Vec<TabSourceInfo>>(&sources_json) {
+        if let Some(state) = app.try_state::<TabDownloaderState>() {
+            if let Ok(mut cfg_guard) = state.current_config.lock() {
+                if let Some(ref mut cfg) = *cfg_guard {
+                    cfg.sources = updated_sources;
+                }
+            }
+        }
+    }
     let escaped_json = serde_json::to_string(&sources_json).unwrap_or_default();
     let eval_script = format!("window.__onSaveSources && window.__onSaveSources({});", escaped_json);
     if let Some(main_wv) = app.get_webview("main") {
