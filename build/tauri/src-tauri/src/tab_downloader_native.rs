@@ -345,29 +345,26 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 
         let host = document.getElementById('majestic-downloader-host');
         let shadow = null;
-        let isNew = false;
 
         if (!host) {
             host = document.createElement('div');
             host.id = 'majestic-downloader-host';
             host.style.cssText = 'all: initial; position: fixed; top: 0; left: 0; width: 100%; z-index: 2147483647; pointer-events: auto;';
             shadow = host.attachShadow({ mode: 'open' });
-            isNew = true;
             const mount = document.body || document.documentElement;
             if (mount) {
                 mount.appendChild(host);
-            } else {
-                document.addEventListener('DOMContentLoaded', () => {
-                    if (!document.getElementById('majestic-downloader-host')) {
-                        (document.body || document.documentElement).appendChild(host);
-                    }
-                });
             }
         } else {
-            shadow = host.shadowRoot;
+            shadow = host.shadowRoot || host.attachShadow({ mode: 'open' });
         }
 
         if (!shadow) return;
+
+        if (host && !host.isConnected) {
+            const mount = document.body || document.documentElement;
+            if (mount) mount.appendChild(host);
+        }
 
         let sources = config.sources || [];
         let localSources = JSON.parse(JSON.stringify(sources));
@@ -439,6 +436,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         }
 
         const detectedPlatform = config.platform || (/mac/i.test(navigator.platform || navigator.userAgent) ? 'macos' : (/win/i.test(navigator.platform || navigator.userAgent) ? 'windows' : 'other'));
+        const isNew = !shadow.getElementById('toolbar-root');
 
         if (isNew) {
             shadow.innerHTML = `
@@ -958,8 +956,9 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         if (urlInput) {
                             urlInput.value = 'Loading ' + src.name + '...';
                         }
+                        config.activeSourceId = sid;
                         const nextUrl = buildSearchUrl(src, artist, song, query);
-                        window.location.href = nextUrl;
+                        window.location.href = 'majestictab://switch-source?sourceId=' + encodeURIComponent(src.id) + '&url=' + encodeURIComponent(nextUrl);
                     }
                 });
             });
@@ -1065,6 +1064,10 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         }
 
         function updateToolbarDisplay() {
+            if (host && !host.isConnected) {
+                const mount = document.body || document.documentElement;
+                if (mount) mount.appendChild(host);
+            }
             if (urlInput && document.activeElement !== urlInput) {
                 const cur = window.location.href;
                 urlInput.value = cur;
@@ -1253,6 +1256,25 @@ pub fn wrap_userscript(raw_js: &str, config: Option<&TabDownloaderConfig>) -> St
     )
 }
 
+pub fn schedule_toolbar_injection(app_handle: &AppHandle) {
+    if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+        let js_opt = state.active_userscript.lock().ok().and_then(|g| g.clone());
+        let cfg_opt = state.current_config.lock().ok().and_then(|g| g.clone());
+        let wrapped = wrap_userscript(js_opt.as_deref().unwrap_or(""), cfg_opt.as_ref());
+        let handle = app_handle.clone();
+        std::thread::spawn(move || {
+            for delay in [25, 80, 200, 500, 1000, 2000, 3500] {
+                std::thread::sleep(std::time::Duration::from_millis(delay));
+                if let Some(w) = handle.get_webview(DOWNLOADER_LABEL) {
+                    let _ = w.eval(&wrapped);
+                } else if let Some(w) = handle.get_webview_window(DOWNLOADER_LABEL) {
+                    let _ = w.eval(&wrapped);
+                }
+            }
+        });
+    }
+}
+
 pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
     let url_str = url.as_str();
     eprintln!("[Tab Downloader] Navigation requested: {}", url_str);
@@ -1298,7 +1320,50 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
         return false;
     }
 
-    // 4. Direct client-side download capture scheme: majestictab://download?name=...&data=...
+    // 4. Source switch scheme: majestictab://switch-source?sourceId=...&url=...
+    if url.scheme() == "majestictab" && (url.host_str() == Some("switch-source") || url_str.starts_with("majestictab://switch-source")) {
+        let sid = url
+            .query_pairs()
+            .find(|(k, _)| k == "sourceId")
+            .map(|(_, v)| v.into_owned())
+            .unwrap_or_default();
+        let target_url = url
+            .query_pairs()
+            .find(|(k, _)| k == "url")
+            .map(|(_, v)| v.into_owned())
+            .unwrap_or_default();
+
+        eprintln!("[Tab Downloader] Switch source requested: sid={}, target={}", sid, target_url);
+
+        if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+            let mut matched_userscript: Option<String> = None;
+            if let Ok(mut cfg_guard) = state.current_config.lock() {
+                if let Some(ref mut cfg) = *cfg_guard {
+                    cfg.active_source_id = Some(sid.clone());
+                    if let Some(src) = cfg.sources.iter().find(|s| s.id == sid) {
+                        if src.userscript_enabled {
+                            matched_userscript = src.userscript.clone().or_else(|| src.default_userscript.clone());
+                        }
+                    }
+                }
+            }
+            if let Ok(mut js_guard) = state.active_userscript.lock() {
+                *js_guard = matched_userscript;
+            }
+        }
+
+        if let Ok(parsed_target) = tauri::Url::parse(&target_url) {
+            if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
+                let _ = w.navigate(parsed_target);
+            } else if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
+                let _ = w.navigate(parsed_target);
+            }
+            schedule_toolbar_injection(app_handle);
+        }
+        return false;
+    }
+
+    // 5. Direct client-side download capture scheme: majestictab://download?name=...&data=...
     if url.scheme() == "majestictab" && (url.host_str() == Some("download") || url_str.starts_with("majestictab://download")) {
         let name = url
             .query_pairs()
@@ -1343,7 +1408,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
         return false;
     }
 
-    // 5. Source configuration persistence: majestictab://save-sources?sources=...
+    // 6. Source configuration persistence: majestictab://save-sources?sources=...
     if url.scheme() == "majestictab" && (url.host_str() == Some("save-sources") || url_str.starts_with("majestictab://save-sources")) {
         let sources_json = url
             .query_pairs()
@@ -1351,6 +1416,15 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             .map(|(_, v)| v.into_owned())
             .unwrap_or_default();
         if !sources_json.is_empty() {
+            if let Ok(updated_sources) = serde_json::from_str::<Vec<TabSourceInfo>>(&sources_json) {
+                if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+                    if let Ok(mut cfg_guard) = state.current_config.lock() {
+                        if let Some(ref mut cfg) = *cfg_guard {
+                            cfg.sources = updated_sources;
+                        }
+                    }
+                }
+            }
             let escaped_json = serde_json::to_string(&sources_json).unwrap_or_default();
             let eval_script = format!("window.__onSaveSources && window.__onSaveSources({});", escaped_json);
             if let Some(main_wv) = app_handle.get_webview("main") {
@@ -1363,7 +1437,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
         return false;
     }
 
-    // 6. DevTools request: majestictab://devtools
+    // 7. DevTools request: majestictab://devtools
     if url.scheme() == "majestictab" && (url.host_str() == Some("devtools") || url_str.starts_with("majestictab://devtools")) {
         #[cfg(all(feature = "debug-tools", not(any(target_os = "android", target_os = "ios"))))]
         if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
@@ -1380,6 +1454,47 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
 
     if url.scheme() == "http" || url.scheme() == "https" {
         let _ = app_handle.emit("tab-downloader-url-changed", url_str.to_string());
+        if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+            if let Some(host) = url.host_str().map(|h| h.to_lowercase()) {
+                let mut matched_sid: Option<String> = None;
+                let mut matched_script: Option<String> = None;
+                if let Ok(mut cfg_guard) = state.current_config.lock() {
+                    if let Some(ref mut cfg) = *cfg_guard {
+                        for s in &cfg.sources {
+                            let matches = if s.id == "ug" && host.contains("ultimate-guitar.com") {
+                                true
+                            } else if s.id == "metaltabs" && host.contains("metaltabs.org") {
+                                true
+                            } else if s.id == "gprotab" && host.contains("gprotab.net") {
+                                true
+                            } else if s.id == "guitarprotabs" && host.contains("guitarprotabs.org") {
+                                true
+                            } else if let Ok(u) = tauri::Url::parse(if !s.default_url.is_empty() { &s.default_url } else { &s.url_template }) {
+                                u.host_str().map(|h| host.contains(h)).unwrap_or(false)
+                            } else {
+                                false
+                            };
+                            if matches {
+                                matched_sid = Some(s.id.clone());
+                                if s.userscript_enabled {
+                                    matched_script = s.userscript.clone().or_else(|| s.default_userscript.clone());
+                                }
+                                break;
+                            }
+                        }
+                        if let Some(ref msid) = matched_sid {
+                            cfg.active_source_id = Some(msid.clone());
+                        }
+                    }
+                }
+                if matched_sid.is_some() {
+                    if let Ok(mut js_guard) = state.active_userscript.lock() {
+                        *js_guard = matched_script;
+                    }
+                }
+            }
+        }
+        schedule_toolbar_injection(app_handle);
     }
 
     true
@@ -1471,7 +1586,8 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
         DOWNLOADER_LABEL,
         tauri::WebviewUrl::External(blank_url),
     )
-    .user_agent(DESKTOP_USER_AGENT);
+    .user_agent(DESKTOP_USER_AGENT)
+    .initialization_script(CORE_DOWNLOADER_SHIM);
 
     #[cfg(feature = "debug-tools")]
     {
@@ -1482,19 +1598,12 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
         handle_navigation(&app_handle_for_nav, &url)
     });
 
-    builder = builder.on_page_load(move |webview, payload| {
-        if let tauri::webview::PageLoadEvent::Finished = payload.event() {
-            let s = payload.url().as_str();
-            if s.starts_with("http://") || s.starts_with("https://") {
-                let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
-            }
-            if let Some(state) = app_handle_for_load.try_state::<TabDownloaderState>() {
-                let js_opt = state.active_userscript.lock().ok().and_then(|g| g.clone());
-                let cfg_opt = state.current_config.lock().ok().and_then(|g| g.clone());
-                let wrapped = wrap_userscript(js_opt.as_deref().unwrap_or(""), cfg_opt.as_ref());
-                let _ = webview.eval(&wrapped);
-            }
+    builder = builder.on_page_load(move |_webview, payload| {
+        let s = payload.url().as_str();
+        if s.starts_with("http://") || s.starts_with("https://") {
+            let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
         }
+        schedule_toolbar_injection(&app_handle_for_load);
     });
 
     builder = builder.on_download(move |_webview, event| {

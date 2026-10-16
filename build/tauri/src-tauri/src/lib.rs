@@ -84,11 +84,7 @@ async fn open_tab_downloader(
     }
 
     let _ = downloader.navigate(parsed_url);
-    let wrapped = tab_downloader_native::wrap_userscript(
-        userscript.as_deref().unwrap_or(""),
-        config.as_ref(),
-    );
-    let _ = downloader.eval(&wrapped);
+    tab_downloader_native::schedule_toolbar_injection(&app);
     let _ = downloader.show();
 
     #[cfg(target_os = "macos")]
@@ -114,17 +110,25 @@ async fn open_tab_downloader(
     userscript: Option<String>,
     config: Option<tab_downloader_native::TabDownloaderConfig>,
 ) -> Result<(), String> {
+    if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
+        if let Ok(mut g) = state.active_userscript.lock() {
+            *g = userscript.clone();
+        }
+        if let Ok(mut g) = state.current_config.lock() {
+            *g = config.clone();
+        }
+        if let Ok(mut g) = state.is_open.lock() {
+            *g = true;
+        }
+    }
+
     if let Some(existing) = app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
         if let Ok(parsed_url) = url.parse::<tauri::Url>() {
             let _ = existing.navigate(parsed_url);
             let _ = existing.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
             let _ = existing.show();
             let _ = existing.set_focus();
-            let wrapped = tab_downloader_native::wrap_userscript(
-                userscript.as_deref().unwrap_or(""),
-                config.as_ref(),
-            );
-            let _ = existing.eval(&wrapped);
+            tab_downloader_native::schedule_toolbar_injection(&app);
             return Ok(());
         }
     }
@@ -148,13 +152,8 @@ async fn open_tab_downloader(
         tauri::WebviewUrl::External(parsed_url),
     )
     .title("Tab Downloader - MajesticTab")
-    .user_agent(tab_downloader_native::DESKTOP_USER_AGENT);
-
-    let wrapped = tab_downloader_native::wrap_userscript(
-        userscript.as_deref().unwrap_or(""),
-        config.as_ref(),
-    );
-    builder = builder.initialization_script(&wrapped);
+    .user_agent(tab_downloader_native::DESKTOP_USER_AGENT)
+    .initialization_script(tab_downloader_native::CORE_DOWNLOADER_SHIM);
 
     let app_handle_for_nav = app.clone();
     builder = builder.on_navigation(move |nav_url| {
@@ -162,20 +161,12 @@ async fn open_tab_downloader(
     });
 
     let app_handle_for_load = app.clone();
-    let config_clone = config.clone();
-    let userscript_clone = userscript.clone();
-    builder = builder.on_page_load(move |webview, payload| {
-        if let tauri::webview::PageLoadEvent::Finished = payload.event() {
-            let s = payload.url().as_str();
-            if s.starts_with("http://") || s.starts_with("https://") {
-                let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
-            }
-            let wrapped = tab_downloader_native::wrap_userscript(
-                userscript_clone.as_deref().unwrap_or(""),
-                config_clone.as_ref(),
-            );
-            let _ = webview.eval(&wrapped);
+    builder = builder.on_page_load(move |_webview, payload| {
+        let s = payload.url().as_str();
+        if s.starts_with("http://") || s.starts_with("https://") {
+            let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
         }
+        tab_downloader_native::schedule_toolbar_injection(&app_handle_for_load);
     });
 
     let app_handle = app.clone();
