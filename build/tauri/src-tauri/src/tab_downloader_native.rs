@@ -76,10 +76,30 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         return origFormSubmit.apply(this, arguments);
     };
 
+    function arrayBufferToBase64(buf) {
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        const chunkSize = 0x8000;
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunkSize));
+        }
+        return btoa(binary);
+    }
+
     // 3. Helper to send client-side captured binary data (e.g. blobs/data URLs) to MajesticTab shell
     function triggerMajesticDownload(filename, base64Data) {
+        if (!base64Data) return;
+        try {
+            if (window.MajesticDownloaderNative && typeof window.MajesticDownloaderNative.onTabDownloaded === 'function') {
+                window.MajesticDownloaderNative.onTabDownloaded(filename || 'downloaded.gp', base64Data);
+                return;
+            }
+            if (window.MajesticDownloaderNative && typeof window.MajesticDownloaderNative.close === 'function') {
+                window.MajesticDownloaderNative.close();
+            }
+        } catch(e) {}
         const a = document.createElement('a');
-        a.href = 'majestictab://download?name=' + encodeURIComponent(filename) + '&data=' + encodeURIComponent(base64Data);
+        a.href = 'majestictab://download?name=' + encodeURIComponent(filename || 'downloaded.gp') + '&data=' + encodeURIComponent(base64Data);
         (document.body || document.documentElement).appendChild(a);
         a.click();
         setTimeout(() => a.remove(), 200);
@@ -90,18 +110,104 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         fetch(url)
             .then(r => r.arrayBuffer())
             .then(buf => {
-                const bytes = new Uint8Array(buf);
-                let binary = '';
-                for (let i = 0; i < bytes.byteLength; i++) {
-                    binary += String.fromCharCode(bytes[i]);
-                }
-                const b64 = btoa(binary);
+                const b64 = arrayBufferToBase64(buf);
                 const name = suggestedFilename || 'downloaded.gp';
                 triggerMajesticDownload(name, b64);
             })
             .catch(err => {
                 console.error('[MajesticTab] Failed to read blob download:', err);
             });
+    }
+
+    async function handleFormDownload(form, e) {
+        if (!form) return false;
+        const action = (form.action || form.getAttribute('action') || '').toLowerCase();
+        if (!action.includes('download')) return false;
+
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        try {
+            const formData = new FormData(form);
+            const method = (form.method || 'GET').toUpperCase();
+            let res;
+            if (method === 'POST') {
+                res = await fetch(form.action, { method: 'POST', body: formData, credentials: 'include' });
+            } else {
+                const params = new URLSearchParams(formData).toString();
+                const url = form.action + (form.action.includes('?') ? '&' : '?') + params;
+                res = await fetch(url, { method: 'GET', credentials: 'include' });
+            }
+
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const buf = await res.arrayBuffer();
+            if (buf.byteLength < 20) throw new Error('Empty response');
+
+            const b64 = arrayBufferToBase64(buf);
+            let filename = '';
+            const disp = res.headers.get('content-disposition') || '';
+            const match = /filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i.exec(disp);
+            if (match && match[1]) {
+                filename = decodeURIComponent(match[1].trim());
+            }
+            if (!filename) {
+                const heading = document.querySelector('h1')?.textContent?.trim();
+                filename = heading ? (heading.replace(/[/\\?%*:|"<>]/g, '_') + '.gp') : 'downloaded.gp';
+            }
+
+            triggerMajesticDownload(filename, b64);
+            return true;
+        } catch (err) {
+            console.error('[MajesticTab] Form download intercept error:', err);
+            return false;
+        }
+    }
+
+    async function handleLinkDownload(a, e) {
+        if (!a) return false;
+        const href = (a.getAttribute('href') || a.href || '').toLowerCase();
+        const isTabFile = /\.(gp|gp3|gp4|gp5|gpx|pdf|mid|midi)(\?|$)/i.test(href);
+        const isDownloadEndpoint = href.includes('/tab/download') || href.includes('download.php') || href.includes('/download/');
+        if (!isTabFile && !isDownloadEndpoint) return false;
+
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        try {
+            const res = await fetch(a.href, { credentials: 'include' });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const buf = await res.arrayBuffer();
+            if (buf.byteLength < 20) throw new Error('Empty response');
+
+            const b64 = arrayBufferToBase64(buf);
+            let filename = a.getAttribute('download') || a.download || '';
+            if (!filename) {
+                const disp = res.headers.get('content-disposition') || '';
+                const match = /filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i.exec(disp);
+                if (match && match[1]) {
+                    filename = decodeURIComponent(match[1].trim());
+                } else {
+                    try {
+                        const seg = (new URL(a.href)).pathname.split('/').pop();
+                        if (seg && /\.[a-z0-9]+$/i.test(seg)) filename = seg;
+                    } catch(e) {}
+                    if (!filename) {
+                        const heading = document.querySelector('h1')?.textContent?.trim();
+                        filename = heading ? (heading.replace(/[/\\?%*:|"<>]/g, '_') + '.gp') : 'downloaded.gp';
+                    }
+                }
+            }
+
+            triggerMajesticDownload(filename, b64);
+            return true;
+        } catch (err) {
+            console.error('[MajesticTab] Link download intercept error:', err);
+            return false;
+        }
     }
 
     // 5. Intercept HTMLAnchorElement.prototype.click to catch dynamic JS downloads
@@ -140,12 +246,29 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         const el = e.target && e.target.closest ? e.target.closest('a, button, input[type="submit"], input[type="button"], form') : null;
         if (!el) return;
 
+        if (el.tagName === 'BUTTON' || (el.tagName === 'INPUT' && (el.type === 'submit' || el.type === 'button'))) {
+            const form = el.form || el.closest('form');
+            if (form) {
+                const action = (form.action || form.getAttribute('action') || '').toLowerCase();
+                if (action.includes('download')) {
+                    handleFormDownload(form, e);
+                    return;
+                }
+            }
+        }
+
         if (el.tagName === 'A') {
+            const href = (el.getAttribute('href') || el.href || '').toLowerCase();
+            const isTabFile = /\.(gp|gp3|gp4|gp5|gpx|pdf|mid|midi)(\?|$)/i.test(href);
+            const isDownloadEndpoint = href.includes('/tab/download') || href.includes('download.php') || href.includes('/download/');
+            if (isTabFile || isDownloadEndpoint) {
+                handleLinkDownload(el, e);
+                return;
+            }
             if (el.target && el.target !== '_self') {
                 el.target = '_self';
                 el.setAttribute('target', '_self');
             }
-            const href = el.getAttribute('href') || el.href || '';
             const downloadAttr = el.getAttribute('download') || el.download;
 
             if (href.startsWith('blob:') || href.startsWith('data:')) {
@@ -163,10 +286,16 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     }, true);
 
     window.addEventListener('submit', function(e) {
-        if (e.target && e.target.tagName === 'FORM') {
-            if (e.target.target && e.target.target !== '_self') {
-                e.target.target = '_self';
-                e.target.setAttribute('target', '_self');
+        const form = e.target;
+        if (form && form.tagName === 'FORM') {
+            const action = (form.action || form.getAttribute('action') || '').toLowerCase();
+            if (action.includes('download')) {
+                handleFormDownload(form, e);
+                return;
+            }
+            if (form.target && form.target !== '_self') {
+                form.target = '_self';
+                form.setAttribute('target', '_self');
             }
         }
     }, true);
@@ -205,31 +334,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     } else {
         initObserver();
     }
-    // 9. Desktop Environment Spoofing & Viewport Enforcement
-    try {
-        const desktopUa = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-        Object.defineProperty(navigator, 'userAgent', { get: () => desktopUa, configurable: true });
-        Object.defineProperty(navigator, 'appVersion', { get: () => "5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36", configurable: true });
-        Object.defineProperty(navigator, 'platform', { get: () => "Win32", configurable: true });
-    } catch (e) {}
-
-    function enforceDesktopViewport() {
-        try {
-            let meta = document.querySelector('meta[name="viewport"]');
-            if (!meta) {
-                meta = document.createElement('meta');
-                meta.name = 'viewport';
-                (document.head || document.documentElement).appendChild(meta);
-            }
-            meta.content = 'width=1100, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes';
-        } catch (e) {}
-    }
-    enforceDesktopViewport();
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', enforceDesktopViewport);
-    }
-
-    // 12. Modeled In-App Shadow DOM Toolbar (for standalone webviews on Android or future native pivots)
+    // 9. Modeled In-App Shadow DOM Toolbar (for standalone webviews on Android or future native pivots)
     window.__initMajesticToolbar = function(config) {
         if (!config || !config.showToolbar) return;
 
@@ -530,6 +635,11 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             shadow.getElementById('btn-forward')?.addEventListener('click', () => window.history.forward());
             shadow.getElementById('btn-reload')?.addEventListener('click', () => window.location.reload());
             shadow.getElementById('btn-close')?.addEventListener('click', () => {
+                try {
+                    if (window.MajesticDownloaderNative && typeof window.MajesticDownloaderNative.close === 'function') {
+                        window.MajesticDownloaderNative.close();
+                    }
+                } catch(e) {}
                 window.location.href = 'majestictab://close';
             });
 
@@ -542,6 +652,10 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     const sid = btn.dataset.sourceId;
                     const src = sources.find(s => s.id === sid);
                     if (src) {
+                        shadow.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+                        if (urlInput) {
+                            urlInput.value = 'Loading ' + src.name + '...';
+                        }
                         const nextUrl = buildSearchUrl(src, artist, song);
                         window.location.href = nextUrl;
                     }
@@ -593,7 +707,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         offStyle.id = 'majestic-downloader-offset-style';
                         (document.head || document.documentElement).appendChild(offStyle);
                     }
-                    const targetCss = 'html { margin-top: ' + Math.ceil(h) + 'px !important; }';
+                    const targetCss = 'body { padding-top: ' + Math.ceil(h) + 'px !important; }';
                     if (offStyle.textContent !== targetCss) {
                         offStyle.textContent = targetCss;
                     }
@@ -746,6 +860,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
     if url.scheme() == "majestictab" && (url.host_str() == Some("close") || url_str.starts_with("majestictab://close")) {
         eprintln!("[Tab Downloader] Close requested via majestictab://close");
         if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
+            let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
             let _ = w.hide();
         }
         let _ = app_handle.emit("tab-downloader-closed", ());
@@ -766,12 +881,26 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             .unwrap_or_default();
         let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64_data).ok();
         eprintln!("[Tab Downloader] Captured client-side download: {} ({} bytes)", name, data.as_ref().map(|d| d.len()).unwrap_or(0));
+        if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
+            let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+            let _ = w.hide();
+        }
+        if let Some(main_win) = app_handle.get_webview_window("main") {
+            let escaped_name = serde_json::to_string(&name).unwrap_or_default();
+            let escaped_b64 = serde_json::to_string(&b64_data).unwrap_or_default();
+            let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
+            let _ = main_win.eval(&eval_script);
+        }
         let payload = DownloadedTabPayload {
             name,
             path: None,
             data,
         };
         let _ = app_handle.emit("tab-downloaded", payload);
+        return false;
+    }
+
+    if url.scheme() == "majestictab" {
         return false;
     }
 
@@ -1193,6 +1322,7 @@ pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>)
 #[tauri::command]
 pub fn tab_downloader_hide(app: AppHandle, _state: State<'_, TabDownloaderState>) -> Result<(), String> {
     if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+        let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
         let _ = w.hide();
     }
     Ok(())
