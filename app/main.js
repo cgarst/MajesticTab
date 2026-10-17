@@ -24,6 +24,10 @@ import { initBackupRestore } from './backupRestore.js';
 import { showToast } from './utils/toast.js';
 import { initGamepadManager } from './utils/gamepadManager.js';
 import { isSteamDeck, applyPlatformDefaults, getDefaultView, getDefaultLandscapePageLayout } from './utils/platformUtils.js';
+import { initIOSAudioUnlock } from './utils/iosAudioUnlock.js';
+
+// Initialize iOS audio unlock and session configuration as early as possible
+initIOSAudioUnlock();
 
 // Handle window resizing 
 let resizeTimeout;
@@ -822,6 +826,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     console.log('[App Init] Current URL:', window.location.href);
     console.log('[App Init] Query string:', window.location.search);
 
+    initIOSAudioUnlock();
     setupExportPDFButton();
     setupDrivePicker();
     setupSettings();

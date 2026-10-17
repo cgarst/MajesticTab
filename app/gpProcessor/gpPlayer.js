@@ -5,6 +5,7 @@ import { gpState } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
+import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext } from '../utils/iosAudioUnlock.js';
 
 let currentApi = null;
 let currentScore = null;
@@ -533,6 +534,12 @@ export function attachAlphaTabApi(api) {
     currentApi = api;
     currentScore = api.score;
 
+    if (api?.player) {
+        if (api.player.context) registerAudioContext(api.player.context);
+        if (api.player._audioContext) registerAudioContext(api.player._audioContext);
+        if (api.player.synth?.context) registerAudioContext(api.player.synth.context);
+    }
+
     synthPlayerState.loopEnabled = false;
     synthPlayerState.loopStartMeasure = 1;
     synthPlayerState.loopEndMeasure = Math.max(1, currentScore?.masterBars?.length || 1);
@@ -607,6 +614,9 @@ export function attachAlphaTabApi(api) {
             document.body.classList.add('synth-playback-started');
             pauseYouTube();
             setActiveAudioMode('synth');
+            enableIOSAudioPlayback();
+        } else {
+            pauseIOSAudioPlayback();
         }
         updateSynthUI();
     });
@@ -654,6 +664,7 @@ export function clearSynthHighlights() {
  * Detach AlphaTab API and hide player
  */
 export function detachAlphaTabApi() {
+    pauseIOSAudioPlayback();
     if (currentApi) {
         try {
             currentApi.stop();
@@ -683,6 +694,9 @@ export function playPauseSynth() {
     try {
         pauseYouTube();
         applyLoopSettings();
+        if (!synthPlayerState.isPlaying) {
+            enableIOSAudioPlayback();
+        }
         if (!synthPlayerState.isPlaying && synthPlayerState.loopEnabled) {
             if (!isWithinLoopRange()) {
                 seekToLoopStart();
@@ -707,6 +721,7 @@ export function isSynthPlaying() {
  * Pause Synth playback
  */
 export function pauseSynthPlayer() {
+    pauseIOSAudioPlayback();
     if (!currentApi) return;
     try {
         currentApi.pause();
