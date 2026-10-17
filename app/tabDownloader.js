@@ -482,6 +482,15 @@ export function initTabDownloaderDomEvents() {
     document.getElementById('downloaderCfgCancelBtn')?.addEventListener('click', closeDownloaderSettings);
     document.getElementById('downloaderCfgSaveBtn')?.addEventListener('click', saveAndCloseSettings);
 
+    const cfgBackdrop = document.getElementById('downloaderSettingsModal');
+    if (cfgBackdrop) {
+        cfgBackdrop.addEventListener('click', (e) => {
+            if (e.target === cfgBackdrop) {
+                closeDownloaderSettings();
+            }
+        });
+    }
+
     document.getElementById('downloaderCfgNewBtn')?.addEventListener('click', () => {
         saveCurrentFormValues();
         const newId = 'source_' + Date.now();
@@ -556,6 +565,9 @@ export function initTabDownloaderDomEvents() {
  * @param {string} [targetSourceId]
  */
 export function openDownloaderSettings(targetSourceId = null) {
+    if (window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke('tab_downloader_set_visible', { visible: false }).catch(() => {});
+    }
     localEditingSources = JSON.parse(JSON.stringify(getSources()));
     currentEditingSourceId = targetSourceId || activeSourceId || localEditingSources[0]?.id;
     renderSettingsPills();
@@ -572,6 +584,10 @@ export function openDownloaderSettings(targetSourceId = null) {
 export function closeDownloaderSettings() {
     const modal = document.getElementById('downloaderSettingsModal');
     if (modal) modal.style.display = 'none';
+    const bar = document.getElementById('tabDownloaderBar');
+    if (bar && bar.style.display !== 'none' && window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke('tab_downloader_set_visible', { visible: true }).catch(() => {});
+    }
 }
 
 function renderSettingsPills() {
