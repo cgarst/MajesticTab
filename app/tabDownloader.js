@@ -519,6 +519,7 @@ export async function openTabDownloader(options = {}) {
         song: activeSongName || null,
         query: currentSearchQuery || null,
         isDebugToolsEnabled: Boolean(isDebugToolsEnabled),
+        platform: (!/android|iphone|ipad|ipod/i.test(navigator.userAgent || '') && /mac/i.test(navigator.platform || navigator.userAgent)) ? 'macos' : ((!/android|iphone|ipad|ipod/i.test(navigator.userAgent || '') && /win/i.test(navigator.platform || navigator.userAgent)) ? 'windows' : 'other'),
         sources: sources.map(s => ({
             id: s.id,
             name: s.name,
