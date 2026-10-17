@@ -231,27 +231,48 @@ export function resetToDefaultSources() {
  * Build target search URL from template and query
  */
 export function buildSearchUrl(source, query) {
+    if (!source) return 'https://www.ultimate-guitar.com/';
+
     const term = (query || '').trim();
+    let template = (source.urlTemplate || '').trim();
+    if (template && !/^https?:\/\//i.test(template)) {
+        template = 'https://' + template;
+    }
+    const hasPlaceholder = template.includes('SEARCH+TERM') || template.includes('{search}');
+
+    // If the template is a fixed URL without templating placeholders, navigate directly to it
+    if (template && !hasPlaceholder) {
+        return template;
+    }
+
+    // If no query/term was provided, return the home/base URL for the provider
     if (!term) {
         if (source.id === 'ug') return 'https://www.ultimate-guitar.com/';
         if (source.id === 'metaltabs') return 'https://metaltabs.org/';
         if (source.id === 'gprotab') return 'https://gprotab.net/';
         if (source.id === 'guitarprotabs') return 'https://guitarprotabs.org/';
         if (source.defaultUrl) {
-            return source.defaultUrl.replace('SEARCH+TERM', '').replace('{search}', '');
+            return source.defaultUrl.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
+        }
+        if (template) {
+            try {
+                const u = new URL(template);
+                return u.origin + (u.pathname && u.pathname !== '/' ? u.pathname : '/');
+            } catch {
+                return template.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
+            }
         }
         return 'https://www.ultimate-guitar.com/';
     }
+
     const encodedPlus = encodeURIComponent(term).replace(/%20/g, '+');
     const encodedStandard = encodeURIComponent(term);
 
-    let url = source.urlTemplate || '';
+    let url = template;
     if (url.includes('SEARCH+TERM')) {
-        url = url.replace('SEARCH+TERM', encodedPlus);
+        url = url.replace(/SEARCH\+TERM/g, encodedPlus);
     } else if (url.includes('{search}')) {
-        url = url.replace('{search}', encodedStandard);
-    } else {
-        url = `${url}${url.includes('?') ? '&' : '?'}q=${encodedStandard}`;
+        url = url.replace(/\{search\}/g, encodedStandard);
     }
     return url;
 }
@@ -643,7 +664,16 @@ function saveCurrentFormValues() {
     const scriptTxt = document.getElementById('downloaderCfgUserscriptCode');
 
     if (nameInp) src.name = nameInp.value.trim() || src.name;
-    if (urlInp) src.urlTemplate = urlInp.value.trim() || src.urlTemplate;
+    if (urlInp) {
+        let uVal = urlInp.value.trim() || src.urlTemplate;
+        if (uVal && !/^https?:\/\//i.test(uVal)) {
+            uVal = 'https://' + uVal;
+        }
+        src.urlTemplate = uVal;
+        if (!src.defaultUrl) {
+            src.defaultUrl = src.urlTemplate;
+        }
+    }
     if (querySel) src.queryFormat = querySel.value;
     if (scriptChk) src.userscriptEnabled = scriptChk.checked;
     if (scriptTxt) src.userscript = scriptTxt.value;
@@ -652,6 +682,9 @@ function saveCurrentFormValues() {
 function saveAndCloseSettings() {
     saveCurrentFormValues();
     saveSources(localEditingSources);
+    if (window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke('tab_downloader_save_sources', { sourcesJson: JSON.stringify(localEditingSources) }).catch(() => {});
+    }
     renderDownloaderTabs();
     closeDownloaderSettings();
 }
