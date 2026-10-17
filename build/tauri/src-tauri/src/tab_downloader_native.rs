@@ -17,30 +17,26 @@ pub fn drag_window_macos(main_win: &tauri::Window) {
         if let Ok(ns_win_ptr) = main_win.ns_window() {
             unsafe {
                 let raw_win = &*(ns_win_ptr as *const objc2_app_kit::NSWindow);
-                let is_left_down = current_event
+                let screen_loc: NSPoint = NSEvent::mouseLocation();
+                let win_loc: NSPoint = raw_win.convertPointFromScreen(screen_loc);
+                let mod_flags = current_event
                     .as_ref()
-                    .map(|e| e.r#type() == NSEventType::LeftMouseDown)
-                    .unwrap_or(false);
+                    .map(|e| e.modifierFlags())
+                    .unwrap_or(objc2_app_kit::NSEventModifierFlags(0));
+                let timestamp = current_event.as_ref().map(|e| e.timestamp()).unwrap_or(0.0);
+                let win_num = raw_win.windowNumber();
 
-                let event_to_use = if is_left_down {
-                    current_event
-                } else {
-                    let loc: NSPoint = NSEvent::mouseLocation();
-                    let mod_flags = current_event.as_ref().map(|e| e.modifierFlags()).unwrap_or(objc2_app_kit::NSEventModifierFlags(0));
-                    let timestamp = current_event.as_ref().map(|e| e.timestamp()).unwrap_or(0.0);
-                    let win_num = raw_win.windowNumber();
-                    NSEvent::mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure(
-                        NSEventType::LeftMouseDown,
-                        loc,
-                        mod_flags,
-                        timestamp,
-                        win_num,
-                        None,
-                        0,
-                        1,
-                        1.0,
-                    )
-                };
+                let event_to_use = NSEvent::mouseEventWithType_location_modifierFlags_timestamp_windowNumber_context_eventNumber_clickCount_pressure(
+                    NSEventType::LeftMouseDown,
+                    win_loc,
+                    mod_flags,
+                    timestamp,
+                    win_num,
+                    None,
+                    0,
+                    1,
+                    1.0,
+                );
 
                 if let Some(ev) = event_to_use {
                     raw_win.performWindowDragWithEvent(&ev);
