@@ -107,6 +107,7 @@ if (window.__TAURI__ && /Win/i.test(navigator.platform)) {
         clearTimeout(settleTimer);
         settleTimer = setTimeout(syncWindowState, 400);
     };
+    window.__syncWindowState = scheduleSync;
     document.getElementById('winMinBtn')?.addEventListener('click', () => appWindow?.minimize());
     maxBtn?.addEventListener('click', () => appWindow?.toggleMaximize());
     document.getElementById('winCloseBtn')?.addEventListener('click', () => appWindow?.close());
@@ -1272,6 +1273,8 @@ export function getPdfPages() {
     };
 
     const exit = () => (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    let wasMaximizedBeforeFullscreen = false;
+    let lastFsState = false;
 
     btn.addEventListener("click", async () => {
         if (nativeImmersive) {
@@ -1284,7 +1287,39 @@ export function getPdfPages() {
         if (appWindow?.isFullscreen && appWindow?.setFullscreen) {
             try {
                 const current = await appWindow.isFullscreen();
-                await appWindow.setFullscreen(!current);
+                if (!current) {
+                    let isMax = false;
+                    try {
+                        if (appWindow.isMaximized) {
+                            isMax = await appWindow.isMaximized();
+                        }
+                    } catch {}
+                    wasMaximizedBeforeFullscreen = isMax;
+                    // On Windows, if an undecorated window is maximized when setFullscreen(true) is invoked,
+                    // Tao / Win32 fails to clear the maximized work-area restriction, causing a ~40px offset
+                    // that glitches over the taskbar area and prevents true fullscreen (Tauri #11788).
+                    // Unmaximizing first allows the window to expand cleanly to the true monitor bounds.
+                    if (isMax && appWindow.unmaximize) {
+                        try {
+                            await appWindow.unmaximize();
+                            await new Promise(r => setTimeout(r, 60));
+                        } catch (e) {
+                            console.warn("Unmaximize before fullscreen failed:", e);
+                        }
+                    }
+                    await appWindow.setFullscreen(true);
+                } else {
+                    await appWindow.setFullscreen(false);
+                    if (wasMaximizedBeforeFullscreen && appWindow.maximize) {
+                        await new Promise(r => setTimeout(r, 60));
+                        try {
+                            await appWindow.maximize();
+                        } catch (e) {
+                            console.warn("Restore maximize after fullscreen failed:", e);
+                        }
+                    }
+                    wasMaximizedBeforeFullscreen = false;
+                }
                 onChange();
             } catch (err) {
                 console.error("Tauri setFullscreen failed:", err);
@@ -1294,8 +1329,24 @@ export function getPdfPages() {
         }
         try {
             const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
-            const result = isFs ? exit() : request.call(root);
-            if (result && result.catch) result.catch(err => console.error("Fullscreen failed:", err));
+            if (isFs) {
+                const result = exit();
+                if (result && result.catch) result.catch(err => console.error("Exit fullscreen failed:", err));
+            } else {
+                let result;
+                try {
+                    // navigationUI: "hide" instructs browsers and convertible/tablet devices (e.g. Lenovo Yoga)
+                    // to hide browser & OS navigation bars rather than reserving space for them
+                    result = request.call(root, { navigationUI: "hide" });
+                } catch {
+                    result = request.call(root);
+                }
+                if (result && result.catch) {
+                    result.catch(() => {
+                        try { request.call(root); } catch (e) { console.error("Fullscreen failed:", e); }
+                    });
+                }
+            }
         } catch (err) {
             console.error("Fullscreen failed:", err);
         }
@@ -1306,6 +1357,14 @@ export function getPdfPages() {
         const fs = await getFsState();
         icon.className = fs ? "bi-fullscreen-exit" : "bi-arrows-fullscreen";
         btn.title = fs ? "Exit Fullscreen" : "Enter Fullscreen";
+        if (lastFsState && !fs && wasMaximizedBeforeFullscreen && appWindow?.maximize) {
+            wasMaximizedBeforeFullscreen = false;
+            try { await appWindow.maximize(); } catch {}
+        }
+        lastFsState = fs;
+        if (typeof window.__syncWindowState === 'function') {
+            window.__syncWindowState();
+        }
     };
 
     window.addEventListener("resize", onChange);
