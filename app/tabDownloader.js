@@ -451,7 +451,7 @@ export function initTauriDownloadListener() {
         // Window closed event from native webview toolbar
         window.__TAURI__.event.listen('tab-downloader-closed', () => {
             console.log('[Tab Downloader] Received close event from native webview');
-            closeTabDownloaderModal();
+            closeTabDownloaderModal(false);
         });
 
         // Saved sources event from native webview toolbar
@@ -542,13 +542,14 @@ export async function openTabDownloader(options = {}) {
 
 /**
  * Closes / hides the native tab downloader
+ * @param {boolean} [invokeNative=true] - Whether to invoke native tab_downloader_hide command
  */
-export function closeTabDownloaderModal() {
+export function closeTabDownloaderModal(invokeNative = true) {
     activeDownloaderOnFileSelected = null;
     activeTargetSong = null;
     activeTargetAlbum = null;
 
-    if (window.__TAURI__?.core?.invoke) {
+    if (invokeNative && window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke('tab_downloader_hide').catch(() => {});
     }
 }
