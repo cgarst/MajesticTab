@@ -1,5 +1,5 @@
 use std::sync::Mutex;
-use tauri::{Emitter, LogicalPosition, Manager};
+use tauri::{Emitter, LogicalPosition, LogicalSize, Manager};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use tauri::RunEvent;
 
@@ -55,6 +55,7 @@ async fn open_tab_downloader(
     url: String,
     userscript: Option<String>,
     config: Option<tab_downloader_native::TabDownloaderConfig>,
+    top_offset: Option<f64>,
 ) -> Result<(), String> {
     let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
 
@@ -62,12 +63,17 @@ async fn open_tab_downloader(
         .get_webview(tab_downloader_native::DOWNLOADER_LABEL)
         .ok_or_else(|| "Tab downloader is unavailable".to_string())?;
 
+    let offset = top_offset.unwrap_or(84.0);
+
     if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
         if let Ok(mut g) = state.active_userscript.lock() {
             *g = userscript.clone();
         }
         if let Ok(mut g) = state.current_config.lock() {
             *g = config.clone();
+        }
+        if let Ok(mut g) = state.top_offset.lock() {
+            *g = offset;
         }
         if let Ok(mut g) = state.is_open.lock() {
             *g = true;
@@ -78,8 +84,8 @@ async fn open_tab_downloader(
         let scale = main_win.scale_factor().unwrap_or(1.0);
         if let Ok(size) = main_win.inner_size() {
             let logical = size.to_logical::<f64>(scale);
-            let _ = downloader.set_position(LogicalPosition::new(0.0, 0.0));
-            let _ = downloader.set_size(logical);
+            let _ = downloader.set_position(LogicalPosition::new(0.0, offset));
+            let _ = downloader.set_size(LogicalSize::new(logical.width, (logical.height - offset).max(1.0)));
         }
     }
 
@@ -109,6 +115,7 @@ async fn open_tab_downloader(
     url: String,
     userscript: Option<String>,
     config: Option<tab_downloader_native::TabDownloaderConfig>,
+    _top_offset: Option<f64>,
 ) -> Result<(), String> {
     if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
         if let Ok(mut g) = state.active_userscript.lock() {
@@ -375,8 +382,12 @@ pub fn run() {
                                     if let Some(main_win) = app_handle_for_resize.get_window("main") {
                                         let scale = main_win.scale_factor().unwrap_or(1.0);
                                         let logical = size.to_logical::<f64>(scale);
-                                        let _ = downloader.set_position(LogicalPosition::new(0.0, 0.0));
-                                        let _ = downloader.set_size(logical);
+                                        let top_offset = app_handle_for_resize
+                                            .try_state::<tab_downloader_native::TabDownloaderState>()
+                                            .and_then(|st| st.top_offset.lock().ok().map(|g| *g))
+                                            .unwrap_or(84.0);
+                                        let _ = downloader.set_position(LogicalPosition::new(0.0, top_offset));
+                                        let _ = downloader.set_size(LogicalSize::new(logical.width, (logical.height - top_offset).max(1.0)));
                                     }
                                 }
                             }
@@ -409,6 +420,7 @@ pub fn run() {
         open_tab_downloader,
         youtube_open_auth,
         tab_downloader_native::tab_downloader_update,
+        tab_downloader_native::tab_downloader_navigate,
         tab_downloader_native::tab_downloader_nav,
         tab_downloader_native::tab_downloader_hide,
         tab_downloader_native::tab_downloader_eval,
@@ -425,6 +437,7 @@ pub fn run() {
         open_tab_downloader,
         youtube_open_auth,
         tab_downloader_native::tab_downloader_update,
+        tab_downloader_native::tab_downloader_navigate,
         tab_downloader_native::tab_downloader_nav,
         tab_downloader_native::tab_downloader_hide,
         tab_downloader_native::tab_downloader_eval,
