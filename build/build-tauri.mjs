@@ -11,7 +11,7 @@ const target = process.argv[2];
 const buildOptions = process.argv.slice(3);
 const debugTools = buildOptions.includes('--debug-tools') || buildOptions.includes('--debug');
 const macosX64 = buildOptions.includes('--x86_64');
-const validTargets = ['windows', 'macos', 'linux', 'android'];
+const validTargets = ['windows', 'macos', 'linux', 'android', 'ios'];
 async function loadEnvFiles() {
   const possiblePaths = [
     path.join(rootDir, '.env'),
@@ -58,7 +58,7 @@ if (!validTargets.includes(target)
   || buildOptions.some((option) => option !== '--debug-tools' && option !== '--debug' && option !== '--x86_64')
   || new Set(buildOptions).size !== buildOptions.length
   || (buildOptions.includes('--debug-tools') && buildOptions.includes('--debug'))
-  || (debugTools && target === 'android')
+  || (debugTools && (target === 'android' || target === 'ios') && buildOptions.includes('--debug-tools'))
   || (macosX64 && target !== 'macos')) {
   console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools|--debug] [--x86_64 (macos only)]`);
   process.exit(2);
@@ -103,6 +103,96 @@ async function findApk(directory) {
   return null;
 }
 
+async function findIpa(directory) {
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      const nested = await findIpa(entryPath);
+      if (nested) return nested;
+    } else if (entry.isFile() && entry.name.endsWith('.ipa')) {
+      return entryPath;
+    }
+  }
+  return null;
+}
+
+async function findAppBundle(directory) {
+  let entries;
+  try {
+    entries = await readdir(directory, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name.endsWith('.app')) {
+        return entryPath;
+      }
+      const nested = await findAppBundle(entryPath);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+async function packageAppToIpa(appPath, outIpaPath) {
+  const tempPayloadDir = path.join(tauriDir, 'target', 'ipa-payload-temp');
+  await rm(tempPayloadDir, { recursive: true, force: true });
+  const payloadDir = path.join(tempPayloadDir, 'Payload');
+  await mkdir(payloadDir, { recursive: true });
+  await cp(appPath, path.join(payloadDir, path.basename(appPath)), { recursive: true });
+  await rm(outIpaPath, { force: true });
+  const zipResult = spawnSync('zip', ['-qr', outIpaPath, 'Payload'], {
+    cwd: tempPayloadDir,
+    stdio: 'inherit',
+  });
+  await rm(tempPayloadDir, { recursive: true, force: true });
+  if (zipResult.error || zipResult.status !== 0) {
+    fail('Failed to package .app bundle into .ipa archive.');
+  }
+}
+
+async function ensureSwiftPublicCdecl() {
+  spawnSync('cargo', ['fetch', '--manifest-path', path.join(tauriDir, 'src-tauri', 'Cargo.toml')], {
+    stdio: 'ignore',
+  });
+  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+  const cargoSrcDir = path.join(homeDir, '.cargo', 'registry', 'src');
+  if (!(await stat(cargoSrcDir).catch(() => null))) return;
+
+  async function patchDir(dir) {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const p = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await patchDir(p);
+      } else if (entry.isFile() && (entry.name === 'Tauri.swift' || entry.name === 'OpenerPlugin.swift')) {
+        try {
+          const content = await readFile(p, 'utf8');
+          const patched = content.replace(/@_cdecl\((.*?)\)\nfunc /g, '@_cdecl($1)\npublic func ');
+          if (patched !== content) {
+            await writeFile(p, patched, 'utf8');
+            console.log(`[build-tauri] Patched Swift cdecl visibility in: ${p}`);
+          }
+        } catch {}
+      }
+    }
+  }
+  await patchDir(cargoSrcDir);
+}
+
 async function copyBundleArtifacts(bundleDir, extension) {
   const files = [];
   async function collect(directory) {
@@ -129,7 +219,7 @@ async function copyBundleArtifacts(bundleDir, extension) {
 }
 
 if (target === 'windows') requireHost('win32', 'Windows');
-if (target === 'macos') requireHost('darwin', 'macOS');
+if (target === 'macos' || target === 'ios') requireHost('darwin', target === 'ios' ? 'iOS' : 'macOS');
 if (target === 'linux') requireHost('linux', 'Linux');
 
 await mkdir(distDir, { recursive: true });
@@ -147,12 +237,27 @@ const installedVersions = await Promise.all(Object.entries(requiredPackages).map
 if (installedVersions.some((installed) => !installed)) {
   run('npm', ['ci']);
 }
+async function ensureCrateTypeForTarget(currentTarget) {
+  const cargoTomlPath = path.join(tauriDir, 'src-tauri', 'Cargo.toml');
+  let content = await readFile(cargoTomlPath, 'utf8');
+  const targetTypes = currentTarget === 'android'
+    ? 'crate-type = ["staticlib", "cdylib", "rlib"]'
+    : 'crate-type = ["staticlib", "rlib"]';
+  const pattern = /crate-type\s*=\s*\[.*?\]/;
+  if (pattern.test(content)) {
+    content = content.replace(pattern, targetTypes);
+    await writeFile(cargoTomlPath, content);
+  }
+}
+
 run('npm', [
   'run',
   'prepare:frontend',
   ...(target === 'android' ? ['--', '--android'] : []),
+  ...(target === 'ios' ? ['--', '--ios'] : []),
 ]);
 run('node', ['generate-icons.mjs', target]);
+await ensureCrateTypeForTarget(target);
 
 if (target === 'android') {
   const javaHome = process.env.JAVA_HOME;
@@ -254,6 +359,56 @@ if (target === 'android') {
     await rm(signed + '.idsig', { force: true });
   } else {
     await cp(apk, path.join(distDir, 'MajesticTab-android-debug.apk'));
+  }
+} else if (target === 'ios') {
+  await ensureSwiftPublicCdecl();
+  const iosProject = path.join(tauriDir, 'src-tauri', 'gen', 'apple');
+  if (!(await stat(iosProject).catch(() => null))) {
+    run('npm', ['run', 'tauri', '--', 'ios', 'init', '--ci']);
+  }
+  // Sync version-controlled iOS configuration and manifest templates
+  const templateProjectYml = path.join(tauriDir, 'ios-project.yml');
+  if (await stat(templateProjectYml).catch(() => null)) {
+    await cp(templateProjectYml, path.join(iosProject, 'project.yml'));
+  }
+  const templateInfoPlist = path.join(tauriDir, 'ios-Info.plist');
+  if (await stat(templateInfoPlist).catch(() => null)) {
+    await cp(templateInfoPlist, path.join(iosProject, 'majestictab_iOS', 'Info.plist'));
+  }
+  spawnSync('xcodegen', ['generate'], { cwd: iosProject, stdio: 'inherit' });
+  // Refresh iOS AppIcon assets from src-tauri/icons/ios
+  const iosAppIcon = path.join(iosProject, 'Assets.xcassets', 'AppIcon.appiconset');
+  if (await stat(iosAppIcon).catch(() => null)) {
+    const iconSourceDir = path.join(tauriDir, 'src-tauri', 'icons', 'ios');
+    for (const file of await readdir(iconSourceDir)) {
+      if (file.endsWith('.png')) {
+        await cp(path.join(iconSourceDir, file), path.join(iosAppIcon, file));
+      }
+    }
+  }
+  const buildArgs = ['run', 'tauri', '--', 'ios', 'build', '--target', 'aarch64', '--ci'];
+  if (debugTools) {
+    buildArgs.push('--debug');
+  }
+  if (process.env.IOS_SIGNING_IDENTITY) {
+    buildArgs.push('--export-method', process.env.IOS_EXPORT_METHOD || 'debugging');
+  } else {
+    buildArgs.push('--no-sign');
+  }
+  run('npm', buildArgs);
+
+  const ipa = (await findIpa(path.join(tauriDir, 'src-tauri', 'gen', 'apple')))
+    || (await findIpa(path.join(tauriDir, 'target')));
+  if (ipa) {
+    await cp(ipa, path.join(distDir, 'MajesticTab-ios.ipa'));
+  } else {
+    const appBundle = (await findAppBundle(path.join(tauriDir, 'src-tauri', 'gen', 'apple')))
+      || (await findAppBundle(path.join(tauriDir, 'target')));
+    if (appBundle) {
+      await packageAppToIpa(appBundle, path.join(distDir, 'MajesticTab-ios.ipa'));
+    } else {
+      fail('Tauri completed without producing an iOS IPA or .app bundle.');
+    }
   }
 } else if (target === 'linux') {
   for (const command of ['flatpak-builder', 'flatpak']) {

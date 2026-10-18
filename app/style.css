@@ -302,7 +302,7 @@ body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  padding: 0.5rem 1rem;
+  padding: max(env(safe-area-inset-top), 0.5rem) max(env(safe-area-inset-right), 1rem) 0.5rem max(env(safe-area-inset-left), 1rem);
   background: var(--bg-card) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -1515,6 +1515,8 @@ input[type=range]::-webkit-slider-thumb:hover {
   box-shadow: 12px 0 36px rgba(0, 0, 0, 0.85);
   width: 380px !important;
   max-width: 90vw !important;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 .tauri-macos .offcanvas {
@@ -2063,6 +2065,9 @@ input[type=range]::-webkit-slider-thumb:hover {
   min-height: 0;
   isolation: isolate;
   width: 100%;
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  padding-left: max(env(safe-area-inset-left), 0px);
+  padding-right: max(env(safe-area-inset-right), 0px);
 }
 
 #output {
@@ -2755,6 +2760,9 @@ body:not(.synth-playback-started) .at-highlight {
   color: var(--text-primary);
   position: relative;
   z-index: 50;
+  padding-bottom: max(env(safe-area-inset-bottom), 0px);
+  padding-left: max(env(safe-area-inset-left), 0px);
+  padding-right: max(env(safe-area-inset-right), 0px);
 }
 
 .library-page-body {
@@ -3686,7 +3694,7 @@ body:not(.synth-playback-started) .at-highlight {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 8px 16px;
+  padding: max(env(safe-area-inset-top), 8px) max(env(safe-area-inset-right), 16px) 8px max(env(safe-area-inset-left), 16px);
   min-height: 48px;
   border-bottom: 1px solid var(--border-subtle);
 }

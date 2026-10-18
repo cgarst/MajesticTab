@@ -409,6 +409,7 @@ async function loadCurrentTrack(autoplay = false) {
             const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
             embedUrl.searchParams.set('autoplay', autoplayParam);
             embedUrl.searchParams.set('enablejsapi', '1');
+            embedUrl.searchParams.set('playsinline', '1');
             const isStandardWebOrigin = typeof window !== 'undefined' &&
                 (window.location.protocol === 'http:' || window.location.protocol === 'https:') &&
                 !window.location.hostname.includes('localhost') &&

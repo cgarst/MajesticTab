@@ -128,3 +128,29 @@ jobs:
           name: android
           path: dist/*.apk
           if-no-files-found: error
+
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: build/tauri/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: build/tauri/src-tauri -> ../target
+          key: ios
+      - name: Install iOS build tools
+        run: |
+          brew install xcodegen
+      - run: node build/build-tauri.mjs ios
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ios
+          path: dist/*.ipa
+          if-no-files-found: error
