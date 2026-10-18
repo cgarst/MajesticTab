@@ -52,5 +52,9 @@ jobs:
           - Run `xattr -dr com.apple.quarantine /Applications/MajesticTab.app` in Terminal, then open the app; or
           - Try to open it once, then go to System Settings > Privacy & Security and click **Open Anyway**.
 
+          ### Sideloading on iOS
+
+          Sideload `MajesticTab-ios.ipa` using AltStore, SideStore, TrollStore, or Sideloadly.
+
           EOF
           gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md --generate-notes

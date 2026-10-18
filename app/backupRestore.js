@@ -16,6 +16,7 @@ import {
 import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { installExtensionSources } from './fileAdapters.js';
+import { isIOSDevice } from './utils/iosAudioUnlock.js';
 
 let modalElement = null;
 let currentBackupFile = null;
@@ -1246,6 +1247,9 @@ function attachModalHandlers(modal, options = {}) {
     restoreBrowseBtn?.addEventListener('click', () => restoreFileInput?.click());
 
     const restoreDriveBtn = modal.querySelector('#restoreDriveBtn');
+    if (isIOSDevice() && restoreDriveBtn) {
+        restoreDriveBtn.style.display = 'none';
+    }
     const restoreDriveContainer = modal.querySelector('#restoreDriveContainer');
     const restoreDriveCloseBtn = modal.querySelector('#restoreDriveCloseBtn');
     const restoreDriveLoading = modal.querySelector('#restoreDriveLoading');

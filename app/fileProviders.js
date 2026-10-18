@@ -9,6 +9,7 @@ import { addTabOptionToSong, addTabOptionToAlbum, mapOpenFileToSong } from './li
 import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
+import { isIOSDevice } from './utils/iosAudioUnlock.js';
 
 const providers = new Map();
 
@@ -251,7 +252,9 @@ export const TabDownloaderNativeProvider = {
 
 // Register built-in providers
 registerFileProvider(LocalFileProvider);
-registerFileProvider(GoogleDriveFileProvider);
+if (!isIOSDevice()) {
+    registerFileProvider(GoogleDriveFileProvider);
+}
 
 if (typeof window !== 'undefined' && Boolean(window.__TAURI__)) {
     registerFileProvider(TabDownloaderNativeProvider);

@@ -1,0 +1,8 @@
+{
+  "identifier": "net.zathu.majestictab",
+  "bundle": {
+    "icon": [
+      "icons/ios/AppIcon-512@2x.png"
+    ]
+  }
+}

@@ -8,6 +8,7 @@ const sourceDir = path.join(rootDir, 'app');
 const frontendDir = path.join(scriptDir, 'frontend-dist');
 const nodeModulesDir = path.join(scriptDir, 'node_modules');
 const androidBuild = process.argv.includes('--android');
+const iosBuild = process.argv.includes('--ios');
 
 const assets = [
   ['bootstrap/dist/css/bootstrap.min.css', 'vendor/bootstrap/dist/css/bootstrap.min.css'],
@@ -223,10 +224,9 @@ async function hideUnavailableDriveOptions() {
     ['<div id="drivePickerSection"', '<div id="drivePickerSection" hidden'],
   ];
   for (const [marker, hiddenMarker] of hiddenMarkers) {
-    if (!indexHtml.includes(marker)) {
-      throw new Error(`Could not find ${marker} in the Tauri frontend.`);
+    if (indexHtml.includes(marker)) {
+      indexHtml = indexHtml.replace(marker, hiddenMarker);
     }
-    indexHtml = indexHtml.replace(marker, hiddenMarker);
   }
   await writeFile(indexPath, indexHtml);
 }
@@ -237,12 +237,17 @@ try {
   await cp(path.join(rootDir, 'icons'), path.join(frontendDir, 'icons'), { recursive: true });
   await writeBuildInfo();
   const desktopSecret = await getDesktopClientSecret();
-  if (desktopSecret) {
+  if (desktopSecret && !iosBuild) {
     await writeFile(path.join(frontendDir, 'googleDrive.local.js'), `export const TAURI_CLIENT_SECRET = '${desktopSecret}';\n`);
+  } else if (iosBuild) {
+    await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
   }
   if (!androidBuild && !desktopSecret) {
     await hideUnavailableDriveOptions();
     console.log('Google Drive hidden: no Desktop OAuth client secret configured.');
+  } else if (iosBuild) {
+    await hideUnavailableDriveOptions();
+    console.log('Google Drive hidden for iOS build.');
   }
   for (const [source, destination] of assets) {
     await copyAsset(source, destination);
