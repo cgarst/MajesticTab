@@ -117,11 +117,11 @@ MajesticTab can be sideloaded onto iPhone and iPad without a paid Apple Develope
 Add the community source directly to SideStore, AltStore, or LiveContainer using this URL:
 
 ```
-https://raw.githubusercontent.com/cgarst/MajesticTab/main/sidestore-source.json
+https://raw.githubusercontent.com/cgarst/MajesticTab/main/source.json
 ```
 
-- **One-Click Add (SideStore):** [Add to SideStore](sidestore://source?url=https://raw.githubusercontent.com/cgarst/MajesticTab/main/sidestore-source.json)
-- **One-Click Add (AltStore):** [Add to AltStore](altstore://source?url=https://raw.githubusercontent.com/cgarst/MajesticTab/main/sidestore-source.json)
+- **One-Click Add (SideStore):** [Add to SideStore](sidestore://source?url=https://raw.githubusercontent.com/cgarst/MajesticTab/main/source.json)
+- **One-Click Add (AltStore):** [Add to AltStore](altstore://source?url=https://raw.githubusercontent.com/cgarst/MajesticTab/main/source.json)
 
 #### Building for iOS
 To build the iOS IPA locally from macOS:
