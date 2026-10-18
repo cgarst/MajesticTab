@@ -24,7 +24,7 @@ import { initBackupRestore } from './backupRestore.js';
 import { showToast } from './utils/toast.js';
 import { initGamepadManager } from './utils/gamepadManager.js';
 import { isSteamDeck, applyPlatformDefaults, getDefaultView, getDefaultLandscapePageLayout } from './utils/platformUtils.js';
-import { initIOSAudioUnlock } from './utils/iosAudioUnlock.js';
+import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
 initIOSAudioUnlock();
@@ -59,7 +59,7 @@ window.addEventListener('resize', () => {
 const mainContent = document.getElementById('mainContent');
 const topBar = document.getElementById('topBar');
 // Native macOS shell uses an overlay title bar; reserve room for the traffic lights.
-if (window.__TAURI__ && /Mac/i.test(navigator.platform)) {
+if (window.__TAURI__ && /Mac/i.test(navigator.platform) && !isIOSDevice()) {
     const root = document.documentElement;
     const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
     // Traffic lights are hidden in fullscreen, so revert to the standard layout then.
@@ -1259,7 +1259,8 @@ export function getPdfPages() {
 
     // The native macOS green button handles fullscreen on macOS.
     // Gamescope / Steam Deck Gaming Mode is dedicated fullscreen.
-    if (root.classList.contains('tauri-gamescope') || (window.__TAURI__ && /Mac/i.test(navigator.platform))) {
+    // iOS is already a full-screen app shell without windowed mode.
+    if (root.classList.contains('tauri-gamescope') || isIOSDevice() || (window.__TAURI__ && /Mac/i.test(navigator.platform))) {
         if (btn.parentElement) btn.parentElement.style.display = "none";
         return;
     }

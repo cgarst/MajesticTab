@@ -12,7 +12,7 @@ MajesticTab is a guitar tab viewer designed for practice, learning, and focused 
 ### Prerequisites
 
 - Web version supports Chrome, Edge, Firefox, or Safari
-- Native versions include Windows, macOS, Linux, or Android
+- Native versions include Windows, macOS, Linux, Android, or iOS
 
 ### Run locally
 
@@ -84,6 +84,7 @@ node build/build-tauri.mjs macos
 node build/build-tauri.mjs windows
 node build/build-tauri.mjs linux
 node build/build-tauri.mjs android
+node build/build-tauri.mjs ios
 ```
 
 Desktop builds disable the JavaScript inspector and webview devtools by default for performance and security. Pass `--debug-tools` (or `--debug`) to a macOS, Windows, or Linux build command, or use `./build/build-macos.sh --debug`, to enable devtools in both the main window and embedded child webviews (e.g. the native tab downloader browser):
@@ -106,6 +107,31 @@ This compiles the Rust backend with the `debug-tools` feature (`tauri/devtools`)
 Build macOS and Windows installers on their respective operating systems. The Linux target builds a Flatpak and requires `flatpak` and `flatpak-builder`. Android requires Android Studio's SDK Platform, Platform-Tools, Command-line Tools, NDK (Side by side), JDK 17-26 (JDK 17 recommended), and `ANDROID_HOME`, `NDK_HOME`, and `JAVA_HOME` configured per the Tauri guide. The build script checks the selected JDK before running Gradle. Android produces a debug APK for testing; release distribution needs signing. All generated bundles and Cargo output go under the git-ignored `dist/` directory. Desktop builds are unsigned unless signing credentials are configured.
 
 To enable Google Drive in a Tauri build, set the `GOOGLE_CLIENT_SECRET` environment variable (e.g., in a git-ignored `.env` file in the project root, via `export GOOGLE_CLIENT_SECRET="your-client-secret"`) before building, or configure it as a GitHub Actions secret. The build process automatically embeds the secret into the generated frontend bundle. Note that the secret is embedded in the packaged client app and can be extracted from it; do not treat it as confidential.
+
+### iOS sideloading (SideStore, AltStore, and LiveContainer)
+
+MajesticTab can be sideloaded onto iPhone and iPad without a paid Apple Developer account using SideStore, AltStore, LiveContainer, or TrollStore.
+
+#### Community source URL (SideStore, AltStore, and LiveContainer)
+
+Add the community source directly to SideStore, AltStore, or LiveContainer using this URL:
+
+```
+https://raw.githubusercontent.com/cgarst/MajesticTab/main/sidestore-source.json
+```
+
+- **One-Click Add (SideStore):** [Add to SideStore](sidestore://source?url=https://raw.githubusercontent.com/cgarst/MajesticTab/main/sidestore-source.json)
+- **One-Click Add (AltStore):** [Add to AltStore](altstore://source?url=https://raw.githubusercontent.com/cgarst/MajesticTab/main/sidestore-source.json)
+
+#### Building for iOS
+To build the iOS IPA locally from macOS:
+
+```bash
+rustup target add aarch64-apple-ios
+node build/build-tauri.mjs ios
+```
+
+The output will be saved to `dist/MajesticTab-ios.ipa`.
 
 ---
 
