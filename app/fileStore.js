@@ -84,7 +84,8 @@ export async function arrayBufferToBase64Async(buffer) {
 
 export function base64ToArrayBuffer(base64) {
     if (!base64) return new ArrayBuffer(0);
-    const binaryString = atob(base64);
+    const clean = base64.includes(',') ? base64.slice(base64.indexOf(',') + 1) : base64;
+    const binaryString = atob(clean.replace(/\s+/g, ''));
     const len = binaryString.length;
     const bytes = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
