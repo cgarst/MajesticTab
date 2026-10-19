@@ -3428,8 +3428,10 @@ body:not(.synth-playback-started) .at-highlight {
 .library-page-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 1.25rem 1.25rem max(calc(env(safe-area-inset-bottom) + 1.25rem), 2rem) 1.25rem;
   min-height: 0;
+  contain: paint;
 }
 
 .library-page-container {
@@ -3898,18 +3900,31 @@ body:not(.synth-playback-started) .at-highlight {
   border-radius: 0.75rem;
   transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
   min-width: 0;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
 }
 
 .library-card {
   cursor: pointer;
 }
 
+.library-card:active {
+  box-shadow: none !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .library-card:hover {
     background: var(--bg-card-hover);
     border-color: var(--border-prominent);
-    transform: translateY(-2px);
+    transform: translate3d(0, -2px, 0);
     box-shadow: 0 4px 16px var(--accent-glow);
+  }
+
+  .library-card:active {
+    box-shadow: none !important;
+    transform: translate3d(0, 0, 0) !important;
   }
 
   .library-row-card:hover {

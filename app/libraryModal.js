@@ -490,9 +490,18 @@ async function switchView(view, pushHistory = true) {
     await renderLibraryModal();
 }
 
+function clearCardInteractionState(card) {
+    if (!card) return;
+    card.style.boxShadow = 'none';
+    card.style.transform = 'none';
+    card.blur();
+}
+
 async function renderView() {
     const content = document.getElementById('libraryModalContent');
     if (!content) return;
+    content.scrollTop = 0;
+    blurActiveLibraryElement(content);
 
     if (activeView === 'library') {
         await renderLibraryBrowseView(content);
@@ -507,6 +516,10 @@ async function renderView() {
 // 1. LIBRARY BROWSER VIEW (Collection > Artist > Album > Song / Tunings)
 // -----------------------------------------------------------------------------
 async function renderLibraryBrowseView(container) {
+    if (container) {
+        container.scrollTop = 0;
+        blurActiveLibraryElement(container);
+    }
     const collections = await getCollections();
     const currentCollection = collections.find(c => c.id === activeCollectionId) || collections[0] || { id: DEFAULT_COLLECTION_ID, name: 'My Library' };
     activeCollectionId = currentCollection.id;
@@ -1033,6 +1046,7 @@ async function renderLibraryBrowseView(container) {
     // Artist card clicks
     container.querySelectorAll('.artist-card').forEach(card => {
         card.addEventListener('click', () => {
+            clearCardInteractionState(card);
             const artistName = card.dataset.artistName;
             selectedArtist = artists.find(a => a.name === artistName);
             selectedAlbum = null;
@@ -1046,6 +1060,7 @@ async function renderLibraryBrowseView(container) {
     container.querySelectorAll('.tuning-card').forEach(card => {
         card.addEventListener('click', (e) => {
             if (e.target.closest('.edit-tuning-btn')) return;
+            clearCardInteractionState(card);
             const tuningKey = card.dataset.tuningKey || card.dataset.tuningName;
             selectedTuning = tuningKey;
             renderLibraryBrowseView(container);
@@ -1080,6 +1095,7 @@ async function renderLibraryBrowseView(container) {
         const folderName = card.dataset.folderName || card.dataset.albumTitle;
 
         card.addEventListener('click', () => {
+            clearCardInteractionState(card);
             if (selectedArtist?.isCustom) {
                 selectedFolderPath.push(folderName);
                 selectedAlbum = selectedArtist?.albums?.find(a => (a.folderPath || a.title) === selectedFolderPath.join('/')) || null;
@@ -1501,6 +1517,7 @@ function setupLibraryFilter(container, context = {}) {
         // Click artist cards in filter results
         filterResults.querySelectorAll('.artist-card').forEach(card => {
             card.addEventListener('click', () => {
+                clearCardInteractionState(card);
                 const artistName = card.dataset.artistName;
                 selectedArtist = (context.artists || []).find(a => a.name === artistName);
                 selectedAlbum = null;
@@ -1513,6 +1530,7 @@ function setupLibraryFilter(container, context = {}) {
         // Click album cards in filter results
         filterResults.querySelectorAll('.album-card').forEach(card => {
             card.addEventListener('click', () => {
+                clearCardInteractionState(card);
                 const artistName = card.dataset.artistName;
                 const albumTitle = card.dataset.albumTitle;
                 const targetArtist = (context.artists || []).find(a => a.name === artistName);
