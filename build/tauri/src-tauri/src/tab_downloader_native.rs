@@ -177,7 +177,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         } catch(e) {}
 
         const safeFilename = filename || 'downloaded.gp';
-        const CHUNK_SIZE = 16000;
+        const CHUNK_SIZE = 32000;
         if (base64Data.length <= CHUNK_SIZE) {
             window.location.href = 'majestictab://download?name=' + encodeURIComponent(safeFilename) + '&data=' + encodeURIComponent(base64Data);
         } else {
@@ -1918,47 +1918,8 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
         return false;
     }
 
-    // 5. Direct client-side download capture scheme: majestictab://download?name=...&data=...
-    if url.scheme() == "majestictab" && (url.host_str() == Some("download") || url_str.starts_with("majestictab://download")) {
-        let name = url
-            .query_pairs()
-            .find(|(k, _)| k == "name")
-            .map(|(_, v)| v.into_owned())
-            .unwrap_or_else(|| "downloaded.gp".to_string());
-        let b64_data = url
-            .query_pairs()
-            .find(|(k, _)| k == "data")
-            .map(|(_, v)| v.into_owned())
-            .unwrap_or_default();
-        let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64_data).ok();
-        eprintln!("[Tab Downloader] Captured client-side download: {} ({} bytes)", name, data.as_ref().map(|d| d.len()).unwrap_or(0));
-        hide_downloader(app_handle);
-        if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
-            if let Ok(mut g) = state.is_open.lock() {
-                *g = false;
-            }
-        }
-        let escaped_name = serde_json::to_string(&name).unwrap_or_default();
-        let escaped_b64 = serde_json::to_string(&b64_data).unwrap_or_default();
-        let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
-        if let Some(main_win) = app_handle.get_webview_window("main") {
-            let _ = main_win.eval(&eval_script);
-            let _ = main_win.show();
-            let _ = main_win.set_focus();
-        } else if let Some(main_wv) = app_handle.get_webview("main") {
-            let _ = main_wv.eval(&eval_script);
-        }
-        let payload = DownloadedTabPayload {
-            name,
-            path: None,
-            data,
-        };
-        let _ = app_handle.emit("tab-downloaded", payload);
-        return false;
-    }
-
-    // 5b. Chunked download capture scheme: majestictab://download-chunk?id=...&name=...&idx=...&total=...&data=...
-    if url.scheme() == "majestictab" && (url.host_str() == Some("download-chunk") || url_str.starts_with("majestictab://download-chunk")) {
+    // 5. Chunked download capture scheme: majestictab://download-chunk?id=...&name=...&idx=...&total=...&data=...
+    if url.scheme() == "majestictab" && (url.host_str() == Some("download-chunk") || url_str.starts_with("majestictab://download-chunk?") || url_str.starts_with("majestictab://download-chunk/")) {
         let id = url.query_pairs().find(|(k, _)| k == "id").map(|(_, v)| v.into_owned()).unwrap_or_default();
         let name = url.query_pairs().find(|(k, _)| k == "name").map(|(_, v)| v.into_owned()).unwrap_or_else(|| "downloaded.gp".to_string());
         let idx: usize = url.query_pairs().find(|(k, _)| k == "idx").and_then(|(_, v)| v.parse().ok()).unwrap_or(0);
@@ -1985,16 +1946,27 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
         }
 
         if let Some((tab_name, b64_data)) = completed {
-            let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64_data).ok();
-            eprintln!("[Tab Downloader] Reassembled chunked download: {} ({} bytes)", tab_name, data.as_ref().map(|d| d.len()).unwrap_or(0));
+            let sanitized_b64 = b64_data.replace(' ', "+");
+            let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &sanitized_b64).ok();
+            let mut final_name = tab_name;
+            if let Some(ref bytes) = data {
+                if let Some(ext) = identify_tab_extension(bytes, &final_name) {
+                    if !final_name.to_lowercase().ends_with(&format!(".{}", ext)) {
+                        if !final_name.contains('.') || final_name.starts_with("download") {
+                            final_name = format!("{}.{}", final_name, ext);
+                        }
+                    }
+                }
+            }
+            eprintln!("[Tab Downloader] Reassembled chunked download: {} ({} bytes)", final_name, data.as_ref().map(|d| d.len()).unwrap_or(0));
             hide_downloader(app_handle);
             if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
                 if let Ok(mut g) = state.is_open.lock() {
                     *g = false;
                 }
             }
-            let escaped_name = serde_json::to_string(&tab_name).unwrap_or_default();
-            let escaped_b64 = serde_json::to_string(&b64_data).unwrap_or_default();
+            let escaped_name = serde_json::to_string(&final_name).unwrap_or_default();
+            let escaped_b64 = serde_json::to_string(&sanitized_b64).unwrap_or_default();
             let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
             if let Some(main_win) = app_handle.get_webview_window("main") {
                 let _ = main_win.eval(&eval_script);
@@ -2004,12 +1976,62 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
                 let _ = main_wv.eval(&eval_script);
             }
             let payload = DownloadedTabPayload {
-                name: tab_name,
+                name: final_name,
                 path: None,
                 data,
             };
             let _ = app_handle.emit("tab-downloaded", payload);
         }
+        return false;
+    }
+
+    // 5b. Direct client-side download capture scheme: majestictab://download?name=...&data=...
+    if url.scheme() == "majestictab" && (url.host_str() == Some("download") || url_str.starts_with("majestictab://download?") || url_str.starts_with("majestictab://download/")) {
+        let name = url
+            .query_pairs()
+            .find(|(k, _)| k == "name")
+            .map(|(_, v)| v.into_owned())
+            .unwrap_or_else(|| "downloaded.gp".to_string());
+        let b64_data = url
+            .query_pairs()
+            .find(|(k, _)| k == "data")
+            .map(|(_, v)| v.into_owned())
+            .unwrap_or_default();
+        let sanitized_b64 = b64_data.replace(' ', "+");
+        let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &sanitized_b64).ok();
+        let mut final_name = name;
+        if let Some(ref bytes) = data {
+            if let Some(ext) = identify_tab_extension(bytes, &final_name) {
+                if !final_name.to_lowercase().ends_with(&format!(".{}", ext)) {
+                    if !final_name.contains('.') || final_name.starts_with("download") {
+                        final_name = format!("{}.{}", final_name, ext);
+                    }
+                }
+            }
+        }
+        eprintln!("[Tab Downloader] Captured client-side download: {} ({} bytes)", final_name, data.as_ref().map(|d| d.len()).unwrap_or(0));
+        hide_downloader(app_handle);
+        if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+            if let Ok(mut g) = state.is_open.lock() {
+                *g = false;
+            }
+        }
+        let escaped_name = serde_json::to_string(&final_name).unwrap_or_default();
+        let escaped_b64 = serde_json::to_string(&sanitized_b64).unwrap_or_default();
+        let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
+        if let Some(main_win) = app_handle.get_webview_window("main") {
+            let _ = main_win.eval(&eval_script);
+            let _ = main_win.show();
+            let _ = main_win.set_focus();
+        } else if let Some(main_wv) = app_handle.get_webview("main") {
+            let _ = main_wv.eval(&eval_script);
+        }
+        let payload = DownloadedTabPayload {
+            name: final_name,
+            path: None,
+            data,
+        };
+        let _ = app_handle.emit("tab-downloaded", payload);
         return false;
     }
 
@@ -2670,4 +2692,79 @@ pub fn tab_downloader_is_debug_tools_enabled() -> bool {
         false
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_download_chunk_vs_direct_download_routing() {
+        let chunk_url_str = "majestictab://download-chunk?id=abc123&name=Nil%20By%20Mouth.gp&idx=0&total=3&data=SGVsbG8=";
+        let chunk_url = tauri::Url::parse(chunk_url_str).expect("Valid chunk URL");
+
+        // download-chunk condition
+        let is_chunk = chunk_url.scheme() == "majestictab"
+            && (chunk_url.host_str() == Some("download-chunk")
+                || chunk_url_str.starts_with("majestictab://download-chunk?")
+                || chunk_url_str.starts_with("majestictab://download-chunk/"));
+        assert!(is_chunk, "Should match download-chunk condition");
+
+        // direct download condition MUST NOT match chunk URL
+        let is_direct = chunk_url.scheme() == "majestictab"
+            && (chunk_url.host_str() == Some("download")
+                || chunk_url_str.starts_with("majestictab://download?")
+                || chunk_url_str.starts_with("majestictab://download/"));
+        assert!(!is_direct, "Chunk URL must NOT match direct download condition");
+
+        let direct_url_str = "majestictab://download?name=Nil%20By%20Mouth.gp&data=SGVsbG8=";
+        let direct_url = tauri::Url::parse(direct_url_str).expect("Valid direct URL");
+
+        let direct_is_direct = direct_url.scheme() == "majestictab"
+            && (direct_url.host_str() == Some("download")
+                || direct_url_str.starts_with("majestictab://download?")
+                || direct_url_str.starts_with("majestictab://download/"));
+        assert!(direct_is_direct, "Direct URL must match direct download condition");
+
+        let direct_is_chunk = direct_url.scheme() == "majestictab"
+            && (direct_url.host_str() == Some("download-chunk")
+                || direct_url_str.starts_with("majestictab://download-chunk?")
+                || direct_url_str.starts_with("majestictab://download-chunk/"));
+        assert!(!direct_is_chunk, "Direct URL must NOT match chunk condition");
+    }
+
+    #[test]
+    fn test_chunk_reassembly_and_decode() {
+        // Construct a sample binary score header and test multi-chunk reassembly
+        let sample_bytes = b"FICHIER GUITAR PRO v5.10\0\0\0\0\0\0\0\0\0\0Some test score content";
+        let b64 = base64::Engine::encode(&base64::engine::general_purpose::STANDARD, sample_bytes);
+
+        // Split into 3 chunks
+        let chunk_size = 10;
+        let chunks: Vec<String> = b64.as_bytes().chunks(chunk_size).map(|c| std::str::from_utf8(c).unwrap().to_string()).collect();
+        let total = chunks.len();
+
+        let mut entry = DownloadChunkState {
+            name: "Haken - Nil By Mouth.gp".to_string(),
+            total,
+            chunks: vec![None; total],
+        };
+
+        for (idx, ch) in chunks.into_iter().enumerate() {
+            entry.chunks[idx] = Some(ch);
+        }
+
+        assert!(entry.chunks.iter().all(|c| c.is_some()), "All chunks must be present");
+        let full_b64: String = entry.chunks.iter().filter_map(|c| c.as_ref()).cloned().collect();
+        assert_eq!(full_b64, b64);
+
+        let sanitized_b64 = full_b64.replace(' ', "+");
+        let decoded = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &sanitized_b64).expect("Valid base64");
+        assert_eq!(decoded.as_slice(), sample_bytes);
+
+        // Extension check
+        let ext = identify_tab_extension(&decoded, &entry.name);
+        assert_eq!(ext, Some("gp5"));
+    }
+}
+
 
