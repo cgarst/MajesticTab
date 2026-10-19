@@ -3333,7 +3333,7 @@ body:not(.synth-playback-started) .at-highlight {
   gap: 1rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 992px) {
   .library-body-header {
     display: flex;
     flex-wrap: wrap;
