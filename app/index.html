@@ -378,6 +378,14 @@
         <i class="bi-disc me-1"></i> Backing Track
       </label>
     </div>
+    <div class="yt-query-bar mb-3">
+      <div class="input-group input-group-sm yt-query-group">
+        <span class="input-group-text yt-query-addon" title="Search query"><i class="bi-search"></i></span>
+        <input type="text" id="ytSearchQueryInput" class="form-control yt-query-input" placeholder="YouTube search query..." autocomplete="off" spellcheck="false" title="Override YouTube search query">
+        <button class="btn btn-theme-primary yt-query-btn" id="ytRedoSearchBtn" type="button" title="Redo search with this query"><i class="bi-arrow-repeat me-1"></i>Search</button>
+        <button class="btn btn-theme-outline yt-query-reset-btn" id="ytResetQueryBtn" type="button" title="Reset to default song query" style="display: none;"><i class="bi-x-lg"></i></button>
+      </div>
+    </div>
     <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-3">
       <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe>
       
