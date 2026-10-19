@@ -308,7 +308,16 @@ export async function readBackupFileText(file) {
     } catch (e) {
         console.warn('[Restore] Decompression attempt failed, falling back to raw text:', e);
     }
-    return await file.text();
+    try {
+        if (typeof file.text === 'function') {
+            return await file.text();
+        }
+        const buffer = await file.arrayBuffer();
+        return new TextDecoder('utf-8').decode(buffer);
+    } catch (_) {
+        const buffer = await file.arrayBuffer();
+        return new TextDecoder('utf-8').decode(buffer);
+    }
 }
 
 /**
