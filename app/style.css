@@ -352,6 +352,21 @@ body {
   min-height: 50px;
 }
 
+/* iOS Status Bar clearance in portrait mode */
+@media (orientation: portrait) {
+  .tauri-ios #topBar {
+    padding-top: max(calc(env(safe-area-inset-top) + 0.5rem), 54px);
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (orientation: portrait) {
+    #topBar {
+      padding-top: max(calc(env(safe-area-inset-top) + 0.5rem), 54px);
+    }
+  }
+}
+
 /* Themed scrollbars; scrollbar-color inherits to all scroll containers. */
 :root {
   scrollbar-color: color-mix(in srgb, var(--accent-primary) 55%, transparent) transparent;
@@ -1517,6 +1532,20 @@ input[type=range]::-webkit-slider-thumb:hover {
   max-width: 90vw !important;
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (orientation: portrait) {
+  .tauri-ios .offcanvas {
+    padding-top: max(calc(env(safe-area-inset-top) + 0.5rem), 54px);
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (orientation: portrait) {
+    .offcanvas {
+      padding-top: max(calc(env(safe-area-inset-top) + 0.5rem), 54px);
+    }
+  }
 }
 
 .tauri-macos .offcanvas {
@@ -2752,8 +2781,8 @@ body:not(.synth-playback-started) .at-highlight {
   flex: 1;
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 50px);
-  max-height: calc(100vh - 50px);
+  height: 100%;
+  min-height: 0;
   width: 100%;
   overflow: hidden;
   background: transparent;
@@ -3697,6 +3726,20 @@ body:not(.synth-playback-started) .at-highlight {
   padding: max(env(safe-area-inset-top), 8px) max(env(safe-area-inset-right), 16px) 8px max(env(safe-area-inset-left), 16px);
   min-height: 48px;
   border-bottom: 1px solid var(--border-subtle);
+}
+
+@media (orientation: portrait) {
+  .tauri-ios .downloader-nav-row {
+    padding-top: max(calc(env(safe-area-inset-top) + 8px), 54px);
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (orientation: portrait) {
+    .downloader-nav-row {
+      padding-top: max(calc(env(safe-area-inset-top) + 8px), 54px);
+    }
+  }
 }
 
 .tauri-macos .downloader-nav-row {

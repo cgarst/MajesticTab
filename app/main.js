@@ -28,6 +28,9 @@ import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
 initIOSAudioUnlock();
+if (isIOSDevice()) {
+    document.documentElement.classList.add('tauri-ios');
+}
 
 // Handle window resizing 
 let resizeTimeout;
