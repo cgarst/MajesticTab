@@ -255,7 +255,7 @@ class GamepadManager {
 
         for (let i = 0; i < buttons.length; i++) {
             const btn = buttons[i];
-            const isDown = typeof btn === 'object' ? btn.pressed : btn > 0.5;
+            const isDown = typeof btn === 'object' ? (btn.pressed || (typeof btn.value === 'number' && btn.value > 0.3)) : btn > 0.5;
             const state = this.buttonStates.get(i) || { isDown: false, pressedAt: 0, nextRepeatAt: 0 };
 
             if (isDown) {
@@ -291,7 +291,9 @@ class GamepadManager {
                 GamepadButton.DPAD_LEFT,
                 GamepadButton.DPAD_RIGHT,
                 GamepadButton.LB,
-                GamepadButton.RB
+                GamepadButton.RB,
+                GamepadButton.LT,
+                GamepadButton.RT
             ];
             if (!repeatable.includes(buttonIndex)) return;
         }
@@ -334,10 +336,12 @@ class GamepadManager {
                 break;
 
             case GamepadButton.LB:
+            case GamepadButton.LT:
                 this.handleButtonLB(isLibOpen, isModalOpen);
                 break;
 
             case GamepadButton.RB:
+            case GamepadButton.RT:
                 this.handleButtonRB(isLibOpen, isModalOpen);
                 break;
 
@@ -626,32 +630,32 @@ class GamepadManager {
     }
 
     handleDpadLeft(isLibOpen, isModalOpen) {
-        if (isLibOpen || isModalOpen) {
-            this.navigateFocus(-1);
+        if (isLibOpen || isModalOpen || (this.topBar && this.topBar.contains(document.activeElement))) {
+            this.navigateSpatial('left');
             return;
         }
         document.getElementById('prevPage')?.click();
     }
 
     handleDpadRight(isLibOpen, isModalOpen) {
-        if (isLibOpen || isModalOpen) {
-            this.navigateFocus(1);
+        if (isLibOpen || isModalOpen || (this.topBar && this.topBar.contains(document.activeElement))) {
+            this.navigateSpatial('right');
             return;
         }
         document.getElementById('nextPage')?.click();
     }
 
     handleDpadUp(isLibOpen, isModalOpen) {
-        if (isLibOpen || isModalOpen) {
-            this.navigateFocus(-1);
+        if (isLibOpen || isModalOpen || (this.topBar && this.topBar.contains(document.activeElement))) {
+            this.navigateSpatial('up');
             return;
         }
         this.scrollActiveContainer(-140);
     }
 
     handleDpadDown(isLibOpen, isModalOpen) {
-        if (isLibOpen || isModalOpen) {
-            this.navigateFocus(1);
+        if (isLibOpen || isModalOpen || (this.topBar && this.topBar.contains(document.activeElement))) {
+            this.navigateSpatial('down');
             return;
         }
         this.scrollActiveContainer(140);
@@ -700,6 +704,111 @@ class GamepadManager {
             const style = window.getComputedStyle(el);
             return style.display !== 'none' && style.visibility !== 'hidden';
         });
+    }
+
+    /**
+     * 2D Spatial Navigation:
+     * Moves focus in 2D space (up, down, left, right) based on screen geometry (bounding client rects).
+     */
+    navigateSpatial(direction) {
+        const container = this.getActiveFocusContainer();
+        const focusable = this.getFocusableElements(container);
+
+        if (!focusable.length) return;
+
+        const currentActive = document.activeElement;
+        const hasValidFocus = currentActive && focusable.includes(currentActive);
+
+        if (!hasValidFocus) {
+            const target = focusable[0];
+            target?.focus({ preventScroll: false });
+            target?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+            return;
+        }
+
+        const curRect = currentActive.getBoundingClientRect();
+        const curCx = curRect.left + curRect.width / 2;
+        const curCy = curRect.top + curRect.height / 2;
+
+        let bestElement = null;
+        let minScore = Infinity;
+
+        for (const cand of focusable) {
+            if (cand === currentActive) continue;
+
+            const r = cand.getBoundingClientRect();
+            if (r.width <= 0 || r.height <= 0) continue;
+
+            const cx = r.left + r.width / 2;
+            const cy = r.top + r.height / 2;
+
+            let isCandidate = false;
+            let primaryDist = 0;
+            let crossDist = 0;
+
+            if (direction === 'down') {
+                if (r.top >= curRect.top + 4 && cy > curCy) {
+                    isCandidate = true;
+                    primaryDist = r.top >= curRect.bottom ? (r.top - curRect.bottom) : (cy - curCy);
+                    const overlapX = Math.max(0, Math.min(curRect.right, r.right) - Math.max(curRect.left, r.left));
+                    if (overlapX > 0) {
+                        crossDist = Math.abs(cx - curCx) * 0.4;
+                    } else {
+                        const xGap = r.left >= curRect.right ? (r.left - curRect.right) : (curRect.left - r.right);
+                        crossDist = xGap * 1.8;
+                    }
+                }
+            } else if (direction === 'up') {
+                if (r.bottom <= curRect.bottom - 4 && cy < curCy) {
+                    isCandidate = true;
+                    primaryDist = curRect.top >= r.bottom ? (curRect.top - r.bottom) : (curCy - cy);
+                    const overlapX = Math.max(0, Math.min(curRect.right, r.right) - Math.max(curRect.left, r.left));
+                    if (overlapX > 0) {
+                        crossDist = Math.abs(cx - curCx) * 0.4;
+                    } else {
+                        const xGap = r.left >= curRect.right ? (r.left - curRect.right) : (curRect.left - r.right);
+                        crossDist = xGap * 1.8;
+                    }
+                }
+            } else if (direction === 'right') {
+                if (r.left >= curRect.left + 4 && cx > curCx) {
+                    isCandidate = true;
+                    primaryDist = r.left >= curRect.right ? (r.left - curRect.right) : (cx - curCx);
+                    const overlapY = Math.max(0, Math.min(curRect.bottom, r.bottom) - Math.max(curRect.top, r.top));
+                    if (overlapY > 0) {
+                        crossDist = Math.abs(cy - curCy) * 0.4;
+                    } else {
+                        const yGap = r.top >= curRect.bottom ? (r.top - curRect.bottom) : (curRect.top - r.bottom);
+                        crossDist = yGap * 1.8;
+                    }
+                }
+            } else if (direction === 'left') {
+                if (r.right <= curRect.right - 4 && cx < curCx) {
+                    isCandidate = true;
+                    primaryDist = curRect.left >= r.right ? (curRect.left - r.right) : (curCx - cx);
+                    const overlapY = Math.max(0, Math.min(curRect.bottom, r.bottom) - Math.max(curRect.top, r.top));
+                    if (overlapY > 0) {
+                        crossDist = Math.abs(cy - curCy) * 0.4;
+                    } else {
+                        const yGap = r.top >= curRect.bottom ? (r.top - curRect.bottom) : (curRect.top - r.bottom);
+                        crossDist = yGap * 1.8;
+                    }
+                }
+            }
+
+            if (isCandidate) {
+                const score = primaryDist + crossDist;
+                if (score < minScore) {
+                    minScore = score;
+                    bestElement = cand;
+                }
+            }
+        }
+
+        if (bestElement) {
+            bestElement.focus({ preventScroll: false });
+            bestElement.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+        }
     }
 
     navigateFocus(direction) {
