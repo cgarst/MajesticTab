@@ -498,6 +498,39 @@ function updatePanelTitle() {
     }
 }
 
+export function updateYouTubePanelPosition() {
+    const panel = document.getElementById('ytDropdownPanel');
+    const toggleBtn = document.getElementById('ytToggleBtn');
+    if (!panel || !playerState.isOpen) return;
+
+    const mobileDock = document.getElementById('mobilePlaybackDock');
+    const isMobileDockActive = window.innerWidth <= 576 || (mobileDock && window.getComputedStyle(mobileDock).display !== 'none');
+
+    if (isMobileDockActive && mobileDock) {
+        panel.classList.add('popup-from-bottom');
+        const dockRect = mobileDock.getBoundingClientRect();
+        const bottomOffset = dockRect.top > 0 ? Math.max(12, Math.round(window.innerHeight - dockRect.top + 8)) : 76;
+        panel.style.position = 'fixed';
+        panel.style.top = 'auto';
+        panel.style.bottom = `${bottomOffset}px`;
+        panel.style.left = '50%';
+        panel.style.transform = 'translateX(-50%)';
+        return;
+    }
+
+    panel.classList.remove('popup-from-bottom');
+    panel.style.bottom = 'auto';
+    if (!toggleBtn) return;
+    const rect = toggleBtn.getBoundingClientRect();
+    panel.style.position = 'fixed';
+    panel.style.top = `${rect.bottom + 8}px`;
+    const centerX = rect.left + rect.width / 2;
+    const halfPanelWidth = Math.min(190, (window.innerWidth - 24) / 2);
+    const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
+    panel.style.left = `${clampedLeft}px`;
+    panel.style.transform = 'translateX(-50%)';
+}
+
 /**
  * Toggle the dropdown panel open/closed
  */
@@ -519,16 +552,7 @@ export function toggleYouTubePanel(forceState = null) {
         pauseSynthPlayer();
         clearSynthHighlights();
 
-        if (toggleBtn) {
-            const rect = toggleBtn.getBoundingClientRect();
-            panel.style.position = 'fixed';
-            panel.style.top = `${rect.bottom + 8}px`;
-            const centerX = rect.left + rect.width / 2;
-            const halfPanelWidth = Math.min(190, (window.innerWidth - 24) / 2);
-            const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
-            panel.style.left = `${clampedLeft}px`;
-            panel.style.transform = 'translateX(-50%)';
-        }
+        updateYouTubePanelPosition();
         panel.style.display = 'block';
         if (chevron) {
             chevron.className = 'bi-chevron-up ms-1';
@@ -542,6 +566,7 @@ export function toggleYouTubePanel(forceState = null) {
         }
     } else {
         panel.style.display = 'none';
+        panel.classList.remove('popup-from-bottom');
         if (chevron) {
             chevron.className = 'bi-chevron-down ms-1';
         }
@@ -698,12 +723,8 @@ export function initYouTubePlayer() {
     });
 
     window.addEventListener('resize', () => {
-        const panel = document.getElementById('ytDropdownPanel');
-        if (!playerState.isOpen || !toggleBtn || !panel) return;
-        const rect = toggleBtn.getBoundingClientRect();
-        const halfPanelWidth = Math.min(190, (window.innerWidth - 24) / 2);
-        panel.style.top = `${rect.bottom + 8}px`;
-        panel.style.left = `${Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, rect.left + rect.width / 2))}px`;
+        if (!playerState.isOpen) return;
+        updateYouTubePanelPosition();
         syncNativeMacPlayerBounds();
     });
 
