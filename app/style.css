@@ -902,6 +902,22 @@ body {
   animation-name: panelSlideDown;
 }
 
+.synth-panel.popup-from-bottom,
+.yt-panel.popup-from-bottom {
+  animation: panelSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+@keyframes panelSlideUp {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
 .synth-panel-header, .yt-panel-header {
   background: var(--bg-card-solid);
   border-bottom: 1px solid var(--border-subtle);
@@ -2940,6 +2956,138 @@ body:not(.synth-playback-started) .at-highlight {
     font-size: 0.74rem !important;
     padding: 0 0.35rem !important;
     white-space: nowrap;
+  }
+
+  /* SoundFont and YouTube Popup Panels: Comfortable mobile sizing & touch targets */
+  .synth-panel, .yt-panel {
+    width: calc(100vw - 16px) !important;
+    max-width: 440px !important;
+    max-height: calc(100vh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    border-radius: 1.25rem !important;
+  }
+
+  .synth-panel-header, .yt-panel-header {
+    flex-shrink: 0 !important;
+    padding: 0.75rem 1rem !important;
+    min-height: 48px;
+  }
+
+  .synth-panel-title, .yt-panel-title {
+    font-size: 0.92rem !important;
+  }
+
+  .synth-panel-body, .yt-panel-body {
+    flex: 1 1 auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 0.9rem 1rem max(0.9rem, env(safe-area-inset-bottom)) 1rem !important;
+  }
+
+  /* SoundFont Speed Buttons: comfortable 2x3 touch grid on mobile */
+  #synthSpeedButtons {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 6px !important;
+    width: 100% !important;
+  }
+
+  #synthSpeedButtons .btn {
+    border-radius: 8px !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  /* SoundFont Speed Increment / Decrement Buttons & Badges */
+  #synthSpeedMinusBtn,
+  #synthSpeedPlusBtn {
+    height: 34px !important;
+    min-width: 44px !important;
+    font-size: 0.85rem !important;
+    padding: 0 0.5rem !important;
+  }
+
+  #synthSpeedBadge {
+    font-size: 0.88rem !important;
+    padding: 0.25rem 0.55rem !important;
+  }
+
+  /* SoundFont Audio Track pill selector */
+  .synth-panel .hud-pill-group {
+    height: 38px !important;
+    padding: 3px !important;
+    gap: 3px !important;
+  }
+
+  .synth-panel .hud-pill-group .btn {
+    font-size: 0.82rem !important;
+    padding: 0 0.5rem !important;
+  }
+
+  /* Sliders touch comfort on mobile */
+  .synth-panel input[type=range] {
+    height: 8px !important;
+  }
+
+  .synth-panel input[type=range]::-webkit-slider-thumb {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  /* Inputs prevent iOS auto-zoom */
+  .synth-panel .form-control {
+    font-size: 16px !important;
+    height: 38px !important;
+  }
+
+  .synth-panel .form-check.form-switch {
+    min-height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+  }
+
+  .synth-panel .form-check.form-switch .form-check-input {
+    width: 2.5rem !important;
+    height: 1.35rem !important;
+  }
+
+  .synth-panel .form-check-label {
+    font-size: 0.85rem !important;
+  }
+
+  /* YouTube Mode Selector & Search Controls */
+  .yt-mode-selector {
+    padding: 4px !important;
+    gap: 4px !important;
+  }
+
+  .yt-mode-btn {
+    padding: 0.5rem 0.65rem !important;
+    font-size: 0.84rem !important;
+    min-height: 38px !important;
+  }
+
+  #ytSearchInput {
+    font-size: 16px !important;
+    height: 38px !important;
+  }
+
+  #ytSearchBtn {
+    height: 38px !important;
+    padding: 0 0.85rem !important;
+    font-size: 0.85rem !important;
+  }
+
+  #ytSignInBtn {
+    font-size: 0.8rem !important;
+    padding: 0.3rem 0.6rem !important;
   }
 }
 
