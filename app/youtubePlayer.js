@@ -549,6 +549,7 @@ export function updateYouTubePanelPosition() {
 export function toggleYouTubePanel(forceState = null) {
     const panel = document.getElementById('ytDropdownPanel');
     const toggleBtn = document.getElementById('ytToggleBtn');
+    const mobileBtn = document.getElementById('mobileYtToggleBtn');
     const chevron = document.getElementById('ytPillChevron');
 
     if (!panel) return;
@@ -570,6 +571,7 @@ export function toggleYouTubePanel(forceState = null) {
             chevron.className = 'bi-chevron-up ms-1';
         }
         toggleBtn?.classList.add('active');
+        mobileBtn?.classList.add('active');
 
         // Load track if not yet loaded or searching
         const iframe = document.getElementById('ytIframe');
@@ -583,6 +585,7 @@ export function toggleYouTubePanel(forceState = null) {
             chevron.className = 'bi-chevron-down ms-1';
         }
         toggleBtn?.classList.remove('active');
+        mobileBtn?.classList.remove('active');
     }
     if (newState && isNativeMacPlayer()) {
         animateNativeMacPlayerBounds();
@@ -940,14 +943,17 @@ export function initYouTubePlayer() {
     }
 
     // Close panel when clicking outside of panel and top bar toggle
-    document.addEventListener('click', (e) => {
+    const handleOutsideYtClick = (e) => {
         const panel = document.getElementById('ytDropdownPanel');
         const sourcePill = document.getElementById('audioSourcePill');
+        const mobileDock = document.getElementById('mobilePlaybackDock');
 
-        if (playerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target)) {
+        if (playerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target) && !mobileDock?.contains(e.target)) {
             toggleYouTubePanel(false);
         }
-    });
+    };
+    document.addEventListener('click', handleOutsideYtClick);
+    document.addEventListener('pointerdown', handleOutsideYtClick);
 
     updatePlaybackControls();
 }
