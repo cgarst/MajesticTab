@@ -130,6 +130,13 @@
         <input type="file" id="fileInput" multiple accept=".pdf" style="display: none">
       </div>
 
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <button type="button" id="loadLibraryBtn" class="btn btn-theme-outline d-flex align-items-center gap-2">
+          <i class="bi-collection text-info"></i> <span id="loadLibraryBtnText">Add All PDFs from Library</span>
+        </button>
+        <span id="loadLibraryStatus" class="small text-muted"></span>
+      </div>
+
       <div id="fileList"></div>
 
       <div class="row align-items-center g-3 my-3">
@@ -161,6 +168,8 @@
   <script type="module">
     import { processPDF } from './pdfProcessor/pdfProcessor.js';
     import { initTheming } from './themeEngine.js';
+    import { getAllSongs } from './libraryStore.js';
+    import { getStoredFile } from './fileStore.js';
 
     // Initialize active theme
     initTheming();
@@ -227,6 +236,9 @@
 
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
+    const loadLibraryBtn = document.getElementById('loadLibraryBtn');
+    const loadLibraryBtnText = document.getElementById('loadLibraryBtnText');
+    const loadLibraryStatus = document.getElementById('loadLibraryStatus');
     const fileList = document.getElementById('fileList');
     const processButton = document.getElementById('processButton');
     const progressContainer = document.getElementById('progressContainer');
@@ -261,11 +273,11 @@
     });
 
     function handleFiles(selectedFiles) {
-      files = files.filter(file => !processedFiles.has(file.name));
+      files = files.filter(file => !processedFiles.has(file.exportKey || file.displayName || file.name));
       
       for (const file of selectedFiles) {
         if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-          if (!files.some(f => f.name === file.name)) {
+          if (!files.some(f => f.name === file.name && !f.exportKey)) {
             files.push(file);
           }
         }
@@ -274,17 +286,98 @@
       processButton.disabled = files.length === 0;
     }
 
+    if (loadLibraryBtn) {
+      loadLibraryBtn.addEventListener('click', async () => {
+        loadLibraryBtn.disabled = true;
+        if (loadLibraryBtnText) loadLibraryBtnText.textContent = 'Loading Library...';
+        if (loadLibraryStatus) loadLibraryStatus.textContent = '';
+
+        try {
+          const songs = await getAllSongs();
+          let addedCount = 0;
+
+          for (const song of songs) {
+            const tabs = Array.isArray(song.tabOptions) ? song.tabOptions : [];
+            for (const t of tabs) {
+              const isPdf = (t.name || t.relativePath || '').toLowerCase().endsWith('.pdf') ||
+                            t.fileType === 'pdf' ||
+                            Boolean(t.isPdf) ||
+                            Boolean(t.startPage);
+              if (!isPdf || !t.fileStoreId) continue;
+
+              const stored = await getStoredFile(t.fileStoreId);
+              if (stored?.file) {
+                const fileObj = new File([stored.file], stored.file.name, { type: stored.file.type || 'application/pdf' });
+                fileObj.startPage = t.startPage ? parseInt(t.startPage, 10) : null;
+                fileObj.endPage = t.endPage ? parseInt(t.endPage, 10) : null;
+                fileObj.tabName = t.name;
+                fileObj.songTitle = song.title;
+                fileObj.artist = song.artist;
+                const label = song.title
+                  ? `${song.artist ? `${song.artist} - ` : ''}${song.title}${t.startPage ? ` (pp. ${t.startPage}-${t.endPage})` : ''}`
+                  : fileObj.name;
+                fileObj.displayName = label;
+                fileObj.exportKey = `${song.id || ''}_${t.id || ''}_${fileObj.name}_${fileObj.startPage || ''}_${fileObj.endPage || ''}`;
+
+                const isDuplicate = files.some(f => (f.exportKey && f.exportKey === fileObj.exportKey) || (f.displayName && f.displayName === fileObj.displayName));
+                if (!isDuplicate) {
+                  files.push(fileObj);
+                  addedCount++;
+                }
+              }
+            }
+          }
+
+          updateFileList();
+          processButton.disabled = files.length === 0;
+
+          if (loadLibraryStatus) {
+            if (addedCount > 0) {
+              loadLibraryStatus.textContent = `Added ${addedCount} PDF tab${addedCount === 1 ? '' : 's'} from library`;
+            } else if (files.length > 0) {
+              loadLibraryStatus.textContent = 'All library PDFs already added';
+            } else {
+              loadLibraryStatus.textContent = 'No PDF tabs found in library';
+            }
+          }
+        } catch (err) {
+          console.error('Error loading library PDFs:', err);
+          if (loadLibraryStatus) {
+            loadLibraryStatus.textContent = 'Failed to load library PDFs';
+          }
+        } finally {
+          loadLibraryBtn.disabled = false;
+          if (loadLibraryBtnText) loadLibraryBtnText.textContent = 'Add All PDFs from Library';
+        }
+      });
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
     function updateFileList() {
       fileList.innerHTML = '';
       files.forEach((file, index) => {
         const fileItem = document.createElement('div');
         fileItem.className = 'file-item';
+        const pageBadge = (file.startPage && file.endPage)
+          ? `<span class="badge badge-theme-warning ms-2" style="font-size:0.7rem;">pp. ${file.startPage}-${file.endPage}</span>`
+          : '';
+        const nameText = escapeHtml(file.displayName || file.name);
         fileItem.innerHTML = `
           <div class="d-flex align-items-center text-truncate me-2">
             <span class="status-icon" id="status-${index}"><i class="bi-check-circle-fill"></i></span>
-            <span class="text-white small text-truncate">${file.name}</span>
+            <span class="text-white small text-truncate" title="${nameText}">${nameText}</span>
+            ${pageBadge}
           </div>
-          <button class="btn btn-sm btn-theme-danger py-0 px-2" onclick="removeFile(${index})">
+          <button type="button" class="btn btn-sm btn-theme-danger py-0 px-2 flex-shrink-0" onclick="removeFile(${index})" title="Remove">
             <i class="bi-trash"></i>
           </button>
         `;
@@ -313,6 +406,8 @@
           progressContainer,
           progressBar,
           condensedCanvases,
+          startPage: file.startPage,
+          endPage: file.endPage,
           onCanvasRendered: () => {},
           abortSignal: null,
           scale: parseFloat(scaleInput.value)
@@ -356,13 +451,18 @@
         const blob = new Blob([pdfBytes], { type: 'application/pdf' });
         const downloadLink = document.createElement('a');
         downloadLink.href = URL.createObjectURL(blob);
-        downloadLink.download = `Majestic_${file.name}`;
+        if (file.displayName) {
+          const safeName = file.displayName.replace(/[/\\?%*:|"<>]/g, '_').replace(/\.pdf$/i, '');
+          downloadLink.download = `Majestic_${safeName}.pdf`;
+        } else {
+          downloadLink.download = `Majestic_${file.name}`;
+        }
         downloadLink.click();
         URL.revokeObjectURL(downloadLink.href);
 
         const statusIcon = document.getElementById(`status-${i}`);
         if (statusIcon) statusIcon.classList.add('complete');
-        processedFiles.add(file.name);
+        processedFiles.add(file.exportKey || file.displayName || file.name);
       }
 
       progressBar.style.width = '100%';
