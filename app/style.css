@@ -4596,6 +4596,78 @@ body:not(.synth-playback-started) .at-highlight {
   box-shadow: 0 0 12px var(--accent-glow);
 }
 
+.open-file-benefits-details summary {
+  list-style: none;
+  transition: color 0.2s ease;
+}
+
+.open-file-benefits-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.open-file-benefits-details summary:hover {
+  color: #ffffff !important;
+}
+
+.open-file-benefits-details summary i {
+  transition: transform 0.2s ease;
+}
+
+.open-file-benefits-details[open] summary i {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 576px) {
+  .open-file-modal-card {
+    max-width: 100% !important;
+    margin: 0.5rem;
+  }
+
+  .open-file-modal-card .theme-modal-body {
+    padding: 0.75rem !important;
+  }
+
+  .open-file-benefits-card {
+    padding: 0.75rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .open-file-provider-item {
+    padding: 0.75rem !important;
+    gap: 0.65rem !important;
+  }
+
+  .open-file-provider-item .provider-icon-wrapper {
+    width: 36px !important;
+    height: 36px !important;
+  }
+
+  .open-file-provider-item .provider-icon-wrapper i {
+    font-size: 1.15rem !important;
+  }
+
+  .open-file-provider-item .provider-action-trigger {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--text-muted) !important;
+    padding: 0 !important;
+    font-size: 1rem !important;
+  }
+
+  .open-file-provider-item .provider-action-label {
+    display: none !important;
+  }
+
+  .open-file-provider-item:hover .provider-action-trigger {
+    background: transparent !important;
+    border: none !important;
+    color: var(--accent-primary) !important;
+    box-shadow: none !important;
+    transform: translateX(2px);
+  }
+}
+
 /* --------------------------------------------------------------------------
    Backup & Restore Modal Styles
    -------------------------------------------------------------------------- */
