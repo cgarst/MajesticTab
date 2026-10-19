@@ -29,12 +29,7 @@ export function getPagesPerView(fileType = 'gp') {
         return 1;
     }
 
-    // PDF mode in landscape is always dual-page (2 pages) and not affected by "Landscape in Page Mode" setting
-    if (fileType === 'pdf' || fileType === false) {
-        return 2;
-    }
-
-    // For Guitar Pro and TXT tabs: respect the landscape page layout preference ('dual' (2) or 'single' (1))
+    // Respect the landscape page layout preference ('dual' (2) or 'single' (1))
     const layout = getLandscapePageLayout();
     return layout === 'single' ? 1 : 2;
 }
