@@ -124,6 +124,7 @@
       <button class="btn btn-sm" id="prevPage" title="Previous Page"><i class="bi-chevron-left"></i></button>
       <span id="pageIndicator"></span>
       <button class="btn btn-sm" id="nextPage" title="Next Page"><i class="bi-chevron-right"></i></button>
+      <button class="btn btn-sm" id="pdfBookmarksBtn" title="Bookmarks & Table of Contents" style="display:none;"><i class="bi-bookmark"></i></button>
     </div>
   </div>
 </nav>
@@ -232,6 +233,9 @@
         <input class="form-check-input theme-switch" type="checkbox" id="debugMode">
         <label class="form-check-label small text-white" for="debugMode">Debug PDF Overlay</label>
       </div>
+      <button class="btn btn-theme-outline btn-sm w-100 d-flex align-items-center justify-content-center gap-2 mt-2" id="scoreOptionsBookmarksBtn" type="button">
+        <i class="bi-bookmark-star text-info"></i> View Bookmarks & Outline
+      </button>
     </div>
 
     <!-- Export Actions -->
@@ -247,6 +251,42 @@
       <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="exportSourceTabBtn" type="button">
         <i class="bi-download text-info"></i> Export Source Tab
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- Collapsible PDF Bookmarks Panel -->
+<div id="pdfBookmarksPanel" class="synth-panel pdf-bookmarks-panel" style="display: none;">
+  <div class="synth-panel-header">
+    <div class="d-flex align-items-center text-truncate me-2">
+      <i class="bi-bookmark-star text-info me-2 fs-6"></i>
+      <span class="synth-panel-title text-truncate" id="pdfBookmarksPanelTitle">Bookmarks</span>
+    </div>
+    <button class="brand-btn p-1 px-2 text-muted" id="pdfBookmarksPanelCloseBtn" title="Close">
+      <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
+    </button>
+  </div>
+  <div class="synth-panel-body">
+    <!-- Quick Add Current Page Bookmark -->
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <button type="button" class="btn btn-theme-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-2" id="pdfAddBookmarkBtn">
+        <i class="bi-bookmark-plus"></i>
+        <span id="pdfAddBookmarkLabel">Bookmark Current Page</span>
+      </button>
+    </div>
+
+    <!-- Bookmarks List -->
+    <div class="pdf-bookmarks-section">
+      <div class="d-flex align-items-center justify-content-between mb-2">
+        <label class="form-label small mb-0 fw-semibold text-muted">Bookmarks & Table of Contents</label>
+        <span class="badge bg-secondary-subtle text-muted" id="pdfBookmarkCount" style="font-size: 0.7rem;">0</span>
+      </div>
+      <div id="pdfBookmarksList" class="d-flex flex-column gap-1" style="max-height: 320px; overflow-y: auto;">
+        <!-- Dynamically rendered bookmarks -->
+      </div>
+      <div id="pdfNoBookmarksMsg" class="text-center text-muted py-3 small" style="display: none;">
+        No bookmarks yet. Click "Bookmark Current Page" above to add one.
+      </div>
     </div>
   </div>
 </div>

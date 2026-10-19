@@ -13,7 +13,7 @@ import { updateProgress } from '../utils/fileHandlingUtils.js';
 
 const canvasCache = new WeakMap();
 
-export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, abortSignal, scale, startPage, endPage }) {
+export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, onPdfLoaded, abortSignal, scale, startPage, endPage }) {
   // Create a scaled config if a custom scale is provided
   const config = scale ? createScaledConfig(scale) : CONFIG;
   
@@ -24,6 +24,10 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   if (abortSignal?.aborted) return;
+  
+  if (typeof onPdfLoaded === 'function') {
+    onPdfLoaded(pdf);
+  }
   
   const actualStart = Math.max(1, Math.min(pdf.numPages, parseInt(startPage || file.startPage || 1, 10)));
   const actualEnd = Math.max(actualStart, Math.min(pdf.numPages, parseInt(endPage || file.endPage || pdf.numPages, 10)));
