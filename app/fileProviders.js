@@ -231,7 +231,7 @@ export const GoogleDriveFileProvider = {
             authDrive();
             throw new Error('Please authorize Google Drive to save the file.');
         }
-        const result = await saveFileToDrive(fileBlob, filename, options.folderId);
+        const result = await saveFileToDrive(fileBlob, filename, options.folderId, options.onProgress);
         return { success: true, name: filename, id: result.id, providerId: 'google-drive' };
     }
 };
