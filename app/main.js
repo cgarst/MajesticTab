@@ -501,31 +501,44 @@ function setupSettings() {
 }
 
 /**
- * Enables swiping right from the left screen edge to open the hamburger menu drawer across all touch platforms.
+ * Enables swiping right from the left screen edge to open the hamburger menu drawer,
+ * and sliding/swiping left from the right to dismiss the drawer across all touch platforms.
  */
 function setupMenuEdgeSwipeGesture() {
     let startX = 0;
     let startY = 0;
-    let isTracking = false;
-    const EDGE_THRESHOLD = 30; // Max distance from left viewport edge in pixels to initiate gesture
-    const SWIPE_MIN_DISTANCE = 45; // Minimum horizontal distance to trigger drawer opening
+    let isTrackingOpen = false;
+    let isTrackingClose = false;
+    const EDGE_THRESHOLD = 30; // Max distance from left viewport edge in pixels to initiate open gesture
+    const SWIPE_MIN_DISTANCE = 45; // Minimum horizontal distance to trigger drawer opening or closing
 
     window.addEventListener('touchstart', (e) => {
         if (e.touches.length !== 1) {
-            isTracking = false;
+            isTrackingOpen = false;
+            isTrackingClose = false;
             return;
         }
 
         const touch = e.touches[0];
-        if (touch.clientX > EDGE_THRESHOLD) {
-            isTracking = false;
+        const fileMenu = document.getElementById('fileMenu');
+        const isMenuOpen = Boolean(fileMenu && fileMenu.classList.contains('show'));
+
+        if (isMenuOpen) {
+            // Avoid triggering drawer dismissal when user is dragging a range slider
+            if (e.target && e.target.closest && e.target.closest('input[type="range"]')) {
+                isTrackingClose = false;
+                return;
+            }
+            startX = touch.clientX;
+            startY = touch.clientY;
+            isTrackingClose = true;
+            isTrackingOpen = false;
             return;
         }
 
-        // Do not trigger if menu is already open
-        const fileMenu = document.getElementById('fileMenu');
-        if (!fileMenu || fileMenu.classList.contains('show')) {
-            isTracking = false;
+        // Below is for opening the menu when closed
+        if (touch.clientX > EDGE_THRESHOLD) {
+            isTrackingOpen = false;
             return;
         }
 
@@ -533,54 +546,81 @@ function setupMenuEdgeSwipeGesture() {
         const openBackdrops = Array.from(document.querySelectorAll('.theme-modal-backdrop'))
             .filter(el => el.style.display === 'flex' || el.style.display === 'block');
         if (openBackdrops.length > 0 || document.querySelector('.modal.show')) {
-            isTracking = false;
+            isTrackingOpen = false;
             return;
         }
 
         // Avoid triggering when interacting with form controls or buttons near edge
         if (e.target && e.target.closest && e.target.closest('input, textarea, select, button')) {
-            isTracking = false;
+            isTrackingOpen = false;
             return;
         }
 
         startX = touch.clientX;
         startY = touch.clientY;
-        isTracking = true;
+        isTrackingOpen = true;
+        isTrackingClose = false;
     }, { passive: true });
 
     window.addEventListener('touchmove', (e) => {
-        if (!isTracking || e.touches.length !== 1) return;
-
+        if (e.touches.length !== 1) return;
         const touch = e.touches[0];
-        const deltaX = touch.clientX - startX;
-        const deltaY = Math.abs(touch.clientY - startY);
 
-        // Cancel if swiping backwards or primarily vertical scroll
-        if (deltaX < 0 || (deltaY > 25 && deltaY > deltaX)) {
-            isTracking = false;
-            return;
-        }
+        if (isTrackingOpen) {
+            const deltaX = touch.clientX - startX;
+            const deltaY = Math.abs(touch.clientY - startY);
 
-        // Trigger opening when threshold reached
-        if (deltaX >= SWIPE_MIN_DISTANCE && deltaX > deltaY * 1.2) {
-            const fileMenu = document.getElementById('fileMenu');
-            if (fileMenu) {
-                if (window.bootstrap?.Offcanvas) {
-                    window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).show();
-                } else {
-                    document.getElementById('menuToggleBtn')?.click();
-                }
+            // Cancel if swiping backwards or primarily vertical scroll
+            if (deltaX < 0 || (deltaY > 25 && deltaY > deltaX)) {
+                isTrackingOpen = false;
+                return;
             }
-            isTracking = false;
+
+            // Trigger opening when threshold reached
+            if (deltaX >= SWIPE_MIN_DISTANCE && deltaX > deltaY * 1.2) {
+                const fileMenu = document.getElementById('fileMenu');
+                if (fileMenu) {
+                    if (window.bootstrap?.Offcanvas) {
+                        window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).show();
+                    } else {
+                        document.getElementById('menuToggleBtn')?.click();
+                    }
+                }
+                isTrackingOpen = false;
+            }
+        } else if (isTrackingClose) {
+            const deltaX = touch.clientX - startX;
+            const deltaY = Math.abs(touch.clientY - startY);
+
+            // Cancel if swiping right (deeper into screen) or primarily vertical scroll
+            if (deltaX > 15 || (deltaY > 20 && deltaY > Math.abs(deltaX))) {
+                isTrackingClose = false;
+                return;
+            }
+
+            // Trigger closing when threshold reached
+            if (deltaX <= -SWIPE_MIN_DISTANCE && Math.abs(deltaX) > deltaY * 1.2) {
+                const fileMenu = document.getElementById('fileMenu');
+                if (fileMenu) {
+                    if (window.bootstrap?.Offcanvas) {
+                        window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).hide();
+                    } else {
+                        fileMenu.querySelector('.btn-close')?.click();
+                    }
+                }
+                isTrackingClose = false;
+            }
         }
     }, { passive: true });
 
     window.addEventListener('touchend', () => {
-        isTracking = false;
+        isTrackingOpen = false;
+        isTrackingClose = false;
     }, { passive: true });
 
     window.addEventListener('touchcancel', () => {
-        isTracking = false;
+        isTrackingOpen = false;
+        isTrackingClose = false;
     }, { passive: true });
 }
 
