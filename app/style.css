@@ -890,6 +890,17 @@ body {
   }
 }
 
+@keyframes panelSlideDownMobile {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .yt-panel, .score-options-panel, .pdf-bookmarks-panel {
   animation-name: panelSlideDown;
 }
@@ -3084,6 +3095,7 @@ body:not(.synth-playback-started) .at-highlight {
     width: auto !important;
     max-width: calc(100vw - 1rem) !important;
     transform: none !important;
+    animation-name: panelSlideDownMobile !important;
   }
 
   .score-options-panel .hud-pill-group .btn {
