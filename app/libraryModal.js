@@ -4,7 +4,7 @@
 import {
     getCollections, createCollection, deleteCollection, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
-    deleteAlbumFromLibrary, getSongById, addTabOptionToSong, removeTabOptionFromSong, setDefaultTabOption,
+    deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, setDefaultTabOption,
     togglePinSong, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
     mapOpenFileToSong, getRecents, clearRecents, deleteRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
 } from './libraryStore.js';
@@ -1644,10 +1644,15 @@ function renderSongRow(song, options = {}) {
               <i class="bi-plus-lg"></i> <span class="d-none d-sm-inline">Tab</span>
             </button>
             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
-              ${albumPdfTabs.length > 0 ? `
-                <li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Set Album PDF Pages...</button></li>
-                <li><hr class="dropdown-divider"></li>
-              ` : ''}
+              ${albumPdfTabs.length > 0 ? (() => {
+                const existingPdfTab = tabOptions.find(t => t.isAlbumRange || t.startPage);
+                if (existingPdfTab) {
+                  return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}" data-tab-id="${existingPdfTab.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Edit Album PDF Pages...</button></li>
+                  <li><hr class="dropdown-divider"></li>`;
+                }
+                return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Set Album PDF Pages...</button></li>
+                <li><hr class="dropdown-divider"></li>`;
+              })() : ''}
               ${window.__TAURI__ ? `<li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>` : ''}
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
@@ -1684,6 +1689,7 @@ function renderSongRow(song, options = {}) {
                 const label = info?.displayName || t.tuning;
                 return `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2 ms-1" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
               })() : ''}
+              ${isPdfRange ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
               <button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
             </div>
             `;
@@ -1874,7 +1880,7 @@ function setupSongRowActions(container) {
     // Play specific tab chip
     container.querySelectorAll('.play-tab-chip-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            if (e.target.closest('.remove-tab-chip-btn') || e.target.closest('.set-default-tab-btn') || e.target.closest('.badge-tuning-clickable')) return;
+            if (e.target.closest('.remove-tab-chip-btn') || e.target.closest('.edit-tab-chip-btn') || e.target.closest('.set-default-tab-btn') || e.target.closest('.badge-tuning-clickable')) return;
             e.stopPropagation();
             const songId = btn.dataset.songId;
             const tabId = btn.dataset.tabId;
@@ -1883,6 +1889,37 @@ function setupSongRowActions(container) {
             if (song && tab) {
                 await loadSongTab(song, tab);
             }
+        });
+    });
+
+    // Edit tab chip range
+    container.querySelectorAll('.edit-tab-chip-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const songId = btn.dataset.songId;
+            const tabId = btn.dataset.tabId;
+            const song = await getSongById(songId);
+            if (!song) return;
+            const existingTab = (song.tabOptions || []).find(t => t.id === tabId);
+            if (!existingTab) return;
+            const albumTabs = (selectedArtist && selectedAlbum)
+                ? await getAlbumTabOptions(activeCollectionId, selectedArtist.name, selectedAlbum.title)
+                : [];
+            let albumPdfTabs = albumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
+            if (albumPdfTabs.length === 0 && existingTab.fileStoreId) {
+                albumPdfTabs = [{
+                    id: existingTab.fileStoreId,
+                    name: existingTab.name?.replace(/\s*\(pp\.\s*\d+-\d+\)/, '') || 'Album PDF',
+                    fileStoreId: existingTab.fileStoreId,
+                    relativePath: existingTab.relativePath,
+                    fileType: 'pdf'
+                }];
+            }
+            if (albumPdfTabs.length === 0) {
+                showToast('No whole-album PDF found for this album.', 'warning');
+                return;
+            }
+            openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab);
         });
     });
 
@@ -1902,17 +1939,28 @@ function setupSongRowActions(container) {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const songId = btn.dataset.songId;
+            const tabId = btn.dataset.tabId;
             const song = await getSongById(songId);
             if (!song) return;
             const albumTabs = (selectedArtist && selectedAlbum)
                 ? await getAlbumTabOptions(activeCollectionId, selectedArtist.name, selectedAlbum.title)
                 : [];
-            const albumPdfTabs = albumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
+            let albumPdfTabs = albumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
+            const existingTab = tabId ? song.tabOptions?.find(t => t.id === tabId) : (song.tabOptions?.find(t => t.isAlbumRange || t.startPage) || null);
+            if (albumPdfTabs.length === 0 && existingTab?.fileStoreId) {
+                albumPdfTabs = [{
+                    id: existingTab.fileStoreId,
+                    name: existingTab.name?.replace(/\s*\(pp\.\s*\d+-\d+\)/, '') || 'Album PDF',
+                    fileStoreId: existingTab.fileStoreId,
+                    relativePath: existingTab.relativePath,
+                    fileType: 'pdf'
+                }];
+            }
             if (albumPdfTabs.length === 0) {
                 showToast('No whole-album PDF found for this album.', 'warning');
                 return;
             }
-            openSetAlbumPdfPagesModal(song, albumPdfTabs);
+            openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab);
         });
     });
 
@@ -2311,8 +2359,8 @@ async function loadSongTab(song, tabOption) {
             file.album = song.album;
             file.coverUrl = song.coverUrl;
             file.tunings = song.tunings;
-            file.startPage = tabOption.startPage;
-            file.endPage = tabOption.endPage;
+            file.startPage = (tabOption.startPage !== undefined && tabOption.startPage !== null) ? parseInt(tabOption.startPage, 10) : null;
+            file.endPage = (tabOption.endPage !== undefined && tabOption.endPage !== null) ? parseInt(tabOption.endPage, 10) : null;
             file.tabId = tabOption.id;
             file.tabName = tabOption.name || file.name;
             file.fileStoreId = tabOption.fileStoreId;
@@ -3719,7 +3767,7 @@ export function openThemedInputModal({
 /**
  * Themed dialog to configure start and end page range from an album-level PDF for a specific track.
  */
-export function openSetAlbumPdfPagesModal(song, albumPdfTabs = []) {
+export function openSetAlbumPdfPagesModal(song, albumPdfTabs = [], existingTab = null) {
     if (!albumPdfTabs || albumPdfTabs.length === 0) {
         showToast('No whole-album PDF found for this album.', 'warning');
         return;
@@ -3733,7 +3781,12 @@ export function openSetAlbumPdfPagesModal(song, albumPdfTabs = []) {
         document.body.appendChild(modal);
     }
 
-    const firstTab = albumPdfTabs[0];
+    const isEdit = Boolean(existingTab);
+    const selectedSourceId = (existingTab && albumPdfTabs.find(t => (existingTab.fileStoreId && t.fileStoreId === existingTab.fileStoreId) || t.id === existingTab.id)?.id) || albumPdfTabs[0].id;
+    const initialTab = albumPdfTabs.find(t => t.id === selectedSourceId) || albumPdfTabs[0];
+    const initialStart = existingTab?.startPage || 1;
+    const initialEnd = existingTab?.endPage || initialStart;
+    const initialName = existingTab?.name || '';
 
     modal.innerHTML = `
     <div class="theme-modal-card" style="max-width: 480px; width: 90%;">
@@ -3743,7 +3796,7 @@ export function openSetAlbumPdfPagesModal(song, albumPdfTabs = []) {
             <i class="bi-file-earmark-pdf text-primary fs-5"></i>
           </div>
           <div class="theme-modal-titles">
-            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Set Album PDF Pages</h5>
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">${isEdit ? 'Edit Album PDF Pages' : 'Set Album PDF Pages'}</h5>
             <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(song.title)}</div>
           </div>
         </div>
@@ -3759,33 +3812,33 @@ export function openSetAlbumPdfPagesModal(song, albumPdfTabs = []) {
             <div>
               <label class="form-label small text-white-50 mb-1">Album PDF Source</label>
               <select class="form-select form-select-sm" id="albumPdfSourceSelect">
-                ${albumPdfTabs.map((t, idx) => `<option value="${escapeHtml(t.id)}" ${idx === 0 ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}
+                ${albumPdfTabs.map((t) => `<option value="${escapeHtml(t.id)}" ${t.id === selectedSourceId ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}
               </select>
             </div>
           ` : `
             <div>
               <label class="form-label small text-white-50 mb-1">Album PDF Source</label>
-              <div class="small text-white fw-semibold"><i class="bi-file-earmark-pdf text-warning me-1"></i>${escapeHtml(firstTab.name)}</div>
+              <div class="small text-white fw-semibold"><i class="bi-file-earmark-pdf text-warning me-1"></i>${escapeHtml(initialTab.name)}</div>
             </div>
           `}
           <div class="row g-2">
             <div class="col-6">
               <label class="form-label small text-white-50 mb-1">Start Page</label>
-              <input type="number" class="form-control" id="albumPdfStartPage" min="1" step="1" value="1" required>
+              <input type="number" class="form-control" id="albumPdfStartPage" min="1" step="1" value="${initialStart}" required>
             </div>
             <div class="col-6">
               <label class="form-label small text-white-50 mb-1">End Page</label>
-              <input type="number" class="form-control" id="albumPdfEndPage" min="1" step="1" value="1" required>
+              <input type="number" class="form-control" id="albumPdfEndPage" min="1" step="1" value="${initialEnd}" required>
             </div>
           </div>
           <div>
             <label class="form-label small text-white-50 mb-1">Tab Name (optional)</label>
-            <input type="text" class="form-control" id="albumPdfTabName" placeholder="${escapeHtml(firstTab.name)} (pp. 1-1)">
+            <input type="text" class="form-control" id="albumPdfTabName" value="${escapeHtml(initialName)}" placeholder="${escapeHtml(initialTab.name)} (pp. ${initialStart}-${initialEnd})">
           </div>
         </div>
         <div class="d-flex justify-content-end gap-2 p-3 pt-0 border-0">
           <button type="button" class="btn btn-sm btn-theme-outline px-3" id="themedAlbumPdfCancelBtn">Cancel</button>
-          <button type="submit" class="btn btn-sm btn-theme-primary px-4" id="themedAlbumPdfConfirmBtn">Save Tab Range</button>
+          <button type="submit" class="btn btn-sm btn-theme-primary px-4" id="themedAlbumPdfConfirmBtn">${isEdit ? 'Save Changes' : 'Save Tab Range'}</button>
         </div>
       </form>
     </div>
@@ -3800,8 +3853,8 @@ export function openSetAlbumPdfPagesModal(song, albumPdfTabs = []) {
     const nameInput = modal.querySelector('#albumPdfTabName');
 
     const updateNamePlaceholder = () => {
-        const selId = sourceSelect ? sourceSelect.value : firstTab.id;
-        const selTab = albumPdfTabs.find(t => t.id === selId) || firstTab;
+        const selId = sourceSelect ? sourceSelect.value : selectedSourceId;
+        const selTab = albumPdfTabs.find(t => t.id === selId) || initialTab;
         const s = parseInt(startInput.value, 10) || 1;
         const e = parseInt(endInput.value, 10) || s;
         nameInput.placeholder = `${selTab.name} (pp. ${s}-${e})`;
@@ -3834,26 +3887,38 @@ export function openSetAlbumPdfPagesModal(song, albumPdfTabs = []) {
 
     form?.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const selId = sourceSelect ? sourceSelect.value : firstTab.id;
-        const selTab = albumPdfTabs.find(t => t.id === selId) || firstTab;
+        const selId = sourceSelect ? sourceSelect.value : selectedSourceId;
+        const selTab = albumPdfTabs.find(t => t.id === selId) || initialTab;
         const startPage = parseInt(startInput.value, 10) || 1;
         const endPage = parseInt(endInput.value, 10) || startPage;
         const customName = (nameInput.value || '').trim() || `${selTab.name} (pp. ${startPage}-${endPage})`;
 
-        await addTabOptionToSong(song.id, {
-            name: customName,
-            fileStoreId: selTab.fileStoreId,
-            providerId: selTab.providerId || 'local',
-            relativePath: selTab.relativePath || selTab.name,
-            startPage: startPage,
-            endPage: endPage,
-            isAlbumRange: true,
-            tuning: selTab.tuning || song.tunings?.[0] || 'E Standard',
-            tunings: selTab.tunings || song.tunings || ['E Standard']
-        });
-
-        closeModal();
-        showToast(`Saved PDF page range for ${song.title}`, 'success');
+        if (isEdit && existingTab) {
+            await updateTabOptionOnSong(song.id, existingTab.id, {
+                name: customName,
+                startPage: startPage,
+                endPage: endPage,
+                fileStoreId: selTab.fileStoreId || existingTab.fileStoreId,
+                relativePath: selTab.relativePath || selTab.name || existingTab.relativePath,
+                isAlbumRange: true
+            });
+            closeModal();
+            showToast(`Updated PDF page range for ${song.title}`, 'success');
+        } else {
+            await addTabOptionToSong(song.id, {
+                name: customName,
+                fileStoreId: selTab.fileStoreId,
+                providerId: selTab.providerId || 'local',
+                relativePath: selTab.relativePath || selTab.name,
+                startPage: startPage,
+                endPage: endPage,
+                isAlbumRange: true,
+                tuning: selTab.tuning || song.tunings?.[0] || 'E Standard',
+                tunings: selTab.tunings || song.tunings || ['E Standard']
+            });
+            closeModal();
+            showToast(`Saved PDF page range for ${song.title}`, 'success');
+        }
         await renderView();
     });
 

@@ -506,6 +506,9 @@ export async function addTabOptionToSong(songId, tabOption) {
         tunings: Array.isArray(tabOption.tunings) ? tabOption.tunings : (tabOption.tuning ? [tabOption.tuning] : []),
         stringCount,
         fileType: tabOption.fileType || 'gp',
+        startPage: (tabOption.startPage !== undefined && tabOption.startPage !== null) ? parseInt(tabOption.startPage, 10) : null,
+        endPage: (tabOption.endPage !== undefined && tabOption.endPage !== null) ? parseInt(tabOption.endPage, 10) : null,
+        isAlbumRange: Boolean(tabOption.isAlbumRange),
         isDefault: Boolean(tabOption.isDefault),
         addedAt: Date.now()
     };
@@ -544,6 +547,35 @@ export async function addTabOptionToSong(songId, tabOption) {
 
     await saveSongToLibrary(song, song.collectionId);
     return newOption;
+}
+
+/**
+ * Update an existing tab option on a song
+ */
+export async function updateTabOptionOnSong(songId, tabOptionId, updates = {}) {
+    const song = await getSongById(songId);
+    if (!song || !Array.isArray(song.tabOptions)) {
+        throw new Error(`Song not found or has no tab options: ${songId}`);
+    }
+
+    const tab = song.tabOptions.find(t => t.id === tabOptionId);
+    if (!tab) {
+        throw new Error(`Tab option not found: ${tabOptionId}`);
+    }
+
+    if (updates.name !== undefined) tab.name = updates.name;
+    if (updates.startPage !== undefined) tab.startPage = updates.startPage !== null ? parseInt(updates.startPage, 10) : null;
+    if (updates.endPage !== undefined) tab.endPage = updates.endPage !== null ? parseInt(updates.endPage, 10) : null;
+    if (updates.isAlbumRange !== undefined) tab.isAlbumRange = Boolean(updates.isAlbumRange);
+    if (updates.fileStoreId !== undefined) tab.fileStoreId = updates.fileStoreId;
+    if (updates.relativePath !== undefined) tab.relativePath = updates.relativePath;
+    if (updates.tuning !== undefined) tab.tuning = updates.tuning;
+    if (updates.tunings !== undefined) tab.tunings = updates.tunings;
+    if (updates.fileType !== undefined) tab.fileType = updates.fileType;
+    if (updates.providerId !== undefined) tab.providerId = updates.providerId;
+
+    await saveSongToLibrary(song, song.collectionId);
+    return tab;
 }
 
 /**
@@ -633,6 +665,9 @@ export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, 
         tuning: tabOption.tuning || null,
         stringCount: tabOption.stringCount || 6,
         fileType: tabOption.fileType || 'pdf',
+        startPage: (tabOption.startPage !== undefined && tabOption.startPage !== null) ? parseInt(tabOption.startPage, 10) : null,
+        endPage: (tabOption.endPage !== undefined && tabOption.endPage !== null) ? parseInt(tabOption.endPage, 10) : null,
+        isAlbumRange: Boolean(tabOption.isAlbumRange),
         isDefault: Boolean(tabOption.isDefault),
         addedAt: Date.now()
     };
