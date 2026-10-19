@@ -76,7 +76,7 @@ export function layoutPages(condensedCanvases) {
     const pages = [];
     const pageHeight = window.innerHeight - 80 - PAGE_PADDING;
     const pageWidth = window.innerWidth - 40;
-    const pagesPerView = getPagesPerView(false); // false = PDF mode
+    const pagesPerView = getPagesPerView('pdf');
     const pageGap = 10; // Gap between canvases on the same page
 
     // Don't try to layout if we don't have any canvases
@@ -164,7 +164,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
     container.className = 'pageContainer';
 
     const startIndex = currentPageIndex;
-    const pagesPerView = getPagesPerView(false); // false = PDF mode
+    const pagesPerView = getPagesPerView('pdf');
     
     for (let i = 0; i < pagesPerView; i++) {
         const pageSet = pages[startIndex + i];

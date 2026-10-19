@@ -436,6 +436,12 @@ function setupSettings() {
                         renderGPPage(output, true, continuousModeRadio);
                     } else if (isFileType(currentFile, ['txt'])) {
                         await loadFile(currentFile, { hideMenu: false });
+                    } else if (isFileType(currentFile, ['pdf'])) {
+                        const pagesPerView = getPagesPerView('pdf');
+                        if (pages?.length) {
+                            currentPageIndex = Math.min(currentPageIndex, Math.max(0, pages.length - pagesPerView));
+                        }
+                        doLayoutPages();
                     }
                 }
             }
