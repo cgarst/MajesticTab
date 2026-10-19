@@ -77,6 +77,30 @@ let currentExploreMusicianToken = 0;
 /**
  * Check if the library page can go back to a parent view
  */
+let forwardHistory = [];
+
+export function captureCurrentLibraryState() {
+    return {
+        view: activeView,
+        libraryBrowseMode,
+        selectedArtist,
+        selectedAlbum,
+        selectedFolderPath: [...selectedFolderPath],
+        selectedTuning,
+        isAlbumEditMode,
+        searchSubView: searchSubView ? { ...searchSubView } : null,
+        searchType,
+        currentSearchQuery,
+        currentSearchResults: [...currentSearchResults],
+        searchHistory: [...searchHistory]
+    };
+}
+
+export function pushLibraryNavigationState() {
+    viewHistory.push(captureCurrentLibraryState());
+    forwardHistory = [];
+}
+
 export function canGoBack() {
     if (searchSubView) return true;
     if (activeView === 'library') {
@@ -88,134 +112,183 @@ export function canGoBack() {
     return viewHistory.length > 0;
 }
 
+export function canGoForward() {
+    return forwardHistory.length > 0;
+}
+
+export async function restoreLibraryState(state) {
+    if (!state) return;
+    activeView = state.view || 'library';
+    libraryBrowseMode = state.libraryBrowseMode || 'artists';
+    selectedArtist = state.selectedArtist || null;
+    selectedAlbum = state.selectedAlbum || null;
+    selectedFolderPath = state.selectedFolderPath ? [...state.selectedFolderPath] : [];
+    selectedTuning = state.selectedTuning || null;
+    isAlbumEditMode = false;
+    searchSubView = state.searchSubView || null;
+    searchType = state.searchType || 'song';
+    currentSearchQuery = state.currentSearchQuery || '';
+    currentSearchResults = state.currentSearchResults ? [...state.currentSearchResults] : [];
+    searchHistory = state.searchHistory ? [...state.searchHistory] : [];
+    await renderLibraryModal();
+}
+
+export async function handleForward() {
+    if (forwardHistory.length === 0) return false;
+    const currentState = captureCurrentLibraryState();
+    const nextState = forwardHistory.pop();
+    viewHistory.push(currentState);
+    await restoreLibraryState(nextState);
+    return true;
+}
+
 /**
  * Unified back handler for library page (used by in-view back buttons & shortcuts)
  */
 export async function handleBack() {
+    if (!canGoBack()) return false;
+    const currentState = captureCurrentLibraryState();
     const content = document.getElementById('libraryModalContent');
-    if (searchSubView && searchSubView.fromView === 'library') {
-        searchSubView = null;
-        if (viewHistory.length > 0) {
-            const prev = viewHistory.pop();
-            activeView = prev.view || 'library';
-            libraryBrowseMode = prev.libraryBrowseMode || 'artists';
-            selectedArtist = prev.selectedArtist || null;
-            selectedAlbum = prev.selectedAlbum || null;
-            selectedFolderPath = prev.selectedFolderPath || [];
-            selectedTuning = prev.selectedTuning || null;
-            isAlbumEditMode = false;
-            await renderLibraryModal();
-            return;
-        } else {
-            await renderLibraryModal();
-            return;
-        }
-    }
-    if (activeView === 'library') {
-        if (libraryBrowseMode === 'tunings' && selectedTuning) {
-            selectedTuning = null;
-            await renderView();
-            return;
-        }
-        if (selectedFolderPath.length > 0) {
-            selectedFolderPath.pop();
-            selectedAlbum = (selectedFolderPath.length > 0 && selectedArtist?.albums)
-                ? (selectedArtist.albums.find(a => (a.folderPath || a.title) === selectedFolderPath.join('/')) || null)
-                : null;
-            isAlbumEditMode = false;
-            await renderView();
-            return;
-        }
-        if (selectedAlbum) {
-            selectedAlbum = null;
-            isAlbumEditMode = false;
-            await renderView();
-            return;
-        }
-        if (selectedArtist) {
-            selectedArtist = null;
-            selectedFolderPath = [];
-            isAlbumEditMode = false;
-            await renderView();
-            return;
-        }
-        if (viewHistory.length > 0) {
-            const prev = viewHistory.pop();
-            activeView = prev.view || 'library';
-            libraryBrowseMode = prev.libraryBrowseMode || 'artists';
-            selectedArtist = prev.selectedArtist || null;
-            selectedAlbum = prev.selectedAlbum || null;
-            selectedFolderPath = prev.selectedFolderPath || [];
-            selectedTuning = prev.selectedTuning || null;
-            isAlbumEditMode = false;
-            searchSubView = prev.searchSubView || null;
-            await renderLibraryModal();
-            return;
-        }
-    } else if (activeView === 'search') {
-        const searchHeader = document.querySelector('.search-sticky-header');
-        let resContainer = document.getElementById('mbSearchResultsContainer');
-        if (!searchHeader || !resContainer) {
-            renderSearchMusicBrainzView(content);
-            resContainer = document.getElementById('mbSearchResultsContainer') || content;
-        }
 
-        if (searchHistory.length > 0) {
-            const prevSearch = searchHistory.pop();
-            if (prevSearch.type === 'results') {
+    const executeBack = async () => {
+        if (searchSubView && searchSubView.fromView === 'library') {
+            searchSubView = null;
+            if (viewHistory.length > 0) {
+                const prev = viewHistory.pop();
+                activeView = prev.view || 'library';
+                libraryBrowseMode = prev.libraryBrowseMode || 'artists';
+                selectedArtist = prev.selectedArtist || null;
+                selectedAlbum = prev.selectedAlbum || null;
+                selectedFolderPath = prev.selectedFolderPath || [];
+                selectedTuning = prev.selectedTuning || null;
+                isAlbumEditMode = false;
+                await renderLibraryModal();
+                return true;
+            } else {
+                await renderLibraryModal();
+                return true;
+            }
+        }
+        if (activeView === 'library') {
+            if (libraryBrowseMode === 'tunings' && selectedTuning) {
+                selectedTuning = null;
+                await renderView();
+                return true;
+            }
+            if (selectedFolderPath.length > 0) {
+                selectedFolderPath.pop();
+                selectedAlbum = (selectedFolderPath.length > 0 && selectedArtist?.albums)
+                    ? (selectedArtist.albums.find(a => (a.folderPath || a.title) === selectedFolderPath.join('/')) || null)
+                    : null;
+                isAlbumEditMode = false;
+                await renderView();
+                return true;
+            }
+            if (selectedAlbum) {
+                selectedAlbum = null;
+                isAlbumEditMode = false;
+                await renderView();
+                return true;
+            }
+            if (selectedArtist) {
+                selectedArtist = null;
+                selectedFolderPath = [];
+                isAlbumEditMode = false;
+                await renderView();
+                return true;
+            }
+            if (viewHistory.length > 0) {
+                const prev = viewHistory.pop();
+                activeView = prev.view || 'library';
+                libraryBrowseMode = prev.libraryBrowseMode || 'artists';
+                selectedArtist = prev.selectedArtist || null;
+                selectedAlbum = prev.selectedAlbum || null;
+                selectedFolderPath = prev.selectedFolderPath || [];
+                selectedTuning = prev.selectedTuning || null;
+                isAlbumEditMode = false;
+                searchSubView = prev.searchSubView || null;
+                await renderLibraryModal();
+                return true;
+            }
+        } else if (activeView === 'search') {
+            const searchHeader = document.querySelector('.search-sticky-header');
+            let resContainer = document.getElementById('mbSearchResultsContainer');
+            if (!searchHeader || !resContainer) {
+                renderSearchMusicBrainzView(content);
+                resContainer = document.getElementById('mbSearchResultsContainer') || content;
+            }
+
+            if (searchHistory.length > 0) {
+                const prevSearch = searchHistory.pop();
+                if (prevSearch.type === 'results') {
+                    searchSubView = null;
+                    const header = document.querySelector('.search-sticky-header');
+                    if (header) header.style.display = '';
+                    renderSearchResults(currentSearchResults, searchType, resContainer);
+                } else if (prevSearch.type === 'albums') {
+                    searchSubView = prevSearch;
+                    const header = document.querySelector('.search-sticky-header');
+                    if (header) header.style.display = 'none';
+                    await exploreArtistAlbums(prevSearch.artistMbid, prevSearch.artistName, resContainer, false);
+                } else if (prevSearch.type === 'bands') {
+                    searchSubView = prevSearch;
+                    const header = document.querySelector('.search-sticky-header');
+                    if (header) header.style.display = 'none';
+                    await exploreMusicianBands(prevSearch.musicianMbid, prevSearch.musicianName, resContainer, false);
+                }
+                return true;
+            }
+            if (searchSubView) {
                 searchSubView = null;
                 const header = document.querySelector('.search-sticky-header');
                 if (header) header.style.display = '';
                 renderSearchResults(currentSearchResults, searchType, resContainer);
-            } else if (prevSearch.type === 'albums') {
-                searchSubView = prevSearch;
-                const header = document.querySelector('.search-sticky-header');
-                if (header) header.style.display = 'none';
-                await exploreArtistAlbums(prevSearch.artistMbid, prevSearch.artistName, resContainer, false);
-            } else if (prevSearch.type === 'bands') {
-                searchSubView = prevSearch;
-                const header = document.querySelector('.search-sticky-header');
-                if (header) header.style.display = 'none';
-                await exploreMusicianBands(prevSearch.musicianMbid, prevSearch.musicianName, resContainer, false);
+                return true;
             }
-            return;
+            if (viewHistory.length > 0) {
+                const prev = viewHistory.pop();
+                activeView = prev.view || 'library';
+                selectedArtist = prev.selectedArtist || null;
+                selectedAlbum = prev.selectedAlbum || null;
+                selectedFolderPath = prev.selectedFolderPath || [];
+                selectedTuning = prev.selectedTuning || null;
+                searchSubView = prev.searchSubView || null;
+                await renderLibraryModal();
+                return true;
+            } else {
+                await switchView('library', false);
+                return true;
+            }
+        } else if (activeView === 'recents') {
+            if (viewHistory.length > 0) {
+                const prev = viewHistory.pop();
+                activeView = prev.view || 'library';
+                selectedArtist = prev.selectedArtist || null;
+                selectedAlbum = prev.selectedAlbum || null;
+                searchSubView = prev.searchSubView || null;
+                await renderLibraryModal();
+                return true;
+            } else {
+                await switchView('library', false);
+                return true;
+            }
         }
-        if (searchSubView) {
-            searchSubView = null;
-            const header = document.querySelector('.search-sticky-header');
-            if (header) header.style.display = '';
-            renderSearchResults(currentSearchResults, searchType, resContainer);
-            return;
-        }
-        if (viewHistory.length > 0) {
-            const prev = viewHistory.pop();
-            activeView = prev.view || 'library';
-            selectedArtist = prev.selectedArtist || null;
-            selectedAlbum = prev.selectedAlbum || null;
-            selectedFolderPath = prev.selectedFolderPath || [];
-            selectedTuning = prev.selectedTuning || null;
-            searchSubView = prev.searchSubView || null;
-            await renderLibraryModal();
-            return;
-        } else {
-            await switchView('library', false);
-            return;
-        }
-    } else if (activeView === 'recents') {
-        if (viewHistory.length > 0) {
-            const prev = viewHistory.pop();
-            activeView = prev.view || 'library';
-            selectedArtist = prev.selectedArtist || null;
-            selectedAlbum = prev.selectedAlbum || null;
-            searchSubView = prev.searchSubView || null;
-            await renderLibraryModal();
-            return;
-        } else {
-            await switchView('library', false);
-            return;
-        }
+        return false;
+    };
+
+    const didBack = await executeBack();
+    if (didBack) {
+        forwardHistory.push(currentState);
+        return true;
     }
-    closeLibraryModal();
+    return false;
+}
+
+if (typeof window !== 'undefined') {
+    window.__majesticLibraryBack = handleBack;
+    window.__majesticLibraryForward = handleForward;
+    window.__majesticLibraryCanGoBack = canGoBack;
+    window.__majesticLibraryCanGoForward = canGoForward;
 }
 
 function updateBackBtnVisibility() {
@@ -479,12 +552,7 @@ export async function renderLibraryModal() {
 
 async function switchView(view, pushHistory = true) {
     if (pushHistory && activeView !== view) {
-        viewHistory.push({
-            view: activeView,
-            selectedArtist,
-            selectedAlbum,
-            searchSubView
-        });
+        pushLibraryNavigationState();
     }
     activeView = view;
     await renderLibraryModal();
@@ -1014,6 +1082,7 @@ async function renderLibraryBrowseView(container) {
 
     // Breadcrumb clicks
     container.querySelector('#bcRoot')?.addEventListener('click', () => {
+        pushLibraryNavigationState();
         selectedArtist = null;
         selectedAlbum = null;
         selectedFolderPath = [];
@@ -1021,6 +1090,7 @@ async function renderLibraryBrowseView(container) {
         renderLibraryBrowseView(container);
     });
     container.querySelector('#bcArtist')?.addEventListener('click', () => {
+        pushLibraryNavigationState();
         selectedAlbum = null;
         selectedFolderPath = [];
         isAlbumEditMode = false;
@@ -1030,6 +1100,7 @@ async function renderLibraryBrowseView(container) {
         btn.addEventListener('click', () => {
             const idx = parseInt(btn.dataset.segmentIndex, 10);
             if (!isNaN(idx)) {
+                pushLibraryNavigationState();
                 selectedFolderPath = selectedFolderPath.slice(0, idx + 1);
                 selectedAlbum = selectedArtist?.albums?.find(a => (a.folderPath || a.title) === selectedFolderPath.join('/')) || null;
                 isAlbumEditMode = false;
@@ -1039,6 +1110,7 @@ async function renderLibraryBrowseView(container) {
     });
 
     container.querySelector('#bcTuningRoot')?.addEventListener('click', () => {
+        pushLibraryNavigationState();
         selectedTuning = null;
         renderLibraryBrowseView(container);
     });
@@ -1047,6 +1119,7 @@ async function renderLibraryBrowseView(container) {
     container.querySelectorAll('.artist-card').forEach(card => {
         card.addEventListener('click', () => {
             clearCardInteractionState(card);
+            pushLibraryNavigationState();
             const artistName = card.dataset.artistName;
             selectedArtist = artists.find(a => a.name === artistName);
             selectedAlbum = null;
@@ -1061,6 +1134,7 @@ async function renderLibraryBrowseView(container) {
         card.addEventListener('click', (e) => {
             if (e.target.closest('.edit-tuning-btn')) return;
             clearCardInteractionState(card);
+            pushLibraryNavigationState();
             const tuningKey = card.dataset.tuningKey || card.dataset.tuningName;
             selectedTuning = tuningKey;
             renderLibraryBrowseView(container);
@@ -1096,6 +1170,7 @@ async function renderLibraryBrowseView(container) {
 
         card.addEventListener('click', () => {
             clearCardInteractionState(card);
+            pushLibraryNavigationState();
             if (selectedArtist?.isCustom) {
                 selectedFolderPath.push(folderName);
                 selectedAlbum = selectedArtist?.albums?.find(a => (a.folderPath || a.title) === selectedFolderPath.join('/')) || null;
@@ -1518,6 +1593,7 @@ function setupLibraryFilter(container, context = {}) {
         filterResults.querySelectorAll('.artist-card').forEach(card => {
             card.addEventListener('click', () => {
                 clearCardInteractionState(card);
+                pushLibraryNavigationState();
                 const artistName = card.dataset.artistName;
                 selectedArtist = (context.artists || []).find(a => a.name === artistName);
                 selectedAlbum = null;
@@ -1531,6 +1607,7 @@ function setupLibraryFilter(container, context = {}) {
         filterResults.querySelectorAll('.album-card').forEach(card => {
             card.addEventListener('click', () => {
                 clearCardInteractionState(card);
+                pushLibraryNavigationState();
                 const artistName = card.dataset.artistName;
                 const albumTitle = card.dataset.albumTitle;
                 const targetArtist = (context.artists || []).find(a => a.name === artistName);
