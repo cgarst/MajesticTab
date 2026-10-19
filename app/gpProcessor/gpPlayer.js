@@ -24,6 +24,8 @@ export const synthPlayerState = {
     countInEnabled: false,
     masterVolume: 1.0,
     trackMode: 'fullBand',
+    audioSyncAvailable: false,
+    audioSyncEnabled: false,
     loopEnabled: false,
     loopStartMeasure: 1,
     loopEndMeasure: 1
@@ -203,6 +205,42 @@ export function updateSynthUI() {
             btn.classList.remove('active');
         }
     });
+
+    // Update Embedded Audio Sync switch and description
+    const audioSyncSection = document.getElementById('synthAudioSyncSection');
+    const audioSyncSwitch = document.getElementById('synthAudioSyncSwitch');
+    const audioSyncDesc = document.getElementById('synthAudioSyncDesc');
+    const trackModeContainer = document.getElementById('synthTrackModeContainer');
+    const trackModeRadios = document.querySelectorAll('input[name="synthTrackMode"]');
+
+    if (audioSyncSwitch) {
+        audioSyncSwitch.disabled = !synthPlayerState.audioSyncAvailable || !hasScore;
+        audioSyncSwitch.checked = synthPlayerState.audioSyncAvailable && synthPlayerState.audioSyncEnabled;
+    }
+    if (audioSyncSection) {
+        if (synthPlayerState.audioSyncAvailable && hasScore) {
+            audioSyncSection.classList.remove('opacity-50');
+            if (audioSyncDesc) {
+                audioSyncDesc.textContent = synthPlayerState.audioSyncEnabled
+                    ? 'Guitar Pro 8 synced audio track active'
+                    : 'SoundFont MIDI synthesizer active';
+            }
+        } else {
+            audioSyncSection.classList.add('opacity-50');
+            if (audioSyncDesc) {
+                audioSyncDesc.textContent = 'Not provided in this tab';
+            }
+        }
+    }
+    if (trackModeContainer) {
+        if (synthPlayerState.audioSyncAvailable && synthPlayerState.audioSyncEnabled) {
+            trackModeContainer.classList.add('opacity-50');
+            trackModeRadios.forEach(r => r.disabled = true);
+        } else {
+            trackModeContainer.classList.remove('opacity-50');
+            trackModeRadios.forEach(r => r.disabled = !canPlay);
+        }
+    }
 }
 
 const playedBeatState = { beat: null, shownBeat: null };
@@ -568,7 +606,17 @@ export function attachAlphaTabApi(api) {
     if (api.isReadyForPlayback || api.isReady || api.player?.isReadyForPlayback) {
         synthPlayerState.isReady = true;
     }
-    applySynthTrackMode();
+
+    const hasAudioSync = Boolean(currentScore?.backingTrack?.rawAudioFile);
+    synthPlayerState.audioSyncAvailable = hasAudioSync;
+    synthPlayerState.audioSyncEnabled = hasAudioSync && (
+        api.settings?.player?.playerMode === alphaTab.PlayerMode.EnabledBackingTrack ||
+        api.settings?.player?.playerMode === alphaTab.PlayerMode.EnabledAutomatic
+    );
+
+    if (!synthPlayerState.audioSyncEnabled) {
+        applySynthTrackMode();
+    }
 
     // SoundFont Loaded Event
     api.soundFontLoaded.on(() => {
@@ -593,7 +641,9 @@ export function attachAlphaTabApi(api) {
         api.playbackSpeed = synthPlayerState.playbackSpeed;
         api.metronomeVolume = synthPlayerState.metronomeEnabled ? 1.0 : 0.0;
         api.countInVolume = synthPlayerState.countInEnabled ? 1.0 : 0.0;
-        applySynthTrackMode();
+        if (!synthPlayerState.audioSyncEnabled) {
+            applySynthTrackMode();
+        }
         updateSynthUI();
     });
 
@@ -677,12 +727,43 @@ export function detachAlphaTabApi() {
     synthPlayerState.isPlaying = false;
     synthPlayerState.isReady = false;
     synthPlayerState.soundFontLoaded = false;
+    synthPlayerState.audioSyncAvailable = false;
+    synthPlayerState.audioSyncEnabled = false;
     synthPlayerState.currentTime = 0;
     synthPlayerState.endTime = 0;
 
     clearSynthHighlights();
     toggleSynthPanel(false);
     hideSynthPlayer();
+    updateSynthUI();
+}
+
+/**
+ * Enable or disable embedded audio sync backing track for Guitar Pro 8 files
+ * @param {boolean} enabled
+ */
+export function setAudioSyncEnabled(enabled) {
+    if (!currentApi || !synthPlayerState.audioSyncAvailable) return;
+    synthPlayerState.audioSyncEnabled = enabled;
+
+    const wasPlaying = synthPlayerState.isPlaying;
+    if (wasPlaying) {
+        pauseSynthPlayer();
+    }
+
+    currentApi.settings.player.playerMode = enabled
+        ? alphaTab.PlayerMode.EnabledBackingTrack
+        : alphaTab.PlayerMode.EnabledSynthesizer;
+
+    currentApi.updateSettings();
+    if (typeof currentApi.loadMidiForScore === 'function') {
+        currentApi.loadMidiForScore();
+    }
+
+    currentApi.playbackSpeed = synthPlayerState.playbackSpeed;
+    if (!enabled) {
+        applySynthTrackMode();
+    }
     updateSynthUI();
 }
 
@@ -1125,6 +1206,11 @@ export function initSynthPlayer() {
 
     countInSwitch?.addEventListener('change', (e) => {
         toggleCountIn(e.target.checked);
+    });
+
+    const audioSyncSwitch = document.getElementById('synthAudioSyncSwitch');
+    audioSyncSwitch?.addEventListener('change', (e) => {
+        setAudioSyncEnabled(e.target.checked);
     });
 
     trackModeRadios.forEach(radio => {
