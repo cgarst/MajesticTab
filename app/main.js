@@ -492,6 +492,93 @@ function setupSettings() {
             }
         });
     }
+
+    // Setup edge swipe gesture to open the menu on touch-enabled platforms
+    setupMenuEdgeSwipeGesture();
+}
+
+/**
+ * Enables swiping right from the left screen edge to open the hamburger menu drawer across all touch platforms.
+ */
+function setupMenuEdgeSwipeGesture() {
+    let startX = 0;
+    let startY = 0;
+    let isTracking = false;
+    const EDGE_THRESHOLD = 30; // Max distance from left viewport edge in pixels to initiate gesture
+    const SWIPE_MIN_DISTANCE = 45; // Minimum horizontal distance to trigger drawer opening
+
+    window.addEventListener('touchstart', (e) => {
+        if (e.touches.length !== 1) {
+            isTracking = false;
+            return;
+        }
+
+        const touch = e.touches[0];
+        if (touch.clientX > EDGE_THRESHOLD) {
+            isTracking = false;
+            return;
+        }
+
+        // Do not trigger if menu is already open
+        const fileMenu = document.getElementById('fileMenu');
+        if (!fileMenu || fileMenu.classList.contains('show')) {
+            isTracking = false;
+            return;
+        }
+
+        // Do not trigger if any interactive modal or dialog backdrop is open
+        const openBackdrops = Array.from(document.querySelectorAll('.theme-modal-backdrop'))
+            .filter(el => el.style.display === 'flex' || el.style.display === 'block');
+        if (openBackdrops.length > 0 || document.querySelector('.modal.show')) {
+            isTracking = false;
+            return;
+        }
+
+        // Avoid triggering when interacting with form controls or buttons near edge
+        if (e.target && e.target.closest && e.target.closest('input, textarea, select, button')) {
+            isTracking = false;
+            return;
+        }
+
+        startX = touch.clientX;
+        startY = touch.clientY;
+        isTracking = true;
+    }, { passive: true });
+
+    window.addEventListener('touchmove', (e) => {
+        if (!isTracking || e.touches.length !== 1) return;
+
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - startX;
+        const deltaY = Math.abs(touch.clientY - startY);
+
+        // Cancel if swiping backwards or primarily vertical scroll
+        if (deltaX < 0 || (deltaY > 25 && deltaY > deltaX)) {
+            isTracking = false;
+            return;
+        }
+
+        // Trigger opening when threshold reached
+        if (deltaX >= SWIPE_MIN_DISTANCE && deltaX > deltaY * 1.2) {
+            const fileMenu = document.getElementById('fileMenu');
+            if (fileMenu) {
+                if (window.bootstrap?.Offcanvas) {
+                    window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).show();
+                } else {
+                    document.getElementById('menuToggleBtn')?.click();
+                }
+            }
+            isTracking = false;
+        }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+        isTracking = false;
+    }, { passive: true });
+
+    window.addEventListener('touchcancel', () => {
+        isTracking = false;
+    }, { passive: true });
 }
 
 function setupExtensionSettings() {
