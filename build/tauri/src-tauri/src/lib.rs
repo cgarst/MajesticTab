@@ -140,6 +140,8 @@ async fn open_tab_downloader(
                 let _ = main_win.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
             }
             let _ = existing.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
+            #[cfg(target_os = "ios")]
+            tab_downloader_native::configure_ios_webview(&existing);
             let _ = existing.show();
             let _ = existing.set_focus();
             let _ = existing.navigate(parsed_url);
@@ -240,6 +242,8 @@ async fn open_tab_downloader(
     });
 
     let window = builder.build().map_err(|e| e.to_string())?;
+    #[cfg(target_os = "ios")]
+    tab_downloader_native::configure_ios_webview(&window);
     let _ = window.show();
     let _ = window.set_focus();
     if let Some(main_win) = app.get_webview_window("main") {

@@ -180,16 +180,37 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
   xcrun simctl boot "iPhone 17"
   # From build/tauri:
   npm run prepare:frontend
+  # Build for Apple Silicon simulator (fast, unoptimized debug):
+  npx tauri ios build --target aarch64-sim --debug --no-sign
+  # Install the built app bundle into the booted simulator:
+  xcrun simctl install booted src-tauri/gen/apple/build/majestictab_iOS.xcarchive/Products/Applications/MajesticTab.app
+  # Launch installed app:
+  xcrun simctl launch booted net.zathu.majestictab
+  # Or run interactive dev mode:
   npx tauri ios dev "iPhone 17"
-  # Or launch an already installed build:
+  ```
+- **Lifecycle & Process Control:**
+  ```bash
+  # Terminate running app:
+  xcrun simctl terminate booted net.zathu.majestictab
+  # Re-launch app:
   xcrun simctl launch booted net.zathu.majestictab
   ```
-- **Capture Simulator Screenshots:**
-  Capture PNGs directly from the booted simulator to visually inspect rendering:
+- **Capture Simulator Screenshots for Visual Context:**
+  Capture PNGs directly from the booted simulator to visually inspect rendering and layout changes:
   ```bash
   xcrun simctl io booted screenshot /tmp/ios_screenshot.png
+  ```
+- **Retrieve Simulator Logs (Console, Warnings & Errors):**
+  Stream live app logs or dump recent output directly from the simulator daemon:
+  ```bash
+  # Stream live app logs:
+  xcrun simctl spawn booted log stream --level debug --predicate 'subsystem == "net.zathu.majestictab" || processImagePath contains "MajesticTab"'
+  # Show past 5 minutes of app logs:
+  xcrun simctl spawn booted log show --predicate 'processImagePath contains "MajesticTab"' --last 5m
   ```
 - **Inspect Simulator WebViews via Safari Web Inspector:**
   1. In Safari preferences/settings, ensure **Advanced -> Show features for web developers** (or Develop menu) is enabled.
   2. Open Safari and go to menu **Develop -> iPhone 17 (Simulator) -> MajesticTab** (or the target page title/URL, such as `localhost` or `www.ultimate-guitar.com`).
-  3. Once Web Inspector opens, you can inspect elements, evaluate scripts in the console, view CSS rules, and monitor network requests inside the simulator's WKWebViews.
+  3. Once Web Inspector opens, inspect elements, evaluate scripts in the console, view CSS rules, and monitor network requests inside the simulator's WKWebViews.
+
