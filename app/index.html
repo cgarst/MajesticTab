@@ -1069,6 +1069,21 @@
           </div>
           <textarea class="form-control form-control-sm font-monospace" id="downloaderCfgUserscriptCode" rows="4" placeholder="// Custom JavaScript injected into webview"></textarea>
         </div>
+
+        <div class="p-2 rounded-2 border border-secondary-subtle" style="background: var(--bg-card-solid, rgba(255,255,255,0.03));">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input theme-switch" type="checkbox" id="downloaderCfgAdblockEnabled">
+              <label class="form-check-label small text-white fw-semibold" for="downloaderCfgAdblockEnabled">Block popup ads</label>
+            </div>
+            <button type="button" class="btn btn-link btn-sm text-info text-decoration-none p-0" id="downloaderCfgResetAdblockUrlBtn">Reset URL</button>
+          </div>
+          <div>
+            <label class="form-label small text-white-50 mb-1" for="downloaderCfgAdblockUrl">Userscript URL</label>
+            <input type="text" class="form-control form-control-sm font-monospace" id="downloaderCfgAdblockUrl" placeholder="https://userscripts.adtidy.org/release/popup-blocker/2.5/popupblocker.user.js">
+            <div class="form-text small text-white-50">Global userscript fetched and cached locally to block popup windows.</div>
+          </div>
+        </div>
       </div>
     </div>
 
