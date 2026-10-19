@@ -225,6 +225,33 @@ export async function getCachedArtUrl(url) {
 }
 
 /**
+ * Clear persistent artwork cache and session MusicBrainz API query cache
+ * @returns {Promise<number>} Number of cache items removed
+ */
+export async function clearArtCache() {
+    artMemoryCache.clear();
+    let count = 0;
+    if (typeof caches !== 'undefined') {
+        try {
+            const cache = await caches.open(ART_CACHE_NAME);
+            const keys = await cache.keys();
+            count += keys.length;
+            await caches.delete(ART_CACHE_NAME);
+        } catch (_) {}
+    }
+    try {
+        const keysToRemove = [];
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const k = sessionStorage.key(i);
+            if (k && k.startsWith(CACHE_PREFIX)) keysToRemove.push(k);
+        }
+        count += keysToRemove.length;
+        keysToRemove.forEach(k => sessionStorage.removeItem(k));
+    } catch (_) {}
+    return count;
+}
+
+/**
  * Hydrate remote cover images in a DOM container from the persistent art cache
  */
 export function hydrateCachedImages(container) {

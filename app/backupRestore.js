@@ -598,6 +598,40 @@ export async function deleteAllAppData() {
 }
 
 /**
+ * Clear cached data including persistent album artwork, MusicBrainz queries,
+ * YouTube caches, and tab downloader search caches.
+ * @returns {Promise<number>} Number of cache items removed
+ */
+export async function clearAppCache() {
+    const { clearArtCache } = await import('./musicbrainz.js');
+    let totalCleared = await clearArtCache();
+
+    // Clear YouTube caches from localStorage
+    try {
+        const ytKeys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('yt_cache_')) ytKeys.push(k);
+        }
+        totalCleared += ytKeys.length;
+        ytKeys.forEach(k => localStorage.removeItem(k));
+    } catch (_) {}
+
+    // Clear tab downloader caches from localStorage
+    try {
+        const tdKeys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('tab_downloader_')) tdKeys.push(k);
+        }
+        totalCleared += tdKeys.length;
+        tdKeys.forEach(k => localStorage.removeItem(k));
+    } catch (_) {}
+
+    return totalCleared;
+}
+
+/**
  * Apply restored preferences to active DOM and modules
  */
 function applyRestoredPreferences() {
@@ -777,6 +811,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
         </button>
         <button type="button" class="btn btn-sm ${activeTab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnReload">
           <i class="bi-arrow-repeat me-2"></i> Reload Metadata
+        </button>
+        <button type="button" class="btn btn-sm ${activeTab === 'cache' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnCache">
+          <i class="bi-brush me-2"></i> Clear Cache
         </button>
         <button type="button" class="btn btn-sm ${activeTab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnDelete">
           <i class="bi-trash3 me-2"></i> Delete All Data
@@ -1091,6 +1128,55 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
         </div>
 
+        <!-- TAB: CLEAR CACHE -->
+        <div id="cacheTabContent" style="display: ${activeTab === 'cache' ? 'block' : 'none'};">
+          <!-- Cache Summary Overview -->
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
+              <i class="bi-brush text-warning"></i> Temporary Cached Data
+            </div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              Clearing cached data frees local storage without affecting your stored tab files, songs, collections, playlists, or settings.
+            </div>
+            <div class="row g-2 text-white-50 small">
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6"><i class="bi-image text-info"></i></div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Album Art Cache</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6"><i class="bi-disc text-primary"></i></div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">MusicBrainz Cache</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6"><i class="bi-youtube text-danger"></i></div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">YouTube Video Cache</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="p-2 rounded-2 backup-stat-card">
+                  <div class="text-white fw-bold fs-6"><i class="bi-cloud-download text-success"></i></div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Search Query Cache</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Status / Results Alert -->
+          <div id="cacheStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="cacheCancelBtn">Cancel</button>
+            <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="cacheExecuteBtn">
+              <i class="bi-brush"></i> Clear Cache
+            </button>
+          </div>
+        </div>
+
         <!-- TAB 4: DELETE ALL DATA -->
         <div id="deleteTabContent" style="display: ${activeTab === 'delete' ? 'block' : 'none'};">
           <!-- Data Summary Overview -->
@@ -1176,6 +1262,7 @@ function attachModalHandlers(modal, options = {}) {
     modal.querySelector('#backupModalCloseBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#backupCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#restoreCancelBtn')?.addEventListener('click', closeBackupModal);
+    modal.querySelector('#cacheCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#deleteCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.onclick = (e) => {
         if (e.target === modal) closeBackupModal();
@@ -1185,28 +1272,64 @@ function attachModalHandlers(modal, options = {}) {
     const tabBtnBackup = modal.querySelector('#tabBtnBackup');
     const tabBtnRestore = modal.querySelector('#tabBtnRestore');
     const tabBtnReload = modal.querySelector('#tabBtnReload');
+    const tabBtnCache = modal.querySelector('#tabBtnCache');
     const tabBtnDelete = modal.querySelector('#tabBtnDelete');
     const backupContent = modal.querySelector('#backupTabContent');
     const restoreContent = modal.querySelector('#restoreTabContent');
     const reloadContent = modal.querySelector('#reloadTabContent');
+    const cacheContent = modal.querySelector('#cacheTabContent');
     const deleteContent = modal.querySelector('#deleteTabContent');
 
     const switchTab = (tab) => {
         if (tabBtnBackup) tabBtnBackup.className = `btn btn-sm ${tab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
         if (tabBtnRestore) tabBtnRestore.className = `btn btn-sm ${tab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
         if (tabBtnReload) tabBtnReload.className = `btn btn-sm ${tab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
+        if (tabBtnCache) tabBtnCache.className = `btn btn-sm ${tab === 'cache' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
         if (tabBtnDelete) tabBtnDelete.className = `btn btn-sm ${tab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
 
         if (backupContent) backupContent.style.display = tab === 'backup' ? 'block' : 'none';
         if (restoreContent) restoreContent.style.display = tab === 'restore' ? 'block' : 'none';
         if (reloadContent) reloadContent.style.display = tab === 'reload' ? 'block' : 'none';
+        if (cacheContent) cacheContent.style.display = tab === 'cache' ? 'block' : 'none';
         if (deleteContent) deleteContent.style.display = tab === 'delete' ? 'block' : 'none';
     };
 
     tabBtnBackup?.addEventListener('click', () => switchTab('backup'));
     tabBtnRestore?.addEventListener('click', () => switchTab('restore'));
     tabBtnReload?.addEventListener('click', () => switchTab('reload'));
+    tabBtnCache?.addEventListener('click', () => switchTab('cache'));
     tabBtnDelete?.addEventListener('click', () => switchTab('delete'));
+
+    // --- CLEAR CACHE ACTION ---
+    const cacheExecuteBtn = modal.querySelector('#cacheExecuteBtn');
+    const cacheStatusAlert = modal.querySelector('#cacheStatusAlert');
+    cacheExecuteBtn?.addEventListener('click', async () => {
+        cacheExecuteBtn.disabled = true;
+        cacheExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Clearing Cache...';
+        try {
+            const count = await clearAppCache();
+            if (cacheStatusAlert) {
+                cacheStatusAlert.style.display = 'block';
+                cacheStatusAlert.className = 'small mb-2 text-success fw-semibold';
+                cacheStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> Cache cleared successfully! Removed ${count} cached items.`;
+            }
+            cacheExecuteBtn.innerHTML = '<i class="bi-check2"></i> Cleared';
+            showToast('Application cache cleared', 'success');
+            setTimeout(() => {
+                cacheExecuteBtn.disabled = false;
+                cacheExecuteBtn.innerHTML = '<i class="bi-brush"></i> Clear Cache';
+            }, 3000);
+        } catch (err) {
+            console.error('Failed to clear cache:', err);
+            if (cacheStatusAlert) {
+                cacheStatusAlert.style.display = 'block';
+                cacheStatusAlert.className = 'small mb-2 text-danger fw-semibold';
+                cacheStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to clear cache: ${escapeHtml(err.message)}`;
+            }
+            cacheExecuteBtn.disabled = false;
+            cacheExecuteBtn.innerHTML = '<i class="bi-brush"></i> Try Again';
+        }
+    });
 
     // --- CREATE BACKUP ACTION ---
     const backupExecuteBtn = modal.querySelector('#backupExecuteBtn');
@@ -1904,5 +2027,6 @@ export function initBackupRestore() {
     document.getElementById('backupDataBtn')?.addEventListener('click', () => openBackupModal('backup'));
     document.getElementById('restoreDataBtn')?.addEventListener('click', () => openBackupModal('restore'));
     document.getElementById('reloadLibraryMetadataBtn')?.addEventListener('click', () => openBackupModal('reload'));
+    document.getElementById('clearCacheBtn')?.addEventListener('click', () => openBackupModal('cache'));
     document.getElementById('deleteAllDataBtn')?.addEventListener('click', () => openBackupModal('delete'));
 }
