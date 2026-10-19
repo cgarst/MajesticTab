@@ -2,6 +2,7 @@
 import { loadFile, hideFileMenu } from './main.js';
 import { saveStoredFile } from './fileStore.js';
 import { showToast } from './utils/toast.js';
+import { isIOSDevice } from './utils/iosAudioUnlock.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
 const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
@@ -99,13 +100,19 @@ function getRedirectUri() {
 
 let pendingAuthState = 'open_drive_browser';
 
+export function isMobilePlatform() {
+    if (typeof navigator === 'undefined') return false;
+    const ua = navigator.userAgent || '';
+    return /android/i.test(ua) || isIOSDevice();
+}
+
 export function redirectToGoogleAuth(targetState = 'open_drive_browser') {
     pendingAuthState = targetState;
     try {
         localStorage.setItem('gdrive_pending_state', targetState);
     } catch (_) {}
 
-    if (window.__TAURI__?.core?.invoke && (/android/i.test(navigator.userAgent) || /iphone|ipad|ipod/i.test(navigator.userAgent))) {
+    if (window.__TAURI__?.core?.invoke && isMobilePlatform()) {
         startMobileGoogleAuth(targetState);
         return;
     }
@@ -965,51 +972,68 @@ export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbacku
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
 
-    return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`);
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.responseType = 'blob';
+    const downloadUrl = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`;
 
-        if (typeof onProgress === 'function') {
-            xhr.onprogress = (e) => {
-                if (e.lengthComputable && e.total > 0) {
-                    const percent = Math.min(100, Math.round((e.loaded / e.total) * 100));
-                    onProgress({ loaded: e.loaded, total: e.total, percent });
-                }
-            };
+    // Use modern fetch API with streaming progress (reliable on iOS WKWebView, avoids XHR blob redirect issues)
+    let res;
+    try {
+        res = await fetch(downloadUrl, {
+            headers: { Authorization: `Bearer ${token}` }
+        });
+    } catch (networkErr) {
+        console.warn('[GoogleDrive] Direct fetch failed, attempting with query token:', networkErr);
+        // Fallback: append access_token in URL query param for webviews where headers are dropped across redirects
+        res = await fetch(`${downloadUrl}&access_token=${encodeURIComponent(token)}`);
+    }
+
+    if (!res.ok) {
+        let errorDetail = res.statusText;
+        if (res.status === 401) {
+            clearStoredToken();
+            throw new Error(`Google Drive authorization expired (${res.status}): ${errorDetail}. Please reconnect Google Drive.`);
+        }
+        throw new Error(`Download failed (${res.status}): ${errorDetail}`);
+    }
+
+    const contentLength = res.headers.get('content-length');
+    const total = contentLength ? parseInt(contentLength, 10) : 0;
+
+    let blob;
+    if (res.body && typeof res.body.getReader === 'function') {
+        const reader = res.body.getReader();
+        const chunks = [];
+        let loaded = 0;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
+            loaded += value.length;
+
+            if (typeof onProgress === 'function') {
+                const percent = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0;
+                onProgress({ loaded, total: total || loaded, percent });
+            }
         }
 
-        xhr.onload = () => {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                const blob = xhr.response;
-                try {
-                    resolve(new File([blob], fileName, { type: 'application/octet-stream' }));
-                } catch (_) {
-                    try {
-                        Object.defineProperty(blob, 'name', { value: fileName, writable: true });
-                    } catch (e) {
-                        blob.name = fileName;
-                    }
-                    resolve(blob);
-                }
-            } else {
-                let errorDetail = xhr.statusText;
-                if (xhr.status === 401) {
-                    clearStoredToken();
-                    reject(new Error(`Google Drive authorization expired: ${errorDetail}. Please reconnect Google Drive.`));
-                } else {
-                    reject(new Error(`Download failed (${xhr.status}): ${errorDetail}`));
-                }
-            }
-        };
+        blob = new Blob(chunks, { type: 'application/octet-stream' });
+    } else {
+        blob = await res.blob();
+        if (typeof onProgress === 'function') {
+            onProgress({ loaded: blob.size, total: blob.size, percent: 100 });
+        }
+    }
 
-        xhr.onerror = () => {
-            reject(new Error('Google Drive download network error. Please check your connection.'));
-        };
-
-        xhr.send();
-    });
+    try {
+        return new File([blob], fileName, { type: 'application/octet-stream' });
+    } catch (_) {
+        try {
+            Object.defineProperty(blob, 'name', { value: fileName, writable: true });
+        } catch (e) {
+            blob.name = fileName;
+        }
+        return blob;
+    }
 }
 
 
