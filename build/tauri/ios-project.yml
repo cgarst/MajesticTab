@@ -60,6 +60,11 @@ targets:
           - UIInterfaceOrientationLandscapeRight
         CFBundleShortVersionString: 1.0.0
         CFBundleVersion: "1.0.0"
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: google-oauth
+            CFBundleURLSchemes:
+              - com.googleusercontent.apps.1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p
     entitlements:
       path: majestictab_iOS/majestictab_iOS.entitlements
     scheme:

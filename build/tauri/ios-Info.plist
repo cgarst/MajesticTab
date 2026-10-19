@@ -95,5 +95,18 @@
 			<string>Default</string>
 		</dict>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>google-oauth</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>
