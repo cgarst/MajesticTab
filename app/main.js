@@ -30,6 +30,9 @@ import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
 initIOSAudioUnlock();
 if (isIOSDevice()) {
     document.documentElement.classList.add('tauri-ios');
+    try {
+        window.__TAURI__?.core?.invoke('configure_ios_main_window').catch(() => {});
+    } catch (_) {}
 }
 
 // Handle window resizing 

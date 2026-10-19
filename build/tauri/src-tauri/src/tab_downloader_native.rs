@@ -2062,14 +2062,14 @@ pub fn install(_app: &mut App<Wry>) -> tauri::Result<()> {
 }
 
 #[cfg(target_os = "ios")]
-pub fn configure_ios_webview(window: &tauri::WebviewWindow) {
+pub fn configure_ios_webview(window: &tauri::WebviewWindow, r: f64, g: f64, b: f64) {
     use objc2::msg_send;
     use objc2::runtime::AnyObject;
     use objc2_ui_kit::UIColor;
 
-    let _ = window.with_webview(|platform| unsafe {
+    let _ = window.with_webview(move |platform| unsafe {
         let webview_ptr = platform.inner().cast::<AnyObject>();
-        let bg_color = UIColor::colorWithRed_green_blue_alpha(13.0 / 255.0, 15.0 / 255.0, 21.0 / 255.0, 1.0);
+        let bg_color = UIColor::colorWithRed_green_blue_alpha(r / 255.0, g / 255.0, b / 255.0, 1.0);
 
         let _: () = msg_send![webview_ptr, setBackgroundColor: &*bg_color];
         let scroll_view: *mut AnyObject = msg_send![webview_ptr, scrollView];
@@ -2081,6 +2081,14 @@ pub fn configure_ios_webview(window: &tauri::WebviewWindow) {
 
         // UIUserInterfaceStyleDark = 2
         let _: () = msg_send![webview_ptr, setOverrideUserInterfaceStyle: 2isize];
+        #[cfg(feature = "debug-tools")]
+        {
+            let _: () = msg_send![webview_ptr, setInspectable: true];
+        }
+        #[cfg(not(feature = "debug-tools"))]
+        {
+            let _: () = msg_send![webview_ptr, setInspectable: true];
+        }
         let superview: *mut AnyObject = msg_send![webview_ptr, superview];
         if !superview.is_null() {
             let _: () = msg_send![superview, setBackgroundColor: &*bg_color];

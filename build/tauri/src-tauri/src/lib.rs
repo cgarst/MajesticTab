@@ -141,7 +141,7 @@ async fn open_tab_downloader(
             }
             let _ = existing.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
             #[cfg(target_os = "ios")]
-            tab_downloader_native::configure_ios_webview(&existing);
+            tab_downloader_native::configure_ios_webview(&existing, 13.0, 15.0, 21.0);
             let _ = existing.show();
             let _ = existing.set_focus();
             let _ = existing.navigate(parsed_url);
@@ -243,7 +243,7 @@ async fn open_tab_downloader(
 
     let window = builder.build().map_err(|e| e.to_string())?;
     #[cfg(target_os = "ios")]
-    tab_downloader_native::configure_ios_webview(&window);
+    tab_downloader_native::configure_ios_webview(&window, 13.0, 15.0, 21.0);
     let _ = window.show();
     let _ = window.set_focus();
     if let Some(main_win) = app.get_webview_window("main") {
@@ -304,6 +304,14 @@ async fn youtube_open_auth(app: tauri::AppHandle, url: Option<String>) -> Result
     });
 
     Ok(())
+}
+
+#[tauri::command]
+fn configure_ios_main_window(_app: tauri::AppHandle) {
+    #[cfg(target_os = "ios")]
+    if let Some(main_win) = _app.get_webview_window("main") {
+        tab_downloader_native::configure_ios_webview(&main_win, 6.0, 5.0, 10.0);
+    }
 }
 
 #[cfg(target_os = "linux")]
@@ -382,6 +390,11 @@ pub fn run() {
                 main_wv.open_devtools();
             }
 
+            #[cfg(target_os = "ios")]
+            if let Some(main_win) = _app.get_webview_window("main") {
+                tab_downloader_native::configure_ios_webview(&main_win, 6.0, 5.0, 10.0);
+            }
+
             #[cfg(not(any(target_os = "android", target_os = "ios")))]
             if let Some(window) = _app.get_window("main") {
                 if let Some(icon) = _app.default_window_icon() {
@@ -439,6 +452,7 @@ pub fn run() {
         get_opened_file,
         open_tab_downloader,
         youtube_open_auth,
+        configure_ios_main_window,
         tab_downloader_native::tab_downloader_update,
         tab_downloader_native::tab_downloader_navigate,
         tab_downloader_native::tab_downloader_nav,
@@ -457,6 +471,7 @@ pub fn run() {
         get_opened_file,
         open_tab_downloader,
         youtube_open_auth,
+        configure_ios_main_window,
         tab_downloader_native::tab_downloader_update,
         tab_downloader_native::tab_downloader_navigate,
         tab_downloader_native::tab_downloader_nav,
