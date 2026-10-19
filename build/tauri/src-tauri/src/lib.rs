@@ -334,6 +334,45 @@ fn configure_ios_main_window(_app: tauri::AppHandle) {
     }
 }
 
+#[tauri::command]
+async fn youtube_search(query: String) -> Result<Option<String>, String> {
+    let client = reqwest::Client::new();
+    let payload = serde_json::json!({
+        "context": {
+            "client": {
+                "clientName": "WEB",
+                "clientVersion": "2.20240101.00.00"
+            }
+        },
+        "query": query
+    });
+    let payload_str = serde_json::to_string(&payload).map_err(|e| e.to_string())?;
+    let res = client
+        .post("https://www.youtube.com/youtubei/v1/search?prettyPrint=false")
+        .body(payload_str)
+        .header("Content-Type", "application/json")
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?;
+
+    let text = res.text().await.map_err(|e| e.to_string())?;
+
+    for part in text.split("\"videoId\"") {
+        let trimmed = part.trim_start();
+        if let Some(rest) = trimmed.strip_prefix(':') {
+            let inner = rest.trim();
+            if inner.starts_with('"') {
+                let id_candidate: String = inner[1..].chars().take_while(|c| *c != '"').collect();
+                if id_candidate.len() == 11 && id_candidate.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
+                    return Ok(Some(id_candidate));
+                }
+            }
+        }
+    }
+    Ok(None)
+}
+
 #[cfg(target_os = "linux")]
 fn is_gamescope_or_steam_deck() -> bool {
     if std::env::var("GAMESCOPE_WAYLAND_DISPLAY").is_ok()
@@ -482,6 +521,7 @@ pub fn run() {
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
         tab_downloader_native::tab_downloader_save_sources,
+        youtube_search,
         youtube_macos::youtube_player_update,
         youtube_macos::youtube_player_command
     ]);
@@ -500,7 +540,8 @@ pub fn run() {
         tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
-        tab_downloader_native::tab_downloader_save_sources
+        tab_downloader_native::tab_downloader_save_sources,
+        youtube_search
     ]);
 
     let app = builder
