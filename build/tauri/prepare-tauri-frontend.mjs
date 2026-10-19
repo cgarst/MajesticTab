@@ -242,12 +242,9 @@ try {
   } else if (iosBuild) {
     await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
   }
-  if (!androidBuild && !desktopSecret) {
+  if (!androidBuild && !iosBuild && !desktopSecret) {
     await hideUnavailableDriveOptions();
     console.log('Google Drive hidden: no Desktop OAuth client secret configured.');
-  } else if (iosBuild) {
-    await hideUnavailableDriveOptions();
-    console.log('Google Drive hidden for iOS build.');
   }
   for (const [source, destination] of assets) {
     await copyAsset(source, destination);
