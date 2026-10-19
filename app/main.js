@@ -1280,10 +1280,20 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     });
 
     detectFileMetadata(file, file.name).then(meta => {
-        addRecentOpened(buildRecentPayload(meta.primaryTuning, meta.stringCount, meta.tunings)).catch(() => {});
+        addRecentOpened(buildRecentPayload(meta.primaryTuning, meta.stringCount, meta.tunings)).then(recent => {
+            if (recent?.librarySongId && !file.librarySongId) {
+                file.librarySongId = recent.librarySongId;
+                file.tabId = file.tabId || recent.tabId;
+            }
+        }).catch(() => {});
     }).catch(() => {
         const detectedTuning = inferTuningFromTextOrName(file.name);
-        addRecentOpened(buildRecentPayload(detectedTuning, null, detectedTuning ? [detectedTuning] : [])).catch(() => {});
+        addRecentOpened(buildRecentPayload(detectedTuning, null, detectedTuning ? [detectedTuning] : [])).then(recent => {
+            if (recent?.librarySongId && !file.librarySongId) {
+                file.librarySongId = recent.librarySongId;
+                file.tabId = file.tabId || recent.tabId;
+            }
+        }).catch(() => {});
     });
 
     // Show navigation controls for all supported file types
