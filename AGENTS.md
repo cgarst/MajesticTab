@@ -172,3 +172,24 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
 - Before a direct Cargo check, prepare the generated frontend from `build/tauri`: `npm run prepare:frontend`.
 - Compile-only check: `cargo check --manifest-path build/tauri/src-tauri/Cargo.toml`.
 - macOS-only config lives in `src-tauri/tauri.macos.conf.json` (merged over `tauri.conf.json`). Plugins that don't exist on other platforms must stay in macOS-only deps/capabilities.
+
+### iOS Simulator Dev, Troubleshooting & Screenshots
+
+- **Boot Simulator & Run App:**
+  ```bash
+  xcrun simctl boot "iPhone 17"
+  # From build/tauri:
+  npm run prepare:frontend
+  npx tauri ios dev "iPhone 17"
+  # Or launch an already installed build:
+  xcrun simctl launch booted net.zathu.majestictab
+  ```
+- **Capture Simulator Screenshots:**
+  Capture PNGs directly from the booted simulator to visually inspect rendering:
+  ```bash
+  xcrun simctl io booted screenshot /tmp/ios_screenshot.png
+  ```
+- **Inspect Simulator WebViews via Safari Web Inspector:**
+  1. In Safari preferences/settings, ensure **Advanced -> Show features for web developers** (or Develop menu) is enabled.
+  2. Open Safari and go to menu **Develop -> iPhone 17 (Simulator) -> MajesticTab** (or the target page title/URL, such as `localhost` or `www.ultimate-guitar.com`).
+  3. Once Web Inspector opens, you can inspect elements, evaluate scripts in the console, view CSS rules, and monitor network requests inside the simulator's WKWebViews.
