@@ -585,7 +585,6 @@ async function renderLibraryBrowseView(container) {
                 ${currentGroup.songs.map(song => renderSongRow(song, { showArtistAlbum: true })).join('')}
               </div>
             </div>
-            </div>
             `;
         } else {
             // Tunings Grid
@@ -595,7 +594,6 @@ async function renderLibraryBrowseView(container) {
                   <i class="bi-music-note fs-1 mb-2 d-block text-white-50"></i>
                   <h6 class="text-white fw-semibold mb-1">No Tunings Found</h6>
                   <p class="small text-muted mb-3">Add tab files with guitar or bass scores to see your songs categorized by tuning.</p>
-                </div>
                 </div>
                 `;
             } else {
@@ -651,7 +649,6 @@ async function renderLibraryBrowseView(container) {
                       </div>
                     </div>
                   `).join('')}
-                </div>
                 </div>
                 `;
             }
@@ -853,7 +850,6 @@ async function renderLibraryBrowseView(container) {
                     ${renderAlbumSongsList(album.songs, { albumTabs })}
                   </div>
                 </div>
-                </div>
                 `;
             } else {
                 // Subfolders Grid and/or Songs List (Supports Infinite Layers and Layer 1 Songs)
@@ -861,29 +857,7 @@ async function renderLibraryBrowseView(container) {
                 if (currentSubfolders.length > 0) {
                     subfoldersHtml = `
                     <div class="library-albums-grid mb-3" id="libAlbumsGrid">
-                      ${currentSubfolders.map(sub => {
-                        const cover = sub.coverUrl || (isCustomArtist ? null : getPlaceholderCoverSvg(sub.name));
-                        const subSongNames = (sub.songs || []).map(s => s.title || s.name || '');
-                        const albumSearchTerms = [sub.name, sub.year, ...subSongNames].filter(Boolean).join(' ').toLowerCase();
-                        return `
-                        <div class="library-card album-card p-3" data-album-title="${escapeHtml(sub.name)}" data-folder-name="${escapeHtml(sub.name)}" data-search-terms="${escapeHtml(albumSearchTerms)}" role="button" tabindex="0">
-                          <div class="album-card-body d-flex min-w-0">
-                            <div class="album-cover-container">
-                              ${cover
-                                  ? `<img src="${cover}" class="album-cover-img" alt="${escapeHtml(sub.name)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(sub.name)}'">`
-                                  : `<i class="bi-folder2 fs-1 text-info opacity-75"></i>`
-                              }
-                              ${sub.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2 album-year-badge">${sub.year}</span>` : ''}
-                            </div>
-                            <div class="album-card-content min-w-0 flex-grow-1">
-                              <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(sub.name)}">${escapeHtml(sub.name)}</h6>
-                              <div class="small text-muted text-truncate">${sub.year ? `<span class="album-inline-year">${sub.year} • </span>` : ''}${sub.songsCount} ${sub.songsCount === 1 ? 'Song' : 'Songs'}</div>
-                            </div>
-                            <i class="bi-chevron-right text-muted flex-shrink-0 album-card-chevron"></i>
-                          </div>
-                        </div>
-                        `;
-                      }).join('')}
+                      ${currentSubfolders.map(sub => renderAlbumCard(sub)).join('')}
                     </div>
                     `;
                 }
@@ -914,7 +888,6 @@ async function renderLibraryBrowseView(container) {
                   ${songsHtml}
                   ${emptyHtml}
                 </div>
-                </div>
                 `;
             }
         } else {
@@ -941,39 +914,18 @@ async function renderLibraryBrowseView(container) {
               ${pinnedHtml}
               ${pinnedHtml ? `<div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2" id="libArtistsSectionHeading"><i class="bi-person me-1 text-info"></i> Artists</div>` : ''}
               <div class="library-artists-grid" id="libArtistsGrid">
-                ${artists.map(artist => {
-                  const isCustomArtist = Boolean(artist.isCustom);
-                  const albumCount = artist.albums.length;
-                  const songCount = (artist.songs ? artist.songs.length : 0) + artist.albums.reduce((acc, a) => acc + a.songs.length, 0);
-                  const collageHtml = renderArtistCollageHtml(artist);
-                  const albumNames = artist.albums.map(a => a.name || a.title || '');
-                  const songNames = [
-                      ...(artist.songs || []).map(s => s.title || s.name || ''),
-                      ...artist.albums.flatMap(a => (a.songs || []).map(s => s.title || s.name || ''))
-                  ];
-                  const artistSearchTerms = [artist.name, ...albumNames, ...songNames].filter(Boolean).join(' ').toLowerCase();
-
-                  return `
-                  <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" data-search-terms="${escapeHtml(artistSearchTerms)}" role="button" tabindex="0">
-                    <div class="d-flex align-items-center gap-3 min-w-0">
-                      ${collageHtml}
-                      <div class="min-w-0 flex-grow-1">
-                        <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
-                        <div class="small text-muted text-truncate">${albumCount > 0 ? `${albumCount} ${albumCount === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')} • ` : ''}${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
-                      </div>
-                      <i class="bi-chevron-right text-muted flex-shrink-0"></i>
-                    </div>
-                  </div>
-                  `;
-                }).join('')}
+                ${artists.map(artist => renderArtistCard(artist)).join('')}
               </div>
-            </div>
             </div>
             `;
         }
     }
 
-    container.innerHTML = headerHtml + breadcrumbHtml + bodyHtml;
+    container.innerHTML = headerHtml + breadcrumbHtml + `
+      <div id="libBrowseContent">${bodyHtml}</div>
+      <div id="libFilteredSearchResults" style="display: none;"></div>
+    </div>
+    `;
 
     bindLibraryToolbarEvents(container);
 
@@ -1139,7 +1091,7 @@ async function renderLibraryBrowseView(container) {
     });
 
     // Search / Filter setup
-    setupLibraryFilter(container);
+    setupLibraryFilter(container, { hierarchy, artists, selectedArtist, selectedAlbum, selectedTuning });
 
     // Song actions & album tab actions
     setupSongRowActions(container);
@@ -1199,10 +1151,58 @@ function bindLibraryToolbarEvents(container) {
     });
 }
 
-function setupLibraryFilter(container) {
+function renderArtistCard(artist) {
+    const isCustomArtist = Boolean(artist.isCustom);
+    const albumCount = artist.albums ? artist.albums.length : 0;
+    const songCount = (artist.songs ? artist.songs.length : 0) + (artist.albums ? artist.albums.reduce((acc, a) => acc + (a.songs ? a.songs.length : 0), 0) : 0);
+    const collageHtml = renderArtistCollageHtml(artist);
+    return `
+    <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" role="button" tabindex="0">
+      <div class="d-flex align-items-center gap-3 min-w-0">
+        ${collageHtml}
+        <div class="min-w-0 flex-grow-1">
+          <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
+          <div class="small text-muted text-truncate">${albumCount > 0 ? `${albumCount} ${albumCount === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')} • ` : ''}${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+        </div>
+        <i class="bi-chevron-right text-muted flex-shrink-0"></i>
+      </div>
+    </div>
+    `;
+}
+
+function renderAlbumCard(album, artistName = '') {
+    const isCustom = Boolean(album.isCustom);
+    const title = album.title || album.name || '';
+    const cover = album.coverUrl || (isCustom ? null : getPlaceholderCoverSvg(title));
+    const songCount = Array.isArray(album.songs) ? album.songs.length : (album.songsCount || 0);
+    const year = album.year;
+    return `
+    <div class="library-card album-card p-3" data-artist-name="${escapeHtml(artistName)}" data-album-title="${escapeHtml(title)}" data-folder-name="${escapeHtml(title)}" role="button" tabindex="0">
+      <div class="album-card-body d-flex min-w-0">
+        <div class="album-cover-container">
+          ${cover
+              ? `<img src="${cover}" class="album-cover-img" alt="${escapeHtml(title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(title)}'">`
+              : `<i class="bi-folder2 fs-1 text-info opacity-75"></i>`
+          }
+          ${year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2 album-year-badge">${year}</span>` : ''}
+        </div>
+        <div class="album-card-content min-w-0 flex-grow-1">
+          <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(title)}">${escapeHtml(title)}</h6>
+          <div class="small text-muted text-truncate">${artistName ? `<span class="fw-semibold text-white-50">${escapeHtml(artistName)}</span> • ` : ''}${year ? `${year} • ` : ''}${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+        </div>
+        <i class="bi-chevron-right text-muted flex-shrink-0 album-card-chevron"></i>
+      </div>
+    </div>
+    `;
+}
+
+function setupLibraryFilter(container, context = {}) {
     const filterInput = container.querySelector('#libFilterInput');
     const clearBtn = container.querySelector('#libFilterClearBtn');
     if (!filterInput) return;
+
+    const browseContent = container.querySelector('#libBrowseContent');
+    const filterResults = container.querySelector('#libFilteredSearchResults');
 
     const applyFilter = () => {
         const query = (filterInput.value || '').toLowerCase().trim();
@@ -1214,135 +1214,253 @@ function setupLibraryFilter(container) {
         container.querySelectorAll('.library-filter-empty-msg').forEach(el => el.remove());
 
         // 1. Song List View (Album Detail or Tuning Detail - specifically #libSongsList)
-        const songsList = container.querySelector('#libSongsList');
-        if (songsList) {
-            const songRows = songsList.querySelectorAll('.library-song-row');
-            let visibleCount = 0;
-            songRows.forEach(row => {
-                const title = (row.dataset.songTitle || '').toLowerCase();
-                const artist = (row.dataset.songArtist || '').toLowerCase();
-                const matches = !query || title.includes(query) || artist.includes(query);
-                row.style.display = matches ? '' : 'none';
-                if (matches) visibleCount++;
-            });
-            if (visibleCount === 0 && query) {
-                const emptyMsg = document.createElement('div');
-                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
-                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No songs match "${escapeHtml(query)}"`;
-                songsList.appendChild(emptyMsg);
+        if (context.selectedAlbum || (context.selectedTuning && container.querySelector('#libSongsList'))) {
+            const songsList = container.querySelector('#libSongsList');
+            if (songsList) {
+                const songRows = songsList.querySelectorAll('.library-song-row');
+                let visibleCount = 0;
+                songRows.forEach(row => {
+                    const title = (row.dataset.songTitle || '').toLowerCase();
+                    const artist = (row.dataset.songArtist || '').toLowerCase();
+                    const matches = !query || title.includes(query) || artist.includes(query);
+                    row.style.display = matches ? '' : 'none';
+                    if (matches) visibleCount++;
+                });
+                if (visibleCount === 0 && query) {
+                    const emptyMsg = document.createElement('div');
+                    emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
+                    emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No songs match "${escapeHtml(query)}"`;
+                    songsList.appendChild(emptyMsg);
+                }
             }
             return;
         }
 
         // 2. Tunings Grid View (#libTuningsGrid)
-        const tuningsGrid = container.querySelector('#libTuningsGrid');
-        if (tuningsGrid) {
-            const tuningCards = tuningsGrid.querySelectorAll('.tuning-card');
-            let totalVisibleCount = 0;
-            const sections = tuningsGrid.querySelectorAll('.library-tuning-section');
-            if (sections.length > 0) {
-                sections.forEach(sec => {
-                    const cards = sec.querySelectorAll('.tuning-card');
-                    let secVisible = 0;
-                    cards.forEach(card => {
+        if (libraryBrowseMode === 'tunings' && !context.selectedTuning) {
+            const tuningsGrid = container.querySelector('#libTuningsGrid');
+            if (tuningsGrid) {
+                const tuningCards = tuningsGrid.querySelectorAll('.tuning-card');
+                let totalVisibleCount = 0;
+                const sections = tuningsGrid.querySelectorAll('.library-tuning-section');
+                if (sections.length > 0) {
+                    sections.forEach(sec => {
+                        const cards = sec.querySelectorAll('.tuning-card');
+                        let secVisible = 0;
+                        cards.forEach(card => {
+                            const name = (card.dataset.tuningName || '').toLowerCase();
+                            const notes = (card.dataset.tuningNotes || '').toLowerCase();
+                            const key = (card.dataset.tuningKey || '').toLowerCase();
+                            const text = (card.textContent || '').toLowerCase();
+                            const matches = !query || name.includes(query) || notes.includes(query) || key.includes(query) || text.includes(query);
+                            card.style.display = matches ? '' : 'none';
+                            if (matches) secVisible++;
+                        });
+                        sec.style.display = (!query || secVisible > 0) ? '' : 'none';
+                        totalVisibleCount += secVisible;
+                    });
+                } else {
+                    tuningCards.forEach(card => {
                         const name = (card.dataset.tuningName || '').toLowerCase();
                         const notes = (card.dataset.tuningNotes || '').toLowerCase();
                         const key = (card.dataset.tuningKey || '').toLowerCase();
                         const text = (card.textContent || '').toLowerCase();
                         const matches = !query || name.includes(query) || notes.includes(query) || key.includes(query) || text.includes(query);
                         card.style.display = matches ? '' : 'none';
-                        if (matches) secVisible++;
+                        if (matches) totalVisibleCount++;
                     });
-                    sec.style.display = (!query || secVisible > 0) ? '' : 'none';
-                    totalVisibleCount += secVisible;
-                });
-            } else {
-                tuningCards.forEach(card => {
-                    const name = (card.dataset.tuningName || '').toLowerCase();
-                    const notes = (card.dataset.tuningNotes || '').toLowerCase();
-                    const key = (card.dataset.tuningKey || '').toLowerCase();
-                    const text = (card.textContent || '').toLowerCase();
-                    const matches = !query || name.includes(query) || notes.includes(query) || key.includes(query) || text.includes(query);
-                    card.style.display = matches ? '' : 'none';
-                    if (matches) totalVisibleCount++;
-                });
-            }
-            if (totalVisibleCount === 0 && query) {
-                const emptyMsg = document.createElement('div');
-                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted w-100';
-                emptyMsg.style.gridColumn = '1 / -1';
-                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No tunings match "${escapeHtml(query)}"`;
-                tuningsGrid.appendChild(emptyMsg);
-            }
-            return;
-        }
-
-        // 3. Albums Grid View (Artist Detail - #libAlbumsGrid)
-        const albumsGrid = container.querySelector('#libAlbumsGrid');
-        if (albumsGrid) {
-            const albumCards = albumsGrid.querySelectorAll('.album-card');
-            let visibleCount = 0;
-            albumCards.forEach(card => {
-                const title = (card.dataset.albumTitle || '').toLowerCase();
-                const terms = (card.dataset.searchTerms || '').toLowerCase();
-                const matches = !query || title.includes(query) || terms.includes(query);
-                card.style.display = matches ? '' : 'none';
-                if (matches) visibleCount++;
-            });
-            if (visibleCount === 0 && query) {
-                const emptyMsg = document.createElement('div');
-                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
-                emptyMsg.style.gridColumn = '1 / -1';
-                emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No albums or songs match "${escapeHtml(query)}"`;
-                albumsGrid.appendChild(emptyMsg);
-            }
-            return;
-        }
-
-        // 4. Collection Root View (#libArtistsGrid and optional #libPinnedSection)
-        const artistsGrid = container.querySelector('#libArtistsGrid');
-        const pinnedSection = container.querySelector('#libPinnedSection');
-        if (artistsGrid || pinnedSection) {
-            let visiblePinned = 0;
-            if (pinnedSection) {
-                const pinnedRows = pinnedSection.querySelectorAll('.library-pinned-card, .library-song-row');
-                pinnedRows.forEach(row => {
-                    const title = (row.dataset.songTitle || '').toLowerCase();
-                    const artist = (row.dataset.songArtist || '').toLowerCase();
-                    const album = (row.dataset.songAlbum || '').toLowerCase();
-                    const matches = !query || title.includes(query) || artist.includes(query) || album.includes(query);
-                    row.style.display = matches ? '' : 'none';
-                    if (matches) visiblePinned++;
-                });
-                pinnedSection.style.display = (!query || visiblePinned > 0) ? '' : 'none';
-            }
-
-            let visibleArtists = 0;
-            if (artistsGrid) {
-                const artistCards = artistsGrid.querySelectorAll('.artist-card');
-                artistCards.forEach(card => {
-                    const name = (card.dataset.artistName || '').toLowerCase();
-                    const terms = (card.dataset.searchTerms || '').toLowerCase();
-                    const matches = !query || name.includes(query) || terms.includes(query);
-                    card.style.display = matches ? '' : 'none';
-                    if (matches) visibleArtists++;
-                });
-
-                const artistsHeading = container.querySelector('#libArtistsSectionHeading');
-                if (artistsHeading) {
-                    artistsHeading.style.display = (!query || visibleArtists > 0) ? '' : 'none';
                 }
-
-                if (visibleArtists === 0 && visiblePinned === 0 && query) {
+                if (totalVisibleCount === 0 && query) {
                     const emptyMsg = document.createElement('div');
-                    emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
+                    emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted w-100';
                     emptyMsg.style.gridColumn = '1 / -1';
-                    emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No artists, albums, or songs match "${escapeHtml(query)}"`;
-                    artistsGrid.appendChild(emptyMsg);
+                    emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No tunings match "${escapeHtml(query)}"`;
+                    tuningsGrid.appendChild(emptyMsg);
                 }
             }
             return;
         }
+
+        // 3. Collection Root View OR Artist Detail View (Artists browse mode)
+        if (!query) {
+            if (browseContent) browseContent.style.display = 'block';
+            if (filterResults) {
+                filterResults.style.display = 'none';
+                filterResults.innerHTML = '';
+            }
+            return;
+        }
+
+        // A query is active: filter down directly to the searched objects!
+        if (browseContent) browseContent.style.display = 'none';
+        if (!filterResults) return;
+        filterResults.style.display = 'block';
+
+        const artistsList = context.selectedArtist ? [context.selectedArtist] : (context.artists || []);
+        const matchingSongs = [];
+        const matchingAlbums = [];
+        const matchingArtists = [];
+
+        // Check matching artists (only if at collection root)
+        if (!context.selectedArtist) {
+            for (const art of artistsList) {
+                if ((art.name || '').toLowerCase().includes(query)) {
+                    matchingArtists.push(art);
+                }
+            }
+        }
+
+        // Collect matching songs and albums
+        for (const art of artistsList) {
+            if (Array.isArray(art.songs)) {
+                for (const s of art.songs) {
+                    const titleMatch = (s.title || '').toLowerCase().includes(query);
+                    const tabMatch = s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query));
+                    if (titleMatch || tabMatch) {
+                        matchingSongs.push({
+                            ...s,
+                            artist: s.artist || art.name,
+                            album: s.album || ''
+                        });
+                    }
+                }
+            }
+
+            if (Array.isArray(art.albums)) {
+                for (const alb of art.albums) {
+                    const albTitle = alb.title || alb.name || '';
+                    if (albTitle.toLowerCase().includes(query)) {
+                        matchingAlbums.push({
+                            ...alb,
+                            artistName: art.name
+                        });
+                    }
+
+                    if (Array.isArray(alb.songs)) {
+                        for (const s of alb.songs) {
+                            const titleMatch = (s.title || '').toLowerCase().includes(query);
+                            const tabMatch = s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query));
+                            if (titleMatch || tabMatch) {
+                                matchingSongs.push({
+                                    ...s,
+                                    artist: s.artist || art.name,
+                                    album: s.album || albTitle,
+                                    coverUrl: s.coverUrl || alb.coverUrl || null
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        const hasMatches = matchingSongs.length > 0 || matchingAlbums.length > 0 || matchingArtists.length > 0;
+
+        if (!hasMatches) {
+            filterResults.innerHTML = `
+            <div class="library-filter-empty-msg text-center py-5 text-muted">
+              <i class="bi-search fs-3 mb-2 d-block text-white-50"></i>
+              <div>No songs, albums, or artists match "${escapeHtml(query)}"</div>
+            </div>
+            `;
+            return;
+        }
+
+        let html = '';
+
+        // 1. Render Songs
+        if (matchingSongs.length > 0) {
+            html += `
+            <div class="library-filter-section mb-4">
+              <div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2">
+                <i class="bi-music-note-beamed text-info"></i> Songs
+                <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${matchingSongs.length}</span>
+              </div>
+              <div class="library-songs-list d-flex flex-column gap-2" id="libFilterSongsList">
+                ${matchingSongs.map(s => renderSongRow(s, { showArtistAlbum: true, showTrackNumber: false })).join('')}
+              </div>
+            </div>
+            `;
+        }
+
+        // 2. Render Albums
+        if (matchingAlbums.length > 0) {
+            html += `
+            <div class="library-filter-section mb-4">
+              <div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2">
+                <i class="bi-disc text-primary"></i> Albums
+                <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${matchingAlbums.length}</span>
+              </div>
+              <div class="library-albums-grid" id="libFilterAlbumsGrid">
+                ${matchingAlbums.map(alb => renderAlbumCard(alb, alb.artistName)).join('')}
+              </div>
+            </div>
+            `;
+        }
+
+        // 3. Render Artists
+        if (matchingArtists.length > 0) {
+            html += `
+            <div class="library-filter-section mb-4">
+              <div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2">
+                <i class="bi-person text-info"></i> Artists
+                <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${matchingArtists.length}</span>
+              </div>
+              <div class="library-artists-grid" id="libFilterArtistsGrid">
+                ${matchingArtists.map(art => renderArtistCard(art)).join('')}
+              </div>
+            </div>
+            `;
+        }
+
+        filterResults.innerHTML = html;
+
+        // Wire up song row actions (play default tab, + tab, dropdowns, pin)
+        setupSongRowActions(filterResults);
+
+        // Click song row (outside actions) to play default tab
+        filterResults.querySelectorAll('.library-song-row').forEach(row => {
+            row.addEventListener('click', async (e) => {
+                if (e.target.closest('button, .tab-option-chip, .dropdown, a, input')) return;
+                const songId = row.dataset.songId;
+                const song = await getSongById(songId);
+                if (song && song.tabOptions?.length > 0) {
+                    const targetTab = (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song.tabOptions[0];
+                    await loadSongTab(song, targetTab);
+                }
+            });
+        });
+
+        // Click artist cards in filter results
+        filterResults.querySelectorAll('.artist-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const artistName = card.dataset.artistName;
+                selectedArtist = (context.artists || []).find(a => a.name === artistName);
+                selectedAlbum = null;
+                selectedFolderPath = [];
+                isAlbumEditMode = false;
+                renderLibraryBrowseView(container);
+            });
+        });
+
+        // Click album cards in filter results
+        filterResults.querySelectorAll('.album-card').forEach(card => {
+            card.addEventListener('click', () => {
+                const artistName = card.dataset.artistName;
+                const albumTitle = card.dataset.albumTitle;
+                const targetArtist = (context.artists || []).find(a => a.name === artistName);
+                if (targetArtist) {
+                    selectedArtist = targetArtist;
+                    selectedAlbum = targetArtist.albums?.find(al => al.title === albumTitle || al.name === albumTitle) || null;
+                    selectedFolderPath = selectedAlbum ? (selectedAlbum.folderPath ? selectedAlbum.folderPath.split('/') : [selectedAlbum.title || selectedAlbum.name]) : [];
+                    isAlbumEditMode = false;
+                    renderLibraryBrowseView(container);
+                }
+            });
+        });
+
+        // Hydrate images
+        hydrateCachedImages(filterResults);
     };
 
     filterInput.addEventListener('input', applyFilter);
