@@ -157,11 +157,16 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             }
         } else {
             const albumName = folderPath || rawAlbum || 'Singles / Other';
+            const isAwakeMbid = (song.albumMbid === '676ab2e6-17e6-32e8-9060-191a931ea7b2') || (song.coverUrl && song.coverUrl.includes('676ab2e6-17e6-32e8-9060-191a931ea7b2'));
+            const isActuallyAwake = albumName.toLowerCase().trim() === 'awake';
+            const validSongCover = (isAwakeMbid && !isActuallyAwake) ? null : song.coverUrl;
+            const validSongAlbumMbid = (isAwakeMbid && !isActuallyAwake) ? null : song.albumMbid;
+
             if (!artist.albums.has(albumName)) {
                 artist.albums.set(albumName, {
                     title: albumName,
-                    albumMbid: song.albumMbid || null,
-                    coverUrl: song.coverUrl || null,
+                    albumMbid: validSongAlbumMbid || null,
+                    coverUrl: validSongCover || null,
                     year: song.year || null,
                     isCustom: isCustom,
                     folderPath: isCustom ? albumName : null,
@@ -171,8 +176,11 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
                 });
             }
             const album = artist.albums.get(albumName);
-            if (!album.coverUrl && song.coverUrl) {
-                album.coverUrl = song.coverUrl;
+            if (!album.coverUrl && validSongCover) {
+                album.coverUrl = validSongCover;
+            }
+            if (!album.albumMbid && validSongAlbumMbid) {
+                album.albumMbid = validSongAlbumMbid;
             }
             if (!album.year && song.year) {
                 album.year = song.year;
@@ -1268,7 +1276,12 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
         try {
             let albumData = null;
             if (grp.albumMbid) {
-                albumData = await getAlbumTracks(grp.albumMbid);
+                // If albumMbid is Awake but album name is not Awake, invalidate it so correct album is fetched
+                if (grp.albumMbid === '676ab2e6-17e6-32e8-9060-191a931ea7b2' && cleanTitle(grp.album) !== 'awake') {
+                    grp.albumMbid = null;
+                } else {
+                    albumData = await getAlbumTracks(grp.albumMbid);
+                }
             }
 
             if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
@@ -1276,10 +1289,14 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                 const query = `${grp.artist} ${grp.album}`.trim();
                 const searchResults = await searchMusicBrainz(query, 'album');
                 if (searchResults && searchResults.length > 0) {
-                    const match = searchResults.find(rg =>
-                        cleanTitle(rg.artist).includes(cleanTitle(grp.artist)) ||
-                        cleanTitle(grp.artist).includes(cleanTitle(rg.artist))
-                    ) || searchResults[0];
+                    const gArtistClean = cleanTitle(grp.artist);
+                    const gAlbumClean = cleanTitle(grp.album);
+                    const match = searchResults.find(rg => {
+                        const aMatches = cleanTitle(rg.artist).includes(gArtistClean) || gArtistClean.includes(cleanTitle(rg.artist));
+                        const tClean = cleanTitle(rg.title);
+                        const tMatches = tClean === gAlbumClean || tClean.includes(gAlbumClean) || gAlbumClean.includes(tClean);
+                        return aMatches && tMatches;
+                    }) || searchResults.find(rg => cleanTitle(rg.title) === gAlbumClean);
 
                     if (match && match.id) {
                         albumData = await getAlbumTracks(match.id);
@@ -1434,6 +1451,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
     for (const song of standaloneSongs) {
         if (signal?.aborted) break;
         if (scrubbedSongIds.has(song.id)) continue;
+        if (song.isAlbumTabContainer) continue;
         if (!song.isCustom && isDvdOrBlurayMedium(song)) {
             try {
                 await deleteSongFromLibrary(song.id);
@@ -1505,7 +1523,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                     const match = searchResults.find(r =>
                         (cleanTitle(r.title) === sClean || cleanTitle(r.title).includes(sClean) || sClean.includes(cleanTitle(r.title))) &&
                         (cleanTitle(r.artist).includes(aClean) || aClean.includes(cleanTitle(r.artist)))
-                    ) || searchResults[0];
+                    );
 
                     if (match) {
                         if (typeof match.length === 'number' && match.length > 0) {
