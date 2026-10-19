@@ -969,6 +969,39 @@ window.addEventListener('DOMContentLoaded', async () => {
             const file = new File([blob], testFile, { type: blob.type });
             console.log('[Test Mode] File object created:', file.name, file.size, 'bytes');
 
+            if (testFile.toLowerCase().endsWith('.mtbackup')) {
+                console.log('[Test Mode] Detected .mtbackup file! Opening backupModal restore test...');
+                const { openBackupModal } = await import('./backupRestore.js');
+                await openBackupModal('restore');
+                const modal = document.getElementById('backupModal');
+                if (modal && typeof modal._handleSelectedBackupFile === 'function') {
+                    console.log('[Test Mode] Calling modal._handleSelectedBackupFile directly...');
+                    await modal._handleSelectedBackupFile(file, 'Local Device');
+                } else {
+                    const fileInput = modal ? modal.querySelector('#restoreFileInput') : null;
+                    if (fileInput) {
+                        try {
+                            const dt = new DataTransfer();
+                            dt.items.add(file);
+                            fileInput.files = dt.files;
+                        } catch (_) {}
+                        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+                }
+                console.log('[Test Mode] ✅ Test backup file dispatched to restore handler');
+                if (urlParams.get('auto_execute') === '1') {
+                    console.log('[Test Mode] auto_execute=1: waiting 1s then clicking restoreExecuteBtn...');
+                    await new Promise(r => setTimeout(r, 1000));
+                    const execBtn = modal ? modal.querySelector('#restoreExecuteBtn') : null;
+                    if (execBtn) {
+                        execBtn.scrollIntoView({ behavior: 'instant', block: 'center' });
+                        console.log('[Test Mode] Clicking restoreExecuteBtn...');
+                        execBtn.click();
+                    }
+                }
+                return;
+            }
+
             // Load the file automatically
             console.log('[Test Mode] Calling loadFile...');
             await loadFile(file);
