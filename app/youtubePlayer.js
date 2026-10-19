@@ -11,6 +11,7 @@ let playerState = {
     artist: '',
     title: '',
     filename: '',
+    customQueries: { original: '', backing: '' },
     customQuery: '',
     currentVideoId: null,
     currentTime: 0,
@@ -193,13 +194,9 @@ function getStorageKey(mode = playerState.trackMode) {
 }
 
 /**
- * Build the query string for YouTube based on current song info and mode
+ * Get default automated query string for the current song and mode
  */
-export function buildQuery(mode = playerState.trackMode) {
-    if (playerState.customQuery) {
-        return playerState.customQuery;
-    }
-
+export function getDefaultQuery(mode = playerState.trackMode) {
     const { artist, title } = playerState;
     const base = [artist, title].filter(Boolean).join(' ');
 
@@ -212,6 +209,72 @@ export function buildQuery(mode = playerState.trackMode) {
     } else {
         return `${base}`;
     }
+}
+
+/**
+ * Build the query string for YouTube based on current song info, overrides, and mode
+ */
+export function buildQuery(mode = playerState.trackMode) {
+    if (playerState.customQueries && playerState.customQueries[mode]) {
+        return playerState.customQueries[mode];
+    }
+    if (playerState.customQuery) {
+        return playerState.customQuery;
+    }
+
+    return getDefaultQuery(mode);
+}
+
+/**
+ * Synchronize the query input field and reset button with current query state
+ */
+export function updateQueryInputUI() {
+    const input = document.getElementById('ytSearchQueryInput');
+    const resetBtn = document.getElementById('ytResetQueryBtn');
+    if (!input) return;
+
+    const mode = playerState.trackMode;
+    const currentQuery = buildQuery(mode);
+    const defaultQuery = getDefaultQuery(mode);
+    const isOverridden = Boolean(playerState.customQueries?.[mode] && playerState.customQueries[mode] !== defaultQuery);
+
+    input.value = currentQuery;
+    if (resetBtn) {
+        resetBtn.style.display = isOverridden ? 'inline-flex' : 'none';
+    }
+}
+
+/**
+ * Redo YouTube search with an optional query override
+ */
+export function redoSearchWithQuery(override = null) {
+    const input = document.getElementById('ytSearchQueryInput');
+    const mode = playerState.trackMode;
+    const query = (override !== null ? override : (input?.value || '')).trim();
+    const defaultQuery = getDefaultQuery(mode);
+
+    if (playerState.isSearching) {
+        cancelYouTubeSearch();
+    }
+
+    if (!playerState.customQueries) {
+        playerState.customQueries = { original: '', backing: '' };
+    }
+
+    if (!query || query === defaultQuery) {
+        playerState.customQueries[mode] = '';
+        playerState.customQuery = '';
+    } else {
+        playerState.customQueries[mode] = query;
+        playerState.customQuery = query;
+    }
+
+    // Clear saved video ID so the search runs fresh
+    localStorage.removeItem(getStorageKey());
+    playerState.currentVideoId = null;
+
+    updateQueryInputUI();
+    loadCurrentTrack(true);
 }
 
 /**
@@ -397,6 +460,7 @@ async function loadCurrentTrack(autoplay = false) {
 
     playerState.currentVideoId = videoId;
     updatePanelTitle();
+    updateQueryInputUI();
 
     if (loadingIndicator) loadingIndicator.style.setProperty('display', 'none', 'important');
 
@@ -572,6 +636,7 @@ export function toggleYouTubePanel(forceState = null) {
         }
         toggleBtn?.classList.add('active');
         mobileBtn?.classList.add('active');
+        updateQueryInputUI();
 
         // Load track if not yet loaded or searching
         const iframe = document.getElementById('ytIframe');
@@ -614,6 +679,7 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     playerState.artist = artist;
     playerState.title = title;
     playerState.filename = filename;
+    playerState.customQueries = { original: '', backing: '' };
     playerState.customQuery = '';
     playerState.currentVideoId = null;
     playerState.currentTime = 0;
@@ -651,6 +717,7 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     }
 
     updatePanelTitle();
+    updateQueryInputUI();
 
     // If panel is already open, reload with new song
     if (playerState.isOpen) {
@@ -763,6 +830,7 @@ export function initYouTubePlayer() {
             }
             playerState.trackMode = 'original';
             playerState.currentVideoId = null;
+            updateQueryInputUI();
             loadCurrentTrack(true);
         }
     });
@@ -774,8 +842,31 @@ export function initYouTubePlayer() {
             }
             playerState.trackMode = 'backing';
             playerState.currentVideoId = null;
+            updateQueryInputUI();
             loadCurrentTrack(true);
         }
+    });
+
+    // Query Override and Redo Search controls
+    const queryInput = document.getElementById('ytSearchQueryInput');
+    const redoSearchBtn = document.getElementById('ytRedoSearchBtn');
+    const resetQueryBtn = document.getElementById('ytResetQueryBtn');
+
+    redoSearchBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        redoSearchWithQuery();
+    });
+
+    queryInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            redoSearchWithQuery();
+        }
+    });
+
+    resetQueryBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        redoSearchWithQuery(getDefaultQuery(playerState.trackMode));
     });
 
     // Handle Search / Link Paste
@@ -809,11 +900,8 @@ export function initYouTubePlayer() {
             }
             closePanelWhenPlaying();
         } else {
-            // Text search fallback via search query
-            const query = text;
-            playerState.customQuery = query;
-            const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-            window.open(searchUrl, '_blank');
+            // Text search fallback via search query override
+            redoSearchWithQuery(text);
         }
     };
 

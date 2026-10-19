@@ -1146,6 +1146,47 @@ input[type=range]::-webkit-slider-thumb:hover {
   color: #ffffff;
 }
 
+.yt-query-group .yt-query-addon {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-right: none;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.55rem;
+}
+
+.yt-query-group .form-control {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-left: none;
+  color: var(--text-primary);
+  font-size: 0.78rem;
+}
+
+.yt-query-group .form-control:focus {
+  background: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+  box-shadow: 0 0 0 0.15rem var(--accent-primary-alpha);
+}
+
+.yt-query-group .form-control::placeholder {
+  color: var(--text-dim);
+  opacity: 0.75;
+}
+
+.yt-query-group .yt-query-btn {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.75rem;
+  white-space: nowrap;
+}
+
+.yt-query-group .yt-query-reset-btn {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.6rem;
+  color: var(--text-muted);
+}
+
 /* --------------------------------------------------------------------------
    Theme Chooser Modal & Interactive Finish Cards
    -------------------------------------------------------------------------- */
