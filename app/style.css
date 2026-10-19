@@ -1593,6 +1593,11 @@ input[type=range]::-webkit-slider-thumb:hover {
   flex-shrink: 0;
 }
 
+.tauri-ios #fileMenuFooter,
+.tauri-ios #menuQuitAppBtn {
+  display: none !important;
+}
+
 .settings-card {
   background: var(--bg-card-solid);
   border: 1px solid var(--border-subtle);

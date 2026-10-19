@@ -468,8 +468,8 @@ function setupSettings() {
     // Initialize Backup & Restore
     initBackupRestore();
 
-    // Setup Quit App button (Native clients only)
-    if (window.__TAURI__) {
+    // Setup Quit App button (Native desktop/Android clients only; omitted on iOS per Apple HIG)
+    if (window.__TAURI__ && !isIOSDevice()) {
         const fileMenuFooter = document.getElementById('fileMenuFooter');
         if (fileMenuFooter) fileMenuFooter.style.display = '';
         document.getElementById('menuQuitAppBtn')?.addEventListener('click', async () => {
