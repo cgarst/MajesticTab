@@ -776,7 +776,7 @@ export async function getAlbumTracks(releaseGroupMbid) {
                     length: tr.length ? Math.round(tr.length / 1000) : (recording.length ? Math.round(recording.length / 1000) : null),
                     artist: candidateDetail['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist',
                     album: candidateDetail.title,
-                    year: candidateDetail.date ? parseInt(candidateDetail.date.slice(0, 4), 10) : originalYear,
+                    year: originalYear || (candidateDetail.date ? parseInt(candidateDetail.date.slice(0, 4), 10) : null),
                     coverUrl: getCoverArtUrl(releaseGroupMbid, rel.id)
                 });
             }
@@ -799,7 +799,7 @@ export async function getAlbumTracks(releaseGroupMbid) {
     }
 
     const artistCredit = detailData['artist-credit']?.map(ac => ac.name || ac.artist?.name).join('') || 'Unknown Artist';
-    const year = detailData.date ? parseInt(detailData.date.slice(0, 4), 10) : originalYear;
+    const year = originalYear || (detailData.date ? parseInt(detailData.date.slice(0, 4), 10) : null);
     const coverUrl = getCoverArtUrl(releaseGroupMbid, chosenRelease.id);
 
     return {
