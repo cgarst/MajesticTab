@@ -2899,6 +2899,22 @@ body:not(.synth-playback-started) .at-highlight {
     padding: 0 0.4rem !important;
   }
 
+  /* Library / Recents selector */
+  #libraryNavButtons .btn {
+    width: 28px !important;
+    min-width: 28px !important;
+    height: 28px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  #libraryNavButtons .btn i {
+    margin-right: 0 !important;
+  }
+
   /* Library Return Song Pill */
   #brandSection.has-return-song .brand-title {
     display: none !important;
