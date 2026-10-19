@@ -171,6 +171,10 @@ const GENERATORS = {
   async ios() {
     const out = await generateMobile();
     await cp(path.join(out, 'ios'), path.join(iconsDir, 'ios'), { recursive: true });
+    const genAppleAppIcon = path.join(scriptDir, 'src-tauri', 'gen', 'apple', 'Assets.xcassets', 'AppIcon.appiconset');
+    try {
+      await cp(path.join(out, 'ios'), genAppleAppIcon, { recursive: true });
+    } catch {}
   },
 };
 

@@ -73,6 +73,7 @@ targets:
         RUST_LOG: info
     settings:
       base:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_BITCODE: false
         ARCHS: [arm64]
         VALID_ARCHS: arm64 
