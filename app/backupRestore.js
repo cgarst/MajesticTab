@@ -215,13 +215,34 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
 
     blobParts.push(']}}');
     const jsonBlob = new Blob(blobParts, { type: 'application/json' });
-    if (compress && typeof CompressionStream !== 'undefined') {
-        try {
-            const stream = jsonBlob.stream().pipeThrough(new CompressionStream('gzip'));
-            return await new Response(stream).blob();
-        } catch (e) {
-            console.warn('[Backup] CompressionStream failed, using uncompressed JSON:', e);
-            return jsonBlob;
+    if (compress) {
+        const fflateObj = (typeof window !== 'undefined' && window.fflate)
+            ? window.fflate
+            : (typeof globalThis !== 'undefined' && globalThis.fflate)
+                ? globalThis.fflate
+                : null;
+        if (fflateObj?.gzip) {
+            try {
+                const arrayBuffer = await jsonBlob.arrayBuffer();
+                const compressed = await new Promise((resolve, reject) => {
+                    fflateObj.gzip(new Uint8Array(arrayBuffer), (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result);
+                    });
+                });
+                return new Blob([compressed], { type: 'application/gzip' });
+            } catch (e) {
+                console.warn('[Backup] fflate.gzip failed, trying CompressionStream:', e);
+            }
+        }
+        if (typeof CompressionStream !== 'undefined') {
+            try {
+                const stream = jsonBlob.stream().pipeThrough(new CompressionStream('gzip'));
+                return await new Response(stream).blob();
+            } catch (e) {
+                console.warn('[Backup] CompressionStream failed, using uncompressed JSON:', e);
+                return jsonBlob;
+            }
         }
     }
     return jsonBlob;
@@ -242,27 +263,50 @@ export async function readBackupFileText(file) {
         const bytes = new Uint8Array(headerBuffer);
         const isGzip = bytes.length >= 2 && bytes[0] === 0x1F && bytes[1] === 0x8B;
 
-        if (isGzip && typeof DecompressionStream !== 'undefined') {
-            const rawStream = (typeof file.stream === 'function')
-                ? file.stream()
-                : new Response(file).body;
+        if (isGzip) {
+            // First prefer pure JS fflate if available (safe on iOS WKWebView where native stream decompression causes WebProcess crashes)
+            const fflateObj = (typeof window !== 'undefined' && window.fflate)
+                ? window.fflate
+                : (typeof globalThis !== 'undefined' && globalThis.fflate)
+                    ? globalThis.fflate
+                    : null;
 
-            if (rawStream) {
-                const decompressedStream = rawStream.pipeThrough(new DecompressionStream('gzip'));
-                const reader = decompressedStream.getReader();
-                const decoder = new TextDecoder('utf-8');
-                const chunks = [];
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-                    chunks.push(decoder.decode(value, { stream: true }));
+            if (fflateObj?.gunzip) {
+                const arrayBuffer = await file.arrayBuffer();
+                const decompressed = await new Promise((resolve, reject) => {
+                    fflateObj.gunzip(new Uint8Array(arrayBuffer), (err, result) => {
+                        if (err) reject(err);
+                        else resolve(result);
+                    });
+                });
+                if (typeof fflateObj.strFromU8 === 'function') {
+                    return fflateObj.strFromU8(decompressed);
                 }
-                chunks.push(decoder.decode());
-                return chunks.join('');
+                return new TextDecoder('utf-8').decode(decompressed);
+            }
+
+            if (typeof DecompressionStream !== 'undefined') {
+                const rawStream = (typeof file.stream === 'function')
+                    ? file.stream()
+                    : new Response(file).body;
+
+                if (rawStream) {
+                    const decompressedStream = rawStream.pipeThrough(new DecompressionStream('gzip'));
+                    const reader = decompressedStream.getReader();
+                    const decoder = new TextDecoder('utf-8');
+                    const chunks = [];
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        chunks.push(decoder.decode(value, { stream: true }));
+                    }
+                    chunks.push(decoder.decode());
+                    return chunks.join('');
+                }
             }
         }
     } catch (e) {
-        console.warn('[Restore] DecompressionStream attempt failed, falling back to raw text:', e);
+        console.warn('[Restore] Decompression attempt failed, falling back to raw text:', e);
     }
     return await file.text();
 }
@@ -1691,10 +1735,14 @@ function attachModalHandlers(modal, options = {}) {
             if (filenameLabel) {
                 filenameLabel.textContent = `${source === 'Google Drive' ? 'Drive: ' : ''}${fileName}`;
             }
-            modal.querySelector('#restoreExportedDate').textContent = inspection.exportedAt;
-            modal.querySelector('#restoreTabsCount').textContent = inspection.tabsCount;
-            modal.querySelector('#restoreSongsCount').textContent = inspection.songsCount;
-            modal.querySelector('#restoreExtCount').textContent = inspection.extensionsCount;
+            const expDateEl = modal.querySelector('#restoreExportedDate');
+            if (expDateEl) expDateEl.textContent = inspection.exportedAt || 'Unknown date';
+            const tabsCountEl = modal.querySelector('#restoreTabsCount');
+            if (tabsCountEl) tabsCountEl.textContent = inspection.tabsCount ?? 0;
+            const songsCountEl = modal.querySelector('#restoreSongsCount');
+            if (songsCountEl) songsCountEl.textContent = inspection.songsCount ?? 0;
+            const extCountEl = modal.querySelector('#restoreExtCount');
+            if (extCountEl) extCountEl.textContent = inspection.extensionsCount ?? 0;
 
             requestAnimationFrame(() => {
                 restoreDropzone.style.display = 'none';
