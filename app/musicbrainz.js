@@ -642,6 +642,88 @@ export function isVinylOrTapeMedium(mediumOrFormat) {
 }
 
 /**
+ * Strips instrumental markers and cleans track title for comparison.
+ */
+export function cleanTrackTitleForMatching(title) {
+    if (!title) return '';
+    return title
+        .replace(/\s*[\(\[](?:[^)\]]*\b)?instrumental(?:\b[^)\]]*)?[\)\]]/gi, '')
+        .replace(/\s*-\s*instrumental(\s+(version|mix))?/gi, '')
+        .toLowerCase()
+        .replace(/[^\w\s]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
+ * Checks if a track title or its medium title indicates an instrumental version.
+ */
+export function hasInstrumentalIndicator(title, mediumTitle = '') {
+    if (mediumTitle && /\binstrumentals?\b/i.test(mediumTitle)) return true;
+    if (!title) return false;
+    return /\binstrumentals?\b/i.test(title);
+}
+
+/**
+ * Detects whether a medium (position > 1) is an instrumental duplicate disc
+ * where all tracks on this medium are instrumental versions of tracks from an earlier medium (e.g. CD1).
+ */
+export function isInstrumentalBonusMedium(tracksOnMedium, earlierTracks, mediumTitle = '') {
+    if (!tracksOnMedium || tracksOnMedium.length === 0) return false;
+    if (!earlierTracks || earlierTracks.length === 0) return false;
+
+    const earlierCleanTitles = new Set(
+        earlierTracks.map(t => cleanTrackTitleForMatching(t.title || t.name || ''))
+    );
+
+    return tracksOnMedium.every(t => {
+        const rawTitle = t.title || t.name || '';
+        const hasMarker = hasInstrumentalIndicator(rawTitle, mediumTitle || t.mediumTitle || '');
+        const clean = cleanTrackTitleForMatching(rawTitle);
+        return hasMarker && earlierCleanTitles.has(clean);
+    });
+}
+
+/**
+ * Filter out instrumental bonus discs from a list of tracks or songs.
+ */
+export function filterInstrumentalBonusDiscs(tracks = []) {
+    if (!tracks || tracks.length === 0) return [];
+
+    const mediaMap = new Map();
+    for (const t of tracks) {
+        const medNum = t.mediumNumber || 1;
+        if (!mediaMap.has(medNum)) {
+            mediaMap.set(medNum, []);
+        }
+        mediaMap.get(medNum).push(t);
+    }
+
+    const sortedMediumNumbers = Array.from(mediaMap.keys()).sort((a, b) => a - b);
+    if (sortedMediumNumbers.length <= 1) {
+        return tracks;
+    }
+
+    const earlierTracks = [];
+    const scrubbedMediumNumbers = new Set();
+
+    for (const medNum of sortedMediumNumbers) {
+        const mTracks = mediaMap.get(medNum);
+        if (medNum > 1 && isInstrumentalBonusMedium(mTracks, earlierTracks, mTracks[0]?.mediumTitle || '')) {
+            scrubbedMediumNumbers.add(medNum);
+        } else {
+            earlierTracks.push(...mTracks);
+        }
+    }
+
+    if (scrubbedMediumNumbers.size === 0) {
+        return tracks;
+    }
+
+    return tracks.filter(t => !scrubbedMediumNumbers.has(t.mediumNumber || 1));
+}
+
+/**
  * Detect whether a medium is non-CD (DVD, Blu-ray, or Vinyl/Tape when CD is present).
  */
 export function isNonCdMedium(mediumOrFormat, hasCdMedia = true) {
@@ -733,6 +815,8 @@ export async function getAlbumTracks(releaseGroupMbid) {
 
         const hasAnyCdOrDigital = candidateMedia.some(m => !isDvdOrBlurayMedium(m) && !isVinylOrTapeMedium(m));
 
+        const earlierMediaTracks = [];
+
         for (const medium of candidateMedia) {
             const mediumTitle = medium.title || '';
             const mediumFormat = medium.format || 'CD';
@@ -751,6 +835,25 @@ export async function getAlbumTracks(releaseGroupMbid) {
                 }
                 continue;
             }
+
+            // Filter out instrumental duplicate bonus media (e.g. CD2/CD3 where all tracks are instrumental versions of CD1)
+            const medTracks = (medium.tracks || []).map(tr => ({
+                title: tr.title || tr.recording?.title || '',
+                id: tr.recording?.id || tr.id,
+                recording: tr.recording
+            }));
+
+            if (mediumNumber > 1 && isInstrumentalBonusMedium(medTracks, earlierMediaTracks, mediumTitle)) {
+                scrubbedMediumNumbers.add(mediumNumber);
+                for (const tr of medium.tracks || []) {
+                    const recording = tr.recording || {};
+                    if (recording.id) scrubbedRecordingMbids.add(recording.id);
+                    if (tr.id) scrubbedRecordingMbids.add(tr.id);
+                }
+                continue;
+            }
+
+            earlierMediaTracks.push(...medTracks);
 
             for (const tr of medium.tracks || []) {
                 const recording = tr.recording || {};
