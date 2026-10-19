@@ -515,17 +515,23 @@
 <div class="offcanvas offcanvas-start" tabindex="-1" id="fileMenu" aria-labelledby="fileMenuLabel">
   <div class="offcanvas-header">
     <div class="d-flex align-items-center gap-2">
-      <i class="bi-sliders2-vertical text-info fs-5"></i>
-      <h5 class="offcanvas-title mb-0" id="fileMenuLabel">Menu</h5>
+      <div class="settings-header-icon-box">
+        <i class="bi-sliders2-vertical text-info"></i>
+      </div>
+      <div>
+        <h5 class="offcanvas-title mb-0" id="fileMenuLabel">Settings</h5>
+      </div>
     </div>
-    <button type="button" class="btn-close btn-close-white text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    <button type="button" class="brand-btn theme-modal-close-btn" data-bs-dismiss="offcanvas" aria-label="Close" title="Close">
+      <i class="bi-x-lg"></i>
+    </button>
   </div>
   <div class="offcanvas-body">
 
-    <!-- Section 1: Appearance & Theming -->
+    <!-- Section 1: Appearance and Display -->
     <div class="settings-card">
       <div class="settings-header-label">
-        <i class="bi-palette-fill text-info"></i> Appearance & Themes
+        <i class="bi-palette-fill text-info"></i> Appearance and display
       </div>
       
       <!-- Colorway Finish Row -->
@@ -539,9 +545,9 @@
         </button>
       </div>
 
-      <!-- Sheet Music Mode Controls (Single 4-Option Row) -->
+      <!-- Tab Mode (Auto / Light / Dark / Theme) -->
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Tab Mode:</label>
+        <label class="form-label d-block mb-1 small text-white-50">Tab mode:</label>
         <div class="hud-pill-group w-100">
           <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeAuto" value="auto" autocomplete="off">
           <label class="btn btn-sm" for="drawerSheetModeAuto" style="flex: 1;"><i class="bi-circle-half me-1"></i> Auto</label>
@@ -556,28 +562,10 @@
           <label class="btn btn-sm" for="drawerSheetModeTheme" style="flex: 1;"><i class="bi-palette me-1"></i> Theme</label>
         </div>
       </div>
-    </div>
 
-    <!-- Section 2: Viewing Preferences -->
-    <div class="settings-card">
-      <div class="settings-header-label">
-        <i class="bi-layout-text-window-reverse text-warning"></i> Viewing Preferences
-      </div>
-      
-      <!-- Instrument Mode Toggle (Guitar vs Bass) -->
+      <!-- Tab Size Slider (Placed prominently with display controls) -->
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Instrument Mode:</label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeGuitar" value="guitar" autocomplete="off" checked>
-          <label class="btn btn-sm w-50" for="instrumentModeGuitar"><i class="bi-music-note me-1"></i> Guitar</label>
-
-          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeBass" value="bass" autocomplete="off">
-          <label class="btn btn-sm w-50" for="instrumentModeBass"><i class="bi-soundwave me-1"></i> Bass</label>
-        </div>
-      </div>
-
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Tab Size (Guitar Pro &amp; TXT):</label>
+        <label class="form-label d-block mb-1 small text-white-50" for="gpSheetScale">Tab size (Guitar Pro and TXT):</label>
         <div class="d-flex align-items-center gap-2">
           <button type="button" class="btn btn-sm theme-control-btn px-2 py-1" id="gpSheetScaleMinus" aria-label="Decrease Guitar Pro tab size">−</button>
           <div class="gp-scale-slider flex-grow-1">
@@ -591,9 +579,92 @@
           <span class="small text-white-50">150%</span>
         </div>
       </div>
+    </div>
+
+    <!-- Section 2: Updates and Backup -->
+    <div class="settings-card">
+      <div class="settings-header-label">
+        <i class="bi-cloud-arrow-down-fill text-primary"></i> Updates and backup
+      </div>
+
+      <!-- Updates (native app only) -->
+      <div id="updateSettingsCard" hidden class="p-2 rounded-2 mb-2" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="small fw-bold text-white">App updates</span>
+          <span class="small text-white-50" id="updateCurrentVersion"></span>
+        </div>
+        <div class="hud-pill-group w-100 mb-2">
+          <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNone" value="none" autocomplete="off">
+          <label class="btn btn-sm w-33" for="updateChannelNone">None</label>
+
+          <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNightly" value="nightly" autocomplete="off">
+          <label class="btn btn-sm w-33" for="updateChannelNightly">Nightly</label>
+
+          <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelStable" value="stable" autocomplete="off" checked>
+          <label class="btn btn-sm w-33" for="updateChannelStable">Stable</label>
+        </div>
+        <button class="btn btn-sm btn-theme-outline w-100" id="updateCheckBtn" type="button">Check Now</button>
+        <div class="small text-white-50 mt-1" id="updateStatus" role="status"></div>
+      </div>
+
+      <!-- Backup and Restore Actions -->
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Library backup:</label>
+        <div class="d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
+          <button class="btn btn-theme-primary d-flex align-items-center justify-content-center gap-2 py-2" id="backupDataBtn" type="button">
+            <i class="bi-cloud-arrow-up"></i>
+            <span>Backup</span>
+          </button>
+          <button class="btn btn-theme-outline d-flex align-items-center justify-content-center gap-2 py-2" id="restoreDataBtn" type="button">
+            <i class="bi-cloud-arrow-down"></i>
+            <span>Restore</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Collapsible Advanced Data Tools -->
+      <details class="settings-advanced-details mt-1">
+        <summary class="small text-white-50 py-1 d-flex align-items-center justify-content-between" style="cursor: pointer; user-select: none;">
+          <span>More data options...</span>
+          <i class="bi-chevron-down ms-1" style="font-size: 0.75rem;"></i>
+        </summary>
+        <div class="d-flex flex-column gap-2 pt-2 border-top border-secondary-subtle mt-1">
+          <button class="btn btn-theme-outline btn-sm w-100 d-flex align-items-center justify-content-center gap-2" id="bulkExportBtn" type="button">
+            <i class="bi-file-earmark-pdf text-danger"></i> Bulk Export PDFs...
+          </button>
+          <button class="btn btn-theme-outline btn-sm w-100 d-flex align-items-center justify-content-center gap-2" id="reloadLibraryMetadataBtn" type="button">
+            <i class="bi-arrow-repeat text-info"></i> Reload Library Metadata...
+          </button>
+          <button class="btn btn-theme-outline btn-sm w-100 d-flex align-items-center justify-content-center gap-2" id="clearCacheBtn" type="button">
+            <i class="bi-brush text-warning"></i> Clear Cached Data...
+          </button>
+          <button class="btn btn-theme-outline btn-sm w-100 d-flex align-items-center justify-content-center gap-2" id="deleteAllDataBtn" type="button">
+            <i class="bi-trash3 text-danger"></i> Delete All Data...
+          </button>
+        </div>
+      </details>
+    </div>
+
+    <!-- Section 3: Notation and Reading -->
+    <div class="settings-card">
+      <div class="settings-header-label">
+        <i class="bi-layout-text-window-reverse text-warning"></i> Notation and reading
+      </div>
+      
+      <!-- Instrument Mode Toggle (Guitar vs Bass) -->
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Instrument mode:</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeGuitar" value="guitar" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="instrumentModeGuitar"><i class="bi-music-note me-1"></i> Guitar</label>
+
+          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeBass" value="bass" autocomplete="off">
+          <label class="btn btn-sm w-50" for="instrumentModeBass"><i class="bi-soundwave me-1"></i> Bass</label>
+        </div>
+      </div>
 
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Default View (Guitar Pro):</label>
+        <label class="form-label d-block mb-1 small text-white-50">Default view (Guitar Pro):</label>
         <div class="hud-pill-group w-100">
           <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultPage" value="page" autocomplete="off">
           <label class="btn btn-sm w-50" for="gpDefaultPage"><i class="bi-book me-1"></i> Page</label>
@@ -603,9 +674,8 @@
         </div>
       </div>
 
-
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Default View (PDF):</label>
+        <label class="form-label d-block mb-1 small text-white-50">Default view (PDF):</label>
         <div class="hud-pill-group w-100">
           <input type="radio" class="btn-check" name="pdfDefaultViewRadio" id="pdfDefaultPage" value="page" autocomplete="off">
           <label class="btn btn-sm w-50" for="pdfDefaultPage"><i class="bi-book me-1"></i> Page</label>
@@ -616,7 +686,7 @@
       </div>
 
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Default View (TXT):</label>
+        <label class="form-label d-block mb-1 small text-white-50">Default view (TXT):</label>
         <div class="hud-pill-group w-100">
           <input type="radio" class="btn-check" name="txtDefaultViewRadio" id="txtDefaultPage" value="page" autocomplete="off">
           <label class="btn btn-sm w-50" for="txtDefaultPage"><i class="bi-book me-1"></i> Page</label>
@@ -654,69 +724,25 @@
 
     </div>
 
-    <!-- Updates (native app only) -->
-    <div class="settings-card" id="updateSettingsCard" hidden>
-      <div class="settings-header-label">
-        <i class="bi-cloud-arrow-down" style="color: var(--accent-primary);"></i> Updates
-      </div>
-      <div class="small text-white-50 mb-2" id="updateCurrentVersion"></div>
-      <label class="form-label d-block mb-1 small text-white-50">Check for:</label>
-      <div class="hud-pill-group w-100 mb-2">
-        <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNone" value="none" autocomplete="off">
-        <label class="btn btn-sm w-33" for="updateChannelNone">None</label>
-
-        <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNightly" value="nightly" autocomplete="off">
-        <label class="btn btn-sm w-33" for="updateChannelNightly">Nightly</label>
-
-        <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelStable" value="stable" autocomplete="off" checked>
-        <label class="btn btn-sm w-33" for="updateChannelStable">Stable</label>
-      </div>
-      <button class="btn btn-theme-outline w-100" id="updateCheckBtn" type="button">Check Now</button>
-      <div class="small text-white-50 mt-2" id="updateStatus" role="status"></div>
+    <!-- Secondary Utilities -->
+    <div class="d-flex gap-2">
+      <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openControllerHelpMenuBtn" type="button">
+        <i class="bi-controller text-info"></i> Controller
+      </button>
+      <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openExtensions" type="button">
+        <i class="bi-puzzle text-info"></i> Extensions
+      </button>
     </div>
-
-    <!-- Section 4: Data Management -->
-    <div class="settings-card">
-      <div class="settings-header-label">
-        <i class="bi-database-gear text-primary"></i> Data Management
-      </div>
-      <div class="d-flex flex-column gap-2">
-        <button class="btn btn-theme-primary w-100 d-flex align-items-center justify-content-center gap-2" id="backupDataBtn" type="button">
-          <i class="bi-cloud-arrow-up"></i> Create Backup...
-        </button>
-        <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="restoreDataBtn" type="button">
-          <i class="bi-cloud-arrow-down"></i> Restore from Backup...
-        </button>
-        <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="bulkExportBtn" type="button">
-          <i class="bi-file-earmark-pdf text-danger"></i> Bulk Export PDFs...
-        </button>
-        <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="reloadLibraryMetadataBtn" type="button">
-          <i class="bi-arrow-repeat text-info"></i> Reload Library Metadata...
-        </button>
-        <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="clearCacheBtn" type="button">
-          <i class="bi-brush text-warning"></i> Clear Cached Data...
-        </button>
-        <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="deleteAllDataBtn" type="button">
-          <i class="bi-trash3 text-danger"></i> Delete All Data...
-        </button>
-      </div>
-    </div>
-
-    <button class="btn theme-control-btn w-100 d-flex align-items-center justify-content-center gap-2 mb-2" id="openControllerHelpMenuBtn" type="button">
-      <i class="bi-controller text-info"></i> Controller Guide
-    </button>
-
-    <button class="btn theme-control-btn w-100 d-flex align-items-center justify-content-center gap-2" id="openExtensions" type="button">
-      <i class="bi-puzzle text-info"></i> Extensions
-    </button>
 
     <div class="mt-auto pt-2 d-flex flex-column gap-2">
-      <a href="privacy.html" class="btn btn-sm theme-control-btn w-100 d-flex align-items-center justify-content-center gap-2">
-        <i class="bi-shield-check"></i> Privacy Policy
-      </a>
-      <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="btn btn-sm theme-control-btn w-100 d-flex align-items-center justify-content-center gap-2">
-        <i class="bi-github"></i> View Source on GitHub
-      </a>
+      <div class="d-flex align-items-center justify-content-between px-1">
+        <a href="privacy.html" class="small text-white-50 text-decoration-none d-inline-flex align-items-center gap-1">
+          <i class="bi-shield-check"></i> Privacy Policy
+        </a>
+        <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="small text-white-50 text-decoration-none d-inline-flex align-items-center gap-1">
+          <i class="bi-github"></i> GitHub
+        </a>
+      </div>
     </div>
 
   </div>
