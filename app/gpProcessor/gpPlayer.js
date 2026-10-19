@@ -1023,8 +1023,26 @@ export function hideSynthPlayer() {
 export function updateSynthPanelPosition() {
     const panel = document.getElementById('synthDropdownPanel');
     const toggleBtn = document.getElementById('synthToggleBtn');
-    if (!panel || !toggleBtn || !synthPlayerState.isOpen) return;
+    if (!panel || !synthPlayerState.isOpen) return;
 
+    const mobileDock = document.getElementById('mobilePlaybackDock');
+    const isMobileDockActive = window.innerWidth <= 576 || (mobileDock && window.getComputedStyle(mobileDock).display !== 'none');
+
+    if (isMobileDockActive && mobileDock) {
+        panel.classList.add('popup-from-bottom');
+        const dockRect = mobileDock.getBoundingClientRect();
+        const bottomOffset = dockRect.top > 0 ? Math.max(12, Math.round(window.innerHeight - dockRect.top + 8)) : 76;
+        panel.style.position = 'fixed';
+        panel.style.top = 'auto';
+        panel.style.bottom = `${bottomOffset}px`;
+        panel.style.left = '50%';
+        panel.style.transform = 'translateX(-50%)';
+        return;
+    }
+
+    panel.classList.remove('popup-from-bottom');
+    panel.style.bottom = 'auto';
+    if (!toggleBtn) return;
     const rect = toggleBtn.getBoundingClientRect();
     panel.style.position = 'fixed';
     panel.style.top = `${rect.bottom + 8}px`;
@@ -1059,6 +1077,7 @@ export function toggleSynthPanel(forceState = null) {
         toggleBtn?.classList.add('active');
     } else {
         panel.style.display = 'none';
+        panel.classList.remove('popup-from-bottom');
         toggleBtn?.classList.remove('active');
     }
 }
@@ -1088,12 +1107,8 @@ export function initSynthPlayer() {
     });
 
     window.addEventListener('resize', () => {
-        const panel = document.getElementById('synthDropdownPanel');
-        if (!synthPlayerState.isOpen || !toggleBtn || !panel) return;
-        const rect = toggleBtn.getBoundingClientRect();
-        const halfPanelWidth = Math.min(180, (window.innerWidth - 24) / 2);
-        panel.style.top = `${rect.bottom + 8}px`;
-        panel.style.left = `${Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, rect.left + rect.width / 2))}px`;
+        if (!synthPlayerState.isOpen) return;
+        updateSynthPanelPosition();
     });
 
     closeBtn?.addEventListener('click', () => {
