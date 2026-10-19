@@ -379,8 +379,31 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     } else {
         initObserver();
     }
+
+    function ensureDarkStatusBarMeta() {
+        try {
+            let tc = document.querySelector('meta[name="theme-color"]');
+            if (!tc) {
+                tc = document.createElement('meta');
+                tc.name = 'theme-color';
+                (document.head || document.documentElement).appendChild(tc);
+            }
+            tc.content = '#0d0f15';
+
+            let sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+            if (!sb) {
+                sb = document.createElement('meta');
+                sb.name = 'apple-mobile-web-app-status-bar-style';
+                (document.head || document.documentElement).appendChild(sb);
+            }
+            sb.content = 'black-translucent';
+        } catch(e) {}
+    }
+    ensureDarkStatusBarMeta();
+
     // 9. Modeled In-App Shadow DOM Toolbar & Source Configuration Panel
     window.__initMajesticToolbar = function(config) {
+        ensureDarkStatusBarMeta();
         if (!config || !config.showToolbar) return;
 
         let host = document.getElementById('majestic-downloader-host');
@@ -548,7 +571,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         touch-action: none;
                     }
                     .toolbar-root.platform-ios .nav-row {
-                        padding-top: max(env(safe-area-inset-top), 8px);
+                        padding-top: max(env(safe-area-inset-top), 54px);
                     }
                     .toolbar-root.platform-macos .nav-row {
                         padding-left: 88px;
@@ -559,6 +582,9 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     .toolbar-root.is-mobile-screen .nav-row {
                         gap: 6px;
                         padding: max(env(safe-area-inset-top), 8px) max(env(safe-area-inset-right), 8px) 6px max(env(safe-area-inset-left), 8px);
+                    }
+                    .toolbar-root.platform-ios.is-mobile-screen .nav-row {
+                        padding-top: max(env(safe-area-inset-top), 54px);
                     }
                     .toolbar-root.is-mobile-screen .nav-left {
                         flex: 1 1 auto;
@@ -1354,17 +1380,17 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 const isScaled = Math.abs(effectiveScale - 1.0) > 0.02;
 
                 if (isScaled && vv) {
-                    // Pinned to visual viewport bounds and scaled by (1 / vvScale)
-                    // so the toolbar stays exactly at physical screen size and position
-                    // both during initial wide-page layout (e.g. 1280px on 402px screen)
-                    // and during interactive pinch-to-zoom gestures.
+                    // Pinned to visual viewport bounds and zoomed using native CSS zoom
+                    // so the toolbar stays crisp at native high-DPI resolution without
+                    // raster blur caused by transform: scale.
                     host.style.position = 'fixed';
                     host.style.left = (vv.offsetLeft || 0) + 'px';
                     host.style.top = (vv.offsetTop || 0) + 'px';
-                    host.style.width = ((vv.width || window.innerWidth) * vvScale) + 'px';
+                    host.style.width = (vv.width || window.innerWidth) + 'px';
                     host.style.transformOrigin = '0 0';
-                    host.style.transform = 'scale(' + effectiveScale + ')';
-                    toolbarRoot.style.zoom = '1';
+                    host.style.transform = 'none';
+                    toolbarRoot.style.width = ((vv.width || window.innerWidth) / effectiveScale) + 'px';
+                    toolbarRoot.style.zoom = effectiveScale;
                 } else {
                     // Standard unscaled viewport (1:1 scale)
                     host.style.position = 'fixed';
@@ -1372,13 +1398,14 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     host.style.top = '0px';
                     host.style.transform = 'none';
                     host.style.width = '100%';
+                    toolbarRoot.style.width = '100%';
                     toolbarRoot.style.zoom = '1';
                 }
 
                 // Keep page body padded down so content starts below the toolbar.
-                const h = Math.ceil(toolbarRoot.offsetHeight || toolbarRoot.getBoundingClientRect().height);
-                if (h > 0) {
-                    const effectiveH = Math.ceil(h * effectiveScale);
+                const rect = toolbarRoot.getBoundingClientRect();
+                const effectiveH = Math.ceil(rect.height || (toolbarRoot.offsetHeight * effectiveScale));
+                if (effectiveH > 0) {
                     let offStyle = document.getElementById('majestic-downloader-offset-style');
                     if (!offStyle) {
                         offStyle = document.createElement('style');
@@ -2032,6 +2059,34 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
 #[cfg(any(target_os = "android", target_os = "ios"))]
 pub fn install(_app: &mut App<Wry>) -> tauri::Result<()> {
     Ok(())
+}
+
+#[cfg(target_os = "ios")]
+pub fn configure_ios_webview(window: &tauri::WebviewWindow) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+    use objc2_ui_kit::UIColor;
+
+    let _ = window.with_webview(|platform| unsafe {
+        let webview_ptr = platform.inner().cast::<AnyObject>();
+        let bg_color = UIColor::colorWithRed_green_blue_alpha(13.0 / 255.0, 15.0 / 255.0, 21.0 / 255.0, 1.0);
+
+        let _: () = msg_send![webview_ptr, setBackgroundColor: &*bg_color];
+        let scroll_view: *mut AnyObject = msg_send![webview_ptr, scrollView];
+        if !scroll_view.is_null() {
+            let _: () = msg_send![scroll_view, setBackgroundColor: &*bg_color];
+            // UIScrollViewContentInsetAdjustmentNever = 2
+            let _: () = msg_send![scroll_view, setContentInsetAdjustmentBehavior: 2isize];
+        }
+
+        // UIUserInterfaceStyleDark = 2
+        let _: () = msg_send![webview_ptr, setOverrideUserInterfaceStyle: 2isize];
+        let superview: *mut AnyObject = msg_send![webview_ptr, superview];
+        if !superview.is_null() {
+            let _: () = msg_send![superview, setBackgroundColor: &*bg_color];
+            let _: () = msg_send![superview, setOverrideUserInterfaceStyle: 2isize];
+        }
+    });
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
