@@ -406,18 +406,30 @@ async function loadCurrentTrack(autoplay = false) {
         if (iframe) {
             iframe.style.display = 'block';
             const autoplayParam = autoplay ? '1' : '0';
-            const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
+            const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
             embedUrl.searchParams.set('autoplay', autoplayParam);
             embedUrl.searchParams.set('enablejsapi', '1');
             embedUrl.searchParams.set('playsinline', '1');
-            const isStandardWebOrigin = typeof window !== 'undefined' &&
-                (window.location.protocol === 'http:' || window.location.protocol === 'https:') &&
-                !window.location.hostname.includes('localhost') &&
-                !window.location.hostname.includes('127.0.0.1') &&
-                !window.__TAURI__;
-            if (isStandardWebOrigin && window.location.origin && window.location.origin !== 'null') {
-                embedUrl.searchParams.set('origin', window.location.origin);
+
+            // Provide valid origin and referrer verification parameters.
+            // On standard web environments, pass the actual window origin.
+            // On native mobile app environments (Tauri / iOS WKWebView) where custom schemes or
+            // local origins lack an external HTTP referrer header, pass https://www.youtube-nocookie.com
+            // as origin and widget_referrer to satisfy YouTube's strict embed verification checks (preventing Error 153).
+            let validOrigin = null;
+            if (typeof window !== 'undefined' && window.location) {
+                if (window.location.origin && window.location.origin !== 'null' &&
+                    (window.location.protocol === 'http:' || window.location.protocol === 'https:') &&
+                    !window.location.hostname.includes('localhost') &&
+                    !window.location.hostname.includes('127.0.0.1') &&
+                    !window.__TAURI__) {
+                    validOrigin = window.location.origin;
+                }
             }
+            const effectiveOrigin = validOrigin || 'https://www.youtube-nocookie.com';
+            embedUrl.searchParams.set('origin', effectiveOrigin);
+            embedUrl.searchParams.set('widget_referrer', effectiveOrigin);
+
             if (playerState.currentTime > 0) {
                 embedUrl.searchParams.set('start', String(Math.floor(playerState.currentTime)));
             }
