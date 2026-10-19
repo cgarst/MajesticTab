@@ -462,7 +462,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 if (source.id === 'ug') return 'https://www.ultimate-guitar.com/';
                 if (source.id === 'metaltabs') return 'https://metaltabs.org/';
                 if (source.id === 'gprotab') return 'https://gprotab.net/';
-                if (source.id === 'guitarprotabs') return 'https://guitarprotabs.org/';
+                if (source.id === 'songsterr') return 'https://www.songsterr-downloader.com/';
                 if (source.defaultUrl) return source.defaultUrl.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
                 if (template) {
                     try {
@@ -494,7 +494,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             if (h.includes('ultimate-guitar.com')) return 'ug';
             if (h.includes('metaltabs.org')) return 'metaltabs';
             if (h.includes('gprotab.net')) return 'gprotab';
-            if (h.includes('guitarprotabs.org')) return 'guitarprotabs';
+            if (h.includes('songsterr-downloader.com')) return 'songsterr';
             for (let i = 0; i < sources.length; i++) {
                 const s = sources[i];
                 try {
@@ -1835,7 +1835,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
                                 true
                             } else if s.id == "gprotab" && host.contains("gprotab.net") {
                                 true
-                            } else if s.id == "guitarprotabs" && host.contains("guitarprotabs.org") {
+                            } else if s.id == "songsterr" && host.contains("songsterr-downloader.com") {
                                 true
                             } else if let Ok(u) = tauri::Url::parse(if !s.default_url.is_empty() { &s.default_url } else { &s.url_template }) {
                                 u.host_str().map(|h| host.contains(h)).unwrap_or(false)
