@@ -105,7 +105,7 @@ export async function saveStoredFile(file, providerId = 'local', metadata = {}) 
     const db = await getDB();
     const arrayBuffer = await file.arrayBuffer();
     const name = file.name || metadata.name || 'Untitled';
-    const id = metadata.id || `${providerId}_${name}_${Date.now()}`;
+    const id = metadata.id || (metadata.driveFileId ? `google-drive_${metadata.driveFileId}` : `${providerId}_${name}_${Date.now()}`);
     const record = {
         id,
         name,

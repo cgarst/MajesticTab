@@ -1267,6 +1267,7 @@ export async function loadFile(file, { hideMenu = true } = {}) {
         startPage: file.startPage || null,
         endPage: file.endPage || null,
         fileStoreId: file.fileStoreId || null,
+        driveFileId: file.driveFileId || null,
         librarySongId: file.librarySongId || null,
         providerId: file.providerId || 'local',
         relativePath: file.relativePath || file.name,

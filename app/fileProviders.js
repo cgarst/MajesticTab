@@ -221,7 +221,7 @@ export const GoogleDriveFileProvider = {
         if (isTokenValid()) {
             openDriveModal(options);
         } else {
-            redirectToGoogleAuth();
+            redirectToGoogleAuth('open_drive_browser', options);
         }
     },
     async save(fileBlob, filename = 'MajesticTab-backup.mtbackup', options = {}) {
