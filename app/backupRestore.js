@@ -221,7 +221,15 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
             : (typeof globalThis !== 'undefined' && globalThis.fflate)
                 ? globalThis.fflate
                 : null;
-        if (fflateObj?.gzip) {
+        if (fflateObj?.gzipSync) {
+            try {
+                const arrayBuffer = await jsonBlob.arrayBuffer();
+                const compressed = fflateObj.gzipSync(new Uint8Array(arrayBuffer));
+                return new Blob([compressed], { type: 'application/gzip' });
+            } catch (e) {
+                console.warn('[Backup] fflate.gzipSync failed, trying CompressionStream:', e);
+            }
+        } else if (fflateObj?.gzip) {
             try {
                 const arrayBuffer = await jsonBlob.arrayBuffer();
                 const compressed = await new Promise((resolve, reject) => {
@@ -271,18 +279,35 @@ export async function readBackupFileText(file) {
                     ? globalThis.fflate
                     : null;
 
-            if (fflateObj?.gunzip) {
-                const arrayBuffer = await file.arrayBuffer();
-                const decompressed = await new Promise((resolve, reject) => {
-                    fflateObj.gunzip(new Uint8Array(arrayBuffer), (err, result) => {
-                        if (err) reject(err);
-                        else resolve(result);
-                    });
-                });
-                if (typeof fflateObj.strFromU8 === 'function') {
-                    return fflateObj.strFromU8(decompressed);
+            if (fflateObj?.gunzipSync) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const decompressed = fflateObj.gunzipSync(new Uint8Array(arrayBuffer));
+                    if (typeof fflateObj.strFromU8 === 'function') {
+                        return fflateObj.strFromU8(decompressed);
+                    }
+                    return new TextDecoder('utf-8').decode(decompressed);
+                } catch (syncErr) {
+                    console.warn('[Restore] fflate.gunzipSync failed, trying async fallback:', syncErr);
                 }
-                return new TextDecoder('utf-8').decode(decompressed);
+            }
+
+            if (fflateObj?.gunzip) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const decompressed = await new Promise((resolve, reject) => {
+                        fflateObj.gunzip(new Uint8Array(arrayBuffer), (err, result) => {
+                            if (err) reject(err);
+                            else resolve(result);
+                        });
+                    });
+                    if (typeof fflateObj.strFromU8 === 'function') {
+                        return fflateObj.strFromU8(decompressed);
+                    }
+                    return new TextDecoder('utf-8').decode(decompressed);
+                } catch (asyncErr) {
+                    console.warn('[Restore] fflate.gunzip failed:', asyncErr);
+                }
             }
 
             if (typeof DecompressionStream !== 'undefined') {
@@ -1733,6 +1758,7 @@ function attachModalHandlers(modal, options = {}) {
                 restoreStatusAlert.textContent = inspection.error;
                 restoreInspectionCard.style.display = 'none';
                 restoreExecuteBtn.disabled = true;
+                try { showToast(`Backup verification failed: ${inspection.error}`, 'error'); } catch (_) {}
                 return;
             }
 
@@ -1760,12 +1786,14 @@ function attachModalHandlers(modal, options = {}) {
                 restoreExecuteBtn.disabled = false;
             });
         } catch (err) {
+            console.error('Failed to read or verify backup file:', err);
             restoreStatusAlert.style.display = 'block';
             restoreStatusAlert.className = 'small mb-2 text-danger fw-semibold';
             restoreStatusAlert.textContent = `Could not read backup file: ${err.message}`;
             restoreInspectionCard.style.display = 'none';
             restoreDropzone.style.display = 'block';
             restoreExecuteBtn.disabled = true;
+            try { showToast(`Could not read backup file: ${err.message}`, 'error'); } catch (_) {}
         }
     };
 
