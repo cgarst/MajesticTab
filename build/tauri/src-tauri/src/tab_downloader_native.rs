@@ -549,7 +549,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     }
                     @media (orientation: portrait) {
                         .toolbar-root.platform-ios .nav-row {
-                            padding-top: max(calc(env(safe-area-inset-top) + 6px), 50px);
+                            padding-top: max(env(safe-area-inset-top), 44px);
                         }
                     }
                     .toolbar-root.platform-macos .nav-row {
@@ -557,6 +557,25 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     }
                     .toolbar-root.platform-windows .nav-row {
                         padding-right: 152px;
+                    }
+                    @media (max-width: 600px) {
+                        .nav-row {
+                            gap: 8px;
+                            padding-left: max(env(safe-area-inset-left), 8px);
+                            padding-right: max(env(safe-area-inset-right), 8px);
+                        }
+                        .song-pill {
+                            max-width: 130px;
+                        }
+                        .url-group {
+                            min-width: 100px;
+                        }
+                        .back-btn span {
+                            display: none;
+                        }
+                        .back-btn {
+                            padding: 0 9px;
+                        }
                     }
                     .nav-left {
                         display: flex;
@@ -1289,51 +1308,45 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 }
 
                 const vv = window.visualViewport;
-                const pinchScale = (vv && vv.scale) ? vv.scale : 1.0;
+                const vvScale = (vv && vv.scale) ? vv.scale : 1.0;
+                const effectiveScale = (vvScale > 0) ? (1.0 / vvScale) : 1.0;
+                const isScaled = Math.abs(effectiveScale - 1.0) > 0.02;
 
-                if (pinchScale !== 1.0 && vv) {
-                    // Pinch-to-zoom is active:
-                    // Pin toolbar to visual viewport bounds and scale by (baseScale / pinchScale)
-                    // so the toolbar stays pinned at the top and completely immune to pinch-to-zoom.
-                    const effectiveScale = baseScale / pinchScale;
+                if (isScaled && vv) {
+                    // Pinned to visual viewport bounds and scaled by (1 / vvScale)
+                    // so the toolbar stays exactly at physical screen size and position
+                    // both during initial wide-page layout (e.g. 1280px on 402px screen)
+                    // and during interactive pinch-to-zoom gestures.
                     host.style.position = 'fixed';
                     host.style.left = (vv.offsetLeft || 0) + 'px';
                     host.style.top = (vv.offsetTop || 0) + 'px';
-                    host.style.width = ((vv.width * pinchScale) / baseScale) + 'px';
+                    host.style.width = ((vv.width || window.innerWidth) * vvScale) + 'px';
                     host.style.transformOrigin = '0 0';
                     host.style.transform = 'scale(' + effectiveScale + ')';
                     toolbarRoot.style.zoom = '1';
                 } else {
-                    // Normal unzoomed state
+                    // Standard unscaled viewport (1:1 scale)
                     host.style.position = 'fixed';
                     host.style.left = '0px';
                     host.style.top = '0px';
-                    if (baseScale !== 1.0) {
-                        host.style.transformOrigin = '0 0';
-                        host.style.transform = 'scale(' + baseScale + ')';
-                        host.style.width = (100 / baseScale) + '%';
-                        toolbarRoot.style.zoom = '1';
-                    } else {
-                        host.style.transform = 'none';
-                        host.style.width = '100%';
-                        toolbarRoot.style.zoom = '1';
-                    }
+                    host.style.transform = 'none';
+                    host.style.width = '100%';
+                    toolbarRoot.style.zoom = '1';
+                }
 
-                    // Keep page body padded down so content starts below the toolbar.
-                    // Only update in unzoomed state so padding doesn't jitter during pinch gestures.
-                    const h = Math.ceil(toolbarRoot.offsetHeight || toolbarRoot.getBoundingClientRect().height);
-                    if (h > 0) {
-                        const effectiveH = Math.ceil(h * baseScale);
-                        let offStyle = document.getElementById('majestic-downloader-offset-style');
-                        if (!offStyle) {
-                            offStyle = document.createElement('style');
-                            offStyle.id = 'majestic-downloader-offset-style';
-                            (document.head || document.documentElement).appendChild(offStyle);
-                        }
-                        const targetCss = 'body { padding-top: ' + effectiveH + 'px !important; }';
-                        if (offStyle.textContent !== targetCss) {
-                            offStyle.textContent = targetCss;
-                        }
+                // Keep page body padded down so content starts below the toolbar.
+                const h = Math.ceil(toolbarRoot.offsetHeight || toolbarRoot.getBoundingClientRect().height);
+                if (h > 0) {
+                    const effectiveH = Math.ceil(h * effectiveScale);
+                    let offStyle = document.getElementById('majestic-downloader-offset-style');
+                    if (!offStyle) {
+                        offStyle = document.createElement('style');
+                        offStyle.id = 'majestic-downloader-offset-style';
+                        (document.head || document.documentElement).appendChild(offStyle);
+                    }
+                    const targetCss = 'body { padding-top: ' + effectiveH + 'px !important; }';
+                    if (offStyle.textContent !== targetCss) {
+                        offStyle.textContent = targetCss;
                     }
                 }
             }
