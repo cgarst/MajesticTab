@@ -547,10 +547,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         cursor: default;
                         touch-action: none;
                     }
-                    @media (orientation: portrait) {
-                        .toolbar-root.platform-ios .nav-row {
-                            padding-top: max(env(safe-area-inset-top), 44px);
-                        }
+                    .toolbar-root.platform-ios .nav-row {
+                        padding-top: max(env(safe-area-inset-top), 8px);
                     }
                     .toolbar-root.platform-macos .nav-row {
                         padding-left: 88px;
@@ -558,24 +556,68 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     .toolbar-root.platform-windows .nav-row {
                         padding-right: 152px;
                     }
-                    @media (max-width: 600px) {
-                        .nav-row {
-                            gap: 8px;
-                            padding-left: max(env(safe-area-inset-left), 8px);
-                            padding-right: max(env(safe-area-inset-right), 8px);
-                        }
-                        .song-pill {
-                            max-width: 130px;
-                        }
-                        .url-group {
-                            min-width: 100px;
-                        }
-                        .back-btn span {
-                            display: none;
-                        }
-                        .back-btn {
-                            padding: 0 9px;
-                        }
+                    .toolbar-root.is-mobile-screen .nav-row {
+                        gap: 6px;
+                        padding: max(env(safe-area-inset-top), 8px) max(env(safe-area-inset-right), 8px) 6px max(env(safe-area-inset-left), 8px);
+                    }
+                    .toolbar-root.is-mobile-screen .nav-left {
+                        flex: 1 1 auto;
+                        min-width: 0;
+                        gap: 6px;
+                    }
+                    .toolbar-root.is-mobile-screen .nav-center {
+                        display: none;
+                    }
+                    .toolbar-root.is-mobile-screen .nav-center.show-fallback {
+                        display: flex;
+                        flex: 1 1 auto;
+                        min-width: 0;
+                        padding: 0 4px;
+                    }
+                    .toolbar-root.is-mobile-screen .nav-right {
+                        gap: 6px;
+                    }
+                    .toolbar-root.is-mobile-screen .url-group {
+                        max-width: none;
+                        min-width: 0;
+                        height: 30px;
+                        padding: 0 8px;
+                    }
+                    .toolbar-root.is-mobile-screen .song-pill {
+                        max-width: none;
+                        flex: 1 1 auto;
+                        min-width: 0;
+                        height: 30px;
+                        font-size: 11.5px;
+                        padding: 0 8px;
+                        justify-content: center;
+                    }
+                    .toolbar-root.is-mobile-screen .tool-btn {
+                        height: 30px;
+                        padding: 4px 7px;
+                    }
+                    .toolbar-root.is-mobile-screen .icon-btn {
+                        width: 30px;
+                        height: 30px;
+                    }
+                    .toolbar-root.is-mobile-screen .back-btn span {
+                        display: none;
+                    }
+                    .toolbar-root.is-mobile-screen .back-btn {
+                        padding: 0;
+                        width: 30px;
+                        height: 30px;
+                        justify-content: center;
+                    }
+                    .toolbar-root.is-mobile-screen .tabs-row {
+                        padding: 4px max(env(safe-area-inset-right), 8px) 5px max(env(safe-area-inset-left), 8px);
+                        gap: 5px;
+                    }
+                    .toolbar-root.is-mobile-screen .tab-btn {
+                        height: 26px;
+                        padding: 3px 8px;
+                        font-size: 11px;
+                        gap: 4px;
                     }
                     .nav-left {
                         display: flex;
@@ -1299,12 +1341,11 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     deviceScreenW = window.innerWidth || 1100;
                 }
 
-                // Baseline scale for wide desktop viewports (e.g. 1200px) loaded on small mobile displays.
-                // In landscape mode with normal responsive viewports, layoutW <= deviceScreenW so baseScale = 1.0.
-                const layoutW = window.innerWidth || deviceScreenW;
-                let baseScale = 1.0;
-                if (deviceScreenW > 0 && layoutW > (deviceScreenW + 24)) {
-                    baseScale = Math.min(2.5, Math.max(1.0, layoutW / deviceScreenW));
+                const isMobileScreen = (detectedPlatform === 'ios' || detectedPlatform === 'android' || (deviceScreenW > 0 && deviceScreenW <= 700));
+                toolbarRoot.classList.toggle('is-mobile-screen', isMobileScreen);
+                const navCenter = shadow.querySelector('.nav-center');
+                if (navCenter) {
+                    navCenter.classList.toggle('show-fallback', isMobileScreen && !songText);
                 }
 
                 const vv = window.visualViewport;
