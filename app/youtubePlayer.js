@@ -626,6 +626,7 @@ export function toggleYouTubePanel(forceState = null) {
         // Ensure Synth / SoundFont panel and Score Options panel are closed and synth playback paused when opening YouTube panel
         toggleSynthPanel(false);
         toggleScoreOptionsPanel(false);
+        document.getElementById('pdfBookmarksPanelCloseBtn')?.click();
         pauseSynthPlayer();
         clearSynthHighlights();
 

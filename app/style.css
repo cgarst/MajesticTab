@@ -859,9 +859,9 @@ body {
 }
 
 /* --------------------------------------------------------------------------
-   Floating Dropdown Panels (Score Options, Synth & YouTube)
+   Floating Dropdown Panels (Score Options, Synth, YouTube & PDF Bookmarks)
    -------------------------------------------------------------------------- */
-.synth-panel, .yt-panel, .score-options-panel {
+.synth-panel, .yt-panel, .score-options-panel, .pdf-bookmarks-panel {
   position: absolute;
   top: calc(100% + 10px);
   right: 1.5rem;
@@ -890,12 +890,13 @@ body {
   }
 }
 
-.yt-panel, .score-options-panel {
+.yt-panel, .score-options-panel, .pdf-bookmarks-panel {
   animation-name: panelSlideDown;
 }
 
 .synth-panel.popup-from-bottom,
-.yt-panel.popup-from-bottom {
+.yt-panel.popup-from-bottom,
+.pdf-bookmarks-panel.popup-from-bottom {
   animation: panelSlideUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
@@ -1185,6 +1186,64 @@ input[type=range]::-webkit-slider-thumb:hover {
   font-size: 0.75rem;
   padding: 0.35rem 0.6rem;
   color: var(--text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   PDF Bookmarks & Outline Panel
+   -------------------------------------------------------------------------- */
+.pdf-bookmarks-panel {
+  width: 380px;
+}
+
+.pdf-bookmark-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.pdf-bookmark-item:hover {
+  background: var(--bg-card-hover);
+  border-color: var(--border-focus);
+}
+
+.pdf-bookmark-item.active {
+  background: var(--accent-primary-alpha);
+  border-color: var(--accent-primary);
+  color: #ffffff;
+}
+
+.pdf-bookmark-item .pdf-bookmark-target {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  cursor: pointer;
+}
+
+.pdf-bookmark-item .pdf-bookmark-delete-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.35rem;
+  transition: all 0.15s ease;
+}
+
+.pdf-bookmark-item .pdf-bookmark-delete-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+#navButtons #pdfBookmarksBtn.bookmarked {
+  color: var(--accent-primary);
 }
 
 /* --------------------------------------------------------------------------
@@ -2746,7 +2805,7 @@ body:not(.synth-playback-started) .at-highlight {
     padding: 0.3rem 0.45rem;
   }
 
-  .synth-panel, .yt-panel, .score-options-panel {
+  .synth-panel, .yt-panel, .score-options-panel, .pdf-bookmarks-panel {
     right: 0.5rem;
     left: 0.5rem;
     width: auto;
@@ -3033,8 +3092,8 @@ body:not(.synth-playback-started) .at-highlight {
     white-space: nowrap;
   }
 
-  /* SoundFont and YouTube Popup Panels: Comfortable mobile sizing & touch targets */
-  .synth-panel, .yt-panel {
+  /* SoundFont, YouTube, and PDF Bookmarks Popup Panels: Comfortable mobile sizing & touch targets */
+  .synth-panel, .yt-panel, .pdf-bookmarks-panel {
     width: calc(100vw - 16px) !important;
     max-width: 440px !important;
     max-height: calc(100vh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
@@ -3043,7 +3102,8 @@ body:not(.synth-playback-started) .at-highlight {
   }
 
   .synth-panel:not([style*="display: none"]):not([style*="display:none"]),
-  .yt-panel:not([style*="display: none"]):not([style*="display:none"]) {
+  .yt-panel:not([style*="display: none"]):not([style*="display:none"]),
+  .pdf-bookmarks-panel:not([style*="display: none"]):not([style*="display:none"]) {
     display: flex !important;
   }
 
@@ -3052,7 +3112,9 @@ body:not(.synth-playback-started) .at-highlight {
   .yt-panel[style*="display: none"],
   .yt-panel[style*="display:none"],
   .score-options-panel[style*="display: none"],
-  .score-options-panel[style*="display:none"] {
+  .score-options-panel[style*="display:none"],
+  .pdf-bookmarks-panel[style*="display: none"],
+  .pdf-bookmarks-panel[style*="display:none"] {
     display: none !important;
   }
 

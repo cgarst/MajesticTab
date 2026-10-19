@@ -1043,6 +1043,7 @@ export function toggleScoreOptionsPanel(forceState = null) {
         // Close other panels if open, without interrupting audio playback
         toggleSynthPanel(false);
         toggleYouTubePanel(false);
+        document.getElementById('pdfBookmarksPanelCloseBtn')?.click();
 
         updateScoreOptionsPanelPosition();
         panel.style.display = 'block';
@@ -1153,6 +1154,7 @@ export function toggleSynthPanel(forceState = null) {
         // Ensure YouTube panel and Score Options panel are closed and YouTube playback paused when opening synth panel
         toggleYouTubePanel(false);
         toggleScoreOptionsPanel(false);
+        document.getElementById('pdfBookmarksPanelCloseBtn')?.click();
         pauseYouTube();
 
         updateSynthPanelPosition();
