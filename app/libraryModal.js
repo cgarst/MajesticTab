@@ -266,7 +266,12 @@ export async function openLibraryModal(initialView = 'library') {
     if (audioSourcePill) audioSourcePill.style.display = 'none';
     if (navButtons) navButtons.style.display = 'none';
     if (songBreadcrumb) songBreadcrumb.style.display = 'none';
-    if (brandText) brandText.style.display = 'inline-flex';
+    if (brandText) brandText.style.display = '';
+
+    const brandSection = document.getElementById('brandSection');
+    const mobileDock = document.getElementById('mobilePlaybackDock');
+    if (mobileDock) mobileDock.style.display = 'none';
+    document.body.classList.add('library-view-active');
 
     if (returnBtn) {
         if (currentOpen && (currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name)) {
@@ -274,8 +279,10 @@ export async function openLibraryModal(initialView = 'library') {
             returnBtn.style.display = 'inline-flex';
             if (returnName) returnName.textContent = displayName;
             returnBtn.title = `Return to score: ${displayName}`;
+            if (brandSection) brandSection.classList.add('has-return-song');
         } else {
             returnBtn.style.display = 'none';
+            if (brandSection) brandSection.classList.remove('has-return-song');
         }
     }
 
@@ -329,12 +336,22 @@ export function closeLibraryModal(force = false) {
             if (songBreadcrumb) songBreadcrumb.style.display = 'none';
         }
 
+        document.body.classList.remove('library-view-active');
+        const brandSection = document.getElementById('brandSection');
+        if (brandSection) brandSection.classList.remove('has-return-song');
+
         if (navButtons && currentOpen) {
             navButtons.style.display = 'flex';
         }
 
         updateGlobalAudioControls();
     }
+}
+
+// Expose closeLibraryModal on window for automation/tests
+if (typeof window !== 'undefined') {
+    window.closeLibraryModal = closeLibraryModal;
+    window.openLibraryModal = openLibraryModal;
 }
 
 /**
@@ -382,14 +399,17 @@ export async function renderLibraryModal() {
     const currentOpen = getCurrentFile();
     const returnBtn = document.getElementById('libraryReturnToSongBtn');
     const returnName = document.getElementById('libraryReturnSongName');
+    const brandSection = document.getElementById('brandSection');
     if (returnBtn) {
         if (currentOpen && (currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name)) {
             const displayName = currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name.replace(/\.[^/.]+$/, '');
             returnBtn.style.display = 'inline-flex';
             if (returnName) returnName.textContent = displayName;
             returnBtn.title = `Return to score: ${displayName}`;
+            if (brandSection) brandSection.classList.add('has-return-song');
         } else {
             returnBtn.style.display = 'none';
+            if (brandSection) brandSection.classList.remove('has-return-song');
         }
     }
 
@@ -473,11 +493,11 @@ async function renderLibraryBrowseView(container) {
 
           <!-- Browse Mode Toggle (Artists vs Tunings) -->
           <div class="hud-pill-group" role="group" id="libBrowseModePill">
-            <button type="button" class="btn btn-sm ${libraryBrowseMode === 'artists' ? 'active' : ''}" data-mode="artists" title="Browse by Artist &amp; Album">
-              <i class="bi-person me-1"></i>Artists
+            <button type="button" class="btn btn-sm ${libraryBrowseMode === 'artists' ? 'active' : ''}" data-mode="artists" title="Browse by Artist and Album">
+              <i class="bi-person me-1"></i><span class="lib-browse-mode-text">Artists</span>
             </button>
-            <button type="button" class="btn btn-sm ${libraryBrowseMode === 'tunings' ? 'active' : ''}" data-mode="tunings" title="Browse songs by Guitar &amp; Bass Tuning">
-              <i class="bi-music-note me-1"></i>Tunings
+            <button type="button" class="btn btn-sm ${libraryBrowseMode === 'tunings' ? 'active' : ''}" data-mode="tunings" title="Browse songs by Guitar and Bass Tuning">
+              <i class="bi-music-note me-1"></i><span class="lib-browse-mode-text">Tunings</span>
             </button>
           </div>
         </div>

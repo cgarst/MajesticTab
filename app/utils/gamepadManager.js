@@ -472,13 +472,17 @@ class GamepadManager {
 
         const nextHidden = forceState !== null ? forceState : !this.isHudHidden;
         this.isHudHidden = nextHidden;
+        const mobileDock = document.getElementById('mobilePlaybackDock');
 
         if (this.isHudHidden) {
             this.topBar.classList.add('hud-hidden');
             this.topBar.classList.remove('hud-transient');
+            mobileDock?.classList.add('hud-hidden');
+            mobileDock?.classList.remove('hud-transient');
             showToast('Top Bar Hidden (Zen Mode) — Press (Y) to restore', 'info', 2000);
         } else {
             this.topBar.classList.remove('hud-hidden', 'hud-transient');
+            mobileDock?.classList.remove('hud-hidden', 'hud-transient');
             if (this.hudTransientTimeout) {
                 clearTimeout(this.hudTransientTimeout);
                 this.hudTransientTimeout = null;
@@ -498,7 +502,9 @@ class GamepadManager {
     handlePointerActivity() {
         if (!this.isHudHidden || !this.topBar) return;
 
+        const mobileDock = document.getElementById('mobilePlaybackDock');
         this.topBar.classList.add('hud-transient');
+        mobileDock?.classList.add('hud-transient');
         if (this.hudTransientTimeout) {
             clearTimeout(this.hudTransientTimeout);
         }
@@ -506,6 +512,7 @@ class GamepadManager {
         this.hudTransientTimeout = setTimeout(() => {
             if (this.isHudHidden && this.topBar) {
                 this.topBar.classList.remove('hud-transient');
+                mobileDock?.classList.remove('hud-transient');
             }
             this.hudTransientTimeout = null;
         }, 3200);
