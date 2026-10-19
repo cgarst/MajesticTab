@@ -293,7 +293,21 @@
       </div>
     </div>
 
-    <div class="mb-3">
+    <!-- Embedded Audio Sync Option -->
+    <div class="mb-3" id="synthAudioSyncSection">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <label class="form-label small mb-0 fw-semibold text-muted" for="synthAudioSyncSwitch">Embedded Audio Sync</label>
+          <div class="small text-white-50" style="font-size: 0.72rem;" id="synthAudioSyncDesc">Not provided in this tab</div>
+        </div>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input theme-switch" type="checkbox" id="synthAudioSyncSwitch" disabled>
+          <label class="form-check-label small" for="synthAudioSyncSwitch">On</label>
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-3" id="synthTrackModeContainer">
       <label class="form-label small mb-1 fw-semibold text-muted">Audio Tracks:</label>
       <div class="hud-pill-group w-100" role="group" aria-label="SoundFont track mode">
         <input type="radio" class="btn-check" name="synthTrackMode" id="synthTrackFullBand" value="fullBand" autocomplete="off" checked>
