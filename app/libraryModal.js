@@ -1401,6 +1401,7 @@ function renderPinnedSongTile(song) {
     const artistName = song.artist || '';
     const albumName = song.album || '';
     const subtext = [artistName, albumName].filter(Boolean).join(' • ');
+    const coverUrl = song.coverUrl;
 
     return `
     <div class="library-pinned-card d-flex align-items-center gap-2 p-2 rounded-3 position-relative" 
@@ -1412,8 +1413,12 @@ function renderPinnedSongTile(song) {
          tabindex="0"
          title="Play ${escapeHtml(song.title)}">
       
-      <div class="pinned-play-badge flex-shrink-0" title="Play default tab">
-        <i class="bi-play-fill"></i>
+      <div class="pinned-play-badge flex-shrink-0 ${coverUrl ? 'has-cover' : ''}" title="Play default tab">
+        ${coverUrl ? `
+          <img src="${coverUrl}" class="pinned-cover-img" alt="" draggable="false" onerror="this.style.display='none'; this.parentElement.classList.remove('has-cover');">
+          <div class="pinned-play-scrim"></div>
+        ` : ''}
+        <i class="bi-play-fill pinned-play-icon"></i>
       </div>
 
       <div class="min-w-0 flex-grow-1 pinned-info-zone">

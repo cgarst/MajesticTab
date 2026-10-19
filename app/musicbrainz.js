@@ -229,7 +229,7 @@ export async function getCachedArtUrl(url) {
  */
 export function hydrateCachedImages(container) {
     if (!container || typeof document === 'undefined') return;
-    const images = container.querySelectorAll('img.album-cover-img, img.album-cover-banner, img.artist-collage-img, img.artist-thumbnail, img.recent-cover-img');
+    const images = container.querySelectorAll('img.album-cover-img, img.album-cover-banner, img.artist-collage-img, img.artist-thumbnail, img.recent-cover-img, img.pinned-cover-img');
     images.forEach(img => {
         img.setAttribute('draggable', 'false');
         const src = img.getAttribute('src');

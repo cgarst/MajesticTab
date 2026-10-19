@@ -228,6 +228,13 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
     artists.sort((a, b) => a.name.localeCompare(b.name));
 
     const pinnedSongs = songs.filter(s => s.pinned && !s.isAlbumTabContainer);
+    pinnedSongs.forEach(s => {
+        if (!s.coverUrl && s.album) {
+            const art = artists.find(a => a.name === s.artist);
+            const alb = art?.albums?.find(al => al.title === s.album);
+            if (alb?.coverUrl) s.coverUrl = alb.coverUrl;
+        }
+    });
     pinnedSongs.sort((a, b) => {
         const artDiff = (a.artist || '').localeCompare(b.artist || '');
         if (artDiff !== 0) return artDiff;
