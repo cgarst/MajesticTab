@@ -362,14 +362,6 @@ body {
   }
 }
 
-@supports (-webkit-touch-callout: none) {
-  @media (orientation: portrait) {
-    #topBar {
-      padding-top: max(calc(env(safe-area-inset-top) + 0.5rem), 54px);
-    }
-  }
-}
-
 /* Themed scrollbars; scrollbar-color inherits to all scroll containers. */
 :root {
   scrollbar-color: color-mix(in srgb, var(--accent-primary) 55%, transparent) transparent;
@@ -1567,28 +1559,9 @@ input[type=range]::-webkit-slider-thumb:hover {
   }
 }
 
-@supports (-webkit-touch-callout: none) {
-  @media (orientation: portrait) {
-    .offcanvas {
-      padding-top: 0;
-    }
-    .offcanvas-header {
-      padding-top: max(calc(env(safe-area-inset-top) + 0.5rem), 54px);
-    }
-  }
-}
-
 @media (orientation: portrait) and (max-width: 576px) {
   .tauri-ios .offcanvas-header {
     padding-top: max(calc(env(safe-area-inset-top) + 0.3rem), 54px);
-  }
-}
-
-@supports (-webkit-touch-callout: none) {
-  @media (orientation: portrait) and (max-width: 576px) {
-    .offcanvas-header {
-      padding-top: max(calc(env(safe-area-inset-top) + 0.3rem), 54px);
-    }
   }
 }
 
@@ -4318,14 +4291,6 @@ body:not(.synth-playback-started) .at-highlight {
 @media (orientation: portrait) {
   .tauri-ios .downloader-nav-row {
     padding-top: max(calc(env(safe-area-inset-top) + 8px), 54px);
-  }
-}
-
-@supports (-webkit-touch-callout: none) {
-  @media (orientation: portrait) {
-    .downloader-nav-row {
-      padding-top: max(calc(env(safe-area-inset-top) + 8px), 54px);
-    }
   }
 }
 
