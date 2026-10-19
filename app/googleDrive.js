@@ -843,9 +843,10 @@ export function setupDrivePicker() {
  * @param {Blob|File} fileBlob
  * @param {string} filename
  * @param {string} [folderId]
+ * @param {Function} [onProgress] Callback receiving ({ loaded, total, percent })
  * @returns {Promise<object>} Upload response containing file id and name
  */
-export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.mtbackup', folderId = null) {
+export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.mtbackup', folderId = null, onProgress = null) {
     if (!isTokenValid()) {
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
@@ -864,25 +865,50 @@ export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.m
     form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
     form.append('file', fileBlob, filename);
 
-    const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${token}`
-        },
-        body: form
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart');
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+        if (xhr.upload && typeof onProgress === 'function') {
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable && e.total > 0) {
+                    const percent = Math.min(100, Math.round((e.loaded / e.total) * 100));
+                    onProgress({ loaded: e.loaded, total: e.total, percent });
+                }
+            };
+        }
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const result = JSON.parse(xhr.responseText);
+                    resolve(result);
+                } catch (err) {
+                    resolve({ name: filename });
+                }
+            } else {
+                let errorMsg = xhr.statusText;
+                try {
+                    const errData = JSON.parse(xhr.responseText);
+                    errorMsg = errData.error?.message || errorMsg;
+                } catch (e) {}
+
+                if (xhr.status === 401) {
+                    clearStoredToken();
+                    reject(new Error(`Google Drive authorization expired: ${errorMsg}. Please reconnect Google Drive.`));
+                } else {
+                    reject(new Error(`Google Drive upload failed (${xhr.status}): ${errorMsg}`));
+                }
+            }
+        };
+
+        xhr.onerror = () => {
+            reject(new Error('Google Drive upload network error. Please check your connection.'));
+        };
+
+        xhr.send(form);
     });
-
-    if (!response.ok) {
-        let errorMsg = response.statusText;
-        try {
-            const errData = await response.json();
-            errorMsg = errData.error?.message || errorMsg;
-        } catch (e) {}
-        throw new Error(`Google Drive upload failed: ${errorMsg}`);
-    }
-
-    const result = await response.json();
-    return result;
 }
 
 /**
@@ -907,38 +933,55 @@ export async function fetchDriveBackups() {
  * Download a backup file from Google Drive as a File object.
  * @param {string} fileId
  * @param {string} fileName
+ * @param {Function} [onProgress] Callback receiving ({ loaded, total, percent })
  * @returns {Promise<File|Blob>}
  */
-export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbackup') {
+export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbackup', onProgress = null) {
     if (!isTokenValid()) {
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
 
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`, {
-        headers: { Authorization: `Bearer ${token}` }
-    });
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`);
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+        xhr.responseType = 'blob';
 
-    if (!res.ok) {
-        let errorDetail = res.statusText;
-        try {
-            const errData = await res.json();
-            errorDetail = errData.error?.message || errorDetail;
-        } catch (_) {}
-
-        if (res.status === 401) {
-            clearStoredToken();
-            throw new Error(`Google Drive authorization expired: ${errorDetail}. Please reconnect Google Drive.`);
+        if (typeof onProgress === 'function') {
+            xhr.onprogress = (e) => {
+                if (e.lengthComputable && e.total > 0) {
+                    const percent = Math.min(100, Math.round((e.loaded / e.total) * 100));
+                    onProgress({ loaded: e.loaded, total: e.total, percent });
+                }
+            };
         }
-        throw new Error(`Download failed (${res.status}): ${errorDetail}`);
-    }
 
-    const blob = await res.blob();
-    try {
-        return new File([blob], fileName, { type: 'application/octet-stream' });
-    } catch (_) {
-        blob.name = fileName;
-        return blob;
-    }
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                const blob = xhr.response;
+                try {
+                    resolve(new File([blob], fileName, { type: 'application/octet-stream' }));
+                } catch (_) {
+                    blob.name = fileName;
+                    resolve(blob);
+                }
+            } else {
+                let errorDetail = xhr.statusText;
+                if (xhr.status === 401) {
+                    clearStoredToken();
+                    reject(new Error(`Google Drive authorization expired: ${errorDetail}. Please reconnect Google Drive.`));
+                } else {
+                    reject(new Error(`Download failed (${xhr.status}): ${errorDetail}`));
+                }
+            }
+        };
+
+        xhr.onerror = () => {
+            reject(new Error('Google Drive download network error. Please check your connection.'));
+        };
+
+        xhr.send();
+    });
 }
 
 

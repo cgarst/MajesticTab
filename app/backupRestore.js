@@ -850,6 +850,17 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="backupFilenameInput" value="${escapeHtml(defaultFilename)}">
           </div>
 
+          <!-- Backup Progress Bar -->
+          <div id="backupProgressContainer" class="p-2 rounded-2 mb-2" style="display:none; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+            <div class="d-flex justify-content-between text-white small mb-1" style="font-size: 0.75rem;">
+              <span id="backupProgressText">Preparing backup...</span>
+              <span id="backupProgressPercent" class="fw-bold text-info">0%</span>
+            </div>
+            <div class="progress" style="height: 6px; background: rgba(255,255,255,0.1);">
+              <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="backupProgressBar" role="progressbar" style="width: 0%;"></div>
+            </div>
+          </div>
+
           <!-- Status / Action -->
           <div id="backupStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
 
@@ -898,6 +909,18 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               </div>
               <div id="restoreDriveError" class="py-2 text-danger small" style="display: none;"></div>
               <div id="restoreDriveList" class="d-flex flex-column gap-2" style="max-height: 220px; overflow-y: auto;"></div>
+
+              <!-- Download Progress -->
+              <div id="restoreDriveDownloadProgress" class="mt-2 p-2 rounded-2" style="display:none; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
+                <div class="d-flex justify-content-between text-white small mb-1" style="font-size: 0.75rem;">
+                  <span id="restoreDriveProgressName" class="text-truncate me-2">Downloading backup from Google Drive...</span>
+                  <span id="restoreDriveProgressPercent" class="fw-bold text-info flex-shrink-0">0%</span>
+                </div>
+                <div class="progress" style="height: 6px; background: rgba(255,255,255,0.1);">
+                  <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" id="restoreDriveProgressBar" role="progressbar" style="width: 0%;"></div>
+                </div>
+                <div class="text-white-50 small mt-1" id="restoreDriveProgressBytes" style="font-size: 0.7rem;">0 KB / 0 KB</div>
+              </div>
             </div>
           </div>
 
@@ -1202,21 +1225,52 @@ function attachModalHandlers(modal, options = {}) {
             filename += '.mtbackup';
         }
 
+        const backupProgressContainer = modal.querySelector('#backupProgressContainer');
+        const backupProgressBar = modal.querySelector('#backupProgressBar');
+        const backupProgressText = modal.querySelector('#backupProgressText');
+        const backupProgressPercent = modal.querySelector('#backupProgressPercent');
+
         backupExecuteBtn.disabled = true;
         backupExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Creating Backup...';
         backupStatusAlert.style.display = 'block';
         backupStatusAlert.className = 'small mb-2 text-info';
         backupStatusAlert.textContent = 'Packaging settings, extensions, and stored tabs...';
+        if (backupProgressContainer) {
+            backupProgressContainer.style.display = 'block';
+            if (backupProgressBar) backupProgressBar.style.width = '0%';
+            if (backupProgressPercent) backupProgressPercent.textContent = '0%';
+            if (backupProgressText) backupProgressText.textContent = 'Packaging settings and tabs...';
+        }
 
         try {
             const blob = await createBackupBlob((current, total) => {
                 if (total > 0) {
+                    const pct = Math.round((current / total) * 40); // 0-40% packaging
+                    if (backupProgressBar) backupProgressBar.style.width = `${pct}%`;
+                    if (backupProgressPercent) backupProgressPercent.textContent = `${pct}%`;
+                    if (backupProgressText) backupProgressText.textContent = `Packaging tab ${current} of ${total}...`;
                     backupStatusAlert.textContent = `Packaging tab ${current} of ${total}...`;
                 }
             });
 
-            backupStatusAlert.textContent = `Saving to ${selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId}...`;
-            const saveResult = await saveToProvider(providerId, blob, filename);
+            const providerLabel = selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId;
+            backupStatusAlert.textContent = `Saving to ${providerLabel}...`;
+            if (backupProgressBar) backupProgressBar.style.width = '40%';
+            if (backupProgressPercent) backupProgressPercent.textContent = '40%';
+            if (backupProgressText) backupProgressText.textContent = `Saving to ${providerLabel}...`;
+
+            const onUploadProgress = ({ loaded, total, percent }) => {
+                const scaledPct = Math.min(100, 40 + Math.round((percent / 100) * 60)); // 40-100% upload
+                if (backupProgressBar) backupProgressBar.style.width = `${scaledPct}%`;
+                if (backupProgressPercent) backupProgressPercent.textContent = `${scaledPct}%`;
+                if (backupProgressText) backupProgressText.textContent = `Uploading to Google Drive: ${formatBytes(loaded)} / ${formatBytes(total)} (${percent}%)`;
+            };
+
+            const saveResult = await saveToProvider(providerId, blob, filename, { onProgress: onUploadProgress });
+
+            if (backupProgressBar) backupProgressBar.style.width = '100%';
+            if (backupProgressPercent) backupProgressPercent.textContent = '100%';
+            if (backupProgressText) backupProgressText.textContent = 'Backup completed successfully!';
 
             backupStatusAlert.className = 'small mb-2 text-success fw-semibold';
             backupStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> Backup saved successfully! (${formatBytes(blob.size)})`;
@@ -1224,9 +1278,11 @@ function attachModalHandlers(modal, options = {}) {
             setTimeout(() => {
                 backupExecuteBtn.disabled = false;
                 backupExecuteBtn.innerHTML = '<i class="bi-cloud-arrow-up"></i> Create &amp; Save Backup';
+                if (backupProgressContainer) backupProgressContainer.style.display = 'none';
             }, 3000);
         } catch (err) {
             console.error('Backup creation failed:', err);
+            if (backupProgressContainer) backupProgressContainer.style.display = 'none';
             backupStatusAlert.className = 'small mb-2 text-danger fw-semibold';
             backupStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to save backup: ${escapeHtml(err.message)}`;
             backupExecuteBtn.disabled = false;
@@ -1337,11 +1393,32 @@ function attachModalHandlers(modal, options = {}) {
                     btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> <span class="ms-1">Loading...</span>';
                 }
 
+                const dlProgressContainer = modal.querySelector('#restoreDriveDownloadProgress');
+                const dlProgressBar = modal.querySelector('#restoreDriveProgressBar');
+                const dlProgressPercent = modal.querySelector('#restoreDriveProgressPercent');
+                const dlProgressName = modal.querySelector('#restoreDriveProgressName');
+                const dlProgressBytes = modal.querySelector('#restoreDriveProgressBytes');
+
+                if (dlProgressContainer) {
+                    dlProgressContainer.style.display = 'block';
+                    if (dlProgressName) dlProgressName.textContent = `Downloading ${b.name}...`;
+                    if (dlProgressBar) dlProgressBar.style.width = '0%';
+                    if (dlProgressPercent) dlProgressPercent.textContent = '0%';
+                    if (dlProgressBytes) dlProgressBytes.textContent = `0 B / ${formatBytes(b.size || 0)}`;
+                }
+
                 try {
                     const { downloadDriveBackupFile } = await import('./googleDrive.js');
-                    const fileObj = await downloadDriveBackupFile(b.id, b.name);
+                    const fileObj = await downloadDriveBackupFile(b.id, b.name, ({ loaded, total, percent }) => {
+                        if (dlProgressBar) dlProgressBar.style.width = `${percent}%`;
+                        if (dlProgressPercent) dlProgressPercent.textContent = `${percent}%`;
+                        if (dlProgressBytes) dlProgressBytes.textContent = `${formatBytes(loaded)} / ${formatBytes(total || b.size || loaded)}`;
+                        if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> <span class="ms-1">${percent}%</span>`;
+                    });
+                    if (dlProgressContainer) dlProgressContainer.style.display = 'none';
                     await handleSelectedBackupFile(fileObj, 'Google Drive');
                 } catch (dlErr) {
+                    if (dlProgressContainer) dlProgressContainer.style.display = 'none';
                     console.error('Failed to download Drive backup:', dlErr);
                     if (restoreDriveError) {
                         restoreDriveError.style.display = 'block';
