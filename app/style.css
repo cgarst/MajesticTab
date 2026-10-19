@@ -2997,9 +2997,22 @@ body:not(.synth-playback-started) .at-highlight {
     width: calc(100vw - 16px) !important;
     max-width: 440px !important;
     max-height: calc(100vh - 120px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
-    display: flex !important;
     flex-direction: column !important;
     border-radius: 1.25rem !important;
+  }
+
+  .synth-panel:not([style*="display: none"]):not([style*="display:none"]),
+  .yt-panel:not([style*="display: none"]):not([style*="display:none"]) {
+    display: flex !important;
+  }
+
+  .synth-panel[style*="display: none"],
+  .synth-panel[style*="display:none"],
+  .yt-panel[style*="display: none"],
+  .yt-panel[style*="display:none"],
+  .score-options-panel[style*="display: none"],
+  .score-options-panel[style*="display:none"] {
+    display: none !important;
   }
 
   .synth-panel-header, .yt-panel-header {
