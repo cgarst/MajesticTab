@@ -105,8 +105,8 @@ export function redirectToGoogleAuth(targetState = 'open_drive_browser') {
         localStorage.setItem('gdrive_pending_state', targetState);
     } catch (_) {}
 
-    if (window.__TAURI__?.core?.invoke && /android/i.test(navigator.userAgent)) {
-        startAndroidGoogleAuth(targetState);
+    if (window.__TAURI__?.core?.invoke && (/android/i.test(navigator.userAgent) || /iphone|ipad|ipod/i.test(navigator.userAgent))) {
+        startMobileGoogleAuth(targetState);
         return;
     }
 
@@ -128,7 +128,7 @@ export function redirectToGoogleAuth(targetState = 'open_drive_browser') {
     window.location.href = authUrl;
 }
 
-async function startAndroidGoogleAuth(targetState = 'open_drive_browser') {
+async function startMobileGoogleAuth(targetState = 'open_drive_browser') {
     try {
         const authData = await window.__TAURI__.core.invoke('plugin:google-auth|authorize');
         if (!storeGoogleAuth(authData.accessToken, authData.expiresIn)) {
@@ -143,7 +143,7 @@ async function startAndroidGoogleAuth(targetState = 'open_drive_browser') {
             });
         }
     } catch (error) {
-        console.error('Failed to authorize Google Drive on Android:', error);
+        console.error('Failed to authorize Google Drive on mobile:', error);
         showToast('Could not connect to Google Drive. Please try again.', 'error');
     }
 }

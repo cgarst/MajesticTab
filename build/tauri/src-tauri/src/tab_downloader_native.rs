@@ -389,7 +389,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         if (!host) {
             host = document.createElement('div');
             host.id = 'majestic-downloader-host';
-            host.style.cssText = 'all: initial; position: fixed; top: 0; left: 0; width: 100%; z-index: 2147483647; pointer-events: auto;';
+            host.style.cssText = 'all: initial; position: fixed; top: 0; left: 0; width: 100%; z-index: 2147483647; pointer-events: auto; touch-action: none;';
             shadow = host.attachShadow({ mode: 'open' });
             const mount = document.body || document.documentElement;
             if (mount) {
@@ -492,7 +492,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             window.location.href = 'majestictab://save-sources?sources=' + encodeURIComponent(jsonStr);
         }
 
-        const detectedPlatform = config.platform || (/mac/i.test(navigator.platform || navigator.userAgent) ? 'macos' : (/win/i.test(navigator.platform || navigator.userAgent) ? 'windows' : 'other'));
+        const detectedPlatform = config.platform || (/iphone|ipad|ipod/i.test(navigator.userAgent || '') ? 'ios' : (/android/i.test(navigator.userAgent || '') ? 'android' : (/mac/i.test(navigator.platform || navigator.userAgent) ? 'macos' : (/win/i.test(navigator.platform || navigator.userAgent) ? 'windows' : 'other'))));
         const isNew = !shadow.getElementById('toolbar-root');
 
         if (isNew) {
@@ -518,6 +518,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         z-index: 2147483647;
                         -webkit-user-select: none;
                         user-select: none;
+                        touch-action: none;
                     }
                     .toolbar-root {
                         width: 100%;
@@ -533,16 +534,23 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         cursor: default;
                         -webkit-app-region: drag;
                         app-region: drag;
+                        touch-action: none;
                     }
                     .nav-row {
                         display: flex;
                         align-items: center;
                         gap: 12px;
-                        padding: 8px 12px;
+                        padding: max(env(safe-area-inset-top), 8px) max(env(safe-area-inset-right), 12px) 8px max(env(safe-area-inset-left), 12px);
                         border-bottom: 1px solid rgba(255, 255, 255, 0.08);
                         -webkit-app-region: drag;
                         app-region: drag;
                         cursor: default;
+                        touch-action: none;
+                    }
+                    @media (orientation: portrait) {
+                        .toolbar-root.platform-ios .nav-row {
+                            padding-top: max(calc(env(safe-area-inset-top) + 6px), 50px);
+                        }
                     }
                     .toolbar-root.platform-macos .nav-row {
                         padding-left: 88px;
@@ -730,7 +738,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         display: flex;
                         align-items: center;
                         gap: 6px;
-                        padding: 6px 12px;
+                        padding: 6px max(env(safe-area-inset-right), 12px) 6px max(env(safe-area-inset-left), 12px);
                         overflow-x: auto;
                         overflow-y: hidden;
                         white-space: nowrap;
@@ -738,6 +746,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         cursor: default;
                         -webkit-app-region: drag;
                         app-region: drag;
+                        touch-action: pan-x;
                     }
                     .tabs-row::-webkit-scrollbar {
                         display: none;
@@ -1243,10 +1252,10 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 if (mount) mount.appendChild(host);
             }
             const cur = window.location.href;
-            if (urlText) {
+            if (urlText && urlText.textContent !== cur) {
                 urlText.textContent = cur;
             }
-            if (urlGroup) {
+            if (urlGroup && urlGroup.title !== cur) {
                 urlGroup.title = cur;
             }
             const currentActiveId = detectActiveSourceId();
@@ -1257,26 +1266,74 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             if (toolbarRoot) {
                 toolbarRoot.classList.toggle('platform-macos', detectedPlatform === 'macos');
                 toolbarRoot.classList.toggle('platform-windows', detectedPlatform === 'windows');
-                const screenW = Math.min(window.screen.width || 1100, window.screen.availWidth || 1100);
-                const viewW = window.innerWidth || 1100;
-                if (viewW > screenW && screenW > 0) {
-                    const scale = Math.min(2.8, Math.max(1.0, viewW / screenW));
-                    toolbarRoot.style.zoom = scale;
+                toolbarRoot.classList.toggle('platform-ios', detectedPlatform === 'ios');
+                toolbarRoot.classList.toggle('platform-android', detectedPlatform === 'android');
+
+                // Determine orientation and true physical screen width in current orientation
+                const isLandscape = (window.orientation === 90 || window.orientation === -90 || window.innerWidth > window.innerHeight);
+                const s1 = window.screen ? (window.screen.width || 0) : 0;
+                const s2 = window.screen ? (window.screen.height || 0) : 0;
+                let deviceScreenW = 0;
+                if (s1 && s2) {
+                    deviceScreenW = isLandscape ? Math.max(s1, s2) : Math.min(s1, s2);
                 } else {
-                    toolbarRoot.style.zoom = '1';
+                    deviceScreenW = window.innerWidth || 1100;
                 }
 
-                const h = toolbarRoot.getBoundingClientRect().height;
-                if (h > 0) {
-                    let offStyle = document.getElementById('majestic-downloader-offset-style');
-                    if (!offStyle) {
-                        offStyle = document.createElement('style');
-                        offStyle.id = 'majestic-downloader-offset-style';
-                        (document.head || document.documentElement).appendChild(offStyle);
+                // Baseline scale for wide desktop viewports (e.g. 1200px) loaded on small mobile displays.
+                // In landscape mode with normal responsive viewports, layoutW <= deviceScreenW so baseScale = 1.0.
+                const layoutW = window.innerWidth || deviceScreenW;
+                let baseScale = 1.0;
+                if (deviceScreenW > 0 && layoutW > (deviceScreenW + 24)) {
+                    baseScale = Math.min(2.5, Math.max(1.0, layoutW / deviceScreenW));
+                }
+
+                const vv = window.visualViewport;
+                const pinchScale = (vv && vv.scale) ? vv.scale : 1.0;
+
+                if (pinchScale !== 1.0 && vv) {
+                    // Pinch-to-zoom is active:
+                    // Pin toolbar to visual viewport bounds and scale by (baseScale / pinchScale)
+                    // so the toolbar stays pinned at the top and completely immune to pinch-to-zoom.
+                    const effectiveScale = baseScale / pinchScale;
+                    host.style.position = 'fixed';
+                    host.style.left = (vv.offsetLeft || 0) + 'px';
+                    host.style.top = (vv.offsetTop || 0) + 'px';
+                    host.style.width = ((vv.width * pinchScale) / baseScale) + 'px';
+                    host.style.transformOrigin = '0 0';
+                    host.style.transform = 'scale(' + effectiveScale + ')';
+                    toolbarRoot.style.zoom = '1';
+                } else {
+                    // Normal unzoomed state
+                    host.style.position = 'fixed';
+                    host.style.left = '0px';
+                    host.style.top = '0px';
+                    if (baseScale !== 1.0) {
+                        host.style.transformOrigin = '0 0';
+                        host.style.transform = 'scale(' + baseScale + ')';
+                        host.style.width = (100 / baseScale) + '%';
+                        toolbarRoot.style.zoom = '1';
+                    } else {
+                        host.style.transform = 'none';
+                        host.style.width = '100%';
+                        toolbarRoot.style.zoom = '1';
                     }
-                    const targetCss = 'body { padding-top: ' + Math.ceil(h) + 'px !important; }';
-                    if (offStyle.textContent !== targetCss) {
-                        offStyle.textContent = targetCss;
+
+                    // Keep page body padded down so content starts below the toolbar.
+                    // Only update in unzoomed state so padding doesn't jitter during pinch gestures.
+                    const h = Math.ceil(toolbarRoot.offsetHeight || toolbarRoot.getBoundingClientRect().height);
+                    if (h > 0) {
+                        const effectiveH = Math.ceil(h * baseScale);
+                        let offStyle = document.getElementById('majestic-downloader-offset-style');
+                        if (!offStyle) {
+                            offStyle = document.createElement('style');
+                            offStyle.id = 'majestic-downloader-offset-style';
+                            (document.head || document.documentElement).appendChild(offStyle);
+                        }
+                        const targetCss = 'body { padding-top: ' + effectiveH + 'px !important; }';
+                        if (offStyle.textContent !== targetCss) {
+                            offStyle.textContent = targetCss;
+                        }
                     }
                 }
             }
@@ -1290,6 +1347,10 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             window.addEventListener('hashchange', updateToolbarDisplay);
             window.addEventListener('resize', updateToolbarDisplay);
             window.addEventListener('orientationchange', updateToolbarDisplay);
+            if (window.visualViewport) {
+                window.visualViewport.addEventListener('resize', updateToolbarDisplay);
+                window.visualViewport.addEventListener('scroll', updateToolbarDisplay);
+            }
             setInterval(updateToolbarDisplay, 1500);
 
             window.addEventListener('keydown', (e) => {
