@@ -29,10 +29,16 @@ import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
 // Initialize iOS audio unlock and session configuration as early as possible
 initIOSAudioUnlock();
 if (isIOSDevice()) {
-    document.documentElement.classList.add('tauri-ios');
-    try {
-        window.__TAURI__?.core?.invoke('configure_ios_main_window').catch(() => {});
-    } catch (_) {}
+    const isNativeIOS = Boolean(window.__TAURI__);
+    const isStandaloneIOS = Boolean(window.navigator?.standalone || window.matchMedia?.('(display-mode: standalone)')?.matches);
+    if (isNativeIOS || isStandaloneIOS) {
+        document.documentElement.classList.add('tauri-ios');
+    }
+    if (isNativeIOS) {
+        try {
+            window.__TAURI__?.core?.invoke('configure_ios_main_window').catch(() => {});
+        } catch (_) {}
+    }
 }
 
 // Handle window resizing 
