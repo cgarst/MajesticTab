@@ -5,6 +5,7 @@ import { showToast } from './utils/toast.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
 const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
+const IOS_CLIENT_ID = '1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p.apps.googleusercontent.com';
 const SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
 const STORAGE_KEY = 'gdrive_auth';
 const FOLDER_STORAGE_KEY = 'gdrive_last_folder';
