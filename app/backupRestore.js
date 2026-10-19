@@ -413,11 +413,18 @@ export async function createBackupBundle(onProgress) {
 }
 
 /**
- * Inspect and validate a backup file / string
- * @param {string|object} fileContent
- * @returns {object} Inspection summary
+ * Inspect and validate a backup file / string / Blob
+ * @param {string|object|Blob|File} fileContent
+ * @returns {Promise<object>|object} Inspection summary
  */
-export function inspectBackupFile(fileContent) {
+export async function inspectBackupFile(fileContent) {
+    if (fileContent instanceof Blob || (typeof File !== 'undefined' && fileContent instanceof File)) {
+        return await inspectBackupBlob(fileContent);
+    }
+    return inspectBackupContentSync(fileContent);
+}
+
+function inspectBackupContentSync(fileContent) {
     let parsed;
     try {
         parsed = typeof fileContent === 'string' ? JSON.parse(fileContent) : fileContent;
@@ -471,32 +478,410 @@ export function inspectBackupFile(fileContent) {
     };
 }
 
+async function inspectBackupBlob(file) {
+    if (!file) return { valid: false, error: 'No file provided.' };
+
+    try {
+        const slice = file.slice(0, 2);
+        const headerBuf = await slice.arrayBuffer();
+        const headerBytes = new Uint8Array(headerBuf);
+        const isGzip = headerBytes.length >= 2 && headerBytes[0] === 0x1F && headerBytes[1] === 0x8B;
+
+        let sampleText = '';
+        if (isGzip) {
+            const fflateObj = (typeof window !== 'undefined' && window.fflate)
+                ? window.fflate
+                : (typeof globalThis !== 'undefined' && globalThis.fflate)
+                    ? globalThis.fflate
+                    : null;
+
+            if (fflateObj?.Gunzip) {
+                // Decompress first 512 KB of compressed file
+                const sampleSlice = file.slice(0, Math.min(512 * 1024, file.size));
+                const compressedSample = await sampleSlice.arrayBuffer();
+                let decompressedChunk = null;
+                const gunzip = new fflateObj.Gunzip((chunk) => {
+                    if (!decompressedChunk) decompressedChunk = chunk;
+                });
+                try {
+                    gunzip.push(new Uint8Array(compressedSample), false);
+                } catch (_) {}
+
+                if (decompressedChunk) {
+                    if (typeof fflateObj.strFromU8 === 'function') {
+                        sampleText = fflateObj.strFromU8(decompressedChunk);
+                    } else if (typeof TextDecoder !== 'undefined') {
+                        sampleText = new TextDecoder('utf-8').decode(decompressedChunk);
+                    }
+                }
+            }
+        } else {
+            // Uncompressed: read first 256 KB
+            sampleText = await file.slice(0, Math.min(256 * 1024, file.size)).text();
+        }
+
+        if (sampleText) {
+            const summaryMatch = sampleText.match(/"summary"\s*:\s*(\{[^}]+\})/);
+            const dateMatch = sampleText.match(/"exportedAt"\s*:\s*"([^"]+)"/);
+
+            if (summaryMatch) {
+                try {
+                    const summary = JSON.parse(summaryMatch[1]);
+                    const rawExportedAt = dateMatch ? dateMatch[1] : null;
+                    let formattedDate = 'Unknown date';
+                    if (rawExportedAt) {
+                        try {
+                            const d = new Date(rawExportedAt);
+                            formattedDate = d.toLocaleString(undefined, {
+                                year: 'numeric', month: 'short', day: 'numeric',
+                                hour: '2-digit', minute: '2-digit'
+                            });
+                        } catch {}
+                    }
+                    return {
+                        valid: true,
+                        isFullBundle: true,
+                        exportedAt: formattedDate,
+                        rawExportedAt,
+                        tabsCount: summary.tabsCount ?? 0,
+                        totalTabsSize: summary.totalTabsSize ?? 0,
+                        songsCount: summary.songsCount ?? 0,
+                        collectionsCount: summary.collectionsCount ?? 0,
+                        extensionsCount: summary.extensionsCount ?? 0,
+                        file
+                    };
+                } catch (_) {}
+            }
+        }
+    } catch (e) {
+        console.warn('[inspectBackupBlob] Fast scan failed, falling back to full inspection:', e);
+    }
+
+    // Fallback: full read for legacy or small backups
+    const text = await readBackupFileText(file);
+    return inspectBackupContentSync(text);
+}
+
+function applyRestoredExtensions(backupExtensions, { wipe }) {
+    let extensionsImported = 0;
+    if (backupExtensions.length > 0 || wipe) {
+        let finalExtensions = [];
+        if (wipe) {
+            finalExtensions = backupExtensions.filter(ext => ext && ext.id && ext.source);
+            extensionsImported = finalExtensions.length;
+        } else {
+            const currentExtensions = collectExtensions();
+            const existingMap = new Map(currentExtensions.map(e => [e.id, e]));
+
+            for (const ext of backupExtensions) {
+                if (!ext || !ext.id || !ext.source) continue;
+                if (!existingMap.has(ext.id)) {
+                    existingMap.set(ext.id, ext);
+                    extensionsImported++;
+                } else {
+                    existingMap.set(ext.id, { ...existingMap.get(ext.id), ...ext });
+                }
+            }
+            finalExtensions = Array.from(existingMap.values());
+        }
+
+        localStorage.setItem('customExtensions', JSON.stringify(finalExtensions));
+        try {
+            const active = finalExtensions.filter(e => e.enabled);
+            installExtensionSources(active.map(({ id, source }) => ({ id, source })));
+        } catch (e) {
+            console.warn('Could not compile restored extensions:', e);
+        }
+    }
+    return extensionsImported;
+}
+
+function applyRestoredSettings(settings, { wipe }) {
+    let settingsApplied = 0;
+    if (settings && typeof settings === 'object') {
+        for (const [key, val] of Object.entries(settings)) {
+            if (EXCLUDED_SETTINGS_KEYS.includes(key)) {
+                continue;
+            }
+
+            if (key === 'ytCache' && typeof val === 'object') {
+                for (const [ytKey, ytVal] of Object.entries(val)) {
+                    if (wipe || localStorage.getItem(ytKey) === null) {
+                        localStorage.setItem(ytKey, String(ytVal));
+                    }
+                }
+                continue;
+            }
+
+            if (BACKUP_SETTINGS_KEYS.includes(key)) {
+                const serialized = typeof val === 'object' ? JSON.stringify(val) : String(val);
+                localStorage.setItem(key, serialized);
+                settingsApplied++;
+            }
+        }
+    }
+    return settingsApplied;
+}
+
 /**
  * Restore a backup bundle with either 'merge' or 'wipe' mode
- * @param {object} bundle - Parsed backup bundle
+ * Supports File/Blob for ultra-low-memory streaming restore, or parsed object.
+ * @param {object|Blob|File} bundleOrFile - Backup File/Blob or parsed bundle object
  * @param {object} options - { mode: 'merge' | 'wipe', onProgress?: function(current: number, total: number): void }
  * @returns {Promise<object>} Results of the restore operation
  */
-export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {}) {
-    if (!bundle || typeof bundle !== 'object') {
+export async function restoreBackup(bundleOrFile, { mode = 'merge', onProgress } = {}) {
+    if (!bundleOrFile) {
         throw new Error('Invalid backup bundle provided.');
     }
 
+    if (bundleOrFile instanceof Blob || (typeof File !== 'undefined' && bundleOrFile instanceof File)) {
+        return await restoreBackupStream(bundleOrFile, { mode, onProgress });
+    }
+
+    const bundle = bundleOrFile.data || bundleOrFile;
+    return await restoreBackupObject(bundle, { mode, onProgress });
+}
+
+export async function restoreBackupStream(file, { mode = 'merge', onProgress } = {}) {
     const wipe = mode === 'wipe';
     const db = await getDB();
 
-    // 1. If Wipe mode, clear everything first
+    if (wipe) {
+        await clearAllStoredFiles();
+        await clearAllLibraryData();
+        for (const key of BACKUP_SETTINGS_KEYS) {
+            localStorage.removeItem(key);
+        }
+        localStorage.removeItem('customExtensions');
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('yt_cache_')) keysToRemove.push(k);
+        }
+        for (const k of keysToRemove) localStorage.removeItem(k);
+    }
+
+    const fflateObj = (typeof window !== 'undefined' && window.fflate)
+        ? window.fflate
+        : (typeof globalThis !== 'undefined' && globalThis.fflate)
+            ? globalThis.fflate
+            : null;
+
+    const slice2 = file.slice(0, 2);
+    const headerBuf = await slice2.arrayBuffer();
+    const headerBytes = new Uint8Array(headerBuf);
+    const isGzip = headerBytes.length >= 2 && headerBytes[0] === 0x1F && headerBytes[1] === 0x8B;
+
+    let filesImported = 0;
+    let filesSkipped = 0;
+    let libraryResults = { collectionsCount: 0, songsCount: 0, recentsCount: 0 };
+    let extensionsImported = 0;
+    let settingsApplied = 0;
+
+    let buffer = '';
+    let headerParsed = false;
+    let inFiles = false;
+    let totalFilesExpected = 0;
+
+    const processBuffer = async () => {
+        if (!headerParsed) {
+            let filesIdx = buffer.indexOf('"fileStore":{"files":[');
+            if (filesIdx === -1) filesIdx = buffer.indexOf('"files":[');
+            if (filesIdx !== -1) {
+                const arrayStart = buffer.indexOf('[', filesIdx);
+                let headerJsonStr = buffer.slice(0, filesIdx).trim();
+                if (headerJsonStr.endsWith(',')) headerJsonStr = headerJsonStr.slice(0, -1);
+                headerJsonStr += '}';
+                try {
+                    const headerObj = JSON.parse(headerJsonStr);
+                    headerParsed = true;
+                    inFiles = true;
+                    buffer = buffer.slice(arrayStart + 1);
+
+                    totalFilesExpected = headerObj.summary?.tabsCount || 0;
+
+                    if (headerObj.library && typeof headerObj.library === 'object') {
+                        libraryResults = await importLibraryData(headerObj.library, { wipe });
+                    }
+
+                    const backupExtensions = Array.isArray(headerObj.extensions) ? headerObj.extensions : [];
+                    if (backupExtensions.length > 0 || wipe) {
+                        extensionsImported = applyRestoredExtensions(backupExtensions, { wipe });
+                    }
+
+                    if (headerObj.settings && typeof headerObj.settings === 'object') {
+                        settingsApplied = applyRestoredSettings(headerObj.settings, { wipe });
+                    }
+                } catch (e) {
+                    // Header might still be buffering across chunk boundary
+                }
+            }
+        }
+
+        if (inFiles) {
+            while (buffer.length > 0) {
+                let startIdx = 0;
+                while (startIdx < buffer.length && (buffer[startIdx] === ' ' || buffer[startIdx] === '\n' || buffer[startIdx] === '\r' || buffer[startIdx] === '\t' || buffer[startIdx] === ',')) {
+                    startIdx++;
+                }
+                if (startIdx > 0) buffer = buffer.slice(startIdx);
+
+                if (buffer.length === 0 || buffer[0] === ']') break;
+                if (buffer[0] !== '{') break;
+
+                let depth = 0;
+                let inStr = false;
+                let esc = false;
+                let endIdx = -1;
+
+                for (let j = 0; j < buffer.length; j++) {
+                    const c = buffer[j];
+                    if (esc) {
+                        esc = false;
+                        continue;
+                    }
+                    if (c === '\\') {
+                        esc = true;
+                        continue;
+                    }
+                    if (c === '"') {
+                        inStr = !inStr;
+                        continue;
+                    }
+                    if (!inStr) {
+                        if (c === '{') depth++;
+                        else if (c === '}') {
+                            depth--;
+                            if (depth === 0) {
+                                endIdx = j;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (endIdx !== -1) {
+                    const fileJson = buffer.slice(0, endIdx + 1);
+                    buffer = buffer.slice(endIdx + 1);
+                    const item = JSON.parse(fileJson);
+
+                    if (item && item.id && item.name && item.dataBase64) {
+                        const arrayBuffer = base64ToArrayBuffer(item.dataBase64);
+                        item.dataBase64 = null;
+
+                        const record = {
+                            id: item.id,
+                            name: item.name,
+                            type: item.type || 'application/octet-stream',
+                            size: item.size || arrayBuffer.byteLength,
+                            providerId: item.providerId || 'imported',
+                            metadata: item.metadata || {},
+                            data: arrayBuffer,
+                            savedAt: item.savedAt || Date.now(),
+                            lastModified: item.lastModified || Date.now()
+                        };
+
+                        await new Promise((resolve, reject) => {
+                            const tx = db.transaction(STORE_NAME, 'readwrite');
+                            const store = tx.objectStore(STORE_NAME);
+
+                            if (wipe) {
+                                const req = store.put(record);
+                                req.onsuccess = () => { filesImported++; resolve(); };
+                                req.onerror = () => reject(req.error);
+                            } else {
+                                const checkReq = store.get(item.id);
+                                checkReq.onsuccess = () => {
+                                    if (!checkReq.result) {
+                                        const putReq = store.put(record);
+                                        putReq.onsuccess = () => { filesImported++; resolve(); };
+                                        putReq.onerror = () => reject(putReq.error);
+                                    } else {
+                                        filesSkipped++;
+                                        resolve();
+                                    }
+                                };
+                                checkReq.onerror = () => reject(checkReq.error);
+                            }
+                        });
+
+                        if (typeof onProgress === 'function') {
+                            onProgress(filesImported + filesSkipped, totalFilesExpected);
+                        }
+                    }
+                } else {
+                    break;
+                }
+            }
+        }
+    };
+
+    if (isGzip && fflateObj?.Gunzip) {
+        const gunzip = new fflateObj.Gunzip((chunk) => {
+            const text = (typeof fflateObj.strFromU8 === 'function')
+                ? fflateObj.strFromU8(chunk)
+                : new TextDecoder('utf-8').decode(chunk);
+            buffer += text;
+        });
+
+        const sliceSize = 1024 * 1024;
+        for (let offset = 0; offset < file.size; offset += sliceSize) {
+            const slice = file.slice(offset, Math.min(offset + sliceSize, file.size));
+            const buf = await slice.arrayBuffer();
+            gunzip.push(new Uint8Array(buf), offset + sliceSize >= file.size);
+            await processBuffer();
+            if (offset % (2 * sliceSize) === 0) {
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+    } else {
+        const sliceSize = 512 * 1024;
+        for (let offset = 0; offset < file.size; offset += sliceSize) {
+            const slice = file.slice(offset, Math.min(offset + sliceSize, file.size));
+            const textChunk = await slice.text();
+            buffer += textChunk;
+            await processBuffer();
+            if (offset % (2 * sliceSize) === 0) {
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+    }
+
+    if (!headerParsed) {
+        // Fallback for non-standard legacy format
+        const text = await readBackupFileText(file);
+        const parsed = JSON.parse(text);
+        return await restoreBackupObject(parsed, { mode, onProgress });
+    }
+
+    applyRestoredPreferences();
+
+    return {
+        mode,
+        filesImported,
+        filesSkipped,
+        collectionsImported: libraryResults.collectionsCount,
+        songsImported: libraryResults.songsCount,
+        recentsCount: libraryResults.recentsCount,
+        extensionsImported,
+        settingsApplied
+    };
+}
+
+async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) {
+    const wipe = mode === 'wipe';
+    const db = await getDB();
+
     if (wipe) {
         await clearAllStoredFiles();
         await clearAllLibraryData();
 
-        // Clear settings
         for (const key of BACKUP_SETTINGS_KEYS) {
             localStorage.removeItem(key);
         }
         localStorage.removeItem('customExtensions');
 
-        // Clear YouTube cache keys
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
@@ -508,7 +893,6 @@ export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {})
     let filesImported = 0;
     let filesSkipped = 0;
 
-    // 2. Restore / Merge File Store (Stored Tabs)
     const files = bundle.fileStore?.files || (Array.isArray(bundle.files) ? bundle.files : []);
     const totalFiles = files.length;
     for (let i = 0; i < totalFiles; i++) {
@@ -524,7 +908,6 @@ export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {})
         }
 
         const arrayBuffer = base64ToArrayBuffer(item.dataBase64);
-        // Dereference base64 string immediately so garbage collection can free it
         item.dataBase64 = null;
 
         const record = {
@@ -548,7 +931,6 @@ export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {})
                 req.onsuccess = () => { filesImported++; resolve(); };
                 req.onerror = () => reject(req.error);
             } else {
-                // Merge mode: check if file already exists
                 const checkReq = store.get(item.id);
                 checkReq.onsuccess = () => {
                     if (!checkReq.result) {
@@ -565,73 +947,22 @@ export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {})
         });
     }
 
-    // 3. Restore / Merge Library (Collections, Songs, Recents)
     let libraryResults = { collectionsCount: 0, songsCount: 0, recentsCount: 0 };
     if (bundle.library && typeof bundle.library === 'object') {
         libraryResults = await importLibraryData(bundle.library, { wipe });
     }
 
-    // 4. Restore / Merge Custom Extensions
     let extensionsImported = 0;
     const backupExtensions = Array.isArray(bundle.extensions) ? bundle.extensions : [];
     if (backupExtensions.length > 0 || wipe) {
-        let finalExtensions = [];
-        if (wipe) {
-            finalExtensions = backupExtensions.filter(ext => ext && ext.id && ext.source);
-            extensionsImported = finalExtensions.length;
-        } else {
-            const currentExtensions = collectExtensions();
-            const existingMap = new Map(currentExtensions.map(e => [e.id, e]));
-
-            for (const ext of backupExtensions) {
-                if (!ext || !ext.id || !ext.source) continue;
-                if (!existingMap.has(ext.id)) {
-                    existingMap.set(ext.id, ext);
-                    extensionsImported++;
-                } else {
-                    // Update if existing version differs
-                    existingMap.set(ext.id, { ...existingMap.get(ext.id), ...ext });
-                }
-            }
-            finalExtensions = Array.from(existingMap.values());
-        }
-
-        localStorage.setItem('customExtensions', JSON.stringify(finalExtensions));
-        try {
-            const active = finalExtensions.filter(e => e.enabled);
-            installExtensionSources(active.map(({ id, source }) => ({ id, source })));
-        } catch (e) {
-            console.warn('Could not compile restored extensions:', e);
-        }
+        extensionsImported = applyRestoredExtensions(backupExtensions, { wipe });
     }
 
-    // 5. Restore / Merge Settings
     let settingsApplied = 0;
     if (bundle.settings && typeof bundle.settings === 'object') {
-        for (const [key, val] of Object.entries(bundle.settings)) {
-            // Strictly exclude appearance/theme and viewing preferences
-            if (EXCLUDED_SETTINGS_KEYS.includes(key)) {
-                continue;
-            }
-
-            if (key === 'ytCache' && typeof val === 'object') {
-                for (const [ytKey, ytVal] of Object.entries(val)) {
-                    if (wipe || localStorage.getItem(ytKey) === null) {
-                        localStorage.setItem(ytKey, String(ytVal));
-                    }
-                }
-                continue;
-            }
-
-            if (BACKUP_SETTINGS_KEYS.includes(key)) {
-                const serialized = typeof val === 'object' ? JSON.stringify(val) : String(val);
-                localStorage.setItem(key, serialized);
-                settingsApplied++;
-            }
-        }
+        settingsApplied = applyRestoredSettings(bundle.settings, { wipe });
     }
 
-    // 6. Synchronize runtime UI elements and active preferences
     applyRestoredPreferences();
 
     return {
@@ -1748,9 +2079,7 @@ function attachModalHandlers(modal, options = {}) {
             // Allow UI to render spinner before decompressing/parsing
             await new Promise(resolve => setTimeout(resolve, 50));
 
-            let text = await readBackupFileText(file);
-            const inspection = inspectBackupFile(text);
-            text = null;
+            const inspection = await inspectBackupFile(file);
 
             if (!inspection.valid) {
                 restoreStatusAlert.style.display = 'block';
@@ -1763,7 +2092,7 @@ function attachModalHandlers(modal, options = {}) {
             }
 
             currentBackupFile = file;
-            currentParsedBackup = inspection.data;
+            currentParsedBackup = inspection.data || inspection;
 
             // Populate Inspection Card
             const filenameLabel = modal.querySelector('#restoreFilenameLabel');
@@ -1796,6 +2125,7 @@ function attachModalHandlers(modal, options = {}) {
             try { showToast(`Could not read backup file: ${err.message}`, 'error'); } catch (_) {}
         }
     };
+    modal._handleSelectedBackupFile = handleSelectedBackupFile;
 
     // Change File Button
     modal.querySelector('#restoreChangeFileBtn')?.addEventListener('click', () => {
@@ -1822,7 +2152,7 @@ function attachModalHandlers(modal, options = {}) {
 
     // --- RESTORE ACTION ---
     restoreExecuteBtn?.addEventListener('click', async () => {
-        if (!currentParsedBackup) return;
+        if (!currentBackupFile && !currentParsedBackup) return;
 
         const selectedModeEl = modal.querySelector('input[name="restoreModeRadio"]:checked');
         const mode = selectedModeEl?.value || 'merge';
@@ -1841,7 +2171,7 @@ function attachModalHandlers(modal, options = {}) {
         restoreStatusAlert.textContent = mode === 'wipe' ? 'Wiping and restoring fresh from backup...' : 'Merging missing tabs and settings...';
 
         try {
-            const results = await restoreBackup(currentParsedBackup, {
+            const results = await restoreBackup(currentBackupFile || currentParsedBackup, {
                 mode,
                 onProgress: (current, total) => {
                     if (total > 0) {
