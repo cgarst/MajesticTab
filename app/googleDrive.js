@@ -134,15 +134,21 @@ async function startMobileGoogleAuth(targetState = 'open_drive_browser') {
         if (!storeGoogleAuth(authData.accessToken, authData.expiresIn)) {
             throw new Error('Google authorization did not return an access token.');
         }
+        try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
         window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
         if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
             openDriveModal();
         } else if (targetState === 'restore_backup') {
-            import('./backupRestore.js').then(({ openBackupModal }) => {
-                openBackupModal('restore', { autoLoadDrive: true });
-            });
+            const modal = document.getElementById('backupModal');
+            const isAlreadyOpen = modal && modal.style.display === 'flex';
+            if (!isAlreadyOpen) {
+                import('./backupRestore.js').then(({ openBackupModal }) => {
+                    openBackupModal('restore', { autoLoadDrive: true });
+                });
+            }
         }
     } catch (error) {
+        try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
         console.error('Failed to authorize Google Drive on mobile:', error);
         showToast('Could not connect to Google Drive. Please try again.', 'error');
     }
@@ -202,15 +208,21 @@ async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
                 if (!response.ok || !storeGoogleAuth(authData.access_token, authData.expires_in)) {
                     throw new Error(authData.error_description || 'Google token exchange failed.');
                 }
+                try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
                 window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
                 if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
                     openDriveModal();
                 } else if (targetState === 'restore_backup') {
-                    import('./backupRestore.js').then(({ openBackupModal }) => {
-                        openBackupModal('restore', { autoLoadDrive: true });
-                    });
+                    const modal = document.getElementById('backupModal');
+                    const isAlreadyOpen = modal && modal.style.display === 'flex';
+                    if (!isAlreadyOpen) {
+                        import('./backupRestore.js').then(({ openBackupModal }) => {
+                            openBackupModal('restore', { autoLoadDrive: true });
+                        });
+                    }
                 }
             } catch (error) {
+                try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
                 console.error('Failed to exchange Google authorization code:', error);
                 showToast('Could not connect to Google Drive. Please try again.', 'error');
             }
@@ -792,9 +804,13 @@ export function setupDrivePicker() {
                     storeGoogleAuth(accessToken, expiresIn);
                     window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state } }));
                     if (state === 'restore_backup') {
-                        import('./backupRestore.js').then(({ openBackupModal }) => {
-                            openBackupModal('restore', { autoLoadDrive: true });
-                        });
+                        const modal = document.getElementById('backupModal');
+                        const isAlreadyOpen = modal && modal.style.display === 'flex';
+                        if (!isAlreadyOpen) {
+                            import('./backupRestore.js').then(({ openBackupModal }) => {
+                                openBackupModal('restore', { autoLoadDrive: true });
+                            });
+                        }
                     }
                 }
             };
@@ -809,9 +825,13 @@ export function setupDrivePicker() {
                     localStorage.removeItem('gdrive_pending_state');
                     window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: pending } }));
                     if (pending === 'restore_backup') {
-                        import('./backupRestore.js').then(({ openBackupModal }) => {
-                            openBackupModal('restore', { autoLoadDrive: true });
-                        });
+                        const modal = document.getElementById('backupModal');
+                        const isAlreadyOpen = modal && modal.style.display === 'flex';
+                        if (!isAlreadyOpen) {
+                            import('./backupRestore.js').then(({ openBackupModal }) => {
+                                openBackupModal('restore', { autoLoadDrive: true });
+                            });
+                        }
                     }
                 } else {
                     window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: 'synced' } }));
@@ -827,9 +847,13 @@ export function setupDrivePicker() {
                 localStorage.removeItem('gdrive_pending_state');
                 window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: pending } }));
                 if (pending === 'restore_backup') {
-                    import('./backupRestore.js').then(({ openBackupModal }) => {
-                        openBackupModal('restore', { autoLoadDrive: true });
-                    });
+                    const modal = document.getElementById('backupModal');
+                    const isAlreadyOpen = modal && modal.style.display === 'flex';
+                    if (!isAlreadyOpen) {
+                        import('./backupRestore.js').then(({ openBackupModal }) => {
+                            openBackupModal('restore', { autoLoadDrive: true });
+                        });
+                    }
                 }
             }
         }
@@ -962,7 +986,11 @@ export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbacku
                 try {
                     resolve(new File([blob], fileName, { type: 'application/octet-stream' }));
                 } catch (_) {
-                    blob.name = fileName;
+                    try {
+                        Object.defineProperty(blob, 'name', { value: fileName, writable: true });
+                    } catch (e) {
+                        blob.name = fileName;
+                    }
                     resolve(blob);
                 }
             } else {

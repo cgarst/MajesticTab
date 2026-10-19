@@ -16,11 +16,11 @@ import {
 import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { installExtensionSources } from './fileAdapters.js';
-import { isIOSDevice } from './utils/iosAudioUnlock.js';
 
 let modalElement = null;
 let currentBackupFile = null;
 let currentParsedBackup = null;
+let activeGoogleAuthHandler = null;
 
 let activeReloadState = {
     running: false,
@@ -251,14 +251,14 @@ export async function readBackupFileText(file) {
                 const decompressedStream = rawStream.pipeThrough(new DecompressionStream('gzip'));
                 const reader = decompressedStream.getReader();
                 const decoder = new TextDecoder('utf-8');
-                let result = '';
+                const chunks = [];
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-                    result += decoder.decode(value, { stream: true });
+                    chunks.push(decoder.decode(value, { stream: true }));
                 }
-                result += decoder.decode();
-                return result;
+                chunks.push(decoder.decode());
+                return chunks.join('');
             }
         }
     } catch (e) {
@@ -359,9 +359,12 @@ export function inspectBackupFile(fileContent) {
     const extensions = parsed.extensions || [];
     const settings = parsed.settings || {};
 
-    let totalSize = 0;
-    for (const f of files) {
-        totalSize += f.size || (f.dataBase64 ? Math.round(f.dataBase64.length * 0.75) : 0);
+    let totalSize = parsed.summary?.totalTabsSize;
+    if (totalSize === undefined) {
+        totalSize = 0;
+        for (const f of files) {
+            totalSize += f.size || (f.dataBase64 ? Math.round(f.dataBase64.length * 0.75) : 0);
+        }
     }
 
     let formattedDate = 'Unknown date';
@@ -436,6 +439,10 @@ export async function restoreBackup(bundle, { mode = 'merge', onProgress } = {})
 
         if (typeof onProgress === 'function') {
             onProgress(i + 1, totalFiles);
+        }
+
+        if (i > 0 && i % 10 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
         }
 
         const arrayBuffer = base64ToArrayBuffer(item.dataBase64);
@@ -757,6 +764,10 @@ export function closeBackupModal() {
     document.body.style.overflow = '';
     currentBackupFile = null;
     currentParsedBackup = null;
+    if (activeGoogleAuthHandler) {
+        window.removeEventListener('googleAuthSuccess', activeGoogleAuthHandler);
+        activeGoogleAuthHandler = null;
+    }
     activeReloadState.listeners.clear();
     activeReloadState.completionListeners.clear();
 }
@@ -1264,8 +1275,16 @@ function attachModalHandlers(modal, options = {}) {
     modal.querySelector('#restoreCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#cacheCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#deleteCancelBtn')?.addEventListener('click', closeBackupModal);
+
+    let backdropPointerDown = false;
+    modal.onpointerdown = (e) => {
+        backdropPointerDown = (e.target === modal);
+    };
     modal.onclick = (e) => {
-        if (e.target === modal) closeBackupModal();
+        if (e.target === modal && backdropPointerDown) {
+            closeBackupModal();
+        }
+        backdropPointerDown = false;
     };
 
     // Tab Switchers
@@ -1426,9 +1445,6 @@ function attachModalHandlers(modal, options = {}) {
     restoreBrowseBtn?.addEventListener('click', () => restoreFileInput?.click());
 
     const restoreDriveBtn = modal.querySelector('#restoreDriveBtn');
-    if (isIOSDevice() && restoreDriveBtn) {
-        restoreDriveBtn.style.display = 'none';
-    }
     const restoreDriveContainer = modal.querySelector('#restoreDriveContainer');
     const restoreDriveCloseBtn = modal.querySelector('#restoreDriveCloseBtn');
     const restoreDriveLoading = modal.querySelector('#restoreDriveLoading');
@@ -1589,12 +1605,16 @@ function attachModalHandlers(modal, options = {}) {
         if (restoreDriveContainer) restoreDriveContainer.style.display = 'none';
     });
 
-    const onAuthSuccess = (e) => {
+    if (activeGoogleAuthHandler) {
+        window.removeEventListener('googleAuthSuccess', activeGoogleAuthHandler);
+    }
+    activeGoogleAuthHandler = (e) => {
         if (e.detail?.state === 'restore_backup') {
+            if (currentParsedBackup) return;
             loadGoogleDriveBackups();
         }
     };
-    window.addEventListener('googleAuthSuccess', onAuthSuccess);
+    window.addEventListener('googleAuthSuccess', activeGoogleAuthHandler);
 
     // Drag and drop handlers
     ['dragenter', 'dragover'].forEach(eventName => {
@@ -1625,7 +1645,8 @@ function attachModalHandlers(modal, options = {}) {
 
     const handleSelectedBackupFile = async (file, source = 'Local Device') => {
         try {
-            if (!file.name.toLowerCase().endsWith('.mtbackup')) {
+            const fileName = file?.name || 'backup.mtbackup';
+            if (!fileName.toLowerCase().endsWith('.mtbackup')) {
                 restoreStatusAlert.style.display = 'block';
                 restoreStatusAlert.className = 'small mb-2 text-danger fw-semibold text-center';
                 restoreStatusAlert.textContent = 'Only .mtbackup backup files are supported.';
@@ -1649,8 +1670,10 @@ function attachModalHandlers(modal, options = {}) {
             // Allow UI to render spinner before decompressing/parsing
             await new Promise(resolve => setTimeout(resolve, 50));
 
-            const text = await readBackupFileText(file);
+            let text = await readBackupFileText(file);
             const inspection = inspectBackupFile(text);
+            text = null;
+
             if (!inspection.valid) {
                 restoreStatusAlert.style.display = 'block';
                 restoreStatusAlert.className = 'small mb-2 text-danger fw-semibold';
@@ -1666,17 +1689,19 @@ function attachModalHandlers(modal, options = {}) {
             // Populate Inspection Card
             const filenameLabel = modal.querySelector('#restoreFilenameLabel');
             if (filenameLabel) {
-                filenameLabel.textContent = `${source === 'Google Drive' ? 'Drive: ' : ''}${file.name || 'Backup file'}`;
+                filenameLabel.textContent = `${source === 'Google Drive' ? 'Drive: ' : ''}${fileName}`;
             }
             modal.querySelector('#restoreExportedDate').textContent = inspection.exportedAt;
             modal.querySelector('#restoreTabsCount').textContent = inspection.tabsCount;
             modal.querySelector('#restoreSongsCount').textContent = inspection.songsCount;
             modal.querySelector('#restoreExtCount').textContent = inspection.extensionsCount;
 
-            restoreDropzone.style.display = 'none';
-            restoreStatusAlert.style.display = 'none';
-            restoreInspectionCard.style.display = 'block';
-            restoreExecuteBtn.disabled = false;
+            requestAnimationFrame(() => {
+                restoreDropzone.style.display = 'none';
+                restoreStatusAlert.style.display = 'none';
+                restoreInspectionCard.style.display = 'block';
+                restoreExecuteBtn.disabled = false;
+            });
         } catch (err) {
             restoreStatusAlert.style.display = 'block';
             restoreStatusAlert.className = 'small mb-2 text-danger fw-semibold';
