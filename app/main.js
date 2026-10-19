@@ -3,7 +3,7 @@ import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
 import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios } from './gpProcessor/gpHandler.js';
-import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode } from './gpProcessor/gpProcessor.js';
+import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls } from './utils/navigationUtils.js';
@@ -195,42 +195,7 @@ window.addEventListener('dragover', (e) => {
 window.addEventListener('drop', (e) => {
     e.preventDefault();
 }, false);
-let currentScale = 1;
-const MIN_SCALE = 1.0; // Changed to 1.0 to prevent zooming out beyond initial scale
-const MAX_SCALE = 3;
 
-mainContent.addEventListener('wheel', (e) => {
-    // Only handle zoom if Ctrl key is pressed
-    if (!e.ctrlKey) return;
-    
-    e.preventDefault();
-    
-    // Calculate new scale, but prevent zooming out below 1.0
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
-    const newScale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, currentScale + delta));
-    
-    if (newScale !== currentScale) {
-        // Calculate position relative to the container
-        const rect = output.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        // Calculate the scroll offset to keep the mouse position fixed
-        const scaleChange = newScale / currentScale;
-        const newX = x * scaleChange - x;
-        const newY = y * scaleChange - y;
-        
-        // Apply the transform
-        output.style.transform = `scale(${newScale})`;
-        output.style.transformOrigin = '0 0';
-        
-        // Adjust scroll position to maintain mouse point
-        mainContent.scrollLeft += newX;
-        mainContent.scrollTop += newY;
-        
-        currentScale = newScale;
-    }
-});
 
 const debugMode = document.getElementById('debugMode');
 const condensePdfMode = document.getElementById('condensePdfMode');
@@ -259,6 +224,153 @@ let pages = [];
 let currentPageIndex = 0;
 let continuous = false;
 
+// --- TAB SIZE & DISPLAY SCALE ---
+export function syncGpSheetScale(nextValue) {
+    const currentScale = Number.parseInt(nextValue, 10);
+    const safeValue = Number.isFinite(currentScale) ? Math.min(150, Math.max(50, currentScale)) : 100;
+    const input = document.getElementById('gpSheetScale');
+    const valueEl = document.getElementById('gpSheetScaleValue');
+    if (input) input.value = String(safeValue);
+    if (valueEl) valueEl.textContent = `${safeValue}%`;
+    return safeValue;
+}
+
+export async function applyGpSheetScale(nextValue) {
+    const scaledValue = syncGpSheetScale(nextValue);
+    setGpDisplayScale(scaledValue);
+
+    if (currentFile && isFileType(currentFile, ['txt'])) {
+        await loadFile(currentFile, { hideMenu: false });
+    } else if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
+        if (!applyGpDisplayScale(output, pageModeRadio?.checked, continuousModeRadio)) {
+            await loadFile(currentFile, { hideMenu: false });
+        }
+    }
+    return scaledValue;
+}
+
+// --- PINCH TO ZOOM TAB SIZE ---
+function setupPinchToZoom() {
+    const container = document.getElementById('mainContent') || document.body;
+    let activePinchInitialDistance = null;
+    let activePinchStartScale = null;
+    let latestTargetScale = null;
+    let pinchDebounceTimer = null;
+    let wheelDeltaAccumulator = 0;
+
+    const isInteractiveOverlayOpen = (e) => {
+        if (isLibraryOpen() || document.querySelector('.modal.show, .offcanvas.show')) return true;
+        if (e && e.target && e.target.closest && e.target.closest('.modal, .offcanvas, input, textarea, select')) return true;
+        return false;
+    };
+
+    const commitScale = (targetPercent) => {
+        latestTargetScale = targetPercent;
+        syncGpSheetScale(targetPercent);
+        showToast(`Tab size: ${targetPercent}%`, 'info', 1500, 'tab-size-scale');
+        clearTimeout(pinchDebounceTimer);
+        pinchDebounceTimer = setTimeout(() => {
+            applyGpSheetScale(targetPercent);
+        }, 80);
+    };
+
+    const flushScale = () => {
+        clearTimeout(pinchDebounceTimer);
+        if (latestTargetScale !== null) {
+            applyGpSheetScale(latestTargetScale);
+            latestTargetScale = null;
+        }
+    };
+
+    // 1. Multi-touch Pinch Gesture (iOS, Android, touchscreen tablets/laptops)
+    container.addEventListener('touchstart', (e) => {
+        if (isInteractiveOverlayOpen(e)) return;
+        if (e.touches.length === 2) {
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            activePinchInitialDistance = Math.hypot(dx, dy);
+            activePinchStartScale = latestTargetScale ?? getGpDisplayScalePercent();
+        }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+        if (isInteractiveOverlayOpen(e)) return;
+        if (e.touches.length === 2 && activePinchInitialDistance && activePinchStartScale !== null) {
+            if (e.cancelable) e.preventDefault();
+            const dx = e.touches[0].clientX - e.touches[1].clientX;
+            const dy = e.touches[0].clientY - e.touches[1].clientY;
+            const currentDist = Math.hypot(dx, dy);
+            const ratio = currentDist / activePinchInitialDistance;
+            let targetPercent = Math.round((activePinchStartScale * ratio) / 5) * 5;
+            targetPercent = Math.min(150, Math.max(50, targetPercent));
+            if (targetPercent !== (latestTargetScale ?? getGpDisplayScalePercent())) {
+                commitScale(targetPercent);
+            }
+        }
+    }, { passive: false });
+
+    container.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2 && activePinchInitialDistance) {
+            activePinchInitialDistance = null;
+            activePinchStartScale = null;
+            flushScale();
+        }
+    }, { passive: true });
+
+    container.addEventListener('touchcancel', () => {
+        activePinchInitialDistance = null;
+        activePinchStartScale = null;
+        flushScale();
+    }, { passive: true });
+
+    // 2. iOS Safari / WebKit native gesture events
+    container.addEventListener('gesturestart', (e) => {
+        if (isInteractiveOverlayOpen(e)) return;
+        e.preventDefault();
+        activePinchStartScale = latestTargetScale ?? getGpDisplayScalePercent();
+    });
+
+    container.addEventListener('gesturechange', (e) => {
+        if (isInteractiveOverlayOpen(e)) return;
+        e.preventDefault();
+        if (activePinchStartScale !== null) {
+            let targetPercent = Math.round((activePinchStartScale * e.scale) / 5) * 5;
+            targetPercent = Math.min(150, Math.max(50, targetPercent));
+            if (targetPercent !== (latestTargetScale ?? getGpDisplayScalePercent())) {
+                commitScale(targetPercent);
+            }
+        }
+    });
+
+    container.addEventListener('gestureend', (e) => {
+        e.preventDefault();
+        if (activePinchStartScale !== null) {
+            activePinchStartScale = null;
+            flushScale();
+        }
+    });
+
+    // 3. Trackpad Pinch & Ctrl + Mouse Wheel (macOS, Windows, Linux)
+    window.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey) return;
+        if (isInteractiveOverlayOpen(e)) return;
+        e.preventDefault();
+
+        wheelDeltaAccumulator -= e.deltaY;
+        const STEP_THRESHOLD = 25;
+        if (Math.abs(wheelDeltaAccumulator) >= STEP_THRESHOLD) {
+            const steps = Math.trunc(wheelDeltaAccumulator / STEP_THRESHOLD);
+            wheelDeltaAccumulator -= steps * STEP_THRESHOLD;
+            const currentPercent = latestTargetScale ?? getGpDisplayScalePercent();
+            const nextPercent = Math.min(150, Math.max(50, currentPercent + steps * 5));
+            if (nextPercent !== currentPercent) {
+                commitScale(nextPercent);
+            }
+        }
+    }, { passive: false });
+}
+
+
 // --- SETTINGS MANAGEMENT ---
 function setupSettings() {
     // Apply platform defaults on initial launch/install (e.g. Steam Deck defaults to Page view and 1-page landscape)
@@ -276,54 +388,30 @@ function setupSettings() {
     condensePdfMode.checked = savedCondensePdfMode === null ? false : savedCondensePdfMode === 'true';
 
     const gpSheetScaleInput = document.getElementById('gpSheetScale');
-    const gpSheetScaleValue = document.getElementById('gpSheetScaleValue');
     const gpSheetScaleMinus = document.getElementById('gpSheetScaleMinus');
     const gpSheetScalePlus = document.getElementById('gpSheetScalePlus');
-    if (gpSheetScaleInput && gpSheetScaleValue) {
-        const syncGpSheetScale = (nextValue) => {
-            const currentScale = Number.parseInt(nextValue, 10);
-            const safeValue = Number.isFinite(currentScale) ? Math.min(150, Math.max(50, currentScale)) : 100;
-            gpSheetScaleInput.value = String(safeValue);
-            gpSheetScaleValue.textContent = `${safeValue}%`;
-            return safeValue;
-        };
+    const savedGpSheetScale = applySavedGpDisplayScale();
+    syncGpSheetScale(savedGpSheetScale);
 
-        const applyGpSheetScale = async (nextValue) => {
-            const scaledValue = syncGpSheetScale(nextValue);
-            setGpDisplayScale(scaledValue);
+    gpSheetScaleInput?.addEventListener('input', () => {
+        syncGpSheetScale(gpSheetScaleInput.value);
+    });
 
-            if (currentFile && isFileType(currentFile, ['txt'])) {
-                await loadFile(currentFile, { hideMenu: false });
-            } else if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
-                if (!applyGpDisplayScale(output, pageModeRadio.checked, continuousModeRadio)) {
-                    await loadFile(currentFile, { hideMenu: false });
-                }
-            }
-        };
+    gpSheetScaleInput?.addEventListener('change', async () => {
+        await applyGpSheetScale(gpSheetScaleInput.value);
+    });
 
-        const savedGpSheetScale = applySavedGpDisplayScale();
-        syncGpSheetScale(savedGpSheetScale);
+    gpSheetScaleMinus?.addEventListener('click', async () => {
+        const currentScale = Number.parseInt(gpSheetScaleInput?.value, 10) || 100;
+        const nextScale = Math.max(50, currentScale - 5);
+        await applyGpSheetScale(nextScale);
+    });
 
-        gpSheetScaleInput.addEventListener('input', () => {
-            syncGpSheetScale(gpSheetScaleInput.value);
-        });
-
-        gpSheetScaleInput.addEventListener('change', async () => {
-            await applyGpSheetScale(gpSheetScaleInput.value);
-        });
-
-        gpSheetScaleMinus?.addEventListener('click', async () => {
-            const currentScale = Number.parseInt(gpSheetScaleInput.value, 10) || 100;
-            const nextScale = Math.max(50, currentScale - 5);
-            await applyGpSheetScale(nextScale);
-        });
-
-        gpSheetScalePlus?.addEventListener('click', async () => {
-            const currentScale = Number.parseInt(gpSheetScaleInput.value, 10) || 100;
-            const nextScale = Math.min(150, currentScale + 5);
-            await applyGpSheetScale(nextScale);
-        });
-    }
+    gpSheetScalePlus?.addEventListener('click', async () => {
+        const currentScale = Number.parseInt(gpSheetScaleInput?.value, 10) || 100;
+        const nextScale = Math.min(150, currentScale + 5);
+        await applyGpSheetScale(nextScale);
+    });
     
     // Initialize modern guitar finish theming engine
     initTheming();
@@ -980,6 +1068,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupExportPDFButton();
     setupDrivePicker();
     setupSettings();
+    setupPinchToZoom();
     setupExtensionSettings();
     initUpdater();
     initYouTubePlayer();
