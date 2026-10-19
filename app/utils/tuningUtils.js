@@ -194,7 +194,9 @@ export function getTuningInfo(tuningInput) {
                 notes,
                 defaultName,
                 displayName: customName || defaultName || notes,
-                stringCount: known.strings.length
+                stringCount: known.strings.length,
+                midi: known.midi,
+                strings: known.strings
             };
         }
     }
@@ -241,7 +243,9 @@ export function getTuningInfo(tuningInput) {
                     notes: kNotes,
                     defaultName,
                     displayName: customName || defaultName || kNotes,
-                    stringCount: known.strings.length
+                    stringCount: known.strings.length,
+                    midi: known.midi,
+                    strings: known.strings
                 };
             }
         }
@@ -471,6 +475,10 @@ export function getTuningCategory(tuningInputOrGroup, instrumentMode = getInstru
     let notes = '';
     let defaultName = '';
     let name = '';
+    let midi = null;
+    const rawInput = typeof tuningInputOrGroup === 'string'
+        ? tuningInputOrGroup
+        : (tuningInputOrGroup?.name || tuningInputOrGroup?.tuning || tuningInputOrGroup?.defaultName || '');
 
     if (typeof tuningInputOrGroup === 'object' && tuningInputOrGroup !== null) {
         const info = (tuningInputOrGroup.key || tuningInputOrGroup.tuning) ? getTuningInfo(tuningInputOrGroup.key || tuningInputOrGroup.tuning) : null;
@@ -479,6 +487,7 @@ export function getTuningCategory(tuningInputOrGroup, instrumentMode = getInstru
         stringCount = info?.stringCount || (noteTokenCount >= 3 ? noteTokenCount : (tuningInputOrGroup.stringCount || 6));
         defaultName = tuningInputOrGroup.defaultName || info?.defaultName || '';
         name = tuningInputOrGroup.name || info?.displayName || '';
+        midi = tuningInputOrGroup.midi || info?.midi || null;
     } else if (typeof tuningInputOrGroup === 'string') {
         const info = getTuningInfo(tuningInputOrGroup);
         if (info) {
@@ -486,11 +495,13 @@ export function getTuningCategory(tuningInputOrGroup, instrumentMode = getInstru
             notes = info.notes;
             defaultName = info.defaultName;
             name = info.displayName;
+            midi = info.midi || null;
         }
     }
 
     const isBass = (defaultName && defaultName.toLowerCase().includes('bass')) ||
                    (name && name.toLowerCase().includes('bass')) ||
+                   (rawInput && rawInput.toLowerCase().includes('bass')) ||
                    (instrumentMode === 'bass') ||
                    isBassTuning(tuningInputOrGroup);
 
@@ -506,24 +517,52 @@ export function getTuningCategory(tuningInputOrGroup, instrumentMode = getInstru
     }
 
     if (stringCount === 6 && !isBass) {
-        const noteTokens = (notes || '').trim().split(/\s+/);
-        const lowestNote = (noteTokens[0] || '').replace(/[^a-zA-Z#b]/g, '');
+        let isBaritone = false;
+        const combinedName = `${rawInput} ${name} ${defaultName}`.toLowerCase();
 
-        // Standard 6-string lowest notes above B are C, C#, Db, D, D#, Eb, E, F (octave 2)
-        // Baritone lowest notes at B or below are B, Bb, A#, A, Ab, G#, G, Gb, F# (octave 1)
-        const BARITONE_LOWEST_NOTES = ['B', 'Bb', 'A#', 'A', 'Ab', 'G#', 'G', 'Gb', 'F#'];
-        const isBaritone = BARITONE_LOWEST_NOTES.includes(lowestNote) ||
-            /\bbaritone\b/i.test(defaultName) ||
-            /\bdrop b\b/i.test(defaultName) ||
-            /\bb standard\b/i.test(defaultName) ||
-            /\bdrop a#\b/i.test(defaultName) ||
-            /\bdrop bb\b/i.test(defaultName) ||
-            /\bdrop a\b/i.test(defaultName) ||
-            /\bdrop g#\b/i.test(defaultName) ||
-            /\bdrop ab\b/i.test(defaultName) ||
-            /\bdrop g\b/i.test(defaultName) ||
-            /\bdrop f#\b/i.test(defaultName) ||
-            /\bdrop f\b/i.test(defaultName);
+        // 1. Explicit baritone designation in name
+        if (/\bbaritone\b/i.test(combinedName)) {
+            isBaritone = true;
+        }
+        // 2. Drop tunings based on C standard or higher with a dropped 6th string (Drop A#, Drop B, Drop C, Drop D, etc.)
+        // These are standard 6-string electric guitar tunings, NOT baritone.
+        else if (/\bdrop\s*(?:a#|bb|b|c#|db|c|d)(?:[^a-z0-9#b♯♭]|$)/i.test(combinedName) || /\b(?:c(?![#b♯♭])|c#|db|d(?![#b♯♭])|eb|e(?![#b♯♭]))\s*standard\b/i.test(combinedName)) {
+            isBaritone = false;
+        }
+        // 3. Known baritone standard & drop tunings based on B standard or lower (B, Bb, A, Ab, G, F#)
+        else if (/\bdrop\s*(?:a(?![#b♯♭])|ab|g#|g(?![#b♯♭])|gb|f#|f(?![#b♯♭])|e(?![#b♯♭]))(?:[^a-z0-9#b♯♭]|$)/i.test(combinedName) ||
+                 /\b(?:b(?![#b♯♭])|bb|a(?![#b♯♭])|ab|g#|g(?![#b♯♭])|gb|f#|f(?![#b♯♭]))\s*standard\b/i.test(combinedName)) {
+            isBaritone = true;
+        }
+        // 4. Evaluation based on MIDI pitches (overall string range):
+        // Standard guitar tunings have the top string at C4 (MIDI 60) or above (Standard=64, Drop D=64, D Standard=62, C Standard=60, Drop A#=60, Drop B=61).
+        // Baritone guitar tunings have the top string at B3 (MIDI 59) or below (B Standard=59, Drop A=59, A Standard=57, Drop G=57).
+        else if (Array.isArray(midi) && midi.length === 6) {
+            const maxMidi = Math.max(...midi);
+            isBaritone = maxMidi <= 59;
+        }
+        // 5. Fallback based on overall note tokens:
+        // When checking outer strings, if the highest string reaches C, C#, D, Eb, E, F, it's standard 6-string range.
+        // A baritone guitar has all strings tuned to B or below (B, Bb, A, Ab, G, F#).
+        else {
+            const noteTokens = (notes || '').trim().split(/\s+/).map(t => t.replace(/[^a-zA-Z#b]/g, ''));
+            if (noteTokens.length >= 6) {
+                const STANDARD_OR_HIGHER_TOP_NOTES = ['C', 'C#', 'DB', 'D', 'D#', 'EB', 'E', 'F'];
+                const BARITONE_TOP_NOTES = ['B', 'BB', 'A#', 'A', 'AB', 'G#', 'G', 'GB', 'F#'];
+
+                const firstNote = (noteTokens[0] || '').toUpperCase();
+                const lastNote = (noteTokens[noteTokens.length - 1] || '').toUpperCase();
+
+                // If either outer note is in standard/higher range, the guitar is tuned C4 or higher -> not baritone
+                if (STANDARD_OR_HIGHER_TOP_NOTES.includes(lastNote) || STANDARD_OR_HIGHER_TOP_NOTES.includes(firstNote)) {
+                    isBaritone = false;
+                } else if (BARITONE_TOP_NOTES.includes(lastNote) && BARITONE_TOP_NOTES.includes(firstNote)) {
+                    isBaritone = true;
+                } else {
+                    isBaritone = false;
+                }
+            }
+        }
 
         if (isBaritone) {
             return {
