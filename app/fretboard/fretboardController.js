@@ -29,6 +29,8 @@ class FretboardController {
         this.capo = 0;
 
         this.lastBeatNotes = [];
+        this.activeBeatIds = new Set();
+        this.lastTickPosition = null;
         this.audioCtx = null;
         this.initialized = false;
     }
@@ -446,6 +448,23 @@ class FretboardController {
             return;
         }
 
+        const prevBeatIds = this.activeBeatIds || new Set();
+        const currentBeatIds = new Set();
+        const newlyStruckBeatIds = new Set();
+
+        const currentTick = this.currentApi?.tickPosition ?? 0;
+        const isJumpOrSeek = this.lastTickPosition !== undefined && this.lastTickPosition !== null && currentTick < this.lastTickPosition;
+        this.lastTickPosition = currentTick;
+
+        for (const beat of activeBeats) {
+            if (!beat) continue;
+            currentBeatIds.add(beat.id);
+            if (isJumpOrSeek || !prevBeatIds.has(beat.id) || prevBeatIds.size === 0) {
+                newlyStruckBeatIds.add(beat.id);
+            }
+        }
+        this.activeBeatIds = currentBeatIds;
+
         this.trackNotesMap.clear();
 
         for (const beat of activeBeats) {
@@ -456,6 +475,7 @@ class FretboardController {
             const isVisible = this.visibleTracks.some(t => t.index === beatTrack.index);
             if (!isVisible) continue;
 
+            const isBeatNewlyStruck = newlyStruckBeatIds.has(beat.id);
             const trackColorIdx = this.getTrackColorIndex(beatTrack.index);
             let trackNotes = this.trackNotesMap.get(beatTrack.index);
             if (!trackNotes) {
@@ -474,13 +494,15 @@ class FretboardController {
                             ? n.realValue
                             : (openMidi + f);
 
+                        const isTie = Boolean(n.isTieDestination);
                         trackNotes.push({
                             string: s,
                             fret: f,
                             midiPitch: midiVal,
                             isDead: Boolean(n.isDead),
                             isGhost: Boolean(n.isGhost),
-                            isTieDestination: Boolean(n.isTieDestination),
+                            isTieDestination: isTie,
+                            isPicked: isBeatNewlyStruck && !isTie,
                             trackIndex: beatTrack.index,
                             trackColorIndex: trackColorIdx
                         });
@@ -506,6 +528,7 @@ class FretboardController {
                         isDead: n.isDead,
                         isGhost: n.isGhost,
                         isTieDestination: n.isTieDestination,
+                        isPicked: n.isPicked,
                         trackIndices: [n.trackIndex],
                         trackColorIndices: [n.trackColorIndex]
                     });
@@ -514,6 +537,9 @@ class FretboardController {
                     if (!existing.trackColorIndices.includes(n.trackColorIndex)) {
                         existing.trackColorIndices.push(n.trackColorIndex);
                         existing.trackIndices.push(n.trackIndex);
+                    }
+                    if (n.isPicked) {
+                        existing.isPicked = true;
                     }
                 }
 
@@ -544,6 +570,10 @@ class FretboardController {
         if (!this.isScoreAvailable || !primaryBeat) {
             return;
         }
+
+        // Explicit cursor placement (seek/pause/click) marks notes as newly struck
+        this.activeBeatIds.clear();
+        this.lastTickPosition = null;
 
         const barIndex = primaryBeat.voice?.bar?.index;
         if (barIndex === undefined || barIndex === null) {
@@ -666,6 +696,8 @@ class FretboardController {
     clearActiveNotes() {
         this.trackNotesMap.clear();
         this.lastBeatNotes = [];
+        this.activeBeatIds.clear();
+        this.lastTickPosition = null;
         this.view?.clearActiveNotes();
     }
 
