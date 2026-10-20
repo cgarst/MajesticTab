@@ -62,6 +62,8 @@ const BACKUP_SETTINGS_KEYS = [
     'gdrive_last_folder',
     'gdrive_tabs_directory',
     'majestictab_custom_tuning_names',
+    'gpDefaultStringsGuitar',
+    'gpDefaultStringsBass',
     'instrumentMode',
     'majestictab_instrument_mode'
 ];
@@ -112,14 +114,20 @@ export function collectAllSettings() {
 
     // Collect any YouTube cached video IDs or custom user preferences
     const ytCache = {};
+    const gpTabStrings = {};
     for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
         if (k && k.startsWith('yt_cache_')) {
             ytCache[k] = localStorage.getItem(k);
+        } else if (k && k.startsWith('gp_tab_strings_')) {
+            gpTabStrings[k] = localStorage.getItem(k);
         }
     }
     if (Object.keys(ytCache).length > 0) {
         settings.ytCache = ytCache;
+    }
+    if (Object.keys(gpTabStrings).length > 0) {
+        settings.gpTabStrings = gpTabStrings;
     }
 
     return settings;
@@ -608,6 +616,15 @@ function applyRestoredSettings(settings, { wipe }) {
                 for (const [ytKey, ytVal] of Object.entries(val)) {
                     if (wipe || localStorage.getItem(ytKey) === null) {
                         localStorage.setItem(ytKey, String(ytVal));
+                    }
+                }
+                continue;
+            }
+
+            if (key === 'gpTabStrings' && typeof val === 'object') {
+                for (const [tabKey, tabVal] of Object.entries(val)) {
+                    if (wipe || localStorage.getItem(tabKey) === null) {
+                        localStorage.setItem(tabKey, String(tabVal));
                     }
                 }
                 continue;
@@ -1120,6 +1137,18 @@ function applyRestoredPreferences() {
     const instMode = localStorage.getItem('instrumentMode') || localStorage.getItem('majestictab_instrument_mode') || 'guitar';
     const instRadio = document.querySelector(`input[name="instrumentModeRadio"][value="${instMode}"]`);
     if (instRadio) instRadio.checked = true;
+
+    // String count defaults
+    const guitarDefault = localStorage.getItem('gpDefaultStringsGuitar');
+    if (guitarDefault) {
+        const radio = document.querySelector(`input[name="gpDefaultStringsGuitarRadio"][value="${guitarDefault}"]`);
+        if (radio) radio.checked = true;
+    }
+    const bassDefault = localStorage.getItem('gpDefaultStringsBass');
+    if (bassDefault) {
+        const radio = document.querySelector(`input[name="gpDefaultStringsBassRadio"][value="${bassDefault}"]`);
+        if (radio) radio.checked = true;
+    }
 }
 
 /**

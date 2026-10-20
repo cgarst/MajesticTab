@@ -8,8 +8,13 @@ import {
     extractScoreTunings,
     extractScoreMetadata,
     applyScoreStringCount,
+    getDefaultGpStringCount,
+    setDefaultGpStringCount,
     getGpStringCountPreference,
     setGpStringCountPreference,
+    getTabStringCountPreference,
+    setTabStringCountPreference,
+    getEffectiveGpStringCount,
     getScoreMaxStringsForMode,
     getInstrumentMode
 } from '../utils/tuningUtils.js';
@@ -95,7 +100,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     void container.offsetHeight;
 
     try {
-        const api = await loadGuitarPro(dataToLoad, container, { debug });
+        const api = await loadGuitarPro(dataToLoad, container, { debug, originalFile: file });
         gpState.canvases = [{ container, api }];
         window.gpApi = api;
         window.gpState = gpState;
@@ -752,19 +757,26 @@ export function syncGpNotationRadios(mode = getGpNotationMode()) {
 }
 
 /**
- * Switch Guitar Pro tab string count view (native, 7, 8 for guitar; native, 5, 6 for bass)
+ * Switch Guitar Pro tab string count view (native, 7, 8 for guitar; native, 5, 6 for bass).
+ * Persists the selection specifically for this tab.
  */
 export function applyGpStringCount(targetCount) {
-    const safeCount = setGpStringCountPreference(targetCount);
+    const instrumentMode = getInstrumentMode();
+    const safeCount = (targetCount === '7' || targetCount === '8' || targetCount === '5' || targetCount === '6') ? targetCount : 'native';
+
+    if (gpState.currentFile) {
+        setTabStringCountPreference(gpState.currentFile, safeCount, instrumentMode);
+    }
+
     const api = gpState.canvases[0]?.api;
     const container = gpState.canvases[0]?.container;
     const output = document.getElementById('output');
 
-    // Sync UI radio controls and badge
-    syncGpStringCountRadios(safeCount);
+    // Sync notation menu radio controls and badge (does not touch settings menu defaults)
+    syncGpNotationStringCountRadios(safeCount);
     if (api?.score) {
         updateGpStringCountBadge(api.score);
-        applyScoreStringCount(api.score, safeCount);
+        applyScoreStringCount(api.score, safeCount, instrumentMode);
     }
 
     if (!api || !container) return;
@@ -809,16 +821,18 @@ export function updateGpStringCountBadge(score) {
 }
 
 /**
- * Synchronize all Guitar Pro string count radio buttons
+ * Synchronize the notation menu's string count radio buttons for the active tab
  */
-export function syncGpStringCountRadios(count = getGpStringCountPreference()) {
-    const radios = document.querySelectorAll('input[name="synthStringCountRadio"], input[name="gpDefaultStringsGuitarRadio"], input[name="gpDefaultStringsBassRadio"]');
+export function syncGpNotationStringCountRadios(count = getEffectiveGpStringCount(gpState.currentFile)) {
+    const radios = document.querySelectorAll('input[name="synthStringCountRadio"]');
     radios.forEach(radio => {
         if (radio.value === String(count)) {
             radio.checked = true;
         }
     });
 }
+
+export const syncGpStringCountRadios = syncGpNotationStringCountRadios;
 
 /**
  * Dynamically builds and updates the string count options in the Score Options panel
@@ -850,10 +864,10 @@ export function syncGpStringCountUI(score) {
             { id: 'synthStringCount8', value: '8', label: '8-String' }
         ];
 
-    const currentPref = getGpStringCountPreference(instrumentMode);
+    const currentCount = getEffectiveGpStringCount(gpState.currentFile, instrumentMode);
 
     pillsContainer.innerHTML = options.map(opt => `
-        <input type="radio" class="btn-check" name="synthStringCountRadio" id="${opt.id}" value="${opt.value}" autocomplete="off" ${opt.value === currentPref ? 'checked' : ''}>
+        <input type="radio" class="btn-check" name="synthStringCountRadio" id="${opt.id}" value="${opt.value}" autocomplete="off" ${opt.value === currentCount ? 'checked' : ''}>
         <label class="btn btn-sm" for="${opt.id}" style="flex: 1;">${opt.label}</label>
     `).join('');
 

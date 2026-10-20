@@ -9,7 +9,9 @@ import {
     GUITAR_PROGRAM_WHITELIST,
     BASS_PROGRAM_WHITELIST,
     applyScoreStringCount,
-    getGpStringCountPreference
+    getGpStringCountPreference,
+    getEffectiveGpStringCount,
+    getTabStorageId
 } from '../utils/tuningUtils.js';
 
 export {
@@ -19,7 +21,9 @@ export {
     GUITAR_PROGRAM_WHITELIST,
     BASS_PROGRAM_WHITELIST,
     applyScoreStringCount,
-    getGpStringCountPreference
+    getGpStringCountPreference,
+    getEffectiveGpStringCount,
+    getTabStorageId
 };
 
 export const DEFAULT_GP_DISPLAY_SCALE = 1.0;
@@ -89,9 +93,9 @@ export function getGpStaveProfile(mode = getGpNotationMode()) {
 
 export function getSavedHiddenTracks(file, instrumentMode = getInstrumentMode()) {
     if (!file || typeof localStorage === 'undefined') return null;
-    const fileId = file.tabId || file.fileStoreId || file.name;
+    const fileId = getTabStorageId(file) || file.tabId || file.fileStoreId || file.name;
     if (!fileId) return null;
-    const key = `gp_hidden_tracks_${instrumentMode}_${fileId.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
+    const key = `gp_hidden_tracks_${instrumentMode}_${String(fileId).toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
     try {
         const raw = localStorage.getItem(key);
         if (!raw) return null;
@@ -103,9 +107,9 @@ export function getSavedHiddenTracks(file, instrumentMode = getInstrumentMode())
 
 export function saveHiddenTracks(file, hiddenIndices, activeTracks = [], instrumentMode = getInstrumentMode()) {
     if (!file || typeof localStorage === 'undefined') return;
-    const fileId = file.tabId || file.fileStoreId || file.name;
+    const fileId = getTabStorageId(file) || file.tabId || file.fileStoreId || file.name;
     if (!fileId) return;
-    const key = `gp_hidden_tracks_${instrumentMode}_${fileId.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
+    const key = `gp_hidden_tracks_${instrumentMode}_${String(fileId).toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
     try {
         if (!hiddenIndices || hiddenIndices.length === 0) {
             localStorage.removeItem(key);
@@ -120,7 +124,8 @@ export function saveHiddenTracks(file, hiddenIndices, activeTracks = [], instrum
     }
 }
 
-export function loadGuitarPro(file, container, { debug = false } = {}) {
+export function loadGuitarPro(file, container, { debug = false, originalFile = null } = {}) {
+    const targetFile = originalFile || (file instanceof File ? file : null) || (window.gpState?.currentFile) || null;
     return new Promise((resolve, reject) => {
         if (!container) {
             reject(new Error("Container element is required"));
@@ -167,7 +172,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             let activeTrackIndices = activeTracks.map(ti => ti.index);
 
             // Step 2b: filter out any saved hidden tracks for this tab file
-            const savedHidden = getSavedHiddenTracks(file);
+            const savedHidden = getSavedHiddenTracks(targetFile || file);
             if (savedHidden && Array.isArray(savedHidden.hiddenIndices) && savedHidden.hiddenIndices.length > 0) {
                 const remaining = activeTrackIndices.filter(idx => !savedHidden.hiddenIndices.includes(idx));
                 if (remaining.length > 0) {
@@ -219,7 +224,7 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             api.scoreLoaded.on((newScore) => {
                 applyGpScoreTransforms(newScore);
 
-                const stringCountPref = getGpStringCountPreference();
+                const stringCountPref = getEffectiveGpStringCount(targetFile || file);
                 if (stringCountPref && stringCountPref !== 'native') {
                     applyScoreStringCount(newScore, stringCountPref);
                 }

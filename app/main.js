@@ -20,7 +20,7 @@ import { openFromProvider } from './fileProviders.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
 import { addRecentOpened } from './libraryStore.js';
-import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode, getGpStringCountPreference, setGpStringCountPreference } from './utils/tuningUtils.js';
+import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode, getDefaultGpStringCount, setDefaultGpStringCount } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
 import { showToast } from './utils/toast.js';
 import { initGamepadManager } from './utils/gamepadManager.js';
@@ -560,8 +560,8 @@ function setupSettings() {
         });
     });
 
-    // Guitar Pro Tab String Count Defaults
-    const savedGuitarStrings = getGpStringCountPreference('guitar');
+    // Guitar Pro Tab String Count Defaults (Settings menu)
+    const savedGuitarStrings = getDefaultGpStringCount('guitar');
     const guitarStringRadios = document.querySelectorAll('input[name="gpDefaultStringsGuitarRadio"]');
     guitarStringRadios.forEach(radio => {
         if (radio.value === savedGuitarStrings) {
@@ -569,15 +569,12 @@ function setupSettings() {
         }
         radio.addEventListener('change', () => {
             if (radio.checked) {
-                setGpStringCountPreference(radio.value, 'guitar');
-                if (getInstrumentMode() === 'guitar') {
-                    applyGpStringCount(radio.value);
-                }
+                setDefaultGpStringCount(radio.value, 'guitar');
             }
         });
     });
 
-    const savedBassStrings = getGpStringCountPreference('bass');
+    const savedBassStrings = getDefaultGpStringCount('bass');
     const bassStringRadios = document.querySelectorAll('input[name="gpDefaultStringsBassRadio"]');
     bassStringRadios.forEach(radio => {
         if (radio.value === savedBassStrings) {
@@ -585,10 +582,7 @@ function setupSettings() {
         }
         radio.addEventListener('change', () => {
             if (radio.checked) {
-                setGpStringCountPreference(radio.value, 'bass');
-                if (getInstrumentMode() === 'bass') {
-                    applyGpStringCount(radio.value);
-                }
+                setDefaultGpStringCount(radio.value, 'bass');
             }
         });
     });
@@ -1416,7 +1410,8 @@ export async function loadFile(file, { hideMenu = true } = {}) {
         coverUrl: file.coverUrl || null,
         tuning: primaryTuning,
         stringCount: stringCount,
-        tunings: tunings || []
+        tunings: tunings || [],
+        preferredStringCount: file.preferredStringCount || null
     });
 
     detectFileMetadata(file, file.name).then(meta => {
