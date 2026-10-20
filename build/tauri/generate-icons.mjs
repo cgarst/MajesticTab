@@ -1,6 +1,6 @@
 // Builds per-platform app icons from icons/icon_v2_mystic.svg via `tauri icon`.
 // Output goes to src-tauri/icons/<platform>/ (generated, gitignored).
-import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
