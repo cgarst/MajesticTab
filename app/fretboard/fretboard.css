@@ -1,0 +1,352 @@
+/* ==========================================================================
+   MAJESTICTAB — GUITAR PRO-STYLE VIRTUAL FRETBOARD DOCK & SVG VIEW
+   Dynamic finish theme integration & responsive layout
+   ========================================================================== */
+
+:root {
+  --fretboard-dock-height: 165px;
+}
+
+/* --------------------------------------------------------------------------
+   Fretboard Fixed Bottom Dock Container
+   -------------------------------------------------------------------------- */
+.fretboard-dock {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1040;
+  background: var(--bg-card);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-top: 1px solid var(--border-subtle);
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.65), 0 0 20px -4px var(--accent-glow);
+  padding-bottom: max(calc(env(safe-area-inset-bottom)), 6px);
+  transform: translateY(0);
+  opacity: 1;
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+  pointer-events: auto;
+  user-select: none;
+}
+
+.fretboard-dock.is-hidden {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Dock Header Controls & Toolbar
+   -------------------------------------------------------------------------- */
+.fretboard-dock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 1rem 0.25rem 1rem;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.fretboard-dock-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.fretboard-dock-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.fretboard-dock-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+/* Instrument & Tuning Badges */
+.fretboard-track-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem;
+  border-radius: 9999px;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.75rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  max-width: 180px;
+}
+
+.fretboard-tuning-badge,
+.fretboard-capo-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border-radius: 9999px;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.fretboard-capo-badge {
+  color: var(--accent-text, #a7f3d0);
+  border-color: var(--border-prominent);
+}
+
+/* Display Mode Pills */
+.fretboard-mode-pills {
+  height: 30px !important;
+  padding: 2px !important;
+}
+
+.fretboard-mode-pills .btn {
+  font-size: 0.74rem !important;
+  padding: 0 0.55rem !important;
+  height: 100% !important;
+}
+
+.fretboard-mode-pills .btn.active {
+  background: var(--accent-gradient) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 10px var(--accent-glow) !important;
+}
+
+/* Control Buttons */
+.fretboard-flip-btn,
+.fretboard-lh-btn,
+.fretboard-close-btn {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.78rem !important;
+  height: 30px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fretboard-flip-btn.active,
+.fretboard-lh-btn.active {
+  background: var(--bg-card-hover) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Neck Scrollable Viewport & SVG Container
+   -------------------------------------------------------------------------- */
+.fretboard-neck-wrapper {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  padding: 0.25rem 0 0.4rem 0;
+}
+
+.fretboard-neck-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-subtle) transparent;
+}
+
+.fretboard-neck-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.fretboard-neck-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 4px;
+}
+
+.fretboard-svg-container {
+  display: flex;
+  justify-content: center;
+  min-width: 1000px;
+  width: 100%;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+.fretboard-svg {
+  width: 100%;
+  max-width: 1260px;
+  height: auto;
+  display: block;
+  user-select: none;
+}
+
+/* --------------------------------------------------------------------------
+   SVG Fretboard Styling & Finish Themes
+   -------------------------------------------------------------------------- */
+.fretboard-neck-bg {
+  fill: var(--bg-card-solid);
+  stroke: var(--border-subtle);
+  stroke-width: 1.2;
+}
+
+.fretboard-inlay {
+  fill: var(--text-muted);
+  fill-opacity: 0.32;
+}
+
+.fretboard-wire {
+  stroke: var(--border-prominent);
+  stroke-width: 1.5;
+  opacity: 0.65;
+}
+
+.fretboard-nut {
+  fill: var(--text-primary);
+  fill-opacity: 0.85;
+  stroke: var(--border-prominent);
+  stroke-width: 1;
+}
+
+.fretboard-num {
+  fill: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.fretboard-string {
+  stroke: var(--text-muted);
+  stroke-opacity: 0.55;
+  stroke-linecap: round;
+}
+
+.fretboard-capo-bar {
+  fill: var(--accent-primary);
+  stroke: var(--accent-secondary);
+  stroke-width: 1;
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.fretboard-capo-label {
+  fill: #ffffff;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* Open String Badges */
+.fretboard-open-string {
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.fretboard-open-string .open-badge-bg {
+  fill: var(--bg-card-solid);
+  stroke: var(--border-subtle);
+  stroke-width: 1.5;
+  transition: all 0.15s ease;
+}
+
+.fretboard-open-string .open-badge-text {
+  fill: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  font-family: system-ui, -apple-system, sans-serif;
+  transition: fill 0.15s ease;
+}
+
+.fretboard-open-string:hover .open-badge-bg {
+  stroke: var(--accent-primary);
+  fill: var(--bg-card-hover);
+}
+
+.fretboard-open-string:hover .open-badge-text {
+  fill: #ffffff;
+}
+
+.fretboard-open-string.fretboard-open-active .open-badge-bg {
+  fill: var(--accent-primary) !important;
+  stroke: var(--accent-secondary) !important;
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+.fretboard-open-string.fretboard-open-active .open-badge-text {
+  fill: #ffffff !important;
+  font-weight: 800;
+}
+
+/* Active Note Markers */
+.fretboard-note-marker {
+  pointer-events: none;
+}
+
+.fretboard-note-marker .marker-glow {
+  fill: var(--accent-glow);
+  opacity: 0.75;
+}
+
+.fretboard-note-marker .marker-circle {
+  fill: url(#fretboardMarkerGradient);
+  stroke: #ffffff;
+  stroke-width: 1.5;
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.fretboard-note-marker .marker-text {
+  fill: #ffffff;
+  font-size: 10px;
+  font-weight: 800;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.fretboard-note-marker .marker-dead {
+  stroke: #ffffff;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+}
+
+.fretboard-note-marker.is-ghost .marker-circle {
+  stroke-dasharray: 2.5, 2;
+  fill-opacity: 0.6;
+  stroke-opacity: 0.75;
+}
+
+.fretboard-note-marker.is-tie .marker-circle {
+  opacity: 0.65;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile & Responsive Adjustments (<= 576px)
+   -------------------------------------------------------------------------- */
+@media (max-width: 576px) {
+  .fretboard-dock-header {
+    padding: 0.3rem 0.5rem;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .fretboard-track-badge {
+    max-width: 120px;
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+  }
+
+  .fretboard-tuning-badge {
+    display: none;
+  }
+
+  .fretboard-mode-pills .btn {
+    padding: 0 0.4rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  .fretboard-flip-btn span,
+  .fretboard-lh-btn span {
+    display: none !important;
+  }
+}

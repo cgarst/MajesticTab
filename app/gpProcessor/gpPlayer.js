@@ -6,6 +6,7 @@ import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
 import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext } from '../utils/iosAudioUnlock.js';
+import { fretboardController } from '../fretboard/fretboardController.js';
 
 let currentApi = null;
 let currentScore = null;
@@ -707,6 +708,8 @@ export function attachAlphaTabApi(api) {
         applySynthTrackMode();
     }
 
+    fretboardController.attachAlphaTabApi(api);
+
     // SoundFont Loaded Event
     api.soundFontLoaded.on(() => {
         console.log('[Synth Player] SoundFont loaded successfully');
@@ -756,12 +759,14 @@ export function attachAlphaTabApi(api) {
             enableIOSAudioPlayback();
         } else {
             pauseIOSAudioPlayback();
+            fretboardController.clearActiveNotes();
         }
         updateSynthUI();
     });
 
     api.playedBeatChanged.on((beat) => {
         playedBeatState.beat = beat;
+        fretboardController.onBeatChanged(beat);
     });
 
     // Player Position Changed
@@ -801,6 +806,7 @@ export function clearSynthHighlights() {
     } else {
         document.querySelectorAll('.gp-reader-cursor').forEach(el => { el.style.display = 'none'; });
     }
+    fretboardController.clearActiveNotes();
 }
 
 /**
@@ -826,6 +832,7 @@ export function detachAlphaTabApi() {
     synthPlayerState.endTime = 0;
 
     clearSynthHighlights();
+    fretboardController.onScoreClosed();
     toggleSynthPanel(false);
     hideSynthPlayer();
     updateSynthUI();
@@ -1018,6 +1025,7 @@ export function showScoreOptions(fileType = 'gp') {
     const stringCountSection = document.getElementById('scoreOptionsStringCountSection');
     const tracksSection = document.getElementById('synthTrackVisibilitySection');
     const pdfSection = document.getElementById('scoreOptionsPdfSection');
+    const fretboardSection = document.getElementById('scoreOptionsFretboardSection');
     const exportPdfBtn = document.getElementById('exportPDFBtn');
     const exportSourceBtn = document.getElementById('exportSourceTabBtn');
 
@@ -1037,22 +1045,28 @@ export function showScoreOptions(fileType = 'gp') {
     if (fileType === 'gp') {
         if (notationSection) notationSection.style.display = '';
         if (stringCountSection) stringCountSection.style.display = '';
+        if (fretboardSection) fretboardSection.style.display = '';
         if (pdfSection) pdfSection.style.display = 'none';
         if (exportPdfBtn) exportPdfBtn.style.display = '';
+        fretboardController.setScoreAvailable(true);
     } else if (fileType === 'pdf') {
         if (notationSection) notationSection.style.display = 'none';
         if (stringCountSection) stringCountSection.style.display = 'none';
+        if (fretboardSection) fretboardSection.style.display = 'none';
         if (tracksSection) tracksSection.style.display = 'none';
         if (pdfSection) pdfSection.style.display = '';
         const condensePdfCheckbox = document.getElementById('condensePdfMode');
         if (exportPdfBtn) exportPdfBtn.style.display = (condensePdfCheckbox && condensePdfCheckbox.checked) ? '' : 'none';
+        fretboardController.setScoreAvailable(false);
     } else {
         // txt or other
         if (notationSection) notationSection.style.display = 'none';
         if (stringCountSection) stringCountSection.style.display = 'none';
+        if (fretboardSection) fretboardSection.style.display = 'none';
         if (tracksSection) tracksSection.style.display = 'none';
         if (pdfSection) pdfSection.style.display = 'none';
         if (exportPdfBtn) exportPdfBtn.style.display = 'none';
+        fretboardController.setScoreAvailable(false);
     }
     if (exportSourceBtn) {
         exportSourceBtn.style.display = '';
@@ -1071,6 +1085,7 @@ export function hideScoreOptions() {
     const stringCountSection = document.getElementById('scoreOptionsStringCountSection');
     const tracksSection = document.getElementById('synthTrackVisibilitySection');
     const pdfSection = document.getElementById('scoreOptionsPdfSection');
+    const fretboardSection = document.getElementById('scoreOptionsFretboardSection');
     const exportPdfBtn = document.getElementById('exportPDFBtn');
     const exportSourceBtn = document.getElementById('exportSourceTabBtn');
 
@@ -1091,6 +1106,10 @@ export function hideScoreOptions() {
     if (stringCountSection) {
         stringCountSection.style.display = 'none';
     }
+    if (fretboardSection) {
+        fretboardSection.style.display = 'none';
+    }
+    fretboardController.setScoreAvailable(false);
     if (tracksSection) {
         tracksSection.style.display = 'none';
     }

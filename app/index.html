@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
 <link href="style.css" rel="stylesheet">
+<link href="fretboard/fretboard.css" rel="stylesheet">
 <link rel="manifest" href="site.webmanifest" />
 <link rel="icon" href="../icons/favicon.ico" type="image/x-icon" />
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png" />
@@ -100,6 +101,14 @@
       </button>
       <button class="btn btn-sm" id="ytToggleBtn" title="YouTube Audio & Controls" style="display:none;">
         <i class="bi-youtube"></i>
+      </button>
+    </div>
+
+    <!-- Virtual Fretboard Pill -->
+    <div id="fretboardPill" class="hud-pill-group" role="group" aria-label="Virtual Fretboard" style="display:none;">
+      <button class="btn btn-sm" id="fretboardToggleBtn" title="Virtual Fretboard (F)" aria-label="Virtual Fretboard">
+        <i class="bi-grid-3x2-gap"></i>
+        <span class="d-none d-xl-inline ms-1 small">Fretboard</span>
       </button>
     </div>
 
@@ -226,6 +235,16 @@
         <label class="btn btn-sm" for="synthStringCount7" style="flex: 1;">7-String</label>
         <input type="radio" class="btn-check" name="synthStringCountRadio" id="synthStringCount8" value="8" autocomplete="off">
         <label class="btn btn-sm" for="synthStringCount8" style="flex: 1;">8-String</label>
+      </div>
+    </div>
+
+    <!-- Virtual Fretboard (GP only) -->
+    <div class="mb-3" id="scoreOptionsFretboardSection" style="display: none;">
+      <div class="d-flex align-items-center justify-content-between">
+        <label class="form-label small mb-0 fw-semibold text-muted" for="scoreOptionsFretboardSwitch">Virtual Fretboard:</label>
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input theme-switch" type="checkbox" id="scoreOptionsFretboardSwitch">
+        </div>
       </div>
     </div>
 
@@ -1217,6 +1236,57 @@
     <div id="progressContainer"><div id="progressBar"></div></div>
     <div id="output" tabindex="0"></div>
 </div>
+
+<!-- Virtual Fretboard Dock -->
+<aside id="fretboardDock" class="fretboard-dock is-hidden" role="region" aria-label="Virtual Fretboard" style="display: none;">
+  <div class="fretboard-dock-header">
+    <div class="fretboard-dock-left">
+      <div class="fretboard-track-badge" id="fretboardTrackBadge" title="Active Instrument Track">
+        <i class="bi-music-note-beamed text-info"></i>
+        <span class="fretboard-track-name text-truncate" id="fretboardTrackName">Guitar</span>
+      </div>
+      <span class="fretboard-tuning-badge" id="fretboardTuningBadge" title="Tuning">Standard</span>
+      <span class="fretboard-capo-badge" id="fretboardCapoBadge" style="display: none;" title="Capo">Capo 0</span>
+    </div>
+
+    <div class="fretboard-dock-center">
+      <div class="hud-pill-group fretboard-mode-pills" role="group" aria-label="Fretboard Display Mode">
+        <button type="button" class="btn btn-sm active" data-fretboard-mode="notes" id="fretboardModeNotes" title="Display Note Pitch Names">
+          <span>Notes</span>
+        </button>
+        <button type="button" class="btn btn-sm" data-fretboard-mode="frets" id="fretboardModeFrets" title="Display Fret Numbers">
+          <span>Frets</span>
+        </button>
+        <button type="button" class="btn btn-sm" data-fretboard-mode="fingers" id="fretboardModeFingers" title="Display Left-Hand Fingering">
+          <span>Fingers</span>
+        </button>
+        <button type="button" class="btn btn-sm" data-fretboard-mode="dots" id="fretboardModeDots" title="Minimalist Position Dots">
+          <span>Dots</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="fretboard-dock-right">
+      <button type="button" class="btn btn-sm theme-control-btn fretboard-flip-btn" id="fretboardFlipBtn" title="Invert Strings (Tab / Player View)" aria-label="Invert Strings">
+        <i class="bi-arrow-down-up"></i>
+        <span class="d-none d-md-inline ms-1 small">Invert</span>
+      </button>
+      <button type="button" class="btn btn-sm theme-control-btn fretboard-lh-btn" id="fretboardLhBtn" title="Toggle Left-Handed Neck" aria-label="Toggle Left-Handed Neck">
+        <i class="bi-arrow-left-right"></i>
+        <span class="d-none d-md-inline ms-1 small">Left-Handed</span>
+      </button>
+      <button type="button" class="btn btn-sm theme-control-btn fretboard-close-btn" id="fretboardCloseBtn" title="Close Fretboard" aria-label="Close Fretboard">
+        <i class="bi-x-lg"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="fretboard-neck-wrapper" id="fretboardNeckWrapper">
+    <div class="fretboard-neck-scroll" id="fretboardNeckScroll">
+      <div id="fretboardSvgContainer" class="fretboard-svg-container"></div>
+    </div>
+  </div>
+</aside>
 
 <!-- Mobile Floating Playback Mini Dock (Phone viewports <= 576px) -->
 <aside id="mobilePlaybackDock" class="mobile-playback-dock" role="toolbar" aria-label="Mobile Playback Controls" style="display: none;">
