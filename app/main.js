@@ -9,9 +9,10 @@ import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtil
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
-import { enableContinuousScrollTracking } from './utils/scrollUtils.js';
+import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
 import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
+import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdfBookmarksUI } from './pdfProcessor/pdfBookmarks.js';
 import { initTheming } from './themeEngine.js';
 import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
@@ -984,6 +985,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initYouTubePlayer();
     initSynthPlayer();
     initScoreOptionsPanel();
+    initPdfBookmarksUI();
     setupGlobalRewindButton();
     initTauriDownloadListener();
     initGamepadManager();
@@ -1164,6 +1166,23 @@ async function loadPDF(file) {
         startPage: file.startPage,
         endPage: file.endPage,
         abortSignal: processing,
+        onPdfLoaded: (pdfDoc) => {
+            setPdfDocument(file, pdfDoc, (targetPage) => {
+                const isPageMode = pageModeRadio.checked;
+                if (isPageMode) {
+                    if (pages.length > 0) {
+                        currentPageIndex = Math.max(0, Math.min(pages.length - 1, targetPage));
+                        updatePageDisplay();
+                        renderCurrentPage();
+                        output.focus();
+                    }
+                } else {
+                    scrollToPage(output, condensedCanvases, targetPage);
+                    currentPageIndex = Math.max(0, Math.min(condensedCanvases.length - 1, targetPage));
+                    updatePageDisplay();
+                }
+            });
+        },
         onCanvasRendered: (canvas) => {
             if (processing.aborted) return;
 
@@ -1352,6 +1371,7 @@ function resetView() {
     pages.length = 0;
     currentPageIndex = 0;
     gpState.reset();
+    clearPdfBookmarks();
 
     // Reset UI and scroll position
     clearOutput(output);
@@ -1405,6 +1425,7 @@ function updatePageDisplay() {
                 getPagesPerView()
             );
         }
+        setBookmarkCurrentPageIndex(currentPageIndex);
     }
 }
 
