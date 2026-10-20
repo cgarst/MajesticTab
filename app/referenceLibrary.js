@@ -97,6 +97,43 @@ export const toneMatrixData = [
     { tune: 'B', chords: [ {deg:'I', name:'B', frets:'x 2 4 4 4 2'}, {deg:'ii', name:'C♯m', frets:'x 4 6 6 5 4'}, {deg:'iii', name:'D♯m', frets:'x 6 8 8 7 6'}, {deg:'IV', name:'E', frets:'0 2 2 1 0 0'}, {deg:'V', name:'F♯', frets:'2 4 4 3 2 2'}, {deg:'vi', name:'G♯m', frets:'4 6 6 4 4 4'}, {deg:'vii°', name:'A♯dim', frets:'x 1 2 3 2 x'}, {deg:'VII', name:'F♯7', frets:'2 4 2 3 2 2'} ] }
 ];
 
+// Add the remaining circle-of-fifths keys (sharps/flats) with generated barre voicings
+(function extendToneMatrix() {
+    const pitchOf = (name) => {
+        const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[name[0]];
+        let p = base;
+        for (const ch of name.slice(1)) { if (ch === '♯') p++; else if (ch === '♭') p--; }
+        return ((p % 12) + 12) % 12;
+    };
+    const fretOn = (pitch, openPitch) => { const f = (((pitch - openPitch) % 12) + 12) % 12; return f === 0 ? 12 : f; };
+    const shift = (shape, n) => shape.map(v => v === null ? 'x' : v + n).join(' ');
+    const voicing = (root, quality) => {
+        const pitch = pitchOf(root);
+        if (quality === 'dim') return shift([null, 0, 1, 2, 1, null], (((pitch - 9) % 12) + 12) % 12);
+        const eFret = fretOn(pitch, 4);
+        const shapes = {
+            E: { M: [0, 2, 2, 1, 0, 0], m: [0, 2, 2, 0, 0, 0], 7: [0, 2, 0, 1, 0, 0] },
+            A: { M: [null, 0, 2, 2, 2, 0], m: [null, 0, 2, 2, 1, 0], 7: [null, 0, 2, 0, 2, 0] }
+        };
+        return eFret <= 8 ? shift(shapes.E[quality], eFret) : shift(shapes.A[quality], fretOn(pitch, 9));
+    };
+    const degs = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
+    const quals = ['M', 'm', 'm', 'M', 'M', 'm', 'dim'];
+    ['F♯', 'D♭', 'A♭', 'E♭', 'B♭'].forEach(key => {
+        const circle = circleData.find(c => c.major === key);
+        const chords = circle.majorChords.map((raw, i) => {
+            const root = raw.replace(/[m°]/g, '');
+            const name = quals[i] === 'dim' ? root + 'dim' : raw;
+            return { deg: degs[i], name, frets: voicing(root, quals[i]) };
+        });
+        const v = circle.majorChords[4];
+        chords.push({ deg: 'VII', name: v + '7', frets: voicing(v, '7') });
+        toneMatrixData.push({ tune: key, chords });
+    });
+    const order = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
+    toneMatrixData.sort((a, b) => order.indexOf(a.tune) - order.indexOf(b.tune));
+})();
+
 export const scaleDefinitions = {
     majorPentatonic: { name: 'Major Pentatonic', formula: '1 - 2 - 3 - 5 - 6', intervals: [{int:0,lbl:'R'},{int:2,lbl:'2'},{int:4,lbl:'3'},{int:7,lbl:'5'},{int:9,lbl:'6'}] },
     minorPentatonic: { name: 'Minor Pentatonic', formula: '1 - ♭3 - 4 - 5 - ♭7', intervals: [{int:0,lbl:'R'},{int:3,lbl:'♭3'},{int:5,lbl:'4'},{int:7,lbl:'5'},{int:10,lbl:'♭7'}] },
@@ -1053,12 +1090,24 @@ function renderScalesSection() {
 
     return `
     <div class="ref-section-box">
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3 mb-3">
-            <div>
-                <h3 class="ref-section-title mb-1">Interactive scale and mode fretboard</h3>
-                <p class="ref-section-subtitle mb-0">Explore scales and modal intervals across the full fretboard.</p>
+        <div class="d-flex flex-column gap-3 mb-3">
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+                <div>
+                    <h3 class="ref-section-title mb-1">Interactive scale and mode fretboard</h3>
+                    <p class="ref-section-subtitle mb-0">Explore scales and modal intervals across the full fretboard.</p>
+                </div>
+                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-flip-btn ${isFlipped ? 'active' : ''}" id="refScaleFlipBtn" title="Invert Strings (Tab / Player View)" aria-label="Invert Strings">
+                        <i class="bi bi-arrow-down-up"></i>
+                        <span class="d-none d-sm-inline ms-1 small">Invert</span>
+                    </button>
+                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-lh-btn ${isLeftHanded ? 'active' : ''}" id="refScaleLhBtn" title="Toggle Left-Handed Neck" aria-label="Toggle Left-Handed Neck">
+                        <i class="bi bi-arrow-left-right"></i>
+                        <span class="d-none d-sm-inline ms-1 small">Left Handed</span>
+                    </button>
+                </div>
             </div>
-            <div class="d-flex flex-wrap align-items-end gap-2 w-100 w-md-auto">
+            <div class="d-flex flex-wrap align-items-end gap-2 pt-2 border-top border-secondary-subtle">
                 <div class="flex-grow-1 flex-md-grow-0">
                     <label class="ref-select-label" for="refScaleSelect">Scale / Mode</label>
                     <select id="refScaleSelect" class="form-select form-select-sm theme-select">
@@ -1070,16 +1119,6 @@ function renderScalesSection() {
                     <select id="refRootSelect" class="form-select form-select-sm theme-select">
                         ${rootOptions}
                     </select>
-                </div>
-                <div class="d-flex align-items-center gap-1">
-                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-flip-btn ${isFlipped ? 'active' : ''}" id="refScaleFlipBtn" title="Invert Strings (Tab / Player View)" aria-label="Invert Strings">
-                        <i class="bi bi-arrow-down-up"></i>
-                        <span class="d-none d-sm-inline ms-1 small">Invert</span>
-                    </button>
-                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-lh-btn ${isLeftHanded ? 'active' : ''}" id="refScaleLhBtn" title="Toggle Left-Handed Neck" aria-label="Toggle Left-Handed Neck">
-                        <i class="bi bi-arrow-left-right"></i>
-                        <span class="d-none d-sm-inline ms-1 small">Left Handed</span>
-                    </button>
                 </div>
             </div>
         </div>
@@ -1118,7 +1157,7 @@ function renderScalesSection() {
  * Render Tone Matrix Section
  */
 function renderToneSection() {
-    const tuneOptions = ['all', 'C', 'D', 'E', 'F', 'G', 'A', 'B'].map(k => `
+    const tuneOptions = ['all', 'C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'].map(k => `
         <option value="${k}" ${k === selectedToneKey ? 'selected' : ''}>${k === 'all' ? 'All Keys' : `Key of ${k}`}</option>
     `).join('');
 
@@ -1185,9 +1224,9 @@ export function renderReferenceLibraryView(container) {
 
     // Sub-navigation pills
     const tabs = [
-        { id: 'circle', label: 'Circle of Fifths', icon: 'bi-circle-half' },
         { id: 'chords', label: 'Chord Library', icon: 'bi-grid-3x2-gap' },
         { id: 'scales', label: 'Scales and Modes', icon: 'bi-soundwave' },
+        { id: 'circle', label: 'Circle of Fifths', icon: 'bi-circle-half' },
         { id: 'tone', label: 'Tone Matrix', icon: 'bi-table' }
     ];
 
