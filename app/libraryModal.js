@@ -11,7 +11,7 @@ import {
 import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
     getCoverArtUrl, getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium,
-    hydrateCachedImages
+    filterInstrumentalBonusDiscs, hydrateCachedImages
 } from './musicbrainz.js';
 import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
@@ -1749,7 +1749,8 @@ function renderSongRow(song, options = {}) {
 
 function renderAlbumSongsList(songs, options = {}) {
     const hasCd = (songs || []).some(s => !isDvdOrBlurayMedium(s) && !isVinylOrTapeMedium(s));
-    const cleanSongs = (songs || []).filter(s => !isDvdOrBlurayMedium(s) && !(hasCd && isVinylOrTapeMedium(s)));
+    let cleanSongs = (songs || []).filter(s => !isDvdOrBlurayMedium(s) && !(hasCd && isVinylOrTapeMedium(s)));
+    cleanSongs = filterInstrumentalBonusDiscs(cleanSongs);
     if (!cleanSongs || cleanSongs.length === 0) {
         return '<div class="text-muted p-4 text-center">No songs in this album.</div>';
     }
@@ -3363,7 +3364,8 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
         }));
 
         const hasCd = (albumData.tracks || []).some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
-        const cleanTracks = (albumData.tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
+        let cleanTracks = (albumData.tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
+        cleanTracks = filterInstrumentalBonusDiscs(cleanTracks);
 
         const missingTracks = cleanTracks.filter(t => {
             const inLib = (t.recordingMbid && existingSongKeys.has(`rec:${t.recordingMbid}`)) ||
@@ -3477,7 +3479,8 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
 
 function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistName = '') {
     const hasCd = (tracks || []).some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
-    const cleanTracks = (tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
+    let cleanTracks = (tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
+    cleanTracks = filterInstrumentalBonusDiscs(cleanTracks);
     if (!cleanTracks || cleanTracks.length === 0) return '';
     const mediaGroups = new Map();
     cleanTracks.forEach((t, idx) => {

@@ -3,7 +3,7 @@
 
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile } from './fileStore.js';
 import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
-import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium } from './musicbrainz.js';
+import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium, filterInstrumentalBonusDiscs } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
 
@@ -390,7 +390,8 @@ export async function addAlbumToLibrary(albumData, tracks = [], collectionId = D
     const db = await getDB();
     const results = [];
     const hasCdTracks = tracks.some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
-    const cleanTracks = tracks.filter(t => !isDvdOrBlurayMedium(t) && !(hasCdTracks && isVinylOrTapeMedium(t)));
+    let cleanTracks = tracks.filter(t => !isDvdOrBlurayMedium(t) && !(hasCdTracks && isVinylOrTapeMedium(t)));
+    cleanTracks = filterInstrumentalBonusDiscs(cleanTracks);
 
     for (const track of cleanTracks) {
         const medNum = track.mediumNumber || 1;
@@ -1505,7 +1506,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                         const isDvd = isDvdOrBlurayMedium(song);
                         const isVinylWithCd = hasCdMedia && isVinylOrTapeMedium(song);
 
-                        if (!song.isCustom && (isScrubbedRec || isDvd || isVinylWithCd)) {
+                        if (!song.isCustom && (isScrubbedRec || isScrubbedMed || isDvd || isVinylWithCd)) {
                             await deleteSongFromLibrary(song.id);
                             scrubbedSongIds.add(song.id);
                             stats.scrubbedNonCdTracks++;
