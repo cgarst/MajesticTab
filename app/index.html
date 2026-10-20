@@ -10,6 +10,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
 <link href="style.css" rel="stylesheet">
 <link href="fretboard/fretboard.css" rel="stylesheet">
+<link href="tuner/tuner.css" rel="stylesheet">
 <link rel="manifest" href="site.webmanifest" />
 <link rel="icon" href="../icons/favicon.ico" type="image/x-icon" />
 <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png" />
@@ -117,6 +118,18 @@
       <button class="btn btn-sm" id="controllerHelpBtn" title="Game Controller Connected (Click for Controls Guide)">
         <i class="bi-controller text-info" id="controllerStatusIcon"></i>
         <span class="d-none d-md-inline ms-1 small" id="controllerNameBadge">Gamepad</span>
+      </button>
+    </div>
+
+    <!-- Instrument Tuner Pill -->
+    <div id="tunerPill" class="hud-pill-group" role="group" aria-label="Instrument Tuner">
+      <button class="btn btn-sm" id="tunerToggleBtn" title="Tuner" aria-label="Tuner">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align: -1px;">
+          <path d="M12 12v9"/>
+          <circle cx="12" cy="21" r="1.5"/>
+          <path d="M7 3v6a5 5 0 0 0 10 0V3"/>
+        </svg>
+        <span class="d-none d-sm-inline ms-1 small">Tuner</span>
       </button>
     </div>
 
@@ -1230,6 +1243,47 @@
         <button type="button" class="btn btn-theme-primary btn-sm" id="downloaderCfgSaveBtn">Save Changes</button>
       </div>
     </footer>
+  </section>
+</div>
+
+<!-- Instrument Tuner Modal -->
+<div id="tunerModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tunerModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card tuner-modal-card">
+    <header class="theme-modal-header d-flex align-items-center justify-content-between">
+      <div class="theme-modal-title-group d-flex align-items-center gap-2">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="text-info" aria-hidden="true">
+            <path d="M12 12v9"/>
+            <circle cx="12" cy="21" r="1.5"/>
+            <path d="M7 3v6a5 5 0 0 0 10 0V3"/>
+          </svg>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="tunerModalTitle">Tuner</h2>
+          <div class="small text-white-50">Chromatic instrument tuner & track pitch alignment</div>
+        </div>
+      </div>
+      <div class="theme-modal-actions d-flex align-items-center gap-2">
+        <div class="tuner-calib-group" title="Reference Pitch Calibration for A4">
+          <label for="tunerCalibSelect" class="mb-0">A4</label>
+          <select id="tunerCalibSelect" class="tuner-calib-select" aria-label="Reference pitch for A4">
+            <option value="432">432 Hz</option>
+            <option value="435">435 Hz</option>
+            <option value="438">438 Hz</option>
+            <option value="440" selected>440 Hz</option>
+            <option value="442">442 Hz</option>
+            <option value="444">444 Hz</option>
+          </select>
+        </div>
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="tunerModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+
+    <div class="theme-modal-body tuner-modal-body" id="tunerModalBody">
+      <!-- Dynamically populated by tuner.js -->
+    </div>
   </section>
 </div>
 

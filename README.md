@@ -158,6 +158,7 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 ## Acknowledgments
 
 - [AlphaTab](https://github.com/CoderLine/alphaTab) for Guitar Pro rendering and playback support
+- [PitchCraft](https://github.com/indjoov/pitchcraft) for chromatic tuner and pitch detection implementation
 - [PDF.js](https://mozilla.github.io/pdf.js/) for PDF rendering
 - [Bootstrap](https://getbootstrap.com/) for UI components
 - [jsPDF](https://github.com/parallax/jsPDF) for export functionality

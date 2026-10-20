@@ -27,6 +27,7 @@ import { initGamepadManager } from './utils/gamepadManager.js';
 import { isSteamDeck, applyPlatformDefaults, getDefaultView, getDefaultLandscapePageLayout } from './utils/platformUtils.js';
 import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
 import { initFretboard } from './fretboard/fretboardController.js';
+import { initTuner } from './tuner/tuner.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
 initIOSAudioUnlock();
@@ -1137,6 +1138,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initScoreOptionsPanel();
     initPdfBookmarksUI();
     initFretboard();
+    initTuner();
     setupGlobalRewindButton();
     initTauriDownloadListener();
     initGamepadManager();
