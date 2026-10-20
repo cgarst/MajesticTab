@@ -353,7 +353,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         return;
     }
 
-    // Persist to file store and attach to library song if bound, then load into player
+    // Persist to file store and attach to library song if bound (stay in library, matching Local & Google Drive)
     if (targetSong?.id) {
         const meta = await detectFileMetadata(file, file.name);
         const stored = await saveStoredFile(file, 'tab-downloader', {
@@ -362,7 +362,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             targetSongId: targetSong.id
         });
 
-        const addedOption = await addTabOptionToSong(targetSong.id, {
+        await addTabOptionToSong(targetSong.id, {
             name: file.name,
             providerId: 'tab-downloader',
             relativePath: path || file.name,
@@ -375,23 +375,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
 
         showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-
-        // Close library modal so viewer is visible
-        closeLibraryModal(true);
-
-        // Decorate file with library song metadata so loadFile displays song title/artist in header
-        file.librarySongId = targetSong.id;
-        file.librarySongTitle = targetSong.title;
-        file.artist = targetSong.artist;
-        file.album = targetSong.album || '';
-        file.coverUrl = targetSong.coverUrl || null;
-        file.tabId = addedOption?.id || null;
-        file.tabName = addedOption?.name || file.name;
-        file.fileStoreId = stored.id;
-        file.providerId = 'tab-downloader';
-
-        await loadFile(file);
-        return;
+        return; // Do not auto-open into player viewer when adding a tab to a library song
     }
 
     if (targetAlbum?.albumTitle) {
@@ -401,7 +385,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             relativePath: path || file.name
         });
 
-        const addedOption = await addTabOptionToAlbum(targetAlbum.collectionId, targetAlbum.artistName, targetAlbum.albumTitle, {
+        await addTabOptionToAlbum(targetAlbum.collectionId, targetAlbum.artistName, targetAlbum.albumTitle, {
             name: file.name,
             providerId: 'tab-downloader',
             relativePath: path || file.name,
@@ -414,18 +398,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
 
         showToast(`Added "${file.name}" to album`, 'success');
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-
-        closeLibraryModal(true);
-
-        file.artist = targetAlbum.artistName;
-        file.album = targetAlbum.albumTitle;
-        file.tabId = addedOption?.id || null;
-        file.tabName = addedOption?.name || file.name;
-        file.fileStoreId = stored.id;
-        file.providerId = 'tab-downloader';
-
-        await loadFile(file);
-        return;
+        return; // Do not auto-open into player viewer when adding a tab to an album
     }
 
     // Load file directly into player viewer
