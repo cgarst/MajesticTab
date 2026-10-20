@@ -381,6 +381,14 @@ export function performAppBack(getConfig = null) {
 }
 
 /**
+ * Perform global app back action (modals -> library navigation -> return to library)
+ * @param {Function} [getConfig]
+ */
+export function handleGlobalBack(getConfig) {
+    return performAppBack(getConfig);
+}
+
+/**
  * Unified application forward handler across Mouse 5, forward shortcuts, and browser popstate
  * @param {Function|null} getConfig Function to get current navigation configuration
  * @returns {boolean} Whether a forward action was performed
