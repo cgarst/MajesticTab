@@ -923,3 +923,151 @@ export async function detectFileMetadata(fileOrData, fileName = '') {
 
     return fallback;
 }
+
+/**
+ * Computes MIDI pitches for additional lower strings when expanding a tablature.
+ * Pads lower strings in standard 4ths (5 semitones), taking into account drop tunings.
+ */
+export function computeExtraLowStringTunings(tunings, delta, isBass = false) {
+    if (!delta || delta <= 0) return [];
+    if (!Array.isArray(tunings) || tunings.length === 0) {
+        const defaultRoot = isBass ? 23 : 35; // B0 (Bass) or B1 (Guitar)
+        return Array.from({ length: delta }, (_, i) => defaultRoot - (i * 5));
+    }
+
+    const lowest = tunings[tunings.length - 1];
+    let stepBase = lowest;
+
+    if (tunings.length >= 2) {
+        const secondLowest = tunings[tunings.length - 2];
+        if (secondLowest - lowest === 7) {
+            // Drop tuning (e.g. Drop D = 45 and 38; Drop C = 43 and 36)
+            // The standard 6th string pitch would be secondLowest - 5 (e.g. 40 = E2)
+            stepBase = secondLowest - 5;
+        }
+    }
+
+    const extra = [];
+    for (let i = 0; i < delta; i++) {
+        const nextPitch = stepBase - 5;
+        extra.push(nextPitch);
+        stepBase = nextPitch;
+    }
+    return extra;
+}
+
+/**
+ * Gets the preferred tab string count for the specified or active instrument mode.
+ * Returns 'native' (default), '7', '8' for guitar, or 'native', '5', '6' for bass.
+ */
+export function getGpStringCountPreference(instrumentMode = getInstrumentMode()) {
+    const key = instrumentMode === 'bass' ? 'gpDefaultStringsBass' : 'gpDefaultStringsGuitar';
+    try {
+        if (typeof localStorage === 'undefined') return 'native';
+        const val = localStorage.getItem(key);
+        return val || 'native';
+    } catch {
+        return 'native';
+    }
+}
+
+/**
+ * Sets the preferred tab string count for the specified or active instrument mode.
+ */
+export function setGpStringCountPreference(value, instrumentMode = getInstrumentMode()) {
+    const key = instrumentMode === 'bass' ? 'gpDefaultStringsBass' : 'gpDefaultStringsGuitar';
+    const safe = (value === '7' || value === '8' || value === '5' || value === '6') ? value : 'native';
+    try {
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem(key, safe);
+        }
+    } catch (e) {
+        console.warn('Could not save string count preference:', e);
+    }
+    return safe;
+}
+
+/**
+ * Returns the maximum native string count among active instrument tracks in a score.
+ */
+export function getScoreMaxStringsForMode(score, instrumentMode = getInstrumentMode()) {
+    if (!score || !Array.isArray(score.tracks)) return instrumentMode === 'bass' ? 4 : 6;
+    const activeTracks = getActiveInstrumentTracks(score, instrumentMode).map(ti => ti.track);
+    let max = 0;
+    for (const track of activeTracks) {
+        if (isTrackPercussion(track)) continue;
+        for (const staff of (track.staves || [])) {
+            if (staff.isPercussion || !staff.stringTuning) continue;
+            const count = staff._originalTunings?.length || staff.stringTuning.tunings?.length || 0;
+            if (count > max) max = count;
+        }
+    }
+    return max > 0 ? max : (instrumentMode === 'bass' ? 4 : 6);
+}
+
+/**
+ * Transforms score tracks in-place to display a higher string count (e.g. 6 -> 7 or 8)
+ * by adding empty lower strings and shifting note string indices up.
+ * Reversible: passing 'native' or targetCount <= original reverts notes and tunings.
+ */
+export function applyScoreStringCount(score, targetCountInput, instrumentMode = getInstrumentMode()) {
+    if (!score || !Array.isArray(score.tracks)) return false;
+    const isBass = instrumentMode === 'bass';
+    const activeTracks = getActiveInstrumentTracks(score, instrumentMode).map(ti => ti.track);
+
+    let targetNum = 0;
+    if (typeof targetCountInput === 'number') {
+        targetNum = targetCountInput;
+    } else if (typeof targetCountInput === 'string' && targetCountInput !== 'native') {
+        targetNum = parseInt(targetCountInput, 10) || 0;
+    }
+
+    let modified = false;
+    for (const track of activeTracks) {
+        if (isTrackPercussion(track)) continue;
+        for (const staff of (track.staves || [])) {
+            if (staff.isPercussion || !staff.stringTuning) continue;
+
+            // Preserve original tuning and note positions once
+            if (!staff._originalTunings) {
+                staff._originalTunings = Array.isArray(staff.stringTuning.tunings)
+                    ? [...staff.stringTuning.tunings]
+                    : [];
+                staff._originalTuningName = staff.stringTuning.name || '';
+            }
+
+            const origTunings = staff._originalTunings;
+            const origCount = origTunings.length;
+            if (origCount === 0) continue;
+
+            const delta = (targetNum > origCount) ? (targetNum - origCount) : 0;
+            const extra = delta > 0 ? computeExtraLowStringTunings(origTunings, delta, isBass) : [];
+            const nextTunings = [...origTunings, ...extra];
+
+            staff.stringTuning.tunings = nextTunings;
+            if (typeof staff.stringTuning.finish === 'function') {
+                staff.stringTuning.finish();
+            }
+            if (Array.isArray(track.tuning)) {
+                track.tuning = [...nextTunings];
+            }
+
+            // Shift all note strings by delta so original notes remain on their physical strings
+            for (const bar of (staff.bars || [])) {
+                for (const voice of (bar.voices || [])) {
+                    for (const beat of (voice.beats || [])) {
+                        for (const note of (beat.notes || [])) {
+                            if (note._origString === undefined) {
+                                note._origString = note.string;
+                            }
+                            note.string = note._origString + delta;
+                        }
+                    }
+                }
+            }
+            modified = true;
+        }
+    }
+    return modified;
+}
+

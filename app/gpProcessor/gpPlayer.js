@@ -922,6 +922,7 @@ export function showScoreOptions(fileType = 'gp') {
     const btn = document.getElementById('topBarSongTitleBtn');
     const chevron = btn?.querySelector('.song-title-chevron');
     const notationSection = document.getElementById('scoreOptionsNotationStyleSection');
+    const stringCountSection = document.getElementById('scoreOptionsStringCountSection');
     const tracksSection = document.getElementById('synthTrackVisibilitySection');
     const pdfSection = document.getElementById('scoreOptionsPdfSection');
     const exportPdfBtn = document.getElementById('exportPDFBtn');
@@ -942,10 +943,12 @@ export function showScoreOptions(fileType = 'gp') {
 
     if (fileType === 'gp') {
         if (notationSection) notationSection.style.display = '';
+        if (stringCountSection) stringCountSection.style.display = '';
         if (pdfSection) pdfSection.style.display = 'none';
         if (exportPdfBtn) exportPdfBtn.style.display = '';
     } else if (fileType === 'pdf') {
         if (notationSection) notationSection.style.display = 'none';
+        if (stringCountSection) stringCountSection.style.display = 'none';
         if (tracksSection) tracksSection.style.display = 'none';
         if (pdfSection) pdfSection.style.display = '';
         const condensePdfCheckbox = document.getElementById('condensePdfMode');
@@ -953,6 +956,7 @@ export function showScoreOptions(fileType = 'gp') {
     } else {
         // txt or other
         if (notationSection) notationSection.style.display = 'none';
+        if (stringCountSection) stringCountSection.style.display = 'none';
         if (tracksSection) tracksSection.style.display = 'none';
         if (pdfSection) pdfSection.style.display = 'none';
         if (exportPdfBtn) exportPdfBtn.style.display = 'none';
@@ -971,6 +975,7 @@ export function hideScoreOptions() {
     const btn = document.getElementById('topBarSongTitleBtn');
     const chevron = btn?.querySelector('.song-title-chevron');
     const notationSection = document.getElementById('scoreOptionsNotationStyleSection');
+    const stringCountSection = document.getElementById('scoreOptionsStringCountSection');
     const tracksSection = document.getElementById('synthTrackVisibilitySection');
     const pdfSection = document.getElementById('scoreOptionsPdfSection');
     const exportPdfBtn = document.getElementById('exportPDFBtn');
@@ -989,6 +994,9 @@ export function hideScoreOptions() {
     }
     if (notationSection) {
         notationSection.style.display = 'none';
+    }
+    if (stringCountSection) {
+        stringCountSection.style.display = 'none';
     }
     if (tracksSection) {
         tracksSection.style.display = 'none';

@@ -2,7 +2,7 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
-import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios } from './gpProcessor/gpHandler.js';
+import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios, applyGpStringCount, syncGpStringCountRadios, syncGpStringCountUI } from './gpProcessor/gpHandler.js';
 import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
@@ -20,7 +20,7 @@ import { openFromProvider } from './fileProviders.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
 import { addRecentOpened } from './libraryStore.js';
-import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode } from './utils/tuningUtils.js';
+import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode, getGpStringCountPreference, setGpStringCountPreference } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
 import { showToast } from './utils/toast.js';
 import { initGamepadManager } from './utils/gamepadManager.js';
@@ -443,6 +443,15 @@ function setupSettings() {
 
     // Setup Instrument Mode selector (Guitar vs Bass)
     const activeInstrumentMode = getInstrumentMode();
+    const syncStringCountSettingsVisibility = (mode = getInstrumentMode()) => {
+        const isBass = mode === 'bass';
+        const gGroup = document.getElementById('settingsGuitarStringCountGroup');
+        const bGroup = document.getElementById('settingsBassStringCountGroup');
+        if (gGroup) gGroup.style.display = isBass ? 'none' : '';
+        if (bGroup) bGroup.style.display = isBass ? '' : 'none';
+    };
+    syncStringCountSettingsVisibility(activeInstrumentMode);
+
     const instrumentModeRadios = document.querySelectorAll('input[name="instrumentModeRadio"]');
     instrumentModeRadios.forEach(radio => {
         if (radio.value === activeInstrumentMode) {
@@ -452,6 +461,7 @@ function setupSettings() {
             if (radio.checked) {
                 setInstrumentMode(radio.value);
                 syncSynthTrackModeLabels();
+                syncStringCountSettingsVisibility(radio.value);
                 // If a GP file is loaded, re-load/re-render to swap tracks
                 if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
                     await loadFile(currentFile, { hideMenu: false });
@@ -546,6 +556,39 @@ function setupSettings() {
         radio.addEventListener('change', () => {
             if (radio.checked) {
                 applyGpNotationMode(radio.value);
+            }
+        });
+    });
+
+    // Guitar Pro Tab String Count Defaults
+    const savedGuitarStrings = getGpStringCountPreference('guitar');
+    const guitarStringRadios = document.querySelectorAll('input[name="gpDefaultStringsGuitarRadio"]');
+    guitarStringRadios.forEach(radio => {
+        if (radio.value === savedGuitarStrings) {
+            radio.checked = true;
+        }
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                setGpStringCountPreference(radio.value, 'guitar');
+                if (getInstrumentMode() === 'guitar') {
+                    applyGpStringCount(radio.value);
+                }
+            }
+        });
+    });
+
+    const savedBassStrings = getGpStringCountPreference('bass');
+    const bassStringRadios = document.querySelectorAll('input[name="gpDefaultStringsBassRadio"]');
+    bassStringRadios.forEach(radio => {
+        if (radio.value === savedBassStrings) {
+            radio.checked = true;
+        }
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                setGpStringCountPreference(radio.value, 'bass');
+                if (getInstrumentMode() === 'bass') {
+                    applyGpStringCount(radio.value);
+                }
             }
         });
     });
