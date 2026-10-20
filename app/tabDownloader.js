@@ -170,6 +170,17 @@ export const DEFAULT_SOURCES = [
         userscript: '',
         defaultUserscript: '',
         isSeed: true
+    },
+    {
+        id: 'classtab',
+        name: 'Classical Tab',
+        urlTemplate: 'https://www.google.com/search?q=SEARCH+TERM&sitesearch=https%3A%2F%2Fwww.classtab.org',
+        defaultUrl: 'https://www.classtab.org/',
+        queryFormat: 'artist_song',
+        userscriptEnabled: false,
+        userscript: '',
+        defaultUserscript: '',
+        isSeed: true
     }
 ];
 
@@ -215,7 +226,7 @@ export function getSources() {
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
                         existing.defaultUserscript = seed.defaultUserscript;
-                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'song_only') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'songsterr' && existing.queryFormat !== 'artist_song')) {
+                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'song_only') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'songsterr' && existing.queryFormat !== 'artist_song') || (existing.id === 'classtab' && existing.queryFormat !== 'artist_song')) {
                             existing.queryFormat = seed.queryFormat;
                         }
                         if (existing.id === 'ug') {
@@ -279,6 +290,7 @@ export function buildSearchUrl(source, query) {
         if (source.id === 'metaltabs') return 'https://metaltabs.org/';
         if (source.id === 'gprotab') return 'https://gprotab.net/';
         if (source.id === 'songsterr') return 'https://www.songsterr-downloader.com/';
+        if (source.id === 'classtab') return 'https://www.classtab.org/';
         if (source.defaultUrl) {
             return source.defaultUrl.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
         }
@@ -807,6 +819,7 @@ export function highlightSourceTabForUrl(url) {
         else if (host.includes('metaltabs.org')) matchedId = 'metaltabs';
         else if (host.includes('gprotab.net')) matchedId = 'gprotab';
         else if (host.includes('songsterr-downloader.com')) matchedId = 'songsterr';
+        else if (host.includes('classtab.org')) matchedId = 'classtab';
         else {
             const sources = getSources();
             for (const s of sources) {
