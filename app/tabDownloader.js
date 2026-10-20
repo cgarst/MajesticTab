@@ -135,11 +135,11 @@ export const DEFAULT_SOURCES = [
         isSeed: true
     },
     {
-        id: 'guitarprotabs',
-        name: 'guitarprotabs.org',
-        urlTemplate: 'https://guitarprotabs.org/search.php?search=SEARCH+TERM&in=songs&page=1',
-        defaultUrl: 'https://guitarprotabs.org/search.php?search=SEARCH+TERM&in=songs&page=1',
-        queryFormat: 'song_only',
+        id: 'songsterr',
+        name: 'Songsterr Downloader',
+        urlTemplate: 'https://www.songsterr-downloader.com/',
+        defaultUrl: 'https://www.songsterr-downloader.com/',
+        queryFormat: 'artist_song',
         userscriptEnabled: false,
         userscript: '',
         defaultUserscript: '',
@@ -181,13 +181,15 @@ export function getSources() {
     try {
         const raw = localStorage.getItem(SOURCES_STORAGE_KEY);
         if (raw) {
-            const parsed = JSON.parse(raw);
+            let parsed = JSON.parse(raw);
             if (Array.isArray(parsed) && parsed.length > 0) {
+                // Purge deprecated guitarprotabs default seed
+                parsed = parsed.filter(s => s.id !== 'guitarprotabs');
                 for (const seed of DEFAULT_SOURCES) {
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
                         existing.defaultUserscript = seed.defaultUserscript;
-                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'song_only') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'guitarprotabs' && existing.queryFormat !== 'song_only')) {
+                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'song_only') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'songsterr' && existing.queryFormat !== 'artist_song')) {
                             existing.queryFormat = seed.queryFormat;
                         }
                         if (existing.id === 'ug') {
@@ -250,7 +252,7 @@ export function buildSearchUrl(source, query) {
         if (source.id === 'ug') return 'https://www.ultimate-guitar.com/';
         if (source.id === 'metaltabs') return 'https://metaltabs.org/';
         if (source.id === 'gprotab') return 'https://gprotab.net/';
-        if (source.id === 'guitarprotabs') return 'https://guitarprotabs.org/';
+        if (source.id === 'songsterr') return 'https://www.songsterr-downloader.com/';
         if (source.defaultUrl) {
             return source.defaultUrl.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
         }
@@ -772,7 +774,7 @@ export function highlightSourceTabForUrl(url) {
         if (host.includes('ultimate-guitar.com')) matchedId = 'ug';
         else if (host.includes('metaltabs.org')) matchedId = 'metaltabs';
         else if (host.includes('gprotab.net')) matchedId = 'gprotab';
-        else if (host.includes('guitarprotabs.org')) matchedId = 'guitarprotabs';
+        else if (host.includes('songsterr-downloader.com')) matchedId = 'songsterr';
         else {
             const sources = getSources();
             for (const s of sources) {

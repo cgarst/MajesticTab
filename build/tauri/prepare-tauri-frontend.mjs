@@ -93,8 +93,8 @@ const allowedRemoteHosts = new Set([
   'www.metaltabs.org',
   'gprotab.net',
   'www.gprotab.net',
-  'guitarprotabs.org',
-  'www.guitarprotabs.org',
+  'songsterr-downloader.com',
+  'www.songsterr-downloader.com',
 ]);
 
 async function copyAsset(source, destination) {
