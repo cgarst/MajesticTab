@@ -1010,8 +1010,20 @@ export function updateScoreOptionsPanelPosition() {
     if (!panel || !toggleBtn || !scoreOptionsState.isOpen) return;
 
     const rect = toggleBtn.getBoundingClientRect();
+    if (window.innerWidth <= 576) {
+        panel.style.position = 'fixed';
+        panel.style.top = `${rect.bottom + 8}px`;
+        panel.style.left = '0.5rem';
+        panel.style.right = '0.5rem';
+        panel.style.width = 'auto';
+        panel.style.transform = 'none';
+        return;
+    }
+
     panel.style.position = 'fixed';
     panel.style.top = `${rect.bottom + 8}px`;
+    panel.style.right = 'auto';
+    panel.style.width = '';
     const centerX = rect.left + rect.width / 2;
     const halfPanelWidth = Math.min(185, (window.innerWidth - 24) / 2);
     const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
