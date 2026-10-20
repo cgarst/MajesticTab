@@ -3,6 +3,47 @@
 // Scales & Modes, Tone Matrix, and Triad Inversions & Formulas.
 // Optimized for desktop and mobile viewports with MajesticTab finish theme integration.
 
+import { fretboardController } from './fretboard/fretboardController.js';
+
+const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
+const STORAGE_KEY_FLIP = 'majestictab_fretboard_flip_strings';
+
+export function getIsLeftHanded() {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_LH);
+        if (stored !== null) return stored === 'true';
+    } catch (_) {}
+    return fretboardController?.isLeftHanded ?? false;
+}
+
+export function getIsFlipped() {
+    try {
+        const stored = localStorage.getItem(STORAGE_KEY_FLIP);
+        if (stored !== null) return stored === 'true';
+    } catch (_) {}
+    return fretboardController?.isFlipped ?? false;
+}
+
+export function setIsLeftHanded(val) {
+    const boolVal = Boolean(val);
+    try {
+        localStorage.setItem(STORAGE_KEY_LH, String(boolVal));
+    } catch (_) {}
+    if (fretboardController?.setLeftHanded) {
+        fretboardController.setLeftHanded(boolVal);
+    }
+}
+
+export function setIsFlipped(val) {
+    const boolVal = Boolean(val);
+    try {
+        localStorage.setItem(STORAGE_KEY_FLIP, String(boolVal));
+    } catch (_) {}
+    if (fretboardController?.setFlipped) {
+        fretboardController.setFlipped(boolVal);
+    }
+}
+
 let activeTab = 'circle'; // 'circle', 'chords', 'scales', 'tone'
 let refTabChangeListener = null;
 
@@ -320,10 +361,13 @@ function buildCircleOfFifthsSvg(selectedIndex) {
 
 /**
  * Generate Chord Box Diagram SVG (Rotated Left 90 degrees)
- * Nut on left, frets extending horizontally to the right.
- * Strings are horizontal: High e on top, Low E on bottom (matching tablature convention).
+ * Nut on left (right-handed) or right (left-handed), frets extending horizontally.
+ * Strings are horizontal: High e on top, Low E on bottom (Tab View), or inverted (Player View).
  */
 function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
+    const isFlipped = getIsFlipped();
+    const isLeftHanded = getIsLeftHanded();
+
     let fretsStr = '';
     let startFret = explicitStartFret || 1;
     if (typeof chordOrFrets === 'string') {
@@ -334,13 +378,14 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
     }
 
     const frets = fretsStr.trim().split(/\s+/);
-    const startX = 30; // Nut x position
-    const startY = 14; // High e string y position
+    const startY = 14; // High e string y position (or Low E when flipped)
     const stringGap = 10;
-    const stringNamesRotated = ['e', 'B', 'G', 'D', 'A', 'E'];
+    const stringNamesNormal = ['e', 'B', 'G', 'D', 'A', 'E'];
+    const stringNamesFlipped = ['E', 'A', 'D', 'G', 'B', 'e'];
+    const stringNames = isFlipped ? stringNamesFlipped : stringNamesNormal;
 
     // Check base fret
-    const numericFrets = frets.map(f => parseInt(f)).filter(f => !isNaN(f) && f > 0);
+    const numericFrets = frets.map(f => parseInt(f, 10)).filter(f => !isNaN(f) && f > 0);
     const minFret = numericFrets.length > 0 ? Math.min(...numericFrets) : 1;
     const maxFret = numericFrets.length > 0 ? Math.max(...numericFrets) : 1;
 
@@ -350,68 +395,139 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
     }
     const numFrets = Math.max(4, maxFret - baseFret + 1);
     const fretGap = numFrets > 4 ? 18 : 22;
-    const width = startX + (numFrets * fretGap) + 12;
+    const boardWidth = numFrets * fretGap;
+    const width = 30 + boardWidth + 12;
     const height = 82;
 
     let svg = `<svg viewBox="0 0 ${width} ${height}" class="ref-chord-diagram-svg" aria-hidden="true">`;
 
-    // Nut (vertical line)
-    svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + 5 * stringGap}" stroke="${baseFret === 1 ? 'var(--text-primary)' : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? 3.5 : 1.8}" stroke-linecap="round"/>`;
+    if (!isLeftHanded) {
+        const startX = 30; // Nut x position
 
-    // Fret wire lines (vertical)
-    for (let f = 1; f <= numFrets; f++) {
-        const x = startX + f * fretGap;
-        svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + 5 * stringGap}" stroke="var(--border-subtle)" stroke-width="1.2" stroke-linecap="round"/>`;
-    }
+        // Nut (vertical line)
+        svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + 5 * stringGap}" stroke="${baseFret === 1 ? 'var(--text-primary)' : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? 3.5 : 1.8}" stroke-linecap="round"/>`;
 
-    // Horizontal string lines and string indicators on the left
-    for (let s = 0; s < 6; s++) {
-        const y = startY + s * stringGap;
-        // String line (lower strings slightly thicker)
-        svg += `<line x1="${startX}" y1="${y}" x2="${startX + numFrets * fretGap}" y2="${y}" stroke="var(--border-subtle)" stroke-width="${1 + (s * 0.22)}" stroke-linecap="round"/>`;
-
-        // String name label at far left
-        svg += `<text x="8" y="${y + 3}" fill="var(--text-dim)" font-size="8" font-weight="bold" text-anchor="middle">${stringNamesRotated[s]}</text>`;
-
-        // Corresponding original string in frets array (s=0 is High e, frets[5]; s=5 is Low E, frets[0])
-        const origStringIndex = 5 - s;
-        const f = frets[origStringIndex] || 'x';
-
-        // Indicator at x=20 (between string letter and nut)
-        if (f.toLowerCase() === 'x') {
-            svg += `<text x="20" y="${y + 3.5}" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle">×</text>`;
-        } else if (f === '0') {
-            svg += `<circle cx="20" cy="${y}" r="3" fill="none" stroke="var(--text-muted)" stroke-width="1.3" />`;
+        // Fret wire lines (vertical)
+        for (let f = 1; f <= numFrets; f++) {
+            const x = startX + f * fretGap;
+            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + 5 * stringGap}" stroke="var(--border-subtle)" stroke-width="1.2" stroke-linecap="round"/>`;
         }
-    }
 
-    // Pressed note dots
-    for (let s = 0; s < 6; s++) {
-        const origStringIndex = 5 - s;
-        const f = frets[origStringIndex];
-        if (f && f.toLowerCase() !== 'x' && f !== '0') {
-            const fretVal = parseInt(f);
-            if (!isNaN(fretVal)) {
-                const relativeFret = fretVal - baseFret + 1;
-                if (relativeFret >= 1 && relativeFret <= numFrets) {
-                    const x = startX + (relativeFret - 0.5) * fretGap;
-                    const y = startY + s * stringGap;
-                    svg += `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--accent-primary)" stroke="var(--text-primary)" stroke-width="1.2" />`;
+        // Horizontal string lines and string indicators on the left
+        for (let s = 0; s < 6; s++) {
+            const y = startY + s * stringGap;
+            const gauge = isFlipped ? 1 + ((5 - s) * 0.22) : 1 + (s * 0.22);
+            // String line
+            svg += `<line x1="${startX}" y1="${y}" x2="${startX + boardWidth}" y2="${y}" stroke="var(--border-subtle)" stroke-width="${gauge}" stroke-linecap="round"/>`;
+
+            // String name label at far left
+            svg += `<text x="8" y="${y + 3}" fill="var(--text-dim)" font-size="8" font-weight="bold" text-anchor="middle">${stringNames[s]}</text>`;
+
+            // Corresponding original string in frets array:
+            // Standard Tab: s=0 is High e (frets[5]), s=5 is Low E (frets[0])
+            // Inverted Player: s=0 is Low E (frets[0]), s=5 is High e (frets[5])
+            const origStringIndex = isFlipped ? s : (5 - s);
+            const f = frets[origStringIndex] || 'x';
+
+            // Indicator at x=20 (between string letter and nut)
+            if (f.toLowerCase() === 'x') {
+                svg += `<text x="20" y="${y + 3.5}" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle">×</text>`;
+            } else if (f === '0') {
+                svg += `<circle cx="20" cy="${y}" r="3" fill="none" stroke="var(--text-muted)" stroke-width="1.3" />`;
+            }
+        }
+
+        // Pressed note dots
+        for (let s = 0; s < 6; s++) {
+            const origStringIndex = isFlipped ? s : (5 - s);
+            const f = frets[origStringIndex];
+            if (f && f.toLowerCase() !== 'x' && f !== '0') {
+                const fretVal = parseInt(f, 10);
+                if (!isNaN(fretVal)) {
+                    const relativeFret = fretVal - baseFret + 1;
+                    if (relativeFret >= 1 && relativeFret <= numFrets) {
+                        const x = startX + (relativeFret - 0.5) * fretGap;
+                        const y = startY + s * stringGap;
+                        svg += `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--accent-primary)" stroke="var(--text-primary)" stroke-width="1.2" />`;
+                    }
                 }
             }
         }
-    }
 
-    // Fret numbers along the bottom
-    for (let f = 1; f <= numFrets; f++) {
-        const x = startX + (f - 0.5) * fretGap;
-        const fretNumber = baseFret + f - 1;
-        svg += `<text x="${x}" y="76" fill="var(--text-dim)" font-size="8" text-anchor="middle">${fretNumber}</text>`;
-    }
+        // Fret numbers along the bottom
+        for (let f = 1; f <= numFrets; f++) {
+            const x = startX + (f - 0.5) * fretGap;
+            const fretNumber = baseFret + f - 1;
+            svg += `<text x="${x}" y="76" fill="var(--text-dim)" font-size="8" text-anchor="middle">${fretNumber}</text>`;
+        }
 
-    // Base fret badge above fret 1 if shifted
-    if (baseFret > 1) {
-        svg += `<text x="${startX + (0.5 * fretGap)}" y="8" fill="var(--accent-text)" font-size="8.5" font-weight="bold" text-anchor="middle">${baseFret}fr</text>`;
+        // Base fret badge above fret 1 if shifted
+        if (baseFret > 1) {
+            svg += `<text x="${startX + (0.5 * fretGap)}" y="8" fill="var(--accent-text)" font-size="8.5" font-weight="bold" text-anchor="middle">${baseFret}fr</text>`;
+        }
+    } else {
+        // Left-handed: Nut on right, frets extending to the left
+        const nutX = width - 30; // board extends from 12 to nutX
+
+        // Nut (vertical line)
+        svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + 5 * stringGap}" stroke="${baseFret === 1 ? 'var(--text-primary)' : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? 3.5 : 1.8}" stroke-linecap="round"/>`;
+
+        // Fret wire lines (vertical)
+        for (let f = 1; f <= numFrets; f++) {
+            const x = nutX - f * fretGap;
+            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + 5 * stringGap}" stroke="var(--border-subtle)" stroke-width="1.2" stroke-linecap="round"/>`;
+        }
+
+        // Horizontal string lines and string indicators on the right
+        for (let s = 0; s < 6; s++) {
+            const y = startY + s * stringGap;
+            const gauge = isFlipped ? 1 + ((5 - s) * 0.22) : 1 + (s * 0.22);
+            // String line
+            svg += `<line x1="12" y1="${y}" x2="${nutX}" y2="${y}" stroke="var(--border-subtle)" stroke-width="${gauge}" stroke-linecap="round"/>`;
+
+            // String name label at far right
+            svg += `<text x="${nutX + 22}" y="${y + 3}" fill="var(--text-dim)" font-size="8" font-weight="bold" text-anchor="middle">${stringNames[s]}</text>`;
+
+            // Corresponding original string in frets array
+            const origStringIndex = isFlipped ? s : (5 - s);
+            const f = frets[origStringIndex] || 'x';
+
+            // Indicator at nutX + 10 (between nut and string letter)
+            if (f.toLowerCase() === 'x') {
+                svg += `<text x="${nutX + 10}" y="${y + 3.5}" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle">×</text>`;
+            } else if (f === '0') {
+                svg += `<circle cx="${nutX + 10}" cy="${y}" r="3" fill="none" stroke="var(--text-muted)" stroke-width="1.3" />`;
+            }
+        }
+
+        // Pressed note dots
+        for (let s = 0; s < 6; s++) {
+            const origStringIndex = isFlipped ? s : (5 - s);
+            const f = frets[origStringIndex];
+            if (f && f.toLowerCase() !== 'x' && f !== '0') {
+                const fretVal = parseInt(f, 10);
+                if (!isNaN(fretVal)) {
+                    const relativeFret = fretVal - baseFret + 1;
+                    if (relativeFret >= 1 && relativeFret <= numFrets) {
+                        const x = nutX - (relativeFret - 0.5) * fretGap;
+                        const y = startY + s * stringGap;
+                        svg += `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--accent-primary)" stroke="var(--text-primary)" stroke-width="1.2" />`;
+                    }
+                }
+            }
+        }
+
+        // Fret numbers along the bottom
+        for (let f = 1; f <= numFrets; f++) {
+            const x = nutX - (f - 0.5) * fretGap;
+            const fretNumber = baseFret + f - 1;
+            svg += `<text x="${x}" y="76" fill="var(--text-dim)" font-size="8" text-anchor="middle">${fretNumber}</text>`;
+        }
+
+        // Base fret badge above fret 1 if shifted
+        if (baseFret > 1) {
+            svg += `<text x="${nutX - (0.5 * fretGap)}" y="8" fill="var(--accent-text)" font-size="8.5" font-weight="bold" text-anchor="middle">${baseFret}fr</text>`;
+        }
     }
 
     svg += `</svg>`;
@@ -420,71 +536,146 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
 
 /**
  * Generate Scale Fretboard SVG
+ * Right-handed or Left-handed neck, Tab View (high e on top) or Inverted Player View (low E on top).
  */
 function buildFretboardSvg(scaleKey, rootNote) {
+    const isFlipped = getIsFlipped();
+    const isLeftHanded = getIsLeftHanded();
+
     const scale = scaleDefinitions[scaleKey] || scaleDefinitions.majorPentatonic;
     const scaleNotes = scale.intervals;
     const numFrets = 15;
     const fretWidth = 56;
     const stringSpacing = 32;
-    const startX = 66;
     const startY = 38;
-    const totalWidth = startX + (numFrets * fretWidth) + 30;
-    const totalHeight = startY + ((stringTunings.length - 1) * stringSpacing) + 32;
+    const boardWidth = numFrets * fretWidth; // 840
+    const totalWidth = 66 + boardWidth + 30; // 936
+    const totalHeight = startY + (5 * stringSpacing) + 32; // 230
+
+    // Standard strings: Index 0 is high e, Index 5 is low E (standard tablature)
+    const standardStrings = [
+        { name: 'e', tuning: 4, gauge: 1.0 },
+        { name: 'B', tuning: 11, gauge: 1.35 },
+        { name: 'G', tuning: 7, gauge: 1.7 },
+        { name: 'D', tuning: 2, gauge: 2.05 },
+        { name: 'A', tuning: 9, gauge: 2.4 },
+        { name: 'E', tuning: 4, gauge: 2.75 }
+    ];
+    const visualStrings = isFlipped ? [...standardStrings].reverse() : standardStrings;
 
     let svg = `<svg viewBox="0 0 ${totalWidth} ${totalHeight}" class="ref-fretboard-svg" style="min-width: 840px;" aria-label="Interactive Scale Fretboard">`;
 
-    // Fretboard body
-    svg += `<rect x="${startX}" y="${startY}" width="${numFrets * fretWidth}" height="${(stringTunings.length - 1) * stringSpacing}" fill="var(--bg-elevated)" rx="4" stroke="var(--border-subtle)" stroke-width="1" />`;
+    if (!isLeftHanded) {
+        const startX = 66; // Nut x position
 
-    // Position inlay dots
-    [3, 5, 7, 9, 12, 15].forEach(f => {
-        const cx = startX + (f - 0.5) * fretWidth;
-        if (f === 12) {
-            svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 1.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
-            svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 3.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
-        } else if (f <= numFrets) {
-            svg += `<circle cx="${cx}" cy="${startY + (stringSpacing * 2.5)}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
-        }
-    });
+        // Fretboard body
+        svg += `<rect x="${startX}" y="${startY}" width="${boardWidth}" height="${5 * stringSpacing}" fill="var(--bg-elevated)" rx="4" stroke="var(--border-subtle)" stroke-width="1" />`;
 
-    // Fret lines & numbers
-    for (let f = 0; f <= numFrets; f++) {
-        const x = startX + (f * fretWidth);
-        const isNut = f === 0;
-        svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + (stringTunings.length - 1) * stringSpacing}" stroke="${isNut ? 'var(--text-primary)' : 'var(--border-subtle)'}" stroke-width="${isNut ? 5 : 1.5}" stroke-linecap="round"/>`;
-        if (f > 0) {
-            svg += `<text x="${x - (fretWidth / 2)}" y="${startY - 14}" fill="var(--text-muted)" font-size="11" font-weight="600" text-anchor="middle">${f}</text>`;
-        }
-    }
+        // Position inlay dots
+        [3, 5, 7, 9, 12, 15].forEach(f => {
+            const cx = startX + (f - 0.5) * fretWidth;
+            if (f === 12) {
+                svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 1.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+                svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 3.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+            } else if (f <= numFrets) {
+                svg += `<circle cx="${cx}" cy="${startY + (stringSpacing * 2.5)}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+            }
+        });
 
-    // String lines & Nut note labels
-    stringTunings.forEach((tuning, sIndex) => {
-        const y = startY + (sIndex * stringSpacing);
-        svg += `<line x1="${startX}" y1="${y}" x2="${startX + (numFrets * fretWidth)}" y2="${y}" stroke="var(--border-prominent)" stroke-width="${1 + (5 - sIndex) * 0.35}" opacity="0.85"/>`;
-        svg += `<text x="${startX - 44}" y="${y + 4}" fill="var(--text-muted)" font-size="12" font-weight="bold" text-anchor="middle">${stringNames[sIndex]}</text>`;
-    });
-
-    // Note markers
-    stringTunings.forEach((tuning, sIndex) => {
-        const y = startY + (sIndex * stringSpacing);
+        // Fret lines & numbers
         for (let f = 0; f <= numFrets; f++) {
-            const notePitch = (tuning + f) % 12;
-            const matched = scaleNotes.find(n => (n.int + rootNote) % 12 === notePitch);
-            if (matched) {
-                const x = f === 0 ? startX - 20 : startX + (f * fretWidth) - (fretWidth / 2);
-                const isRoot = matched.lbl === 'R';
-                const circleFill = isRoot ? 'var(--accent-primary)' : 'var(--accent-secondary)';
-                const strokeColor = isRoot ? '#ffffff' : 'var(--bg-elevated)';
-                const noteName = noteNames[notePitch];
-
-                svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note" data-note="${noteName}">
-                    <circle cx="0" cy="0" r="11" fill="${circleFill}" stroke="${strokeColor}" stroke-width="1.6" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.4))"/>
-                    <text x="0" y="3.5" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
-                </g>`;
+            const x = startX + (f * fretWidth);
+            const isNut = f === 0;
+            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + 5 * stringSpacing}" stroke="${isNut ? 'var(--text-primary)' : 'var(--border-subtle)'}" stroke-width="${isNut ? 5 : 1.5}" stroke-linecap="round"/>`;
+            if (f > 0) {
+                svg += `<text x="${x - (fretWidth / 2)}" y="${startY - 14}" fill="var(--text-muted)" font-size="11" font-weight="600" text-anchor="middle">${f}</text>`;
             }
         }
-    });
+
+        // String lines & Nut note labels
+        visualStrings.forEach((s, sIndex) => {
+            const y = startY + (sIndex * stringSpacing);
+            svg += `<line x1="${startX}" y1="${y}" x2="${startX + boardWidth}" y2="${y}" stroke="var(--border-prominent)" stroke-width="${s.gauge}" opacity="0.85"/>`;
+            svg += `<text x="${startX - 44}" y="${y + 4}" fill="var(--text-muted)" font-size="12" font-weight="bold" text-anchor="middle">${s.name}</text>`;
+        });
+
+        // Note markers
+        visualStrings.forEach((s, sIndex) => {
+            const y = startY + (sIndex * stringSpacing);
+            for (let f = 0; f <= numFrets; f++) {
+                const notePitch = (s.tuning + f) % 12;
+                const matched = scaleNotes.find(n => (n.int + rootNote) % 12 === notePitch);
+                if (matched) {
+                    const x = f === 0 ? startX - 20 : startX + (f * fretWidth) - (fretWidth / 2);
+                    const isRoot = matched.lbl === 'R';
+                    const circleFill = isRoot ? 'var(--accent-primary)' : 'var(--accent-secondary)';
+                    const strokeColor = isRoot ? '#ffffff' : 'var(--bg-elevated)';
+                    const noteName = noteNames[notePitch];
+
+                    svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note" data-note="${noteName}">
+                        <circle cx="0" cy="0" r="11" fill="${circleFill}" stroke="${strokeColor}" stroke-width="1.6" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.4))"/>
+                        <text x="0" y="3.5" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
+                    </g>`;
+                }
+            }
+        });
+    } else {
+        // Left-handed: Nut on right (x = 870), frets extending to the left (to x = 30)
+        const boardStartX = 30;
+        const nutX = boardStartX + boardWidth; // 870
+
+        // Fretboard body
+        svg += `<rect x="${boardStartX}" y="${startY}" width="${boardWidth}" height="${5 * stringSpacing}" fill="var(--bg-elevated)" rx="4" stroke="var(--border-subtle)" stroke-width="1" />`;
+
+        // Position inlay dots
+        [3, 5, 7, 9, 12, 15].forEach(f => {
+            const cx = nutX - (f - 0.5) * fretWidth;
+            if (f === 12) {
+                svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 1.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+                svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 3.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+            } else if (f <= numFrets) {
+                svg += `<circle cx="${cx}" cy="${startY + (stringSpacing * 2.5)}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+            }
+        });
+
+        // Fret lines & numbers
+        for (let f = 0; f <= numFrets; f++) {
+            const x = nutX - (f * fretWidth);
+            const isNut = f === 0;
+            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + 5 * stringSpacing}" stroke="${isNut ? 'var(--text-primary)' : 'var(--border-subtle)'}" stroke-width="${isNut ? 5 : 1.5}" stroke-linecap="round"/>`;
+            if (f > 0) {
+                svg += `<text x="${x + (fretWidth / 2)}" y="${startY - 14}" fill="var(--text-muted)" font-size="11" font-weight="600" text-anchor="middle">${f}</text>`;
+            }
+        }
+
+        // String lines & Nut note labels
+        visualStrings.forEach((s, sIndex) => {
+            const y = startY + (sIndex * stringSpacing);
+            svg += `<line x1="${boardStartX}" y1="${y}" x2="${nutX}" y2="${y}" stroke="var(--border-prominent)" stroke-width="${s.gauge}" opacity="0.85"/>`;
+            svg += `<text x="${nutX + 44}" y="${y + 4}" fill="var(--text-muted)" font-size="12" font-weight="bold" text-anchor="middle">${s.name}</text>`;
+        });
+
+        // Note markers
+        visualStrings.forEach((s, sIndex) => {
+            const y = startY + (sIndex * stringSpacing);
+            for (let f = 0; f <= numFrets; f++) {
+                const notePitch = (s.tuning + f) % 12;
+                const matched = scaleNotes.find(n => (n.int + rootNote) % 12 === notePitch);
+                if (matched) {
+                    const x = f === 0 ? nutX + 20 : nutX - (f * fretWidth) + (fretWidth / 2);
+                    const isRoot = matched.lbl === 'R';
+                    const circleFill = isRoot ? 'var(--accent-primary)' : 'var(--accent-secondary)';
+                    const strokeColor = isRoot ? '#ffffff' : 'var(--bg-elevated)';
+                    const noteName = noteNames[notePitch];
+
+                    svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note" data-note="${noteName}">
+                        <circle cx="0" cy="0" r="11" fill="${circleFill}" stroke="${strokeColor}" stroke-width="1.6" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.4))"/>
+                        <text x="0" y="3.5" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
+                    </g>`;
+                }
+            }
+        });
+    }
 
     svg += `</svg>`;
     return svg;
@@ -571,6 +762,8 @@ function renderCircleSection() {
  * Render Chord Reference Library Section
  */
 function renderChordsSection() {
+    const isFlipped = getIsFlipped();
+    const isLeftHanded = getIsLeftHanded();
     const filters = ['all', 'Major', 'Dominant', 'Minor', 'Dim/Aug', 'Suspended'];
     const rootFilters = ['all', 'A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
@@ -624,9 +817,21 @@ function renderChordsSection() {
     return `
     <div class="ref-section-box">
         <div class="d-flex flex-column gap-3 mb-3">
-            <div>
-                <h3 class="ref-section-title mb-1">Chord reference library</h3>
-                <p class="ref-section-subtitle mb-0">Essential guitar chord voicings with fretboard positions and fingerings (${filteredChords.length} chords shown).</p>
+            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
+                <div>
+                    <h3 class="ref-section-title mb-1">Chord reference library</h3>
+                    <p class="ref-section-subtitle mb-0">Essential guitar chord voicings with fretboard positions and fingerings (${filteredChords.length} chords shown).</p>
+                </div>
+                <div class="d-flex align-items-center gap-1 flex-shrink-0">
+                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-flip-btn ${isFlipped ? 'active' : ''}" id="refChordFlipBtn" title="Invert Strings (Tab / Player View)" aria-label="Invert Strings">
+                        <i class="bi bi-arrow-down-up"></i>
+                        <span class="d-none d-sm-inline ms-1 small">Invert</span>
+                    </button>
+                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-lh-btn ${isLeftHanded ? 'active' : ''}" id="refChordLhBtn" title="Toggle Left-Handed Neck" aria-label="Toggle Left-Handed Neck">
+                        <i class="bi bi-arrow-left-right"></i>
+                        <span class="d-none d-sm-inline ms-1 small">Left Handed</span>
+                    </button>
+                </div>
             </div>
 
             <div class="d-flex flex-column gap-2 pt-2 border-top border-secondary-subtle">
@@ -659,6 +864,8 @@ function renderChordsSection() {
  * Render Scales and Modes Section
  */
 function renderScalesSection() {
+    const isFlipped = getIsFlipped();
+    const isLeftHanded = getIsLeftHanded();
     const currentScale = scaleDefinitions[selectedScaleKey] || scaleDefinitions.majorPentatonic;
     const rootName = noteNames[selectedRootNote];
 
@@ -683,7 +890,7 @@ function renderScalesSection() {
                 <h3 class="ref-section-title mb-1">Interactive scale and mode fretboard</h3>
                 <p class="ref-section-subtitle mb-0">Explore scales and modal intervals across the full fretboard.</p>
             </div>
-            <div class="d-flex flex-wrap align-items-center gap-2 w-100 w-md-auto">
+            <div class="d-flex flex-wrap align-items-end gap-2 w-100 w-md-auto">
                 <div class="flex-grow-1 flex-md-grow-0">
                     <label class="ref-select-label" for="refScaleSelect">Scale / Mode</label>
                     <select id="refScaleSelect" class="form-select form-select-sm theme-select">
@@ -695,6 +902,16 @@ function renderScalesSection() {
                     <select id="refRootSelect" class="form-select form-select-sm theme-select">
                         ${rootOptions}
                     </select>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-flip-btn ${isFlipped ? 'active' : ''}" id="refScaleFlipBtn" title="Invert Strings (Tab / Player View)" aria-label="Invert Strings">
+                        <i class="bi bi-arrow-down-up"></i>
+                        <span class="d-none d-sm-inline ms-1 small">Invert</span>
+                    </button>
+                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-lh-btn ${isLeftHanded ? 'active' : ''}" id="refScaleLhBtn" title="Toggle Left-Handed Neck" aria-label="Toggle Left-Handed Neck">
+                        <i class="bi bi-arrow-left-right"></i>
+                        <span class="d-none d-sm-inline ms-1 small">Left Handed</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -723,7 +940,7 @@ function renderScalesSection() {
                 <span class="d-flex align-items-center gap-2"><span class="ref-legend-dot ref-root-dot"></span> Root (R)</span>
                 <span class="d-flex align-items-center gap-2"><span class="ref-legend-dot ref-interval-dot"></span> Scale Interval</span>
             </div>
-            <span class="small text-muted d-none d-sm-inline">15 frets • Standard tuning (E A D G B e)</span>
+            <span class="small text-muted d-none d-sm-inline">15 frets • Standard tuning (${isFlipped ? 'E A D G B e' : 'e B G D A E'})</span>
         </div>
     </div>
     `;
@@ -986,6 +1203,32 @@ function attachReferenceEventListeners(container) {
             }
         });
     }
+
+    // 6. Invert strings (flip) toggle buttons
+    container.querySelectorAll('.ref-fretboard-flip-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            setIsFlipped(!getIsFlipped());
+            const contentContainer = document.getElementById('refTabContentContainer');
+            if (contentContainer) {
+                if (activeTab === 'scales') contentContainer.innerHTML = renderScalesSection();
+                else if (activeTab === 'chords') contentContainer.innerHTML = renderChordsSection();
+                attachReferenceEventListeners(container);
+            }
+        });
+    });
+
+    // 7. Left-handed neck toggle buttons
+    container.querySelectorAll('.ref-fretboard-lh-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            setIsLeftHanded(!getIsLeftHanded());
+            const contentContainer = document.getElementById('refTabContentContainer');
+            if (contentContainer) {
+                if (activeTab === 'scales') contentContainer.innerHTML = renderScalesSection();
+                else if (activeTab === 'chords') contentContainer.innerHTML = renderChordsSection();
+                attachReferenceEventListeners(container);
+            }
+        });
+    });
 }
 
 function attachCircleSliceListeners() {
