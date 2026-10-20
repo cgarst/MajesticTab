@@ -213,6 +213,22 @@
       </div>
     </div>
 
+    <!-- Tab String Count (GP only) -->
+    <div class="mb-3" id="scoreOptionsStringCountSection" style="display: none;">
+      <div class="d-flex align-items-center justify-content-between mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted">Tab String Count:</label>
+        <span class="badge badge-theme-secondary py-0 px-1" style="font-size: 0.65rem;" id="scoreCurrentStringsBadge">6-String</span>
+      </div>
+      <div class="hud-pill-group w-100" role="group" aria-label="Tab String Count" id="scoreOptionsStringCountPills">
+        <input type="radio" class="btn-check" name="synthStringCountRadio" id="synthStringCountNative" value="native" autocomplete="off" checked>
+        <label class="btn btn-sm" for="synthStringCountNative" style="flex: 1;">Original</label>
+        <input type="radio" class="btn-check" name="synthStringCountRadio" id="synthStringCount7" value="7" autocomplete="off">
+        <label class="btn btn-sm" for="synthStringCount7" style="flex: 1;">7-String</label>
+        <input type="radio" class="btn-check" name="synthStringCountRadio" id="synthStringCount8" value="8" autocomplete="off">
+        <label class="btn btn-sm" for="synthStringCount8" style="flex: 1;">8-String</label>
+      </div>
+    </div>
+
     <!-- Visible Guitar Tracks (GP only) -->
     <div id="synthTrackVisibilitySection" class="mb-3" style="display: none;">
       <div class="d-flex align-items-center justify-content-between mb-1">
@@ -701,6 +717,35 @@
 
           <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeBass" value="bass" autocomplete="off">
           <label class="btn btn-sm w-50" for="instrumentModeBass"><i class="bi-soundwave me-1"></i> Bass</label>
+        </div>
+      </div>
+
+      <!-- Tab String Count Defaults (GP) -->
+      <div id="settingsGuitarStringCountGroup">
+        <label class="form-label d-block mb-1 small text-white-50">Default tab strings (Guitar):</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="gpDefaultStringsGuitarRadio" id="gpDefaultStringsGuitarNative" value="native" autocomplete="off" checked>
+          <label class="btn btn-sm" for="gpDefaultStringsGuitarNative" style="flex: 1;">Original</label>
+
+          <input type="radio" class="btn-check" name="gpDefaultStringsGuitarRadio" id="gpDefaultStringsGuitar7" value="7" autocomplete="off">
+          <label class="btn btn-sm" for="gpDefaultStringsGuitar7" style="flex: 1;">7-String</label>
+
+          <input type="radio" class="btn-check" name="gpDefaultStringsGuitarRadio" id="gpDefaultStringsGuitar8" value="8" autocomplete="off">
+          <label class="btn btn-sm" for="gpDefaultStringsGuitar8" style="flex: 1;">8-String</label>
+        </div>
+      </div>
+
+      <div id="settingsBassStringCountGroup">
+        <label class="form-label d-block mb-1 small text-white-50">Default tab strings (Bass):</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="gpDefaultStringsBassRadio" id="gpDefaultStringsBassNative" value="native" autocomplete="off" checked>
+          <label class="btn btn-sm" for="gpDefaultStringsBassNative" style="flex: 1;">Original</label>
+
+          <input type="radio" class="btn-check" name="gpDefaultStringsBassRadio" id="gpDefaultStringsBass5" value="5" autocomplete="off">
+          <label class="btn btn-sm" for="gpDefaultStringsBass5" style="flex: 1;">5-String</label>
+
+          <input type="radio" class="btn-check" name="gpDefaultStringsBassRadio" id="gpDefaultStringsBass6" value="6" autocomplete="off">
+          <label class="btn btn-sm" for="gpDefaultStringsBass6" style="flex: 1;">6-String</label>
         </div>
       </div>
 
