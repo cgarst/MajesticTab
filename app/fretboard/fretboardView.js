@@ -577,6 +577,7 @@ export class FretboardView {
             }
         }
 
+        const pickedStringsThisBeat = new Set();
         let poolIdx = 0;
 
         for (const note of notes) {
@@ -596,9 +597,10 @@ export class FretboardView {
             const visualLine = this.getVisualString(atString);
             const posY = this.stringYs[visualLine];
 
-            // 1. Activate Picking Hand Strike Indicator on picking side
+            // 1. Activate Picking Hand Strike Indicator on picking side if picked this beat
             const pick = this.pickIndicators?.[atString];
-            if (pick) {
+            if (pick && note.isPicked !== false && !pickedStringsThisBeat.has(atString)) {
+                pickedStringsThisBeat.add(atString);
                 pick.group.style.display = '';
                 pick.struckToggle = !pick.struckToggle;
                 pick.group.setAttribute('class', `fretboard-pick-marker ${pick.struckToggle ? 'is-struck' : 'is-struck-alt'}`);

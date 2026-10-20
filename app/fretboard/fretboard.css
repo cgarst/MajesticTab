@@ -309,12 +309,30 @@ body.library-view-active .fretboard-dock {
 /* Picking Hand Activity (Pick Strike / Pluck Indicator) */
 @keyframes pick-strike-pop {
   0% {
-    transform: scale(1.4);
+    transform: scale(1.45);
     opacity: 1;
-    filter: brightness(1.6);
+    filter: brightness(1.75);
   }
-  40% {
-    transform: scale(1.12);
+  35% {
+    transform: scale(1.1);
+    opacity: 0.95;
+    filter: brightness(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+    filter: brightness(1);
+  }
+}
+
+@keyframes pick-strike-pop-alt {
+  0% {
+    transform: scale(1.45);
+    opacity: 1;
+    filter: brightness(1.75);
+  }
+  35% {
+    transform: scale(1.1);
     opacity: 0.95;
     filter: brightness(1.3);
   }
@@ -328,11 +346,26 @@ body.library-view-active .fretboard-dock {
 @keyframes pick-wave-pulse {
   0% {
     opacity: 1;
-    stroke-width: 2.2;
+    stroke-width: 2.6;
+    transform: scale(0.9);
   }
   100% {
-    opacity: 0.35;
-    stroke-width: 1.2;
+    opacity: 0.2;
+    stroke-width: 1.0;
+    transform: scale(1.22);
+  }
+}
+
+@keyframes pick-wave-pulse-alt {
+  0% {
+    opacity: 1;
+    stroke-width: 2.6;
+    transform: scale(0.9);
+  }
+  100% {
+    opacity: 0.2;
+    stroke-width: 1.0;
+    transform: scale(1.22);
   }
 }
 
@@ -342,11 +375,15 @@ body.library-view-active .fretboard-dock {
 
 .pick-marker-inner {
   transform-origin: 0 0;
+  will-change: transform, opacity, filter;
 }
 
-.fretboard-pick-marker.is-struck .pick-marker-inner,
+.fretboard-pick-marker.is-struck .pick-marker-inner {
+  animation: pick-strike-pop 0.095s cubic-bezier(0.12, 0.9, 0.24, 1.0);
+}
+
 .fretboard-pick-marker.is-struck-alt .pick-marker-inner {
-  animation: pick-strike-pop 0.20s ease-out;
+  animation: pick-strike-pop-alt 0.095s cubic-bezier(0.12, 0.9, 0.24, 1.0);
 }
 
 .pick-strike-shape {
@@ -364,15 +401,20 @@ body.library-view-active .fretboard-dock {
   fill: none;
   stroke-width: 1.6;
   stroke-linecap: round;
+  transform-origin: 0 0;
+  will-change: transform, opacity;
 }
 
 .pick-strike-wave.wave-inner {
   opacity: 0.9;
 }
 
-.fretboard-pick-marker.is-struck .wave-inner,
+.fretboard-pick-marker.is-struck .wave-inner {
+  animation: pick-wave-pulse 0.11s cubic-bezier(0.12, 0.9, 0.24, 1.0);
+}
+
 .fretboard-pick-marker.is-struck-alt .wave-inner {
-  animation: pick-wave-pulse 0.20s ease-out;
+  animation: pick-wave-pulse-alt 0.11s cubic-bezier(0.12, 0.9, 0.24, 1.0);
 }
 
 .pick-strike-wave.wave-outer {
@@ -382,8 +424,27 @@ body.library-view-active .fretboard-dock {
 /* Active Note Markers */
 @keyframes fretboard-marker-pop {
   0% {
-    transform: scale(1.18);
+    transform: scale(1.22);
     filter: brightness(1.35);
+  }
+  40% {
+    transform: scale(1.06);
+    filter: brightness(1.15);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@keyframes fretboard-marker-pop-alt {
+  0% {
+    transform: scale(1.22);
+    filter: brightness(1.35);
+  }
+  40% {
+    transform: scale(1.06);
+    filter: brightness(1.15);
   }
   100% {
     transform: scale(1);
@@ -406,15 +467,19 @@ body.library-view-active .fretboard-dock {
   box-shadow: 0 0 10px var(--accent-glow);
   transform-origin: center;
   transform-box: fill-box;
+  will-change: transform, filter;
 }
 
 .fretboard-note-marker.is-struck .marker-circle,
 .fretboard-note-marker.is-struck .marker-split-left,
-.fretboard-note-marker.is-struck .marker-split-right,
+.fretboard-note-marker.is-struck .marker-split-right {
+  animation: fretboard-marker-pop 0.10s cubic-bezier(0.12, 0.9, 0.24, 1.0);
+}
+
 .fretboard-note-marker.is-struck-alt .marker-circle,
 .fretboard-note-marker.is-struck-alt .marker-split-left,
 .fretboard-note-marker.is-struck-alt .marker-split-right {
-  animation: fretboard-marker-pop 0.16s ease-out;
+  animation: fretboard-marker-pop-alt 0.10s cubic-bezier(0.12, 0.9, 0.24, 1.0);
 }
 
 /* Split Unison Badges */
