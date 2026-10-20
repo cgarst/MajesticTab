@@ -2463,14 +2463,14 @@ body.sheet-mode-dark:not(.theme-sheet-active) .pageWrapper,
 body.sheet-mode-dark:not(.theme-sheet-active) .gp-page-wrapper,
 body.sheet-mode-dark:not(.theme-sheet-active) .alphaTabContainer,
 body.sheet-mode-dark:not(.theme-sheet-active) .text-content {
-  background-color: #242424 !important;
-  color: #e0e0e0 !important;
+  background-color: #1c1d1f !important;
+  color: #cacaca !important;
   border-color: #404040 !important;
   box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.7);
 }
 
 body.sheet-mode-dark:not(.theme-sheet-active) .pageNumber {
-  background: #1f1f1f;
+  background: #1c1d1f;
   color: #a0a0a0;
 }
 
@@ -2479,27 +2479,27 @@ body.sheet-mode-dark:not(.theme-sheet-active) canvas {
 }
 
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg text {
-  fill: #e0e0e0 !important;
+  fill: #cacaca !important;
 }
 
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg path[style*="stroke: none"],
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg path:not([style*="fill: none"]):not([fill="none"]) {
-  fill: #e0e0e0 !important;
+  fill: #cacaca !important;
 }
 
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg path[style*="fill: none"] {
   fill: none !important;
-  stroke: #e0e0e0 !important;
+  stroke: #cacaca !important;
 }
 
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg rect[fill="#000000"],
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg rect[fill="#222211"],
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg rect:not([fill="#A5A5A5"]) {
-  fill: #e0e0e0 !important;
+  fill: #cacaca !important;
 }
 
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg rect[fill="#A5A5A5"] {
-  fill: #777777 !important;
+  fill: #6d6d6d !important;
 }
 
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg polygon,
@@ -2507,8 +2507,8 @@ body.sheet-mode-dark:not(.theme-sheet-active) #output svg polyline,
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg line,
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg circle,
 body.sheet-mode-dark:not(.theme-sheet-active) #output svg ellipse {
-  fill: #e0e0e0 !important;
-  stroke: #e0e0e0 !important;
+  fill: #cacaca !important;
+  stroke: #cacaca !important;
 }
 
 body.sheet-mode-dark:not(.theme-sheet-active) .chord-lyric-chord {
