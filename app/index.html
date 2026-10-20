@@ -120,11 +120,11 @@
 
     <!-- Navigation Controls -->
     <div id="navButtons" style="display:none;">
+      <button class="btn btn-sm" id="pdfBookmarksBtn" title="Bookmarks & Table of Contents" style="display:none;"><i class="bi-bookmark"></i></button>
       <button class="btn btn-sm nav-first-page-btn" id="firstPage" title="First Page"><i class="bi-chevron-double-left"></i></button>
       <button class="btn btn-sm" id="prevPage" title="Previous Page"><i class="bi-chevron-left"></i></button>
       <span id="pageIndicator"></span>
       <button class="btn btn-sm" id="nextPage" title="Next Page"><i class="bi-chevron-right"></i></button>
-      <button class="btn btn-sm" id="pdfBookmarksBtn" title="Bookmarks & Table of Contents" style="display:none;"><i class="bi-bookmark"></i></button>
     </div>
   </div>
 </nav>
@@ -268,7 +268,8 @@
   </div>
   <div class="synth-panel-body">
     <!-- Quick Add Current Page Bookmark -->
-    <div class="d-flex align-items-center gap-2 mb-3">
+    <div class="d-flex flex-column gap-2 mb-3">
+      <input type="text" class="form-control form-control-sm" id="pdfBookmarkNameInput" placeholder="Bookmark name (optional)" maxlength="60" autocomplete="off">
       <button type="button" class="btn btn-theme-primary btn-sm w-100 d-flex align-items-center justify-content-center gap-2" id="pdfAddBookmarkBtn">
         <i class="bi-bookmark-plus"></i>
         <span id="pdfAddBookmarkLabel">Bookmark Current Page</span>

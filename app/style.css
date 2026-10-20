@@ -964,17 +964,23 @@ body {
   margin-top: 0.9rem;
 }
 
-.synth-panel .form-control {
+.synth-panel .form-control,
+.pdf-bookmarks-panel .form-control {
   background: var(--bg-card);
   border-color: var(--border-subtle);
   color: var(--text-primary);
 }
 
-.synth-panel .form-control:focus {
+.synth-panel .form-control:focus,
+.pdf-bookmarks-panel .form-control:focus {
   background: var(--bg-card-hover);
   border-color: var(--accent-primary);
   color: var(--text-primary);
   box-shadow: 0 0 0 0.2rem var(--accent-primary-alpha);
+}
+
+.pdf-bookmarks-panel .form-control::placeholder {
+  color: var(--text-dim);
 }
 
 /* Range Inputs / Sliders */
