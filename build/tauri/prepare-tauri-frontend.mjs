@@ -70,6 +70,8 @@ const allowedRemoteHosts = new Set([
   'iv.ggtyler.dev',
   'inv.vern.cc',
   'pa.il.ax',
+  'pipedapi.ducks.party',
+  'api.piped.private.coffee',
   'pipedapi.r4fo.com',
   'pipedapi.tokhmi.xyz',
   'policies.google.com',

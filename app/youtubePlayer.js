@@ -281,16 +281,26 @@ export function redoSearchWithQuery(override = null) {
  * Public Invidious and Piped mirrors for client-side multi-mirror search
  */
 const PUBLIC_MIRRORS = [
-    { type: 'invidious', url: 'https://invidious.f5.si' },
-    { type: 'invidious', url: 'https://yt.artemislena.eu' },
-    { type: 'invidious', url: 'https://iv.ggtyler.dev' },
-    { type: 'invidious', url: 'https://invidious.private.coffee' },
-    { type: 'invidious', url: 'https://invidious.drgns.space' },
-    { type: 'invidious', url: 'https://inv.vern.cc' },
-    { type: 'piped', url: 'https://pa.il.ax' },
-    { type: 'piped', url: 'https://pipedapi.tokhmi.xyz' },
-    { type: 'piped', url: 'https://pipedapi.r4fo.com' }
+    { type: 'piped', url: 'https://pipedapi.ducks.party' },
+    { type: 'piped', url: 'https://api.piped.private.coffee' }
 ];
+
+/**
+ * Search YouTube using Tauri native backend if available
+ */
+async function fetchYouTubeNativeSearch(query) {
+    if (typeof window !== 'undefined' && window.__TAURI__?.core?.invoke) {
+        try {
+            const vid = await window.__TAURI__.core.invoke('youtube_search', { query });
+            if (vid && /^[a-zA-Z0-9_-]{11}$/.test(vid)) {
+                return vid;
+            }
+        } catch (e) {
+            console.warn('[YouTube Native Search Error]', e);
+        }
+    }
+    return null;
+}
 
 /**
  * Attempt to search public mirrors concurrently for a matching video ID
@@ -435,8 +445,13 @@ async function loadCurrentTrack(autoplay = false) {
         const signal = activeSearchController.signal;
 
         try {
+            // Check native search if on Tauri (desktop & mobile native)
+            videoId = await fetchYouTubeNativeSearch(query);
+
             // Check YouTube Data API if key provided
-            videoId = await fetchYouTubeApiKeySearch(query, signal);
+            if (!videoId && !signal.aborted) {
+                videoId = await fetchYouTubeApiKeySearch(query, signal);
+            }
 
             // If still no ID, attempt public mirrors search
             if (!videoId && !signal.aborted) {
@@ -470,32 +485,26 @@ async function loadCurrentTrack(autoplay = false) {
         if (iframe) {
             iframe.style.display = 'block';
             const autoplayParam = autoplay ? '1' : '0';
-            const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+            const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
             embedUrl.searchParams.set('autoplay', autoplayParam);
             embedUrl.searchParams.set('enablejsapi', '1');
             embedUrl.searchParams.set('playsinline', '1');
 
-            // Provide valid origin and referrer verification parameters.
-            // On standard web environments, pass the actual window origin.
-            // On native mobile app environments (Tauri / iOS WKWebView) where custom schemes or
-            // local origins lack an external HTTP referrer header, pass https://www.youtube-nocookie.com
-            // as origin and widget_referrer to satisfy YouTube's strict embed verification checks (preventing Error 153).
-            let validOrigin = null;
-            if (typeof window !== 'undefined' && window.location) {
-                if (window.location.origin && window.location.origin !== 'null' &&
-                    (window.location.protocol === 'http:' || window.location.protocol === 'https:') &&
-                    !window.location.hostname.includes('localhost') &&
-                    !window.location.hostname.includes('127.0.0.1') &&
-                    !window.__TAURI__) {
-                    validOrigin = window.location.origin;
-                }
+            if (typeof window !== 'undefined' && window.location?.origin && window.location.origin !== 'null') {
+                embedUrl.searchParams.set('origin', window.location.origin);
+                embedUrl.searchParams.set('widget_referrer', window.location.origin);
             }
-            const effectiveOrigin = validOrigin || 'https://www.youtube-nocookie.com';
-            embedUrl.searchParams.set('origin', effectiveOrigin);
-            embedUrl.searchParams.set('widget_referrer', effectiveOrigin);
 
             if (playerState.currentTime > 0) {
                 embedUrl.searchParams.set('start', String(Math.floor(playerState.currentTime)));
+            }
+            if (autoplay) {
+                pauseSynthPlayer();
+                clearSynthHighlights();
+                playerState.isPlaying = true;
+                playerState.hasStarted = true;
+                setActiveAudioMode('youtube');
+                updatePlaybackControls();
             }
             const targetSrc = embedUrl.toString();
             if (isNativeMacPlayer()) {
@@ -506,13 +515,7 @@ async function loadCurrentTrack(autoplay = false) {
                 iframe.src = targetSrc;
             } else if (autoplay && iframe.contentWindow) {
                 iframe.style.visibility = 'visible';
-                pauseSynthPlayer();
-                clearSynthHighlights();
                 sendYouTubeMessage(iframe, { event: 'command', func: 'playVideo', args: [] });
-                playerState.isPlaying = true;
-                playerState.hasStarted = true;
-                setActiveAudioMode('youtube');
-                updatePlaybackControls();
             }
             iframe.dataset.loaded = 'true';
             syncNativeMacPlayerBounds(autoplay);
