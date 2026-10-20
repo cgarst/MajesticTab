@@ -4,6 +4,7 @@
 
 import { formatTuningFromMidi } from '../utils/tuningUtils.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
+import { updateUrl, clearUrl } from '../utils/urlRouter.js';
 
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -344,6 +345,7 @@ class PitchCraftTunerController {
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
         document.getElementById('tunerToggleBtn')?.classList.add('active');
+        updateUrl('tuner');
 
         // Accessibility focus
         const firstBtn = modal.querySelector('.tuner-mic-btn');
@@ -362,6 +364,22 @@ class PitchCraftTunerController {
             modal.setAttribute('aria-hidden', 'true');
         }
         document.getElementById('tunerToggleBtn')?.classList.remove('active');
+
+        const libPage = document.getElementById('libraryPage');
+        if (libPage && libPage.style.display !== 'none') {
+            import('../libraryModal.js').then(m => {
+                const view = m.getActiveLibraryView?.() || 'library';
+                if (view === 'reference') {
+                    import('../referenceLibrary.js').then(ref => {
+                        updateUrl('reference', ref.getActiveReferenceTab?.());
+                    });
+                } else {
+                    updateUrl(view);
+                }
+            });
+        } else {
+            clearUrl();
+        }
     }
 
     selectInstrument(inst) {
