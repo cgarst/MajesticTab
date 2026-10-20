@@ -205,19 +205,19 @@
 }
 
 [data-theme="Red Pearl Burst"] {
-  --bg-body: #130507;
+  --bg-body: #0c0507;
   --bg-ambient-1: rgba(225, 29, 72, 0.18);
   --bg-ambient-2: rgba(153, 27, 27, 0.14);
-  --bg-card: rgba(38, 12, 18, 0.88);
-  --bg-card-solid: #280b12;
-  --bg-card-hover: #481421;
-  --bg-elevated: #1a060c;
-  --bg-modal: #150509;
-  --border-subtle: rgba(244, 63, 94, 0.2);
-  --border-prominent: rgba(251, 113, 133, 0.45);
-  --text-primary: #fff1f2;
-  --text-muted: #ffe4e6;
-  --text-dim: #cbd5e1;
+  --bg-card: rgba(24, 17, 19, 0.88);
+  --bg-card-solid: #181113;
+  --bg-card-hover: #271a1e;
+  --bg-elevated: #13090b;
+  --bg-modal: #0e0608;
+  --border-subtle: rgba(244, 63, 94, 0.14);
+  --border-prominent: rgba(251, 113, 133, 0.35);
+  --text-primary: #f8fafc;
+  --text-muted: #a1a1aa;
+  --text-dim: #71717a;
   --accent-primary: #e11d48;
   --accent-secondary: #991b1b;
   --accent-gradient: linear-gradient(135deg, #e11d48, #991b1b);
