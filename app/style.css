@@ -177,19 +177,19 @@
 }
 
 [data-theme="Red Nebula"] {
-  --bg-body: #100508;
+  --bg-body: #0c0608;
   --bg-ambient-1: rgba(225, 29, 72, 0.16);
   --bg-ambient-2: rgba(71, 85, 105, 0.28);
-  --bg-card: rgba(28, 12, 17, 0.88);
-  --bg-card-solid: #1e0d13;
-  --bg-card-hover: #321620;
-  --bg-elevated: #16070b;
-  --bg-modal: #110407;
-  --border-subtle: rgba(225, 29, 72, 0.2);
-  --border-prominent: rgba(225, 29, 72, 0.45);
-  --text-primary: #fdf2f4;
-  --text-muted: #fecdd3;
-  --text-dim: #cbd5e1;
+  --bg-card: rgba(24, 18, 20, 0.88);
+  --bg-card-solid: #181214;
+  --bg-card-hover: #261c1f;
+  --bg-elevated: #12090b;
+  --bg-modal: #0e0709;
+  --border-subtle: rgba(225, 29, 72, 0.14);
+  --border-prominent: rgba(225, 29, 72, 0.35);
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
   --accent-primary: #e11d48;
   --accent-secondary: #475569;
   --accent-gradient: linear-gradient(135deg, #e11d48, #475569);
