@@ -8,7 +8,7 @@ const STORAGE_KEY_MODE = 'majestictab_fretboard_display_mode';
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
 const STORAGE_KEY_FLIP = 'majestictab_fretboard_flip_strings';
 
-const TRACK_PALETTE = ['#10b981', '#ec4899', '#f59e0b', '#06b6d4'];
+export const TRACK_PALETTE = ['var(--accent-primary, #6366f1)', '#ec4899', '#f59e0b', '#06b6d4'];
 
 class FretboardController {
     constructor() {
@@ -393,32 +393,26 @@ class FretboardController {
     }
 
     /**
-     * Render track chips in the dock header legend
+     * Render track chips in the dock header legend (color dots for multi tracks, no track names)
      */
     updateTrackLegend() {
         const legendContainer = document.getElementById('fretboardTracksLegend');
         if (!legendContainer) return;
 
         if (this.visibleTracks.length <= 1) {
-            const track = this.visibleTracks[0];
-            const name = track?.name || 'Guitar';
-            legendContainer.innerHTML = `
-                <div class="fretboard-track-badge" id="fretboardTrackBadge" title="${name}">
-                    <i class="bi-music-note-beamed text-info"></i>
-                    <span class="fretboard-track-name text-truncate" id="fretboardTrackName">${name}</span>
-                </div>
-            `;
+            legendContainer.innerHTML = '';
+            legendContainer.style.display = 'none';
             return;
         }
 
-        // Multiple tracks rendered simultaneously
+        // Multiple tracks rendered simultaneously: show color dots with track name only in hover tooltip
+        legendContainer.style.display = 'inline-flex';
         const chipsHtml = this.visibleTracks.map((t, idx) => {
             const color = TRACK_PALETTE[idx % TRACK_PALETTE.length];
             const name = t.name || `Track ${t.index + 1}`;
             return `
                 <span class="fretboard-track-chip" style="--track-color: ${color};" title="${name}">
                     <span class="track-chip-dot"></span>
-                    <span class="track-chip-name">${name}</span>
                 </span>
             `;
         }).join('');
