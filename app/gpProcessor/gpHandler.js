@@ -783,6 +783,7 @@ export function applyGpStringCount(targetCount) {
     if (api?.score) {
         updateGpStringCountBadge(api.score);
         applyScoreStringCount(api.score, safeCount, instrumentMode);
+        fretboardController.onTrackSelectionChanged(api.tracks || (api.score.tracks ? [api.score.tracks[0]] : []));
     }
 
     if (!api || !container) return;
