@@ -117,7 +117,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         // Populate track selection UI
         populateGpTrackSelectionUI(api);
         syncGpStringCountUI(api.score);
-        fretboardController.onScoreLoaded(api);
+        fretboardController.onScoreLoaded(api, api.tracks);
 
         // Update YouTube player with parsed score metadata
         if (api.score) {
@@ -566,7 +566,7 @@ export function applyGpTrackSelection(visibleTrackIndices) {
     if (!isPageMode) {
         api.renderTracks(tracksToRender);
         updateTrackSelectionUI(visibleTrackIndices);
-        fretboardController.onTrackSelectionChanged(tracksToRender[0]);
+        fretboardController.onTrackSelectionChanged(tracksToRender);
         return;
     }
 
@@ -587,7 +587,7 @@ export function applyGpTrackSelection(visibleTrackIndices) {
         gpState.currentPageIndex = Math.min(gpState.currentPageIndex, Math.max(0, gpState.pages.length - 1));
         renderGPPageMode(output);
         updateTrackSelectionUI(visibleTrackIndices);
-        fretboardController.onTrackSelectionChanged(tracksToRender[0]);
+        fretboardController.onTrackSelectionChanged(tracksToRender);
     });
 
     api.renderTracks(tracksToRender);

@@ -1,25 +1,29 @@
 // fretboardController.js
-// Controller coordinating AlphaTab events, user interaction, layout, and virtual fretboard rendering
+// Controller coordinating AlphaTab events, multi-track note aggregation, layout, and virtual fretboard rendering
 import { FretboardView } from './fretboardView.js';
-import { formatTuningFromMidi, getActiveInstrumentTracks } from '../utils/tuningUtils.js';
+import { formatTuningFromMidi } from '../utils/tuningUtils.js';
 
 const STORAGE_KEY_OPEN = 'majestictab_fretboard_open';
 const STORAGE_KEY_MODE = 'majestictab_fretboard_display_mode';
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
 const STORAGE_KEY_FLIP = 'majestictab_fretboard_flip_strings';
 
+const TRACK_PALETTE = ['#10b981', '#ec4899', '#f59e0b', '#06b6d4'];
+
 class FretboardController {
     constructor() {
         this.view = null;
         this.isOpen = false;
         this.isScoreAvailable = false;
-        this.displayMode = 'notes';
+        this.displayMode = 'notes'; // 'notes' | 'frets'
         this.isLeftHanded = false;
         this.isFlipped = false; // false = Tab View (high on top), true = Player View (low on top)
 
         this.currentApi = null;
-        this.activeTrack = null;
         this.activeScore = null;
+        this.visibleTracks = []; // All currently rendered tracks in score
+        this.trackNotesMap = new Map(); // trackIndex -> Array of active notes
+
         this.tuning = [64, 59, 55, 50, 45, 40];
         this.stringCount = 6;
         this.capo = 0;
@@ -36,7 +40,8 @@ class FretboardController {
         // Restore saved preferences
         try {
             this.isOpen = localStorage.getItem(STORAGE_KEY_OPEN) === 'true';
-            this.displayMode = localStorage.getItem(STORAGE_KEY_MODE) || 'notes';
+            const savedMode = localStorage.getItem(STORAGE_KEY_MODE);
+            this.displayMode = savedMode === 'frets' ? 'frets' : 'notes';
             this.isLeftHanded = localStorage.getItem(STORAGE_KEY_LH) === 'true';
             this.isFlipped = localStorage.getItem(STORAGE_KEY_FLIP) === 'true';
         } catch (_) {
@@ -90,12 +95,14 @@ class FretboardController {
             this.toggle(false);
         });
 
-        // Display mode pill buttons
+        // Display mode pill buttons (Notes | Frets)
         const modeButtons = document.querySelectorAll('[data-fretboard-mode]');
         modeButtons.forEach(btn => {
             btn.addEventListener('click', () => {
                 const mode = btn.dataset.fretboardMode;
-                if (mode) this.setDisplayMode(mode);
+                if (mode === 'notes' || mode === 'frets') {
+                    this.setDisplayMode(mode);
+                }
             });
         });
 
@@ -173,11 +180,11 @@ class FretboardController {
     }
 
     /**
-     * Update display mode (notes, frets, fingers, dots)
+     * Update display mode ('notes' | 'frets')
      * @param {string} mode
      */
     setDisplayMode(mode) {
-        if (!['notes', 'frets', 'fingers', 'dots'].includes(mode)) return;
+        if (mode !== 'notes' && mode !== 'frets') return;
         this.displayMode = mode;
 
         try {
@@ -295,43 +302,51 @@ class FretboardController {
         this.setScoreAvailable(Boolean(api?.score));
 
         if (api?.score) {
-            this.onScoreLoaded(api);
+            this.onScoreLoaded(api, api.tracks);
         }
     }
 
     /**
      * Called when a score is loaded into AlphaTab
      * @param {Object} api
+     * @param {Array<Object>} [renderedTracks]
      */
-    onScoreLoaded(api) {
+    onScoreLoaded(api, renderedTracks = null) {
         this.currentApi = api;
         this.activeScore = api.score;
         this.setScoreAvailable(true);
 
-        const renderedTracks = api.tracks || [];
-        const primaryTrack = renderedTracks[0] || api.score?.tracks?.[0] || null;
-
-        this.updateTrack(primaryTrack, api.score);
+        const tracks = renderedTracks || api.tracks || api.score?.tracks || [];
+        this.onTrackSelectionChanged(tracks);
     }
 
     /**
      * Called when visible tracks selection changes in gpHandler
-     * @param {Object} activeTrack
+     * @param {Array<Object>|Object} visibleTracksInput
      */
-    onTrackSelectionChanged(activeTrack) {
-        this.updateTrack(activeTrack, this.activeScore);
+    onTrackSelectionChanged(visibleTracksInput) {
+        const tracks = Array.isArray(visibleTracksInput)
+            ? visibleTracksInput
+            : (visibleTracksInput ? [visibleTracksInput] : []);
+
+        this.visibleTracks = tracks.length > 0
+            ? tracks
+            : (this.currentApi?.tracks || this.activeScore?.tracks?.slice(0, 1) || []);
+
+        this.trackNotesMap.clear();
+
+        // Primary track determines neck geometry and tunings
+        const primaryTrack = this.visibleTracks[0] || null;
+        this.updateNeckInstrument(primaryTrack);
+        this.updateTrackLegend();
     }
 
     /**
-     * Update active instrument track, tuning, string count, and capo
+     * Update active instrument tuning, string count, and capo from primary track
      */
-    updateTrack(track, score = this.activeScore) {
-        this.activeTrack = track || null;
-        this.activeScore = score || null;
-
+    updateNeckInstrument(track) {
         if (!track) return;
 
-        // Parse open string tunings
         let rawTunings = null;
         for (const staff of (track.staves || [])) {
             if (staff.isPercussion) continue;
@@ -346,25 +361,16 @@ class FretboardController {
 
         if (Array.isArray(rawTunings) && rawTunings.length > 0) {
             this.stringCount = rawTunings.length;
-            // Tuning array from AlphaTab: index 0 is high string, index N-1 is low string
             this.tuning = [...rawTunings];
         } else {
             this.stringCount = 6;
             this.tuning = [64, 59, 55, 50, 45, 40];
         }
 
-        // Capo
         this.capo = track.capo || track.staves?.[0]?.capo || 0;
 
-        // Update Header Badges
-        const trackNameEl = document.getElementById('fretboardTrackName');
         const tuningBadgeEl = document.getElementById('fretboardTuningBadge');
         const capoBadgeEl = document.getElementById('fretboardCapoBadge');
-
-        if (trackNameEl) {
-            trackNameEl.textContent = track.name || `Track ${track.index + 1}`;
-            trackNameEl.parentElement?.setAttribute('title', `${track.name || 'Instrument'} (${this.stringCount}-String)`);
-        }
 
         if (tuningBadgeEl) {
             const formatted = formatTuningFromMidi(this.tuning);
@@ -393,7 +399,50 @@ class FretboardController {
     }
 
     /**
+     * Render track chips in the dock header legend
+     */
+    updateTrackLegend() {
+        const legendContainer = document.getElementById('fretboardTracksLegend');
+        if (!legendContainer) return;
+
+        if (this.visibleTracks.length <= 1) {
+            const track = this.visibleTracks[0];
+            const name = track?.name || 'Guitar';
+            legendContainer.innerHTML = `
+                <div class="fretboard-track-badge" id="fretboardTrackBadge" title="${name}">
+                    <i class="bi-music-note-beamed text-info"></i>
+                    <span class="fretboard-track-name text-truncate" id="fretboardTrackName">${name}</span>
+                </div>
+            `;
+            return;
+        }
+
+        // Multiple tracks rendered simultaneously
+        const chipsHtml = this.visibleTracks.map((t, idx) => {
+            const color = TRACK_PALETTE[idx % TRACK_PALETTE.length];
+            const name = t.name || `Track ${t.index + 1}`;
+            return `
+                <span class="fretboard-track-chip" style="--track-color: ${color};" title="${name}">
+                    <span class="track-chip-dot"></span>
+                    <span class="track-chip-name">${name}</span>
+                </span>
+            `;
+        }).join('');
+
+        legendContainer.innerHTML = chipsHtml;
+    }
+
+    /**
+     * Map track index to color palette index
+     */
+    getTrackColorIndex(trackIndex) {
+        const idx = this.visibleTracks.findIndex(t => t.index === trackIndex);
+        return idx >= 0 ? (idx % TRACK_PALETTE.length) : 0;
+    }
+
+    /**
      * Beat transition handler hooked into api.playedBeatChanged
+     * Composites notes from all currently visible score tracks.
      * @param {Object} beat AlphaTab Beat
      */
     onBeatChanged(beat) {
@@ -401,15 +450,14 @@ class FretboardController {
             return;
         }
 
-        // Filter by active instrument track
         const beatTrack = beat.voice?.bar?.staff?.track;
-        if (beatTrack && this.activeTrack && beatTrack.index !== this.activeTrack.index) {
-            return;
-        }
+        if (!beatTrack) return;
 
-        const notes = [];
-        let fretSum = 0;
-        let fretCount = 0;
+        const isVisible = this.visibleTracks.some(t => t.index === beatTrack.index);
+        if (!isVisible) return;
+
+        const trackColorIdx = this.getTrackColorIndex(beatTrack.index);
+        const trackNotes = [];
 
         if (Array.isArray(beat.notes)) {
             for (const n of beat.notes) {
@@ -417,34 +465,66 @@ class FretboardController {
                 const f = n.fret;
 
                 if (s >= 1 && s <= this.stringCount) {
-                    // In tuning array: index 0 is high string, index stringCount - 1 is low string
                     const openMidi = this.tuning[this.stringCount - s] ?? 60;
                     const midiVal = (typeof n.realValue === 'number' && !isNaN(n.realValue))
                         ? n.realValue
                         : (openMidi + f);
 
-                    notes.push({
+                    trackNotes.push({
                         string: s,
                         fret: f,
                         midiPitch: midiVal,
                         isDead: Boolean(n.isDead),
                         isGhost: Boolean(n.isGhost),
                         isTieDestination: Boolean(n.isTieDestination),
-                        finger: n.leftHandFinger
+                        trackIndex: beatTrack.index,
+                        trackColorIndex: trackColorIdx
                     });
-
-                    if (f > 0) {
-                        fretSum += f;
-                        fretCount++;
-                    }
                 }
             }
         }
 
-        this.lastBeatNotes = notes;
-        this.view?.updateActiveNotes(notes, this.displayMode);
+        this.trackNotesMap.set(beatTrack.index, trackNotes);
 
-        // Auto-center scroll container on active frets if scrollable
+        // Composite notes across all active visible tracks
+        // Groups notes on the exact same string & fret into unison collision entries
+        const compositeMap = new Map();
+        let fretSum = 0;
+        let fretCount = 0;
+
+        for (const [, tNotes] of this.trackNotesMap.entries()) {
+            for (const n of tNotes) {
+                const key = `${n.string}:${n.fret}`;
+                if (!compositeMap.has(key)) {
+                    compositeMap.set(key, {
+                        string: n.string,
+                        fret: n.fret,
+                        midiPitch: n.midiPitch,
+                        isDead: n.isDead,
+                        isGhost: n.isGhost,
+                        isTieDestination: n.isTieDestination,
+                        trackIndices: [n.trackIndex],
+                        trackColorIndices: [n.trackColorIndex]
+                    });
+                } else {
+                    const existing = compositeMap.get(key);
+                    if (!existing.trackColorIndices.includes(n.trackColorIndex)) {
+                        existing.trackColorIndices.push(n.trackColorIndex);
+                        existing.trackIndices.push(n.trackIndex);
+                    }
+                }
+
+                if (n.fret > 0) {
+                    fretSum += n.fret;
+                    fretCount++;
+                }
+            }
+        }
+
+        const compositeNotes = Array.from(compositeMap.values());
+        this.lastBeatNotes = compositeNotes;
+        this.view?.updateActiveNotes(compositeNotes, this.displayMode);
+
         if (fretCount > 0) {
             this.autoCenterFret(Math.round(fretSum / fretCount));
         }
@@ -473,6 +553,7 @@ class FretboardController {
      * Clear all note markers
      */
     clearActiveNotes() {
+        this.trackNotesMap.clear();
         this.lastBeatNotes = [];
         this.view?.clearActiveNotes();
     }
@@ -482,6 +563,7 @@ class FretboardController {
      */
     onScoreClosed() {
         this.clearActiveNotes();
+        this.visibleTracks = [];
         this.setScoreAvailable(false);
     }
 
@@ -493,7 +575,6 @@ class FretboardController {
         const output = document.getElementById('output');
 
         if (pageModeRadio?.checked && window.gpState?.canvases?.[0]?.container && output) {
-            // Give CSS padding transition 50ms to register clientHeight
             setTimeout(() => {
                 if (typeof window.gpState?.layoutGPPages === 'function') {
                     const pageHeight = output.clientHeight - 20;
@@ -502,7 +583,6 @@ class FretboardController {
                         window.gpState.renderGPPage(output, true);
                     }
                 } else {
-                    // Trigger window resize event to let layout listeners adjust
                     window.dispatchEvent(new Event('resize'));
                 }
             }, 60);
