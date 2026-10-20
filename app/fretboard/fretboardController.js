@@ -165,6 +165,11 @@ class FretboardController {
             document.body.classList.add('fretboard-open');
             topBarToggle?.classList.add('active');
             if (scoreOptionsSwitch) scoreOptionsSwitch.checked = true;
+            if (this.lastBeatNotes?.length) {
+                this.view?.updateActiveNotes(this.lastBeatNotes, this.displayMode);
+            } else {
+                this.refreshCursorNotes();
+            }
         } else {
             dock?.classList.add('is-hidden');
             setTimeout(() => {
@@ -175,7 +180,7 @@ class FretboardController {
             document.body.classList.remove('fretboard-open');
             topBarToggle?.classList.remove('active');
             if (scoreOptionsSwitch) scoreOptionsSwitch.checked = false;
-            this.clearActiveNotes();
+            this.view?.clearActiveNotes();
         }
     }
 
@@ -318,6 +323,7 @@ class FretboardController {
 
         const tracks = renderedTracks || api.tracks || api.score?.tracks || [];
         this.onTrackSelectionChanged(tracks);
+        this.refreshCursorNotes();
     }
 
     /**
@@ -446,7 +452,7 @@ class FretboardController {
      * @param {Array<Object>} activeBeats Array of AlphaTab Beats sounding at this tick
      */
     onActiveBeatsChanged(activeBeats) {
-        if (!this.isOpen || !this.isScoreAvailable || !Array.isArray(activeBeats)) {
+        if (!this.isScoreAvailable || !Array.isArray(activeBeats)) {
             return;
         }
 
@@ -530,10 +536,88 @@ class FretboardController {
 
         const compositeNotes = Array.from(compositeMap.values());
         this.lastBeatNotes = compositeNotes;
-        this.view?.updateActiveNotes(compositeNotes, this.displayMode);
 
-        if (fretCount > 0) {
-            this.autoCenterFret(Math.round(fretSum / fretCount));
+        if (this.isOpen) {
+            this.view?.updateActiveNotes(compositeNotes, this.displayMode);
+
+            if (fretCount > 0) {
+                this.autoCenterFret(Math.round(fretSum / fretCount));
+            }
+        }
+    }
+
+    /**
+     * Show notes at the current cursor position across all visible tracks (still / paused / seeked)
+     * @param {Object} primaryBeat
+     */
+    showBeatsAtCursor(primaryBeat) {
+        if (!this.isScoreAvailable || !primaryBeat) {
+            return;
+        }
+
+        const barIndex = primaryBeat.voice?.bar?.index;
+        if (barIndex === undefined || barIndex === null) {
+            this.onActiveBeatsChanged([primaryBeat]);
+            return;
+        }
+
+        const targetStart = primaryBeat.playbackStart ?? primaryBeat.start ?? 0;
+        const activeBeats = [];
+
+        for (const track of this.visibleTracks) {
+            const bar = track.staves?.[0]?.bars?.[barIndex];
+            if (!bar) continue;
+
+            let matchedBeat = null;
+            for (const v of (bar.voices || [])) {
+                for (const b of (v.beats || [])) {
+                    const bStart = b.playbackStart ?? b.start ?? 0;
+                    const bDuration = b.playbackDuration ?? b.duration ?? 0;
+                    if (targetStart >= bStart && (bDuration === 0 || targetStart < bStart + bDuration)) {
+                        matchedBeat = b;
+                        break;
+                    }
+                }
+                if (matchedBeat) break;
+            }
+
+            if (matchedBeat) {
+                activeBeats.push(matchedBeat);
+            } else if (track.index === primaryBeat.voice?.bar?.staff?.track?.index) {
+                activeBeats.push(primaryBeat);
+            }
+        }
+
+        const beatsToRender = activeBeats.length > 0 ? activeBeats : [primaryBeat];
+        this.onActiveBeatsChanged(beatsToRender);
+    }
+
+    /**
+     * Determine and display notes at the current score cursor / tick position
+     */
+    refreshCursorNotes() {
+        if (!this.isScoreAvailable) return;
+
+        const primaryTrack = this.visibleTracks[0] || this.activeScore?.tracks?.[0];
+        if (!primaryTrack) return;
+
+        const currentTick = this.currentApi?.tickPosition ?? 0;
+        let targetMasterBar = this.activeScore?.masterBars?.[0];
+        if (this.activeScore?.masterBars?.length) {
+            for (let i = this.activeScore.masterBars.length - 1; i >= 0; i--) {
+                const mb = this.activeScore.masterBars[i];
+                if (currentTick >= mb.start) {
+                    targetMasterBar = mb;
+                    break;
+                }
+            }
+        }
+
+        const barIdx = targetMasterBar?.index ?? 0;
+        const bar = primaryTrack.staves?.[0]?.bars?.[barIdx];
+        const firstBeat = bar?.voices?.[0]?.beats?.[0];
+        if (firstBeat) {
+            this.showBeatsAtCursor(firstBeat);
         }
     }
 
@@ -544,7 +628,7 @@ class FretboardController {
      */
     onBeatChanged(beat) {
         if (!beat) return;
-        this.onActiveBeatsChanged([beat]);
+        this.showBeatsAtCursor(beat);
     }
 
     /**
