@@ -2589,42 +2589,65 @@ body:not(.synth-playback-started) .at-cursors,
 body:not(.synth-playback-started) .at-selection,
 body:not(.synth-playback-started) .at-cursor-bar,
 body:not(.synth-playback-started) .at-cursor-beat,
+body:not(.synth-playback-started) .gp-reader-cursor,
 body:not(.synth-playback-started) .at-highlight {
   display: none !important;
 }
 
+/* Hide bar highlight box (replaced by line reader tool) */
 .at-cursor-bar,
 .gp-page-cursor-bar {
-  background-color: var(--accent-primary-alpha) !important;
-  border-radius: 4px;
+  display: none !important;
 }
 
-.at-cursor-beat,
-.gp-page-cursor-beat {
-  background-color: var(--accent-glow) !important;
-  border-radius: 3px;
+/* Hide default AlphaTab beat line in favor of .gp-reader-cursor */
+.at-cursor-beat {
+  display: none !important;
 }
 
 .at-selection {
   background-color: var(--accent-primary-alpha) !important;
 }
 
-.gp-page-cursor-bar {
+/* --------------------------------------------------------------------------
+   Line Reader Playhead Cursor (Scroll & Page Mode)
+   - Vertically oriented stadium / pill outline
+   - Pointed, V-shaped bottom end
+   -------------------------------------------------------------------------- */
+.gp-reader-cursor {
   position: absolute;
   pointer-events: none;
-  z-index: 5;
+  z-index: 1000;
+  width: 20px;
+  transform: translateX(-50%);
   box-sizing: border-box;
   display: none;
-  transition: left 0.12s linear, width 0.12s linear;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
+}
+
+.gp-reader-cursor svg {
+  display: block;
+  overflow: visible;
+}
+
+.gp-reader-cursor .gp-reader-path {
+  fill: none;
+  stroke: var(--accent-primary);
+  stroke-width: 2px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
 }
 
 .gp-page-cursor-beat {
   position: absolute;
   pointer-events: none;
-  z-index: 6;
+  z-index: 1000;
+  width: 20px;
+  transform: translateX(-50%);
   box-sizing: border-box;
   display: none;
   transition: left 0.12s linear;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
 }
 
 /* Progress Bar */
