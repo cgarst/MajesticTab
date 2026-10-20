@@ -441,50 +441,57 @@ class FretboardController {
     }
 
     /**
-     * Beat transition handler hooked into api.playedBeatChanged
-     * Composites notes from all currently visible score tracks.
-     * @param {Object} beat AlphaTab Beat
+     * Multi-track active beats handler hooked into api.activeBeatsChanged
+     * Composites notes from all currently visible score tracks simultaneously.
+     * @param {Array<Object>} activeBeats Array of AlphaTab Beats sounding at this tick
      */
-    onBeatChanged(beat) {
-        if (!this.isOpen || !this.isScoreAvailable || !beat) {
+    onActiveBeatsChanged(activeBeats) {
+        if (!this.isOpen || !this.isScoreAvailable || !Array.isArray(activeBeats)) {
             return;
         }
 
-        const beatTrack = beat.voice?.bar?.staff?.track;
-        if (!beatTrack) return;
+        this.trackNotesMap.clear();
 
-        const isVisible = this.visibleTracks.some(t => t.index === beatTrack.index);
-        if (!isVisible) return;
+        for (const beat of activeBeats) {
+            if (!beat) continue;
+            const beatTrack = beat.voice?.bar?.staff?.track;
+            if (!beatTrack) continue;
 
-        const trackColorIdx = this.getTrackColorIndex(beatTrack.index);
-        const trackNotes = [];
+            const isVisible = this.visibleTracks.some(t => t.index === beatTrack.index);
+            if (!isVisible) continue;
 
-        if (Array.isArray(beat.notes)) {
-            for (const n of beat.notes) {
-                const s = n.string; // AlphaTab: 1 = lowest string, stringCount = highest string
-                const f = n.fret;
+            const trackColorIdx = this.getTrackColorIndex(beatTrack.index);
+            let trackNotes = this.trackNotesMap.get(beatTrack.index);
+            if (!trackNotes) {
+                trackNotes = [];
+                this.trackNotesMap.set(beatTrack.index, trackNotes);
+            }
 
-                if (s >= 1 && s <= this.stringCount) {
-                    const openMidi = this.tuning[this.stringCount - s] ?? 60;
-                    const midiVal = (typeof n.realValue === 'number' && !isNaN(n.realValue))
-                        ? n.realValue
-                        : (openMidi + f);
+            if (Array.isArray(beat.notes)) {
+                for (const n of beat.notes) {
+                    const s = n.string; // AlphaTab: 1 = lowest string, stringCount = highest string
+                    const f = n.fret;
 
-                    trackNotes.push({
-                        string: s,
-                        fret: f,
-                        midiPitch: midiVal,
-                        isDead: Boolean(n.isDead),
-                        isGhost: Boolean(n.isGhost),
-                        isTieDestination: Boolean(n.isTieDestination),
-                        trackIndex: beatTrack.index,
-                        trackColorIndex: trackColorIdx
-                    });
+                    if (s >= 1 && s <= this.stringCount) {
+                        const openMidi = this.tuning[this.stringCount - s] ?? 60;
+                        const midiVal = (typeof n.realValue === 'number' && !isNaN(n.realValue))
+                            ? n.realValue
+                            : (openMidi + f);
+
+                        trackNotes.push({
+                            string: s,
+                            fret: f,
+                            midiPitch: midiVal,
+                            isDead: Boolean(n.isDead),
+                            isGhost: Boolean(n.isGhost),
+                            isTieDestination: Boolean(n.isTieDestination),
+                            trackIndex: beatTrack.index,
+                            trackColorIndex: trackColorIdx
+                        });
+                    }
                 }
             }
         }
-
-        this.trackNotesMap.set(beatTrack.index, trackNotes);
 
         // Composite notes across all active visible tracks
         // Groups notes on the exact same string & fret into unison collision entries
@@ -531,6 +538,16 @@ class FretboardController {
     }
 
     /**
+     * Beat transition handler hooked into api.playedBeatChanged
+     * Delegates to onActiveBeatsChanged for multi-track composition.
+     * @param {Object} beat AlphaTab Beat
+     */
+    onBeatChanged(beat) {
+        if (!beat) return;
+        this.onActiveBeatsChanged([beat]);
+    }
+
+    /**
      * Smoothly auto-scroll neck viewport to center active fret
      * @param {number} fret
      */
@@ -543,8 +560,28 @@ class FretboardController {
 
         const ratio = midX / 1150;
         const targetX = (ratio * scrollEl.scrollWidth) - (scrollEl.clientWidth / 2);
+        const maxScroll = scrollEl.scrollWidth - scrollEl.clientWidth;
+        const safeTargetX = Math.max(0, Math.min(maxScroll, targetX));
+
+        // Skip scrolling if the target fret is already comfortably visible
+        const currentScroll = scrollEl.scrollLeft;
+        const visibleMinX = (currentScroll / scrollEl.scrollWidth) * 1150;
+        const visibleMaxX = ((currentScroll + scrollEl.clientWidth) / scrollEl.scrollWidth) * 1150;
+        const padding = (visibleMaxX - visibleMinX) * 0.18;
+
+        if (midX >= (visibleMinX + padding) && midX <= (visibleMaxX - padding)) {
+            return;
+        }
+
+        // Throttle scrolling to avoid interrupting rapid notes (e.g. 16th notes)
+        const now = performance.now();
+        if (this._lastScrollTime && (now - this._lastScrollTime < 350)) {
+            return;
+        }
+        this._lastScrollTime = now;
+
         scrollEl.scrollTo({
-            left: Math.max(0, targetX),
+            left: safeTargetX,
             behavior: 'smooth'
         });
     }

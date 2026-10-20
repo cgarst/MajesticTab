@@ -320,6 +320,17 @@
 }
 
 /* Active Note Markers */
+@keyframes fretboard-marker-pop {
+  0% {
+    transform: scale(1.18);
+    filter: brightness(1.35);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
 .fretboard-note-marker {
   pointer-events: none;
 }
@@ -334,6 +345,17 @@
   stroke: #ffffff;
   stroke-width: 1.5;
   box-shadow: 0 0 10px var(--accent-glow);
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.fretboard-note-marker.is-struck .marker-circle,
+.fretboard-note-marker.is-struck .marker-split-left,
+.fretboard-note-marker.is-struck .marker-split-right,
+.fretboard-note-marker.is-struck-alt .marker-circle,
+.fretboard-note-marker.is-struck-alt .marker-split-left,
+.fretboard-note-marker.is-struck-alt .marker-split-right {
+  animation: fretboard-marker-pop 0.16s ease-out;
 }
 
 /* Split Unison Badges */
@@ -341,6 +363,8 @@
 .fretboard-note-marker .marker-split-right {
   stroke: #ffffff;
   stroke-width: 1.2;
+  transform-origin: center;
+  transform-box: fill-box;
 }
 
 .fretboard-note-marker .marker-split-divider {

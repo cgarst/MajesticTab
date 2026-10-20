@@ -527,8 +527,10 @@ export class FretboardView {
             const posX = this.fretMidsX[fret];
             const posY = this.stringYs[visualLine];
 
+            marker.struckToggle = !marker.struckToggle;
+            const struckClass = marker.struckToggle ? 'is-struck' : 'is-struck-alt';
             marker.element.setAttribute('transform', `translate(${posX}, ${posY})`);
-            marker.element.setAttribute('class', `fretboard-note-marker${note.isGhost ? ' is-ghost' : ''}${note.isTieDestination ? ' is-tie' : ''}`);
+            marker.element.setAttribute('class', `fretboard-note-marker ${struckClass}${note.isGhost ? ' is-ghost' : ''}${note.isTieDestination ? ' is-tie' : ''}`);
 
             const colorIndices = Array.isArray(note.trackColorIndices) && note.trackColorIndices.length > 0
                 ? note.trackColorIndices
