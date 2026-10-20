@@ -21,7 +21,8 @@ function getStorageKey(file) {
     if (!file) return 'mt_pdf_bookmarks_default';
     const name = file.name || 'document';
     const size = file.size || 0;
-    return `mt_pdf_bookmarks_${encodeURIComponent(name)}_${size}`;
+    const pageSuffix = file.startPage ? `_p${file.startPage}_${file.endPage || file.startPage}` : '';
+    return `mt_pdf_bookmarks_${encodeURIComponent(name)}_${size}${pageSuffix}`;
 }
 
 /**
@@ -147,7 +148,7 @@ export function updateBookmarkButtonIcon() {
 
     const currentPage = bookmarksState.currentPageIndex;
     const isBookmarked = bookmarksState.userBookmarks.some(b => b.pageIndex === currentPage) ||
-                         bookmarksState.outline.some(o => o.pageIndex === currentPage);
+                         bookmarksState.outline.some(o => (o.relativePageIndex !== undefined ? o.relativePageIndex : o.pageIndex) === currentPage);
 
     btn.innerHTML = isBookmarked
         ? '<i class="bi-bookmark-fill text-info"></i>'
@@ -243,20 +244,21 @@ export function renderBookmarksList() {
 
         outline.forEach((item) => {
             const itemEl = document.createElement('div');
-            const isActive = item.pageIndex === currentPageIndex;
+            const targetPageIndex = item.relativePageIndex !== undefined ? item.relativePageIndex : item.pageIndex;
+            const isActive = targetPageIndex === currentPageIndex;
             const indentPx = Math.min(28, (item.depth || 0) * 12);
             itemEl.className = `pdf-bookmark-item ${isActive ? 'active' : ''}`;
             itemEl.style.paddingLeft = `${0.65 + indentPx / 16}rem`;
 
             const targetWrapper = document.createElement('div');
             targetWrapper.className = 'pdf-bookmark-target';
-            targetWrapper.title = `Jump to page ${item.pageIndex + 1}`;
+            targetWrapper.title = `Jump to page ${targetPageIndex + 1}`;
             targetWrapper.innerHTML = `
                 <i class="bi-journal-text text-muted me-2 flex-shrink-0" style="font-size: 0.82rem;"></i>
                 <span class="text-truncate small pdf-bookmark-title">${escapeHtml(item.title)}</span>
             `;
             targetWrapper.addEventListener('click', () => {
-                navigateToPage(item.pageIndex);
+                navigateToPage(targetPageIndex);
             });
 
             const rightWrapper = document.createElement('div');
@@ -358,7 +360,20 @@ export async function setPdfDocument(file, pdfDoc, onNavigateToPage) {
     bookmarksState.pdfDoc = pdfDoc;
     bookmarksState.onNavigateToPage = onNavigateToPage;
     bookmarksState.userBookmarks = loadUserBookmarks(file);
-    bookmarksState.outline = await extractPdfOutline(pdfDoc);
+    const rawOutline = await extractPdfOutline(pdfDoc);
+
+    const startPage = (file && file.startPage) ? parseInt(file.startPage, 10) : 1;
+    const endPage = (file && file.endPage) ? parseInt(file.endPage, 10) : (pdfDoc.numPages || 10000);
+    const startIdx = startPage - 1;
+    const endIdx = endPage - 1;
+
+    // Filter outline to only include items within the active page range
+    bookmarksState.outline = rawOutline
+        .filter(item => item.pageIndex >= startIdx && item.pageIndex <= endIdx)
+        .map(item => ({
+            ...item,
+            relativePageIndex: item.pageIndex - startIdx
+        }));
 
     const toggleBtn = document.getElementById('pdfBookmarksBtn');
     if (toggleBtn) {

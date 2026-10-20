@@ -142,7 +142,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
     fileCache[cacheKey][pageNum - 1] = finalCanvas;
     onCanvasRendered(finalCanvas);
 
-    updateProgress(progressBar, (pageNum / pdf.numPages * 100));
+    updateProgress(progressBar, progressPercent);
 
     // Detect bottom-of-page copyright for first page
     if (pageNum === 1 && !debugMode.checked) {
