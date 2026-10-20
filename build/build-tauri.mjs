@@ -363,7 +363,8 @@ if (target === 'android') {
 } else if (target === 'ios') {
   await ensureSwiftPublicCdecl();
   const iosProject = path.join(tauriDir, 'src-tauri', 'gen', 'apple');
-  if (!(await stat(iosProject).catch(() => null))) {
+  const iosSources = path.join(iosProject, 'Sources');
+  if (!(await stat(iosSources).catch(() => null))) {
     run('npm', ['run', 'tauri', '--', 'ios', 'init', '--ci']);
   }
   // Sync version-controlled iOS configuration and manifest templates
@@ -375,7 +376,7 @@ if (target === 'android') {
   if (await stat(templateInfoPlist).catch(() => null)) {
     await cp(templateInfoPlist, path.join(iosProject, 'majestictab_iOS', 'Info.plist'));
   }
-  spawnSync('xcodegen', ['generate'], { cwd: iosProject, stdio: 'inherit' });
+  run('xcodegen', ['generate'], { cwd: iosProject });
   // Refresh iOS AppIcon assets from src-tauri/icons/ios
   const iosAppIcon = path.join(iosProject, 'Assets.xcassets', 'AppIcon.appiconset');
   if (await stat(iosAppIcon).catch(() => null)) {
