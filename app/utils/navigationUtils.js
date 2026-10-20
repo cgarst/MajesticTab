@@ -2,8 +2,8 @@
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
-import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds } from '../gpProcessor/gpPlayer.js';
-import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds } from '../youtubePlayer.js';
+import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
+import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel } from '../youtubePlayer.js';
 
 // Navigation action constants
 export const NavigationAction = {
@@ -277,17 +277,17 @@ export function performAppBack(getConfig = null) {
     // 1. If any synth/score/youtube dropdown panels are open, dismiss them
     const openSynth = document.getElementById('synthDropdownPanel');
     if (openSynth && openSynth.style.display !== 'none') {
-        openSynth.style.display = 'none';
+        toggleSynthPanel(false);
         return true;
     }
     const openScore = document.getElementById('scoreOptionsDropdownPanel');
     if (openScore && openScore.style.display !== 'none') {
-        openScore.style.display = 'none';
+        toggleScoreOptionsPanel(false);
         return true;
     }
     const openYt = document.getElementById('ytDropdownPanel');
     if (openYt && openYt.style.display !== 'none') {
-        openYt.style.display = 'none';
+        toggleYouTubePanel(false);
         return true;
     }
 

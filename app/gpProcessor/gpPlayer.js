@@ -1140,6 +1140,7 @@ export function updateSynthPanelPosition() {
 export function toggleSynthPanel(forceState = null) {
     const panel = document.getElementById('synthDropdownPanel');
     const toggleBtn = document.getElementById('synthToggleBtn');
+    const mobileBtn = document.getElementById('mobileSynthToggleBtn');
 
     if (!panel) return;
 
@@ -1156,10 +1157,12 @@ export function toggleSynthPanel(forceState = null) {
         updateSynthPanelPosition();
         panel.style.display = 'block';
         toggleBtn?.classList.add('active');
+        mobileBtn?.classList.add('active');
     } else {
         panel.style.display = 'none';
         panel.classList.remove('popup-from-bottom');
         toggleBtn?.classList.remove('active');
+        mobileBtn?.classList.remove('active');
     }
 }
 
@@ -1310,14 +1313,17 @@ export function initSynthPlayer() {
     });
 
     // Close panel when clicking outside
-    document.addEventListener('click', (e) => {
+    const handleOutsideSynthClick = (e) => {
         const panel = document.getElementById('synthDropdownPanel');
         const sourcePill = document.getElementById('audioSourcePill');
+        const mobileDock = document.getElementById('mobilePlaybackDock');
 
-        if (synthPlayerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target)) {
+        if (synthPlayerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target) && !mobileDock?.contains(e.target)) {
             toggleSynthPanel(false);
         }
-    });
+    };
+    document.addEventListener('click', handleOutsideSynthClick);
+    document.addEventListener('pointerdown', handleOutsideSynthClick);
 
     window.addEventListener('resize', updateSynthPanelPosition);
     document.addEventListener('fullscreenchange', updateSynthPanelPosition);
