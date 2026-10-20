@@ -121,19 +121,19 @@
 }
 
 [data-theme="Ember Glow"] {
-  --bg-body: #120804;
+  --bg-body: #0c0704;
   --bg-ambient-1: rgba(249, 115, 22, 0.18);
   --bg-ambient-2: rgba(239, 68, 68, 0.12);
-  --bg-card: rgba(36, 17, 10, 0.88);
-  --bg-card-solid: #26120b;
-  --bg-card-hover: #421e12;
-  --bg-elevated: #1a0b06;
-  --bg-modal: #150804;
-  --border-subtle: rgba(249, 115, 22, 0.2);
-  --border-prominent: rgba(251, 146, 60, 0.45);
-  --text-primary: #fff7ed;
-  --text-muted: #fed7aa;
-  --text-dim: #cbd5e1;
+  --bg-card: rgba(24, 18, 14, 0.88);
+  --bg-card-solid: #18120e;
+  --bg-card-hover: #261c16;
+  --bg-elevated: #130d09;
+  --bg-modal: #0f0906;
+  --border-subtle: rgba(249, 115, 22, 0.14);
+  --border-prominent: rgba(251, 146, 60, 0.35);
+  --text-primary: #f8fafc;
+  --text-muted: #a8a29e;
+  --text-dim: #78716c;
   --accent-primary: #f97316;
   --accent-secondary: #ef4444;
   --accent-gradient: linear-gradient(135deg, #f97316, #ef4444);
