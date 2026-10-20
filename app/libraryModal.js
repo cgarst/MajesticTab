@@ -3687,7 +3687,7 @@ function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistNa
 // 3. RECENTS VIEW (Enriched with Library & Metadata, Edit Mode & Individual Delete)
 // -----------------------------------------------------------------------------
 async function renderRecentsView(container) {
-    const recents = await getRecents(40);
+    const recents = await getRecents(15);
 
     if (recents.length === 0) {
         container.innerHTML = `
