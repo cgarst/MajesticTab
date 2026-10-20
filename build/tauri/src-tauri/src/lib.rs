@@ -418,7 +418,6 @@ extern "C" {
     fn gtk_window_set_default_icon_name(name: *const std::ffi::c_char);
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 #[cfg(target_os = "macos")]
 fn setup_macos_mouse_navigation(app_handle: tauri::AppHandle) {
     use block2::RcBlock;
@@ -470,6 +469,7 @@ fn setup_macos_mouse_navigation(app_handle: tauri::AppHandle) {
     }
 }
 
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
     unsafe {
