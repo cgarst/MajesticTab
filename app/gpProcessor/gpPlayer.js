@@ -304,96 +304,71 @@ export function updateContinuousPlaybackScroll(currentTick, force = false) {
     const TOP_PADDING = 12;
     const outputRect = output.getBoundingClientRect();
 
-    // Prefer measuring the actual line reader cursor DOM element placed by AlphaTab
-    const cursorEl = document.querySelector('.gp-reader-cursor') || document.querySelector('.at-cursor-beat') || document.querySelector('.at-cursor-bar');
-    if (cursorEl) {
-        const cursorRect = cursorEl.getBoundingClientRect();
-        const cursorVisualTop = cursorRect.top - outputRect.top;
-        const cursorDocY = cursorVisualTop + output.scrollTop;
+    // 1. Staff system bounds lookup from renderer
+    const boundsLookup = currentApi.renderer?.boundsLookup;
+    let targetStaffSystem = null;
+    let sysY = 0;
+    let sysH = 140;
 
-        // Measure containing stave block so we guarantee the whole stave group is visible
-        const parentBlock = cursorEl.closest('div.at-surface.at > div') || cursorEl.parentElement;
-        const blockRect = parentBlock ? parentBlock.getBoundingClientRect() : null;
-        const blockVisualTop = blockRect ? (blockRect.top - outputRect.top) : cursorVisualTop;
-        const blockHeight = blockRect ? blockRect.height : cursorRect.height;
-        const blockVisualBottom = blockVisualTop + blockHeight;
-
-        // Read-ahead threshold and bottom occlusion check:
-        // 1. Is top of cursor/block scrolled above viewport?
-        const isAboveTop = cursorVisualTop < 0 || blockVisualTop < 0;
-        // 2. Is bottom of the stave group hiding behind the fretboard dock?
-        const isHidingBehindFretboard = blockVisualBottom > (visibleViewportHeight - 16);
-        // 3. Advancing read-ahead threshold: past 65% of visible viewport height
-        const isBelowThreshold = cursorVisualTop > (visibleViewportHeight * 0.65);
-
-        if (isAboveTop || isHidingBehindFretboard || isBelowThreshold) {
-            const maxScroll = output.scrollHeight - output.clientHeight;
-            const blockDocY = blockVisualTop + output.scrollTop;
-            const targetScrollTop = (blockDocY < 160)
-                ? 0
-                : Math.max(0, Math.min(maxScroll, blockDocY - TOP_PADDING));
-            if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
-                output.scrollTop = targetScrollTop;
+    if (boundsLookup?.staffSystems?.length && currentScore?.masterBars?.length) {
+        const masterBars = currentScore.masterBars;
+        let activeMasterBarIndex = -1;
+        for (let i = 0; i < masterBars.length; i++) {
+            const mb = masterBars[i];
+            const barStart = mb.start;
+            const barEnd = barStart + mb.calculateDuration();
+            if (currentTick >= barStart && currentTick < barEnd) {
+                activeMasterBarIndex = i;
+                break;
             }
         }
-        return;
-    }
-
-    // Fallback using renderer boundsLookup if DOM cursor element is not yet found
-    const boundsLookup = currentApi.renderer?.boundsLookup;
-    if (!boundsLookup || !boundsLookup.staffSystems || !boundsLookup.staffSystems.length) return;
-
-    // 1. Find master bar for currentTick
-    const masterBars = currentScore.masterBars;
-    if (!masterBars || !masterBars.length) return;
-
-    let activeMasterBarIndex = -1;
-    for (let i = 0; i < masterBars.length; i++) {
-        const mb = masterBars[i];
-        const barStart = mb.start;
-        const barEnd = barStart + mb.calculateDuration();
-        if (currentTick >= barStart && currentTick < barEnd) {
-            activeMasterBarIndex = i;
-            break;
+        if (activeMasterBarIndex === -1 && masterBars.length > 0) {
+            if (currentTick >= masterBars[masterBars.length - 1].start) {
+                activeMasterBarIndex = masterBars.length - 1;
+            }
+        }
+        if (activeMasterBarIndex >= 0) {
+            for (let s = 0; s < boundsLookup.staffSystems.length; s++) {
+                const sys = boundsLookup.staffSystems[s];
+                if (sys.bars && sys.bars.some(b => b.index === activeMasterBarIndex)) {
+                    targetStaffSystem = sys;
+                    break;
+                }
+            }
+            if (targetStaffSystem) {
+                const container = gpState.canvases[0]?.container;
+                const containerTop = container ? container.offsetTop : 0;
+                const sysRealY = targetStaffSystem.realBounds?.y ?? targetStaffSystem.visualBounds?.y ?? 0;
+                sysH = targetStaffSystem.realBounds?.h ?? targetStaffSystem.visualBounds?.h ?? 140;
+                sysY = containerTop + sysRealY;
+            }
         }
     }
-    if (activeMasterBarIndex === -1 && masterBars.length > 0) {
-        if (currentTick >= masterBars[masterBars.length - 1].start) {
-            activeMasterBarIndex = masterBars.length - 1;
-        }
-    }
-    if (activeMasterBarIndex < 0) return;
 
-    // 2. Find staffSystem containing activeMasterBarIndex
-    let targetStaffSystem = null;
-    for (let s = 0; s < boundsLookup.staffSystems.length; s++) {
-        const sys = boundsLookup.staffSystems[s];
-        if (sys.bars && sys.bars.some(b => b.index === activeMasterBarIndex)) {
-            targetStaffSystem = sys;
-            break;
-        }
-    }
-    if (!targetStaffSystem) return;
+    // 2. Cursor element bounds if placed and visible
+    const cursorEl = document.querySelector('.gp-reader-cursor') || document.querySelector('.at-cursor-beat') || document.querySelector('.at-cursor-bar');
+    const cursorRect = (cursorEl && cursorEl.style.display !== 'none') ? cursorEl.getBoundingClientRect() : null;
+    const hasValidCursor = cursorRect && cursorRect.height > 0;
 
-    // 3. Compute system vertical coordinates
-    const container = gpState.canvases[0]?.container;
-    const containerTop = container ? container.offsetTop : 0;
-    const sysRealY = targetStaffSystem.realBounds?.y ?? targetStaffSystem.visualBounds?.y ?? 0;
-    const sysH = targetStaffSystem.realBounds?.h ?? targetStaffSystem.visualBounds?.h ?? 140;
-    const sysY = containerTop + sysRealY;
+    const cursorVisualTop = hasValidCursor ? (cursorRect.top - outputRect.top) : (sysY > 0 ? (sysY - output.scrollTop) : 0);
+    const cursorVisualBottom = hasValidCursor ? (cursorRect.bottom - outputRect.top) : (cursorVisualTop + sysH);
+    const cursorDocY = cursorVisualTop + output.scrollTop;
 
-    const visualTop = sysY - output.scrollTop;
+    const visualTop = (sysY > 0) ? (sysY - output.scrollTop) : cursorVisualTop;
     const visualBottom = visualTop + sysH;
 
-    const isAboveTop = visualTop < 0;
-    const isHidingBehindFretboard = visualBottom > (visibleViewportHeight - 16);
-    const isBelowThreshold = visualTop > (visibleViewportHeight * 0.60);
+    // 3. Occlusion and read-ahead checks
+    const isAboveTop = visualTop < 0 || (hasValidCursor && cursorVisualTop < 0);
+    const isHidingBehindFretboard = isFretboardOpen && (Math.max(visualBottom, cursorVisualBottom) > (visibleViewportHeight - 16));
+    const isBelowThreshold = visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60));
 
     if (isAboveTop || isHidingBehindFretboard || isBelowThreshold) {
         const maxScroll = output.scrollHeight - output.clientHeight;
-        const targetScrollTop = (targetStaffSystem === boundsLookup.staffSystems[0] && sysY < 160)
+        const isFirstSystem = boundsLookup?.staffSystems?.length && targetStaffSystem === boundsLookup.staffSystems[0];
+        const anchorY = (sysY > 0) ? sysY : cursorDocY;
+        const targetScrollTop = (isFirstSystem || anchorY < 160)
             ? 0
-            : Math.max(0, Math.min(maxScroll, sysY - TOP_PADDING));
+            : Math.max(0, Math.min(maxScroll, anchorY - TOP_PADDING));
         if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
             output.scrollTop = targetScrollTop;
         }
