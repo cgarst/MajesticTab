@@ -1653,6 +1653,51 @@ input[type=range]::-webkit-slider-thumb:hover {
   color: var(--text-muted);
 }
 
+.settings-header-icon-box {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.offcanvas-header .theme-modal-close-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+}
+
+.settings-advanced-details summary {
+  list-style: none;
+  transition: color 0.2s ease;
+}
+
+.settings-advanced-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-advanced-details summary:hover {
+  color: #ffffff !important;
+}
+
+.settings-advanced-details summary i {
+  transition: transform 0.2s ease;
+}
+
+.settings-advanced-details[open] summary i {
+  transform: rotate(180deg);
+}
+
 .theme-control-btn {
   background: var(--bg-card-hover);
   border: 1px solid var(--accent-border-alpha);
