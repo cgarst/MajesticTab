@@ -571,3 +571,33 @@ body.library-view-active .fretboard-dock {
     display: none !important;
   }
 }
+
+.fretboard-track-popover {
+  position: fixed;
+  z-index: 2000;
+  min-width: 160px;
+  max-width: 260px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-modal);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.7), 0 0 16px -4px var(--accent-glow);
+}
+
+.fretboard-track-color-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.fretboard-track-color-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
