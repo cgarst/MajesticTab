@@ -2181,7 +2181,17 @@ function setupSongRowActions(container) {
             }
 
             if (providerId === 'google-drive') {
-                openFromProvider('google-drive', { songId });
+                getSongById(songId).then(song => {
+                    openFromProvider('google-drive', {
+                        songId,
+                        targetSong: song,
+                        songName: song?.title,
+                        artist: song?.artist,
+                        query: song ? `${song.artist} ${song.title}` : ''
+                    });
+                }).catch(() => {
+                    openFromProvider('google-drive', { songId });
+                });
                 return;
             }
 
@@ -2396,6 +2406,27 @@ async function loadSongTab(song, tabOption) {
             const stored = await getStoredFile(tabOption.fileStoreId);
             if (stored && stored.file) {
                 file = stored.file;
+            }
+        }
+        if (!file && tabOption.driveFileId) {
+            const stored = await getStoredFile(`google-drive_${tabOption.driveFileId}`);
+            if (stored && stored.file) {
+                file = stored.file;
+            }
+        }
+        if (!file && tabOption.providerId === 'google-drive' && tabOption.driveFileId) {
+            try {
+                showToast(`Downloading "${tabOption.name}" from Google Drive...`, 'info');
+                const { downloadDriveFile, isTokenValid } = await import('./googleDrive.js');
+                if (isTokenValid()) {
+                    file = await downloadDriveFile(tabOption.driveFileId, tabOption.name);
+                    if (file) {
+                        const { saveStoredFile } = await import('./fileStore.js');
+                        await saveStoredFile(file, 'google-drive', { driveFileId: tabOption.driveFileId, id: tabOption.fileStoreId });
+                    }
+                }
+            } catch (dlErr) {
+                console.warn('Could not download tab from Google Drive:', dlErr);
             }
         }
 

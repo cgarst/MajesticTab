@@ -11,6 +11,7 @@ const SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis
 const STORAGE_KEY = 'gdrive_auth';
 const FOLDER_STORAGE_KEY = 'gdrive_last_folder';
 const TABS_DIRECTORY_STORAGE_KEY = 'gdrive_tabs_directory';
+const PENDING_OPTIONS_STORAGE_KEY = 'gdrive_pending_options';
 
 let token = null;
 let currentFolderId = 'root';
@@ -99,6 +100,62 @@ function getRedirectUri() {
 }
 
 let pendingAuthState = 'open_drive_browser';
+let pendingDriveOptions = null;
+let activeDriveTargetSongId = null;
+let activeDriveTargetSong = null;
+let activeDriveTargetAlbum = null;
+let activeDriveOnFileSelected = null;
+
+function savePendingDriveOptions(options) {
+    if (!options || typeof options !== 'object') {
+        pendingDriveOptions = null;
+        try { localStorage.removeItem(PENDING_OPTIONS_STORAGE_KEY); } catch (_) {}
+        return;
+    }
+    pendingDriveOptions = options;
+    try {
+        const serializable = { ...options };
+        if (typeof serializable.onFileSelected === 'function') {
+            delete serializable.onFileSelected;
+        }
+        localStorage.setItem(PENDING_OPTIONS_STORAGE_KEY, JSON.stringify(serializable));
+    } catch (e) {
+        console.warn('Failed to save pending drive options:', e);
+    }
+}
+
+function restorePendingDriveOptions() {
+    if (pendingDriveOptions) {
+        const opts = pendingDriveOptions;
+        pendingDriveOptions = null;
+        try { localStorage.removeItem(PENDING_OPTIONS_STORAGE_KEY); } catch (_) {}
+        return opts;
+    }
+    try {
+        const saved = localStorage.getItem(PENDING_OPTIONS_STORAGE_KEY);
+        if (saved) {
+            localStorage.removeItem(PENDING_OPTIONS_STORAGE_KEY);
+            return JSON.parse(saved);
+        }
+    } catch (e) {
+        console.warn('Failed to restore pending drive options:', e);
+    }
+    return null;
+}
+
+function getActiveDriveOptions() {
+    const opts = {};
+    if (activeDriveTargetSongId) opts.songId = activeDriveTargetSongId;
+    if (activeDriveTargetSong) opts.targetSong = activeDriveTargetSong;
+    if (activeDriveTargetAlbum) {
+        opts.isAlbumTab = true;
+        opts.albumTitle = activeDriveTargetAlbum.albumTitle;
+        opts.artistName = activeDriveTargetAlbum.artistName;
+        opts.collectionId = activeDriveTargetAlbum.collectionId;
+    }
+    if (activeDriveOnFileSelected) opts.onFileSelected = activeDriveOnFileSelected;
+    return Object.keys(opts).length > 0 ? opts : null;
+}
 
 export function isMobilePlatform() {
     if (typeof navigator === 'undefined') return false;
@@ -106,8 +163,12 @@ export function isMobilePlatform() {
     return /android/i.test(ua) || isIOSDevice();
 }
 
-export function redirectToGoogleAuth(targetState = 'open_drive_browser') {
+export function redirectToGoogleAuth(targetState = 'open_drive_browser', options = null) {
     pendingAuthState = targetState;
+    const opts = options || getActiveDriveOptions();
+    if (opts) {
+        savePendingDriveOptions(opts);
+    }
     try {
         localStorage.setItem('gdrive_pending_state', targetState);
     } catch (_) {}
@@ -144,7 +205,7 @@ async function startMobileGoogleAuth(targetState = 'open_drive_browser') {
         try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
         window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
         if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
-            openDriveModal();
+            openDriveModal(restorePendingDriveOptions() || {});
         } else if (targetState === 'restore_backup') {
             const modal = document.getElementById('backupModal');
             const isAlreadyOpen = modal && modal.style.display === 'flex';
@@ -218,7 +279,7 @@ async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
                 try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
                 window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
                 if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
-                    openDriveModal();
+                    openDriveModal(restorePendingDriveOptions() || {});
                 } else if (targetState === 'restore_backup') {
                     const modal = document.getElementById('backupModal');
                     const isAlreadyOpen = modal && modal.style.display === 'flex';
@@ -276,18 +337,17 @@ function storeGoogleAuth(accessToken, expiresIn) {
     return true;
 }
 
-let activeDriveTargetSongId = null;
-let activeDriveTargetAlbum = null;
-let activeDriveOnFileSelected = null;
-
 export function openDriveModal(options = {}) {
-    activeDriveOnFileSelected = options.onFileSelected || null;
-    activeDriveTargetSongId = options.songId || options.targetSong?.id || null;
-    if (options.isAlbumTab && options.albumTitle) {
+    const savedOpts = restorePendingDriveOptions();
+    const mergedOptions = { ...(savedOpts || {}), ...(options || {}) };
+    activeDriveOnFileSelected = mergedOptions.onFileSelected || null;
+    activeDriveTargetSongId = mergedOptions.songId || mergedOptions.targetSong?.id || null;
+    activeDriveTargetSong = mergedOptions.targetSong || null;
+    if (mergedOptions.isAlbumTab && mergedOptions.albumTitle) {
         activeDriveTargetAlbum = {
-            collectionId: options.collectionId,
-            artistName: options.artistName,
-            albumTitle: options.albumTitle
+            collectionId: mergedOptions.collectionId,
+            artistName: mergedOptions.artistName,
+            albumTitle: mergedOptions.albumTitle
         };
     } else {
         activeDriveTargetAlbum = null;
@@ -307,10 +367,15 @@ export function openDriveModal(options = {}) {
     loadDriveFiles();
 }
 
-export function closeDriveModal() {
-    activeDriveTargetSongId = null;
-    activeDriveTargetAlbum = null;
-    activeDriveOnFileSelected = null;
+export function closeDriveModal(isReauthenticating = false) {
+    if (!isReauthenticating) {
+        activeDriveTargetSongId = null;
+        activeDriveTargetSong = null;
+        activeDriveTargetAlbum = null;
+        activeDriveOnFileSelected = null;
+        pendingDriveOptions = null;
+        try { localStorage.removeItem(PENDING_OPTIONS_STORAGE_KEY); } catch (_) {}
+    }
     const modal = document.getElementById('driveModal');
     if (!modal) return;
     modal.style.display = 'none';
@@ -418,9 +483,10 @@ async function loadDriveFiles() {
     `;
 
     if (!isTokenValid()) {
+        const currentOpts = getActiveDriveOptions();
         clearStoredToken();
-        closeDriveModal();
-        redirectToGoogleAuth();
+        closeDriveModal(true);
+        redirectToGoogleAuth('open_drive_browser', currentOpts);
         return;
     }
 
@@ -444,9 +510,10 @@ async function loadDriveFiles() {
         renderFileList(files);
     } catch (err) {
         if (err.status === 401) {
+            const currentOpts = getActiveDriveOptions();
             clearStoredToken();
-            closeDriveModal();
-            redirectToGoogleAuth();
+            closeDriveModal(true);
+            redirectToGoogleAuth('open_drive_browser', currentOpts);
             return;
         }
         if ((err.status === 404 || err.status === 400) && currentFolderId !== getDriveRoot().id) {
@@ -590,9 +657,10 @@ function renderFileList(files) {
 
                     if (!res.ok) {
                         if (res.status === 401) {
+                            const currentOpts = getActiveDriveOptions();
                             clearStoredToken();
-                            closeDriveModal();
-                            redirectToGoogleAuth();
+                            closeDriveModal(true);
+                            redirectToGoogleAuth('open_drive_browser', currentOpts);
                             return;
                         }
                         throw new Error(`Download failed: ${res.statusText}`);
@@ -635,6 +703,8 @@ function renderFileList(files) {
                                 providerId: 'google-drive',
                                 relativePath: fileObj.name,
                                 fileStoreId: stored.id,
+                                driveFileId: fileId,
+                                targetSong: activeDriveTargetSong,
                                 tuning: meta.primaryTuning,
                                 tunings: meta.tunings,
                                 stringCount: meta.stringCount,
@@ -645,7 +715,10 @@ function renderFileList(files) {
                             window.dispatchEvent(new CustomEvent('libraryDataChanged'));
                             return;
                         } catch (err) {
-                            console.warn('Could not persist Drive file to store:', err);
+                            console.error('Could not persist Drive file to store:', err);
+                            closeDriveModal();
+                            showToast('Error attaching tab file to song', 'error');
+                            return;
                         }
                     }
 
@@ -660,6 +733,7 @@ function renderFileList(files) {
                                 providerId: 'google-drive',
                                 relativePath: fileObj.name,
                                 fileStoreId: stored.id,
+                                driveFileId: fileId,
                                 tuning: meta.primaryTuning,
                                 tunings: meta.tunings,
                                 stringCount: meta.stringCount,
@@ -670,7 +744,10 @@ function renderFileList(files) {
                             window.dispatchEvent(new CustomEvent('libraryDataChanged'));
                             return;
                         } catch (err) {
-                            console.warn('Could not persist Drive file to album:', err);
+                            console.error('Could not persist Drive file to album:', err);
+                            closeDriveModal();
+                            showToast('Error attaching tab file to album', 'error');
+                            return;
                         }
                     }
 
@@ -1035,6 +1112,8 @@ export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbacku
         return blob;
     }
 }
+
+export const downloadDriveFile = downloadDriveBackupFile;
 
 
 

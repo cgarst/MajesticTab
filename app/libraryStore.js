@@ -491,7 +491,10 @@ export async function getSongById(songId) {
  * Attach a tab option to a library song
  */
 export async function addTabOptionToSong(songId, tabOption) {
-    const song = await getSongById(songId);
+    let song = await getSongById(songId);
+    if (!song && tabOption?.targetSong) {
+        song = await saveSongToLibrary(tabOption.targetSong);
+    }
     if (!song) throw new Error(`Song not found: ${songId}`);
 
     const optionId = tabOption.id || `tab_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
@@ -502,6 +505,7 @@ export async function addTabOptionToSong(songId, tabOption) {
         providerId: tabOption.providerId || 'local',
         relativePath: tabOption.relativePath || tabOption.name || '',
         fileStoreId: tabOption.fileStoreId || null,
+        driveFileId: tabOption.driveFileId || null,
         tuning: tabOption.tuning || null,
         tunings: Array.isArray(tabOption.tunings) ? tabOption.tunings : (tabOption.tuning ? [tabOption.tuning] : []),
         stringCount,
@@ -568,6 +572,7 @@ export async function updateTabOptionOnSong(songId, tabOptionId, updates = {}) {
     if (updates.endPage !== undefined) tab.endPage = updates.endPage !== null ? parseInt(updates.endPage, 10) : null;
     if (updates.isAlbumRange !== undefined) tab.isAlbumRange = Boolean(updates.isAlbumRange);
     if (updates.fileStoreId !== undefined) tab.fileStoreId = updates.fileStoreId;
+    if (updates.driveFileId !== undefined) tab.driveFileId = updates.driveFileId;
     if (updates.relativePath !== undefined) tab.relativePath = updates.relativePath;
     if (updates.tuning !== undefined) tab.tuning = updates.tuning;
     if (updates.tunings !== undefined) tab.tunings = updates.tunings;
@@ -662,6 +667,7 @@ export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, 
         providerId: tabOption.providerId || 'local',
         relativePath: tabOption.relativePath || tabOption.name || '',
         fileStoreId: tabOption.fileStoreId || null,
+        driveFileId: tabOption.driveFileId || null,
         tuning: tabOption.tuning || null,
         stringCount: tabOption.stringCount || 6,
         fileType: tabOption.fileType || 'pdf',
@@ -866,6 +872,7 @@ export async function addRecentOpened(fileInfo) {
                     if (Array.isArray(song.tabOptions)) {
                         for (const t of song.tabOptions) {
                             const matchStoreId = Boolean(t.fileStoreId && fileInfo.fileStoreId && t.fileStoreId === fileInfo.fileStoreId);
+                            const matchDriveId = Boolean(t.driveFileId && fileInfo.driveFileId && t.driveFileId === fileInfo.driveFileId);
                             const tName = clean(t.name);
                             const tRel = clean(t.relativePath);
                             const tPath = cleanPath(t.relativePath);
@@ -875,7 +882,7 @@ export async function addRecentOpened(fileInfo) {
                             const matchRelative = Boolean(targetRelative && ((tRel && targetRelative === tRel) || (tName && targetRelative === tName)));
                             const matchPath = Boolean(targetPath && ((tPath && targetPath === tPath) || (tNamePath && targetPath === tNamePath)));
 
-                            if (matchStoreId || matchName || matchRelative || matchPath) {
+                            if (matchStoreId || matchDriveId || matchName || matchRelative || matchPath) {
                                 matchedSong = song;
                                 matchedTab = t;
                                 break;
