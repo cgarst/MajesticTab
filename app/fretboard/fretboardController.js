@@ -697,14 +697,19 @@ class FretboardController {
 
         if (pageModeRadio?.checked && window.gpState?.canvases?.[0]?.container && output) {
             setTimeout(() => {
-                if (typeof window.gpState?.layoutGPPages === 'function') {
-                    const pageHeight = output.clientHeight - 20;
-                    window.gpState.pages = window.gpState.layoutGPPages(window.gpState.canvases[0].container, pageHeight);
-                    if (typeof window.gpState.renderGPPage === 'function') {
-                        window.gpState.renderGPPage(output, true);
-                    }
+                if (window.gpState) {
+                    window.gpState.lastLayoutDimensions = null;
+                }
+                if (typeof window.gpState?.renderGPPage === 'function') {
+                    window.gpState.renderGPPage(output, true);
                 } else {
                     window.dispatchEvent(new Event('resize'));
+                }
+            }, 60);
+        } else if (output) {
+            setTimeout(() => {
+                if (typeof window.__majesticUpdateContinuousPlaybackScroll === 'function' && this.currentApi?.tickPosition !== undefined) {
+                    window.__majesticUpdateContinuousPlaybackScroll(this.currentApi.tickPosition, true);
                 }
             }, 60);
         }
