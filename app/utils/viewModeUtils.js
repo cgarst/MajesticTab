@@ -24,8 +24,8 @@ export function setLandscapePageLayout(layout) {
  */
 export function getPagesPerView(fileType = 'gp') {
     const aspectRatio = window.innerWidth / window.innerHeight;
-    // When taller than wide (height >= width, i.e. portrait): show 1 page
-    if (aspectRatio <= 1.0) {
+    // Show 1 page when 4:3 or narrower; 2-page mode kicks in only when wider than 4:3
+    if (aspectRatio <= (4 / 3)) {
         return 1;
     }
 
