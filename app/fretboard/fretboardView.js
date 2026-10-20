@@ -30,16 +30,19 @@ export class FretboardView {
         this.fretWiresX = [];
         this.fretMidsX = [];
         this.stringYs = [];
-        this.openBadgeX = 28;
+        this.openBadgeX = 36;
         this.nutX = 72;
-        this.bridgeX = 1126;
+        this.bridgeX = 1128;
+        this.pickX = 1088;
         this.neckHeight = 90;
         this.totalHeight = 140;
 
         // Pooled note marker SVG nodes (expanded to 48 for dense multi-track passages)
         this.poolSize = 48;
         this.markerPool = [];
-        this.openBadges = {};
+        this.stringLabels = {};
+        this.vibratingStrings = {};
+        this.pickIndicators = {};
 
         this.initDOM();
     }
@@ -133,15 +136,16 @@ export class FretboardView {
 
         this.svg.setAttribute('viewBox', `0 0 ${SVG_WIDTH} ${this.totalHeight}`);
 
-        // Compute horizontal coordinates
-        const scaleLength = 1054;
+        // Compute horizontal coordinates (980 scale length leaves 76px pickup/picking zone at bridge)
+        const scaleLength = 980;
         this.fretWiresX = new Array(TOTAL_FRETS + 1);
         this.fretMidsX = new Array(TOTAL_FRETS + 1);
 
         if (!this.isLeftHanded) {
-            this.openBadgeX = 28;
+            this.openBadgeX = 36;
             this.nutX = 72;
-            this.bridgeX = 1126;
+            this.bridgeX = 1128;
+            this.pickX = 1088;
             this.fretWiresX[0] = this.nutX;
 
             for (let n = 1; n <= TOTAL_FRETS; n++) {
@@ -154,9 +158,10 @@ export class FretboardView {
             }
             this.fretMidsX[0] = this.openBadgeX;
         } else {
-            this.openBadgeX = SVG_WIDTH - 28;
+            this.openBadgeX = SVG_WIDTH - 36;
             this.nutX = SVG_WIDTH - 72;
-            this.bridgeX = SVG_WIDTH - 1126;
+            this.bridgeX = SVG_WIDTH - 1128;
+            this.pickX = SVG_WIDTH - 1088;
             this.fretWiresX[0] = this.nutX;
 
             for (let n = 1; n <= TOTAL_FRETS; n++) {
@@ -183,7 +188,9 @@ export class FretboardView {
         this.buildNutAndFrets(topMargin);
         this.buildCapo(topMargin);
         this.buildStrings();
-        this.buildOpenStringBadges();
+        this.buildStringLabels();
+        this.buildVibratingStrings();
+        this.buildPickIndicators();
         this.buildFretNumbers(topMargin);
         this.buildMarkerPool();
     }
@@ -356,41 +363,150 @@ export class FretboardView {
         this.svg.appendChild(stringsGroup);
     }
 
-    buildOpenStringBadges() {
-        const badgesGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        badgesGroup.setAttribute('class', 'fretboard-open-badges');
-        this.openBadges = {};
+    buildStringLabels() {
+        const labelsGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        labelsGroup.setAttribute('class', 'fretboard-string-labels');
+        this.stringLabels = {};
 
         for (let v = 1; v <= this.stringCount; v++) {
             const atString = this.getAtString(v);
             const pitch = this.getVisualLinePitch(v);
             const pitchName = midiToNoteName(pitch);
 
-            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            g.setAttribute('class', 'fretboard-open-string');
-            g.setAttribute('data-string', `${atString}`);
-            g.setAttribute('data-visual', `${v}`);
-            g.setAttribute('data-pitch', `${pitch}`);
-            g.setAttribute('transform', `translate(${this.openBadgeX}, ${this.stringYs[v]})`);
-
-            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            circle.setAttribute('class', 'open-badge-bg');
-            circle.setAttribute('r', '12');
-
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            text.setAttribute('class', 'open-badge-text');
+            text.setAttribute('class', 'fretboard-string-label');
+            text.setAttribute('x', `${this.openBadgeX}`);
+            text.setAttribute('y', `${this.stringYs[v]}`);
             text.setAttribute('text-anchor', 'middle');
             text.setAttribute('dominant-baseline', 'central');
+            text.setAttribute('data-string', `${atString}`);
+            text.setAttribute('data-visual', `${v}`);
+            text.setAttribute('data-pitch', `${pitch}`);
             text.textContent = pitchName;
 
-            g.appendChild(circle);
-            g.appendChild(text);
-            badgesGroup.appendChild(g);
-
-            this.openBadges[atString] = g;
+            labelsGroup.appendChild(text);
+            this.stringLabels[atString] = text;
         }
 
-        this.svg.appendChild(badgesGroup);
+        this.svg.appendChild(labelsGroup);
+    }
+
+    buildVibratingStrings() {
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        group.setAttribute('class', 'fretboard-vibrating-layer');
+        this.vibratingStrings = {};
+
+        for (let v = 1; v <= this.stringCount; v++) {
+            const atString = this.getAtString(v);
+            const gauge = this.getVisualLineGauge(v);
+
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('class', 'vibrating-string-node');
+            g.style.display = 'none';
+
+            // Diffuse vibrating aura
+            const glow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            glow.setAttribute('class', 'vibrating-string-glow');
+            glow.setAttribute('stroke-width', `${(gauge + 5).toFixed(2)}`);
+            glow.setAttribute('stroke-linecap', 'round');
+            glow.setAttribute('stroke-opacity', '0.45');
+
+            // Primary core vibrating line
+            const core = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            core.setAttribute('class', 'vibrating-string-core');
+            core.setAttribute('stroke-width', `${(gauge + 1.2).toFixed(2)}`);
+            core.setAttribute('stroke-linecap', 'round');
+
+            // Harmonic secondary shimmer line
+            const harmonic = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            harmonic.setAttribute('class', 'vibrating-string-harmonic');
+            harmonic.setAttribute('stroke-width', `${gauge.toFixed(2)}`);
+            harmonic.setAttribute('stroke-linecap', 'round');
+            harmonic.setAttribute('stroke-opacity', '0.75');
+
+            g.appendChild(glow);
+            g.appendChild(core);
+            g.appendChild(harmonic);
+            group.appendChild(g);
+
+            this.vibratingStrings[atString] = {
+                group: g,
+                glow,
+                core,
+                harmonic,
+                visualLine: v,
+                gauge,
+                struckToggle: false
+            };
+        }
+
+        this.svg.appendChild(group);
+    }
+
+    buildPickIndicators() {
+        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        group.setAttribute('class', 'fretboard-pick-indicators');
+        this.pickIndicators = {};
+
+        // Bridge anchor plate / saddles visual on picking side
+        const bridgeXPos = !this.isLeftHanded ? this.bridgeX : (this.bridgeX - 6);
+        const bridgePlate = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bridgePlate.setAttribute('class', 'fretboard-bridge-saddle');
+        bridgePlate.setAttribute('x', `${bridgeXPos - 2}`);
+        bridgePlate.setAttribute('y', `${this.stringYs[1] - 8}`);
+        bridgePlate.setAttribute('width', '8');
+        bridgePlate.setAttribute('height', `${this.neckHeight + 16}`);
+        bridgePlate.setAttribute('rx', '3');
+        group.appendChild(bridgePlate);
+
+        for (let v = 1; v <= this.stringCount; v++) {
+            const atString = this.getAtString(v);
+            const posY = this.stringYs[v];
+
+            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            g.setAttribute('class', 'fretboard-pick-marker');
+            g.setAttribute('transform', `translate(${this.pickX}, ${posY})`);
+            g.style.display = 'none';
+
+            // Pluck spark glow
+            const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            glow.setAttribute('class', 'pick-strike-glow');
+            glow.setAttribute('r', '11');
+
+            // Plectrum shape pointing into string
+            const pick = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            pick.setAttribute('class', 'pick-strike-shape');
+            pick.setAttribute('d', 'M -4 -7 L 4 -7 L 0 5 Z');
+
+            // Pluck acoustic ripple wave arcs radiating towards the neck
+            const wave1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            wave1.setAttribute('class', 'pick-strike-wave wave-inner');
+            const wave1D = !this.isLeftHanded ? 'M -5 -7 Q -11 0 -5 7' : 'M 5 -7 Q 11 0 5 7';
+            wave1.setAttribute('d', wave1D);
+
+            const wave2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            wave2.setAttribute('class', 'pick-strike-wave wave-outer');
+            const wave2D = !this.isLeftHanded ? 'M -9 -10 Q -17 0 -9 10' : 'M 9 -10 Q 17 0 9 10';
+            wave2.setAttribute('d', wave2D);
+
+            g.appendChild(glow);
+            g.appendChild(pick);
+            g.appendChild(wave1);
+            g.appendChild(wave2);
+            group.appendChild(g);
+
+            this.pickIndicators[atString] = {
+                group: g,
+                glow,
+                pick,
+                wave1,
+                wave2,
+                visualLine: v,
+                struckToggle: false
+            };
+        }
+
+        this.svg.appendChild(group);
     }
 
     buildFretNumbers(topMargin) {
@@ -495,15 +611,22 @@ export class FretboardView {
 
     /**
      * Update active note markers synchronized with AlphaTab beat playback
+     * String vibrates from finger (fret) to bridge, or entire string if open.
+     * Picking hand strike indicator animates on the picking side.
      * @param {Array<Object>} notes
      * @param {string} displayMode 'notes' | 'frets'
      */
     updateActiveNotes(notes = [], displayMode = this.displayMode) {
         this.displayMode = displayMode === 'frets' ? 'frets' : 'notes';
 
-        // Reset open string badges active pulse
+        // Reset all vibrating strings and pick indicators
         for (let s = 1; s <= this.stringCount; s++) {
-            this.openBadges[s]?.classList.remove('fretboard-open-active');
+            if (this.vibratingStrings?.[s]) {
+                this.vibratingStrings[s].group.style.display = 'none';
+            }
+            if (this.pickIndicators?.[s]) {
+                this.pickIndicators[s].group.style.display = 'none';
+            }
         }
 
         let poolIdx = 0;
@@ -513,72 +636,106 @@ export class FretboardView {
             const fret = note.fret;
 
             if (atString < 1 || atString > this.stringCount) continue;
+            if (fret < 0 || fret > TOTAL_FRETS) continue;
 
             const colorIndices = Array.isArray(note.trackColorIndices) && note.trackColorIndices.length > 0
                 ? note.trackColorIndices
                 : [note.trackColorIndex ?? 0];
             const primaryTrackColorIdx = colorIndices[0] % 4;
-
-            // Open string (fret 0) lights up the corresponding open tuning badge
-            if (fret === 0) {
-                const openBadge = this.openBadges[atString];
-                if (openBadge) {
-                    openBadge.classList.add('fretboard-open-active');
-                    const bg = openBadge.querySelector('.open-badge-bg');
-                    if (bg) bg.style.fill = `url(#trackGrad${primaryTrackColorIdx})`;
-                }
-                continue;
-            }
-
-            if (fret < 0 || fret > TOTAL_FRETS) continue;
-            if (poolIdx >= this.markerPool.length) break;
+            const trackColor = TRACK_PALETTE[primaryTrackColorIdx] || 'var(--accent-primary)';
+            const trackGrad = `url(#trackGrad${primaryTrackColorIdx})`;
 
             const visualLine = this.getVisualString(atString);
-            const marker = this.markerPool[poolIdx++];
-            const posX = this.fretMidsX[fret];
             const posY = this.stringYs[visualLine];
 
-            marker.struckToggle = !marker.struckToggle;
-            const struckClass = marker.struckToggle ? 'is-struck' : 'is-struck-alt';
-            marker.element.setAttribute('transform', `translate(${posX}, ${posY})`);
-            marker.element.setAttribute('class', `fretboard-note-marker ${struckClass}${note.isGhost ? ' is-ghost' : ''}${note.isTieDestination ? ' is-tie' : ''}`);
+            // 1. Determine vibration starting point
+            // Open string (fret 0): entire string vibrates from nut to bridge
+            // Fretted note (fret > 0): vibrates from the finger/fret position to bridge
+            const startX = (fret === 0) ? this.nutX : this.fretMidsX[fret];
+            const endX = this.bridgeX;
 
-            const glowFill = colorIndices[0] === 0 ? 'var(--accent-glow)' : (TRACK_PALETTE[primaryTrackColorIdx] || 'var(--accent-glow)');
-            marker.glow.style.fill = glowFill;
+            // 2. Activate Vibrating String Segment (from finger/nut to bridge)
+            const vib = this.vibratingStrings?.[atString];
+            if (vib) {
+                vib.group.style.display = '';
+                vib.struckToggle = !vib.struckToggle;
+                vib.group.setAttribute('class', `vibrating-string-node ${vib.struckToggle ? 'is-vibrating' : 'is-vibrating-alt'}`);
 
-            if (colorIndices.length >= 2) {
-                // Dual-track unison collision -> split badge
-                marker.circle.style.display = 'none';
-                marker.splitLeft.style.display = 'inline';
-                marker.splitRight.style.display = 'inline';
-                marker.splitDivider.style.display = 'inline';
-                marker.outline.style.display = 'inline';
+                vib.glow.setAttribute('x1', `${startX}`);
+                vib.glow.setAttribute('y1', `${posY}`);
+                vib.glow.setAttribute('x2', `${endX}`);
+                vib.glow.setAttribute('y2', `${posY}`);
+                vib.glow.style.stroke = trackColor;
 
-                marker.splitLeft.style.fill = `url(#trackGrad${colorIndices[0] % 4})`;
-                marker.splitRight.style.fill = `url(#trackGrad${colorIndices[1] % 4})`;
-                marker.splitLeft.setAttribute('fill', `url(#trackGrad${colorIndices[0] % 4})`);
-                marker.splitRight.setAttribute('fill', `url(#trackGrad${colorIndices[1] % 4})`);
-            } else {
-                // Single-track note -> solid circle with track's color gradient
-                marker.circle.style.display = 'inline';
-                marker.circle.style.fill = `url(#trackGrad${primaryTrackColorIdx})`;
-                marker.circle.setAttribute('fill', `url(#trackGrad${primaryTrackColorIdx})`);
-                marker.splitLeft.style.display = 'none';
-                marker.splitRight.style.display = 'none';
-                marker.splitDivider.style.display = 'none';
-                marker.outline.style.display = 'none';
+                vib.core.setAttribute('x1', `${startX}`);
+                vib.core.setAttribute('y1', `${posY}`);
+                vib.core.setAttribute('x2', `${endX}`);
+                vib.core.setAttribute('y2', `${posY}`);
+                vib.core.style.stroke = trackGrad;
+
+                vib.harmonic.setAttribute('x1', `${startX}`);
+                vib.harmonic.setAttribute('y1', `${posY}`);
+                vib.harmonic.setAttribute('x2', `${endX}`);
+                vib.harmonic.setAttribute('y2', `${posY}`);
+                vib.harmonic.style.stroke = '#ffffff';
             }
 
-            // Dead notes display '✕'
-            if (note.isDead) {
-                marker.dead.style.display = 'inline';
-                marker.text.textContent = '';
-            } else {
-                marker.dead.style.display = 'none';
-                marker.text.textContent = this.formatNoteLabel(note, displayMode);
+            // 3. Activate Picking Hand Strike Indicator on picking side
+            const pick = this.pickIndicators?.[atString];
+            if (pick) {
+                pick.group.style.display = '';
+                pick.struckToggle = !pick.struckToggle;
+                pick.group.setAttribute('class', `fretboard-pick-marker ${pick.struckToggle ? 'is-struck' : 'is-struck-alt'}`);
+
+                pick.glow.style.fill = trackColor;
+                pick.pick.style.fill = trackGrad;
+                pick.wave1.style.stroke = trackColor;
+                pick.wave2.style.stroke = trackColor;
             }
 
-            marker.element.style.display = 'inline';
+            // 4. For Fretted Notes (fret > 0), place Finger Dot Marker on the fret
+            if (fret > 0) {
+                if (poolIdx >= this.markerPool.length) continue;
+
+                const marker = this.markerPool[poolIdx++];
+                const posX = this.fretMidsX[fret];
+
+                marker.struckToggle = !marker.struckToggle;
+                const struckClass = marker.struckToggle ? 'is-struck' : 'is-struck-alt';
+                marker.element.setAttribute('transform', `translate(${posX}, ${posY})`);
+                marker.element.setAttribute('class', `fretboard-note-marker ${struckClass}${note.isGhost ? ' is-ghost' : ''}${note.isTieDestination ? ' is-tie' : ''}`);
+
+                const glowFill = colorIndices[0] === 0 ? 'var(--accent-glow)' : (TRACK_PALETTE[primaryTrackColorIdx] || 'var(--accent-glow)');
+                marker.glow.style.fill = glowFill;
+
+                if (colorIndices.length >= 2) {
+                    marker.circle.style.display = 'none';
+                    marker.splitLeft.style.display = 'inline';
+                    marker.splitRight.style.display = 'inline';
+                    marker.splitDivider.style.display = 'inline';
+                    marker.outline.style.display = 'inline';
+
+                    marker.splitLeft.style.fill = `url(#trackGrad${colorIndices[0] % 4})`;
+                    marker.splitRight.style.fill = `url(#trackGrad${colorIndices[1] % 4})`;
+                } else {
+                    marker.circle.style.display = 'inline';
+                    marker.circle.style.fill = trackGrad;
+                    marker.splitLeft.style.display = 'none';
+                    marker.splitRight.style.display = 'none';
+                    marker.splitDivider.style.display = 'none';
+                    marker.outline.style.display = 'none';
+                }
+
+                if (note.isDead) {
+                    marker.dead.style.display = 'inline';
+                    marker.text.textContent = '';
+                } else {
+                    marker.dead.style.display = 'none';
+                    marker.text.textContent = this.formatNoteLabel(note, displayMode);
+                }
+
+                marker.element.style.display = 'inline';
+            }
         }
 
         // Hide unused pooled markers
@@ -606,9 +763,12 @@ export class FretboardView {
             marker.element.style.display = 'none';
         }
         for (let s = 1; s <= this.stringCount; s++) {
-            this.openBadges[s]?.classList.remove('fretboard-open-active');
-            const bg = this.openBadges[s]?.querySelector('.open-badge-bg');
-            if (bg) bg.style.fill = '';
+            if (this.vibratingStrings?.[s]) {
+                this.vibratingStrings[s].group.style.display = 'none';
+            }
+            if (this.pickIndicators?.[s]) {
+                this.pickIndicators[s].group.style.display = 'none';
+            }
         }
     }
 
@@ -618,13 +778,13 @@ export class FretboardView {
     handleSvgClick(event) {
         if (!this.onFretClick) return;
 
-        // Check if an open string badge was directly clicked
-        const badgeTarget = event.target.closest('.fretboard-open-string');
-        if (badgeTarget) {
-            const atString = parseInt(badgeTarget.getAttribute('data-string'), 10);
-            const pitch = parseInt(badgeTarget.getAttribute('data-pitch'), 10);
+        // Check if a static string label was directly clicked
+        const labelTarget = event.target.closest('.fretboard-string-label');
+        if (labelTarget) {
+            const atString = parseInt(labelTarget.getAttribute('data-string'), 10);
+            const pitch = parseInt(labelTarget.getAttribute('data-pitch'), 10);
             if (atString && !isNaN(pitch)) {
-                this.flashOpenBadge(atString);
+                this.flashNote(atString, 0, pitch);
                 this.onFretClick(atString, 0, pitch);
                 return;
             }
@@ -684,20 +844,9 @@ export class FretboardView {
         if (clickedFret >= 0 && clickedFret <= TOTAL_FRETS) {
             const openPitch = this.getVisualLinePitch(closestLine);
             const pitch = openPitch + clickedFret;
-            if (clickedFret === 0) {
-                this.flashOpenBadge(atString);
-            } else {
-                this.flashNote(atString, clickedFret, pitch);
-            }
+            this.flashNote(atString, clickedFret, pitch);
             this.onFretClick(atString, clickedFret, pitch);
         }
-    }
-
-    flashOpenBadge(atString) {
-        const badge = this.openBadges[atString];
-        if (!badge) return;
-        badge.classList.add('fretboard-open-active');
-        setTimeout(() => badge.classList.remove('fretboard-open-active'), 350);
     }
 
     flashNote(atString, fret, midiPitch) {

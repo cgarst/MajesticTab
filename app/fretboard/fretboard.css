@@ -280,45 +280,140 @@ body.library-view-active .fretboard-dock {
   letter-spacing: 0.05em;
 }
 
-/* Open String Badges */
-.fretboard-open-string {
-  cursor: pointer;
-  transition: transform 0.15s ease;
+/* Static String Tuning Labels on Headstock/Nut Side */
+.fretboard-string-labels {
+  user-select: none;
 }
 
-.fretboard-open-string .open-badge-bg {
-  fill: var(--bg-card-solid);
-  stroke: var(--border-subtle);
-  stroke-width: 1.5;
-  transition: all 0.15s ease;
-}
-
-.fretboard-open-string .open-badge-text {
-  fill: var(--text-muted);
-  font-size: 10px;
+.fretboard-string-label {
+  fill: var(--text-dim);
+  font-size: 11px;
   font-weight: 700;
   font-family: system-ui, -apple-system, sans-serif;
+  cursor: pointer;
   transition: fill 0.15s ease;
 }
 
-.fretboard-open-string:hover .open-badge-bg {
-  stroke: var(--accent-primary);
-  fill: var(--bg-card-hover);
+.fretboard-string-label:hover {
+  fill: var(--text-primary);
 }
 
-.fretboard-open-string:hover .open-badge-text {
-  fill: #ffffff;
+/* Vibrating Guitar String Layer (Oscillates from finger/nut to bridge) */
+@keyframes fretboard-string-vibrate-1 {
+  0% { transform: translateY(0); opacity: 0.95; }
+  25% { transform: translateY(-1.2px); opacity: 1; }
+  50% { transform: translateY(1.0px); opacity: 0.95; }
+  75% { transform: translateY(-0.8px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 0.95; }
 }
 
-.fretboard-open-string.fretboard-open-active .open-badge-bg {
-  fill: var(--accent-primary) !important;
-  stroke: var(--accent-secondary) !important;
-  filter: drop-shadow(0 0 8px var(--accent-glow));
+@keyframes fretboard-string-vibrate-2 {
+  0% { transform: translateY(0); opacity: 0.95; }
+  25% { transform: translateY(1.2px); opacity: 1; }
+  50% { transform: translateY(-1.0px); opacity: 0.95; }
+  75% { transform: translateY(0.8px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 0.95; }
 }
 
-.fretboard-open-string.fretboard-open-active .open-badge-text {
-  fill: #ffffff !important;
-  font-weight: 800;
+.vibrating-string-node {
+  pointer-events: none;
+}
+
+.vibrating-string-node.is-vibrating .vibrating-string-core,
+.vibrating-string-node.is-vibrating .vibrating-string-harmonic {
+  animation: fretboard-string-vibrate-1 0.12s infinite linear;
+}
+
+.vibrating-string-node.is-vibrating-alt .vibrating-string-core,
+.vibrating-string-node.is-vibrating-alt .vibrating-string-harmonic {
+  animation: fretboard-string-vibrate-2 0.12s infinite linear;
+}
+
+.vibrating-string-glow {
+  filter: drop-shadow(0 0 5px var(--accent-glow));
+}
+
+.vibrating-string-core {
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.7));
+}
+
+.vibrating-string-harmonic {
+  animation-duration: 0.07s !important;
+}
+
+/* Guitar Bridge Saddles (Picking Side) */
+.fretboard-bridge-saddle {
+  fill: var(--border-prominent);
+  stroke: var(--text-dim);
+  stroke-width: 1;
+  opacity: 0.85;
+}
+
+/* Picking Hand Activity (Pick Strike / Pluck Indicator) */
+@keyframes pick-strike-pop {
+  0% {
+    transform: scale(1.35) translateX(-2px);
+    opacity: 1;
+    filter: brightness(1.6);
+  }
+  35% {
+    transform: scale(1.1) translateX(1px);
+    opacity: 0.95;
+    filter: brightness(1.3);
+  }
+  100% {
+    transform: scale(1) translateX(0);
+    opacity: 0.85;
+    filter: brightness(1);
+  }
+}
+
+@keyframes pick-wave-ripple {
+  0% {
+    transform: scaleX(0.7);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1.3);
+    opacity: 0.4;
+  }
+}
+
+.fretboard-pick-marker {
+  pointer-events: none;
+  transform-origin: center;
+  transform-box: fill-box;
+}
+
+.fretboard-pick-marker.is-struck,
+.fretboard-pick-marker.is-struck-alt {
+  animation: pick-strike-pop 0.20s ease-out;
+}
+
+.pick-strike-shape {
+  stroke: #ffffff;
+  stroke-width: 1;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
+}
+
+.pick-strike-glow {
+  opacity: 0.6;
+  filter: blur(2px);
+}
+
+.pick-strike-wave {
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.pick-strike-wave.wave-inner {
+  opacity: 0.9;
+  animation: pick-wave-ripple 0.20s ease-out;
+}
+
+.pick-strike-wave.wave-outer {
+  opacity: 0.55;
 }
 
 /* Active Note Markers */
