@@ -1612,26 +1612,53 @@ pub async fn get_or_update_popup_blocker(app_handle: &tauri::AppHandle, custom_u
         _ => default_url,
     };
 
-    // 1. Try to fetch the latest version from AdGuard's official URL (or user configured URL)
-    if let Ok(response) = reqwest::get(url).await {
-        if let Ok(text) = response.text().await {
-            if !text.trim().is_empty() {
-                // Cache the fresh script locally
-                let _ = std::fs::create_dir_all(&cache_dir);
-                let _ = std::fs::write(&script_path, &text);
-                return text;
+    // 1. If local cache already exists, return immediately so downloader opens without delay
+    if script_path.exists() {
+        if let Ok(cached_text) = std::fs::read_to_string(&script_path) {
+            if !cached_text.trim().is_empty() {
+                // Spawn background refresh if needed without blocking
+                let handle = app_handle.clone();
+                let url_string = url.to_string();
+                tauri::async_runtime::spawn(async move {
+                    let client = reqwest::Client::builder()
+                        .timeout(std::time::Duration::from_secs(5))
+                        .build()
+                        .ok();
+                    if let Some(client) = client {
+                        if let Ok(res) = client.get(&url_string).send().await {
+                            if let Ok(text) = res.text().await {
+                                if !text.trim().is_empty() {
+                                    let c_dir = handle.path().app_local_data_dir().unwrap_or_default();
+                                    let s_path = c_dir.join("popupblocker.user.js");
+                                    let _ = std::fs::write(s_path, &text);
+                                }
+                            }
+                        }
+                    }
+                });
+                return cached_text;
             }
         }
     }
 
-    // 2. Fall back to local cache if offline or fetch fails
-    if script_path.exists() {
-        if let Ok(cached_text) = std::fs::read_to_string(&script_path) {
-            return cached_text;
+    // 2. Fall back to fetch with short timeout if no cache exists
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(4))
+        .build()
+        .ok();
+    if let Some(client) = client {
+        if let Ok(response) = client.get(url).send().await {
+            if let Ok(text) = response.text().await {
+                if !text.trim().is_empty() {
+                    let _ = std::fs::create_dir_all(&cache_dir);
+                    let _ = std::fs::write(&script_path, &text);
+                    return text;
+                }
+            }
         }
     }
 
-    // 3. Absolute fallback if no cache exists
+    // 3. Absolute fallback if no cache exists and fetch fails
     String::new()
 }
 
@@ -1810,14 +1837,7 @@ pub fn hide_downloader(app_handle: &AppHandle) {
     }
     if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
         let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-        #[cfg(target_os = "ios")]
-        {
-            let _ = w.close();
-        }
-        #[cfg(not(target_os = "ios"))]
-        {
-            let _ = w.hide();
-        }
+        let _ = w.hide();
     }
     #[cfg(any(target_os = "android", target_os = "ios"))]
     if let Some(main) = app_handle.get_webview_window("main") {

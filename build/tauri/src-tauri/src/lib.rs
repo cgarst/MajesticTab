@@ -111,10 +111,19 @@ async fn open_tab_downloader(
     #[cfg(target_os = "macos")]
     {
         use objc2_web_kit::WKWebView;
-        let _ = downloader.with_webview(|platform| unsafe {
+        let app_handle_wv = app.clone();
+        let _ = downloader.with_webview(move |platform| unsafe {
             let webview = &*platform.inner().cast::<WKWebView>();
+            webview.setHidden(false);
             if let Some(superview) = webview.superview() {
                 superview.addSubview(webview);
+            } else if let Some(main_win) = app_handle_wv.get_window("main") {
+                if let Ok(ns_win_ptr) = main_win.ns_window() {
+                    let ns_window = &*(ns_win_ptr as *const objc2_app_kit::NSWindow);
+                    if let Some(content_view) = ns_window.contentView() {
+                        content_view.addSubview(webview);
+                    }
+                }
             }
         });
     }
