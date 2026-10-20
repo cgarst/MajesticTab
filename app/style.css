@@ -2689,11 +2689,13 @@ body:not(.synth-playback-started) .at-highlight {
   transform: translateX(-50%);
   box-sizing: border-box;
   display: none;
+  background-color: transparent;
 }
 
 .gp-reader-cursor svg {
   display: block;
   overflow: visible;
+  background-color: transparent;
   filter: drop-shadow(0 0 5px var(--accent-glow));
 }
 
@@ -2713,6 +2715,7 @@ body:not(.synth-playback-started) .at-highlight {
   transform: translateX(-50%);
   box-sizing: border-box;
   display: none;
+  background-color: transparent;
   transition: left 0.12s linear;
   filter: drop-shadow(0 0 5px var(--accent-glow));
 }
