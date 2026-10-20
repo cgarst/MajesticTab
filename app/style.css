@@ -783,6 +783,12 @@ body {
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.45) !important;
 }
 
+#fretboardToggleBtn.active {
+  color: #ffffff !important;
+  background: var(--accent-gradient) !important;
+  box-shadow: 0 0 12px var(--accent-glow) !important;
+}
+
 /* Theme Swatch Button in Top Bar */
 .theme-swatch-btn {
   display: inline-flex;
@@ -2312,6 +2318,19 @@ input[type=range]::-webkit-slider-thumb:hover {
   align-items: center;
   scroll-behavior: auto !important;
   padding-bottom: max(calc(env(safe-area-inset-bottom) + 80px), 80px);
+}
+
+/* Virtual Fretboard Dock Integration */
+body.fretboard-open #output {
+  padding-bottom: calc(var(--fretboard-dock-height, 165px) + 20px) !important;
+}
+
+body.fretboard-open #output.continuous-mode {
+  padding-bottom: calc(var(--fretboard-dock-height, 165px) + 90px) !important;
+}
+
+body.fretboard-open .mobile-playback-dock {
+  bottom: calc(var(--fretboard-dock-height, 165px) + max(calc(env(safe-area-inset-bottom) + 8px), 18px)) !important;
 }
 
 /* Outer & Page Containers */

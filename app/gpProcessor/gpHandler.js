@@ -19,6 +19,7 @@ import {
     getInstrumentMode
 } from '../utils/tuningUtils.js';
 import { addRecentOpened, updateLibrarySongFromScore } from '../libraryStore.js';
+import { fretboardController } from '../fretboard/fretboardController.js';
 
 const PAGE_PADDING = 10;
 
@@ -104,6 +105,8 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         gpState.canvases = [{ container, api }];
         window.gpApi = api;
         window.gpState = gpState;
+        gpState.layoutGPPages = layoutGPPages;
+        gpState.renderGPPage = renderGPPage;
 
         // Attach to synth player
         attachAlphaTabApi(api);
@@ -114,6 +117,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         // Populate track selection UI
         populateGpTrackSelectionUI(api);
         syncGpStringCountUI(api.score);
+        fretboardController.onScoreLoaded(api);
 
         // Update YouTube player with parsed score metadata
         if (api.score) {
@@ -562,6 +566,7 @@ export function applyGpTrackSelection(visibleTrackIndices) {
     if (!isPageMode) {
         api.renderTracks(tracksToRender);
         updateTrackSelectionUI(visibleTrackIndices);
+        fretboardController.onTrackSelectionChanged(tracksToRender[0]);
         return;
     }
 
@@ -582,6 +587,7 @@ export function applyGpTrackSelection(visibleTrackIndices) {
         gpState.currentPageIndex = Math.min(gpState.currentPageIndex, Math.max(0, gpState.pages.length - 1));
         renderGPPageMode(output);
         updateTrackSelectionUI(visibleTrackIndices);
+        fretboardController.onTrackSelectionChanged(tracksToRender[0]);
     });
 
     api.renderTracks(tracksToRender);
