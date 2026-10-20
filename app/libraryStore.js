@@ -842,11 +842,95 @@ export async function updateLibrarySongFromScore({ fileName, title, artist, albu
 }
 
 /**
- * Add or update a recently opened file with library/metadata enrichment
+ * Add or update a recently opened file with library/metadata enrichment.
+ * Only library files are added to recents. Non-library files return null.
  */
 export async function addRecentOpened(fileInfo) {
+    if (!fileInfo || typeof fileInfo !== 'object') return null;
+
+    if (!fileInfo.librarySongId) {
+        try {
+            const songs = await getAllSongs();
+            if (Array.isArray(songs) && songs.length > 0) {
+                const clean = (s) => (s || '').replace(/^.*[/\\]/, '').replace(/\.[^/.]+$/, '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+                const cleanPath = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').trim();
+
+                const targetFile = clean(fileInfo.fileName || fileInfo.name);
+                const targetRelative = clean(fileInfo.relativePath);
+                const targetPath = cleanPath(fileInfo.relativePath);
+
+                let matchedSong = null;
+                let matchedTab = null;
+
+                for (const song of songs) {
+                    if (Array.isArray(song.tabOptions)) {
+                        for (const t of song.tabOptions) {
+                            const matchStoreId = Boolean(t.fileStoreId && fileInfo.fileStoreId && t.fileStoreId === fileInfo.fileStoreId);
+                            const tName = clean(t.name);
+                            const tRel = clean(t.relativePath);
+                            const tPath = cleanPath(t.relativePath);
+                            const tNamePath = cleanPath(t.name);
+
+                            const matchName = Boolean(targetFile && ((tName && targetFile === tName) || (tRel && targetFile === tRel)));
+                            const matchRelative = Boolean(targetRelative && ((tRel && targetRelative === tRel) || (tName && targetRelative === tName)));
+                            const matchPath = Boolean(targetPath && ((tPath && targetPath === tPath) || (tNamePath && targetPath === tNamePath)));
+
+                            if (matchStoreId || matchName || matchRelative || matchPath) {
+                                matchedSong = song;
+                                matchedTab = t;
+                                break;
+                            }
+                        }
+                    }
+                    if (matchedSong) break;
+                }
+
+                if (matchedSong) {
+                    fileInfo.librarySongId = matchedSong.id;
+                    if (matchedTab) {
+                        fileInfo.tabId = fileInfo.tabId || matchedTab.id;
+                        fileInfo.tabName = fileInfo.tabName || matchedTab.name || fileInfo.name;
+                        if (matchedTab.startPage !== undefined && fileInfo.startPage === undefined) {
+                            fileInfo.startPage = matchedTab.startPage;
+                        }
+                        if (matchedTab.endPage !== undefined && fileInfo.endPage === undefined) {
+                            fileInfo.endPage = matchedTab.endPage;
+                        }
+                    }
+                    fileInfo.songTitle = matchedSong.title || fileInfo.songTitle;
+                    fileInfo.artist = matchedSong.artist || fileInfo.artist;
+                    fileInfo.album = matchedSong.album || fileInfo.album;
+                    fileInfo.coverUrl = fileInfo.coverUrl || matchedSong.coverUrl || null;
+                }
+            }
+        } catch (e) {
+            console.warn('[addRecentOpened] Error matching file to library songs:', e);
+        }
+    } else {
+        try {
+            const song = await getSongById(fileInfo.librarySongId);
+            if (!song) {
+                return null;
+            }
+            fileInfo.songTitle = fileInfo.songTitle || song.title;
+            fileInfo.artist = fileInfo.artist || song.artist;
+            fileInfo.album = fileInfo.album || song.album;
+            fileInfo.coverUrl = fileInfo.coverUrl || song.coverUrl || null;
+        } catch (e) {
+            console.warn('[addRecentOpened] Error verifying library song:', e);
+            return null;
+        }
+    }
+
+    if (!fileInfo.librarySongId) {
+        return null;
+    }
+
     const db = await getDB();
-    const id = fileInfo.id || ((fileInfo.librarySongId && fileInfo.tabId) ? `${fileInfo.librarySongId}_tab_${fileInfo.tabId}` : fileInfo.name) || `recent_${Date.now()}`;
+    const id = (fileInfo.librarySongId && fileInfo.tabId)
+        ? `${fileInfo.librarySongId}_tab_${fileInfo.tabId}`
+        : (fileInfo.id || `${fileInfo.librarySongId}_${fileInfo.name || Date.now()}`);
+
     const recent = {
         id,
         name: fileInfo.name,
@@ -858,7 +942,7 @@ export async function addRecentOpened(fileInfo) {
         fileStoreId: fileInfo.fileStoreId || null,
         providerId: fileInfo.providerId || 'local',
         relativePath: fileInfo.relativePath || fileInfo.name,
-        librarySongId: fileInfo.librarySongId || null,
+        librarySongId: fileInfo.librarySongId,
         songTitle: fileInfo.songTitle || fileInfo.name,
         artist: fileInfo.artist || '',
         album: fileInfo.album || '',
@@ -879,11 +963,11 @@ export async function addRecentOpened(fileInfo) {
 }
 
 /**
- * Get list of recents sorted newest first
+ * Get list of recents sorted newest first (only for valid library songs)
  */
 export async function getRecents(limit = 30) {
     const db = await getDB();
-    return new Promise((resolve, reject) => {
+    const rawRecents = await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_RECENTS, 'readonly');
         const store = tx.objectStore(STORE_RECENTS);
         const index = store.index('openedAt');
@@ -892,7 +976,7 @@ export async function getRecents(limit = 30) {
 
         req.onsuccess = (e) => {
             const cursor = e.target.result;
-            if (cursor && results.length < limit) {
+            if (cursor) {
                 results.push(cursor.value);
                 cursor.continue();
             } else {
@@ -901,6 +985,55 @@ export async function getRecents(limit = 30) {
         };
         req.onerror = () => reject(req.error);
     });
+
+    const songCache = new Map();
+    const validRecents = [];
+    const idsToPurge = [];
+
+    for (const r of rawRecents) {
+        if (!r || !r.librarySongId) {
+            if (r?.id) idsToPurge.push(r.id);
+            continue;
+        }
+
+        let song = songCache.get(r.librarySongId);
+        if (song === undefined) {
+            song = await getSongById(r.librarySongId);
+            songCache.set(r.librarySongId, song || null);
+        }
+
+        if (!song) {
+            if (r.id) idsToPurge.push(r.id);
+            continue;
+        }
+
+        if (!r.coverUrl && song.coverUrl) r.coverUrl = song.coverUrl;
+        if (!r.songTitle && song.title) r.songTitle = song.title;
+        if (!r.artist && song.artist) r.artist = song.artist;
+        if (!r.album && song.album) r.album = song.album;
+
+        if (validRecents.length < limit) {
+            validRecents.push(r);
+        }
+    }
+
+    if (idsToPurge.length > 0) {
+        try {
+            await new Promise((resolve) => {
+                const tx = db.transaction(STORE_RECENTS, 'readwrite');
+                const store = tx.objectStore(STORE_RECENTS);
+                for (const id of idsToPurge) {
+                    store.delete(id);
+                }
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => resolve();
+            });
+        } catch (e) {
+            console.warn('[getRecents] Error purging invalid recents:', e);
+        }
+    }
+
+    return validRecents;
 }
 
 /**
@@ -1078,9 +1211,9 @@ export async function importLibraryData(data = {}, { wipe = false } = {}) {
         });
     }
 
-    // 3. Recents
+    // 3. Recents (only library songs)
     for (const recent of recents) {
-        if (!recent || !recent.id) continue;
+        if (!recent || !recent.id || !recent.librarySongId) continue;
         await new Promise((resolve, reject) => {
             const tx = db.transaction(STORE_RECENTS, 'readwrite');
             const store = tx.objectStore(STORE_RECENTS);
