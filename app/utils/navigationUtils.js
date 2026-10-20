@@ -469,15 +469,7 @@ export function setupMouseNavigation(getConfig) {
     const performBack = () => performAppBack(getConfig);
     const performForward = () => performAppForward(getConfig);
 
-    const handleMouseNav = (e) => {
-        // e.button === 3: Browser Back (Mouse 4)
-        // e.button === 4: Browser Forward (Mouse 5)
-        const isBack = (e.button === 3);
-        const isForward = (e.button === 4);
-        if (!isBack && !isForward) return;
-
-        e.preventDefault();
-
+    const triggerNav = (isBack) => {
         // Avoid handling when focused on editable text elements
         const activeEl = document.activeElement;
         const isTextInput = activeEl && (
@@ -494,9 +486,20 @@ export function setupMouseNavigation(getConfig) {
 
         if (isBack) {
             performBack();
-        } else if (isForward) {
+        } else {
             performForward();
         }
+    };
+
+    const handleMouseNav = (e) => {
+        // e.button === 3: Browser Back (Mouse 4)
+        // e.button === 4: Browser Forward (Mouse 5)
+        const isBack = (e.button === 3);
+        const isForward = (e.button === 4);
+        if (!isBack && !isForward) return;
+
+        e.preventDefault();
+        triggerNav(isBack);
     };
 
     const preventMouseNavDefaults = (e) => {
@@ -510,6 +513,11 @@ export function setupMouseNavigation(getConfig) {
     window.addEventListener('mouseup', handleMouseNav, true);
     window.addEventListener('pointerup', preventMouseNavDefaults, true);
     window.addEventListener('auxclick', handleMouseNav, true);
+
+    if (window.__TAURI__?.event?.listen) {
+        window.__TAURI__.event.listen('mouse-nav-back', () => triggerNav(true)).catch(() => {});
+        window.__TAURI__.event.listen('mouse-nav-forward', () => triggerNav(false)).catch(() => {});
+    }
 }
 
 /**
