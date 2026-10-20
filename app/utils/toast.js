@@ -22,13 +22,32 @@ function ensureToastContainer() {
  * @param {'info'|'success'|'warning'|'error'} [type='info'] - Toast style
  * @param {number} [duration=3500] - Duration in ms before auto-dismiss
  */
-export function showToast(message, type = 'info', duration = 3500) {
+export function showToast(message, type = 'info', duration = 3500, id = null) {
     if (typeof document === 'undefined' || !message) return;
 
     const container = ensureToastContainer();
 
+    if (id) {
+        const existing = container.querySelector(`[data-toast-id="${id}"]`);
+        if (existing) {
+            const msgEl = existing.querySelector('.theme-toast-message');
+            if (msgEl) msgEl.textContent = message;
+            if (existing._dismissTimer) clearTimeout(existing._dismissTimer);
+            if (duration > 0) {
+                existing._dismissTimer = setTimeout(() => {
+                    existing.classList.add('theme-toast-hiding');
+                    setTimeout(() => {
+                        if (existing.parentNode) existing.parentNode.removeChild(existing);
+                    }, 250);
+                }, duration);
+            }
+            return;
+        }
+    }
+
     const toast = document.createElement('div');
     toast.className = `theme-toast theme-toast-${type}`;
+    if (id) toast.dataset.toastId = id;
 
     let iconClass = 'bi-info-circle-fill text-info';
     if (type === 'success') iconClass = 'bi-check-circle-fill text-success';
@@ -62,7 +81,7 @@ export function showToast(message, type = 'info', duration = 3500) {
     });
 
     if (duration > 0) {
-        setTimeout(dismiss, duration);
+        toast._dismissTimer = setTimeout(dismiss, duration);
     }
 }
 
