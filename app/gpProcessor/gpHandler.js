@@ -380,16 +380,22 @@ function renderGPPageMode(output) {
     clearOutput(output);
     const pagesPerView = getPagesPerView(true); // true = Guitar Pro mode
 
+    // Measure fretboard dock height if visible so pages and stave blocks fit above it
+    const fretboardDock = document.getElementById('fretboardDock');
+    const isFretboardOpen = document.body.classList.contains('fretboard-open') && fretboardDock && fretboardDock.style.display !== 'none';
+    const fretboardHeight = isFretboardOpen ? (fretboardDock.offsetHeight || 165) : 0;
+
     // Only recalculate if dimensions changed
-    const pageHeight = output.clientHeight - 20;
+    const pageHeight = Math.max(120, output.clientHeight - fretboardHeight - 20);
     const pageWidth = (window.innerWidth - 20) / pagesPerView;
-    const currentDimensions = { pageHeight, pageWidth, pagesPerView };
+    const currentDimensions = { pageHeight, pageWidth, pagesPerView, isFretboardOpen, fretboardHeight };
 
     console.log('[GP Layout Debug] Calculating dimensions:', {
         windowWidth: window.innerWidth,
         pagesPerView,
         calculatedPageWidth: pageWidth,
         outputHeight: output.clientHeight,
+        fretboardHeight,
         calculatedPageHeight: pageHeight
     });
 
@@ -397,7 +403,8 @@ function renderGPPageMode(output) {
     const needsRecalc = !gpState.lastLayoutDimensions ||
         gpState.lastLayoutDimensions.pageHeight !== pageHeight ||
         gpState.lastLayoutDimensions.pageWidth !== pageWidth ||
-        gpState.lastLayoutDimensions.pagesPerView !== pagesPerView;
+        gpState.lastLayoutDimensions.pagesPerView !== pagesPerView ||
+        gpState.lastLayoutDimensions.isFretboardOpen !== isFretboardOpen;
 
     if (needsRecalc) {
         // Park the container in an offscreen element so AlphaTab's resize observer
