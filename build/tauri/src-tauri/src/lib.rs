@@ -85,6 +85,16 @@ async fn open_tab_downloader(
         }
     }
 
+    let adblock_enabled = config.as_ref().map(|c| c.adblock_enabled).unwrap_or(true);
+    let adblock_url = config.as_ref().map(|c| c.adblock_url.as_str());
+    if adblock_enabled {
+        tab_downloader_native::ensure_adblock_loaded(&app, adblock_url).await;
+    } else if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
+        if let Ok(mut g) = state.adblock_userscript.lock() {
+            *g = None;
+        }
+    }
+
     if let Some(main_win) = app.get_window("main") {
         let scale = main_win.scale_factor().unwrap_or(1.0);
         if let Ok(size) = main_win.inner_size() {
@@ -131,6 +141,16 @@ async fn open_tab_downloader(
         }
         if let Ok(mut g) = state.is_open.lock() {
             *g = true;
+        }
+    }
+
+    let adblock_enabled = config.as_ref().map(|c| c.adblock_enabled).unwrap_or(true);
+    let adblock_url = config.as_ref().map(|c| c.adblock_url.as_str());
+    if adblock_enabled {
+        tab_downloader_native::ensure_adblock_loaded(&app, adblock_url).await;
+    } else if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
+        if let Ok(mut g) = state.adblock_userscript.lock() {
+            *g = None;
         }
     }
 

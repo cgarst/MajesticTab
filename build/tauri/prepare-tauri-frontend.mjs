@@ -95,6 +95,7 @@ const allowedRemoteHosts = new Set([
   'www.gprotab.net',
   'songsterr-downloader.com',
   'www.songsterr-downloader.com',
+  'userscripts.adtidy.org',
 ]);
 
 async function copyAsset(source, destination) {
