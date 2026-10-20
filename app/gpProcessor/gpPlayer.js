@@ -555,6 +555,10 @@ export function createCustomCursorHandler(api) {
             }
         },
         placeBeatCursor(beatCursor, beatBounds, startBeatX) {
+            if (beatBounds?.beat && !synthPlayerState.isPlaying) {
+                fretboardController.showBeatsAtCursor(beatBounds.beat);
+            }
+
             const pageModeRadio = document.getElementById('pageModeRadio');
             const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
 
@@ -759,7 +763,6 @@ export function attachAlphaTabApi(api) {
             enableIOSAudioPlayback();
         } else {
             pauseIOSAudioPlayback();
-            fretboardController.clearActiveNotes();
         }
         updateSynthUI();
     });
@@ -782,8 +785,8 @@ export function attachAlphaTabApi(api) {
 
     if (api.beatMouseDown) {
         api.beatMouseDown.on((beat) => {
-            if (!synthPlayerState.isPlaying) {
-                fretboardController.onBeatChanged(beat);
+            if (!synthPlayerState.isPlaying && beat) {
+                fretboardController.showBeatsAtCursor(beat);
             }
         });
     }
