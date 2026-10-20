@@ -1,7 +1,7 @@
 // gpPlayer.js
 // In-app artificial instrument (SoundFont synthesizer) player for Guitar Pro files
 import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
-import { gpState } from './gpHandler.js';
+import { gpState, renderGPPage } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
@@ -257,242 +257,6 @@ export function buildPillVPath(w, h) {
 }
 
 /**
- * Render visual playback position cursor and handle auto-page navigation in Page Mode
- */
-function updatePageModeCursor(currentTick) {
-    if (!currentApi || !currentScore || !synthPlayerState.hasPlayed) {
-        document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
-        return;
-    }
-
-    const pageModeRadio = document.getElementById('pageModeRadio');
-    const isPageMode = pageModeRadio ? pageModeRadio.checked : true;
-    if (!isPageMode) {
-        // In continuous mode, AlphaTab handles its own cursor
-        document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
-        return;
-    }
-
-    const boundsLookup = currentApi.renderer?.boundsLookup;
-    if (!boundsLookup || !boundsLookup.staffSystems || !boundsLookup.staffSystems.length) return;
-
-    // 1. Use the beat AlphaTab reports as playing; raw ticks are on the repeat-unrolled timeline.
-    const playedBeat = playedBeatState.beat;
-    if (!playedBeat) return;
-    if (playedBeatState.shownBeat !== playedBeat) {
-        playedBeatState.shownBeat = playedBeat;
-    }
-    const activeMasterBarIndex = playedBeat.voice.bar.masterBar.index;
-    let tempo = currentScore.tempo || 120;
-    for (let i = activeMasterBarIndex; i >= 0; i--) {
-        const auto = currentScore.masterBars[i].tempoAutomation;
-        if (auto) { tempo = auto.value; break; }
-    }
-    // AlphaTab MIDI resolution is 960 ticks per quarter note
-    const ticksPerMs = (tempo * 960 / 60000) * (currentApi.playbackSpeed || 1);
-    if (activeMasterBarIndex < 0) return;
-
-    // 2. Find which staffSystem contains activeMasterBarIndex
-    let targetStaffSystem = null;
-    let targetStaffSystemIndex = -1;
-    let targetBarBounds = null;
-
-    for (let s = 0; s < boundsLookup.staffSystems.length; s++) {
-        const sys = boundsLookup.staffSystems[s];
-        if (sys.bars) {
-            const foundBar = sys.bars.find(b => b.index === activeMasterBarIndex);
-            if (foundBar) {
-                targetStaffSystem = sys;
-                targetStaffSystemIndex = s;
-                targetBarBounds = foundBar;
-                break;
-            }
-        }
-    }
-
-    if (!targetStaffSystem || targetStaffSystemIndex < 0 || !targetBarBounds) return;
-
-    // 3. Find beat bounds within the bar
-    let targetBeatBounds = null;
-    let nextBeatBounds = null;
-    let beatTicks = 0;
-    if (targetBarBounds.bars && targetBarBounds.bars.length > 0) {
-        const trackBar = targetBarBounds.bars[0];
-        const beats = trackBar.beats || [];
-        const idx = beats.findIndex(b => b.beat === playedBeat);
-        if (idx >= 0) {
-            targetBeatBounds = beats[idx];
-            nextBeatBounds = beats[idx + 1] || null;
-            // playbackDuration of a trailing rest can be shorter than the time left in the bar
-            const barTicks = playedBeat.voice.bar.masterBar.calculateDuration();
-            beatTicks = (nextBeatBounds?.beat?.playbackStart ?? barTicks) - playedBeat.playbackStart;
-        }
-    }
-
-    // 4. Find the matching block in page mode:
-    // Staff systems in AlphaTab map to score blocks. We match the staffSystem's Y position to the original block.
-    const originalBlocks = gpState.canvases[0]?.container ? Array.from(gpState.canvases[0].container.querySelectorAll('div.at-surface.at > div')) : [];
-    let matchedBlockIndex = targetStaffSystemIndex;
-    if (originalBlocks.length > 0) {
-        const sysY = targetStaffSystem.realBounds?.y ?? targetStaffSystem.visualBounds?.y ?? 0;
-        let minDiff = Infinity;
-        originalBlocks.forEach((b, bIdx) => {
-            const bTop = parseFloat(b.style.top || '0');
-            const diff = Math.abs(bTop - sysY);
-            if (diff < minDiff) {
-                minDiff = diff;
-                matchedBlockIndex = bIdx;
-            }
-        });
-    }
-
-    // Auto-advance page if necessary
-    if (gpState.pages && gpState.pages.length) {
-        let accumulatedBlocks = 0;
-        for (let p = 0; p < gpState.pages.length; p++) {
-            const pageBlocks = gpState.pages[p];
-            const pageStart = accumulatedBlocks;
-            const pageEnd = accumulatedBlocks + pageBlocks.length;
-            if (matchedBlockIndex >= pageStart && matchedBlockIndex < pageEnd) {
-                const pagesPerView = getPagesPerView(true);
-                if (p < gpState.currentPageIndex || p >= gpState.currentPageIndex + pagesPerView) {
-                    gpState.currentPageIndex = p;
-                    const output = document.getElementById('output');
-                    const continuousModeRadio = document.getElementById('continuousModeRadio');
-                    import('./gpHandler.js').then(m => {
-                        m.renderGPPage(output, true, continuousModeRadio);
-                    });
-                }
-                break;
-            }
-            accumulatedBlocks += pageBlocks.length;
-        }
-    }
-
-    // 5. Draw / update cursor elements on the visible cloned block in page mode
-    const visibleBlock = document.querySelector(`.alphaTab-gp-content div[data-block-index="${matchedBlockIndex}"]`);
-    
-    // Remove stale page cursors on other blocks
-    document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => {
-        if (!visibleBlock || !visibleBlock.contains(el)) {
-            el.remove();
-        }
-    });
-
-    if (!visibleBlock) return;
-
-    // Ensure cursor elements exist inside visibleBlock
-    let cursorBar = visibleBlock.querySelector('.gp-page-cursor-bar');
-    let cursorBeat = visibleBlock.querySelector('.gp-page-cursor-beat');
-
-    if (!cursorBar) {
-        cursorBar = document.createElement('div');
-        cursorBar.className = 'gp-page-cursor-bar';
-        visibleBlock.appendChild(cursorBar);
-    }
-    if (!cursorBeat) {
-        cursorBeat = document.createElement('div');
-        cursorBeat.className = 'gp-page-cursor-beat gp-reader-cursor';
-        visibleBlock.appendChild(cursorBeat);
-    } else if (!cursorBeat.classList.contains('gp-reader-cursor')) {
-        cursorBeat.classList.add('gp-reader-cursor');
-    }
-
-    const svg = visibleBlock.querySelector('svg');
-    const blockRect = visibleBlock.getBoundingClientRect();
-    const svgRect = svg ? svg.getBoundingClientRect() : null;
-
-    const svgLeftOffset = (svgRect && blockRect.width > 0) ? (svgRect.left - blockRect.left) : 0;
-    const svgTopOffset = (svgRect && blockRect.height > 0) ? (svgRect.top - blockRect.top) : parseFloat(visibleBlock.style.paddingTop || '0');
-
-    // Measure exact physical staff lines inside the rendered SVG
-    let staffTopY = null;
-    let staffHeight = null;
-
-    if (svg) {
-        // Staff lines inside AlphaTab blocks are rect/line/path elements with w > 50 and h < 5
-        const staffElements = [];
-        svg.querySelectorAll('rect, line, path').forEach(el => {
-            try {
-                const b = el.getBBox ? el.getBBox() : null;
-                if (b && b.width > 50 && b.height <= 5) {
-                    staffElements.push(b);
-                }
-            } catch (e) {}
-        });
-
-        if (staffElements.length >= 2) {
-            const minSvgY = Math.min(...staffElements.map(b => b.y));
-            const maxSvgY = Math.max(...staffElements.map(b => b.y + b.height));
-            staffTopY = svgTopOffset + minSvgY - 4;
-            staffHeight = (maxSvgY - minSvgY) + 8;
-        }
-    }
-
-    const trackBar = targetBarBounds.bars?.[0];
-    const trackStave = trackBar?.staves?.[0];
-    const staffBounds = trackStave?.visualBounds || trackBar?.visualBounds || targetBarBounds.visualBounds;
-    const sysRealY = targetStaffSystem.realBounds?.y ?? targetStaffSystem.visualBounds?.y ?? 0;
-
-    if (staffBounds) {
-        const staveTabBounds = trackStave?.tabStaffBounds || trackStave?.standardStaffBounds;
-        const barX = svgLeftOffset + staffBounds.x;
-        const defaultBarY = svgTopOffset + ((staveTabBounds?.y ?? staffBounds.y) - sysRealY);
-        const barY = staffTopY !== null ? staffTopY : defaultBarY;
-        const barW = staffBounds.w;
-        const barH = staffHeight !== null ? staffHeight : (staveTabBounds?.h ?? staffBounds.h);
-
-        cursorBar.style.display = 'none';
-
-        // Beat cursor spans staff lines as a stadium outline with pointed V-bottom
-        if (targetBeatBounds) {
-            const beatVisual = targetBeatBounds.visualBounds || targetBeatBounds.realBounds;
-            const startX = targetBeatBounds.onNotesX ?? (beatVisual ? beatVisual.x : staffBounds.x);
-            const endX = nextBeatBounds
-                ? (nextBeatBounds.onNotesX ?? nextBeatBounds.visualBounds?.x ?? startX)
-                : (staffBounds.x + staffBounds.w);
-
-            const topPadding = 15;
-            const bottomPadding = 12;
-            const cursorY = barY - topPadding;
-            const cursorH = barH + topPadding + bottomPadding;
-
-            let svg = cursorBeat.querySelector('svg');
-            if (!svg) {
-                cursorBeat.innerHTML = `<svg class="gp-reader-svg" width="${READER_CURSOR_WIDTH}" height="${cursorH}" viewBox="0 0 ${READER_CURSOR_WIDTH} ${cursorH}"><path class="gp-reader-path" d="" /></svg>`;
-                svg = cursorBeat.querySelector('svg');
-            }
-            const path = cursorBeat.querySelector('.gp-reader-path');
-            if (path && (!cursorBeat._lastH || Math.abs(cursorBeat._lastH - cursorH) >= 1)) {
-                cursorBeat._lastH = cursorH;
-                svg.setAttribute('width', `${READER_CURSOR_WIDTH}`);
-                svg.setAttribute('height', `${cursorH}`);
-                svg.setAttribute('viewBox', `0 0 ${READER_CURSOR_WIDTH} ${cursorH}`);
-                path.setAttribute('d', buildPillVPath(READER_CURSOR_WIDTH, cursorH));
-            }
-
-            // Start one linear animation per beat so motion isn't restarted on every position update
-            if (cursorBeat._animBeat !== playedBeat) {
-                cursorBeat._animBeat = playedBeat;
-                const beatMs = beatTicks / ticksPerMs;
-                cursorBeat.style.display = 'block';
-                cursorBeat.style.transition = 'none';
-                cursorBeat.style.left = `${svgLeftOffset + startX}px`;
-                void cursorBeat.offsetWidth;
-                cursorBeat.style.transition = `left ${beatMs}ms linear`;
-                cursorBeat.style.left = `${svgLeftOffset + endX}px`;
-            }
-            cursorBeat.style.top = `${cursorY}px`;
-            cursorBeat.style.width = `${READER_CURSOR_WIDTH}px`;
-            cursorBeat.style.height = `${cursorH}px`;
-            cursorBeat.style.display = 'block';
-        } else {
-            cursorBeat.style.display = 'none';
-        }
-    }
-}
-
-/**
  * Handle auto-scrolling with quick snap and read-ahead in Continuous Mode
  */
 export function updateContinuousPlaybackScroll(currentTick) {
@@ -593,11 +357,12 @@ export function updateContinuousPlaybackScroll(currentTick) {
 }
 
 /**
- * Create a custom cursor handler for AlphaTab in Scroll Mode
+ * Create a custom cursor handler for AlphaTab in Scroll and Page Modes
  * - Suppresses the whole-measure highlight box
  * - Replaces the beat line with a Line Reader tool shape
  *   (vertically oriented stadium / pill outline with pointed V-shaped bottom)
  * - Restricts bounds to physical staff lines to prevent bleeding into adjacent systems
+ * - Handles smooth transitions between measures and across multi-track scores in Page Mode
  */
 export function createCustomCursorHandler(api) {
     let readerEl = null;
@@ -635,6 +400,136 @@ export function createCustomCursorHandler(api) {
         }
     }
 
+    function getPageCursorContext(beatBounds) {
+        const masterBounds = beatBounds?.barBounds?.masterBarBounds;
+        if (!masterBounds) return null;
+
+        const sysBounds = masterBounds.staffSystemBounds?.realBounds 
+                       || masterBounds.staffSystemBounds?.visualBounds;
+        const sysY = sysBounds?.y ?? 0;
+
+        const originalBlocks = gpState.canvases[0]?.container 
+            ? Array.from(gpState.canvases[0].container.querySelectorAll('div.at-surface.at > div')) 
+            : [];
+        let matchedBlockIndex = -1;
+        if (originalBlocks.length > 0) {
+            let minDiff = Infinity;
+            originalBlocks.forEach((b, bIdx) => {
+                const bTop = parseFloat(b.style.top || '0');
+                const diff = Math.abs(bTop - sysY);
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    matchedBlockIndex = bIdx;
+                }
+            });
+        }
+        if (matchedBlockIndex < 0) return null;
+
+        // Auto-advance page if necessary
+        if (gpState.pages && gpState.pages.length) {
+            let targetPage = -1;
+            for (let p = 0; p < gpState.pages.length; p++) {
+                if (gpState.pages[p].some(b => b.dataset.blockIndex === String(matchedBlockIndex))) {
+                    targetPage = p;
+                    break;
+                }
+            }
+            if (targetPage >= 0) {
+                const pagesPerView = getPagesPerView(true);
+                if (targetPage < gpState.currentPageIndex || targetPage >= gpState.currentPageIndex + pagesPerView) {
+                    gpState.currentPageIndex = targetPage;
+                    const output = document.getElementById('output');
+                    const continuousModeRadio = document.getElementById('continuousModeRadio');
+                    renderGPPage(output, true, continuousModeRadio);
+                }
+            }
+        }
+
+        const visibleBlock = document.querySelector(`.alphaTab-gp-content div[data-block-index="${matchedBlockIndex}"]`);
+        if (!visibleBlock) return null;
+
+        // Remove stale page cursors on other blocks
+        document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => {
+            if (!visibleBlock.contains(el)) el.remove();
+        });
+
+        let cursorBeat = visibleBlock.querySelector('.gp-page-cursor-beat');
+        let isNew = false;
+        if (!cursorBeat) {
+            cursorBeat = document.createElement('div');
+            cursorBeat.className = 'gp-page-cursor-beat gp-reader-cursor';
+            visibleBlock.appendChild(cursorBeat);
+            isNew = true;
+        }
+
+        const svg = visibleBlock.querySelector('svg');
+        const blockRect = visibleBlock.getBoundingClientRect();
+        const svgRect = svg ? svg.getBoundingClientRect() : null;
+        const svgLeftOffset = (svgRect && blockRect.width > 0) ? (svgRect.left - blockRect.left) : 0;
+        const svgTopOffset = (svgRect && blockRect.height > 0) ? (svgRect.top - blockRect.top) : parseFloat(visibleBlock.style.paddingTop || '0');
+
+        let staffTopY = visibleBlock._cachedStaffTopY;
+        let staffHeight = visibleBlock._cachedStaffHeight;
+        if (staffTopY === undefined && svg) {
+            const staffElements = [];
+            svg.querySelectorAll('rect, line, path').forEach(el => {
+                try {
+                    const b = el.getBBox ? el.getBBox() : null;
+                    if (b && b.width > 50 && b.height <= 5) {
+                        staffElements.push(b);
+                    }
+                } catch (e) {}
+            });
+            if (staffElements.length >= 2) {
+                const minSvgY = Math.min(...staffElements.map(b => b.y));
+                const maxSvgY = Math.max(...staffElements.map(b => b.y + b.height));
+                staffTopY = svgTopOffset + minSvgY - 4;
+                staffHeight = (maxSvgY - minSvgY) + 8;
+            } else {
+                staffTopY = null;
+                staffHeight = null;
+            }
+            visibleBlock._cachedStaffTopY = staffTopY;
+            visibleBlock._cachedStaffHeight = staffHeight;
+        }
+
+        const lineBounds = masterBounds.lineAlignedBounds || masterBounds.visualBounds;
+        const sysRealY = sysBounds?.y ?? 0;
+        const defaultBarY = svgTopOffset + ((lineBounds?.y ?? 0) - sysRealY);
+        const barY = (staffTopY !== null && staffTopY !== undefined) ? staffTopY : defaultBarY;
+        const barH = (staffHeight !== null && staffHeight !== undefined) ? staffHeight : (lineBounds?.h ?? 100);
+
+        const topPadding = 15;
+        const bottomPadding = 12;
+        const cursorY = barY - topPadding;
+        const cursorH = barH + topPadding + bottomPadding;
+
+        let cursorSvg = cursorBeat.querySelector('svg');
+        if (!cursorSvg) {
+            cursorBeat.innerHTML = `<svg class="gp-reader-svg" width="${READER_CURSOR_WIDTH}" height="${cursorH}" viewBox="0 0 ${READER_CURSOR_WIDTH} ${cursorH}"><path class="gp-reader-path" d="" /></svg>`;
+            cursorSvg = cursorBeat.querySelector('svg');
+        }
+        const path = cursorBeat.querySelector('.gp-reader-path');
+        if (path && (!cursorBeat._lastH || Math.abs(cursorBeat._lastH - cursorH) >= 1)) {
+            cursorBeat._lastH = cursorH;
+            cursorSvg.setAttribute('width', `${READER_CURSOR_WIDTH}`);
+            cursorSvg.setAttribute('height', `${cursorH}`);
+            cursorSvg.setAttribute('viewBox', `0 0 ${READER_CURSOR_WIDTH} ${cursorH}`);
+            path.setAttribute('d', buildPillVPath(READER_CURSOR_WIDTH, cursorH));
+        }
+
+        cursorBeat.style.top = `${cursorY}px`;
+        cursorBeat.style.width = `${READER_CURSOR_WIDTH}px`;
+        cursorBeat.style.height = `${cursorH}px`;
+        cursorBeat.style.display = 'block';
+
+        const scaleX = (svgRect && svg?.viewBox?.baseVal?.width > 0)
+            ? (svgRect.width / svg.viewBox.baseVal.width)
+            : 1;
+
+        return { cursorBeat, svgLeftOffset, scaleX, isNew };
+    }
+
     return {
         onAttach(cursors) {
             getOrCreateReader();
@@ -644,11 +539,13 @@ export function createCustomCursorHandler(api) {
                 readerEl.remove();
                 readerEl = null;
             }
+            document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
         },
         reset() {
             if (readerEl) {
                 readerEl.style.display = 'none';
             }
+            document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
         },
         placeBarCursor(barCursor, beatBounds) {
             // Measure highlight box is removed in favor of the line reader tool
@@ -657,6 +554,24 @@ export function createCustomCursorHandler(api) {
             }
         },
         placeBeatCursor(beatCursor, beatBounds, startBeatX) {
+            const pageModeRadio = document.getElementById('pageModeRadio');
+            const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
+
+            if (isPageMode) {
+                if (readerEl) readerEl.style.display = 'none';
+                const ctx = getPageCursorContext(beatBounds);
+                if (ctx) {
+                    const posX = ctx.svgLeftOffset + (startBeatX * ctx.scaleX);
+                    ctx.cursorBeat.style.transition = 'none';
+                    ctx.cursorBeat.style.left = `${posX}px`;
+                    void ctx.cursorBeat.offsetWidth; // Force reflow
+                    ctx.cursorBeat._placed = true;
+                }
+                return;
+            }
+
+            document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
+
             const masterBounds = beatBounds?.barBounds?.masterBarBounds;
             // Use lineAlignedBounds to strictly bound to physical staff lines
             const lineBounds = masterBounds?.lineAlignedBounds 
@@ -697,9 +612,30 @@ export function createCustomCursorHandler(api) {
             }
         },
         transitionBeatCursor(beatCursor, beatBounds, startBeatX, nextBeatX, duration, cursorMode) {
+            const pageModeRadio = document.getElementById('pageModeRadio');
+            const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
+
             const factor = (cursorMode === alphaTab.midi?.MidiTickLookupFindBeatResultCursorMode?.ToNextBext) ? 2 : 1;
             const targetX = startBeatX + (nextBeatX - startBeatX) * factor;
             const animDuration = duration * factor;
+
+            if (isPageMode) {
+                if (readerEl) readerEl.style.display = 'none';
+                const ctx = getPageCursorContext(beatBounds);
+                if (ctx) {
+                    const posX = ctx.svgLeftOffset + (targetX * ctx.scaleX);
+                    if (!ctx.cursorBeat._placed || ctx.isNew) {
+                        const startX = ctx.svgLeftOffset + (startBeatX * ctx.scaleX);
+                        ctx.cursorBeat.style.transition = 'none';
+                        ctx.cursorBeat.style.left = `${startX}px`;
+                        void ctx.cursorBeat.offsetWidth;
+                        ctx.cursorBeat._placed = true;
+                    }
+                    ctx.cursorBeat.style.transition = `left ${animDuration}ms linear`;
+                    ctx.cursorBeat.style.left = `${posX}px`;
+                }
+                return;
+            }
 
             const reader = getOrCreateReader();
             if (reader) {
@@ -843,7 +779,6 @@ export function attachAlphaTabApi(api) {
         }
 
         updateSynthUI();
-        updatePageModeCursor(args.currentTick);
         updateContinuousPlaybackScroll(args.currentTick);
     });
 
