@@ -83,12 +83,6 @@ class FretboardController {
             this.toggle();
         });
 
-        // Notation options panel switch
-        const scoreOptionsSwitch = document.getElementById('scoreOptionsFretboardSwitch');
-        scoreOptionsSwitch?.addEventListener('change', (e) => {
-            this.toggle(e.target.checked);
-        });
-
         // Dock close button
         const closeBtn = document.getElementById('fretboardCloseBtn');
         closeBtn?.addEventListener('click', () => {
@@ -157,14 +151,12 @@ class FretboardController {
     syncUIState() {
         const dock = document.getElementById('fretboardDock');
         const topBarToggle = document.getElementById('fretboardToggleBtn');
-        const scoreOptionsSwitch = document.getElementById('scoreOptionsFretboardSwitch');
 
         if (this.isOpen && this.isScoreAvailable) {
             dock?.style.setProperty('display', 'block');
             dock?.classList.remove('is-hidden');
             document.body.classList.add('fretboard-open');
             topBarToggle?.classList.add('active');
-            if (scoreOptionsSwitch) scoreOptionsSwitch.checked = true;
             if (this.lastBeatNotes?.length) {
                 this.view?.updateActiveNotes(this.lastBeatNotes, this.displayMode);
             } else {
@@ -179,7 +171,6 @@ class FretboardController {
             }, 250);
             document.body.classList.remove('fretboard-open');
             topBarToggle?.classList.remove('active');
-            if (scoreOptionsSwitch) scoreOptionsSwitch.checked = false;
             this.view?.clearActiveNotes();
         }
     }
@@ -283,10 +274,7 @@ class FretboardController {
         this.isScoreAvailable = Boolean(isAvailable);
 
         const pill = document.getElementById('fretboardPill');
-        const scoreSection = document.getElementById('scoreOptionsFretboardSection');
-
         if (pill) pill.style.display = this.isScoreAvailable ? '' : 'none';
-        if (scoreSection) scoreSection.style.display = this.isScoreAvailable ? '' : 'none';
 
         if (this.isScoreAvailable) {
             if (this.isOpen) {
