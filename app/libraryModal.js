@@ -22,6 +22,7 @@ import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState } from './gpProcessor/gpPlayer.js';
+import { fretboardController } from './fretboard/fretboardController.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -431,6 +432,13 @@ export async function openLibraryModal(initialView = 'library') {
     const mobileDock = document.getElementById('mobilePlaybackDock');
     if (mobileDock) mobileDock.style.display = 'none';
     document.body.classList.add('library-view-active');
+
+    // Fretboard should go away when we go back to library
+    try {
+        if (fretboardController?.isOpen) {
+            fretboardController.toggle(false);
+        }
+    } catch (_) {}
 
     if (returnBtn) {
         if (currentOpen && (currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name)) {
