@@ -414,20 +414,68 @@ class FretboardController {
             return;
         }
 
-        // Multiple tracks rendered simultaneously
+        // Multiple tracks rendered simultaneously: show colors only, names in a popup
         legendContainer.style.display = 'inline-flex';
-        const chipsHtml = this.visibleTracks.map((t, idx) => {
+        const dotsHtml = this.visibleTracks.map((t, idx) => {
+            const color = TRACK_PALETTE[idx % TRACK_PALETTE.length];
+            return `<span class="track-chip-dot" style="--track-color: ${color};"></span>`;
+        }).join('');
+
+        legendContainer.innerHTML = `
+            <button type="button" class="fretboard-track-colors-btn" id="fretboardTrackColorsBtn" title="Show track colors" aria-label="Show track colors">
+                ${dotsHtml}
+            </button>
+        `;
+        legendContainer.querySelector('#fretboardTrackColorsBtn')
+            ?.addEventListener('click', () => this.showTrackColorsPopup());
+    }
+
+    /**
+     * Show a popup listing every visible track with its fretboard color
+     */
+    showTrackColorsPopup() {
+        let modal = document.getElementById('fretboardTrackColorsModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'fretboardTrackColorsModal';
+            modal.className = 'theme-modal-backdrop';
+            modal.setAttribute('role', 'dialog');
+            modal.setAttribute('aria-modal', 'true');
+            modal.innerHTML = `
+                <div class="theme-modal-card" style="max-width: 420px;">
+                    <div class="theme-modal-header">
+                        <div class="theme-modal-titles">
+                            <h6 class="mb-0 fw-bold text-white">Track colors</h6>
+                        </div>
+                        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" aria-label="Close modal">
+                            <i class="bi-x-lg"></i>
+                        </button>
+                    </div>
+                    <div class="theme-modal-body p-3">
+                        <div class="fretboard-track-color-list d-flex flex-column gap-2"></div>
+                    </div>
+                </div>
+            `;
+            const close = () => { modal.style.display = 'none'; };
+            modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+            modal.querySelector('.theme-modal-close-btn').addEventListener('click', close);
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && modal.style.display === 'flex') close();
+            });
+            document.body.appendChild(modal);
+        }
+        const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        modal.querySelector('.fretboard-track-color-list').innerHTML = this.visibleTracks.map((t, idx) => {
             const color = TRACK_PALETTE[idx % TRACK_PALETTE.length];
             const name = t.name || `Track ${t.index + 1}`;
             return `
-                <span class="fretboard-track-chip" style="--track-color: ${color};" title="${name}">
-                    <span class="track-chip-dot"></span>
-                    <span class="track-chip-name">${name}</span>
-                </span>
+                <div class="fretboard-track-color-row d-flex align-items-center gap-3">
+                    <span class="track-chip-dot" style="--track-color: ${color}; width: 14px; height: 14px;"></span>
+                    <span class="text-white">${esc(name)}</span>
+                </div>
             `;
         }).join('');
-
-        legendContainer.innerHTML = chipsHtml;
+        modal.style.display = 'flex';
     }
 
     /**
