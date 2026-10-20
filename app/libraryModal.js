@@ -23,7 +23,8 @@ import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState } from './gpProcessor/gpPlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
-import { renderReferenceLibraryView } from './referenceLibrary.js';
+import { renderReferenceLibraryView, getActiveReferenceTab } from './referenceLibrary.js';
+import { updateUrl, clearUrl } from './utils/urlRouter.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents', 'reference'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -320,6 +321,10 @@ export function isLibraryOpen() {
     return page && page.style.display !== 'none';
 }
 
+export function getActiveLibraryView() {
+    return activeView;
+}
+
 let libraryTouchBlurInitialized = false;
 
 function blurActiveLibraryElement(page, onlyNonInputs = false) {
@@ -414,6 +419,11 @@ export async function openLibraryModal(initialView = 'library') {
         viewHistory = [];
     }
     activeView = initialView;
+    if (initialView === 'reference') {
+        updateUrl('reference', getActiveReferenceTab(), false);
+    } else if (initialView === 'library' || initialView === 'recents') {
+        updateUrl(initialView, null, false);
+    }
 
     let page = document.getElementById('libraryPage');
     if (!page) {
@@ -482,6 +492,7 @@ export function closeLibraryModal(force = false) {
 
     if (force || currentOpen) {
         if (page) page.style.display = 'none';
+        clearUrl();
         const mainContent = document.getElementById('mainContent');
         if (mainContent) mainContent.style.display = '';
 
@@ -616,11 +627,20 @@ export async function renderLibraryModal() {
     await renderView();
 }
 
+export async function switchLibraryView(view, pushHistory = true) {
+    await switchView(view, pushHistory);
+}
+
 async function switchView(view, pushHistory = true) {
     if (pushHistory && activeView !== view) {
         pushLibraryNavigationState();
     }
     activeView = view;
+    if (view === 'reference') {
+        updateUrl('reference', getActiveReferenceTab());
+    } else if (view === 'library' || view === 'recents') {
+        updateUrl(view);
+    }
     await renderLibraryModal();
 }
 
