@@ -79,12 +79,12 @@ export const THEMES = [
   {
     id: 'Snow White',
     name: 'Snow White',
-    subtitle: 'Gloss Arctic White & Obsidian',
-    gradient: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #1e293b 100%)',
-    bg: '#090a0f',
-    accent: '#ffffff',
-    secondary: '#cbd5e1',
-    colorway: ['#ffffff', '#f1f5f9', '#cbd5e1', '#64748b', '#1e293b', '#090a0f']
+    subtitle: 'Bright Arctic Light Mode',
+    gradient: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 55%, #334155 100%)',
+    bg: '#ffffff',
+    accent: '#334155',
+    secondary: '#64748b',
+    colorway: ['#ffffff', '#f1f5f9', '#cbd5e1', '#64748b', '#334155', '#0f172a']
   }
 ];
 
