@@ -97,6 +97,10 @@ const allowedRemoteHosts = new Set([
   'www.gprotab.net',
   'songsterr-downloader.com',
   'www.songsterr-downloader.com',
+  'classtab.org',
+  'www.classtab.org',
+  'google.com',
+  'www.google.com',
   'userscripts.adtidy.org',
 ]);
 

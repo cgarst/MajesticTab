@@ -268,7 +268,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         const href = (a.getAttribute('href') || a.href || '').toLowerCase();
         if (href.startsWith('javascript:') || href === '#' || href === '') return false;
 
-        const isTabFile = /\.(gp\d?|gpx|pdf|mid|midi|cap)(\?|$)/i.test(href);
+        const isTabFile = /\.(gp\d?|gpx|pdf|txt|mid|midi|cap)(\?|$)/i.test(href);
         const isDownloadEndpoint = href.includes('download') || href.includes('action=download') || href.includes('get_tab');
         const hasDownloadAttr = a.hasAttribute('download');
         const textAndClasses = ((a.innerText || a.textContent || '') + ' ' + (a.getAttribute('title') || '') + ' ' + (a.getAttribute('aria-label') || '') + ' ' + (a.className || '')).toLowerCase();
@@ -294,7 +294,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 
             // If it's HTML without an attachment header and doesn't end in a tab extension, it's an intermediate page -> navigate to it
             const href = (a.getAttribute('href') || a.href || '').toLowerCase();
-            const isTabExt = /\.(gp\d?|gpx|pdf|mid|midi|cap)(\?|$)/i.test(href);
+            const isTabExt = /\.(gp\d?|gpx|pdf|txt|mid|midi|cap)(\?|$)/i.test(href);
             if (contentType.includes('text/html') && !disp.includes('attachment') && !isTabExt) {
                 window.location.href = a.href;
                 return true;
@@ -551,6 +551,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 if (source.id === 'metaltabs') return 'https://metaltabs.org/';
                 if (source.id === 'gprotab') return 'https://gprotab.net/';
                 if (source.id === 'songsterr') return 'https://www.songsterr-downloader.com/';
+                if (source.id === 'classtab') return 'https://www.classtab.org/';
                 if (source.defaultUrl) return source.defaultUrl.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
                 if (template) {
                     try {
@@ -583,6 +584,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             if (h.includes('metaltabs.org')) return 'metaltabs';
             if (h.includes('gprotab.net')) return 'gprotab';
             if (h.includes('songsterr-downloader.com')) return 'songsterr';
+            if (h.includes('classtab.org')) return 'classtab';
             for (let i = 0; i < sources.length; i++) {
                 const s = sources[i];
                 try {
@@ -2188,6 +2190,8 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
                             } else if s.id == "gprotab" && host.contains("gprotab.net") {
                                 true
                             } else if s.id == "songsterr" && host.contains("songsterr-downloader.com") {
+                                true
+                            } else if s.id == "classtab" && host.contains("classtab.org") {
                                 true
                             } else if let Ok(u) = tauri::Url::parse(if !s.default_url.is_empty() { &s.default_url } else { &s.url_template }) {
                                 u.host_str().map(|h| host.contains(h)).unwrap_or(false)
