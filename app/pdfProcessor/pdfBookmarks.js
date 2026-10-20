@@ -127,6 +127,8 @@ export function updatePdfBookmarksPanelPosition() {
 
     panel.classList.remove('popup-from-bottom');
     panel.style.bottom = 'auto';
+    panel.style.right = 'auto';
+    panel.style.width = 'min(380px, calc(100vw - 24px))';
     if (!toggleBtn) return;
 
     const rect = toggleBtn.getBoundingClientRect();
@@ -158,6 +160,11 @@ export function updateBookmarkButtonIcon() {
         btn.classList.add('bookmarked');
     } else {
         btn.classList.remove('bookmarked');
+    }
+
+    const nameInput = document.getElementById('pdfBookmarkNameInput');
+    if (nameInput) {
+        nameInput.placeholder = `Name for page ${currentPage + 1} (optional)`;
     }
 
     const addLabel = document.getElementById('pdfAddBookmarkLabel');
@@ -217,12 +224,54 @@ export function renderBookmarksList() {
             rightWrapper.className = 'd-flex align-items-center gap-1 flex-shrink-0 ms-2';
             rightWrapper.innerHTML = `
                 <span class="badge bg-secondary-subtle text-muted" style="font-size: 0.68rem;">p. ${bm.pageIndex + 1}</span>
+                <button type="button" class="btn btn-sm pdf-bookmark-delete-btn pdf-bookmark-edit-btn" title="Rename bookmark">
+                    <i class="bi-pencil" style="font-size: 0.72rem;"></i>
+                </button>
                 <button type="button" class="btn btn-sm pdf-bookmark-delete-btn" title="Delete bookmark">
                     <i class="bi-trash3" style="font-size: 0.72rem;"></i>
                 </button>
             `;
 
-            const deleteBtn = rightWrapper.querySelector('.pdf-bookmark-delete-btn');
+            const editBtn = rightWrapper.querySelector('.pdf-bookmark-edit-btn');
+            editBtn?.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const titleSpan = targetWrapper.querySelector('.pdf-bookmark-title');
+                if (!titleSpan || titleSpan.querySelector('input')) return;
+                const oldTitle = bm.title;
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.className = 'form-control form-control-sm py-0 px-1';
+                input.style.fontSize = '0.78rem';
+                input.style.height = '22px';
+                input.value = oldTitle;
+                titleSpan.textContent = '';
+                titleSpan.appendChild(input);
+                input.focus();
+                input.select();
+
+                const saveEdit = () => {
+                    const newTitle = input.value.trim() || oldTitle;
+                    bm.title = newTitle;
+                    saveUserBookmarks(bookmarksState.file, bookmarksState.userBookmarks);
+                    renderBookmarksList();
+                };
+
+                input.addEventListener('keydown', (ev) => {
+                    if (ev.key === 'Enter') {
+                        ev.stopPropagation();
+                        saveEdit();
+                    } else if (ev.key === 'Escape') {
+                        ev.stopPropagation();
+                        renderBookmarksList();
+                    }
+                });
+                input.addEventListener('blur', () => {
+                    saveEdit();
+                });
+                input.addEventListener('click', (ev) => ev.stopPropagation());
+            });
+
+            const deleteBtn = rightWrapper.querySelector('.pdf-bookmark-delete-btn:not(.pdf-bookmark-edit-btn)');
             deleteBtn?.addEventListener('click', (e) => {
                 e.stopPropagation();
                 removeBookmark(bm.id);
@@ -295,14 +344,20 @@ function navigateToPage(pageIndex) {
 export function addBookmarkForCurrentPage(customTitle = null) {
     const pageIndex = bookmarksState.currentPageIndex;
     const defaultTitle = `Page ${pageIndex + 1}`;
-    let title = customTitle;
+    let title = (customTitle && typeof customTitle === 'string') ? customTitle.trim() : '';
 
-    if (title === null) {
-        title = window.prompt(`Bookmark title for Page ${pageIndex + 1}:`, defaultTitle);
-        if (title === null) return; // User cancelled prompt
+    if (!title) {
+        const nameInput = document.getElementById('pdfBookmarkNameInput');
+        if (nameInput && nameInput.value.trim()) {
+            title = nameInput.value.trim();
+            nameInput.value = '';
+        }
     }
 
-    title = (title || '').trim() || defaultTitle;
+    if (!title) {
+        title = defaultTitle;
+    }
+
     const newBookmark = {
         id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         pageIndex,
@@ -423,6 +478,7 @@ export function initPdfBookmarksUI() {
     const toggleBtn = document.getElementById('pdfBookmarksBtn');
     const closeBtn = document.getElementById('pdfBookmarksPanelCloseBtn');
     const addBtn = document.getElementById('pdfAddBookmarkBtn');
+    const nameInput = document.getElementById('pdfBookmarkNameInput');
     const scoreOptionsBookmarksBtn = document.getElementById('scoreOptionsBookmarksBtn');
 
     toggleBtn?.addEventListener('click', (e) => {
@@ -435,9 +491,26 @@ export function initPdfBookmarksUI() {
         togglePdfBookmarksPanel(false);
     });
 
+    const triggerAdd = () => {
+        const val = nameInput ? nameInput.value.trim() : '';
+        addBookmarkForCurrentPage(val || null);
+        if (nameInput) {
+            nameInput.value = '';
+            nameInput.blur();
+        }
+    };
+
     addBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
-        addBookmarkForCurrentPage();
+        triggerAdd();
+    });
+
+    nameInput?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            triggerAdd();
+        }
     });
 
     scoreOptionsBookmarksBtn?.addEventListener('click', (e) => {
