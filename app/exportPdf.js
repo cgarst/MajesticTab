@@ -288,14 +288,17 @@ export function setupExportPDFButton() {
   exportBtn.addEventListener('click', async () => {
     const currentFile = getCurrentFile();
     const hasGP = Boolean(gpState.canvases[0]?.container);
+    const isPdf = currentFile?.name?.toLowerCase().endsWith('.pdf');
+    const condenseCheckbox = document.getElementById('condensePdfMode');
+    const isCondensedPdf = isPdf && Boolean(condenseCheckbox?.checked);
 
-    if (!hasGP) {
-      showToast('A Guitar Pro file is not currently opened.', 'warning');
+    if (!hasGP && !isCondensedPdf) {
+      showToast('A Guitar Pro file or condensed PDF is not currently opened.', 'warning');
       return;
     }
 
     const baseName = currentFile?.name ? currentFile.name.replace(/\.[^/.]+$/, '') : 'MajesticTab';
-    const filename = `${baseName}.pdf`;
+    const filename = `${baseName}${isCondensedPdf ? '-condensed' : ''}.pdf`;
 
     if (progressContainer) progressContainer.style.display = 'block';
     if (progressBar) {
@@ -305,7 +308,17 @@ export function setupExportPDFButton() {
 
     try {
       const { jsPDF } = window.jspdf;
-      await exportGPToPDF(jsPDF, progressContainer, progressBar, filename);
+      if (hasGP) {
+        await exportGPToPDF(jsPDF, progressContainer, progressBar, filename);
+      } else if (isCondensedPdf) {
+        const canvases = getCondensedCanvases();
+        if (!canvases || canvases.length === 0) {
+          showToast('No condensed pages available to export.', 'warning');
+          return;
+        }
+        await exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar, filename);
+        showToast('PDF exported successfully.', 'success');
+      }
     } catch (err) {
       console.error('Error during PDF export:', err);
       showToast('An error occurred while generating the PDF.', 'error');

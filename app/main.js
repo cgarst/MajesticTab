@@ -471,6 +471,10 @@ function setupSettings() {
 
     condensePdfMode?.addEventListener('change', () => {
         localStorage.setItem('condensePdfMode', condensePdfMode.checked);
+        const exportPdfBtn = document.getElementById('exportPDFBtn');
+        if (exportPdfBtn && currentFile && isFileType(currentFile, ['pdf'])) {
+            exportPdfBtn.style.display = condensePdfMode.checked ? '' : 'none';
+        }
         if (currentFile && isFileType(currentFile, ['pdf'])) {
             loadFile(currentFile, { hideMenu: false }); // Reload current file with new settings
         }

@@ -948,7 +948,8 @@ export function showScoreOptions(fileType = 'gp') {
         if (notationSection) notationSection.style.display = 'none';
         if (tracksSection) tracksSection.style.display = 'none';
         if (pdfSection) pdfSection.style.display = '';
-        if (exportPdfBtn) exportPdfBtn.style.display = 'none';
+        const condensePdfCheckbox = document.getElementById('condensePdfMode');
+        if (exportPdfBtn) exportPdfBtn.style.display = (condensePdfCheckbox && condensePdfCheckbox.checked) ? '' : 'none';
     } else {
         // txt or other
         if (notationSection) notationSection.style.display = 'none';
