@@ -298,49 +298,6 @@ body.library-view-active .fretboard-dock {
   fill: var(--text-primary);
 }
 
-/* Vibrating Guitar String Layer (Oscillates from finger/nut to bridge) */
-@keyframes fretboard-string-vibrate-1 {
-  0% { transform: translateY(0); opacity: 0.95; }
-  25% { transform: translateY(-1.2px); opacity: 1; }
-  50% { transform: translateY(1.0px); opacity: 0.95; }
-  75% { transform: translateY(-0.8px); opacity: 1; }
-  100% { transform: translateY(0); opacity: 0.95; }
-}
-
-@keyframes fretboard-string-vibrate-2 {
-  0% { transform: translateY(0); opacity: 0.95; }
-  25% { transform: translateY(1.2px); opacity: 1; }
-  50% { transform: translateY(-1.0px); opacity: 0.95; }
-  75% { transform: translateY(0.8px); opacity: 1; }
-  100% { transform: translateY(0); opacity: 0.95; }
-}
-
-.vibrating-string-node {
-  pointer-events: none;
-}
-
-.vibrating-string-node.is-vibrating .vibrating-string-core,
-.vibrating-string-node.is-vibrating .vibrating-string-harmonic {
-  animation: fretboard-string-vibrate-1 0.12s infinite linear;
-}
-
-.vibrating-string-node.is-vibrating-alt .vibrating-string-core,
-.vibrating-string-node.is-vibrating-alt .vibrating-string-harmonic {
-  animation: fretboard-string-vibrate-2 0.12s infinite linear;
-}
-
-.vibrating-string-glow {
-  filter: drop-shadow(0 0 5px var(--accent-glow));
-}
-
-.vibrating-string-core {
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.7));
-}
-
-.vibrating-string-harmonic {
-  animation-duration: 0.07s !important;
-}
-
 /* Guitar Bridge Saddles (Picking Side) */
 .fretboard-bridge-saddle {
   fill: var(--border-prominent);
