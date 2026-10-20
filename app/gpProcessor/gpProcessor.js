@@ -175,15 +175,25 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                 console.log("[GP] Active track indices:", activeTrackIndices);
             }
 
+            // Step 2c: detect whether file provides an embedded audio backing track
+            const hasAudioSync = Boolean(score?.backingTrack?.rawAudioFile);
+            if (debug && hasAudioSync) {
+                console.log("[GP] Embedded audio sync track detected in Guitar Pro file");
+            }
+
             // Step 3: dispose of temporary API
             tempApi.destroy();
 
-            // Step 4: re-create API with filtered tracks and SoundFont synth player
+            // Step 4: re-create API with filtered tracks and SoundFont synth / backing track player
+            const initialPlayerMode = hasAudioSync
+                ? alphaTab.PlayerMode.EnabledBackingTrack
+                : alphaTab.PlayerMode.EnabledSynthesizer;
+
             const api = new alphaTab.AlphaTabApi(container, {
                 core: { file, tracks: activeTrackIndices, enableLazyLoading: false },
                 player: {
                     enablePlayer: true,
-                    playerMode: alphaTab.PlayerMode.EnabledSynthesizer,
+                    playerMode: initialPlayerMode,
                     soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/soundfont/sonivox.sf2',
                     enableCursor: true,
                     enableElementHighlighting: true,
