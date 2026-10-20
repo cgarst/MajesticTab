@@ -230,6 +230,51 @@ export function isLibraryOpen() {
     return page && page.style.display !== 'none';
 }
 
+let libraryTouchBlurInitialized = false;
+
+function blurActiveLibraryElement(page, onlyNonInputs = false) {
+    const active = document.activeElement;
+    if (!active || typeof active.blur !== 'function') return;
+    if (page && (page.contains(active) || active.closest?.('.library-card, .library-row-card, .library-song-row, .library-track-row, .library-pinned-card, .tab-option-chip, .library-page-view'))) {
+        if (onlyNonInputs) {
+            const isInput = active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT';
+            if (isInput) return;
+        }
+        active.blur();
+    }
+}
+
+function setupLibraryTouchListeners(page) {
+    if (!page || libraryTouchBlurInitialized) return;
+    libraryTouchBlurInitialized = true;
+
+    let isTouchScrolling = false;
+
+    page.addEventListener('touchstart', () => {
+        isTouchScrolling = false;
+    }, { passive: true });
+
+    page.addEventListener('touchmove', () => {
+        isTouchScrolling = true;
+        blurActiveLibraryElement(page);
+    }, { passive: true });
+
+    page.addEventListener('touchend', () => {
+        if (isTouchScrolling) {
+            blurActiveLibraryElement(page);
+            setTimeout(() => blurActiveLibraryElement(page), 50);
+        } else {
+            blurActiveLibraryElement(page, true);
+            setTimeout(() => blurActiveLibraryElement(page, true), 50);
+        }
+        isTouchScrolling = false;
+    }, { passive: true });
+
+    page.addEventListener('touchcancel', () => {
+        isTouchScrolling = false;
+    }, { passive: true });
+}
+
 /**
  * Open the Tab Library Page
  */
@@ -244,6 +289,7 @@ export async function openLibraryModal(initialView = 'library') {
     if (!page) {
         page = createLibraryPageElement();
     }
+    setupLibraryTouchListeners(page);
 
     const mainContent = document.getElementById('mainContent');
     if (mainContent) mainContent.style.display = 'none';
@@ -381,6 +427,7 @@ function createLibraryPageElement() {
             document.body.appendChild(page);
         }
     }
+    setupLibraryTouchListeners(page);
     return page;
 }
 
