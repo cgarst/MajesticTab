@@ -3952,7 +3952,9 @@ body:not(.synth-playback-started) .at-highlight {
   padding: 0.9rem 1.25rem;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
   min-width: 0;
+  max-width: 100%;
   position: relative;
+  overflow: hidden;
 }
 
 @media (hover: hover) and (pointer: fine) {
@@ -4370,6 +4372,12 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 /* Tab Option Chips */
+.tab-options-container {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .tab-option-chip {
   display: inline-flex;
   align-items: center;
@@ -4383,6 +4391,20 @@ body:not(.synth-playback-started) .at-highlight {
   cursor: pointer;
   user-select: none;
   transition: all 0.15s ease;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.tab-option-chip .tab-option-name,
+.tab-option-chip .text-truncate {
+  max-width: min(220px, 100%);
+  min-width: 0;
+  flex-shrink: 1;
+  display: inline-block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (hover: hover) and (pointer: fine) {

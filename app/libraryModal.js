@@ -979,7 +979,7 @@ async function renderLibraryBrowseView(container) {
                               <i class="bi-star${isDefault ? '-fill' : ''}"></i>
                             </button>
                             <i class="bi-file-earmark-music text-info me-1"></i>
-                            <span class="text-truncate" style="max-width: 220px;">${escapeHtml(t.name)}</span>
+                            <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
                             ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
                               const info = getTuningInfo(t.tuning);
                               const label = info?.displayName || t.tuning;
@@ -1824,7 +1824,7 @@ function renderSongRow(song, options = {}) {
                 <i class="bi-star${isDefault ? '-fill' : ''}"></i>
               </button>
               <i class="${iconClass} me-1" style="font-size: 0.78rem;"></i>
-              <span class="text-truncate" style="max-width: 160px;">${escapeHtml(t.name)}</span>
+              <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
               ${(t.startPage && t.endPage) ? `<span class="badge badge-theme-warning py-0 px-1 ms-1" style="font-size:0.6rem;">pp. ${t.startPage}-${t.endPage}</span>` : ''}
               ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
                 const info = getTuningInfo(t.tuning);
