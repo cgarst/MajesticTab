@@ -1070,12 +1070,18 @@ export async function openTabDownloader(options = {}) {
         }))
     };
     const targetScript = activeSource.userscriptEnabled ? (activeSource.userscript || '') : '';
-    await window.__TAURI__.core.invoke('open_tab_downloader', {
-        url: targetUrl,
-        userscript: targetScript || null,
-        config,
-        topOffset: isDesktop ? barHeight : 0.0
-    });
+    try {
+        await window.__TAURI__.core.invoke('open_tab_downloader', {
+            url: targetUrl,
+            userscript: targetScript || null,
+            config,
+            topOffset: isDesktop ? barHeight : 0.0
+        });
+    } catch (err) {
+        console.error('[Tab Downloader] Failed to open native webview:', err);
+        hideTabDownloaderBar();
+        showToast('Unable to open tab downloader', 'error');
+    }
 }
 
 /**
