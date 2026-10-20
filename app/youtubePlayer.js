@@ -485,14 +485,16 @@ async function loadCurrentTrack(autoplay = false) {
         if (iframe) {
             iframe.style.display = 'block';
             const autoplayParam = autoplay ? '1' : '0';
-            const embedUrl = new URL(`https://www.youtube.com/embed/${videoId}`);
+            const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
             embedUrl.searchParams.set('autoplay', autoplayParam);
             embedUrl.searchParams.set('enablejsapi', '1');
             embedUrl.searchParams.set('playsinline', '1');
 
-            if (typeof window !== 'undefined' && window.location?.origin && window.location.origin !== 'null') {
-                embedUrl.searchParams.set('origin', window.location.origin);
-                embedUrl.searchParams.set('widget_referrer', window.location.origin);
+            const origin = (typeof window !== 'undefined' && window.location?.origin && window.location.origin !== 'null') ? window.location.origin : '';
+            const isValidHttpOrigin = origin && origin.startsWith('http') && !origin.includes('localhost') && !origin.includes('tauri');
+            if (isValidHttpOrigin) {
+                embedUrl.searchParams.set('origin', origin);
+                embedUrl.searchParams.set('widget_referrer', origin);
             }
 
             if (playerState.currentTime > 0) {
