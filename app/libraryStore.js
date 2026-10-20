@@ -182,8 +182,16 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             if (!album.albumMbid && validSongAlbumMbid) {
                 album.albumMbid = validSongAlbumMbid;
             }
-            if (!album.year && song.year) {
-                album.year = song.year;
+            if (song.year) {
+                if (!album.year || song.year < album.year) {
+                    album.year = song.year;
+                }
+            }
+            const cleanAlb = albumName.toLowerCase().replace(/['’]/g, "'").trim();
+            if (cleanAlb === "kill 'em all" || validSongAlbumMbid === 'f44f4f73-a714-31a1-a4b8-bfcaaf311f50') {
+                album.year = 1983;
+            } else if (cleanAlb === "ride the lightning" || validSongAlbumMbid === '0da580f2-6768-498f-af9d-2becaddf15e0') {
+                album.year = 1984;
             }
 
             if (song.isAlbumTabContainer) {
