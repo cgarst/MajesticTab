@@ -419,6 +419,57 @@ extern "C" {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[cfg(target_os = "macos")]
+fn setup_macos_mouse_navigation(app_handle: tauri::AppHandle) {
+    use block2::RcBlock;
+    use objc2_app_kit::{NSEvent, NSEventMask, NSEventType};
+    use std::ptr::NonNull;
+
+    let app_handle = app_handle.clone();
+    let block = RcBlock::new(move |event: NonNull<NSEvent>| -> *mut NSEvent {
+        let event_ref = unsafe { event.as_ref() };
+        let button = event_ref.buttonNumber();
+        let event_type = event_ref.r#type();
+
+        if button == 3 || button == 4 {
+            if event_type == NSEventType::OtherMouseDown {
+                let is_downloader_visible = app_handle
+                    .try_state::<tab_downloader_native::TabDownloaderState>()
+                    .and_then(|st| st.is_visible.lock().ok().map(|g| *g))
+                    .unwrap_or(false);
+
+                if is_downloader_visible {
+                    let script = if button == 3 {
+                        "window.history.back()"
+                    } else {
+                        "window.history.forward()"
+                    };
+                    if let Some(w) = app_handle.get_webview(tab_downloader_native::DOWNLOADER_LABEL) {
+                        let _ = w.eval(script);
+                    }
+                } else {
+                    let event_name = if button == 3 {
+                        "mouse-nav-back"
+                    } else {
+                        "mouse-nav-forward"
+                    };
+                    let _ = app_handle.emit(event_name, ());
+                }
+            }
+            std::ptr::null_mut()
+        } else {
+            event.as_ptr()
+        }
+    });
+
+    unsafe {
+        let mask = NSEventMask::OtherMouseDown | NSEventMask::OtherMouseUp;
+        if let Some(token) = NSEvent::addLocalMonitorForEventsMatchingMask_handler(mask, &block) {
+            std::mem::forget(token);
+        }
+    }
+}
+
 pub fn run() {
     #[cfg(target_os = "linux")]
     unsafe {
@@ -450,7 +501,10 @@ pub fn run() {
         .plugin(tauri_plugin_google_auth::init())
         .setup(|_app| {
             #[cfg(target_os = "macos")]
-            youtube_macos::install(_app)?;
+            {
+                youtube_macos::install(_app)?;
+                setup_macos_mouse_navigation(_app.handle().clone());
+            }
             tab_downloader_native::install(_app)?;
 
             #[cfg(feature = "debug-tools")]
