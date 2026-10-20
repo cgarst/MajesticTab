@@ -175,11 +175,32 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 window.MajesticDownloaderNative.close();
             }
         } catch(e) {}
-        const a = document.createElement('a');
-        a.href = 'majestictab://download?name=' + encodeURIComponent(filename || 'downloaded.gp') + '&data=' + encodeURIComponent(base64Data);
-        (document.body || document.documentElement).appendChild(a);
-        a.click();
-        setTimeout(() => a.remove(), 200);
+
+        const safeFilename = filename || 'downloaded.gp';
+        const CHUNK_SIZE = 16000;
+        if (base64Data.length <= CHUNK_SIZE) {
+            window.location.href = 'majestictab://download?name=' + encodeURIComponent(safeFilename) + '&data=' + encodeURIComponent(base64Data);
+        } else {
+            const transferId = Math.random().toString(36).substring(2, 9);
+            const totalChunks = Math.ceil(base64Data.length / CHUNK_SIZE);
+            let idx = 0;
+            function sendNextChunk() {
+                if (idx >= totalChunks) return;
+                const chunk = base64Data.slice(idx * CHUNK_SIZE, (idx + 1) * CHUNK_SIZE);
+                const isLast = (idx === totalChunks - 1);
+                const url = 'majestictab://download-chunk?id=' + transferId +
+                    '&name=' + encodeURIComponent(safeFilename) +
+                    '&idx=' + idx +
+                    '&total=' + totalChunks +
+                    '&data=' + encodeURIComponent(chunk);
+                idx++;
+                window.location.href = url;
+                if (!isLast) {
+                    setTimeout(sendNextChunk, 60);
+                }
+            }
+            sendNextChunk();
+        }
     }
 
     // 4. Helper to read Blob, Data, or Object URLs and forward to native shell
@@ -242,12 +263,23 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         }
     }
 
-    async function handleLinkDownload(a, e) {
+    function isDownloadLinkElement(a) {
         if (!a) return false;
         const href = (a.getAttribute('href') || a.href || '').toLowerCase();
-        const isTabFile = /\.(gp|gp3|gp4|gp5|gpx|pdf|mid|midi)(\?|$)/i.test(href);
-        const isDownloadEndpoint = href.includes('/tab/download') || href.includes('download.php') || href.includes('/download/');
-        if (!isTabFile && !isDownloadEndpoint) return false;
+        if (href.startsWith('javascript:') || href === '#' || href === '') return false;
+
+        const isTabFile = /\.(gp\d?|gpx|pdf|mid|midi|cap)(\?|$)/i.test(href);
+        const isDownloadEndpoint = href.includes('download') || href.includes('action=download') || href.includes('get_tab');
+        const hasDownloadAttr = a.hasAttribute('download');
+        const textAndClasses = ((a.innerText || a.textContent || '') + ' ' + (a.getAttribute('title') || '') + ' ' + (a.getAttribute('aria-label') || '') + ' ' + (a.className || '')).toLowerCase();
+        const hasDownloadWord = textAndClasses.includes('download') && (textAndClasses.includes('tab') || textAndClasses.includes('pro') || textAndClasses.includes('gp') || textAndClasses.includes('file') || textAndClasses.includes('guitar') || isDownloadEndpoint);
+
+        return isTabFile || isDownloadEndpoint || hasDownloadAttr || hasDownloadWord;
+    }
+
+    async function handleLinkDownload(a, e) {
+        if (!a) return false;
+        if (!isDownloadLinkElement(a)) return false;
 
         if (e) {
             e.preventDefault();
@@ -257,13 +289,23 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         try {
             const res = await fetch(a.href, { credentials: 'include' });
             if (!res.ok) throw new Error('HTTP ' + res.status);
+            const contentType = (res.headers.get('content-type') || '').toLowerCase();
+            const disp = res.headers.get('content-disposition') || '';
+
+            // If it's HTML without an attachment header and doesn't end in a tab extension, it's an intermediate page -> navigate to it
+            const href = (a.getAttribute('href') || a.href || '').toLowerCase();
+            const isTabExt = /\.(gp\d?|gpx|pdf|mid|midi|cap)(\?|$)/i.test(href);
+            if (contentType.includes('text/html') && !disp.includes('attachment') && !isTabExt) {
+                window.location.href = a.href;
+                return true;
+            }
+
             const buf = await res.arrayBuffer();
             if (buf.byteLength < 20) throw new Error('Empty response');
 
             const b64 = arrayBufferToBase64(buf);
             let filename = a.getAttribute('download') || a.download || '';
             if (!filename) {
-                const disp = res.headers.get('content-disposition') || '';
                 const match = /filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i.exec(disp);
                 if (match && match[1]) {
                     filename = decodeURIComponent(match[1].trim());
@@ -283,6 +325,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             return true;
         } catch (err) {
             console.error('[MajesticTab] Link download intercept error:', err);
+            window.location.href = a.href;
             return false;
         }
     }
@@ -297,6 +340,10 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         const downloadAttr = this.getAttribute('download') || this.download;
         if (href.startsWith('blob:') || href.startsWith('data:')) {
             handleBlobOrDataUrl(href, downloadAttr);
+            return;
+        }
+        if (isDownloadLinkElement(this)) {
+            handleLinkDownload(this, null);
             return;
         }
         return origAnchorClick.apply(this, arguments);
@@ -320,10 +367,31 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 
     // 7. Global Capture Phase Click & Submit Listeners (executes BEFORE any website event handlers)
     window.addEventListener('click', function(e) {
-        const el = e.target && e.target.closest ? e.target.closest('a, button, input[type="submit"], input[type="button"], form') : null;
+        const el = e.target && e.target.closest ? e.target.closest('a, button, input[type="submit"], input[type="button"], [role="button"], form') : null;
         if (!el) return;
 
-        if (el.tagName === 'BUTTON' || (el.tagName === 'INPUT' && (el.type === 'submit' || el.type === 'button'))) {
+        const a = el.tagName === 'A' ? el : el.closest('a');
+        if (a) {
+            if (isDownloadLinkElement(a)) {
+                handleLinkDownload(a, e);
+                return;
+            }
+            if (a.target && a.target !== '_self') {
+                a.target = '_self';
+                a.setAttribute('target', '_self');
+            }
+            const href = (a.getAttribute('href') || a.href || '').toLowerCase();
+            const downloadAttr = a.getAttribute('download') || a.download;
+
+            if (href.startsWith('blob:') || href.startsWith('data:')) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleBlobOrDataUrl(href, downloadAttr);
+                return;
+            }
+        }
+
+        if (el.tagName === 'BUTTON' || (el.tagName === 'INPUT' && (el.type === 'submit' || el.type === 'button')) || el.getAttribute('role') === 'button') {
             const form = el.form || el.closest('form');
             if (form) {
                 const action = (form.action || form.getAttribute('action') || '').toLowerCase();
@@ -332,27 +400,15 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     return;
                 }
             }
-        }
-
-        if (el.tagName === 'A') {
-            const href = (el.getAttribute('href') || el.href || '').toLowerCase();
-            const isTabFile = /\.(gp|gp3|gp4|gp5|gpx|pdf|mid|midi)(\?|$)/i.test(href);
-            const isDownloadEndpoint = href.includes('/tab/download') || href.includes('download.php') || href.includes('/download/');
-            if (isTabFile || isDownloadEndpoint) {
-                handleLinkDownload(el, e);
-                return;
-            }
-            if (el.target && el.target !== '_self') {
-                el.target = '_self';
-                el.setAttribute('target', '_self');
-            }
-            const downloadAttr = el.getAttribute('download') || el.download;
-
-            if (href.startsWith('blob:') || href.startsWith('data:')) {
-                e.preventDefault();
-                e.stopPropagation();
-                handleBlobOrDataUrl(href, downloadAttr);
-                return;
+            const btnText = ((el.innerText || el.textContent || '') + ' ' + (el.className || '')).toLowerCase();
+            if (btnText.includes('download')) {
+                const targetUrl = el.getAttribute('data-url') || el.getAttribute('data-href') || el.getAttribute('data-link');
+                if (targetUrl) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleLinkDownload({ href: targetUrl, getAttribute: () => targetUrl }, e);
+                    return;
+                }
             }
         }
 
@@ -1521,6 +1577,14 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     }
 })();"#;
 
+#[derive(Clone, Debug)]
+#[allow(dead_code)]
+pub struct DownloadChunkState {
+    pub name: String,
+    pub total: usize,
+    pub chunks: Vec<Option<String>>,
+}
+
 #[derive(Default)]
 #[allow(dead_code)]
 pub struct TabDownloaderState {
@@ -1534,6 +1598,7 @@ pub struct TabDownloaderState {
     pub last_bounds: Mutex<Option<(i32, i32, u32, u32, bool)>>,
     pub pending_downloads: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
     pub last_destination: Mutex<Option<std::path::PathBuf>>,
+    pub download_chunks: Mutex<std::collections::HashMap<String, DownloadChunkState>>,
 }
 
 pub async fn get_or_update_popup_blocker(app_handle: &tauri::AppHandle, custom_url: Option<&str>) -> String {
@@ -1745,11 +1810,20 @@ pub fn hide_downloader(app_handle: &AppHandle) {
     }
     if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
         let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-        let _ = w.hide();
+        #[cfg(target_os = "ios")]
+        {
+            let _ = w.close();
+        }
+        #[cfg(not(target_os = "ios"))]
+        {
+            let _ = w.hide();
+        }
     }
     #[cfg(any(target_os = "android", target_os = "ios"))]
     if let Some(main) = app_handle.get_webview_window("main") {
         let _ = main.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+        let _ = main.show();
+        let _ = main.set_focus();
     }
 }
 
@@ -1867,10 +1941,12 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
         let escaped_name = serde_json::to_string(&name).unwrap_or_default();
         let escaped_b64 = serde_json::to_string(&b64_data).unwrap_or_default();
         let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
-        if let Some(main_wv) = app_handle.get_webview("main") {
-            let _ = main_wv.eval(&eval_script);
-        } else if let Some(main_win) = app_handle.get_webview_window("main") {
+        if let Some(main_win) = app_handle.get_webview_window("main") {
             let _ = main_win.eval(&eval_script);
+            let _ = main_win.show();
+            let _ = main_win.set_focus();
+        } else if let Some(main_wv) = app_handle.get_webview("main") {
+            let _ = main_wv.eval(&eval_script);
         }
         let payload = DownloadedTabPayload {
             name,
@@ -1878,6 +1954,62 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             data,
         };
         let _ = app_handle.emit("tab-downloaded", payload);
+        return false;
+    }
+
+    // 5b. Chunked download capture scheme: majestictab://download-chunk?id=...&name=...&idx=...&total=...&data=...
+    if url.scheme() == "majestictab" && (url.host_str() == Some("download-chunk") || url_str.starts_with("majestictab://download-chunk")) {
+        let id = url.query_pairs().find(|(k, _)| k == "id").map(|(_, v)| v.into_owned()).unwrap_or_default();
+        let name = url.query_pairs().find(|(k, _)| k == "name").map(|(_, v)| v.into_owned()).unwrap_or_else(|| "downloaded.gp".to_string());
+        let idx: usize = url.query_pairs().find(|(k, _)| k == "idx").and_then(|(_, v)| v.parse().ok()).unwrap_or(0);
+        let total: usize = url.query_pairs().find(|(k, _)| k == "total").and_then(|(_, v)| v.parse().ok()).unwrap_or(1);
+        let chunk_data = url.query_pairs().find(|(k, _)| k == "data").map(|(_, v)| v.into_owned()).unwrap_or_default();
+
+        let mut completed: Option<(String, String)> = None;
+        if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+            if let Ok(mut lock) = state.download_chunks.lock() {
+                let entry = lock.entry(id.clone()).or_insert_with(|| DownloadChunkState {
+                    name: name.clone(),
+                    total,
+                    chunks: vec![None; total],
+                });
+                if idx < entry.chunks.len() {
+                    entry.chunks[idx] = Some(chunk_data);
+                }
+                if entry.chunks.iter().all(|c| c.is_some()) {
+                    let full_b64: String = entry.chunks.iter().filter_map(|c| c.as_ref()).cloned().collect();
+                    completed = Some((entry.name.clone(), full_b64));
+                    lock.remove(&id);
+                }
+            }
+        }
+
+        if let Some((tab_name, b64_data)) = completed {
+            let data = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &b64_data).ok();
+            eprintln!("[Tab Downloader] Reassembled chunked download: {} ({} bytes)", tab_name, data.as_ref().map(|d| d.len()).unwrap_or(0));
+            hide_downloader(app_handle);
+            if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+                if let Ok(mut g) = state.is_open.lock() {
+                    *g = false;
+                }
+            }
+            let escaped_name = serde_json::to_string(&tab_name).unwrap_or_default();
+            let escaped_b64 = serde_json::to_string(&b64_data).unwrap_or_default();
+            let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
+            if let Some(main_win) = app_handle.get_webview_window("main") {
+                let _ = main_win.eval(&eval_script);
+                let _ = main_win.show();
+                let _ = main_win.set_focus();
+            } else if let Some(main_wv) = app_handle.get_webview("main") {
+                let _ = main_wv.eval(&eval_script);
+            }
+            let payload = DownloadedTabPayload {
+                name: tab_name,
+                path: None,
+                data,
+            };
+            let _ = app_handle.emit("tab-downloaded", payload);
+        }
         return false;
     }
 
