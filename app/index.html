@@ -1241,9 +1241,11 @@
 <aside id="fretboardDock" class="fretboard-dock is-hidden" role="region" aria-label="Virtual Fretboard" style="display: none;">
   <div class="fretboard-dock-header">
     <div class="fretboard-dock-left">
-      <div class="fretboard-track-badge" id="fretboardTrackBadge" title="Active Instrument Track">
-        <i class="bi-music-note-beamed text-info"></i>
-        <span class="fretboard-track-name text-truncate" id="fretboardTrackName">Guitar</span>
+      <div class="fretboard-tracks-legend" id="fretboardTracksLegend">
+        <div class="fretboard-track-badge" id="fretboardTrackBadge" title="Active Instrument Track">
+          <i class="bi-music-note-beamed text-info"></i>
+          <span class="fretboard-track-name text-truncate" id="fretboardTrackName">Guitar</span>
+        </div>
       </div>
       <span class="fretboard-tuning-badge" id="fretboardTuningBadge" title="Tuning">Standard</span>
       <span class="fretboard-capo-badge" id="fretboardCapoBadge" style="display: none;" title="Capo">Capo 0</span>
@@ -1256,12 +1258,6 @@
         </button>
         <button type="button" class="btn btn-sm" data-fretboard-mode="frets" id="fretboardModeFrets" title="Display Fret Numbers">
           <span>Frets</span>
-        </button>
-        <button type="button" class="btn btn-sm" data-fretboard-mode="fingers" id="fretboardModeFingers" title="Display Left-Hand Fingering">
-          <span>Fingers</span>
-        </button>
-        <button type="button" class="btn btn-sm" data-fretboard-mode="dots" id="fretboardModeDots" title="Minimalist Position Dots">
-          <span>Dots</span>
         </button>
       </div>
     </div>

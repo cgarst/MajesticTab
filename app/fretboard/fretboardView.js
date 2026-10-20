@@ -23,7 +23,7 @@ export class FretboardView {
         this.capo = 0;
         this.isLeftHanded = false;
         this.isFlipped = false; // false = Tab View (high on top), true = Player View (low on top)
-        this.displayMode = 'notes';
+        this.displayMode = 'notes'; // 'notes' | 'frets'
 
         // Precalculated geometry cache
         this.fretWiresX = [];
@@ -35,8 +35,8 @@ export class FretboardView {
         this.neckHeight = 90;
         this.totalHeight = 140;
 
-        // Pooled note marker SVG nodes
-        this.poolSize = 32;
+        // Pooled note marker SVG nodes (expanded to 48 for dense multi-track passages)
+        this.poolSize = 48;
         this.markerPool = [];
         this.openBadges = {};
 
@@ -122,7 +122,7 @@ export class FretboardView {
         this.capo = Math.max(0, parseInt(capo, 10) || 0);
         this.isLeftHanded = Boolean(isLeftHanded);
         this.isFlipped = Boolean(isFlipped);
-        this.displayMode = displayMode;
+        this.displayMode = displayMode === 'frets' ? 'frets' : 'notes';
 
         // Compute geometry
         const stringGap = this.stringCount <= 5 ? 20 : (this.stringCount === 6 ? 17 : 14);
@@ -133,8 +133,6 @@ export class FretboardView {
         this.svg.setAttribute('viewBox', `0 0 ${SVG_WIDTH} ${this.totalHeight}`);
 
         // Compute horizontal coordinates
-        // Right-handed: Nut at left (72), Bridge at right (1126)
-        // Left-handed: Nut at right (1078), Bridge at left (24)
         const scaleLength = 1054;
         this.fretWiresX = new Array(TOTAL_FRETS + 1);
         this.fretMidsX = new Array(TOTAL_FRETS + 1);
@@ -192,10 +190,27 @@ export class FretboardView {
     buildDefs() {
         const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
         defs.innerHTML = `
-            <linearGradient id="fretboardMarkerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <!-- Track 0: Primary Theme Gradient -->
+            <linearGradient id="trackGrad0" x1="0%" y1="0%" x2="100%" y2="100%">
                 <stop offset="0%" stop-color="var(--accent-primary, #a855f7)" />
                 <stop offset="100%" stop-color="var(--accent-secondary, #10b981)" />
             </linearGradient>
+            <!-- Track 1: Magenta / Violet -->
+            <linearGradient id="trackGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#ec4899" />
+                <stop offset="100%" stop-color="#8b5cf6" />
+            </linearGradient>
+            <!-- Track 2: Amber / Coral -->
+            <linearGradient id="trackGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#f59e0b" />
+                <stop offset="100%" stop-color="#ef4444" />
+            </linearGradient>
+            <!-- Track 3: Cyan / Sky Blue -->
+            <linearGradient id="trackGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#06b6d4" />
+                <stop offset="100%" stop-color="#3b82f6" />
+            </linearGradient>
+
             <linearGradient id="fretboardNutGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stop-color="var(--text-muted, #94a3b8)" stop-opacity="0.8" />
                 <stop offset="50%" stop-color="#ffffff" stop-opacity="0.95" />
@@ -412,9 +427,34 @@ export class FretboardView {
             glow.setAttribute('class', 'marker-glow');
             glow.setAttribute('r', '15');
 
+            // Standard single-track full circle
             const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             circle.setAttribute('class', 'marker-circle');
             circle.setAttribute('r', '11');
+
+            // Unison collision split badge elements
+            const splitLeft = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            splitLeft.setAttribute('class', 'marker-split-left');
+            splitLeft.setAttribute('d', 'M 0 -11 A 11 11 0 0 0 0 11 Z');
+            splitLeft.style.display = 'none';
+
+            const splitRight = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            splitRight.setAttribute('class', 'marker-split-right');
+            splitRight.setAttribute('d', 'M 0 -11 A 11 11 0 0 1 0 11 Z');
+            splitRight.style.display = 'none';
+
+            const splitDivider = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            splitDivider.setAttribute('class', 'marker-split-divider');
+            splitDivider.setAttribute('x1', '0');
+            splitDivider.setAttribute('y1', '-11');
+            splitDivider.setAttribute('x2', '0');
+            splitDivider.setAttribute('y2', '11');
+            splitDivider.style.display = 'none';
+
+            const outline = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            outline.setAttribute('class', 'marker-outline');
+            outline.setAttribute('r', '11');
+            outline.style.display = 'none';
 
             const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             text.setAttribute('class', 'marker-text');
@@ -428,11 +468,25 @@ export class FretboardView {
 
             g.appendChild(glow);
             g.appendChild(circle);
+            g.appendChild(splitLeft);
+            g.appendChild(splitRight);
+            g.appendChild(splitDivider);
+            g.appendChild(outline);
             g.appendChild(text);
             g.appendChild(dead);
 
             poolGroup.appendChild(g);
-            this.markerPool.push({ element: g, glow, circle, text, dead });
+            this.markerPool.push({
+                element: g,
+                glow,
+                circle,
+                splitLeft,
+                splitRight,
+                splitDivider,
+                outline,
+                text,
+                dead
+            });
         }
 
         this.svg.appendChild(poolGroup);
@@ -441,10 +495,10 @@ export class FretboardView {
     /**
      * Update active note markers synchronized with AlphaTab beat playback
      * @param {Array<Object>} notes
-     * @param {string} displayMode
+     * @param {string} displayMode 'notes' | 'frets'
      */
     updateActiveNotes(notes = [], displayMode = this.displayMode) {
-        this.displayMode = displayMode;
+        this.displayMode = displayMode === 'frets' ? 'frets' : 'notes';
 
         // Reset open string badges active pulse
         for (let s = 1; s <= this.stringCount; s++) {
@@ -476,6 +530,30 @@ export class FretboardView {
             marker.element.setAttribute('transform', `translate(${posX}, ${posY})`);
             marker.element.setAttribute('class', `fretboard-note-marker${note.isGhost ? ' is-ghost' : ''}${note.isTieDestination ? ' is-tie' : ''}`);
 
+            const colorIndices = Array.isArray(note.trackColorIndices) && note.trackColorIndices.length > 0
+                ? note.trackColorIndices
+                : [note.trackColorIndex ?? 0];
+
+            if (colorIndices.length >= 2) {
+                // Dual-track unison collision -> split badge
+                marker.circle.style.display = 'none';
+                marker.splitLeft.style.display = 'inline';
+                marker.splitRight.style.display = 'inline';
+                marker.splitDivider.style.display = 'inline';
+                marker.outline.style.display = 'inline';
+
+                marker.splitLeft.setAttribute('fill', `url(#trackGrad${colorIndices[0] % 4})`);
+                marker.splitRight.setAttribute('fill', `url(#trackGrad${colorIndices[1] % 4})`);
+            } else {
+                // Single-track note -> solid circle
+                marker.circle.style.display = 'inline';
+                marker.circle.setAttribute('fill', `url(#trackGrad${colorIndices[0] % 4})`);
+                marker.splitLeft.style.display = 'none';
+                marker.splitRight.style.display = 'none';
+                marker.splitDivider.style.display = 'none';
+                marker.outline.style.display = 'none';
+            }
+
             // Dead notes display '✕'
             if (note.isDead) {
                 marker.dead.style.display = 'inline';
@@ -495,21 +573,11 @@ export class FretboardView {
     }
 
     /**
-     * Format note badge label text according to display mode
+     * Format note badge label text according to display mode ('notes' | 'frets')
      */
     formatNoteLabel(note, mode) {
-        if (mode === 'dots') return '';
         if (mode === 'frets') return `${note.fret}`;
-        if (mode === 'fingers') {
-            const f = note.finger;
-            if (f === 1 || f === '1' || f === 'IndexFinger') return '1';
-            if (f === 2 || f === '2' || f === 'MiddleFinger') return '2';
-            if (f === 3 || f === '3' || f === 'RingFinger') return '3';
-            if (f === 4 || f === '4' || f === 'LittleFinger') return '4';
-            if (f === 0 || f === '0' || f === 'Thumb') return 'T';
-            return `${note.fret}`;
-        }
-        // mode === 'notes': pitch class name without octave (e.g. C, F#, Bb)
+        // mode === 'notes' (default): pitch class name without octave (e.g. C, F#, Bb)
         const openPitch = this.tuning[this.stringCount - note.string] ?? 60;
         const midi = note.midiPitch ?? (openPitch + note.fret);
         return NOTE_NAMES[((midi % 12) + 12) % 12] || '';
@@ -622,7 +690,8 @@ export class FretboardView {
             midiPitch: midiPitch,
             isDead: false,
             isGhost: false,
-            isTieDestination: false
+            isTieDestination: false,
+            trackColorIndex: 0
         }]);
         setTimeout(() => this.clearActiveNotes(), 450);
     }
