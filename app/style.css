@@ -149,19 +149,19 @@
 }
 
 [data-theme="Purple Nebula"] {
-  --bg-body: #0e0616;
+  --bg-body: #0b0910;
   --bg-ambient-1: rgba(192, 38, 211, 0.18);
   --bg-ambient-2: rgba(124, 58, 237, 0.14);
-  --bg-card: rgba(30, 13, 44, 0.88);
-  --bg-card-solid: #210d32;
-  --bg-card-hover: #3a1656;
-  --bg-elevated: #150821;
-  --bg-modal: #11061b;
-  --border-subtle: rgba(192, 38, 211, 0.2);
-  --border-prominent: rgba(217, 70, 239, 0.45);
-  --text-primary: #fdf4ff;
-  --text-muted: #f5d0fe;
-  --text-dim: #cbd5e1;
+  --bg-card: rgba(22, 19, 29, 0.88);
+  --bg-card-solid: #16131d;
+  --bg-card-hover: #231e2e;
+  --bg-elevated: #120f18;
+  --bg-modal: #0e0b14;
+  --border-subtle: rgba(192, 38, 211, 0.14);
+  --border-prominent: rgba(217, 70, 239, 0.35);
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
   --accent-primary: #c026d3;
   --accent-secondary: #7c3aed;
   --accent-gradient: linear-gradient(135deg, #c026d3, #7c3aed);
