@@ -352,7 +352,7 @@ export function isTrackBass(track) {
     }
 
     if (hasBassTuning) return true;
-    const nonBassTerms = ['ukulele', 'banjo', 'mandolin', 'violin', 'cello', 'piano', 'keyboard', 'organ', 'flute', 'trumpet', 'drum'];
+    const nonBassTerms = ['ukulele', 'banjo', 'mandolin', 'violin', 'viola', 'cello', 'piano', 'keyboard', 'organ', 'flute', 'trumpet', 'drum'];
     if ((maxStrings === 4 || maxStrings === 5) && !nonBassTerms.some(t => name.includes(t))) {
         return true;
     }

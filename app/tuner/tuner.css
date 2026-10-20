@@ -1,0 +1,407 @@
+/* ==========================================================================
+   MAJESTICTAB — CHROMATIC & INSTRUMENT TUNER MODAL STYLING
+   Port of PitchCraft by Niki Indjov (MIT License) with MajesticTab theming
+   ========================================================================== */
+
+.tuner-modal-card {
+  max-width: 660px;
+  width: 95%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background: var(--bg-card);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 24px -4px var(--accent-glow);
+}
+
+.tuner-modal-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+/* --------------------------------------------------------------------------
+   Instrument Selection Row
+   -------------------------------------------------------------------------- */
+.tuner-instrument-grid {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  scrollbar-width: thin;
+}
+
+.tuner-instrument-grid::-webkit-scrollbar {
+  height: 4px;
+}
+
+.tuner-instrument-grid::-webkit-scrollbar-thumb {
+  background: var(--border-subtle);
+  border-radius: 2px;
+}
+
+.tuner-inst-chip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--bg-card-solid, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary, #94a3b8);
+  font-size: 0.825rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.tuner-inst-chip:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-primary, #ffffff);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.tuner-inst-chip.active {
+  background: var(--accent-gradient, linear-gradient(135deg, #6366f1, #8b5cf6));
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 2px 10px var(--accent-glow);
+  font-weight: 600;
+}
+
+.tuner-inst-chip.is-track-chip.active {
+  background: linear-gradient(135deg, #10b981, #059669);
+  box-shadow: 0 2px 12px rgba(16, 185, 129, 0.4);
+}
+
+.tuner-inst-icon-wrap {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --------------------------------------------------------------------------
+   Selected Instrument & Reference String Row
+   -------------------------------------------------------------------------- */
+.tuner-instrument-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 1rem;
+  background: var(--bg-card-solid, rgba(20, 20, 30, 0.6));
+  border: 1px solid var(--border-subtle);
+}
+
+.tuner-banner-svg {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.04);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tuner-banner-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.tuner-banner-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: 0.2rem;
+  color: var(--text-primary, #fff);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.tuner-banner-subtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted, #94a3b8);
+  margin-bottom: 0.5rem;
+}
+
+.tuner-strings-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tuner-string-btn {
+  padding: 0.35rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary, #fff);
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 44px;
+  transition: all 0.15s ease;
+}
+
+.tuner-string-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--accent-primary, #6366f1);
+  transform: translateY(-1px);
+}
+
+.tuner-string-btn.active {
+  background: var(--accent-primary, #6366f1);
+  border-color: var(--accent-primary, #6366f1);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+.tuner-string-note {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.tuner-string-hz {
+  font-size: 0.65rem;
+  color: var(--text-muted, #94a3b8);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --------------------------------------------------------------------------
+   Live Chromatic Tuner Display & Cents Meter
+   -------------------------------------------------------------------------- */
+.tuner-display-card {
+  padding: 1.5rem 1rem;
+  border-radius: 1.25rem;
+  background: var(--bg-card-solid, rgba(15, 15, 25, 0.75));
+  border: 1px solid var(--border-subtle);
+  text-align: center;
+  position: relative;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* Cents Meter */
+.tuner-cents-meter {
+  position: relative;
+  height: 14px;
+  border-radius: 7px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--border-subtle);
+  margin: 0 auto 1.5rem auto;
+  max-width: 460px;
+  overflow: hidden;
+}
+
+.tuner-center-target {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #22c55e;
+  transform: translateX(-50%);
+  z-index: 2;
+  box-shadow: 0 0 6px #22c55e;
+}
+
+.tuner-green-zone {
+  position: absolute;
+  left: 45%;
+  width: 10%;
+  top: 0;
+  bottom: 0;
+  background: rgba(34, 197, 94, 0.22);
+  z-index: 1;
+}
+
+.tuner-needle {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  bottom: -2px;
+  width: 8px;
+  border-radius: 4px;
+  background: var(--accent-primary, #6366f1);
+  transform: translateX(-50%);
+  transition: left 0.08s ease-out, background 0.15s ease;
+  z-index: 3;
+  box-shadow: 0 0 10px var(--accent-primary, #6366f1);
+}
+
+.tuner-tick-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.tuner-tick {
+  position: absolute;
+  width: 1px;
+  top: 20%;
+  bottom: 20%;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.tuner-tick.is-major {
+  top: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Big Pitch / Note Readout */
+.tuner-pitch-display {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  line-height: 1;
+}
+
+.tuner-big-note {
+  font-size: 4.5rem;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  color: var(--text-primary, #fff);
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  transition: color 0.15s ease, text-shadow 0.15s ease;
+}
+
+.tuner-big-octave {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+  font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+}
+
+.tuner-freq-readout {
+  font-size: 1.05rem;
+  color: var(--text-muted, #94a3b8);
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.35rem;
+}
+
+.tuner-status-readout {
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  min-height: 1.4rem;
+  color: var(--text-muted, #94a3b8);
+  transition: color 0.15s ease;
+}
+
+.tuner-cents-readout {
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+  font-family: 'JetBrains Mono', monospace;
+  min-height: 1.2rem;
+  margin-top: 0.2rem;
+}
+
+/* Status colors */
+.tuner-status-in-tune {
+  color: #22c55e !important;
+  text-shadow: 0 0 16px rgba(34, 197, 94, 0.45);
+}
+
+.tuner-status-almost {
+  color: #eab308 !important;
+  text-shadow: 0 0 14px rgba(234, 179, 8, 0.4);
+}
+
+.tuner-status-off {
+  color: #ef4444 !important;
+  text-shadow: 0 0 14px rgba(239, 68, 68, 0.4);
+}
+
+/* Volume Meter */
+.tuner-volume-meter {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 3px;
+  height: 20px;
+  margin-top: 1rem;
+}
+
+.tuner-vol-bar {
+  width: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  transition: height 0.08s ease, background 0.08s ease;
+}
+
+.tuner-vol-bar.is-active {
+  background: var(--accent-primary, #6366f1);
+  box-shadow: 0 0 6px var(--accent-glow);
+}
+
+/* Action Button */
+.tuner-action-row {
+  margin-top: 1.25rem;
+  display: flex;
+  justify-content: center;
+}
+
+.tuner-mic-btn {
+  padding: 0.65rem 2.2rem;
+  border-radius: 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.03em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.tuner-mic-btn.is-listening {
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  border-color: #ef4444 !important;
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4) !important;
+}
+
+/* Calibration Selector in Header */
+.tuner-calib-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-subtle);
+  font-size: 0.8rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+.tuner-calib-select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary, #fff);
+  font-size: 0.825rem;
+  font-weight: 600;
+  cursor: pointer;
+  outline: none;
+  padding: 0;
+}
+
+.tuner-calib-select option {
+  background: var(--bg-card-solid, #1e1e2e);
+  color: #fff;
+}
