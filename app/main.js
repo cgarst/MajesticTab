@@ -6,7 +6,7 @@ import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPP
 import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
-import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls } from './utils/navigationUtils.js';
+import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
 import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtils.js';
@@ -693,11 +693,13 @@ function setupMenuEdgeSwipeGesture() {
             return;
         }
 
-        // Do not trigger menu open if Library page is currently open (library handles Safari-style back/forward swipe)
+        // When library page is open, only allow edge swipe to open settings if at root level (cannot go back)
         const libPage = document.getElementById('libraryPage');
         if (libPage && libPage.style.display !== 'none') {
-            isTrackingOpen = false;
-            return;
+            if (typeof window.__majesticLibraryCanGoBack === 'function' && window.__majesticLibraryCanGoBack()) {
+                isTrackingOpen = false;
+                return;
+            }
         }
 
         // Avoid triggering when interacting with form controls or buttons near edge
@@ -726,14 +728,28 @@ function setupMenuEdgeSwipeGesture() {
                 return;
             }
 
-            // Trigger opening when threshold reached
+            // Trigger action when threshold reached
             if (deltaX >= SWIPE_MIN_DISTANCE && deltaX > deltaY * 1.2) {
-                const fileMenu = document.getElementById('fileMenu');
-                if (fileMenu) {
-                    if (window.bootstrap?.Offcanvas) {
-                        window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).show();
-                    } else {
-                        document.getElementById('menuToggleBtn')?.click();
+                const libPage = document.getElementById('libraryPage');
+                const isTabOpen = Boolean(currentFile && (!libPage || libPage.style.display === 'none'));
+
+                if (isTabOpen) {
+                    // When a tab is open, swiping from left does the same as back button (e.g. return to library)
+                    const backBtn = document.getElementById('topBarBackToLibraryBtn');
+                    if (backBtn && backBtn.offsetParent !== null && backBtn.style.display !== 'none') {
+                        backBtn.click();
+                    } else if (typeof handleGlobalBack === 'function') {
+                        handleGlobalBack();
+                    }
+                } else {
+                    // At root level of library, swiping from left edge opens settings menu
+                    const fileMenu = document.getElementById('fileMenu');
+                    if (fileMenu) {
+                        if (window.bootstrap?.Offcanvas) {
+                            window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).show();
+                        } else {
+                            document.getElementById('menuToggleBtn')?.click();
+                        }
                     }
                 }
                 isTrackingOpen = false;
