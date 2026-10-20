@@ -3972,6 +3972,10 @@ body:not(.synth-playback-started) .at-highlight {
   -webkit-backface-visibility: hidden;
 }
 
+.library-row-card {
+  padding: 0.9rem 1.25rem;
+}
+
 .library-card {
   cursor: pointer;
 }
@@ -4064,7 +4068,8 @@ body:not(.synth-playback-started) .at-highlight {
   }
 
   .library-song-row,
-  .library-track-row {
+  .library-track-row,
+  .library-row-card {
     padding: 0.65rem 0.75rem;
   }
 
