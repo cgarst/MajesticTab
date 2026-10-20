@@ -245,6 +245,17 @@ export function updateSynthUI() {
 
 const playedBeatState = { beat: null, shownBeat: null };
 
+export const READER_CURSOR_WIDTH = 20;
+
+/**
+ * Build SVG path for a vertically oriented pill/stadium with a pointed V-shaped bottom
+ */
+export function buildPillVPath(w, h) {
+    const r = w / 2;
+    const v = Math.min(12, Math.max(8, h * 0.12));
+    return `M ${r} 1 A ${r - 1} ${r - 1} 0 0 1 ${w - 1} ${r} L ${w - 1} ${h - v} L ${r + 2} ${h - 3} Q ${r} ${h - 1} ${r - 2} ${h - 3} L 1 ${h - v} L 1 ${r} A ${r - 1} ${r - 1} 0 0 1 ${r} 1 Z`;
+}
+
 /**
  * Render visual playback position cursor and handle auto-page navigation in Page Mode
  */
@@ -381,8 +392,10 @@ function updatePageModeCursor(currentTick) {
     }
     if (!cursorBeat) {
         cursorBeat = document.createElement('div');
-        cursorBeat.className = 'gp-page-cursor-beat';
+        cursorBeat.className = 'gp-page-cursor-beat gp-reader-cursor';
         visibleBlock.appendChild(cursorBeat);
+    } else if (!cursorBeat.classList.contains('gp-reader-cursor')) {
+        cursorBeat.classList.add('gp-reader-cursor');
     }
 
     const svg = visibleBlock.querySelector('svg');
@@ -429,20 +442,34 @@ function updatePageModeCursor(currentTick) {
         const barW = staffBounds.w;
         const barH = staffHeight !== null ? staffHeight : (staveTabBounds?.h ?? staffBounds.h);
 
-        cursorBar.style.left = `${barX}px`;
-        cursorBar.style.top = `${barY}px`;
-        cursorBar.style.width = `${barW}px`;
-        cursorBar.style.height = `${barH}px`;
-        cursorBar.style.display = 'block';
+        cursorBar.style.display = 'none';
 
-        // Beat cursor spans the exact same vertical staff line bounds
+        // Beat cursor spans staff lines as a stadium outline with pointed V-bottom
         if (targetBeatBounds) {
             const beatVisual = targetBeatBounds.visualBounds || targetBeatBounds.realBounds;
             const startX = targetBeatBounds.onNotesX ?? (beatVisual ? beatVisual.x : staffBounds.x);
             const endX = nextBeatBounds
                 ? (nextBeatBounds.onNotesX ?? nextBeatBounds.visualBounds?.x ?? startX)
                 : (staffBounds.x + staffBounds.w);
-            const beatW = 3;
+
+            const topPadding = 6;
+            const bottomPadding = 12;
+            const cursorY = barY - topPadding;
+            const cursorH = barH + topPadding + bottomPadding;
+
+            let svg = cursorBeat.querySelector('svg');
+            if (!svg) {
+                cursorBeat.innerHTML = `<svg class="gp-reader-svg" width="${READER_CURSOR_WIDTH}" height="${cursorH}" viewBox="0 0 ${READER_CURSOR_WIDTH} ${cursorH}"><path class="gp-reader-path" d="" /></svg>`;
+                svg = cursorBeat.querySelector('svg');
+            }
+            const path = cursorBeat.querySelector('.gp-reader-path');
+            if (path && (!cursorBeat._lastH || Math.abs(cursorBeat._lastH - cursorH) >= 1)) {
+                cursorBeat._lastH = cursorH;
+                svg.setAttribute('width', `${READER_CURSOR_WIDTH}`);
+                svg.setAttribute('height', `${cursorH}`);
+                svg.setAttribute('viewBox', `0 0 ${READER_CURSOR_WIDTH} ${cursorH}`);
+                path.setAttribute('d', buildPillVPath(READER_CURSOR_WIDTH, cursorH));
+            }
 
             // Start one linear animation per beat so motion isn't restarted on every position update
             if (cursorBeat._animBeat !== playedBeat) {
@@ -455,9 +482,9 @@ function updatePageModeCursor(currentTick) {
                 cursorBeat.style.transition = `left ${beatMs}ms linear`;
                 cursorBeat.style.left = `${svgLeftOffset + endX}px`;
             }
-            cursorBeat.style.top = `${barY}px`;
-            cursorBeat.style.width = `${beatW}px`;
-            cursorBeat.style.height = `${barH}px`;
+            cursorBeat.style.top = `${cursorY}px`;
+            cursorBeat.style.width = `${READER_CURSOR_WIDTH}px`;
+            cursorBeat.style.height = `${cursorH}px`;
             cursorBeat.style.display = 'block';
         } else {
             cursorBeat.style.display = 'none';
@@ -484,8 +511,8 @@ export function updateContinuousPlaybackScroll(currentTick) {
     const TOP_PADDING = 12;
     const outputRect = output.getBoundingClientRect();
 
-    // Prefer measuring the actual highlighted cursor DOM element placed by AlphaTab
-    const cursorEl = document.querySelector('.at-cursor-bar') || document.querySelector('.at-cursor-beat');
+    // Prefer measuring the actual line reader cursor DOM element placed by AlphaTab
+    const cursorEl = document.querySelector('.gp-reader-cursor') || document.querySelector('.at-cursor-beat') || document.querySelector('.at-cursor-bar');
     if (cursorEl) {
         const cursorRect = cursorEl.getBoundingClientRect();
         const cursorVisualTop = cursorRect.top - outputRect.top;
@@ -566,11 +593,137 @@ export function updateContinuousPlaybackScroll(currentTick) {
 }
 
 /**
+ * Create a custom cursor handler for AlphaTab in Scroll Mode
+ * - Suppresses the whole-measure highlight box
+ * - Replaces the beat line with a Line Reader tool shape
+ *   (vertically oriented stadium / pill outline with pointed V-shaped bottom)
+ * - Restricts bounds to physical staff lines to prevent bleeding into adjacent systems
+ */
+export function createCustomCursorHandler(api) {
+    let readerEl = null;
+    let svgPathEl = null;
+    let lastH = 0;
+
+    function getOrCreateReader() {
+        const wrapper = api?._cursorWrapper?.element || document.querySelector('.at-cursors');
+        if (!wrapper) return null;
+        if (!readerEl || !wrapper.contains(readerEl)) {
+            readerEl = wrapper.querySelector('.gp-reader-cursor');
+            if (!readerEl) {
+                readerEl = document.createElement('div');
+                readerEl.className = 'gp-reader-cursor';
+                readerEl.innerHTML = `<svg class="gp-reader-svg" width="${READER_CURSOR_WIDTH}" height="100" viewBox="0 0 ${READER_CURSOR_WIDTH} 100"><path class="gp-reader-path" d="" /></svg>`;
+                wrapper.appendChild(readerEl);
+            }
+            svgPathEl = readerEl.querySelector('.gp-reader-path');
+        }
+        return readerEl;
+    }
+
+    function updateReaderDimensions(h) {
+        if (!readerEl || Math.abs(h - lastH) < 1) return;
+        lastH = h;
+        const svg = readerEl.querySelector('svg');
+        if (svg) {
+            svg.setAttribute('width', `${READER_CURSOR_WIDTH}`);
+            svg.setAttribute('height', `${h}`);
+            svg.setAttribute('viewBox', `0 0 ${READER_CURSOR_WIDTH} ${h}`);
+        }
+        if (!svgPathEl) svgPathEl = readerEl.querySelector('.gp-reader-path');
+        if (svgPathEl) {
+            svgPathEl.setAttribute('d', buildPillVPath(READER_CURSOR_WIDTH, h));
+        }
+    }
+
+    return {
+        onAttach(cursors) {
+            getOrCreateReader();
+        },
+        onDetach(cursors) {
+            if (readerEl) {
+                readerEl.remove();
+                readerEl = null;
+            }
+        },
+        reset() {
+            if (readerEl) {
+                readerEl.style.display = 'none';
+            }
+        },
+        placeBarCursor(barCursor, beatBounds) {
+            // Measure highlight box is removed in favor of the line reader tool
+            if (barCursor) {
+                barCursor.setBounds(0, 0, 0, 0);
+            }
+        },
+        placeBeatCursor(beatCursor, beatBounds, startBeatX) {
+            const masterBounds = beatBounds?.barBounds?.masterBarBounds;
+            // Use lineAlignedBounds to strictly bound to physical staff lines
+            const lineBounds = masterBounds?.lineAlignedBounds 
+                || masterBounds?.visualBounds 
+                || beatBounds?.barBounds?.visualBounds;
+
+            if (lineBounds) {
+                const topPadding = 6;
+                const bottomPadding = 12;
+                let cursorY = lineBounds.y - topPadding;
+                let cursorH = lineBounds.h + topPadding + bottomPadding;
+
+                // Safety guard: clamp to staff system bounds to prevent bleeding into next system
+                const sysBounds = masterBounds?.staffSystemBounds?.visualBounds 
+                               || masterBounds?.staffSystemBounds?.realBounds;
+                if (sysBounds && sysBounds.h > 0) {
+                    const maxBottom = sysBounds.y + sysBounds.h;
+                    if (cursorY + cursorH > maxBottom) {
+                        cursorH = Math.max(30, maxBottom - cursorY);
+                    }
+                }
+
+                const reader = getOrCreateReader();
+                if (reader) {
+                    updateReaderDimensions(cursorH);
+                    reader.style.transition = 'none';
+                    reader.style.left = `${startBeatX}px`;
+                    reader.style.top = `${cursorY}px`;
+                    reader.style.height = `${cursorH}px`;
+                    reader.style.display = 'block';
+                    void reader.offsetWidth; // Force reflow so transition starts cleanly
+                }
+
+                if (beatCursor) {
+                    beatCursor.transitionToX(0, startBeatX);
+                    beatCursor.setBounds(startBeatX, cursorY, 1, cursorH);
+                }
+            }
+        },
+        transitionBeatCursor(beatCursor, beatBounds, startBeatX, nextBeatX, duration, cursorMode) {
+            const factor = (cursorMode === alphaTab.midi?.MidiTickLookupFindBeatResultCursorMode?.ToNextBext) ? 2 : 1;
+            const targetX = startBeatX + (nextBeatX - startBeatX) * factor;
+            const animDuration = duration * factor;
+
+            const reader = getOrCreateReader();
+            if (reader) {
+                reader.style.transition = `left ${animDuration}ms linear`;
+                reader.style.left = `${targetX}px`;
+            }
+
+            if (beatCursor) {
+                beatCursor.transitionToX(animDuration, targetX);
+            }
+        }
+    };
+}
+
+/**
  * Attach AlphaTab API to the synth player
  */
 export function attachAlphaTabApi(api) {
     currentApi = api;
     currentScore = api.score;
+
+    if (!api.customCursorHandler) {
+        api.customCursorHandler = createCustomCursorHandler(api);
+    }
 
     if (api?.player) {
         if (api.player.context) registerAudioContext(api.player.context);
@@ -708,6 +861,11 @@ export function clearSynthHighlights() {
     playedBeatState.shownBeat = null;
     document.body.classList.remove('synth-playback-started');
     document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
+    if (currentApi?.customCursorHandler?.reset) {
+        currentApi.customCursorHandler.reset();
+    } else {
+        document.querySelectorAll('.gp-reader-cursor').forEach(el => { el.style.display = 'none'; });
+    }
 }
 
 /**
