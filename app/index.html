@@ -1298,7 +1298,12 @@
 <aside id="fretboardDock" class="fretboard-dock is-hidden" role="region" aria-label="Virtual Fretboard" style="display: none;">
   <div class="fretboard-dock-header">
     <div class="fretboard-dock-left">
-      <div class="fretboard-tracks-legend" id="fretboardTracksLegend" style="display: none;"></div>
+      <div class="fretboard-tracks-legend" id="fretboardTracksLegend">
+        <div class="fretboard-track-badge" id="fretboardTrackBadge" title="Active Instrument Track">
+          <i class="bi-music-note-beamed text-info"></i>
+          <span class="fretboard-track-name text-truncate" id="fretboardTrackName">Guitar</span>
+        </div>
+      </div>
       <span class="fretboard-tuning-badge" id="fretboardTuningBadge" title="Tuning">Standard</span>
       <span class="fretboard-capo-badge" id="fretboardCapoBadge" style="display: none;" title="Capo">Capo 0</span>
     </div>
