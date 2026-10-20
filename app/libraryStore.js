@@ -848,9 +848,12 @@ export async function updateLibrarySongFromScore({ fileName, title, artist, albu
     return false;
 }
 
+export const MAX_RECENTS_LIMIT = 15;
+
 /**
  * Add or update a recently opened file with library/metadata enrichment.
  * Only library files are added to recents. Non-library files return null.
+ * Capped at MAX_RECENTS_LIMIT (15) items.
  */
 export async function addRecentOpened(fileInfo) {
     if (!fileInfo || typeof fileInfo !== 'object') return null;
@@ -965,15 +968,36 @@ export async function addRecentOpened(fileInfo) {
         const tx = db.transaction(STORE_RECENTS, 'readwrite');
         const store = tx.objectStore(STORE_RECENTS);
         const req = store.put(recent);
-        req.onsuccess = () => resolve(recent);
+        req.onsuccess = () => {
+            // Prune stored recents beyond MAX_RECENTS_LIMIT (15)
+            try {
+                const index = store.index('openedAt');
+                const cursorReq = index.openCursor(null, 'prev');
+                let count = 0;
+                cursorReq.onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor) {
+                        count++;
+                        if (count > MAX_RECENTS_LIMIT) {
+                            cursor.delete();
+                        }
+                        cursor.continue();
+                    }
+                };
+            } catch (err) {
+                console.warn('[addRecentOpened] Error pruning excess recents:', err);
+            }
+            resolve(recent);
+        };
         req.onerror = () => reject(req.error);
     });
 }
 
 /**
  * Get list of recents sorted newest first (only for valid library songs)
+ * Capped at MAX_RECENTS_LIMIT (15) by default.
  */
-export async function getRecents(limit = 30) {
+export async function getRecents(limit = MAX_RECENTS_LIMIT) {
     const db = await getDB();
     const rawRecents = await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_RECENTS, 'readonly');
@@ -1022,6 +1046,9 @@ export async function getRecents(limit = 30) {
 
         if (validRecents.length < limit) {
             validRecents.push(r);
+        } else if (limit <= MAX_RECENTS_LIMIT && r.id) {
+            // Purge excess stored recents beyond limit
+            idsToPurge.push(r.id);
         }
     }
 
