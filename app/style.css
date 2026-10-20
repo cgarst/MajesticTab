@@ -205,47 +205,76 @@
 }
 
 [data-theme="Snow White"] {
-  --bg-body: #090a0f;
-  --bg-ambient-1: rgba(255, 255, 255, 0.12);
-  --bg-ambient-2: rgba(148, 163, 184, 0.08);
-  --bg-card: rgba(18, 19, 24, 0.90);
-  --bg-card-solid: #131418;
-  --bg-card-hover: #1e2027;
-  --bg-elevated: #0e0f13;
-  --bg-modal: #090a0d;
-  --border-subtle: rgba(255, 255, 255, 0.12);
-  --border-prominent: rgba(255, 255, 255, 0.45);
-  --text-primary: #f8fafc;
-  --text-muted: #94a3b8;
+  --bg-body: #ffffff;
+  --bg-ambient-1: rgba(148, 163, 184, 0.14);
+  --bg-ambient-2: rgba(226, 232, 240, 0.60);
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-card-solid: #ffffff;
+  --bg-card-hover: #f1f5f9;
+  --bg-elevated: #f8fafc;
+  --bg-modal: #ffffff;
+  --border-subtle: rgba(15, 23, 42, 0.12);
+  --border-prominent: rgba(15, 23, 42, 0.30);
+  --text-primary: #0f172a;
+  --text-muted: #475569;
   --text-dim: #64748b;
-  --accent-primary: #ffffff;
-  --accent-secondary: #cbd5e1;
-  --accent-gradient: linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #94a3b8 100%);
-  --accent-gradient-hover: linear-gradient(135deg, #f8fafc 0%, #94a3b8 50%, #64748b 100%);
-  --accent-glow: rgba(255, 255, 255, 0.32);
-  --accent-primary-alpha: rgba(255, 255, 255, 0.15);
-  --accent-border-alpha: rgba(255, 255, 255, 0.50);
-  --accent-text: #ffffff;
+  --accent-primary: #334155;
+  --accent-secondary: #64748b;
+  --accent-gradient: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+  --accent-gradient-hover: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  --accent-glow: rgba(51, 65, 85, 0.22);
+  --accent-primary-alpha: rgba(51, 65, 85, 0.10);
+  --accent-border-alpha: rgba(51, 65, 85, 0.40);
+  --accent-text: #1e293b;
   --sheet-bg: #ffffff;
   --sheet-text: #111827;
   --sheet-border: #e2e8f0;
-  --sheet-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+  --sheet-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.15);
+}
+
+[data-theme="Snow White"] .btn-theme-primary,
+[data-theme="Snow White"] .btn-theme-primary i,
+[data-theme="Snow White"] .btn-theme-primary span {
+  color: #ffffff !important;
 }
 
 [data-theme="Snow White"] .btn-theme-primary {
-  color: #090a0f !important;
-  font-weight: 700;
-  border-color: rgba(255, 255, 255, 0.75) !important;
+  font-weight: 600;
 }
 
-[data-theme="Snow White"] .btn-theme-primary:hover:not(:disabled) {
-  color: #000000 !important;
-  border-color: #ffffff !important;
+/* Snow White is a light theme: hard-coded white text must become dark ink */
+[data-theme="Snow White"] .text-white,
+[data-theme="Snow White"] .theme-card-title,
+[data-theme="Snow White"] .settings-header-label,
+[data-theme="Snow White"] .offcanvas-title,
+[data-theme="Snow White"] .theme-modal-title,
+[data-theme="Snow White"] .theme-modal-titles :is(h1, h2, h3, h4, h5, h6),
+[data-theme="Snow White"] .yt-mode-btn {
+  color: var(--text-primary) !important;
 }
 
-[data-theme="Snow White"] .btn-theme-primary i,
-[data-theme="Snow White"] .btn-theme-primary span {
-  color: #090a0f !important;
+[data-theme="Snow White"] .brand-title,
+[data-theme="Snow White"] .breadcrumb-song-title,
+[data-theme="Snow White"] .mode-btn-text,
+[data-theme="Snow White"] .form-select option {
+  color: var(--text-primary) !important;
+}
+
+[data-theme="Snow White"] .btn-theme-danger {
+  color: #b91c1c !important;
+}
+
+[data-theme="Snow White"] .btn-theme-primary .mode-btn-text {
+  color: #ffffff !important;
+}
+
+/* ...but stay white on filled accent surfaces */
+[data-theme="Snow White"] .btn-check:checked + .yt-mode-btn,
+[data-theme="Snow White"] .btn-theme-primary .text-white,
+[data-theme="Snow White"] .theme-control-btn.active,
+[data-theme="Snow White"] .theme-control-btn.active .text-white,
+[data-theme="Snow White"] .progress-bar .text-white {
+  color: #ffffff !important;
 }
 
 /* Global Text Contrast Overrides */
