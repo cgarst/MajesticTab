@@ -655,6 +655,13 @@ function setupMenuEdgeSwipeGesture() {
             return;
         }
 
+        // Do not trigger menu open if Library page is currently open (library handles Safari-style back/forward swipe)
+        const libPage = document.getElementById('libraryPage');
+        if (libPage && libPage.style.display !== 'none') {
+            isTrackingOpen = false;
+            return;
+        }
+
         // Avoid triggering when interacting with form controls or buttons near edge
         if (e.target && e.target.closest && e.target.closest('input, textarea, select, button')) {
             isTrackingOpen = false;
