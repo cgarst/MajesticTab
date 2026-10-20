@@ -220,6 +220,22 @@ export function setupKeyboardNavigation(getConfig) {
         );
         if (isTextInput) return;
 
+        // Back / Forward keyboard shortcuts (especially macOS mouse 4 / 5 translation: Cmd+[ and Cmd+], Alt+Left/Right, Cmd+Left/Right)
+        const isMacBack = (e.metaKey && e.key === '[') || (e.altKey && e.key === 'ArrowLeft') || (e.metaKey && e.key === 'ArrowLeft');
+        const isMacForward = (e.metaKey && e.key === ']') || (e.altKey && e.key === 'ArrowRight') || (e.metaKey && e.key === 'ArrowRight');
+
+        if (isMacBack) {
+            e.preventDefault();
+            performAppBack(getConfig);
+            return;
+        }
+
+        if (isMacForward) {
+            e.preventDefault();
+            performAppForward(getConfig);
+            return;
+        }
+
         // B key rewinds audio playback by 10 seconds
         if (isB && !e.ctrlKey && !e.metaKey && !e.altKey) {
             if (isSynthAvailable() || isYouTubeAvailable() || isSynthPlaying() || isYouTubePlaying()) {
@@ -317,6 +333,12 @@ export function performAppBack(getConfig = null) {
     const libPage = document.getElementById('libraryPage');
     const isLibOpen = libPage && libPage.style.display !== 'none';
     if (isLibOpen) {
+        if (typeof window.__majesticLibraryCanGoBack === 'function' && window.__majesticLibraryCanGoBack()) {
+            if (typeof window.__majesticLibraryBack === 'function') {
+                window.__majesticLibraryBack();
+                return true;
+            }
+        }
         const libBackBtn = document.getElementById('libBrowseBackBtn');
         if (libBackBtn && libBackBtn.offsetParent !== null && libBackBtn.style.display !== 'none') {
             libBackBtn.click();
@@ -348,6 +370,46 @@ export function performAppBack(getConfig = null) {
         if (config && config.currentFile) {
             const navigationHandler = new NavigationHandler(config);
             const result = navigationHandler.handleAction(NavigationAction.PREV);
+            if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
+                config.setCurrentPageIndex(result.newPageIndex);
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+/**
+ * Unified application forward handler across Mouse 5, forward shortcuts, and browser popstate
+ * @param {Function|null} getConfig Function to get current navigation configuration
+ * @returns {boolean} Whether a forward action was performed
+ */
+export function performAppForward(getConfig = null) {
+    // 1. If Library Page is currently open
+    const libPage = document.getElementById('libraryPage');
+    const isLibOpen = libPage && libPage.style.display !== 'none';
+    if (isLibOpen) {
+        if (typeof window.__majesticLibraryCanGoForward === 'function' && window.__majesticLibraryCanGoForward()) {
+            if (typeof window.__majesticLibraryForward === 'function') {
+                window.__majesticLibraryForward();
+                return true;
+            }
+        }
+        const returnSongBtn = document.getElementById('libraryReturnToSongBtn');
+        if (returnSongBtn && returnSongBtn.style.display !== 'none') {
+            returnSongBtn.click();
+            return true;
+        }
+        return false;
+    }
+
+    // 2. In Score View: advance to next page
+    if (typeof getConfig === 'function') {
+        const config = getConfig();
+        if (config && config.currentFile) {
+            const navigationHandler = new NavigationHandler(config);
+            const result = navigationHandler.handleAction(NavigationAction.NEXT);
             if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
                 config.setCurrentPageIndex(result.newPageIndex);
                 return true;
@@ -405,31 +467,7 @@ export function setupMouseNavigation(getConfig) {
     let lastNavTime = 0;
 
     const performBack = () => performAppBack(getConfig);
-
-    const performForward = () => {
-        // 1. If Library Page is open and a song is loaded, forward returns to score
-        const libPage = document.getElementById('libraryPage');
-        const isLibOpen = libPage && libPage.style.display !== 'none';
-        if (isLibOpen) {
-            const returnSongBtn = document.getElementById('libraryReturnToSongBtn');
-            if (returnSongBtn && returnSongBtn.style.display !== 'none') {
-                returnSongBtn.click();
-                return;
-            }
-            return;
-        }
-
-        // 2. In Score View: advance to next page
-        const config = getConfig();
-        if (!config || !config.currentFile) return;
-
-        const navigationHandler = new NavigationHandler(config);
-        const result = navigationHandler.handleAction(NavigationAction.NEXT);
-
-        if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
-            config.setCurrentPageIndex(result.newPageIndex);
-        }
-    };
+    const performForward = () => performAppForward(getConfig);
 
     const handleMouseNav = (e) => {
         // e.button === 3: Browser Back (Mouse 4)
@@ -437,6 +475,8 @@ export function setupMouseNavigation(getConfig) {
         const isBack = (e.button === 3);
         const isForward = (e.button === 4);
         if (!isBack && !isForward) return;
+
+        e.preventDefault();
 
         // Avoid handling when focused on editable text elements
         const activeEl = document.activeElement;
@@ -448,11 +488,8 @@ export function setupMouseNavigation(getConfig) {
         );
         if (isTextInput) return;
 
-        e.preventDefault();
-        e.stopPropagation();
-
         const now = Date.now();
-        if (now - lastNavTime < 180) return;
+        if (now - lastNavTime < 220) return;
         lastNavTime = now;
 
         if (isBack) {
@@ -462,26 +499,17 @@ export function setupMouseNavigation(getConfig) {
         }
     };
 
+    const preventMouseNavDefaults = (e) => {
+        if (e.button === 3 || e.button === 4) {
+            e.preventDefault();
+        }
+    };
+
+    window.addEventListener('mousedown', handleMouseNav, true);
+    window.addEventListener('pointerdown', handleMouseNav, true);
     window.addEventListener('mouseup', handleMouseNav, true);
-    window.addEventListener('pointerup', handleMouseNav, true);
-    window.addEventListener('mousedown', (e) => {
-        if (e.button === 3 || e.button === 4) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-    }, true);
-    window.addEventListener('pointerdown', (e) => {
-        if (e.button === 3 || e.button === 4) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-    }, true);
-    window.addEventListener('auxclick', (e) => {
-        if (e.button === 3 || e.button === 4) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-    }, true);
+    window.addEventListener('pointerup', preventMouseNavDefaults, true);
+    window.addEventListener('auxclick', handleMouseNav, true);
 }
 
 /**
