@@ -1,6 +1,7 @@
 import { getCurrentFile, getCondensedCanvases, getPdfPages } from './main.js';
 import { gpState } from './gpProcessor/gpHandler.js';
 import { showToast } from './utils/toast.js';
+import { isIOSDevice } from './utils/iosAudioUnlock.js';
 
 async function getAlphaTabFontCss() {
   const rules = [];
@@ -209,6 +210,119 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
     await new Promise(requestAnimationFrame);
   }
 
+  const saved = await saveOrSharePdf(pdf, filename);
+  return saved;
+}
+
+async function showIOSSharePrompt(file, filename) {
+  return new Promise((resolve) => {
+    const existing = document.getElementById('iosPdfShareModal');
+    if (existing) existing.remove();
+
+    const backdrop = document.createElement('div');
+    backdrop.id = 'iosPdfShareModal';
+    backdrop.className = 'theme-modal-backdrop';
+    backdrop.style.display = 'flex';
+    backdrop.style.zIndex = '10050';
+
+    backdrop.innerHTML = `
+      <div class="theme-modal-card p-4" style="max-width: 420px; width: 90%;">
+        <div class="theme-modal-header d-flex align-items-center justify-content-between mb-3">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi-file-earmark-pdf text-danger fs-4"></i>
+            <h5 class="m-0 fw-bold">Export Ready</h5>
+          </div>
+          <button type="button" class="brand-btn theme-modal-close-btn p-1" id="iosPdfShareCloseBtn" aria-label="Close">
+            <i class="bi-x-lg"></i>
+          </button>
+        </div>
+        <div class="theme-modal-body mb-4">
+          <p class="small text-muted mb-2">Your document is ready to save or share:</p>
+          <div class="p-2 px-3 rounded bg-black bg-opacity-25 border border-secondary-subtle text-truncate small fw-semibold text-white">
+            ${filename}
+          </div>
+        </div>
+        <div class="theme-modal-footer d-flex gap-2 justify-content-end">
+          <button type="button" class="btn btn-theme-outline btn-sm px-3" id="iosPdfShareCancelBtn">Cancel</button>
+          <button type="button" class="btn btn-theme-primary btn-sm px-3 d-flex align-items-center gap-2" id="iosPdfShareActionBtn">
+            <i class="bi-share"></i> Save / Share
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(backdrop);
+
+    const cleanup = () => {
+      backdrop.remove();
+    };
+
+    backdrop.querySelector('#iosPdfShareCloseBtn')?.addEventListener('click', () => {
+      cleanup();
+      resolve(false);
+    });
+    backdrop.querySelector('#iosPdfShareCancelBtn')?.addEventListener('click', () => {
+      cleanup();
+      resolve(false);
+    });
+
+    backdrop.querySelector('#iosPdfShareActionBtn')?.addEventListener('click', async () => {
+      try {
+        if (navigator.share) {
+          await navigator.share({
+            files: [file],
+            title: filename
+          });
+          cleanup();
+          showToast('Document saved successfully.', 'success');
+          resolve(true);
+          return;
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          cleanup();
+          resolve(false);
+          return;
+        }
+        console.warn('[PDF Export] Direct share failed:', err);
+      }
+
+      try {
+        const url = URL.createObjectURL(file);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+        cleanup();
+        resolve(true);
+      } catch (e) {
+        cleanup();
+        resolve(false);
+      }
+    });
+  });
+}
+
+async function saveOrSharePdf(pdf, filename) {
+  if (isIOSDevice()) {
+    const blob = pdf.output('blob');
+    const file = new File([blob], filename, { type: 'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({
+          files: [file],
+          title: filename
+        });
+        return true;
+      } catch (err) {
+        if (err.name === 'AbortError') {
+          return false;
+        }
+        return await showIOSSharePrompt(file, filename);
+      }
+    } else {
+      return await showIOSSharePrompt(file, filename);
+    }
+  }
+
   pdf.save(filename);
   return true;
 }
@@ -243,11 +357,11 @@ async function exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar
     await new Promise(requestAnimationFrame);
   }
 
-  pdf.save(filename);
-  return true;
+  const saved = await saveOrSharePdf(pdf, filename);
+  return saved;
 }
 
-export function exportSourceTabFile() {
+export async function exportSourceTabFile() {
   const currentFile = getCurrentFile();
   if (!currentFile) {
     showToast('No tab file is currently opened.', 'warning');
@@ -255,6 +369,23 @@ export function exportSourceTabFile() {
   }
 
   const filename = currentFile.name || (currentFile.songTitle ? `${currentFile.songTitle}.tab` : 'tab_source');
+
+  if (isIOSDevice()) {
+    const file = new File([currentFile], filename, { type: currentFile.type || 'application/octet-stream' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file], title: filename });
+        showToast(`Exported ${filename}`, 'success');
+        return true;
+      } catch (err) {
+        if (err.name === 'AbortError') return false;
+        return await showIOSSharePrompt(file, filename);
+      }
+    } else {
+      return await showIOSSharePrompt(file, filename);
+    }
+  }
+
   const url = URL.createObjectURL(currentFile);
   const a = document.createElement('a');
   a.href = url;
@@ -309,15 +440,20 @@ export function setupExportPDFButton() {
     try {
       const { jsPDF } = window.jspdf;
       if (hasGP) {
-        await exportGPToPDF(jsPDF, progressContainer, progressBar, filename);
+        const ok = await exportGPToPDF(jsPDF, progressContainer, progressBar, filename);
+        if (ok) {
+          showToast('PDF exported successfully.', 'success');
+        }
       } else if (isCondensedPdf) {
         const canvases = getCondensedCanvases();
         if (!canvases || canvases.length === 0) {
           showToast('No condensed pages available to export.', 'warning');
           return;
         }
-        await exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar, filename);
-        showToast('PDF exported successfully.', 'success');
+        const ok = await exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar, filename);
+        if (ok) {
+          showToast('PDF exported successfully.', 'success');
+        }
       }
     } catch (err) {
       console.error('Error during PDF export:', err);
