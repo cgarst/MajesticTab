@@ -126,7 +126,6 @@ export function createJamModal(manager, { updateSetting }) {
             <label class="jam-label" for="jamPinInput">PIN (optional)</label>
             <input type="text" class="form-control form-control-sm" id="jamPinInput" maxlength="12" inputmode="numeric" value="${esc(settings.pin)}">
           </div>
-          <div class="mb-3">${switchHtml('jamAllowWebSwitch', 'Let browsers join (no install needed)', settings.allowWeb !== false)}</div>
           <p class="jam-help mb-3">Other devices on the same Wi-Fi or network can join. Each device plays the song locally (synth or YouTube), so no audio is streamed.</p>
           <button type="button" class="btn btn-sm btn-theme-primary" id="jamStartHostBtn">Start Hosting</button>
         ` : `
@@ -208,7 +207,7 @@ export function createJamModal(manager, { updateSetting }) {
         const roster = host?.getRoster() || [];
         const session = host?.getSession();
         const addrs = (info?.addresses || []).map((a) => `${a}:${info.port}`);
-        const webUrls = info?.web ? (info.addresses || []).map((a) => `${WEB_SCHEME}//${a}:${info.port}/`) : [];
+        const webUrls = (info?.addresses || []).map((a) => `${WEB_SCHEME}//${a}:${info.port}/`);
         return `
         <div class="jam-card mb-3">
           <div class="jam-label">Share this address</div>
@@ -513,7 +512,6 @@ export function createJamModal(manager, { updateSetting }) {
         if (id === 'jamMuteGuestsSwitch') { manager.getHost()?.setMuteGuests(e.target.checked); updateSetting('muteGuests', e.target.checked); }
         if (id === 'jamMuteAssignedSwitch') { manager.getHost()?.updateTracks({ muteAssignedForUnassigned: e.target.checked }); updateSetting('muteAssignedForUnassigned', e.target.checked); }
         if (id === 'jamAssignedViewSwitch') { manager.getHost()?.updateTracks({ assignedViewOnly: e.target.checked }); updateSetting('assignedViewOnly', e.target.checked); }
-        if (id === 'jamAllowWebSwitch') updateSetting('allowWeb', e.target.checked);
         if (id === 'jamWaitSwitch') updateSetting('waitForEveryone', e.target.checked);
         if (id === 'jamSmoothSwitch') updateSetting('smoothDrift', e.target.checked);
         if (id === 'jamAlwaysSaveSwitch') updateSetting('alwaysSaveSongs', e.target.checked);

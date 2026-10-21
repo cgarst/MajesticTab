@@ -153,7 +153,7 @@ const webJam = {
 const nativeJam = {
     debugAutostart: () => invoke('jam_debug_autostart'),
     localAddresses: () => invoke('jam_local_addresses'),
-    hostStart: (name, pin, port = null, allowWeb = true) => invoke('jam_host_start', { name, pin: pin || null, port, allowWeb }),
+    hostStart: (name, pin, port = null) => invoke('jam_host_start', { name, pin: pin || null, port }),
     hostStop: () => invoke('jam_host_stop'),
     hostSend: (msg, to = null) => invoke('jam_host_send', { to, msg: JSON.stringify(msg) }),
     hostKick: (id) => invoke('jam_host_kick', { id }),

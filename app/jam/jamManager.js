@@ -22,7 +22,6 @@ const settings = {
     trimMs: loadSetting('trimMs', 0),
     smoothDrift: loadSetting('smoothDrift', true),
     alwaysSaveSongs: loadSetting('alwaysSaveSongs', false),
-    allowWeb: loadSetting('allowWeb', true),
     lastHost: loadSetting('lastHost', '')
 };
 
@@ -88,7 +87,7 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
             setMulticastEnabled(true);
             try {
                 await calibrateNow();
-                hostInfo = await jam.hostStart(settings.name, settings.pin, null, settings.allowWeb);
+                hostInfo = await jam.hostStart(settings.name, settings.pin, null);
             } catch (e) {
                 setMulticastEnabled(false);
                 toast(`Could not start hosting: ${e}`, 'error');
