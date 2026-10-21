@@ -37,19 +37,19 @@
 }
 
 [data-theme="Blue Pearl"] {
-  --bg-body: #060d1f;
+  --bg-body: #060b14;
   --bg-ambient-1: rgba(37, 99, 235, 0.16);
   --bg-ambient-2: rgba(56, 189, 248, 0.1);
-  --bg-card: rgba(12, 25, 54, 0.85);
-  --bg-card-solid: #0d1e40;
-  --bg-card-hover: #173264;
-  --bg-elevated: #081229;
-  --bg-modal: #071026;
-  --border-subtle: rgba(56, 189, 248, 0.2);
-  --border-prominent: rgba(59, 130, 246, 0.45);
-  --text-primary: #f0f7ff;
-  --text-muted: #cbd5e1;
-  --text-dim: #94a3b8;
+  --bg-card: rgba(16, 22, 34, 0.88);
+  --bg-card-solid: #101622;
+  --bg-card-hover: #1a2336;
+  --bg-elevated: #0a0f18;
+  --bg-modal: #070b12;
+  --border-subtle: rgba(56, 189, 248, 0.14);
+  --border-prominent: rgba(59, 130, 246, 0.35);
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
   --accent-primary: #2563eb;
   --accent-secondary: #38bdf8;
   --accent-gradient: linear-gradient(135deg, #1d4ed8, #38bdf8);
