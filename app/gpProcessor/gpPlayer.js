@@ -278,10 +278,45 @@ export function buildPillVPath(w, h) {
 }
 
 /**
+ * Get AlphaTab's MidiTickLookup instance if available
+ */
+export function getMidiTickLookup(api) {
+    if (!api) return null;
+    if (api.tickLookup) return api.tickLookup;
+    if (typeof alphaTab !== 'undefined' && alphaTab.midi?.MidiTickLookup) {
+        for (const k in api) {
+            try {
+                if (api[k] instanceof alphaTab.midi.MidiTickLookup) return api[k];
+            } catch (_) {}
+        }
+    }
+    return api.Qw || null;
+}
+
+/**
+ * Get the exact playback tick in the MIDI timeline for a beat, accounting for repeats
+ */
+export function getPlaybackTickForBeat(beat, api) {
+    if (!beat) return 0;
+    const lookup = getMidiTickLookup(api);
+    if (lookup && typeof lookup.getBeatStart === 'function') {
+        try {
+            const tick = lookup.getBeatStart(beat);
+            if (typeof tick === 'number' && !isNaN(tick)) {
+                return tick;
+            }
+        } catch (_) {}
+    }
+    const masterBar = beat.voice?.bar?.masterBar;
+    const masterBarStart = masterBar?.start ?? 0;
+    return masterBarStart + (beat.playbackStart ?? 0);
+}
+
+/**
  * Handle auto-scrolling with quick snap and read-ahead in Continuous Mode
  * Adjusts scrolling to consider the virtual fretboard dock so that current stave group is entirely visible
  */
-export function updateContinuousPlaybackScroll(currentTick, force = false) {
+export function updateContinuousPlaybackScroll(currentTick, force = false, targetBeat = null) {
     if (!currentApi || !currentScore || (!synthPlayerState.isPlaying && !force)) return;
 
     const pageModeRadio = document.getElementById('pageModeRadio');
@@ -311,20 +346,33 @@ export function updateContinuousPlaybackScroll(currentTick, force = false) {
     let sysH = 140;
 
     if (boundsLookup?.staffSystems?.length && currentScore?.masterBars?.length) {
-        const masterBars = currentScore.masterBars;
-        let activeMasterBarIndex = -1;
-        for (let i = 0; i < masterBars.length; i++) {
-            const mb = masterBars[i];
-            const barStart = mb.start;
-            const barEnd = barStart + mb.calculateDuration();
-            if (currentTick >= barStart && currentTick < barEnd) {
-                activeMasterBarIndex = i;
-                break;
+        let activeMasterBarIndex = targetBeat?.voice?.bar?.masterBar?.index ?? -1;
+        if (activeMasterBarIndex === -1) {
+            const lookup = getMidiTickLookup(currentApi);
+            if (lookup && typeof lookup.eg === 'function') {
+                try {
+                    const entry = lookup.eg(currentTick);
+                    if (entry?.masterBar?.index !== undefined) {
+                        activeMasterBarIndex = entry.masterBar.index;
+                    }
+                } catch (_) {}
             }
         }
-        if (activeMasterBarIndex === -1 && masterBars.length > 0) {
-            if (currentTick >= masterBars[masterBars.length - 1].start) {
-                activeMasterBarIndex = masterBars.length - 1;
+        if (activeMasterBarIndex === -1) {
+            const masterBars = currentScore.masterBars;
+            for (let i = 0; i < masterBars.length; i++) {
+                const mb = masterBars[i];
+                const barStart = mb.start;
+                const barEnd = barStart + mb.calculateDuration();
+                if (currentTick >= barStart && currentTick < barEnd) {
+                    activeMasterBarIndex = i;
+                    break;
+                }
+            }
+            if (activeMasterBarIndex === -1 && masterBars.length > 0) {
+                if (currentTick >= masterBars[masterBars.length - 1].start) {
+                    activeMasterBarIndex = masterBars.length - 1;
+                }
             }
         }
         if (activeMasterBarIndex >= 0) {
@@ -360,7 +408,7 @@ export function updateContinuousPlaybackScroll(currentTick, force = false) {
     // 3. Occlusion and read-ahead checks
     const isAboveTop = visualTop < 0 || (hasValidCursor && cursorVisualTop < 0);
     const isHidingBehindFretboard = isFretboardOpen && (Math.max(visualBottom, cursorVisualBottom) > (visibleViewportHeight - 16));
-    const isBelowThreshold = visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60));
+    const isBelowThreshold = synthPlayerState.isPlaying && (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60)));
 
     if (isAboveTop || isHidingBehindFretboard || isBelowThreshold) {
         const maxScroll = output.scrollHeight - output.clientHeight;
@@ -388,10 +436,10 @@ export function applyCursorPositionFromBeat(beat) {
     const pageModeRadio = document.getElementById('pageModeRadio');
     const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
 
-    // Calculate beat playback tick
     const masterBar = beat.voice?.bar?.masterBar;
-    const masterBarStart = masterBar?.start ?? 0;
-    const beatTick = masterBarStart + (beat.playbackStart ?? 0);
+
+    // Calculate beat playback tick in the MIDI timeline (accounting for repeats)
+    const beatTick = getPlaybackTickForBeat(beat, currentApi);
 
     // Set playback position
     currentApi.tickPosition = beatTick;
@@ -402,7 +450,34 @@ export function applyCursorPositionFromBeat(beat) {
 
     // Position custom line reader cursor
     const boundsLookup = currentApi.renderer?.boundsLookup;
-    const beatBounds = boundsLookup?.findBeat(beat);
+    let beatBounds = boundsLookup?.findBeat(beat);
+    if (!beatBounds && boundsLookup?.staffSystems?.length && masterBar) {
+        for (const sys of boundsLookup.staffSystems) {
+            for (const mb of (sys.bars || [])) {
+                if (mb.index === masterBar.index) {
+                    for (const tb of (mb.bars || [])) {
+                        if (tb.beats && tb.beats.length > 0) {
+                            let closest = tb.beats[0];
+                            let minDiff = Infinity;
+                            for (const bb of tb.beats) {
+                                const diff = Math.abs((bb.beat?.playbackStart ?? 0) - (beat.playbackStart ?? 0));
+                                if (diff < minDiff) {
+                                    minDiff = diff;
+                                    closest = bb;
+                                }
+                            }
+                            if (closest) {
+                                beatBounds = closest;
+                                break;
+                            }
+                        }
+                    }
+                    break;
+                }
+            }
+            if (beatBounds) break;
+        }
+    }
     if (beatBounds) {
         const startBeatX = beatBounds.visualBounds?.x ?? beatBounds.realBounds?.x ?? 0;
         currentApi.customCursorHandler?.placeBeatCursor(null, beatBounds, startBeatX);
@@ -416,7 +491,7 @@ export function applyCursorPositionFromBeat(beat) {
 
     // Adjust scrolling in continuous mode so stave group is entirely visible above fretboard
     if (!isPageMode) {
-        updateContinuousPlaybackScroll(beatTick, true);
+        updateContinuousPlaybackScroll(beatTick, true, beat);
     }
 }
 
@@ -853,8 +928,19 @@ export function attachAlphaTabApi(api) {
 
     if (api.beatMouseDown) {
         api.beatMouseDown.on((beat) => {
-            if (beat) {
-                applyCursorPositionFromBeat(beat);
+            const pageModeRadio = document.getElementById('pageModeRadio');
+            const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
+            if (isPageMode) {
+                if (beat) {
+                    applyCursorPositionFromBeat(beat);
+                }
+            } else {
+                // In scroll (continuous) mode, let the click listener handle cursor placement
+                // to prevent mousedown/click races, unwanted scroll jumps during mousedown,
+                // and accidental seeks while dragging/swiping to scroll.
+                if (beat) {
+                    fretboardController.showBeatsAtCursor(beat);
+                }
             }
         });
     }
@@ -1565,11 +1651,12 @@ export function initSynthPlayer() {
     const output = document.getElementById('output');
     output?.addEventListener('click', (e) => {
         if (!output.classList.contains('continuous-mode')) return;
-        if (e.target && e.target.closest && e.target.closest('button, input, textarea, select, .fretboard-dock, .hud-pill-group')) return;
+        if (e.target && e.target.closest && e.target.closest('button, input, textarea, select, .fretboard-dock, .hud-pill-group, .track-select-pill, .modal')) return;
         if (!currentApi || !currentScore) return;
 
         const container = gpState.canvases[0]?.container;
-        if (!container || !container.contains(e.target)) return;
+        if (!container) return;
+        if (e.target !== output && !container.contains(e.target)) return;
 
         const boundsLookup = currentApi.renderer?.boundsLookup;
         if (!boundsLookup || !boundsLookup.staffSystems || !boundsLookup.staffSystems.length) return;
@@ -1589,6 +1676,7 @@ export function initSynthPlayer() {
                 const bottom = top + h;
                 if (relY >= top && relY <= bottom) {
                     bestSys = sys;
+                    minSysDist = 0;
                     break;
                 }
                 const dist = relY < top ? (top - relY) : (relY - bottom);
@@ -1598,21 +1686,45 @@ export function initSynthPlayer() {
                 }
             }
 
-            if (bestSys && minSysDist < 120) {
-                const bar = bestSys.findBarAtPos(relX);
-                if (bar && bar.beats && bar.beats.length > 0) {
-                    let closestBeat = bar.beats[0];
-                    let minBeatDist = Infinity;
-                    for (const b of bar.beats) {
-                        const bBounds = boundsLookup.findBeat(b.beat);
-                        const bX = bBounds ? (bBounds.visualBounds?.x ?? bBounds.realBounds?.x ?? 0) : 0;
-                        const d = Math.abs(relX - bX);
-                        if (d < minBeatDist) {
-                            minBeatDist = d;
-                            closestBeat = b;
+            if (bestSys) {
+                const masterBar = bestSys.findBarAtPos(relX);
+                if (masterBar) {
+                    // In multi-track bars, find track bar closest vertically to click position
+                    if (masterBar.bars && masterBar.bars.length > 0) {
+                        let bestTrackBar = masterBar.bars[0];
+                        let minTrackDist = Infinity;
+                        for (const tb of masterBar.bars) {
+                            const tbY = tb.realBounds?.y ?? tb.visualBounds?.y ?? 0;
+                            const tbH = tb.realBounds?.h ?? tb.visualBounds?.h ?? 60;
+                            const tbBottom = tbY + tbH;
+                            const dist = (relY >= tbY && relY <= tbBottom) ? 0 : (relY < tbY ? (tbY - relY) : (relY - tbBottom));
+                            if (dist < minTrackDist) {
+                                minTrackDist = dist;
+                                bestTrackBar = tb;
+                            }
+                        }
+
+                        if (bestTrackBar && bestTrackBar.beats && bestTrackBar.beats.length > 0) {
+                            let closest = bestTrackBar.beats[0];
+                            let minDist = Infinity;
+                            for (const b of bestTrackBar.beats) {
+                                const bBounds = boundsLookup.findBeat(b.beat);
+                                const bX = bBounds ? (bBounds.visualBounds?.x ?? bBounds.realBounds?.x ?? 0) : 0;
+                                const d = Math.abs(relX - bX);
+                                if (d < minDist) {
+                                    minDist = d;
+                                    closest = b;
+                                }
+                            }
+                            if (closest?.beat) {
+                                beat = closest.beat;
+                            }
                         }
                     }
-                    beat = closestBeat.beat;
+
+                    if (!beat && typeof masterBar.findBeatAtPos === 'function') {
+                        beat = masterBar.findBeatAtPos(relX);
+                    }
                 }
             }
         }

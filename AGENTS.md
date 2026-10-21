@@ -151,6 +151,37 @@ To reload first, then screenshot after rendering completes, wait for the `[GP Mo
 
 Note: screenshots are captured at the device pixel ratio of the display (2× on Retina). A 1702×988 logical viewport produces a 3404×1976px PNG.
 
+### Efficient Debugging Workflow
+
+- **Reproduce first:** For interaction bugs, script the user's literal steps (e.g. scroll, then click, then read cursor/tick state) and confirm it fails before editing code. Re-run the same script after the fix. Do not ship speculative fixes.
+- **Use the helper, not one-off scripts:** `tests/cdp.py` wraps the DevTools protocol (`eval`, `reload`, `screenshot`, `targets`). Do not write a new websocket script per question; batch several probes into one `eval` call.
+  ```bash
+  python3 tests/cdp.py reload
+  python3 tests/cdp.py eval "(() => ({ tick: window.gpState.canvases[0].api.tickPosition }))()"
+  python3 tests/cdp.py screenshot /tmp/shot.png
+  ```
+  Set `CDP_PORT` if not using 9333.
+- **Launch a debug Edge on port 9333:** Ports 9222/9223 are often held by `adb` forwards to an Android WebView (check `lsof -i :<port>`), and Edge silently fails to bind them. If a normal Edge is already running, the flags are ignored, so quit it first.
+  ```bash
+  /Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
+    --remote-debugging-port=9333 --user-data-dir=/tmp/edge-debug \
+    "http://localhost:8000/app/?test=Keystone.gp" >/dev/null 2>&1 &
+  ```
+  Stop it with `pkill -f /tmp/edge-debug`.
+- **Pick the right fixture:** `Keystone.gp` has repeats and multiple tracks (repeat/tick bugs only show here); `Haken - 1985.gp5` and `nightterror.gp5` are larger GP5 files; `octavarium.gp3` covers GP3.
+- **Do not grep `build/`:** it holds Rust/Android binaries and large artifacts. Restrict searches to `app/`.
+- **Stop after two failed approaches:** re-read the existing code path and compare its assumptions against the library's actual behavior instead of probing minified code.
+
+### AlphaTab Internals (GP playback and cursor)
+
+- `api.tickPosition` is on the **MIDI timeline, which expands repeats**. `masterBar.start + beat.playbackStart` is the **notation timeline** and is wrong after any repeat. Always convert with `getPlaybackTickForBeat(beat, api)` in `app/gpProcessor/gpPlayer.js` (wraps the MidiTickLookup's `getBeatStart`).
+- Setting `api.tickPosition` makes AlphaTab re-place its own cursor (calling our `customCursorHandler.placeBeatCursor`). If the tick is wrong, AlphaTab overwrites any manual cursor placement; fix the tick rather than the cursor.
+- `renderer.boundsLookup.staffSystems[].findBarAtPos(x)` returns a master-bar bounds object. Its per-track bars are in `.bars` (each with `.beats`), not `.beats`. `masterBar.findBeatAtPos(x)` returns a model beat.
+- `boundsLookup.getBeatAtPos(x, y)` returns null in gaps, margins and headers; fall back to the nearest system, then the vertically closest track bar, then the nearest beat by x.
+- `boundsLookup.findBeat(beat)` only resolves beats for tracks currently rendered.
+- The `.at-cursors` layer and `.gp-reader-cursor` are hidden by CSS until `body.synth-playback-started` is set.
+- Public AlphaTab fields are minified (`Qw`, `vy`, `Ny`); avoid depending on them, and if unavoidable, route through a single helper such as `getMidiTickLookup()`.
+
 ### Known Noise to Ignore
 
 - `Unchecked runtime.lastError: The message port closed...` — browser extension issue, not app code
