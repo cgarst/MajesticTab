@@ -263,61 +263,91 @@ class PitchCraftTunerController {
     }
 
     /**
-     * Inspect active score & fretboard controller to build dynamic Track Tuning instrument
+     * Inspect active score & fretboard controller to build dynamic Track Tuning instruments
+     * for ALL non-percussion tracks in the opened score.
      */
-    buildTrackInstrument() {
+    buildTrackInstruments() {
+        const score = fretboardController?.activeScore || window.gpState?.api?.score;
         const visibleTracks = fretboardController?.visibleTracks || [];
-        const primaryTrack = visibleTracks[0] || window.gpState?.api?.tracks?.[0] || window.gpState?.api?.score?.tracks?.[0];
+        const allTracks = score?.tracks || window.gpState?.api?.tracks || visibleTracks;
 
-        if (!primaryTrack || !fretboardController?.isScoreAvailable) {
-            return null;
+        if (!allTracks || allTracks.length === 0 || !fretboardController?.isScoreAvailable) {
+            return [];
         }
 
-        // Fretboard controller has normalized tuning array [highestString ... lowestString]
-        let rawTunings = fretboardController?.tuning;
-        if (!Array.isArray(rawTunings) || rawTunings.length === 0) {
-            for (const staff of (primaryTrack.staves || [])) {
-                if (Array.isArray(staff.tuning) && staff.tuning.length > 0) {
-                    rawTunings = staff.tuning;
-                    break;
+        const instruments = [];
+        const seenTunings = new Set();
+
+        const processTrack = (track, trackIdx) => {
+            if (!track || track.isPercussion) return;
+
+            let rawTuningsList = [];
+            for (const staff of (track.staves || [])) {
+                if (staff.isPercussion) continue;
+                if (staff.stringTuning?.tunings && staff.stringTuning.tunings.length > 0) {
+                    rawTuningsList.push(staff.stringTuning.tunings);
+                } else if (Array.isArray(staff.tuning) && staff.tuning.length > 0) {
+                    rawTuningsList.push(staff.tuning);
                 }
             }
-            if (!rawTunings && Array.isArray(primaryTrack.tuning)) {
-                rawTunings = primaryTrack.tuning;
+
+            if (rawTuningsList.length === 0 && Array.isArray(track.tuning) && track.tuning.length > 0) {
+                rawTuningsList.push(track.tuning);
             }
-        }
 
-        if (!Array.isArray(rawTunings) || rawTunings.length === 0) {
-            return null;
-        }
+            // Fallback to fretboardController.tuning if this is the primary visible track and no staff tuning found
+            if (rawTuningsList.length === 0 && track === visibleTracks[0] && Array.isArray(fretboardController?.tuning)) {
+                rawTuningsList.push(fretboardController.tuning);
+            }
 
-        // Normalize order from lowest string to highest string for tuner string layout
-        let midiOrder = [...rawTunings];
-        if (midiOrder[0] > midiOrder[midiOrder.length - 1]) {
-            midiOrder.reverse();
-        }
+            for (let sIdx = 0; sIdx < rawTuningsList.length; sIdx++) {
+                const rawTunings = rawTuningsList[sIdx];
+                if (!Array.isArray(rawTunings) || rawTunings.length === 0) continue;
 
-        // Convert MIDI pitches to note names e.g. E2, A2, D3, etc.
-        const stringNotes = midiOrder.map(m => {
-            const noteName = NOTES[((m % 12) + 12) % 12];
-            const octave = Math.floor(m / 12) - 1;
-            return `${noteName}${octave}`;
-        });
+                // Normalize order from lowest string to highest string for tuner string layout
+                let midiOrder = [...rawTunings];
+                if (midiOrder[0] > midiOrder[midiOrder.length - 1]) {
+                    midiOrder.reverse();
+                }
 
-        const formattedTuningName = formatTuningFromMidi(rawTunings) || 'Custom';
-        const trackName = primaryTrack.name || 'Guitar';
-        const isBass = midiOrder.length <= 5 && (midiOrder[0] < 36 || trackName.toLowerCase().includes('bass'));
+                const tuningKey = midiOrder.join(',');
+                const trackName = (track.name || `Track ${trackIdx + 1}`).trim();
+                const dedupKey = `${trackName}:${tuningKey}`;
+                if (seenTunings.has(dedupKey)) continue;
+                seenTunings.add(dedupKey);
 
-        return {
-            id: 'track-tuning',
-            name: `Track: ${formattedTuningName}`,
-            tuning: stringNotes,
-            color: '#10b981',
-            description: `${trackName} tuning (${stringNotes.join(' ')})`,
-            strings: stringNotes.length,
-            type: isBass ? 'bass' : 'guitar',
-            isTrackTuning: true
+                // Convert MIDI pitches to note names e.g. E2, A2, D3, etc.
+                const stringNotes = midiOrder.map(m => {
+                    const noteName = NOTES[((m % 12) + 12) % 12];
+                    const octave = Math.floor(m / 12) - 1;
+                    return `${noteName}${octave}`;
+                });
+
+                const formattedTuningName = formatTuningFromMidi(rawTunings) || 'Custom';
+                const isBass = midiOrder.length <= 5 && (midiOrder[0] < 36 || trackName.toLowerCase().includes('bass'));
+
+                instruments.push({
+                    id: `track-tuning-${track.index ?? trackIdx}-${sIdx}`,
+                    name: allTracks.length > 1 ? `${trackName}: ${formattedTuningName}` : `Track: ${formattedTuningName}`,
+                    tuning: stringNotes,
+                    color: isBass ? '#7B2FF7' : '#10b981',
+                    description: `${trackName} tuning (${stringNotes.join(' ')})`,
+                    strings: stringNotes.length,
+                    type: isBass ? 'bass' : 'guitar',
+                    isTrackTuning: true,
+                    trackName,
+                    trackIndex: track.index ?? trackIdx
+                });
+            }
         };
+
+        // First process visible tracks (so primary visible track appears first)
+        visibleTracks.forEach((t, i) => processTrack(t, t.index ?? i));
+
+        // Then process any other tracks in the score
+        allTracks.forEach((t, i) => processTrack(t, t.index ?? i));
+
+        return instruments;
     }
 
     /**
@@ -327,11 +357,11 @@ class PitchCraftTunerController {
         const modal = document.getElementById('tunerModal');
         if (!modal) return;
 
-        // Build track instrument if tab is open
-        const trackInst = this.buildTrackInstrument();
-        if (trackInst) {
-            this.instruments = [trackInst, ...BASE_INSTRUMENTS];
-            this.selectedInstrument = trackInst;
+        // Build track instruments for all tracks in opened score
+        const trackInstruments = this.buildTrackInstruments();
+        if (trackInstruments.length > 0) {
+            this.instruments = [...trackInstruments, ...BASE_INSTRUMENTS];
+            this.selectedInstrument = trackInstruments[0];
         } else {
             this.instruments = [...BASE_INSTRUMENTS];
             if (this.selectedInstrument?.isTrackTuning) {
