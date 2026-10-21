@@ -39,6 +39,10 @@ To ensure high visual polish, scannability, and consistency across marketing pag
 - **Ampersands vs. "and":** Write out **"and"** in editorial headlines and body copy (e.g., *"Gamepad and Bluetooth page turner support"*, *"PDF export and condensing"*). Reserve the ampersand (`&`) only for compact badges, pill groups, or tight navigation links where space is strictly constrained.
 - **Navigation & CTA Buttons (Title Case):** Navigation links, standalone call-to-action buttons, and modal action triggers should use **Title Case** (e.g., `Download MajesticTab`, `Open App`, `Tab Library`).
 
+## Repository Content Rules
+
+- **Never commit tabs to the repo:** Agents must not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) or tab PDFs anywhere in the repository. These are copyrighted. The only exceptions are the `Keystone` fixtures in `tests/` (`Keystone.gp`, `Keystone.pdf`). Use local, untracked copies for ad-hoc testing and keep them out of commits.
+
 ## Test Procedures
 
 ### Local Dev Server and Debug Edge
