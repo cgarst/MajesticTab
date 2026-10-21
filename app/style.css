@@ -5954,3 +5954,30 @@ body:not(.synth-playback-started) .at-highlight {
     letter-spacing: -0.04em !important;
   }
 }
+
+/* Page scrubber popover (tap the page indicator) */
+.page-scrubber-popover {
+  position: fixed;
+  z-index: 2000;
+  width: min(280px, calc(100vw - 16px));
+  padding: 0.75rem 1rem;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.page-scrubber-label {
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.page-scrubber-slider {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent-primary, #8b5cf6);
+}
