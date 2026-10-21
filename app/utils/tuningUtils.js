@@ -957,10 +957,114 @@ export function computeExtraLowStringTunings(tunings, delta, isBass = false) {
 }
 
 /**
- * Gets the preferred tab string count for the specified or active instrument mode.
+ * Gets a stable identifier for a tab file or record to key per-tab preferences.
+ */
+export function getTabStorageId(file) {
+    if (!file) return null;
+    if (typeof file === 'string') return file;
+    if (file.librarySongId && file.tabId) {
+        return `${file.librarySongId}_tab_${file.tabId}`;
+    }
+    if (file.tabId) {
+        return file.tabId;
+    }
+    if (file.fileStoreId) {
+        return file.fileStoreId;
+    }
+    if (file.driveFileId) {
+        return file.driveFileId;
+    }
+    if (file.name) {
+        return file.name;
+    }
+    return null;
+}
+
+/**
+ * Generates the storage key for a specific tab's string count preference.
+ */
+export function getTabStringCountStorageKey(file, instrumentMode = getInstrumentMode()) {
+    const id = getTabStorageId(file);
+    if (!id) return null;
+    return `gp_tab_strings_${instrumentMode}_${String(id).toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
+}
+
+/**
+ * Gets the persisted string count selection for a specific tab.
+ * Returns 'native', '7', '8' for guitar, or 'native', '5', '6' for bass, or null if no preference is saved for this tab.
+ */
+export function getTabStringCountPreference(file, instrumentMode = getInstrumentMode()) {
+    if (!file) return null;
+    try {
+        if (typeof localStorage !== 'undefined') {
+            const primaryKey = getTabStringCountStorageKey(file, instrumentMode);
+            if (primaryKey) {
+                const val = localStorage.getItem(primaryKey);
+                if (val) return val;
+            }
+            if (file.name) {
+                const fallbackKey = `gp_tab_strings_${instrumentMode}_${file.name.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
+                const fallbackVal = localStorage.getItem(fallbackKey);
+                if (fallbackVal) return fallbackVal;
+            }
+        }
+        const modeProp = file[`preferredStringCount_${instrumentMode}`]
+            || (file.preferredStringCount && typeof file.preferredStringCount === 'object' ? file.preferredStringCount[instrumentMode] : null)
+            || (typeof file.preferredStringCount === 'string' && !file[`preferredStringCount_${instrumentMode === 'bass' ? 'guitar' : 'bass'}`] ? file.preferredStringCount : null);
+        if (modeProp) {
+            return String(modeProp);
+        }
+    } catch {
+        return null;
+    }
+    return null;
+}
+
+/**
+ * Persists the string count selection for a specific tab in storage.
+ */
+export function setTabStringCountPreference(file, value, instrumentMode = getInstrumentMode()) {
+    const safe = (value === '7' || value === '8' || value === '5' || value === '6') ? value : 'native';
+    if (!file) return safe;
+
+    if (typeof file === 'object') {
+        file[`preferredStringCount_${instrumentMode}`] = safe;
+        if (!file.preferredStringCount || typeof file.preferredStringCount !== 'object') {
+            file.preferredStringCount = {};
+        }
+        file.preferredStringCount[instrumentMode] = safe;
+    }
+
+    if (typeof localStorage !== 'undefined') {
+        const key = getTabStringCountStorageKey(file, instrumentMode);
+        if (key) {
+            try {
+                localStorage.setItem(key, safe);
+            } catch (e) {
+                console.warn('Could not save tab string count preference to localStorage:', e);
+            }
+        }
+    }
+
+    if (file.librarySongId && file.tabId) {
+        import('../libraryStore.js').then(store => {
+            if (typeof store.updateTabOptionOnSong === 'function') {
+                store.updateTabOptionOnSong(file.librarySongId, file.tabId, {
+                    preferredStringCount: file.preferredStringCount,
+                    [`preferredStringCount_${instrumentMode}`]: safe
+                }).catch(err => console.warn('Could not save preferredStringCount to library store:', err));
+            }
+        }).catch(() => {});
+    }
+
+    return safe;
+}
+
+/**
+ * Gets the default tab string count when opening a tab (from Settings menu).
  * Returns 'native' (default), '7', '8' for guitar, or 'native', '5', '6' for bass.
  */
-export function getGpStringCountPreference(instrumentMode = getInstrumentMode()) {
+export function getDefaultGpStringCount(instrumentMode = getInstrumentMode()) {
     const key = instrumentMode === 'bass' ? 'gpDefaultStringsBass' : 'gpDefaultStringsGuitar';
     try {
         if (typeof localStorage === 'undefined') return 'native';
@@ -972,9 +1076,9 @@ export function getGpStringCountPreference(instrumentMode = getInstrumentMode())
 }
 
 /**
- * Sets the preferred tab string count for the specified or active instrument mode.
+ * Sets the default tab string count when opening a tab (from Settings menu).
  */
-export function setGpStringCountPreference(value, instrumentMode = getInstrumentMode()) {
+export function setDefaultGpStringCount(value, instrumentMode = getInstrumentMode()) {
     const key = instrumentMode === 'bass' ? 'gpDefaultStringsBass' : 'gpDefaultStringsGuitar';
     const safe = (value === '7' || value === '8' || value === '5' || value === '6') ? value : 'native';
     try {
@@ -982,9 +1086,27 @@ export function setGpStringCountPreference(value, instrumentMode = getInstrument
             localStorage.setItem(key, safe);
         }
     } catch (e) {
-        console.warn('Could not save string count preference:', e);
+        console.warn('Could not save default string count setting:', e);
     }
     return safe;
+}
+
+/**
+ * Backward compatibility aliases for settings menu default string count
+ */
+export const getGpStringCountPreference = getDefaultGpStringCount;
+export const setGpStringCountPreference = setDefaultGpStringCount;
+
+/**
+ * Gets the effective string count for a tab: uses the specific tab's persisted preference if set,
+ * otherwise falls back to the default from the settings menu.
+ */
+export function getEffectiveGpStringCount(file, instrumentMode = getInstrumentMode()) {
+    const tabPref = getTabStringCountPreference(file, instrumentMode);
+    if (tabPref !== null && tabPref !== undefined) {
+        return tabPref;
+    }
+    return getDefaultGpStringCount(instrumentMode);
 }
 
 /**

@@ -579,6 +579,7 @@ export async function updateTabOptionOnSong(songId, tabOptionId, updates = {}) {
     if (updates.tunings !== undefined) tab.tunings = updates.tunings;
     if (updates.fileType !== undefined) tab.fileType = updates.fileType;
     if (updates.providerId !== undefined) tab.providerId = updates.providerId;
+    if (updates.preferredStringCount !== undefined) tab.preferredStringCount = updates.preferredStringCount;
 
     await saveSongToLibrary(song, song.collectionId);
     return tab;

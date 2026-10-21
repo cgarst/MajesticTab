@@ -2578,6 +2578,7 @@ async function loadSongTab(song, tabOption) {
             file.tabId = tabOption.id;
             file.tabName = tabOption.name || file.name;
             file.fileStoreId = tabOption.fileStoreId;
+            file.preferredStringCount = tabOption.preferredStringCount || null;
             file.librarySongId = song.id;
             closeLibraryModal();
             await loadFile(file);
@@ -2602,7 +2603,8 @@ async function loadSongTab(song, tabOption) {
                 artist: song.artist,
                 album: song.album,
                 coverUrl: song.coverUrl,
-                tunings: song.tunings
+                tunings: song.tunings,
+                preferredStringCount: tabOption.preferredStringCount || null
             });
         } else {
             showToast(`Tab file not found locally. Please re-import tab for ${song.title}.`, 'warning');
@@ -3841,6 +3843,7 @@ async function renderRecentsView(container) {
                     stored.file.tabId = r.tabId || null;
                     stored.file.tabName = r.tabName || r.name;
                     stored.file.fileStoreId = r.fileStoreId;
+                    stored.file.preferredStringCount = r.preferredStringCount || null;
                     closeLibraryModal();
                     await loadFile(stored.file);
                     return;
