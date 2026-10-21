@@ -10,6 +10,7 @@ import { computeLeadMs } from './jamClock.js';
 import { jamSongId, songTitleFromName, startLag, measureStartLag, waitForPlayerReady, estimateOutputLatencyMs, trackPolicyFor } from './jamCommon.js';
 import { createYouTubeHost } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor } from '../gpProcessor/gpPlayer.js';
+import { getEnabledExtensionSources } from '../fileAdapters.js';
 import { arrayBufferToBase64Async, base64ToArrayBuffer } from '../fileStore.js';
 
 const HEARTBEAT_MS = 500;
@@ -72,8 +73,12 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         };
     };
 
+    // Clients load these while following, so file adapters and score transforms match the host's.
+    const hostExtensions = () => getEnabledExtensionSources().map(({ source }) => ({ source }));
+
     const sessionState = () => ({
         song: session.song,
+        extensions: hostExtensions(),
         transport: transportSnapshot(),
         youtube: youtube.state(),
         controllerId: session.controllerId,
@@ -302,7 +307,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             clearTrackAssignments();
             roster.forEach((p) => { p.ready = false; });
             emitRoster();
-            broadcast(MSG.SONG_OPEN, { song: session.song });
+            broadcast(MSG.SONG_OPEN, { song: session.song, extensions: hostExtensions() });
             if (type !== 'gp') return;
             // Warm the synth while everyone else downloads, so the first start is on time.
             const songId = id;
