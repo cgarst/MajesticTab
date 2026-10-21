@@ -5,6 +5,7 @@ use tauri::{LogicalPosition, LogicalSize};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use tauri::RunEvent;
 
+mod jam;
 mod tab_downloader_native;
 
 #[cfg(target_os = "macos")]
@@ -495,6 +496,7 @@ pub fn run() {
     let builder = tauri::Builder::default()
         .manage(OpenedFilesState(Mutex::new(initial_files)))
         .manage(tab_downloader_native::TabDownloaderState::default())
+        .manage(jam::JamState::default())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_oauth::init())
         .plugin(tauri_plugin_opener::init())
@@ -571,6 +573,19 @@ pub fn run() {
 
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        jam::jam_now_ms,
+        jam::jam_debug_autostart,
+        jam::jam_keep_awake,
+        jam::jam_local_addresses,
+        jam::jam_host_start,
+        jam::jam_host_stop,
+        jam::jam_host_send,
+        jam::jam_host_kick,
+        jam::jam_host_peers,
+        jam::jam_discover,
+        jam::jam_client_connect,
+        jam::jam_client_send,
+        jam::jam_client_disconnect,
         get_opened_file,
         open_tab_downloader,
         youtube_open_auth,
@@ -591,6 +606,19 @@ pub fn run() {
 
     #[cfg(not(target_os = "macos"))]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        jam::jam_now_ms,
+        jam::jam_debug_autostart,
+        jam::jam_keep_awake,
+        jam::jam_local_addresses,
+        jam::jam_host_start,
+        jam::jam_host_stop,
+        jam::jam_host_send,
+        jam::jam_host_kick,
+        jam::jam_host_peers,
+        jam::jam_discover,
+        jam::jam_client_connect,
+        jam::jam_client_send,
+        jam::jam_client_disconnect,
         get_opened_file,
         open_tab_downloader,
         youtube_open_auth,

@@ -5981,3 +5981,160 @@ body:not(.synth-playback-started) .at-highlight {
   margin: 0;
   accent-color: var(--accent-primary, #8b5cf6);
 }
+
+/* --------------------------------------------------------------------------
+   Jam Mode (host / client playback sync)
+   -------------------------------------------------------------------------- */
+#jamToggleBtn.jam-active {
+  background: var(--accent-gradient) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 8px var(--accent-glow);
+}
+
+.jam-modal-card {
+  max-width: 560px;
+}
+
+/* Children carry their own mb-* spacing */
+.jam-modal-body {
+  gap: 0;
+}
+
+.jam-tab-group {
+  align-self: flex-start;
+}
+
+.jam-modal-body .form-control,
+.jam-modal-body .form-select {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  border-radius: 0.5rem;
+  font-size: 0.82rem;
+}
+
+.jam-modal-body .form-control:focus,
+.jam-modal-body .form-select:focus {
+  background-color: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 0.2rem var(--accent-primary-alpha);
+}
+
+.jam-modal-body .form-control::placeholder {
+  color: var(--text-dim);
+}
+
+.jam-modal-body .form-check-label {
+  color: var(--text-primary);
+}
+
+.jam-label {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.jam-help {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.jam-card {
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.85rem;
+  padding: 0.75rem 1rem;
+  color: var(--text-primary);
+}
+
+.jam-address {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  user-select: all;
+}
+
+.jam-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.jam-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  color: var(--text-primary);
+}
+
+.jam-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.jam-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  color: var(--accent-text);
+  background: var(--accent-primary-alpha);
+  border: 1px solid var(--accent-border-alpha);
+  vertical-align: middle;
+}
+
+.jam-number-input {
+  width: 90px;
+  flex-shrink: 0;
+}
+
+#jamTrimRange {
+  accent-color: var(--accent-primary);
+}
+
+/* Top center so it never sits under toasts (bottom right) */
+.jam-request-card {
+  position: fixed;
+  top: calc(64px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2100;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(420px, calc(100vw - 2rem));
+  padding: 0.75rem 1rem;
+  background: var(--bg-modal);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.7), 0 0 16px -4px var(--accent-glow);
+  color: var(--text-primary);
+}
+
+.jam-request-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+body.jam-starting #globalPlayPauseBtn,
+body.jam-starting #mobilePlayPauseBtn {
+  animation: jamStartingPulse 0.3s ease-in-out infinite alternate;
+}
+
+@keyframes jamStartingPulse {
+  from { opacity: 1; }
+  to { opacity: 0.55; }
+}

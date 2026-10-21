@@ -119,6 +119,14 @@
       </button>
     </div>
 
+    <!-- Jam Mode Pill (native builds only; shown by jam/jamManager.js) -->
+    <div id="jamPill" class="hud-pill-group" role="group" aria-label="Jam mode" style="display:none;">
+      <button class="btn btn-sm" id="jamToggleBtn" title="Jam mode (play together)" aria-label="Jam mode">
+        <i class="bi-people-fill"></i>
+        <span class="d-none d-md-inline ms-1 small" id="jamStatusLabel">Jam</span>
+      </button>
+    </div>
+
     <!-- Game Controller Pill -->
     <div id="controllerPill" class="hud-pill-group" role="group" aria-label="Game Controller" style="display:none;">
       <button class="btn btn-sm" id="controllerHelpBtn" title="Game Controller Connected (Click for Controls Guide)">
