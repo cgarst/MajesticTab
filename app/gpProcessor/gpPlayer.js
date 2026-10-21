@@ -8,6 +8,16 @@ import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUt
 import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext } from '../utils/iosAudioUnlock.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 
+const STORAGE_KEY_SYNTH_VOLUME = 'majestic_synth_volume';
+
+let initialSavedVolume = 1.0;
+try {
+    const storedVol = localStorage.getItem(STORAGE_KEY_SYNTH_VOLUME);
+    if (storedVol !== null && !isNaN(parseFloat(storedVol))) {
+        initialSavedVolume = Math.max(0, Math.min(1, parseFloat(storedVol)));
+    }
+} catch (_) {}
+
 let currentApi = null;
 let currentScore = null;
 let isSeeking = false;
@@ -23,7 +33,7 @@ export const synthPlayerState = {
     playbackSpeed: 1.0,
     metronomeEnabled: false,
     countInEnabled: false,
-    masterVolume: 1.0,
+    masterVolume: initialSavedVolume,
     trackMode: 'fullBand',
     audioSyncAvailable: false,
     audioSyncEnabled: false,
@@ -241,6 +251,16 @@ export function updateSynthUI() {
             trackModeContainer.classList.remove('opacity-50');
             trackModeRadios.forEach(r => r.disabled = !canPlay);
         }
+    }
+
+    const volumeSlider = document.getElementById('synthVolumeSlider');
+    const volumeBadge = document.getElementById('synthVolumeBadge');
+    if (volumeSlider) {
+        volumeSlider.value = String(Math.round(synthPlayerState.masterVolume * 100));
+        volumeSlider.disabled = !canPlay;
+    }
+    if (volumeBadge) {
+        volumeBadge.textContent = `${Math.round(synthPlayerState.masterVolume * 100)}%`;
     }
 }
 
@@ -671,6 +691,10 @@ export function attachAlphaTabApi(api) {
         if (api.player._audioContext) registerAudioContext(api.player._audioContext);
         if (api.player.synth?.context) registerAudioContext(api.player.synth.context);
     }
+
+    try {
+        api.masterVolume = synthPlayerState.masterVolume;
+    } catch (_) {}
 
     synthPlayerState.loopEnabled = false;
     synthPlayerState.loopStartMeasure = 1;
@@ -1481,6 +1505,25 @@ export function initSynthPlayer() {
     };
     document.addEventListener('click', handleOutsideSynthClick);
     document.addEventListener('pointerdown', handleOutsideSynthClick);
+
+    const volumeSlider = document.getElementById('synthVolumeSlider');
+    const volumeBadge = document.getElementById('synthVolumeBadge');
+    volumeSlider?.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10);
+        const vol = Math.max(0, Math.min(100, isNaN(val) ? 100 : val)) / 100;
+        synthPlayerState.masterVolume = vol;
+        if (currentApi) {
+            try {
+                currentApi.masterVolume = vol;
+            } catch (_) {}
+        }
+        if (volumeBadge) {
+            volumeBadge.textContent = `${Math.round(vol * 100)}%`;
+        }
+        try {
+            localStorage.setItem(STORAGE_KEY_SYNTH_VOLUME, String(vol));
+        } catch (_) {}
+    });
 
     window.addEventListener('resize', updateSynthPanelPosition);
     document.addEventListener('fullscreenchange', updateSynthPanelPosition);
