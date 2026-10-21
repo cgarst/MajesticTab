@@ -16,6 +16,7 @@ const settings = {
     muteGuests: loadSetting('muteGuests', false),
     assignedAudioOnly: loadSetting('assignedAudioOnly', false),
     assignedViewOnly: loadSetting('assignedViewOnly', false),
+    muteAssignedForUnassigned: loadSetting('muteAssignedForUnassigned', false),
     waitForEveryone: loadSetting('waitForEveryone', false),
     leadOverrideMs: loadSetting('leadOverrideMs', 0),
     trimMs: loadSetting('trimMs', 0),

@@ -142,6 +142,7 @@ export function createJamModal(manager, { updateSetting }) {
         <div class="jam-label">Track assignments</div>
         <div class="d-flex flex-column gap-2 mb-2">
           ${switchHtml('jamAssignedAudioSwitch', 'Only play each person\'s assigned tracks', settings.assignedAudioOnly)}
+          ${switchHtml('jamMuteAssignedSwitch', 'Mute assigned tracks for people without assignments', settings.muteAssignedForUnassigned)}
           ${switchHtml('jamAssignedViewSwitch', 'Only show each person\'s assigned tracks', settings.assignedViewOnly)}
         </div>
         <div class="jam-list mb-3">
@@ -153,7 +154,7 @@ export function createJamModal(manager, { updateSetting }) {
               </div>
             </div>`).join('')}
         </div>
-        <div class="jam-help mb-3">People with no assigned track hear and see everything. Assignments reset when the song changes.</div>`;
+        <div class="jam-help mb-3">People with no assigned track hear and see everything, unless assigned tracks are muted for them. Assignments reset when the song changes.</div>`;
     }
 
     function hostPanel(settings) {
@@ -410,6 +411,7 @@ export function createJamModal(manager, { updateSetting }) {
         if (id === 'jamPolicySelect') { manager.getHost()?.setPolicy(e.target.value); updateSetting('policy', e.target.value); }
         if (id === 'jamMuteGuestsSwitch') { manager.getHost()?.setMuteGuests(e.target.checked); updateSetting('muteGuests', e.target.checked); }
         if (id === 'jamAssignedAudioSwitch') { manager.getHost()?.updateTracks({ assignedAudioOnly: e.target.checked }); updateSetting('assignedAudioOnly', e.target.checked); }
+        if (id === 'jamMuteAssignedSwitch') { manager.getHost()?.updateTracks({ muteAssignedForUnassigned: e.target.checked }); updateSetting('muteAssignedForUnassigned', e.target.checked); }
         if (id === 'jamAssignedViewSwitch') { manager.getHost()?.updateTracks({ assignedViewOnly: e.target.checked }); updateSetting('assignedViewOnly', e.target.checked); }
         if (id === 'jamWaitSwitch') updateSetting('waitForEveryone', e.target.checked);
         if (id === 'jamSmoothSwitch') updateSetting('smoothDrift', e.target.checked);

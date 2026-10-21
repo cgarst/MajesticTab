@@ -55,6 +55,7 @@ let lastPositionEventAt = 0;
 let jamMuted = false; // Jam host muted guests: synth stays silent regardless of the volume slider
 const effectiveVolume = () => (jamMuted ? 0 : synthPlayerState.masterVolume);
 let jamAudioTracks = null; // Jam host assigned this device track indices: only those are audible
+let jamMuteTracks = null; // Jam host: tracks assigned to others, silenced on this unassigned device
 let jamViewTracks = null; // Jam host assigned this device track indices: only those are shown
 let jamPrevViewTracks = null; // tracks that were visible before the Jam view restriction
 let warmingUp = false; // muted Jam Mode warm-up play in progress; player events are suppressed
@@ -117,6 +118,14 @@ function applySynthTrackMode() {
     if (jamAudioTracks) {
         const audible = currentScore.tracks.map((_, i) => i).filter(i => jamAudioTracks.includes(i));
         const silent = currentScore.tracks.map((_, i) => i).filter(i => !jamAudioTracks.includes(i));
+        if (silent.length) currentApi.changeTrackMute(silent, true);
+        if (audible.length) currentApi.changeTrackMute(audible, false);
+        return;
+    }
+    if (jamMuteTracks) {
+        const all = currentScore.tracks.map((_, i) => i);
+        const silent = all.filter(i => jamMuteTracks.includes(i));
+        const audible = all.filter(i => !jamMuteTracks.includes(i));
         if (silent.length) currentApi.changeTrackMute(silent, true);
         if (audible.length) currentApi.changeTrackMute(audible, false);
         return;
@@ -1987,10 +1996,11 @@ export const jamPlayerControl = {
         return (currentScore?.tracks || []).map((t, i) => ({ index: i, name: t.name || `Track ${i + 1}` }));
     },
     /** Jam track assignment: `audio` / `view` are index arrays, or null for no restriction. */
-    setTrackPolicy({ audio = null, view = null } = {}) {
+    setTrackPolicy({ audio = null, view = null, mute = null } = {}) {
         const norm = (a) => (Array.isArray(a) && a.length ? a : null);
         jamAudioTracks = norm(audio);
         jamViewTracks = norm(view);
+        jamMuteTracks = norm(mute);
         if (!currentApi) return;
         applySynthTrackMode();
         reapplyJamTrackView();
