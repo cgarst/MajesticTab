@@ -1293,10 +1293,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 });
 
 // --- LOAD PDF ---
+let pdfLoadingProcessing = null;
 async function loadPDF(file) {
     if (currentProcessing) currentProcessing.aborted = true;
     const processing = { aborted: false };
     currentProcessing = processing;
+    pdfLoadingProcessing = processing;
+    pageIndicator.textContent = 'Loading…';
     
     // Show progress bar immediately
     showProgress(progressContainer, progressBar);
@@ -1355,6 +1358,8 @@ async function loadPDF(file) {
             continuous = !isPageMode;
             
             if (isPageMode) {
+                // Lay out only the first page while loading; full layout happens once at the end
+                if (condensedCanvases.length > 1) return;
                 if (!canvas._layoutScheduled) {
                     canvas._layoutScheduled = true;
                     setTimeout(() => {
@@ -1404,6 +1409,23 @@ async function loadPDF(file) {
     
     // Hide progress bar after processing is complete
     hideProgress(progressContainer, progressBar);
+
+    // Finalize: compute the full page count once
+    if (pdfLoadingProcessing === processing) pdfLoadingProcessing = null;
+    if (processing.aborted) return;
+    if (pageModeRadio.checked) {
+        const oldIndex = currentPageIndex;
+        clearOutput(output);
+        const result = layoutPages(condensedCanvases, pages);
+        pages = result.pages;
+        currentPageIndex = oldIndex < pages.length ? oldIndex : result.newIndex;
+        updatePageDisplay();
+        renderCurrentPage();
+        output.focus();
+    } else {
+        const scrollPercent = (output.scrollTop / (output.scrollHeight - output.clientHeight) * 100) || 0;
+        pageIndicator.textContent = `${Math.round(scrollPercent)}%`;
+    }
 }
 
 export async function loadFile(file, { hideMenu = true } = {}) {
@@ -1594,6 +1616,10 @@ function renderCurrentPage() {
 
 // --- PAGE INDICATOR ---
 function updatePageDisplay() {
+    if (pdfLoadingProcessing && !pdfLoadingProcessing.aborted) {
+        pageIndicator.textContent = 'Loading…';
+        return;
+    }
     if (pages.length > 0) {
         if (continuousModeRadio.checked) {
             // In continuous mode, show scroll percentage
