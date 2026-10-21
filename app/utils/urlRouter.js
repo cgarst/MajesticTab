@@ -46,7 +46,7 @@ export function updateUrl(main, sub = null, replace = false) {
 
     let targetHash = '';
     if (main === 'reference') {
-        const activeSub = sub || getActiveReferenceTab() || 'circle';
+        const activeSub = sub || getActiveReferenceTab() || 'chords';
         targetHash = `#reference/${activeSub}`;
     } else if (main === 'library' || main === 'recents' || main === 'tuner') {
         targetHash = `#${main}`;
@@ -92,7 +92,7 @@ export async function navigateToUrlRoute(route, isInitial = false) {
         if (route.main === 'library' || route.main === 'recents' || route.main === 'reference') {
             closeTunerModal();
             if (route.main === 'reference') {
-                const targetRefTab = (route.sub && ['circle', 'chords', 'scales', 'tone'].includes(route.sub)) ? route.sub : 'circle';
+                const targetRefTab = (route.sub && ['circle', 'chords', 'scales', 'tone'].includes(route.sub)) ? route.sub : 'chords';
                 setActiveReferenceTab(targetRefTab);
             }
             if (isLibraryOpen()) {
