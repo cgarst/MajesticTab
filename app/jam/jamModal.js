@@ -152,6 +152,7 @@ export function createJamModal(manager, { updateSetting }) {
           </select>
         </div>
         <div class="d-flex flex-column gap-2 mb-3">
+          ${switchHtml('jamMuteGuestsSwitch', 'Mute audio on guests', settings.muteGuests)}
           ${switchHtml('jamWaitSwitch', 'Wait for everyone before playing', settings.waitForEveryone)}
           <div class="d-flex align-items-center gap-2">
             <label class="jam-label mb-0" for="jamLeadInput">Lead time (ms, 0 = auto)</label>
@@ -373,6 +374,7 @@ export function createJamModal(manager, { updateSetting }) {
     body.addEventListener('change', (e) => {
         const id = e.target.id;
         if (id === 'jamPolicySelect') { manager.getHost()?.setPolicy(e.target.value); updateSetting('policy', e.target.value); }
+        if (id === 'jamMuteGuestsSwitch') { manager.getHost()?.setMuteGuests(e.target.checked); updateSetting('muteGuests', e.target.checked); }
         if (id === 'jamWaitSwitch') updateSetting('waitForEveryone', e.target.checked);
         if (id === 'jamSmoothSwitch') updateSetting('smoothDrift', e.target.checked);
         if (id === 'jamAlwaysSaveSwitch') updateSetting('alwaysSaveSongs', e.target.checked);

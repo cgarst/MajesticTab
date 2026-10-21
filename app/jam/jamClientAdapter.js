@@ -9,6 +9,7 @@ import { ClockSync, DriftFilter, NudgeMonitor, decideDriftAction, DRIFT_IGNORE_M
 import { estimateOutputLatencyMs, createCoalescer, jamSongId, startLag, measureStartLag, waitForPlayerReady, loadSetting, saveSetting } from './jamCommon.js';
 import { createYouTubeClient } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor } from '../gpProcessor/gpPlayer.js';
+import { jamYouTubeControl } from '../youtubePlayer.js';
 import { base64ToArrayBuffer, arrayBufferToBase64Async } from '../fileStore.js';
 
 const PING_BURST = 10;
@@ -31,6 +32,12 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
     let following = true;
     let controllerId = null;
     let policy = 'ask';
+    let muted = false;
+    const applyMute = (on) => {
+        muted = Boolean(on);
+        jamPlayerControl.setMuted(muted);
+        jamYouTubeControl.setMuted(muted);
+    };
     let hostSong = null;
     let loadedSongId = null;
     let loadingSong = null; // { id, promise }
@@ -341,6 +348,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
     async function applySessionState(state, hostTs) {
         controllerId = state.controllerId ?? null;
         policy = state.policy || 'ask';
+        applyMute(state.muteGuests);
         hostSong = state.song || null;
         youtube.apply(state.youtube, hostTs);
         emitStatus();
@@ -466,7 +474,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                 break;
             case MSG.STATE:
                 if (following) applySessionState(msg.state, msg.hostTs);
-                else { hostSong = msg.state?.song || null; controllerId = msg.state?.controllerId ?? null; policy = msg.state?.policy || 'ask'; emitStatus(); }
+                else { hostSong = msg.state?.song || null; controllerId = msg.state?.controllerId ?? null; policy = msg.state?.policy || 'ask'; applyMute(msg.state?.muteGuests); emitStatus(); }
                 break;
             case MSG.SONG_OPEN:
                 hostSong = msg.song;
@@ -546,6 +554,9 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
             case MSG.CONTROL_DENY:
                 ui.toast?.(msg.reason || 'Control request denied.', 'warning');
                 break;
+            case MSG.GUEST_MUTE:
+                applyMute(msg.muteGuests);
+                break;
             case MSG.CONTROL_POLICY:
                 policy = msg.policy || 'ask';
                 emitStatus();
@@ -579,6 +590,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         },
         stop() {
             active = false;
+            applyMute(false);
             youtube.stop();
             stopClockSync();
             cancelScheduledPlay();
