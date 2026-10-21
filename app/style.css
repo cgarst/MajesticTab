@@ -255,17 +255,12 @@
 
 [data-theme="Snow White"] .brand-title,
 [data-theme="Snow White"] .breadcrumb-song-title,
-[data-theme="Snow White"] .mode-btn-text,
 [data-theme="Snow White"] .form-select option {
   color: var(--text-primary) !important;
 }
 
 [data-theme="Snow White"] .btn-theme-danger {
   color: #b91c1c !important;
-}
-
-[data-theme="Snow White"] .btn-theme-primary .mode-btn-text {
-  color: #ffffff !important;
 }
 
 /* ...but stay white on filled accent surfaces */
