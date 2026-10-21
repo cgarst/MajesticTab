@@ -452,7 +452,7 @@ function updatePageModeCursor(currentTick) {
                 ? (nextBeatBounds.onNotesX ?? nextBeatBounds.visualBounds?.x ?? startX)
                 : (staffBounds.x + staffBounds.w);
 
-            const topPadding = 6;
+            const topPadding = 15;
             const bottomPadding = 12;
             const cursorY = barY - topPadding;
             const cursorH = barH + topPadding + bottomPadding;
@@ -664,7 +664,7 @@ export function createCustomCursorHandler(api) {
                 || beatBounds?.barBounds?.visualBounds;
 
             if (lineBounds) {
-                const topPadding = 6;
+                const topPadding = 15;
                 const bottomPadding = 12;
                 let cursorY = lineBounds.y - topPadding;
                 let cursorH = lineBounds.h + topPadding + bottomPadding;
