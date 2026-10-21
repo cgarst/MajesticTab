@@ -20,6 +20,9 @@
     "icon": [
       "icons/macos/512x512.png",
       "icons/macos/icon.icns"
-    ]
+    ],
+    "macOS": {
+      "entitlements": "Entitlements.plist"
+    }
   }
 }

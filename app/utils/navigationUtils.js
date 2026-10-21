@@ -457,7 +457,16 @@ export function setupSystemBackNavigation(getConfig) {
                 return;
             }
             const handled = handleBack();
-            if (handled) {
+            if (!handled) {
+                // Nothing left to go back to (e.g. iOS PWA edge swipe at the library root):
+                // reveal settings instead of letting the gesture leave the app.
+                const fileMenu = document.getElementById('fileMenu');
+                if (fileMenu && window.bootstrap?.Offcanvas) {
+                    window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).show();
+                }
+            }
+            // Re-arm the guard entry so the next back gesture is also caught
+            if (handled || !window.history.state?.depth) {
                 try {
                     window.history.pushState({ appNav: true, depth: 1 }, '');
                 } catch {}
