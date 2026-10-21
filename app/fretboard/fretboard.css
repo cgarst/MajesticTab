@@ -85,21 +85,31 @@ body.library-view-active .fretboard-dock {
 .fretboard-track-chip {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  padding: 0.25rem;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
   border-radius: 9999px;
   background: var(--bg-card-solid);
   border: 1px solid var(--border-subtle);
+  font-size: 0.74rem;
+  color: var(--text-primary);
+  font-weight: 600;
+  max-width: 140px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
 }
 
 .track-chip-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--track-color, var(--accent-primary));
   box-shadow: 0 0 6px var(--track-color, var(--accent-primary));
   flex-shrink: 0;
+}
+
+.track-chip-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .fretboard-track-badge {
