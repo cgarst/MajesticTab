@@ -29,10 +29,12 @@
   user-select: none;
 }
 
-.fretboard-dock.is-hidden {
+.fretboard-dock.is-hidden,
+body.library-view-active .fretboard-dock {
   transform: translateY(100%);
   opacity: 0;
   pointer-events: none;
+  display: none !important;
 }
 
 /* --------------------------------------------------------------------------
