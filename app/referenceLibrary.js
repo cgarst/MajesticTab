@@ -44,7 +44,7 @@ export function setIsFlipped(val) {
     }
 }
 
-let activeTab = 'circle'; // 'circle', 'chords', 'scales', 'tone'
+let activeTab = 'chords'; // 'circle', 'chords', 'scales', 'tone'
 let refTabChangeListener = null;
 
 export function getActiveReferenceTab() {
@@ -1219,7 +1219,7 @@ export function renderReferenceLibraryView(container) {
     if (!container) return;
 
     if (!['circle', 'chords', 'scales', 'tone'].includes(activeTab)) {
-        activeTab = 'circle';
+        activeTab = 'chords';
     }
 
     // Sub-navigation pills
