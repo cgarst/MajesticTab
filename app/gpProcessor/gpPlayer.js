@@ -577,7 +577,7 @@ export function createCustomCursorHandler(api) {
             if (!readerEl) {
                 readerEl = document.createElement('div');
                 readerEl.className = 'gp-reader-cursor';
-                readerEl.innerHTML = `<svg class="gp-reader-svg" width="${READER_CURSOR_WIDTH}" height="100" viewBox="0 0 ${READER_CURSOR_WIDTH} 100"><path class="gp-reader-path" d="" /></svg>`;
+                readerEl.innerHTML = `<svg class="gp-reader-svg" width="${READER_CURSOR_WIDTH}" height="100" viewBox="0 0 ${READER_CURSOR_WIDTH} 100"><path class="gp-reader-path" fill="none" d="" /></svg>`;
                 wrapper.appendChild(readerEl);
             }
             svgPathEl = readerEl.querySelector('.gp-reader-path');
@@ -706,7 +706,7 @@ export function createCustomCursorHandler(api) {
 
         let cursorSvg = cursorBeat.querySelector('svg');
         if (!cursorSvg) {
-            cursorBeat.innerHTML = `<svg class="gp-reader-svg" width="${READER_CURSOR_WIDTH}" height="${cursorH}" viewBox="0 0 ${READER_CURSOR_WIDTH} ${cursorH}"><path class="gp-reader-path" d="" /></svg>`;
+            cursorBeat.innerHTML = `<svg class="gp-reader-svg" width="${READER_CURSOR_WIDTH}" height="${cursorH}" viewBox="0 0 ${READER_CURSOR_WIDTH} ${cursorH}"><path class="gp-reader-path" fill="none" d="" /></svg>`;
             cursorSvg = cursorBeat.querySelector('svg');
         }
         const path = cursorBeat.querySelector('.gp-reader-path');
