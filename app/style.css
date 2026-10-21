@@ -2689,12 +2689,12 @@ body:not(.synth-playback-started) .at-highlight {
   transform: translateX(-50%);
   box-sizing: border-box;
   display: none;
-  filter: drop-shadow(0 0 5px var(--accent-glow));
 }
 
 .gp-reader-cursor svg {
   display: block;
   overflow: visible;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
 }
 
 .gp-reader-cursor .gp-reader-path {
