@@ -17,7 +17,7 @@ const settings = {
     assignedAudioMode: loadSetting('assignedAudioMode', loadSetting('assignedAudioOnly', false) ? 'assigned' : 'all'),
     assignedViewOnly: loadSetting('assignedViewOnly', false),
     muteAssignedForUnassigned: loadSetting('muteAssignedForUnassigned', false),
-    waitForEveryone: loadSetting('waitForEveryone', false),
+    waitForEveryone: loadSetting('waitForEveryone', true),
     leadOverrideMs: loadSetting('leadOverrideMs', 0),
     trimMs: loadSetting('trimMs', 0),
     smoothDrift: loadSetting('smoothDrift', true),
