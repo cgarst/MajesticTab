@@ -35,9 +35,13 @@ APP_SRC="$(find "$MOUNT" -maxdepth 1 -name '*.app' -print -quit)"
 [ -n "$APP_SRC" ] || { echo "No .app found in DMG" >&2; exit 1; }
 
 echo "Installing to ${DEST}..."
-rm -rf "$DEST"
-ditto "$APP_SRC" "$DEST"
+STAGING="/Applications/.${APP_NAME}.app.new"
+rm -rf "$STAGING"
+ditto "$APP_SRC" "$STAGING" || { rm -rf "$STAGING"; exit 1; }
+xattr -cr "$STAGING"
 
-xattr -cr "$DEST"
+# Swap only after the copy succeeded, so a failure keeps the old install.
+rm -rf "$DEST"
+mv "$STAGING" "$DEST"
 
 echo "Installed ${DEST}"
