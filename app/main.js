@@ -30,6 +30,7 @@ import { isSteamDeck, applyPlatformDefaults, getDefaultView, getDefaultLandscape
 import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
 import { initFretboard } from './fretboard/fretboardController.js';
 import { initTuner } from './tuner/tuner.js';
+import { initToolsMenu } from './utils/toolsMenu.js';
 import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
@@ -1153,6 +1154,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initTauriDownloadListener();
     initGamepadManager();
     initJamMode({ loadFile, getCurrentFile, recordFileToRecents });
+    initToolsMenu();
 
     document.getElementById('topBarBackToLibraryBtn')?.addEventListener('click', () => {
         openLibraryModal('library');

@@ -13,7 +13,7 @@
 
 import { openLibraryModal, closeLibraryModal, isLibraryOpen, getActiveLibraryView, switchLibraryView } from '../libraryModal.js';
 import { openTunerModal, closeTunerModal } from '../tuner/tuner.js';
-import { getActiveReferenceTab, setActiveReferenceTab, setReferenceTabChangeListener } from '../referenceLibrary.js';
+import { getActiveReferenceTab, setReferenceTabChangeListener, openReferenceModal, closeReferenceModal, isReferenceOpen } from '../referenceLibrary.js';
 
 let isSyncingUrl = false;
 let isInitialized = false;
@@ -89,12 +89,16 @@ export async function navigateToUrlRoute(route, isInitial = false) {
             return true;
         }
 
-        if (route.main === 'library' || route.main === 'recents' || route.main === 'reference') {
+        if (route.main === 'reference') {
             closeTunerModal();
-            if (route.main === 'reference') {
-                const targetRefTab = (route.sub && ['circle', 'chords', 'scales', 'tone'].includes(route.sub)) ? route.sub : 'chords';
-                setActiveReferenceTab(targetRefTab);
-            }
+            const targetRefTab = (route.sub && ['circle', 'chords', 'scales', 'tone'].includes(route.sub)) ? route.sub : 'chords';
+            openReferenceModal(targetRefTab);
+            return true;
+        }
+
+        if (route.main === 'library' || route.main === 'recents') {
+            closeTunerModal();
+            closeReferenceModal();
             if (isLibraryOpen()) {
                 await switchLibraryView(route.main, false);
             } else {
@@ -132,6 +136,7 @@ export function initUrlRouter() {
             if (tunerModal && tunerModal.style.display !== 'none') {
                 closeTunerModal();
             }
+            closeReferenceModal();
         }
     };
 
