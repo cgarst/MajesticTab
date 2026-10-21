@@ -1114,6 +1114,14 @@ export function detachAlphaTabApi() {
         } catch (e) {
             // ignore
         }
+        // stop() alone leaves the synth worker and AudioContext alive; they pile up across songs
+        // and the next song's player can stall waiting on them.
+        try {
+            currentApi.destroy();
+        } catch (e) {
+            // ignore
+        }
+        if (window.gpApi === currentApi) window.gpApi = null;
     }
     currentApi = null;
     currentScore = null;
