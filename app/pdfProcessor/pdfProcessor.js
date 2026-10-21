@@ -44,6 +44,9 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
 
   for (let pageNum = actualStart; pageNum <= actualEnd; pageNum++) {
     if (abortSignal?.aborted) return;
+    // Yield to the event loop so the UI stays responsive
+    await new Promise(resolve => setTimeout(resolve, 0));
+    if (abortSignal?.aborted) return;
     const progressPercent = ((pageNum - actualStart + 1) / totalRangePages * 100);
 
     // Return cached canvas if exists
