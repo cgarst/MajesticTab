@@ -395,6 +395,13 @@ body {
   min-height: 50px;
 }
 
+/* Mirror the native window-control inset on large screens so #centerSection stays centered in the window */
+@media (min-width: 1101px) {
+  .tauri-macos #topBar {
+    padding-right: 84px;
+  }
+}
+
 /* iOS Status Bar clearance in portrait mode */
 @media (orientation: portrait) {
   .tauri-ios #topBar {
@@ -424,6 +431,12 @@ body {
 .tauri-windows #topBar {
   padding-right: 148px;
   min-height: 50px;
+}
+
+@media (min-width: 1101px) {
+  .tauri-windows #topBar {
+    padding-left: 148px;
+  }
 }
 
 .win-ctrl-btn {
