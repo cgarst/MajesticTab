@@ -23,8 +23,9 @@ import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState } from './gpProcessor/gpPlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
+import { renderReferenceLibraryView } from './referenceLibrary.js';
 
-let activeView = 'library'; // 'library', 'search', 'recents'
+let activeView = 'library'; // 'library', 'search', 'recents', 'reference'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let selectedArtist = null;
@@ -62,6 +63,7 @@ function initLibraryTopBar() {
 
     document.getElementById('navBtnLibrary')?.addEventListener('click', () => switchView('library'));
     document.getElementById('navBtnRecents')?.addEventListener('click', () => switchView('recents'));
+    document.getElementById('navBtnReference')?.addEventListener('click', () => switchView('reference'));
     document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', closeLibraryModal);
 
     window.addEventListener('libraryDataChanged', () => {
@@ -110,6 +112,7 @@ export function canGoBack() {
         if (selectedArtist || selectedAlbum) return true;
     }
     if (activeView === 'search' && (searchSubView || searchHistory.length > 0)) return true;
+    if (activeView === 'reference') return true;
     return viewHistory.length > 0;
 }
 
@@ -261,6 +264,19 @@ export async function handleBack() {
                 return true;
             }
         } else if (activeView === 'recents') {
+            if (viewHistory.length > 0) {
+                const prev = viewHistory.pop();
+                activeView = prev.view || 'library';
+                selectedArtist = prev.selectedArtist || null;
+                selectedAlbum = prev.selectedAlbum || null;
+                searchSubView = prev.searchSubView || null;
+                await renderLibraryModal();
+                return true;
+            } else {
+                await switchView('library', false);
+                return true;
+            }
+        } else if (activeView === 'reference') {
             if (viewHistory.length > 0) {
                 const prev = viewHistory.pop();
                 activeView = prev.view || 'library';
@@ -583,8 +599,10 @@ export async function renderLibraryModal() {
 
     const navLib = document.getElementById('navBtnLibrary');
     const navRec = document.getElementById('navBtnRecents');
+    const navRef = document.getElementById('navBtnReference');
     if (navLib) navLib.classList.toggle('active', activeView === 'library' || activeView === 'search');
     if (navRec) navRec.classList.toggle('active', activeView === 'recents');
+    if (navRef) navRef.classList.toggle('active', activeView === 'reference');
 
     updateBackBtnVisibility();
 
@@ -625,6 +643,8 @@ async function renderView() {
         renderSearchMusicBrainzView(content);
     } else if (activeView === 'recents') {
         await renderRecentsView(content);
+    } else if (activeView === 'reference') {
+        renderReferenceLibraryView(content);
     }
 }
 
