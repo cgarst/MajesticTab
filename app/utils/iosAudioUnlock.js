@@ -26,20 +26,32 @@ export function isIOSDevice() {
     );
 }
 
+let captureActive = false;
+
 /**
  * Set navigator.audioSession.type to 'playback' so Web Audio bypasses the iOS silent switch.
- * Must be called within or following user gesture activation.
+ * Must be called within or following user gesture activation. While microphone capture is
+ * active the session stays 'play-and-record', since WebKit rejects capture under 'playback'.
  */
 export function configureAudioSession() {
     if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        const type = captureActive ? 'play-and-record' : 'playback';
         try {
-            if (navigator.audioSession.type !== 'playback') {
-                navigator.audioSession.type = 'playback';
+            if (navigator.audioSession.type !== type) {
+                navigator.audioSession.type = type;
             }
         } catch (e) {
             // Silently ignore if not supported or temporarily blocked
         }
     }
+}
+
+/**
+ * Switch the audio session for microphone capture (tuner) and back to playback afterwards.
+ */
+export function setAudioSessionCapture(active) {
+    captureActive = active;
+    configureAudioSession();
 }
 
 /**

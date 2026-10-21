@@ -5,6 +5,7 @@
 import { formatTuningFromMidi } from '../utils/tuningUtils.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from '../utils/urlRouter.js';
+import { setAudioSessionCapture } from '../utils/iosAudioUnlock.js';
 
 const NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
@@ -525,6 +526,7 @@ class PitchCraftTunerController {
      */
     async startListening() {
         try {
+            setAudioSessionCapture(true);
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             this.mediaStream = stream;
 
@@ -566,8 +568,11 @@ class PitchCraftTunerController {
             detect();
         } catch (err) {
             console.error("Microphone access failed:", err);
-            alert("Microphone access is required for real-time instrument tuning.");
+            const reason = navigator.mediaDevices ? `${err.name || 'Error'}: ${err.message || err}` : 'navigator.mediaDevices unavailable (insecure context)';
             this.stopListening();
+            const statusEl = document.getElementById('tunerStatusReadout');
+            if (statusEl) statusEl.textContent = `Microphone unavailable. ${reason}`;
+            alert("Microphone access is required for real-time instrument tuning.");
         }
     }
 
@@ -588,6 +593,7 @@ class PitchCraftTunerController {
             this.audioContext = null;
         }
 
+        setAudioSessionCapture(false);
         this.isListening = false;
         this.detectedNote = null;
         this.volume = 0;
