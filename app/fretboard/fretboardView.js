@@ -414,6 +414,10 @@ export class FretboardView {
             g.setAttribute('transform', `translate(${this.pickX}, ${posY})`);
             g.style.display = 'none';
 
+            // Inner container isolates CSS transform animations from outer SVG translation
+            const inner = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            inner.setAttribute('class', 'pick-marker-inner');
+
             // Pluck spark glow
             const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             glow.setAttribute('class', 'pick-strike-glow');
@@ -435,14 +439,16 @@ export class FretboardView {
             const wave2D = !this.isLeftHanded ? 'M -9 -10 Q -17 0 -9 10' : 'M 9 -10 Q 17 0 9 10';
             wave2.setAttribute('d', wave2D);
 
-            g.appendChild(glow);
-            g.appendChild(pick);
-            g.appendChild(wave1);
-            g.appendChild(wave2);
+            inner.appendChild(glow);
+            inner.appendChild(pick);
+            inner.appendChild(wave1);
+            inner.appendChild(wave2);
+            g.appendChild(inner);
             group.appendChild(g);
 
             this.pickIndicators[atString] = {
                 group: g,
+                inner,
                 glow,
                 pick,
                 wave1,
