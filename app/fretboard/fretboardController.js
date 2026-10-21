@@ -150,8 +150,22 @@ class FretboardController {
         this.triggerLayoutRefresh();
     }
 
+    /**
+     * Publish the dock's real height so the score and playback dock clear it
+     */
+    trackDockHeight(dock) {
+        if (!dock || this.dockResizeObserver || typeof ResizeObserver === 'undefined') return;
+        const root = document.documentElement;
+        this.dockResizeObserver = new ResizeObserver(() => {
+            const height = Math.ceil(dock.getBoundingClientRect().height);
+            if (height > 0) root.style.setProperty('--fretboard-dock-height', `${height}px`);
+        });
+        this.dockResizeObserver.observe(dock);
+    }
+
     syncUIState() {
         const dock = document.getElementById('fretboardDock');
+        this.trackDockHeight(dock);
         const topBarToggle = document.getElementById('fretboardToggleBtn');
 
         if (this.isOpen && this.isScoreAvailable) {
