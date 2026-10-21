@@ -434,48 +434,47 @@ class FretboardController {
      * Show a popup listing every visible track with its fretboard color
      */
     showTrackColorsPopup() {
-        let modal = document.getElementById('fretboardTrackColorsModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'fretboardTrackColorsModal';
-            modal.className = 'theme-modal-backdrop';
-            modal.setAttribute('role', 'dialog');
-            modal.setAttribute('aria-modal', 'true');
-            modal.innerHTML = `
-                <div class="theme-modal-card" style="max-width: 420px;">
-                    <div class="theme-modal-header">
-                        <div class="theme-modal-titles">
-                            <h6 class="mb-0 fw-bold text-white">Track colors</h6>
-                        </div>
-                        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" aria-label="Close modal">
-                            <i class="bi-x-lg"></i>
-                        </button>
-                    </div>
-                    <div class="theme-modal-body p-3">
-                        <div class="fretboard-track-color-list d-flex flex-column gap-2"></div>
-                    </div>
-                </div>
-            `;
-            const close = () => { modal.style.display = 'none'; };
-            modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
-            modal.querySelector('.theme-modal-close-btn').addEventListener('click', close);
-            document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && modal.style.display === 'flex') close();
-            });
-            document.body.appendChild(modal);
-        }
+        const existing = document.getElementById('fretboardTrackColorsPopover');
+        if (existing) { existing._close?.(); return; }
+        const btn = document.getElementById('fretboardTrackColorsBtn');
+        if (!btn) return;
         const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-        modal.querySelector('.fretboard-track-color-list').innerHTML = this.visibleTracks.map((t, idx) => {
+
+        const pop = document.createElement('div');
+        pop.id = 'fretboardTrackColorsPopover';
+        pop.className = 'fretboard-track-popover';
+        pop.setAttribute('role', 'dialog');
+        pop.setAttribute('aria-label', 'Track colors');
+        pop.innerHTML = this.visibleTracks.map((t, idx) => {
             const color = TRACK_PALETTE[idx % TRACK_PALETTE.length];
             const name = t.name || `Track ${t.index + 1}`;
             return `
-                <div class="fretboard-track-color-row d-flex align-items-center gap-3">
-                    <span class="track-chip-dot" style="--track-color: ${color}; width: 14px; height: 14px;"></span>
-                    <span class="text-white">${esc(name)}</span>
+                <div class="fretboard-track-color-row">
+                    <span class="track-chip-dot" style="--track-color: ${color};"></span>
+                    <span class="fretboard-track-color-name">${esc(name)}</span>
                 </div>
             `;
         }).join('');
-        modal.style.display = 'flex';
+        document.body.appendChild(pop);
+
+        // Anchor above the button (dock sits at the bottom), clamped to viewport
+        const r = btn.getBoundingClientRect();
+        const pr = pop.getBoundingClientRect();
+        const left = Math.max(8, Math.min(r.left, window.innerWidth - pr.width - 8));
+        const top = r.top - pr.height - 8 >= 8 ? r.top - pr.height - 8 : r.bottom + 8;
+        pop.style.left = `${left}px`;
+        pop.style.top = `${top}px`;
+
+        const onDocDown = (e) => { if (!pop.contains(e.target) && !btn.contains(e.target)) close(); };
+        const onKey = (e) => { if (e.key === 'Escape') close(); };
+        function close() {
+            document.removeEventListener('mousedown', onDocDown, true);
+            document.removeEventListener('keydown', onKey);
+            pop.remove();
+        }
+        pop._close = close;
+        document.addEventListener('mousedown', onDocDown, true);
+        document.addEventListener('keydown', onKey);
     }
 
     /**
