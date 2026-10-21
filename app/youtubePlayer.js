@@ -1140,7 +1140,20 @@ function revealUntilPlaying(timeoutMs = 10000) {
     }, 150);
 }
 
+let jamYouTubeMuted = false;
+function applyJamYouTubeMute() {
+    const iframe = document.getElementById('ytIframe');
+    if (iframe?.dataset.loaded === 'true') {
+        sendYouTubeMessage(iframe, { event: 'command', func: jamYouTubeMuted ? 'mute' : 'unMute', args: [] });
+    }
+}
+
 export const jamYouTubeControl = {
+    /** Jam host's "mute guests" option; re-applied on play since a reloaded embed resets it. */
+    setMuted(on) {
+        jamYouTubeMuted = Boolean(on);
+        applyJamYouTubeMute();
+    },
     snapshot() {
         return {
             videoId: playerState.currentVideoId,
@@ -1171,12 +1184,14 @@ export const jamYouTubeControl = {
         clearSynthHighlights();
         setActiveAudioMode('youtube');
         if (iframe?.dataset.loaded === 'true') {
+            if (jamYouTubeMuted) applyJamYouTubeMute();
             sendYouTubeMessage(iframe, { event: 'command', func: 'playVideo', args: [] });
             playerState.isPlaying = true;
             playerState.hasStarted = true;
             updatePlaybackControls();
         } else {
             loadCurrentTrack(true, { videoId: playerState.currentVideoId, source: 'jam' });
+            if (jamYouTubeMuted) setTimeout(applyJamYouTubeMute, 800);
         }
         if (!iframePlayed) revealUntilPlaying();
     },

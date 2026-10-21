@@ -13,6 +13,7 @@ const settings = {
     name: loadSetting('name', 'MajesticTab'),
     pin: loadSetting('pin', ''),
     policy: loadSetting('policy', 'ask'),
+    muteGuests: loadSetting('muteGuests', false),
     waitForEveryone: loadSetting('waitForEveryone', false),
     leadOverrideMs: loadSetting('leadOverrideMs', 0),
     trimMs: loadSetting('trimMs', 0),
