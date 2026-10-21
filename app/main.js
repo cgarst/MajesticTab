@@ -28,6 +28,7 @@ import { isSteamDeck, applyPlatformDefaults, getDefaultView, getDefaultLandscape
 import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
 import { initFretboard } from './fretboard/fretboardController.js';
 import { initTuner } from './tuner/tuner.js';
+import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
 initIOSAudioUnlock();
@@ -1139,6 +1140,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initPdfBookmarksUI();
     initFretboard();
     initTuner();
+    initUrlRouter();
     setupGlobalRewindButton();
     initTauriDownloadListener();
     initGamepadManager();
@@ -1231,7 +1233,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         const isAuthRedirect = hash.includes('access_token=') || hash.includes('state=restore_backup') || hash.includes('state=open_');
         const driveModalEl = document.getElementById('driveModal');
         const driveModalOpen = driveModalEl && driveModalEl.style.display === 'flex';
-        if (!driveModalOpen && !isAuthRedirect) {
+        const route = getRouteFromUrl();
+        if (!driveModalOpen && !isAuthRedirect && !route) {
             console.log('[Normal Mode] Opening Tab Library as default home page');
             openLibraryModal('library');
         }

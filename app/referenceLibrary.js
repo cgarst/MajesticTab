@@ -4,6 +4,21 @@
 // Optimized for desktop and mobile viewports with MajesticTab finish theme integration.
 
 let activeTab = 'circle'; // 'circle', 'chords', 'scales', 'tone'
+let refTabChangeListener = null;
+
+export function getActiveReferenceTab() {
+    return activeTab;
+}
+
+export function setActiveReferenceTab(tab) {
+    if (['circle', 'chords', 'scales', 'tone'].includes(tab)) {
+        activeTab = tab;
+    }
+}
+
+export function setReferenceTabChangeListener(fn) {
+    refTabChangeListener = fn;
+}
 let selectedCircleIndex = 0; // default C Major / Am
 let selectedScaleKey = 'majorPentatonic';
 let selectedRootNote = 0; // C (0 to 11)
@@ -836,6 +851,7 @@ function attachReferenceEventListeners(container) {
             if (targetTab && targetTab !== activeTab) {
                 activeTab = targetTab;
                 renderReferenceLibraryView(container);
+                refTabChangeListener?.(activeTab);
             }
         });
     });

@@ -451,6 +451,11 @@ export function setupSystemBackNavigation(getConfig) {
         } catch {}
 
         window.addEventListener('popstate', () => {
+            // If the URL has an active route (library, recents, tuner, reference), let urlRouter handle it
+            const rawHash = (window.location.hash || '').replace(/^#\/?/, '').trim();
+            if (rawHash && ['library', 'recents', 'tuner', 'reference'].some(r => rawHash.startsWith(r))) {
+                return;
+            }
             const handled = handleBack();
             if (handled) {
                 try {
