@@ -207,8 +207,9 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
     });
 
     modal = createJamModal(api, { updateSetting: updateJamSetting });
-    // A browser that opened the host's link is here to join, so skip the pill click.
-    if (isJamWebGuest()) modal.open();
+    // A browser that opened the host's link is here to join: go straight in, no modal.
+    // If joining fails (e.g. a PIN is required), fall back to the modal so they can retry.
+    if (isJamWebGuest()) api.join(location.host, '').then(() => { if (role === 'off') modal.open(); });
 
     jam.debugAutostart().then((value) => {
         if (!value) return;
