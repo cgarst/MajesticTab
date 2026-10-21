@@ -77,14 +77,14 @@ export const THEMES = [
     colorway: ['#e11d48', '#94a3b8', '#f43f5e', '#64748b', '#cbd5e1', '#be123c']
   },
   {
-    id: 'Red Pearl Burst',
-    name: 'Red Pearl Burst',
-    subtitle: 'Crimson & Wine Pearl Burst',
-    gradient: 'linear-gradient(135deg, #e11d48, #991b1b)',
-    bg: '#130507',
-    accent: '#e11d48',
-    secondary: '#991b1b',
-    colorway: ['#e11d48', '#f43f5e', '#be123c', '#fb7185', '#991b1b', '#fda4af']
+    id: 'Snow White',
+    name: 'Snow White',
+    subtitle: 'Gloss Arctic White & Obsidian',
+    gradient: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 50%, #1e293b 100%)',
+    bg: '#090a0f',
+    accent: '#ffffff',
+    secondary: '#cbd5e1',
+    colorway: ['#ffffff', '#f1f5f9', '#cbd5e1', '#64748b', '#1e293b', '#090a0f']
   }
 ];
 
