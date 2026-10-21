@@ -6397,3 +6397,21 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   min-height: 0;
   overflow-y: auto;
 }
+
+/* iOS 27 installed PWA: the system draws a blurred scroll-edge effect over the
+   top of the page that extends past the safe-area inset, covering the top bar's
+   buttons. Add extra clearance so controls sit below it. */
+@supports (-webkit-touch-callout: none) {
+  @media (display-mode: standalone) and (orientation: portrait) {
+    #topBar,
+    .offcanvas-header,
+    .downloader-nav-row {
+      padding-top: calc(env(safe-area-inset-top) + 14px);
+    }
+  }
+  @media (display-mode: standalone) and (orientation: landscape) {
+    #topBar {
+      padding-top: calc(env(safe-area-inset-top) + 8px);
+    }
+  }
+}
