@@ -14,7 +14,7 @@ const settings = {
     pin: loadSetting('pin', ''),
     policy: loadSetting('policy', 'ask'),
     muteGuests: loadSetting('muteGuests', false),
-    assignedAudioOnly: loadSetting('assignedAudioOnly', false),
+    assignedAudioMode: loadSetting('assignedAudioMode', loadSetting('assignedAudioOnly', false) ? 'assigned' : 'all'),
     assignedViewOnly: loadSetting('assignedViewOnly', false),
     muteAssignedForUnassigned: loadSetting('muteAssignedForUnassigned', false),
     waitForEveryone: loadSetting('waitForEveryone', false),
