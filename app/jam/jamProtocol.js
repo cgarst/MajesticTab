@@ -3,11 +3,16 @@
 // Every message is JSON: { v, type, seq, ...payload }. Host messages may carry `hostTs`
 // (host monotonic ms at send). Positions are always MIDI-timeline times (`timeMs`), never
 // pixels, pages or notation-timeline ticks, because those depend on each client's layout.
+// YouTube positions are video seconds (`timeSec`).
 
 export const JAM_PROTOCOL_VERSION = 1;
 export const JAM_MAX_CLIENTS = 8;
 export const JAM_GP_EXTENSIONS = ['gp', 'gp3', 'gp4', 'gp5', 'gpx'];
+export const JAM_SONG_EXTENSIONS = [...JAM_GP_EXTENSIONS, 'pdf', 'txt'];
 export const JAM_MAX_UPLOAD_BYTES = 30 * 1024 * 1024;
+// Song files travel as base64 in parts, so a large PDF neither exceeds the WebSocket frame
+// limit nor holds up clock-sync pings behind one huge frame. Multiple of 4: parts decode alone.
+export const JAM_CHUNK_B64_CHARS = 512 * 1024;
 
 export const CONTROL_POLICIES = ['host', 'ask', 'anyone'];
 
@@ -23,6 +28,8 @@ export const MSG = Object.freeze({
     SONG_REQUEST: 'song.request',
     SONG_DATA: 'song.data',
     SONG_READY: 'song.ready',
+    // YouTube (host -> clients), any song type
+    YT_STATE: 'yt.state',
     // transport (host -> clients)
     SEEK: 'transport.seek',
     PLAY: 'transport.play',
@@ -47,7 +54,8 @@ export const MSG = Object.freeze({
     CMD_PAUSE: 'cmd.transport.pause',
     CMD_SEEK: 'cmd.transport.seek',
     CMD_SPEED: 'cmd.transport.speed',
-    CMD_LOOP: 'cmd.transport.loop'
+    CMD_LOOP: 'cmd.transport.loop',
+    CMD_YT: 'cmd.yt'
 });
 
 let seqCounter = 0;
@@ -68,7 +76,19 @@ export function parseMessage(raw) {
     return msg;
 }
 
-export function isGpFileName(name) {
+/** 'gp' | 'pdf' | 'txt', or null for files Jam Mode can't share. */
+export function songTypeForName(name) {
     const ext = String(name || '').split('.').pop().toLowerCase();
-    return JAM_GP_EXTENSIONS.includes(ext);
+    if (JAM_GP_EXTENSIONS.includes(ext)) return 'gp';
+    return JAM_SONG_EXTENSIONS.includes(ext) ? ext : null;
+}
+
+/** Songs from older hosts carry no type; they were always Guitar Pro. */
+export const isGpSong = (song) => Boolean(song) && (song.type || 'gp') === 'gp';
+
+/** Split base64 into protocol-sized parts. */
+export function chunkBase64(b64) {
+    const parts = [];
+    for (let i = 0; i < b64.length; i += JAM_CHUNK_B64_CHARS) parts.push(b64.slice(i, i + JAM_CHUNK_B64_CHARS));
+    return parts.length ? parts : [''];
 }
