@@ -2,20 +2,14 @@
 
 import { jamPlayerControl } from '../gpProcessor/gpPlayer.js';
 import { nowMs } from './jamTransport.js';
+import { sha256HexFallback } from './jamSha256.js';
 
 export async function sha256Hex(buffer) {
     if (globalThis.crypto?.subtle) {
         const digest = await crypto.subtle.digest('SHA-256', buffer);
         return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
     }
-    // Fallback (non-secure contexts): FNV-1a 64-bit-ish, only used as an identity key.
-    const bytes = new Uint8Array(buffer);
-    let h1 = 0x811c9dc5, h2 = 0x01000193;
-    for (let i = 0; i < bytes.length; i++) {
-        h1 = Math.imul(h1 ^ bytes[i], 16777619) >>> 0;
-        h2 = Math.imul(h2 + bytes[i], 2246822519) >>> 0;
-    }
-    return `fnv-${bytes.length}-${h1.toString(16)}${h2.toString(16)}`;
+    return sha256HexFallback(buffer);
 }
 
 /**

@@ -12,8 +12,11 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, watch};
+use tokio_tungstenite::tungstenite::handshake::server::{ErrorResponse, Request, Response};
+use tokio_tungstenite::tungstenite::http;
 use tokio_tungstenite::tungstenite::Message;
 
 #[cfg(target_vendor = "apple")]
@@ -76,6 +79,8 @@ fn now_ms(epoch: Instant) -> f64 {
 pub struct HostInfo {
     port: u16,
     addresses: Vec<String>,
+    /// Browsers can open this host's address to load the app and join as guests.
+    web: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -176,6 +181,7 @@ pub async fn jam_host_start(
     name: String,
     pin: Option<String>,
     port: Option<u16>,
+    allow_web: Option<bool>,
 ) -> Result<HostInfo, String> {
     {
         let guard = state.host.lock().map_err(|e| e.to_string())?;
@@ -207,6 +213,7 @@ pub async fn jam_host_start(
     let advertisement = discovery::advertise(SERVICE_TYPE, &instance, actual_port, has_pin, &addresses);
 
     let epoch = state.epoch;
+    let allow_web = allow_web.unwrap_or(true);
     let pin = pin.unwrap_or_default();
     let host_name = name.clone();
     let peers_for_loop = peers.clone();
@@ -226,7 +233,7 @@ pub async fn jam_host_start(
                     let host_name = host_name.clone();
                     let shutdown = shutdown_rx.clone();
                     tauri::async_runtime::spawn(async move {
-                        handle_peer(app, stream, peers, pin, host_name, epoch, shutdown).await;
+                        handle_peer(app, stream, peers, pin, host_name, epoch, allow_web, shutdown).await;
                     });
                 }
             }
@@ -243,7 +250,102 @@ pub async fn jam_host_start(
     Ok(HostInfo {
         port: actual_port,
         addresses,
+        web: allow_web,
     })
+}
+
+const MAX_REQUEST_HEAD: usize = 8192;
+
+/// Peek the HTTP request head without consuming it (so the WebSocket handshake can still read it).
+/// Returns the head text once the blank line arrives.
+async fn read_request_head(stream: &TcpStream) -> Option<String> {
+    let mut buf = vec![0u8; MAX_REQUEST_HEAD];
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let n = tokio::time::timeout_at(deadline, stream.peek(&mut buf)).await.ok()?.ok()?;
+        if n == 0 {
+            return None;
+        }
+        if let Some(end) = buf[..n].windows(4).position(|w| w == b"\r\n\r\n") {
+            return Some(String::from_utf8_lossy(&buf[..end + 4]).into_owned());
+        }
+        if n == MAX_REQUEST_HEAD || tokio::time::Instant::now() >= deadline {
+            return None;
+        }
+        tokio::time::sleep(Duration::from_millis(15)).await;
+    }
+}
+
+fn is_websocket_upgrade(head: &str) -> bool {
+    head.lines().any(|l| {
+        let l = l.to_ascii_lowercase();
+        l.starts_with("upgrade:") && l.contains("websocket")
+    })
+}
+
+/// Native peers send no Origin. A browser sends one, and it must be this host (or the host must
+/// have web guests enabled), so other websites cannot drive a Jam host from a browser on the LAN.
+fn check_origin(req: &Request, resp: Response, allow_web: bool) -> Result<Response, ErrorResponse> {
+    let origin = req.headers().get("origin").and_then(|v| v.to_str().ok());
+    let Some(origin) = origin else {
+        return Ok(resp);
+    };
+    let host = req.headers().get("host").and_then(|v| v.to_str().ok()).unwrap_or("");
+    let origin_host = origin.split_once("://").map(|(_, rest)| rest).unwrap_or(origin);
+    if allow_web && !host.is_empty() && origin_host.eq_ignore_ascii_case(host) {
+        return Ok(resp);
+    }
+    Err(http::Response::builder()
+        .status(http::StatusCode::FORBIDDEN)
+        .body(Some("Forbidden".to_string()))
+        .unwrap_or_else(|_| http::Response::new(None)))
+}
+
+async fn write_http(stream: &mut TcpStream, status: &str, mime: &str, body: &[u8]) {
+    let head = format!(
+        "HTTP/1.1 {status}\r\nContent-Type: {mime}\r\nContent-Length: {}\r\nCache-Control: no-cache\r\nX-Content-Type-Options: nosniff\r\nConnection: close\r\n\r\n",
+        body.len()
+    );
+    if stream.write_all(head.as_bytes()).await.is_ok() {
+        let _ = stream.write_all(body).await;
+    }
+    let _ = stream.shutdown().await;
+}
+
+/// Serve the bundled app to browser guests. Only GET, only the embedded frontend.
+async fn serve_web_asset(app: &AppHandle, mut stream: TcpStream, head: String) {
+    // Consume the request so closing the socket does not reset the connection mid-response.
+    let mut sink = vec![0u8; head.len()];
+    if stream.read_exact(&mut sink).await.is_err() {
+        return;
+    }
+    let mut parts = head.lines().next().unwrap_or("").split_whitespace();
+    let (method, target) = (parts.next().unwrap_or(""), parts.next().unwrap_or(""));
+    if method != "GET" {
+        write_http(&mut stream, "405 Method Not Allowed", "text/plain", b"Method not allowed").await;
+        return;
+    }
+    let path = target.split(['?', '#']).next().unwrap_or("").trim_start_matches('/');
+    let path = if path.is_empty() { "index.html" } else { path };
+    // Never expose the desktop OAuth secret module, or anything outside the bundle.
+    if path.contains("..") || path.contains('\\') || path.ends_with("googleDrive.local.js") {
+        write_http(&mut stream, "404 Not Found", "text/plain", b"Not found").await;
+        return;
+    }
+    let Some(asset) = app.asset_resolver().get(path.to_string()) else {
+        write_http(&mut stream, "404 Not Found", "text/plain", b"Not found").await;
+        return;
+    };
+    if path == "index.html" {
+        let html = String::from_utf8_lossy(&asset.bytes).replacen(
+            "</head>",
+            "<meta name=\"majestictab-jam-host\" content=\"1\"></head>",
+            1,
+        );
+        write_http(&mut stream, "200 OK", &asset.mime_type, html.as_bytes()).await;
+    } else {
+        write_http(&mut stream, "200 OK", &asset.mime_type, &asset.bytes).await;
+    }
 }
 
 async fn handle_peer(
@@ -253,9 +355,24 @@ async fn handle_peer(
     pin: String,
     host_name: String,
     epoch: Instant,
+    allow_web: bool,
     mut shutdown: watch::Receiver<bool>,
 ) {
-    let Ok(ws) = tokio_tungstenite::accept_async(stream).await else {
+    // The same port serves WebSocket peers and, for browser guests, the app itself.
+    let Some(head) = read_request_head(&stream).await else {
+        return;
+    };
+    if !is_websocket_upgrade(&head) {
+        if allow_web {
+            serve_web_asset(&app, stream, head).await;
+        }
+        return;
+    }
+    let Ok(ws) = tokio_tungstenite::accept_hdr_async(stream, |req: &Request, resp: Response| {
+        check_origin(req, resp, allow_web)
+    })
+    .await
+    else {
         return;
     };
     let (mut sink, mut stream) = ws.split();
@@ -586,4 +703,42 @@ pub fn jam_client_disconnect(state: State<'_, JamState>) -> Result<(), String> {
         let _ = c.shutdown.send(true);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod web_tests {
+    use super::*;
+
+    fn upgrade_request(origin: Option<&str>) -> Request {
+        let mut b = http::Request::builder().uri("/jam").header("host", "192.168.1.5:47813");
+        if let Some(o) = origin {
+            b = b.header("origin", o);
+        }
+        b.body(()).unwrap()
+    }
+
+    fn allowed(origin: Option<&str>, allow_web: bool) -> bool {
+        check_origin(&upgrade_request(origin), http::Response::new(()), allow_web).is_ok()
+    }
+
+    #[test]
+    fn detects_websocket_upgrades() {
+        assert!(is_websocket_upgrade("GET /jam HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\n\r\n"));
+        assert!(is_websocket_upgrade("GET / HTTP/1.1\r\nupgrade: WebSocket\r\n\r\n"));
+        assert!(!is_websocket_upgrade("GET / HTTP/1.1\r\nHost: x\r\n\r\n"));
+    }
+
+    #[test]
+    fn native_peers_without_origin_are_allowed() {
+        assert!(allowed(None, true));
+        assert!(allowed(None, false));
+    }
+
+    #[test]
+    fn browser_origin_must_match_host_and_web_must_be_enabled() {
+        assert!(allowed(Some("http://192.168.1.5:47813"), true));
+        assert!(!allowed(Some("http://192.168.1.5:47813"), false));
+        assert!(!allowed(Some("https://evil.example"), true));
+        assert!(!allowed(Some("http://192.168.1.6:47813"), true));
+    }
 }

@@ -2,7 +2,7 @@
 // Jam Mode role state machine (off | host | client), connection lifecycle and glue between
 // the Rust transport, the host / client adapters and the UI.
 
-import { isJamSupported, jam, listenJamEvents, calibrateNow, setMulticastEnabled } from './jamTransport.js';
+import { isJamSupported, isJamWebGuest, jam, listenJamEvents, calibrateNow, setMulticastEnabled } from './jamTransport.js';
 import { createHostAdapter } from './jamHostAdapter.js';
 import { createClientAdapter } from './jamClientAdapter.js';
 import { createJamModal } from './jamModal.js';
@@ -22,6 +22,7 @@ const settings = {
     trimMs: loadSetting('trimMs', 0),
     smoothDrift: loadSetting('smoothDrift', true),
     alwaysSaveSongs: loadSetting('alwaysSaveSongs', false),
+    allowWeb: loadSetting('allowWeb', true),
     lastHost: loadSetting('lastHost', '')
 };
 
@@ -87,7 +88,7 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
             setMulticastEnabled(true);
             try {
                 await calibrateNow();
-                hostInfo = await jam.hostStart(settings.name, settings.pin);
+                hostInfo = await jam.hostStart(settings.name, settings.pin, null, settings.allowWeb);
             } catch (e) {
                 setMulticastEnabled(false);
                 toast(`Could not start hosting: ${e}`, 'error');
@@ -207,6 +208,8 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
     });
 
     modal = createJamModal(api, { updateSetting: updateJamSetting });
+    // A browser that opened the host's link is here to join, so skip the pill click.
+    if (isJamWebGuest()) modal.open();
 
     jam.debugAutostart().then((value) => {
         if (!value) return;
