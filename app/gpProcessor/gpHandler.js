@@ -4,7 +4,15 @@ import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
 import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions } from './gpPlayer.js';
-import { extractScoreTunings, extractScoreMetadata } from '../utils/tuningUtils.js';
+import {
+    extractScoreTunings,
+    extractScoreMetadata,
+    applyScoreStringCount,
+    getGpStringCountPreference,
+    setGpStringCountPreference,
+    getScoreMaxStringsForMode,
+    getInstrumentMode
+} from '../utils/tuningUtils.js';
 import { addRecentOpened, updateLibrarySongFromScore } from '../libraryStore.js';
 
 const PAGE_PADDING = 10;
@@ -26,6 +34,8 @@ export const gpState = {
         const synthList = document.getElementById('synthTrackList');
         if (synthSection) synthSection.style.display = 'none';
         if (synthList) synthList.innerHTML = '';
+        const stringCountSection = document.getElementById('scoreOptionsStringCountSection');
+        if (stringCountSection) stringCountSection.style.display = 'none';
     }
 };
 
@@ -98,6 +108,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
         // Populate track selection UI
         populateGpTrackSelectionUI(api);
+        syncGpStringCountUI(api.score);
 
         // Update YouTube player with parsed score metadata
         if (api.score) {
@@ -738,4 +749,121 @@ export function syncGpNotationRadios(mode = getGpNotationMode()) {
     notationRadios.forEach(radio => {
         radio.checked = radio.value === mode;
     });
+}
+
+/**
+ * Switch Guitar Pro tab string count view (native, 7, 8 for guitar; native, 5, 6 for bass)
+ */
+export function applyGpStringCount(targetCount) {
+    const safeCount = setGpStringCountPreference(targetCount);
+    const api = gpState.canvases[0]?.api;
+    const container = gpState.canvases[0]?.container;
+    const output = document.getElementById('output');
+
+    // Sync UI radio controls and badge
+    syncGpStringCountRadios(safeCount);
+    if (api?.score) {
+        updateGpStringCountBadge(api.score);
+        applyScoreStringCount(api.score, safeCount);
+    }
+
+    if (!api || !container) return;
+
+    const pageModeRadio = document.getElementById('pageModeRadio');
+    const isPageMode = pageModeRadio ? pageModeRadio.checked : true;
+
+    if (!isPageMode) {
+        api.render();
+        return;
+    }
+
+    // In Page mode: park container offscreen while AlphaTab re-renders
+    const offscreenHolder = document.createElement('div');
+    offscreenHolder.style.cssText = 'position:absolute;visibility:hidden;width:0;height:0;overflow:hidden;';
+    document.body.appendChild(offscreenHolder);
+    if (container.parentNode) container.parentNode.removeChild(container);
+    offscreenHolder.appendChild(container);
+
+    const renderToken = ++gpRenderToken;
+    const unsub = api.postRenderFinished.on(() => {
+        unsub();
+        if (offscreenHolder.parentNode) document.body.removeChild(offscreenHolder);
+        if (renderToken !== gpRenderToken) return;
+        gpState.lastLayoutDimensions = null;
+        gpState.pages = [];
+        gpState.currentPageIndex = Math.min(gpState.currentPageIndex, Math.max(0, gpState.pages.length - 1));
+        renderGPPageMode(output);
+    });
+
+    api.render();
+}
+
+/**
+ * Updates the string count badge in the Score Options panel
+ */
+export function updateGpStringCountBadge(score) {
+    const badge = document.getElementById('scoreCurrentStringsBadge');
+    if (!badge || !score) return;
+    const nativeMax = getScoreMaxStringsForMode(score);
+    badge.textContent = `${nativeMax}-String`;
+}
+
+/**
+ * Synchronize all Guitar Pro string count radio buttons
+ */
+export function syncGpStringCountRadios(count = getGpStringCountPreference()) {
+    const radios = document.querySelectorAll('input[name="synthStringCountRadio"], input[name="gpDefaultStringsGuitarRadio"], input[name="gpDefaultStringsBassRadio"]');
+    radios.forEach(radio => {
+        if (radio.value === String(count)) {
+            radio.checked = true;
+        }
+    });
+}
+
+/**
+ * Dynamically builds and updates the string count options in the Score Options panel
+ */
+export function syncGpStringCountUI(score) {
+    const section = document.getElementById('scoreOptionsStringCountSection');
+    const pillsContainer = document.getElementById('scoreOptionsStringCountPills');
+    if (!section || !pillsContainer) return;
+
+    if (!score) {
+        section.style.display = 'none';
+        return;
+    }
+
+    const instrumentMode = getInstrumentMode();
+    const isBass = instrumentMode === 'bass';
+
+    updateGpStringCountBadge(score);
+
+    const options = isBass
+        ? [
+            { id: 'synthStringCountNative', value: 'native', label: 'Original' },
+            { id: 'synthStringCount5', value: '5', label: '5-String' },
+            { id: 'synthStringCount6', value: '6', label: '6-String' }
+        ]
+        : [
+            { id: 'synthStringCountNative', value: 'native', label: 'Original' },
+            { id: 'synthStringCount7', value: '7', label: '7-String' },
+            { id: 'synthStringCount8', value: '8', label: '8-String' }
+        ];
+
+    const currentPref = getGpStringCountPreference(instrumentMode);
+
+    pillsContainer.innerHTML = options.map(opt => `
+        <input type="radio" class="btn-check" name="synthStringCountRadio" id="${opt.id}" value="${opt.value}" autocomplete="off" ${opt.value === currentPref ? 'checked' : ''}>
+        <label class="btn btn-sm" for="${opt.id}" style="flex: 1;">${opt.label}</label>
+    `).join('');
+
+    pillsContainer.querySelectorAll('input[name="synthStringCountRadio"]').forEach(radio => {
+        radio.addEventListener('change', () => {
+            if (radio.checked) {
+                applyGpStringCount(radio.value);
+            }
+        });
+    });
+
+    section.style.display = '';
 }

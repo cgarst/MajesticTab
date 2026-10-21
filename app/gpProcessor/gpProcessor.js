@@ -6,7 +6,9 @@ import {
     getBassTracks,
     getActiveInstrumentTracks,
     GUITAR_PROGRAM_WHITELIST,
-    BASS_PROGRAM_WHITELIST
+    BASS_PROGRAM_WHITELIST,
+    applyScoreStringCount,
+    getGpStringCountPreference
 } from '../utils/tuningUtils.js';
 
 export {
@@ -14,7 +16,9 @@ export {
     getBassTracks,
     getActiveInstrumentTracks,
     GUITAR_PROGRAM_WHITELIST,
-    BASS_PROGRAM_WHITELIST
+    BASS_PROGRAM_WHITELIST,
+    applyScoreStringCount,
+    getGpStringCountPreference
 };
 
 export const DEFAULT_GP_DISPLAY_SCALE = 1.0;
@@ -211,6 +215,12 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
             // Set stylesheet properties on the new score
             api.scoreLoaded.on((newScore) => {
                 applyGpScoreTransforms(newScore);
+
+                const stringCountPref = getGpStringCountPreference();
+                if (stringCountPref && stringCountPref !== 'native') {
+                    applyScoreStringCount(newScore, stringCountPref);
+                }
+
                 newScore.stylesheet.hideEmptyStaves = true;
                 newScore.stylesheet.hideEmptyStavesInFirstSystem = true;
                 newScore.stylesheet.globalDisplayTuning = true;
