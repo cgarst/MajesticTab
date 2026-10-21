@@ -330,10 +330,10 @@ if (target === 'android') {
     path.join(androidPackageDir, 'MainActivity.kt'),
     await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8'),
   );
-  // Jam mode: LAN sockets plus mDNS discovery (multicast) for finding hosts.
+  // Jam mode: LAN sockets plus mDNS discovery (multicast) for finding hosts; tuner: microphone.
   const manifestPath = path.join(androidProject, 'app', 'src', 'main', 'AndroidManifest.xml');
   let manifest = await readFile(manifestPath, 'utf8');
-  for (const permission of ['ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'CHANGE_WIFI_MULTICAST_STATE']) {
+  for (const permission of ['ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'CHANGE_WIFI_MULTICAST_STATE', 'RECORD_AUDIO', 'MODIFY_AUDIO_SETTINGS']) {
     const tag = `<uses-permission android:name="android.permission.${permission}" />`;
     if (!manifest.includes(tag)) {
       manifest = manifest.replace('<uses-permission android:name="android.permission.INTERNET" />', `<uses-permission android:name="android.permission.INTERNET" />\n    ${tag}`);
