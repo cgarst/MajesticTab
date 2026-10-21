@@ -1,5 +1,6 @@
 import { applyGpScoreTransforms } from '../fileAdapters.js';
 import { showToast } from '../utils/toast.js';
+import { createCustomCursorHandler } from './gpPlayer.js';
 import {
     getInstrumentMode,
     getGuitarTracks,
@@ -211,6 +212,8 @@ export function loadGuitarPro(file, container, { debug = false } = {}) {
                     }
                 }
             });
+
+            api.customCursorHandler = createCustomCursorHandler(api);
 
             // Set stylesheet properties on the new score
             api.scoreLoaded.on((newScore) => {
