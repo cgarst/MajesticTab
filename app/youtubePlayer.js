@@ -17,8 +17,58 @@ let playerState = {
     currentTime: 0,
     isPlaying: false,
     hasStarted: false,
-    isSearching: false
+    isSearching: false,
+    playbackRate: 1
 };
+
+// --- Jam Mode hooks ---------------------------------------------------------
+// Jam code follows what the iframe actually reports (playerState.isPlaying is set
+// optimistically before the video starts) and drives the player via jamYouTubeControl.
+const youTubeListeners = new Set();
+let reportedState = -1; // last YouTube player state: -1 unstarted, 0 ended, 1 playing, 2 paused, 3 buffering, 5 cued
+let reportedPlaying = false;
+let iframePlayed = false; // the current embed has reported playing (autoplay is no longer gated)
+let timeReportedAt = 0; // performance.now() at which playerState.currentTime was sampled
+
+/** Subscribe to 'video' | 'state' | 'time' | 'rate' events. Returns an unsubscribe function. */
+export function onYouTubeEvent(cb) {
+    youTubeListeners.add(cb);
+    return () => youTubeListeners.delete(cb);
+}
+
+function emitYouTubeEvent(type, detail = {}) {
+    youTubeListeners.forEach((cb) => {
+        try { cb({ type, ...detail }); } catch (e) { console.error('[YouTube] listener error:', e); }
+    });
+}
+
+/** `source`: 'user' (picked in the panel), 'auto' (saved or searched), 'song' (reset on file load) or 'jam'. */
+function setVideoId(videoId, source) {
+    if (playerState.currentVideoId === videoId) return;
+    playerState.currentVideoId = videoId;
+    // A new (or no) embed: the old iframe won't report that it stopped.
+    iframePlayed = false;
+    reportedPlaying = false;
+    reportedState = -1;
+    emitYouTubeEvent('video', { videoId, source });
+}
+
+function reportYouTubeState(state) {
+    reportedState = state;
+    if (state === 3) return; // buffering: keep the previous playing / paused state
+    const playing = state === 1;
+    if (playing) iframePlayed = true;
+    if (playing !== reportedPlaying) {
+        reportedPlaying = playing;
+        emitYouTubeEvent('state', { playing, timeSec: playerState.currentTime });
+    }
+}
+
+function currentYouTubeTime() {
+    if (reportedState !== 1 || !timeReportedAt) return playerState.currentTime || 0;
+    const elapsed = Math.min(2000, Math.max(0, performance.now() - timeReportedAt));
+    return (playerState.currentTime || 0) + elapsed / 1000 * (playerState.playbackRate || 1);
+}
 
 function isNativeMacPlayer() {
     return Boolean(window.__TAURI__) && /Macintosh/.test(navigator.userAgent);
@@ -271,10 +321,10 @@ export function redoSearchWithQuery(override = null) {
 
     // Clear saved video ID so the search runs fresh
     localStorage.removeItem(getStorageKey());
-    playerState.currentVideoId = null;
+    setVideoId(null, 'user');
 
     updateQueryInputUI();
-    loadCurrentTrack(true);
+    loadCurrentTrack(true, { source: 'user' });
 }
 
 /**
@@ -405,9 +455,10 @@ export function cancelYouTubeSearch() {
 }
 
 /**
- * Update the YouTube iframe or prompt UI based on current video ID
+ * Update the YouTube iframe or prompt UI based on current video ID.
+ * `videoId` forces a video without saving it for this song (Jam Mode).
  */
-async function loadCurrentTrack(autoplay = false) {
+async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = null, source = 'auto' } = {}) {
     const iframe = document.getElementById('ytIframe');
     const prompt = document.getElementById('ytPlaceholderPrompt');
     const loadingIndicator = document.getElementById('ytLoadingIndicator');
@@ -416,7 +467,7 @@ async function loadCurrentTrack(autoplay = false) {
 
     // 1. Check if user already saved a video ID for this song & mode
     const storedId = localStorage.getItem(getStorageKey());
-    let videoId = storedId || playerState.currentVideoId;
+    let videoId = forcedVideoId || storedId || playerState.currentVideoId;
 
     // 2. If no ID, attempt search with visible loading indicator and cancel capability
     if (!videoId) {
@@ -473,7 +524,7 @@ async function loadCurrentTrack(autoplay = false) {
         }
     }
 
-    playerState.currentVideoId = videoId;
+    setVideoId(videoId, source);
     updatePanelTitle();
     updateQueryInputUI();
 
@@ -687,7 +738,7 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     playerState.filename = filename;
     playerState.customQueries = { original: '', backing: '' };
     playerState.customQuery = '';
-    playerState.currentVideoId = null;
+    setVideoId(null, 'song');
     playerState.currentTime = 0;
     playerState.isPlaying = false;
     playerState.hasStarted = false;
@@ -835,9 +886,9 @@ export function initYouTubePlayer() {
                 cancelYouTubeSearch();
             }
             playerState.trackMode = 'original';
-            playerState.currentVideoId = null;
+            setVideoId(null, 'user');
             updateQueryInputUI();
-            loadCurrentTrack(true);
+            loadCurrentTrack(true, { source: 'user' });
         }
     });
 
@@ -847,9 +898,9 @@ export function initYouTubePlayer() {
                 cancelYouTubeSearch();
             }
             playerState.trackMode = 'backing';
-            playerState.currentVideoId = null;
+            setVideoId(null, 'user');
             updateQueryInputUI();
-            loadCurrentTrack(true);
+            loadCurrentTrack(true, { source: 'user' });
         }
     });
 
@@ -889,7 +940,7 @@ export function initYouTubePlayer() {
 
         const videoId = extractVideoId(text);
         if (videoId) {
-            playerState.currentVideoId = videoId;
+            setVideoId(videoId, 'user');
             localStorage.setItem(getStorageKey(), videoId);
 
             const iframe = document.getElementById('ytIframe');
@@ -902,7 +953,7 @@ export function initYouTubePlayer() {
                 setActiveAudioMode('youtube');
                 updatePlaybackControls();
             } else {
-                loadCurrentTrack(true);
+                loadCurrentTrack(true, { source: 'user' });
             }
             closePanelWhenPlaying();
         } else {
@@ -934,13 +985,23 @@ export function initYouTubePlayer() {
             if (!data || typeof data !== 'object') return;
 
             let stateChanged = false;
+            let timeChanged = false;
 
             // YouTube iframe API sends infoDelivery messages with currentTime & playerState
             if (data.event === 'infoDelivery' && data.info) {
                 if (typeof data.info.currentTime === 'number') {
                     playerState.currentTime = data.info.currentTime;
+                    // currentTimeLastUpdated_ is the wall clock (s) at which currentTime was sampled.
+                    const sampledAgoMs = Date.now() - Number(data.info.currentTimeLastUpdated_) * 1000;
+                    timeReportedAt = performance.now() - (sampledAgoMs >= 0 && sampledAgoMs < 5000 ? sampledAgoMs : 0);
+                    timeChanged = true;
+                }
+                if (typeof data.info.playbackRate === 'number' && data.info.playbackRate !== playerState.playbackRate) {
+                    playerState.playbackRate = data.info.playbackRate;
+                    emitYouTubeEvent('rate', { rate: data.info.playbackRate });
                 }
                 if (typeof data.info.playerState === 'number') {
+                    reportYouTubeState(data.info.playerState);
                     const playing = (data.info.playerState === 1);
                     if (playing) {
                         playerState.hasStarted = true;
@@ -954,6 +1015,7 @@ export function initYouTubePlayer() {
                     }
                 }
             } else if (data.event === 'onStateChange' && typeof data.info === 'number') {
+                reportYouTubeState(data.info);
                 const playing = (data.info === 1);
                 if (playing) {
                     playerState.hasStarted = true;
@@ -969,6 +1031,9 @@ export function initYouTubePlayer() {
 
             if (stateChanged) {
                 updatePlaybackControls();
+            }
+            if (timeChanged) {
+                emitYouTubeEvent('time', { timeSec: playerState.currentTime, playing: reportedPlaying });
             }
         } catch (e) {
             // Ignore non-JSON messages from other sources
@@ -1051,3 +1116,86 @@ export function initYouTubePlayer() {
 
     updatePlaybackControls();
 }
+
+
+// --- Jam Mode remote control -----------------------------------------------
+
+/**
+ * A new embed may refuse to autoplay while hidden, so show the panel until the video
+ * actually plays, then tuck it away again. A panel the user opened stays open.
+ */
+function revealUntilPlaying(timeoutMs = 10000) {
+    if (playerState.isOpen) return;
+    toggleYouTubePanel(true);
+    const start = Date.now();
+    const check = setInterval(() => {
+        if (!playerState.isOpen) {
+            clearInterval(check);
+        } else if (reportedPlaying) {
+            clearInterval(check);
+            setTimeout(() => toggleYouTubePanel(false), 400);
+        } else if (Date.now() - start > timeoutMs) {
+            clearInterval(check);
+        }
+    }, 150);
+}
+
+export const jamYouTubeControl = {
+    snapshot() {
+        return {
+            videoId: playerState.currentVideoId,
+            playing: reportedPlaying,
+            buffering: reportedState === 3,
+            timeSec: currentYouTubeTime(),
+            rate: playerState.playbackRate || 1
+        };
+    },
+    /** Whether this embed has started playing at least once (later starts aren't autoplay-gated). */
+    hasPlayed: () => iframePlayed,
+    /** Load `videoId` at `timeSec` without saving it as this song's choice. */
+    load(videoId, { playing = false, timeSec = 0 } = {}) {
+        if (activeSearchController) {
+            activeSearchController.abort();
+            activeSearchController = null;
+        }
+        playerState.isSearching = false;
+        playerState.currentTime = Math.max(0, timeSec || 0);
+        timeReportedAt = performance.now();
+        loadCurrentTrack(playing, { videoId, source: 'jam' });
+        if (videoId && playing) revealUntilPlaying();
+    },
+    play() {
+        if (!playerState.currentVideoId) return;
+        const iframe = document.getElementById('ytIframe');
+        pauseSynthPlayer();
+        clearSynthHighlights();
+        setActiveAudioMode('youtube');
+        if (iframe?.dataset.loaded === 'true') {
+            sendYouTubeMessage(iframe, { event: 'command', func: 'playVideo', args: [] });
+            playerState.isPlaying = true;
+            playerState.hasStarted = true;
+            updatePlaybackControls();
+        } else {
+            loadCurrentTrack(true, { videoId: playerState.currentVideoId, source: 'jam' });
+        }
+        if (!iframePlayed) revealUntilPlaying();
+    },
+    pause() {
+        pauseYouTube();
+    },
+    seek(timeSec) {
+        const t = Math.max(0, timeSec || 0);
+        playerState.currentTime = t;
+        timeReportedAt = performance.now();
+        const iframe = document.getElementById('ytIframe');
+        if (iframe?.dataset.loaded === 'true') {
+            sendYouTubeMessage(iframe, { event: 'command', func: 'seekTo', args: [t, true] });
+        }
+    },
+    setRate(rate) {
+        const iframe = document.getElementById('ytIframe');
+        if (iframe?.dataset.loaded === 'true' && Number.isFinite(rate)) {
+            sendYouTubeMessage(iframe, { event: 'command', func: 'setPlaybackRate', args: [rate] });
+        }
+    }
+};

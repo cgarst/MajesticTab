@@ -1,11 +1,13 @@
 // jamClientAdapter.js
 // Client side of Jam Mode: applies host messages to the local player while leaving all
-// notation preferences (tracks, zoom, layout, theme, mix) untouched.
+// notation preferences (tracks, zoom, layout, theme, mix) untouched. Synth transport applies
+// to GP songs only; YouTube follow-along (jamYouTubeSync.js) applies to every song type.
 
-import { MSG, makeMessage } from './jamProtocol.js';
+import { MSG, makeMessage, isGpSong, chunkBase64 } from './jamProtocol.js';
 import { nowMs, jam } from './jamTransport.js';
 import { ClockSync, DriftFilter, NudgeMonitor, decideDriftAction, DRIFT_IGNORE_MS, DRIFT_SEEK_NO_NUDGE_MS } from './jamClock.js';
-import { estimateOutputLatencyMs, createCoalescer, sha256Hex, startLag, measureStartLag, waitForPlayerReady, loadSetting, saveSetting } from './jamCommon.js';
+import { estimateOutputLatencyMs, createCoalescer, jamSongId, startLag, measureStartLag, waitForPlayerReady, loadSetting, saveSetting } from './jamCommon.js';
+import { createYouTubeClient } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor } from '../gpProcessor/gpPlayer.js';
 import { base64ToArrayBuffer, arrayBufferToBase64Async } from '../fileStore.js';
 
@@ -43,7 +45,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
     let lastRawDriftMs = null;
     let lastHardSeekAt = 0;
     let nudging = false;
-    let pendingDownload = null; // { id, resolve, reject, timer }
+    let pendingDownload = null; // { id, resolve, reject, timer, parts }
     const songCache = new Map(); // songId -> { bytes, fileName } (session only)
     let pingId = 0;
 
@@ -55,11 +57,22 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
     const latencyMs = () => estimateOutputLatencyMs() + (getSettings().trimMs || 0) - hostOutLatency;
     const hostNowEstimate = () => clock.hostFromLocal(nowMs());
     const canControl = () => clientId && (controllerId === clientId || policy === 'anyone');
+    const hostSongIsGp = () => isGpSong(hostSong);
+    const youtube = createYouTubeClient({
+        send,
+        hostNowEstimate,
+        isClockSynced: () => clock.synced,
+        latencyMs,
+        canControl: () => Boolean(canControl()),
+        isFollowing: () => active && following && Boolean(clientId),
+        toast: (...args) => ui.toast?.(...args)
+    });
     const status = () => ({
         connected: active && Boolean(clientId),
         hostName,
         rttMs: clock.rtt,
         driftMs: lastDriftMs,
+        ytDriftMs: youtube.driftMs(),
         following,
         controllerId,
         policy,
@@ -99,6 +112,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                 nudgeWorks,
                 speedFactor: Math.round(jamPlayerControl.actualSpeed() / (hostSpeed || 1) * 1000) / 1000,
                 startLagMs: Math.round(startLag.get()),
+                ytDriftMs: youtube.driftMs(),
                 state: loadingSong ? 'loading' : (!following ? 'detached' : (hostSong && loadedSongId === hostSong.id ? 'synced' : 'idle'))
             });
             emitStatus();
@@ -134,7 +148,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                 pendingDownload = null;
                 reject(new Error('Song download timed out'));
             }, SONG_DOWNLOAD_TIMEOUT_MS);
-            pendingDownload = { id: song.id, resolve, reject, timer };
+            pendingDownload = { id: song.id, resolve, reject, timer, parts: null };
             send(MSG.SONG_REQUEST, { id: song.id });
         });
     }
@@ -143,7 +157,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         const cur = getCurrentFile?.();
         if (!cur || cur.name !== song.fileName || cur.size !== song.size) return false;
         try {
-            return (await sha256Hex(await cur.arrayBuffer())) === song.id;
+            return (await jamSongId(await cur.arrayBuffer(), cur)) === song.id;
         } catch (_) {
             return false;
         }
@@ -166,13 +180,19 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                     file.jamTransient = !getSettings().alwaysSaveSongs;
                     file.jamSongId = song.id;
                     file.songTitle = song.title;
+                    if (song.startPage) {
+                        file.startPage = song.startPage;
+                        file.endPage = song.endPage || song.startPage;
+                    }
                     await loadFile(file);
                     loadedSongId = song.id;
                 }
-                const ready = await waitForPlayerReady();
-                if (!ready) throw new Error('Audio engine did not become ready');
-                // Muted warm-up so the first synced start isn't late by the synth's cold start.
-                if (!jamPlayerControl.snapshot().playing) await jamPlayerControl.warmUp();
+                if (isGpSong(song)) {
+                    const ready = await waitForPlayerReady();
+                    if (!ready) throw new Error('Audio engine did not become ready');
+                    // Muted warm-up so the first synced start isn't late by the synth's cold start.
+                    if (!jamPlayerControl.snapshot().playing) await jamPlayerControl.warmUp();
+                }
                 send(MSG.SONG_READY, { songId: song.id, loadMs: Math.round(performance.now() - started) });
                 return true;
             } catch (e) {
@@ -310,7 +330,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
     /** Load the host's song, then apply whatever transport state arrived meanwhile. */
     async function loadSongAndCatchUp(song) {
         const ok = await ensureSong(song);
-        if (ok && following && pendingTransport && hostSong?.id === song.id) {
+        if (ok && following && pendingTransport && hostSong?.id === song.id && isGpSong(song)) {
             const pending = pendingTransport;
             pendingTransport = null;
             await applyTransportState(pending.transport, pending.hostTs);
@@ -322,6 +342,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         controllerId = state.controllerId ?? null;
         policy = state.policy || 'ask';
         hostSong = state.song || null;
+        youtube.apply(state.youtube, hostTs);
         emitStatus();
         if (!hostSong) return;
         pendingTransport = { transport: state.transport, hostTs };
@@ -331,7 +352,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
     // ---- Drift correction --------------------------------------------------
 
     function handleHeartbeat(msg) {
-        if (!following || !songReady()) return;
+        if (!following || !hostSongIsGp() || !songReady()) return;
         const snap = jamPlayerControl.snapshot();
         if (!msg.playing) return;
         if (!snap.playing) {
@@ -383,7 +404,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
     const sendSeekCommand = createCoalescer((timeMs) => send(MSG.CMD_SEEK, { timeMs }), 100);
 
     function interceptor(action, payload) {
-        if (!active || !following || !hostSong) return false;
+        if (!active || !following || !hostSongIsGp()) return false;
         if (!canControl()) {
             ui.toast?.('Host controls this. Use Detach to practice on your own.', 'info', 2500, 'jam-host-controls');
             return true;
@@ -410,7 +431,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
 
     function onPlayerEvent(e) {
         if (!active || applyingRemote) return;
-        if (e.type === 'loop' && following && canControl() && hostSong) {
+        if (e.type === 'loop' && following && canControl() && hostSongIsGp()) {
             send(MSG.CMD_LOOP, { loop: { enabled: e.enabled, startMeasure: e.startMeasure, endMeasure: e.endMeasure } });
         }
     }
@@ -418,6 +439,8 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
     function onFileLoaded(e) {
         const file = e.detail?.file;
         loadedSongId = file?.jamSongId || null;
+        // Loading a file resets the YouTube player; put the host's video back.
+        youtube.reconcile();
         emitStatus();
     }
 
@@ -448,6 +471,8 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
             case MSG.SONG_OPEN:
                 hostSong = msg.song;
                 pendingTransport = null;
+                lastDriftMs = null;
+                lastRawDriftMs = null;
                 cancelScheduledPlay();
                 if (following) loadSongAndCatchUp(msg.song);
                 emitStatus();
@@ -460,9 +485,14 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                 break;
             case MSG.SONG_DATA:
                 if (pendingDownload && pendingDownload.id === msg.songId) {
+                    const total = Number(msg.parts) || 1;
+                    if (!pendingDownload.parts || pendingDownload.parts.length !== total) pendingDownload.parts = new Array(total).fill(null);
+                    const part = Number(msg.part) || 0;
+                    if (part >= 0 && part < total) pendingDownload.parts[part] = msg.b64 || '';
+                    if (pendingDownload.parts.some((p) => p === null)) break;
                     clearTimeout(pendingDownload.timer);
                     try {
-                        const bytes = base64ToArrayBuffer(msg.b64);
+                        const bytes = base64ToArrayBuffer(pendingDownload.parts.join(''));
                         songCache.set(msg.songId, { bytes, fileName: msg.fileName });
                         pendingDownload.resolve({ bytes, fileName: msg.fileName });
                     } catch (e) {
@@ -471,28 +501,31 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                     pendingDownload = null;
                 }
                 break;
+            case MSG.YT_STATE:
+                youtube.apply(msg.yt, msg.hostTs);
+                break;
             case MSG.PLAY:
-                if (!following || !hostSong) break;
+                if (!following || !hostSongIsGp()) break;
                 hostSpeed = msg.speed ?? hostSpeed;
                 if (!songReady()) { pendingTransport = { transport: { playing: true, timeMs: msg.timeMs, speed: hostSpeed, loop: null, _startAt: msg.startAtHostTs }, hostTs: msg.hostTs }; break; }
                 if (Number.isFinite(msg.speed) && msg.speed !== jamPlayerControl.snapshot().speed) setHostSpeed(msg.speed);
                 schedulePlay(msg.timeMs, msg.startAtHostTs);
                 break;
             case MSG.PAUSE:
-                if (!following) break;
+                if (!following || !hostSongIsGp()) break;
                 pendingTransport = null;
                 if (songReady()) applyPause(msg.timeMs);
                 break;
             case MSG.SEEK:
-                if (!following || !songReady()) break;
+                if (!following || !hostSongIsGp() || !songReady()) break;
                 cancelScheduledPlay();
                 remote(() => jamPlayerControl.seekMs(msg.timeMs));
                 break;
             case MSG.SPEED:
-                if (following && songReady()) setHostSpeed(msg.speed);
+                if (following && hostSongIsGp() && songReady()) setHostSpeed(msg.speed);
                 break;
             case MSG.LOOP:
-                if (following && songReady()) applyLoop(msg.loop);
+                if (following && hostSongIsGp() && songReady()) applyLoop(msg.loop);
                 break;
             case MSG.HEARTBEAT:
                 handleHeartbeat(msg);
@@ -542,9 +575,11 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
             unsubscribe = onTransportEvent(onPlayerEvent);
             setTransportInterceptor(interceptor);
             window.addEventListener('majestictab:file-loaded', onFileLoaded);
+            youtube.start();
         },
         stop() {
             active = false;
+            youtube.stop();
             stopClockSync();
             cancelScheduledPlay();
             resetNudge();
@@ -574,8 +609,10 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         requestControl: (reason) => send(MSG.CONTROL_REQUEST, { reason }),
         releaseControl: () => send(MSG.CONTROL_RELEASE),
         async openSongAsController(file) {
-            const b64 = await arrayBufferToBase64Async(await file.arrayBuffer());
-            send(MSG.CMD_SONG_OPEN, { fileName: file.name, b64 });
+            const parts = chunkBase64(await arrayBufferToBase64Async(await file.arrayBuffer()));
+            for (let part = 0; part < parts.length; part++) {
+                await send(MSG.CMD_SONG_OPEN, { fileName: file.name, part, parts: parts.length, b64: parts[part] });
+            }
         },
         saveCurrentSongToLibrary() {
             const cur = getCurrentFile?.();

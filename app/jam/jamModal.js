@@ -1,7 +1,7 @@
 // jamModal.js
 // Jam Mode UI: top-bar pill, themed modal (host / client panels) and the control-request card.
 
-import { CONTROL_POLICIES } from './jamProtocol.js';
+import { CONTROL_POLICIES, JAM_SONG_EXTENSIONS } from './jamProtocol.js';
 
 const POLICY_LABELS = { host: 'Host only', ask: 'Ask me', anyone: 'Anyone' };
 const PEER_STATUS_LABELS = { joined: 'Joined', loading: 'Loading', synced: 'Ready', idle: 'Waiting for song', detached: 'Detached', error: 'Error' };
@@ -104,7 +104,7 @@ export function createJamModal(manager, { updateSetting }) {
             <label class="jam-label" for="jamPinInput">PIN (optional)</label>
             <input type="text" class="form-control form-control-sm" id="jamPinInput" maxlength="12" inputmode="numeric" value="${esc(settings.pin)}">
           </div>
-          <p class="jam-help mb-3">Other devices on the same Wi-Fi or network can join. Each device plays the score locally, so no audio is streamed.</p>
+          <p class="jam-help mb-3">Other devices on the same Wi-Fi or network can join. Each device plays the song locally (synth or YouTube), so no audio is streamed.</p>
           <button type="button" class="btn btn-sm btn-theme-primary" id="jamStartHostBtn">Start Hosting</button>
         ` : `
           <div class="jam-field mb-3">
@@ -143,7 +143,7 @@ export function createJamModal(manager, { updateSetting }) {
           <div class="jam-label">Share this address</div>
           <div class="fw-semibold jam-address">${addrs.length ? addrs.map(esc).join('<br>') : esc(`port ${info?.port ?? ''}`)}</div>
           ${settings.pin ? `<div class="jam-help mt-1">PIN: ${esc(settings.pin)}</div>` : ''}
-          ${session?.song ? `<div class="jam-help mt-1">Song: ${esc(session.song.title)}</div>` : '<div class="jam-help mt-1">Open a Guitar Pro file to share it with everyone.</div>'}
+          ${session?.song ? `<div class="jam-help mt-1">Song: ${esc(session.song.title)}</div>` : '<div class="jam-help mt-1">Open a Guitar Pro, PDF or text file to share it with everyone. YouTube playback is shared too.</div>'}
         </div>
         <div class="jam-field mb-3">
           <label class="jam-label" for="jamPolicySelect">Who can control</label>
@@ -166,7 +166,7 @@ export function createJamModal(manager, { updateSetting }) {
             return `<div class="jam-list-row">
               <div class="jam-row-main">
                 <span class="fw-semibold">${esc(p.name)}${isController ? ' <span class="jam-badge">Controller</span>' : ''}</span>
-                <span class="jam-help">${p.ready ? 'Ready' : esc(PEER_STATUS_LABELS[p.status] || 'Loading')} · RTT ${Math.round(p.rttMs || 0)} ms${p.driftMs === null || p.driftMs === undefined ? '' : ` · drift ${p.driftMs} ms`}</span>
+                <span class="jam-help">${p.ready ? 'Ready' : esc(PEER_STATUS_LABELS[p.status] || 'Loading')} · RTT ${Math.round(p.rttMs || 0)} ms${p.driftMs === null || p.driftMs === undefined ? '' : ` · drift ${p.driftMs} ms`}${p.ytDriftMs === null || p.ytDriftMs === undefined ? '' : ` · YouTube drift ${p.ytDriftMs} ms`}</span>
               </div>
               <div class="d-flex gap-2 flex-shrink-0 ms-2">
                 <button type="button" class="btn btn-sm btn-theme-outline" data-jam-control="${esc(p.id)}">${isController ? 'Take Back' : 'Hand Over'}</button>
@@ -190,7 +190,7 @@ export function createJamModal(manager, { updateSetting }) {
         return `
         <div class="jam-card mb-3">
           <div class="fw-semibold">${connected ? `Connected to ${esc(st.hostName)}` : 'Connection lost'}</div>
-          <div class="jam-help mt-1">${esc(stateText)}${connected ? ` · RTT ${Math.round(st.rttMs || 0)} ms` : ''}${st.driftMs === null || st.driftMs === undefined ? '' : ` · drift ${Math.round(st.driftMs)} ms`}</div>
+          <div class="jam-help mt-1">${esc(stateText)}${connected ? ` · RTT ${Math.round(st.rttMs || 0)} ms` : ''}${st.driftMs === null || st.driftMs === undefined ? '' : ` · drift ${Math.round(st.driftMs)} ms`}${st.ytDriftMs === null || st.ytDriftMs === undefined ? '' : ` · YouTube drift ${st.ytDriftMs} ms`}</div>
           ${st.song ? `<div class="jam-help mt-1">Song: ${esc(st.song.title)}</div>` : ''}
         </div>
         <div class="d-flex flex-wrap gap-2 mb-3">
@@ -346,7 +346,7 @@ export function createJamModal(manager, { updateSetting }) {
         if (t.id === 'jamShareSongBtn') {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = '.gp,.gp3,.gp4,.gp5,.gpx';
+            input.accept = JAM_SONG_EXTENSIONS.map((ext) => `.${ext}`).join(',');
             input.onchange = () => { if (input.files?.[0]) client?.openSongAsController(input.files[0]); };
             input.click();
             return;
