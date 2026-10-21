@@ -183,7 +183,9 @@ export function measureStartLag({ timeMs, targetLocalMs, usedLagMs, speed = 1, i
 export function trackPolicyFor(state, selfKey) {
     const mine = state?.trackAssignments?.[selfKey];
     const has = Array.isArray(mine) && mine.length > 0;
+    const taken = [...new Set(Object.values(state?.trackAssignments || {}).flat())];
     return {
+        mute: !has && state?.muteAssignedForUnassigned && taken.length ? taken : null,
         audio: has && state.assignedAudioOnly ? mine : null,
         view: has && state.assignedViewOnly ? mine : null
     };

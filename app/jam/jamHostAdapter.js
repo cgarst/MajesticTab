@@ -28,7 +28,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         muteGuests: false,
         trackAssignments: {}, // peer id or 'host' -> track indices
         assignedAudioOnly: false,
-        assignedViewOnly: false
+        assignedViewOnly: false,
+        muteAssignedForUnassigned: false
     };
     let unsubscribe = null;
     let heartbeatTimer = null;
@@ -84,7 +85,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     const trackState = () => ({
         trackAssignments: session.trackAssignments,
         assignedAudioOnly: session.assignedAudioOnly,
-        assignedViewOnly: session.assignedViewOnly
+        assignedViewOnly: session.assignedViewOnly,
+        muteAssignedForUnassigned: session.muteAssignedForUnassigned
     });
 
     const applyOwnTracks = () => jamPlayerControl.setTrackPolicy(trackPolicyFor(session, 'host'));
@@ -93,6 +95,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         if (patch.trackAssignments) session.trackAssignments = patch.trackAssignments;
         if (patch.assignedAudioOnly !== undefined) session.assignedAudioOnly = Boolean(patch.assignedAudioOnly);
         if (patch.assignedViewOnly !== undefined) session.assignedViewOnly = Boolean(patch.assignedViewOnly);
+        if (patch.muteAssignedForUnassigned !== undefined) session.muteAssignedForUnassigned = Boolean(patch.muteAssignedForUnassigned);
         applyOwnTracks();
         broadcast(MSG.TRACK_ASSIGN, trackState());
         emitRoster();
@@ -508,6 +511,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             session.muteGuests = Boolean(getSettings().muteGuests);
             session.assignedAudioOnly = Boolean(getSettings().assignedAudioOnly);
             session.assignedViewOnly = Boolean(getSettings().assignedViewOnly);
+            session.muteAssignedForUnassigned = Boolean(getSettings().muteAssignedForUnassigned);
             unsubscribe = onTransportEvent(onPlayerEvent);
             setTransportInterceptor(interceptor);
             window.addEventListener('majestictab:file-loaded', onFileLoaded);
