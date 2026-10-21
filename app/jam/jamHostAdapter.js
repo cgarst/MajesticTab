@@ -7,7 +7,7 @@
 import { MSG, makeMessage, songTypeForName, isGpSong, chunkBase64, JAM_MAX_UPLOAD_BYTES, JAM_SONG_EXTENSIONS } from './jamProtocol.js';
 import { nowMs, jam } from './jamTransport.js';
 import { computeLeadMs } from './jamClock.js';
-import { jamSongId, songTitleFromName, startLag, measureStartLag, waitForPlayerReady, estimateOutputLatencyMs } from './jamCommon.js';
+import { jamSongId, songTitleFromName, startLag, measureStartLag, waitForPlayerReady, estimateOutputLatencyMs, trackPolicyFor } from './jamCommon.js';
 import { createYouTubeHost } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor } from '../gpProcessor/gpPlayer.js';
 import { arrayBufferToBase64Async, base64ToArrayBuffer } from '../fileStore.js';
@@ -25,7 +25,10 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         playing: false,
         controllerId: null, // null = host
         policy: 'ask',
-        muteGuests: false
+        muteGuests: false,
+        trackAssignments: {}, // peer id or 'host' -> track indices
+        assignedAudioOnly: false,
+        assignedViewOnly: false
     };
     let unsubscribe = null;
     let heartbeatTimer = null;
@@ -72,8 +75,40 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         youtube: youtube.state(),
         controllerId: session.controllerId,
         policy: session.policy,
-        muteGuests: session.muteGuests
+        muteGuests: session.muteGuests,
+        ...trackState()
     });
+
+    // ---- Track assignments -------------------------------------------------
+
+    const trackState = () => ({
+        trackAssignments: session.trackAssignments,
+        assignedAudioOnly: session.assignedAudioOnly,
+        assignedViewOnly: session.assignedViewOnly
+    });
+
+    const applyOwnTracks = () => jamPlayerControl.setTrackPolicy(trackPolicyFor(session, 'host'));
+
+    function updateTracks(patch) {
+        if (patch.trackAssignments) session.trackAssignments = patch.trackAssignments;
+        if (patch.assignedAudioOnly !== undefined) session.assignedAudioOnly = Boolean(patch.assignedAudioOnly);
+        if (patch.assignedViewOnly !== undefined) session.assignedViewOnly = Boolean(patch.assignedViewOnly);
+        applyOwnTracks();
+        broadcast(MSG.TRACK_ASSIGN, trackState());
+        emitRoster();
+    }
+
+    function setTrackAssignment(key, indices) {
+        const next = { ...session.trackAssignments };
+        if (indices.length) next[key] = indices; else delete next[key];
+        updateTracks({ trackAssignments: next });
+    }
+
+    function clearTrackAssignments() {
+        session.trackAssignments = {};
+        applyOwnTracks();
+        broadcast(MSG.TRACK_ASSIGN, trackState());
+    }
 
     // ---- Play / seek -------------------------------------------------------
 
@@ -238,6 +273,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             session.song = null;
             session.songBytes = null;
             session.playing = false;
+            clearTrackAssignments();
             broadcast(MSG.SONG_CLOSE);
             roster.forEach((p) => { p.ready = false; });
             emitRoster();
@@ -258,6 +294,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
                 endPage: file.endPage || null
             };
             session.playing = false;
+            clearTrackAssignments();
             roster.forEach((p) => { p.ready = false; });
             emitRoster();
             broadcast(MSG.SONG_OPEN, { song: session.song });
@@ -446,6 +483,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             sendTo(info.id, MSG.STATE, { state: sessionState() });
         } else if (info.event === 'left') {
             roster.delete(info.id);
+            if (session.trackAssignments[info.id]) setTrackAssignment(info.id, []);
             uploads.delete(info.id);
             pendingRequests.delete(info.id);
             ui.onRequestsChanged?.(Array.from(pendingRequests.values()));
@@ -468,6 +506,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             active = true;
             session.policy = getSettings().policy || 'ask';
             session.muteGuests = Boolean(getSettings().muteGuests);
+            session.assignedAudioOnly = Boolean(getSettings().assignedAudioOnly);
+            session.assignedViewOnly = Boolean(getSettings().assignedViewOnly);
             unsubscribe = onTransportEvent(onPlayerEvent);
             setTransportInterceptor(interceptor);
             window.addEventListener('majestictab:file-loaded', onFileLoaded);
@@ -495,6 +535,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             session.songBytes = null;
             session.playing = false;
             session.controllerId = null;
+            session.trackAssignments = {};
+            applyOwnTracks();
             ui.onRequestsChanged?.([]);
         },
         handleMessage,
@@ -504,6 +546,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         revokeControl,
         setPolicy,
         setMuteGuests,
+        setTrackAssignment,
+        updateTracks,
         kick: (id) => jam.hostKick(id),
         getRoster: () => Array.from(roster.values()),
         getSession: () => session,

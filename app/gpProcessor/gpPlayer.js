@@ -1,7 +1,7 @@
 // gpPlayer.js
 // In-app artificial instrument (SoundFont synthesizer) player for Guitar Pro files
 import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
-import { gpState, renderGPPage } from './gpHandler.js';
+import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
@@ -54,6 +54,9 @@ let lastPositionSongMs = 0;
 let lastPositionEventAt = 0;
 let jamMuted = false; // Jam host muted guests: synth stays silent regardless of the volume slider
 const effectiveVolume = () => (jamMuted ? 0 : synthPlayerState.masterVolume);
+let jamAudioTracks = null; // Jam host assigned this device track indices: only those are audible
+let jamViewTracks = null; // Jam host assigned this device track indices: only those are shown
+let jamPrevViewTracks = null; // tracks that were visible before the Jam view restriction
 let warmingUp = false; // muted Jam Mode warm-up play in progress; player events are suppressed
 
 // AlphaTab's timePosition is wall-clock time at the current playback speed (it doubles when
@@ -111,6 +114,14 @@ function applySynthTrackMode() {
 
     syncSynthTrackModeLabels();
 
+    if (jamAudioTracks) {
+        const audible = currentScore.tracks.map((_, i) => i).filter(i => jamAudioTracks.includes(i));
+        const silent = currentScore.tracks.map((_, i) => i).filter(i => !jamAudioTracks.includes(i));
+        if (silent.length) currentApi.changeTrackMute(silent, true);
+        if (audible.length) currentApi.changeTrackMute(audible, false);
+        return;
+    }
+
     const trackModeRadios = document.querySelectorAll('input[name="synthTrackMode"]');
     trackModeRadios.forEach(radio => {
         radio.checked = radio.value === synthPlayerState.trackMode;
@@ -128,6 +139,21 @@ function applySynthTrackMode() {
     const muteOtherTracks = synthPlayerState.trackMode === 'guitarsOnly';
     if (targetTracks.length) currentApi.changeTrackMute(targetTracks, muteTarget);
     if (otherTracks.length) currentApi.changeTrackMute(otherTracks, muteOtherTracks);
+}
+
+/** Applies (or lifts) the Jam host's "only show assigned tracks" restriction on the rendered score. */
+export function reapplyJamTrackView() {
+    const api = currentApi;
+    if (!api?.score?.tracks) return;
+    const valid = (jamViewTracks || []).filter(i => api.score.tracks[i]);
+    if (valid.length) {
+        if (!jamPrevViewTracks) jamPrevViewTracks = (api.tracks || []).map(t => t.index);
+        applyGpTrackSelection(valid);
+    } else if (jamPrevViewTracks) {
+        const prev = jamPrevViewTracks.filter(i => api.score.tracks[i]);
+        jamPrevViewTracks = null;
+        if (prev.length) applyGpTrackSelection(prev);
+    }
 }
 
 function isWithinLoopRange() {
@@ -1071,6 +1097,7 @@ export function clearSynthHighlights() {
 export function detachAlphaTabApi() {
     pauseIOSAudioPlayback();
     warmingUp = false;
+    jamPrevViewTracks = null;
     emitTransportEvent('detached');
     if (currentApi) {
         try {
@@ -1954,6 +1981,19 @@ export const jamPlayerControl = {
         if (currentApi) {
             try { currentApi.masterVolume = warmingUp ? 0 : effectiveVolume(); } catch (_) {}
         }
+    },
+    /** Track indices in the loaded score, for the host's assignment UI. */
+    listTracks() {
+        return (currentScore?.tracks || []).map((t, i) => ({ index: i, name: t.name || `Track ${i + 1}` }));
+    },
+    /** Jam track assignment: `audio` / `view` are index arrays, or null for no restriction. */
+    setTrackPolicy({ audio = null, view = null } = {}) {
+        const norm = (a) => (Array.isArray(a) && a.length ? a : null);
+        jamAudioTracks = norm(audio);
+        jamViewTracks = norm(view);
+        if (!currentApi) return;
+        applySynthTrackMode();
+        reapplyJamTrackView();
     },
     pause() {
         if (!currentApi || !synthPlayerState.isPlaying) return;
