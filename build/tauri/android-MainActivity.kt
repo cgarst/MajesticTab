@@ -1,5 +1,7 @@
 package net.zathu.majestictab
 
+import android.content.Context
+import android.net.wifi.WifiManager
 import android.os.Bundle
 import android.view.View
 import android.webkit.JavascriptInterface
@@ -20,6 +22,7 @@ class MainActivity : TauriActivity() {
   private var container: FrameLayout? = null
   private var mainWebView: WebView? = null
   private var downloaderWebView: WebView? = null
+  private var multicastLock: WifiManager.MulticastLock? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
     instance = this
@@ -36,7 +39,23 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  // Jam mode mDNS discovery and advertising need multicast packets, which Android filters by default.
+  fun setJamMulticast(on: Boolean) {
+    if (on) {
+      if (multicastLock == null) {
+        val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+        multicastLock = wifi?.createMulticastLock("majestictab-jam")?.apply {
+          setReferenceCounted(false)
+        }
+      }
+      multicastLock?.acquire()
+    } else {
+      multicastLock?.let { if (it.isHeld) it.release() }
+    }
+  }
+
   override fun onDestroy() {
+    setJamMulticast(false)
     if (instance == this) {
       instance = null
     }
@@ -111,6 +130,13 @@ class MainActivity : TauriActivity() {
         hideDownloader()
       }
     }, "AndroidImmersive")
+
+    webView.addJavascriptInterface(object {
+      @JavascriptInterface
+      fun setMulticast(on: Boolean) {
+        setJamMulticast(on)
+      }
+    }, "AndroidJam")
 
     webView.addJavascriptInterface(object {
       @JavascriptInterface

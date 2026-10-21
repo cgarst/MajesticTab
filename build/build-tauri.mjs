@@ -330,6 +330,16 @@ if (target === 'android') {
     path.join(androidPackageDir, 'MainActivity.kt'),
     await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8'),
   );
+  // Jam mode: LAN sockets plus mDNS discovery (multicast) for finding hosts.
+  const manifestPath = path.join(androidProject, 'app', 'src', 'main', 'AndroidManifest.xml');
+  let manifest = await readFile(manifestPath, 'utf8');
+  for (const permission of ['ACCESS_NETWORK_STATE', 'ACCESS_WIFI_STATE', 'CHANGE_WIFI_MULTICAST_STATE']) {
+    const tag = `<uses-permission android:name="android.permission.${permission}" />`;
+    if (!manifest.includes(tag)) {
+      manifest = manifest.replace('<uses-permission android:name="android.permission.INTERNET" />', `<uses-permission android:name="android.permission.INTERNET" />\n    ${tag}`);
+    }
+  }
+  await writeFile(manifestPath, manifest);
   const keystore = process.env.ANDROID_KEYSTORE_FILE;
   const keystorePassword = process.env.ANDROID_KEYSTORE_PASSWORD;
   const keyAlias = process.env.ANDROID_KEY_ALIAS;
