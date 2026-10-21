@@ -17,6 +17,8 @@ const JUMP_THRESHOLD_MS = 400;
 const HOST_PRIORITY_WINDOW_MS = 200;
 const CONTROLLER_GRACE_MS = 5000;
 
+const normAudioMode = (m) => (m === 'assigned' || m === 'backing' ? m : 'all');
+
 export function createHostAdapter({ loadFile, ui, getSettings }) {
     const roster = new Map(); // id -> { id, name, ready, rttMs, driftMs, status }
     const session = {
@@ -27,7 +29,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         policy: 'ask',
         muteGuests: false,
         trackAssignments: {}, // peer id or 'host' -> track indices
-        assignedAudioOnly: false,
+        assignedAudioMode: 'all', // 'all' | 'assigned' (own tracks only) | 'backing' (everything but own tracks)
         assignedViewOnly: false,
         muteAssignedForUnassigned: false
     };
@@ -84,7 +86,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
 
     const trackState = () => ({
         trackAssignments: session.trackAssignments,
-        assignedAudioOnly: session.assignedAudioOnly,
+        assignedAudioMode: session.assignedAudioMode,
         assignedViewOnly: session.assignedViewOnly,
         muteAssignedForUnassigned: session.muteAssignedForUnassigned
     });
@@ -93,7 +95,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
 
     function updateTracks(patch) {
         if (patch.trackAssignments) session.trackAssignments = patch.trackAssignments;
-        if (patch.assignedAudioOnly !== undefined) session.assignedAudioOnly = Boolean(patch.assignedAudioOnly);
+        if (patch.assignedAudioMode !== undefined) session.assignedAudioMode = normAudioMode(patch.assignedAudioMode);
         if (patch.assignedViewOnly !== undefined) session.assignedViewOnly = Boolean(patch.assignedViewOnly);
         if (patch.muteAssignedForUnassigned !== undefined) session.muteAssignedForUnassigned = Boolean(patch.muteAssignedForUnassigned);
         applyOwnTracks();
@@ -509,7 +511,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             active = true;
             session.policy = getSettings().policy || 'ask';
             session.muteGuests = Boolean(getSettings().muteGuests);
-            session.assignedAudioOnly = Boolean(getSettings().assignedAudioOnly);
+            session.assignedAudioMode = normAudioMode(getSettings().assignedAudioMode);
             session.assignedViewOnly = Boolean(getSettings().assignedViewOnly);
             session.muteAssignedForUnassigned = Boolean(getSettings().muteAssignedForUnassigned);
             unsubscribe = onTransportEvent(onPlayerEvent);

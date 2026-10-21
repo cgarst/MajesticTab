@@ -179,8 +179,9 @@ export function trackPolicyFor(state, selfKey) {
     const has = Array.isArray(mine) && mine.length > 0;
     const taken = [...new Set(Object.values(state?.trackAssignments || {}).flat())];
     return {
-        mute: !has && state?.muteAssignedForUnassigned && taken.length ? taken : null,
-        audio: has && state.assignedAudioOnly ? mine : null,
+        mute: !has ? (state?.muteAssignedForUnassigned && taken.length ? taken : null)
+            : state?.assignedAudioMode === 'backing' ? mine : null,
+        audio: has && state?.assignedAudioMode === 'assigned' ? mine : null,
         view: has && state.assignedViewOnly ? mine : null
     };
 }
