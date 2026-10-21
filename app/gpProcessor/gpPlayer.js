@@ -279,9 +279,10 @@ export function buildPillVPath(w, h) {
 
 /**
  * Handle auto-scrolling with quick snap and read-ahead in Continuous Mode
+ * Adjusts scrolling to consider the virtual fretboard dock so that current stave group is entirely visible
  */
-export function updateContinuousPlaybackScroll(currentTick) {
-    if (!currentApi || !currentScore || !synthPlayerState.isPlaying) return;
+export function updateContinuousPlaybackScroll(currentTick, force = false) {
+    if (!currentApi || !currentScore || (!synthPlayerState.isPlaying && !force)) return;
 
     const pageModeRadio = document.getElementById('pageModeRadio');
     const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
@@ -290,8 +291,15 @@ export function updateContinuousPlaybackScroll(currentTick) {
     const output = document.getElementById('output');
     if (!output) return;
 
+    const fretboardDock = document.getElementById('fretboardDock');
+    const isFretboardOpen = document.body.classList.contains('fretboard-open') && fretboardDock && fretboardDock.style.display !== 'none';
+    const fretboardHeight = isFretboardOpen ? (fretboardDock.offsetHeight || 165) : 0;
+
     const viewportHeight = output.clientHeight;
     if (viewportHeight <= 0) return;
+
+    // Available visible height above the bottom dock
+    const visibleViewportHeight = Math.max(100, viewportHeight - fretboardHeight);
 
     const TOP_PADDING = 12;
     const outputRect = output.getBoundingClientRect();
@@ -303,16 +311,27 @@ export function updateContinuousPlaybackScroll(currentTick) {
         const cursorVisualTop = cursorRect.top - outputRect.top;
         const cursorDocY = cursorVisualTop + output.scrollTop;
 
-        // Read-ahead threshold: snap when cursor is above viewport (e.g. repeat jump / rewind)
-        // or past 68% of viewport height (advancing after ~3 of 4 on-screen stave groups)
-        const isAboveTop = cursorVisualTop < 0;
-        const isBelowThreshold = cursorVisualTop > (viewportHeight * 0.68);
+        // Measure containing stave block so we guarantee the whole stave group is visible
+        const parentBlock = cursorEl.closest('div.at-surface.at > div') || cursorEl.parentElement;
+        const blockRect = parentBlock ? parentBlock.getBoundingClientRect() : null;
+        const blockVisualTop = blockRect ? (blockRect.top - outputRect.top) : cursorVisualTop;
+        const blockHeight = blockRect ? blockRect.height : cursorRect.height;
+        const blockVisualBottom = blockVisualTop + blockHeight;
 
-        if (isAboveTop || isBelowThreshold) {
+        // Read-ahead threshold and bottom occlusion check:
+        // 1. Is top of cursor/block scrolled above viewport?
+        const isAboveTop = cursorVisualTop < 0 || blockVisualTop < 0;
+        // 2. Is bottom of the stave group hiding behind the fretboard dock?
+        const isHidingBehindFretboard = blockVisualBottom > (visibleViewportHeight - 16);
+        // 3. Advancing read-ahead threshold: past 65% of visible viewport height
+        const isBelowThreshold = cursorVisualTop > (visibleViewportHeight * 0.65);
+
+        if (isAboveTop || isHidingBehindFretboard || isBelowThreshold) {
             const maxScroll = output.scrollHeight - output.clientHeight;
-            const targetScrollTop = (cursorDocY < 160)
+            const blockDocY = blockVisualTop + output.scrollTop;
+            const targetScrollTop = (blockDocY < 160)
                 ? 0
-                : Math.max(0, Math.min(maxScroll, cursorDocY - TOP_PADDING));
+                : Math.max(0, Math.min(maxScroll, blockDocY - TOP_PADDING));
             if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
                 output.scrollTop = targetScrollTop;
             }
@@ -359,21 +378,70 @@ export function updateContinuousPlaybackScroll(currentTick) {
     // 3. Compute system vertical coordinates
     const container = gpState.canvases[0]?.container;
     const containerTop = container ? container.offsetTop : 0;
-    const sysY = containerTop + (targetStaffSystem.realBounds?.y ?? targetStaffSystem.visualBounds?.y ?? 0);
+    const sysRealY = targetStaffSystem.realBounds?.y ?? targetStaffSystem.visualBounds?.y ?? 0;
+    const sysH = targetStaffSystem.realBounds?.h ?? targetStaffSystem.visualBounds?.h ?? 140;
+    const sysY = containerTop + sysRealY;
 
     const visualTop = sysY - output.scrollTop;
+    const visualBottom = visualTop + sysH;
 
     const isAboveTop = visualTop < 0;
-    const isBelowThreshold = visualTop > (viewportHeight * 0.68);
+    const isHidingBehindFretboard = visualBottom > (visibleViewportHeight - 16);
+    const isBelowThreshold = visualTop > (visibleViewportHeight * 0.60);
 
-    if (isAboveTop || isBelowThreshold) {
+    if (isAboveTop || isHidingBehindFretboard || isBelowThreshold) {
         const maxScroll = output.scrollHeight - output.clientHeight;
-        const targetScrollTop = (targetStaffSystem === boundsLookup.staffSystems[0])
+        const targetScrollTop = (targetStaffSystem === boundsLookup.staffSystems[0] && sysY < 160)
             ? 0
             : Math.max(0, Math.min(maxScroll, sysY - TOP_PADDING));
         if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
             output.scrollTop = targetScrollTop;
         }
+    }
+}
+
+if (typeof window !== 'undefined') {
+    window.__majesticUpdateContinuousPlaybackScroll = updateContinuousPlaybackScroll;
+}
+
+/**
+ * Apply cursor position and active notes from a clicked beat before or during playback
+ */
+export function applyCursorPositionFromBeat(beat) {
+    if (!beat || !currentApi) return;
+
+    const pageModeRadio = document.getElementById('pageModeRadio');
+    const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
+
+    // Calculate beat playback tick
+    const masterBar = beat.voice?.bar?.masterBar;
+    const masterBarStart = masterBar?.start ?? 0;
+    const beatTick = masterBarStart + (beat.playbackStart ?? 0);
+
+    // Set playback position
+    currentApi.tickPosition = beatTick;
+    synthPlayerState.currentTime = currentApi.timePosition || 0;
+
+    // Enable visual cursor display
+    document.body.classList.add('synth-playback-started');
+
+    // Position custom line reader cursor
+    const boundsLookup = currentApi.renderer?.boundsLookup;
+    const beatBounds = boundsLookup?.findBeat(beat);
+    if (beatBounds) {
+        const startBeatX = beatBounds.visualBounds?.x ?? beatBounds.realBounds?.x ?? 0;
+        currentApi.customCursorHandler?.placeBeatCursor(null, beatBounds, startBeatX);
+    }
+
+    // Update fretboard notes visualizer
+    fretboardController.showBeatsAtCursor(beat);
+
+    // Update time display in top bar / panel
+    updateSynthUI();
+
+    // Adjust scrolling in continuous mode so stave group is entirely visible above fretboard
+    if (!isPageMode) {
+        updateContinuousPlaybackScroll(beatTick, true);
     }
 }
 
@@ -391,7 +459,8 @@ export function createCustomCursorHandler(api) {
     let lastH = 0;
 
     function getOrCreateReader() {
-        const wrapper = api?._cursorWrapper?.element || document.querySelector('.at-cursors');
+        const container = gpState.canvases[0]?.container;
+        const wrapper = api?._cursorWrapper?.element || container?.querySelector('.at-cursors') || document.querySelector('.at-cursors') || container;
         if (!wrapper) return null;
         if (!readerEl || !wrapper.contains(readerEl)) {
             readerEl = wrapper.querySelector('.gp-reader-cursor');
@@ -809,8 +878,8 @@ export function attachAlphaTabApi(api) {
 
     if (api.beatMouseDown) {
         api.beatMouseDown.on((beat) => {
-            if (!synthPlayerState.isPlaying && beat) {
-                fretboardController.showBeatsAtCursor(beat);
+            if (beat) {
+                applyCursorPositionFromBeat(beat);
             }
         });
     }
@@ -1523,6 +1592,67 @@ export function initSynthPlayer() {
         try {
             localStorage.setItem(STORAGE_KEY_SYNTH_VOLUME, String(vol));
         } catch (_) {}
+    });
+
+    // Allow user to click to position cursor before or during playback in scroll mode
+    const output = document.getElementById('output');
+    output?.addEventListener('click', (e) => {
+        if (!output.classList.contains('continuous-mode')) return;
+        if (e.target && e.target.closest && e.target.closest('button, input, textarea, select, .fretboard-dock, .hud-pill-group')) return;
+        if (!currentApi || !currentScore) return;
+
+        const container = gpState.canvases[0]?.container;
+        if (!container || !container.contains(e.target)) return;
+
+        const boundsLookup = currentApi.renderer?.boundsLookup;
+        if (!boundsLookup || !boundsLookup.staffSystems || !boundsLookup.staffSystems.length) return;
+
+        const rect = container.getBoundingClientRect();
+        const relX = e.clientX - rect.left;
+        const relY = e.clientY - rect.top;
+
+        let beat = boundsLookup.getBeatAtPos(relX, relY);
+
+        if (!beat && boundsLookup.staffSystems) {
+            let bestSys = null;
+            let minSysDist = Infinity;
+            for (const sys of boundsLookup.staffSystems) {
+                const top = sys.realBounds?.y ?? sys.visualBounds?.y ?? 0;
+                const h = sys.realBounds?.h ?? sys.visualBounds?.h ?? 120;
+                const bottom = top + h;
+                if (relY >= top && relY <= bottom) {
+                    bestSys = sys;
+                    break;
+                }
+                const dist = relY < top ? (top - relY) : (relY - bottom);
+                if (dist < minSysDist) {
+                    minSysDist = dist;
+                    bestSys = sys;
+                }
+            }
+
+            if (bestSys && minSysDist < 120) {
+                const bar = bestSys.findBarAtPos(relX);
+                if (bar && bar.beats && bar.beats.length > 0) {
+                    let closestBeat = bar.beats[0];
+                    let minBeatDist = Infinity;
+                    for (const b of bar.beats) {
+                        const bBounds = boundsLookup.findBeat(b.beat);
+                        const bX = bBounds ? (bBounds.visualBounds?.x ?? bBounds.realBounds?.x ?? 0) : 0;
+                        const d = Math.abs(relX - bX);
+                        if (d < minBeatDist) {
+                            minBeatDist = d;
+                            closestBeat = b;
+                        }
+                    }
+                    beat = closestBeat.beat;
+                }
+            }
+        }
+
+        if (beat) {
+            applyCursorPositionFromBeat(beat);
+        }
     });
 
     window.addEventListener('resize', updateSynthPanelPosition);
