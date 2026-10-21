@@ -1,11 +1,14 @@
 // jamHostAdapter.js
 // Host side of Jam Mode: observes the local player and file loads, and broadcasts the
 // authoritative session state. Also validates and applies client control commands.
+// Any song type is shared (GP, PDF, text); synth transport sync applies to GP songs only,
+// YouTube sync (jamYouTubeSync.js) to all of them.
 
-import { MSG, makeMessage, isGpFileName, JAM_MAX_UPLOAD_BYTES, JAM_GP_EXTENSIONS } from './jamProtocol.js';
+import { MSG, makeMessage, songTypeForName, isGpSong, chunkBase64, JAM_MAX_UPLOAD_BYTES, JAM_SONG_EXTENSIONS } from './jamProtocol.js';
 import { nowMs, jam } from './jamTransport.js';
 import { computeLeadMs } from './jamClock.js';
-import { sha256Hex, songTitleFromName, startLag, measureStartLag, waitForPlayerReady, estimateOutputLatencyMs } from './jamCommon.js';
+import { jamSongId, songTitleFromName, startLag, measureStartLag, waitForPlayerReady, estimateOutputLatencyMs } from './jamCommon.js';
+import { createYouTubeHost } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor } from '../gpProcessor/gpPlayer.js';
 import { arrayBufferToBase64Async, base64ToArrayBuffer } from '../fileStore.js';
 
@@ -35,6 +38,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     let seekDebounce = null;
     let controllerGraceTimer = null;
     let pendingRequests = new Map(); // id -> { id, name, reason }
+    const uploads = new Map(); // client id -> { fileName, parts: [] } (controller song upload in progress)
     let active = false;
 
     const emitRoster = () => ui.onRosterChange?.(Array.from(roster.values()), session);
@@ -44,6 +48,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     const stamp = (payload) => ({ hostTs: nowMs(), outLatencyMs: hostOutputLatency(), ...payload });
     const broadcast = (type, payload = {}) => jam.hostSend(makeMessage(type, stamp(payload))).catch(() => {});
     const sendTo = (id, type, payload = {}) => jam.hostSend(makeMessage(type, stamp(payload)), id).catch(() => {});
+    const youtube = createYouTubeHost({ broadcast });
 
     const currentLead = () => computeLeadMs(
         Array.from(roster.values()).map((p) => p.rttMs || 0),
@@ -63,6 +68,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     const sessionState = () => ({
         song: session.song,
         transport: transportSnapshot(),
+        youtube: youtube.state(),
         controllerId: session.controllerId,
         policy: session.policy
     });
@@ -144,7 +150,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
 
     /** Host-side local transport is routed through here so clients stay in step. */
     function interceptor(action, payload) {
-        if (!active || !session.song) return false;
+        if (!active || !isGpSong(session.song)) return false;
         lastHostActionAt = nowMs();
         if (action === 'playPause') {
             if (payload.playing || session.playing) pausePlayback();
@@ -161,7 +167,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     // ---- Player event handling --------------------------------------------
 
     function onPlayerEvent(e) {
-        if (!active || !session.song) return;
+        if (!active || !isGpSong(session.song)) return;
         if (e.type === 'state') {
             if (e.playing && !session.playing && !startingLocal) {
                 // Started by something other than the intercepted button (e.g. gamepad): resync as a scheduled play.
@@ -214,7 +220,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     }
 
     function sendHeartbeat() {
-        if (!active || !session.playing || startingLocal) return;
+        if (!active || !isGpSong(session.song) || !session.playing || startingLocal) return;
         const snap = jamPlayerControl.snapshot();
         if (!snap.playing) return;
         broadcast(MSG.HEARTBEAT, { timeMs: snap.timeMs, playing: true, speed: snap.speed });
@@ -225,7 +231,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     async function publishFile(file) {
         if (!active || !file) return;
         if (file.jamTransient) return; // came from the host's own jam download (never the case on a host)
-        if (!isGpFileName(file.name)) {
+        const type = songTypeForName(file.name);
+        if (!type) {
             session.song = null;
             session.songBytes = null;
             session.playing = false;
@@ -236,19 +243,23 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         }
         try {
             const bytes = await file.arrayBuffer();
-            const id = await sha256Hex(bytes);
+            const id = await jamSongId(bytes, file);
             session.songBytes = bytes;
             session.song = {
                 id,
                 title: file.songTitle || file.librarySongTitle || songTitleFromName(file.name),
                 fileName: file.name,
                 size: bytes.byteLength,
-                type: 'gp'
+                type,
+                // A PDF library tab is a page range of a larger file.
+                startPage: file.startPage || null,
+                endPage: file.endPage || null
             };
             session.playing = false;
             roster.forEach((p) => { p.ready = false; });
             emitRoster();
             broadcast(MSG.SONG_OPEN, { song: session.song });
+            if (type !== 'gp') return;
             // Warm the synth while everyone else downloads, so the first start is on time.
             const songId = id;
             waitForPlayerReady().then((ready) => {
@@ -260,9 +271,34 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     }
 
     async function sendSongData(id, requested) {
-        if (!session.song || !session.songBytes || requested.id !== session.song.id) return;
-        const b64 = await arrayBufferToBase64Async(session.songBytes);
-        sendTo(id, MSG.SONG_DATA, { songId: session.song.id, fileName: session.song.fileName, b64 });
+        const song = session.song;
+        if (!song || !session.songBytes || requested.id !== song.id) return;
+        const parts = chunkBase64(await arrayBufferToBase64Async(session.songBytes));
+        for (let part = 0; part < parts.length; part++) {
+            if (session.song !== song || !roster.has(id)) return;
+            await sendTo(id, MSG.SONG_DATA, { songId: song.id, fileName: song.fileName, part, parts: parts.length, b64: parts[part] });
+        }
+    }
+
+    /** Collect a controller's song upload; returns the full base64 once every part is in. */
+    function collectUpload(id, msg) {
+        const parts = Number(msg.parts) || 1;
+        const part = Number(msg.part) || 0;
+        if (parts === 1) return msg.b64 || '';
+        let upload = uploads.get(id);
+        if (!upload || upload.fileName !== msg.fileName || upload.parts.length !== parts) {
+            upload = { fileName: msg.fileName, parts: new Array(parts).fill(null) };
+            uploads.set(id, upload);
+        }
+        if (part < 0 || part >= parts) return null;
+        upload.parts[part] = msg.b64 || '';
+        if (upload.parts.reduce((n, p) => n + (p ? p.length : 0), 0) > JAM_MAX_UPLOAD_BYTES * 4 / 3 + 4) {
+            uploads.delete(id);
+            return '';
+        }
+        if (upload.parts.some((p) => p === null)) return null;
+        uploads.delete(id);
+        return upload.parts.join('');
     }
 
     // ---- Control requests --------------------------------------------------
@@ -324,12 +360,14 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         if (msg.type === MSG.CMD_SONG_OPEN) {
             if (!canCommand(id)) return;
             const name = String(msg.fileName || '');
-            if (!isGpFileName(name)) {
-                sendTo(id, MSG.CONTROL_DENY, { reason: `Only ${JAM_GP_EXTENSIONS.join(', ')} files can be shared.` });
+            if (!songTypeForName(name)) {
+                sendTo(id, MSG.CONTROL_DENY, { reason: `Only ${JAM_SONG_EXTENSIONS.join(', ')} files can be shared.` });
                 return;
             }
+            const b64 = collectUpload(id, msg);
+            if (b64 === null) return; // more parts to come
             let bytes = null;
-            try { bytes = base64ToArrayBuffer(msg.b64 || ''); } catch (_) { bytes = null; }
+            try { bytes = base64ToArrayBuffer(b64); } catch (_) { bytes = null; }
             if (!bytes || bytes.byteLength === 0 || bytes.byteLength > JAM_MAX_UPLOAD_BYTES) {
                 sendTo(id, MSG.CONTROL_DENY, { reason: 'That file is too large to share.' });
                 return;
@@ -339,6 +377,11 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             return;
         }
         if (!canCommand(id)) return;
+        if (msg.type === MSG.CMD_YT) {
+            youtube.handleCommand(msg);
+            return;
+        }
+        if (!isGpSong(session.song)) return;
         switch (msg.type) {
             case MSG.CMD_PLAY:
                 if (!session.playing) startPlayback(Number.isFinite(msg.timeMs) ? msg.timeMs : undefined);
@@ -374,6 +417,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
                 if (peer) {
                     peer.rttMs = msg.rttMs ?? peer.rttMs;
                     peer.driftMs = msg.driftMs ?? peer.driftMs;
+                    peer.ytDriftMs = msg.ytDriftMs ?? null;
                     peer.status = msg.state || peer.status;
                     emitRoster();
                 }
@@ -394,6 +438,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             sendTo(info.id, MSG.STATE, { state: sessionState() });
         } else if (info.event === 'left') {
             roster.delete(info.id);
+            uploads.delete(info.id);
             pendingRequests.delete(info.id);
             ui.onRequestsChanged?.(Array.from(pendingRequests.values()));
             if (session.controllerId === info.id) {
@@ -418,6 +463,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             setTransportInterceptor(interceptor);
             window.addEventListener('majestictab:file-loaded', onFileLoaded);
             heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
+            youtube.start();
             if (initialFile) publishFile(initialFile);
         },
         stop() {
@@ -431,8 +477,10 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             clearTimeout(lagTimer);
             clearTimeout(controllerGraceTimer);
             clearTimeout(seekDebounce);
+            youtube.stop();
             setStartingUI(false);
             roster.clear();
+            uploads.clear();
             pendingRequests.clear();
             session.song = null;
             session.songBytes = null;

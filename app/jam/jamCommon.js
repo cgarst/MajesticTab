@@ -18,6 +18,15 @@ export async function sha256Hex(buffer) {
     return `fnv-${bytes.length}-${h1.toString(16)}${h2.toString(16)}`;
 }
 
+/**
+ * Jam song identity: content hash, plus the page range for a PDF opened as a library tab
+ * (same file, different song).
+ */
+export async function jamSongId(buffer, file = {}) {
+    const hash = await sha256Hex(buffer);
+    return file.startPage ? `${hash}:p${file.startPage}-${file.endPage || file.startPage}` : hash;
+}
+
 export function songTitleFromName(name) {
     return String(name || '').replace(/\.[^/.]+$/, '');
 }
