@@ -188,6 +188,20 @@ export function createJamModal(manager, { updateSetting }) {
         <div class="jam-help mb-3">People with no assigned track hear and see everything, unless assigned tracks are muted for them. Only ${instrument} tracks can be assigned; other tracks play for everyone unless a person is set to Assigned only. Assignments reset when the song changes.</div>`;
     }
 
+    let qrUrl = null;
+    function addrRow(text, withQr) {
+        const open = withQr && qrUrl === text;
+        return `
+          <div class="jam-addr-row">
+            <div class="fw-semibold jam-address">${esc(text)}</div>
+            <div class="jam-addr-actions">
+              <button type="button" class="btn btn-sm btn-theme-outline" data-jam-copy="${esc(text)}" aria-label="Copy ${esc(text)}">Copy</button>
+              ${withQr ? `<button type="button" class="btn btn-sm ${open ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-qr="${esc(text)}" aria-pressed="${open}" aria-label="Show QR code for ${esc(text)}">QR</button>` : ''}
+            </div>
+          </div>
+          ${open ? `<div class="jam-qr mt-1 mb-2" id="jamQr" data-url="${esc(text)}" aria-label="QR code for ${esc(text)}"></div>` : ''}`;
+    }
+
     function hostPanel(settings) {
         const host = manager.getHost();
         const info = manager.getHostInfo();
@@ -198,11 +212,11 @@ export function createJamModal(manager, { updateSetting }) {
         return `
         <div class="jam-card mb-3">
           <div class="jam-label">Share this address</div>
-          <div class="fw-semibold jam-address">${addrs.length ? addrs.map(esc).join('<br>') : esc(`port ${info?.port ?? ''}`)}</div>
+          <div class="jam-help mb-1">For others who have MajesticTab installed.</div>
+          ${addrs.length ? addrs.map((a) => addrRow(a, false)).join('') : `<div class="fw-semibold jam-address">${esc(`port ${info?.port ?? ''}`)}</div>`}
           ${settings.pin ? `<div class="jam-help mt-1">PIN: ${esc(settings.pin)}</div>` : ''}
           ${webUrls.length ? `<div class="jam-label mt-3">Or open in any browser</div>
-          <div class="fw-semibold jam-address">${webUrls.map(esc).join('<br>')}</div>
-          <div class="jam-qr mt-2" id="jamQr" data-url="${esc(webUrls[0])}" aria-label="QR code for ${esc(webUrls[0])}"></div>` : ''}
+          ${webUrls.map((u) => addrRow(u, true)).join('')}` : ''}
           ${session?.song ? `<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Song: ${esc(session.song.title)}</div>` : `<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Open a Guitar Pro, PDF or text file to share it with everyone. YouTube playback is shared too.</div>`}
         </div>
         <div class="jam-field mb-3">
@@ -386,6 +400,22 @@ export function createJamModal(manager, { updateSetting }) {
         if (!t) return;
         const settings = manager.getSettings();
         if (t.dataset.jamTab) { tab = t.dataset.jamTab; body.dataset.role = ''; render(); return; }
+        if (t.dataset.jamCopy !== undefined) {
+            const toastMod = await import('../utils/toast.js');
+            try {
+                await navigator.clipboard.writeText(t.dataset.jamCopy);
+                toastMod.showToast('Address copied.', 'success');
+            } catch (_) {
+                toastMod.showToast('Could not copy the address.', 'info');
+            }
+            return;
+        }
+        if (t.dataset.jamQr !== undefined) {
+            qrUrl = qrUrl === t.dataset.jamQr ? null : t.dataset.jamQr;
+            body.dataset.role = '';
+            render();
+            return;
+        }
         if (t.id === 'jamDiscoverBtn') { runDiscover(); return; }
         if (t.dataset.jamJoinFound !== undefined) {
             const h = discovered[Number(t.dataset.jamJoinFound)];
