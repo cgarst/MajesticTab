@@ -3,6 +3,11 @@
 
 import { CONTROL_POLICIES, JAM_SONG_EXTENSIONS } from './jamProtocol.js';
 import { jamPlayerControl } from '../gpProcessor/gpPlayer.js';
+import { isJamWebGuest } from './jamTransport.js';
+
+// Guests load the app from the host over plain HTTP on the LAN.
+const WEB_SCHEME = 'http:';
+const QR_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js';
 
 const POLICY_LABELS = { host: 'Host only', ask: 'Ask me', anyone: 'Anyone' };
 const PEER_STATUS_LABELS = { joined: 'Joined', loading: 'Loading', synced: 'Ready', idle: 'Waiting for song', detached: 'Detached', error: 'Error' };
@@ -90,7 +95,22 @@ export function createJamModal(manager, { updateSetting }) {
         </div>`;
     }
 
+    function webGuestPanel(settings) {
+        return `
+        <p class="jam-help mb-3">You're joining a Jam hosted at <strong>${esc(location.host)}</strong>. Each device plays the song locally, so keep this tab open and in front.</p>
+        <div class="jam-field mb-3">
+          <label class="jam-label" for="jamNameInput">Your name</label>
+          <input type="text" class="form-control form-control-sm" id="jamNameInput" maxlength="40" value="${esc(settings.name)}">
+        </div>
+        <div class="jam-field mb-3">
+          <label class="jam-label" for="jamJoinPinInput">PIN (if the host set one)</label>
+          <input type="text" class="form-control form-control-sm" id="jamJoinPinInput" maxlength="12" inputmode="numeric">
+        </div>
+        <button type="button" class="btn btn-sm btn-theme-primary" id="jamJoinBtn">Join</button>`;
+    }
+
     function idlePanel(settings) {
+        if (isJamWebGuest()) return webGuestPanel(settings);
         return `
         <div class="hud-pill-group jam-tab-group mb-3" role="group" aria-label="Jam role">
           <button type="button" class="btn btn-sm ${tab === 'join' ? 'active' : ''}" data-jam-tab="join">Join a Jam</button>
@@ -105,6 +125,7 @@ export function createJamModal(manager, { updateSetting }) {
             <label class="jam-label" for="jamPinInput">PIN (optional)</label>
             <input type="text" class="form-control form-control-sm" id="jamPinInput" maxlength="12" inputmode="numeric" value="${esc(settings.pin)}">
           </div>
+          <div class="mb-3">${switchHtml('jamAllowWebSwitch', 'Let browsers join (no install needed)', settings.allowWeb !== false)}</div>
           <p class="jam-help mb-3">Other devices on the same Wi-Fi or network can join. Each device plays the song locally (synth or YouTube), so no audio is streamed.</p>
           <button type="button" class="btn btn-sm btn-theme-primary" id="jamStartHostBtn">Start Hosting</button>
         ` : `
@@ -163,12 +184,16 @@ export function createJamModal(manager, { updateSetting }) {
         const roster = host?.getRoster() || [];
         const session = host?.getSession();
         const addrs = (info?.addresses || []).map((a) => `${a}:${info.port}`);
+        const webUrls = info?.web ? (info.addresses || []).map((a) => `${WEB_SCHEME}//${a}:${info.port}/`) : [];
         return `
         <div class="jam-card mb-3">
           <div class="jam-label">Share this address</div>
           <div class="fw-semibold jam-address">${addrs.length ? addrs.map(esc).join('<br>') : esc(`port ${info?.port ?? ''}`)}</div>
           ${settings.pin ? `<div class="jam-help mt-1">PIN: ${esc(settings.pin)}</div>` : ''}
-          ${session?.song ? `<div class="jam-help mt-1">Song: ${esc(session.song.title)}</div>` : '<div class="jam-help mt-1">Open a Guitar Pro, PDF or text file to share it with everyone. YouTube playback is shared too.</div>'}
+          ${webUrls.length ? `<div class="jam-label mt-3">Or open in any browser</div>
+          <div class="fw-semibold jam-address">${webUrls.map(esc).join('<br>')}</div>
+          <div class="jam-qr mt-2" id="jamQr" data-url="${esc(webUrls[0])}" aria-label="QR code for ${esc(webUrls[0])}"></div>` : ''}
+          ${session?.song ? `<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Song: ${esc(session.song.title)}</div>` : '<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Open a Guitar Pro, PDF or text file to share it with everyone. YouTube playback is shared too.</div>'}
         </div>
         <div class="jam-field mb-3">
           <label class="jam-label" for="jamPolicySelect">Who can control</label>
@@ -252,6 +277,7 @@ export function createJamModal(manager, { updateSetting }) {
         } else if (role === 'host') {
             if (active && backdrop.contains(active) && ['INPUT', 'SELECT'].includes(active.tagName) && body.dataset.role === 'host') return;
             body.innerHTML = hostPanel(settings);
+            drawQr();
         } else {
             if (active && backdrop.contains(active) && active.tagName === 'INPUT' && body.dataset.role === 'client') return;
             body.innerHTML = clientPanel(settings);
@@ -259,10 +285,37 @@ export function createJamModal(manager, { updateSetting }) {
         body.dataset.role = role;
     }
 
+    let qrLoading = null;
+    function loadQrLib() {
+        if (globalThis.qrcode) return Promise.resolve();
+        qrLoading ??= new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = QR_SCRIPT_URL;
+            script.onload = resolve;
+            script.onerror = () => { qrLoading = null; reject(new Error('QR library unavailable')); };
+            document.head.appendChild(script);
+        });
+        return qrLoading;
+    }
+
+    async function drawQr() {
+        const el = body.querySelector('#jamQr');
+        if (!el) return;
+        try {
+            await loadQrLib();
+            const qr = globalThis.qrcode(0, 'M');
+            qr.addData(el.dataset.url);
+            qr.make();
+            el.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+        } catch (_) {
+            el.remove();
+        }
+    }
+
     function updatePill() {
         if (!pillBtn || !pillLabel) return;
         const role = manager.getRole();
-        let text = 'Host or join on your network';
+        let text = isJamWebGuest() ? 'Join the jam' : 'Host or join on your network';
         let cls = '';
         if (role === 'host') {
             const n = manager.getHost()?.getRoster().length || 0;
@@ -331,7 +384,7 @@ export function createJamModal(manager, { updateSetting }) {
             return;
         }
         if (t.id === 'jamJoinBtn') {
-            const addr = body.querySelector('#jamAddrInput')?.value.trim();
+            const addr = isJamWebGuest() ? location.host : body.querySelector('#jamAddrInput')?.value.trim();
             const pin = body.querySelector('#jamJoinPinInput')?.value.trim();
             if (addr) { await manager.join(addr, pin); body.dataset.role = ''; render(); }
             return;
@@ -413,6 +466,7 @@ export function createJamModal(manager, { updateSetting }) {
         if (id === 'jamAssignedAudioSwitch') { manager.getHost()?.updateTracks({ assignedAudioOnly: e.target.checked }); updateSetting('assignedAudioOnly', e.target.checked); }
         if (id === 'jamMuteAssignedSwitch') { manager.getHost()?.updateTracks({ muteAssignedForUnassigned: e.target.checked }); updateSetting('muteAssignedForUnassigned', e.target.checked); }
         if (id === 'jamAssignedViewSwitch') { manager.getHost()?.updateTracks({ assignedViewOnly: e.target.checked }); updateSetting('assignedViewOnly', e.target.checked); }
+        if (id === 'jamAllowWebSwitch') updateSetting('allowWeb', e.target.checked);
         if (id === 'jamWaitSwitch') updateSetting('waitForEveryone', e.target.checked);
         if (id === 'jamSmoothSwitch') updateSetting('smoothDrift', e.target.checked);
         if (id === 'jamAlwaysSaveSwitch') updateSetting('alwaysSaveSongs', e.target.checked);
