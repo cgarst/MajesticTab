@@ -398,14 +398,7 @@ class PitchCraftTunerController {
         const libPage = document.getElementById('libraryPage');
         if (libPage && libPage.style.display !== 'none') {
             import('../libraryModal.js').then(m => {
-                const view = m.getActiveLibraryView?.() || 'library';
-                if (view === 'reference') {
-                    import('../referenceLibrary.js').then(ref => {
-                        updateUrl('reference', ref.getActiveReferenceTab?.());
-                    });
-                } else {
-                    updateUrl(view);
-                }
+                updateUrl(m.getActiveLibraryView?.() || 'library');
             });
         } else {
             clearUrl();

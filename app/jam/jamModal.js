@@ -235,7 +235,7 @@ export function createJamModal(manager, { updateSetting }) {
     function updatePill() {
         if (!pillBtn || !pillLabel) return;
         const role = manager.getRole();
-        let text = 'Jam';
+        let text = 'Host or join on your network';
         let cls = '';
         if (role === 'host') {
             const n = manager.getHost()?.getRoster().length || 0;

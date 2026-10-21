@@ -1212,13 +1212,94 @@ function renderToneSection() {
 // Main View Export
 // -----------------------------------------------------------------------------
 
+// --- Reference modal: opens over any view (song, library, tuner closed) ---------------------------
+
+const REFERENCE_TABS = ['circle', 'chords', 'scales', 'tone'];
+let referenceModalEl = null;
+
+function ensureReferenceModal() {
+    if (referenceModalEl) return referenceModalEl;
+    const backdrop = document.createElement('div');
+    backdrop.id = 'referenceModal';
+    backdrop.className = 'theme-modal-backdrop';
+    backdrop.setAttribute('role', 'dialog');
+    backdrop.setAttribute('aria-modal', 'true');
+    backdrop.setAttribute('aria-labelledby', 'referenceModalTitle');
+    backdrop.setAttribute('aria-hidden', 'true');
+    backdrop.style.display = 'none';
+    backdrop.innerHTML = `
+      <section class="theme-modal-card reference-modal-card">
+        <header class="theme-modal-header">
+          <div class="theme-modal-title-group">
+            <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;"><i class="bi-journal-bookmark fs-5"></i></div>
+            <div class="theme-modal-titles">
+              <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="referenceModalTitle">Reference library</h2>
+              <div class="small text-white-50">Chords, scales, circle of fifths and tone matrix</div>
+            </div>
+          </div>
+          <div class="theme-modal-actions">
+            <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="referenceModalCloseBtn" aria-label="Close modal"><i class="bi-x-lg"></i></button>
+          </div>
+        </header>
+        <div class="theme-modal-body reference-modal-body" id="referenceModalBody"></div>
+      </section>`;
+    document.body.appendChild(backdrop);
+
+    backdrop.addEventListener('click', (e) => {
+        if (e.target === backdrop) closeReferenceModal();
+    });
+    backdrop.querySelector('#referenceModalCloseBtn').addEventListener('click', () => closeReferenceModal());
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && isReferenceOpen()) closeReferenceModal();
+    });
+
+    referenceModalEl = backdrop;
+    return backdrop;
+}
+
+export function isReferenceOpen() {
+    return Boolean(referenceModalEl) && referenceModalEl.style.display !== 'none';
+}
+
+export function openReferenceModal(tab = null) {
+    const modal = ensureReferenceModal();
+    if (REFERENCE_TABS.includes(tab)) activeTab = tab;
+    const wasOpen = isReferenceOpen();
+    renderReferenceLibraryView(modal.querySelector('#referenceModalBody'));
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+    document.getElementById('toolsReferenceItem')?.classList.add('active');
+    if (!wasOpen) {
+        modal.querySelector('#referenceModalCloseBtn')?.focus();
+        refTabChangeListener?.(activeTab);
+    }
+}
+
+export function closeReferenceModal() {
+    if (!isReferenceOpen()) return;
+    referenceModalEl.style.display = 'none';
+    referenceModalEl.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+    document.getElementById('toolsReferenceItem')?.classList.remove('active');
+    // Put the address bar back to whatever sits behind the modal
+    import('./utils/urlRouter.js').then(({ updateUrl, clearUrl }) => {
+        const libPage = document.getElementById('libraryPage');
+        if (libPage && libPage.style.display !== 'none') {
+            import('./libraryModal.js').then((m) => updateUrl(m.getActiveLibraryView?.() || 'library'));
+        } else {
+            clearUrl();
+        }
+    });
+}
+
 /**
- * Render the Reference Library View inside the library container
+ * Render the Reference Library content into a container (the reference modal body)
  */
 export function renderReferenceLibraryView(container) {
     if (!container) return;
 
-    if (!['circle', 'chords', 'scales', 'tone'].includes(activeTab)) {
+    if (!REFERENCE_TABS.includes(activeTab)) {
         activeTab = 'chords';
     }
 

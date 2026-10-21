@@ -603,7 +603,7 @@ class GamepadManager {
 
     handleButtonLB(isLibOpen, isModalOpen) {
         if (isLibOpen) {
-            document.getElementById('navBtnLibrary')?.click();
+            document.getElementById('recentsBackToLibraryBtn')?.click();
             return;
         }
         // Score Mode: Previous page
@@ -612,7 +612,7 @@ class GamepadManager {
 
     handleButtonRB(isLibOpen, isModalOpen) {
         if (isLibOpen) {
-            document.getElementById('navBtnRecents')?.click();
+            document.getElementById('libRecentsBtn')?.click();
             return;
         }
         // Score Mode: Next page
