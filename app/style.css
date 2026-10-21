@@ -2386,7 +2386,7 @@ body.fretboard-open #output.continuous-mode {
 }
 
 body.fretboard-open .mobile-playback-dock {
-  bottom: calc(var(--fretboard-dock-height, 165px) + max(calc(env(safe-area-inset-bottom) + 8px), 18px)) !important;
+  bottom: calc(var(--fretboard-dock-height, 165px) + 10px) !important;
 }
 
 /* Outer & Page Containers */
