@@ -5724,6 +5724,23 @@ body:not(.synth-playback-started) .at-highlight {
   text-align: center;
 }
 
+.ref-control-btn {
+  padding: 0.25rem 0.55rem !important;
+  font-size: 0.78rem !important;
+  height: 31px !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+}
+
+.ref-control-btn.active {
+  background: var(--bg-card-hover) !important;
+  border-color: var(--accent-primary) !important;
+  color: var(--accent-primary) !important;
+  box-shadow: 0 0 10px var(--accent-glow) !important;
+}
+
 /* Scales and Modes */
 .ref-select-label {
   display: block;
