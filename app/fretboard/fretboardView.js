@@ -1,6 +1,7 @@
 // fretboardView.js
 // High-DPI Responsive SVG Neck & Fretboard Visualizer for MajesticTab
 import { NOTE_NAMES, midiToNoteName } from '../utils/tuningUtils.js';
+import { TRACK_PALETTE } from './fretboardController.js';
 
 const TOTAL_FRETS = 24;
 const SVG_WIDTH = 1150;
@@ -513,9 +514,19 @@ export class FretboardView {
 
             if (atString < 1 || atString > this.stringCount) continue;
 
+            const colorIndices = Array.isArray(note.trackColorIndices) && note.trackColorIndices.length > 0
+                ? note.trackColorIndices
+                : [note.trackColorIndex ?? 0];
+            const primaryTrackColorIdx = colorIndices[0] % 4;
+
             // Open string (fret 0) lights up the corresponding open tuning badge
             if (fret === 0) {
-                this.openBadges[atString]?.classList.add('fretboard-open-active');
+                const openBadge = this.openBadges[atString];
+                if (openBadge) {
+                    openBadge.classList.add('fretboard-open-active');
+                    const bg = openBadge.querySelector('.open-badge-bg');
+                    if (bg) bg.style.fill = `url(#trackGrad${primaryTrackColorIdx})`;
+                }
                 continue;
             }
 
@@ -532,9 +543,8 @@ export class FretboardView {
             marker.element.setAttribute('transform', `translate(${posX}, ${posY})`);
             marker.element.setAttribute('class', `fretboard-note-marker ${struckClass}${note.isGhost ? ' is-ghost' : ''}${note.isTieDestination ? ' is-tie' : ''}`);
 
-            const colorIndices = Array.isArray(note.trackColorIndices) && note.trackColorIndices.length > 0
-                ? note.trackColorIndices
-                : [note.trackColorIndex ?? 0];
+            const glowFill = colorIndices[0] === 0 ? 'var(--accent-glow)' : (TRACK_PALETTE[primaryTrackColorIdx] || 'var(--accent-glow)');
+            marker.glow.style.fill = glowFill;
 
             if (colorIndices.length >= 2) {
                 // Dual-track unison collision -> split badge
@@ -544,12 +554,15 @@ export class FretboardView {
                 marker.splitDivider.style.display = 'inline';
                 marker.outline.style.display = 'inline';
 
+                marker.splitLeft.style.fill = `url(#trackGrad${colorIndices[0] % 4})`;
+                marker.splitRight.style.fill = `url(#trackGrad${colorIndices[1] % 4})`;
                 marker.splitLeft.setAttribute('fill', `url(#trackGrad${colorIndices[0] % 4})`);
                 marker.splitRight.setAttribute('fill', `url(#trackGrad${colorIndices[1] % 4})`);
             } else {
-                // Single-track note -> solid circle
+                // Single-track note -> solid circle with track's color gradient
                 marker.circle.style.display = 'inline';
-                marker.circle.setAttribute('fill', `url(#trackGrad${colorIndices[0] % 4})`);
+                marker.circle.style.fill = `url(#trackGrad${primaryTrackColorIdx})`;
+                marker.circle.setAttribute('fill', `url(#trackGrad${primaryTrackColorIdx})`);
                 marker.splitLeft.style.display = 'none';
                 marker.splitRight.style.display = 'none';
                 marker.splitDivider.style.display = 'none';
@@ -594,6 +607,8 @@ export class FretboardView {
         }
         for (let s = 1; s <= this.stringCount; s++) {
             this.openBadges[s]?.classList.remove('fretboard-open-active');
+            const bg = this.openBadges[s]?.querySelector('.open-badge-bg');
+            if (bg) bg.style.fill = '';
         }
     }
 
