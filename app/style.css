@@ -5635,6 +5635,21 @@ body:not(.synth-playback-started) .at-highlight {
   min-width: 0;
 }
 
+.ref-chord-link {
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ref-chord-link:hover,
+.ref-chord-link:focus-visible {
+  border-color: var(--accent-primary);
+  box-shadow: var(--accent-glow);
+  outline: none;
+}
+
 .ref-deg-label {
   display: block;
   font-size: 0.68rem;
@@ -5830,94 +5845,19 @@ body:not(.synth-playback-started) .at-highlight {
   background: var(--accent-secondary);
 }
 
-/* Tone Matrix */
-.ref-matrix-row {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  background: var(--bg-card-solid);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.65rem;
-  padding: 0.75rem 1rem;
-}
 
-.ref-matrix-key-badge {
-  min-width: 60px;
-  flex-shrink: 0;
-  text-align: center;
-}
 
-.ref-matrix-key-name {
-  font-size: 1.5rem;
-  font-weight: 800;
-  color: var(--accent-text);
-  display: block;
-  line-height: 1.1;
-}
 
-.ref-matrix-chords-grid {
-  display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 0.4rem;
-  width: 100%;
-}
 
-.ref-matrix-chord-cell {
-  background: var(--bg-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.45rem;
-  padding: 0.45rem 0.25rem;
-  text-align: center;
-  min-width: 0;
-}
 
-.ref-matrix-deg {
-  display: block;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  font-weight: 600;
-}
 
-.ref-matrix-chord-name {
-  display: block;
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0.1rem 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
-.ref-matrix-frets {
-  display: block;
-  font-size: 0.65rem;
-  letter-spacing: -0.02em;
-  color: var(--text-dim);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* Responsive Overrides */
 @media (max-width: 991px) {
   .ref-circle-container {
     grid-template-columns: 1fr;
     gap: 1.25rem;
-  }
-  .ref-matrix-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.75rem;
-  }
-  .ref-matrix-key-badge {
-    text-align: left;
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-  }
-  .ref-matrix-chords-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
@@ -5935,17 +5875,6 @@ body:not(.synth-playback-started) .at-highlight {
   .ref-deg-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.25rem;
-  }
-  .ref-matrix-chords-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 0.25rem;
-  }
-  .ref-matrix-chord-cell {
-    padding: 0.35rem 0.15rem !important;
-  }
-  .ref-matrix-frets {
-    font-size: 0.58rem !important;
-    letter-spacing: -0.04em !important;
   }
 }
 
