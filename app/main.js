@@ -4,6 +4,7 @@ import { setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
 import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios, applyGpStringCount, syncGpStringCountRadios, syncGpStringCountUI } from './gpProcessor/gpHandler.js';
 import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
+import { setupPageScrubber } from './utils/pageScrubber.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
@@ -60,7 +61,13 @@ window.addEventListener('resize', () => {
             if (gpState.canvases[0]?.container && pageModeRadio.checked) {
                 // For GP files in page mode, recalculate pages based on new dimensions
                 const pageHeight = output.clientHeight - 20;
+                const anchorBlock = gpState.pages[gpState.currentPageIndex]?.[0]?.dataset?.blockIndex;
                 gpState.pages = layoutGPPages(gpState.canvases[0].container, pageHeight);
+                if (anchorBlock !== undefined) {
+                    const found = gpState.pages.findIndex(p => p.some(b => b.dataset.blockIndex === anchorBlock));
+                    if (found >= 0) gpState.currentPageIndex = found;
+                }
+                gpState.currentPageIndex = Math.min(gpState.currentPageIndex, Math.max(0, gpState.pages.length - 1));
                 renderGPPage(output, pageModeRadio.checked, continuousModeRadio);
             } else if (isFileType(currentFile, ['pdf']) && pageModeRadio.checked) {
                 doLayoutPages();
@@ -1282,6 +1289,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupSystemBackNavigation(getNavigationConfig);
     setupViewModeToggles(pageModeRadio, continuousModeRadio, getNavigationConfig);
     setupTapClickNavigation(output, getNavigationConfig);
+    setupPageScrubber(pageIndicator, getNavigationConfig);
 });
 
 // --- LOAD PDF ---
@@ -1553,10 +1561,17 @@ function resetView() {
 
 // --- PAGE LAYOUT AND RENDERING ---
 function doLayoutPages() {
+    // Remember the first canvas of the current page so we can stay on it after re-layout
+    const anchorCanvas = pages[currentPageIndex]?.[0]?.canvas;
     const result = layoutPages(condensedCanvases, pages);
     pages = result.pages;
-    if (result.newIndex !== currentPageIndex) {
-        currentPageIndex = result.newIndex;
+    let newIndex = result.newIndex;
+    if (anchorCanvas) {
+        const found = pages.findIndex(p => p.some(item => item.canvas === anchorCanvas));
+        if (found >= 0) newIndex = found;
+    }
+    if (newIndex !== currentPageIndex) {
+        currentPageIndex = newIndex;
     }
     // Update indicator before rendering
     updatePageDisplay();
