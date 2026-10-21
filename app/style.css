@@ -65,19 +65,19 @@
 }
 
 [data-theme="Cerulean Paradise"] {
-  --bg-body: #03141a;
+  --bg-body: #050e12;
   --bg-ambient-1: rgba(6, 182, 212, 0.16);
   --bg-ambient-2: rgba(2, 132, 199, 0.11);
-  --bg-card: rgba(8, 38, 51, 0.85);
-  --bg-card-solid: #0b3142;
-  --bg-card-hover: #134e66;
-  --bg-elevated: #051c24;
-  --bg-modal: #04171f;
-  --border-subtle: rgba(6, 182, 212, 0.2);
-  --border-prominent: rgba(34, 211, 238, 0.45);
-  --text-primary: #ecfeff;
-  --text-muted: #cffafe;
-  --text-dim: #94a3b8;
+  --bg-card: rgba(14, 24, 29, 0.88);
+  --bg-card-solid: #0e181d;
+  --bg-card-hover: #16252d;
+  --bg-elevated: #091216;
+  --bg-modal: #060d10;
+  --border-subtle: rgba(6, 182, 212, 0.14);
+  --border-prominent: rgba(34, 211, 238, 0.35);
+  --text-primary: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
   --accent-primary: #06b6d4;
   --accent-secondary: #0284c7;
   --accent-gradient: linear-gradient(135deg, #06b6d4, #0284c7);
