@@ -352,22 +352,27 @@ class FretboardController {
     }
 
     /**
+     * Raw string tunings (MIDI) for a track, or null when it has none
+     */
+    getTrackTunings(track) {
+        if (!track) return null;
+        for (const staff of (track.staves || [])) {
+            if (staff.isPercussion) continue;
+            if (staff.stringTuning?.tunings && staff.stringTuning.tunings.length > 0) {
+                return staff.stringTuning.tunings;
+            }
+        }
+        if (Array.isArray(track.tuning) && track.tuning.length > 0) return track.tuning;
+        return null;
+    }
+
+    /**
      * Update active instrument tuning, string count, and capo from primary track
      */
     updateNeckInstrument(track) {
         if (!track) return;
 
-        let rawTunings = null;
-        for (const staff of (track.staves || [])) {
-            if (staff.isPercussion) continue;
-            if (staff.stringTuning?.tunings && staff.stringTuning.tunings.length > 0) {
-                rawTunings = staff.stringTuning.tunings;
-                break;
-            }
-        }
-        if (!rawTunings && Array.isArray(track.tuning) && track.tuning.length > 0) {
-            rawTunings = track.tuning;
-        }
+        const rawTunings = this.getTrackTunings(track);
 
         if (Array.isArray(rawTunings) && rawTunings.length > 0) {
             this.stringCount = rawTunings.length;
@@ -383,7 +388,15 @@ class FretboardController {
         const capoBadgeEl = document.getElementById('fretboardCapoBadge');
 
         if (tuningBadgeEl) {
-            const formatted = formatTuningFromMidi(this.tuning);
+            // List every distinct tuning among visible pitched tracks, primary first
+            const labels = [];
+            for (const t of this.visibleTracks) {
+                const raw = this.getTrackTunings(t);
+                if (!raw) continue;
+                const label = formatTuningFromMidi(raw) || `${raw.length}-String`;
+                if (!labels.includes(label)) labels.push(label);
+            }
+            const formatted = labels.length > 0 ? labels.join(' · ') : formatTuningFromMidi(this.tuning);
             tuningBadgeEl.textContent = formatted || `${this.stringCount}-String`;
             tuningBadgeEl.setAttribute('title', `Tuning: ${formatted || 'Custom'}`);
         }
