@@ -26,6 +26,13 @@ serde_json = "1"
 base64 = "0.22"
 reqwest = { version = "0.13", default-features = false, features = ["default-tls"] }
 percent-encoding = "2.3"
+tokio = { version = "1.54.0", features = ["rt-multi-thread", "net", "sync", "time", "macros", "io-util"] }
+tokio-tungstenite = "0.30.0"
+futures-util = "0.3.34"
+local-ip-address = "0.6.13"
+
+[target.'cfg(not(target_vendor = "apple"))'.dependencies]
+mdns-sd = "0.21.6"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2-app-kit = { version = "0.3", features = ["NSView", "NSWindow", "NSEvent", "NSApplication", "NSGraphicsContext", "objc2-quartz-core"] }

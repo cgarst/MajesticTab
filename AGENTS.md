@@ -182,6 +182,15 @@ Note: screenshots are captured at the device pixel ratio of the display (2× on 
 - The `.at-cursors` layer and `.gp-reader-cursor` are hidden by CSS until `body.synth-playback-started` is set.
 - Public AlphaTab fields are minified (`Qw`, `vy`, `Ny`); avoid depending on them, and if unavoidable, route through a single helper such as `getMidiTickLookup()`.
 
+### Jam Mode (host / client sync) Testing
+
+- Code lives in `app/jam/` (JS) and `build/tauri/src-tauri/src/jam*.rs` (WebSocket transport; discovery via Bonjour `dns_sd` on Apple platforms, `mdns-sd` elsewhere). It is native-only; the web build hides the Jam pill.
+- Positions are speed-independent song ms (`jamPlayerControl.timeMs()` = AlphaTab `timePosition` x `playbackSpeed`). AlphaTab's raw `timePosition` scales with speed; never sync on it directly.
+- Debug-tools builds read `MAJESTICTAB_JAM_AUTOSTART=host[:policy]` or `join:<addr>[:port]` to start a session on launch (iOS simulator: `SIMCTL_CHILD_MAJESTICTAB_JAM_AUTOSTART=... xcrun simctl launch ...`).
+- Scripted peers measure sync without a second device: `python3 tests/jam/fake_host.py tests/Keystone.gp 47900` logs a client's reported drift; `node tests/jam/probeHost.mjs <host:port> tests/Keystone.gp` drives a host started with `host:anyone` and prints its heartbeats. Steady drift should stay under 20 ms.
+- Unit tests: `node --test tests/jam/jamClock.test.mjs`; Bonjour round trip: `cargo test --manifest-path build/tauri/src-tauri/Cargo.toml --lib jam` (macOS).
+- Android WebView CDP: `adb forward tcp:9444 localabstract:webview_devtools_remote_$(adb shell pidof net.zathu.majestictab)`, then `CDP_PORT=9444 python3 tests/cdp.py eval ...`. The tablet must be awake and unlocked or the socket hangs.
+
 ### Known Noise to Ignore
 
 - `Unchecked runtime.lastError: The message port closed...` — browser extension issue, not app code

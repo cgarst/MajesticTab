@@ -95,6 +95,12 @@
 			<string>Default</string>
 		</dict>
 	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>MajesticTab uses your local network to find and connect to other devices for Jam mode, so everyone plays the same song in time.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_majestictab-jam._tcp</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

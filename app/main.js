@@ -25,6 +25,7 @@ import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setIn
 import { initBackupRestore } from './backupRestore.js';
 import { showToast } from './utils/toast.js';
 import { initGamepadManager } from './utils/gamepadManager.js';
+import { initJamMode } from './jam/jamManager.js';
 import { isSteamDeck, applyPlatformDefaults, getDefaultView, getDefaultLandscapePageLayout } from './utils/platformUtils.js';
 import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
 import { initFretboard } from './fretboard/fretboardController.js';
@@ -1151,6 +1152,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupGlobalRewindButton();
     initTauriDownloadListener();
     initGamepadManager();
+    initJamMode({ loadFile, getCurrentFile, recordFileToRecents });
 
     document.getElementById('topBarBackToLibraryBtn')?.addEventListener('click', () => {
         openLibraryModal('library');
@@ -1428,20 +1430,11 @@ async function loadPDF(file) {
     }
 }
 
-export async function loadFile(file, { hideMenu = true } = {}) {
-    if (hideMenu) {
-        fileMenu.hide();
-    }
-    currentFile = file;
-    closeLibraryModal(true);
-    resetView();
-    currentProcessing.aborted = true;
-    currentProcessing = { aborted: false };
-    
-    // Update YouTube player metadata with filename
-    updateSongForYouTube({ filename: file.name });
-    
-    // Record to recents
+/**
+ * Record a file in Recents / the library. Jam Mode songs are transient and skip this
+ * until the user chooses "Save to Library".
+ */
+export function recordFileToRecents(file) {
     const buildRecentPayload = (primaryTuning, stringCount, tunings) => ({
         id: (file.librarySongId && file.tabId) 
             ? `${file.librarySongId}_tab_${file.tabId}` 
@@ -1483,6 +1476,24 @@ export async function loadFile(file, { hideMenu = true } = {}) {
             }
         }).catch(() => {});
     });
+}
+
+export async function loadFile(file, { hideMenu = true } = {}) {
+    if (hideMenu) {
+        fileMenu.hide();
+    }
+    currentFile = file;
+    closeLibraryModal(true);
+    resetView();
+    currentProcessing.aborted = true;
+    currentProcessing = { aborted: false };
+    
+    // Update YouTube player metadata with filename
+    updateSongForYouTube({ filename: file.name });
+    
+    if (!file.jamTransient) {
+        recordFileToRecents(file);
+    }
 
     // Show navigation controls for all supported file types
     navButtons.style.display = 'flex';
@@ -1558,6 +1569,7 @@ export async function loadFile(file, { hideMenu = true } = {}) {
         navButtons.style.display = 'none';
         modeButtons.style.display = 'none';
     }
+    window.dispatchEvent(new CustomEvent('majestictab:file-loaded', { detail: { file } }));
 }
 
 // --- RESET FUNCTION ---

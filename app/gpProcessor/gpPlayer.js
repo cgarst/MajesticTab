@@ -42,6 +42,60 @@ export const synthPlayerState = {
     loopEndMeasure: 1
 };
 
+// --- Jam Mode hooks -------------------------------------------------------
+// Jam code subscribes to transport events and may intercept local transport
+// actions (host lead time, controller commands, follower lock) without being
+// sprinkled through the playback functions.
+const transportListeners = new Set();
+let transportInterceptor = null;
+// Last known song position (speed independent) and when it was valid, from position events
+// and Jam seeks. WebKit fires position events less often, so extrapolate from here.
+let lastPositionSongMs = 0;
+let lastPositionEventAt = 0;
+let warmingUp = false; // muted Jam Mode warm-up play in progress; player events are suppressed
+
+// AlphaTab's timePosition is wall-clock time at the current playback speed (it doubles when
+// speed halves). Jam Mode syncs on speed-independent song time instead: raw ms x speed.
+function currentSpeedFactor() {
+    return Number(currentApi?.playbackSpeed) || synthPlayerState.playbackSpeed || 1;
+}
+
+function toSongMs(rawMs) {
+    return (rawMs || 0) * currentSpeedFactor();
+}
+
+/**
+ * Subscribe to transport events: 'state' | 'position' | 'speed' | 'loop' | 'metronome' | 'countIn'.
+ * Returns an unsubscribe function.
+ */
+export function onTransportEvent(cb) {
+    transportListeners.add(cb);
+    return () => transportListeners.delete(cb);
+}
+
+function emitTransportEvent(type, detail = {}) {
+    transportListeners.forEach((cb) => {
+        try { cb({ type, ...detail }); } catch (e) { console.error('[Synth Player] transport listener error:', e); }
+    });
+}
+
+/**
+ * Install (or clear with null) a function `(action, payload) => boolean` that is
+ * consulted before local play/pause, seek (ms or beat-click tick), rewind and speed actions. Returning true
+ * means the action was handled and the local player must not act on it.
+ */
+export function setTransportInterceptor(fn) {
+    transportInterceptor = typeof fn === 'function' ? fn : null;
+}
+
+function interceptTransport(action, payload) {
+    if (!transportInterceptor) return false;
+    try { return Boolean(transportInterceptor(action, payload)); } catch (e) {
+        console.error('[Synth Player] transport interceptor error:', e);
+        return false;
+    }
+}
+
 export function syncSynthTrackModeLabels() {
     const isBass = getInstrumentMode() === 'bass';
     const soloLabel = document.getElementById('synthTrackGuitarsOnlyLabel') || document.querySelector('label[for="synthTrackGuitarsOnly"]');
@@ -94,6 +148,11 @@ function seekToLoopStart() {
 
 export function applyLoopSettings() {
     if (!currentApi) return;
+    emitTransportEvent('loop', {
+        enabled: synthPlayerState.loopEnabled,
+        startMeasure: synthPlayerState.loopStartMeasure,
+        endMeasure: synthPlayerState.loopEndMeasure
+    });
     if (synthPlayerState.loopEnabled && currentScore?.masterBars?.length) {
         const firstBar = currentScore.masterBars[synthPlayerState.loopStartMeasure - 1];
         const lastBar = currentScore.masterBars[synthPlayerState.loopEndMeasure - 1];
@@ -440,6 +499,7 @@ export function applyCursorPositionFromBeat(beat) {
 
     // Calculate beat playback tick in the MIDI timeline (accounting for repeats)
     const beatTick = getPlaybackTickForBeat(beat, currentApi);
+    if (interceptTransport('seekTick', { tick: beatTick })) return;
 
     // Set playback position
     currentApi.tickPosition = beatTick;
@@ -797,6 +857,21 @@ export function createCustomCursorHandler(api) {
 /**
  * Attach AlphaTab API to the synth player
  */
+function applyPlayerState(api, state) {
+    synthPlayerState.isPlaying = (state === 1);
+    if (state === 1) {
+        synthPlayerState.hasPlayed = true;
+        document.body.classList.add('synth-playback-started');
+        pauseYouTube();
+        setActiveAudioMode('synth');
+        enableIOSAudioPlayback();
+    } else {
+        pauseIOSAudioPlayback();
+    }
+    updateSynthUI();
+    emitTransportEvent('state', { playing: state === 1, timeMs: toSongMs(api.timePosition) });
+}
+
 export function attachAlphaTabApi(api) {
     currentApi = api;
     currentScore = api.score;
@@ -891,28 +966,20 @@ export function attachAlphaTabApi(api) {
             synthPlayerState.isReady = true;
             synthPlayerState.soundFontLoaded = true;
             updateSynthUI();
+            emitTransportEvent('ready');
         });
     }
 
     // Player State Changed (0: Stopped, 1: Playing, 2: Paused)
     api.playerStateChanged.on((args) => {
-        const state = args.state;
-        synthPlayerState.isPlaying = (state === 1);
-        if (state === 1) {
-            synthPlayerState.hasPlayed = true;
-            document.body.classList.add('synth-playback-started');
-            pauseYouTube();
-            setActiveAudioMode('synth');
-            enableIOSAudioPlayback();
-        } else {
-            pauseIOSAudioPlayback();
-        }
-        updateSynthUI();
+        if (warmingUp) return;
+        applyPlayerState(api, args.state);
     });
 
     // Multi-track active beats synchronization for fretboard visualizer
     if (api.activeBeatsChanged) {
         api.activeBeatsChanged.on((args) => {
+            if (warmingUp) return;
             if (args?.activeBeats) {
                 fretboardController.onActiveBeatsChanged(args.activeBeats);
             }
@@ -920,6 +987,7 @@ export function attachAlphaTabApi(api) {
     }
 
     api.playedBeatChanged.on((beat) => {
+        if (warmingUp) return;
         playedBeatState.beat = beat;
         if (!api.activeBeatsChanged) {
             fretboardController.onBeatChanged(beat);
@@ -947,7 +1015,10 @@ export function attachAlphaTabApi(api) {
 
     // Player Position Changed
     api.playerPositionChanged.on((args) => {
+        if (warmingUp) return;
         synthPlayerState.currentTime = args.currentTime;
+        lastPositionSongMs = toSongMs(args.currentTime);
+        lastPositionEventAt = performance.now();
         synthPlayerState.endTime = args.endTime;
 
         if (synthPlayerState.loopEnabled && synthPlayerState.isPlaying && currentScore?.masterBars?.length) {
@@ -961,11 +1032,18 @@ export function attachAlphaTabApi(api) {
 
         updateSynthUI();
         updateContinuousPlaybackScroll(args.currentTick);
+        emitTransportEvent('position', {
+            timeMs: toSongMs(args.currentTime),
+            tick: args.currentTick,
+            endMs: toSongMs(args.endTime),
+            playing: synthPlayerState.isPlaying
+        });
     });
 
     // Show Synth Player UI
     showSynthPlayer();
     updateSynthUI();
+    emitTransportEvent('attached');
 }
 
 /**
@@ -990,6 +1068,8 @@ export function clearSynthHighlights() {
  */
 export function detachAlphaTabApi() {
     pauseIOSAudioPlayback();
+    warmingUp = false;
+    emitTransportEvent('detached');
     if (currentApi) {
         try {
             currentApi.stop();
@@ -1048,6 +1128,12 @@ export function setAudioSyncEnabled(enabled) {
  */
 export function playPauseSynth() {
     if (!currentApi) return;
+    if (interceptTransport('playPause', { playing: synthPlayerState.isPlaying })) return;
+    playPauseSynthLocal();
+}
+
+function playPauseSynthLocal(forcePlay = false) {
+    if (!currentApi) return;
     try {
         pauseYouTube();
         applyLoopSettings();
@@ -1059,7 +1145,10 @@ export function playPauseSynth() {
                 seekToLoopStart();
             }
         }
-        currentApi.playPause();
+        // Jam starts must not toggle: a pause issued moments earlier may not have reached the
+        // synth worker yet, and playPause() would then pause instead of play.
+        if (forcePlay) currentApi.play();
+        else currentApi.playPause();
     } catch (e) {
         console.error('[Synth Player] Play/Pause error:', e);
     }
@@ -1096,6 +1185,7 @@ export function pauseSynthPlayer() {
  */
 export function rewindSynth() {
     if (!currentApi) return;
+    if (interceptTransport('seekMs', { timeMs: 0 })) return;
     try {
         currentApi.timePosition = 0;
         synthPlayerState.currentTime = 0;
@@ -1115,6 +1205,7 @@ export function rewindSynth10Seconds() {
             ? synthPlayerState.currentTime
             : (currentApi.timePosition || 0);
         const targetMs = Math.max(0, currentMs - 10000);
+        if (interceptTransport('seekMs', { timeMs: toSongMs(targetMs) })) return;
         currentApi.timePosition = targetMs;
         synthPlayerState.currentTime = targetMs;
         updateSynthUI();
@@ -1129,6 +1220,7 @@ export function rewindSynth10Seconds() {
 export function seekSynthPercent(percent) {
     if (!currentApi || synthPlayerState.endTime <= 0) return;
     const targetMs = Math.floor(percent * synthPlayerState.endTime);
+    if (interceptTransport('seekMs', { timeMs: toSongMs(targetMs) })) return;
     try {
         currentApi.timePosition = targetMs;
         synthPlayerState.currentTime = targetMs;
@@ -1142,6 +1234,11 @@ export function seekSynthPercent(percent) {
  * Set playback speed
  */
 export function setPlaybackSpeed(speed) {
+    if (interceptTransport('speed', { speed })) return;
+    setPlaybackSpeedLocal(speed);
+}
+
+function setPlaybackSpeedLocal(speed) {
     synthPlayerState.playbackSpeed = speed;
     if (currentApi) {
         try {
@@ -1150,6 +1247,7 @@ export function setPlaybackSpeed(speed) {
             console.error('[Synth Player] Set speed error:', e);
         }
     }
+    emitTransportEvent('speed', { speed });
     updateSynthUI();
 }
 
@@ -1739,3 +1837,143 @@ export function initSynthPlayer() {
 
     updateSynthUI();
 }
+
+
+// --- Jam Mode remote control ----------------------------------------------
+// These bypass the transport interceptor so remote-driven actions never loop
+// back into the jam layer.
+export const jamPlayerControl = {
+    hasPlayer() {
+        return Boolean(currentApi);
+    },
+    isReady() {
+        return Boolean(currentApi && (synthPlayerState.isReady || synthPlayerState.soundFontLoaded || currentApi.isReadyForPlayback));
+    },
+    /**
+     * Current song time in ms (speed independent). AlphaTab only updates timePosition on
+     * position events, so extrapolate from the last one while playing (capped) to keep sync
+     * measurements tight.
+     */
+    timeMs() {
+        if (!synthPlayerState.isPlaying || !lastPositionEventAt) {
+            return toSongMs(currentApi?.timePosition ?? synthPlayerState.currentTime ?? 0);
+        }
+        const elapsed = Math.min(250, Math.max(0, performance.now() - lastPositionEventAt));
+        return lastPositionSongMs + elapsed * currentSpeedFactor();
+    },
+    /** Playback speed the synth is actually running at (includes any drift nudge). */
+    actualSpeed() {
+        return currentSpeedFactor();
+    },
+    snapshot() {
+        return {
+            playing: synthPlayerState.isPlaying,
+            timeMs: jamPlayerControl.timeMs(),
+            tick: currentApi?.tickPosition ?? 0,
+            speed: synthPlayerState.playbackSpeed,
+            loop: {
+                enabled: synthPlayerState.loopEnabled,
+                startMeasure: synthPlayerState.loopStartMeasure,
+                endMeasure: synthPlayerState.loopEndMeasure
+            },
+            metronome: synthPlayerState.metronomeEnabled,
+            countIn: synthPlayerState.countInEnabled
+        };
+    },
+    /** Seek to song time `ms` (speed independent, as returned by timeMs()). */
+    seekMs(ms) {
+        if (!currentApi) return;
+        const target = Math.max(0, ms) / currentSpeedFactor();
+        try {
+            currentApi.timePosition = target;
+            lastPositionSongMs = Math.max(0, ms);
+            lastPositionEventAt = performance.now();
+            synthPlayerState.currentTime = target;
+            updateSynthUI();
+        } catch (e) {
+            console.error('[Jam] seek error:', e);
+        }
+    },
+    seekTick(tick) {
+        if (!currentApi) return;
+        try {
+            currentApi.tickPosition = Math.max(0, tick);
+            synthPlayerState.currentTime = currentApi.timePosition || 0;
+            lastPositionEventAt = 0; // unknown until the next position event
+            updateSynthUI();
+        } catch (e) {
+            console.error('[Jam] seek error:', e);
+        }
+    },
+    play() {
+        if (!currentApi) return;
+        if (warmingUp) {
+            // A real start arrived mid warm-up: the synth is already running, so keep it going
+            // (the caller has just seeked) and surface the playing state that was suppressed.
+            warmingUp = false;
+            currentApi.masterVolume = synthPlayerState.masterVolume;
+            applyPlayerState(currentApi, 1);
+            return;
+        }
+        if (synthPlayerState.isPlaying) return;
+        playPauseSynthLocal(true);
+    },
+    /**
+     * Muted play/pause so the audio output, synth worker and buffers are running before the
+     * first real start. Without it the first start lands ~80 ms late. Returns true if it ran.
+     */
+    async warmUp(durationMs = 300) {
+        const api = currentApi;
+        if (!api || warmingUp || synthPlayerState.isPlaying || !jamPlayerControl.isReady()) return false;
+        warmingUp = true;
+        const restoreRaw = api.timePosition || 0;
+        try {
+            api.masterVolume = 0;
+            api.play();
+            await new Promise((r) => setTimeout(r, durationMs));
+            if (!warmingUp || currentApi !== api) return true; // aborted by a real play() or song change
+            api.pause();
+            await new Promise((r) => setTimeout(r, 60));
+            if (!warmingUp || currentApi !== api) return true;
+            api.timePosition = restoreRaw;
+        } catch (e) {
+            console.warn('[Jam] warm-up failed:', e);
+        } finally {
+            if (warmingUp && currentApi === api) {
+                api.masterVolume = synthPlayerState.masterVolume;
+                warmingUp = false;
+            }
+        }
+        return true;
+    },
+    pause() {
+        if (!currentApi || !synthPlayerState.isPlaying) return;
+        pauseSynthPlayer();
+    },
+    setSpeed(speed) {
+        setPlaybackSpeedLocal(speed);
+    },
+    /** Temporarily scale playback speed for gentle drift correction (does not touch UI state). */
+    nudgeSpeed(factor) {
+        if (!currentApi) return;
+        try {
+            currentApi.playbackSpeed = synthPlayerState.playbackSpeed * factor;
+        } catch (e) {
+            console.error('[Jam] nudge error:', e);
+        }
+    },
+    setLoop({ enabled, startMeasure, endMeasure }) {
+        synthPlayerState.loopEnabled = Boolean(enabled);
+        const count = Math.max(1, currentScore?.masterBars?.length || 1);
+        synthPlayerState.loopStartMeasure = Math.min(count, Math.max(1, startMeasure || 1));
+        synthPlayerState.loopEndMeasure = Math.min(count, Math.max(1, endMeasure || count));
+        applyLoopSettings();
+        updateSynthUI();
+    },
+    setMetronome(enabled) {
+        if (synthPlayerState.metronomeEnabled !== Boolean(enabled)) toggleMetronome(Boolean(enabled));
+    },
+    setCountIn(enabled) {
+        if (synthPlayerState.countInEnabled !== Boolean(enabled)) toggleCountIn(Boolean(enabled));
+    }
+};
