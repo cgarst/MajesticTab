@@ -764,10 +764,29 @@ export function attachAlphaTabApi(api) {
         updateSynthUI();
     });
 
+    // Multi-track active beats synchronization for fretboard visualizer
+    if (api.activeBeatsChanged) {
+        api.activeBeatsChanged.on((args) => {
+            if (args?.activeBeats) {
+                fretboardController.onActiveBeatsChanged(args.activeBeats);
+            }
+        });
+    }
+
     api.playedBeatChanged.on((beat) => {
         playedBeatState.beat = beat;
-        fretboardController.onBeatChanged(beat);
+        if (!api.activeBeatsChanged) {
+            fretboardController.onBeatChanged(beat);
+        }
     });
+
+    if (api.beatMouseDown) {
+        api.beatMouseDown.on((beat) => {
+            if (!synthPlayerState.isPlaying) {
+                fretboardController.onBeatChanged(beat);
+            }
+        });
+    }
 
     // Player Position Changed
     api.playerPositionChanged.on((args) => {
