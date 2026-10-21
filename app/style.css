@@ -391,15 +391,13 @@ body {
 }
 
 .tauri-macos #topBar {
-  padding-left: 84px;
   min-height: 50px;
 }
 
-/* Mirror the native window-control inset on large screens so #centerSection stays centered in the window */
-@media (min-width: 1101px) {
-  .tauri-macos #topBar {
-    padding-right: 84px;
-  }
+/* Reserve the native window-control inset inside the left column so the grid stays symmetric
+   (#centerSection centered in the window) without leaving a gap on the right */
+.tauri-macos #brandSection {
+  padding-left: 68px;
 }
 
 /* iOS Status Bar clearance in portrait mode */
