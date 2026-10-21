@@ -41,7 +41,6 @@ export class FretboardView {
         this.poolSize = 48;
         this.markerPool = [];
         this.stringLabels = {};
-        this.vibratingStrings = {};
         this.pickIndicators = {};
 
         this.initDOM();
@@ -189,7 +188,6 @@ export class FretboardView {
         this.buildCapo(topMargin);
         this.buildStrings();
         this.buildStringLabels();
-        this.buildVibratingStrings();
         this.buildPickIndicators();
         this.buildFretNumbers(topMargin);
         this.buildMarkerPool();
@@ -391,58 +389,6 @@ export class FretboardView {
         this.svg.appendChild(labelsGroup);
     }
 
-    buildVibratingStrings() {
-        const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-        group.setAttribute('class', 'fretboard-vibrating-layer');
-        this.vibratingStrings = {};
-
-        for (let v = 1; v <= this.stringCount; v++) {
-            const atString = this.getAtString(v);
-            const gauge = this.getVisualLineGauge(v);
-
-            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            g.setAttribute('class', 'vibrating-string-node');
-            g.style.display = 'none';
-
-            // Diffuse vibrating aura
-            const glow = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            glow.setAttribute('class', 'vibrating-string-glow');
-            glow.setAttribute('stroke-width', `${(gauge + 5).toFixed(2)}`);
-            glow.setAttribute('stroke-linecap', 'round');
-            glow.setAttribute('stroke-opacity', '0.45');
-
-            // Primary core vibrating line
-            const core = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            core.setAttribute('class', 'vibrating-string-core');
-            core.setAttribute('stroke-width', `${(gauge + 1.2).toFixed(2)}`);
-            core.setAttribute('stroke-linecap', 'round');
-
-            // Harmonic secondary shimmer line
-            const harmonic = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            harmonic.setAttribute('class', 'vibrating-string-harmonic');
-            harmonic.setAttribute('stroke-width', `${gauge.toFixed(2)}`);
-            harmonic.setAttribute('stroke-linecap', 'round');
-            harmonic.setAttribute('stroke-opacity', '0.75');
-
-            g.appendChild(glow);
-            g.appendChild(core);
-            g.appendChild(harmonic);
-            group.appendChild(g);
-
-            this.vibratingStrings[atString] = {
-                group: g,
-                glow,
-                core,
-                harmonic,
-                visualLine: v,
-                gauge,
-                struckToggle: false
-            };
-        }
-
-        this.svg.appendChild(group);
-    }
-
     buildPickIndicators() {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         group.setAttribute('class', 'fretboard-pick-indicators');
@@ -611,7 +557,6 @@ export class FretboardView {
 
     /**
      * Update active note markers synchronized with AlphaTab beat playback
-     * String vibrates from finger (fret) to bridge, or entire string if open.
      * Picking hand strike indicator animates on the picking side.
      * @param {Array<Object>} notes
      * @param {string} displayMode 'notes' | 'frets'
@@ -619,11 +564,8 @@ export class FretboardView {
     updateActiveNotes(notes = [], displayMode = this.displayMode) {
         this.displayMode = displayMode === 'frets' ? 'frets' : 'notes';
 
-        // Reset all vibrating strings and pick indicators
+        // Reset all pick indicators
         for (let s = 1; s <= this.stringCount; s++) {
-            if (this.vibratingStrings?.[s]) {
-                this.vibratingStrings[s].group.style.display = 'none';
-            }
             if (this.pickIndicators?.[s]) {
                 this.pickIndicators[s].group.style.display = 'none';
             }
@@ -648,39 +590,7 @@ export class FretboardView {
             const visualLine = this.getVisualString(atString);
             const posY = this.stringYs[visualLine];
 
-            // 1. Determine vibration starting point
-            // Open string (fret 0): entire string vibrates from nut to bridge
-            // Fretted note (fret > 0): vibrates from the finger/fret position to bridge
-            const startX = (fret === 0) ? this.nutX : this.fretMidsX[fret];
-            const endX = this.bridgeX;
-
-            // 2. Activate Vibrating String Segment (from finger/nut to bridge)
-            const vib = this.vibratingStrings?.[atString];
-            if (vib) {
-                vib.group.style.display = '';
-                vib.struckToggle = !vib.struckToggle;
-                vib.group.setAttribute('class', `vibrating-string-node ${vib.struckToggle ? 'is-vibrating' : 'is-vibrating-alt'}`);
-
-                vib.glow.setAttribute('x1', `${startX}`);
-                vib.glow.setAttribute('y1', `${posY}`);
-                vib.glow.setAttribute('x2', `${endX}`);
-                vib.glow.setAttribute('y2', `${posY}`);
-                vib.glow.style.stroke = trackColor;
-
-                vib.core.setAttribute('x1', `${startX}`);
-                vib.core.setAttribute('y1', `${posY}`);
-                vib.core.setAttribute('x2', `${endX}`);
-                vib.core.setAttribute('y2', `${posY}`);
-                vib.core.style.stroke = trackGrad;
-
-                vib.harmonic.setAttribute('x1', `${startX}`);
-                vib.harmonic.setAttribute('y1', `${posY}`);
-                vib.harmonic.setAttribute('x2', `${endX}`);
-                vib.harmonic.setAttribute('y2', `${posY}`);
-                vib.harmonic.style.stroke = '#ffffff';
-            }
-
-            // 3. Activate Picking Hand Strike Indicator on picking side
+            // 1. Activate Picking Hand Strike Indicator on picking side
             const pick = this.pickIndicators?.[atString];
             if (pick) {
                 pick.group.style.display = '';
@@ -693,7 +603,7 @@ export class FretboardView {
                 pick.wave2.style.stroke = trackColor;
             }
 
-            // 4. For Fretted Notes (fret > 0), place Finger Dot Marker on the fret
+            // 2. For Fretted Notes (fret > 0), place Finger Dot Marker on the fret
             if (fret > 0) {
                 if (poolIdx >= this.markerPool.length) continue;
 
@@ -763,9 +673,6 @@ export class FretboardView {
             marker.element.style.display = 'none';
         }
         for (let s = 1; s <= this.stringCount; s++) {
-            if (this.vibratingStrings?.[s]) {
-                this.vibratingStrings[s].group.style.display = 'none';
-            }
             if (this.pickIndicators?.[s]) {
                 this.pickIndicators[s].group.style.display = 'none';
             }
