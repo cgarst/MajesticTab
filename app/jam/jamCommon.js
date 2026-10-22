@@ -175,3 +175,16 @@ export function measureStartLag({ timeMs, targetLocalMs, usedLagMs, speed = 1, i
         onDone?.();
     }, wait);
 }
+
+/**
+ * The track restrictions one device gets from the host's assignments. `selfKey` is the
+ * client id, or 'host' for the host itself. Devices without an assignment are unrestricted.
+ */
+export function trackPolicyFor(state, selfKey) {
+    const mine = state?.trackAssignments?.[selfKey];
+    const has = Array.isArray(mine) && mine.length > 0;
+    return {
+        audio: has && state.assignedAudioOnly ? mine : null,
+        view: has && state.assignedViewOnly ? mine : null
+    };
+}

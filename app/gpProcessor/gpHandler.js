@@ -3,7 +3,7 @@ import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
-import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions } from './gpPlayer.js';
+import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions, reapplyJamTrackView } from './gpPlayer.js';
 import {
     extractScoreTunings,
     extractScoreMetadata,
@@ -118,6 +118,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         populateGpTrackSelectionUI(api);
         syncGpStringCountUI(api.score);
         fretboardController.onScoreLoaded(api, api.tracks);
+        reapplyJamTrackView();
 
         // Update YouTube player with parsed score metadata
         if (api.score) {

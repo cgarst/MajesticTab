@@ -2,6 +2,7 @@
 // Jam Mode UI: top-bar pill, themed modal (host / client panels) and the control-request card.
 
 import { CONTROL_POLICIES, JAM_SONG_EXTENSIONS } from './jamProtocol.js';
+import { jamPlayerControl } from '../gpProcessor/gpPlayer.js';
 
 const POLICY_LABELS = { host: 'Host only', ask: 'Ask me', anyone: 'Anyone' };
 const PEER_STATUS_LABELS = { joined: 'Joined', loading: 'Loading', synced: 'Ready', idle: 'Waiting for song', detached: 'Detached', error: 'Error' };
@@ -132,6 +133,29 @@ export function createJamModal(manager, { updateSetting }) {
         `}`;
     }
 
+    function assignmentHtml(roster, session, settings) {
+        const tracks = session?.song && (session.song.type || 'gp') === 'gp' ? jamPlayerControl.listTracks() : [];
+        if (!tracks.length) return '';
+        const people = [{ key: 'host', name: 'You (host)' }, ...roster.map((p) => ({ key: p.id, name: p.name }))];
+        const assigned = session.trackAssignments || {};
+        return `
+        <div class="jam-label">Track assignments</div>
+        <div class="d-flex flex-column gap-2 mb-2">
+          ${switchHtml('jamAssignedAudioSwitch', 'Only play each person\'s assigned tracks', settings.assignedAudioOnly)}
+          ${switchHtml('jamAssignedViewSwitch', 'Only show each person\'s assigned tracks', settings.assignedViewOnly)}
+        </div>
+        <div class="jam-list mb-3">
+          ${people.map((person) => `
+            <div class="jam-list-row flex-wrap">
+              <div class="fw-semibold w-100">${esc(person.name)}</div>
+              <div class="d-flex flex-wrap gap-2 w-100 mt-1">
+                ${tracks.map((t) => `<button type="button" class="btn btn-sm ${(assigned[person.key] || []).includes(t.index) ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-assign="${esc(person.key)}" data-jam-track="${t.index}">${esc(t.name)}</button>`).join('')}
+              </div>
+            </div>`).join('')}
+        </div>
+        <div class="jam-help mb-3">People with no assigned track hear and see everything. Assignments reset when the song changes.</div>`;
+    }
+
     function hostPanel(settings) {
         const host = manager.getHost();
         const info = manager.getHostInfo();
@@ -160,6 +184,7 @@ export function createJamModal(manager, { updateSetting }) {
           </div>
         </div>
         ${trimHtml(settings)}
+        ${assignmentHtml(roster, session, settings)}
         <div class="jam-label">Players (${roster.length}/8)</div>
         <div class="jam-list mb-3">
           ${roster.length ? roster.map((p) => {
@@ -320,6 +345,15 @@ export function createJamModal(manager, { updateSetting }) {
         if (t.id === 'jamLeaveBtn') { await manager.leave(); body.dataset.role = ''; render(); return; }
         const host = manager.getHost();
         const client = manager.getClient();
+        if (t.dataset.jamAssign) {
+            const key = t.dataset.jamAssign;
+            const idx = Number(t.dataset.jamTrack);
+            const cur = host?.getSession().trackAssignments?.[key] || [];
+            host?.setTrackAssignment(key, cur.includes(idx) ? cur.filter((i) => i !== idx) : [...cur, idx].sort((a, b) => a - b));
+            body.dataset.role = '';
+            render();
+            return;
+        }
         if (t.dataset.jamKick) { host?.kick(t.dataset.jamKick); return; }
         if (t.dataset.jamControl) {
             const session = host?.getSession();
@@ -375,6 +409,8 @@ export function createJamModal(manager, { updateSetting }) {
         const id = e.target.id;
         if (id === 'jamPolicySelect') { manager.getHost()?.setPolicy(e.target.value); updateSetting('policy', e.target.value); }
         if (id === 'jamMuteGuestsSwitch') { manager.getHost()?.setMuteGuests(e.target.checked); updateSetting('muteGuests', e.target.checked); }
+        if (id === 'jamAssignedAudioSwitch') { manager.getHost()?.updateTracks({ assignedAudioOnly: e.target.checked }); updateSetting('assignedAudioOnly', e.target.checked); }
+        if (id === 'jamAssignedViewSwitch') { manager.getHost()?.updateTracks({ assignedViewOnly: e.target.checked }); updateSetting('assignedViewOnly', e.target.checked); }
         if (id === 'jamWaitSwitch') updateSetting('waitForEveryone', e.target.checked);
         if (id === 'jamSmoothSwitch') updateSetting('smoothDrift', e.target.checked);
         if (id === 'jamAlwaysSaveSwitch') updateSetting('alwaysSaveSongs', e.target.checked);

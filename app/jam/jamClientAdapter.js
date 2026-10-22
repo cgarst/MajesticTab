@@ -6,7 +6,7 @@
 import { MSG, makeMessage, isGpSong, chunkBase64 } from './jamProtocol.js';
 import { nowMs, jam } from './jamTransport.js';
 import { ClockSync, DriftFilter, NudgeMonitor, decideDriftAction, DRIFT_IGNORE_MS, DRIFT_SEEK_NO_NUDGE_MS } from './jamClock.js';
-import { estimateOutputLatencyMs, createCoalescer, jamSongId, startLag, measureStartLag, waitForPlayerReady, loadSetting, saveSetting } from './jamCommon.js';
+import { estimateOutputLatencyMs, createCoalescer, jamSongId, startLag, measureStartLag, waitForPlayerReady, loadSetting, saveSetting, trackPolicyFor } from './jamCommon.js';
 import { createYouTubeClient } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor } from '../gpProcessor/gpPlayer.js';
 import { jamYouTubeControl } from '../youtubePlayer.js';
@@ -38,6 +38,8 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         jamPlayerControl.setMuted(muted);
         jamYouTubeControl.setMuted(muted);
     };
+    let trackState = null;
+    const applyTracks = () => jamPlayerControl.setTrackPolicy(clientId && trackState ? trackPolicyFor(trackState, clientId) : {});
     let hostSong = null;
     let loadedSongId = null;
     let loadingSong = null; // { id, promise }
@@ -349,6 +351,8 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         controllerId = state.controllerId ?? null;
         policy = state.policy || 'ask';
         applyMute(state.muteGuests);
+        trackState = state;
+        applyTracks();
         hostSong = state.song || null;
         youtube.apply(state.youtube, hostTs);
         emitStatus();
@@ -460,6 +464,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
             case MSG.WELCOME:
                 clientId = msg.clientId;
                 hostName = msg.hostName || 'Host';
+                applyTracks();
                 startClockSync();
                 emitStatus();
                 break;
@@ -554,6 +559,10 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
             case MSG.CONTROL_DENY:
                 ui.toast?.(msg.reason || 'Control request denied.', 'warning');
                 break;
+            case MSG.TRACK_ASSIGN:
+                trackState = msg;
+                if (following) applyTracks();
+                break;
             case MSG.GUEST_MUTE:
                 applyMute(msg.muteGuests);
                 break;
@@ -572,6 +581,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
             cancelScheduledPlay();
             resetNudge();
             remote(() => jamPlayerControl.setSpeed(jamPlayerControl.snapshot().speed));
+            jamPlayerControl.setTrackPolicy({});
         } else {
             send(MSG.STATE_REQUEST);
         }
@@ -591,6 +601,8 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         stop() {
             active = false;
             applyMute(false);
+            trackState = null;
+            applyTracks();
             youtube.stop();
             stopClockSync();
             cancelScheduledPlay();
