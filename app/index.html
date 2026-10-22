@@ -437,24 +437,10 @@
       </div>
     </div>
 
-    <!-- SoundFont Library: any number can be enabled; later ones layer over earlier ones -->
-    <div class="mb-3" id="soundFontSection">
-      <div class="d-flex justify-content-between align-items-center mb-1">
-        <label class="form-label small mb-0 fw-semibold text-muted">SoundFonts:</label>
-        <div class="d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-sm theme-control-btn" id="soundFontEditBtn" title="Reorder or delete SoundFonts">Edit</button>
-          <button type="button" class="btn btn-sm theme-control-btn" id="soundFontAddBtn" title="Add an .sf2 or .sf3 SoundFont"><i class="bi-plus-lg" aria-hidden="true"></i> Add</button>
-        </div>
-      </div>
-      <input type="file" id="soundFontFileInput" accept=".sf2,.sf3" multiple hidden>
-      <div id="soundFontList" class="soundfont-list" role="group" aria-label="Enabled SoundFonts"></div>
-      <div class="small text-white-50 mt-1" style="font-size: 0.72rem;">Enabled SoundFonts layer top to bottom; lower ones override higher ones.</div>
-      <div class="d-flex align-items-center gap-2 mt-2">
-        <div class="form-check form-switch mb-0 flex-shrink-0">
-          <input class="form-check-input theme-switch" type="checkbox" id="soundFontStrictToggle" aria-label="Strict program matching">
-        </div>
-        <label class="small mb-0" for="soundFontStrictToggle" title="Off: tracks the enabled SoundFonts lack use the closest instrument they have. On: play exact instruments only; others stay silent.">Strict instrument matching</label>
-      </div>
+    <!-- SoundFonts and Mixer open in their own modals -->
+    <div class="mb-3 d-flex gap-2">
+      <button type="button" class="btn btn-sm theme-control-btn flex-grow-1" id="soundFontModalBtn"><i class="bi-music-note-beamed me-1" aria-hidden="true"></i>SoundFonts</button>
+      <button type="button" class="btn btn-sm theme-control-btn flex-grow-1" id="mixerModalBtn"><i class="bi-sliders me-1" aria-hidden="true"></i>Mixer</button>
     </div>
 
     <!-- Embedded Audio Sync Option -->
@@ -997,6 +983,76 @@
 </div>
 
 <!-- Game Controller Guide & Interactive Layout Modal -->
+<div id="soundFontModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="soundFontModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card synth-modal-card">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
+          <i class="bi-music-note-beamed text-info fs-5"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="soundFontModalTitle">SoundFonts</h2>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="soundFontModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body">
+    <div id="soundFontSection">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted">SoundFonts:</label>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm theme-control-btn" id="soundFontEditBtn" title="Reorder or delete SoundFonts">Edit</button>
+          <button type="button" class="btn btn-sm theme-control-btn" id="soundFontAddBtn" title="Add an .sf2 or .sf3 SoundFont"><i class="bi-plus-lg" aria-hidden="true"></i> Add</button>
+        </div>
+      </div>
+      <input type="file" id="soundFontFileInput" accept=".sf2,.sf3" multiple hidden>
+      <div id="soundFontList" class="soundfont-list" role="group" aria-label="Enabled SoundFonts"></div>
+      <div class="small text-white-50 mt-1" style="font-size: 0.72rem;">Enabled SoundFonts layer top to bottom; lower ones override higher ones.</div>
+      <div class="d-flex align-items-center gap-2 mt-2">
+        <div class="form-check form-switch mb-0 flex-shrink-0">
+          <input class="form-check-input theme-switch" type="checkbox" id="soundFontStrictToggle" aria-label="Strict program matching">
+        </div>
+        <label class="small mb-0" for="soundFontStrictToggle" title="Off: tracks the enabled SoundFonts lack use the closest instrument they have. On: play exact instruments only; others stay silent.">Strict instrument matching</label>
+      </div>
+    </div>
+
+
+    </div>
+  </section>
+</div>
+
+<div id="mixerModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="mixerModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card synth-modal-card">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
+          <i class="bi-sliders text-info fs-5"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="mixerModalTitle">Mixer</h2>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="mixerModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body">
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="small text-white-50" id="mixerHint">Mute, solo, level and pan for each track.</div>
+        <button type="button" class="btn btn-sm theme-control-btn" id="mixerResetBtn">Reset</button>
+      </div>
+      <div id="mixerTrackList" class="mixer-list"></div>
+      <div class="text-center text-muted py-3 small" id="mixerEmptyMsg" style="display: none;">Load a Guitar Pro file to mix its tracks.</div>
+    </div>
+  </section>
+</div>
+
 <div id="controllerHelpModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="controllerHelpModalTitle" aria-hidden="true" style="display:none;">
   <section class="theme-modal-card controller-help-modal-card">
     <header class="theme-modal-header">
