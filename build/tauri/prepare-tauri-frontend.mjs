@@ -1,4 +1,5 @@
 import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -222,6 +223,14 @@ async function writeBuildInfo() {
     buildId: process.env.MAJESTICTAB_BUILD_ID || 'dev',
     arch: process.env.MAJESTICTAB_ARCH || null,
   };
+  if (!process.env.MAJESTICTAB_CHANNEL) {
+    // Local builds have no CI build id; record the commit so the updater can compare against releases.
+    try {
+      const git = (...args) => execFileSync('git', args, { cwd: scriptDir, encoding: 'utf8' }).trim();
+      info.commit = git('rev-parse', '--short=7', 'HEAD');
+      info.commitDate = git('show', '-s', '--format=%cI', 'HEAD');
+    } catch {}
+  }
   await writeFile(path.join(frontendDir, 'build-info.js'), `export default ${JSON.stringify(info)};\n`);
 }
 
