@@ -1752,6 +1752,15 @@ input[type=range]::-webkit-slider-thumb:hover {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* iOS installed PWA: html/body height can stop short of the home-indicator inset, exposing a black strip. Pin the body to the full screen instead. */
+.tauri-ios body {
+  position: fixed;
+  inset: 0;
+  height: auto;
+  min-height: 0;
+  background-attachment: scroll;
+}
+
 /* No footer on iOS, so let the body scroll through the home-indicator inset instead of leaving a blank strip */
 .tauri-ios .offcanvas {
   padding-bottom: 0;
