@@ -21,7 +21,8 @@ import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, get
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
-import { scoreOptionsState } from './gpProcessor/gpPlayer.js';
+import { scoreOptionsState, pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
+import { pauseYouTube } from './youtubePlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 
@@ -396,6 +397,9 @@ function setupLibraryTouchListeners(page) {
  * Open the Tab Library Page
  */
 export async function openLibraryModal(initialView = 'library') {
+    // Going back to the library stops whatever song is playing
+    pauseSynthPlayer();
+    pauseYouTube();
     initLibraryTopBar();
     if (initialView !== activeView) {
         viewHistory = [];
