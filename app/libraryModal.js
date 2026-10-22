@@ -31,6 +31,8 @@ let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let selectedArtist = null;
 let selectedAlbum = null;
+// File dropped on a custom folder, consumed by the Add Custom Music form: { file, folderPath }
+let pendingCustomDrop = null;
 let selectedFolderPath = []; // Array of folder path segments e.g. ['Exercises', 'Technique']
 let selectedTuning = null;
 let isAlbumEditMode = false;
@@ -893,10 +895,13 @@ async function renderLibraryBrowseView(container) {
                         year: alb.year || null,
                         coverUrl: alb.coverUrl || null,
                         songsCount: 0,
+                        booksCount: 0,
+                        isCustom: isCustomArtist,
                         songs: []
                     });
                 }
                 const subEntry = subfolderMap.get(immediateName);
+                subEntry.booksCount += alb.tabOptions ? alb.tabOptions.length : 0;
                 subEntry.songsCount += alb.songs.length;
                 subEntry.songs.push(...alb.songs);
             }
@@ -914,6 +919,13 @@ async function renderLibraryBrowseView(container) {
                 }
             }
 
+            // Books in the current folder, including subfolders (custom music only)
+            const currentBooks = (currentPath === '' ? (selectedArtist.rootBooks || 0) : 0) + selectedArtist.albums
+                .filter(a => {
+                    const f = (a.folderPath || a.title || '').trim();
+                    return currentPath === '' || f === currentPath || f.startsWith(currentPath + '/');
+                })
+                .reduce((acc, a) => acc + (a.tabOptions ? a.tabOptions.length : 0), 0);
             // Check if standard MusicBrainz Album detail view
             const isStandardAlbumView = !isCustomArtist && selectedFolderPath.length === 1 && currentSubfolders.length === 0 && matchingAlbum;
 
@@ -951,7 +963,9 @@ async function renderLibraryBrowseView(container) {
               </div>
               <div class="d-flex align-items-center gap-2 flex-shrink-0">
                 <span class="badge badge-theme-secondary d-none d-sm-inline-flex py-1 px-2" style="font-size: 0.72rem;">
-                  ${currentSubfolders.length > 0 && currentSongs.length > 0
+                  ${isCustomArtist
+                    ? `${currentSubfolders.length > 0 ? `${currentSubfolders.length} ${currentSubfolders.length === 1 ? 'Folder' : 'Folders'} • ` : ''}${formatBooksSongsLabel(currentBooks, currentSongs.length + currentSubfolders.reduce((acc, f) => acc + f.songsCount, 0))}`
+                  : currentSubfolders.length > 0 && currentSongs.length > 0
                     ? `${currentSubfolders.length} ${currentSubfolders.length === 1 ? 'Folder' : 'Folders'} • ${currentSongs.length} ${currentSongs.length === 1 ? 'Song' : 'Songs'}`
                     : currentSubfolders.length > 0
                       ? `${currentSubfolders.length} ${currentSubfolders.length === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')}`
@@ -1044,7 +1058,7 @@ async function renderLibraryBrowseView(container) {
                               const label = info?.displayName || t.tuning;
                               return `<button class="badge badge-tuning badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
                             })() : ''}
-                            <button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" title="Remove album tab"><i class="bi-x"></i></button>
+                            ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" title="Remove album tab"><i class="bi-x"></i></button>` : ''}
                           </div>
                           `;
                         }).join('')}
@@ -1069,12 +1083,46 @@ async function renderLibraryBrowseView(container) {
                     `;
                 }
 
+                // Custom folders can hold a whole book PDF that gets split into songs by page range
+                let bookPdfHtml = '';
+                let folderAlbumTabs = [];
+                if (isCustomArtist) {
+                    folderAlbumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, matchingAlbum ? matchingAlbum.title : 'Custom Music');
+                    const bookPdfs = folderAlbumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.fileType === 'pdf');
+                    bookPdfHtml = `
+                    <div class="library-book-pdf-bar d-flex flex-wrap align-items-center gap-2 mb-3 py-2 px-3">
+                      <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;"><i class="bi-journal-bookmark me-1 text-info"></i>Book PDFs:</span>
+                      ${bookPdfs.map(t => `
+                        <div class="tab-option-chip play-album-tab-chip-btn" data-tab-id="${t.id}" role="button" tabindex="0" title="Open book: ${escapeHtml(t.name)}">
+                          <i class="bi-file-earmark-pdf text-warning me-1" style="font-size: 0.78rem;"></i>
+                          <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
+                          ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" title="Remove book PDF"><i class="bi-x"></i></button>` : ''}
+                        </div>
+                      `).join('')}
+                      <div class="dropdown ms-auto flex-shrink-0">
+                        <button class="btn btn-sm btn-theme-outline py-1 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach a whole-book PDF to this folder">
+                          <i class="bi-plus-lg"></i> <span>Book PDF</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
+                          <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
+                          <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
+                        </ul>
+                      </div>
+                      ${bookPdfs.length > 0 ? `
+                        <button class="btn btn-sm btn-theme-primary py-1 px-3 d-flex align-items-center gap-1 flex-shrink-0" id="addSongsFromBookPdfBtn" title="Create songs from page ranges of a book PDF">
+                          <i class="bi-file-earmark-pdf"></i> <span>Set Album PDF Pages</span>
+                        </button>
+                      ` : ''}
+                    </div>
+                    `;
+                }
+
                 let songsHtml = '';
                 if (currentSongs.length > 0) {
                     songsHtml = `
                     <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
                       ${currentSubfolders.length > 0 ? `<div class="small text-white-50 fw-semibold mb-1"><i class="bi-music-note me-1 text-info"></i>Songs:</div>` : ''}
-                      ${renderAlbumSongsList(currentSongs)}
+                      ${renderAlbumSongsList(currentSongs, { albumTabs: folderAlbumTabs })}
                     </div>
                     `;
                 }
@@ -1091,6 +1139,7 @@ async function renderLibraryBrowseView(container) {
 
                 bodyHtml = `
                 <div class="artist-detail-view">
+                  ${bookPdfHtml}
                   ${subfoldersHtml}
                   ${songsHtml}
                   ${emptyHtml}
@@ -1138,6 +1187,28 @@ async function renderLibraryBrowseView(container) {
 
     // In-view Back button click
     container.querySelector('#libBrowseBackBtn')?.addEventListener('click', handleBack);
+
+    // Drop a file on the custom music space to open Add Custom Music with it attached
+    const customDropZone = container.querySelector('#libBrowseContent');
+    if (customDropZone && selectedArtist?.isCustom) {
+        const folderPath = selectedFolderPath.join('/');
+        customDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (e.dataTransfer) e.dataTransfer.dropEffect = canAcceptTabDrop(e) ? 'copy' : 'none';
+        });
+        customDropZone.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            const file = e.dataTransfer?.files?.[0];
+            if (!file) return;
+            if (!(await isSupportedTabFile(file))) {
+                showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+                return;
+            }
+            pendingCustomDrop = { file, folderPath };
+            searchType = 'custom';
+            await switchView('search');
+        });
+    }
 
     // Breadcrumb clicks
     container.querySelector('#bcRoot')?.addEventListener('click', () => {
@@ -1369,10 +1440,16 @@ function bindLibraryToolbarEvents(container) {
     });
 }
 
+// "2 Books • 5 Songs" for custom music spaces
+function formatBooksSongsLabel(books, songs) {
+    return `${books} ${books === 1 ? 'Book' : 'Books'} • ${songs} ${songs === 1 ? 'Song' : 'Songs'}`;
+}
+
 function renderArtistCard(artist) {
     const isCustomArtist = Boolean(artist.isCustom);
     const albumCount = artist.albums ? artist.albums.length : 0;
     const songCount = (artist.songs ? artist.songs.length : 0) + (artist.albums ? artist.albums.reduce((acc, a) => acc + (a.songs ? a.songs.length : 0), 0) : 0);
+    const bookCount = (artist.rootBooks || 0) + (artist.albums ? artist.albums.reduce((acc, a) => acc + (a.tabOptions ? a.tabOptions.length : 0), 0) : 0);
     const collageHtml = renderArtistCollageHtml(artist);
     return `
     <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" role="button" tabindex="0">
@@ -1380,7 +1457,7 @@ function renderArtistCard(artist) {
         ${collageHtml}
         <div class="min-w-0 flex-grow-1">
           <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
-          <div class="small text-muted text-truncate">${albumCount > 0 ? `${albumCount} ${albumCount === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')} • ` : ''}${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+          <div class="small text-muted text-truncate">${albumCount > 0 ? `${albumCount} ${albumCount === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')} • ` : ''}${isCustomArtist ? formatBooksSongsLabel(bookCount, songCount) : `${songCount} ${songCount === 1 ? 'Song' : 'Songs'}`}</div>
         </div>
         <i class="bi-chevron-right text-muted flex-shrink-0"></i>
       </div>
@@ -1406,7 +1483,7 @@ function renderAlbumCard(album, artistName = '') {
         </div>
         <div class="album-card-content min-w-0 flex-grow-1">
           <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(title)}">${escapeHtml(title)}</h6>
-          <div class="small text-muted text-truncate">${artistName ? `<span class="fw-semibold text-white-50">${escapeHtml(artistName)}</span> • ` : ''}${year ? `${year} • ` : ''}${songCount} ${songCount === 1 ? 'Song' : 'Songs'}</div>
+          <div class="small text-muted text-truncate">${artistName ? `<span class="fw-semibold text-white-50">${escapeHtml(artistName)}</span> • ` : ''}${year ? `${year} • ` : ''}${album.isCustom ? formatBooksSongsLabel(album.booksCount ?? (album.tabOptions ? album.tabOptions.length : 0), songCount) : `${songCount} ${songCount === 1 ? 'Song' : 'Songs'}`}</div>
         </div>
         <i class="bi-chevron-right text-muted flex-shrink-0 album-card-chevron"></i>
       </div>
@@ -1787,6 +1864,13 @@ function renderPinnedSongTile(song) {
     `;
 }
 
+// Folder title that keys book PDFs; the Custom Music root has no album, so it uses a sentinel the hierarchy treats as root
+function getBookFolderTitle() {
+    if (selectedAlbum) return selectedAlbum.title;
+    if (selectedArtist?.isCustom && selectedFolderPath.length === 0) return 'Custom Music';
+    return null;
+}
+
 function renderSongRow(song, options = {}) {
     const tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
     const hasTabs = tabOptions.length > 0;
@@ -1892,7 +1976,7 @@ function renderSongRow(song, options = {}) {
                 return `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2 ms-1" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
               })() : ''}
               ${isPdfRange ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
-              <button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>
+              ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>` : ''}
             </div>
             `;
           }).join('')}
@@ -2167,6 +2251,15 @@ function setupSongRowActions(container) {
         });
     });
 
+    // Create songs from page ranges of a whole-book PDF in a custom folder
+    container.querySelector('#addSongsFromBookPdfBtn')?.addEventListener('click', async () => {
+        const folderTitle = getBookFolderTitle();
+        if (!selectedArtist || !folderTitle) return;
+        const albumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, folderTitle);
+        const bookPdfs = albumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.fileType === 'pdf');
+        openBookPdfSongsModal(selectedArtist.name, { title: folderTitle === 'Custom Music' && !selectedAlbum ? '' : folderTitle }, bookPdfs);
+    });
+
     // Explore Tracklist from Library Album Detail View
     const exploreLibBtn = container.querySelector('#exploreLibAlbumTracklistBtn');
     exploreLibBtn?.addEventListener('click', async () => {
@@ -2217,16 +2310,16 @@ function setupSongRowActions(container) {
     // Album Tabs Actions
     container.querySelectorAll('.import-album-tab-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            if (!selectedArtist || !selectedAlbum) return;
-            const providerId = btn.dataset.providerId;
-            openFromProvider(providerId, {
+            const folderTitle = getBookFolderTitle();
+            if (!selectedArtist || !folderTitle) return;
+            openFromProvider(btn.dataset.providerId, {
                 isAlbumTab: true,
                 collectionId: activeCollectionId,
                 artistName: selectedArtist.name,
-                albumTitle: selectedAlbum.title,
+                albumTitle: folderTitle,
                 artist: selectedArtist.name,
-                songName: selectedAlbum.title,
-                query: `${selectedArtist.name} ${selectedAlbum.title}`
+                songName: folderTitle,
+                query: `${selectedArtist.name} ${folderTitle}`
             });
         });
     });
@@ -2235,18 +2328,19 @@ function setupSongRowActions(container) {
         btn.addEventListener('click', async (e) => {
             if (e.target.closest('.remove-album-tab-chip-btn') || e.target.closest('.set-default-album-tab-btn') || e.target.closest('.badge-tuning-clickable')) return;
             e.stopPropagation();
-            if (!selectedArtist || !selectedAlbum) return;
+            const folderTitle = getBookFolderTitle();
+            if (!selectedArtist || !folderTitle) return;
             const tabId = btn.dataset.tabId;
-            const albumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, selectedAlbum.title);
+            const albumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, folderTitle);
             const tab = albumTabs.find(t => t.id === tabId);
             if (tab) {
-                const albumSongId = `album_tab_${activeCollectionId}_${selectedArtist.name}_${selectedAlbum.title}`.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const albumSongId = `album_tab_${activeCollectionId}_${selectedArtist.name}_${folderTitle}`.replace(/[^a-zA-Z0-9_-]/g, '_');
                 await loadSongTab({
                     id: albumSongId,
-                    title: selectedAlbum.title,
+                    title: selectedAlbum ? selectedAlbum.title : (tab.name || folderTitle),
                     artist: selectedArtist.name,
-                    album: selectedAlbum.title,
-                    coverUrl: selectedAlbum.coverUrl
+                    album: folderTitle,
+                    coverUrl: selectedAlbum?.coverUrl
                 }, tab);
             }
         });
@@ -2266,9 +2360,10 @@ function setupSongRowActions(container) {
     container.querySelectorAll('.remove-album-tab-chip-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
-            if (!selectedArtist || !selectedAlbum) return;
+            const folderTitle = getBookFolderTitle();
+            if (!selectedArtist || !folderTitle) return;
             const tabId = btn.dataset.tabId;
-            await removeTabOptionFromAlbum(activeCollectionId, selectedArtist.name, selectedAlbum.title, tabId);
+            await removeTabOptionFromAlbum(activeCollectionId, selectedArtist.name, folderTitle, tabId);
             showToast('Removed album tab', 'info');
             await renderView();
         });
@@ -2753,6 +2848,14 @@ function renderCustomDocFormHtml() {
           <div class="small text-muted mt-1" style="font-size:0.75rem;">Use <code class="text-info font-monospace">/</code> for nested subfolders (infinite layers), or leave blank for root Custom Music layer 1.</div>
         </div>
 
+        <div class="form-check form-switch d-flex align-items-center gap-2 ps-0">
+          <input class="form-check-input theme-switch ms-0 flex-shrink-0" type="checkbox" role="switch" id="customDocIsBook">
+          <label class="form-check-label small text-white" for="customDocIsBook">
+            This is a book (PDF)
+            <span class="d-block text-muted" style="font-size:0.75rem;">Saves the PDF to the folder as a book, then use Set Album PDF Pages to create songs from page ranges.</span>
+          </label>
+        </div>
+
         <div class="row g-3">
           <div class="col-md-6">
             <label class="form-label small text-white-50 mb-1 fw-semibold">Tuning (Optional)</label>
@@ -2905,6 +3008,24 @@ function setupCustomDocForm(container) {
 
     container.querySelector('#customDocCancelBtn')?.addEventListener('click', () => switchView('library'));
 
+    // File dropped on the library: attach it and prefill the target folder
+    if (pendingCustomDrop) {
+        const { file, folderPath } = pendingCustomDrop;
+        pendingCustomDrop = null;
+        const folderInput = form.querySelector('#customDocFolder');
+        if (folderInput && folderPath) folderInput.value = folderPath;
+        (async () => {
+            try {
+                const meta = await detectFileMetadata(file, file.name);
+                const stored = await saveStoredFile(file, 'local');
+                handleFileAttached({ file, providerId: 'local', fileStoreId: stored.id, name: file.name, meta });
+            } catch (err) {
+                console.warn('Could not attach dropped file:', err);
+                showToast('Error attaching dropped file', 'error');
+            }
+        })();
+    }
+
     container.querySelector('#customDocRemoveFileBtn')?.addEventListener('click', () => {
         attachedTab = null;
         updateAttachedUi();
@@ -2977,6 +3098,28 @@ function setupCustomDocForm(container) {
         const tuning = form.querySelector('#customDocTuning')?.value || null;
         const stringsVal = form.querySelector('#customDocStrings')?.value;
         const stringCount = stringsVal ? parseInt(stringsVal, 10) : null;
+
+        if (form.querySelector('#customDocIsBook')?.checked) {
+            if (!attachedTab || !/\.pdf$/i.test(attachedTab.name)) {
+                showToast('Attach a PDF file to save it as a book.', 'warning');
+                return;
+            }
+            await addTabOptionToAlbum(activeCollectionId, 'Custom Music', folderPath || 'Custom Music', {
+                name: title,
+                providerId: attachedTab.providerId,
+                relativePath: attachedTab.name,
+                fileStoreId: attachedTab.fileStoreId,
+                tuning: tuning || attachedTab.meta?.primaryTuning || null,
+                tunings: tuning ? [tuning] : (attachedTab.meta?.tunings || []),
+                stringCount: stringCount || attachedTab.meta?.stringCount || null,
+                fileType: 'pdf',
+                isCustom: true
+            });
+            showToast(`Added book "${title}" to Custom Music${folderPath ? ' / ' + folderPath : ''}`, 'success');
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+            await switchView('library');
+            return;
+        }
 
         const songId = `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         const tabOptions = [];
@@ -4184,3 +4327,164 @@ export function openSetAlbumPdfPagesModal(song, albumPdfTabs = [], existingTab =
     }, 50);
 }
 
+
+
+/**
+ * Themed dialog to split a whole-book PDF in a custom folder into songs, one per page range.
+ */
+export function openBookPdfSongsModal(artistName, album, bookPdfs = []) {
+    if (!bookPdfs.length) {
+        showToast('Attach a book PDF to this folder first.', 'warning');
+        return;
+    }
+
+    let modal = document.getElementById('themedBookPdfSongsModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'themedBookPdfSongsModal';
+        modal.className = 'theme-modal-backdrop';
+        document.body.appendChild(modal);
+    }
+
+    const rowHtml = (title = '', start = '', end = '') => `
+      <div class="book-pdf-song-row d-flex align-items-center gap-2">
+        <input type="text" class="form-control form-control-sm book-pdf-title" placeholder="Song title" value="${escapeHtml(title)}">
+        <input type="number" class="form-control form-control-sm book-pdf-start flex-shrink-0" min="1" step="1" placeholder="From" value="${start}" style="width: 76px;">
+        <input type="number" class="form-control form-control-sm book-pdf-end flex-shrink-0" min="1" step="1" placeholder="To" value="${end}" style="width: 76px;">
+        <button type="button" class="btn btn-sm btn-theme-icon book-pdf-remove-row flex-shrink-0" title="Remove row"><i class="bi-x-lg"></i></button>
+      </div>`;
+
+    modal.innerHTML = `
+    <div class="theme-modal-card" style="max-width: 560px; width: 92%;">
+      <div class="theme-modal-header">
+        <div class="theme-modal-title-group">
+          <div class="theme-modal-icon"><i class="bi-file-earmark-pdf text-primary fs-5"></i></div>
+          <div class="theme-modal-titles">
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Set Album PDF Pages</h5>
+            <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(album.title || artistName)}</div>
+          </div>
+        </div>
+        <div class="theme-modal-actions">
+          <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="bookPdfCloseBtn" aria-label="Close"><i class="bi-x-lg"></i></button>
+        </div>
+      </div>
+      <form id="bookPdfSongsForm">
+        <div class="theme-modal-body p-3 d-flex flex-column gap-3">
+          <div>
+            <label class="form-label small text-white-50 mb-1">Book PDF</label>
+            ${bookPdfs.length > 1 ? `
+              <select class="form-select form-select-sm" id="bookPdfSourceSelect">
+                ${bookPdfs.map(t => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`).join('')}
+              </select>
+            ` : `<div class="small text-white fw-semibold"><i class="bi-file-earmark-pdf text-warning me-1"></i>${escapeHtml(bookPdfs[0].name)}</div>`}
+          </div>
+          <div>
+            <div class="d-flex gap-2 small text-white-50 mb-1"><span class="flex-grow-1">Song</span><span style="width: 76px;">First page</span><span style="width: 76px;">Last page</span><span style="width: 31px;"></span></div>
+            <div class="d-flex flex-column gap-2" id="bookPdfRows">${rowHtml()}</div>
+            <button type="button" class="btn btn-sm btn-theme-outline mt-2 d-inline-flex align-items-center gap-1" id="bookPdfAddRowBtn"><i class="bi-plus-lg"></i> <span>Add Song</span></button>
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 p-3 pt-0 border-0">
+          <button type="button" class="btn btn-sm btn-theme-outline px-3" id="bookPdfCancelBtn">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-theme-primary px-4">Save Songs</button>
+        </div>
+      </form>
+    </div>
+    `;
+
+    const form = modal.querySelector('#bookPdfSongsForm');
+    const rowsEl = modal.querySelector('#bookPdfRows');
+
+    const closeModal = () => {
+        modal.classList.remove('show');
+        modal.style.display = 'none';
+        document.removeEventListener('keydown', handleKeyDown);
+    };
+    const handleKeyDown = (e) => { if (e.key === 'Escape') closeModal(); };
+
+    modal.querySelector('#bookPdfCloseBtn')?.addEventListener('click', closeModal);
+    modal.querySelector('#bookPdfCancelBtn')?.addEventListener('click', closeModal);
+    modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+    modal.querySelector('#bookPdfAddRowBtn')?.addEventListener('click', () => {
+        // Next song most likely starts right after the previous one ends
+        const lastEnd = parseInt(Array.from(rowsEl.querySelectorAll('.book-pdf-end')).pop()?.value, 10);
+        rowsEl.insertAdjacentHTML('beforeend', rowHtml('', lastEnd ? lastEnd + 1 : '', ''));
+        rowsEl.lastElementChild.querySelector('.book-pdf-title')?.focus();
+    });
+
+    rowsEl.addEventListener('click', (e) => {
+        const rm = e.target.closest('.book-pdf-remove-row');
+        if (!rm) return;
+        if (rowsEl.children.length > 1) rm.closest('.book-pdf-song-row').remove();
+    });
+
+    rowsEl.addEventListener('input', (e) => {
+        if (!e.target.classList.contains('book-pdf-start')) return;
+        const endInput = e.target.closest('.book-pdf-song-row').querySelector('.book-pdf-end');
+        if (!endInput.value || parseInt(endInput.value, 10) < parseInt(e.target.value, 10)) endInput.value = e.target.value;
+    });
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const srcId = modal.querySelector('#bookPdfSourceSelect')?.value || bookPdfs[0].id;
+        const source = bookPdfs.find(t => t.id === srcId) || bookPdfs[0];
+        const entries = [];
+        for (const row of rowsEl.querySelectorAll('.book-pdf-song-row')) {
+            const title = row.querySelector('.book-pdf-title').value.trim();
+            const startPage = parseInt(row.querySelector('.book-pdf-start').value, 10);
+            if (!title && !startPage) continue; // untouched row
+            const endPage = parseInt(row.querySelector('.book-pdf-end').value, 10) || startPage;
+            if (!title || !startPage || endPage < startPage) {
+                showToast('Each song needs a title and a valid page range.', 'warning');
+                return;
+            }
+            entries.push({ title, startPage, endPage });
+        }
+        if (!entries.length) {
+            showToast('Add at least one song.', 'warning');
+            return;
+        }
+
+        const stamp = Date.now();
+        for (let i = 0; i < entries.length; i++) {
+            const { title, startPage, endPage } = entries[i];
+            const song = {
+                id: `custom_${stamp}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+                collectionId: activeCollectionId,
+                title,
+                artist: artistName,
+                album: album.title,
+                folderPath: album.title,
+                isCustom: true,
+                tunings: source.tunings || (source.tuning ? [source.tuning] : []),
+                stringCount: source.stringCount || null,
+                addedAt: stamp + i
+            };
+            await saveSongToLibrary(song, activeCollectionId);
+            await addTabOptionToSong(song.id, {
+                name: `${title} (pp. ${startPage}-${endPage})`,
+                fileStoreId: source.fileStoreId,
+                providerId: source.providerId || 'local',
+                relativePath: source.relativePath || source.name,
+                driveFileId: source.driveFileId || null,
+                fileType: 'pdf',
+                startPage,
+                endPage,
+                isAlbumRange: true,
+                tuning: source.tuning || null,
+                tunings: source.tunings || [],
+                isDefault: true
+            });
+        }
+        closeModal();
+        showToast(`Added ${entries.length} ${entries.length === 1 ? 'song' : 'songs'} from ${source.name}`, 'success');
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+        await renderView();
+    });
+
+    document.addEventListener('keydown', handleKeyDown);
+    modal.style.display = 'flex';
+    modal.classList.add('show');
+    setTimeout(() => modal.querySelector('.book-pdf-title')?.focus(), 50);
+}
