@@ -37,9 +37,12 @@ export function parseSoundFontPresets(buffer) {
     return { melodic, drumKits };
 }
 
-/** Union of several fonts' presets (they are layered, so any one of them can supply a program). */
+/**
+ * Union of several fonts' presets plus the per-font `layers` in load order (later fonts override earlier ones).
+ * @param {Array<{melodic:Set<number>, drumKits:Set<number>}>} sets one per enabled font, in load order
+ */
 export function mergePresetSets(sets) {
-    const merged = { melodic: new Set(), drumKits: new Set() };
+    const merged = { melodic: new Set(), drumKits: new Set(), layers: sets };
     for (const s of sets) {
         s.melodic.forEach(p => merged.melodic.add(p));
         s.drumKits.forEach(p => merged.drumKits.add(p));
@@ -105,6 +108,22 @@ export function resolveProgram(program, available, mode = 'closest') {
 }
 
 /**
+ * Resolve against the layered fonts, highest priority (last loaded) first: a font gets to substitute with its own
+ * closest program before the fonts it overrides are consulted, so lower fonts take over as much as they can.
+ * @param {number} program requested GM program (0-127)
+ * @param {{melodic:Set<number>, layers?:Array<{melodic:Set<number>}>}} presets from mergePresetSets
+ * @returns {{program:number, how:string}}
+ */
+export function resolveProgramLayered(program, presets, mode = 'closest') {
+    const layers = presets.layers?.length ? presets.layers : [presets];
+    for (let i = layers.length - 1; i >= 0; i--) {
+        const r = resolveProgram(program, layers[i].melodic, mode);
+        if (r.how !== 'none') return r;
+    }
+    return { program, how: 'none' };
+}
+
+/**
  * Plan program substitutions for a score.
  * @param {Array<{program:number, isPercussion:boolean}>} tracks
  * @param {{melodic:Set<number>, drumKits:Set<number>}} presets merged presets of the enabled fonts
@@ -118,7 +137,7 @@ export function planProgramMapping(tracks, presets, mode = 'closest') {
             const silent = presets.drumKits.size === 0;
             return { program, resolved: program, how: silent ? 'none' : 'exact', isPercussion, silent };
         }
-        const r = resolveProgram(program, presets.melodic, mode);
+        const r = resolveProgramLayered(program, presets, mode);
         return { program, resolved: r.program, how: r.how, isPercussion, silent: r.how === 'none' };
     });
 }
@@ -135,7 +154,7 @@ const AUTOMATION_INSTRUMENT = 2; // AlphaTab AutomationType.Instrument
  */
 export function applyProgramMapping(score, presets, mode = 'closest') {
     let changed = false;
-    const resolve = (original) => presets ? resolveProgram(original, presets.melodic, mode).program : original;
+    const resolve = (original) => presets ? resolveProgramLayered(original, presets, mode).program : original;
     for (const track of score?.tracks || []) {
         const info = track.playbackInfo;
         if (!info) continue;
