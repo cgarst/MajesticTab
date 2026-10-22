@@ -5973,6 +5973,26 @@ body:not(.synth-playback-started) .at-highlight {
   color: var(--text-primary);
 }
 
+.jam-addr-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+}
+
+.jam-addr-row .jam-address {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.jam-addr-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
 .jam-address {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   user-select: all;
