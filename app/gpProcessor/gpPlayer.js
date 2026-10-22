@@ -1999,9 +1999,14 @@ export const jamPlayerControl = {
             try { currentApi.masterVolume = warmingUp ? 0 : effectiveVolume(); } catch (_) {}
         }
     },
-    /** Track indices in the loaded score, for the host's assignment UI. */
+    /** Track indices in the loaded score, for the host's assignment UI. `isTarget` marks guitar (or bass, in bass mode) tracks. */
     listTracks() {
-        return (currentScore?.tracks || []).map((t, i) => ({ index: i, name: t.name || `Track ${i + 1}` }));
+        const bass = getInstrumentMode() === 'bass';
+        return (currentScore?.tracks || []).map((t, i) => ({
+            index: i,
+            name: t.name || `Track ${i + 1}`,
+            isTarget: bass ? isTrackBass(t) : isTrackGuitar(t)
+        }));
     },
     /** Jam track assignment: `audio` / `view` are index arrays, or null for no restriction. */
     setTrackPolicy({ audio = null, view = null, mute = null } = {}) {

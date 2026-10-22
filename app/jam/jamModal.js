@@ -3,6 +3,7 @@
 
 import { CONTROL_POLICIES, JAM_SONG_EXTENSIONS } from './jamProtocol.js';
 import { jamPlayerControl } from '../gpProcessor/gpPlayer.js';
+import { getInstrumentMode } from '../utils/tuningUtils.js';
 import { isJamWebGuest } from './jamTransport.js';
 
 // Guests load the app from the host over plain HTTP on the LAN.
@@ -155,14 +156,23 @@ export function createJamModal(manager, { updateSetting }) {
     }
 
     function assignmentHtml(roster, session, settings) {
-        const tracks = session?.song && (session.song.type || 'gp') === 'gp' ? jamPlayerControl.listTracks() : [];
-        if (!tracks.length) return '';
+        const all = session?.song && (session.song.type || 'gp') === 'gp' ? jamPlayerControl.listTracks() : [];
+        if (!all.length) return '';
+        const targets = all.filter((t) => t.isTarget);
+        const tracks = targets.length ? targets : all;
+        const instrument = targets.length && getInstrumentMode() === 'bass' ? 'bass' : 'guitar';
+        const mode = settings.assignedAudioMode || 'all';
+        const audioModes = [['all', 'Everything'], ['assigned', 'Assigned only'], ['backing', 'Backing only']];
         const people = [{ key: 'host', name: 'You (host)' }, ...roster.map((p) => ({ key: p.id, name: p.name }))];
         const assigned = session.trackAssignments || {};
         return `
         <div class="jam-label">Track assignments</div>
         <div class="d-flex flex-column gap-2 mb-2">
-          ${switchHtml('jamAssignedAudioSwitch', 'Only play each person\'s assigned tracks', settings.assignedAudioOnly)}
+          <div class="jam-label mb-0">Audio for people with assignments</div>
+          <div class="hud-pill-group jam-tab-group" role="group" aria-label="Audio for people with assignments">
+            ${audioModes.map(([value, label]) => `<button type="button" class="btn btn-sm ${mode === value ? 'active' : ''}" data-jam-audio-mode="${value}">${label}</button>`).join('')}
+          </div>
+          <div class="jam-help">Assigned only plays just their tracks. Backing only silences their tracks and plays everything else.</div>
           ${switchHtml('jamMuteAssignedSwitch', 'Mute assigned tracks for people without assignments', settings.muteAssignedForUnassigned)}
           ${switchHtml('jamAssignedViewSwitch', 'Only show each person\'s assigned tracks', settings.assignedViewOnly)}
         </div>
@@ -175,7 +185,7 @@ export function createJamModal(manager, { updateSetting }) {
               </div>
             </div>`).join('')}
         </div>
-        <div class="jam-help mb-3">People with no assigned track hear and see everything, unless assigned tracks are muted for them. Assignments reset when the song changes.</div>`;
+        <div class="jam-help mb-3">People with no assigned track hear and see everything, unless assigned tracks are muted for them. Only ${instrument} tracks can be assigned; other tracks play for everyone unless a person is set to Assigned only. Assignments reset when the song changes.</div>`;
     }
 
     function hostPanel(settings) {
@@ -193,7 +203,7 @@ export function createJamModal(manager, { updateSetting }) {
           ${webUrls.length ? `<div class="jam-label mt-3">Or open in any browser</div>
           <div class="fw-semibold jam-address">${webUrls.map(esc).join('<br>')}</div>
           <div class="jam-qr mt-2" id="jamQr" data-url="${esc(webUrls[0])}" aria-label="QR code for ${esc(webUrls[0])}"></div>` : ''}
-          ${session?.song ? `<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Song: ${esc(session.song.title)}</div>` : '<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Open a Guitar Pro, PDF or text file to share it with everyone. YouTube playback is shared too.</div>'}
+          ${session?.song ? `<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Song: ${esc(session.song.title)}</div>` : `<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Open a Guitar Pro, PDF or text file to share it with everyone. YouTube playback is shared too.</div>`}
         </div>
         <div class="jam-field mb-3">
           <label class="jam-label" for="jamPolicySelect">Who can control</label>
@@ -399,6 +409,14 @@ export function createJamModal(manager, { updateSetting }) {
         if (t.id === 'jamLeaveBtn') { await manager.leave(); body.dataset.role = ''; render(); return; }
         const host = manager.getHost();
         const client = manager.getClient();
+        if (t.dataset.jamAudioMode) {
+            const value = t.dataset.jamAudioMode;
+            host?.updateTracks({ assignedAudioMode: value });
+            updateSetting('assignedAudioMode', value);
+            body.dataset.role = '';
+            render();
+            return;
+        }
         if (t.dataset.jamAssign) {
             const key = t.dataset.jamAssign;
             const idx = Number(t.dataset.jamTrack);
@@ -463,7 +481,6 @@ export function createJamModal(manager, { updateSetting }) {
         const id = e.target.id;
         if (id === 'jamPolicySelect') { manager.getHost()?.setPolicy(e.target.value); updateSetting('policy', e.target.value); }
         if (id === 'jamMuteGuestsSwitch') { manager.getHost()?.setMuteGuests(e.target.checked); updateSetting('muteGuests', e.target.checked); }
-        if (id === 'jamAssignedAudioSwitch') { manager.getHost()?.updateTracks({ assignedAudioOnly: e.target.checked }); updateSetting('assignedAudioOnly', e.target.checked); }
         if (id === 'jamMuteAssignedSwitch') { manager.getHost()?.updateTracks({ muteAssignedForUnassigned: e.target.checked }); updateSetting('muteAssignedForUnassigned', e.target.checked); }
         if (id === 'jamAssignedViewSwitch') { manager.getHost()?.updateTracks({ assignedViewOnly: e.target.checked }); updateSetting('assignedViewOnly', e.target.checked); }
         if (id === 'jamAllowWebSwitch') updateSetting('allowWeb', e.target.checked);
