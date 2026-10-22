@@ -1,5 +1,8 @@
 let adapters = [];
 let scoreTransforms = [];
+// Extensions a Jam host sent to this client. Installed ahead of the user's own, never saved.
+let sessionExtensions = [];
+const EXTENSIONS_STORAGE_KEY = 'customExtensions';
 
 function compileExtensions(source, ids = new Set()) {
     const registeredAdapters = [];
@@ -44,7 +47,8 @@ export function installFileAdapters(source) {
     return adapters.length;
 }
 
-export function installExtensionSources(extensions) {
+export function installExtensionSources(localExtensions) {
+    const extensions = [...sessionExtensions, ...localExtensions];
     const nextAdapters = [];
     const ids = new Set();
     const errors = [];
@@ -76,6 +80,29 @@ export function installExtensionSources(extensions) {
         errors,
         idsByExtension
     };
+}
+
+/** Enabled extensions saved on this device, as { id, source }. */
+export function getEnabledExtensionSources() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(EXTENSIONS_STORAGE_KEY) || '[]');
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .filter(e => e && e.enabled && typeof e.source === 'string')
+            .map(({ id, source }) => ({ id, source }));
+    } catch {
+        return [];
+    }
+}
+
+/** Temporarily load a Jam host's extensions next to this device's own; [] unloads them. */
+export function setSessionExtensions(sources) {
+    const next = (Array.isArray(sources) ? sources : [])
+        .filter(e => e && typeof e.source === 'string')
+        .map((e, i) => ({ id: `jam-host-${i}`, source: e.source }));
+    if (JSON.stringify(next) === JSON.stringify(sessionExtensions)) return;
+    sessionExtensions = next;
+    installExtensionSources(getEnabledExtensionSources());
 }
 
 export function clearFileAdapters() {
