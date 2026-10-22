@@ -1970,7 +1970,7 @@ function renderSongRow(song, options = {}) {
                 const label = info?.displayName || t.tuning;
                 return `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2 ms-1" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
               })() : ''}
-              ${isPdfRange ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
+              ${isPdfRange && isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
               ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>` : ''}
             </div>
             `;
