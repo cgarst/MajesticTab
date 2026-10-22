@@ -1640,6 +1640,8 @@ export function showScoreOptions(fileType = 'gp') {
 export function hideScoreOptions() {
     scoreOptionsState.isAvailable = false;
     toggleScoreOptionsPanel(false);
+    const adaptSection = document.getElementById('scoreOptionsAdaptSection');
+    if (adaptSection) adaptSection.style.display = 'none';
     const btn = document.getElementById('topBarSongTitleBtn');
     const chevron = btn?.querySelector('.song-title-chevron');
     const notationSection = document.getElementById('scoreOptionsNotationStyleSection');
