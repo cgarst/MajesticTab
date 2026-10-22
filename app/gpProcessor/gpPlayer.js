@@ -43,6 +43,45 @@ export const synthPlayerState = {
     loopEndMeasure: 1
 };
 
+// --- Output latency compensation -----------------------------------------
+// Bluetooth speakers play audio late, so visuals (cursor, scroll, fretboard) are delayed by the
+// same amount while playing. Applies to synth and embedded audio; YouTube is not synced.
+const STORAGE_KEY_AUDIO_LATENCY = 'majestic.audioLatencyMs';
+const MAX_AUDIO_LATENCY_MS = 1000;
+let audioLatencyMs = 0;
+try {
+    const saved = parseInt(localStorage.getItem(STORAGE_KEY_AUDIO_LATENCY), 10);
+    if (Number.isFinite(saved)) audioLatencyMs = Math.max(0, Math.min(MAX_AUDIO_LATENCY_MS, saved));
+} catch (_) {}
+let pendingVisuals = [];
+
+/** Run a visual update now, or after the audio latency while playing. Order is preserved. */
+function deferVisual(fn) {
+    if (!audioLatencyMs || !synthPlayerState.isPlaying) { fn(); return; }
+    const entry = { fn, timer: 0 };
+    entry.timer = setTimeout(() => {
+        pendingVisuals = pendingVisuals.filter(e => e !== entry);
+        fn();
+    }, audioLatencyMs);
+    pendingVisuals.push(entry);
+}
+
+/** Run queued visual updates immediately (pause, stop, latency change) so nothing lands late. */
+function flushDeferredVisuals() {
+    const queue = pendingVisuals;
+    pendingVisuals = [];
+    for (const e of queue) { clearTimeout(e.timer); e.fn(); }
+}
+
+export function getAudioLatencyMs() { return audioLatencyMs; }
+
+export function setAudioLatencyMs(ms) {
+    const v = Math.max(0, Math.min(MAX_AUDIO_LATENCY_MS, Math.round(Number(ms) || 0)));
+    flushDeferredVisuals();
+    audioLatencyMs = v;
+    try { localStorage.setItem(STORAGE_KEY_AUDIO_LATENCY, String(v)); } catch (_) {}
+}
+
 // --- Jam Mode hooks -------------------------------------------------------
 // Jam code subscribes to transport events and may intercept local transport
 // actions (host lead time, controller commands, follower lock) without being
@@ -1039,6 +1078,7 @@ export function createCustomCursorHandler(api) {
  */
 function applyPlayerState(api, state) {
     synthPlayerState.isPlaying = (state === 1);
+    if (state !== 1) flushDeferredVisuals();
     if (state === 1) {
         synthPlayerState.hasPlayed = true;
         document.body.classList.add('synth-playback-started');
@@ -1088,6 +1128,11 @@ export function attachAlphaTabApi(api) {
 
     if (!api.customCursorHandler) {
         api.customCursorHandler = createCustomCursorHandler(api);
+        const handler = api.customCursorHandler;
+        for (const name of ['placeBeatCursor', 'transitionBeatCursor']) {
+            const orig = handler[name].bind(handler);
+            handler[name] = (...args) => deferVisual(() => orig(...args));
+        }
     }
 
     if (api?.player) {
@@ -1191,7 +1236,8 @@ export function attachAlphaTabApi(api) {
         api.activeBeatsChanged.on((args) => {
             if (warmingUp) return;
             if (args?.activeBeats) {
-                fretboardController.onActiveBeatsChanged(args.activeBeats);
+                const active = args.activeBeats;
+                deferVisual(() => fretboardController.onActiveBeatsChanged(active));
             }
         });
     }
@@ -1200,7 +1246,7 @@ export function attachAlphaTabApi(api) {
         if (warmingUp) return;
         playedBeatState.beat = beat;
         if (!api.activeBeatsChanged) {
-            fretboardController.onBeatChanged(beat);
+            deferVisual(() => fretboardController.onBeatChanged(beat));
         }
     });
 
@@ -1241,7 +1287,8 @@ export function attachAlphaTabApi(api) {
         }
 
         updateSynthUI();
-        updateContinuousPlaybackScroll(args.currentTick);
+        const posTick = args.currentTick;
+        deferVisual(() => updateContinuousPlaybackScroll(posTick));
         emitTransportEvent('position', {
             timeMs: toSongMs(args.currentTime),
             tick: args.currentTick,

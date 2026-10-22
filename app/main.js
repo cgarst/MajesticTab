@@ -14,6 +14,7 @@ import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtil
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
 import { initSoundFontPanel } from './gpProcessor/soundFontPanel.js';
 import { initMixerPanel } from './gpProcessor/mixerPanel.js';
+import { initAudioLatencyModal } from './gpProcessor/audioLatencyModal.js';
 import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
 import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdfBookmarksUI } from './pdfProcessor/pdfBookmarks.js';
 import { initTheming } from './themeEngine.js';
@@ -1149,6 +1150,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initSynthPlayer();
     initSoundFontPanel();
     initMixerPanel();
+    initAudioLatencyModal();
     initScoreOptionsPanel();
     initPdfBookmarksUI();
     initFretboard();

@@ -442,6 +442,9 @@
       <button type="button" class="btn btn-sm theme-control-btn flex-grow-1" id="soundFontModalBtn"><i class="bi-music-note-beamed me-1" aria-hidden="true"></i>SoundFonts</button>
       <button type="button" class="btn btn-sm theme-control-btn flex-grow-1" id="mixerModalBtn"><i class="bi-sliders me-1" aria-hidden="true"></i>Mixer</button>
     </div>
+    <div class="mb-3">
+      <button type="button" class="btn btn-sm theme-control-btn w-100" id="latencyModalBtn"><i class="bi-bluetooth me-1" aria-hidden="true"></i>Audio Latency<span class="theme-value-badge ms-2" id="latencyModalBadge">0 ms</span></button>
+    </div>
 
     <!-- Embedded Audio Sync Option -->
     <div class="mb-3" id="synthAudioSyncSection">
@@ -1049,6 +1052,55 @@
       </div>
       <div id="mixerTrackList" class="mixer-list"></div>
       <div class="text-center text-muted py-3 small" id="mixerEmptyMsg" style="display: none;">Load a Guitar Pro file to mix its tracks.</div>
+    </div>
+  </section>
+</div>
+
+<div id="latencyModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="latencyModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card synth-modal-card">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
+          <i class="bi-bluetooth text-info fs-5"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="latencyModalTitle">Audio latency</h2>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="latencyModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body">
+      <div class="small text-white-50 mb-3">Delays the cursor, scrolling and fretboard to match a late Bluetooth speaker. Applies to SoundFonts and embedded audio, not YouTube.</div>
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted" for="latencySlider">Compensation:</label>
+        <div class="d-flex align-items-center gap-1">
+          <button type="button" class="btn btn-sm theme-control-btn" data-latency-step="-10" title="Decrease by 10 ms">-10</button>
+          <span class="theme-value-badge" id="latencyBadge">0 ms</span>
+          <button type="button" class="btn btn-sm theme-control-btn" data-latency-step="10" title="Increase by 10 ms">+10</button>
+        </div>
+      </div>
+      <input type="range" id="latencySlider" min="0" max="1000" value="0" step="5" aria-label="Audio latency compensation">
+
+      <div class="border-top border-secondary-subtle mt-3 pt-3">
+        <div class="fw-semibold small mb-1">Calibrate</div>
+        <div class="small text-white-50 mb-2">Start the clicks, then tap the big button (or press Space) each time you <em>hear</em> a click. The flash is the reference. After a few taps the measured delay appears.</div>
+        <div class="d-flex align-items-center gap-3 mb-2">
+          <div id="latencyFlash" class="latency-flash" aria-hidden="true"></div>
+          <button type="button" class="btn theme-control-btn flex-grow-1 py-3" id="latencyTapBtn" disabled>Tap on click</button>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mb-2 small">
+          <span>Measured: <strong id="latencyMeasured">–</strong></span>
+          <span class="text-white-50" id="latencyTapCount">0 taps</span>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-sm theme-control-btn flex-grow-1" id="latencyStartBtn">Start Clicks</button>
+          <button type="button" class="btn btn-sm btn-theme-primary flex-grow-1" id="latencyApplyBtn" disabled>Apply</button>
+        </div>
+      </div>
     </div>
   </section>
 </div>

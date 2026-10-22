@@ -6517,3 +6517,17 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   border-color: transparent;
   color: #fff;
 }
+
+.latency-flash {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  transition: background 60ms linear, box-shadow 60ms linear;
+}
+.latency-flash.on {
+  background: var(--accent-gradient);
+  box-shadow: var(--accent-glow);
+}
