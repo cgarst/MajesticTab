@@ -89,7 +89,7 @@ export function registerAudioContext(ctx) {
     trackedAudioContexts.add(ctx);
 
     ctx.addEventListener('statechange', () => {
-        if (ctx.state === 'suspended' && isPlaybackActive) {
+        if ((ctx.state === 'suspended' || ctx.state === 'interrupted') && isPlaybackActive) {
             ctx.resume().catch(() => {});
         }
     });
@@ -99,11 +99,24 @@ export function registerAudioContext(ctx) {
  * Resume all tracked AudioContexts if they are in suspended state.
  */
 export function resumeTrackedAudioContexts() {
+    const pending = [];
     for (const ctx of trackedAudioContexts) {
-        if (ctx && ctx.state === 'suspended') {
-            ctx.resume().catch(() => {});
+        // iOS reports 'interrupted' after the app was backgrounded or a call/Siri took the session
+        if (ctx && (ctx.state === 'suspended' || ctx.state === 'interrupted')) {
+            pending.push(ctx.resume().catch(() => {}));
         }
     }
+    return Promise.all(pending);
+}
+
+/**
+ * True when every tracked AudioContext is running (or none exist).
+ */
+export function areTrackedAudioContextsRunning() {
+    for (const ctx of trackedAudioContexts) {
+        if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') return false;
+    }
+    return true;
 }
 
 /**
