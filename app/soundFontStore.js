@@ -6,6 +6,7 @@ import { getDB, STORE_SOUNDFONTS, arrayBufferToBase64Async, arrayBufferToBase64,
 export const BUILTIN_SOUNDFONT_ID = 'builtin';
 export const BUILTIN_SOUNDFONT_URL = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/soundfont/sonivox.sf2';
 export const STORAGE_KEY_SOUNDFONT_SELECTION = 'majestictab_soundfont_selection';
+export const STORAGE_KEY_SOUNDFONT_ORDER = 'majestictab_soundfont_order';
 export const SOUNDFONT_BACKUP_STORE = 'soundfonts';
 
 function request(mode, run) {
@@ -58,6 +59,7 @@ export async function addSoundFont(file) {
 export async function deleteSoundFont(id) {
     await request('readwrite', s => s.delete(id));
     setSelectedSoundFontIds(getSelectedSoundFontIds().filter(x => x !== id));
+    setSoundFontOrder(getSoundFontOrder().filter(x => x !== id));
 }
 
 export async function clearAllSoundFonts() {
@@ -81,18 +83,49 @@ export function setSelectedSoundFontIds(ids) {
     return next;
 }
 
+export function getSoundFontOrder() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY_SOUNDFONT_ORDER));
+        if (Array.isArray(parsed)) return parsed.filter(x => typeof x === 'string');
+    } catch (_) {}
+    return [];
+}
+
+export function setSoundFontOrder(ids) {
+    try {
+        localStorage.setItem(STORAGE_KEY_SOUNDFONT_ORDER, JSON.stringify(ids));
+    } catch (_) {}
+}
+
+/** Built-in plus uploads in load order: saved order first, anything unsaved after (built-in, then oldest upload first). */
+export async function listOrderedSoundFonts() {
+    const entries = [
+        { id: BUILTIN_SOUNDFONT_ID, name: 'SONiVOX (built-in)', builtin: true },
+        ...(await listSoundFonts())
+    ];
+    const rank = new Map(getSoundFontOrder().map((id, i) => [id, i]));
+    const unsaved = entries.length;
+    return entries
+        .map((e, i) => ({ e, key: rank.has(e.id) ? rank.get(e.id) : unsaved + i }))
+        .sort((a, b) => a.key - b.key)
+        .map(({ e }) => e);
+}
+
 /**
- * Load every enabled SoundFont into an AlphaTab API, built-in first, then uploads oldest to newest.
+ * Load every enabled SoundFont into an AlphaTab API in the user's order (later ones override earlier ones).
  * @returns {Promise<number>} number of SoundFonts queued
  */
 export async function applySoundFontsToApi(api) {
     if (!api) return 0;
     const selected = new Set(getSelectedSoundFontIds());
     const sources = [];
-    if (selected.has(BUILTIN_SOUNDFONT_ID)) sources.push(BUILTIN_SOUNDFONT_URL);
-    for (const meta of await listSoundFonts()) {
-        if (!selected.has(meta.id)) continue;
-        const data = await getSoundFontData(meta.id);
+    for (const entry of await listOrderedSoundFonts()) {
+        if (!selected.has(entry.id)) continue;
+        if (entry.builtin) {
+            sources.push(BUILTIN_SOUNDFONT_URL);
+            continue;
+        }
+        const data = await getSoundFontData(entry.id);
         if (data) sources.push(new Uint8Array(data));
     }
     if (sources.length === 0) sources.push(BUILTIN_SOUNDFONT_URL);
