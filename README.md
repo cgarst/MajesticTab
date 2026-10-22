@@ -58,8 +58,8 @@ Shortcuts apply while a tab is open and no text field has focus.
 | `G` | Toggle the SoundFont between full band and no guitars (no bass in bass mode) |
 | `F` | Show or hide the fretboard (Guitar Pro files) |
 | `Esc` | Close the open panel, modal, or dialog |
-| `Cmd+[`, `Alt+←`, `Cmd+←` | Back (macOS mouse button 4 also works) |
-| `Cmd+]`, `Alt+→`, `Cmd+→` | Forward (macOS mouse button 5 also works) |
+| `Cmd+[`, `Alt+←`, `Cmd+←` | Back (mouse button 4 also works) |
+| `Cmd+]`, `Alt+→`, `Cmd+→` | Forward (mouse button 5 also works) |
 
 ---
 
