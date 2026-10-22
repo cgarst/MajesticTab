@@ -59,6 +59,7 @@ export function updatePageIndicator(indicator, current, total, pagesPerView = 1)
  * @param {number} totalItems Total number of items
  */
 export function updateScrollIndicator(indicator, container, totalItems) {
+    if (!indicator) return;
     const scrollPercent = (container.scrollTop / (container.scrollHeight - container.clientHeight) * 100) || 0;
     indicator.textContent = `${Math.round(scrollPercent)}%`;
 }

@@ -1,7 +1,8 @@
 import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks, getActiveInstrumentTracks, getGpNotationMode, setGpNotationMode, getGpStaveProfile, saveHiddenTracks } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
-import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
+import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
+import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator, updateScrollIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
 import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions, reapplyJamTrackView } from './gpPlayer.js';
 import {
@@ -293,6 +294,10 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         output.style.overflowX = 'hidden'; // Prevent horizontal scrolling
         output.appendChild(container);
         output.scrollTop = 0;
+
+        // Keep the top bar percentage in sync with scrolling (scroll or playback follow)
+        enableContinuousScrollTracking(output, [container], () => {});
+        updateScrollIndicator(document.getElementById('pageIndicator'), output, 1);
 
         if (wasNotFullWidth && api) {
             api.render();
