@@ -1,4 +1,5 @@
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
@@ -240,13 +241,18 @@ if (installedVersions.some((installed) => !installed)) {
 async function ensureCrateTypeForTarget(currentTarget) {
   const cargoTomlPath = path.join(tauriDir, 'src-tauri', 'Cargo.toml');
   let content = await readFile(cargoTomlPath, 'utf8');
+  const originalContent = content;
   const targetTypes = currentTarget === 'android'
     ? 'crate-type = ["staticlib", "cdylib", "rlib"]'
     : 'crate-type = ["staticlib", "rlib"]';
   const pattern = /crate-type\s*=\s*\[.*?\]/;
   if (pattern.test(content)) {
     content = content.replace(pattern, targetTypes);
-    await writeFile(cargoTomlPath, content);
+    if (content !== originalContent) {
+      await writeFile(cargoTomlPath, content);
+      // Restore the committed Cargo.toml so builds don't leave the tree dirty.
+      process.on('exit', () => writeFileSync(cargoTomlPath, originalContent));
+    }
   }
 }
 
