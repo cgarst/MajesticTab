@@ -2,8 +2,8 @@
 // SoundFont library UI inside the synth panel: add .sf2/.sf3 files, enable any number at once, delete.
 import { reloadSynthSoundFonts } from './gpPlayer.js';
 import {
-    BUILTIN_SOUNDFONT_ID, listSoundFonts, addSoundFont, deleteSoundFont,
-    getSelectedSoundFontIds, setSelectedSoundFontIds
+    listOrderedSoundFonts, addSoundFont, deleteSoundFont,
+    getSelectedSoundFontIds, setSelectedSoundFontIds, setSoundFontOrder
 } from '../soundFontStore.js';
 import { showToast } from '../utils/toast.js';
 
@@ -12,7 +12,17 @@ function formatSize(bytes) {
     return `${Math.max(1, Math.round(bytes / 1024))} KB`;
 }
 
-function buildRow({ id, name, detail, checked, deletable }) {
+function iconButton(cls, icon, label) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `btn btn-sm btn-theme-icon flex-shrink-0 ${cls}`;
+    btn.title = label;
+    btn.setAttribute('aria-label', label);
+    btn.innerHTML = `<i class="${icon}" aria-hidden="true"></i>`;
+    return btn;
+}
+
+function buildRow({ id, name, detail, checked, editing, deletable, canMoveUp, canMoveDown }) {
     const row = document.createElement('div');
     row.className = 'soundfont-row d-flex align-items-center gap-2';
     row.dataset.id = id;
@@ -42,14 +52,13 @@ function buildRow({ id, name, detail, checked, deletable }) {
 
     row.append(sw, label);
 
-    if (deletable) {
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'btn btn-sm btn-theme-icon btn-theme-danger flex-shrink-0 soundfont-delete-btn';
-        del.title = `Delete ${name}`;
-        del.setAttribute('aria-label', `Delete ${name}`);
-        del.innerHTML = '<i class="bi-trash" aria-hidden="true"></i>';
-        row.appendChild(del);
+    if (editing) {
+        const up = iconButton('soundfont-move-up-btn', 'bi-chevron-up', `Move ${name} up`);
+        up.disabled = !canMoveUp;
+        const down = iconButton('soundfont-move-down-btn', 'bi-chevron-down', `Move ${name} down`);
+        down.disabled = !canMoveDown;
+        row.append(up, down);
+        if (deletable) row.appendChild(iconButton('btn-theme-danger soundfont-delete-btn', 'bi-trash', `Delete ${name}`));
     }
     return row;
 }
@@ -57,8 +66,11 @@ function buildRow({ id, name, detail, checked, deletable }) {
 export function initSoundFontPanel() {
     const list = document.getElementById('soundFontList');
     const addBtn = document.getElementById('soundFontAddBtn');
+    const editBtn = document.getElementById('soundFontEditBtn');
     const fileInput = document.getElementById('soundFontFileInput');
-    if (!list || !addBtn || !fileInput) return;
+    if (!list || !addBtn || !editBtn || !fileInput) return;
+
+    let editing = false;
 
     let reloadTimer = null;
     const scheduleReload = () => {
@@ -68,17 +80,30 @@ export function initSoundFontPanel() {
                 console.error('[SoundFont] Reload failed:', err);
                 showToast('Could not load the selected SoundFonts.', 'error');
             });
-        }, 250);
+        }, 600);
     };
 
     async function render() {
         const selected = new Set(getSelectedSoundFontIds());
-        const fonts = await listSoundFonts();
-        list.replaceChildren(
-            buildRow({ id: BUILTIN_SOUNDFONT_ID, name: 'SONiVOX (built-in)', detail: 'General MIDI', checked: selected.has(BUILTIN_SOUNDFONT_ID), deletable: false }),
-            ...fonts.map(f => buildRow({ id: f.id, name: f.name, detail: formatSize(f.size), checked: selected.has(f.id), deletable: true }))
-        );
+        const fonts = await listOrderedSoundFonts();
+        list.replaceChildren(...fonts.map((f, i) => buildRow({
+            id: f.id,
+            name: f.name,
+            detail: f.builtin ? 'General MIDI' : formatSize(f.size),
+            checked: selected.has(f.id),
+            editing,
+            deletable: !f.builtin,
+            canMoveUp: i > 0,
+            canMoveDown: i < fonts.length - 1
+        })));
     }
+
+    editBtn.addEventListener('click', () => {
+        editing = !editing;
+        editBtn.textContent = editing ? 'Done' : 'Edit';
+        editBtn.classList.toggle('active', editing);
+        render();
+    });
 
     list.addEventListener('change', (e) => {
         const input = e.target.closest('input[type="checkbox"]');
@@ -97,8 +122,21 @@ export function initSoundFontPanel() {
     });
 
     list.addEventListener('click', async (e) => {
+        const row = e.target.closest('.soundfont-row');
+        const moveBtn = e.target.closest('.soundfont-move-up-btn, .soundfont-move-down-btn');
+        if (moveBtn && row) {
+            const ids = (await listOrderedSoundFonts()).map(f => f.id);
+            const from = ids.indexOf(row.dataset.id);
+            const to = from + (moveBtn.classList.contains('soundfont-move-up-btn') ? -1 : 1);
+            if (from < 0 || to < 0 || to >= ids.length) return;
+            [ids[from], ids[to]] = [ids[to], ids[from]];
+            setSoundFontOrder(ids);
+            await render();
+            list.querySelector(`[data-id="${row.dataset.id}"] .${moveBtn.classList.contains('soundfont-move-up-btn') ? 'soundfont-move-up-btn' : 'soundfont-move-down-btn'}:not(:disabled)`)?.focus();
+            scheduleReload();
+            return;
+        }
         const btn = e.target.closest('.soundfont-delete-btn');
-        const row = btn?.closest('.soundfont-row');
         if (!btn || !row) return;
         // Two-step confirm: the viewer suppresses native confirm dialogs
         if (btn.dataset.armed !== '1') {
