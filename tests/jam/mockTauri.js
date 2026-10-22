@@ -36,7 +36,7 @@
     jam_now_ms: () => now(),
     jam_debug_autostart: () => null,
     jam_local_addresses: () => ['127.0.0.1'],
-    jam_host_start: () => { hosting = true; return { port: 47900, addresses: ['192.168.1.254'], web: true }; },
+    jam_host_start: () => { hosting = true; return { port: 47900, addresses: ['192.168.1.254'] }; },
     jam_host_stop: () => { hosting = false; },
     jam_host_send: ({ msg }) => post({ to: 'client', msg }),
     jam_host_kick: () => {},

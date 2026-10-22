@@ -79,8 +79,6 @@ fn now_ms(epoch: Instant) -> f64 {
 pub struct HostInfo {
     port: u16,
     addresses: Vec<String>,
-    /// Browsers can open this host's address to load the app and join as guests.
-    web: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -181,7 +179,6 @@ pub async fn jam_host_start(
     name: String,
     pin: Option<String>,
     port: Option<u16>,
-    allow_web: Option<bool>,
 ) -> Result<HostInfo, String> {
     {
         let guard = state.host.lock().map_err(|e| e.to_string())?;
@@ -213,7 +210,6 @@ pub async fn jam_host_start(
     let advertisement = discovery::advertise(SERVICE_TYPE, &instance, actual_port, has_pin, &addresses);
 
     let epoch = state.epoch;
-    let allow_web = allow_web.unwrap_or(true);
     let pin = pin.unwrap_or_default();
     let host_name = name.clone();
     let peers_for_loop = peers.clone();
@@ -233,7 +229,7 @@ pub async fn jam_host_start(
                     let host_name = host_name.clone();
                     let shutdown = shutdown_rx.clone();
                     tauri::async_runtime::spawn(async move {
-                        handle_peer(app, stream, peers, pin, host_name, epoch, allow_web, shutdown).await;
+                        handle_peer(app, stream, peers, pin, host_name, epoch, shutdown).await;
                     });
                 }
             }
@@ -250,7 +246,6 @@ pub async fn jam_host_start(
     Ok(HostInfo {
         port: actual_port,
         addresses,
-        web: allow_web,
     })
 }
 
@@ -283,16 +278,16 @@ fn is_websocket_upgrade(head: &str) -> bool {
     })
 }
 
-/// Native peers send no Origin. A browser sends one, and it must be this host (or the host must
-/// have web guests enabled), so other websites cannot drive a Jam host from a browser on the LAN.
-fn check_origin(req: &Request, resp: Response, allow_web: bool) -> Result<Response, ErrorResponse> {
+/// Native peers send no Origin. A browser sends one, and it must be this host, so other websites
+/// cannot drive a Jam host from a browser on the LAN.
+fn check_origin(req: &Request, resp: Response) -> Result<Response, ErrorResponse> {
     let origin = req.headers().get("origin").and_then(|v| v.to_str().ok());
     let Some(origin) = origin else {
         return Ok(resp);
     };
     let host = req.headers().get("host").and_then(|v| v.to_str().ok()).unwrap_or("");
     let origin_host = origin.split_once("://").map(|(_, rest)| rest).unwrap_or(origin);
-    if allow_web && !host.is_empty() && origin_host.eq_ignore_ascii_case(host) {
+    if !host.is_empty() && origin_host.eq_ignore_ascii_case(host) {
         return Ok(resp);
     }
     Err(http::Response::builder()
@@ -355,7 +350,6 @@ async fn handle_peer(
     pin: String,
     host_name: String,
     epoch: Instant,
-    allow_web: bool,
     mut shutdown: watch::Receiver<bool>,
 ) {
     // The same port serves WebSocket peers and, for browser guests, the app itself.
@@ -363,13 +357,11 @@ async fn handle_peer(
         return;
     };
     if !is_websocket_upgrade(&head) {
-        if allow_web {
-            serve_web_asset(&app, stream, head).await;
-        }
+        serve_web_asset(&app, stream, head).await;
         return;
     }
     let Ok(ws) = tokio_tungstenite::accept_hdr_async(stream, |req: &Request, resp: Response| {
-        check_origin(req, resp, allow_web)
+        check_origin(req, resp)
     })
     .await
     else {
@@ -717,8 +709,8 @@ mod web_tests {
         b.body(()).unwrap()
     }
 
-    fn allowed(origin: Option<&str>, allow_web: bool) -> bool {
-        check_origin(&upgrade_request(origin), http::Response::new(()), allow_web).is_ok()
+    fn allowed(origin: Option<&str>) -> bool {
+        check_origin(&upgrade_request(origin), http::Response::new(())).is_ok()
     }
 
     #[test]
@@ -730,15 +722,13 @@ mod web_tests {
 
     #[test]
     fn native_peers_without_origin_are_allowed() {
-        assert!(allowed(None, true));
-        assert!(allowed(None, false));
+        assert!(allowed(None));
     }
 
     #[test]
-    fn browser_origin_must_match_host_and_web_must_be_enabled() {
-        assert!(allowed(Some("http://192.168.1.5:47813"), true));
-        assert!(!allowed(Some("http://192.168.1.5:47813"), false));
-        assert!(!allowed(Some("https://evil.example"), true));
-        assert!(!allowed(Some("http://192.168.1.6:47813"), true));
+    fn browser_origin_must_match_host() {
+        assert!(allowed(Some("http://192.168.1.5:47813")));
+        assert!(!allowed(Some("https://evil.example")));
+        assert!(!allowed(Some("http://192.168.1.6:47813")));
     }
 }
