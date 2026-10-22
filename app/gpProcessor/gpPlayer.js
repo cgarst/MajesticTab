@@ -52,6 +52,8 @@ let transportInterceptor = null;
 // and Jam seeks. WebKit fires position events less often, so extrapolate from here.
 let lastPositionSongMs = 0;
 let lastPositionEventAt = 0;
+let jamMuted = false; // Jam host muted guests: synth stays silent regardless of the volume slider
+const effectiveVolume = () => (jamMuted ? 0 : synthPlayerState.masterVolume);
 let warmingUp = false; // muted Jam Mode warm-up play in progress; player events are suppressed
 
 // AlphaTab's timePosition is wall-clock time at the current playback speed (it doubles when
@@ -887,7 +889,7 @@ export function attachAlphaTabApi(api) {
     }
 
     try {
-        api.masterVolume = synthPlayerState.masterVolume;
+        api.masterVolume = effectiveVolume();
     } catch (_) {}
 
     synthPlayerState.loopEnabled = false;
@@ -1734,7 +1736,7 @@ export function initSynthPlayer() {
         synthPlayerState.masterVolume = vol;
         if (currentApi) {
             try {
-                currentApi.masterVolume = vol;
+                currentApi.masterVolume = jamMuted ? 0 : vol;
             } catch (_) {}
         }
         if (volumeBadge) {
@@ -1911,7 +1913,7 @@ export const jamPlayerControl = {
             // A real start arrived mid warm-up: the synth is already running, so keep it going
             // (the caller has just seeked) and surface the playing state that was suppressed.
             warmingUp = false;
-            currentApi.masterVolume = synthPlayerState.masterVolume;
+            currentApi.masterVolume = effectiveVolume();
             applyPlayerState(currentApi, 1);
             return;
         }
@@ -1940,11 +1942,18 @@ export const jamPlayerControl = {
             console.warn('[Jam] warm-up failed:', e);
         } finally {
             if (warmingUp && currentApi === api) {
-                api.masterVolume = synthPlayerState.masterVolume;
+                api.masterVolume = effectiveVolume();
                 warmingUp = false;
             }
         }
         return true;
+    },
+    /** Jam host's "mute guests" option: silences the synth without touching the saved volume. */
+    setMuted(on) {
+        jamMuted = Boolean(on);
+        if (currentApi) {
+            try { currentApi.masterVolume = warmingUp ? 0 : effectiveVolume(); } catch (_) {}
+        }
     },
     pause() {
         if (!currentApi || !synthPlayerState.isPlaying) return;

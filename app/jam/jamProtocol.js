@@ -48,6 +48,7 @@ export const MSG = Object.freeze({
     CONTROL_REVOKE: 'control.revoke',
     CONTROL_RELEASE: 'control.release',
     CONTROL_POLICY: 'control.policy',
+    GUEST_MUTE: 'guest.mute',
     // client commands (controller -> host)
     CMD_SONG_OPEN: 'cmd.song.open',
     CMD_PLAY: 'cmd.transport.play',

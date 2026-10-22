@@ -24,7 +24,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         songBytes: null,
         playing: false,
         controllerId: null, // null = host
-        policy: 'ask'
+        policy: 'ask',
+        muteGuests: false
     };
     let unsubscribe = null;
     let heartbeatTimer = null;
@@ -70,7 +71,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         transport: transportSnapshot(),
         youtube: youtube.state(),
         controllerId: session.controllerId,
-        policy: session.policy
+        policy: session.policy,
+        muteGuests: session.muteGuests
     });
 
     // ---- Play / seek -------------------------------------------------------
@@ -326,6 +328,12 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         emitRoster();
     }
 
+    function setMuteGuests(on) {
+        session.muteGuests = Boolean(on);
+        broadcast(MSG.GUEST_MUTE, { muteGuests: session.muteGuests });
+        emitRoster();
+    }
+
     function handleControlRequest(id, msg) {
         const peer = roster.get(id);
         if (!peer) return;
@@ -459,6 +467,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         start(initialFile) {
             active = true;
             session.policy = getSettings().policy || 'ask';
+            session.muteGuests = Boolean(getSettings().muteGuests);
             unsubscribe = onTransportEvent(onPlayerEvent);
             setTransportInterceptor(interceptor);
             window.addEventListener('majestictab:file-loaded', onFileLoaded);
@@ -494,6 +503,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         grantControl,
         revokeControl,
         setPolicy,
+        setMuteGuests,
         kick: (id) => jam.hostKick(id),
         getRoster: () => Array.from(roster.values()),
         getSession: () => session,
