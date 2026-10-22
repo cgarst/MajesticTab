@@ -8,8 +8,12 @@ use tauri::RunEvent;
 mod jam;
 mod tab_downloader_native;
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod youtube_page;
 #[cfg(target_os = "macos")]
 mod youtube_macos;
+#[cfg(target_os = "ios")]
+mod youtube_ios;
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct OpenedFilePayload {
@@ -507,6 +511,8 @@ pub fn run() {
                 youtube_macos::install(_app)?;
                 setup_macos_mouse_navigation(_app.handle().clone());
             }
+            #[cfg(target_os = "ios")]
+            youtube_ios::install(_app);
             tab_downloader_native::install(_app)?;
 
             #[cfg(feature = "debug-tools")]
@@ -632,7 +638,11 @@ pub fn run() {
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
         tab_downloader_native::tab_downloader_save_sources,
-        youtube_search
+        youtube_search,
+        #[cfg(target_os = "ios")]
+        youtube_ios::youtube_player_update,
+        #[cfg(target_os = "ios")]
+        youtube_ios::youtube_player_command
     ]);
 
     let app = builder

@@ -70,12 +70,14 @@ function currentYouTubeTime() {
     return (playerState.currentTime || 0) + elapsed / 1000 * (playerState.playbackRate || 1);
 }
 
-function isNativeMacPlayer() {
-    return Boolean(window.__TAURI__) && /Macintosh/.test(navigator.userAgent);
+// macOS and iOS native shells play YouTube in a native webview overlaid on the iframe slot,
+// because the shell origin (tauri://localhost) is rejected by embeds (error 153).
+function isNativeOverlayPlayer() {
+    return Boolean(window.__TAURI__) && /Macintosh|iPhone|iPad|iPod/.test(navigator.userAgent);
 }
 
 function sendYouTubeMessage(iframe, message) {
-    if (isNativeMacPlayer()) {
+    if (isNativeOverlayPlayer()) {
         window.__TAURI__.core.invoke('youtube_player_command', { message }).catch(() => {});
         return;
     }
@@ -83,7 +85,7 @@ function sendYouTubeMessage(iframe, message) {
 }
 
 function syncNativeMacPlayerBounds(autoplay = false) {
-    if (!isNativeMacPlayer()) return;
+    if (!isNativeOverlayPlayer()) return;
 
     const iframe = document.getElementById('ytIframe');
     const rect = iframe?.getBoundingClientRect();
@@ -560,7 +562,7 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
                 updatePlaybackControls();
             }
             const targetSrc = embedUrl.toString();
-            if (isNativeMacPlayer()) {
+            if (isNativeOverlayPlayer()) {
                 iframe.src = '';
                 iframe.style.visibility = 'hidden';
             } else if (iframe.src !== targetSrc) {
@@ -709,7 +711,7 @@ export function toggleYouTubePanel(forceState = null) {
         toggleBtn?.classList.remove('active');
         mobileBtn?.classList.remove('active');
     }
-    if (newState && isNativeMacPlayer()) {
+    if (newState && isNativeOverlayPlayer()) {
         animateNativeMacPlayerBounds();
     } else {
         syncNativeMacPlayerBounds();
@@ -1040,7 +1042,7 @@ export function initYouTubePlayer() {
         }
     });
 
-    if (isNativeMacPlayer()) {
+    if (isNativeOverlayPlayer()) {
         window.__TAURI__.event.listen('youtube-player-state', ({ payload }) => {
             window.dispatchEvent(new MessageEvent('message', { data: payload }));
         });
@@ -1061,7 +1063,7 @@ export function initYouTubePlayer() {
     const iframe = document.getElementById('ytIframe');
     if (iframe) {
         iframe.addEventListener('load', () => {
-            if (isNativeMacPlayer()) return;
+            if (isNativeOverlayPlayer()) return;
             try {
                 sendYouTubeMessage(iframe, { event: 'listening', id: 1 });
                 sendYouTubeMessage(iframe, {
@@ -1092,7 +1094,7 @@ export function initYouTubePlayer() {
         }
     }, 1000);
 
-    if (isNativeMacPlayer()) {
+    if (isNativeOverlayPlayer()) {
         const syncBounds = () => syncNativeMacPlayerBounds();
         if (typeof ResizeObserver !== 'undefined' && iframe) {
             new ResizeObserver(syncBounds).observe(iframe);
