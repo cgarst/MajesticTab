@@ -1,6 +1,6 @@
 // referenceLibrary.js
 // Interactive music theory reference library: Circle of Fifths, Chord Library,
-// Scales & Modes, Tone Matrix, and Triad Inversions & Formulas.
+// Scales & Modes, and Triad Inversions & Formulas.
 // Optimized for desktop and mobile viewports with MajesticTab finish theme integration.
 
 import { fretboardController } from './fretboard/fretboardController.js';
@@ -44,7 +44,7 @@ export function setIsFlipped(val) {
     }
 }
 
-let activeTab = 'chords'; // 'circle', 'chords', 'scales', 'tone'
+let activeTab = 'chords'; // 'circle', 'chords', 'scales'
 let refTabChangeListener = null;
 
 export function getActiveReferenceTab() {
@@ -52,7 +52,7 @@ export function getActiveReferenceTab() {
 }
 
 export function setActiveReferenceTab(tab) {
-    if (['circle', 'chords', 'scales', 'tone'].includes(tab)) {
+    if (['circle', 'chords', 'scales'].includes(tab)) {
         activeTab = tab;
     }
 }
@@ -63,7 +63,6 @@ export function setReferenceTabChangeListener(fn) {
 let selectedCircleIndex = 0; // default C Major / Am
 let selectedScaleKey = 'majorPentatonic';
 let selectedRootNote = 0; // C (0 to 11)
-let selectedToneKey = 'all'; // 'all', 'C', 'D', 'E', 'F', 'G', 'A', 'B'
 let selectedChordFilter = 'all'; // 'all', 'Major', 'Dominant', 'Minor', 'Suspended'
 let preferBarChords = (() => { try { return localStorage.getItem('majestictab_prefer_bar_chords') === 'true'; } catch (_) { return false; } })();
 let selectedRootFilter = 'all'; // 'all', 'A', 'B', 'C', 'D', 'E', 'F', 'G'
@@ -86,53 +85,6 @@ export const circleData = [
     { major: 'B♭', minor: 'Gm', accidentals: '2 Flats (B♭, E♭)', majorChords: ['B♭', 'Cm', 'Dm', 'E♭', 'F', 'Gm', 'A°'], minorChords: ['Gm', 'A°', 'B♭', 'Cm', 'Dm', 'E♭', 'F'] },
     { major: 'F', minor: 'Dm', accidentals: '1 Flat (B♭)', majorChords: ['F', 'Gm', 'Am', 'B♭', 'C', 'Dm', 'E°'], minorChords: ['Dm', 'E°', 'F', 'Gm', 'Am', 'B♭', 'C'] }
 ];
-
-export const toneMatrixData = [
-    { tune: 'C', chords: [ {deg:'I', name:'C', frets:'x 3 2 0 1 0'}, {deg:'ii', name:'Dm', frets:'x x 0 2 3 1'}, {deg:'iii', name:'Em', frets:'0 2 2 0 0 0'}, {deg:'IV', name:'F', frets:'1 3 3 2 1 1'}, {deg:'V', name:'G', frets:'3 2 0 0 0 3'}, {deg:'vi', name:'Am', frets:'x 0 2 2 1 0'}, {deg:'vii°', name:'Bdim', frets:'x 2 3 4 3 x'}, {deg:'VII', name:'G7', frets:'3 2 0 0 0 1'} ] },
-    { tune: 'D', chords: [ {deg:'I', name:'D', frets:'x x 0 2 3 2'}, {deg:'ii', name:'Em', frets:'0 2 2 0 0 0'}, {deg:'iii', name:'F♯m', frets:'2 4 4 2 2 2'}, {deg:'IV', name:'G', frets:'3 2 0 0 0 3'}, {deg:'V', name:'A', frets:'x 0 2 2 2 0'}, {deg:'vi', name:'Bm', frets:'x 2 4 4 3 2'}, {deg:'vii°', name:'C♯dim', frets:'x 4 5 6 5 x'}, {deg:'VII', name:'A7', frets:'x 0 2 0 2 0'} ] },
-    { tune: 'E', chords: [ {deg:'I', name:'E', frets:'0 2 2 1 0 0'}, {deg:'ii', name:'F♯m', frets:'2 4 4 2 2 2'}, {deg:'iii', name:'G♯m', frets:'4 6 6 4 4 4'}, {deg:'IV', name:'A', frets:'x 0 2 2 2 0'}, {deg:'V', name:'B', frets:'x 2 4 4 4 2'}, {deg:'vi', name:'C♯m', frets:'x 4 6 6 5 4'}, {deg:'vii°', name:'D♯dim', frets:'x x 1 2 1 2'}, {deg:'VII', name:'B7', frets:'x 2 1 2 0 2'} ] },
-    { tune: 'F', chords: [ {deg:'I', name:'F', frets:'1 3 3 2 1 1'}, {deg:'ii', name:'Gm', frets:'3 5 5 3 3 3'}, {deg:'iii', name:'Am', frets:'x 0 2 2 1 0'}, {deg:'IV', name:'B♭', frets:'x 1 3 3 3 1'}, {deg:'V', name:'C', frets:'x 3 2 0 1 0'}, {deg:'vi', name:'Dm', frets:'x x 0 2 3 1'}, {deg:'vii°', name:'Edim', frets:'0 1 2 0 2 x'}, {deg:'VII', name:'C7', frets:'x 3 2 3 1 0'} ] },
-    { tune: 'G', chords: [ {deg:'I', name:'G', frets:'3 2 0 0 0 3'}, {deg:'ii', name:'Am', frets:'x 0 2 2 1 0'}, {deg:'iii', name:'Bm', frets:'x 2 4 4 3 2'}, {deg:'IV', name:'C', frets:'x 3 2 0 1 0'}, {deg:'V', name:'D', frets:'x x 0 2 3 2'}, {deg:'vi', name:'Em', frets:'0 2 2 0 0 0'}, {deg:'vii°', name:'F♯dim', frets:'2 x 4 2 4 x'}, {deg:'VII', name:'D7', frets:'x x 0 2 1 2'} ] },
-    { tune: 'A', chords: [ {deg:'I', name:'A', frets:'x 0 2 2 2 0'}, {deg:'ii', name:'Bm', frets:'x 2 4 4 3 2'}, {deg:'iii', name:'C♯m', frets:'x 4 6 6 5 4'}, {deg:'IV', name:'D', frets:'x x 0 2 3 2'}, {deg:'V', name:'E', frets:'0 2 2 1 0 0'}, {deg:'vi', name:'F♯m', frets:'2 4 4 2 2 2'}, {deg:'vii°', name:'G♯dim', frets:'4 x 6 4 6 x'}, {deg:'VII', name:'E7', frets:'0 2 0 1 0 0'} ] },
-    { tune: 'B', chords: [ {deg:'I', name:'B', frets:'x 2 4 4 4 2'}, {deg:'ii', name:'C♯m', frets:'x 4 6 6 5 4'}, {deg:'iii', name:'D♯m', frets:'x 6 8 8 7 6'}, {deg:'IV', name:'E', frets:'0 2 2 1 0 0'}, {deg:'V', name:'F♯', frets:'2 4 4 3 2 2'}, {deg:'vi', name:'G♯m', frets:'4 6 6 4 4 4'}, {deg:'vii°', name:'A♯dim', frets:'x 1 2 3 2 x'}, {deg:'VII', name:'F♯7', frets:'2 4 2 3 2 2'} ] }
-];
-
-// Add the remaining circle-of-fifths keys (sharps/flats) with generated barre voicings
-(function extendToneMatrix() {
-    const pitchOf = (name) => {
-        const base = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[name[0]];
-        let p = base;
-        for (const ch of name.slice(1)) { if (ch === '♯') p++; else if (ch === '♭') p--; }
-        return ((p % 12) + 12) % 12;
-    };
-    const fretOn = (pitch, openPitch) => { const f = (((pitch - openPitch) % 12) + 12) % 12; return f === 0 ? 12 : f; };
-    const shift = (shape, n) => shape.map(v => v === null ? 'x' : v + n).join(' ');
-    const voicing = (root, quality) => {
-        const pitch = pitchOf(root);
-        if (quality === 'dim') return shift([null, 0, 1, 2, 1, null], (((pitch - 9) % 12) + 12) % 12);
-        const eFret = fretOn(pitch, 4);
-        const shapes = {
-            E: { M: [0, 2, 2, 1, 0, 0], m: [0, 2, 2, 0, 0, 0], 7: [0, 2, 0, 1, 0, 0] },
-            A: { M: [null, 0, 2, 2, 2, 0], m: [null, 0, 2, 2, 1, 0], 7: [null, 0, 2, 0, 2, 0] }
-        };
-        return eFret <= 8 ? shift(shapes.E[quality], eFret) : shift(shapes.A[quality], fretOn(pitch, 9));
-    };
-    const degs = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
-    const quals = ['M', 'm', 'm', 'M', 'M', 'm', 'dim'];
-    ['F♯', 'D♭', 'A♭', 'E♭', 'B♭'].forEach(key => {
-        const circle = circleData.find(c => c.major === key);
-        const chords = circle.majorChords.map((raw, i) => {
-            const root = raw.replace(/[m°]/g, '');
-            const name = quals[i] === 'dim' ? root + 'dim' : raw;
-            return { deg: degs[i], name, frets: voicing(root, quals[i]) };
-        });
-        const v = circle.majorChords[4];
-        chords.push({ deg: 'VII', name: v + '7', frets: voicing(v, '7') });
-        toneMatrixData.push({ tune: key, chords });
-    });
-    const order = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
-    toneMatrixData.sort((a, b) => order.indexOf(a.tune) - order.indexOf(b.tune));
-})();
 
 export const scaleDefinitions = {
     majorPentatonic: { name: 'Major Pentatonic', formula: '1 - 2 - 3 - 5 - 6', intervals: [{int:0,lbl:'R'},{int:2,lbl:'2'},{int:4,lbl:'3'},{int:7,lbl:'5'},{int:9,lbl:'6'}] },
@@ -879,25 +831,67 @@ function buildFretboardSvg(scaleKey, rootNote) {
 // -----------------------------------------------------------------------------
 
 /**
- * Render Circle of Fifths Section
+ * Render the selected key's info panel (key signature + diatonic chords).
+ * Major-key chords link to the Chord Library.
  */
-function renderCircleSection() {
+function renderCircleInfoPanel() {
     const data = circleData[selectedCircleIndex];
 
     const majorChordsHtml = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'].map((deg, i) => `
-        <div class="ref-chord-deg-card">
+        <button type="button" class="ref-chord-deg-card ref-chord-link" data-chord="${data.majorChords[i]}" title="Show ${data.majorChords[i]} in the Chord Library">
             <span class="ref-deg-label">${deg}</span>
             <span class="ref-deg-chord">${data.majorChords[i]}</span>
-        </div>
+        </button>
     `).join('');
 
     const minorChordsHtml = ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'].map((deg, i) => `
-        <div class="ref-chord-deg-card">
+        <button type="button" class="ref-chord-deg-card ref-chord-link" data-chord="${data.minorChords[i]}" title="Show ${data.minorChords[i]} in the Chord Library">
             <span class="ref-deg-label">${deg}</span>
             <span class="ref-deg-chord">${data.minorChords[i]}</span>
-        </div>
+        </button>
     `).join('');
 
+    return `
+        <div class="ref-key-badge-container mb-3">
+            <span class="ref-eyebrow">Selected key info</span>
+            <h4 class="ref-key-headline">${data.major} Major / ${data.minor}</h4>
+        </div>
+
+        <div class="row g-2 mb-3">
+            <div class="col-6">
+                <div class="ref-stat-card">
+                    <span class="ref-stat-label">Key signature</span>
+                    <span class="ref-stat-value text-truncate" title="${data.accidentals}">${data.accidentals}</span>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="ref-stat-card">
+                    <span class="ref-stat-label">Relative minor</span>
+                    <span class="ref-stat-value text-accent">${data.minor}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <span class="ref-card-subhead d-block mb-2">Diatonic chords (major key)</span>
+            <div class="ref-deg-grid">
+                ${majorChordsHtml}
+            </div>
+        </div>
+
+        <div>
+            <span class="ref-card-subhead d-block mb-2">Diatonic chords (minor key)</span>
+            <div class="ref-deg-grid">
+                ${minorChordsHtml}
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Render Circle of Fifths Section
+ */
+function renderCircleSection() {
     return `
     <div class="ref-circle-container">
         <!-- SVG Circle (Left / Top) -->
@@ -913,39 +907,7 @@ function renderCircleSection() {
 
         <!-- Key Details Panel (Right / Bottom) -->
         <div class="ref-circle-right" id="refCircleInfoPanel">
-            <div class="ref-key-badge-container mb-3">
-                <span class="ref-eyebrow">Selected key info</span>
-                <h4 class="ref-key-headline">${data.major} Major / ${data.minor}</h4>
-            </div>
-
-            <div class="row g-2 mb-3">
-                <div class="col-6">
-                    <div class="ref-stat-card">
-                        <span class="ref-stat-label">Key signature</span>
-                        <span class="ref-stat-value text-truncate" title="${data.accidentals}">${data.accidentals}</span>
-                    </div>
-                </div>
-                <div class="col-6">
-                    <div class="ref-stat-card">
-                        <span class="ref-stat-label">Relative minor</span>
-                        <span class="ref-stat-value text-accent">${data.minor}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mb-3">
-                <span class="ref-card-subhead d-block mb-2">Diatonic chords (major key)</span>
-                <div class="ref-deg-grid">
-                    ${majorChordsHtml}
-                </div>
-            </div>
-
-            <div>
-                <span class="ref-card-subhead d-block mb-2">Diatonic chords (minor key)</span>
-                <div class="ref-deg-grid">
-                    ${minorChordsHtml}
-                </div>
-            </div>
+            ${renderCircleInfoPanel()}
         </div>
     </div>
     `;
@@ -1153,68 +1115,13 @@ function renderScalesSection() {
     `;
 }
 
-/**
- * Render Tone Matrix Section
- */
-function renderToneSection() {
-    const tuneOptions = ['all', 'C', 'D♭', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'].map(k => `
-        <option value="${k}" ${k === selectedToneKey ? 'selected' : ''}>${k === 'all' ? 'All Keys' : `Key of ${k}`}</option>
-    `).join('');
-
-    const filteredRows = selectedToneKey === 'all'
-        ? toneMatrixData
-        : toneMatrixData.filter(t => t.tune === selectedToneKey);
-
-    const rowsHtml = filteredRows.map(row => {
-        const chordsHtml = row.chords.map(c => `
-            <div class="ref-matrix-chord-cell">
-                <span class="ref-matrix-deg">${c.deg}</span>
-                <span class="ref-matrix-chord-name">${c.name}</span>
-                <span class="ref-matrix-frets font-monospace">${c.frets}</span>
-            </div>
-        `).join('');
-
-        return `
-        <div class="ref-matrix-row mb-3">
-            <div class="ref-matrix-key-badge">
-                <span class="ref-eyebrow">Tune</span>
-                <span class="ref-matrix-key-name">${row.tune}</span>
-            </div>
-            <div class="ref-matrix-chords-grid">
-                ${chordsHtml}
-            </div>
-        </div>
-        `;
-    }).join('');
-
-    return `
-    <div class="ref-section-box">
-        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2 mb-3">
-            <div>
-                <h3 class="ref-section-title mb-1">Tone matrix: diatonic chords by root tune</h3>
-                <p class="ref-section-subtitle mb-0">Harmonic Roman numeral degrees (I to vii° and dominant VII) across keys.</p>
-            </div>
-            <div>
-                <select id="refToneKeySelect" class="form-select form-select-sm theme-select">
-                    ${tuneOptions}
-                </select>
-            </div>
-        </div>
-
-        <div class="ref-matrix-container">
-            ${rowsHtml}
-        </div>
-    </div>
-    `;
-}
-
 // -----------------------------------------------------------------------------
 // Main View Export
 // -----------------------------------------------------------------------------
 
 // --- Reference modal: opens over any view (song, library, tuner closed) ---------------------------
 
-const REFERENCE_TABS = ['circle', 'chords', 'scales', 'tone'];
+const REFERENCE_TABS = ['circle', 'chords', 'scales'];
 let referenceModalEl = null;
 
 function ensureReferenceModal() {
@@ -1234,7 +1141,7 @@ function ensureReferenceModal() {
             <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;"><i class="bi-journal-bookmark fs-5"></i></div>
             <div class="theme-modal-titles">
               <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="referenceModalTitle">Reference library</h2>
-              <div class="small text-white-50">Chords, scales, circle of fifths and tone matrix</div>
+              <div class="small text-white-50">Chords, scales and circle of fifths</div>
             </div>
           </div>
           <div class="theme-modal-actions">
@@ -1307,8 +1214,7 @@ export function renderReferenceLibraryView(container) {
     const tabs = [
         { id: 'chords', label: 'Chord Library', icon: 'bi-grid-3x2-gap' },
         { id: 'scales', label: 'Scales and Modes', icon: 'bi-soundwave' },
-        { id: 'circle', label: 'Circle of Fifths', icon: 'bi-circle-half' },
-        { id: 'tone', label: 'Tone Matrix', icon: 'bi-table' }
+        { id: 'circle', label: 'Circle of Fifths', icon: 'bi-circle-half' }
     ];
 
     const navPillsHtml = tabs.map(t => {
@@ -1324,7 +1230,6 @@ export function renderReferenceLibraryView(container) {
     if (activeTab === 'circle') tabContentHtml = renderCircleSection();
     else if (activeTab === 'chords') tabContentHtml = renderChordsSection();
     else if (activeTab === 'scales') tabContentHtml = renderScalesSection();
-    else if (activeTab === 'tone') tabContentHtml = renderToneSection();
 
     container.innerHTML = `
     <div class="library-page-container ref-page-container">
@@ -1362,67 +1267,8 @@ function attachReferenceEventListeners(container) {
     });
 
     // 2. Circle of Fifths slices
-    container.querySelectorAll('.ref-circle-slice').forEach(slice => {
-        slice.addEventListener('click', () => {
-            const idx = parseInt(slice.getAttribute('data-circle-idx'));
-            if (!isNaN(idx)) {
-                selectedCircleIndex = idx;
-                const svgContainer = document.getElementById('refCircleSvgContainer');
-                const infoPanel = document.getElementById('refCircleInfoPanel');
-                if (svgContainer) svgContainer.innerHTML = buildCircleOfFifthsSvg(selectedCircleIndex);
-                if (infoPanel) {
-                    const data = circleData[selectedCircleIndex];
-                    const majorChordsHtml = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'].map((deg, i) => `
-                        <div class="ref-chord-deg-card">
-                            <span class="ref-deg-label">${deg}</span>
-                            <span class="ref-deg-chord">${data.majorChords[i]}</span>
-                        </div>
-                    `).join('');
-                    const minorChordsHtml = ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'].map((deg, i) => `
-                        <div class="ref-chord-deg-card">
-                            <span class="ref-deg-label">${deg}</span>
-                            <span class="ref-deg-chord">${data.minorChords[i]}</span>
-                        </div>
-                    `).join('');
-
-                    infoPanel.innerHTML = `
-                        <div class="ref-key-badge-container mb-3">
-                            <span class="ref-eyebrow">Selected key info</span>
-                            <h4 class="ref-key-headline">${data.major} Major / ${data.minor}</h4>
-                        </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <div class="ref-stat-card">
-                                    <span class="ref-stat-label">Key signature</span>
-                                    <span class="ref-stat-value text-truncate" title="${data.accidentals}">${data.accidentals}</span>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="ref-stat-card">
-                                    <span class="ref-stat-label">Relative minor</span>
-                                    <span class="ref-stat-value text-accent">${data.minor}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <span class="ref-card-subhead d-block mb-2">Diatonic chords (major key)</span>
-                            <div class="ref-deg-grid">
-                                ${majorChordsHtml}
-                            </div>
-                        </div>
-                        <div>
-                            <span class="ref-card-subhead d-block mb-2">Diatonic chords (minor key)</span>
-                            <div class="ref-deg-grid">
-                                ${minorChordsHtml}
-                            </div>
-                        </div>
-                    `;
-                }
-                // Re-bind click listeners on newly rendered SVG slices
-                attachCircleSliceListeners();
-            }
-        });
-    });
+    attachCircleSliceListeners();
+    attachCircleChordLinks(container);
 
     // 3. Chord Family Filter Buttons
     container.querySelectorAll('.ref-chord-filter-btn').forEach(btn => {
@@ -1439,7 +1285,7 @@ function attachReferenceEventListeners(container) {
         });
     });
 
-    const barBtn = container.querySelector('#refChordBarBtn');
+    const barBtn = [...container.querySelectorAll('#refChordBarBtn')].find(b => !b.closest('#refCircleInfoPanel'));
     if (barBtn) {
         barBtn.addEventListener('click', () => {
             preferBarChords = !preferBarChords;
@@ -1492,21 +1338,8 @@ function attachReferenceEventListeners(container) {
         });
     }
 
-    // 5. Tone Matrix Select
-    const toneSelect = container.querySelector('#refToneKeySelect');
-    if (toneSelect) {
-        toneSelect.addEventListener('change', () => {
-            selectedToneKey = toneSelect.value;
-            const contentContainer = document.getElementById('refTabContentContainer');
-            if (contentContainer) {
-                contentContainer.innerHTML = renderToneSection();
-                attachReferenceEventListeners(container);
-            }
-        });
-    }
-
     // 6. Invert strings (flip) toggle buttons
-    container.querySelectorAll('.ref-fretboard-flip-btn').forEach(btn => {
+    [...container.querySelectorAll('.ref-fretboard-flip-btn')].filter(b => !b.closest('#refCircleInfoPanel')).forEach(btn => {
         btn.addEventListener('click', () => {
             setIsFlipped(!getIsFlipped());
             const contentContainer = document.getElementById('refTabContentContainer');
@@ -1519,7 +1352,7 @@ function attachReferenceEventListeners(container) {
     });
 
     // 7. Left-handed neck toggle buttons
-    container.querySelectorAll('.ref-fretboard-lh-btn').forEach(btn => {
+    [...container.querySelectorAll('.ref-fretboard-lh-btn')].filter(b => !b.closest('#refCircleInfoPanel')).forEach(btn => {
         btn.addEventListener('click', () => {
             setIsLeftHanded(!getIsLeftHanded());
             const contentContainer = document.getElementById('refTabContentContainer');
@@ -1540,58 +1373,35 @@ function attachCircleSliceListeners() {
             const idx = parseInt(slice.getAttribute('data-circle-idx'));
             if (!isNaN(idx)) {
                 selectedCircleIndex = idx;
-                const infoPanel = document.getElementById('refCircleInfoPanel');
-                svgContainer.innerHTML = buildCircleOfFifthsSvg(selectedCircleIndex);
-                if (infoPanel) {
-                    const data = circleData[selectedCircleIndex];
-                    const majorChordsHtml = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'].map((deg, i) => `
-                        <div class="ref-chord-deg-card">
-                            <span class="ref-deg-label">${deg}</span>
-                            <span class="ref-deg-chord">${data.majorChords[i]}</span>
-                        </div>
-                    `).join('');
-                    const minorChordsHtml = ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'].map((deg, i) => `
-                        <div class="ref-chord-deg-card">
-                            <span class="ref-deg-label">${deg}</span>
-                            <span class="ref-deg-chord">${data.minorChords[i]}</span>
-                        </div>
-                    `).join('');
-
-                    infoPanel.innerHTML = `
-                        <div class="ref-key-badge-container mb-3">
-                            <span class="ref-eyebrow">Selected key info</span>
-                            <h4 class="ref-key-headline">${data.major} Major / ${data.minor}</h4>
-                        </div>
-                        <div class="row g-2 mb-3">
-                            <div class="col-6">
-                                <div class="ref-stat-card">
-                                    <span class="ref-stat-label">Key signature</span>
-                                    <span class="ref-stat-value text-truncate" title="${data.accidentals}">${data.accidentals}</span>
-                                </div>
-                            </div>
-                            <div class="col-6">
-                                <div class="ref-stat-card">
-                                    <span class="ref-stat-label">Relative minor</span>
-                                    <span class="ref-stat-value text-accent">${data.minor}</span>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="mb-3">
-                            <span class="ref-card-subhead d-block mb-2">Diatonic chords (major key)</span>
-                            <div class="ref-deg-grid">
-                                ${majorChordsHtml}
-                            </div>
-                        </div>
-                        <div>
-                            <span class="ref-card-subhead d-block mb-2">Diatonic chords (minor key)</span>
-                            <div class="ref-deg-grid">
-                                ${minorChordsHtml}
-                            </div>
-                        </div>
-                    `;
-                }
-                attachCircleSliceListeners();
+                refreshCircleSection();
             }
+        });
+    });
+}
+
+function refreshCircleSection() {
+    const svgContainer = document.getElementById('refCircleSvgContainer');
+    const infoPanel = document.getElementById('refCircleInfoPanel');
+    if (svgContainer) svgContainer.innerHTML = buildCircleOfFifthsSvg(selectedCircleIndex);
+    if (infoPanel) infoPanel.innerHTML = renderCircleInfoPanel();
+    attachCircleSliceListeners();
+    attachCircleChordLinks(document.getElementById('refCircleInfoPanel')?.closest('.ref-page-container')?.parentElement);
+}
+
+// Jump to the Chord Library filtered to the clicked chord's root and family
+function attachCircleChordLinks(container) {
+    const infoPanel = document.getElementById('refCircleInfoPanel');
+    if (!infoPanel || !container) return;
+    infoPanel.querySelectorAll('.ref-chord-link').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const symbol = btn.getAttribute('data-chord');
+            const isDim = symbol.endsWith('°');
+            const isMinor = !isDim && symbol.endsWith('m');
+            selectedRootFilter = symbol[0];
+            selectedChordFilter = isDim ? 'Dim/Aug' : isMinor ? 'Minor' : 'Major';
+            activeTab = 'chords';
+            renderReferenceLibraryView(container);
+            refTabChangeListener?.(activeTab);
         });
     });
 }
