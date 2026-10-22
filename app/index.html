@@ -1015,67 +1015,66 @@
       </div>
     </header>
     <div class="theme-modal-body d-flex flex-column gap-3">
-      <!-- Tab String Count Defaults (GP) -->
-      <div id="settingsGuitarStringCountGroup">
-        <label class="form-label d-block mb-1 small text-white-50">Default tab strings (Guitar):</label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="gpDefaultStringsGuitarRadio" id="gpDefaultStringsGuitarNative" value="native" autocomplete="off" checked>
-          <label class="btn btn-sm" for="gpDefaultStringsGuitarNative" style="flex: 1;">Original</label>
-
-          <input type="radio" class="btn-check" name="gpDefaultStringsGuitarRadio" id="gpDefaultStringsGuitar7" value="7" autocomplete="off">
-          <label class="btn btn-sm" for="gpDefaultStringsGuitar7" style="flex: 1;">7-String</label>
-
-          <input type="radio" class="btn-check" name="gpDefaultStringsGuitarRadio" id="gpDefaultStringsGuitar8" value="8" autocomplete="off">
-          <label class="btn btn-sm" for="gpDefaultStringsGuitar8" style="flex: 1;">8-String</label>
-        </div>
-      </div>
-
-      <div id="settingsBassStringCountGroup">
-        <label class="form-label d-block mb-1 small text-white-50">Default tab strings (Bass):</label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="gpDefaultStringsBassRadio" id="gpDefaultStringsBassNative" value="native" autocomplete="off" checked>
-          <label class="btn btn-sm" for="gpDefaultStringsBassNative" style="flex: 1;">Original</label>
-
-          <input type="radio" class="btn-check" name="gpDefaultStringsBassRadio" id="gpDefaultStringsBass5" value="5" autocomplete="off">
-          <label class="btn btn-sm" for="gpDefaultStringsBass5" style="flex: 1;">5-String</label>
-
-          <input type="radio" class="btn-check" name="gpDefaultStringsBassRadio" id="gpDefaultStringsBass6" value="6" autocomplete="off">
-          <label class="btn btn-sm" for="gpDefaultStringsBass6" style="flex: 1;">6-String</label>
-        </div>
-      </div>
-
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Default view (Guitar Pro):</label>
-        <div class="hud-pill-group w-100">
+      <section class="defaults-section">
+        <h3 class="defaults-section-title">Default view</h3>
+      <div class="defaults-row">
+        <span class="defaults-row-label">Guitar Pro</span>
+        <div class="hud-pill-group defaults-pills">
           <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultPage" value="page" autocomplete="off">
-          <label class="btn btn-sm w-50" for="gpDefaultPage"><i class="bi-book me-1"></i> Page</label>
-
+          <label class="btn btn-sm" for="gpDefaultPage"><i class="bi-book me-1"></i> Page</label>
           <input type="radio" class="btn-check" name="gpDefaultViewRadio" id="gpDefaultContinuous" value="continuous" autocomplete="off" checked>
-          <label class="btn btn-sm w-50" for="gpDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+          <label class="btn btn-sm" for="gpDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
         </div>
       </div>
-
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Default view (PDF):</label>
-        <div class="hud-pill-group w-100">
+      <div class="defaults-row">
+        <span class="defaults-row-label">PDF</span>
+        <div class="hud-pill-group defaults-pills">
           <input type="radio" class="btn-check" name="pdfDefaultViewRadio" id="pdfDefaultPage" value="page" autocomplete="off">
-          <label class="btn btn-sm w-50" for="pdfDefaultPage"><i class="bi-book me-1"></i> Page</label>
-
+          <label class="btn btn-sm" for="pdfDefaultPage"><i class="bi-book me-1"></i> Page</label>
           <input type="radio" class="btn-check" name="pdfDefaultViewRadio" id="pdfDefaultContinuous" value="continuous" autocomplete="off">
-          <label class="btn btn-sm w-50" for="pdfDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+          <label class="btn btn-sm" for="pdfDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
         </div>
       </div>
-
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Default view (TXT):</label>
-        <div class="hud-pill-group w-100">
+      <div class="defaults-row">
+        <span class="defaults-row-label">Text</span>
+        <div class="hud-pill-group defaults-pills">
           <input type="radio" class="btn-check" name="txtDefaultViewRadio" id="txtDefaultPage" value="page" autocomplete="off">
-          <label class="btn btn-sm w-50" for="txtDefaultPage"><i class="bi-book me-1"></i> Page</label>
-
+          <label class="btn btn-sm" for="txtDefaultPage"><i class="bi-book me-1"></i> Page</label>
           <input type="radio" class="btn-check" name="txtDefaultViewRadio" id="txtDefaultContinuous" value="continuous" autocomplete="off" checked>
-          <label class="btn btn-sm w-50" for="txtDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
+          <label class="btn btn-sm" for="txtDefaultContinuous"><i class="bi-arrow-down-up me-1"></i> Scroll</label>
         </div>
       </div>
+      </section>
+      <section class="defaults-section">
+        <h3 class="defaults-section-title">Tab strings</h3>
+      <div class="defaults-row">
+        <span class="defaults-row-label">Guitar</span>
+        <div class="hud-pill-group defaults-pills">
+          <input type="radio" class="btn-check" name="gpDefaultStringsGuitarRadio" id="gpDefaultStringsGuitarNative" value="native" autocomplete="off" checked>
+          <label class="btn btn-sm" for="gpDefaultStringsGuitarNative">From file</label>
+          <input type="radio" class="btn-check" name="gpDefaultStringsGuitarRadio" id="gpDefaultStringsGuitar7" value="7" autocomplete="off">
+          <label class="btn btn-sm" for="gpDefaultStringsGuitar7">7</label>
+          <input type="radio" class="btn-check" name="gpDefaultStringsGuitarRadio" id="gpDefaultStringsGuitar8" value="8" autocomplete="off">
+          <label class="btn btn-sm" for="gpDefaultStringsGuitar8">8</label>
+        </div>
+      </div>
+      <div class="defaults-row">
+        <span class="defaults-row-label">Bass</span>
+        <div class="hud-pill-group defaults-pills">
+          <input type="radio" class="btn-check" name="gpDefaultStringsBassRadio" id="gpDefaultStringsBassNative" value="native" autocomplete="off" checked>
+          <label class="btn btn-sm" for="gpDefaultStringsBassNative">From file</label>
+          <input type="radio" class="btn-check" name="gpDefaultStringsBassRadio" id="gpDefaultStringsBass5" value="5" autocomplete="off">
+          <label class="btn btn-sm" for="gpDefaultStringsBass5">5</label>
+          <input type="radio" class="btn-check" name="gpDefaultStringsBassRadio" id="gpDefaultStringsBass6" value="6" autocomplete="off">
+          <label class="btn btn-sm" for="gpDefaultStringsBass6">6</label>
+        </div>
+      </div>
+      </section>
+      <p class="small text-white-50 mb-0">Changes apply immediately and are used for files you open from now on. "From file" keeps the string count saved in the tab.</p>
+    </div>
+    <div class="theme-modal-footer">
+      <button type="button" class="btn btn-theme-outline" id="defaultsResetBtn">Reset to Defaults</button>
+      <button type="button" class="btn btn-theme-primary" id="defaultsDoneBtn">Done</button>
     </div>
   </section>
 </div>
