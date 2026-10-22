@@ -150,6 +150,17 @@ function applySynthTrackMode() {
     if (otherTracks.length) currentApi.changeTrackMute(otherTracks, muteOtherTracks);
 }
 
+/**
+ * Toggle the soundfont between full band and muting the guitars (or bass in bass mode).
+ * Returns the new track mode, or null when the synth isn't available.
+ */
+export function toggleSynthNoGuitars() {
+    if (!currentApi || !currentScore?.tracks || jamAudioTracks || jamMuteTracks) return null;
+    synthPlayerState.trackMode = synthPlayerState.trackMode === 'noGuitars' ? 'fullBand' : 'noGuitars';
+    applySynthTrackMode();
+    return synthPlayerState.trackMode;
+}
+
 /** Applies (or lifts) the Jam host's "only show assigned tracks" restriction on the rendered score. */
 export function reapplyJamTrackView() {
     const api = currentApi;
