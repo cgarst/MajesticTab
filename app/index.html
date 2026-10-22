@@ -449,6 +449,12 @@
       <input type="file" id="soundFontFileInput" accept=".sf2,.sf3" multiple hidden>
       <div id="soundFontList" class="soundfont-list" role="group" aria-label="Enabled SoundFonts"></div>
       <div class="small text-white-50 mt-1" style="font-size: 0.72rem;">Enabled SoundFonts layer top to bottom; lower ones override higher ones.</div>
+      <div class="d-flex align-items-center gap-2 mt-2">
+        <div class="form-check form-switch mb-0 flex-shrink-0">
+          <input class="form-check-input theme-switch" type="checkbox" id="soundFontStrictToggle" aria-label="Strict program matching">
+        </div>
+        <label class="small mb-0" for="soundFontStrictToggle" title="Off: tracks the enabled SoundFonts lack use the closest instrument they have. On: play exact instruments only; others stay silent.">Strict instrument matching</label>
+      </div>
     </div>
 
     <!-- Embedded Audio Sync Option -->

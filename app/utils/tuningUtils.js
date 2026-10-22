@@ -301,7 +301,7 @@ export function isTrackPercussion(track) {
     }
 
     // Check GM Percussion program numbers (112-119: tinkle bell, agogo, steel drums, woodblock, taiko, melodic tom, synth drum, reverse cymbal)
-    const program = track.playbackInfo?.program ?? track.program;
+    const program = track.originalProgram ?? track.playbackInfo?.program ?? track.program;
     if (typeof program === 'number' && (program >= 112 && program <= 119)) {
         return true;
     }
@@ -320,7 +320,7 @@ export function isTrackPercussion(track) {
 
 export function isTrackBass(track) {
     if (!track || isTrackPercussion(track)) return false;
-    const program = track.playbackInfo?.program ?? track.program;
+    const program = track.originalProgram ?? track.playbackInfo?.program ?? track.program;
     if (typeof program === 'number' && BASS_PROGRAM_WHITELIST.includes(program)) {
         return true;
     }
@@ -392,7 +392,7 @@ export function isTrackGuitar(track) {
         return false;
     }
 
-    const program = track.playbackInfo?.program ?? track.program;
+    const program = track.originalProgram ?? track.playbackInfo?.program ?? track.program;
     if (typeof program === 'number') {
         if (GUITAR_PROGRAM_WHITELIST.includes(program)) {
             return true;
