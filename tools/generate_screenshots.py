@@ -5,7 +5,7 @@ Serves the repo root on a temporary local port, drives the app with Playwright
 (desktop 1440x900 and mobile 390x844), and writes PNGs to img/screenshots/.
 
 Usage:
-    pip install playwright && playwright install chromium
+    pip install playwright pillow && playwright install chromium
     python3 tools/generate_screenshots.py            # all shots
     python3 tools/generate_screenshots.py --only gp_scroll theme_palettes
 """
@@ -41,6 +41,27 @@ FORCE_DEFAULT_THEME_JS = """
   import('/app/gpProcessor/gpProcessor.js').then(m => m.applySavedGpDisplayScale()).catch(() => {});
 }
 """
+
+
+def add_traffic_lights(path):
+    """Overlay macOS window controls; the Tauri shell draws them natively, so a page capture lacks them."""
+    from PIL import Image, ImageDraw
+
+    ss = 8  # supersample for smooth circle edges
+    im = Image.open(path).convert("RGBA")
+    layer = Image.new("RGBA", (im.width * ss, 70 * ss), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    cy = 25
+    for i, (fill, rim) in enumerate([
+        ((255, 95, 87), (224, 68, 62)),
+        ((254, 188, 46), (222, 161, 35)),
+        ((40, 200, 64), (26, 171, 41)),
+    ]):
+        cx = 20 + i * 20
+        for r, color in ((6, rim), (5.5, fill)):
+            draw.ellipse([(cx - r) * ss, (cy - r) * ss, (cx + r) * ss, (cy + r) * ss], fill=color + (255,))
+    im.alpha_composite(layer.resize((im.width, 70), Image.LANCZOS), (0, 0))
+    im.convert("RGB").save(path, optimize=True)
 
 
 class _Quiet(http.server.SimpleHTTPRequestHandler):
@@ -556,6 +577,7 @@ def main():
                         for (let n = w.nextNode(); n; n = w.nextNode()) n.nodeValue = n.nodeValue.replace(re, '192.168.1.20');
                     }""")
                     save("jam_host")
+                    add_traffic_lights(OUT_DIR / "jam_host.png")
 
                 # 19. GP Themed (last: it switches the theme for the rest of the context)
                 if wanted("gp_themed"):
