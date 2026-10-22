@@ -41,136 +41,35 @@ To ensure high visual polish, scannability, and consistency across marketing pag
 
 ## Test Procedures
 
-### Local Dev Server
+### Local Dev Server and Debug Edge
 
-Start a static HTTP server from the project root before testing:
+Serve from the project root, then open the app with a fixture via `?test=<filename>` (auto-loads from `tests/`, bypassing the file picker):
 
 ```bash
 python3 -m http.server 8000
-```
-
-### URL-Based Test Automation
-
-The app supports a `?test=<filename>` URL parameter that auto-loads a file from the `tests/` directory on startup, bypassing the file picker. Use this to test specific files without manual interaction.
-
-```
-http://localhost:8000/app/?test=Keystone.gp
-```
-
-Test files live in `tests/`. Add new test cases there.
-
-### Remote Debugging with Edge DevTools
-
-Launch Edge with remote debugging enabled:
-
-```bash
 /Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
-  --remote-debugging-port=9222 \
-  http://localhost:8000/?test=Keystone.gp
+  --remote-debugging-port=9333 --user-data-dir=/tmp/edge-debug \
+  "http://localhost:8000/app/?test=Keystone.gp" >/dev/null 2>&1 &
 ```
 
-Verify the target is reachable:
+Ports 9222/9223 are often held by `adb` forwards (`lsof -i :<port>`), and if a normal Edge is already running the flags are ignored, so quit it first. Stop with `pkill -f /tmp/edge-debug`.
 
-```bash
-curl -s http://127.0.0.1:9222/json | python3 -m json.tool
-```
+Fixtures: `Keystone.gp` (repeats, multiple tracks; repeat/tick bugs only show here), `Haken - 1985.gp5` and `nightterror.gp5` (large GP5), `octavarium.gp3` (GP3). Add new cases to `tests/`.
 
-The MajesticTab page will appear as a target with `"url": "http://localhost:8000/..."`.
+### Debugging Workflow
 
-### Collecting Console Logs via DevTools Protocol
-
-Use a Python script to connect to the page's WebSocket debugger URL and collect console output, warnings, and errors:
-
-```python
-import asyncio, json, websockets
-
-PAGE_WS = "ws://127.0.0.1:9222/devtools/page/<PAGE_ID>"
-
-async def run():
-    async with websockets.connect(PAGE_WS) as ws:
-        await ws.send(json.dumps({"id": 1, "method": "Runtime.enable"}))
-        await ws.send(json.dumps({"id": 2, "method": "Log.enable"}))
-        await ws.send(json.dumps({"id": 3, "method": "Page.enable"}))
-        await ws.send(json.dumps({"id": 4, "method": "Page.reload", "params": {"ignoreCache": True}}))
-
-        try:
-            async with asyncio.timeout(12):
-                while True:
-                    msg = await ws.recv()
-                    data = json.loads(msg)
-                    method = data.get('method', '')
-                    if method == 'Runtime.consoleAPICalled':
-                        t = data['params']['type']
-                        text = ' '.join(a.get('value', str(a.get('description',''))) for a in data['params']['args'])
-                        print(f"[{t}] {text}")
-                    elif method == 'Log.entryAdded':
-                        e = data['params']['entry']
-                        print(f"[LOG:{e['level']}] {e['text']}")
-                    elif method == 'Runtime.exceptionThrown':
-                        exc = data['params']['exceptionDetails']
-                        print(f"[EXCEPTION] {exc.get('text','')} {exc.get('exception',{}).get('description','')}")
-        except asyncio.TimeoutError:
-            pass
-
-asyncio.run(run())
-```
-
-Replace `<PAGE_ID>` with the `id` from the `/json` endpoint. Requires `pip3 install websockets`.
-
-### Capturing Screenshots via DevTools Protocol
-
-Use `Page.captureScreenshot` to grab a PNG of the current page state for visual inspection. Useful for verifying rendering changes without switching to a browser window.
-
-```python
-import asyncio, json, base64, websockets
-
-PAGE_WS = "ws://127.0.0.1:9222/devtools/page/<PAGE_ID>"
-
-async def screenshot(path="/tmp/screenshot.png"):
-    async with websockets.connect(PAGE_WS) as ws:
-        await ws.send(json.dumps({"id": 1, "method": "Page.enable"}))
-        await ws.recv()
-        await ws.send(json.dumps({
-            "id": 2,
-            "method": "Page.captureScreenshot",
-            "params": {"format": "png", "captureBeyondViewport": False}
-        }))
-        while True:
-            msg = await ws.recv()
-            data = json.loads(msg)
-            if data.get("id") == 2:
-                with open(path, "wb") as f:
-                    f.write(base64.b64decode(data["result"]["data"]))
-                print(f"Saved to {path}")
-                break
-
-asyncio.run(screenshot())
-```
-
-To reload first, then screenshot after rendering completes, wait for the `[GP Mode Switch] Page mode rendered` console log before capturing (see log collection script above).
-
-Note: screenshots are captured at the device pixel ratio of the display (2× on Retina). A 1702×988 logical viewport produces a 3404×1976px PNG.
-
-### Efficient Debugging Workflow
-
-- **Reproduce first:** For interaction bugs, script the user's literal steps (e.g. scroll, then click, then read cursor/tick state) and confirm it fails before editing code. Re-run the same script after the fix. Do not ship speculative fixes.
-- **Use the helper, not one-off scripts:** `tests/cdp.py` wraps the DevTools protocol (`eval`, `reload`, `screenshot`, `targets`). Do not write a new websocket script per question; batch several probes into one `eval` call.
+- **Reproduce first:** script the user's literal steps (e.g. scroll, then click, then read cursor/tick state) and confirm it fails before editing. Re-run after the fix. No speculative fixes.
+- **Use `tests/cdp.py`, not one-off websocket scripts.** Batch several probes into one `eval`. Set `CDP_PORT` if not 9333.
   ```bash
   python3 tests/cdp.py reload
+  python3 tests/cdp.py logs                # reload and print console output/exceptions
   python3 tests/cdp.py eval "(() => ({ tick: window.gpState.canvases[0].api.tickPosition }))()"
   python3 tests/cdp.py screenshot /tmp/shot.png
   ```
-  Set `CDP_PORT` if not using 9333.
-- **Launch a debug Edge on port 9333:** Ports 9222/9223 are often held by `adb` forwards to an Android WebView (check `lsof -i :<port>`), and Edge silently fails to bind them. If a normal Edge is already running, the flags are ignored, so quit it first.
-  ```bash
-  /Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
-    --remote-debugging-port=9333 --user-data-dir=/tmp/edge-debug \
-    "http://localhost:8000/app/?test=Keystone.gp" >/dev/null 2>&1 &
-  ```
-  Stop it with `pkill -f /tmp/edge-debug`.
-- **Pick the right fixture:** `Keystone.gp` has repeats and multiple tracks (repeat/tick bugs only show here); `Haken - 1985.gp5` and `nightterror.gp5` are larger GP5 files; `octavarium.gp3` covers GP3.
-- **Do not grep `build/`:** it holds Rust/Android binaries and large artifacts. Restrict searches to `app/`.
-- **Stop after two failed approaches:** re-read the existing code path and compare its assumptions against the library's actual behavior instead of probing minified code.
+  Wait for the `[GP Mode Switch] Page mode rendered` log before screenshotting. Screenshots are at device pixel ratio (2x on Retina).
+- **Do not grep `build/`** (Rust/Android binaries and large artifacts); restrict searches to `app/`.
+- **Stop after two failed approaches:** re-read the code path and compare its assumptions against the library's actual behavior instead of probing minified code.
+- **Ignore known noise:** `Unchecked runtime.lastError`, `Tracking Prevention blocked access to storage for cdn.*`, and `AlphaTab container was invisible while autosizing`.
 
 ### AlphaTab Internals (GP playback and cursor)
 
@@ -182,78 +81,7 @@ Note: screenshots are captured at the device pixel ratio of the display (2× on 
 - The `.at-cursors` layer and `.gp-reader-cursor` are hidden by CSS until `body.synth-playback-started` is set.
 - Public AlphaTab fields are minified (`Qw`, `vy`, `Ny`); avoid depending on them, and if unavoidable, route through a single helper such as `getMidiTickLookup()`.
 
-### Jam Mode (host / client sync) Testing
+### Area-specific guides
 
-- Code lives in `app/jam/` (JS) and `build/tauri/src-tauri/src/jam*.rs` (WebSocket transport; discovery via Bonjour `dns_sd` on Apple platforms, `mdns-sd` elsewhere). It is native-only; the web build hides the Jam pill.
-- **Web guests:** the native host's port also serves HTTP. A plain `GET` returns the bundled frontend (`app.asset_resolver()`; `googleDrive.local.js` is blocked) with `<meta name="majestictab-jam-host">` injected into `index.html`; a WebSocket upgrade follows the normal peer path, but a browser `Origin` must equal the request `Host` and "Let browsers join" (`allowWeb`) must be on. `isJamWebGuest()` in `jamTransport.js` detects that meta tag and swaps in a same-origin WebSocket transport (join only, ping `t0`/`rxTs` stamped in JS, `performance.now()` as the clock). Guests load over plain `http://` on the LAN, so it is **not a secure context**: no `crypto.subtle` (use `jamSha256.js`, which must match native IDs), no Wake Lock, and AlphaTab falls back to ScriptProcessor audio. Test with the debug host (`MAJESTICTAB_JAM_AUTOSTART=host:anyone`), open `http://<LAN IP>:47813/` in the debug Edge, and drive it with `tests/jam/probeHost.mjs`. Disable the cache when reloading the guest page (`Network.setCacheDisabled`), or stale modules will break imports. The QR code library (`qrcode-generator`) is vendored like other CDN assets.
-- Positions are speed-independent song ms (`jamPlayerControl.timeMs()` = AlphaTab `timePosition` x `playbackSpeed`). AlphaTab's raw `timePosition` scales with speed; never sync on it directly.
-- Debug-tools builds read `MAJESTICTAB_JAM_AUTOSTART=host[:policy]` or `join:<addr>[:port]` to start a session on launch (iOS simulator: `SIMCTL_CHILD_MAJESTICTAB_JAM_AUTOSTART=... xcrun simctl launch ...`).
-- Scripted peers measure sync without a second device: `python3 tests/jam/fake_host.py tests/Keystone.gp 47900` logs a client's reported drift; `node tests/jam/probeHost.mjs <host:port> tests/Keystone.gp` drives a host started with `host:anyone` and prints its heartbeats. Steady drift should stay under 20 ms.
-- Any song type is shared (GP, PDF incl. library page ranges, TXT); song files travel as 512 KB base64 parts. Synth transport sync is GP-only (`isGpSong`). YouTube sync (`app/jam/jamYouTubeSync.js`) works for every type: positions are video seconds, driven through `jamYouTubeControl` / `onYouTubeEvent` in `app/youtubePlayer.js`. Never correct YouTube drift by seeking while playing: on Android it buffers and lands +-400 ms off. Small drift is nudged with the playback rate (0.05 steps only; YouTube rejects others), large drift restarts (pause, seek ahead, play at a learned per-device delay). `python3 tests/jam/fake_yt_host.py tests/Keystone.pdf 47900 [videoId]` drives a client through play, seek, pause and resume; with `CDP_PORT` set to the client's WebView it logs the actual offset. Expect under 50 ms within a few seconds of each event.
-- Two-tab browser jam without a native build: launch the debug Edge with `--autoplay-policy=no-user-gesture-required --disable-background-timer-throttling --disable-renderer-backgrounding` and a non-Mac `--user-agent` (a Mac UA routes YouTube to the native macOS player), open `app/?jamMock=host` and `app/?jamMock=client` in **separate windows** (a background tab never renders the song), inject `tests/jam/mockTauri.js` with `Page.addScriptToEvaluateOnNewDocument`, reload, then host and join `127.0.0.1:47900` from the Jam modal. Both tabs share one clock, so sampling `performance.timeOrigin + performance.now()` alongside positions in each tab measures true alignment.
-- Unit tests: `node --test tests/jam/*.test.mjs`; Bonjour round trip: `cargo test --manifest-path build/tauri/src-tauri/Cargo.toml --lib jam` (macOS).
-- Android WebView CDP: `adb forward tcp:9444 localabstract:webview_devtools_remote_$(adb shell pidof net.zathu.majestictab)`, then `CDP_PORT=9444 python3 tests/cdp.py eval ...`. The tablet must be awake and unlocked or the socket hangs.
-
-### Known Noise to Ignore
-
-- `Unchecked runtime.lastError: The message port closed...` — browser extension issue, not app code
-- `Tracking Prevention blocked access to storage for cdn.jsdelivr.net / cdnjs.cloudflare.com` — Edge privacy feature blocking CDN cookie/localStorage access, harmless
-- `[AlphaTab][Rendering] AlphaTab container was invisible while autosizing` — warning only; AlphaTab recovers on its own
-
-## Native App (Tauri) Troubleshooting
-
-Use this only for native-shell issues (window, titlebar, plugins, Rust commands, YouTube native player, OAuth). For generic web/UI issues, use the browser procedures above.
-
-- Run dev mode from `build/tauri`: `npm run tauri:dev -- --features debug-tools`. The `debug-tools` feature enables devtools and auto-opens them on the `main` window. This prepares the Tauri-only local-asset frontend first.
-- CDN assets used by `app/` must remain available to the web implementation, and must also be vendored into the Tauri frontend. When adding or changing a CDN asset, pin its package version in `build/tauri/package.json`, update `build/tauri/prepare-tauri-frontend.mjs` to copy and rewrite it, and run `npm run prepare:frontend` from `build/tauri` to verify no unapproved external URLs remain.
-- Native app icons are generated from `icons/icon_v2_mystic.svg` by `build/tauri/generate-icons.mjs` (`npm run generate:icons [-- windows|macos|linux|android|ios]`, defaulting to the host platform), with per-platform margins/backgrounds, into the gitignored `src-tauri/icons/<platform>/`. Adjust sizing in that script, not in generated files.
-- Keep `build/tauri/frontend-dist/` generated; do not edit it directly. Distributable builds created through `node build/build-tauri.mjs <target>` prepare it automatically.
-- Redirect output to a file and read it, e.g. `... > /tmp/tauri-dev.log 2>&1` (async terminal). Do not pipe through `tail`; it buffers until exit.
-- The dev watcher rebuilds and relaunches automatically when files under `build/tauri/src-tauri` change; no manual restart needed. Check `pgrep -fl majestictab` to confirm the process is running.
-- Rust-side logs (`eprintln!`) appear in that log; JS console output appears in the devtools console, not the terminal.
-- To inspect an installed macOS app build (e.g. `/Applications/MajesticTab.app`), enable WebKit developer extras with `defaults write net.zathu.majestictab WebKitDeveloperExtras -bool true`, then attach via Safari menu: **Develop** -> *<Mac name>* -> **MajesticTab**.
-- Before a direct Cargo check, prepare the generated frontend from `build/tauri`: `npm run prepare:frontend`.
-- Compile-only check: `cargo check --manifest-path build/tauri/src-tauri/Cargo.toml`.
-- macOS-only config lives in `src-tauri/tauri.macos.conf.json` (merged over `tauri.conf.json`). Plugins that don't exist on other platforms must stay in macOS-only deps/capabilities.
-
-### iOS Simulator Dev, Troubleshooting & Screenshots
-
-- **Boot Simulator & Run App:**
-  ```bash
-  xcrun simctl boot "iPhone 17"
-  # From build/tauri:
-  npm run prepare:frontend
-  # Build for Apple Silicon simulator (fast, unoptimized debug):
-  npx tauri ios build --target aarch64-sim --debug --no-sign
-  # Install the built app bundle into the booted simulator:
-  xcrun simctl install booted src-tauri/gen/apple/build/majestictab_iOS.xcarchive/Products/Applications/MajesticTab.app
-  # Launch installed app:
-  xcrun simctl launch booted net.zathu.majestictab
-  # Or run interactive dev mode:
-  npx tauri ios dev "iPhone 17"
-  ```
-- **Lifecycle & Process Control:**
-  ```bash
-  # Terminate running app:
-  xcrun simctl terminate booted net.zathu.majestictab
-  # Re-launch app:
-  xcrun simctl launch booted net.zathu.majestictab
-  ```
-- **Capture Simulator Screenshots for Visual Context:**
-  Capture PNGs directly from the booted simulator to visually inspect rendering and layout changes:
-  ```bash
-  xcrun simctl io booted screenshot /tmp/ios_screenshot.png
-  ```
-- **Retrieve Simulator Logs (Console, Warnings & Errors):**
-  Stream live app logs or dump recent output directly from the simulator daemon:
-  ```bash
-  # Stream live app logs:
-  xcrun simctl spawn booted log stream --level debug --predicate 'subsystem == "net.zathu.majestictab" || processImagePath contains "MajesticTab"'
-  # Show past 5 minutes of app logs:
-  xcrun simctl spawn booted log show --predicate 'processImagePath contains "MajesticTab"' --last 5m
-  ```
-- **Inspect Simulator WebViews via Safari Web Inspector:**
-  1. In Safari preferences/settings, ensure **Advanced -> Show features for web developers** (or Develop menu) is enabled.
-  2. Open Safari and go to menu **Develop -> iPhone 17 (Simulator) -> MajesticTab** (or the target page title/URL, such as `localhost` or `www.ultimate-guitar.com`).
-  3. Once Web Inspector opens, inspect elements, evaluate scripts in the console, view CSS rules, and monitor network requests inside the simulator's WKWebViews.
-
+- Jam mode (`app/jam/`, host/client sync): see `app/jam/AGENTS.md`.
+- Native Tauri shell and iOS simulator: see `build/tauri/AGENTS.md`.

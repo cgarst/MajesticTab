@@ -4,6 +4,7 @@
 Usage:
   python3 tests/cdp.py eval "<js expression>"   # prints JSON result (awaits promises)
   python3 tests/cdp.py reload [seconds]         # hard reload, then wait (default 3s)
+  python3 tests/cdp.py logs [seconds]           # reload, print console/log/exception output (default 12s)
   python3 tests/cdp.py screenshot [path]        # default /tmp/screenshot.png
   python3 tests/cdp.py targets                  # list page targets
 
@@ -49,6 +50,24 @@ async def main():
             await call(ws, "Page.reload", {"ignoreCache": True})
             await asyncio.sleep(float(sys.argv[2]) if len(sys.argv) > 2 else 3)
             print("reloaded")
+        elif cmd == "logs":
+            for m in ("Runtime.enable", "Log.enable", "Page.enable"):
+                await call(ws, m)
+            await ws.send(json.dumps({"id": 999, "method": "Page.reload", "params": {"ignoreCache": True}}))
+            try:
+                async with asyncio.timeout(float(sys.argv[2]) if len(sys.argv) > 2 else 12):
+                    while True:
+                        d = json.loads(await ws.recv())
+                        m, p = d.get("method", ""), d.get("params", {})
+                        if m == "Runtime.consoleAPICalled":
+                            print(f"[{p['type']}]", " ".join(str(a.get("value", a.get("description", ""))) for a in p["args"]))
+                        elif m == "Log.entryAdded":
+                            print(f"[LOG:{p['entry']['level']}] {p['entry']['text']}")
+                        elif m == "Runtime.exceptionThrown":
+                            e = p["exceptionDetails"]
+                            print("[EXCEPTION]", e.get("text", ""), e.get("exception", {}).get("description", ""))
+            except TimeoutError:
+                pass
         elif cmd == "screenshot":
             path = sys.argv[2] if len(sys.argv) > 2 else "/tmp/screenshot.png"
             r = await call(ws, "Page.captureScreenshot", {"format": "png"})
