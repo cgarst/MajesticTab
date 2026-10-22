@@ -24,6 +24,7 @@ const assets = [
   ['fflate/umd/index.js', 'vendor/fflate/umd/index.js'],
   ['@coderline/alphatab/dist', 'vendor/alphatab/dist'],
   ['pdf-lib/dist/pdf-lib.min.js', 'vendor/pdf-lib/dist/pdf-lib.min.js'],
+  ['qrcode-generator/dist/qrcode.js', 'vendor/qrcode-generator/dist/qrcode.js'],
 ];
 
 const licenses = [
@@ -52,6 +53,7 @@ const replacements = new Map([
   ['https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js', 'vendor/codemirror/mode/javascript/javascript.js'],
   ['https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/display/placeholder.min.js', 'vendor/codemirror/addon/display/placeholder.js'],
   ['https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js', 'vendor/pdf-lib/dist/pdf-lib.min.js'],
+  ['https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js', 'vendor/qrcode-generator/dist/qrcode.js'],
   ['https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff2', 'vendor/alphatab/dist/font/Bravura.woff2'],
   ['https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.woff', 'vendor/alphatab/dist/font/Bravura.woff'],
   ['https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/font/Bravura.otf', 'vendor/alphatab/dist/font/Bravura.otf'],

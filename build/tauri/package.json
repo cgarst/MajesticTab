@@ -18,7 +18,8 @@
     "fflate": "0.8.2",
     "jspdf": "3.0.2",
     "pdf-lib": "1.17.1",
-    "pdfjs-dist": "3.11.174"
+    "pdfjs-dist": "3.11.174",
+    "qrcode-generator": "2.0.4"
   },
   "devDependencies": {
     "@resvg/resvg-js": "^2.6.2",

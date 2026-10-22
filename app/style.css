@@ -5978,6 +5978,21 @@ body:not(.synth-playback-started) .at-highlight {
   user-select: all;
 }
 
+/* QR codes need a light ground and quiet zone to scan, whatever the finish theme. */
+.jam-qr {
+  width: 176px;
+  max-width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  background: #fff;
+  line-height: 0;
+}
+
+.jam-qr svg {
+  width: 100%;
+  height: auto;
+}
+
 .jam-list {
   display: flex;
   flex-direction: column;
