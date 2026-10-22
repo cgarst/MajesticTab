@@ -5,7 +5,7 @@ import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
-import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext } from '../utils/iosAudioUnlock.js';
+import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning } from '../utils/iosAudioUnlock.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 
 const STORAGE_KEY_SYNTH_VOLUME = 'majestic_synth_volume';
@@ -919,6 +919,33 @@ function applyPlayerState(api, state) {
     updateSynthUI();
     emitTransportEvent('state', { playing: state === 1, timeMs: toSongMs(api.timePosition) });
 }
+
+// Resume playback after the app returns from the background (iOS suspends/interrupts audio)
+let resumeAfterBackground = false;
+
+document.addEventListener('visibilitychange', async () => {
+    if (document.hidden) {
+        resumeAfterBackground = Boolean(synthPlayerState.isPlaying);
+        return;
+    }
+    if (!resumeAfterBackground) return;
+    resumeAfterBackground = false;
+    if (!currentApi) return;
+
+    configureAudioSession();
+    await resumeTrackedAudioContexts();
+    // Give AlphaTab a moment to publish any state change caused by the interruption
+    await new Promise(resolve => setTimeout(resolve, 250));
+    if (!currentApi) return;
+
+    if (synthPlayerState.isPlaying && areTrackedAudioContextsRunning()) return;
+    if (synthPlayerState.isPlaying) {
+        // AlphaTab thinks it is playing but the audio output died: restart it
+        try { currentApi.pause(); } catch (_) {}
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    playPauseSynthLocal(true);
+});
 
 export function attachAlphaTabApi(api) {
     currentApi = api;
