@@ -9,7 +9,8 @@ import { nowMs, jam } from './jamTransport.js';
 import { computeLeadMs } from './jamClock.js';
 import { jamSongId, songTitleFromName, startLag, measureStartLag, waitForPlayerReady, estimateOutputLatencyMs, trackPolicyFor } from './jamCommon.js';
 import { createYouTubeHost } from './jamYouTubeSync.js';
-import { jamPlayerControl, onTransportEvent, setTransportInterceptor } from '../gpProcessor/gpPlayer.js';
+import { jamPlayerControl, onTransportEvent, setTransportInterceptor, getMixerSnapshot, onMixerChange } from '../gpProcessor/gpPlayer.js';
+import { describeActiveSoundFonts, getSoundFontData, onSoundFontSelectionChange } from '../soundFontStore.js';
 import { getEnabledExtensionSources } from '../fileAdapters.js';
 import { arrayBufferToBase64Async, base64ToArrayBuffer } from '../fileStore.js';
 
@@ -17,6 +18,10 @@ const HEARTBEAT_MS = 500;
 const JUMP_THRESHOLD_MS = 400;
 const HOST_PRIORITY_WINDOW_MS = 200;
 const CONTROLLER_GRACE_MS = 5000;
+const MIXER_BROADCAST_MS = 150;
+const SOUNDFONT_BROADCAST_MS = 700;
+// Raw bytes per SoundFont part: a multiple of 3 so each part's base64 is exactly JAM_CHUNK_B64_CHARS.
+const SOUNDFONT_PART_BYTES = 384 * 1024;
 
 const normAudioMode = (m) => (m === 'assigned' || m === 'backing' ? m : 'all');
 
@@ -35,6 +40,11 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         muteAssignedForUnassigned: false
     };
     let unsubscribe = null;
+    let unsubscribeMixer = null;
+    let unsubscribeSoundFonts = null;
+    let mixerTimer = null;
+    let soundFontTimer = null;
+    let soundFonts = null; // { fonts, strict } this host plays, as last described
     let heartbeatTimer = null;
     let startTimer = null;
     let startingLocal = false;
@@ -84,8 +94,50 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         controllerId: session.controllerId,
         policy: session.policy,
         muteGuests: session.muteGuests,
+        mixer: getMixerSnapshot(),
+        soundFonts,
         ...trackState()
     });
+
+    // ---- Mixer and SoundFonts ----------------------------------------------
+
+    const broadcastMixer = () => broadcast(MSG.MIXER, { songId: session.song?.id ?? null, mixer: getMixerSnapshot() });
+
+    function scheduleMixerBroadcast() {
+        clearTimeout(mixerTimer);
+        mixerTimer = setTimeout(() => { if (active) broadcastMixer(); }, MIXER_BROADCAST_MS);
+    }
+
+    async function refreshSoundFonts() {
+        try {
+            const next = await describeActiveSoundFonts();
+            if (!active) return;
+            if (JSON.stringify(next) === JSON.stringify(soundFonts)) return;
+            soundFonts = next;
+            broadcast(MSG.SOUNDFONTS, { soundFonts });
+        } catch (e) {
+            console.error('[Jam] SoundFont description failed:', e);
+        }
+    }
+
+    function scheduleSoundFontBroadcast() {
+        clearTimeout(soundFontTimer);
+        soundFontTimer = setTimeout(refreshSoundFonts, SOUNDFONT_BROADCAST_MS);
+    }
+
+    /** Stream one enabled SoundFont to a client in protocol-sized parts, encoding a slice at a time. */
+    async function sendSoundFont(clientId, requestedId) {
+        const font = soundFonts?.fonts.find((f) => f.id === requestedId && !f.builtin);
+        if (!font) return;
+        const data = await getSoundFontData(font.id);
+        if (!data) return;
+        const parts = Math.max(1, Math.ceil(data.byteLength / SOUNDFONT_PART_BYTES));
+        for (let part = 0; part < parts; part++) {
+            if (!active || !roster.has(clientId)) return;
+            const slice = data.slice(part * SOUNDFONT_PART_BYTES, (part + 1) * SOUNDFONT_PART_BYTES);
+            await sendTo(clientId, MSG.SOUNDFONT_DATA, { id: font.id, size: font.size, part, parts, b64: await arrayBufferToBase64Async(slice) });
+        }
+    }
 
     // ---- Track assignments -------------------------------------------------
 
@@ -308,6 +360,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             roster.forEach((p) => { p.ready = false; });
             emitRoster();
             broadcast(MSG.SONG_OPEN, { song: session.song, extensions: hostExtensions() });
+            broadcastMixer();
             if (type !== 'gp') return;
             // Warm the synth while everyone else downloads, so the first start is on time.
             const songId = id;
@@ -465,6 +518,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         const peer = roster.get(from);
         switch (msg.type) {
             case MSG.SONG_REQUEST: sendSongData(from, msg); break;
+            case MSG.SOUNDFONT_REQUEST: sendSoundFont(from, msg.id); break;
             case MSG.SONG_READY:
                 if (peer && session.song && msg.songId === session.song.id) { peer.ready = true; emitRoster(); }
                 break;
@@ -520,6 +574,9 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             session.assignedViewOnly = Boolean(getSettings().assignedViewOnly);
             session.muteAssignedForUnassigned = Boolean(getSettings().muteAssignedForUnassigned);
             unsubscribe = onTransportEvent(onPlayerEvent);
+            unsubscribeMixer = onMixerChange(scheduleMixerBroadcast);
+            unsubscribeSoundFonts = onSoundFontSelectionChange(scheduleSoundFontBroadcast);
+            refreshSoundFonts();
             setTransportInterceptor(interceptor);
             window.addEventListener('majestictab:file-loaded', onFileLoaded);
             heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
@@ -530,6 +587,12 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             active = false;
             unsubscribe?.();
             unsubscribe = null;
+            unsubscribeMixer?.();
+            unsubscribeSoundFonts?.();
+            unsubscribeMixer = unsubscribeSoundFonts = null;
+            clearTimeout(mixerTimer);
+            clearTimeout(soundFontTimer);
+            soundFonts = null;
             setTransportInterceptor(null);
             window.removeEventListener('majestictab:file-loaded', onFileLoaded);
             clearInterval(heartbeatTimer);
