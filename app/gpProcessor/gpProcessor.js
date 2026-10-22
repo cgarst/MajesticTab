@@ -1,6 +1,7 @@
 import { applyGpScoreTransforms } from '../fileAdapters.js';
 import { showToast } from '../utils/toast.js';
 import { createCustomCursorHandler } from './gpPlayer.js';
+import { applySoundFontsToApi } from '../soundFontStore.js';
 import {
     getInstrumentMode,
     getGuitarTracks,
@@ -204,7 +205,7 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
                 player: {
                     enablePlayer: true,
                     playerMode: initialPlayerMode,
-                    soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/soundfont/sonivox.sf2',
+                    // No `soundFont` here: applySoundFontsToApi layers every enabled SoundFont below
                     // Refills relay through the main thread; a larger buffer rides out UI stalls (default 500)
                     bufferTimeInMilliseconds: 1000,
                     enableCursor: true,
@@ -221,6 +222,7 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
             });
 
             api.customCursorHandler = createCustomCursorHandler(api);
+            applySoundFontsToApi(api).catch(err => console.error('[SoundFont] Failed to load SoundFonts:', err));
 
             // Set stylesheet properties on the new score
             api.scoreLoaded.on((newScore) => {
