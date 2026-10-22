@@ -22,7 +22,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
   progressContainer.style.display = 'block';
   
   const arrayBuffer = await file.arrayBuffer();
-  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
   if (abortSignal?.aborted) return;
   
   if (typeof onPdfLoaded === 'function') {
