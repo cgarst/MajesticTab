@@ -160,6 +160,7 @@ function applySynthTrackMode() {
         const silent = currentScore.tracks.map((_, i) => i).filter(i => !jamAudioTracks.includes(i));
         if (silent.length) currentApi.changeTrackMute(silent, true);
         if (audible.length) currentApi.changeTrackMute(audible, false);
+        applyMixerVolumes();
         return;
     }
     if (jamMuteTracks) {
@@ -168,6 +169,7 @@ function applySynthTrackMode() {
         const audible = all.filter(i => !jamMuteTracks.includes(i));
         if (silent.length) currentApi.changeTrackMute(silent, true);
         if (audible.length) currentApi.changeTrackMute(audible, false);
+        applyMixerVolumes();
         return;
     }
 
@@ -182,14 +184,80 @@ const MIXER_DEFAULT = Object.freeze({ volume: 1, pan: 8, mute: false, solo: fals
 const mixerListeners = new Set();
 let mixerState = new Map(); // track index -> { volume, pan, mute, solo }
 let panReloadTimer = null;
+// Jam client: the host's mix as { trackIndex: { volume, pan, mute, solo } }, omitting tracks left at default.
+// While set, the local mixer is locked and this device's own mix is parked in localMixerBackup.
+let jamHostMixer = null;
+let localMixerBackup = null;
 
 function mixerFor(index) {
     if (!mixerState.has(index)) {
         // Tracks keep the pan stored in the file as their starting point
-        const pan = currentScore?.tracks?.[index]?.playbackInfo?.balance ?? MIXER_DEFAULT.pan;
-        mixerState.set(index, { ...MIXER_DEFAULT, pan, defaultPan: pan });
+        const track = currentScore?.tracks?.[index];
+        const pan = track?.playbackInfo?.balance ?? MIXER_DEFAULT.pan;
+        const entry = { ...MIXER_DEFAULT, pan, defaultPan: pan };
+        const host = jamHostMixer?.[index];
+        if (host) {
+            Object.assign(entry, hostMixEntry(host, pan));
+            if (track && entry.pan !== pan) {
+                track.playbackInfo.balance = entry.pan;
+                schedulePanReload();
+            }
+        }
+        mixerState.set(index, entry);
     }
     return mixerState.get(index);
+}
+
+function hostMixEntry(host, defaultPan) {
+    return {
+        volume: Math.min(1.5, Math.max(0, Number(host.volume ?? 1))),
+        pan: Math.min(16, Math.max(0, Math.round(Number(host.pan ?? defaultPan)))),
+        mute: Boolean(host.mute),
+        solo: Boolean(host.solo)
+    };
+}
+
+/** The mix as a sparse { trackIndex: { volume, pan, mute, solo } } holding only tracks that differ from default. */
+export function getMixerSnapshot() {
+    const snap = {};
+    mixerState.forEach((m, i) => {
+        if (m.volume !== 1 || m.pan !== m.defaultPan || m.mute || m.solo) {
+            snap[i] = { volume: m.volume, pan: m.pan, mute: m.mute, solo: m.solo };
+        }
+    });
+    return snap;
+}
+
+/** Jam client: follow the host's mix (null returns to this device's own). The mixer UI is locked meanwhile. */
+function setHostMixer(snapshot) {
+    let panChanged = false;
+    const setPan = (track, pan) => {
+        if (track.playbackInfo.balance !== pan) {
+            track.playbackInfo.balance = pan;
+            panChanged = true;
+        }
+    };
+    if (snapshot) {
+        if (!jamHostMixer) localMixerBackup = new Map([...mixerState].map(([k, v]) => [k, { ...v }]));
+        jamHostMixer = snapshot;
+        (currentScore?.tracks || []).forEach((track, i) => {
+            const m = mixerFor(i);
+            const host = snapshot[i];
+            const next = host ? hostMixEntry(host, m.defaultPan) : { ...MIXER_DEFAULT, pan: m.defaultPan };
+            Object.assign(m, next);
+            setPan(track, m.pan);
+        });
+    } else if (jamHostMixer) {
+        jamHostMixer = null;
+        mixerState = localMixerBackup || new Map();
+        localMixerBackup = null;
+        (currentScore?.tracks || []).forEach((track, i) => setPan(track, mixerFor(i).pan));
+    } else {
+        return;
+    }
+    if (panChanged) schedulePanReload();
+    applySynthTrackMode();
+    emitMixerChange();
 }
 
 function isTargetTrack(track) {
@@ -216,6 +284,12 @@ export function getMixerTracks() {
         isTarget: isTargetTrack(t),
         ...mixerFor(i)
     }));
+}
+
+function applyMixerVolumes() {
+    (currentScore?.tracks || []).forEach((track, i) => {
+        try { currentApi.changeTrackVolume([track], mixerFor(i).volume); } catch (_) {}
+    });
 }
 
 function applyMixerToApi() {
@@ -254,6 +328,7 @@ function syncTrackModeFromMixer() {
 
 /** Audio Tracks selector: set the mute flags for a preset (clears solos). */
 function applyTrackModePreset(mode) {
+    if (jamHostMixer) { syncTrackModeFromMixer(); return; }
     (currentScore?.tracks || []).forEach((track, i) => {
         const m = mixerFor(i);
         const target = isTargetTrack(track);
@@ -267,7 +342,7 @@ function applyTrackModePreset(mode) {
 /** Change one track's mixer settings: any of { volume, pan, mute, solo }. */
 export function setTrackMixer(index, patch) {
     const track = currentScore?.tracks?.[index];
-    if (!track || jamAudioTracks || jamMuteTracks) return;
+    if (!track || jamAudioTracks || jamMuteTracks || jamHostMixer) return;
     const m = mixerFor(index);
     if (patch.volume !== undefined) m.volume = Math.min(1.5, Math.max(0, patch.volume));
     if (patch.mute !== undefined) m.mute = Boolean(patch.mute);
@@ -283,6 +358,7 @@ export function setTrackMixer(index, patch) {
 
 /** Clear every track back to full volume, centered, unmuted and unsoloed. */
 export function resetMixer() {
+    if (jamHostMixer) return;
     let panChanged = false;
     (currentScore?.tracks || []).forEach((track, i) => {
         const { defaultPan } = mixerFor(i);
@@ -324,7 +400,7 @@ function schedulePanReload() {
  * Returns the new track mode, or null when the synth isn't available.
  */
 export function toggleSynthNoGuitars() {
-    if (!currentApi || !currentScore?.tracks || jamAudioTracks || jamMuteTracks) return null;
+    if (!currentApi || !currentScore?.tracks || jamAudioTracks || jamMuteTracks || jamHostMixer) return null;
     applyTrackModePreset(synthPlayerState.trackMode === 'noGuitars' ? 'fullBand' : 'noGuitars');
     return synthPlayerState.trackMode;
 }
@@ -1121,6 +1197,7 @@ export function attachAlphaTabApi(api) {
     currentScore = api.score;
     clearTimeout(panReloadTimer);
     mixerState = new Map();
+    if (jamHostMixer) localMixerBackup = new Map();
     emitMixerChange();
 
     if (!api.customCursorHandler) {
@@ -2254,6 +2331,8 @@ export const jamPlayerControl = {
             isTarget: bass ? isTrackBass(t) : isTrackGuitar(t)
         }));
     },
+    /** Jam client: follow the host's per-track mix (see getMixerSnapshot), or null to hand the mixer back. */
+    setHostMixer,
     /** Jam track assignment: `audio` / `view` are index arrays, or null for no restriction. */
     setTrackPolicy({ audio = null, view = null, mute = null } = {}) {
         const norm = (a) => (Array.isArray(a) && a.length ? a : null);
