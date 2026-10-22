@@ -4049,6 +4049,15 @@ body:not(.synth-playback-started) .at-highlight {
   overflow: hidden;
 }
 
+/* Let the "+ Tab" dropdown menu extend past the row instead of being clipped by it */
+.library-song-row {
+  overflow: visible;
+}
+
+.library-song-row:has(.dropdown-menu.show) {
+  z-index: 5;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .library-song-row:hover,
   .library-track-row:hover {
