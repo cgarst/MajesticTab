@@ -1752,6 +1752,15 @@ input[type=range]::-webkit-slider-thumb:hover {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* No footer on iOS, so let the body scroll through the home-indicator inset instead of leaving a blank strip */
+.tauri-ios .offcanvas {
+  padding-bottom: 0;
+}
+
+.tauri-ios .offcanvas-body {
+  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
+}
+
 @media (orientation: portrait) {
   .tauri-ios .offcanvas {
     padding-top: 0;
