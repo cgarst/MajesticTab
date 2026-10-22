@@ -45,6 +45,24 @@ Then open:
 
 ---
 
+## Keyboard shortcuts
+
+Shortcuts apply while a tab is open and no text field has focus.
+
+| Key | Action |
+| --- | --- |
+| `→`, `↓`, `Page Down` | Next page (or scroll down in continuous mode) |
+| `←`, `↑`, `Page Up` | Previous page (or scroll up in continuous mode) |
+| `Space` | Play or pause the SoundFont or YouTube audio (turns the page when no audio is loaded) |
+| `B` | Rewind audio by 10 seconds |
+| `G` | Toggle the SoundFont between full band and no guitars (no bass in bass mode) |
+| `F` | Show or hide the fretboard (Guitar Pro files) |
+| `Esc` | Close the open panel, modal, or dialog |
+| `Cmd+[`, `Alt+←`, `Cmd+←` | Back (macOS mouse button 4 also works) |
+| `Cmd+]`, `Alt+→`, `Cmd+→` | Forward (macOS mouse button 5 also works) |
+
+---
+
 ## PDF workflow
 
 MajesticTab works best with multi-track, tab-only PDFs exported from Guitar Pro. This is the format the optimizer is designed to process most effectively.
