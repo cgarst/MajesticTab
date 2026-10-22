@@ -2,11 +2,12 @@
 // IndexedDB-backed persistent file store for MajesticTab tab files across all platforms.
 
 export const DB_NAME = 'majestictab_db';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 export const STORE_NAME = 'stored_files';
 export const STORE_SONGS = 'library_songs';
 export const STORE_COLLECTIONS = 'library_collections';
 export const STORE_RECENTS = 'library_recents';
+export const STORE_SOUNDFONTS = 'soundfonts';
 
 let dbPromise = null;
 
@@ -42,6 +43,10 @@ export function getDB() {
             if (!db.objectStoreNames.contains(STORE_RECENTS)) {
                 const recentsStore = db.createObjectStore(STORE_RECENTS, { keyPath: 'id' });
                 recentsStore.createIndex('openedAt', 'openedAt', { unique: false });
+            }
+            if (!db.objectStoreNames.contains(STORE_SOUNDFONTS)) {
+                const sfStore = db.createObjectStore(STORE_SOUNDFONTS, { keyPath: 'id' });
+                sfStore.createIndex('addedAt', 'addedAt', { unique: false });
             }
         };
 

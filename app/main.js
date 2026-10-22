@@ -12,6 +12,7 @@ import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
+import { initSoundFontPanel } from './gpProcessor/soundFontPanel.js';
 import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
 import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdfBookmarksUI } from './pdfProcessor/pdfBookmarks.js';
 import { initTheming } from './themeEngine.js';
@@ -1145,6 +1146,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initUpdater();
     initYouTubePlayer();
     initSynthPlayer();
+    initSoundFontPanel();
     initScoreOptionsPanel();
     initPdfBookmarksUI();
     initFretboard();

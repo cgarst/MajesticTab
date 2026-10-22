@@ -7,6 +7,7 @@ import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigatio
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
 import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning } from '../utils/iosAudioUnlock.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
+import { applySoundFontsToApi } from '../soundFontStore.js';
 
 const STORAGE_KEY_SYNTH_VOLUME = 'majestic_synth_volume';
 
@@ -1141,6 +1142,14 @@ export function clearSynthHighlights() {
 /**
  * Detach AlphaTab API and hide player
  */
+/** Re-layer the enabled SoundFonts onto the loaded song (pauses playback; the synth restarts its sound bank). */
+export async function reloadSynthSoundFonts() {
+    const api = currentApi;
+    if (!api) return;
+    try { api.pause(); } catch (_) {}
+    await applySoundFontsToApi(api);
+}
+
 export function detachAlphaTabApi() {
     pauseIOSAudioPlayback();
     warmingUp = false;
