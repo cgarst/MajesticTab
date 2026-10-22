@@ -999,6 +999,33 @@ body {
   padding: 1rem;
 }
 
+/* Short viewports (phones in landscape): keep the SoundFont / YouTube panels on screen and scrollable */
+@media (max-height: 520px) and (orientation: landscape) {
+  .synth-panel, .yt-panel {
+    max-height: calc(100dvh - 64px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-width: min(440px, calc(100vw - 2rem - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+    flex-direction: column;
+  }
+
+  .synth-panel:not([style*="display: none"]):not([style*="display:none"]),
+  .yt-panel:not([style*="display: none"]):not([style*="display:none"]) {
+    display: flex;
+  }
+
+  .synth-panel-header, .yt-panel-header {
+    flex-shrink: 0;
+  }
+
+  .synth-panel-body, .yt-panel-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+}
+
 .synth-section-heading {
   font-size: 0.72rem;
   font-weight: 700;
