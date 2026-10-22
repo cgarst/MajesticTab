@@ -205,6 +205,8 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
                     enablePlayer: true,
                     playerMode: initialPlayerMode,
                     soundFont: 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/soundfont/sonivox.sf2',
+                    // Refills relay through the main thread; a larger buffer rides out UI stalls (default 500)
+                    bufferTimeInMilliseconds: 1000,
                     enableCursor: true,
                     enableElementHighlighting: true,
                     scrollMode: alphaTab.ScrollMode.Off
