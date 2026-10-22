@@ -1,12 +1,14 @@
 // soundFontStore.js
 // Persistent store and selection for user-supplied SoundFonts (.sf2 / .sf3).
 // Any number can be enabled at once; AlphaTab layers them in load order, so later ones override earlier ones.
+import { parseSoundFontPresets, mergePresetSets, applyProgramMapping } from './soundFontProgramMap.js';
 import { getDB, STORE_SOUNDFONTS, arrayBufferToBase64Async, arrayBufferToBase64, base64ToArrayBuffer } from './fileStore.js';
 
 export const BUILTIN_SOUNDFONT_ID = 'builtin';
 export const BUILTIN_SOUNDFONT_URL = 'https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/soundfont/sonivox.sf2';
 export const STORAGE_KEY_SOUNDFONT_SELECTION = 'majestictab_soundfont_selection';
 export const STORAGE_KEY_SOUNDFONT_ORDER = 'majestictab_soundfont_order';
+export const STORAGE_KEY_SOUNDFONT_STRICT = 'majestictab_soundfont_strict';
 export const SOUNDFONT_BACKUP_STORE = 'soundfonts';
 
 function request(mode, run) {
@@ -97,6 +99,21 @@ export function setSoundFontOrder(ids) {
     } catch (_) {}
 }
 
+/** Strict mode plays each track's exact GM program only; tracks the enabled fonts lack stay silent. Off by default. */
+export function getSoundFontStrict() {
+    try {
+        return localStorage.getItem(STORAGE_KEY_SOUNDFONT_STRICT) === '1';
+    } catch (_) {
+        return false;
+    }
+}
+
+export function setSoundFontStrict(strict) {
+    try {
+        localStorage.setItem(STORAGE_KEY_SOUNDFONT_STRICT, strict ? '1' : '0');
+    } catch (_) {}
+}
+
 /** Built-in plus uploads in load order: saved order first, anything unsaved after (built-in, then oldest upload first). */
 export async function listOrderedSoundFonts() {
     const entries = [
@@ -119,16 +136,28 @@ export async function applySoundFontsToApi(api) {
     if (!api) return 0;
     const selected = new Set(getSelectedSoundFontIds());
     const sources = [];
+    const presetSets = [];
+    let hasBuiltin = false;
     for (const entry of await listOrderedSoundFonts()) {
         if (!selected.has(entry.id)) continue;
         if (entry.builtin) {
             sources.push(BUILTIN_SOUNDFONT_URL);
+            hasBuiltin = true;
             continue;
         }
         const data = await getSoundFontData(entry.id);
-        if (data) sources.push(new Uint8Array(data));
+        if (data) {
+            sources.push(new Uint8Array(data));
+            presetSets.push(parseSoundFontPresets(data));
+        }
     }
-    if (sources.length === 0) sources.push(BUILTIN_SOUNDFONT_URL);
+    if (sources.length === 0) {
+        sources.push(BUILTIN_SOUNDFONT_URL);
+        hasBuiltin = true;
+    }
+    // The built-in font defines every GM program; only custom-only selections can leave tracks silent (unless strict).
+    api.soundFontPresets = hasBuiltin || getSoundFontStrict() ? null : mergePresetSets(presetSets);
+    if (applyProgramMapping(api.score, api.soundFontPresets)) api.loadMidiForScore();
     sources.forEach((src, i) => api.loadSoundFont(src, i > 0));
     return sources.length;
 }
