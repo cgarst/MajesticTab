@@ -219,6 +219,9 @@ class PitchCraftTunerController {
         this.audioContext = null;
         this.analyser = null;
         this.mediaStream = null;
+        this.sourceNode = null;
+        this.isStarting = false;
+        this.listenToken = 0;
         this.animFrameId = null;
         this.detectedNote = null;
         this.volume = 0;
@@ -525,9 +528,17 @@ class PitchCraftTunerController {
      * Start microphone pitch detection
      */
     async startListening() {
+        if (this.isListening || this.isStarting) return;
+        this.isStarting = true;
+        const startToken = ++this.listenToken;
         try {
             setAudioSessionCapture(true);
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            // Stop was requested while the permission prompt / capture start was pending
+            if (startToken !== this.listenToken) {
+                stream.getTracks().forEach(t => t.stop());
+                return;
+            }
             this.mediaStream = stream;
 
             const audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -539,6 +550,7 @@ class PitchCraftTunerController {
 
             const source = audioContext.createMediaStreamSource(stream);
             source.connect(analyser);
+            this.sourceNode = source;
 
             this.isListening = true;
             this.updateListeningUI(true);
@@ -573,6 +585,8 @@ class PitchCraftTunerController {
             const statusEl = document.getElementById('tunerStatusReadout');
             if (statusEl) statusEl.textContent = `Microphone unavailable. ${reason}`;
             alert("Microphone access is required for real-time instrument tuning.");
+        } finally {
+            this.isStarting = false;
         }
     }
 
@@ -580,13 +594,28 @@ class PitchCraftTunerController {
      * Stop microphone listening
      */
     stopListening() {
+        // Invalidate any capture request still waiting on getUserMedia
+        this.listenToken++;
         if (this.animFrameId) {
             cancelAnimationFrame(this.animFrameId);
             this.animFrameId = null;
         }
+        // iOS WKWebView keeps the mic indicator on until the source is disconnected
+        // and every capture track is both disabled and stopped.
+        if (this.sourceNode) {
+            try { this.sourceNode.disconnect(); } catch (_) {}
+            this.sourceNode = null;
+        }
         if (this.mediaStream) {
-            this.mediaStream.getTracks().forEach(t => t.stop());
+            this.mediaStream.getTracks().forEach(t => {
+                t.enabled = false;
+                t.stop();
+            });
             this.mediaStream = null;
+        }
+        if (this.analyser) {
+            try { this.analyser.disconnect(); } catch (_) {}
+            this.analyser = null;
         }
         if (this.audioContext) {
             try { this.audioContext.close(); } catch (_) {}
