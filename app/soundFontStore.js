@@ -12,6 +12,11 @@ export const STORAGE_KEY_SOUNDFONT_ORDER = 'majestictab_soundfont_order';
 export const STORAGE_KEY_SOUNDFONT_STRICT = 'majestictab_soundfont_strict';
 export const SOUNDFONT_BACKUP_STORE = 'soundfonts';
 
+const BUILTIN_PRESETS = () => ({
+    melodic: new Set(Array.from({ length: 128 }, (_, i) => i)),
+    drumKits: new Set([0])
+});
+
 function request(mode, run) {
     return getDB().then(db => new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_SOUNDFONTS, mode);
@@ -143,6 +148,7 @@ export async function applySoundFontsToApi(api) {
         if (!selected.has(entry.id)) continue;
         if (entry.builtin) {
             sources.push(BUILTIN_SOUNDFONT_URL);
+            presetSets.push(BUILTIN_PRESETS());
             hasBuiltin = true;
             continue;
         }
@@ -156,10 +162,14 @@ export async function applySoundFontsToApi(api) {
     }
     if (sources.length === 0) {
         sources.push(BUILTIN_SOUNDFONT_URL);
+        presetSets.push(BUILTIN_PRESETS());
         hasBuiltin = true;
     }
-    // The built-in font defines every GM program; only custom-only selections can leave tracks silent (unless strict).
-    api.soundFontPresets = hasBuiltin || getSoundFontStrict() ? null : mergePresetSets(presetSets);
+    // The built-in font alone defines every GM program, so nothing needs remapping. Layered with custom fonts it
+    // counts as a full layer: each custom font above it substitutes its closest program first, so it is heard
+    // instead of the built-in font merely being the only one with the exact program.
+    const builtinOnly = hasBuiltin && sources.length === 1;
+    api.soundFontPresets = builtinOnly || getSoundFontStrict() ? null : mergePresetSets(presetSets);
     if (applyProgramMapping(api.score, api.soundFontPresets)) api.loadMidiForScore();
     sources.forEach((src, i) => api.loadSoundFont(src, i > 0));
     return sources.length;
