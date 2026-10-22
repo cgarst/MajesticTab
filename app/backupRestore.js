@@ -16,6 +16,10 @@ import {
 import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { installExtensionSources } from './fileAdapters.js';
+import {
+    STORAGE_KEY_SOUNDFONT_SELECTION, SOUNDFONT_BACKUP_STORE, listSoundFonts, clearAllSoundFonts,
+    collectSoundFontBackupEntries, restoreSoundFontEntry
+} from './soundFontStore.js';
 
 let modalElement = null;
 let currentBackupFile = null;
@@ -65,7 +69,8 @@ const BACKUP_SETTINGS_KEYS = [
     'gpDefaultStringsGuitar',
     'gpDefaultStringsBass',
     'instrumentMode',
-    'majestictab_instrument_mode'
+    'majestictab_instrument_mode',
+    STORAGE_KEY_SOUNDFONT_SELECTION
 ];
 
 /**
@@ -156,9 +161,10 @@ export function collectExtensions() {
  * @returns {Promise<Blob>} Complete backup bundle as Blob (compressed by default)
  */
 export async function createBackupBlob(onProgress, { compress = true } = {}) {
-    const [fileMetas, libraryData] = await Promise.all([
+    const [fileMetas, libraryData, soundFonts] = await Promise.all([
         getAllStoredFiles(),
-        getAllLibraryData()
+        getAllLibraryData(),
+        listSoundFonts()
     ]);
 
     const settings = collectAllSettings();
@@ -166,6 +172,7 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
 
     const summary = {
         tabsCount: fileMetas.length,
+        soundFontsCount: soundFonts.length,
         totalTabsSize: fileMetas.reduce((acc, f) => acc + (f.size || 0), 0),
         songsCount: libraryData.songs?.length || 0,
         collectionsCount: libraryData.collections?.length || 0,
@@ -219,6 +226,13 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
         if (typeof onProgress === 'function') {
             onProgress(i + 1, fileMetas.length);
         }
+    }
+
+    // Soundfonts ride in the same array, tagged with `store`, so restore stays streamable
+    const soundFontEntries = await collectSoundFontBackupEntries();
+    for (let i = 0; i < soundFontEntries.length; i++) {
+        blobParts.push((fileMetas.length + i > 0 ? ',' : '') + JSON.stringify(soundFontEntries[i]));
+        soundFontEntries[i].dataBase64 = null;
     }
 
     blobParts.push(']}}');
@@ -367,6 +381,7 @@ export async function createBackupBundle(onProgress) {
     const settings = collectAllSettings();
     const extensions = collectExtensions();
 
+    const soundFontEntries = await collectSoundFontBackupEntries();
     const files = [];
     for (let i = 0; i < fileMetas.length; i++) {
         const meta = fileMetas[i];
@@ -395,6 +410,9 @@ export async function createBackupBundle(onProgress) {
         }
     }
 
+    const tabsCount = files.length;
+    files.push(...soundFontEntries);
+
     const now = new Date();
     const bundle = {
         app: 'MajesticTab',
@@ -402,8 +420,9 @@ export async function createBackupBundle(onProgress) {
         version: 1,
         exportedAt: now.toISOString(),
         summary: {
-            tabsCount: files.length,
-            totalTabsSize: files.reduce((acc, f) => acc + (f.size || 0), 0),
+            tabsCount,
+            soundFontsCount: soundFontEntries.length,
+            totalTabsSize: files.slice(0, tabsCount).reduce((acc, f) => acc + (f.size || 0), 0),
             songsCount: libraryData.songs?.length || 0,
             collectionsCount: libraryData.collections?.length || 0,
             recentsCount: libraryData.recents?.length || 0,
@@ -476,7 +495,7 @@ function inspectBackupContentSync(fileContent) {
         isFullBundle,
         exportedAt: formattedDate,
         rawExportedAt: parsed.exportedAt || null,
-        tabsCount: files.length,
+        tabsCount: files.filter(f => f?.store !== SOUNDFONT_BACKUP_STORE).length,
         totalTabsSize: totalSize,
         songsCount: songs.length,
         collectionsCount: collections.length,
@@ -666,6 +685,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
 
     if (wipe) {
         await clearAllStoredFiles();
+        await clearAllSoundFonts();
         await clearAllLibraryData();
         for (const key of BACKUP_SETTINGS_KEYS) {
             localStorage.removeItem(key);
@@ -692,6 +712,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
 
     let filesImported = 0;
     let filesSkipped = 0;
+    let soundFontsImported = 0;
     let libraryResults = { collectionsCount: 0, songsCount: 0, recentsCount: 0 };
     let extensionsImported = 0;
     let settingsApplied = 0;
@@ -716,7 +737,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
                     inFiles = true;
                     buffer = buffer.slice(arrayStart + 1);
 
-                    totalFilesExpected = headerObj.summary?.tabsCount || 0;
+                    totalFilesExpected = (headerObj.summary?.tabsCount || 0) + (headerObj.summary?.soundFontsCount || 0);
 
                     if (headerObj.library && typeof headerObj.library === 'object') {
                         libraryResults = await importLibraryData(headerObj.library, { wipe });
@@ -783,7 +804,13 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
                     buffer = buffer.slice(endIdx + 1);
                     const item = JSON.parse(fileJson);
 
-                    if (item && item.id && item.name && item.dataBase64) {
+                    if (item && item.store === SOUNDFONT_BACKUP_STORE && item.id && item.name && item.dataBase64) {
+                        if (await restoreSoundFontEntry(item, { wipe })) soundFontsImported++;
+                        else filesSkipped++;
+                        if (typeof onProgress === 'function') {
+                            onProgress(filesImported + filesSkipped + soundFontsImported, totalFilesExpected);
+                        }
+                    } else if (item && item.id && item.name && item.dataBase64) {
                         const arrayBuffer = base64ToArrayBuffer(item.dataBase64);
                         item.dataBase64 = null;
 
@@ -824,7 +851,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
                         });
 
                         if (typeof onProgress === 'function') {
-                            onProgress(filesImported + filesSkipped, totalFilesExpected);
+                            onProgress(filesImported + filesSkipped + soundFontsImported, totalFilesExpected);
                         }
                     }
                 } else {
@@ -878,6 +905,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
         mode,
         filesImported,
         filesSkipped,
+        soundFontsImported,
         collectionsImported: libraryResults.collectionsCount,
         songsImported: libraryResults.songsCount,
         recentsCount: libraryResults.recentsCount,
@@ -892,6 +920,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
 
     if (wipe) {
         await clearAllStoredFiles();
+        await clearAllSoundFonts();
         await clearAllLibraryData();
 
         for (const key of BACKUP_SETTINGS_KEYS) {
@@ -909,6 +938,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
 
     let filesImported = 0;
     let filesSkipped = 0;
+    let soundFontsImported = 0;
 
     const files = bundle.fileStore?.files || (Array.isArray(bundle.files) ? bundle.files : []);
     const totalFiles = files.length;
@@ -922,6 +952,12 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
 
         if (i > 0 && i % 10 === 0) {
             await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        if (item.store === SOUNDFONT_BACKUP_STORE) {
+            if (await restoreSoundFontEntry(item, { wipe })) soundFontsImported++;
+            else filesSkipped++;
+            continue;
         }
 
         const arrayBuffer = base64ToArrayBuffer(item.dataBase64);
@@ -986,6 +1022,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
         mode,
         filesImported,
         filesSkipped,
+        soundFontsImported,
         collectionsImported: libraryResults.collectionsCount,
         songsImported: libraryResults.songsCount,
         recentsCount: libraryResults.recentsCount,
@@ -1000,6 +1037,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
 export async function deleteAllAppData() {
     // 1. Wipe IndexedDB stored files and library
     await clearAllStoredFiles();
+    await clearAllSoundFonts();
     await clearAllLibraryData();
     await ensureDefaultCollection();
 
@@ -2214,6 +2252,7 @@ function attachModalHandlers(modal, options = {}) {
             restoreStatusAlert.className = 'small mb-2 text-success fw-semibold';
             const details = [];
             if (results.filesImported > 0) details.push(`${results.filesImported} tabs imported`);
+            if (results.soundFontsImported > 0) details.push(`${results.soundFontsImported} SoundFonts imported`);
             if (results.filesSkipped > 0) details.push(`${results.filesSkipped} existing tabs kept`);
             if (results.songsImported > 0) details.push(`${results.songsImported} library songs added/merged`);
             if (results.extensionsImported > 0) details.push(`${results.extensionsImported} extensions updated`);

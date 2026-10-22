@@ -437,6 +437,17 @@
       </div>
     </div>
 
+    <!-- SoundFont Library: any number can be enabled; later ones layer over earlier ones -->
+    <div class="mb-3" id="soundFontSection">
+      <div class="d-flex justify-content-between align-items-center mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted">SoundFonts:</label>
+        <button type="button" class="btn btn-sm theme-control-btn" id="soundFontAddBtn" title="Add an .sf2 or .sf3 SoundFont"><i class="bi-plus-lg" aria-hidden="true"></i> Add</button>
+      </div>
+      <input type="file" id="soundFontFileInput" accept=".sf2,.sf3" multiple hidden>
+      <div id="soundFontList" class="soundfont-list" role="group" aria-label="Enabled SoundFonts"></div>
+      <div class="small text-white-50 mt-1" style="font-size: 0.72rem;">Enabled SoundFonts layer in order; later ones override earlier ones.</div>
+    </div>
+
     <!-- Embedded Audio Sync Option -->
     <div class="mb-3" id="synthAudioSyncSection">
       <div class="d-flex align-items-center justify-content-between">
