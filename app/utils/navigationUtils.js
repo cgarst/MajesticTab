@@ -1,8 +1,9 @@
 // navigationUtils.js
+import { showToast } from './toast.js';
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
-import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
+import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
 import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel } from '../youtubePlayer.js';
 
 // Navigation action constants
@@ -241,6 +242,17 @@ export function setupKeyboardNavigation(getConfig) {
             if (isSynthAvailable() || isYouTubeAvailable() || isSynthPlaying() || isYouTubePlaying()) {
                 e.preventDefault();
                 handleGlobalRewind10Seconds();
+                return;
+            }
+        }
+
+        // G key toggles the soundfont between full band and no guitars (no bass in bass mode)
+        if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey && isSynthAvailable()) {
+            const mode = toggleSynthNoGuitars();
+            if (mode) {
+                e.preventDefault();
+                const isBass = document.getElementById('synthTrackNoGuitarsLabel')?.textContent === 'No Bass';
+                showToast(mode === 'noGuitars' ? (isBass ? 'No bass' : 'No guitars') : 'Full band', 'info', 1500, 'synth-track-mode');
                 return;
             }
         }
