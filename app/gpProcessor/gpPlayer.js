@@ -314,11 +314,8 @@ function schedulePanReload() {
             try { api.tickPosition = tick; } catch (_) {}
             if (wasPlaying) api.play();
         };
-        if (api.midiLoaded?.on) {
-            const off = api.midiLoaded.on(() => { off(); restore(); });
-        } else {
-            setTimeout(restore, 300);
-        }
+        // Not midiLoaded.on: AlphaTab 1.8.4 recurses forever in its loadedMidiInfo getter once a MIDI is loaded.
+        setTimeout(restore, 400);
     }, 250);
 }
 
@@ -1338,8 +1335,17 @@ export async function reloadSynthSoundFonts() {
     await applySoundFontsToApi(api);
     await loaded;
     if (api !== currentApi) return;
-    try { api.tickPosition = tick; } catch (_) {}
-    if (wasPlaying) api.play();
+    // The synth restarts its sound bank on load; regenerating the MIDI re-feeds it, otherwise the transport
+    // runs silently until a manual pause/resume.
+    const restore = () => {
+        if (currentApi !== api) return;
+        applyMixerToApi();
+        try { api.tickPosition = tick; } catch (_) {}
+        if (wasPlaying) api.play();
+    };
+    // Not midiLoaded.on: with a MIDI already loaded, AlphaTab 1.8.4 recurses forever in its loadedMidiInfo getter.
+    api.loadMidiForScore();
+    setTimeout(restore, 400);
 }
 
 export function detachAlphaTabApi() {
