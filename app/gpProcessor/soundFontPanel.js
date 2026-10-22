@@ -150,11 +150,16 @@ export function initSoundFontPanel() {
         // Two-step confirm: the viewer suppresses native confirm dialogs
         if (btn.dataset.armed !== '1') {
             btn.dataset.armed = '1';
-            btn.title = 'Click again to delete';
+            const label = btn.title;
+            btn.title = 'Click again to confirm delete';
             btn.classList.add('active');
+            btn.innerHTML = '<i class="bi-exclamation-triangle-fill" aria-hidden="true"></i>';
             setTimeout(() => {
+                if (!btn.isConnected) return;
                 btn.dataset.armed = '';
                 btn.classList.remove('active');
+                btn.title = label;
+                btn.innerHTML = '<i class="bi-trash" aria-hidden="true"></i>';
             }, 3000);
             return;
         }
