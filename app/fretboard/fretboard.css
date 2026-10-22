@@ -209,28 +209,14 @@ body.library-view-active .fretboard-dock {
 
 .fretboard-neck-scroll {
   width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border-subtle) transparent;
-}
-
-.fretboard-neck-scroll::-webkit-scrollbar {
-  height: 4px;
-}
-
-.fretboard-neck-scroll::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: 4px;
+  overflow: hidden;
 }
 
 .fretboard-svg-container {
   display: flex;
   justify-content: center;
-  min-width: 1000px;
   width: 100%;
-  padding: 0 1rem;
+  padding: 0 0.5rem;
   box-sizing: border-box;
 }
 
