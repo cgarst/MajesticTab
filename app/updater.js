@@ -47,7 +47,7 @@ async function fetchRelease(channel) {
 
 // Returns { label, url } when a newer build exists on the selected channel, otherwise null.
 export async function checkForUpdate(buildInfo, channel = getUpdateChannel()) {
-    if (channel === 'none' || buildInfo.channel === 'dev') return null;
+    if (channel === 'none') return null;
     const release = await fetchRelease(channel);
     if (!release) return null;
 
@@ -56,6 +56,12 @@ export async function checkForUpdate(buildInfo, channel = getUpdateChannel()) {
         // Nightly releases are named "Nightly <buildId>".
         const id = (release.name || '').replace(/^Nightly\s+/i, '').trim();
         if (!id || id === buildInfo.buildId) return null;
+        if (buildInfo.channel === 'dev') {
+            // Local builds have no nightly id: compare the release time to the build's commit time instead.
+            if (!buildInfo.commit || !buildInfo.commitDate) return null;
+            if (id.endsWith(buildInfo.commit)) return null;
+            if (!(Date.parse(release.published_at) > Date.parse(buildInfo.commitDate))) return null;
+        }
         label = `Nightly ${id}`;
     } else {
         if (!isNewerVersion(release.tag_name, buildInfo.version)) return null;
@@ -126,7 +132,9 @@ export async function initUpdater() {
     if (version) {
         version.textContent = buildInfo.channel === 'nightly'
             ? `Version ${buildInfo.version} (nightly ${buildInfo.buildId})`
-            : `Version ${buildInfo.version}`;
+            : buildInfo.channel === 'dev' && buildInfo.commit
+                ? `Version ${buildInfo.version} (local ${buildInfo.commit})`
+                : `Version ${buildInfo.version}`;
     }
 
     const channel = getUpdateChannel();
