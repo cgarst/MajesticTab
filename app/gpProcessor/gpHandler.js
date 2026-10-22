@@ -17,7 +17,8 @@ import {
     setTabStringCountPreference,
     getEffectiveGpStringCount,
     getScoreMaxStringsForMode,
-    getInstrumentMode
+    getInstrumentMode,
+    formatTuningFromMidi
 } from '../utils/tuningUtils.js';
 import { addRecentOpened, updateLibrarySongFromScore } from '../libraryStore.js';
 import {
@@ -952,7 +953,10 @@ export function applyGpTabAdaptation(pref) {
 function describeAdaptation(summary, pref) {
     if (!summary) return '';
     const tuning = findAdaptTuning(pref.tuningName);
-    const parts = [pref.method === 'capo' ? `Capo ${summary.capo}` : 'Frets shifted to ' + (tuning?.shortName || 'your tuning')];
+    const fromName = formatTuningFromMidi(summary.from);
+    const parts = [];
+    if (fromName) parts.push(`Adapted from ${fromName}`);
+    parts.push(pref.method === 'capo' ? `Capo ${summary.capo}` : 'Frets shifted to ' + (tuning?.shortName || 'your tuning'));
     if (summary.remapped) parts.push(`${summary.remapped} note${summary.remapped === 1 ? '' : 's'} moved to another string`);
     if (summary.unplayable) parts.push(`${summary.unplayable} out of range${tuning ? ' (try a lower tuning)' : ''}`);
     if (summary.harmonics) parts.push('harmonics keep their fret position');
@@ -960,7 +964,7 @@ function describeAdaptation(summary, pref) {
 }
 
 /**
- * Builds the "Play on Your Instrument" section of the Notation panel for the open tab
+ * Builds the "Adapt to My Tuning" section of the Notation panel for the open tab
  */
 export function syncGpAdaptUI(score) {
     const section = document.getElementById('scoreOptionsAdaptSection');
