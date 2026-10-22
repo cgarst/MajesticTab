@@ -1188,27 +1188,34 @@ async function renderLibraryBrowseView(container) {
     // In-view Back button click
     container.querySelector('#libBrowseBackBtn')?.addEventListener('click', handleBack);
 
-    // Drop a file on the custom music space to open Add Custom Music with it attached
-    const customDropZone = container.querySelector('#libBrowseContent');
-    if (customDropZone && selectedArtist?.isCustom) {
-        const folderPath = selectedFolderPath.join('/');
-        customDropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            if (e.dataTransfer) e.dataTransfer.dropEffect = canAcceptTabDrop(e) ? 'copy' : 'none';
-        });
-        customDropZone.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            const file = e.dataTransfer?.files?.[0];
-            if (!file) return;
-            if (!(await isSupportedTabFile(file))) {
-                showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
-                return;
-            }
-            pendingCustomDrop = { file, folderPath };
-            searchType = 'custom';
-            await switchView('search');
-        });
-    }
+    // Drop a file on the custom music space (the whole library pane, or the Custom Music card) to open Add Custom Music with it attached
+    const getCustomDropTarget = (e) => {
+        if (activeView !== 'library') return null;
+        if (selectedArtist?.isCustom) return { folderPath: selectedFolderPath.join('/') };
+        const card = e.target.closest?.('.artist-card');
+        if (!selectedArtist && card && artists.find(a => a.name === card.dataset.artistName)?.isCustom) return { folderPath: '' };
+        return null;
+    };
+    // Assigned as properties so re-renders replace the handlers instead of stacking them
+    container.ondragover = (e) => {
+        if (!getCustomDropTarget(e)) return;
+        e.preventDefault();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = canAcceptTabDrop(e) ? 'copy' : 'none';
+    };
+    container.ondrop = async (e) => {
+        const target = getCustomDropTarget(e);
+        if (!target) return;
+        e.preventDefault();
+        const file = e.dataTransfer?.files?.[0];
+        if (!file) return;
+        if (!(await isSupportedTabFile(file))) {
+            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+            return;
+        }
+        pendingCustomDrop = { file, folderPath: target.folderPath };
+        searchType = 'custom';
+        await switchView('search');
+    };
 
     // Breadcrumb clicks
     container.querySelector('#bcRoot')?.addEventListener('click', () => {
