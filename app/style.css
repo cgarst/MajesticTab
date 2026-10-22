@@ -3149,22 +3149,6 @@ body:not(.synth-playback-started) .at-highlight {
     padding: 0 0.4rem !important;
   }
 
-  /* Library / Recents selector */
-  #libraryNavButtons .btn {
-    width: 28px !important;
-    min-width: 28px !important;
-    height: 28px !important;
-    padding: 0 !important;
-    border-radius: 50% !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-  }
-
-  #libraryNavButtons .btn i {
-    margin-right: 0 !important;
-  }
-
   /* Library Return Song Pill */
   #brandSection.has-return-song .brand-title {
     display: none !important;
@@ -3435,7 +3419,6 @@ body:not(.synth-playback-started) .at-highlight {
 /* --------------------------------------------------------------------------
    Tab Library Page & Top Bar Integration
    -------------------------------------------------------------------------- */
-#libraryNavButtons,
 #libraryRightControls {
   align-items: center;
   gap: 0.5rem;
@@ -6137,4 +6120,280 @@ body.jam-starting #mobilePlayPauseBtn {
 @keyframes jamStartingPulse {
   from { opacity: 1; }
   to { opacity: 0.55; }
+}
+
+
+/* ==========================================================================
+   Top bar reorganization: flexible zone, Tools menu, playback dock
+   Narrowing order (viewport): 1300 Jam role label | 1100 brand, Tools label, Bookmarks | 980 First page,
+   Fullscreen, pinned tool, mode labels | 576 Jam pill becomes a dot on Tools. Page navigation never collapses.
+   ========================================================================== */
+#topFlexZone {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+#toolsToggleBtn { position: relative; }
+
+.pinned-tool-icon { display: inline-flex; align-items: center; }
+
+.tools-btn-chevron {
+  font-size: 0.6rem;
+  opacity: 0.7;
+  margin-left: 0.3rem;
+}
+
+.tools-status-dot {
+  display: none;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #34d399;
+  box-shadow: 0 0 0 2px var(--bg-card-solid);
+}
+
+#toolsToggleBtn.has-pad .tools-status-dot { display: block; }
+
+.jam-live-dot {
+  width: 8px;
+  height: 8px;
+  flex-shrink: 0;
+  margin-right: 0.4rem;
+  border-radius: 50%;
+  background: #34d399;
+  animation: jamLivePulse 2s ease-out infinite;
+}
+
+@keyframes jamLivePulse {
+  0% { box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.6); }
+  70%, 100% { box-shadow: 0 0 0 7px rgba(52, 211, 153, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jam-live-dot { animation: none; }
+}
+
+#jamLiveBtn i { margin-right: 0.3rem; }
+
+.jam-live-label {
+  font-size: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tools menu */
+.tools-menu {
+  position: fixed;
+  z-index: 1060;
+  width: 300px;
+  max-width: calc(100vw - 16px);
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  padding: 0.4rem;
+  background: var(--bg-card) !important;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1rem;
+  box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.7), 0 0 16px -2px var(--accent-glow);
+  color: var(--text-primary);
+  animation: panelSlideDownMobile 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tools-menu-heading {
+  padding: 0.6rem 0.65rem 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+.tools-row {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  border-radius: 0.6rem;
+}
+
+.tools-row:hover { background: var(--bg-card-hover); }
+
+.tools-item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem 0.65rem;
+  background: transparent;
+  border: 0;
+  border-radius: 0.6rem;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tools-item > i,
+.tools-item > svg {
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: var(--accent-text);
+}
+
+.tools-item-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.tools-item-text small {
+  margin-top: 2px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tools-item kbd {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+}
+
+.tools-pin {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  margin-right: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+  border-radius: 0.45rem;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  opacity: 0.55;
+  cursor: pointer;
+}
+
+.tools-row:hover .tools-pin,
+.tools-pin[aria-pressed="true"] { opacity: 1; }
+
+.tools-pin[aria-pressed="true"] {
+  color: var(--accent-text);
+  background: var(--accent-primary-alpha);
+}
+
+.tools-item:focus-visible,
+.tools-pin:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: -2px; }
+
+/* Active tools read as selected, not as primary buttons */
+#toolsMenu .tools-item.active,
+#toolsMenu #jamToggleBtn.jam-active {
+  background: var(--accent-primary-alpha) !important;
+  color: var(--accent-text) !important;
+  box-shadow: none !important;
+}
+
+#toolsMenu #controllerNameBadge { display: block !important; }
+
+.tools-switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 34px;
+  height: 20px;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 9999px;
+  transition: background 0.15s ease;
+}
+
+.tools-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.tools-item.is-on .tools-switch { background: var(--accent-gradient); border-color: transparent; }
+.tools-item.is-on .tools-switch::after { transform: translateX(14px); background: #ffffff; }
+
+.tools-menu-hint {
+  margin-top: 0.4rem;
+  padding: 0.5rem 0.65rem 0.3rem;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.tools-collapsed-row { display: none; }
+
+/* Playback lives in the floating dock; the bar copies only return when the dock is switched off */
+body:not(.dock-off) #globalAudioControls,
+body:not(.dock-off) #audioSourcePill {
+  display: none !important;
+}
+
+body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources {
+  display: flex !important;
+}
+
+@media (max-width: 1300px) {
+  .jam-live-label { display: none; }
+}
+
+@media (max-width: 1100px) {
+  .tools-btn-label { display: none; }
+  #navButtons #pdfBookmarksBtn { display: none !important; }
+  #toolsBookmarksRow.is-available { display: flex; }
+}
+
+@media (max-width: 980px) {
+  #navButtons .nav-first-page-btn,
+  #fullscreenPill,
+  #pinnedToolPill {
+    display: none !important;
+  }
+  #modeButtons .mode-btn-text { display: none; }
+  #toolsFullscreenRow.is-available { display: flex; }
+}
+
+@media (max-width: 576px) {
+  #jamLivePill { display: none !important; }
+  #toolsToggleBtn.has-jam .tools-status-dot { display: block; }
+  #dockToggleRow { display: none; }
+  .tools-btn-chevron { display: none; }
+  #topFlexZone { gap: 0.25rem; }
+  #pageIndicator { min-width: 32px; }
+}
+
+/* Reference library modal (opens over any view) */
+.reference-modal-card {
+  max-width: 1180px;
+  height: min(92vh, 900px);
+}
+
+.reference-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }

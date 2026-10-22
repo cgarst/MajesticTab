@@ -23,10 +23,9 @@ import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.
 import { showToast } from './utils/toast.js';
 import { scoreOptionsState } from './gpProcessor/gpPlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
-import { renderReferenceLibraryView, getActiveReferenceTab } from './referenceLibrary.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 
-let activeView = 'library'; // 'library', 'search', 'recents', 'reference'
+let activeView = 'library'; // 'library', 'search', 'recents'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let selectedArtist = null;
@@ -62,9 +61,6 @@ function initLibraryTopBar() {
     if (topBarInitialized) return;
     topBarInitialized = true;
 
-    document.getElementById('navBtnLibrary')?.addEventListener('click', () => switchView('library'));
-    document.getElementById('navBtnRecents')?.addEventListener('click', () => switchView('recents'));
-    document.getElementById('navBtnReference')?.addEventListener('click', () => switchView('reference'));
     document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', closeLibraryModal);
 
     window.addEventListener('libraryDataChanged', () => {
@@ -113,7 +109,6 @@ export function canGoBack() {
         if (selectedArtist || selectedAlbum) return true;
     }
     if (activeView === 'search' && (searchSubView || searchHistory.length > 0)) return true;
-    if (activeView === 'reference') return true;
     return viewHistory.length > 0;
 }
 
@@ -277,19 +272,6 @@ export async function handleBack() {
                 await switchView('library', false);
                 return true;
             }
-        } else if (activeView === 'reference') {
-            if (viewHistory.length > 0) {
-                const prev = viewHistory.pop();
-                activeView = prev.view || 'library';
-                selectedArtist = prev.selectedArtist || null;
-                selectedAlbum = prev.selectedAlbum || null;
-                searchSubView = prev.searchSubView || null;
-                await renderLibraryModal();
-                return true;
-            } else {
-                await switchView('library', false);
-                return true;
-            }
         }
         return false;
     };
@@ -419,9 +401,7 @@ export async function openLibraryModal(initialView = 'library') {
         viewHistory = [];
     }
     activeView = initialView;
-    if (initialView === 'reference') {
-        updateUrl('reference', getActiveReferenceTab(), false);
-    } else if (initialView === 'library' || initialView === 'recents') {
+    if (initialView === 'library' || initialView === 'recents') {
         updateUrl(initialView, null, false);
     }
 
@@ -435,7 +415,6 @@ export async function openLibraryModal(initialView = 'library') {
     if (mainContent) mainContent.style.display = 'none';
 
     // Update top bar for Library Mode
-    const libraryNav = document.getElementById('libraryNavButtons');
     const modeButtons = document.getElementById('modeButtons');
     const globalAudio = document.getElementById('globalAudioControls');
     const audioSourcePill = document.getElementById('audioSourcePill');
@@ -446,7 +425,6 @@ export async function openLibraryModal(initialView = 'library') {
     const songBreadcrumb = document.getElementById('songBreadcrumb');
     const currentOpen = getCurrentFile();
 
-    if (libraryNav) libraryNav.style.display = 'flex';
     if (modeButtons) modeButtons.style.display = 'none';
     if (globalAudio) globalAudio.style.display = 'none';
     if (audioSourcePill) audioSourcePill.style.display = 'none';
@@ -497,7 +475,6 @@ export function closeLibraryModal(force = false) {
         if (mainContent) mainContent.style.display = '';
 
         // Restore top bar for Song Mode
-        const libraryNav = document.getElementById('libraryNavButtons');
         const modeButtons = document.getElementById('modeButtons');
         const navButtons = document.getElementById('navButtons');
         const returnBtn = document.getElementById('libraryReturnToSongBtn');
@@ -505,7 +482,6 @@ export function closeLibraryModal(force = false) {
         const songBreadcrumb = document.getElementById('songBreadcrumb');
         const songTitleEl = document.getElementById('topBarSongTitle');
 
-        if (libraryNav) libraryNav.style.display = 'none';
         if (modeButtons) modeButtons.style.display = currentOpen ? 'flex' : 'none';
         if (returnBtn) returnBtn.style.display = 'none';
 
@@ -608,13 +584,6 @@ export async function renderLibraryModal() {
         }
     }
 
-    const navLib = document.getElementById('navBtnLibrary');
-    const navRec = document.getElementById('navBtnRecents');
-    const navRef = document.getElementById('navBtnReference');
-    if (navLib) navLib.classList.toggle('active', activeView === 'library' || activeView === 'search');
-    if (navRec) navRec.classList.toggle('active', activeView === 'recents');
-    if (navRef) navRef.classList.toggle('active', activeView === 'reference');
-
     updateBackBtnVisibility();
 
     // Ensure content container is present
@@ -636,9 +605,7 @@ async function switchView(view, pushHistory = true) {
         pushLibraryNavigationState();
     }
     activeView = view;
-    if (view === 'reference') {
-        updateUrl('reference', getActiveReferenceTab());
-    } else if (view === 'library' || view === 'recents') {
+    if (view === 'library' || view === 'recents') {
         updateUrl(view);
     }
     await renderLibraryModal();
@@ -663,8 +630,6 @@ async function renderView() {
         renderSearchMusicBrainzView(content);
     } else if (activeView === 'recents') {
         await renderRecentsView(content);
-    } else if (activeView === 'reference') {
-        renderReferenceLibraryView(content);
     }
 }
 
@@ -735,6 +700,10 @@ async function renderLibraryBrowseView(container) {
 
         <!-- Primary CTAs: Open File + Add Music (Right) -->
         <div class="lib-toolbar-right d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libRecentsBtn" title="Recently opened tabs">
+            <i class="bi-clock-history"></i>
+            <span>Recents</span>
+          </button>
           <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libOpenFileBtn" title="Open a tab file directly">
             <i class="bi-folder2-open"></i>
             <span>Open File</span>
@@ -1388,6 +1357,7 @@ function bindLibraryToolbarEvents(container) {
         });
     });
 
+    container.querySelector('#libRecentsBtn')?.addEventListener('click', () => switchView('recents'));
     container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => {
         openOpenFileModal();
     });
@@ -3742,6 +3712,11 @@ async function renderRecentsView(container) {
     if (recents.length === 0) {
         container.innerHTML = `
         <div class="library-page-container">
+          <div class="library-body-header d-flex align-items-center mb-3">
+            <button class="btn btn-sm btn-theme-outline lib-open-file-btn" id="recentsBackToLibraryBtn" title="Back to Tab Library">
+              <i class="bi-chevron-left"></i> <span>Library</span>
+            </button>
+          </div>
           <div class="text-center py-5 text-muted">
             <i class="bi-clock-history fs-1 mb-2 d-block text-white-50"></i>
             <h6 class="text-white fw-semibold">No Recent Files</h6>
@@ -3749,13 +3724,19 @@ async function renderRecentsView(container) {
           </div>
         </div>
         `;
+        container.querySelector('#recentsBackToLibraryBtn')?.addEventListener('click', () => switchView('library'));
         return;
     }
 
     container.innerHTML = `
     <div class="library-page-container recents-view">
       <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
-        <span class="small fw-semibold text-white-50"><i class="bi-clock-history me-2 text-info"></i>Recently Opened (${recents.length})</span>
+        <div class="d-flex align-items-center gap-3 min-w-0">
+          <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="recentsBackToLibraryBtn" title="Back to Tab Library">
+            <i class="bi-chevron-left"></i> <span>Library</span>
+          </button>
+          <span class="small fw-semibold text-white-50 text-truncate"><i class="bi-clock-history me-2 text-info"></i>Recently Opened (${recents.length})</span>
+        </div>
         <div class="d-flex align-items-center gap-2">
           ${isRecentsEditMode ? `
             <button class="btn btn-sm btn-theme-danger p-1 px-3 d-flex align-items-center gap-1" id="clearRecentsBtn" title="Clear all recent history">
@@ -3823,6 +3804,7 @@ async function renderRecentsView(container) {
     </div>
     `;
 
+    container.querySelector('#recentsBackToLibraryBtn')?.addEventListener('click', () => switchView('library'));
     container.querySelector('#toggleRecentsEditBtn')?.addEventListener('click', () => {
         isRecentsEditMode = !isRecentsEditMode;
         renderRecentsView(container);

@@ -73,25 +73,10 @@
       <input type="radio" class="btn-check" name="modeRadio" id="continuousModeRadio" autocomplete="off" tabindex="-1">
       <label class="btn btn-sm" for="continuousModeRadio" tabindex="-1" title="Continuous Scroll Mode"><i class="bi-arrow-down-up me-1"></i><span class="mode-btn-text">Scroll</span></label>
     </div>
-
-    <!-- Library Mode Navigation (Library View) -->
-    <div id="libraryNavButtons" style="display:none;">
-      <div class="hud-pill-group" role="group" aria-label="Library Navigation">
-        <button type="button" class="btn btn-sm active" id="navBtnLibrary" title="Tab Library">
-          <i class="bi-collection-play me-1"></i><span class="d-none d-sm-inline">Library</span>
-        </button>
-        <button type="button" class="btn btn-sm" id="navBtnRecents" title="Recently Opened Tabs">
-          <i class="bi-clock-history me-1"></i><span class="d-none d-sm-inline">Recents</span>
-        </button>
-        <button type="button" class="btn btn-sm" id="navBtnReference" title="Reference Library">
-          <i class="bi-journal-bookmark me-1"></i><span class="d-none d-sm-inline">Reference</span>
-        </button>
-      </div>
-    </div>
   </div>
 
   <div id="rightSection" data-tauri-drag-region>
-    <!-- Consolidated Playback Controls (Left of Audio Player Groups) -->
+    <!-- Playback Controls shown in the bar only when the playback dock is switched off (Tools menu) -->
     <div id="globalAudioControls" class="hud-pill-group" role="group" aria-label="Playback Controls" style="display:none;">
       <button class="btn btn-sm" id="globalRewindBtn" title="Back 10 Seconds" disabled>
         <i class="bi-arrow-counterclockwise"></i>
@@ -101,7 +86,6 @@
       </button>
     </div>
 
-    <!-- Audio Source Selector Pill (SoundFont/MIDI & YouTube) -->
     <div id="audioSourcePill" class="hud-pill-group" role="group" aria-label="Audio Sources" style="display:none;">
       <button class="btn btn-sm" id="synthToggleBtn" title="MIDI Synth Playback & Controls" style="display:none;">
         <i class="bi-soundwave"></i>
@@ -111,47 +95,35 @@
       </button>
     </div>
 
-    <!-- Virtual Fretboard Pill -->
-    <div id="fretboardPill" class="hud-pill-group" role="group" aria-label="Virtual Fretboard" style="display:none;">
-      <button class="btn btn-sm" id="fretboardToggleBtn" title="Virtual Fretboard (F)" aria-label="Virtual Fretboard">
-        <i class="bi-grid-3x2-gap"></i>
-        <span class="d-none d-xl-inline ms-1 small">Fretboard</span>
-      </button>
-    </div>
+    <!-- Flexible zone (max: live Jam session, pinned tool, Tools, Fullscreen). Behavior lives in utils/toolsMenu.js -->
+    <div id="topFlexZone">
+      <div id="jamLivePill" class="hud-pill-group" role="group" aria-label="Jam session" style="display:none;">
+        <button class="btn btn-sm active" id="jamLiveBtn" type="button" title="Jam session">
+          <span class="jam-live-dot" aria-hidden="true"></span>
+          <i class="bi-people-fill"></i>
+          <span class="jam-live-label" id="jamLiveLabel"></span>
+        </button>
+      </div>
 
-    <!-- Jam Mode Pill (native builds only; shown by jam/jamManager.js) -->
-    <div id="jamPill" class="hud-pill-group" role="group" aria-label="Jam mode" style="display:none;">
-      <button class="btn btn-sm" id="jamToggleBtn" title="Jam mode (play together)" aria-label="Jam mode">
-        <i class="bi-people-fill"></i>
-        <span class="d-none d-md-inline ms-1 small" id="jamStatusLabel">Jam</span>
-      </button>
-    </div>
+      <div id="pinnedToolPill" class="hud-pill-group" role="group" aria-label="Pinned tool" style="display:none;">
+        <button class="btn btn-sm" id="pinnedToolBtn" type="button"><span id="pinnedToolIcon" class="pinned-tool-icon" aria-hidden="true"></span></button>
+      </div>
 
-    <!-- Game Controller Pill -->
-    <div id="controllerPill" class="hud-pill-group" role="group" aria-label="Game Controller" style="display:none;">
-      <button class="btn btn-sm" id="controllerHelpBtn" title="Game Controller Connected (Click for Controls Guide)">
-        <i class="bi-controller text-info" id="controllerStatusIcon"></i>
-        <span class="d-none d-md-inline ms-1 small" id="controllerNameBadge">Gamepad</span>
-      </button>
-    </div>
+      <div id="toolsPill" class="hud-pill-group" role="group" aria-label="Tools">
+        <button class="btn btn-sm" id="toolsToggleBtn" type="button" title="Tools" aria-haspopup="menu" aria-expanded="false" aria-controls="toolsMenu">
+          <i class="bi-grid-3x3-gap"></i>
+          <span class="tools-btn-label ms-1">Tools</span>
+          <i class="bi-chevron-down tools-btn-chevron"></i>
+          <span class="tools-status-dot" id="toolsStatusDot" aria-hidden="true"></span>
+        </button>
+      </div>
 
-    <!-- Instrument Tuner Pill -->
-    <div id="tunerPill" class="hud-pill-group" role="group" aria-label="Instrument Tuner">
-      <button class="btn btn-sm" id="tunerToggleBtn" title="Tuner" aria-label="Tuner">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align: -1px;">
-          <path d="M12 12v9"/>
-          <circle cx="12" cy="21" r="1.5"/>
-          <path d="M7 3v6a5 5 0 0 0 10 0V3"/>
-        </svg>
-        <span class="d-none d-sm-inline ms-1 small">Tuner</span>
-      </button>
-    </div>
-
-    <!-- Fullscreen Toggle -->
-    <div id="fullscreenPill" class="hud-pill-group" role="group" aria-label="Fullscreen">
-      <button class="btn btn-sm" id="fullscreenToggleBtn" title="Toggle Fullscreen">
-        <i class="bi-arrows-fullscreen" id="fullscreenIcon"></i>
-      </button>
+      <!-- Fullscreen Toggle -->
+      <div id="fullscreenPill" class="hud-pill-group" role="group" aria-label="Fullscreen">
+        <button class="btn btn-sm" id="fullscreenToggleBtn" title="Toggle Fullscreen">
+          <i class="bi-arrows-fullscreen" id="fullscreenIcon"></i>
+        </button>
+      </div>
     </div>
 
     <!-- Navigation Controls -->
@@ -164,6 +136,72 @@
     </div>
   </div>
 </nav>
+
+<!-- Tools menu (opened from #toolsToggleBtn; rows keep their original ids so existing handlers still bind) -->
+<div id="toolsMenu" class="tools-menu" role="menu" aria-label="Tools" style="display:none;">
+  <div class="tools-menu-heading">Reference</div>
+  <div class="tools-row" id="toolsReferenceRow">
+    <button class="tools-item" id="toolsReferenceItem" type="button" role="menuitem">
+      <i class="bi-journal-bookmark"></i>
+      <span class="tools-item-text"><span>Reference library</span><small>Chords, scales, circle of fifths, tone</small></span>
+    </button>
+    <button class="tools-pin" type="button" data-pin-tool="reference" aria-pressed="false" aria-label="Pin Reference library to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
+  </div>
+
+  <div class="tools-menu-heading">Instruments</div>
+  <div class="tools-row" id="fretboardPill" style="display:none;">
+    <button class="tools-item" id="fretboardToggleBtn" type="button" role="menuitem">
+      <i class="bi-grid-3x2-gap"></i>
+      <span class="tools-item-text"><span>Fretboard</span><small>Show notes on the neck</small></span>
+      <kbd>F</kbd>
+    </button>
+    <button class="tools-pin" type="button" data-pin-tool="fretboard" aria-pressed="false" aria-label="Pin Fretboard to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
+  </div>
+  <div class="tools-row" id="tunerPill">
+    <button class="tools-item" id="tunerToggleBtn" type="button" role="menuitem">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 12v9"/><circle cx="12" cy="21" r="1.5"/><path d="M7 3v6a5 5 0 0 0 10 0V3"/>
+      </svg>
+      <span class="tools-item-text"><span>Tuner</span><small>Tune with the microphone</small></span>
+    </button>
+    <button class="tools-pin" type="button" data-pin-tool="tuner" aria-pressed="false" aria-label="Pin Tuner to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
+  </div>
+
+  <div class="tools-menu-heading">Play together</div>
+  <div class="tools-row" id="jamPill" style="display:none;">
+    <button class="tools-item" id="jamToggleBtn" type="button" role="menuitem" title="Jam mode (play together)">
+      <i class="bi-people-fill"></i>
+      <span class="tools-item-text"><span>Jam mode</span><small id="jamStatusLabel">Host or join on your network</small></span>
+    </button>
+    <button class="tools-pin" type="button" data-pin-tool="jam" aria-pressed="false" aria-label="Pin Jam mode to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
+  </div>
+
+  <div class="tools-menu-heading" id="toolsDevicesHeading">Devices</div>
+  <div class="tools-row" id="controllerPill" style="display:none;">
+    <button class="tools-item" id="controllerHelpBtn" type="button" role="menuitem" title="Game Controller Connected (Click for Controls Guide)">
+      <i class="bi-controller" id="controllerStatusIcon"></i>
+      <span class="tools-item-text"><span>Gamepad</span><small id="controllerNameBadge">Gamepad</small></span>
+    </button>
+  </div>
+
+  <div class="tools-menu-heading">Playback</div>
+  <div class="tools-row" id="dockToggleRow">
+    <button class="tools-item" id="dockToggleBtn" type="button" role="menuitemcheckbox" aria-checked="true">
+      <i class="bi-play-circle"></i>
+      <span class="tools-item-text"><span>Playback dock</span><small>Floating play, rewind and audio sources</small></span>
+      <span class="tools-switch" aria-hidden="true"></span>
+    </button>
+  </div>
+
+  <div class="tools-menu-heading tools-view-heading">View</div>
+  <div class="tools-row tools-collapsed-row" id="toolsFullscreenRow">
+    <button class="tools-item" id="toolsFullscreenItem" type="button" role="menuitem"><i class="bi-arrows-fullscreen"></i><span class="tools-item-text"><span>Fullscreen</span></span></button>
+  </div>
+  <div class="tools-row tools-collapsed-row" id="toolsBookmarksRow">
+    <button class="tools-item" id="toolsBookmarksItem" type="button" role="menuitem"><i class="bi-bookmark"></i><span class="tools-item-text"><span>Bookmarks and outline</span></span></button>
+  </div>
+  <div class="tools-menu-hint">Pin one tool to keep it in the bar.</div>
+</div>
 
 <!-- Native Tab Downloader Top Bar (Split-Webview Header) -->
 <nav id="tabDownloaderBar" class="tab-downloader-bar" style="display:none;" data-tauri-drag-region>

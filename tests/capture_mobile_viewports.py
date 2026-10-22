@@ -205,8 +205,6 @@ async def run_capture(output_subdir="baseline"):
                             if (brandText) brandText.style.display = 'none';
                             const modeButtons = document.getElementById('modeButtons');
                             if (modeButtons) modeButtons.style.display = 'flex';
-                            const libraryNav = document.getElementById('libraryNavButtons');
-                            if (libraryNav) libraryNav.style.display = 'none';
                         }
                         const pageRadio = document.getElementById('pageModeRadio');
                         if (pageRadio && !pageRadio.checked) pageRadio.click();
@@ -279,7 +277,7 @@ async def run_capture(output_subdir="baseline"):
                 # State 6: Library View - Recents View
                 await evaluate_js(ws, msg_id, """
                     (function() {
-                        const recentsBtn = document.getElementById('navBtnRecents');
+                        const recentsBtn = document.getElementById('libRecentsBtn');
                         if (recentsBtn) recentsBtn.click();
                     })()
                 """); msg_id += 1
@@ -289,7 +287,7 @@ async def run_capture(output_subdir="baseline"):
                 # Switch back to Library tab
                 await evaluate_js(ws, msg_id, """
                     (function() {
-                        const libBtn = document.getElementById('navBtnLibrary');
+                        const libBtn = document.getElementById('recentsBackToLibraryBtn');
                         if (libBtn) libBtn.click();
                     })()
                 """); msg_id += 1
