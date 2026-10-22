@@ -32,23 +32,14 @@
    -------------------------------------------------------------------------- */
 .tuner-instrument-grid {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-  scrollbar-width: thin;
-}
-
-.tuner-instrument-grid::-webkit-scrollbar {
-  height: 4px;
-}
-
-.tuner-instrument-grid::-webkit-scrollbar-thumb {
-  background: var(--border-subtle);
-  border-radius: 2px;
 }
 
 .tuner-inst-chip {
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -83,7 +74,14 @@
   box-shadow: 0 2px 12px rgba(16, 185, 129, 0.4);
 }
 
+.tuner-inst-chip > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .tuner-inst-icon-wrap {
+  flex-shrink: 0;
   width: 22px;
   height: 22px;
   display: flex;
