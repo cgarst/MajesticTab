@@ -1720,19 +1720,6 @@ function setupLibraryFilter(container, context = {}) {
         // Wire up song row actions (play default tab, + tab, dropdowns, pin)
         setupSongRowActions(filterResults);
 
-        // Click song row (outside actions) to play default tab
-        filterResults.querySelectorAll('.library-song-row').forEach(row => {
-            row.addEventListener('click', async (e) => {
-                if (e.target.closest('button, .tab-option-chip, .dropdown, a, input')) return;
-                const songId = row.dataset.songId;
-                const song = await getSongById(songId);
-                if (song && song.tabOptions?.length > 0) {
-                    const targetTab = (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song.tabOptions[0];
-                    await loadSongTab(song, targetTab);
-                }
-            });
-        });
-
         // Click artist cards in filter results
         filterResults.querySelectorAll('.artist-card').forEach(card => {
             card.addEventListener('click', () => {
@@ -2471,6 +2458,16 @@ function setupSongRowActions(container) {
     container.querySelectorAll('.library-song-row').forEach(row => {
         const songId = row.dataset.songId;
         if (!songId) return;
+
+        // Click row's empty space (outside actions) to play default tab
+        row.addEventListener('click', async (e) => {
+            if (e.target.closest('button, .tab-option-chip, .dropdown, a, input')) return;
+            const song = await getSongById(songId);
+            if (song && song.tabOptions?.length > 0) {
+                const targetTab = (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song.tabOptions[0];
+                await loadSongTab(song, targetTab);
+            }
+        });
 
         row.addEventListener('dragenter', (e) => {
             e.preventDefault();
