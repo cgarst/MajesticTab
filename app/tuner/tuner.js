@@ -741,7 +741,6 @@ class PitchCraftTunerController {
         if (!container) return;
 
         const inst = this.selectedInstrument;
-        const instColor = inst.color || '#6366f1';
 
         // 1. Instrument chips row
         const chipsHtml = this.instruments.map(item => {
@@ -777,9 +776,6 @@ class PitchCraftTunerController {
 
           <!-- Active Instrument Details & String Reference Row -->
           <div class="tuner-instrument-banner">
-            <div class="tuner-banner-svg">
-              ${getInstrumentSvg(inst.type, instColor, 52)}
-            </div>
             <div class="tuner-banner-meta">
               <div class="tuner-banner-title">
                 ${inst.name}
