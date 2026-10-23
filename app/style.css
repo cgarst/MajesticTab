@@ -4542,6 +4542,17 @@ body:not(.synth-playback-started) .at-highlight {
   min-width: 0;
 }
 
+.tab-options-label {
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding: 0.2rem 0;
+}
+
+.tab-options-chips {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
 .tab-option-chip {
   display: inline-flex;
   align-items: center;
