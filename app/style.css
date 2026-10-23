@@ -3475,6 +3475,10 @@ body:not(.synth-playback-started) .at-highlight {
   cursor: pointer;
   user-select: none;
 }
+.gp-track-row .gp-track-tuning {
+  font-size: 0.62rem;
+  padding: 0.1rem 0.5rem;
+}
 .gp-track-row .gp-track-only-btn {
   font-size: 0.72rem;
   font-weight: 600;
