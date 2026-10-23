@@ -2,7 +2,7 @@
 // Vanilla JavaScript port of PitchCraft by Niki Indjov (MIT License)
 // Integrated into MajesticTab with dynamic track tuning detection from loaded Guitar Pro tabs.
 
-import { formatTuningFromMidi } from '../utils/tuningUtils.js';
+import { formatTuningFromMidi, getTuningInfo, getInstrumentMode } from '../utils/tuningUtils.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from '../utils/urlRouter.js';
 import { setAudioSessionCapture } from '../utils/iosAudioUnlock.js';
@@ -92,6 +92,49 @@ const BASE_INSTRUMENTS = [
         type: "chromatic"
     }
 ];
+
+const FLAT_TO_SHARP = { Db: 'C#', Eb: 'D#', Gb: 'F#', Ab: 'G#', Bb: 'A#', Cb: 'B', Fb: 'E' };
+// Offered in guitar mode when the library doesn't already contain them (strings listed low to high)
+const DEFAULT_GUITAR_TUNINGS = [
+    { name: 'Standard', strings: ['E2', 'A2', 'D3', 'G3', 'B3', 'E4'] },
+    { name: 'Drop D', strings: ['D2', 'A2', 'D3', 'G3', 'B3', 'E4'] },
+    { name: 'DADGAD', strings: ['D2', 'A2', 'D3', 'G3', 'A3', 'D4'] },
+    { name: 'Open G', strings: ['D2', 'G2', 'D3', 'G3', 'B3', 'D4'] },
+    { name: 'Eb Standard', strings: ['Eb2', 'Ab2', 'Db3', 'Gb3', 'Bb3', 'Eb4'] },
+    { name: 'D Standard', strings: ['D2', 'G2', 'C3', 'F3', 'A3', 'D4'] },
+    { name: 'Standard', strings: ['B1', 'E2', 'A2', 'D3', 'G3', 'B3', 'E4'] },
+    { name: 'Drop A', strings: ['A1', 'E2', 'A2', 'D3', 'G3', 'B3', 'E4'] },
+    { name: 'Drop G', strings: ['G1', 'D2', 'G2', 'C3', 'F3', 'A3', 'D4'] },
+    { name: 'Bb Standard', strings: ['Bb1', 'Eb2', 'Ab2', 'Db3', 'Gb3', 'Bb3', 'Eb4'] },
+    { name: 'Open G', strings: ['G1', 'D2', 'G2', 'D3', 'G3', 'B3', 'D4'] },
+    { name: 'Standard', strings: ['F#1', 'B1', 'E2', 'A2', 'D3', 'G3', 'B3', 'E4'] },
+    { name: 'Drop E', strings: ['E1', 'B1', 'E2', 'A2', 'D3', 'G3', 'B3', 'E4'] },
+    { name: 'Double Drop E', strings: ['E1', 'B1', 'E2', 'A2', 'D3', 'G3', 'B3', 'D4'] },
+    { name: 'F Standard', strings: ['F1', 'Bb1', 'Eb2', 'Ab2', 'Db3', 'Gb3', 'Bb3', 'Eb4'] },
+    { name: 'Open F#', strings: ['F#1', 'C#2', 'F#2', 'C#3', 'F#3', 'A#3', 'C#4', 'F#4'] }
+];
+const STRING_COUNTS_BY_MODE = { guitar: [6, 7, 8], bass: [4, 5, 6] };
+const DEFAULT_STRING_COUNT = { guitar: 6, bass: 4 };
+
+function midiToNoteName(m) {
+    return `${NOTES[((m % 12) + 12) % 12]}${Math.floor(m / 12) - 1}`;
+}
+
+// Library tunings only store pitch classes, so choose octaves that ascend from a plausible lowest string.
+function noteLettersToStrings(letters) {
+    const n = letters.length;
+    const base = n <= 5 ? 23 : n === 6 ? 34 : 26;
+    const out = [];
+    let prev = null;
+    for (const letter of letters) {
+        const pc = NOTES.indexOf(FLAT_TO_SHARP[letter] || letter);
+        if (pc < 0) return null;
+        let m = prev === null ? base + (((pc - base) % 12) + 12) % 12 : prev + 1 + (((pc - prev - 1) % 12) + 12) % 12;
+        out.push(m);
+        prev = m;
+    }
+    return out.map(midiToNoteName);
+}
 
 // SVG Instrument Icons
 function getInstrumentSvg(type, color = "currentColor", size = 48) {
@@ -214,6 +257,10 @@ class PitchCraftTunerController {
         this.instruments = [...BASE_INSTRUMENTS];
         this.selectedInstrument = BASE_INSTRUMENTS[0];
         this.selectedStringIndex = null;
+        this.mode = getInstrumentMode();
+        this.stringCount = DEFAULT_STRING_COUNT[this.mode];
+        this.trackInstruments = [];
+        this.libraryTunings = [];
 
         this.isListening = false;
         this.audioContext = null;
@@ -351,7 +398,33 @@ class PitchCraftTunerController {
         // Then process any other tracks in the score
         allTracks.forEach((t, i) => processTrack(t, t.index ?? i));
 
-        return instruments;
+        // Only tracks matching the user's guitar/bass mode; tracks sharing a tuning collapse into one pill
+        const merged = new Map();
+        for (const inst of instruments) {
+            if ((inst.type === 'bass') !== (this.mode === 'bass')) continue;
+            const key = inst.tuning.join(',');
+            const existing = merged.get(key);
+            if (!existing) {
+                inst.trackNames = [inst.trackName];
+                merged.set(key, inst);
+            } else if (!existing.trackNames.includes(inst.trackName)) {
+                existing.trackNames.push(inst.trackName);
+            }
+        }
+        for (const inst of merged.values()) {
+            if (inst.trackNames.length > 1) {
+                const tuningName = formatTuningFromMidi(inst.tuning.map(n => this.noteToMidi(n))) || 'Custom';
+                inst.name = `${tuningName} (${inst.trackNames.length} tracks)`;
+                inst.description = `${inst.trackNames.join(', ')} (${inst.tuning.join(' ')})`;
+            }
+        }
+        return [...merged.values()];
+    }
+
+    noteToMidi(noteStr) {
+        const m = noteStr.match(/^([A-G][#b]?)(-?[0-9])$/);
+        const pc = NOTES.indexOf(FLAT_TO_SHARP[m[1]] || m[1]);
+        return (parseInt(m[2], 10) + 1) * 12 + pc;
     }
 
     /**
@@ -361,17 +434,28 @@ class PitchCraftTunerController {
         const modal = document.getElementById('tunerModal');
         if (!modal) return;
 
-        // Build track instruments for all tracks in opened score
-        const trackInstruments = this.buildTrackInstruments();
-        if (trackInstruments.length > 0) {
-            this.instruments = [...trackInstruments, ...BASE_INSTRUMENTS];
-            this.selectedInstrument = trackInstruments[0];
-        } else {
-            this.instruments = [...BASE_INSTRUMENTS];
-            if (this.selectedInstrument?.isTrackTuning) {
-                this.selectedInstrument = BASE_INSTRUMENTS[0];
-            }
+        this.mode = getInstrumentMode();
+        if (!STRING_COUNTS_BY_MODE[this.mode].includes(this.stringCount)) this.stringCount = DEFAULT_STRING_COUNT[this.mode];
+        if (this.selectedInstrument && (this.selectedInstrument.type === 'bass') !== (this.mode === 'bass')) {
+            this.selectedInstrument = this.pickDefaultForStringCount(this.stringCount);
         }
+
+        // Build track instruments for all tracks in opened score
+        this.trackInstruments = this.buildTrackInstruments();
+        this.refreshInstrumentList();
+        if (this.trackInstruments.length > 0) {
+            this.selectedInstrument = this.trackInstruments[0];
+            this.stringCount = this.selectedInstrument.strings;
+        } else if (!this.selectedInstrument || this.selectedInstrument.isTrackTuning) {
+            this.selectedInstrument = this.pickDefaultForStringCount(this.stringCount);
+        }
+
+        this.loadLibraryTunings().then(() => {
+            if (this.selectedInstrument?.isLibraryTuning || !this.selectedInstrument || this.selectedInstrument.id === 'guitar') {
+                this.selectedInstrument = this.pickDefaultForStringCount(this.stringCount);
+            }
+            if (modal.style.display !== 'none') this.renderModalContent();
+        });
 
         this.selectedStringIndex = null;
         this.renderModalContent();
@@ -390,6 +474,7 @@ class PitchCraftTunerController {
      * Close Tuner Modal and terminate microphone
      */
     close() {
+        this.stopTone();
         this.stopListening();
 
         const modal = document.getElementById('tunerModal');
@@ -409,8 +494,86 @@ class PitchCraftTunerController {
         }
     }
 
+    refreshInstrumentList() {
+        this.instruments = [...this.trackInstruments, ...this.libraryTunings, ...BASE_INSTRUMENTS];
+    }
+
+    async loadLibraryTunings() {
+        const counts = new Map();
+        try {
+            const { getLibraryTuningsHierarchy } = await import('../libraryStore.js');
+            const { tunings } = await getLibraryTuningsHierarchy(undefined, this.mode);
+            for (const g of tunings) counts.set(g.key, g);
+        } catch (e) {
+            console.warn('[Tuner] Could not load library tunings:', e);
+        }
+
+        const list = [];
+        for (const g of counts.values()) {
+            const info = getTuningInfo(g.key);
+            const strings = info?.strings
+                ? [...info.strings].reverse()
+                : noteLettersToStrings((g.notes || '').split(/\s+/).filter(Boolean));
+            if (!strings || strings.length === 0) continue;
+            const isBass = this.mode === 'bass';
+            list.push({
+                id: `lib-tuning-${g.key}`,
+                name: g.name || g.notes,
+                tuning: strings,
+                color: isBass ? '#7B2FF7' : '#FF6B35',
+                description: `${g.songs.length} ${g.songs.length === 1 ? 'song' : 'songs'} in library (${strings.join(' ')})`,
+                strings: strings.length,
+                type: isBass ? 'bass' : 'guitar',
+                isLibraryTuning: true,
+                songCount: g.songs.length
+            });
+        }
+        list.sort((a, b) => b.songCount - a.songCount || a.name.localeCompare(b.name));
+
+        if (this.mode === 'guitar') {
+            const seen = new Set(list.map(t => t.tuning.map(n => this.noteToMidi(n)).join(',')));
+            for (const d of DEFAULT_GUITAR_TUNINGS) {
+                if (seen.has(d.strings.map(n => this.noteToMidi(n)).join(','))) continue;
+                list.push({
+                    id: `default-tuning-${d.strings.length}-${d.name}`,
+                    name: d.name,
+                    tuning: d.strings,
+                    color: '#FF6B35',
+                    description: `${d.strings.length}-string ${d.name} (${d.strings.join(' ')})`,
+                    strings: d.strings.length,
+                    type: 'guitar',
+                    isLibraryTuning: true,
+                    songCount: 0
+                });
+            }
+        }
+        this.libraryTunings = list;
+        this.refreshInstrumentList();
+    }
+
+    pickDefaultForStringCount(count) {
+        const lib = this.libraryTunings.find(t => t.strings === count);
+        if (lib) return lib;
+        return BASE_INSTRUMENTS.find(i => i.id === this.mode) || BASE_INSTRUMENTS[0];
+    }
+
+    setStringCount(count) {
+        this.stopTone();
+        this.stringCount = count;
+        const current = this.selectedInstrument;
+        if (!current || current.strings !== count) {
+            this.selectedInstrument = this.pickDefaultForStringCount(count);
+        }
+        this.selectedStringIndex = null;
+        this.renderModalContent();
+    }
+
     selectInstrument(inst) {
+        this.stopTone();
         this.selectedInstrument = inst;
+        if (STRING_COUNTS_BY_MODE[this.mode].includes(inst.strings)) {
+            this.stringCount = inst.strings;
+        }
         this.selectedStringIndex = null;
         this.renderModalContent();
     }
@@ -419,9 +582,9 @@ class PitchCraftTunerController {
      * Calculate target frequency for a scientific pitch string e.g. "E2"
      */
     getNoteFrequency(noteStr) {
-        const match = noteStr.match(/^([A-G]#?)([0-9])$/);
+        const match = noteStr.match(/^([A-G][#b]?)(-?[0-9])$/);
         if (!match) return 440;
-        const note = match[1];
+        const note = FLAT_TO_SHARP[match[1]] || match[1];
         const octave = parseInt(match[2], 10);
         const noteIndex = NOTES.indexOf(note);
         if (noteIndex === -1) return 440;
@@ -451,7 +614,11 @@ class PitchCraftTunerController {
     /**
      * Play synthetic reference tone for selected string
      */
+    /**
+     * Start a continuous reference tone; it sounds until stopTone() is called.
+     */
     playTone(freq) {
+        this.stopTone();
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = ctx.createOscillator();
@@ -459,20 +626,32 @@ class PitchCraftTunerController {
 
             osc.type = "sine";
             osc.frequency.setValueAtTime(freq, ctx.currentTime);
-            gain.gain.setValueAtTime(0.25, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.25);
+            gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.03);
 
             osc.connect(gain);
             gain.connect(ctx.destination);
             osc.start();
-            osc.stop(ctx.currentTime + 1.25);
-
-            setTimeout(() => {
-                try { ctx.close(); } catch (_) {}
-            }, 1350);
+            this.tone = { ctx, osc, gain };
         } catch (err) {
             console.warn('Tone playback failed:', err);
         }
+    }
+
+    stopTone() {
+        const tone = this.tone;
+        this.tone = null;
+        this.selectedStringIndex = null;
+        document.querySelectorAll('.tuner-string-btn.active').forEach(b => b.classList.remove('active'));
+        if (!tone) return;
+        try {
+            const t = tone.ctx.currentTime;
+            tone.gain.gain.cancelScheduledValues(t);
+            tone.gain.gain.setValueAtTime(Math.max(tone.gain.gain.value, 0.0001), t);
+            tone.gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+            tone.osc.stop(t + 0.1);
+            setTimeout(() => { try { tone.ctx.close(); } catch (_) {} }, 200);
+        } catch (_) {}
     }
 
     /**
@@ -528,6 +707,7 @@ class PitchCraftTunerController {
      * Start microphone pitch detection
      */
     async startListening() {
+        this.stopTone();
         if (this.isListening || this.isStarting) return;
         this.isStarting = true;
         const startToken = ++this.listenToken;
@@ -742,8 +922,8 @@ class PitchCraftTunerController {
 
         const inst = this.selectedInstrument;
 
-        // 1. Instrument chips row
-        const chipsHtml = this.instruments.map(item => {
+        // 1. Track tuning pills, string-count pill and a dropdown of library tunings (most common first)
+        const renderChip = (item) => {
             const isActive = item.id === inst.id;
             const isTrack = Boolean(item.isTrackTuning);
             return `
@@ -752,7 +932,15 @@ class PitchCraftTunerController {
               <span>${item.name}</span>
             </button>
             `;
-        }).join('');
+        };
+        const trackChipsHtml = this.trackInstruments.map(renderChip).join('');
+        const libraryItems = this.libraryTunings.filter(t => t.strings === this.stringCount);
+        const libraryActive = libraryItems.some(t => t.id === inst.id);
+        const libraryOptionsHtml = libraryItems.map(t =>
+            `<option value="${t.id}" ${t.id === inst.id ? 'selected' : ''}>${t.name}</option>`).join('');
+        const countPillHtml = STRING_COUNTS_BY_MODE[this.mode].map(n => `
+            <button type="button" class="btn ${n === this.stringCount ? 'active' : ''}" data-tuner-string-count="${n}" aria-pressed="${n === this.stringCount}">${n}</button>
+        `).join('');
 
         // 2. String buttons for reference tone playback
         const stringsHtml = (inst.tuning && inst.tuning.length > 0)
@@ -770,8 +958,16 @@ class PitchCraftTunerController {
 
         container.innerHTML = `
           <!-- Instrument Carousel / Grid -->
-          <div class="tuner-instrument-grid" role="tablist" aria-label="Tuning Instruments">
-            ${chipsHtml}
+          ${trackChipsHtml ? `<div class="tuner-instrument-grid" aria-label="Track tunings">${trackChipsHtml}</div>` : ''}
+          <div class="tuner-selector-row">
+            <div class="d-flex align-items-center gap-2">
+              <span class="tuner-selector-label">Strings</span>
+              <div class="hud-pill-group" role="group" aria-label="Number of strings">${countPillHtml}</div>
+            </div>
+            <select class="form-select form-select-sm tuner-other-select ${libraryActive ? 'active' : ''}" id="tunerLibrarySelect" aria-label="Library tunings">
+              <option value="" ${libraryActive ? '' : 'selected'}>Library tunings</option>
+              ${libraryOptionsHtml}
+            </select>
           </div>
 
           <!-- Active Instrument Details & String Reference Row -->
@@ -836,18 +1032,28 @@ class PitchCraftTunerController {
             });
         });
 
+        container.querySelectorAll('[data-tuner-string-count]').forEach(btn => {
+            btn.addEventListener('click', () => this.setStringCount(parseInt(btn.dataset.tunerStringCount, 10)));
+        });
+        container.querySelector('#tunerLibrarySelect')?.addEventListener('change', (e) => {
+            const found = this.libraryTunings.find(i => i.id === e.target.value);
+            if (found) this.selectInstrument(found);
+        });
+
         container.querySelectorAll('[data-tuner-string]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const strIdx = parseInt(btn.dataset.tunerString, 10);
+                if (this.selectedStringIndex === strIdx && this.tone) {
+                    this.stopTone();
+                    return;
+                }
+                const noteStr = inst.tuning[strIdx];
+                if (!noteStr) return;
+                this.playTone(this.getNoteFrequency(noteStr));
                 this.selectedStringIndex = strIdx;
                 container.querySelectorAll('.tuner-string-btn').forEach((b, i) => {
                     b.classList.toggle('active', i === strIdx);
                 });
-                const noteStr = inst.tuning[strIdx];
-                if (noteStr) {
-                    const freq = this.getNoteFrequency(noteStr);
-                    this.playTone(freq);
-                }
             });
         });
 
@@ -865,6 +1071,7 @@ class PitchCraftTunerController {
         if (calibSelect) {
             calibSelect.value = String(this.referenceA);
             calibSelect.onchange = (e) => {
+                this.stopTone();
                 this.referenceA = Number(e.target.value) || 440;
                 this.renderModalContent();
             };
