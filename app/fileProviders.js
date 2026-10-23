@@ -74,25 +74,6 @@ export function getSaveProviders() {
     return getFileProviders().filter(p => !p.id.startsWith('tab-downloader') && typeof p.save === 'function');
 }
 
-export function providerSupportsStreaming(id) {
-    return typeof getFileProvider(id)?.saveStream === 'function';
-}
-
-/**
- * Save a stream of byte chunks to a provider that supports streaming uploads
- * @param {string} id - Provider ID
- * @param {AsyncIterable<Uint8Array>} chunks
- * @param {string} filename
- * @param {Object} [options]
- */
-export async function saveStreamToProvider(id, chunks, filename, options = {}) {
-    const provider = getFileProvider(id);
-    if (typeof provider?.saveStream !== 'function') {
-        throw new Error(`Provider "${provider?.name || id}" does not support streaming saves.`);
-    }
-    return provider.saveStream(chunks, filename, options);
-}
-
 /**
  * Save a file/blob to a specific provider
  * @param {string} id - Provider ID
@@ -250,15 +231,6 @@ export const GoogleDriveFileProvider = {
             throw new Error('Please authorize Google Drive to save the file.');
         }
         const result = await saveFileToDrive(fileBlob, filename, options.folderId, options.onProgress);
-        return { success: true, name: filename, id: result.id, providerId: 'google-drive' };
-    },
-    async saveStream(chunks, filename = 'MajesticTab-backup.mtbackup', options = {}) {
-        const { saveStreamToDrive, isTokenValid: checkToken, redirectToGoogleAuth: authDrive } = await import('./googleDrive.js');
-        if (!checkToken()) {
-            authDrive();
-            throw new Error('Please authorize Google Drive to save the file.');
-        }
-        const result = await saveStreamToDrive(chunks, filename, options);
         return { success: true, name: filename, id: result.id, providerId: 'google-drive' };
     }
 };
