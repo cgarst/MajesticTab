@@ -969,74 +969,151 @@ export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.m
         metadata.parents = [targetFolder];
     }
 
-    const mimeType = fileBlob.type || 'application/octet-stream';
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', fileBlob, filename);
 
-    // Resumable upload sends the file in small slices. A multipart FormData body makes
-    // iOS WebKit buffer the whole backup in memory, which reloads the page on big libraries.
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart');
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+        if (xhr.upload && typeof onProgress === 'function') {
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable && e.total > 0) {
+                    const percent = Math.min(100, Math.round((e.loaded / e.total) * 100));
+                    onProgress({ loaded: e.loaded, total: e.total, percent });
+                }
+            };
+        }
+
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    const result = JSON.parse(xhr.responseText);
+                    resolve(result);
+                } catch (err) {
+                    resolve({ name: filename });
+                }
+            } else {
+                let errorMsg = xhr.statusText;
+                try {
+                    const errData = JSON.parse(xhr.responseText);
+                    errorMsg = errData.error?.message || errorMsg;
+                } catch (e) {}
+
+                if (xhr.status === 401) {
+                    clearStoredToken();
+                    reject(new Error(`Google Drive authorization expired: ${errorMsg}. Please reconnect Google Drive.`));
+                } else {
+                    reject(new Error(`Google Drive upload failed (${xhr.status}): ${errorMsg}`));
+                }
+            }
+        };
+
+        xhr.onerror = () => {
+            reject(new Error('Google Drive upload network error. Please check your connection.'));
+        };
+
+        xhr.send(form);
+    });
+}
+
+/**
+ * Upload a stream of byte chunks to Google Drive without materializing the whole file.
+ * Chunks are regrouped into 8 MiB resumable-upload pieces; the total size is only
+ * sent with the final piece.
+ * @param {AsyncIterable<Uint8Array>} chunks
+ * @param {string} filename
+ * @param {object} [options]
+ * @param {string} [options.folderId]
+ * @param {string} [options.mimeType]
+ * @param {Function} [options.onProgress] Receives ({ loaded }) as bytes are sent
+ * @returns {Promise<object>} Upload response containing file id and name
+ */
+export async function saveStreamToDrive(chunks, filename, { folderId = null, mimeType = 'application/octet-stream', onProgress = null } = {}) {
+    if (!isTokenValid()) {
+        throw new Error('Google Drive is not connected. Please connect your Google account.');
+    }
+
+    const targetFolder = folderId || (tabsDirectory ? tabsDirectory.id : 'root');
+    const metadata = { name: filename, mimeType };
+    if (targetFolder && targetFolder !== 'root') {
+        metadata.parents = [targetFolder];
+    }
+
     const sessionUrl = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable');
         xhr.setRequestHeader('Authorization', `Bearer ${token}`);
         xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
         xhr.setRequestHeader('X-Upload-Content-Type', mimeType);
-        xhr.setRequestHeader('X-Upload-Content-Length', String(fileBlob.size));
         xhr.onload = () => {
             const location = xhr.getResponseHeader('Location');
-            if (xhr.status >= 200 && xhr.status < 300 && location) {
-                resolve(location);
-                return;
-            }
-            reject(driveUploadError(xhr, filename));
+            if (xhr.status >= 200 && xhr.status < 300 && location) resolve(location);
+            else reject(driveUploadError(xhr, filename));
         };
         xhr.onerror = () => reject(new Error('Google Drive upload network error. Please check your connection.'));
         xhr.send(JSON.stringify(metadata));
     });
 
     const CHUNK_SIZE = 8 * 1024 * 1024; // must be a multiple of 256 KiB
-    const total = fileBlob.size;
     let offset = 0;
+    let pending = [];
+    let pendingSize = 0;
 
-    while (true) {
-        const end = Math.min(offset + CHUNK_SIZE, total);
-        const chunk = fileBlob.slice(offset, end);
-        const result = await new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('PUT', sessionUrl);
-            xhr.setRequestHeader('Content-Range', total === 0
-                ? 'bytes */0'
-                : `bytes ${offset}-${end - 1}/${total}`);
-
-            if (typeof onProgress === 'function') {
-                xhr.upload.onprogress = (e) => {
-                    const loaded = offset + (e.lengthComputable ? e.loaded : 0);
-                    onProgress({ loaded, total, percent: total ? Math.min(100, Math.round((loaded / total) * 100)) : 100 });
-                };
-            }
-
-            xhr.onload = () => {
-                if (xhr.status === 308) {
-                    resolve(null);
-                } else if (xhr.status >= 200 && xhr.status < 300) {
-                    try {
-                        resolve(JSON.parse(xhr.responseText));
-                    } catch (err) {
-                        resolve({ name: filename });
-                    }
-                } else {
-                    reject(driveUploadError(xhr, filename));
+    // Resolves with the Drive file once the final piece (known total) is accepted
+    const sendPiece = (piece, total) => new Promise((resolve, reject) => {
+        const end = offset + piece.size;
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', sessionUrl);
+        xhr.setRequestHeader('Content-Range', `bytes ${offset}-${end - 1}/${total ?? '*'}`);
+        xhr.onload = () => {
+            if (xhr.status === 308) {
+                resolve(null);
+            } else if (xhr.status >= 200 && xhr.status < 300) {
+                try {
+                    resolve(JSON.parse(xhr.responseText));
+                } catch (err) {
+                    resolve({ name: filename });
                 }
-            };
-            xhr.onerror = () => reject(new Error('Google Drive upload network error. Please check your connection.'));
-            xhr.send(chunk);
-        });
+            } else {
+                reject(driveUploadError(xhr, filename));
+            }
+        };
+        xhr.onerror = () => reject(new Error('Google Drive upload network error. Please check your connection.'));
+        xhr.send(piece);
+    });
 
-        if (result) {
-            if (typeof onProgress === 'function') onProgress({ loaded: total, total, percent: 100 });
-            return result;
+    const sendWithRetry = async (piece, total) => {
+        for (let attempt = 0; ; attempt++) {
+            try {
+                return await sendPiece(piece, total);
+            } catch (err) {
+                if (attempt >= 2 || /authorization expired/.test(err.message)) throw err;
+                await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+            }
         }
-        offset = end;
-        if (offset >= total) throw new Error('Google Drive upload did not complete.');
+    };
+
+    for await (const chunk of chunks) {
+        pending.push(chunk);
+        pendingSize += chunk.byteLength;
+        // Only flush when strictly more than a piece is buffered, so the final piece is never empty
+        while (pendingSize > CHUNK_SIZE) {
+            const all = new Blob(pending);
+            await sendWithRetry(all.slice(0, CHUNK_SIZE), null);
+            offset += CHUNK_SIZE;
+            pending = [all.slice(CHUNK_SIZE)];
+            pendingSize -= CHUNK_SIZE;
+            if (typeof onProgress === 'function') onProgress({ loaded: offset });
+        }
     }
+
+    const last = new Blob(pending);
+    const result = await sendWithRetry(last, offset + last.size);
+    if (typeof onProgress === 'function') onProgress({ loaded: offset + last.size });
+    return result || { name: filename };
 }
 
 function driveUploadError(xhr, filename) {
