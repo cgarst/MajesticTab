@@ -3656,16 +3656,6 @@ body:not(.synth-playback-started) .at-highlight {
     font-size: 0.72rem !important;
   }
 
-  #libBrowseModePill {
-    flex-shrink: 0;
-    height: 26px !important;
-  }
-
-  #libBrowseModePill .btn {
-    padding: 0 0.35rem !important;
-    font-size: 0.7rem !important;
-  }
-
   .lib-toolbar-right {
     display: flex;
     align-items: center;
@@ -3705,12 +3695,6 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 @media (max-width: 420px) {
-  .lib-browse-mode-text {
-    display: none;
-  }
-  #libBrowseModePill i {
-    margin-right: 0 !important;
-  }
   .lib-open-file-btn span,
   .lib-add-music-btn span {
     display: none;
@@ -3905,6 +3889,12 @@ body:not(.synth-playback-started) .at-highlight {
 
 .lib-open-file-btn {
   font-weight: 500;
+}
+
+.lib-open-file-btn.active {
+  border-color: var(--accent-primary);
+  background: var(--bg-card-hover);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .lib-add-music-btn {
