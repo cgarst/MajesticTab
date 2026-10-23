@@ -68,6 +68,8 @@ pub struct TabSourceInfo {
     #[serde(default)]
     pub userscript_enabled: bool,
     #[serde(default)]
+    pub force_desktop: bool,
+    #[serde(default)]
     pub userscript: Option<String>,
     #[serde(default)]
     pub default_userscript: Option<String>,
@@ -105,6 +107,8 @@ pub struct TabDownloaderConfig {
     pub sources: Vec<TabSourceInfo>,
     #[serde(default)]
     pub platform: Option<String>,
+    #[serde(default)]
+    pub force_desktop: bool,
     #[serde(default = "default_true")]
     pub adblock_enabled: bool,
     #[serde(default = "default_adblock_url")]
@@ -122,6 +126,7 @@ impl Default for TabDownloaderConfig {
             is_debug_tools_enabled: false,
             sources: Vec::new(),
             platform: None,
+            force_desktop: false,
             adblock_enabled: true,
             adblock_url: default_adblock_url(),
         }

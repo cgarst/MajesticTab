@@ -168,6 +168,23 @@ async fn open_tab_downloader(
         }
     }
 
+    // The user agent is fixed when the webview is created, so a change in the
+    // per-source "force desktop" setting requires rebuilding the window.
+    static FORCED_DESKTOP: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    let force_desktop = config.as_ref().map(|c| c.force_desktop).unwrap_or(false);
+    if let Some(existing) = app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
+        if FORCED_DESKTOP.load(std::sync::atomic::Ordering::SeqCst) != force_desktop {
+            let _ = existing.destroy();
+            for _ in 0..20 {
+                if app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL).is_none() {
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            }
+        }
+    }
+    FORCED_DESKTOP.store(force_desktop, std::sync::atomic::Ordering::SeqCst);
+
     if let Some(existing) = app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL) {
         if let Ok(parsed_url) = url.parse::<tauri::Url>() {
             if let Some(main_win) = app.get_webview_window("main") {
@@ -203,8 +220,10 @@ async fn open_tab_downloader(
         tauri::WebviewUrl::External(parsed_url),
     )
     .title("Tab Downloader - MajesticTab")
-    .user_agent(tab_downloader_native::DESKTOP_USER_AGENT)
     .initialization_script(tab_downloader_native::CORE_DOWNLOADER_SHIM);
+    if force_desktop {
+        builder = builder.user_agent(tab_downloader_native::DESKTOP_USER_AGENT);
+    }
 
     let app_handle_for_nav = app.clone();
     builder = builder.on_navigation(move |nav_url| {
