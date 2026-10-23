@@ -410,13 +410,13 @@ body {
 /* iOS 26 installed PWA only: push content further below the status bar blur (not native Tauri or other platforms) */
 @media (orientation: portrait) {
   html.ios-pwa #topBar {
-    padding-top: max(calc(env(safe-area-inset-top) + 0.5rem + 12px), 66px);
+    padding-top: max(calc(env(safe-area-inset-top) + 0.5rem + 4px), 58px);
   }
   html.ios-pwa .offcanvas-header {
-    padding-top: max(calc(env(safe-area-inset-top) + 0.5rem + 12px), 66px);
+    padding-top: max(calc(env(safe-area-inset-top) + 0.5rem + 4px), 58px);
   }
   html.ios-pwa .downloader-nav-row {
-    padding-top: max(calc(env(safe-area-inset-top) + 8px + 12px), 66px);
+    padding-top: max(calc(env(safe-area-inset-top) + 8px + 4px), 58px);
   }
 }
 
