@@ -81,7 +81,7 @@ window.addEventListener('resize', () => {
             } else if (isFileType(currentFile, ['pdf']) && pageModeRadio.checked) {
                 doLayoutPages();
             } else if (isFileType(currentFile, ['txt']) && pageModeRadio.checked) {
-                await loadFile(currentFile, { hideMenu: false });
+                await loadFile(currentFile, { hideMenu: false, keepMode: true });
             }
         }
     }, 250); // Wait for resize to finish
@@ -259,10 +259,10 @@ export async function applyGpSheetScale(nextValue) {
     setGpDisplayScale(scaledValue);
 
     if (currentFile && isFileType(currentFile, ['txt'])) {
-        await loadFile(currentFile, { hideMenu: false });
+        await loadFile(currentFile, { hideMenu: false, keepMode: true });
     } else if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
         if (!applyGpDisplayScale(output, pageModeRadio?.checked, continuousModeRadio)) {
-            await loadFile(currentFile, { hideMenu: false });
+            await loadFile(currentFile, { hideMenu: false, keepMode: true });
         }
     }
     return scaledValue;
@@ -488,7 +488,7 @@ function setupSettings() {
                 syncSynthTrackModeLabels();
                 // If a GP file is loaded, re-load/re-render to swap tracks
                 if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
-                    await loadFile(currentFile, { hideMenu: false });
+                    await loadFile(currentFile, { hideMenu: false, keepMode: true });
                 }
                 // If library is open, re-render library view
                 if (isLibraryOpen()) {
@@ -558,7 +558,7 @@ function setupSettings() {
                         gpState.lastLayoutDimensions = null;
                         renderGPPage(output, true, continuousModeRadio);
                     } else if (isFileType(currentFile, ['txt'])) {
-                        await loadFile(currentFile, { hideMenu: false });
+                        await loadFile(currentFile, { hideMenu: false, keepMode: true });
                     } else if (isFileType(currentFile, ['pdf'])) {
                         const pagesPerView = getPagesPerView('pdf');
                         if (pages?.length) {
@@ -615,7 +615,7 @@ function setupSettings() {
     debugMode?.addEventListener('change', () => {
         localStorage.setItem('debugMode', debugMode.checked);
         if (currentFile && isFileType(currentFile, ['pdf'])) {
-            loadFile(currentFile, { hideMenu: false }); // Reload current file with new settings
+            loadFile(currentFile, { hideMenu: false, keepMode: true }); // Reload current file with new settings
         }
     });
 
@@ -626,7 +626,7 @@ function setupSettings() {
             exportPdfBtn.style.display = condensePdfMode.checked ? '' : 'none';
         }
         if (currentFile && isFileType(currentFile, ['pdf'])) {
-            loadFile(currentFile, { hideMenu: false }); // Reload current file with new settings
+            loadFile(currentFile, { hideMenu: false, keepMode: true }); // Reload current file with new settings
         }
     });
 
@@ -1496,7 +1496,7 @@ export function recordFileToRecents(file) {
     });
 }
 
-export async function loadFile(file, { hideMenu = true } = {}) {
+export async function loadFile(file, { hideMenu = true, keepMode = false } = {}) {
     if (hideMenu) {
         fileMenu.hide();
     }
@@ -1524,7 +1524,9 @@ export async function loadFile(file, { hideMenu = true } = {}) {
     
     // Apply default view mode based on file type preference
     const modeParam = new URLSearchParams(window.location.search).get('mode');
-    if (modeParam === 'page') {
+    if (keepMode && (pageModeRadio.checked || continuousModeRadio.checked)) {
+        // Reload of the current file (resize, settings change): keep the user's chosen mode
+    } else if (modeParam === 'page') {
         pageModeRadio.checked = true;
         continuousModeRadio.checked = false;
     } else if (modeParam === 'continuous' || modeParam === 'scroll') {
