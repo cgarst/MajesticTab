@@ -1,0 +1,6 @@
+{
+  "name": "canvas",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Empty stub. pdfjs-dist lists native canvas as an optional Node-only dependency that drags in deprecated node-pre-gyp packages; the app runs pdf.js in a webview and never needs it."
+}
