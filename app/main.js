@@ -13,7 +13,7 @@ import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './uti
 import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
 import { initSoundFontPanel } from './gpProcessor/soundFontPanel.js';
-import { initMixerPanel, wireModal } from './gpProcessor/mixerPanel.js';
+import { initMixerPanel, wireModal, closeModal } from './gpProcessor/mixerPanel.js';
 import { initAudioLatencyModal } from './gpProcessor/audioLatencyModal.js';
 import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
 import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdfBookmarksUI } from './pdfProcessor/pdfBookmarks.js';
@@ -458,15 +458,20 @@ function setupSettings() {
 
     // Setup Instrument Mode selector (Guitar vs Bass)
     const activeInstrumentMode = getInstrumentMode();
-    const syncStringCountSettingsVisibility = (mode = getInstrumentMode()) => {
-        const isBass = mode === 'bass';
-        const gGroup = document.getElementById('settingsGuitarStringCountGroup');
-        const bGroup = document.getElementById('settingsBassStringCountGroup');
-        if (gGroup) gGroup.style.display = isBass ? 'none' : '';
-        if (bGroup) bGroup.style.display = isBass ? '' : 'none';
-    };
-    syncStringCountSettingsVisibility(activeInstrumentMode);
     wireModal('defaultsModal', 'defaultsModalBtn');
+    document.getElementById('defaultsDoneBtn')?.addEventListener('click', () => closeModal('defaultsModal'));
+    document.getElementById('defaultsResetBtn')?.addEventListener('click', () => {
+        const defaults = {
+            gpDefaultViewRadio: getDefaultView('gp'),
+            pdfDefaultViewRadio: getDefaultView('pdf'),
+            txtDefaultViewRadio: getDefaultView('txt'),
+            gpDefaultStringsGuitarRadio: 'native',
+            gpDefaultStringsBassRadio: 'native'
+        };
+        Object.entries(defaults).forEach(([name, value]) => {
+            document.querySelector(`input[name="${name}"][value="${value}"]`)?.click();
+        });
+    });
 
     const instrumentModeRadios = document.querySelectorAll('input[name="instrumentModeRadio"]');
     instrumentModeRadios.forEach(radio => {
@@ -477,7 +482,6 @@ function setupSettings() {
             if (radio.checked) {
                 setInstrumentMode(radio.value);
                 syncSynthTrackModeLabels();
-                syncStringCountSettingsVisibility(radio.value);
                 // If a GP file is loaded, re-load/re-render to swap tracks
                 if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
                     await loadFile(currentFile, { hideMenu: false });
