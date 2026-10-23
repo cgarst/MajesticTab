@@ -1,5 +1,6 @@
 import { applyGpScoreTransforms } from '../fileAdapters.js';
 import { showToast } from '../utils/toast.js';
+import { applyScoreAdaptation, getTabAdaptPref } from '../utils/tabAdapter.js';
 import { createCustomCursorHandler } from './gpPlayer.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { applyProgramMapping } from '../soundFontProgramMap.js';
@@ -229,6 +230,12 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
             api.scoreLoaded.on((newScore) => {
                 applyGpScoreTransforms(newScore);
                 applyProgramMapping(newScore, api.soundFontPresets);
+
+                const adaptPref = getTabAdaptPref(targetFile || file);
+                if (adaptPref) {
+                    const summary = applyScoreAdaptation(newScore, adaptPref);
+                    newScore._adaptSummary = summary;
+                }
 
                 const stringCountPref = getEffectiveGpStringCount(targetFile || file);
                 if (stringCountPref && stringCountPref !== 'native') {

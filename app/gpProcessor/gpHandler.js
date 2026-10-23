@@ -20,6 +20,15 @@ import {
     getInstrumentMode
 } from '../utils/tuningUtils.js';
 import { addRecentOpened, updateLibrarySongFromScore } from '../libraryStore.js';
+import {
+    applyScoreAdaptation,
+    getTabAdaptPref,
+    setTabAdaptPref,
+    getMyInstrument,
+    setMyInstrument,
+    getAdaptTuningOptions,
+    findAdaptTuning
+} from '../utils/tabAdapter.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 
 const PAGE_PADDING = 10;
@@ -118,6 +127,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         // Populate track selection UI
         populateGpTrackSelectionUI(api);
         syncGpStringCountUI(api.score);
+        syncGpAdaptUI(api.score);
         fretboardController.onScoreLoaded(api, api.tracks);
         reapplyJamTrackView();
 
@@ -900,4 +910,105 @@ export function syncGpStringCountUI(score) {
     });
 
     section.style.display = '';
+}
+
+
+/**
+ * Opts the open tab in or out of instrument adaptation (or changes its tuning/method) and re-renders.
+ * Pass null to restore the tab as written.
+ */
+export function applyGpTabAdaptation(pref) {
+    const api = gpState.canvases[0]?.api;
+    const score = api?.score;
+    if (!score) return;
+    const instrumentMode = getInstrumentMode();
+
+    setTabAdaptPref(gpState.currentFile, pref);
+    if (pref?.enabled) {
+        setMyInstrument(pref);
+    }
+
+    // String-count padding sits on top of the adapted layout, so undo it first and re-apply after
+    applyScoreStringCount(score, 'native', instrumentMode);
+    for (const track of score.tracks || []) {
+        for (const staff of track.staves || []) {
+            delete staff._originalTunings;
+            delete staff._originalTuningName;
+            for (const bar of staff.bars || []) {
+                for (const voice of bar.voices || []) {
+                    for (const beat of voice.beats || []) {
+                        for (const note of beat.notes || []) delete note._origString;
+                    }
+                }
+            }
+        }
+    }
+
+    score._adaptSummary = applyScoreAdaptation(score, pref, instrumentMode);
+    syncGpAdaptUI(score);
+    applyGpStringCount(getEffectiveGpStringCount(gpState.currentFile, instrumentMode));
+}
+
+function describeAdaptation(summary, pref) {
+    if (!summary) return '';
+    const tuning = findAdaptTuning(pref.tuningName);
+    const parts = [pref.method === 'capo' ? `Capo ${summary.capo}` : 'Frets shifted to ' + (tuning?.shortName || 'your tuning')];
+    if (summary.remapped) parts.push(`${summary.remapped} note${summary.remapped === 1 ? '' : 's'} moved to another string`);
+    if (summary.unplayable) parts.push(`${summary.unplayable} out of range${tuning ? ' (try a lower tuning)' : ''}`);
+    if (summary.harmonics) parts.push('harmonics keep their fret position');
+    return parts.join(' · ');
+}
+
+/**
+ * Builds the "Play on Your Instrument" section of the Notation panel for the open tab
+ */
+export function syncGpAdaptUI(score) {
+    const section = document.getElementById('scoreOptionsAdaptSection');
+    if (!section) return;
+    if (!score) {
+        section.style.display = 'none';
+        return;
+    }
+
+    const instrumentMode = getInstrumentMode();
+    const pref = getTabAdaptPref(gpState.currentFile);
+    const mine = pref || getMyInstrument();
+    const enabled = !!pref;
+
+    const toggle = document.getElementById('adaptEnableSwitch');
+    const controls = document.getElementById('adaptControls');
+    const select = document.getElementById('adaptTuningSelect');
+    const capoSelect = document.getElementById('adaptCapoSelect');
+    const summaryEl = document.getElementById('adaptSummary');
+    const badge = document.getElementById('adaptStateBadge');
+
+    toggle.checked = enabled;
+    controls.style.display = enabled ? '' : 'none';
+    badge.style.display = enabled ? '' : 'none';
+    select.innerHTML = getAdaptTuningOptions(instrumentMode)
+        .map(t => `<option value="${t.shortName}" ${t.shortName === mine.tuningName ? 'selected' : ''}>${t.name}</option>`)
+        .join('');
+    capoSelect.innerHTML = ['auto', ...Array.from({ length: 9 }, (_, i) => String(i + 1))]
+        .map(v => `<option value="${v}" ${String(mine.capo ?? 'auto') === v ? 'selected' : ''}>${v === 'auto' ? 'Auto' : 'Fret ' + v}</option>`)
+        .join('');
+    document.querySelectorAll('input[name="adaptMethodRadio"]').forEach(r => { r.checked = r.value === mine.method; });
+    document.getElementById('adaptCapoRow').style.display = mine.method === 'capo' ? 'flex' : 'none';
+    summaryEl.textContent = enabled ? describeAdaptation(score._adaptSummary, mine) : '';
+    section.style.display = '';
+
+    const read = () => {
+        const capoVal = capoSelect.value;
+        return {
+            enabled: toggle.checked,
+            tuningName: select.value,
+            method: document.querySelector('input[name="adaptMethodRadio"]:checked')?.value || 'shift',
+            capo: capoVal === 'auto' ? 'auto' : parseInt(capoVal, 10)
+        };
+    };
+    toggle.onchange = () => applyGpTabAdaptation(toggle.checked ? read() : null);
+    select.onchange = () => applyGpTabAdaptation(read());
+    capoSelect.onchange = () => applyGpTabAdaptation(read());
+    document.querySelectorAll('input[name="adaptMethodRadio"]').forEach(r => {
+        r.onchange = () => { if (r.checked) applyGpTabAdaptation(read()); };
+    });
 }

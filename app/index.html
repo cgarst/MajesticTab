@@ -303,6 +303,33 @@
       </div>
     </div>
 
+    <!-- Play on Your Instrument (GP only, opt-in per tab) -->
+    <div class="mb-3" id="scoreOptionsAdaptSection" style="display: none;">
+      <div class="d-flex align-items-center justify-content-between mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted" for="adaptEnableSwitch">Play on Your Instrument:</label>
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge badge-theme-secondary py-0 px-1" style="font-size: 0.65rem; display: none;" id="adaptStateBadge">Adapted</span>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input theme-switch" type="checkbox" id="adaptEnableSwitch">
+          </div>
+        </div>
+      </div>
+      <div id="adaptControls" style="display: none;">
+        <select class="form-select form-select-sm mb-2" id="adaptTuningSelect" aria-label="Your tuning"></select>
+        <div class="hud-pill-group w-100 mb-2" role="group" aria-label="Adaptation method">
+          <input type="radio" class="btn-check" name="adaptMethodRadio" id="adaptMethodShift" value="shift" autocomplete="off" checked>
+          <label class="btn btn-sm" for="adaptMethodShift" style="flex: 1;">Shift Frets</label>
+          <input type="radio" class="btn-check" name="adaptMethodRadio" id="adaptMethodCapo" value="capo" autocomplete="off">
+          <label class="btn btn-sm" for="adaptMethodCapo" style="flex: 1;">Capo</label>
+        </div>
+        <div class="align-items-center gap-2 mb-2" id="adaptCapoRow" style="display: none;">
+          <label class="small text-muted mb-0" for="adaptCapoSelect">Capo:</label>
+          <select class="form-select form-select-sm" id="adaptCapoSelect"></select>
+        </div>
+        <div class="small text-muted" id="adaptSummary"></div>
+      </div>
+    </div>
+
     <!-- Visible Guitar Tracks (GP only) -->
     <div id="synthTrackVisibilitySection" class="mb-3" style="display: none;">
       <div class="d-flex align-items-center justify-content-between mb-1">
