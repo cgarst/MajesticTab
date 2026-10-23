@@ -910,8 +910,10 @@
               <a data-asset="macos-arm" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Apple Silicon</a>
               <a data-asset="macos-intel" href="https://github.com/cgarst/MajesticTab/releases" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-semibold"><i class="fa-solid fa-download"></i> Intel</a>
             </div>
+            <p class="text-[11px] text-slate-400">The app is not notarized. After dragging it to Applications, run this in Terminal once, or macOS will say it is damaged:</p>
+            <code class="block px-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-slate-200 overflow-x-auto whitespace-nowrap select-all">xattr -cr /Applications/MajesticTab.app</code>
           </div>
-          <div data-platform="linux" class="glass-card-interactive p-5 rounded-2xl space-y-3">
+          <div data-platform="linux"class="glass-card-interactive p-5 rounded-2xl space-y-3">
             <div class="flex items-center gap-3"><i class="fa-brands fa-linux text-2xl text-amber-300"></i><h3 class="text-base font-bold">Linux and Steam Deck</h3></div>
             <p class="text-xs text-slate-300">Flatpak bundle (.flatpak) with Steam Big Picture artwork.</p>
             <div class="flex flex-wrap gap-2">
