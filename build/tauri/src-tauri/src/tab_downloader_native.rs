@@ -1530,9 +1530,14 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 }
 
                 // Keep page body padded down so content starts below the toolbar.
+                // Only re-measure at 1:1 scale; resizing the padding during a pinch
+                // reflows the page and makes content jump along with the bar.
                 const rect = toolbarRoot.getBoundingClientRect();
-                const effectiveH = Math.ceil(rect.height || (toolbarRoot.offsetHeight * effectiveScale));
-                if (effectiveH > 0) {
+                const effectiveH = isScaled
+                    ? (window.__majesticToolbarBaseH || 0)
+                    : Math.ceil(rect.height || toolbarRoot.offsetHeight);
+                if (!isScaled && effectiveH > 0) window.__majesticToolbarBaseH = effectiveH;
+                if (effectiveH > 0 && !isScaled) {
                     let offStyle = document.getElementById('majestic-downloader-offset-style');
                     if (!offStyle) {
                         offStyle = document.createElement('style');
@@ -1556,8 +1561,13 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             window.addEventListener('resize', updateToolbarDisplay);
             window.addEventListener('orientationchange', updateToolbarDisplay);
             if (window.visualViewport) {
-                window.visualViewport.addEventListener('resize', updateToolbarDisplay);
-                window.visualViewport.addEventListener('scroll', updateToolbarDisplay);
+                let vvRaf = 0;
+                const scheduleUpdate = () => {
+                    if (vvRaf) return;
+                    vvRaf = requestAnimationFrame(() => { vvRaf = 0; updateToolbarDisplay(); });
+                };
+                window.visualViewport.addEventListener('resize', scheduleUpdate);
+                window.visualViewport.addEventListener('scroll', scheduleUpdate);
             }
             setInterval(updateToolbarDisplay, 1500);
 
