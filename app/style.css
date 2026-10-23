@@ -2499,6 +2499,11 @@ body.fretboard-open .mobile-playback-dock {
   overflow: hidden;
 }
 
+/* Text pages must fit inside the container so pagination matches what is visible */
+.pageContainer > .pageWrapper {
+  min-height: 0;
+}
+
 .pageWrapper > div {
   margin: 0;
   padding: 20px;
@@ -2564,6 +2569,10 @@ canvas {
 }
 
 /* Text / Chord Tabs */
+.text-line {
+  white-space: pre;
+}
+
 .text-content {
   width: 100%;
   max-width: 1200px;
