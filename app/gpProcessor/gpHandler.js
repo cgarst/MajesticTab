@@ -32,8 +32,9 @@ import {
     findAdaptTuning
 } from '../utils/tabAdapter.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
+import { applyTabTrackColors, isTabTrackColorsEnabled, setTabTrackColorsEnabled } from '../utils/trackColors.js';
 
-const PAGE_PADDING = 10;
+const PAGE_PADDING = 6;
 
 // State management
 export const gpState = {
@@ -92,7 +93,9 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     container.className = 'alphaTabContainer';
 
     const pagesPerView = getPagesPerView(true);
-    const targetWidth = Math.floor((window.innerWidth - 24) / pagesPerView) - (window.innerWidth < 768 ? 16 : 24);
+    // Page width = (viewport - container padding - gaps) / pages, minus wrapper border and horizontal padding
+        const wrapperPadX = window.innerWidth < 768 ? 4 : 8;
+        const targetWidth = Math.floor((window.innerWidth - 20 - 10 * (pagesPerView - 1)) / pagesPerView) - 2 - wrapperPadX * 2;
 
     container.style.width = isPageMode ? `${targetWidth}px` : '100%';
     container.style.height = isPageMode ? '100%' : 'auto';
@@ -452,7 +455,7 @@ function renderGPPageMode(output) {
         const wrapper = createPageWrapper();
         wrapper.className = 'gp-page-wrapper alphaTab at';
         wrapper.style.width = `${(100 / pagesPerView)}%`;
-        wrapper.style.padding = window.innerWidth < 768 ? '10px 8px' : '16px 14px';
+        wrapper.style.padding = window.innerWidth < 768 ? '5px 4px' : '5px 8px';
         wrapper.style.boxSizing = 'border-box';
         wrapper.style.overflow = 'hidden';
 
@@ -472,7 +475,7 @@ function renderGPPageMode(output) {
             clone.style.top = 'auto';
             clone.style.left = 'auto';
             clone.style.display = 'block';
-            clone.style.marginBottom = '10px';
+            clone.style.marginBottom = `${PAGE_PADDING}px`;
             clone.style.maxWidth = '100%';
             clone.style.overflow = 'visible';
 
@@ -587,6 +590,8 @@ export function applyGpTrackSelection(visibleTrackIndices) {
 
     const pageModeRadio = document.getElementById('pageModeRadio');
     const isPageMode = pageModeRadio ? pageModeRadio.checked : true;
+
+    applyTabTrackColors(api.score, tracksToRender.map(t => t.index));
 
     if (!isPageMode) {
         api.renderTracks(tracksToRender);
@@ -726,6 +731,15 @@ export function populateGpTrackSelectionUI(api) {
 
     if (synthShowAllBtn) synthShowAllBtn.onclick = handleShowAll;
 
+    const colorSwitch = document.getElementById('tabTrackColorSwitch');
+    if (colorSwitch) {
+        colorSwitch.checked = isTabTrackColorsEnabled();
+        colorSwitch.onchange = () => {
+            setTabTrackColorsEnabled(colorSwitch.checked);
+            applyGpTrackSelection((api.tracks || []).map(t => t.index));
+        };
+    }
+
     const currentRendered = (api.tracks || []).map(t => t.index);
     updateTrackSelectionUI(currentRendered);
 }
@@ -818,6 +832,7 @@ export function applyGpStringCount(targetCount) {
     if (api?.score) {
         updateGpStringCountBadge(api.score);
         applyScoreStringCount(api.score, safeCount, instrumentMode);
+        applyTabTrackColors(api.score, (api.tracks || []).map(t => t.index));
         fretboardController.onTrackSelectionChanged(api.tracks || (api.score.tracks ? [api.score.tracks[0]] : []));
     }
 
