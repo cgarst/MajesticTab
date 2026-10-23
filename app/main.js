@@ -44,6 +44,9 @@ if (isIOSDevice()) {
     if (isNativeIOS || isStandaloneIOS) {
         document.documentElement.classList.add('tauri-ios');
     }
+    if (isStandaloneIOS && !isNativeIOS) {
+        document.documentElement.classList.add('ios-pwa');
+    }
     if (isNativeIOS) {
         try {
             window.__TAURI__?.core?.invoke('configure_ios_main_window').catch(() => {});
