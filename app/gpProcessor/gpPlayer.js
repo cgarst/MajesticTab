@@ -1323,12 +1323,23 @@ export function clearSynthHighlights() {
 /**
  * Detach AlphaTab API and hide player
  */
-/** Re-layer the enabled SoundFonts onto the loaded song (pauses playback; the synth restarts its sound bank). */
+/** Re-layer the enabled SoundFonts onto the loaded song; playback resumes from the same spot if it was playing. */
 export async function reloadSynthSoundFonts() {
     const api = currentApi;
     if (!api) return;
+    const wasPlaying = synthPlayerState.isPlaying;
+    const tick = api.tickPosition;
     try { api.pause(); } catch (_) {}
+    const loaded = new Promise(resolve => {
+        const off = api.soundFontLoaded.on(() => { off?.(); resolve(); });
+        api.soundFontLoadFailed?.on(() => resolve());
+        setTimeout(resolve, 15000);
+    });
     await applySoundFontsToApi(api);
+    await loaded;
+    if (api !== currentApi) return;
+    try { api.tickPosition = tick; } catch (_) {}
+    if (wasPlaying) api.play();
 }
 
 export function detachAlphaTabApi() {
