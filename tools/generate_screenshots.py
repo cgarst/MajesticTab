@@ -22,7 +22,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "img" / "screenshots"
 GP_FILE = ROOT / "tests" / "Keystone.gp"
 PDF_FILE = ROOT / "tests" / "Keystone.pdf"
-DEFAULT_BACKUP = Path.home() / "Downloads" / "MajesticTab-backup-2026-10-10.mtbackup"
+_BACKUPS = sorted((Path.home() / "Downloads").glob("MajesticTab-backup-*.mtbackup"))
+DEFAULT_BACKUP = _BACKUPS[-1] if _BACKUPS else Path.home() / "Downloads" / "MajesticTab-backup.mtbackup"
 
 VIEWPORTS = [
     ("desktop", {"width": 1440, "height": 900}, False, 1, ""),
@@ -127,7 +128,7 @@ def load_file(page, base_url, path, mode, condense=False, scale=None):
         page.wait_for_timeout(2000)
     if condense:
         page.evaluate("document.querySelector('#condensePdfMode').click()")
-    page.wait_for_selector("#output canvas, #output svg", timeout=90000)
+    page.wait_for_selector("#output canvas, #output svg:not(.gp-reader-svg)", timeout=90000)
     # Condensing renders progressively; give it time to finish before capturing.
     page.wait_for_timeout(15000 if condense else 2500)
     radio = "#continuousModeRadio" if mode == "continuous" else "#pageModeRadio"
@@ -195,7 +196,7 @@ def navigate_library_to_song(page, base_url, artist, album, song, mode="continuo
     play_btn.click()
 
     # 5. Wait for score to render
-    page.wait_for_selector("#output canvas, #output svg", timeout=90000)
+    page.wait_for_selector("#output canvas, #output svg:not(.gp-reader-svg)", timeout=90000)
     page.wait_for_timeout(3000)
 
     # 6. Apply continuous or page display mode
@@ -277,7 +278,9 @@ def main():
         with sync_playwright() as p:
             browser = p.chromium.launch(
                 headless=True,
-                args=["--disable-dev-shm-usage", "--no-sandbox", "--disable-blink-features=AutomationControlled"]
+                args=["--disable-dev-shm-usage", "--no-sandbox", "--disable-blink-features=AutomationControlled",
+                      "--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream",
+                      "--autoplay-policy=no-user-gesture-required"]
             )
             for vp_name, vp, is_mobile, scale, suffix in VIEWPORTS:
                 print(f"[{vp_name}] {vp['width']}x{vp['height']}")
@@ -286,6 +289,7 @@ def main():
                     is_mobile=is_mobile,
                     has_touch=is_mobile,
                     device_scale_factor=scale,
+                    permissions=["microphone"],
                     user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
                 )
                 context.add_init_script("""
@@ -298,6 +302,8 @@ def main():
                         localStorage.setItem('hasSeenControllerGuide', 'true');
                     } catch (e) {}
                 """)
+                # No-op unless the URL has ?jamMock=host|client (Jam shot only).
+                context.add_init_script(path=str(ROOT / "tests" / "jam" / "mockTauri.js"))
                 page = context.new_page()
 
                 def save(name):
@@ -421,7 +427,8 @@ def main():
                         )
                     else:
                         load_file(page, yt_base_url, GP_FILE, "continuous")
-                    page.click("#ytToggleBtn")
+                    # The button lives in the playback dock; the top-bar copy is hidden.
+                    page.locator("#mobileYtToggleBtn:visible, #ytToggleBtn:visible").first.click()
                     try:
                         page.wait_for_selector("#ytIframe[data-loaded='true']", timeout=15000)
                     except Exception as e:
@@ -483,7 +490,74 @@ def main():
                     page.wait_for_timeout(1000)
                     save("theme_palettes")
 
-                # 14. GP Themed
+                # 15. Virtual fretboard (desktop only): Steven Wilson - Ancestral, scroll mode,
+                # cursor on the first note of bar 95. Falls back to Keystone without a backup.
+                if wanted("fretboard") and not is_mobile:
+                    if has_backup:
+                        navigate_library_to_song(
+                            page, base_url,
+                            artist="Steven Wilson", album="Hand. Cannot. Erase.", song="Ancestral",
+                            mode="continuous"
+                        )
+                    else:
+                        load_file(page, base_url, GP_FILE, "continuous")
+                    page.evaluate("document.querySelector('#toolsToggleBtn').click()")
+                    page.wait_for_timeout(500)
+                    page.evaluate("document.querySelector('#fretboardToggleBtn').click()")
+                    page.wait_for_timeout(1000)
+                    if has_backup:
+                        page.evaluate("""async () => {
+                            const gp = await import('/app/gpProcessor/gpPlayer.js');
+                            const api = window.gpState.canvases[0].api;
+                            const beat = api.tracks[0].staves[0].bars[94].voices[0].beats[0];
+                            document.body.classList.add('synth-playback-started');
+                            const bounds = api.renderer.boundsLookup.findBeat(beat);
+                            document.getElementById('output').scrollTop = Math.max(0, bounds.realBounds.y - 140);
+                            api.tickPosition = gp.getPlaybackTickForBeat(beat, api);
+                        }""")
+                        page.wait_for_timeout(2500)
+                    save("fretboard")
+
+                # 16. Tuner modal (Keystone fixture, desktop only)
+                if wanted("tuner") and not is_mobile:
+                    load_file(page, base_url, GP_FILE, "page")
+                    page.evaluate("document.querySelector('#toolsToggleBtn').click()")
+                    page.wait_for_timeout(500)
+                    page.evaluate("document.querySelector('#tunerToggleBtn').click()")
+                    page.wait_for_timeout(2000)
+                    save("tuner")
+
+                # 17. Reference library: chord library (desktop only)
+                if wanted("reference_chords") and not is_mobile:
+                    load_file(page, base_url, GP_FILE, "page")
+                    page.evaluate("document.querySelector('#toolsToggleBtn').click()")
+                    page.wait_for_timeout(500)
+                    page.evaluate("document.querySelector('#toolsReferenceItem').click()")
+                    page.wait_for_timeout(1500)
+                    save("reference_chords")
+
+                # 18. Jam mode: hosting panel with track assignments (browser mock transport)
+                if wanted("jam_host") and not is_mobile:
+                    page.goto(f"{base_url}/app/?jamMock=host&test=Keystone.gp", wait_until="load", timeout=60000)
+                    page.evaluate(FORCE_DEFAULT_THEME_JS)
+                    page.wait_for_selector("#output canvas, #output svg:not(.gp-reader-svg)", timeout=90000)
+                    page.wait_for_timeout(3000)
+                    page.evaluate("document.querySelector('#toolsToggleBtn').click()")
+                    page.wait_for_timeout(500)
+                    page.evaluate("document.querySelector('#jamToggleBtn').click()")
+                    page.wait_for_timeout(800)
+                    page.click("[data-jam-tab='host']")
+                    page.click("#jamStartHostBtn")
+                    page.wait_for_timeout(2000)
+                    # Replace this machine's LAN address with a documentation address.
+                    page.evaluate("""() => {
+                        const re = /\\b\\d{1,3}(?:\\.\\d{1,3}){3}\\b/g;
+                        const w = document.createTreeWalker(document.getElementById('jamModal') || document.body, NodeFilter.SHOW_TEXT);
+                        for (let n = w.nextNode(); n; n = w.nextNode()) n.nodeValue = n.nodeValue.replace(re, '192.168.1.20');
+                    }""")
+                    save("jam_host")
+
+                # 19. GP Themed (last: it switches the theme for the rest of the context)
                 if wanted("gp_themed"):
                     load_file(page, base_url, GP_FILE, "continuous")
                     page.evaluate("import('/app/themeEngine.js').then(m => { m.setTheme('Ember Glow'); m.setSheetMode('theme'); })")
