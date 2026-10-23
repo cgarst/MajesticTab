@@ -1057,7 +1057,7 @@ async function renderLibraryBrowseView(container) {
                             ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
                               const info = getTuningInfo(t.tuning);
                               const label = info?.displayName || t.tuning;
-                              return `<button class="badge badge-tuning badge-tuning-clickable border-0 py-0 px-2" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
+                              return `<span class="badge badge-tuning py-0 px-2" style="font-size:0.62rem;" title="${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</span>`;
                             })() : ''}
                             ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" title="Remove album tab"><i class="bi-x"></i></button>` : ''}
                           </div>
@@ -1900,7 +1900,7 @@ function renderSongRow(song, options = {}) {
                 ${tunings.map(t => {
                   const info = getTuningInfo(t);
                   const label = info?.displayName || t;
-                  return `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(info?.key || t)}" title="Browse songs in ${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</button>`;
+                  return `<span class="badge badge-tuning" title="${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</span>`;
                 }).join('')}
                 ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : ''}
               </div>
@@ -1971,7 +1971,7 @@ function renderSongRow(song, options = {}) {
               ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
                 const info = getTuningInfo(t.tuning);
                 const label = info?.displayName || t.tuning;
-                return `<button class="badge badge-theme-secondary badge-tuning-clickable border-0 py-0 px-2 ms-1" data-tuning-target="${escapeHtml(info?.key || t.tuning)}" style="font-size:0.62rem;" title="Browse ${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</button>`;
+                return `<span class="badge badge-theme-secondary py-0 px-2 ms-1" style="font-size:0.62rem;" title="${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</span>`;
               })() : ''}
               ${isPdfRange && isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
               ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>` : ''}
@@ -2166,7 +2166,7 @@ function setupSongRowActions(container) {
     // Play specific tab chip
     container.querySelectorAll('.play-tab-chip-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            if (e.target.closest('.remove-tab-chip-btn') || e.target.closest('.edit-tab-chip-btn') || e.target.closest('.set-default-tab-btn') || e.target.closest('.badge-tuning-clickable')) return;
+            if (e.target.closest('.remove-tab-chip-btn') || e.target.closest('.edit-tab-chip-btn') || e.target.closest('.set-default-tab-btn')) return;
             e.stopPropagation();
             const songId = btn.dataset.songId;
             const tabId = btn.dataset.tabId;
@@ -2325,7 +2325,7 @@ function setupSongRowActions(container) {
 
     container.querySelectorAll('.play-album-tab-chip-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-            if (e.target.closest('.remove-album-tab-chip-btn') || e.target.closest('.set-default-album-tab-btn') || e.target.closest('.badge-tuning-clickable')) return;
+            if (e.target.closest('.remove-album-tab-chip-btn') || e.target.closest('.set-default-album-tab-btn')) return;
             e.stopPropagation();
             const folderTitle = getBookFolderTitle();
             if (!selectedArtist || !folderTitle) return;
@@ -2368,20 +2368,6 @@ function setupSongRowActions(container) {
         });
     });
 
-    // Tuning badge clicks to navigate to tuning view
-    container.querySelectorAll('.badge-tuning-clickable').forEach(badge => {
-        badge.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const tuning = badge.dataset.tuningTarget;
-            if (tuning) {
-                const info = getTuningInfo(tuning);
-                activeView = 'library';
-                libraryBrowseMode = 'tunings';
-                selectedTuning = info?.key || tuning;
-                renderLibraryModal();
-            }
-        });
-    });
 
     // Delete song from library (in Edit Mode)
     container.querySelectorAll('.delete-song-btn').forEach(btn => {
@@ -3933,7 +3919,7 @@ async function renderRecentsView(container) {
                     ${tunings.map(t => {
                       const info = getTuningInfo(t);
                       const label = info?.displayName || t;
-                      return `<button type="button" class="badge badge-tuning badge-tuning-clickable border-0" data-tuning-target="${escapeHtml(info?.key || t)}" title="Browse songs in ${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</button>`;
+                      return `<span class="badge badge-tuning" title="${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</span>`;
                     }).join('')}
                     <span class="small text-white-50" style="font-size:0.7rem;"><i class="bi-clock me-1"></i>${timeAgo}</span>
                   </div>
@@ -4034,21 +4020,6 @@ async function renderRecentsView(container) {
                 }
             }
             showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
-        });
-    });
-
-    // Handle tuning badge clicks in recents view
-    container.querySelectorAll('.badge-tuning-clickable').forEach(badge => {
-        badge.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const tuning = badge.dataset.tuningTarget;
-            if (tuning) {
-                const info = getTuningInfo(tuning);
-                activeView = 'library';
-                libraryBrowseMode = 'tunings';
-                selectedTuning = info?.key || tuning;
-                renderLibraryModal();
-            }
         });
     });
 
