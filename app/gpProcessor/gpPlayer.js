@@ -663,6 +663,34 @@ export function getPlaybackTickForBeat(beat, api) {
     return masterBarStart + (beat.playbackStart ?? 0);
 }
 
+// Manual scrolling (incl. inertial momentum) takes priority over playback follow, otherwise both write scrollTop and the sheet jitters
+const USER_SCROLL_IDLE_MS = 150;
+const USER_SCROLL_GRACE_MS = 2000;
+let userScrollingUntil = 0;
+let userScrollHeld = false;
+let autoScrollWrite = false;
+let userScrollOutput = null;
+
+function bumpUserScroll(ms) {
+    userScrollingUntil = Math.max(userScrollingUntil, performance.now() + ms);
+}
+
+function watchUserScroll(output) {
+    if (userScrollOutput === output) return;
+    userScrollOutput = output;
+    const hold = () => { userScrollHeld = true; bumpUserScroll(USER_SCROLL_IDLE_MS); };
+    const release = () => { userScrollHeld = false; bumpUserScroll(USER_SCROLL_GRACE_MS); };
+    output.addEventListener('wheel', () => bumpUserScroll(USER_SCROLL_IDLE_MS), { passive: true });
+    output.addEventListener('touchstart', hold, { passive: true });
+    output.addEventListener('touchend', release, { passive: true });
+    output.addEventListener('touchcancel', release, { passive: true });
+    output.addEventListener('scroll', () => {
+        if (autoScrollWrite) return;
+        // Momentum scrolls keep firing scroll events after the finger lifts; extend until they stop
+        bumpUserScroll(userScrollHeld ? USER_SCROLL_IDLE_MS : USER_SCROLL_GRACE_MS);
+    }, { passive: true });
+}
+
 /**
  * Handle auto-scrolling with quick snap and read-ahead in Continuous Mode
  * Adjusts scrolling to consider the virtual fretboard dock so that current stave group is entirely visible
@@ -676,6 +704,9 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
 
     const output = document.getElementById('output');
     if (!output) return;
+
+    watchUserScroll(output);
+    if (!force && performance.now() < userScrollingUntil) return;
 
     const fretboardDock = document.getElementById('fretboardDock');
     const isFretboardOpen = document.body.classList.contains('fretboard-open') && fretboardDock && fretboardDock.style.display !== 'none';
@@ -769,7 +800,10 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
             ? 0
             : Math.max(0, Math.min(maxScroll, anchorY - TOP_PADDING));
         if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
+            autoScrollWrite = true;
             output.scrollTop = targetScrollTop;
+            // scroll events fire asynchronously; clear the flag after they've been dispatched
+            requestAnimationFrame(() => requestAnimationFrame(() => { autoScrollWrite = false; }));
         }
     }
 }
