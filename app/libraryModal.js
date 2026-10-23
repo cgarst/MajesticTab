@@ -1110,7 +1110,7 @@ async function renderLibraryBrowseView(container) {
                       </div>
                       ${bookPdfs.length > 0 ? `
                         <button class="btn btn-sm btn-theme-primary py-1 px-3 d-flex align-items-center gap-1 flex-shrink-0" id="addSongsFromBookPdfBtn" title="Create songs from page ranges of a book PDF">
-                          <i class="bi-file-earmark-pdf"></i> <span>Set Album PDF Pages</span>
+                          <i class="bi-file-earmark-pdf"></i> <span>Set Book PDF Pages</span>
                         </button>
                       ` : ''}
                     </div>
@@ -1866,6 +1866,7 @@ function getBookFolderTitle() {
 }
 
 function renderSongRow(song, options = {}) {
+    const pdfPagesNoun = selectedArtist?.isCustom ? 'Book' : 'Album';
     const tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
     const hasTabs = tabOptions.length > 0;
     const tunings = (Array.isArray(song.tunings) ? song.tunings : []).filter(t => isTuningMatchingInstrument(t));
@@ -1927,10 +1928,10 @@ function renderSongRow(song, options = {}) {
               ${albumPdfTabs.length > 0 ? (() => {
                 const existingPdfTab = tabOptions.find(t => t.isAlbumRange || t.startPage);
                 if (existingPdfTab) {
-                  return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}" data-tab-id="${existingPdfTab.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Edit Album PDF Pages...</button></li>
+                  return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}" data-tab-id="${existingPdfTab.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Edit ${pdfPagesNoun} PDF Pages...</button></li>
                   <li><hr class="dropdown-divider"></li>`;
                 }
-                return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Set Album PDF Pages...</button></li>
+                return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Set ${pdfPagesNoun} PDF Pages...</button></li>
                 <li><hr class="dropdown-divider"></li>`;
               })() : ''}
               ${window.__TAURI__ ? `<li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>` : ''}
@@ -2200,7 +2201,7 @@ function setupSongRowActions(container) {
                 showToast('No whole-album PDF found for this album.', 'warning');
                 return;
             }
-            openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab);
+            openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab, { isCustom: Boolean(selectedArtist?.isCustom) });
         });
     });
 
@@ -2241,7 +2242,7 @@ function setupSongRowActions(container) {
                 showToast('No whole-album PDF found for this album.', 'warning');
                 return;
             }
-            openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab);
+            openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab, { isCustom: Boolean(selectedArtist?.isCustom) });
         });
     });
 
@@ -2856,7 +2857,7 @@ function renderCustomDocFormHtml() {
           <input class="form-check-input theme-switch ms-0 flex-shrink-0" type="checkbox" role="switch" id="customDocIsBook">
           <label class="form-check-label small text-white" for="customDocIsBook">
             This is a book (PDF)
-            <span class="d-block text-muted" style="font-size:0.75rem;">Saves the PDF to the folder as a book, then use Set Album PDF Pages to create songs from page ranges.</span>
+            <span class="d-block text-muted" style="font-size:0.75rem;">Saves the PDF to the folder as a book, then use Set Book PDF Pages to create songs from page ranges.</span>
           </label>
         </div>
 
@@ -4165,7 +4166,8 @@ export function openThemedInputModal({
 /**
  * Themed dialog to configure start and end page range from an album-level PDF for a specific track.
  */
-export function openSetAlbumPdfPagesModal(song, albumPdfTabs = [], existingTab = null) {
+export function openSetAlbumPdfPagesModal(song, albumPdfTabs = [], existingTab = null, { isCustom = false } = {}) {
+    const pdfPagesNoun = isCustom ? 'Book' : 'Album';
     if (!albumPdfTabs || albumPdfTabs.length === 0) {
         showToast('No whole-album PDF found for this album.', 'warning');
         return;
@@ -4194,7 +4196,7 @@ export function openSetAlbumPdfPagesModal(song, albumPdfTabs = [], existingTab =
             <i class="bi-file-earmark-pdf text-primary fs-5"></i>
           </div>
           <div class="theme-modal-titles">
-            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">${isEdit ? 'Edit Album PDF Pages' : 'Set Album PDF Pages'}</h5>
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">${isEdit ? 'Edit' : 'Set'} ${pdfPagesNoun} PDF Pages</h5>
             <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(song.title)}</div>
           </div>
         </div>
@@ -4364,7 +4366,7 @@ export function openBookPdfSongsModal(artistName, album, bookPdfs = []) {
         <div class="theme-modal-title-group">
           <div class="theme-modal-icon"><i class="bi-file-earmark-pdf text-primary fs-5"></i></div>
           <div class="theme-modal-titles">
-            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Set Album PDF Pages</h5>
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Set Book PDF Pages</h5>
             <div class="small text-muted" style="font-size: 0.78rem;">${escapeHtml(album.title || artistName)}</div>
           </div>
         </div>
