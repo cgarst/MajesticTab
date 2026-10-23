@@ -1192,6 +1192,10 @@ function applyPlayerState(api, state) {
         pauseYouTube();
         setActiveAudioMode('synth');
         enableIOSAudioPlayback();
+        // Starting playback re-anchors the view on the cursor, even if the user scrolled away while paused
+        userScrollingUntil = 0;
+        userScrollHeld = false;
+        updateContinuousPlaybackScroll(api.tickPosition, true);
     } else {
         pauseIOSAudioPlayback();
     }
