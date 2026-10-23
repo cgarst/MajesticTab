@@ -50,6 +50,11 @@ export const MSG = Object.freeze({
     CONTROL_POLICY: 'control.policy',
     GUEST_MUTE: 'guest.mute',
     TRACK_ASSIGN: 'tracks.assign',
+    // host mixer and SoundFonts (host -> clients)
+    MIXER: 'mixer.update',
+    SOUNDFONTS: 'soundfonts.update',
+    SOUNDFONT_REQUEST: 'soundfont.request',
+    SOUNDFONT_DATA: 'soundfont.data',
     // client commands (controller -> host)
     CMD_SONG_OPEN: 'cmd.song.open',
     CMD_PLAY: 'cmd.transport.play',
