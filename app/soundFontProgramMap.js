@@ -123,25 +123,46 @@ export function planProgramMapping(tracks, presets, mode = 'closest') {
     });
 }
 
+const AUTOMATION_INSTRUMENT = 2; // AlphaTab AutomationType.Instrument
+
 /**
  * Point each track's playback program at the best program the enabled SoundFonts define.
- * The score's own program is kept on `track.originalProgram` (and restored when `presets` is null,
- * i.e. when the complete built-in font is enabled).
- * @returns {boolean} true if any track's program changed
+ * AlphaTab's MIDI generator takes programs from per-beat Instrument automations (the first beat always has one),
+ * not only from `playbackInfo.program`, so both are rewritten. The score's own values are kept on
+ * `track.originalProgram` / `automation.originalValue` and restored when `presets` is null
+ * (the complete built-in font is enabled, or strict mode is on).
+ * @returns {boolean} true if any program changed
  */
 export function applyProgramMapping(score, presets, mode = 'closest') {
     let changed = false;
+    const resolve = (original) => presets ? resolveProgram(original, presets.melodic, mode).program : original;
     for (const track of score?.tracks || []) {
         const info = track.playbackInfo;
         if (!info) continue;
         if (track.originalProgram === undefined) track.originalProgram = info.program;
         const isPercussion = info.primaryChannel === 9 || track.staves?.some(st => st.isPercussion);
-        const next = presets && !isPercussion
-            ? resolveProgram(track.originalProgram, presets.melodic, mode).program
-            : track.originalProgram;
+        if (isPercussion) continue;
+        const next = resolve(track.originalProgram);
         if (info.program !== next) {
             info.program = next;
             changed = true;
+        }
+        for (const staff of track.staves || []) {
+            for (const bar of staff.bars || []) {
+                for (const voice of bar.voices || []) {
+                    for (const beat of voice.beats || []) {
+                        for (const automation of beat.automations || []) {
+                            if (automation.type !== AUTOMATION_INSTRUMENT) continue;
+                            if (automation.originalValue === undefined) automation.originalValue = automation.value;
+                            const value = resolve(automation.originalValue);
+                            if (automation.value !== value) {
+                                automation.value = value;
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
     return changed;
