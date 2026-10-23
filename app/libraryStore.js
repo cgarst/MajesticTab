@@ -1,7 +1,7 @@
 // libraryStore.js
 // Storage and querying layer for Collections > Artists > Albums > Songs and Recents.
 
-import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile, deleteStoredFile } from './fileStore.js';
+import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile, getAllStoredFiles, deleteStoredFile } from './fileStore.js';
 import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium, filterInstrumentalBonusDiscs } from './musicbrainz.js';
 
@@ -80,10 +80,19 @@ function collectFileStoreIds(songs) {
 }
 
 /**
+ * List stored files that no library song references (metadata only, no data).
+ */
+export async function findOrphanedStoredFiles() {
+    const stillUsed = collectFileStoreIds(await getAllSongs());
+    const files = await getAllStoredFiles();
+    return files.filter(f => !stillUsed.has(f.id));
+}
+
+/**
  * Delete stored files that no remaining library song references, along with
  * any recents entries that pointed at them. Call after the songs are removed.
  */
-async function deleteOrphanedStoredFiles(candidateIds) {
+export async function deleteOrphanedStoredFiles(candidateIds) {
     const candidates = new Set(candidateIds);
     if (candidates.size === 0) return;
     try {

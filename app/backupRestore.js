@@ -8,11 +8,12 @@ import {
 } from './fileStore.js';
 import {
     ensureDefaultCollection, getAllLibraryData, importLibraryData, clearAllLibraryData,
-    reloadAllLibraryMetadata
+    reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles
 } from './libraryStore.js';
 import {
     getSaveProviders, saveToProvider, openFromProvider
 } from './fileProviders.js';
+import { showToast } from './utils/toast.js';
 import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { installExtensionSources } from './fileAdapters.js';
@@ -1301,6 +1302,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
         <button type="button" class="btn btn-sm ${activeTab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnReload">
           <i class="bi-arrow-repeat me-2"></i> Reload Metadata
         </button>
+        <button type="button" class="btn btn-sm ${activeTab === 'orphans' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnOrphans">
+          <i class="bi-file-earmark-x me-2"></i> Orphaned Files
+        </button>
         <button type="button" class="btn btn-sm ${activeTab === 'cache' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnCache">
           <i class="bi-brush me-2"></i> Clear Cache
         </button>
@@ -1617,6 +1621,26 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
         </div>
 
+        <!-- TAB: ORPHANED FILES -->
+        <div id="orphansTabContent" style="display: ${activeTab === 'orphans' ? 'block' : 'none'};">
+          <div class="backup-summary-box p-3 rounded-3 mb-3">
+            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
+              <i class="bi-file-earmark-x text-warning"></i> Orphaned Stored Files
+            </div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              These stored files are not attached to any song or album in your library. Removing them frees space and does not affect your songs, collections, or settings. Related Recents entries are removed too.
+            </div>
+            <div id="orphansList"></div>
+          </div>
+          <div id="orphansStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
+          <div class="d-flex justify-content-end gap-2 pt-1">
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="orphansCancelBtn">Close</button>
+            <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="orphansDeleteBtn" disabled>
+              <i class="bi-trash3"></i> Delete Selected
+            </button>
+          </div>
+        </div>
+
         <!-- TAB: CLEAR CACHE -->
         <div id="cacheTabContent" style="display: ${activeTab === 'cache' ? 'block' : 'none'};">
           <!-- Cache Summary Overview -->
@@ -1770,6 +1794,8 @@ function attachModalHandlers(modal, options = {}) {
     const tabBtnRestore = modal.querySelector('#tabBtnRestore');
     const tabBtnReload = modal.querySelector('#tabBtnReload');
     const tabBtnCache = modal.querySelector('#tabBtnCache');
+    const tabBtnOrphans = modal.querySelector('#tabBtnOrphans');
+    const orphansContent = modal.querySelector('#orphansTabContent');
     const tabBtnDelete = modal.querySelector('#tabBtnDelete');
     const backupContent = modal.querySelector('#backupTabContent');
     const restoreContent = modal.querySelector('#restoreTabContent');
@@ -1781,6 +1807,8 @@ function attachModalHandlers(modal, options = {}) {
         if (tabBtnBackup) tabBtnBackup.className = `btn btn-sm ${tab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
         if (tabBtnRestore) tabBtnRestore.className = `btn btn-sm ${tab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
         if (tabBtnReload) tabBtnReload.className = `btn btn-sm ${tab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
+        if (tabBtnOrphans) tabBtnOrphans.className = `btn btn-sm ${tab === 'orphans' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
+        if (orphansContent) orphansContent.style.display = tab === 'orphans' ? 'block' : 'none';
         if (tabBtnCache) tabBtnCache.className = `btn btn-sm ${tab === 'cache' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
         if (tabBtnDelete) tabBtnDelete.className = `btn btn-sm ${tab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
 
@@ -1795,6 +1823,75 @@ function attachModalHandlers(modal, options = {}) {
     tabBtnRestore?.addEventListener('click', () => switchTab('restore'));
     tabBtnReload?.addEventListener('click', () => switchTab('reload'));
     tabBtnCache?.addEventListener('click', () => switchTab('cache'));
+    tabBtnOrphans?.addEventListener('click', () => switchTab('orphans'));
+
+    // --- ORPHANED FILES ---
+    const orphansList = modal.querySelector('#orphansList');
+    const orphansDeleteBtn = modal.querySelector('#orphansDeleteBtn');
+    const orphansStatusAlert = modal.querySelector('#orphansStatusAlert');
+    const updateOrphansDeleteBtn = () => {
+        const n = orphansList.querySelectorAll('.orphan-check:checked').length;
+        orphansDeleteBtn.disabled = n === 0;
+        orphansDeleteBtn.innerHTML = `<i class="bi-trash3"></i> Delete Selected${n ? ` (${n})` : ''}`;
+    };
+    const renderOrphans = async () => {
+        let orphans = [];
+        try {
+            orphans = (await findOrphanedStoredFiles()).sort((a, b) => (b.size || 0) - (a.size || 0));
+        } catch (err) {
+            console.error('Failed to scan for orphaned files:', err);
+            orphansList.innerHTML = `<div class="text-danger small">Failed to scan: ${escapeHtml(err.message)}</div>`;
+            return;
+        }
+        if (orphans.length === 0) {
+            orphansList.innerHTML = '<div class="text-success small"><i class="bi-check-circle-fill me-1"></i> No orphaned files found.</div>';
+            updateOrphansDeleteBtn();
+            return;
+        }
+        const total = orphans.reduce((acc, f) => acc + (f.size || 0), 0);
+        orphansList.innerHTML = `
+          <div class="d-flex align-items-center justify-content-between mb-2 small">
+            <label class="d-flex align-items-center gap-2 text-white mb-0">
+              <input type="checkbox" class="form-check-input theme-switch" id="orphansSelectAll" checked>
+              Select all (${orphans.length} files, ${formatBytes(total)})
+            </label>
+          </div>
+          <div class="d-flex flex-column gap-2" style="max-height: 45vh; overflow-y: auto;">
+            ${orphans.map(f => `
+              <label class="d-flex align-items-center gap-3 p-2 rounded-2 backup-stat-card mb-0" style="cursor: pointer;">
+                <input type="checkbox" class="form-check-input orphan-check flex-shrink-0" data-id="${escapeHtml(f.id)}" checked>
+                <span class="flex-grow-1 text-truncate text-white small" title="${escapeHtml(f.name || f.id)}">${escapeHtml(f.name || f.id)}</span>
+                <span class="flex-shrink-0 text-white-50 small">${formatBytes(f.size || 0)}</span>
+              </label>`).join('')}
+          </div>`;
+        orphansList.querySelector('#orphansSelectAll').addEventListener('change', (e) => {
+            orphansList.querySelectorAll('.orphan-check').forEach(cb => { cb.checked = e.target.checked; });
+            updateOrphansDeleteBtn();
+        });
+        orphansList.querySelectorAll('.orphan-check').forEach(cb => cb.addEventListener('change', updateOrphansDeleteBtn));
+        updateOrphansDeleteBtn();
+    };
+    modal.querySelector('#orphansCancelBtn')?.addEventListener('click', closeBackupModal);
+    orphansDeleteBtn?.addEventListener('click', async () => {
+        const ids = [...orphansList.querySelectorAll('.orphan-check:checked')].map(cb => cb.dataset.id);
+        if (ids.length === 0) return;
+        orphansDeleteBtn.disabled = true;
+        orphansDeleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Deleting...';
+        try {
+            await deleteOrphanedStoredFiles(ids);
+            orphansStatusAlert.style.display = 'block';
+            orphansStatusAlert.className = 'small mb-2 text-success fw-semibold';
+            orphansStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> Removed ${ids.length} orphaned ${ids.length === 1 ? 'file' : 'files'}.`;
+            showToast('Orphaned files removed', 'success');
+        } catch (err) {
+            console.error('Failed to delete orphaned files:', err);
+            orphansStatusAlert.style.display = 'block';
+            orphansStatusAlert.className = 'small mb-2 text-danger fw-semibold';
+            orphansStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed: ${escapeHtml(err.message)}`;
+        }
+        await renderOrphans();
+    });
+    renderOrphans();
     tabBtnDelete?.addEventListener('click', () => switchTab('delete'));
 
     // --- CLEAR CACHE ACTION ---
@@ -2537,6 +2634,7 @@ export function initBackupRestore() {
     document.getElementById('backupDataBtn')?.addEventListener('click', () => openBackupModal('backup'));
     document.getElementById('restoreDataBtn')?.addEventListener('click', () => openBackupModal('restore'));
     document.getElementById('reloadLibraryMetadataBtn')?.addEventListener('click', () => openBackupModal('reload'));
+    document.getElementById('orphanedFilesBtn')?.addEventListener('click', () => openBackupModal('orphans'));
     document.getElementById('clearCacheBtn')?.addEventListener('click', () => openBackupModal('cache'));
     document.getElementById('deleteAllDataBtn')?.addEventListener('click', () => openBackupModal('delete'));
 }
