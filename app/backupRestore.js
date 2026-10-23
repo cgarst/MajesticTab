@@ -17,7 +17,7 @@ import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { installExtensionSources } from './fileAdapters.js';
 import {
-    STORAGE_KEY_SOUNDFONT_SELECTION, STORAGE_KEY_SOUNDFONT_ORDER, SOUNDFONT_BACKUP_STORE, listSoundFonts, clearAllSoundFonts,
+    STORAGE_KEY_SOUNDFONT_SELECTION, STORAGE_KEY_SOUNDFONT_ORDER, STORAGE_KEY_SOUNDFONT_STRICT, SOUNDFONT_BACKUP_STORE, listSoundFonts, clearAllSoundFonts,
     collectSoundFontBackupEntries, restoreSoundFontEntry
 } from './soundFontStore.js';
 
@@ -71,7 +71,8 @@ const BACKUP_SETTINGS_KEYS = [
     'instrumentMode',
     'majestictab_instrument_mode',
     STORAGE_KEY_SOUNDFONT_SELECTION,
-    STORAGE_KEY_SOUNDFONT_ORDER
+    STORAGE_KEY_SOUNDFONT_ORDER,
+    STORAGE_KEY_SOUNDFONT_STRICT
 ];
 
 /**

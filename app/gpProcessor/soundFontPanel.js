@@ -3,7 +3,7 @@
 import { reloadSynthSoundFonts } from './gpPlayer.js';
 import {
     listOrderedSoundFonts, addSoundFont, deleteSoundFont,
-    getSelectedSoundFontIds, setSelectedSoundFontIds, setSoundFontOrder
+    getSelectedSoundFontIds, setSelectedSoundFontIds, setSoundFontOrder, getSoundFontStrict, setSoundFontStrict
 } from '../soundFontStore.js';
 import { showToast } from '../utils/toast.js';
 
@@ -71,6 +71,15 @@ export function initSoundFontPanel() {
     if (!list || !addBtn || !editBtn || !fileInput) return;
 
     let editing = false;
+
+    const strictToggle = document.getElementById('soundFontStrictToggle');
+    if (strictToggle) {
+        strictToggle.checked = getSoundFontStrict();
+        strictToggle.addEventListener('change', () => {
+            setSoundFontStrict(strictToggle.checked);
+            scheduleReload();
+        });
+    }
 
     let reloadTimer = null;
     const scheduleReload = () => {
