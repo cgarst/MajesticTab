@@ -1813,6 +1813,7 @@ export function toggleScoreOptionsPanel(forceState = null) {
         toggleYouTubePanel(false);
         document.getElementById('pdfBookmarksPanelCloseBtn')?.click();
 
+        document.dispatchEvent(new CustomEvent('scoreoptions:open'));
         updateScoreOptionsPanelPosition();
         panel.style.display = 'block';
         toggleBtn?.classList.add('active');
