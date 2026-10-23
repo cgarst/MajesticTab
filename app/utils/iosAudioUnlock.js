@@ -82,6 +82,30 @@ function getOrCreateSilentAudio() {
 }
 
 /**
+ * Rebuild the iOS audio session state after returning from the background. iOS leaves the
+ * hidden silent <audio> element and the session category in a stale state after an interruption,
+ * which makes later synth playback start for a moment and then stall (even for newly opened tabs).
+ */
+export function resetIOSAudioSession() {
+    if (silentAudioEl) {
+        try { silentAudioEl.pause(); } catch (e) {}
+        silentAudioEl.removeAttribute('src');
+        try { silentAudioEl.load(); } catch (e) {}
+        silentAudioEl.remove();
+        silentAudioEl = null;
+    }
+    for (const ctx of trackedAudioContexts) {
+        if (!ctx || ctx.state === 'closed') trackedAudioContexts.delete(ctx);
+    }
+    if (typeof navigator !== 'undefined' && 'audioSession' in navigator) {
+        try {
+            navigator.audioSession.type = 'auto';
+            navigator.audioSession.type = captureActive ? 'play-and-record' : 'playback';
+        } catch (e) {}
+    }
+}
+
+/**
  * Register an AudioContext to ensure it is resumed and configured properly.
  */
 export function registerAudioContext(ctx) {
@@ -130,7 +154,11 @@ export function enableIOSAudioPlayback() {
 
     // Start silent audio on iOS (or standalone PWA)
     if (isIOSDevice() || window.navigator?.standalone) {
-        const audio = getOrCreateSilentAudio();
+        let audio = getOrCreateSilentAudio();
+        if (audio && (audio.error || audio.ended)) {
+            resetIOSAudioSession();
+            audio = getOrCreateSilentAudio();
+        }
         if (audio && audio.paused) {
             const promise = audio.play();
             if (promise && typeof promise.catch === 'function') {
@@ -216,8 +244,9 @@ export function initIOSAudioUnlock() {
             if (silentAudioEl && !silentAudioEl.paused) {
                 silentAudioEl.pause();
             }
-        } else if (isPlaybackActive) {
-            enableIOSAudioPlayback();
+        } else {
+            resetIOSAudioSession();
+            if (isPlaybackActive) enableIOSAudioPlayback();
         }
     });
 }
