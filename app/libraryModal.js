@@ -1042,8 +1042,9 @@ async function renderLibraryBrowseView(container) {
                     </div>
 
                     ${hasAlbumTabs ? `
-                      <div class="album-tabs-container pt-2 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-2">
-                        <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;"><i class="bi-journal-bookmark me-1 text-info"></i>Album Tabs:</span>
+                      <div class="album-tabs-container pt-2 border-top border-secondary-subtle d-flex align-items-start gap-2">
+                        <span class="small text-muted fw-semibold me-1 tab-options-label" style="font-size: 0.72rem;"><i class="bi-journal-bookmark me-1 text-info"></i>Album Tabs:</span>
+                        <div class="tab-options-chips d-flex flex-wrap align-items-center gap-2">
                         ${albumTabs.map((t, idx) => {
                           const isDefault = (t.id === defaultAlbumTabId) || (!defaultAlbumTabId && idx === 0);
                           return `
@@ -1062,6 +1063,7 @@ async function renderLibraryBrowseView(container) {
                           </div>
                           `;
                         }).join('')}
+                        </div>
                       </div>
                     ` : ''}
                   </div>
@@ -1951,8 +1953,9 @@ function renderSongRow(song, options = {}) {
 
       <!-- Multiple Tab Options List (if has tabs) -->
       ${hasTabs ? `
-        <div class="tab-options-container pt-2 mt-1 border-top border-secondary-subtle d-flex flex-wrap align-items-center gap-2">
-          <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;">Tabs:</span>
+        <div class="tab-options-container pt-2 mt-1 border-top border-secondary-subtle d-flex align-items-start gap-2">
+          <span class="small text-muted fw-semibold me-1 tab-options-label" style="font-size: 0.72rem;">Tabs:</span>
+          <div class="tab-options-chips d-flex flex-wrap align-items-center gap-2">
           ${tabOptions.map((t, idx) => {
             const isDefault = (t.id === defaultTabId) || (!defaultTabId && idx === 0);
             const isPdfRange = Boolean(t.isAlbumRange || t.startPage);
@@ -1975,6 +1978,7 @@ function renderSongRow(song, options = {}) {
             </div>
             `;
           }).join('')}
+          </div>
         </div>
       ` : ''}
     </div>
