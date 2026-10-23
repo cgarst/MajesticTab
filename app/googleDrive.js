@@ -90,6 +90,30 @@ export function isTokenValid() {
     }
 }
 
+/**
+ * Authenticated fetch against the Drive API for modules that manage their own requests.
+ * Clears the stored token on 401 so the UI can prompt a reconnect.
+ */
+export async function driveFetch(url, options = {}) {
+    if (!isTokenValid()) {
+        throw new Error('Google Drive is not connected. Please connect your Google account.');
+    }
+    const res = await fetch(url, {
+        ...options,
+        headers: { ...(options.headers || {}), Authorization: `Bearer ${token}` }
+    });
+    if (res.status === 401) {
+        clearStoredToken();
+        throw new Error('Google Drive authorization expired. Please reconnect Google Drive.');
+    }
+    return res;
+}
+
+/** Folder id backups are written under: the chosen tabs directory, else Drive root. */
+export function getBackupParentFolderId() {
+    return tabsDirectory ? tabsDirectory.id : 'root';
+}
+
 export function clearStoredToken() {
     localStorage.removeItem(STORAGE_KEY);
     token = null;
@@ -1017,117 +1041,6 @@ export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.m
 
         xhr.send(form);
     });
-}
-
-/**
- * Upload a stream of byte chunks to Google Drive without materializing the whole file.
- * Chunks are regrouped into 8 MiB resumable-upload pieces; the total size is only
- * sent with the final piece.
- * @param {AsyncIterable<Uint8Array>} chunks
- * @param {string} filename
- * @param {object} [options]
- * @param {string} [options.folderId]
- * @param {string} [options.mimeType]
- * @param {Function} [options.onProgress] Receives ({ loaded }) as bytes are sent
- * @returns {Promise<object>} Upload response containing file id and name
- */
-export async function saveStreamToDrive(chunks, filename, { folderId = null, mimeType = 'application/octet-stream', onProgress = null } = {}) {
-    if (!isTokenValid()) {
-        throw new Error('Google Drive is not connected. Please connect your Google account.');
-    }
-
-    const targetFolder = folderId || (tabsDirectory ? tabsDirectory.id : 'root');
-    const metadata = { name: filename, mimeType };
-    if (targetFolder && targetFolder !== 'root') {
-        metadata.parents = [targetFolder];
-    }
-
-    const sessionUrl = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', 'https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable');
-        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
-        xhr.setRequestHeader('Content-Type', 'application/json; charset=UTF-8');
-        xhr.setRequestHeader('X-Upload-Content-Type', mimeType);
-        xhr.onload = () => {
-            const location = xhr.getResponseHeader('Location');
-            if (xhr.status >= 200 && xhr.status < 300 && location) resolve(location);
-            else reject(driveUploadError(xhr, filename));
-        };
-        xhr.onerror = () => reject(new Error('Google Drive upload network error. Please check your connection.'));
-        xhr.send(JSON.stringify(metadata));
-    });
-
-    const CHUNK_SIZE = 8 * 1024 * 1024; // must be a multiple of 256 KiB
-    let offset = 0;
-    let pending = [];
-    let pendingSize = 0;
-
-    // Resolves with the Drive file once the final piece (known total) is accepted
-    const sendPiece = (piece, total) => new Promise((resolve, reject) => {
-        const end = offset + piece.size;
-        const xhr = new XMLHttpRequest();
-        xhr.open('PUT', sessionUrl);
-        xhr.setRequestHeader('Content-Range', `bytes ${offset}-${end - 1}/${total ?? '*'}`);
-        xhr.onload = () => {
-            if (xhr.status === 308) {
-                resolve(null);
-            } else if (xhr.status >= 200 && xhr.status < 300) {
-                try {
-                    resolve(JSON.parse(xhr.responseText));
-                } catch (err) {
-                    resolve({ name: filename });
-                }
-            } else {
-                reject(driveUploadError(xhr, filename));
-            }
-        };
-        xhr.onerror = () => reject(new Error('Google Drive upload network error. Please check your connection.'));
-        xhr.send(piece);
-    });
-
-    const sendWithRetry = async (piece, total) => {
-        for (let attempt = 0; ; attempt++) {
-            try {
-                return await sendPiece(piece, total);
-            } catch (err) {
-                if (attempt >= 2 || /authorization expired/.test(err.message)) throw err;
-                await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-            }
-        }
-    };
-
-    for await (const chunk of chunks) {
-        pending.push(chunk);
-        pendingSize += chunk.byteLength;
-        // Only flush when strictly more than a piece is buffered, so the final piece is never empty
-        while (pendingSize > CHUNK_SIZE) {
-            const all = new Blob(pending);
-            await sendWithRetry(all.slice(0, CHUNK_SIZE), null);
-            offset += CHUNK_SIZE;
-            pending = [all.slice(CHUNK_SIZE)];
-            pendingSize -= CHUNK_SIZE;
-            if (typeof onProgress === 'function') onProgress({ loaded: offset });
-        }
-    }
-
-    const last = new Blob(pending);
-    const result = await sendWithRetry(last, offset + last.size);
-    if (typeof onProgress === 'function') onProgress({ loaded: offset + last.size });
-    return result || { name: filename };
-}
-
-function driveUploadError(xhr, filename) {
-    let errorMsg = xhr.statusText;
-    try {
-        const errData = JSON.parse(xhr.responseText);
-        errorMsg = errData.error?.message || errorMsg;
-    } catch (e) {}
-
-    if (xhr.status === 401) {
-        clearStoredToken();
-        return new Error(`Google Drive authorization expired: ${errorMsg}. Please reconnect Google Drive.`);
-    }
-    return new Error(`Google Drive upload failed (${xhr.status || 'no response'}): ${errorMsg}`);
 }
 
 /**
