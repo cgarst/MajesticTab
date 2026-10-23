@@ -1316,8 +1316,7 @@ export function attachAlphaTabApi(api) {
         synthPlayerState.isReady = true;
         // Apply existing preferences
         api.playbackSpeed = synthPlayerState.playbackSpeed;
-        api.metronomeVolume = synthPlayerState.metronomeEnabled ? 1.0 : 0.0;
-        api.countInVolume = synthPlayerState.countInEnabled ? 1.0 : 0.0;
+        setupSynthClick(api);
         if (!synthPlayerState.audioSyncEnabled) {
             applySynthTrackMode();
         }
@@ -1353,6 +1352,7 @@ export function attachAlphaTabApi(api) {
     api.playedBeatChanged.on((beat) => {
         if (warmingUp) return;
         playedBeatState.beat = beat;
+        countInPhase = false;
         if (!api.activeBeatsChanged) {
             deferVisual(() => fretboardController.onBeatChanged(beat));
         }
@@ -1653,6 +1653,54 @@ function setPlaybackSpeedLocal(speed) {
     updateSynthUI();
 }
 
+// The metronome/count-in click is rendered here rather than by AlphaTab's synth, which plays it from the loaded
+// SoundFonts' drum kit and so changes (or loses) the click whenever a custom SoundFont is active.
+// AlphaTab still needs a non-zero count-in volume to run a count-in, so it gets one too quiet to hear.
+const SYNTH_CLICK_COUNT_IN_VOLUME = 0.0001;
+let clickContext = null;
+let countInPhase = false;
+
+function playClick(accent) {
+    try {
+        if (!clickContext) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            clickContext = new Ctx();
+            registerAudioContext(clickContext);
+        }
+        const ctx = clickContext;
+        if (ctx.state !== 'running') ctx.resume().catch(() => {});
+        const now = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.value = accent ? 1760 : 1175;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(accent ? 0.35 : 0.25, now + 0.002);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.06);
+    } catch (_) {}
+}
+
+function setupSynthClick(api) {
+    api.metronomeVolume = 0;
+    api.countInVolume = synthPlayerState.countInEnabled ? SYNTH_CLICK_COUNT_IN_VOLUME : 0;
+    api.midiEventsPlayedFilter = [alphaTab.midi.MidiEventType.AlphaTabMetronome];
+    api.midiEventsPlayed.on((e) => {
+        if (warmingUp) return;
+        const wanted = countInPhase ? synthPlayerState.countInEnabled : synthPlayerState.metronomeEnabled;
+        if (!wanted) return;
+        for (const ev of e.events) {
+            if (ev.isMetronome) playClick(ev.metronomeNumerator === 0);
+        }
+    });
+    api.playerStateChanged.on((args) => {
+        countInPhase = args.state === 1 && synthPlayerState.countInEnabled;
+    });
+}
+
 /**
  * Toggle metronome
  */
@@ -1661,7 +1709,7 @@ export function toggleMetronome(force = null) {
     synthPlayerState.metronomeEnabled = newState;
     if (currentApi) {
         try {
-            currentApi.metronomeVolume = newState ? 1.0 : 0.0;
+            // click is rendered by playClick(); see setupSynthClick()
         } catch (e) {
             console.error('[Synth Player] Metronome error:', e);
         }
@@ -1677,7 +1725,7 @@ export function toggleCountIn(force = null) {
     synthPlayerState.countInEnabled = newState;
     if (currentApi) {
         try {
-            currentApi.countInVolume = newState ? 1.0 : 0.0;
+            currentApi.countInVolume = newState ? SYNTH_CLICK_COUNT_IN_VOLUME : 0;
         } catch (e) {
             console.error('[Synth Player] Count-in error:', e);
         }
