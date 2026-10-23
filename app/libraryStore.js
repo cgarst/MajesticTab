@@ -155,6 +155,21 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
 
     const artistMap = new Map();
 
+    // Songs sharing a MusicBrainz artist ID are one band even if the stored name
+    // differs (e.g. "Ghost" vs "Ghost B.C."); use the most common spelling.
+    const mbidNameCounts = new Map();
+    for (const song of songs) {
+        const name = (song.artist || '').trim();
+        if (song.isCustom || !song.artistMbid || !name) continue;
+        const counts = mbidNameCounts.get(song.artistMbid) || new Map();
+        counts.set(name, (counts.get(name) || 0) + 1);
+        mbidNameCounts.set(song.artistMbid, counts);
+    }
+    const canonicalByMbid = new Map();
+    for (const [mbid, counts] of mbidNameCounts) {
+        canonicalByMbid.set(mbid, [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0]);
+    }
+
     for (const song of songs) {
         let isCustom = Boolean(song.isCustom);
         let artistName = (song.artist || '').trim();
@@ -165,6 +180,8 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             }
         } else if (!artistName) {
             artistName = 'Unknown Artist';
+        } else if (song.artistMbid && canonicalByMbid.has(song.artistMbid)) {
+            artistName = canonicalByMbid.get(song.artistMbid);
         }
 
         if (!artistMap.has(artistName)) {
@@ -296,7 +313,7 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
     const pinnedSongs = songs.filter(s => s.pinned && !s.isAlbumTabContainer);
     pinnedSongs.forEach(s => {
         if (!s.coverUrl && s.album) {
-            const art = artists.find(a => a.name === s.artist);
+            const art = artists.find(a => a.name === s.artist || (s.artistMbid && a.artistMbid === s.artistMbid));
             const alb = art?.albums?.find(al => al.title === s.album);
             if (alb?.coverUrl) s.coverUrl = alb.coverUrl;
         }
