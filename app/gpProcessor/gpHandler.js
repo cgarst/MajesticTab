@@ -18,7 +18,8 @@ import {
     getEffectiveGpStringCount,
     getScoreMaxStringsForMode,
     getInstrumentMode,
-    formatTuningFromMidi
+    formatTuningFromMidi,
+    getTuningInfo
 } from '../utils/tuningUtils.js';
 import { addRecentOpened, updateLibrarySongFromScore } from '../libraryStore.js';
 import {
@@ -652,13 +653,23 @@ export function populateGpTrackSelectionUI(api) {
 
     if (synthSection) synthSection.style.display = 'block';
 
+    const getTrackTuningLabel = (track) => {
+        const raw = (track.staves || []).find(st => !st.isPercussion && st.stringTuning?.tunings?.length)?.stringTuning.tunings
+            || (Array.isArray(track.tuning) && track.tuning.length ? track.tuning : null);
+        const formatted = raw ? formatTuningFromMidi(raw) : null;
+        const label = formatted ? (getTuningInfo(formatted)?.displayName || formatted) : '';
+        return label.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    };
+
     const renderTrackRow = (ti) => {
         const id = `synth_track_${ti.index}`;
+        const tuningLabel = getTrackTuningLabel(ti.track);
         return `
           <div class="gp-track-row d-flex align-items-center justify-content-between">
             <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
               <input class="form-check-input theme-switch gp-track-checkbox" type="checkbox" id="${id}" data-track-index="${ti.index}" checked>
               <label class="form-check-label small text-truncate" for="${id}" style="max-width: 170px;" title="${ti.track.name || `Track ${ti.index + 1}`}">${ti.track.name || `Track ${ti.index + 1}`}</label>
+              ${tuningLabel ? `<span class="badge badge-theme-secondary gp-track-tuning flex-shrink-0" title="Tuning">${tuningLabel}</span>` : ''}
             </div>
             <button type="button" class="btn btn-sm theme-control-btn gp-track-only-btn" data-track-index="${ti.index}" title="Show only this track">Only</button>
           </div>
