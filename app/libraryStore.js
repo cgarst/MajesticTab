@@ -127,6 +127,7 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
                 artistMbid: song.artistMbid || null,
                 isCustom: isCustom,
                 songs: [],
+                rootBooks: 0,
                 albums: new Map()
             });
         }
@@ -154,6 +155,8 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
         if (isRootLayer) {
             if (!song.isAlbumTabContainer) {
                 artist.songs.push(song);
+            } else {
+                artist.rootBooks = Array.isArray(song.tabOptions) ? song.tabOptions.length : 0;
             }
         } else {
             const albumName = folderPath || rawAlbum || 'Singles / Other';
@@ -649,12 +652,17 @@ export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, 
     const albumSongId = getAlbumTabSongId(collectionId, artistName, albumTitle);
     let albumRecord = await getSongById(albumSongId);
     if (!albumRecord) {
+        // Containers for custom folders must be custom themselves, or the folder is grouped as a MusicBrainz album
+        const existingSongs = await getSongsByCollection(collectionId || DEFAULT_COLLECTION_ID);
+        const isCustom = Boolean(tabOption.isCustom) || existingSongs.some(s => s.isCustom && (s.artist || 'Custom Music') === artistName);
         albumRecord = {
             id: albumSongId,
             collectionId: collectionId || DEFAULT_COLLECTION_ID,
             title: albumTitle,
             artist: artistName,
             album: albumTitle,
+            isCustom,
+            folderPath: isCustom ? albumTitle : null,
             isAlbumTabContainer: true,
             tabOptions: [],
             tunings: [],

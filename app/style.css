@@ -6546,3 +6546,10 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .defaults-row-label { flex-shrink: 0; min-width: 5.5rem; font-size: 0.875rem; }
 .defaults-pills { flex: 1 1 0; max-width: 15rem; min-width: 0; }
 .defaults-pills .btn { flex: 1 1 0; white-space: nowrap; }
+
+/* Book PDF bar in custom folders (split a whole-book PDF into songs) */
+.library-book-pdf-bar {
+    background: var(--bg-card-solid);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+}
