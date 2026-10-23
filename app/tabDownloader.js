@@ -45,13 +45,13 @@ export function isDesktopNative() {
 }
 
 export const UG_DEFAULT_USERSCRIPT = `
-// MajesticTab UG Userscript v12-focus
+// MajesticTab UG Userscript v14-mobile
 (function() {
     const isSongPage = window.location.pathname.includes('/tab/');
 
     // 1. Hide and remove sticky tab player strictly on song pages
     if (isSongPage) {
-        const STYLE_ID = 'majestic-ug-custom-style-v12';
+        const STYLE_ID = 'majestic-ug-custom-style-v14';
         if (!document.getElementById(STYLE_ID)) {
             const style = document.createElement('style');
             style.id = STYLE_ID;
@@ -61,14 +61,17 @@ export const UG_DEFAULT_USERSCRIPT = `
                 [class*="is_sticky_player"],
                 [class*="sticky_player"],
                 #pro-player-scroll-container,
-                [id*="pro-player"] {
+                [id*="pro-player"],
+                [class*="BottomControls-fixed"],
+                /* Mobile layout: inline notation canvas (tuning row and download button stay) */
+                [class*="styles-containerWrapper"] {
                     display: none !important;
                 }
             \`;
             (document.head || document.documentElement).appendChild(style);
         }
 
-        document.querySelectorAll('.is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], #pro-player-scroll-container, [id*="pro-player"]').forEach(el => {
+        document.querySelectorAll('.is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], #pro-player-scroll-container, [id*="pro-player"], [class*="BottomControls-fixed"]').forEach(el => {
             try {
                 const container = el.closest('.is_sticky_player') || el.closest('[class*="sticky_player"]') || el;
                 container.remove();
@@ -104,6 +107,27 @@ export const UG_DEFAULT_USERSCRIPT = `
                 }
             }
             cur = cur.parentElement;
+        }
+    }
+
+    // Mobile layout (ugm-*): official rows link to the app store via .js-search-pro-link
+    function hideMobileOfficialRows() {
+        document.querySelectorAll('article.ugm-list--link').forEach(row => {
+            if (row.dataset.majesticHidden === 'true' || !row.querySelector('a.js-search-pro-link')) return;
+            row.dataset.majesticHidden = 'true';
+            row.style.setProperty('display', 'none', 'important');
+        });
+    }
+    if (document.querySelector('article.ugm-list--link')) {
+        hideMobileOfficialRows();
+        if (!window.__majesticUgMobileObserver) {
+            let pending = false;
+            window.__majesticUgMobileObserver = new MutationObserver(() => {
+                if (pending) return;
+                pending = true;
+                setTimeout(() => { pending = false; hideMobileOfficialRows(); }, 150);
+            });
+            window.__majesticUgMobileObserver.observe(document.body, { childList: true, subtree: true });
         }
     }
 
@@ -230,7 +254,7 @@ export function getSources() {
                             existing.queryFormat = seed.queryFormat;
                         }
                         if (existing.id === 'ug') {
-                            if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v12-focus')) {
+                            if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v14-mobile')) {
                                 existing.userscript = seed.userscript;
                             }
                         }
@@ -674,6 +698,7 @@ function populateSettingsForm(sourceId) {
     const querySel = document.getElementById('downloaderCfgQueryFormat');
     const scriptChk = document.getElementById('downloaderCfgUserscriptEnabled');
     const scriptTxt = document.getElementById('downloaderCfgUserscriptCode');
+    const desktopChk = document.getElementById('downloaderCfgForceDesktop');
     const deleteBtn = document.getElementById('downloaderCfgDeleteBtn');
 
     if (nameInp) nameInp.value = src.name || '';
@@ -681,6 +706,11 @@ function populateSettingsForm(sourceId) {
     if (querySel) querySel.value = src.queryFormat || 'artist_song';
     if (scriptChk) scriptChk.checked = Boolean(src.userscriptEnabled);
     if (scriptTxt) scriptTxt.value = src.userscript || '';
+    if (desktopChk) {
+        desktopChk.checked = Boolean(src.forceDesktop);
+        // Desktop builds always present a desktop user agent; the option only applies on mobile.
+        document.getElementById('downloaderCfgForceDesktopRow')?.classList.toggle('d-none', isDesktopNative());
+    }
     if (deleteBtn) {
         deleteBtn.disabled = Boolean(src.isSeed);
         deleteBtn.style.opacity = src.isSeed ? '0.5' : '1';
@@ -697,6 +727,7 @@ function saveCurrentFormValues() {
     const querySel = document.getElementById('downloaderCfgQueryFormat');
     const scriptChk = document.getElementById('downloaderCfgUserscriptEnabled');
     const scriptTxt = document.getElementById('downloaderCfgUserscriptCode');
+    const desktopChk = document.getElementById('downloaderCfgForceDesktop');
 
     if (nameInp) src.name = nameInp.value.trim() || src.name;
     if (urlInp) {
@@ -712,6 +743,7 @@ function saveCurrentFormValues() {
     if (querySel) src.queryFormat = querySel.value;
     if (scriptChk) src.userscriptEnabled = scriptChk.checked;
     if (scriptTxt) src.userscript = scriptTxt.value;
+    if (desktopChk) src.forceDesktop = desktopChk.checked;
 }
 
 function saveAndCloseSettings() {
@@ -1042,6 +1074,7 @@ export async function openTabDownloader(options = {}) {
         adblockEnabled: Boolean(adblockConfig.enabled),
         adblockUrl: adblockConfig.url || DEFAULT_ADBLOCK_URL,
         isDebugToolsEnabled: Boolean(isDebugToolsEnabled),
+        forceDesktop: Boolean(activeSource.forceDesktop),
         platform: (/iphone|ipad|ipod/i.test(navigator.userAgent || '')) ? 'ios' : (/android/i.test(navigator.userAgent || '') ? 'android' : ((/mac/i.test(navigator.platform || navigator.userAgent)) ? 'macos' : ((/win/i.test(navigator.platform || navigator.userAgent)) ? 'windows' : 'other'))),
         sources: sources.map(s => ({
             id: s.id,
@@ -1050,6 +1083,7 @@ export async function openTabDownloader(options = {}) {
             defaultUrl: s.defaultUrl,
             queryFormat: s.queryFormat,
             userscriptEnabled: Boolean(s.userscriptEnabled),
+            forceDesktop: Boolean(s.forceDesktop),
             userscript: s.userscript || null,
             defaultUserscript: s.defaultUserscript || null,
             isSeed: Boolean(s.isSeed)
