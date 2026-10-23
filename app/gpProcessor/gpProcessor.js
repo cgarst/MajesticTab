@@ -1,6 +1,7 @@
 import { applyGpScoreTransforms } from '../fileAdapters.js';
 import { showToast } from '../utils/toast.js';
 import { applyScoreAdaptation, getTabAdaptPref } from '../utils/tabAdapter.js';
+import { applyTabTrackColors } from '../utils/trackColors.js';
 import { createCustomCursorHandler } from './gpPlayer.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { applyProgramMapping } from '../soundFontProgramMap.js';
@@ -241,6 +242,8 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
                 if (stringCountPref && stringCountPref !== 'native') {
                     applyScoreStringCount(newScore, stringCountPref);
                 }
+
+                applyTabTrackColors(newScore, activeTrackIndices);
 
                 newScore.stylesheet.hideEmptyStaves = true;
                 newScore.stylesheet.hideEmptyStavesInFirstSystem = true;

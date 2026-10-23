@@ -1,7 +1,7 @@
 // fretboardView.js
 // High-DPI Responsive SVG Neck & Fretboard Visualizer for MajesticTab
 import { NOTE_NAMES, midiToNoteName } from '../utils/tuningUtils.js';
-import { TRACK_PALETTE } from './fretboardController.js';
+import { TRACK_PALETTE, TRACK_COLORS } from '../utils/trackColors.js';
 
 const TOTAL_FRETS = 24;
 const SVG_WIDTH = 1150;
@@ -196,26 +196,11 @@ export class FretboardView {
     buildDefs() {
         const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
         defs.innerHTML = `
-            <!-- Track 0: Primary Theme Gradient -->
-            <linearGradient id="trackGrad0" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="var(--accent-primary, #a855f7)" />
-                <stop offset="100%" stop-color="var(--accent-secondary, #10b981)" />
-            </linearGradient>
-            <!-- Track 1: Magenta / Violet -->
-            <linearGradient id="trackGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#ec4899" />
-                <stop offset="100%" stop-color="#8b5cf6" />
-            </linearGradient>
-            <!-- Track 2: Amber / Coral -->
-            <linearGradient id="trackGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#f59e0b" />
-                <stop offset="100%" stop-color="#ef4444" />
-            </linearGradient>
-            <!-- Track 3: Cyan / Sky Blue -->
-            <linearGradient id="trackGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="#06b6d4" />
-                <stop offset="100%" stop-color="#3b82f6" />
-            </linearGradient>
+            ${TRACK_COLORS.map((c, i) => `
+            <linearGradient id="trackGrad${i}" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="${c.color}" />
+                <stop offset="100%" stop-color="${c.end}" />
+            </linearGradient>`).join('')}
 
             <linearGradient id="fretboardNutGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                 <stop offset="0%" stop-color="var(--text-muted, #94a3b8)" stop-opacity="0.8" />
@@ -590,7 +575,7 @@ export class FretboardView {
             const colorIndices = Array.isArray(note.trackColorIndices) && note.trackColorIndices.length > 0
                 ? note.trackColorIndices
                 : [note.trackColorIndex ?? 0];
-            const primaryTrackColorIdx = colorIndices[0] % 4;
+            const primaryTrackColorIdx = colorIndices[0] % TRACK_PALETTE.length;
             const trackColor = TRACK_PALETTE[primaryTrackColorIdx] || 'var(--accent-primary)';
             const trackGrad = `url(#trackGrad${primaryTrackColorIdx})`;
 
@@ -633,8 +618,8 @@ export class FretboardView {
                     marker.splitDivider.style.display = 'inline';
                     marker.outline.style.display = 'inline';
 
-                    marker.splitLeft.style.fill = `url(#trackGrad${colorIndices[0] % 4})`;
-                    marker.splitRight.style.fill = `url(#trackGrad${colorIndices[1] % 4})`;
+                    marker.splitLeft.style.fill = `url(#trackGrad${colorIndices[0] % TRACK_PALETTE.length})`;
+                    marker.splitRight.style.fill = `url(#trackGrad${colorIndices[1] % TRACK_PALETTE.length})`;
                 } else {
                     marker.circle.style.display = 'inline';
                     marker.circle.style.fill = trackGrad;

@@ -2,13 +2,12 @@
 // Controller coordinating AlphaTab events, multi-track note aggregation, layout, and virtual fretboard rendering
 import { FretboardView } from './fretboardView.js';
 import { formatTuningFromMidi } from '../utils/tuningUtils.js';
+import { TRACK_PALETTE } from '../utils/trackColors.js';
 
 const STORAGE_KEY_OPEN = 'majestictab_fretboard_open';
 const STORAGE_KEY_MODE = 'majestictab_fretboard_display_mode';
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
 const STORAGE_KEY_FLIP = 'majestictab_fretboard_flip_strings';
-
-export const TRACK_PALETTE = ['var(--accent-primary, #6366f1)', '#ec4899', '#f59e0b', '#06b6d4'];
 
 class FretboardController {
     constructor() {
