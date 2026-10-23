@@ -441,11 +441,9 @@ export async function openLibraryModal(initialView = 'library') {
     if (mobileDock) mobileDock.style.display = 'none';
     document.body.classList.add('library-view-active');
 
-    // Fretboard should go away when we go back to library
+    // Hide the fretboard in the library without clearing the saved open preference
     try {
-        if (fretboardController?.isOpen) {
-            fretboardController.toggle(false);
-        }
+        fretboardController?.setScoreAvailable(false);
     } catch (_) {}
 
     if (returnBtn) {
