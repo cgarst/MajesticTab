@@ -676,15 +676,6 @@ async function renderLibraryBrowseView(container) {
             </button>
           </div>
 
-          <!-- Browse Mode Toggle (Artists vs Tunings) -->
-          <div class="hud-pill-group" role="group" id="libBrowseModePill">
-            <button type="button" class="btn btn-sm ${libraryBrowseMode === 'artists' ? 'active' : ''}" data-mode="artists" title="Browse by Artist and Album">
-              <i class="bi-person me-1"></i><span class="lib-browse-mode-text">Artists</span>
-            </button>
-            <button type="button" class="btn btn-sm ${libraryBrowseMode === 'tunings' ? 'active' : ''}" data-mode="tunings" title="Browse songs by Guitar and Bass Tuning">
-              <i class="bi-music-note me-1"></i><span class="lib-browse-mode-text">Tunings</span>
-            </button>
-          </div>
         </div>
 
         <!-- Universal Search & Filter Bar (True Center) -->
@@ -704,6 +695,10 @@ async function renderLibraryBrowseView(container) {
 
         <!-- Primary CTAs: Open File + Add Music (Right) -->
         <div class="lib-toolbar-right d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn ${libraryBrowseMode === 'tunings' ? 'active' : ''}" id="libTuningsBtn" title="${libraryBrowseMode === 'tunings' ? 'Back to browsing by artist' : 'Browse songs by guitar and bass tuning'}" aria-pressed="${libraryBrowseMode === 'tunings'}">
+            <i class="bi-music-note"></i>
+            <span>Tunings</span>
+          </button>
           <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libRecentsBtn" title="Recently opened tabs">
             <i class="bi-clock-history"></i>
             <span>Recents</span>
@@ -1408,19 +1403,17 @@ function bindLibraryToolbarEvents(container) {
         renderLibraryBrowseView(container);
     });
 
-    // Browse Mode Switcher (Artists vs Tunings)
-    container.querySelectorAll('#libBrowseModePill button').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const mode = btn.dataset.mode;
-            if (mode && mode !== libraryBrowseMode) {
-                libraryBrowseMode = mode;
-                selectedArtist = null;
-                selectedAlbum = null;
-                selectedTuning = null;
-                isAlbumEditMode = false;
-                renderLibraryBrowseView(container);
-            }
-        });
+    // Tunings button: toggles tuning browsing, and the back button returns to the artist view
+    container.querySelector('#libTuningsBtn')?.addEventListener('click', () => {
+        const entering = libraryBrowseMode !== 'tunings';
+        if (entering) pushLibraryNavigationState();
+        libraryBrowseMode = entering ? 'tunings' : 'artists';
+        selectedArtist = null;
+        selectedAlbum = null;
+        selectedFolderPath = [];
+        selectedTuning = null;
+        isAlbumEditMode = false;
+        renderLibraryBrowseView(container);
     });
 
     container.querySelector('#libNewCollectionBtn')?.addEventListener('click', () => {
