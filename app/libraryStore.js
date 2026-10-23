@@ -239,6 +239,7 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             artistMbid: artist.artistMbid,
             isCustom: artist.isCustom,
             songs: artist.songs,
+            rootBooks: artist.rootBooks,
             albums
         };
     });
