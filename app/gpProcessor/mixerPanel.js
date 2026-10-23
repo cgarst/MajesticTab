@@ -4,7 +4,7 @@ import { getMixerTracks, setTrackMixer, resetMixer, onMixerChange, toggleSynthPa
 
 const PAN_LABELS = (pan) => (pan === 8 ? 'C' : pan < 8 ? `L${(8 - pan) * 100 / 8 | 0}` : `R${(pan - 8) * 100 / 8 | 0}`);
 
-function openModal(id) {
+export function openModal(id) {
     const modal = document.getElementById(id);
     if (!modal) return;
     toggleSynthPanel(false);
@@ -14,7 +14,7 @@ function openModal(id) {
     document.body.classList.add('modal-open');
 }
 
-function closeModal(id) {
+export function closeModal(id) {
     const modal = document.getElementById(id);
     if (!modal) return;
     modal.classList.remove('show');
@@ -23,7 +23,7 @@ function closeModal(id) {
     document.body.classList.remove('modal-open');
 }
 
-function wireModal(id, openBtnId, onOpen) {
+export function wireModal(id, openBtnId, onOpen) {
     const modal = document.getElementById(id);
     if (!modal) return;
     document.getElementById(openBtnId)?.addEventListener('click', () => {
