@@ -132,23 +132,155 @@ function applySynthTrackMode() {
         return;
     }
 
-    const trackModeRadios = document.querySelectorAll('input[name="synthTrackMode"]');
-    trackModeRadios.forEach(radio => {
-        radio.checked = radio.value === synthPlayerState.trackMode;
-    });
+    applyMixerToApi();
+    syncTrackModeFromMixer();
+}
 
-    const isBassMode = getInstrumentMode() === 'bass';
-    const targetTracks = [];
-    const otherTracks = [];
-    currentScore.tracks.forEach((track, index) => {
-        const isTarget = isBassMode ? isTrackBass(track) : isTrackGuitar(track);
-        (isTarget ? targetTracks : otherTracks).push(index);
-    });
+// --- Per-track mixer ------------------------------------------------------
+// Volume is a multiplier (1 = the song's level), pan is AlphaTab's 0-16 balance (8 = center).
+// The Audio Tracks selector is a preset over the mute flags, so both views stay in step.
+const MIXER_DEFAULT = Object.freeze({ volume: 1, pan: 8, mute: false, solo: false });
+const mixerListeners = new Set();
+let mixerState = new Map(); // track index -> { volume, pan, mute, solo }
+let panReloadTimer = null;
 
-    const muteTarget = synthPlayerState.trackMode === 'noGuitars';
-    const muteOtherTracks = synthPlayerState.trackMode === 'guitarsOnly';
-    if (targetTracks.length) currentApi.changeTrackMute(targetTracks, muteTarget);
-    if (otherTracks.length) currentApi.changeTrackMute(otherTracks, muteOtherTracks);
+function mixerFor(index) {
+    if (!mixerState.has(index)) {
+        // Tracks keep the pan stored in the file as their starting point
+        const pan = currentScore?.tracks?.[index]?.playbackInfo?.balance ?? MIXER_DEFAULT.pan;
+        mixerState.set(index, { ...MIXER_DEFAULT, pan, defaultPan: pan });
+    }
+    return mixerState.get(index);
+}
+
+function isTargetTrack(track) {
+    return getInstrumentMode() === 'bass' ? isTrackBass(track) : isTrackGuitar(track);
+}
+
+function emitMixerChange() {
+    mixerListeners.forEach((cb) => {
+        try { cb(); } catch (e) { console.error('[Synth Player] mixer listener error:', e); }
+    });
+}
+
+/** Subscribe to mixer changes (including ones made through the Audio Tracks selector). */
+export function onMixerChange(cb) {
+    mixerListeners.add(cb);
+    return () => mixerListeners.delete(cb);
+}
+
+/** Tracks with their current mixer settings, or [] when no score is loaded. */
+export function getMixerTracks() {
+    return (currentScore?.tracks || []).map((t, i) => ({
+        index: i,
+        name: t.name || `Track ${i + 1}`,
+        isTarget: isTargetTrack(t),
+        ...mixerFor(i)
+    }));
+}
+
+function applyMixerToApi() {
+    if (!currentApi || !currentScore?.tracks) return;
+    const api = currentApi;
+    currentScore.tracks.forEach((track, i) => {
+        const m = mixerFor(i);
+        try {
+            api.changeTrackMute([track], m.mute);
+            api.changeTrackSolo([track], m.solo);
+            api.changeTrackVolume([track], m.volume);
+        } catch (e) {
+            console.warn('[Synth Player] mixer apply failed:', e);
+        }
+    });
+}
+
+function syncTrackModeFromMixer() {
+    const tracks = currentScore?.tracks || [];
+    const targets = tracks.map((t, i) => i).filter(i => isTargetTrack(tracks[i]));
+    const others = tracks.map((_, i) => i).filter(i => !targets.includes(i));
+    const anySolo = tracks.some((_, i) => mixerFor(i).solo);
+    const allMuted = (list) => list.length > 0 && list.every(i => mixerFor(i).mute);
+    const noneMuted = (list) => list.every(i => !mixerFor(i).mute);
+    let mode = null; // null = custom mix, no preset highlighted
+    if (!anySolo) {
+        if (noneMuted(targets) && noneMuted(others)) mode = 'fullBand';
+        else if (allMuted(targets) && noneMuted(others)) mode = 'noGuitars';
+        else if (allMuted(others) && noneMuted(targets)) mode = 'guitarsOnly';
+    }
+    synthPlayerState.trackMode = mode || 'custom';
+    document.querySelectorAll('input[name="synthTrackMode"]').forEach(radio => {
+        radio.checked = radio.value === mode;
+    });
+}
+
+/** Audio Tracks selector: set the mute flags for a preset (clears solos). */
+function applyTrackModePreset(mode) {
+    (currentScore?.tracks || []).forEach((track, i) => {
+        const m = mixerFor(i);
+        const target = isTargetTrack(track);
+        m.solo = false;
+        m.mute = mode === 'noGuitars' ? target : mode === 'guitarsOnly' ? !target : false;
+    });
+    applySynthTrackMode();
+    emitMixerChange();
+}
+
+/** Change one track's mixer settings: any of { volume, pan, mute, solo }. */
+export function setTrackMixer(index, patch) {
+    const track = currentScore?.tracks?.[index];
+    if (!track || jamAudioTracks || jamMuteTracks) return;
+    const m = mixerFor(index);
+    if (patch.volume !== undefined) m.volume = Math.min(1.5, Math.max(0, patch.volume));
+    if (patch.mute !== undefined) m.mute = Boolean(patch.mute);
+    if (patch.solo !== undefined) m.solo = Boolean(patch.solo);
+    if (patch.pan !== undefined) {
+        m.pan = Math.min(16, Math.max(0, Math.round(patch.pan)));
+        track.playbackInfo.balance = m.pan;
+        schedulePanReload();
+    }
+    applySynthTrackMode();
+    emitMixerChange();
+}
+
+/** Clear every track back to full volume, centered, unmuted and unsoloed. */
+export function resetMixer() {
+    let panChanged = false;
+    (currentScore?.tracks || []).forEach((track, i) => {
+        const { defaultPan } = mixerFor(i);
+        if (mixerFor(i).pan !== defaultPan) {
+            track.playbackInfo.balance = defaultPan;
+            panChanged = true;
+        }
+        mixerState.set(i, { ...MIXER_DEFAULT, pan: defaultPan, defaultPan });
+    });
+    if (panChanged) schedulePanReload();
+    applySynthTrackMode();
+    emitMixerChange();
+}
+
+// Pan is baked into the generated MIDI, so a change regenerates it. Keep the playhead and
+// play state across the reload, then reapply the rest of the mix.
+function schedulePanReload() {
+    clearTimeout(panReloadTimer);
+    panReloadTimer = setTimeout(() => {
+        const api = currentApi;
+        if (!api || typeof api.loadMidiForScore !== 'function') return;
+        const tick = api.tickPosition;
+        const wasPlaying = synthPlayerState.isPlaying;
+        if (wasPlaying) { try { api.pause(); } catch (_) {} }
+        api.loadMidiForScore();
+        const restore = () => {
+            if (currentApi !== api) return;
+            applyMixerToApi();
+            try { api.tickPosition = tick; } catch (_) {}
+            if (wasPlaying) api.play();
+        };
+        if (api.midiLoaded?.on) {
+            const off = api.midiLoaded.on(() => { off(); restore(); });
+        } else {
+            setTimeout(restore, 300);
+        }
+    }, 250);
 }
 
 /**
@@ -157,8 +289,7 @@ function applySynthTrackMode() {
  */
 export function toggleSynthNoGuitars() {
     if (!currentApi || !currentScore?.tracks || jamAudioTracks || jamMuteTracks) return null;
-    synthPlayerState.trackMode = synthPlayerState.trackMode === 'noGuitars' ? 'fullBand' : 'noGuitars';
-    applySynthTrackMode();
+    applyTrackModePreset(synthPlayerState.trackMode === 'noGuitars' ? 'fullBand' : 'noGuitars');
     return synthPlayerState.trackMode;
 }
 
@@ -951,6 +1082,9 @@ document.addEventListener('visibilitychange', async () => {
 export function attachAlphaTabApi(api) {
     currentApi = api;
     currentScore = api.score;
+    clearTimeout(panReloadTimer);
+    mixerState = new Map();
+    emitMixerChange();
 
     if (!api.customCursorHandler) {
         api.customCursorHandler = createCustomCursorHandler(api);
@@ -1713,8 +1847,7 @@ export function initSynthPlayer() {
     trackModeRadios.forEach(radio => {
         radio.addEventListener('change', () => {
             if (!radio.checked) return;
-            synthPlayerState.trackMode = radio.value;
-            applySynthTrackMode();
+            applyTrackModePreset(radio.value);
         });
     });
 
