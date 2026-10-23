@@ -11,7 +11,7 @@ import {
     reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles
 } from './libraryStore.js';
 import {
-    getSaveProviders, saveToProvider, openFromProvider
+    getSaveProviders, saveToProvider, saveStreamToProvider, providerSupportsStreaming, openFromProvider
 } from './fileProviders.js';
 import { showToast } from './utils/toast.js';
 import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
@@ -156,14 +156,8 @@ export function collectExtensions() {
     }
 }
 
-/**
- * Create a complete single-file backup bundle Blob without holding all binary data in memory simultaneously.
- * @param {function(current: number, total: number): void} [onProgress]
- * @param {object} [options]
- * @param {boolean} [options.compress=true] - Whether to compress with Gzip
- * @returns {Promise<Blob>} Complete backup bundle as Blob (compressed by default)
- */
-export async function createBackupBlob(onProgress, { compress = true } = {}) {
+/** Yields the backup JSON in pieces: header, one entry per stored tab, then soundfonts. */
+async function* backupTextChunks(onProgress) {
     const [fileMetas, libraryData, soundFonts] = await Promise.all([
         getAllStoredFiles(),
         getAllLibraryData(),
@@ -196,8 +190,7 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
 
     const headerJson = JSON.stringify(header);
     // Slice off closing '}' so we can append fileStore files array
-    const prefix = headerJson.slice(0, -1) + ',"fileStore":{"files":[';
-    let blobParts = [prefix];
+    yield headerJson.slice(0, -1) + ',"fileStore":{"files":[';
 
     for (let i = 0; i < fileMetas.length; i++) {
         const meta = fileMetas[i];
@@ -223,9 +216,7 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
             dataBase64
         };
 
-        const fileJson = (i > 0 ? ',' : '') + JSON.stringify(fileEntry);
-        blobParts.push(fileJson);
-        if (blobParts.length >= 16) blobParts = [new Blob(blobParts)];
+        yield (i > 0 ? ',' : '') + JSON.stringify(fileEntry);
 
         if (typeof onProgress === 'function') {
             onProgress(i + 1, fileMetas.length);
@@ -235,11 +226,58 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
     // Soundfonts ride in the same array, tagged with `store`, so restore stays streamable
     const soundFontEntries = await collectSoundFontBackupEntries();
     for (let i = 0; i < soundFontEntries.length; i++) {
-        blobParts.push((fileMetas.length + i > 0 ? ',' : '') + JSON.stringify(soundFontEntries[i]));
+        yield (fileMetas.length + i > 0 ? ',' : '') + JSON.stringify(soundFontEntries[i]);
         soundFontEntries[i].dataBase64 = null;
     }
 
-    blobParts.push(']}}');
+    yield ']}}';
+}
+
+/**
+ * Stream the backup as gzip bytes without ever holding the whole file in memory.
+ * Falls back to plain UTF-8 JSON when fflate is unavailable.
+ * @param {function(current: number, total: number): void} [onProgress]
+ * @returns {{ stream: AsyncGenerator<Uint8Array>, mimeType: string }}
+ */
+export function createBackupStream(onProgress) {
+    const fflateObj = (typeof window !== 'undefined' && window.fflate)
+        ? window.fflate
+        : (typeof globalThis !== 'undefined' && globalThis.fflate) ? globalThis.fflate : null;
+    const encoder = new TextEncoder();
+
+    async function* gzipped() {
+        const out = [];
+        const gz = new fflateObj.Gzip({ level: 3 }, (chunk) => out.push(chunk));
+        for await (const text of backupTextChunks(onProgress)) {
+            gz.push(encoder.encode(text));
+            while (out.length) yield out.shift();
+        }
+        gz.push(new Uint8Array(0), true);
+        while (out.length) yield out.shift();
+    }
+
+    async function* plain() {
+        for await (const text of backupTextChunks(onProgress)) yield encoder.encode(text);
+    }
+
+    return fflateObj?.Gzip
+        ? { stream: gzipped(), mimeType: 'application/gzip' }
+        : { stream: plain(), mimeType: 'application/json' };
+}
+
+/**
+ * Create a complete single-file backup bundle Blob without holding all binary data in memory simultaneously.
+ * @param {function(current: number, total: number): void} [onProgress]
+ * @param {object} [options]
+ * @param {boolean} [options.compress=true] - Whether to compress with Gzip
+ * @returns {Promise<Blob>} Complete backup bundle as Blob (compressed by default)
+ */
+export async function createBackupBlob(onProgress, { compress = true } = {}) {
+    let blobParts = [];
+    for await (const text of backupTextChunks(onProgress)) {
+        blobParts.push(text);
+        if (blobParts.length >= 16) blobParts = [new Blob(blobParts)];
+    }
     const jsonBlob = new Blob(blobParts, { type: 'application/json' });
     if (compress) {
         // Stream through CompressionStream first: gzipSync needs the whole JSON as one
@@ -1949,37 +1987,60 @@ function attachModalHandlers(modal, options = {}) {
         }
 
         try {
-            const blob = await createBackupBlob((current, total) => {
-                if (total > 0) {
-                    const pct = Math.round((current / total) * 40); // 0-40% packaging
+            const providerLabel = selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId;
+            let savedBytes = 0;
+
+            if (providerSupportsStreaming(providerId)) {
+                // Package and upload together so the whole backup is never held in memory
+                let sentBytes = 0;
+                let packaged = { current: 0, total: 0 };
+                const renderProgress = () => {
+                    const { current, total } = packaged;
+                    const pct = total > 0 ? Math.min(99, Math.round((current / total) * 100)) : 0;
+                    const text = `Uploading tab ${current} of ${total} to ${providerLabel}: ${formatBytes(sentBytes)} sent`;
                     if (backupProgressBar) backupProgressBar.style.width = `${pct}%`;
                     if (backupProgressPercent) backupProgressPercent.textContent = `${pct}%`;
-                    if (backupProgressText) backupProgressText.textContent = `Packaging tab ${current} of ${total}...`;
-                    backupStatusAlert.textContent = `Packaging tab ${current} of ${total}...`;
-                }
-            });
+                    if (backupProgressText) backupProgressText.textContent = text;
+                    backupStatusAlert.textContent = text;
+                };
+                const { stream, mimeType } = createBackupStream((current, total) => {
+                    packaged = { current, total };
+                    renderProgress();
+                });
+                await saveStreamToProvider(providerId, stream, filename, {
+                    mimeType,
+                    onProgress: ({ loaded }) => {
+                        sentBytes = loaded;
+                        savedBytes = loaded;
+                        renderProgress();
+                    }
+                });
+            } else {
+                const blob = await createBackupBlob((current, total) => {
+                    if (total > 0) {
+                        const pct = Math.round((current / total) * 40); // 0-40% packaging
+                        if (backupProgressBar) backupProgressBar.style.width = `${pct}%`;
+                        if (backupProgressPercent) backupProgressPercent.textContent = `${pct}%`;
+                        if (backupProgressText) backupProgressText.textContent = `Packaging tab ${current} of ${total}...`;
+                        backupStatusAlert.textContent = `Packaging tab ${current} of ${total}...`;
+                    }
+                });
+                savedBytes = blob.size;
 
-            const providerLabel = selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId;
-            backupStatusAlert.textContent = `Saving to ${providerLabel}...`;
-            if (backupProgressBar) backupProgressBar.style.width = '40%';
-            if (backupProgressPercent) backupProgressPercent.textContent = '40%';
-            if (backupProgressText) backupProgressText.textContent = `Saving to ${providerLabel}...`;
+                backupStatusAlert.textContent = `Saving to ${providerLabel}...`;
+                if (backupProgressBar) backupProgressBar.style.width = '40%';
+                if (backupProgressPercent) backupProgressPercent.textContent = '40%';
+                if (backupProgressText) backupProgressText.textContent = `Saving to ${providerLabel}...`;
 
-            const onUploadProgress = ({ loaded, total, percent }) => {
-                const scaledPct = Math.min(100, 40 + Math.round((percent / 100) * 60)); // 40-100% upload
-                if (backupProgressBar) backupProgressBar.style.width = `${scaledPct}%`;
-                if (backupProgressPercent) backupProgressPercent.textContent = `${scaledPct}%`;
-                if (backupProgressText) backupProgressText.textContent = `Uploading to Google Drive: ${formatBytes(loaded)} / ${formatBytes(total)} (${percent}%)`;
-            };
-
-            const saveResult = await saveToProvider(providerId, blob, filename, { onProgress: onUploadProgress });
+                await saveToProvider(providerId, blob, filename);
+            }
 
             if (backupProgressBar) backupProgressBar.style.width = '100%';
             if (backupProgressPercent) backupProgressPercent.textContent = '100%';
             if (backupProgressText) backupProgressText.textContent = 'Backup completed successfully!';
 
             backupStatusAlert.className = 'small mb-2 text-success fw-semibold';
-            backupStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> Backup saved successfully! (${formatBytes(blob.size)})`;
+            backupStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> Backup saved successfully! (${formatBytes(savedBytes)})`;
             backupExecuteBtn.innerHTML = '<i class="bi-check2"></i> Saved';
             setTimeout(() => {
                 backupExecuteBtn.disabled = false;
