@@ -197,7 +197,7 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
     const headerJson = JSON.stringify(header);
     // Slice off closing '}' so we can append fileStore files array
     const prefix = headerJson.slice(0, -1) + ',"fileStore":{"files":[';
-    const blobParts = [prefix];
+    let blobParts = [prefix];
 
     for (let i = 0; i < fileMetas.length; i++) {
         const meta = fileMetas[i];
@@ -225,6 +225,7 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
 
         const fileJson = (i > 0 ? ',' : '') + JSON.stringify(fileEntry);
         blobParts.push(fileJson);
+        if (blobParts.length >= 16) blobParts = [new Blob(blobParts)];
 
         if (typeof onProgress === 'function') {
             onProgress(i + 1, fileMetas.length);
@@ -241,6 +242,16 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
     blobParts.push(']}}');
     const jsonBlob = new Blob(blobParts, { type: 'application/json' });
     if (compress) {
+        // Stream through CompressionStream first: gzipSync needs the whole JSON as one
+        // ArrayBuffer plus its output, which gets the iOS WebView killed on large libraries.
+        if (typeof CompressionStream !== 'undefined') {
+            try {
+                const stream = jsonBlob.stream().pipeThrough(new CompressionStream('gzip'));
+                return await new Response(stream).blob();
+            } catch (e) {
+                console.warn('[Backup] CompressionStream failed, trying fflate:', e);
+            }
+        }
         const fflateObj = (typeof window !== 'undefined' && window.fflate)
             ? window.fflate
             : (typeof globalThis !== 'undefined' && globalThis.fflate)
@@ -252,29 +263,7 @@ export async function createBackupBlob(onProgress, { compress = true } = {}) {
                 const compressed = fflateObj.gzipSync(new Uint8Array(arrayBuffer));
                 return new Blob([compressed], { type: 'application/gzip' });
             } catch (e) {
-                console.warn('[Backup] fflate.gzipSync failed, trying CompressionStream:', e);
-            }
-        } else if (fflateObj?.gzip) {
-            try {
-                const arrayBuffer = await jsonBlob.arrayBuffer();
-                const compressed = await new Promise((resolve, reject) => {
-                    fflateObj.gzip(new Uint8Array(arrayBuffer), (err, result) => {
-                        if (err) reject(err);
-                        else resolve(result);
-                    });
-                });
-                return new Blob([compressed], { type: 'application/gzip' });
-            } catch (e) {
-                console.warn('[Backup] fflate.gzip failed, trying CompressionStream:', e);
-            }
-        }
-        if (typeof CompressionStream !== 'undefined') {
-            try {
-                const stream = jsonBlob.stream().pipeThrough(new CompressionStream('gzip'));
-                return await new Response(stream).blob();
-            } catch (e) {
-                console.warn('[Backup] CompressionStream failed, using uncompressed JSON:', e);
-                return jsonBlob;
+                console.warn('[Backup] fflate.gzipSync failed, using uncompressed JSON:', e);
             }
         }
     }
