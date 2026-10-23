@@ -159,11 +159,10 @@ export async function processText(file) {
             // Split section into lines
             const lines = section.split('\n');
             const isTabLine = line => line.trim().match(/^[eEBGDAa]\|[-\\\/\d\s|~\(\)]*\|?$/);
+            const chordTokenRegex = /^[A-G][#b]?(?:maj|min|dim|aug|sus|m|M)?\d*(?:\/[A-G][#b]?)?$/;
             const isChordLine = line => {
-                const trimmed = line.trim();
-                return trimmed && 
-                       (line.replace(/\s/g, '').length / line.length < 0.5) &&
-                       /[A-G][m|maj|dim|aug|sus|#|b]?\d*/.test(trimmed);
+                const tokens = line.trim().split(/\s+/);
+                return tokens[0] !== '' && tokens.every(t => chordTokenRegex.test(t));
             };
             let tabContainer = null;
             
@@ -271,7 +270,11 @@ export async function processText(file) {
 
 function createPaginatedPages(processedLines) {
     const pages = [];
-    const pageHeight = window.innerHeight - 80;
+    // #output reserves 80px at the bottom; the container and the wrapper
+    // each add vertical padding and the wrapper adds a 1px border.
+    const outputEl = document.getElementById('output');
+    const outputHeight = outputEl?.clientHeight || window.innerHeight;
+    const pageHeight = outputHeight - 80 - PAGE_PADDING * 2 - 2;
     const pageWidth = window.innerWidth - 40;
     const pagesPerView = getPagesPerView(false);
     const availableWidth = Math.floor((pageWidth - PAGE_PADDING * 4) / pagesPerView);
