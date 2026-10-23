@@ -171,7 +171,15 @@ export async function applySoundFontsToApi(api) {
     const builtinOnly = hasBuiltin && sources.length === 1;
     api.soundFontPresets = builtinOnly || getSoundFontStrict() ? null : mergePresetSets(presetSets);
     if (applyProgramMapping(api.score, api.soundFontPresets)) api.loadMidiForScore();
-    sources.forEach((src, i) => api.loadSoundFont(src, i > 0));
+    // AlphaTab stacks fonts in the order they finish loading, and a URL resolves after raw bytes, which would put
+    // the built-in font on top of everything. Resolve every source to bytes first so the user's order holds.
+    const resolved = await Promise.all(sources.map(async src => {
+        if (typeof src !== 'string') return src;
+        const res = await fetch(src);
+        if (!res.ok) throw new Error(`SoundFont download failed (${res.status})`);
+        return new Uint8Array(await res.arrayBuffer());
+    }));
+    resolved.forEach((src, i) => api.loadSoundFont(src, i > 0));
     return sources.length;
 }
 
