@@ -2,6 +2,7 @@
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { setupDrivePicker } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
+import { setupSaveToLibraryButton } from './saveToLibrary.js';
 import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios, applyGpStringCount, syncGpStringCountRadios, syncGpStringCountUI } from './gpProcessor/gpHandler.js';
 import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { setupPageScrubber } from './utils/pageScrubber.js';
@@ -1149,6 +1150,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     initIOSAudioUnlock();
     setupExportPDFButton();
+    setupSaveToLibraryButton();
     setupDrivePicker();
     setupSettings();
     setupPinchToZoom();
