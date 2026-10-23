@@ -1,7 +1,7 @@
 // libraryStore.js
 // Storage and querying layer for Collections > Artists > Albums > Songs and Recents.
 
-import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile } from './fileStore.js';
+import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile, deleteStoredFile } from './fileStore.js';
 import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium, filterInstrumentalBonusDiscs } from './musicbrainz.js';
 
@@ -67,6 +67,40 @@ export async function createCollection(name) {
 }
 
 /**
+ * Collect the stored file IDs attached to the given songs' tab options
+ */
+function collectFileStoreIds(songs) {
+    const ids = new Set();
+    for (const s of songs) {
+        for (const t of (s?.tabOptions || [])) {
+            if (t?.fileStoreId) ids.add(t.fileStoreId);
+        }
+    }
+    return ids;
+}
+
+/**
+ * Delete stored files that no remaining library song references, along with
+ * any recents entries that pointed at them. Call after the songs are removed.
+ */
+async function deleteOrphanedStoredFiles(candidateIds) {
+    const candidates = new Set(candidateIds);
+    if (candidates.size === 0) return;
+    try {
+        const stillUsed = collectFileStoreIds(await getAllSongs());
+        const orphanSet = new Set([...candidates].filter(id => !stillUsed.has(id)));
+        if (orphanSet.size === 0) return;
+        const recents = await getRecents(500);
+        for (const r of recents) {
+            if (r.fileStoreId && orphanSet.has(r.fileStoreId)) await deleteRecentItem(r.id);
+        }
+        for (const id of orphanSet) await deleteStoredFile(id);
+    } catch (err) {
+        console.warn('[Library] Failed to clean up stored files:', err);
+    }
+}
+
+/**
  * Delete a collection and its songs
  */
 export async function deleteCollection(id) {
@@ -83,6 +117,9 @@ export async function deleteCollection(id) {
         }
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => reject(tx.error);
+    }).then(async () => {
+        await deleteOrphanedStoredFiles(collectFileStoreIds(songs));
+        return true;
     });
 }
 
@@ -450,7 +487,10 @@ export async function deleteAlbumFromLibrary(artistName, albumTitle, collectionI
         return sArtist === targetArtist && sAlbum === targetAlbum;
     });
 
-    return new Promise((resolve, reject) => {
+    const extraSongs = (await Promise.all([...idSet].map(id => getSongById(id)))).filter(Boolean);
+    const fileIds = collectFileStoreIds([...songsToDelete, ...extraSongs]);
+
+    await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_SONGS, 'readwrite');
         const store = tx.objectStore(STORE_SONGS);
         for (const s of songsToDelete) {
@@ -462,6 +502,8 @@ export async function deleteAlbumFromLibrary(artistName, albumTitle, collectionI
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => reject(tx.error);
     });
+    await deleteOrphanedStoredFiles(fileIds);
+    return true;
 }
 
 /**
@@ -469,13 +511,16 @@ export async function deleteAlbumFromLibrary(artistName, albumTitle, collectionI
  */
 export async function deleteSongFromLibrary(songId) {
     const db = await getDB();
-    return new Promise((resolve, reject) => {
+    const fileIds = collectFileStoreIds([await getSongById(songId)]);
+    await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_SONGS, 'readwrite');
         const store = tx.objectStore(STORE_SONGS);
         const req = store.delete(songId);
         req.onsuccess = () => resolve(true);
         req.onerror = () => reject(req.error);
     });
+    await deleteOrphanedStoredFiles(fileIds);
+    return true;
 }
 
 /**
@@ -621,12 +666,14 @@ export async function removeTabOptionFromSong(songId, tabOptionId) {
     const song = await getSongById(songId);
     if (!song || !Array.isArray(song.tabOptions)) return;
 
+    const removedFileId = song.tabOptions.find(t => t.id === tabOptionId)?.fileStoreId;
     song.tabOptions = song.tabOptions.filter(t => t.id !== tabOptionId);
     if (song.defaultTabId === tabOptionId) {
         song.defaultTabId = song.tabOptions[0]?.id || null;
     }
     song.tunings = Array.from(new Set(song.tabOptions.flatMap(t => Array.isArray(t.tunings) && t.tunings.length > 0 ? t.tunings : (t.tuning ? [t.tuning] : []))));
     await saveSongToLibrary(song, song.collectionId);
+    if (removedFileId) await deleteOrphanedStoredFiles([removedFileId]);
 }
 
 // -----------------------------------------------------------------------------
