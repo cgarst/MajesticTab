@@ -11,7 +11,7 @@ import {
     reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles
 } from './libraryStore.js';
 import {
-    getSaveProviders, saveToProvider, saveStreamToProvider, providerSupportsStreaming, openFromProvider
+    getSaveProviders, saveToProvider, openFromProvider
 } from './fileProviders.js';
 import { showToast } from './utils/toast.js';
 import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
@@ -231,38 +231,6 @@ async function* backupTextChunks(onProgress) {
     }
 
     yield ']}}';
-}
-
-/**
- * Stream the backup as gzip bytes without ever holding the whole file in memory.
- * Falls back to plain UTF-8 JSON when fflate is unavailable.
- * @param {function(current: number, total: number): void} [onProgress]
- * @returns {{ stream: AsyncGenerator<Uint8Array>, mimeType: string }}
- */
-export function createBackupStream(onProgress) {
-    const fflateObj = (typeof window !== 'undefined' && window.fflate)
-        ? window.fflate
-        : (typeof globalThis !== 'undefined' && globalThis.fflate) ? globalThis.fflate : null;
-    const encoder = new TextEncoder();
-
-    async function* gzipped() {
-        const out = [];
-        const gz = new fflateObj.Gzip({ level: 3 }, (chunk) => out.push(chunk));
-        for await (const text of backupTextChunks(onProgress)) {
-            gz.push(encoder.encode(text));
-            while (out.length) yield out.shift();
-        }
-        gz.push(new Uint8Array(0), true);
-        while (out.length) yield out.shift();
-    }
-
-    async function* plain() {
-        for await (const text of backupTextChunks(onProgress)) yield encoder.encode(text);
-    }
-
-    return fflateObj?.Gzip
-        ? { stream: gzipped(), mimeType: 'application/gzip' }
-        : { stream: plain(), mimeType: 'application/json' };
 }
 
 /**
@@ -972,9 +940,11 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
 
     const files = bundle.fileStore?.files || (Array.isArray(bundle.files) ? bundle.files : []);
     const totalFiles = files.length;
+    // Lazy (Drive blob) items are only downloaded when the tab isn't already on this device
+    const existingFileIds = wipe ? new Set() : new Set((await getAllStoredFiles()).map(f => f.id));
     for (let i = 0; i < totalFiles; i++) {
         const item = files[i];
-        if (!item || !item.id || !item.name || !item.dataBase64) continue;
+        if (!item || !item.id || !item.name || !(item.dataBase64 || item.fetchData)) continue;
 
         if (typeof onProgress === 'function') {
             onProgress(i + 1, totalFiles);
@@ -990,7 +960,12 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
             continue;
         }
 
-        const arrayBuffer = base64ToArrayBuffer(item.dataBase64);
+        if (item.fetchData && existingFileIds.has(item.id)) {
+            filesSkipped++;
+            continue;
+        }
+
+        const arrayBuffer = item.fetchData ? await item.fetchData() : base64ToArrayBuffer(item.dataBase64);
         item.dataBase64 = null;
 
         const record = {
@@ -1452,9 +1427,14 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <span class="small fw-semibold text-white d-flex align-items-center gap-1">
                   <i class="bi-google text-danger"></i> <span>Google Drive Backups:</span>
                 </span>
-                <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none" id="restoreDriveCloseBtn" title="Close" aria-label="Close Google Drive backups">
-                  <i class="bi-x-lg"></i>
-                </button>
+                <div class="d-flex align-items-center gap-2">
+                  <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 d-inline-flex align-items-center gap-1" id="restoreDriveCleanupBtn" style="font-size: 0.72rem;" title="Delete files in Google Drive that no remaining backup uses">
+                    <i class="bi-trash3"></i> <span>Free Up Space</span>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none" id="restoreDriveCloseBtn" title="Close" aria-label="Close Google Drive backups">
+                    <i class="bi-x-lg"></i>
+                  </button>
+                </div>
               </div>
               <div id="restoreDriveLoading" class="py-3 text-center text-white-50 small" style="display: none;">
                 <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
@@ -1990,31 +1970,29 @@ function attachModalHandlers(modal, options = {}) {
             const providerLabel = selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId;
             let savedBytes = 0;
 
-            if (providerSupportsStreaming(providerId)) {
-                // Package and upload together so the whole backup is never held in memory
-                let sentBytes = 0;
-                let packaged = { current: 0, total: 0 };
-                const renderProgress = () => {
-                    const { current, total } = packaged;
-                    const pct = total > 0 ? Math.min(99, Math.round((current / total) * 100)) : 0;
-                    const text = `Uploading tab ${current} of ${total} to ${providerLabel}: ${formatBytes(sentBytes)} sent`;
-                    if (backupProgressBar) backupProgressBar.style.width = `${pct}%`;
-                    if (backupProgressPercent) backupProgressPercent.textContent = `${pct}%`;
-                    if (backupProgressText) backupProgressText.textContent = text;
-                    backupStatusAlert.textContent = text;
-                };
-                const { stream, mimeType } = createBackupStream((current, total) => {
-                    packaged = { current, total };
-                    renderProgress();
-                });
-                await saveStreamToProvider(providerId, stream, filename, {
-                    mimeType,
-                    onProgress: ({ loaded }) => {
-                        sentBytes = loaded;
-                        savedBytes = loaded;
-                        renderProgress();
+            if (providerId === 'google-drive') {
+                // Incremental layout: only tabs and SoundFonts Drive doesn't already hold are uploaded
+                const { isTokenValid, redirectToGoogleAuth } = await import('./googleDrive.js');
+                if (!isTokenValid()) {
+                    redirectToGoogleAuth();
+                    throw new Error('Please authorize Google Drive to save the backup.');
+                }
+                const { createIncrementalDriveBackup } = await import('./driveBackup.js');
+                const result = await createIncrementalDriveBackup({
+                    onProgress: ({ phase, current, total, bytesSent, name }) => {
+                        const pct = phase === 'manifest' ? 99 : total > 0 ? Math.min(98, Math.round((current / total) * 98)) : 0;
+                        const text = phase === 'scan'
+                            ? 'Checking what is already in Google Drive...'
+                            : phase === 'manifest'
+                                ? 'Writing backup manifest...'
+                                : `Checking tab ${current} of ${total}${name ? ` (${name})` : ''}: ${formatBytes(bytesSent)} uploaded`;
+                        if (backupProgressBar) backupProgressBar.style.width = `${pct}%`;
+                        if (backupProgressPercent) backupProgressPercent.textContent = `${pct}%`;
+                        if (backupProgressText) backupProgressText.textContent = text;
+                        backupStatusAlert.textContent = text;
                     }
                 });
+                savedBytes = result.bytesSent;
             } else {
                 const blob = await createBackupBlob((current, total) => {
                     if (total > 0) {
@@ -2076,6 +2054,35 @@ function attachModalHandlers(modal, options = {}) {
     const restoreDriveEmpty = modal.querySelector('#restoreDriveEmpty');
     const restoreDriveError = modal.querySelector('#restoreDriveError');
     const restoreDriveList = modal.querySelector('#restoreDriveList');
+    const restoreDriveCleanupBtn = modal.querySelector('#restoreDriveCleanupBtn');
+
+    // Two-step like the per-backup delete: it permanently removes files from Google Drive
+    restoreDriveCleanupBtn?.addEventListener('click', async () => {
+        const label = restoreDriveCleanupBtn.querySelector('span');
+        if (!restoreDriveCleanupBtn.dataset.armed) {
+            restoreDriveCleanupBtn.dataset.armed = '1';
+            if (label) label.textContent = 'Confirm';
+            setTimeout(() => {
+                delete restoreDriveCleanupBtn.dataset.armed;
+                if (label && !restoreDriveCleanupBtn.disabled) label.textContent = 'Free Up Space';
+            }, 4000);
+            return;
+        }
+        delete restoreDriveCleanupBtn.dataset.armed;
+        restoreDriveCleanupBtn.disabled = true;
+        if (label) label.textContent = 'Cleaning...';
+        try {
+            const { cleanUpUnusedDriveBlobs } = await import('./driveBackup.js');
+            const { deleted, freedBytes } = await cleanUpUnusedDriveBlobs();
+            showToast(deleted > 0 ? `Freed ${formatBytes(freedBytes)} (${deleted} unused files)` : 'Nothing to clean up', 'success');
+        } catch (err) {
+            console.error('Drive cleanup failed:', err);
+            showToast(`Cleanup failed: ${err.message}`, 'error');
+        } finally {
+            restoreDriveCleanupBtn.disabled = false;
+            if (label) label.textContent = 'Free Up Space';
+        }
+    });
 
     const loadGoogleDriveBackups = async () => {
         const { isTokenValid, redirectToGoogleAuth, fetchDriveBackups } = await import('./googleDrive.js');
@@ -2093,7 +2100,18 @@ function attachModalHandlers(modal, options = {}) {
         if (restoreDriveBtn) restoreDriveBtn.disabled = true;
 
         try {
-            const backups = await fetchDriveBackups();
+            const { listIncrementalDriveBackups } = await import('./driveBackup.js');
+            const [legacyBackups, incrementalBackups] = await Promise.all([
+                fetchDriveBackups(),
+                listIncrementalDriveBackups().catch(err => {
+                    console.warn('Could not list incremental Drive backups:', err);
+                    return [];
+                })
+            ]);
+            const backups = [
+                ...incrementalBackups.map(b => ({ ...b, incremental: true, modifiedTime: b.exportedAt })),
+                ...legacyBackups
+            ].sort((a, b) => new Date(b.modifiedTime || 0) - new Date(a.modifiedTime || 0));
             if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
             if (restoreDriveBtn) restoreDriveBtn.disabled = false;
 
@@ -2137,13 +2155,46 @@ function attachModalHandlers(modal, options = {}) {
                     <i class="bi-archive-fill text-info flex-shrink-0 fs-5"></i>
                     <div class="text-truncate">
                         <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</div>
-                        <div class="text-white-50" style="font-size: 0.7rem;">${dateStr} • ${sizeStr}</div>
+                        <div class="text-white-50" style="font-size: 0.7rem;">${dateStr} • ${b.incremental ? 'Incremental' : sizeStr}</div>
                     </div>
                 </div>
-                <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0 d-inline-flex align-items-center gap-1 select-drive-backup-btn" style="font-size: 0.72rem;">
-                    <i class="bi-download"></i> <span>Select</span>
-                </button>
+                <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+                    ${b.incremental ? `<button type="button" class="btn btn-sm btn-theme-danger px-2 py-1 d-inline-flex align-items-center gap-1 delete-drive-backup-btn" style="font-size: 0.72rem;" title="Delete this backup" aria-label="Delete this backup"><i class="bi-trash3"></i></button>` : ''}
+                    <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 d-inline-flex align-items-center gap-1 select-drive-backup-btn" style="font-size: 0.72rem;">
+                        <i class="bi-download"></i> <span>Select</span>
+                    </button>
+                </div>
             `;
+
+            // Two-step delete: the first click arms the button, a second within 4s deletes
+            const deleteBtn = item.querySelector('.delete-drive-backup-btn');
+            deleteBtn?.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (!deleteBtn.dataset.armed) {
+                    deleteBtn.dataset.armed = '1';
+                    deleteBtn.innerHTML = '<i class="bi-trash3"></i> <span>Confirm</span>';
+                    setTimeout(() => {
+                        delete deleteBtn.dataset.armed;
+                        if (deleteBtn.isConnected) deleteBtn.innerHTML = '<i class="bi-trash3"></i>';
+                    }, 4000);
+                    return;
+                }
+                deleteBtn.disabled = true;
+                try {
+                    const { deleteIncrementalDriveBackup } = await import('./driveBackup.js');
+                    await deleteIncrementalDriveBackup(b);
+                    item.remove();
+                    if (!restoreDriveList.children.length && restoreDriveEmpty) restoreDriveEmpty.style.display = 'block';
+                } catch (err) {
+                    deleteBtn.disabled = false;
+                    delete deleteBtn.dataset.armed;
+                    deleteBtn.innerHTML = '<i class="bi-trash3"></i>';
+                    if (restoreDriveError) {
+                        restoreDriveError.style.display = 'block';
+                        restoreDriveError.textContent = `Could not delete backup: ${err.message}`;
+                    }
+                }
+            });
 
             const onSelect = async (e) => {
                 e.stopPropagation();
@@ -2172,6 +2223,16 @@ function attachModalHandlers(modal, options = {}) {
                 }
 
                 try {
+                    if (b.incremental) {
+                        // Only the small manifest is fetched now; tab data downloads during restore
+                        const { loadIncrementalDriveBundle } = await import('./driveBackup.js');
+                        const bundle = await loadIncrementalDriveBundle(b);
+                        bundle.name = `${b.name.replace(/\.json$/, '')}.mtbackup`;
+                        bundle.size = bundle.summary?.totalTabsSize || 0;
+                        if (dlProgressContainer) dlProgressContainer.style.display = 'none';
+                        await handleSelectedBackupFile(bundle, 'Google Drive');
+                        return;
+                    }
                     const { downloadDriveBackupFile } = await import('./googleDrive.js');
                     const fileObj = await downloadDriveBackupFile(b.id, b.name, ({ loaded, total, percent }) => {
                         if (dlProgressBar) dlProgressBar.style.width = `${percent}%`;

@@ -249,7 +249,8 @@ export async function collectSoundFontBackupEntries() {
 /** @returns {Promise<boolean>} true if written (merge skips ids that already exist) */
 export async function restoreSoundFontEntry(item, { wipe = false } = {}) {
     if (!wipe && await request('readonly', s => s.get(item.id))) return false;
-    const data = base64ToArrayBuffer(item.dataBase64);
+    // `fetchData` backs incremental Drive backups, which carry a blob reference instead of base64
+    const data = item.fetchData ? await item.fetchData() : base64ToArrayBuffer(item.dataBase64);
     item.dataBase64 = null;
     await request('readwrite', s => s.put({
         id: item.id,
