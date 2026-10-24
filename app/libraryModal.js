@@ -684,10 +684,10 @@ async function renderLibraryBrowseView(container) {
             <i class="bi-search search-icon"></i>
             <input type="text" class="search-input" id="libFilterInput" placeholder="${
               libraryBrowseMode === 'tunings'
-                ? (selectedTuning ? `Filter songs in ${selectedTuning}...` : 'Filter tunings in library...')
-                : (selectedAlbum ? 'Filter tracks in album...' : selectedArtist ? 'Filter albums or songs...' : 'Filter artists, albums, or songs...')
-            }" autocomplete="off" spellcheck="false" aria-label="Filter library">
-            <button class="search-clear-btn" type="button" id="libFilterClearBtn" title="Clear filter" aria-label="Clear filter" style="display: none;">
+                ? (selectedTuning ? `Search songs in ${selectedTuning}...` : 'Search tunings in library...')
+                : (selectedAlbum ? 'Search tracks in album...' : selectedArtist ? 'Search albums or songs...' : 'Search artists, albums, or songs...')
+            }" autocomplete="off" spellcheck="false" aria-label="Search library">
+            <button class="search-clear-btn" type="button" id="libFilterClearBtn" title="Clear search" aria-label="Clear search" style="display: none;">
               <i class="bi-x-lg"></i>
             </button>
           </div>
@@ -1493,6 +1493,23 @@ function renderAlbumCard(album, artistName = '') {
     `;
 }
 
+function renderDownloaderSearchButton(rawQuery) {
+    if (!window.__TAURI__) return '';
+    return `
+      <div class="text-center mt-3 mb-4">
+        <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="libFilterDownloaderBtn">
+          <i class="bi-cloud-arrow-down text-info"></i>
+          <span>Search "${escapeHtml(rawQuery)}" in Tab Downloader</span>
+        </button>
+      </div>`;
+}
+
+function wireDownloaderSearchButton(root, rawQuery) {
+    root.querySelector('#libFilterDownloaderBtn')?.addEventListener('click', () => {
+        openFromProvider('tab-downloader', { query: rawQuery });
+    });
+}
+
 function setupLibraryFilter(container, context = {}) {
     const filterInput = container.querySelector('#libFilterInput');
     const clearBtn = container.querySelector('#libFilterClearBtn');
@@ -1502,7 +1519,8 @@ function setupLibraryFilter(container, context = {}) {
     const filterResults = container.querySelector('#libFilteredSearchResults');
 
     const applyFilter = () => {
-        const query = (filterInput.value || '').toLowerCase().trim();
+        const rawQuery = (filterInput.value || '').trim();
+        const query = rawQuery.toLowerCase();
         if (clearBtn) {
             clearBtn.style.display = query.length > 0 ? 'inline-flex' : 'none';
         }
@@ -1659,7 +1677,9 @@ function setupLibraryFilter(container, context = {}) {
               <i class="bi-search fs-3 mb-2 d-block text-white-50"></i>
               <div>No songs, albums, or artists match "${escapeHtml(query)}"</div>
             </div>
+            ${renderDownloaderSearchButton(rawQuery)}
             `;
+            wireDownloaderSearchButton(filterResults, rawQuery);
             return;
         }
 
@@ -1710,7 +1730,8 @@ function setupLibraryFilter(container, context = {}) {
             `;
         }
 
-        filterResults.innerHTML = html;
+        filterResults.innerHTML = html + renderDownloaderSearchButton(rawQuery);
+        wireDownloaderSearchButton(filterResults, rawQuery);
 
         // Wire up song row actions (play default tab, + tab, dropdowns, pin)
         setupSongRowActions(filterResults);
