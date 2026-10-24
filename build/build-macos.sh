@@ -39,6 +39,17 @@ cleanup() {
 trap cleanup EXIT
 
 if [ -d "$MOUNT_POINT/MajesticTab.app" ]; then
+    APP_NAME="MajesticTab"
+    echo "Closing ${APP_NAME}..."
+    if pgrep -x "$APP_NAME" >/dev/null; then
+        osascript -e "tell application \"${APP_NAME}\" to quit" 2>/dev/null || true
+        for _ in $(seq 1 20); do
+            pgrep -x "$APP_NAME" >/dev/null || break
+            sleep 0.5
+        done
+        pkill -x "$APP_NAME" 2>/dev/null || true
+    fi
+
     echo "Installing MajesticTab.app to /Applications/..."
     rm -rf /Applications/MajesticTab.app
     cp -R "$MOUNT_POINT/MajesticTab.app" /Applications/
