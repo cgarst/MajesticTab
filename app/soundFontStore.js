@@ -2,7 +2,7 @@
 // Persistent store and selection for user-supplied SoundFonts (.sf2 / .sf3).
 // Any number can be enabled at once; AlphaTab layers them in load order, so later ones override earlier ones.
 import { parseSoundFontPresets, mergePresetSets, applyProgramMapping, GM_PROGRAM_NAMES } from './soundFontProgramMap.js';
-import { clampNegativeAttenuation } from './soundFontSanitize.js';
+import { clampNegativeAttenuation, convertStereoSamplesToMono } from './soundFontSanitize.js';
 import { getDB, STORE_SOUNDFONTS, arrayBufferToBase64Async, arrayBufferToBase64, base64ToArrayBuffer } from './fileStore.js';
 
 export const BUILTIN_SOUNDFONT_ID = 'builtin';
@@ -226,6 +226,7 @@ export async function applySoundFontsToApi(api) {
     const addData = (data, key) => {
         const bytes = new Uint8Array(data.slice(0));
         clampNegativeAttenuation(bytes);
+        convertStereoSamplesToMono(bytes);
         sources.push(bytes);
         presetSets.push(parseSoundFontPresets(data));
         ids.push(key);
