@@ -893,7 +893,7 @@
     <!-- Secondary Utilities -->
     <div class="d-flex gap-2">
       <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openControllerHelpMenuBtn" type="button">
-        <i class="bi-controller text-info"></i> Controller
+        <i class="bi-keyboard text-info"></i> Controls
       </button>
       <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openExtensions" type="button">
         <i class="bi-puzzle text-info"></i> Extensions
@@ -1171,15 +1171,15 @@
   </section>
 </div>
 
-<div id="controllerHelpModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="controllerHelpModalTitle" aria-hidden="true" style="display:none;">
+<div id="controllerHelpModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="controllerHelpModalTitle" aria-hidden="true" data-controls-tab="keyboard" style="display:none;">
   <section class="theme-modal-card controller-help-modal-card">
     <header class="theme-modal-header">
       <div class="theme-modal-title-group">
         <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
-          <i class="bi-controller text-info fs-5"></i>
+          <i class="bi-keyboard text-info fs-5"></i>
         </div>
         <div class="theme-modal-titles">
-          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="controllerHelpModalTitle">Game Controller Mapping</h2>
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="controllerHelpModalTitle">Controls</h2>
         </div>
       </div>
       <div class="theme-modal-actions">
@@ -1189,7 +1189,130 @@
       </div>
     </header>
 
+    <div class="controls-tab-bar d-flex justify-content-center py-2">
+      <div class="hud-pill-group" role="group" aria-label="Control scheme">
+        <input type="radio" class="btn-check" name="controlsTabRadio" id="controlsTabKeyboard" value="keyboard" autocomplete="off" checked>
+        <label class="btn btn-sm" for="controlsTabKeyboard"><i class="bi-keyboard me-1"></i>Keyboard &amp; Mouse</label>
+        <input type="radio" class="btn-check" name="controlsTabRadio" id="controlsTabGamepad" value="gamepad" autocomplete="off">
+        <label class="btn btn-sm" for="controlsTabGamepad"><i class="bi-controller me-1"></i>Game Controller</label>
+      </div>
+    </div>
+
     <div class="theme-modal-body controller-modal-body">
+      <div class="controls-panel" data-controls-panel="keyboard">
+        <div class="row g-2 controller-ref-grid">
+        <div class="col-12 col-md-6">
+          <div class="controller-ref-card p-2 rounded-2">
+            <div class="controller-ref-title mb-2 d-flex align-items-center gap-1">
+              <i class="bi-music-note-beamed text-info"></i>
+              <span class="fw-semibold text-white small">Playback & Audio</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Space</span> </span>
+              <span class="small text-white fw-semibold text-end">Play / Pause</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">B</span> </span>
+              <span class="small text-white fw-semibold text-end">Back 10 seconds</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">G</span> </span>
+              <span class="small text-white fw-semibold text-end">Full band / No guitars</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">F</span> </span>
+              <span class="small text-white fw-semibold text-end">Toggle fretboard dock</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="controller-ref-card p-2 rounded-2">
+            <div class="controller-ref-title mb-2 d-flex align-items-center gap-1">
+              <i class="bi-book text-info"></i>
+              <span class="fw-semibold text-white small">Page Navigation</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">→</span> <span class="badge-key">↓</span> <span class="badge-key">PgDn</span> </span>
+              <span class="small text-white fw-semibold text-end">Next page</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">←</span> <span class="badge-key">↑</span> <span class="badge-key">PgUp</span> </span>
+              <span class="small text-white fw-semibold text-end">Previous page</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Click</span> right half</span>
+              <span class="small text-white fw-semibold text-end">Next page</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Click</span> left half</span>
+              <span class="small text-white fw-semibold text-end">Previous page</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Space</span> no audio loaded</span>
+              <span class="small text-white fw-semibold text-end">Next page</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="controller-ref-card p-2 rounded-2">
+            <div class="controller-ref-title mb-2 d-flex align-items-center gap-1">
+              <i class="bi-compass text-info"></i>
+              <span class="fw-semibold text-white small">Back & Forward</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Mouse 4</span> </span>
+              <span class="small text-white fw-semibold text-end">Back</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Mouse 5</span> </span>
+              <span class="small text-white fw-semibold text-end">Forward</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">⌘</span> <span class="badge-key">[</span> </span>
+              <span class="small text-white fw-semibold text-end">Back (macOS)</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">⌘</span> <span class="badge-key">]</span> </span>
+              <span class="small text-white fw-semibold text-end">Forward (macOS)</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Alt</span> <span class="badge-key">←</span> </span>
+              <span class="small text-white fw-semibold text-end">Back</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Alt</span> <span class="badge-key">→</span> </span>
+              <span class="small text-white fw-semibold text-end">Forward</span>
+            </div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6">
+          <div class="controller-ref-card p-2 rounded-2">
+            <div class="controller-ref-title mb-2 d-flex align-items-center gap-1">
+              <i class="bi-zoom-in text-info"></i>
+              <span class="fw-semibold text-white small">Zoom & View</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Ctrl</span> <span class="badge-key">Wheel</span> </span>
+              <span class="small text-white fw-semibold text-end">Zoom score 50–150%</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Pinch</span> trackpad / touch</span>
+              <span class="small text-white fw-semibold text-end">Zoom score</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Wheel</span> Scroll mode</span>
+              <span class="small text-white fw-semibold text-end">Scroll score</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Esc</span> </span>
+              <span class="small text-white fw-semibold text-end">Close dialog or panel</span>
+            </div>
+          </div>
+        </div>
+        </div>
+        <div class="small text-white-50 mt-2"><i class="bi-info-circle me-1 text-info"></i> Shortcuts are paused while typing in a text field.</div>
+      </div>
+      <div class="controls-panel" data-controls-panel="gamepad">
       <!-- Vector Controller Diagram -->
       <div class="controller-diagram-container mb-3 text-center">
         <svg class="controller-svg-diagram" viewBox="-90 40 790 465" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Game Controller Layout Diagram">
@@ -1388,14 +1511,15 @@
           </div>
         </div>
       </div>
+      </div>
     </div>
 
     <footer class="theme-modal-footer d-flex justify-content-between align-items-center">
-      <div class="small text-white-50">
+      <div class="small text-white-50 controls-gamepad-only">
         <i class="bi-info-circle me-1 text-info"></i> Tip: Hold <span class="badge-controller-btn me-1">View</span> or click the top bar icon to reopen anytime.
       </div>
       <button type="button" class="btn btn-theme-primary px-3" onclick="import('./utils/gamepadManager.js').then(m => m.gamepadManager.closeHelpModal())">
-        Got It (Press B)
+        Got It
       </button>
     </footer>
   </section>
