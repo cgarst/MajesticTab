@@ -27,6 +27,7 @@ import { initTauriDownloadListener } from './tabDownloader.js';
 import { addRecentOpened } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata, getInstrumentMode, setInstrumentMode, getDefaultGpStringCount, setDefaultGpStringCount } from './utils/tuningUtils.js';
 import { initBackupRestore } from './backupRestore.js';
+import { initSync } from './syncUi.js';
 import { showToast } from './utils/toast.js';
 import { initGamepadManager } from './utils/gamepadManager.js';
 import { initJamMode } from './jam/jamManager.js';
@@ -636,6 +637,7 @@ function setupSettings() {
 
     // Initialize Backup & Restore
     initBackupRestore();
+    initSync();
 
     // Setup Quit App button (Native desktop/Android clients only; omitted on iOS per Apple HIG)
     if (window.__TAURI__ && !isIOSDevice()) {

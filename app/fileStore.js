@@ -134,6 +134,20 @@ export async function saveStoredFile(file, providerId = 'local', metadata = {}) 
 }
 
 /**
+ * Write a complete file record as-is, replacing any record with the same id.
+ * @param {object} record
+ */
+export async function putStoredFileRecord(record) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const req = tx.objectStore(STORE_NAME).put(record);
+        req.onsuccess = () => resolve(record);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+/**
  * Retrieve a stored record by ID and construct a File object.
  * @param {string} id
  * @returns {Promise<{ record: object, file: File }|null>}

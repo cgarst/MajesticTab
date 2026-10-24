@@ -76,11 +76,11 @@ function saveHashCache(cache) {
 }
 
 // Cheap change detector shared by the hash cache and the backup preview
-function fileFingerprint(meta) {
+export function fileFingerprint(meta) {
     return `${meta.size || 0}:${meta.lastModified || 0}:${meta.savedAt || 0}`;
 }
 
-function soundFontFingerprint(meta) {
+export function soundFontFingerprint(meta) {
     return `${meta.size || 0}:${meta.addedAt || 0}`;
 }
 
