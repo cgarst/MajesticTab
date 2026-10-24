@@ -1467,9 +1467,6 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                   <i class="bi-google text-danger" id="restoreSourceIcon"></i> <span id="restoreSourceTitle">Google Drive Backups:</span>
                 </span>
                 <div class="d-flex align-items-center gap-2">
-                  <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 d-inline-flex align-items-center gap-1" id="restoreDriveCleanupBtn" style="font-size: 0.72rem;" title="Delete files that no remaining snapshot uses">
-                    <i class="bi-trash3"></i> <span>Free Up Space</span>
-                  </button>
                   <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none" id="restoreDriveCloseBtn" title="Close" aria-label="Close backups">
                     <i class="bi-x-lg"></i>
                   </button>
@@ -1479,7 +1476,6 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <span class="text-white-50 text-truncate" id="restoreSourceLocation" style="font-size: 0.72rem;"></span>
                 <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" id="restoreChangeLocationBtn" style="font-size: 0.72rem;">Change</button>
               </div>
-              <div id="restoreCleanupPanel" class="p-3 rounded-3 mb-2" style="display: none; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);" role="status"></div>
               <div id="restoreDriveLoading" class="py-3 text-center text-white-50 small" style="display: none;">
                 <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
                 <span>Looking for backups...</span>
@@ -1692,6 +1688,36 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="orphansDeleteBtn" disabled>
               <i class="bi-trash3"></i> Delete Selected
             </button>
+          </div>
+
+          <div class="backup-summary-box p-3 rounded-3 mt-3">
+            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
+              <i class="bi-clock-history text-warning"></i> Orphaned Files in Incremental Backups
+            </div>
+            <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
+              Saved tabs and SoundFonts in a Google Drive or folder backup that you can remove to free space. Files newer than 24 hours are kept.
+            </div>
+            <div class="d-flex flex-column gap-2 mb-3">
+              <label class="d-flex align-items-start gap-2 text-white small mb-0" style="cursor: pointer;">
+                <input class="form-check-input theme-radio mt-1 flex-shrink-0" type="radio" name="snapshotOrphanScope" value="all" checked>
+                <span>Not used by any snapshot<br><span class="text-white-50" style="font-size: 0.73rem;">Left over from deleted or pruned snapshots. Safe to remove.</span></span>
+              </label>
+              <label class="d-flex align-items-start gap-2 text-white small mb-0" style="cursor: pointer;">
+                <input class="form-check-input theme-radio mt-1 flex-shrink-0" type="radio" name="snapshotOrphanScope" value="latest">
+                <span>Not used by the most recent snapshot<br><span class="text-white-50" style="font-size: 0.73rem;">Older snapshots may still use these, so they can no longer restore them in full.</span></span>
+              </label>
+            </div>
+            <div class="d-flex flex-wrap gap-2 mb-2">
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="google-drive"><i class="bi-google text-danger"></i> Scan Google Drive</button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="local"><i class="bi-folder2-open text-primary"></i> Scan Backup Folder</button>
+            </div>
+            <div id="snapshotOrphansList"></div>
+            <div id="snapshotOrphansStatus" class="small mt-2" style="display:none;" role="status"></div>
+            <div class="d-flex justify-content-end pt-2">
+              <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="snapshotOrphansDeleteBtn" disabled>
+                <i class="bi-trash3"></i> Delete Selected
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1946,6 +1972,106 @@ function attachModalHandlers(modal, options = {}) {
         await renderOrphans();
     });
     renderOrphans();
+
+    // --- ORPHANED FILES IN INCREMENTAL BACKUPS ---
+    const snapOrphansList = modal.querySelector('#snapshotOrphansList');
+    const snapOrphansStatus = modal.querySelector('#snapshotOrphansStatus');
+    const snapOrphansDeleteBtn = modal.querySelector('#snapshotOrphansDeleteBtn');
+    let snapOrphanBackend = null;
+    let snapOrphanFiles = [];
+    let snapOrphanScope = 'all';
+    const getSnapScope = () => modal.querySelector('input[name="snapshotOrphanScope"]:checked')?.value || 'all';
+    const setSnapStatus = (cls, html) => {
+        snapOrphansStatus.style.display = html ? 'block' : 'none';
+        snapOrphansStatus.className = `small mt-2 ${cls}`;
+        snapOrphansStatus.innerHTML = html;
+    };
+    const updateSnapOrphansDeleteBtn = () => {
+        const n = snapOrphansList.querySelectorAll('.snapshot-orphan-check:checked').length;
+        snapOrphansDeleteBtn.disabled = n === 0;
+        snapOrphansDeleteBtn.innerHTML = `<i class="bi-trash3"></i> Delete Selected${n ? ` (${n})` : ''}`;
+    };
+    const renderSnapOrphans = (found) => {
+        snapOrphanFiles = found.unused;
+        const recentNote = found.recent ? ` ${found.recent} newer file${found.recent === 1 ? ' is' : 's are'} kept for now.` : '';
+        if (!found.unused.length) {
+            snapOrphansList.innerHTML = `<div class="text-success small"><i class="bi-check-circle-fill me-1"></i> ${snapOrphanScope === 'latest' ? 'Every file is used by your most recent snapshot.' : 'Every file is used by at least one snapshot.'}${recentNote}</div>`;
+            return updateSnapOrphansDeleteBtn();
+        }
+        const sorted = [...found.unused].sort((a, b) => b.size - a.size);
+        snapOrphansList.innerHTML = `
+          <div class="d-flex align-items-center justify-content-between mb-2 small">
+            <label class="d-flex align-items-center gap-2 text-white mb-0">
+              <input type="checkbox" class="form-check-input theme-switch" id="snapshotOrphansSelectAll">
+              Select all (${sorted.length} files, ${formatBytes(found.freedBytes)})
+            </label>
+          </div>
+          <div class="d-flex flex-column gap-2" style="max-height: 35vh; overflow-y: auto;">
+            ${sorted.map(f => {
+                const title = f.label || `${f.name.replace(/\.bin$/, '').slice(0, 12)}…`;
+                const used = f.snapshots ? `${f.snapshots} older snapshot${f.snapshots === 1 ? '' : 's'}` : 'no snapshot';
+                return `
+              <label class="d-flex align-items-center gap-3 p-2 rounded-2 backup-stat-card mb-0" style="cursor: pointer;">
+                <input type="checkbox" class="form-check-input snapshot-orphan-check flex-shrink-0" data-name="${escapeHtml(f.name)}">
+                <span class="flex-grow-1 text-truncate text-white small" title="${escapeHtml(title)}">${escapeHtml(title)}<span class="text-white-50"> · used by ${used}</span></span>
+                <span class="flex-shrink-0 text-white-50 small">${formatBytes(f.size)}</span>
+              </label>`;
+            }).join('')}
+          </div>
+          <div class="text-white-50 mt-2" style="font-size:0.72rem;">${recentNote.trim()}</div>`;
+        snapOrphansList.querySelector('#snapshotOrphansSelectAll').addEventListener('change', (e) => {
+            snapOrphansList.querySelectorAll('.snapshot-orphan-check').forEach(cb => { cb.checked = e.target.checked; });
+            updateSnapOrphansDeleteBtn();
+        });
+        snapOrphansList.querySelectorAll('.snapshot-orphan-check').forEach(cb => cb.addEventListener('change', updateSnapOrphansDeleteBtn));
+        updateSnapOrphansDeleteBtn();
+    };
+    modal.querySelectorAll('[data-snapshot-orphan-scan]').forEach(btn => btn.addEventListener('click', async () => {
+        const provider = btn.dataset.snapshotOrphanScan;
+        setSnapStatus('', '');
+        snapOrphansList.innerHTML = '<div class="small text-white-50"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Scanning snapshots...</div>';
+        snapOrphanBackend = null;
+        snapOrphanFiles = [];
+        updateSnapOrphansDeleteBtn();
+        try {
+            const target = await resolveIncrementalTarget({ interactive: true, provider });
+            if (target.status !== 'ready') {
+                snapOrphansList.innerHTML = '';
+                return setSnapStatus('text-white-50', `<i class="bi-info-circle me-1"></i> ${target.status === 'needs-auth' ? 'Connect Google Drive from the Create Backup tab first.' : 'Choose a backup folder and allow access to scan it.'}`);
+            }
+            const { findUnusedBlobs } = await import('./incrementalBackup.js');
+            snapOrphanScope = getSnapScope();
+            const found = await findUnusedBlobs(target.backend, { scope: snapOrphanScope });
+            snapOrphanBackend = target.backend;
+            if (!found.snapshotCount) {
+                snapOrphansList.innerHTML = '<div class="text-white-50 small">No incremental snapshots found there.</div>';
+                return;
+            }
+            renderSnapOrphans(found);
+        } catch (err) {
+            console.error('Snapshot orphan scan failed:', err);
+            snapOrphansList.innerHTML = '';
+            setSnapStatus('text-danger', `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to scan: ${escapeHtml(err.message)}`);
+        }
+    }));
+    snapOrphansDeleteBtn?.addEventListener('click', async () => {
+        const names = new Set([...snapOrphansList.querySelectorAll('.snapshot-orphan-check:checked')].map(cb => cb.dataset.name));
+        const chosen = snapOrphanFiles.filter(f => names.has(f.name));
+        if (!chosen.length || !snapOrphanBackend) return;
+        snapOrphansDeleteBtn.disabled = true;
+        snapOrphansDeleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Deleting...';
+        try {
+            const { deleteBlobs, findUnusedBlobs } = await import('./incrementalBackup.js');
+            await deleteBlobs(snapOrphanBackend, chosen);
+            setSnapStatus('text-success fw-semibold', `<i class="bi-check-circle-fill me-1"></i> Removed ${chosen.length} ${chosen.length === 1 ? 'file' : 'files'} from incremental backups.`);
+            showToast('Backup files removed', 'success');
+            renderSnapOrphans(await findUnusedBlobs(snapOrphanBackend, { scope: snapOrphanScope }));
+        } catch (err) {
+            console.error('Failed to delete snapshot orphans:', err);
+            setSnapStatus('text-danger fw-semibold', `<i class="bi-exclamation-triangle-fill me-1"></i> Failed: ${escapeHtml(err.message)}`);
+            updateSnapOrphansDeleteBtn();
+        }
+    });
     tabBtnDelete?.addEventListener('click', () => switchTab('delete'));
 
     // --- CLEAR CACHE ACTION ---
@@ -1993,8 +2119,8 @@ function attachModalHandlers(modal, options = {}) {
 
     // Resolves where an incremental backup would be stored. `interactive` calls must come from a click,
     // since choosing a folder and re-granting access both need a user gesture.
-    const resolveIncrementalTarget = async ({ interactive = false } = {}) => {
-        if (getBackupProviderId() === 'google-drive') {
+    const resolveIncrementalTarget = async ({ interactive = false, provider = getBackupProviderId() } = {}) => {
+        if (provider === 'google-drive') {
             const { isTokenValid, ensureFreshToken } = await import('./googleDrive.js');
             await ensureFreshToken();
             if (!isTokenValid()) return { status: 'needs-auth' };
@@ -2249,7 +2375,6 @@ function attachModalHandlers(modal, options = {}) {
     const restoreDriveEmpty = modal.querySelector('#restoreDriveEmpty');
     const restoreDriveError = modal.querySelector('#restoreDriveError');
     const restoreDriveList = modal.querySelector('#restoreDriveList');
-    const restoreDriveCleanupBtn = modal.querySelector('#restoreDriveCleanupBtn');
 
     const restoreFolderBtn = modal.querySelector('#restoreFolderBtn');
     const restoreSourceIcon = modal.querySelector('#restoreSourceIcon');
@@ -2265,69 +2390,6 @@ function attachModalHandlers(modal, options = {}) {
 
     // Which storage the snapshot list currently shows; set by loadGoogleDriveBackups / loadFolderBackups
     let activeSource = { type: 'drive', backend: null };
-
-    // Free Up Space: scan first, show exactly which files would go, delete only that list on confirm
-    const restoreCleanupPanel = modal.querySelector('#restoreCleanupPanel');
-    const hideCleanupPanel = () => {
-        if (restoreCleanupPanel) { restoreCleanupPanel.style.display = 'none'; restoreCleanupPanel.innerHTML = ''; }
-    };
-    restoreDriveCleanupBtn?.addEventListener('click', async () => {
-        const label = restoreDriveCleanupBtn.querySelector('span');
-        restoreDriveCleanupBtn.disabled = true;
-        if (label) label.textContent = 'Checking...';
-        hideCleanupPanel();
-        try {
-            const { findUnusedBlobs, deleteBlobs } = await import('./incrementalBackup.js');
-            const backend = activeSource.backend;
-            const found = await findUnusedBlobs(backend);
-            if (!found.unused.length) {
-                showToast(found.recent
-                    ? `Nothing to clean up yet. ${found.recent} unused file${found.recent === 1 ? ' is' : 's are'} newer than 24 hours and kept for now.`
-                    : 'Nothing to clean up', 'success');
-                return;
-            }
-
-            const where = activeSource.type === 'folder' ? 'this folder' : 'Google Drive';
-            const listed = [...found.unused].sort((a, b) => (Number(b.size) || 0) - (Number(a.size) || 0));
-            const rows = listed.slice(0, 8).map(f => `
-                <div class="d-flex justify-content-between gap-2" style="font-size:0.72rem;">
-                    <code class="text-white-50 text-truncate" title="${escapeHtml(f.name)}">${escapeHtml(f.name.replace(/\.bin$/, '').slice(0, 12))}…</code>
-                    <span class="text-white-50 flex-shrink-0">${formatBytes(Number(f.size) || 0)} · ${escapeHtml(new Date(f.modifiedTime).toLocaleDateString())}</span>
-                </div>`).join('');
-            const more = listed.length > 8 ? `<div class="text-white-50" style="font-size:0.72rem;">and ${listed.length - 8} more</div>` : '';
-            restoreCleanupPanel.style.display = 'block';
-            restoreCleanupPanel.innerHTML = `
-                <div class="small fw-semibold text-white mb-1"><i class="bi-trash3 text-warning me-1"></i> Permanently delete ${listed.length} file${listed.length === 1 ? '' : 's'} (${formatBytes(found.freedBytes)}) from ${where}?</div>
-                <div class="text-white-50 mb-2" style="font-size:0.75rem;">These saved tabs and SoundFonts are not used by any of your ${found.snapshotCount} remaining snapshot${found.snapshotCount === 1 ? '' : 's'}, so no snapshot can restore them. They are left over from deleted or pruned snapshots. This cannot be undone.${found.recent ? ` ${found.recent} newer unused file${found.recent === 1 ? ' is' : 's are'} kept for now.` : ''}</div>
-                <div class="d-flex flex-column gap-1 mb-3">${rows}${more}</div>
-                <div class="d-flex justify-content-end gap-2">
-                    <button type="button" class="btn btn-sm btn-theme-outline px-3" data-cleanup="cancel">Cancel</button>
-                    <button type="button" class="btn btn-sm btn-theme-danger px-3" data-cleanup="confirm"><i class="bi-trash3 me-1"></i> Delete ${listed.length} File${listed.length === 1 ? '' : 's'}</button>
-                </div>`;
-
-            restoreCleanupPanel.onclick = async (e) => {
-                const action = e.target.closest('[data-cleanup]')?.dataset.cleanup;
-                if (action === 'cancel') return hideCleanupPanel();
-                if (action !== 'confirm') return;
-                restoreCleanupPanel.querySelectorAll('button').forEach(b => { b.disabled = true; });
-                try {
-                    await deleteBlobs(backend, found.unused);
-                    showToast(`Freed ${formatBytes(found.freedBytes)} (${found.unused.length} unused files)`, 'success');
-                    hideCleanupPanel();
-                } catch (err) {
-                    console.error('Cleanup failed:', err);
-                    showToast(`Cleanup failed: ${err.message}`, 'error');
-                    hideCleanupPanel();
-                }
-            };
-        } catch (err) {
-            console.error('Cleanup scan failed:', err);
-            showToast(`Cleanup failed: ${err.message}`, 'error');
-        } finally {
-            restoreDriveCleanupBtn.disabled = false;
-            if (label) label.textContent = 'Free Up Space';
-        }
-    });
 
     const loadGoogleDriveBackups = async () => {
         const { isTokenValid, ensureFreshToken, redirectToGoogleAuth, fetchDriveBackups } = await import('./googleDrive.js');
@@ -2350,7 +2412,6 @@ function attachModalHandlers(modal, options = {}) {
             const { listIncrementalBackups } = await import('./incrementalBackup.js');
             const backend = createDriveBackend();
             activeSource = { type: 'drive', backend };
-            hideCleanupPanel();
             if (restoreSourceIcon) restoreSourceIcon.className = 'bi-google text-danger';
             if (restoreSourceTitle) restoreSourceTitle.textContent = 'Google Drive Backups:';
             if (restoreSourceLocation) restoreSourceLocation.textContent = backend.location;
@@ -2400,7 +2461,6 @@ function attachModalHandlers(modal, options = {}) {
 
             const backend = folders.createFolderBackend(handle);
             activeSource = { type: 'folder', backend };
-            hideCleanupPanel();
             if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
             if (restoreDriveLoading) restoreDriveLoading.style.display = 'block';
             if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
