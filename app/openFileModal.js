@@ -1,10 +1,7 @@
 // openFileModal.js
-// Modal offering all file providers for direct opening while highlighting the benefits of Library integration.
+// Library page view offering all file providers for direct opening while highlighting the benefits of Library integration.
 
 import { getFileProviders, openFromProvider } from './fileProviders.js';
-import { openLibraryModal } from './libraryModal.js';
-
-let modalElement = null;
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -12,52 +9,25 @@ function escapeHtml(str) {
 }
 
 /**
- * Creates or gets the Open File Modal DOM element
+ * Renders the Open File page into the library content container.
+ * @param {HTMLElement} container
+ * @param {{ onBack: () => void, onAddToLibrary: () => void }} handlers
  */
-function getOrCreateModal() {
-    if (modalElement && document.body.contains(modalElement)) {
-        return modalElement;
-    }
-
-    let modal = document.getElementById('openFileModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'openFileModal';
-        modal.className = 'theme-modal-backdrop';
-        document.body.appendChild(modal);
-    }
-    modalElement = modal;
-    return modal;
-}
-
-/**
- * Renders the content inside the Open File modal
- */
-function renderModalContent(modal) {
+export function renderOpenFileView(container, { onBack, onAddToLibrary }) {
     const providers = getFileProviders();
 
-    modal.innerHTML = `
-    <div class="theme-modal-card open-file-modal-card" style="max-width: 640px;">
-      <!-- Modal Header -->
-      <div class="theme-modal-header">
-        <div class="theme-modal-title-group">
-          <div class="theme-modal-icon">
-            <i class="bi-folder2-open text-primary fs-5"></i>
-          </div>
-          <div class="theme-modal-titles">
-            <h5 class="modal-title mb-0 fs-6 fw-bold text-white">Open tab file</h5>
-            <div class="small text-muted" style="font-size: 0.78rem;">Choose a file provider to load a tab directly into MajesticTab</div>
-          </div>
-        </div>
-        <div class="theme-modal-actions">
-          <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="openFileModalCloseBtn" title="Close" aria-label="Close">
-            <i class="bi-x-lg"></i>
+    container.innerHTML = `
+    <div class="library-page-container open-file-view">
+      <div class="library-body-header d-flex align-items-center mb-3">
+        <div class="d-flex align-items-center gap-3 min-w-0">
+          <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="openFileBackBtn" title="Back to Tab Library">
+            <i class="bi-chevron-left"></i> <span>Library</span>
           </button>
+          <span class="small fw-semibold text-white-50 text-truncate"><i class="bi-folder2-open me-2 text-info"></i>Open tab file</span>
         </div>
       </div>
 
-      <!-- Modal Body -->
-      <div class="theme-modal-body p-3">
+      <div class="mx-auto" style="max-width: 640px;">
         <!-- Library Benefits Callout -->
         <div class="open-file-benefits-card p-3 rounded-3 mb-2">
           <div class="d-flex align-items-center justify-content-between gap-2 mb-1 flex-wrap flex-sm-nowrap">
@@ -136,34 +106,16 @@ function renderModalContent(modal) {
 
     // On larger screens, keep details open by default; on mobile (<=576px), collapsed
     const isPhone = typeof window !== 'undefined' && window.innerWidth <= 576;
-    const details = modal.querySelector('.open-file-benefits-details');
+    const details = container.querySelector('.open-file-benefits-details');
     if (details && !isPhone) {
         details.open = true;
     }
 
-    // Event: Close Button
-    modal.querySelector('#openFileModalCloseBtn')?.addEventListener('click', closeOpenFileModal);
+    container.querySelector('#openFileBackBtn')?.addEventListener('click', onBack);
+    container.querySelector('#openFileSwitchToLibraryBtn')?.addEventListener('click', onAddToLibrary);
 
-    // Event: Backdrop Click
-    modal.onclick = (e) => {
-        if (e.target === modal) {
-            closeOpenFileModal();
-        }
-    };
-
-    // Event: Switch to Add to Library
-    modal.querySelector('#openFileSwitchToLibraryBtn')?.addEventListener('click', async () => {
-        closeOpenFileModal();
-        await openLibraryModal('search');
-    });
-
-    // Events: Provider Selection
-    modal.querySelectorAll('.open-file-provider-item').forEach(item => {
-        const handleOpen = () => {
-            const providerId = item.dataset.providerId;
-            closeOpenFileModal();
-            openFromProvider(providerId);
-        };
+    container.querySelectorAll('.open-file-provider-item').forEach(item => {
+        const handleOpen = () => openFromProvider(item.dataset.providerId);
 
         item.addEventListener('click', handleOpen);
         item.addEventListener('keydown', (e) => {
@@ -174,30 +126,3 @@ function renderModalContent(modal) {
         });
     });
 }
-
-/**
- * Open the Open File modal
- */
-export function openOpenFileModal() {
-    const modal = getOrCreateModal();
-    renderModalContent(modal);
-    modal.style.display = 'flex';
-    document.body.classList.add('modal-open');
-}
-
-/**
- * Close the Open File modal
- */
-export function closeOpenFileModal() {
-    if (modalElement) {
-        modalElement.style.display = 'none';
-        document.body.classList.remove('modal-open');
-    }
-}
-
-// Global keydown handler for Escape
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modalElement && modalElement.style.display === 'flex') {
-        closeOpenFileModal();
-    }
-});
