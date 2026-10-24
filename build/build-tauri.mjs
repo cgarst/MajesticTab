@@ -345,7 +345,28 @@ if (target === 'android') {
       manifest = manifest.replace('<uses-permission android:name="android.permission.INTERNET" />', `<uses-permission android:name="android.permission.INTERNET" />\n    ${tag}`);
     }
   }
+  // In-app updates install the downloaded APK, which needs the install permission and a FileProvider for the cache folder.
+  const installTag = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />';
+  if (!manifest.includes(installTag)) {
+    manifest = manifest.replace('<uses-permission android:name="android.permission.INTERNET" />', `<uses-permission android:name="android.permission.INTERNET" />\n    ${installTag}`);
+  }
+  if (!manifest.includes('.updateprovider')) {
+    const provider = `<provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="\${applicationId}.updateprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/majestictab_update_paths" />
+        </provider>
+    `;
+    manifest = manifest.replace('</application>', `${provider}</application>`);
+  }
   await writeFile(manifestPath, manifest);
+  await mkdir(path.join(androidRes, 'xml'), { recursive: true });
+  await writeFile(
+    path.join(androidRes, 'xml', 'majestictab_update_paths.xml'),
+    '<?xml version="1.0" encoding="utf-8"?>\n<paths>\n    <cache-path name="updates" path="updates/" />\n</paths>\n',
+  );
   const keystore = process.env.ANDROID_KEYSTORE_FILE;
   const keystorePassword = process.env.ANDROID_KEYSTORE_PASSWORD;
   const keyAlias = process.env.ANDROID_KEY_ALIAS;
@@ -454,17 +475,47 @@ if (target === 'android') {
     'net.zathu.majestictab',
   ], { cwd: rootDir });
 } else {
-  const bundle = target === 'macos' ? 'dmg' : 'nsis';
-  const extension = target === 'macos' ? '.dmg' : '.exe';
+  // Signed update bundles (.sig plus .app.tar.gz on macOS) are only produced when the updater
+  // signing key is available, so local builds without it still work.
+  // The public key comes from TAURI_UPDATER_PUBKEY and is merged over the placeholder in tauri.conf.json.
+  const updaterPubkey = (process.env.TAURI_UPDATER_PUBKEY ?? '').trim();
+  const signUpdates = Boolean(process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PATH)
+    && updaterPubkey !== '';
+  if ((process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) && !updaterPubkey) {
+    console.warn('[build-tauri] Skipping update bundles: TAURI_UPDATER_PUBKEY is not set.');
+  }
+  const bundles = target === 'macos' ? ['dmg', 'app'] : ['nsis'];
   const buildEnv = target === 'macos' ? { ...env, CI: 'true' } : env;
-  const buildArgs = ['run', 'tauri', '--', 'build', '--bundles', bundle];
+  const buildArgs = ['run', 'tauri', '--', 'build', '--bundles', ...bundles];
+  if (updaterPubkey) {
+    const updaterConfig = path.join(tauriDir, 'target', 'updater-config.json');
+    await mkdir(path.dirname(updaterConfig), { recursive: true });
+    await writeFile(updaterConfig, JSON.stringify({
+      plugins: { updater: { pubkey: updaterPubkey } },
+      ...(signUpdates ? { bundle: { createUpdaterArtifacts: true } } : {}),
+    }));
+    buildArgs.push('--config', updaterConfig);
+  }
   if (debugTools) buildArgs.push('--features', 'debug-tools');
   if (macosX64) buildArgs.push('--target', 'x86_64-apple-darwin');
   run('npm', buildArgs, { env: buildEnv });
-  const bundleDir = macosX64
-    ? path.join(tauriDir, 'target', 'x86_64-apple-darwin', 'release', 'bundle', bundle)
-    : path.join(tauriDir, 'target', 'release', 'bundle', bundle);
-  await copyBundleArtifacts(bundleDir, extension);
+  const bundleRoot = macosX64
+    ? path.join(tauriDir, 'target', 'x86_64-apple-darwin', 'release', 'bundle')
+    : path.join(tauriDir, 'target', 'release', 'bundle');
+  await copyBundleArtifacts(path.join(bundleRoot, target === 'macos' ? 'dmg' : 'nsis'), target === 'macos' ? '.dmg' : '.exe');
+  if (signUpdates) {
+    if (target === 'macos') {
+      // Both architectures produce MajesticTab.app.tar.gz, so the arch goes into the name.
+      const arch = macosX64 ? 'x86_64' : 'aarch64';
+      for (const suffix of ['.app.tar.gz', '.app.tar.gz.sig']) {
+        const source = path.join(bundleRoot, 'macos', `MajesticTab${suffix}`);
+        if (!(await stat(source).catch(() => null))) fail(`Missing update artifact: ${source}`);
+        await cp(source, path.join(distDir, `MajesticTab_${arch}${suffix}`));
+      }
+    } else {
+      await copyBundleArtifacts(path.join(bundleRoot, 'nsis'), '.exe.sig');
+    }
+  }
 }
 
 console.log(`Build output: ${distDir}`);

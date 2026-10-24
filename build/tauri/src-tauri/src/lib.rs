@@ -6,6 +6,7 @@ use tauri::{LogicalPosition, LogicalSize};
 use tauri::RunEvent;
 
 mod jam;
+mod self_update;
 mod tab_downloader_native;
 
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -601,7 +602,8 @@ pub fn run() {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = builder
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_persisted_scope::init());
+        .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(tauri_plugin_updater::Builder::new().build());
 
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
@@ -619,6 +621,8 @@ pub fn run() {
         jam::jam_client_send,
         jam::jam_client_disconnect,
         get_opened_file,
+        self_update::update_install_mode,
+        self_update::install_update,
         open_tab_downloader,
         youtube_open_auth,
         configure_ios_main_window,
@@ -652,6 +656,8 @@ pub fn run() {
         jam::jam_client_send,
         jam::jam_client_disconnect,
         get_opened_file,
+        self_update::update_install_mode,
+        self_update::install_update,
         open_tab_downloader,
         youtube_open_auth,
         configure_ios_main_window,

@@ -81,13 +81,95 @@ async function openExternal(url) {
     else window.open(url, '_blank', 'noopener');
 }
 
-function showUpdateBanner(update) {
+// 'native' (Tauri updater replaces the app and relaunches), 'android' (download the APK and open the
+// system installer) or 'manual' (open the download page).
+let installModePromise;
+function getInstallMode() {
+    installModePromise ??= (async () => {
+        if (window.AndroidUpdater) return 'android';
+        try {
+            return await window.__TAURI__.core.invoke('update_install_mode');
+        } catch {
+            return 'manual';
+        }
+    })();
+    return installModePromise;
+}
+
+async function installNatively(update, button, status) {
+    const setLabel = (label) => {
+        button.textContent = label;
+        if (status) status.textContent = label;
+    };
+    button.disabled = true;
+    setLabel('Downloading...');
+    let unlisten;
+    try {
+        unlisten = await window.__TAURI__.event.listen('update-progress', ({ payload }) => {
+            if (payload.total) setLabel(`Downloading ${Math.min(100, Math.round((payload.downloaded / payload.total) * 100))}%`);
+        });
+        // Resolves only if the app fails to restart; on success the process is replaced.
+        await window.__TAURI__.core.invoke('install_update', { channel: getUpdateChannel() });
+    } catch (error) {
+        console.warn('[Updater] In-app install failed:', error);
+        button.disabled = false;
+        button.textContent = 'Download';
+        if (status) status.textContent = 'Could not install automatically. Opening the download page.';
+        openExternal(update.url);
+    } finally {
+        unlisten?.();
+    }
+}
+
+function installOnAndroid(update, button, status) {
+    // Only a direct APK asset can be installed; a release page URL means no APK was attached.
+    if (!/\.apk$/i.test(update.url)) {
+        openExternal(update.url);
+        return;
+    }
+    const setLabel = (label) => {
+        button.textContent = label;
+        if (status) status.textContent = label;
+    };
+    button.disabled = true;
+    setLabel('Downloading...');
+    window.__onAndroidUpdate = (state, percent) => {
+        if (state === 'downloading') {
+            setLabel(`Downloading ${percent}%`);
+        } else if (state === 'installing') {
+            button.disabled = false;
+            button.textContent = 'Install';
+            if (status) status.textContent = 'Confirm the install when Android asks.';
+        } else if (state === 'permission') {
+            button.disabled = false;
+            button.textContent = 'Install';
+            if (status) status.textContent = 'Allow installs from MajesticTab in Settings, then tap Install again.';
+        } else {
+            button.disabled = false;
+            button.textContent = 'Download';
+            if (status) status.textContent = 'Could not install automatically. Opening the download page.';
+            openExternal(update.url);
+        }
+    };
+    window.AndroidUpdater.install(update.url);
+}
+
+async function showUpdateBanner(update) {
     const banner = document.getElementById('updateBanner');
     const text = document.getElementById('updateBannerText');
     if (!banner || !text) return;
     text.textContent = update.label;
     banner.hidden = false;
-    document.getElementById('updateDownloadBtn').onclick = () => openExternal(update.url);
+    const button = document.getElementById('updateDownloadBtn');
+    const status = document.getElementById('updateStatus');
+    const mode = await getInstallMode();
+    button.disabled = false;
+    button.textContent = mode === 'native' ? 'Install and Restart' : mode === 'android' ? 'Install' : 'Download';
+    button.onclick = () => {
+        if (mode === 'native') installNatively(update, button, status);
+        else if (mode === 'android') installOnAndroid(update, button, status);
+        else openExternal(update.url);
+    };
     document.getElementById('updateDismissBtn').onclick = () => {
         localStorage.setItem(DISMISSED_KEY, update.label);
         banner.hidden = true;

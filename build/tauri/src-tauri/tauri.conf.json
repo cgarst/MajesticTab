@@ -23,6 +23,13 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "SET_BY_TAURI_UPDATER_PUBKEY_ENV_AT_BUILD",
+      "endpoints": ["https://github.com/cgarst/MajesticTab/releases/latest/download/latest.json"],
+      "windows": { "installMode": "passive" }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
