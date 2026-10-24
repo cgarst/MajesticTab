@@ -74,6 +74,17 @@ export function getSaveProviders() {
     return getFileProviders().filter(p => !p.id.startsWith('tab-downloader') && typeof p.save === 'function');
 }
 
+const SYNC_TARGET_KEY = 'majestictab_sync_target';
+
+/** Where the user keeps their library: 'google-drive', 'folder', or null until they choose. Shared by Sync and Backup. */
+export function getPreferredStorage() {
+    try { return localStorage.getItem(SYNC_TARGET_KEY); } catch (_) { return null; }
+}
+
+export function setPreferredStorage(target) {
+    try { localStorage.setItem(SYNC_TARGET_KEY, target); } catch (_) {}
+}
+
 /**
  * Save a file/blob to a specific provider
  * @param {string} id - Provider ID

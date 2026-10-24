@@ -112,10 +112,17 @@ export async function driveFetch(url, options = {}) {
 // Auth states that return the user to the Data Management modal after connecting
 const BACKUP_AUTH_STATES = {
     restore_backup: ['restore', { autoLoadDrive: true }],
-    backup_create: ['backup', { provider: 'google-drive' }]
+    backup_create: ['backup', { provider: 'google-drive' }],
+    sync: []
 };
 
 function openBackupModalForAuthState(state, { skipIfOpen = false } = {}) {
+    if (state === 'sync') {
+        const syncModal = document.getElementById('syncModal');
+        if (skipIfOpen && syncModal && syncModal.style.display === 'flex') return;
+        import('./syncUi.js').then(({ openSyncModal }) => openSyncModal());
+        return;
+    }
     const target = BACKUP_AUTH_STATES[state];
     if (!target) return;
     const modal = document.getElementById('backupModal');
