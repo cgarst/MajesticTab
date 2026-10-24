@@ -982,6 +982,8 @@ export function applyGpTabAdaptation(pref) {
     score._adaptSummary = applyScoreAdaptation(score, pref, instrumentMode);
     syncGpAdaptUI(score);
     applyGpStringCount(getEffectiveGpStringCount(gpState.currentFile, instrumentMode));
+    // Transposing retunes the strings, so the synth needs its MIDI rebuilt to follow the new pitch
+    if (typeof api.loadMidiForScore === 'function') api.loadMidiForScore();
 }
 
 function describeAdaptation(summary, pref) {
