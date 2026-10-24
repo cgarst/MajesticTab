@@ -248,6 +248,11 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
                 newScore.stylesheet.hideEmptyStaves = true;
                 newScore.stylesheet.hideEmptyStavesInFirstSystem = true;
                 newScore.stylesheet.globalDisplayTuning = true;
+                const trackNamePolicy = globalThis.alphaTab?.model?.TrackNamePolicy;
+                if (trackNamePolicy) {
+                    newScore.stylesheet.singleTrackTrackNamePolicy = trackNamePolicy.Hidden;
+                    newScore.stylesheet.multiTrackTrackNamePolicy = trackNamePolicy.Hidden;
+                }
 
                 if (Array.isArray(newScore.tracks)) {
                     for (const track of newScore.tracks) {

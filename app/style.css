@@ -6644,3 +6644,9 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
     border-color: var(--accent-primary);
     box-shadow: 0 0 10px var(--accent-glow);
 }
+
+.gp-track-dot.is-hidden-track {
+    background: transparent;
+    box-shadow: none;
+    border: 1px solid var(--border-subtle);
+}
