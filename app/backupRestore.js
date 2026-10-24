@@ -1995,7 +1995,8 @@ function attachModalHandlers(modal, options = {}) {
     // since choosing a folder and re-granting access both need a user gesture.
     const resolveIncrementalTarget = async ({ interactive = false } = {}) => {
         if (getBackupProviderId() === 'google-drive') {
-            const { isTokenValid } = await import('./googleDrive.js');
+            const { isTokenValid, ensureFreshToken } = await import('./googleDrive.js');
+            await ensureFreshToken();
             if (!isTokenValid()) return { status: 'needs-auth' };
             const { createDriveBackend } = await import('./driveBackup.js');
             return { status: 'ready', backend: createDriveBackend() };
@@ -2329,8 +2330,9 @@ function attachModalHandlers(modal, options = {}) {
     });
 
     const loadGoogleDriveBackups = async () => {
-        const { isTokenValid, redirectToGoogleAuth, fetchDriveBackups } = await import('./googleDrive.js');
+        const { isTokenValid, ensureFreshToken, redirectToGoogleAuth, fetchDriveBackups } = await import('./googleDrive.js');
 
+        await ensureFreshToken();
         if (!isTokenValid()) {
             redirectToGoogleAuth('restore_backup');
             return;
