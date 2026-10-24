@@ -67,7 +67,7 @@ ${scope} [fill^="rgba(${hexToRgb(h.sheet).r},${hexToRgb(h.sheet).g},${hexToRgb(h
 const STAFF_LINE_ALPHA = 0.55;
 
 const NOTE_ELEMENTS = [
-    'GuitarTabFretNumber', 'GuitarTabEffects',
+    'GuitarTabFretNumber', 'GuitarTabEffects', 'Effects',
     'StandardNotationNoteHead', 'StandardNotationAccidentals', 'StandardNotationEffects'
 ];
 const BEAT_ELEMENTS = [
@@ -158,5 +158,66 @@ export function applyTabTrackColors(score, visibleTrackIndices) {
                 }
             }
         });
+    }
+}
+
+const CURVE_MAX_DISTANCE = 45;
+const isDefaultInk = (v) => v == null || v === '' || /^#000(000)?$/i.test(v);
+
+/**
+ * AlphaTab has no per-track style for ties, slurs, bends and similar curves, so color the ones it drew in the
+ * default ink after render: each belongs to the track staff it sits closest to. Must run before Page mode
+ * clones the rendered blocks. Only active with 2+ visible tracks.
+ * @param {Object} api AlphaTab API
+ * @param {HTMLElement} container element AlphaTab renders into
+ */
+export function tintTrackCurves(api, container) {
+    if (!isTabTrackColorsEnabled() || (api.tracks?.length || 0) < 2) return;
+    const systems = api.renderer?.boundsLookup?.staffSystems;
+    if (!systems?.length || !container) return;
+
+    const staves = [];
+    for (const system of systems) {
+        for (const masterBar of system.bars || []) {
+            for (const barBounds of masterBar.bars || []) {
+                const vb = barBounds.visualBounds;
+                const trackIndex = barBounds.beats?.[0]?.beat?.voice?.bar?.staff?.track?.index;
+                if (vb && trackIndex !== undefined) staves.push({ x: vb.x, y: vb.y, w: vb.w, h: vb.h, trackIndex });
+            }
+        }
+    }
+    if (!staves.length) return;
+
+    for (const block of container.querySelectorAll('div.at-surface > div')) {
+        const svg = block.querySelector('svg');
+        if (!svg) continue;
+        const offX = parseFloat(block.style.left) || 0;
+        const offY = parseFloat(block.style.top) || 0;
+
+        for (const path of svg.querySelectorAll('path')) {
+            const fill = path.getAttribute('fill');
+            const stroke = path.getAttribute('stroke');
+            const style = path.getAttribute('style') || '';
+            const strokedCurve = (fill === 'none' || style.includes('fill: none')) && /^#000(000)?$/i.test(stroke || '');
+            const filledShape = style.includes('stroke: none') && isDefaultInk(fill);
+            if (!strokedCurve && !filledShape) continue;
+
+            let box;
+            try { box = path.getBBox(); } catch { continue; }
+            const cx = box.x + box.width / 2 + offX;
+            const cy = box.y + box.height / 2 + offY;
+
+            let best = null;
+            let bestDistance = CURVE_MAX_DISTANCE;
+            for (const st of staves) {
+                if (cx < st.x - 4 || cx > st.x + st.w + 4) continue;
+                const d = cy < st.y ? st.y - cy : cy > st.y + st.h ? cy - (st.y + st.h) : 0;
+                if (d < bestDistance) { best = st; bestDistance = d; }
+            }
+            if (!best) continue;
+
+            const hex = TRACK_HUES[getTrackColorIndexFor(best.trackIndex)].sheet;
+            path.setAttribute(strokedCurve ? 'stroke' : 'fill', hex);
+        }
     }
 }
