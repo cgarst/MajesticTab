@@ -990,6 +990,10 @@ function describeAdaptation(summary, pref) {
     const fromName = formatTuningFromMidi(summary.from);
     const parts = [];
     if (fromName) parts.push(`Adapted from ${fromName}`);
+    if (pref.method === 'transpose') {
+        const toName = tuning?.shortName || 'your tuning';
+        return fromName ? `Transposed from ${fromName} to ${toName} · frets unchanged, pitch changes` : `Transposed to ${toName} · frets unchanged, pitch changes`;
+    }
     parts.push(pref.method === 'capo' ? `Capo ${summary.capo}` : 'Frets shifted to ' + (tuning?.shortName || 'your tuning'));
     if (summary.remapped) parts.push(`${summary.remapped} note${summary.remapped === 1 ? '' : 's'} moved to another string`);
     if (summary.unplayable) parts.push(`${summary.unplayable} out of range${tuning ? ' (try a lower tuning)' : ''}`);
