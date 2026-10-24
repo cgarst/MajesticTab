@@ -5441,6 +5441,45 @@ body:not(.synth-playback-started) .at-highlight {
   min-height: 26px;
 }
 
+.controls-tab-bar {
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.controls-tab-bar .hud-pill-group {
+  height: 38px;
+}
+
+.controls-panel {
+  display: none;
+}
+
+#controllerHelpModal[data-controls-tab="keyboard"] .controls-panel[data-controls-panel="keyboard"],
+#controllerHelpModal[data-controls-tab="gamepad"] .controls-panel[data-controls-panel="gamepad"] {
+  display: block;
+}
+
+#controllerHelpModal[data-controls-tab="keyboard"] .controls-gamepad-only {
+  visibility: hidden;
+}
+
+.badge-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid var(--border-subtle);
+  border-bottom-width: 2px;
+  background: var(--bg-card-solid);
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
 .badge-controller-btn {
   display: inline-flex;
   align-items: center;

@@ -91,7 +91,14 @@ class GamepadManager {
 
         // Top bar pill trigger
         const pillBtn = document.getElementById('controllerHelpBtn');
-        pillBtn?.addEventListener('click', () => this.toggleHelpModal());
+        pillBtn?.addEventListener('click', () => this.toggleHelpModal('gamepad'));
+
+        // Keyboard / Game Controller tab switcher
+        document.querySelectorAll('input[name="controlsTabRadio"]').forEach(radio => {
+            radio.addEventListener('change', () => {
+                if (radio.checked) this.setControlsTab(radio.value);
+            });
+        });
 
         // Drawer menu trigger
         const drawerBtn = document.getElementById('openControllerHelpMenuBtn');
@@ -102,7 +109,7 @@ class GamepadManager {
                 const offcanvas = window.bootstrap?.Offcanvas?.getInstance?.(fileMenu);
                 offcanvas?.hide();
             }
-            this.openHelpModal();
+            this.openHelpModal('keyboard');
         });
 
         // Check if gamepads are already available (e.g. page refreshed with controller plugged in)
@@ -147,7 +154,7 @@ class GamepadManager {
         if (!hasSeenGuide) {
             localStorage.setItem('hasSeenControllerGuide', 'true');
             setTimeout(() => {
-                this.openHelpModal();
+                this.openHelpModal('gamepad');
             }, 350);
         }
     }
@@ -388,7 +395,7 @@ class GamepadManager {
         // View (Back/Select): Long press (>400ms) opens Help Diagram; Quick tap cycles audio source
         if (buttonIndex === GamepadButton.VIEW) {
             if (duration >= 400) {
-                this.toggleHelpModal();
+                this.toggleHelpModal('gamepad');
             } else {
                 this.cycleAudioSource();
             }
@@ -922,11 +929,24 @@ class GamepadManager {
         return libPage && libPage.style.display !== 'none';
     }
 
-    openHelpModal() {
+    setControlsTab(tab) {
         if (!this.controllerModal) {
             this.controllerModal = document.getElementById('controllerHelpModal');
         }
         if (!this.controllerModal) return;
+        const value = tab === 'gamepad' ? 'gamepad' : 'keyboard';
+        this.controllerModal.dataset.controlsTab = value;
+        const radio = document.getElementById(value === 'gamepad' ? 'controlsTabGamepad' : 'controlsTabKeyboard');
+        if (radio) radio.checked = true;
+    }
+
+    openHelpModal(tab) {
+        if (!this.controllerModal) {
+            this.controllerModal = document.getElementById('controllerHelpModal');
+        }
+        if (!this.controllerModal) return;
+
+        this.setControlsTab(tab || (this.controllerModal.dataset.controlsTab) || 'keyboard');
 
         this.controllerModal.classList.add('show');
         this.controllerModal.style.display = 'flex';
@@ -944,11 +964,11 @@ class GamepadManager {
         document.body.classList.remove('modal-open');
     }
 
-    toggleHelpModal() {
+    toggleHelpModal(tab) {
         if (this.isHelpModalOpen()) {
             this.closeHelpModal();
         } else {
-            this.openHelpModal();
+            this.openHelpModal(tab);
         }
     }
 }
