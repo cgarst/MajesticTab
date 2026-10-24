@@ -596,6 +596,13 @@ pub fn run() {
             Ok(())
         });
 
+    // Folder chooser for local incremental backups. Persisted scope keeps the chosen folder
+    // writable after a restart; it must come after the fs plugin.
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    let builder = builder
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_persisted_scope::init());
+
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         jam::jam_now_ms,

@@ -31,6 +31,11 @@ tokio-tungstenite = "0.30.0"
 futures-util = "0.3.34"
 local-ip-address = "0.6.13"
 
+# Folder chooser for local incremental backups; phones have no usable folder picker
+[target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
+tauri-plugin-dialog = "2"
+tauri-plugin-persisted-scope = "2"
+
 [target.'cfg(not(target_vendor = "apple"))'.dependencies]
 mdns-sd = "0.21.6"
 

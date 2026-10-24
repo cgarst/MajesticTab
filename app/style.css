@@ -5048,6 +5048,22 @@ body:not(.synth-playback-started) .at-highlight {
 .backup-nav-tabs {
   background: var(--bg-card-solid);
   border-bottom: 1px solid var(--border-subtle);
+  /* Equal-width columns so every tab button is the same size on each row */
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.backup-nav-tabs .btn {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 575.98px) {
+  .backup-nav-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .backup-summary-box {

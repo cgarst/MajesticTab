@@ -14,6 +14,7 @@ import {
     getSaveProviders, saveToProvider, openFromProvider
 } from './fileProviders.js';
 import { showToast } from './utils/toast.js';
+import { isFolderBackupSupported } from './folderBackup.js';
 import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { installExtensionSources } from './fileAdapters.js';
@@ -1253,6 +1254,11 @@ export function closeBackupModal() {
     activeReloadState.completionListeners.clear();
 }
 
+/** One count tile of the backup/restore change summaries. */
+function changeStatHtml(n, label, cls) {
+    return `<div class="col-6 col-md-3"><div class="p-2 rounded-2 backup-stat-card"><div class="fw-bold fs-6 ${n ? cls : 'text-white-50'}">${n}</div><div class="text-white-50" style="font-size:0.72rem;">${label}</div></div></div>`;
+}
+
 /**
  * Renders the Data Management Modal content
  */
@@ -1294,7 +1300,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
       </div>
 
       <!-- Tab Switcher Navigation -->
-      <div class="backup-nav-tabs px-3 pt-2 pb-1 d-flex flex-wrap gap-2">
+      <div class="backup-nav-tabs px-3 pt-2 pb-1 gap-2">
         <button type="button" class="btn btn-sm ${activeTab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnBackup">
           <i class="bi-cloud-arrow-up me-2"></i> Create Backup
         </button>
@@ -1361,7 +1367,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               ${providers.map((p, idx) => `
                 <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center justify-content-between gap-2" style="cursor: pointer;">
                   <div class="d-flex align-items-center gap-3 min-w-0">
-                    <input class="form-check-input theme-radio m-0" type="radio" name="backupTargetProvider" value="${escapeHtml(p.id)}" ${idx === 0 ? 'checked' : ''}>
+                    <input class="form-check-input theme-radio m-0" type="radio" name="backupTargetProvider" value="${escapeHtml(p.id)}" ${(options.provider ? p.id === options.provider : idx === 0) ? 'checked' : ''}>
                     <div class="provider-mini-icon">
                       <i class="${escapeHtml(p.icon || 'bi-folder')} ${escapeHtml(p.iconColorClass || 'text-primary')} fs-5"></i>
                     </div>
@@ -1376,11 +1382,36 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             </div>
           </div>
 
-          <!-- Filename Input -->
+          <!-- Backup Format -->
           <div class="mb-3">
+            <label class="form-label small fw-semibold text-white-50 mb-2 d-block">Backup Format:</label>
+            <div class="d-flex flex-column gap-2">
+              <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center gap-3" id="backupFormatIncrementalOption" style="cursor: pointer;">
+                <input class="form-check-input theme-radio m-0" type="radio" name="backupFormat" value="incremental">
+                <div class="min-w-0">
+                  <div class="fw-bold text-white small leading-tight">Incremental snapshots</div>
+                  <div class="text-muted" style="font-size: 0.73rem;">Saves only new or changed tabs. Each backup is a restorable snapshot. Works with Google Drive or a local folder.</div>
+                  <div class="text-warning" id="backupIncrementalHint" style="font-size: 0.73rem; display: none;"></div>
+                </div>
+              </label>
+              <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center gap-3" id="backupFormatSingleOption" style="cursor: pointer;">
+                <input class="form-check-input theme-radio m-0" type="radio" name="backupFormat" value="single">
+                <div class="min-w-0">
+                  <div class="fw-bold text-white small leading-tight">Single file</div>
+                  <div class="text-muted" style="font-size: 0.73rem;">Everything in one portable .mtbackup file.</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <!-- Single file: filename -->
+          <div class="mb-3" id="backupFilenameGroup">
             <label class="form-label small fw-semibold text-white-50 mb-1" for="backupFilenameInput">Filename:</label>
             <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="backupFilenameInput" value="${escapeHtml(defaultFilename)}">
           </div>
+
+          <!-- Incremental: what this backup will do -->
+          <div class="backup-summary-box p-3 rounded-3 mb-3" id="backupIncrementalPreview" style="display:none;" aria-live="polite"></div>
 
           <!-- Backup Progress Bar -->
           <div id="backupProgressContainer" class="p-2 rounded-2 mb-2" style="display:none; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
@@ -1410,14 +1441,17 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="backup-dropzone p-4 rounded-3 text-center mb-3" id="restoreDropzone">
             <input type="file" id="restoreFileInput" accept=".mtbackup" class="d-none">
             <i class="bi-file-earmark-arrow-up text-info fs-1 mb-2 d-block"></i>
-            <div class="fw-bold text-white small mb-1">Select or drop a MajesticTab backup file (.mtbackup)</div>
-            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Single-file backup bundle exported from MajesticTab or stored in Google Drive</div>
+            <div class="fw-bold text-white small mb-1">Restore from a snapshot or backup file</div>
+            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive or a backup folder, or open a single .mtbackup file (you can also drop one here)</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreBrowseBtn">
-                <i class="bi-folder2-open text-primary"></i> <span>Browse Local File</span>
+                <i class="bi-file-earmark-zip text-primary"></i> <span>Open .mtbackup File</span>
+              </button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none align-items-center gap-1" id="restoreFolderBtn">
+                <i class="bi-hdd text-primary"></i> <span>Backup Folder</span>
               </button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
-                <i class="bi-google text-danger"></i> <span>Load from Google Drive</span>
+                <i class="bi-google text-danger"></i> <span>Google Drive Backups</span>
               </button>
             </div>
 
@@ -1425,24 +1459,29 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <div id="restoreDriveContainer" class="mt-3 pt-3 border-top border-secondary-subtle text-start" style="display: none;">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <span class="small fw-semibold text-white d-flex align-items-center gap-1">
-                  <i class="bi-google text-danger"></i> <span>Google Drive Backups:</span>
+                  <i class="bi-google text-danger" id="restoreSourceIcon"></i> <span id="restoreSourceTitle">Google Drive Backups:</span>
                 </span>
                 <div class="d-flex align-items-center gap-2">
-                  <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 d-inline-flex align-items-center gap-1" id="restoreDriveCleanupBtn" style="font-size: 0.72rem;" title="Delete files in Google Drive that no remaining backup uses">
+                  <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 d-inline-flex align-items-center gap-1" id="restoreDriveCleanupBtn" style="font-size: 0.72rem;" title="Delete files that no remaining snapshot uses">
                     <i class="bi-trash3"></i> <span>Free Up Space</span>
                   </button>
-                  <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none" id="restoreDriveCloseBtn" title="Close" aria-label="Close Google Drive backups">
+                  <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none" id="restoreDriveCloseBtn" title="Close" aria-label="Close backups">
                     <i class="bi-x-lg"></i>
                   </button>
                 </div>
               </div>
+              <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                <span class="text-white-50 text-truncate" id="restoreSourceLocation" style="font-size: 0.72rem;"></span>
+                <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" id="restoreChangeLocationBtn" style="font-size: 0.72rem;">Change</button>
+              </div>
+              <div id="restoreCleanupPanel" class="p-3 rounded-3 mb-2" style="display: none; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);" role="status"></div>
               <div id="restoreDriveLoading" class="py-3 text-center text-white-50 small" style="display: none;">
                 <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
-                <span>Searching Google Drive for .mtbackup files...</span>
+                <span>Looking for backups...</span>
               </div>
               <div id="restoreDriveEmpty" class="py-3 text-center text-white-50 small" style="display: none;">
                 <i class="bi-archive text-secondary fs-4 d-block mb-1"></i>
-                <div>No <code>.mtbackup</code> files found in your Google Drive.</div>
+                <div id="restoreDriveEmptyText">No backups found.</div>
               </div>
               <div id="restoreDriveError" class="py-2 text-danger small" style="display: none;"></div>
               <div id="restoreDriveList" class="d-flex flex-column gap-2" style="max-height: 220px; overflow-y: auto;"></div>
@@ -1495,6 +1534,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 </div>
               </div>
             </div>
+
+            <!-- Snapshot restore preview (incremental backups only) -->
+            <div class="backup-summary-box p-3 rounded-3 mb-3" id="restoreIncrementalPreview" style="display:none;" aria-live="polite"></div>
 
             <!-- Restore Mode Options -->
             <label class="form-label small fw-semibold text-white-50 mb-2 d-block">Choose Restore Method:</label>
@@ -1936,10 +1978,150 @@ function attachModalHandlers(modal, options = {}) {
     const backupExecuteBtn = modal.querySelector('#backupExecuteBtn');
     const backupStatusAlert = modal.querySelector('#backupStatusAlert');
     const backupFilenameInput = modal.querySelector('#backupFilenameInput');
+    const backupFilenameGroup = modal.querySelector('#backupFilenameGroup');
+    const backupIncrementalPreview = modal.querySelector('#backupIncrementalPreview');
+    const incrementalRadio = modal.querySelector('input[name="backupFormat"][value="incremental"]');
+    const singleRadio = modal.querySelector('input[name="backupFormat"][value="single"]');
+    const incrementalOption = modal.querySelector('#backupFormatIncrementalOption');
+    const getBackupFormat = () => modal.querySelector('input[name="backupFormat"]:checked')?.value || 'single';
+    const getBackupProviderId = () => modal.querySelector('input[name="backupTargetProvider"]:checked')?.value || 'local';
+
+    // Resolves where an incremental backup would be stored. `interactive` calls must come from a click,
+    // since choosing a folder and re-granting access both need a user gesture.
+    const resolveIncrementalTarget = async ({ interactive = false } = {}) => {
+        if (getBackupProviderId() === 'google-drive') {
+            const { isTokenValid } = await import('./googleDrive.js');
+            if (!isTokenValid()) return { status: 'needs-auth' };
+            const { createDriveBackend } = await import('./driveBackup.js');
+            return { status: 'ready', backend: createDriveBackend() };
+        }
+        const folders = await import('./folderBackup.js');
+        let handle = await folders.getSavedBackupFolder();
+        if (!handle && interactive) handle = await folders.pickBackupFolder();
+        if (!handle) return { status: 'needs-folder' };
+        const granted = interactive
+            ? await folders.ensureFolderPermission(handle)
+            : (await folders.queryFolderPermission(handle)) === 'granted';
+        if (!granted) return { status: 'needs-permission', folderName: handle.name };
+        return { status: 'ready', backend: folders.createFolderBackend(handle) };
+    };
+
+    let previewRequest = 0;
+    const renderIncrementalPreview = async () => {
+        if (!backupIncrementalPreview) return;
+        const request = ++previewRequest;
+        const isDrive = getBackupProviderId() === 'google-drive';
+        const where = isDrive ? 'Google Drive' : 'the backup folder';
+        const note = (html) => { if (request === previewRequest) backupIncrementalPreview.innerHTML = html; };
+        const actionBtn = (action, icon, label) => `<button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="${action}"><i class="${icon}"></i> <span>${label}</span></button>`;
+
+        note('<div class="small text-white-50"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Checking for existing backups...</div>');
+        try {
+            const target = await resolveIncrementalTarget();
+            if (target.status === 'needs-auth') {
+                return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Connect Google Drive to back up there and see what changed since your last backup.</div>${actionBtn('connect', 'bi-google text-danger', 'Connect Google Drive')}`);
+            }
+            if (target.status === 'needs-folder') {
+                return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Choose a folder on this device to keep your backups in.</div>${actionBtn('choose-folder', 'bi-folder2-open text-primary', 'Choose Folder')}`);
+            }
+            if (target.status === 'needs-permission') {
+                return note(`<div class="small text-white-50"><i class="bi-lock me-1"></i> MajesticTab needs permission to use "${escapeHtml(target.folderName)}" again.</div>${actionBtn('allow-folder', 'bi-unlock text-primary', 'Allow Access')} ${actionBtn('choose-folder', 'bi-folder2-open text-primary', 'Choose Another')}`);
+            }
+
+            const { previewIncrementalBackup } = await import('./incrementalBackup.js');
+            const p = await previewIncrementalBackup(target.backend);
+            const when = p.latest ? new Date(p.latest.exportedAt).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+            const head = p.latest
+                ? `<i class="bi-check-circle text-success me-1"></i> Last backup ${escapeHtml(when)} (${p.backupCount} saved)`
+                : `<i class="bi-exclamation-circle text-warning me-1"></i> No backup in ${where} yet. This will be your first.`;
+            const stat = changeStatHtml;
+            const nothing = p.latest && !p.added && !p.modified && !p.removed;
+            note(`
+                <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                    <div class="min-w-0">
+                        <div class="small fw-semibold text-white">${head}</div>
+                        <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(target.backend.location)}"><i class="bi-folder2 me-1"></i>${escapeHtml(target.backend.location)}</div>
+                    </div>
+                    <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="${isDrive ? 'change-drive-folder' : 'choose-folder'}">Change</button>
+                </div>
+                <div class="row g-2">
+                    ${stat(p.added, 'New tabs', 'text-success')}
+                    ${stat(p.modified, 'Changed', 'text-info')}
+                    ${stat(p.removed, 'Removed locally', 'text-warning')}
+                    ${stat(p.unchanged, 'Unchanged', 'text-white')}
+                </div>
+                <div class="small text-white-50 mt-2" style="font-size:0.75rem;">
+                    ${nothing ? 'No tab changes. Library and settings are still saved as a new snapshot.' : `About ${formatBytes(p.bytesToSend)} to save. Library and settings are saved with every snapshot.`}
+                    ${p.removed ? ' Removed tabs stay in older snapshots.' : ''}
+                </div>`);
+        } catch (err) {
+            note(`<div class="small text-warning"><i class="bi-exclamation-triangle me-1"></i> Could not check ${where}: ${escapeHtml(err.message)}</div>`);
+        }
+    };
+
+    backupIncrementalPreview?.addEventListener('click', async (e) => {
+        const action = e.target.closest('[data-backup-action]')?.dataset.backupAction;
+        if (!action) return;
+        try {
+            if (action === 'connect') {
+                const { redirectToGoogleAuth } = await import('./googleDrive.js');
+                redirectToGoogleAuth('backup_create');
+                return;
+            }
+            if (action === 'change-drive-folder') {
+                const { chooseDriveBackupFolder } = await import('./driveFolderPicker.js');
+                const folder = await chooseDriveBackupFolder();
+                if (!folder) return;
+                const { setDriveBackupFolder } = await import('./driveBackup.js');
+                setDriveBackupFolder(folder);
+            } else if (action === 'choose-folder') {
+                const { pickBackupFolder } = await import('./folderBackup.js');
+                if (!(await pickBackupFolder())) return;
+            } else if (action === 'allow-folder') {
+                const { getSavedBackupFolder, ensureFolderPermission } = await import('./folderBackup.js');
+                const handle = await getSavedBackupFolder();
+                if (handle) await ensureFolderPermission(handle);
+            }
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+        renderIncrementalPreview();
+    });
+
+    // Incremental works with Google Drive or (where the browser can open folders) a local folder;
+    // keep the format and destination consistent
+    const syncBackupFormat = ({ providerChanged = false, refresh = true } = {}) => {
+        const providerId = getBackupProviderId();
+        const canIncrement = providerId === 'google-drive' || (providerId === 'local' && isFolderBackupSupported());
+        if (incrementalRadio) incrementalRadio.disabled = !canIncrement;
+        const hint = modal.querySelector('#backupIncrementalHint');
+        if (hint) {
+            hint.style.display = canIncrement ? 'none' : 'block';
+            hint.textContent = providerId === 'local'
+                ? 'Local folders need the desktop app, or Chrome or Edge on a computer. Use Google Drive instead, or save a single file.'
+                : 'Choose Google Drive or Local Device to use incremental snapshots.';
+        }
+        if (incrementalOption) incrementalOption.style.opacity = canIncrement ? '' : '0.5';
+        if (providerChanged && canIncrement) incrementalRadio.checked = true;
+        if (!canIncrement || !incrementalRadio.checked) singleRadio.checked = true;
+        const incremental = getBackupFormat() === 'incremental';
+        if (backupFilenameGroup) backupFilenameGroup.style.display = incremental ? 'none' : 'block';
+        if (backupIncrementalPreview) backupIncrementalPreview.style.display = incremental ? 'block' : 'none';
+        if (backupExecuteBtn) backupExecuteBtn.innerHTML = incremental
+            ? '<i class="bi-cloud-arrow-up"></i> Back Up Changes'
+            : '<i class="bi-cloud-arrow-up"></i> Create &amp; Save Backup';
+        if (incremental && refresh) renderIncrementalPreview();
+    };
+    modal.querySelectorAll('input[name="backupTargetProvider"]').forEach(el =>
+        el.addEventListener('change', () => syncBackupFormat({ providerChanged: true })));
+    modal.querySelectorAll('input[name="backupFormat"]').forEach(el =>
+        el.addEventListener('change', () => syncBackupFormat()));
+    syncBackupFormat({ providerChanged: true });
 
     backupExecuteBtn?.addEventListener('click', async () => {
         const selectedProviderEl = modal.querySelector('input[name="backupTargetProvider"]:checked');
         const providerId = selectedProviderEl?.value || 'local';
+        const incremental = getBackupFormat() === 'incremental';
         let filename = (backupFilenameInput?.value || '').trim();
         if (!filename) filename = `MajesticTab-backup-${new Date().toISOString().split('T')[0]}.mtbackup`;
         if (filename.toLowerCase().endsWith('.json')) {
@@ -1955,10 +2137,10 @@ function attachModalHandlers(modal, options = {}) {
         const backupProgressPercent = modal.querySelector('#backupProgressPercent');
 
         backupExecuteBtn.disabled = true;
-        backupExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Creating Backup...';
+        backupExecuteBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> ${incremental ? 'Backing Up...' : 'Creating Backup...'}`;
         backupStatusAlert.style.display = 'block';
         backupStatusAlert.className = 'small mb-2 text-info';
-        backupStatusAlert.textContent = 'Packaging settings, extensions, and stored tabs...';
+        backupStatusAlert.textContent = incremental ? 'Comparing with existing backups...' : 'Packaging settings, extensions, and stored tabs...';
         if (backupProgressContainer) {
             backupProgressContainer.style.display = 'block';
             if (backupProgressBar) backupProgressBar.style.width = '0%';
@@ -1969,23 +2151,26 @@ function attachModalHandlers(modal, options = {}) {
         try {
             const providerLabel = selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId;
             let savedBytes = 0;
+            let successMessage = null;
 
-            if (providerId === 'google-drive') {
-                // Incremental layout: only tabs and SoundFonts Drive doesn't already hold are uploaded
-                const { isTokenValid, redirectToGoogleAuth } = await import('./googleDrive.js');
-                if (!isTokenValid()) {
-                    redirectToGoogleAuth();
+            if (incremental) {
+                // Only tabs and SoundFonts the destination doesn't already hold are stored
+                const target = await resolveIncrementalTarget({ interactive: true });
+                if (target.status === 'needs-auth') {
+                    const { redirectToGoogleAuth } = await import('./googleDrive.js');
+                    redirectToGoogleAuth('backup_create');
                     throw new Error('Please authorize Google Drive to save the backup.');
                 }
-                const { createIncrementalDriveBackup } = await import('./driveBackup.js');
-                const result = await createIncrementalDriveBackup({
-                    onProgress: ({ phase, current, total, bytesSent, name }) => {
+                if (target.status !== 'ready') throw new Error('Choose a backup folder and allow access to it first.');
+                const { createIncrementalBackup } = await import('./incrementalBackup.js');
+                const result = await createIncrementalBackup(target.backend, {
+                    onProgress: ({ phase, current, total, bytesSent, uploaded = 0, reused = 0, name }) => {
                         const pct = phase === 'manifest' ? 99 : total > 0 ? Math.min(98, Math.round((current / total) * 98)) : 0;
                         const text = phase === 'scan'
-                            ? 'Checking what is already in Google Drive...'
+                            ? 'Checking what is already backed up...'
                             : phase === 'manifest'
                                 ? 'Writing backup manifest...'
-                                : `Checking tab ${current} of ${total}${name ? ` (${name})` : ''}: ${formatBytes(bytesSent)} uploaded`;
+                                : `Checked ${current} of ${total}: ${uploaded} saved (${formatBytes(bytesSent)}), ${reused} already backed up${name ? ` - ${name}` : ''}`;
                         if (backupProgressBar) backupProgressBar.style.width = `${pct}%`;
                         if (backupProgressPercent) backupProgressPercent.textContent = `${pct}%`;
                         if (backupProgressText) backupProgressText.textContent = text;
@@ -1993,6 +2178,10 @@ function attachModalHandlers(modal, options = {}) {
                     }
                 });
                 savedBytes = result.bytesSent;
+                successMessage = result.uploaded
+                    ? `Snapshot saved: ${result.uploaded} new or changed file${result.uploaded === 1 ? '' : 's'} saved (${formatBytes(result.bytesSent)}), ${result.reused} unchanged skipped`
+                    : `Snapshot saved: nothing new to save, ${result.reused} file${result.reused === 1 ? '' : 's'} already backed up`;
+                if (result.pruned) successMessage += `. ${result.pruned} oldest snapshot${result.pruned === 1 ? '' : 's'} removed`;
             } else {
                 const blob = await createBackupBlob((current, total) => {
                     if (total > 0) {
@@ -2018,11 +2207,11 @@ function attachModalHandlers(modal, options = {}) {
             if (backupProgressText) backupProgressText.textContent = 'Backup completed successfully!';
 
             backupStatusAlert.className = 'small mb-2 text-success fw-semibold';
-            backupStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> Backup saved successfully! (${formatBytes(savedBytes)})`;
+            backupStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> ${escapeHtml(successMessage || `Backup saved successfully! (${formatBytes(savedBytes)})`)}`;
             backupExecuteBtn.innerHTML = '<i class="bi-check2"></i> Saved';
             setTimeout(() => {
                 backupExecuteBtn.disabled = false;
-                backupExecuteBtn.innerHTML = '<i class="bi-cloud-arrow-up"></i> Create &amp; Save Backup';
+                syncBackupFormat();
                 if (backupProgressContainer) backupProgressContainer.style.display = 'none';
             }, 3000);
         } catch (err) {
@@ -2056,27 +2245,77 @@ function attachModalHandlers(modal, options = {}) {
     const restoreDriveList = modal.querySelector('#restoreDriveList');
     const restoreDriveCleanupBtn = modal.querySelector('#restoreDriveCleanupBtn');
 
-    // Two-step like the per-backup delete: it permanently removes files from Google Drive
+    const restoreFolderBtn = modal.querySelector('#restoreFolderBtn');
+    const restoreSourceIcon = modal.querySelector('#restoreSourceIcon');
+    const restoreSourceTitle = modal.querySelector('#restoreSourceTitle');
+    const restoreSourceLocation = modal.querySelector('#restoreSourceLocation');
+    const restoreChangeLocationBtn = modal.querySelector('#restoreChangeLocationBtn');
+    const restoreDriveEmptyText = modal.querySelector('#restoreDriveEmptyText');
+    // d-inline-flex is !important, so visibility is toggled by swapping classes rather than inline display
+    if (restoreFolderBtn && isFolderBackupSupported()) {
+        restoreFolderBtn.classList.remove('d-none');
+        restoreFolderBtn.classList.add('d-inline-flex');
+    }
+
+    // Which storage the snapshot list currently shows; set by loadGoogleDriveBackups / loadFolderBackups
+    let activeSource = { type: 'drive', backend: null };
+
+    // Free Up Space: scan first, show exactly which files would go, delete only that list on confirm
+    const restoreCleanupPanel = modal.querySelector('#restoreCleanupPanel');
+    const hideCleanupPanel = () => {
+        if (restoreCleanupPanel) { restoreCleanupPanel.style.display = 'none'; restoreCleanupPanel.innerHTML = ''; }
+    };
     restoreDriveCleanupBtn?.addEventListener('click', async () => {
         const label = restoreDriveCleanupBtn.querySelector('span');
-        if (!restoreDriveCleanupBtn.dataset.armed) {
-            restoreDriveCleanupBtn.dataset.armed = '1';
-            if (label) label.textContent = 'Confirm';
-            setTimeout(() => {
-                delete restoreDriveCleanupBtn.dataset.armed;
-                if (label && !restoreDriveCleanupBtn.disabled) label.textContent = 'Free Up Space';
-            }, 4000);
-            return;
-        }
-        delete restoreDriveCleanupBtn.dataset.armed;
         restoreDriveCleanupBtn.disabled = true;
-        if (label) label.textContent = 'Cleaning...';
+        if (label) label.textContent = 'Checking...';
+        hideCleanupPanel();
         try {
-            const { cleanUpUnusedDriveBlobs } = await import('./driveBackup.js');
-            const { deleted, freedBytes } = await cleanUpUnusedDriveBlobs();
-            showToast(deleted > 0 ? `Freed ${formatBytes(freedBytes)} (${deleted} unused files)` : 'Nothing to clean up', 'success');
+            const { findUnusedBlobs, deleteBlobs } = await import('./incrementalBackup.js');
+            const backend = activeSource.backend;
+            const found = await findUnusedBlobs(backend);
+            if (!found.unused.length) {
+                showToast(found.recent
+                    ? `Nothing to clean up yet. ${found.recent} unused file${found.recent === 1 ? ' is' : 's are'} newer than 24 hours and kept for now.`
+                    : 'Nothing to clean up', 'success');
+                return;
+            }
+
+            const where = activeSource.type === 'folder' ? 'this folder' : 'Google Drive';
+            const listed = [...found.unused].sort((a, b) => (Number(b.size) || 0) - (Number(a.size) || 0));
+            const rows = listed.slice(0, 8).map(f => `
+                <div class="d-flex justify-content-between gap-2" style="font-size:0.72rem;">
+                    <code class="text-white-50 text-truncate" title="${escapeHtml(f.name)}">${escapeHtml(f.name.replace(/\.bin$/, '').slice(0, 12))}…</code>
+                    <span class="text-white-50 flex-shrink-0">${formatBytes(Number(f.size) || 0)} · ${escapeHtml(new Date(f.modifiedTime).toLocaleDateString())}</span>
+                </div>`).join('');
+            const more = listed.length > 8 ? `<div class="text-white-50" style="font-size:0.72rem;">and ${listed.length - 8} more</div>` : '';
+            restoreCleanupPanel.style.display = 'block';
+            restoreCleanupPanel.innerHTML = `
+                <div class="small fw-semibold text-white mb-1"><i class="bi-trash3 text-warning me-1"></i> Permanently delete ${listed.length} file${listed.length === 1 ? '' : 's'} (${formatBytes(found.freedBytes)}) from ${where}?</div>
+                <div class="text-white-50 mb-2" style="font-size:0.75rem;">These saved tabs and SoundFonts are not used by any of your ${found.snapshotCount} remaining snapshot${found.snapshotCount === 1 ? '' : 's'}, so no snapshot can restore them. They are left over from deleted or pruned snapshots. This cannot be undone.${found.recent ? ` ${found.recent} newer unused file${found.recent === 1 ? ' is' : 's are'} kept for now.` : ''}</div>
+                <div class="d-flex flex-column gap-1 mb-3">${rows}${more}</div>
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-sm btn-theme-outline px-3" data-cleanup="cancel">Cancel</button>
+                    <button type="button" class="btn btn-sm btn-theme-danger px-3" data-cleanup="confirm"><i class="bi-trash3 me-1"></i> Delete ${listed.length} File${listed.length === 1 ? '' : 's'}</button>
+                </div>`;
+
+            restoreCleanupPanel.onclick = async (e) => {
+                const action = e.target.closest('[data-cleanup]')?.dataset.cleanup;
+                if (action === 'cancel') return hideCleanupPanel();
+                if (action !== 'confirm') return;
+                restoreCleanupPanel.querySelectorAll('button').forEach(b => { b.disabled = true; });
+                try {
+                    await deleteBlobs(backend, found.unused);
+                    showToast(`Freed ${formatBytes(found.freedBytes)} (${found.unused.length} unused files)`, 'success');
+                    hideCleanupPanel();
+                } catch (err) {
+                    console.error('Cleanup failed:', err);
+                    showToast(`Cleanup failed: ${err.message}`, 'error');
+                    hideCleanupPanel();
+                }
+            };
         } catch (err) {
-            console.error('Drive cleanup failed:', err);
+            console.error('Cleanup scan failed:', err);
             showToast(`Cleanup failed: ${err.message}`, 'error');
         } finally {
             restoreDriveCleanupBtn.disabled = false;
@@ -2100,10 +2339,18 @@ function attachModalHandlers(modal, options = {}) {
         if (restoreDriveBtn) restoreDriveBtn.disabled = true;
 
         try {
-            const { listIncrementalDriveBackups } = await import('./driveBackup.js');
+            const { createDriveBackend } = await import('./driveBackup.js');
+            const { listIncrementalBackups } = await import('./incrementalBackup.js');
+            const backend = createDriveBackend();
+            activeSource = { type: 'drive', backend };
+            hideCleanupPanel();
+            if (restoreSourceIcon) restoreSourceIcon.className = 'bi-google text-danger';
+            if (restoreSourceTitle) restoreSourceTitle.textContent = 'Google Drive Backups:';
+            if (restoreSourceLocation) restoreSourceLocation.textContent = backend.location;
+            if (restoreDriveEmptyText) restoreDriveEmptyText.textContent = 'No backups found in this Google Drive folder.';
             const [legacyBackups, incrementalBackups] = await Promise.all([
                 fetchDriveBackups(),
-                listIncrementalDriveBackups().catch(err => {
+                listIncrementalBackups(backend).catch(err => {
                     console.warn('Could not list incremental Drive backups:', err);
                     return [];
                 })
@@ -2132,6 +2379,68 @@ function attachModalHandlers(modal, options = {}) {
         }
     };
 
+    // Lists snapshots in a local backup folder. Must start from a click (folder access needs a gesture).
+    const loadFolderBackups = async ({ pickNew = false } = {}) => {
+        const folders = await import('./folderBackup.js');
+        try {
+            let handle = pickNew ? null : await folders.getSavedBackupFolder();
+            if (!handle) handle = await folders.pickBackupFolder();
+            if (!handle) return;
+            if (!(await folders.ensureFolderPermission(handle))) {
+                showToast('Access to the backup folder was not granted.', 'warning');
+                return;
+            }
+
+            const backend = folders.createFolderBackend(handle);
+            activeSource = { type: 'folder', backend };
+            hideCleanupPanel();
+            if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'block';
+            if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
+            if (restoreDriveError) restoreDriveError.style.display = 'none';
+            if (restoreDriveList) restoreDriveList.innerHTML = '';
+            if (restoreSourceIcon) restoreSourceIcon.className = 'bi-hdd text-primary';
+            if (restoreSourceTitle) restoreSourceTitle.textContent = 'Backup Folder:';
+            if (restoreSourceLocation) restoreSourceLocation.textContent = backend.location;
+            if (restoreDriveEmptyText) restoreDriveEmptyText.textContent = 'No snapshots found in this folder.';
+
+            const { listIncrementalBackups } = await import('./incrementalBackup.js');
+            const backups = (await listIncrementalBackups(backend))
+                .map(b => ({ ...b, incremental: true, modifiedTime: b.exportedAt }));
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
+            if (!backups.length) {
+                if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'block';
+                return;
+            }
+            renderDriveBackupsList(backups);
+        } catch (err) {
+            console.error('Failed to read backup folder:', err);
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
+            if (restoreDriveError) {
+                restoreDriveError.style.display = 'block';
+                restoreDriveError.textContent = `Could not read the backup folder: ${err.message}`;
+            }
+        }
+    };
+
+    restoreFolderBtn?.addEventListener('click', () => loadFolderBackups());
+    restoreChangeLocationBtn?.addEventListener('click', async () => {
+        if (activeSource.type === 'folder') {
+            loadFolderBackups({ pickNew: true });
+            return;
+        }
+        try {
+            const { chooseDriveBackupFolder } = await import('./driveFolderPicker.js');
+            const folder = await chooseDriveBackupFolder();
+            if (!folder) return;
+            const { setDriveBackupFolder } = await import('./driveBackup.js');
+            setDriveBackupFolder(folder);
+            loadGoogleDriveBackups();
+        } catch (err) {
+            showToast(err.message, 'error');
+        }
+    });
+
     const renderDriveBackupsList = (backups) => {
         if (!restoreDriveList) return;
         restoreDriveList.innerHTML = '';
@@ -2144,6 +2453,13 @@ function attachModalHandlers(modal, options = {}) {
                 })
                 : 'Unknown date';
             const sizeStr = formatBytes(b.size);
+            const title = b.incremental ? `Snapshot · ${dateStr}` : b.name;
+            const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+            const subtitle = b.incremental
+                ? (b.counts
+                    ? [plural(b.counts.tabs, 'tab'), b.counts.soundFonts ? plural(b.counts.soundFonts, 'SoundFont') : null].filter(Boolean).join(' • ')
+                    : 'Incremental snapshot')
+                : `${dateStr} • ${sizeStr}`;
 
             const item = document.createElement('div');
             item.className = 'drive-backup-item d-flex align-items-center justify-content-between p-2 rounded-2';
@@ -2154,47 +2470,16 @@ function attachModalHandlers(modal, options = {}) {
                 <div class="d-flex align-items-center gap-2 min-w-0 me-2 text-start">
                     <i class="bi-archive-fill text-info flex-shrink-0 fs-5"></i>
                     <div class="text-truncate">
-                        <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</div>
-                        <div class="text-white-50" style="font-size: 0.7rem;">${dateStr} • ${b.incremental ? 'Incremental' : sizeStr}</div>
+                        <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(b.name)}">${escapeHtml(title)}</div>
+                        <div class="text-white-50" style="font-size: 0.7rem;">${escapeHtml(subtitle)}</div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
-                    ${b.incremental ? `<button type="button" class="btn btn-sm btn-theme-danger px-2 py-1 d-inline-flex align-items-center gap-1 delete-drive-backup-btn" style="font-size: 0.72rem;" title="Delete this backup" aria-label="Delete this backup"><i class="bi-trash3"></i></button>` : ''}
                     <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 d-inline-flex align-items-center gap-1 select-drive-backup-btn" style="font-size: 0.72rem;">
                         <i class="bi-download"></i> <span>Select</span>
                     </button>
                 </div>
             `;
-
-            // Two-step delete: the first click arms the button, a second within 4s deletes
-            const deleteBtn = item.querySelector('.delete-drive-backup-btn');
-            deleteBtn?.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                if (!deleteBtn.dataset.armed) {
-                    deleteBtn.dataset.armed = '1';
-                    deleteBtn.innerHTML = '<i class="bi-trash3"></i> <span>Confirm</span>';
-                    setTimeout(() => {
-                        delete deleteBtn.dataset.armed;
-                        if (deleteBtn.isConnected) deleteBtn.innerHTML = '<i class="bi-trash3"></i>';
-                    }, 4000);
-                    return;
-                }
-                deleteBtn.disabled = true;
-                try {
-                    const { deleteIncrementalDriveBackup } = await import('./driveBackup.js');
-                    await deleteIncrementalDriveBackup(b);
-                    item.remove();
-                    if (!restoreDriveList.children.length && restoreDriveEmpty) restoreDriveEmpty.style.display = 'block';
-                } catch (err) {
-                    deleteBtn.disabled = false;
-                    delete deleteBtn.dataset.armed;
-                    deleteBtn.innerHTML = '<i class="bi-trash3"></i>';
-                    if (restoreDriveError) {
-                        restoreDriveError.style.display = 'block';
-                        restoreDriveError.textContent = `Could not delete backup: ${err.message}`;
-                    }
-                }
-            });
 
             const onSelect = async (e) => {
                 e.stopPropagation();
@@ -2225,12 +2510,12 @@ function attachModalHandlers(modal, options = {}) {
                 try {
                     if (b.incremental) {
                         // Only the small manifest is fetched now; tab data downloads during restore
-                        const { loadIncrementalDriveBundle } = await import('./driveBackup.js');
-                        const bundle = await loadIncrementalDriveBundle(b);
-                        bundle.name = `${b.name.replace(/\.json$/, '')}.mtbackup`;
+                        const { loadIncrementalBundle } = await import('./incrementalBackup.js');
+                        const bundle = await loadIncrementalBundle(activeSource.backend, b);
+                        bundle.name = `Snapshot · ${dateStr}`;
                         bundle.size = bundle.summary?.totalTabsSize || 0;
                         if (dlProgressContainer) dlProgressContainer.style.display = 'none';
-                        await handleSelectedBackupFile(bundle, 'Google Drive');
+                        await handleSelectedBackupFile(bundle, activeSource.type === 'folder' ? 'Backup Folder' : 'Google Drive');
                         return;
                     }
                     const { downloadDriveBackupFile } = await import('./googleDrive.js');
@@ -2299,6 +2584,10 @@ function attachModalHandlers(modal, options = {}) {
             if (currentParsedBackup) return;
             loadGoogleDriveBackups();
         }
+        // Signed in while the backup tab is open (or via another window): replace the "Connect" prompt
+        if (getBackupProviderId() === 'google-drive' && getBackupFormat() === 'incremental') {
+            renderIncrementalPreview();
+        }
     };
     window.addEventListener('googleAuthSuccess', activeGoogleAuthHandler);
 
@@ -2329,10 +2618,47 @@ function attachModalHandlers(modal, options = {}) {
         if (file) handleSelectedBackupFile(file, 'Local Device');
     });
 
+    // For snapshot restores, show what this device would gain or lose; follows the Merge / Wipe choice
+    const restoreIncrementalPreview = modal.querySelector('#restoreIncrementalPreview');
+    let restorePreviewData = null;
+    const renderRestorePreview = async () => {
+        if (!restoreIncrementalPreview) return;
+        const bundle = currentBackupFile;
+        const isSnapshot = Array.isArray(bundle?.files) && bundle.files.some(f => f.blob);
+        restoreIncrementalPreview.style.display = isSnapshot ? 'block' : 'none';
+        if (!isSnapshot) { restorePreviewData = null; return; }
+
+        try {
+            if (!restorePreviewData || restorePreviewData.bundle !== bundle) {
+                restoreIncrementalPreview.innerHTML = '<div class="small text-white-50"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Comparing with this device...</div>';
+                const { previewIncrementalRestore } = await import('./incrementalBackup.js');
+                restorePreviewData = { bundle, summary: await previewIncrementalRestore(bundle) };
+                if (currentBackupFile !== bundle) return;
+            }
+            const p = restorePreviewData.summary;
+            const wipe = modal.querySelector('input[name="restoreModeRadio"]:checked')?.value === 'wipe';
+            const stats = wipe
+                ? [changeStatHtml(p.total, 'Tabs restored', 'text-success'), changeStatHtml(p.localOnly, 'Erased from device', 'text-warning')]
+                : [changeStatHtml(p.missing, 'Tabs to restore', 'text-success'), changeStatHtml(p.same + p.differs, 'Already on device', 'text-white'), changeStatHtml(p.localOnly, 'Only on device (kept)', 'text-info')];
+            const bytes = wipe ? p.totalBytes : p.missingBytes;
+            const note = wipe
+                ? `About ${formatBytes(bytes)} to restore. Everything currently stored on this device is replaced.`
+                : p.missing
+                    ? `About ${formatBytes(bytes)} to download. Tabs already on this device are left as they are${p.differs ? ` (${p.differs} differ from the snapshot)` : ''}.`
+                    : 'Nothing to download. Library and settings are still merged from the snapshot.';
+            restoreIncrementalPreview.innerHTML = `
+                <div class="small fw-semibold text-white mb-2"><i class="bi-clock-history text-info me-1"></i> What restoring this snapshot would do</div>
+                <div class="row g-2">${stats.join('')}</div>
+                <div class="small text-white-50 mt-2" style="font-size:0.75rem;">${note}</div>`;
+        } catch (err) {
+            restoreIncrementalPreview.innerHTML = `<div class="small text-warning"><i class="bi-exclamation-triangle me-1"></i> Could not compare with this device: ${escapeHtml(err.message)}</div>`;
+        }
+    };
+
     const handleSelectedBackupFile = async (file, source = 'Local Device') => {
         try {
             const fileName = file?.name || 'backup.mtbackup';
-            if (!fileName.toLowerCase().endsWith('.mtbackup')) {
+            if (file?.format !== 'majestictab_backup' && !fileName.toLowerCase().endsWith('.mtbackup')) {
                 restoreStatusAlert.style.display = 'block';
                 restoreStatusAlert.className = 'small mb-2 text-danger fw-semibold text-center';
                 restoreStatusAlert.textContent = 'Only .mtbackup backup files are supported.';
@@ -2374,7 +2700,7 @@ function attachModalHandlers(modal, options = {}) {
             // Populate Inspection Card
             const filenameLabel = modal.querySelector('#restoreFilenameLabel');
             if (filenameLabel) {
-                filenameLabel.textContent = `${source === 'Google Drive' ? 'Drive: ' : ''}${fileName}`;
+                filenameLabel.textContent = `${source !== 'Local Device' ? `${source}: ` : ''}${fileName}`;
             }
             const expDateEl = modal.querySelector('#restoreExportedDate');
             if (expDateEl) expDateEl.textContent = inspection.exportedAt || 'Unknown date';
@@ -2384,6 +2710,8 @@ function attachModalHandlers(modal, options = {}) {
             if (songsCountEl) songsCountEl.textContent = inspection.songsCount ?? 0;
             const extCountEl = modal.querySelector('#restoreExtCount');
             if (extCountEl) extCountEl.textContent = inspection.extensionsCount ?? 0;
+
+            renderRestorePreview();
 
             requestAnimationFrame(() => {
                 restoreDropzone.style.display = 'none';
@@ -2424,6 +2752,7 @@ function attachModalHandlers(modal, options = {}) {
                 wipeConfirmContainer.style.display = 'none';
                 wipeConfirmCheckbox.checked = false;
             }
+            renderRestorePreview();
         });
     });
 
