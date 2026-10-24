@@ -3,7 +3,8 @@
 import { reloadSynthSoundFonts } from './gpPlayer.js';
 import {
     listOrderedSoundFonts, addSoundFont, deleteSoundFont,
-    getSelectedSoundFontIds, setSelectedSoundFontIds, setSoundFontOrder, getSoundFontStrict, setSoundFontStrict
+    getSelectedSoundFontIds, setSelectedSoundFontIds, setSoundFontOrder, getSoundFontStrict, setSoundFontStrict,
+    getForcedPreset, setForcedPreset, listSoundFontPresets
 } from '../soundFontStore.js';
 import { showToast } from '../utils/toast.js';
 
@@ -92,9 +93,54 @@ export function initSoundFontPanel() {
         }, 600);
     };
 
+    const forceFont = document.getElementById('soundFontForceFont');
+    const forcePreset = document.getElementById('soundFontForcePreset');
+
+    const option = (value, text) => Object.assign(document.createElement('option'), { value, textContent: text });
+
+    async function renderForce(fonts) {
+        if (!forceFont || !forcePreset) return;
+        const forced = getForcedPreset();
+        const enabled = new Set(getSelectedSoundFontIds());
+        const custom = fonts.filter(f => enabled.has(f.id));
+        forceFont.replaceChildren(option('', 'Off (use each track\'s instrument)'), ...custom.map(f => option(f.id, f.name)));
+        const active = forced && custom.some(f => f.id === forced.id) ? forced : null;
+        forceFont.value = active ? active.id : '';
+        forcePreset.hidden = !active;
+        if (!active) return;
+        const presets = await listSoundFontPresets(active.id);
+        forcePreset.replaceChildren(...presets.map(p => option(String(p.program), `${p.program}: ${p.name || 'Preset'}`)));
+        forcePreset.value = String(active.program);
+    }
+
+    forceFont?.addEventListener('change', async () => {
+        const id = forceFont.value;
+        if (!id) {
+            setForcedPreset(null);
+        } else {
+            const presets = await listSoundFontPresets(id);
+            if (presets.length === 0) {
+                showToast('That SoundFont has no melodic presets.', 'info');
+                setForcedPreset(null);
+            } else {
+                setForcedPreset({ id, program: presets[0].program });
+            }
+        }
+        await render();
+        scheduleReload();
+    });
+
+    forcePreset?.addEventListener('change', () => {
+        const forced = getForcedPreset();
+        if (!forced) return;
+        setForcedPreset({ id: forced.id, program: Number(forcePreset.value) });
+        scheduleReload();
+    });
+
     async function render() {
         const selected = new Set(getSelectedSoundFontIds());
         const fonts = await listOrderedSoundFonts();
+        renderForce(fonts).catch(err => console.warn('[SoundFont] Could not list presets:', err));
         list.replaceChildren(...fonts.map((f, i) => buildRow({
             id: f.id,
             name: f.name,
@@ -126,7 +172,10 @@ export function initSoundFontPanel() {
             showToast('Keep at least one SoundFont enabled.', 'info');
             return;
         }
+        // Disabling the forced font drops the forced preset
+        if (!input.checked && getForcedPreset()?.id === id) setForcedPreset(null);
         setSelectedSoundFontIds([...next]);
+        render();
         scheduleReload();
     });
 
@@ -164,6 +213,7 @@ export function initSoundFontPanel() {
             return;
         }
         const wasEnabled = getSelectedSoundFontIds().includes(row.dataset.id);
+        if (getForcedPreset()?.id === row.dataset.id) setForcedPreset(null);
         await deleteSoundFont(row.dataset.id);
         await render();
         if (wasEnabled) scheduleReload();

@@ -210,7 +210,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                     if (token !== fontToken) return;
                 }
                 if (token !== fontToken) return;
-                setSessionSoundFonts({ fonts, strict: desc.strict });
+                setSessionSoundFonts({ fonts, strict: desc.strict, forced: desc.forced });
                 appliedFontSig = sig;
                 await reloadSynthSoundFonts();
             } catch (e) {
