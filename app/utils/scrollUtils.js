@@ -4,6 +4,38 @@ import { updateScrollIndicator } from './renderUtils.js';
 
 const ROW_TOP_PADDING = 8; // Padding above system row so notation/chords above bar are cleanly in view
 
+// Per-container history of Next jumps so Back retraces them exactly.
+const scrollHistory = new WeakMap();
+const HISTORY_TOLERANCE = 20;
+
+function smoothScrollTo(container, top) {
+    container.scrollTo({ top, behavior: 'smooth' });
+}
+
+function recordNext(container, from, to) {
+    if (Math.abs(to - from) < 1) return;
+    const stack = scrollHistory.get(container) || [];
+    stack.push({ from, to });
+    if (stack.length > 200) stack.shift();
+    scrollHistory.set(container, stack);
+}
+
+/** Pop the last Next jump if we're still at (or animating toward) its target. */
+function popHistory(container) {
+    const stack = scrollHistory.get(container);
+    if (!stack || !stack.length) return null;
+    const { from, to } = stack[stack.length - 1];
+    const cur = container.scrollTop;
+    const lo = Math.min(from, to) - HISTORY_TOLERANCE;
+    const hi = Math.max(from, to) + HISTORY_TOLERANCE;
+    if (cur < lo || cur > hi) {
+        scrollHistory.delete(container); // user scrolled elsewhere; history is stale
+        return null;
+    }
+    stack.pop();
+    return from;
+}
+
 /**
  * Navigate page container up/down, cleanly snapping to system/row boundaries
  * so cut-off bars are brought into full view at the top of the viewport.
@@ -41,11 +73,19 @@ export function scrollByViewport(container, isNext = true) {
     // Fallback if no structured system blocks found
     if (!blocks.length) {
         const scrollAmount = Math.max(100, viewHeight * 0.8);
-        container.scrollBy({
-            top: isNext ? scrollAmount : -scrollAmount,
-            behavior: 'smooth'
-        });
+        const maxScroll = Math.max(0, container.scrollHeight - viewHeight);
+        const target = Math.min(maxScroll, Math.max(0, currentScrollTop + (isNext ? scrollAmount : -scrollAmount)));
+        if (isNext) recordNext(container, currentScrollTop, target);
+        smoothScrollTo(container, target);
         return;
+    }
+
+    if (!isNext) {
+        const restoreTop = popHistory(container);
+        if (restoreTop !== null) {
+            smoothScrollTo(container, restoreTop);
+            return;
+        }
     }
 
     if (isNext) {
@@ -77,10 +117,9 @@ export function scrollByViewport(container, isNext = true) {
         }
 
         const maxScroll = Math.max(0, container.scrollHeight - viewHeight);
-        container.scrollTo({
-            top: Math.min(maxScroll, newScrollTop),
-            behavior: 'smooth'
-        });
+        const target = Math.min(maxScroll, newScrollTop);
+        recordNext(container, currentScrollTop, target);
+        smoothScrollTo(container, target);
     } else {
         // Scrolling Up (Previous)
         const topCutOffThreshold = currentScrollTop + 12;
