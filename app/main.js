@@ -1257,7 +1257,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         }
     } else if (!hasNativeFile) {
         const hash = window.location.hash || '';
-        const isAuthRedirect = hash.includes('access_token=') || hash.includes('state=restore_backup') || hash.includes('state=open_');
+        const isAuthRedirect = hash.includes('access_token=') || hash.includes('state=restore_backup') || hash.includes('state=backup_create') || hash.includes('state=open_');
         const driveModalEl = document.getElementById('driveModal');
         const driveModalOpen = driveModalEl && driveModalEl.style.display === 'flex';
         const route = getRouteFromUrl();

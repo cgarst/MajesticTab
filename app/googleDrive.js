@@ -109,9 +109,18 @@ export async function driveFetch(url, options = {}) {
     return res;
 }
 
-/** Folder id backups are written under: the chosen tabs directory, else Drive root. */
-export function getBackupParentFolderId() {
-    return tabsDirectory ? tabsDirectory.id : 'root';
+// Auth states that return the user to the Data Management modal after connecting
+const BACKUP_AUTH_STATES = {
+    restore_backup: ['restore', { autoLoadDrive: true }],
+    backup_create: ['backup', { provider: 'google-drive' }]
+};
+
+function openBackupModalForAuthState(state, { skipIfOpen = false } = {}) {
+    const target = BACKUP_AUTH_STATES[state];
+    if (!target) return;
+    const modal = document.getElementById('backupModal');
+    if (skipIfOpen && modal && modal.style.display === 'flex') return;
+    import('./backupRestore.js').then(({ openBackupModal }) => openBackupModal(...target));
 }
 
 export function clearStoredToken() {
@@ -230,14 +239,8 @@ async function startMobileGoogleAuth(targetState = 'open_drive_browser') {
         window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
         if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
             openDriveModal(restorePendingDriveOptions() || {});
-        } else if (targetState === 'restore_backup') {
-            const modal = document.getElementById('backupModal');
-            const isAlreadyOpen = modal && modal.style.display === 'flex';
-            if (!isAlreadyOpen) {
-                import('./backupRestore.js').then(({ openBackupModal }) => {
-                    openBackupModal('restore', { autoLoadDrive: true });
-                });
-            }
+        } else if (BACKUP_AUTH_STATES[targetState]) {
+            openBackupModalForAuthState(targetState, { skipIfOpen: true });
         }
     } catch (error) {
         try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
@@ -304,14 +307,8 @@ async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
                 window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
                 if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
                     openDriveModal(restorePendingDriveOptions() || {});
-                } else if (targetState === 'restore_backup') {
-                    const modal = document.getElementById('backupModal');
-                    const isAlreadyOpen = modal && modal.style.display === 'flex';
-                    if (!isAlreadyOpen) {
-                        import('./backupRestore.js').then(({ openBackupModal }) => {
-                            openBackupModal('restore', { autoLoadDrive: true });
-                        });
-                    }
+                } else if (BACKUP_AUTH_STATES[targetState]) {
+                    openBackupModalForAuthState(targetState, { skipIfOpen: true });
                 }
             } catch (error) {
                 try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
@@ -819,10 +816,8 @@ function handleAuthRedirect() {
 
         if (state === 'open_drive_browser' || state === 'open_picker') {
             openDriveModal();
-        } else if (state === 'restore_backup') {
-            import('./backupRestore.js').then(({ openBackupModal }) => {
-                openBackupModal('restore', { autoLoadDrive: true });
-            });
+        } else if (BACKUP_AUTH_STATES[state]) {
+            openBackupModalForAuthState(state);
         }
         return true;
     }
@@ -911,14 +906,8 @@ export function setupDrivePicker() {
                     const { state, accessToken, expiresIn } = event.data;
                     storeGoogleAuth(accessToken, expiresIn);
                     window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state } }));
-                    if (state === 'restore_backup') {
-                        const modal = document.getElementById('backupModal');
-                        const isAlreadyOpen = modal && modal.style.display === 'flex';
-                        if (!isAlreadyOpen) {
-                            import('./backupRestore.js').then(({ openBackupModal }) => {
-                                openBackupModal('restore', { autoLoadDrive: true });
-                            });
-                        }
+                    if (BACKUP_AUTH_STATES[state]) {
+                        openBackupModalForAuthState(state, { skipIfOpen: true });
                     }
                 }
             };
@@ -932,14 +921,8 @@ export function setupDrivePicker() {
                 if (pending) {
                     localStorage.removeItem('gdrive_pending_state');
                     window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: pending } }));
-                    if (pending === 'restore_backup') {
-                        const modal = document.getElementById('backupModal');
-                        const isAlreadyOpen = modal && modal.style.display === 'flex';
-                        if (!isAlreadyOpen) {
-                            import('./backupRestore.js').then(({ openBackupModal }) => {
-                                openBackupModal('restore', { autoLoadDrive: true });
-                            });
-                        }
+                    if (BACKUP_AUTH_STATES[pending]) {
+                        openBackupModalForAuthState(pending, { skipIfOpen: true });
                     }
                 } else {
                     window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: 'synced' } }));
@@ -954,14 +937,8 @@ export function setupDrivePicker() {
             if (pending) {
                 localStorage.removeItem('gdrive_pending_state');
                 window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: pending } }));
-                if (pending === 'restore_backup') {
-                    const modal = document.getElementById('backupModal');
-                    const isAlreadyOpen = modal && modal.style.display === 'flex';
-                    if (!isAlreadyOpen) {
-                        import('./backupRestore.js').then(({ openBackupModal }) => {
-                            openBackupModal('restore', { autoLoadDrive: true });
-                        });
-                    }
+                if (BACKUP_AUTH_STATES[pending]) {
+                    openBackupModalForAuthState(pending, { skipIfOpen: true });
                 }
             }
         }
