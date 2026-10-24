@@ -3,6 +3,7 @@
 
 import { getCurrentFile } from './main.js';
 import { getCollections, saveSongToLibrary, mapOpenFileToSong, DEFAULT_COLLECTION_ID } from './libraryStore.js';
+import { searchMusicBrainz, getPlaceholderCoverSvg } from './musicbrainz.js';
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { showToast } from './utils/toast.js';
 
@@ -59,17 +60,24 @@ async function openSaveToLibraryModal(file) {
             <input type="radio" class="btn-check" name="saveToLibraryKind" id="saveToLibraryKindCustom" value="custom" autocomplete="off">
             <label class="btn btn-sm" for="saveToLibraryKindCustom" style="flex: 1;"><i class="bi-journal-text me-1"></i>Custom Song</label>
           </div>
-          <div>
-            <label class="form-label small text-white-50 mb-1 fw-semibold" for="saveToLibraryTitle">Title</label>
-            <input type="text" class="form-control form-control-sm" id="saveToLibraryTitle" value="${escapeHtml(meta?.title || baseName)}" autocomplete="off" required>
+          <div id="saveToLibrarySongFields" class="d-flex flex-column gap-2">
+            <label class="form-label small text-white-50 mb-0 fw-semibold" for="saveToLibrarySearch">Find the song on MusicBrainz</label>
+            <input type="text" class="form-control form-control-sm" id="saveToLibrarySearch" value="${escapeHtml([meta?.title || baseName, meta?.artist].filter(Boolean).join(' '))}" placeholder="Song title and artist" autocomplete="off">
+            <div id="saveToLibraryResults" class="d-flex flex-column gap-1" style="max-height: 240px; overflow-y: auto;"></div>
           </div>
-          <div>
-            <label class="form-label small text-white-50 mb-1 fw-semibold" for="saveToLibraryArtist">Artist</label>
-            <input type="text" class="form-control form-control-sm" id="saveToLibraryArtist" value="${escapeHtml(meta?.artist || '')}" placeholder="Custom Music" autocomplete="off">
-          </div>
-          <div>
-            <label class="form-label small text-white-50 mb-1 fw-semibold" for="saveToLibraryAlbum" id="saveToLibraryAlbumLabel">Album</label>
-            <input type="text" class="form-control form-control-sm" id="saveToLibraryAlbum" value="${escapeHtml(meta?.album || '')}" autocomplete="off">
+          <div id="saveToLibraryCustomFields" class="d-flex flex-column gap-3" style="display: none !important;">
+            <div>
+              <label class="form-label small text-white-50 mb-1 fw-semibold" for="saveToLibraryTitle">Title</label>
+              <input type="text" class="form-control form-control-sm" id="saveToLibraryTitle" value="${escapeHtml(meta?.title || baseName)}" autocomplete="off">
+            </div>
+            <div>
+              <label class="form-label small text-white-50 mb-1 fw-semibold" for="saveToLibraryArtist">Artist</label>
+              <input type="text" class="form-control form-control-sm" id="saveToLibraryArtist" value="${escapeHtml(meta?.artist || '')}" placeholder="Custom Music" autocomplete="off">
+            </div>
+            <div>
+              <label class="form-label small text-white-50 mb-1 fw-semibold" for="saveToLibraryAlbum">Folder (Optional)</label>
+              <input type="text" class="form-control form-control-sm" id="saveToLibraryAlbum" value="${escapeHtml(meta?.album || '')}" autocomplete="off">
+            </div>
           </div>
           ${collections.length > 1 ? `
           <div>
@@ -88,8 +96,14 @@ async function openSaveToLibraryModal(file) {
     `;
 
     const form = modal.querySelector('#saveToLibraryForm');
-    const albumLabel = modal.querySelector('#saveToLibraryAlbumLabel');
     const albumInput = modal.querySelector('#saveToLibraryAlbum');
+    const songFields = modal.querySelector('#saveToLibrarySongFields');
+    const customFields = modal.querySelector('#saveToLibraryCustomFields');
+    const searchInput = modal.querySelector('#saveToLibrarySearch');
+    const resultsEl = modal.querySelector('#saveToLibraryResults');
+    let selected = null;
+    let searchSeq = 0;
+    let searchTimer = null;
     const confirmBtn = modal.querySelector('#saveToLibraryConfirmBtn');
 
     const handleKeyDown = (e) => { if (e.key === 'Escape') closeModal(); };
@@ -103,25 +117,87 @@ async function openSaveToLibraryModal(file) {
     modal.querySelector('#saveToLibraryCancelBtn').addEventListener('click', closeModal);
     modal.onclick = (e) => { if (e.target === modal) closeModal(); };
 
-    form.querySelectorAll('input[name="saveToLibraryKind"]').forEach(radio => {
-        radio.addEventListener('change', () => {
-            const isCustom = form.querySelector('input[name="saveToLibraryKind"]:checked').value === 'custom';
-            albumLabel.textContent = isCustom ? 'Folder (Optional)' : 'Album';
+    const isCustomMode = () => form.querySelector('input[name="saveToLibraryKind"]:checked').value === 'custom';
+
+    const syncMode = () => {
+        const custom = isCustomMode();
+        songFields.style.setProperty('display', custom ? 'none' : 'flex', 'important');
+        customFields.style.setProperty('display', custom ? 'flex' : 'none', 'important');
+        confirmBtn.disabled = !custom && !selected;
+    };
+
+    const renderResults = (results) => {
+        if (!results.length) {
+            resultsEl.innerHTML = '<div class="small text-muted text-center py-3">No matches. Try a different search, or save as a Custom Song.</div>';
+            return;
+        }
+        resultsEl.innerHTML = results.map((r, i) => `
+          <button type="button" class="btn btn-theme-outline text-start d-flex align-items-center gap-2 p-2 save-to-library-result ${selected?.id === r.id ? 'active' : ''}" data-index="${i}">
+            <img src="${escapeHtml(r.coverUrl || getPlaceholderCoverSvg(r.title))}" width="36" height="36" class="rounded flex-shrink-0" style="object-fit: cover;" alt="" onerror="this.style.visibility='hidden'">
+            <span class="min-w-0 flex-grow-1">
+              <span class="d-block fw-semibold text-truncate">${escapeHtml(r.title)}</span>
+              <span class="d-block small text-muted text-truncate">${escapeHtml(r.artist)}${r.album ? ` • ${escapeHtml(r.album)}` : ''}${r.year ? ` • ${r.year}` : ''}</span>
+            </span>
+            ${selected?.id === r.id ? '<i class="bi-check-lg flex-shrink-0"></i>' : ''}
+          </button>`).join('');
+        resultsEl.querySelectorAll('.save-to-library-result').forEach(btn => {
+            btn.addEventListener('click', () => {
+                selected = results[Number(btn.dataset.index)];
+                renderResults(results);
+                syncMode();
+            });
         });
+    };
+
+    const runSearch = async () => {
+        const q = searchInput.value.trim();
+        const seq = ++searchSeq;
+        if (!q) { resultsEl.innerHTML = ''; return; }
+        resultsEl.innerHTML = '<div class="small text-muted text-center py-3">Searching...</div>';
+        try {
+            const results = await searchMusicBrainz(q, 'song');
+            if (seq === searchSeq) renderResults(results.slice(0, 15));
+        } catch (err) {
+            if (seq === searchSeq) resultsEl.innerHTML = `<div class="small text-danger-emphasis text-center py-3">Search failed: ${escapeHtml(err.message)}</div>`;
+        }
+    };
+
+    searchInput.addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(runSearch, 400);
     });
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); runSearch(); }
+    });
+    form.querySelectorAll('input[name="saveToLibraryKind"]').forEach(radio => radio.addEventListener('change', syncMode));
+    syncMode();
+    runSearch();
 
     form.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const title = modal.querySelector('#saveToLibraryTitle').value.trim();
+        const isCustom = isCustomMode();
+        const title = isCustom ? modal.querySelector('#saveToLibraryTitle').value.trim() : selected?.title;
         if (!title) return;
-        const isCustom = form.querySelector('input[name="saveToLibraryKind"]:checked').value === 'custom';
         const collectionId = modal.querySelector('#saveToLibraryCollection')?.value || DEFAULT_COLLECTION_ID;
         confirmBtn.disabled = true;
         try {
-            const song = await saveSongToLibrary({
+            const songData = isCustom ? {
                 title,
                 artist: modal.querySelector('#saveToLibraryArtist').value.trim(),
-                album: albumInput.value.trim(),
+                album: albumInput.value.trim()
+            } : {
+                title,
+                artist: selected.artist,
+                artistMbid: selected.artistMbid,
+                album: selected.album,
+                albumMbid: selected.albumMbid,
+                recordingMbid: selected.recordingMbid,
+                year: selected.year,
+                length: selected.length,
+                coverUrl: selected.coverUrl
+            };
+            const song = await saveSongToLibrary({
+                ...songData,
                 isCustom,
                 tunings: meta?.tunings || [],
                 stringCount: meta?.stringCount || null
@@ -142,7 +218,7 @@ async function openSaveToLibraryModal(file) {
     document.addEventListener('keydown', handleKeyDown);
     modal.style.display = 'flex';
     modal.classList.add('show');
-    setTimeout(() => modal.querySelector('#saveToLibraryTitle')?.focus(), 50);
+    setTimeout(() => searchInput.focus(), 50);
 }
 
 export function setupSaveToLibraryButton() {

@@ -6639,3 +6639,8 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
     border: 1px solid var(--border-subtle);
     border-radius: 10px;
 }
+
+.save-to-library-result.active {
+    border-color: var(--accent-primary);
+    box-shadow: 0 0 10px var(--accent-glow);
+}
