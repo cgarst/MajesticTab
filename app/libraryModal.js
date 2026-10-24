@@ -2677,7 +2677,8 @@ async function loadSongTab(song, tabOption) {
         if (!file && tabOption.providerId === 'google-drive' && tabOption.driveFileId) {
             try {
                 showToast(`Downloading "${tabOption.name}" from Google Drive...`, 'info');
-                const { downloadDriveFile, isTokenValid } = await import('./googleDrive.js');
+                const { downloadDriveFile, isTokenValid, ensureFreshToken } = await import('./googleDrive.js');
+                await ensureFreshToken();
                 if (isTokenValid()) {
                     file = await downloadDriveFile(tabOption.driveFileId, tabOption.name);
                     if (file) {
