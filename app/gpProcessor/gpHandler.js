@@ -640,7 +640,7 @@ export function updateTrackSelectionUI(visibleIndices) {
         const dot = cb.closest('.gp-track-row')?.querySelector('.gp-track-dot');
         if (dot) {
             const position = visibleIndices.indexOf(idx);
-            dot.style.setProperty('--track-color', position >= 0 ? TRACK_PALETTE[getTrackColorIndexFor(position)] : 'transparent');
+            dot.style.setProperty('--track-color', position >= 0 ? TRACK_PALETTE[getTrackColorIndexFor(idx)] : 'transparent');
             dot.classList.toggle('is-hidden-track', position < 0);
         }
     });

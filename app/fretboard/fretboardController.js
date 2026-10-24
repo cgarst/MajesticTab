@@ -2,7 +2,7 @@
 // Controller coordinating AlphaTab events, multi-track note aggregation, layout, and virtual fretboard rendering
 import { FretboardView } from './fretboardView.js';
 import { formatTuningFromMidi } from '../utils/tuningUtils.js';
-import { TRACK_PALETTE } from '../utils/trackColors.js';
+import { TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
 
 const STORAGE_KEY_OPEN = 'majestictab_fretboard_open';
 const STORAGE_KEY_MODE = 'majestictab_fretboard_display_mode';
@@ -442,8 +442,8 @@ class FretboardController {
 
         // Multiple tracks rendered simultaneously: show colors only, names in a popup
         legendContainer.style.display = 'inline-flex';
-        const dotsHtml = this.visibleTracks.map((t, idx) => {
-            const color = TRACK_PALETTE[idx % TRACK_PALETTE.length];
+        const dotsHtml = this.visibleTracks.map((t) => {
+            const color = TRACK_PALETTE[getTrackColorIndexFor(t.index)];
             return `<span class="track-chip-dot" style="--track-color: ${color};"></span>`;
         }).join('');
 
@@ -471,8 +471,8 @@ class FretboardController {
         pop.className = 'fretboard-track-popover';
         pop.setAttribute('role', 'dialog');
         pop.setAttribute('aria-label', 'Track colors');
-        pop.innerHTML = this.visibleTracks.map((t, idx) => {
-            const color = TRACK_PALETTE[idx % TRACK_PALETTE.length];
+        pop.innerHTML = this.visibleTracks.map((t) => {
+            const color = TRACK_PALETTE[getTrackColorIndexFor(t.index)];
             const name = t.name || `Track ${t.index + 1}`;
             return `
                 <div class="fretboard-track-color-row">
@@ -504,11 +504,10 @@ class FretboardController {
     }
 
     /**
-     * Map track index to color palette index
+     * Map score track index to its stable color palette index
      */
     getTrackColorIndex(trackIndex) {
-        const idx = this.visibleTracks.findIndex(t => t.index === trackIndex);
-        return idx >= 0 ? (idx % TRACK_PALETTE.length) : 0;
+        return getTrackColorIndexFor(trackIndex);
     }
 
     /**
