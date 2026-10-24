@@ -39,3 +39,44 @@ export function clampNegativeAttenuation(bytes) {
     }
     return fixed;
 }
+
+const SAMPLE_HEADER_SIZE = 46;
+const SAMPLE_TYPE_OFFSET = 44;
+const SAMPLE_TYPE_MONO = 1;
+
+/**
+ * AlphaTab's synth only loads mono (type 1) samples and skips right (2), left (4) and linked (8) ones with a warning,
+ * so a font built from stereo-pair samples plays nothing. Marks every such sample mono: each keeps its own data and
+ * plays through its zone's pan, it just loses the stereo link. Modifies in place.
+ * @param {Uint8Array} bytes SoundFont file contents (modified in place)
+ * @returns {number} how many sample headers were rewritten
+ */
+export function convertStereoSamplesToMono(bytes) {
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const tag = (o) => String.fromCharCode(bytes[o], bytes[o + 1], bytes[o + 2], bytes[o + 3]);
+    if (bytes.byteLength < 12 || tag(0) !== 'RIFF' || tag(8) !== 'sfbk') return 0;
+    let fixed = 0;
+    let o = 12;
+    while (o + 8 <= bytes.byteLength) {
+        const size = view.getUint32(o + 4, true);
+        if (tag(o) === 'LIST' && tag(o + 8) === 'pdta') {
+            let p = o + 12;
+            const end = Math.min(o + 8 + size, bytes.byteLength);
+            while (p + 8 <= end) {
+                const chunkSize = view.getUint32(p + 4, true);
+                if (tag(p) === 'shdr') {
+                    for (let r = p + 8; r + SAMPLE_HEADER_SIZE <= p + 8 + chunkSize; r += SAMPLE_HEADER_SIZE) {
+                        const type = view.getUint16(r + SAMPLE_TYPE_OFFSET, true);
+                        if (type !== 2 && type !== 4 && type !== 8) continue;
+                        view.setUint16(r + SAMPLE_TYPE_OFFSET, SAMPLE_TYPE_MONO, true);
+                        fixed++;
+                    }
+                }
+                p += 8 + chunkSize + (chunkSize & 1);
+            }
+            break;
+        }
+        o += 8 + size + (size & 1);
+    }
+    return fixed;
+}
