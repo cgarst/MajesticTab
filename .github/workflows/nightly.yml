@@ -53,6 +53,12 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Build updater manifest
+        run: |
+          app_version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          node build/make-update-manifest.mjs artifacts "${app_version}-nightly.${{ needs.check.outputs.build_id }}" \
+            "https://github.com/${{ github.repository }}/releases/download/nightly" \
+            artifacts/latest.json "Nightly ${{ needs.check.outputs.build_id }}"
       - name: Replace nightly release
         env:
           GH_TOKEN: ${{ github.token }}

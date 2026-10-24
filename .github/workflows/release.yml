@@ -35,10 +35,16 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
+      - name: Build updater manifest
+        run: |
+          node build/make-update-manifest.mjs artifacts "${GITHUB_REF_NAME#v}" \
+            "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}" \
+            artifacts/latest.json "See https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}"
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}

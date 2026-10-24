@@ -34,3 +34,9 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
   1. In Safari preferences/settings, ensure **Advanced -> Show features for web developers** (or Develop menu) is enabled.
   2. Open Safari and go to menu **Develop -> iPhone 17 (Simulator) -> MajesticTab** (or the target page title/URL, such as `localhost` or `www.ultimate-guitar.com`).
   3. Once Web Inspector opens, inspect elements, evaluate scripts in the console, view CSS rules, and monitor network requests inside the simulator's WKWebViews.
+
+## In-app updates
+
+- `app/updater.js` decides whether a newer build exists (GitHub Releases, `stable` or `nightly` channel). Windows and macOS then install it with `tauri-plugin-updater` (`src-tauri/src/self_update.rs`, command `install_update`); Android downloads the APK and opens the system installer (`AndroidUpdater` in `android-MainActivity.kt`); Flatpak and iOS fall back to opening the download page.
+- Update bundles are signed with a minisign key. The public key is the `TAURI_UPDATER_PUBKEY` env var / GitHub secret, merged over the placeholder `plugins.updater.pubkey` in `tauri.conf.json` at build time; the private key is the `TAURI_SIGNING_PRIVATE_KEY` (and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`) secret. Generate a pair with `npx tauri signer generate -w ~/.tauri/majestictab-updater.key` from `build/tauri`. Never commit the private key.
+- `build/build-tauri.mjs` only emits `.sig` files and the macOS `.app.tar.gz` when the private key env var is set and `TAURI_UPDATER_PUBKEY` is set. The publish jobs then run `build/make-update-manifest.mjs` to attach `latest.json` to the release (nightly versions are `<version>-nightly.<buildId>` and are compared by the JS side, not semver).

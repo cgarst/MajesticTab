@@ -90,6 +90,16 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  private fun reportUpdate(state: String, percent: Int) {
+    runOnUiThread {
+      mainWebView?.evaluateJavascript(
+        "window.__onAndroidUpdate && window.__onAndroidUpdate(" +
+          org.json.JSONObject.quote(state) + ", " + percent + ");",
+        null
+      )
+    }
+  }
+
   fun hideDownloader() {
     runOnUiThread {
       downloaderWebView?.visibility = View.GONE
@@ -130,6 +140,74 @@ class MainActivity : TauriActivity() {
         hideDownloader()
       }
     }, "AndroidImmersive")
+
+    // In-app updates: download the release APK, then hand it to the system package installer.
+    webView.addJavascriptInterface(object {
+      @JavascriptInterface
+      fun install(url: String) {
+        if (!url.startsWith("https://github.com/cgarst/MajesticTab/releases/")) {
+          reportUpdate("error", 0)
+          return
+        }
+        if (!packageManager.canRequestPackageInstalls()) {
+          // The user must allow installs from this app once; send them to that settings page.
+          runOnUiThread {
+            startActivity(
+              android.content.Intent(
+                android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                android.net.Uri.parse("package:$packageName")
+              )
+            )
+          }
+          reportUpdate("permission", 0)
+          return
+        }
+        Thread {
+          try {
+            val dir = java.io.File(cacheDir, "updates").apply { mkdirs() }
+            val apk = java.io.File(dir, "MajesticTab-update.apk")
+            val connection = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            connection.connectTimeout = 15000
+            connection.readTimeout = 30000
+            connection.instanceFollowRedirects = true
+            val total = connection.contentLengthLong
+            var done = 0L
+            var lastPercent = -1
+            connection.inputStream.use { input ->
+              apk.outputStream().use { output ->
+                val buffer = ByteArray(64 * 1024)
+                while (true) {
+                  val read = input.read(buffer)
+                  if (read < 0) break
+                  output.write(buffer, 0, read)
+                  done += read
+                  val percent = if (total > 0) (done * 100 / total).toInt() else 0
+                  if (percent != lastPercent) {
+                    lastPercent = percent
+                    reportUpdate("downloading", percent)
+                  }
+                }
+              }
+            }
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+              this@MainActivity, "$packageName.updateprovider", apk
+            )
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+              setDataAndType(uri, "application/vnd.android.package-archive")
+              addFlags(
+                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                  android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+              )
+            }
+            runOnUiThread { startActivity(intent) }
+            reportUpdate("installing", 100)
+          } catch (e: Exception) {
+            android.util.Log.e("MajesticTab", "APK update failed", e)
+            reportUpdate("error", 0)
+          }
+        }.start()
+      }
+    }, "AndroidUpdater")
 
     webView.addJavascriptInterface(object {
       @JavascriptInterface
