@@ -1,7 +1,7 @@
 import { applyGpScoreTransforms } from '../fileAdapters.js';
 import { showToast } from '../utils/toast.js';
 import { applyScoreAdaptation, getTabAdaptPref } from '../utils/tabAdapter.js';
-import { applyTabTrackColors } from '../utils/trackColors.js';
+import { applyTabTrackColors, tintTrackCurves } from '../utils/trackColors.js';
 import { createCustomCursorHandler } from './gpPlayer.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { applyProgramMapping } from '../soundFontProgramMap.js';
@@ -269,6 +269,9 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
                     console.log("Hide empty staves enabled:", newScore.stylesheet.hideEmptyStaves);
                 }
             });
+
+            // Registered before any other render listener so Page mode clones the tinted SVG
+            api.postRenderFinished.on(() => tintTrackCurves(api, container));
 
             api.postRenderFinished.on(() => {
                 // debugging
