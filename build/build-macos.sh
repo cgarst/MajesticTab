@@ -40,14 +40,16 @@ trap cleanup EXIT
 
 if [ -d "$MOUNT_POINT/MajesticTab.app" ]; then
     APP_NAME="MajesticTab"
-    echo "Closing ${APP_NAME}..."
-    if pgrep -x "$APP_NAME" >/dev/null; then
+    # The binary is lowercase ("majestictab"), so match on the bundle path instead of the process name
+    APP_PROC_PATTERN="/${APP_NAME}.app/Contents/MacOS/"
+    if pgrep -f "$APP_PROC_PATTERN" >/dev/null; then
+        echo "Closing ${APP_NAME}..."
         osascript -e "tell application \"${APP_NAME}\" to quit" 2>/dev/null || true
         for _ in $(seq 1 20); do
-            pgrep -x "$APP_NAME" >/dev/null || break
+            pgrep -f "$APP_PROC_PATTERN" >/dev/null || break
             sleep 0.5
         done
-        pkill -x "$APP_NAME" 2>/dev/null || true
+        pkill -f "$APP_PROC_PATTERN" 2>/dev/null || true
     fi
 
     echo "Installing MajesticTab.app to /Applications/..."
