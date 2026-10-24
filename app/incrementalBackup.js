@@ -339,24 +339,33 @@ export async function pruneOldManifests(backend, keep = MANIFEST_RETENTION) {
 }
 
 /**
- * Find blobs that no snapshot references, without deleting anything. Throws if any manifest
- * can't be read, since a missed manifest would make live blobs look unused.
- * @returns {Promise<{unused: Array, freedBytes: number, kept: number, recent: number, snapshotCount: number}>}
- *   `unused` is what deleteBlobs should remove; `recent` counts unreferenced blobs spared by the grace period.
+ * Find blobs to clean up, without deleting anything. Throws if any manifest can't be read, since a
+ * missed manifest would make live blobs look unused.
+ * `scope: 'all'` finds blobs no snapshot references. `scope: 'latest'` finds blobs the newest snapshot
+ * doesn't reference, including ones older snapshots still use, so deleting them leaves those snapshots incomplete.
+ * @returns {Promise<{unused: Array<{name: string, size: number, modifiedTime: string, label: string, snapshots: number}>, freedBytes: number, kept: number, recent: number, snapshotCount: number}>}
+ *   `unused` is what deleteBlobs should remove, with the name and count of the snapshots still using each blob;
+ *   `recent` counts unreferenced blobs spared by the grace period.
  */
-export async function findUnusedBlobs(backend) {
+export async function findUnusedBlobs(backend, { scope = 'all' } = {}) {
     const empty = { unused: [], freedBytes: 0, kept: 0, recent: 0, snapshotCount: 0 };
     if (!(await backend.open({ create: false }))) return empty;
 
     const manifests = await listIncrementalBackups(backend);
+    const newest = manifests[0];
     const referenced = new Set();
+    const usage = new Map();
     await runPool(manifests, UPLOAD_CONCURRENCY, async (backup) => {
         let manifest;
         try { manifest = await backend.readManifest(backup); } catch (err) {
-            throw new Error(`Cleanup stopped: could not read ${backup.name} (${err.message}).`);
+            throw new Error(`Scan stopped: could not read ${backup.name} (${err.message}).`);
         }
         for (const item of manifest.files || []) {
-            if (item.blob) referenced.add(item.blob);
+            if (!item.blob) continue;
+            if (scope === 'all' || backup === newest) referenced.add(item.blob);
+            const use = usage.get(item.blob) || { label: item.name, snapshots: 0 };
+            use.snapshots++;
+            usage.set(item.blob, use);
         }
     });
 
@@ -364,10 +373,15 @@ export async function findUnusedBlobs(backend) {
     const blobs = await backend.listBlobs();
     const cutoff = Date.now() - BLOB_SWEEP_GRACE_MS;
     const unreferenced = blobs.filter(f => !referenced.has(blobHash(f.name)));
-    const unused = unreferenced.filter(f => new Date(f.modifiedTime).getTime() < cutoff);
+    const unused = unreferenced
+        .filter(f => new Date(f.modifiedTime).getTime() < cutoff)
+        .map(f => {
+            const use = usage.get(blobHash(f.name));
+            return { ...f, size: Number(f.size) || 0, label: use?.label || '', snapshots: use?.snapshots || 0 };
+        });
     return {
         unused,
-        freedBytes: unused.reduce((acc, f) => acc + (Number(f.size) || 0), 0),
+        freedBytes: unused.reduce((acc, f) => acc + f.size, 0),
         kept: blobs.length - unused.length,
         recent: unreferenced.length - unused.length,
         snapshotCount: manifests.length
