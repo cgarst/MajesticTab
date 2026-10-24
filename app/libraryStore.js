@@ -228,8 +228,14 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             const validSongCover = (isAwakeMbid && !isActuallyAwake) ? null : song.coverUrl;
             const validSongAlbumMbid = (isAwakeMbid && !isActuallyAwake) ? null : song.albumMbid;
 
-            if (!artist.albums.has(albumName)) {
-                artist.albums.set(albumName, {
+            // Group by MusicBrainz id first so title variants (e.g. curly vs straight apostrophe)
+            // of the same release group don't split into two albums.
+            const nameKey = `name:${albumName.toLowerCase().replace(/[’‘`]/g, "'").trim()}`;
+            const mbidKey = (!isCustom && validSongAlbumMbid) ? `mbid:${validSongAlbumMbid}` : null;
+            const albumKey = (mbidKey && artist.albums.has(mbidKey)) ? mbidKey : (artist.albums.has(nameKey) ? nameKey : (mbidKey || nameKey));
+
+            if (!artist.albums.has(albumKey)) {
+                artist.albums.set(albumKey, {
                     title: albumName,
                     albumMbid: validSongAlbumMbid || null,
                     coverUrl: validSongCover || null,
@@ -241,7 +247,10 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
                     songs: []
                 });
             }
-            const album = artist.albums.get(albumName);
+            const album = artist.albums.get(albumKey);
+            // Register both keys so later songs with only a name or only an mbid still land here.
+            artist.albums.set(nameKey, album);
+            if (mbidKey) artist.albums.set(mbidKey, album);
             if (!album.coverUrl && validSongCover) {
                 album.coverUrl = validSongCover;
             }
@@ -277,7 +286,7 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             return (a.title || '').localeCompare(b.title || '');
         });
 
-        const albums = Array.from(artist.albums.values()).map(album => {
+        const albums = Array.from(new Set(artist.albums.values())).map(album => {
             // Sort songs strictly in album track order: medium number, then track number or title
             album.songs.sort((a, b) => {
                 const medA = a.mediumNumber || 1;
