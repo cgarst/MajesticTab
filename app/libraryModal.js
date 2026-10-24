@@ -16,7 +16,7 @@ import {
 import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
-import { openOpenFileModal } from './openFileModal.js';
+import { renderOpenFileView } from './openFileModal.js';
 import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
@@ -110,6 +110,7 @@ export function canGoBack() {
         if (libraryBrowseMode === 'tunings' && selectedTuning) return true;
         if (selectedFolderPath.length > 0) return true;
         if (selectedArtist || selectedAlbum) return true;
+        if (libraryBrowseMode === 'tunings') return true;
     }
     if (activeView === 'search' && (searchSubView || searchHistory.length > 0)) return true;
     return viewHistory.length > 0;
@@ -213,6 +214,11 @@ export async function handleBack() {
                 await renderLibraryModal();
                 return true;
             }
+            if (libraryBrowseMode === 'tunings') {
+                libraryBrowseMode = 'artists';
+                await renderView();
+                return true;
+            }
         } else if (activeView === 'search') {
             const searchHeader = document.querySelector('.search-sticky-header');
             let resContainer = document.getElementById('mbSearchResultsContainer');
@@ -262,7 +268,7 @@ export async function handleBack() {
                 await switchView('library', false);
                 return true;
             }
-        } else if (activeView === 'recents') {
+        } else if (activeView === 'recents' || activeView === 'openfile') {
             if (viewHistory.length > 0) {
                 const prev = viewHistory.pop();
                 activeView = prev.view || 'library';
@@ -634,6 +640,11 @@ async function renderView() {
         renderSearchMusicBrainzView(content);
     } else if (activeView === 'recents') {
         await renderRecentsView(content);
+    } else if (activeView === 'openfile') {
+        renderOpenFileView(content, {
+            onBack: () => switchView('library'),
+            onAddToLibrary: () => switchView('search')
+        });
     }
 }
 
@@ -667,6 +678,10 @@ async function renderLibraryBrowseView(container) {
       <div class="library-body-header mb-3">
         <!-- Collection Selector & Browse Mode Group (Left) -->
         <div class="lib-toolbar-left d-flex align-items-center gap-2 flex-wrap">
+          ${libraryBrowseMode === 'tunings' && !selectedTuning ? `
+          <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="libTuningsBackBtn" title="Back to Tab Library">
+            <i class="bi-chevron-left"></i> <span>Library</span>
+          </button>` : ''}
           <div class="collection-pill-group">
             <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
               ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
@@ -694,8 +709,8 @@ async function renderLibraryBrowseView(container) {
         </div>
 
         <!-- Primary CTAs: Open File + Add Music (Right) -->
-        <div class="lib-toolbar-right d-flex align-items-center gap-2">
-          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn ${libraryBrowseMode === 'tunings' ? 'active' : ''}" id="libTuningsBtn" title="${libraryBrowseMode === 'tunings' ? 'Back to browsing by artist' : 'Browse songs by guitar and bass tuning'}" aria-pressed="${libraryBrowseMode === 'tunings'}">
+        <div class="lib-toolbar-right d-flex align-items-center gap-2" ${libraryBrowseMode === 'tunings' ? 'style="display: none !important;"' : ''}>
+          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libTuningsBtn" title="Browse songs by guitar and bass tuning">
             <i class="bi-music-note"></i>
             <span>Tunings</span>
           </button>
@@ -735,7 +750,7 @@ async function renderLibraryBrowseView(container) {
 
         bindLibraryToolbarEvents(container);
         container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => switchView('search'));
-        container.querySelector('#emptyStateOpenFileBtn')?.addEventListener('click', openOpenFileModal);
+        container.querySelector('#emptyStateOpenFileBtn')?.addEventListener('click', () => switchView('openfile'));
         return;
     }
 
@@ -1403,7 +1418,9 @@ function bindLibraryToolbarEvents(container) {
         renderLibraryBrowseView(container);
     });
 
-    // Tunings button: toggles tuning browsing, and the back button returns to the artist view
+    container.querySelector('#libTuningsBackBtn')?.addEventListener('click', handleBack);
+
+    // Tunings button: opens the tunings page, and its back button returns to the artist view
     container.querySelector('#libTuningsBtn')?.addEventListener('click', () => {
         const entering = libraryBrowseMode !== 'tunings';
         if (entering) pushLibraryNavigationState();
@@ -1433,9 +1450,7 @@ function bindLibraryToolbarEvents(container) {
     });
 
     container.querySelector('#libRecentsBtn')?.addEventListener('click', () => switchView('recents'));
-    container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => {
-        openOpenFileModal();
-    });
+    container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => switchView('openfile'));
 
     container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
         switchView('search');

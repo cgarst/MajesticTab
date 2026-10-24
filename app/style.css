@@ -4910,12 +4910,8 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 /* --------------------------------------------------------------------------
-   Open Tab File Modal & Provider Cards
+   Open Tab File Page & Provider Cards
    -------------------------------------------------------------------------- */
-.open-file-modal-card {
-  max-width: 640px;
-}
-
 .open-file-benefits-card {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, var(--accent-primary-alpha) 100%), var(--bg-card-solid);
   border: 1px solid var(--border-subtle);
@@ -4987,15 +4983,6 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 @media (max-width: 576px) {
-  .open-file-modal-card {
-    max-width: 100% !important;
-    margin: 0.5rem;
-  }
-
-  .open-file-modal-card .theme-modal-body {
-    padding: 0.75rem !important;
-  }
-
   .open-file-benefits-card {
     padding: 0.75rem !important;
     margin-bottom: 0.75rem !important;
