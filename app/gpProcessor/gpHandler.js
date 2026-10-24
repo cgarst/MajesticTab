@@ -32,7 +32,7 @@ import {
     findAdaptTuning
 } from '../utils/tabAdapter.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
-import { applyTabTrackColors, isTabTrackColorsEnabled, setTabTrackColorsEnabled } from '../utils/trackColors.js';
+import { applyTabTrackColors, isTabTrackColorsEnabled, setTabTrackColorsEnabled, TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
 
 const PAGE_PADDING = 6;
 
@@ -636,6 +636,13 @@ export function updateTrackSelectionUI(visibleIndices) {
         const isChecked = visibleIndices.includes(idx);
         cb.checked = isChecked;
         cb.disabled = isChecked && isSingleVisible;
+
+        const dot = cb.closest('.gp-track-row')?.querySelector('.gp-track-dot');
+        if (dot) {
+            const position = visibleIndices.indexOf(idx);
+            dot.style.setProperty('--track-color', position >= 0 ? TRACK_PALETTE[getTrackColorIndexFor(position)] : 'transparent');
+            dot.classList.toggle('is-hidden-track', position < 0);
+        }
     });
 }
 
@@ -673,6 +680,7 @@ export function populateGpTrackSelectionUI(api) {
           <div class="gp-track-row d-flex align-items-center justify-content-between">
             <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
               <input class="form-check-input theme-switch gp-track-checkbox" type="checkbox" id="${id}" data-track-index="${ti.index}" checked>
+              <span class="track-chip-dot gp-track-dot" title="Fretboard color"></span>
               <label class="form-check-label small text-truncate" for="${id}" style="max-width: 170px;" title="${ti.track.name || `Track ${ti.index + 1}`}">${ti.track.name || `Track ${ti.index + 1}`}</label>
               ${tuningLabel ? `<span class="badge badge-theme-secondary gp-track-tuning flex-shrink-0" title="Tuning">${tuningLabel}</span>` : ''}
             </div>
