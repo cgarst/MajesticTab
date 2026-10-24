@@ -774,26 +774,6 @@
         <i class="bi-cloud-arrow-down-fill text-primary"></i> Updates and backup
       </div>
 
-      <!-- Updates (native app only) -->
-      <div id="updateSettingsCard" hidden class="p-2 rounded-2 mb-2" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
-        <div class="d-flex align-items-center justify-content-between mb-2">
-          <span class="small fw-bold text-white">App updates</span>
-          <span class="small text-white-50" id="updateCurrentVersion"></span>
-        </div>
-        <div class="hud-pill-group w-100 mb-2">
-          <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNone" value="none" autocomplete="off">
-          <label class="btn btn-sm w-33" for="updateChannelNone">None</label>
-
-          <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNightly" value="nightly" autocomplete="off">
-          <label class="btn btn-sm w-33" for="updateChannelNightly">Nightly</label>
-
-          <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelStable" value="stable" autocomplete="off" checked>
-          <label class="btn btn-sm w-33" for="updateChannelStable">Stable</label>
-        </div>
-        <button class="btn btn-sm btn-theme-outline w-100" id="updateCheckBtn" type="button">Check Now</button>
-        <div class="small text-white-50 mt-1" id="updateStatus" role="status"></div>
-      </div>
-
       <!-- Backup and Restore Actions -->
       <div>
         <label class="form-label d-block mb-1 small text-white-50">Library sync and backup:</label>
@@ -812,6 +792,26 @@
             <span>Restore</span>
           </button>
         </div>
+      </div>
+
+      <!-- Updates (native app only) -->
+      <div id="updateSettingsCard" hidden class="p-2 rounded-2 mt-2" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
+        <div class="d-flex align-items-center justify-content-between mb-2">
+          <span class="small fw-bold text-white">App updates</span>
+          <span class="small text-white-50" id="updateCurrentVersion"></span>
+        </div>
+        <div class="hud-pill-group w-100 mb-2">
+          <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNone" value="none" autocomplete="off">
+          <label class="btn btn-sm w-33" for="updateChannelNone">None</label>
+
+          <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelNightly" value="nightly" autocomplete="off">
+          <label class="btn btn-sm w-33" for="updateChannelNightly">Nightly</label>
+
+          <input type="radio" class="btn-check" name="updateChannelRadio" id="updateChannelStable" value="stable" autocomplete="off" checked>
+          <label class="btn btn-sm w-33" for="updateChannelStable">Stable</label>
+        </div>
+        <button class="btn btn-sm btn-theme-outline w-100" id="updateCheckBtn" type="button">Check Now</button>
+        <div class="small text-white-50 mt-1" id="updateStatus" role="status"></div>
       </div>
 
       <!-- Collapsible Advanced Data Tools -->
