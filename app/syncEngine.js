@@ -5,7 +5,7 @@
 // side changed an item. Library entries merge without losing anything, and settings only fill gaps.
 // Applying a plan pulls remote changes into this device, then pushes the result as a new snapshot.
 import { getAllStoredFiles, deleteStoredFile, putStoredFileRecord } from './fileStore.js';
-import { getAllSongs, importLibraryData, removeTabOptionFromSong } from './libraryStore.js';
+import { getAllSongs, getAllLibraryData, importLibraryData, removeTabOptionFromSong } from './libraryStore.js';
 import { listSoundFonts, deleteSoundFont, restoreSoundFontEntry } from './soundFontStore.js';
 import {
     collectAllSettings, collectExtensions, applyRestoredSettings, applyRestoredExtensions, applyRestoredPreferences
@@ -91,9 +91,56 @@ function remoteItems(manifest) {
  *   latest: {name: string, exportedAt: string}|null, firstSync: boolean, lastSyncedAt: number|null,
  *   changes: Array<{action: string, kind: 'tab'|'soundfont', id: string, key: string, name: string, size: number,
  *     reason: string, conflict?: boolean}>,
+ *   other: {receive: Array<{kind: string, text: string}>, send: Array<{kind: string, text: string}>},
  *   unchanged: number, bytesUp: number, bytesDown: number, needsPush: boolean
  * }>}
  */
+function sameValue(a, b) {
+    return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Library entries, settings and extensions that apply would move, in each direction. Library and
+ * extensions merge by id and settings only fill gaps here, so a setting that differs on both sides
+ * keeps this device's value and goes to the snapshot with the next push.
+ */
+function compareOther(manifest, localLibrary) {
+    const out = { receive: [], send: [] };
+    const label = (kind, n) => `${n} ${kind}${n === 1 ? '' : 's'}`;
+
+    const sides = (kind, mine, theirs, idOf) => {
+        const mineIds = new Set(mine.map(idOf));
+        const theirIds = new Set(theirs.map(idOf));
+        const gain = theirs.filter(x => !mineIds.has(idOf(x))).length;
+        const lose = mine.filter(x => !theirIds.has(idOf(x))).length;
+        if (gain) out.receive.push({ kind, text: `${label(kind, gain)} new in the snapshot` });
+        if (lose) out.send.push({ kind, text: `${label(kind, lose)} new on this device` });
+    };
+    const remoteLib = manifest?.library || {};
+    sides('song', localLibrary.songs || [], remoteLib.songs || [], x => x?.id);
+    sides('collection', localLibrary.collections || [], remoteLib.collections || [], x => x?.id);
+    sides('extension', collectExtensions(), manifest?.extensions || [], x => x?.id);
+
+    const mineSettings = collectAllSettings();
+    const theirSettings = manifest?.settings || {};
+    const names = (list) => list.slice(0, 6).join(', ') + (list.length > 6 ? `, +${list.length - 6} more` : '');
+    const gain = [], lose = [], differ = [];
+    for (const key of new Set([...Object.keys(mineSettings), ...Object.keys(theirSettings)])) {
+        if (key === 'ytCache' || key === 'gpTabStrings') continue;
+        const has = key in mineSettings;
+        const there = key in theirSettings;
+        if (there && !has) gain.push(key);
+        else if (has && !there) lose.push(key);
+        else if (!sameValue(mineSettings[key], theirSettings[key])) differ.push(key);
+    }
+    if (gain.length) out.receive.push({ kind: 'setting', text: `${label('setting', gain.length)} from the snapshot: ${names(gain)}` });
+    if (lose.length) out.send.push({ kind: 'setting', text: `${label('setting', lose.length)} new on this device: ${names(lose)}` });
+    if (differ.length) {
+        out.send.push({ kind: 'setting', text: `${label('setting', differ.length)} differ from the snapshot; this device's values are kept: ${names(differ)}` });
+    }
+    return out;
+}
+
 export async function planSync(backend) {
     const [backups, fileMetas, soundFonts] = await Promise.all([
         listIncrementalBackups(backend),
@@ -102,7 +149,9 @@ export async function planSync(backend) {
     ]);
     const local = localItems(fileMetas, soundFonts);
     const latest = backups[0] ? { name: backups[0].name, exportedAt: backups[0].exportedAt } : null;
-    const remote = latest ? remoteItems(await backend.readManifest(backups[0])) : new Map();
+    const manifest = latest ? await backend.readManifest(backups[0]) : null;
+    const remote = latest ? remoteItems(manifest) : new Map();
+    const other = latest ? compareOther(manifest, await getAllLibraryData()) : { receive: [], send: [] };
 
     const savedBase = getSyncBase();
     const base = savedBase?.location === locationKey(backend) ? savedBase.items : null;
@@ -148,10 +197,11 @@ export async function planSync(backend) {
         lastSyncedAt: base ? savedBase.syncedAt : null,
         changes,
         unchanged,
+        other,
         bytesUp: sum(SYNC_ACTION.UPLOAD),
         bytesDown: sum(SYNC_ACTION.DOWNLOAD),
         // Uploads and snapshot-side removals only exist in a new snapshot; a new device also needs its first one
-        needsPush: !latest || changes.some(c => c.action === SYNC_ACTION.UPLOAD || c.action === SYNC_ACTION.DELETE_REMOTE)
+        needsPush: !latest || other.send.length > 0 || changes.some(c => c.action === SYNC_ACTION.UPLOAD || c.action === SYNC_ACTION.DELETE_REMOTE)
     };
 }
 

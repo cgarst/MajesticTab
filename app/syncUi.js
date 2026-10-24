@@ -192,6 +192,25 @@ function section(changes, { icon, title, note = '', tone }) {
         </details>`;
 }
 
+const OTHER_ICONS = { song: 'bi-music-note-beamed', collection: 'bi-collection', extension: 'bi-puzzle', setting: 'bi-gear' };
+
+function otherSection(items, { icon, title, tone }) {
+    if (!items.length) return '';
+    return `
+        <details class="mb-2" open>
+            <summary class="small fw-semibold text-white py-1 d-flex align-items-center gap-2" style="cursor: pointer; user-select: none;">
+                <i class="${icon} ${tone}"></i><span>${title}</span>
+            </summary>
+            <ul class="list-unstyled mb-0 rounded-2 backup-summary-box">
+                ${items.map(i => `
+                    <li class="d-flex align-items-start gap-2 px-2 py-2 border-bottom border-secondary-subtle">
+                        <i class="${OTHER_ICONS[i.kind] || 'bi-gear'} text-white-50 flex-shrink-0 mt-1"></i>
+                        <div class="small text-white min-w-0" style="overflow-wrap:anywhere;">${escapeHtml(i.text)}</div>
+                    </li>`).join('')}
+            </ul>
+        </details>`;
+}
+
 function showReview(target, backend, plan) {
     const by = (action) => plan.changes.filter(c => c.action === action);
     const down = by(SYNC_ACTION.DOWNLOAD);
@@ -217,7 +236,8 @@ function showReview(target, backend, plan) {
             </div>
         </div>`;
 
-    if (!plan.changes.length && !plan.needsPush) {
+    const other = plan.other || { receive: [], send: [] };
+    if (!plan.changes.length && !plan.needsPush && !other.receive.length) {
         frame(`${header}<div class="text-center py-3"><i class="bi-check2-circle text-success fs-1 d-block mb-2"></i><div class="fw-bold text-white small">Everything is in sync</div><div class="text-white-50" style="font-size:0.75rem;">${plan.unchanged} tab${plan.unchanged === 1 ? '' : 's'} match ${where}.</div></div>`,
             { subtitle: `Sync with ${where}`, footer: button('close', 'Done', { primary: true }) });
         return;
@@ -242,8 +262,10 @@ function showReview(target, backend, plan) {
         ${section(removeThere, { icon: 'bi-cloud-minus', title: `Removed from ${where}`, tone: 'text-warning', note: 'You removed these here. Older snapshots still hold a copy.' })}
         ${section(down, { icon: 'bi-cloud-arrow-down', title: 'Received on this device', tone: 'text-info' })}
         ${section(up, { icon: 'bi-cloud-arrow-up', title: `Sent to ${where}`, tone: 'text-success' })}
+        ${otherSection(other.receive, { icon: 'bi-sliders', title: 'Library and settings received', tone: 'text-info' })}
+        ${otherSection(other.send, { icon: 'bi-sliders', title: `Library and settings sent to ${where}`, tone: 'text-success' })}
         <div class="text-white-50 mt-2" style="font-size:0.72rem;">
-            Library and settings are merged, so nothing there is deleted. A new snapshot is saved only when this device has something to send.
+            Library entries and settings are merged, so nothing there is deleted. A new snapshot is saved only when this device has something to send.
         </div>`,
         {
             subtitle: `Sync with ${where}`,
