@@ -796,9 +796,14 @@
 
       <!-- Backup and Restore Actions -->
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Library backup:</label>
+        <label class="form-label d-block mb-1 small text-white-50">Library sync and backup:</label>
+        <button class="btn btn-theme-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2 mb-1" id="syncDataBtn" type="button">
+          <i class="bi-arrow-repeat"></i>
+          <span>Sync</span>
+        </button>
+        <div class="small text-white-50 mb-2" id="syncStatusLine" style="font-size: 0.72rem;"></div>
         <div class="d-grid gap-2" style="grid-template-columns: 1fr 1fr;">
-          <button class="btn btn-theme-primary d-flex align-items-center justify-content-center gap-2 py-2" id="backupDataBtn" type="button">
+          <button class="btn btn-theme-outline d-flex align-items-center justify-content-center gap-2 py-2" id="backupDataBtn" type="button">
             <i class="bi-cloud-arrow-up"></i>
             <span>Backup</span>
           </button>

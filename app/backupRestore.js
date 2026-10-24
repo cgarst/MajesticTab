@@ -11,7 +11,7 @@ import {
     reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles
 } from './libraryStore.js';
 import {
-    getSaveProviders, saveToProvider, openFromProvider
+    getSaveProviders, saveToProvider, openFromProvider, getPreferredStorage
 } from './fileProviders.js';
 import { showToast } from './utils/toast.js';
 import { isFolderBackupSupported } from './folderBackup.js';
@@ -80,7 +80,7 @@ const BACKUP_SETTINGS_KEYS = [
 /**
  * Format bytes to readable string (e.g. 1.2 MB)
  */
-function formatBytes(bytes, decimals = 1) {
+export function formatBytes(bytes, decimals = 1) {
     if (!+bytes) return '0 B';
     const k = 1024;
     const dm = decimals < 0 ? 0 : decimals;
@@ -92,7 +92,7 @@ function formatBytes(bytes, decimals = 1) {
 /**
  * Escape HTML for safe rendering
  */
-function escapeHtml(str) {
+export function escapeHtml(str) {
     if (!str) return '';
     return String(str)
         .replace(/&/g, '&amp;')
@@ -588,7 +588,7 @@ async function inspectBackupBlob(file) {
     return inspectBackupContentSync(text);
 }
 
-function applyRestoredExtensions(backupExtensions, { wipe }) {
+export function applyRestoredExtensions(backupExtensions, { wipe }) {
     let extensionsImported = 0;
     if (backupExtensions.length > 0 || wipe) {
         let finalExtensions = [];
@@ -622,7 +622,7 @@ function applyRestoredExtensions(backupExtensions, { wipe }) {
     return extensionsImported;
 }
 
-function applyRestoredSettings(settings, { wipe }) {
+export function applyRestoredSettings(settings, { wipe }) {
     let settingsApplied = 0;
     if (settings && typeof settings === 'object') {
         for (const [key, val] of Object.entries(settings)) {
@@ -1111,7 +1111,7 @@ export async function clearAppCache() {
 /**
  * Apply restored preferences to active DOM and modules
  */
-function applyRestoredPreferences() {
+export function applyRestoredPreferences() {
     // Theme
     const theme = localStorage.getItem('majestictab_theme') || 'Mystic Dream';
     const sheetMode = localStorage.getItem('majestictab_sheet_mode') || 'auto';
@@ -1279,6 +1279,11 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
     const songsMissingCover = (libraryData.songs || []).filter(s => !s.coverUrl || s.coverUrl.includes('data:image/svg+xml')).length;
     const uniqueAlbumsCount = new Set((libraryData.songs || []).map(s => `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`).filter(Boolean)).size;
 
+    // The location chosen for Sync is the default here too ('folder' is the Local Device provider)
+    const preferred = getPreferredStorage() === 'folder' ? 'local' : getPreferredStorage();
+    const wanted = options.provider || preferred;
+    const preferredProviderId = providers.some(p => p.id === wanted) ? wanted : providers[0]?.id;
+
     modal.innerHTML = `
     <div class="theme-modal-card backup-modal-card">
       <!-- Modal Header -->
@@ -1367,7 +1372,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               ${providers.map((p, idx) => `
                 <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center justify-content-between gap-2" style="cursor: pointer;">
                   <div class="d-flex align-items-center gap-3 min-w-0">
-                    <input class="form-check-input theme-radio m-0" type="radio" name="backupTargetProvider" value="${escapeHtml(p.id)}" ${(options.provider ? p.id === options.provider : idx === 0) ? 'checked' : ''}>
+                    <input class="form-check-input theme-radio m-0" type="radio" name="backupTargetProvider" value="${escapeHtml(p.id)}" ${p.id === preferredProviderId ? 'checked' : ''}>
                     <div class="provider-mini-icon">
                       <i class="${escapeHtml(p.icon || 'bi-folder')} ${escapeHtml(p.iconColorClass || 'text-primary')} fs-5"></i>
                     </div>
