@@ -13,7 +13,7 @@
       "version": "1.0.0",
       "versionDate": "2026-10-18T00:00:00Z",
       "versionDescription": "Initial native iOS release for sideloading and LiveContainer.",
-      "downloadURL": "https://github.com/cgarst/MajesticTab/releases/download/nightly/MajesticTab-ios.ipa",
+      "downloadURL": "https://github.com/cgarst/MajesticTab/releases/download/canary/MajesticTab-ios.ipa",
       "localizedDescription": "Fast, distraction-free guitar tablature & score player with multi-track notation, SoundFont audio synth, and YouTube practice sync.",
       "iconURL": "https://raw.githubusercontent.com/cgarst/MajesticTab/main/icons/apple-touch-icon.png",
       "tintColor": "9f7aea",

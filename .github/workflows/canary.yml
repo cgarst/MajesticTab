@@ -1,14 +1,13 @@
-name: Nightly
+name: Canary
 
 on:
-  schedule:
-    - cron: '0 7 * * *'
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      force:
-        description: Build even if nothing changed since the last nightly
-        type: boolean
-        default: false
+
+concurrency:
+  group: canary
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -26,12 +25,7 @@ jobs:
       - id: diff
         run: |
           echo "build_id=$(date -u +%Y%m%d)-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-          last=$(git rev-parse -q --verify refs/tags/nightly || true)
-          if [ "${{ inputs.force }}" = "true" ] || [ "$last" != "$GITHUB_SHA" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
   build:
     needs: check
@@ -39,7 +33,7 @@ jobs:
     uses: ./.github/workflows/build.yml
     secrets: inherit
     with:
-      channel: nightly
+      channel: canary
       build_id: ${{ needs.check.outputs.build_id }}
 
   publish:
@@ -56,15 +50,15 @@ jobs:
       - name: Build updater manifest
         run: |
           app_version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
-          node build/make-update-manifest.mjs artifacts "${app_version}-nightly.${{ needs.check.outputs.build_id }}" \
-            "https://github.com/${{ github.repository }}/releases/download/nightly" \
-            artifacts/latest.json "Nightly ${{ needs.check.outputs.build_id }}"
-      - name: Replace nightly release
+          node build/make-update-manifest.mjs artifacts "${app_version}-canary.${{ needs.check.outputs.build_id }}" \
+            "https://github.com/${{ github.repository }}/releases/download/canary" \
+            artifacts/latest.json "Canary ${{ needs.check.outputs.build_id }}"
+      - name: Replace canary release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cat > notes.md <<EOF
-          Automated nightly build of $GITHUB_SHA.
+          Automated canary build of $GITHUB_SHA.
 
           ### Opening on macOS
 
@@ -78,9 +72,9 @@ jobs:
           Sideload \`MajesticTab-ios.ipa\` using AltStore, SideStore, or Sideloadly.
 
           EOF
-          gh release delete nightly --cleanup-tag --yes || true
-          gh release create nightly artifacts/* \
+          gh release delete canary --cleanup-tag --yes || true
+          gh release create canary artifacts/* \
             --target "$GITHUB_SHA" \
             --prerelease \
-            --title "Nightly ${{ needs.check.outputs.build_id }}" \
+            --title "Canary ${{ needs.check.outputs.build_id }}" \
             --notes-file notes.md

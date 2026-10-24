@@ -4,11 +4,12 @@ const CHANNEL_KEY = 'updateChannel';
 const LAST_CHECK_KEY = 'updateLastCheck';
 const DISMISSED_KEY = 'updateDismissed';
 const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
-const CHANNELS = ['none', 'nightly', 'stable'];
+const CHANNELS = ['none', 'canary', 'stable'];
 let defaultChannel = 'stable';
 
 export function getUpdateChannel() {
-    const saved = localStorage.getItem(CHANNEL_KEY);
+    let saved = localStorage.getItem(CHANNEL_KEY);
+    if (saved === 'nightly') saved = 'canary';
     return CHANNELS.includes(saved) ? saved : defaultChannel;
 }
 
@@ -36,7 +37,7 @@ function platformAssetPattern() {
 }
 
 async function fetchRelease(channel) {
-    const path = channel === 'nightly' ? 'releases/tags/nightly' : 'releases/latest';
+    const path = channel === 'canary' ? 'releases/tags/canary' : 'releases/latest';
     const response = await fetch(`https://api.github.com/repos/${REPO}/${path}`, {
         headers: { Accept: 'application/vnd.github+json' },
     });
@@ -52,17 +53,17 @@ export async function checkForUpdate(buildInfo, channel = getUpdateChannel()) {
     if (!release) return null;
 
     let label;
-    if (channel === 'nightly') {
-        // Nightly releases are named "Nightly <buildId>".
-        const id = (release.name || '').replace(/^Nightly\s+/i, '').trim();
+    if (channel === 'canary') {
+        // Canary releases are named "Canary <buildId>".
+        const id = (release.name || '').replace(/^Canary\s+/i, '').trim();
         if (!id || id === buildInfo.buildId) return null;
         if (buildInfo.channel === 'dev') {
-            // Local builds have no nightly id: compare the release time to the build's commit time instead.
+            // Local builds have no canary id: compare the release time to the build's commit time instead.
             if (!buildInfo.commit || !buildInfo.commitDate) return null;
             if (id.endsWith(buildInfo.commit)) return null;
             if (!(Date.parse(release.published_at) > Date.parse(buildInfo.commitDate))) return null;
         }
-        label = `Nightly ${id}`;
+        label = `Canary ${id}`;
     } else {
         if (!isNewerVersion(release.tag_name, buildInfo.version)) return null;
         label = release.tag_name;
@@ -205,15 +206,15 @@ export async function initUpdater() {
         return;
     }
 
-    // Nightly builds follow nightly until the user picks otherwise.
-    if (buildInfo.channel === 'nightly') defaultChannel = 'nightly';
+    // Canary builds follow canary until the user picks otherwise.
+    if (buildInfo.channel === 'canary') defaultChannel = 'canary';
 
     const section = document.getElementById('updateSettingsCard');
     if (section) section.hidden = false;
     const version = document.getElementById('updateCurrentVersion');
     if (version) {
-        version.textContent = buildInfo.channel === 'nightly'
-            ? `Version ${buildInfo.version} (nightly ${buildInfo.buildId})`
+        version.textContent = buildInfo.channel === 'canary'
+            ? `Version ${buildInfo.version} (canary ${buildInfo.buildId})`
             : buildInfo.channel === 'dev' && buildInfo.commit
                 ? `Version ${buildInfo.version} (local ${buildInfo.commit})`
                 : `Version ${buildInfo.version}`;

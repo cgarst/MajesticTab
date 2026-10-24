@@ -1048,9 +1048,9 @@
           .catch(function () { return null; });
       }
 
-      // Prefer the latest stable release; fall back to the nightly build.
+      // Prefer the latest stable release; fall back to the canary build.
       getRelease('releases/latest').then(function (rel) {
-        return rel && rel.assets && rel.assets.length ? rel : getRelease('releases/tags/nightly');
+        return rel && rel.assets && rel.assets.length ? rel : getRelease('releases/tags/canary');
       }).then(function (rel) {
         if (!rel || !rel.assets) return;
         var found = {};
@@ -1062,7 +1062,7 @@
           if (el) { el.href = asset.browser_download_url; el.removeAttribute('target'); }
         });
 
-        var label = rel.prerelease || /nightly/i.test(rel.tag_name || '') ? (rel.name || 'Nightly') : rel.tag_name;
+        var label = rel.prerelease || /canary/i.test(rel.tag_name || '') ? (rel.name || 'Canary') : rel.tag_name;
         var version = document.getElementById('downloadVersion');
         if (version && label) { version.textContent = 'Latest: ' + label; version.hidden = false; }
 
