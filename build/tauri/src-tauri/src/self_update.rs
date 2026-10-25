@@ -30,7 +30,7 @@ pub async fn install_update(app: tauri::AppHandle, channel: String) -> Result<()
     use tauri_plugin_updater::UpdaterExt;
 
     let endpoint = match channel.as_str() {
-        "nightly" => format!("{REPO_DOWNLOADS}/download/nightly/latest.json"),
+        "canary" => format!("{REPO_DOWNLOADS}/download/canary/latest.json"),
         "stable" => format!("{REPO_DOWNLOADS}/latest/download/latest.json"),
         other => return Err(format!("Unknown update channel: {other}")),
     };
@@ -40,7 +40,7 @@ pub async fn install_update(app: tauri::AppHandle, channel: String) -> Result<()
         .updater_builder()
         .endpoints(vec![endpoint])
         .map_err(|e| e.to_string())?
-        // The JS side already confirmed the manifest is newer; nightly versions are not ordered semver.
+        // The JS side already confirmed the manifest is newer; canary versions are not ordered semver.
         .version_comparator(|_current, _remote| true)
         .build()
         .map_err(|e| e.to_string())?;

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Download the latest MajesticTab nightly DMG and install it into /Applications.
+# Download the latest MajesticTab canary DMG and install it into /Applications.
 set -euo pipefail
 
-URL="https://github.com/cgarst/MajesticTab/releases/download/nightly/MajesticTab_1.0.0_aarch64.dmg"
+URL="https://github.com/cgarst/MajesticTab/releases/download/canary/MajesticTab_1.0.0_aarch64.dmg"
 APP_NAME="MajesticTab"
 DEST="/Applications/${APP_NAME}.app"
 
@@ -24,7 +24,7 @@ if pgrep -x "$APP_NAME" >/dev/null; then
   pkill -x "$APP_NAME" 2>/dev/null || true
 fi
 
-echo "Downloading nightly DMG..."
+echo "Downloading canary DMG..."
 curl -fL --progress-bar -o "$WORK/$APP_NAME.dmg" "$URL"
 
 echo "Mounting..."
