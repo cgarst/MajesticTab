@@ -9,7 +9,8 @@ export function parseSoundFontPresets(buffer) {
     const tag = (o) => String.fromCharCode(view.getUint8(o), view.getUint8(o + 1), view.getUint8(o + 2), view.getUint8(o + 3));
     const melodic = new Set();
     const drumKits = new Set();
-    if (buffer.byteLength < 12 || tag(0) !== 'RIFF' || tag(8) !== 'sfbk') return { melodic, drumKits };
+    const names = new Map(); // bank-0 program -> preset name
+    if (buffer.byteLength < 12 || tag(0) !== 'RIFF' || tag(8) !== 'sfbk') return { melodic, drumKits, names };
     let o = 12;
     while (o + 8 <= buffer.byteLength) {
         const size = view.getUint32(o + 4, true);
@@ -24,17 +25,28 @@ export function parseSoundFontPresets(buffer) {
                         const r = p + 8 + i * 38;
                         const program = view.getUint16(r + 20, true);
                         const bank = view.getUint16(r + 22, true);
-                        if (bank === 0) melodic.add(program);
+                        if (bank === 0) {
+                            melodic.add(program);
+                            if (!names.has(program)) {
+                                let name = '';
+                                for (let c = 0; c < 20; c++) {
+                                    const code = view.getUint8(r + c);
+                                    if (code === 0) break;
+                                    name += String.fromCharCode(code);
+                                }
+                                names.set(program, name.trim());
+                            }
+                        }
                         else if (bank === 128) drumKits.add(program);
                     }
-                    return { melodic, drumKits };
+                    return { melodic, drumKits, names };
                 }
                 p += 8 + chunkSize + (chunkSize & 1);
             }
         }
         o += 8 + size + (size & 1);
     }
-    return { melodic, drumKits };
+    return { melodic, drumKits, names };
 }
 
 /**
@@ -149,12 +161,17 @@ const AUTOMATION_INSTRUMENT = 2; // AlphaTab AutomationType.Instrument
  * AlphaTab's MIDI generator takes programs from per-beat Instrument automations (the first beat always has one),
  * not only from `playbackInfo.program`, so both are rewritten. The score's own values are kept on
  * `track.originalProgram` / `automation.originalValue` and restored when `presets` is null
- * (the complete built-in font is enabled, or strict mode is on).
+ * (the complete built-in font is enabled, or strict mode is on). `presets.forcedProgram` maps every
+ * non-percussion track and instrument change to that one program.
  * @returns {boolean} true if any program changed
  */
 export function applyProgramMapping(score, presets, mode = 'closest') {
     let changed = false;
-    const resolve = (original) => presets ? resolveProgramLayered(original, presets, mode).program : original;
+    const forced = presets?.forcedProgram;
+    const resolve = (original) => {
+        if (!presets) return original;
+        return forced !== undefined && forced !== null ? forced : resolveProgramLayered(original, presets, mode).program;
+    };
     for (const track of score?.tracks || []) {
         const info = track.playbackInfo;
         if (!info) continue;
@@ -186,3 +203,135 @@ export function applyProgramMapping(score, presets, mode = 'closest') {
     }
     return changed;
 }
+
+/** General MIDI program names, indexed by program (0-127). */
+export const GM_PROGRAM_NAMES = [
+    'Acoustic Grand Piano',
+    'Bright Acoustic Piano',
+    'Electric Grand Piano',
+    'Honky-tonk Piano',
+    'Electric Piano 1',
+    'Electric Piano 2',
+    'Harpsichord',
+    'Clavinet',
+    'Celesta',
+    'Glockenspiel',
+    'Music Box',
+    'Vibraphone',
+    'Marimba',
+    'Xylophone',
+    'Tubular Bells',
+    'Dulcimer',
+    'Drawbar Organ',
+    'Percussive Organ',
+    'Rock Organ',
+    'Church Organ',
+    'Reed Organ',
+    'Accordion',
+    'Harmonica',
+    'Tango Accordion',
+    'Nylon Guitar',
+    'Steel Guitar',
+    'Jazz Guitar',
+    'Clean Guitar',
+    'Muted Guitar',
+    'Overdriven Guitar',
+    'Distortion Guitar',
+    'Guitar Harmonics',
+    'Acoustic Bass',
+    'Fingered Bass',
+    'Picked Bass',
+    'Fretless Bass',
+    'Slap Bass 1',
+    'Slap Bass 2',
+    'Synth Bass 1',
+    'Synth Bass 2',
+    'Violin',
+    'Viola',
+    'Cello',
+    'Contrabass',
+    'Tremolo Strings',
+    'Pizzicato Strings',
+    'Orchestral Harp',
+    'Timpani',
+    'String Ensemble 1',
+    'String Ensemble 2',
+    'Synth Strings 1',
+    'Synth Strings 2',
+    'Choir Aahs',
+    'Voice Oohs',
+    'Synth Voice',
+    'Orchestra Hit',
+    'Trumpet',
+    'Trombone',
+    'Tuba',
+    'Muted Trumpet',
+    'French Horn',
+    'Brass Section',
+    'Synth Brass 1',
+    'Synth Brass 2',
+    'Soprano Sax',
+    'Alto Sax',
+    'Tenor Sax',
+    'Baritone Sax',
+    'Oboe',
+    'English Horn',
+    'Bassoon',
+    'Clarinet',
+    'Piccolo',
+    'Flute',
+    'Recorder',
+    'Pan Flute',
+    'Blown Bottle',
+    'Shakuhachi',
+    'Whistle',
+    'Ocarina',
+    'Square Lead',
+    'Sawtooth Lead',
+    'Calliope Lead',
+    'Chiff Lead',
+    'Charang Lead',
+    'Voice Lead',
+    'Fifths Lead',
+    'Bass and Lead',
+    'New Age Pad',
+    'Warm Pad',
+    'Polysynth Pad',
+    'Choir Pad',
+    'Bowed Pad',
+    'Metallic Pad',
+    'Halo Pad',
+    'Sweep Pad',
+    'Rain FX',
+    'Soundtrack FX',
+    'Crystal FX',
+    'Atmosphere FX',
+    'Brightness FX',
+    'Goblins FX',
+    'Echoes FX',
+    'Sci-Fi FX',
+    'Sitar',
+    'Banjo',
+    'Shamisen',
+    'Koto',
+    'Kalimba',
+    'Bagpipe',
+    'Fiddle',
+    'Shanai',
+    'Tinkle Bell',
+    'Agogo',
+    'Steel Drums',
+    'Woodblock',
+    'Taiko Drum',
+    'Melodic Tom',
+    'Synth Drum',
+    'Reverse Cymbal',
+    'Guitar Fret Noise',
+    'Breath Noise',
+    'Seashore',
+    'Bird Tweet',
+    'Telephone Ring',
+    'Helicopter',
+    'Applause',
+    'Gunshot'
+];

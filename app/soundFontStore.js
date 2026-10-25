@@ -1,7 +1,7 @@
 // soundFontStore.js
 // Persistent store and selection for user-supplied SoundFonts (.sf2 / .sf3).
 // Any number can be enabled at once; AlphaTab layers them in load order, so later ones override earlier ones.
-import { parseSoundFontPresets, mergePresetSets, applyProgramMapping } from './soundFontProgramMap.js';
+import { parseSoundFontPresets, mergePresetSets, applyProgramMapping, GM_PROGRAM_NAMES } from './soundFontProgramMap.js';
 import { clampNegativeAttenuation } from './soundFontSanitize.js';
 import { getDB, STORE_SOUNDFONTS, arrayBufferToBase64Async, arrayBufferToBase64, base64ToArrayBuffer } from './fileStore.js';
 
@@ -10,6 +10,7 @@ export const BUILTIN_SOUNDFONT_URL = 'https://cdn.jsdelivr.net/npm/@coderline/al
 export const STORAGE_KEY_SOUNDFONT_SELECTION = 'majestictab_soundfont_selection';
 export const STORAGE_KEY_SOUNDFONT_ORDER = 'majestictab_soundfont_order';
 export const STORAGE_KEY_SOUNDFONT_STRICT = 'majestictab_soundfont_strict';
+export const STORAGE_KEY_SOUNDFONT_FORCED = 'majestictab_soundfont_forced';
 export const SOUNDFONT_BACKUP_STORE = 'soundfonts';
 
 const changeListeners = new Set();
@@ -140,6 +141,37 @@ export function setSoundFontStrict(strict) {
     emitChange();
 }
 
+/**
+ * Forced preset: every non-percussion track plays this one bank-0 program of one uploaded font.
+ * @returns {{id:string, program:number}|null}
+ */
+export function getForcedPreset() {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY_SOUNDFONT_FORCED));
+        if (parsed && typeof parsed.id === 'string' && Number.isInteger(parsed.program)) {
+            return { id: parsed.id, program: parsed.program };
+        }
+    } catch (_) {}
+    return null;
+}
+
+export function setForcedPreset(forced) {
+    try {
+        if (forced) localStorage.setItem(STORAGE_KEY_SOUNDFONT_FORCED, JSON.stringify({ id: forced.id, program: forced.program }));
+        else localStorage.removeItem(STORAGE_KEY_SOUNDFONT_FORCED);
+    } catch (_) {}
+    emitChange();
+}
+
+/** Bank-0 presets of a font (General MIDI names for the built-in one), sorted by program: [{program, name}]. */
+export async function listSoundFontPresets(id) {
+    if (id === BUILTIN_SOUNDFONT_ID) return GM_PROGRAM_NAMES.map((name, program) => ({ program, name }));
+    const data = await getSoundFontData(id);
+    if (!data) return [];
+    const { names } = parseSoundFontPresets(data);
+    return [...names].map(([program, name]) => ({ program, name })).sort((a, b) => a.program - b.program);
+}
+
 /** Built-in plus uploads in load order: saved order first, anything unsaved after (built-in, then oldest upload first). */
 export async function listOrderedSoundFonts() {
     const entries = [
@@ -166,7 +198,13 @@ export async function describeActiveSoundFonts() {
             : { id: entry.id, name: entry.name, size: sizes.get(entry.id) || 0 });
     }
     if (fonts.length === 0) fonts.push({ id: BUILTIN_SOUNDFONT_ID, name: 'SONiVOX (built-in)', builtin: true });
-    return { fonts, strict: getSoundFontStrict() };
+    const forced = getForcedPreset();
+    const forcedIndex = forced ? fonts.findIndex(f => f.id === forced.id) : -1;
+    return {
+        fonts,
+        strict: getSoundFontStrict(),
+        forced: forcedIndex >= 0 ? { index: forcedIndex, program: forced.program } : null
+    };
 }
 
 /**
@@ -175,41 +213,58 @@ export async function describeActiveSoundFonts() {
  */
 export async function applySoundFontsToApi(api) {
     if (!api) return 0;
-    const sources = [];
-    const presetSets = [];
+    let sources = [];
+    let presetSets = [];
+    const ids = []; // parallel to sources: store id (own selection) or index (Jam session), to find the forced font
     let hasBuiltin = false;
-    const addBuiltin = () => {
+    const addBuiltin = (key) => {
         sources.push(BUILTIN_SOUNDFONT_URL);
         presetSets.push(BUILTIN_PRESETS());
+        ids.push(key);
         hasBuiltin = true;
     };
-    const addData = (data) => {
+    const addData = (data, key) => {
         const bytes = new Uint8Array(data.slice(0));
         clampNegativeAttenuation(bytes);
         sources.push(bytes);
         presetSets.push(parseSoundFontPresets(data));
+        ids.push(key);
     };
     let strict = getSoundFontStrict();
+    let forced = null; // { key, program }
     if (sessionSoundFonts) {
         strict = Boolean(sessionSoundFonts.strict);
-        for (const font of sessionSoundFonts.fonts) {
-            if (font.builtin) addBuiltin(); else addData(font.data);
-        }
+        sessionSoundFonts.fonts.forEach((font, i) => {
+            if (font.builtin) addBuiltin(i); else addData(font.data, i);
+        });
+        if (sessionSoundFonts.forced) forced = { key: sessionSoundFonts.forced.index, program: sessionSoundFonts.forced.program };
     } else {
+        const own = getForcedPreset();
+        if (own) forced = { key: own.id, program: own.program };
         const selected = new Set(getSelectedSoundFontIds());
         for (const entry of await listOrderedSoundFonts()) {
             if (!selected.has(entry.id)) continue;
-            if (entry.builtin) { addBuiltin(); continue; }
+            if (entry.builtin) { addBuiltin(entry.id); continue; }
             const data = await getSoundFontData(entry.id);
-            if (data) addData(data);
+            if (data) addData(data, entry.id);
         }
     }
-    if (sources.length === 0) addBuiltin();
+    if (sources.length === 0) addBuiltin(BUILTIN_SOUNDFONT_ID);
+    // The forced font goes on top so its preset wins over any other font defining the same program.
+    const forcedAt = forced ? ids.indexOf(forced.key) : -1;
+    if (forcedAt >= 0 && !(forcedAt === sources.length - 1)) {
+        const move = (arr) => arr.push(arr.splice(forcedAt, 1)[0]);
+        move(sources); move(presetSets); move(ids);
+    }
     // The built-in font alone defines every GM program, so nothing needs remapping. Layered with custom fonts it
     // counts as a full layer: each custom font above it substitutes its closest program first, so it is heard
     // instead of the built-in font merely being the only one with the exact program.
     const builtinOnly = hasBuiltin && sources.length === 1;
-    api.soundFontPresets = builtinOnly || strict ? null : mergePresetSets(presetSets);
+    if (forcedAt >= 0) {
+        api.soundFontPresets = { ...mergePresetSets(presetSets), forcedProgram: forced.program };
+    } else {
+        api.soundFontPresets = builtinOnly || strict ? null : mergePresetSets(presetSets);
+    }
     if (applyProgramMapping(api.score, api.soundFontPresets)) api.loadMidiForScore();
     // AlphaTab stacks fonts in the order they finish loading, and a URL resolves after raw bytes, which would put
     // the built-in font on top of everything. Resolve every source to bytes first so the user's order holds.
