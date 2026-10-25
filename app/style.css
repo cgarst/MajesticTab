@@ -4061,6 +4061,10 @@ body:not(.synth-playback-started) .at-highlight {
   cursor: pointer;
 }
 
+.library-row-clickable {
+  cursor: pointer;
+}
+
 .library-card:active {
   box-shadow: none !important;
   transform: translate3d(0, 0, 0) !important;
