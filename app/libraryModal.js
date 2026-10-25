@@ -414,9 +414,7 @@ export async function openLibraryModal(initialView = 'library') {
         viewHistory = [];
     }
     activeView = initialView;
-    if (initialView === 'library' || initialView === 'recents') {
-        updateUrl(initialView, null, false);
-    }
+    updateUrl(initialView.toLowerCase(), null, false);
 
     let page = document.getElementById('libraryPage');
     if (!page) {
@@ -616,9 +614,7 @@ async function switchView(view, pushHistory = true) {
         pushLibraryNavigationState();
     }
     activeView = view;
-    if (view === 'library' || view === 'recents') {
-        updateUrl(view);
-    }
+    updateUrl(view.toLowerCase());
     await renderLibraryModal();
 }
 
@@ -1433,6 +1429,7 @@ function bindLibraryToolbarEvents(container) {
         selectedFolderPath = [];
         selectedTuning = null;
         isAlbumEditMode = false;
+        updateUrl(entering ? 'tunings' : 'library');
         renderLibraryBrowseView(container);
     });
 
