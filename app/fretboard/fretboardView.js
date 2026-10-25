@@ -608,7 +608,7 @@ export class FretboardView {
                 marker.element.setAttribute('transform', `translate(${posX}, ${posY})`);
                 marker.element.setAttribute('class', `fretboard-note-marker ${struckClass}${note.isGhost ? ' is-ghost' : ''}${note.isTieDestination ? ' is-tie' : ''}`);
 
-                const glowFill = colorIndices[0] === 0 ? 'var(--accent-glow)' : (TRACK_PALETTE[primaryTrackColorIdx] || 'var(--accent-glow)');
+                const glowFill = TRACK_PALETTE[primaryTrackColorIdx] || 'var(--accent-glow)';
                 marker.glow.style.fill = glowFill;
 
                 if (colorIndices.length >= 2) {

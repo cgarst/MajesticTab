@@ -3,22 +3,26 @@
 
 const STORAGE_KEY_TAB_COLORS = 'majestictab_tab_track_colors';
 
-// Track 0 follows the active finish theme; the rest are fixed hues. `end` is the fretboard gradient's second stop.
-export const TRACK_COLORS = [
-    { color: 'var(--accent-primary, #6366f1)', end: 'var(--accent-secondary, #10b981)' },
-    { color: '#ec4899', end: '#8b5cf6' },
-    { color: '#f59e0b', end: '#ef4444' },
-    { color: '#06b6d4', end: '#3b82f6' },
-    { color: '#22c55e', end: '#14b8a6' },
-    { color: '#ef4444', end: '#f97316' },
-    { color: '#a855f7', end: '#6366f1' },
-    { color: '#84cc16', end: '#eab308' }
+// Six well-separated hues (Okabe-Ito style, safe for common color blindness). A track's color is keyed to its
+// score track index, so it never changes when other tracks are shown or hidden.
+//   sheet: color handed to AlphaTab (tuned for light paper); dark: swapped in by CSS on dark sheets and used
+//   by the fretboard/track list; end: second stop of the fretboard gradient.
+const TRACK_HUES = [
+    { sheet: '#1D6FD6', dark: '#5CAEFF', end: '#7C6CFF' },
+    { sheet: '#B45600', dark: '#FFA94D', end: '#FF7A59' },
+    { sheet: '#08795A', dark: '#3DDC97', end: '#2BC4C4' },
+    { sheet: '#C2307A', dark: '#FF6FB5', end: '#FF6B8B' },
+    { sheet: '#7B4BD6', dark: '#B596FF', end: '#E08CFF' },
+    { sheet: '#8A7000', dark: '#FFD84D', end: '#FFB347' }
 ];
+
+export const TRACK_COLORS = TRACK_HUES.map(h => ({ color: h.dark, end: h.end }));
 
 export const TRACK_PALETTE = TRACK_COLORS.map(c => c.color);
 
-export function getTrackColorIndexFor(position) {
-    return position >= 0 ? position % TRACK_PALETTE.length : 0;
+/** Palette slot for a score track (pass track.index, not its position among visible tracks). */
+export function getTrackColorIndexFor(trackIndex) {
+    return trackIndex >= 0 ? trackIndex % TRACK_PALETTE.length : 0;
 }
 
 export function isTabTrackColorsEnabled() {
@@ -35,30 +39,57 @@ export function setTabTrackColorsEnabled(enabled) {
     } catch { /* preference is optional */ }
 }
 
-// AlphaTab needs concrete colors, so resolve CSS variables through a probe element.
-// Darkened so amber/lime stay legible on light sheet themes.
-function resolveTabColor(cssColor) {
-    const probe = document.createElement('span');
-    probe.style.color = cssColor;
-    document.body.appendChild(probe);
-    const rgb = getComputedStyle(probe).color.match(/\d+(\.\d+)?/g) || [];
-    probe.remove();
-    if (rgb.length < 3) return null;
-    const [r, g, b] = rgb.slice(0, 3).map(v => Math.round(parseFloat(v) * 0.78));
-    return { r, g, b };
+function hexToRgb(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
-const NOTE_ELEMENTS = ['GuitarTabFretNumber', 'GuitarTabEffects'];
-const BEAT_ELEMENTS = ['GuitarTabStem', 'GuitarTabFlags', 'GuitarTabBeams', 'GuitarTabTuplet'];
+// AlphaTab writes these colors into SVG fill/stroke attributes. Dark sheet modes force every SVG element to one
+// light gray with !important, so re-assert the track hue there (using the lighter dark-sheet variant). Light
+// sheets have no override, so the attribute applies as-is.
+// :not(#_) adds id-level specificity so these rules beat the :not()-heavy path/rect overrides.
+const BOOST = ':not(#_)';
+const TINT_STYLE_ID = 'track-tint-styles';
+function installTrackTintStyles() {
+    if (document.getElementById(TINT_STYLE_ID)) return;
+    const scope = 'body:is(.sheet-mode-dark, .theme-sheet-active) #output svg';
+    const css = TRACK_HUES.map(h => `
+${scope} [fill="${h.sheet}" i]${BOOST} { fill: ${h.dark} !important; }
+${scope} [stroke="${h.sheet}" i]${BOOST} { stroke: ${h.dark} !important; }
+${scope} [fill^="rgba(${hexToRgb(h.sheet).r},${hexToRgb(h.sheet).g},${hexToRgb(h.sheet).b}," i]${BOOST} { fill: ${h.dark} !important; fill-opacity: ${STAFF_LINE_ALPHA}; }`).join('');
+    const style = document.createElement('style');
+    style.id = TINT_STYLE_ID;
+    style.textContent = css;
+    document.head.appendChild(style);
+}
+
+// Staff lines are tinted softly so the notation, not the grid, carries the color.
+const STAFF_LINE_ALPHA = 0.55;
+
+const NOTE_ELEMENTS = [
+    'GuitarTabFretNumber', 'GuitarTabEffects',
+    'StandardNotationNoteHead', 'StandardNotationAccidentals', 'StandardNotationEffects'
+];
+const BEAT_ELEMENTS = [
+    'GuitarTabStem', 'GuitarTabFlags', 'GuitarTabBeams', 'GuitarTabTuplet', 'GuitarTabEffects', 'GuitarTabRests',
+    'StandardNotationStem', 'StandardNotationFlags', 'StandardNotationBeams', 'StandardNotationTuplet',
+    'StandardNotationEffects', 'StandardNotationRests'
+];
+const BAR_SOLID_ELEMENTS = ['GuitarTabsClef', 'StandardNotationClef'];
+const BAR_SOFT_ELEMENTS = ['GuitarTabsStaffLine', 'StandardNotationStaffLine'];
+
+function forEachBar(track, fn) {
+    for (const staff of track.staves || []) {
+        for (const bar of staff.bars || []) fn(bar);
+    }
+}
 
 function forEachBeat(track, fn) {
-    for (const staff of track.staves || []) {
-        for (const bar of staff.bars || []) {
-            for (const voice of bar.voices || []) {
-                for (const beat of voice.beats || []) fn(beat);
-            }
+    forEachBar(track, (bar) => {
+        for (const voice of bar.voices || []) {
+            for (const beat of voice.beats || []) fn(beat);
         }
-    }
+    });
 }
 
 function paint(style, elements, enumObj, color) {
@@ -68,22 +99,39 @@ function paint(style, elements, enumObj, color) {
 }
 
 /**
- * Colors tab fret numbers and stems per track to match the fretboard, or clears them.
- * Only active with 2+ visible tracks. Notes carrying another style (e.g. tuning-adapter highlights) are left alone.
- * Call before api.render()/renderTracks().
+ * Colors each track's notation (fret numbers, stems, rests, ties, clef, staff lines) with its palette hue to
+ * match the fretboard, or clears it. Only active with 2+ visible tracks. Notes carrying another style
+ * (e.g. tuning-adapter highlights) are left alone. Call before api.render()/renderTracks().
  * @param {Object} score AlphaTab score
- * @param {Array<number>} visibleTrackIndices track.index values currently rendered, in display order
+ * @param {Array<number>} visibleTrackIndices track.index values currently rendered
  */
 export function applyTabTrackColors(score, visibleTrackIndices) {
     const model = globalThis.alphaTab?.model;
-    if (!score?.tracks || !model?.NoteStyle || !model.BeatStyle || !model.Color) return;
+    if (!score?.tracks || !model?.NoteStyle || !model.BeatStyle || !model.BarStyle || !model.Color) return;
 
     const active = isTabTrackColorsEnabled() && (visibleTrackIndices?.length || 0) > 1;
+    if (active) installTrackTintStyles();
 
     for (const track of score.tracks) {
-        const position = active ? visibleTrackIndices.indexOf(track.index) : -1;
-        const rgb = position >= 0 ? resolveTabColor(TRACK_PALETTE[getTrackColorIndexFor(position)]) : null;
+        const visible = active && visibleTrackIndices.includes(track.index);
+        const hue = visible ? TRACK_HUES[getTrackColorIndexFor(track.index)] : null;
+        const rgb = hue ? hexToRgb(hue.sheet) : null;
         const color = rgb ? new model.Color(rgb.r, rgb.g, rgb.b) : null;
+        const softColor = rgb ? new model.Color(rgb.r, rgb.g, rgb.b, Math.round(STAFF_LINE_ALPHA * 255)) : null;
+
+        forEachBar(track, (bar) => {
+            if (color) {
+                if (!bar.style || bar.style._trackColor) {
+                    const bs = new model.BarStyle();
+                    paint(bs, BAR_SOLID_ELEMENTS, model.BarSubElement, color);
+                    paint(bs, BAR_SOFT_ELEMENTS, model.BarSubElement, softColor);
+                    bs._trackColor = true;
+                    bar.style = bs;
+                }
+            } else if (bar.style?._trackColor) {
+                bar.style = undefined;
+            }
+        });
 
         forEachBeat(track, (beat) => {
             if (color) {
