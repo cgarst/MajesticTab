@@ -203,7 +203,6 @@ export class NavigationHandler {
 export function setupKeyboardNavigation(getConfig) {
     window.addEventListener('keydown', (e) => {
         const config = getConfig();
-        if (!config.currentFile) return;
 
         const nextPageKeys = ['ArrowRight', 'ArrowDown', 'PageDown'];
         const prevPageKeys = ['ArrowLeft', 'ArrowUp', 'PageUp'];
@@ -222,8 +221,8 @@ export function setupKeyboardNavigation(getConfig) {
         if (isTextInput) return;
 
         // Back / Forward keyboard shortcuts (especially macOS mouse 4 / 5 translation: Cmd+[ and Cmd+], Alt+Left/Right, Cmd+Left/Right)
-        const isMacBack = (e.metaKey && e.key === '[') || (e.altKey && e.key === 'ArrowLeft') || (e.metaKey && e.key === 'ArrowLeft');
-        const isMacForward = (e.metaKey && e.key === ']') || (e.altKey && e.key === 'ArrowRight') || (e.metaKey && e.key === 'ArrowRight');
+        const isMacBack = (e.metaKey && (e.key === '[' || e.code === 'BracketLeft')) || (e.altKey && e.key === 'ArrowLeft') || (e.metaKey && e.key === 'ArrowLeft');
+        const isMacForward = (e.metaKey && (e.key === ']' || e.code === 'BracketRight')) || (e.altKey && e.key === 'ArrowRight') || (e.metaKey && e.key === 'ArrowRight');
 
         if (isMacBack) {
             e.preventDefault();
@@ -236,6 +235,8 @@ export function setupKeyboardNavigation(getConfig) {
             performAppForward(getConfig);
             return;
         }
+
+        if (!config.currentFile) return;
 
         // B key rewinds audio playback by 10 seconds
         if (isB && !e.ctrlKey && !e.metaKey && !e.altKey) {
