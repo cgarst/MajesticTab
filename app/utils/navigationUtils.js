@@ -3,7 +3,7 @@ import { showToast } from './toast.js';
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
-import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
+import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
 import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel } from '../youtubePlayer.js';
 
 // Navigation action constants
@@ -196,6 +196,8 @@ export class NavigationHandler {
 
 
 
+const PLAYBACK_SPEED_KEY_STEP = 5;
+
 /**
  * Handle keyboard navigation
  * @param {Function} getConfig Function to get current navigation configuration
@@ -269,6 +271,14 @@ export function setupKeyboardNavigation(getConfig) {
         if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey && isSynthAvailable()) {
             e.preventDefault();
             toggleCountIn();
+            return;
+        }
+
+        // , and . slow down / speed up playback
+        if ((e.key === ',' || e.key === '.') && !e.ctrlKey && !e.metaKey && !e.altKey && isSynthAvailable()) {
+            e.preventDefault();
+            const pct = adjustPlaybackSpeed(e.key === '.' ? PLAYBACK_SPEED_KEY_STEP : -PLAYBACK_SPEED_KEY_STEP);
+            showToast(`Speed ${pct}%`, 'info', 1200, 'playback-speed');
             return;
         }
 
