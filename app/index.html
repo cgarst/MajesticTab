@@ -913,11 +913,14 @@
     </div>
 
     <div class="mt-auto pt-2 d-flex flex-column gap-2">
-      <div class="d-flex align-items-center justify-content-between px-1">
-        <a href="privacy.html" class="small text-white-50 text-decoration-none d-inline-flex align-items-center gap-1">
+      <div class="d-flex align-items-center justify-content-between px-1 small text-nowrap">
+        <a href="privacy.html" class="text-white-50 text-decoration-none d-inline-flex align-items-center gap-1">
           <i class="bi-shield-check"></i> Privacy Policy
         </a>
-        <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="small text-white-50 text-decoration-none d-inline-flex align-items-center gap-1">
+        <button type="button" id="aboutModalBtn" class="btn btn-link p-0 border-0 align-baseline text-white-50 text-decoration-none d-inline-flex align-items-center gap-1" style="font-size: inherit; line-height: inherit;">
+          <i class="bi-info-circle"></i> About
+        </button>
+        <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="text-white-50 text-decoration-none d-inline-flex align-items-center gap-1">
           <i class="bi-github"></i> GitHub
         </a>
       </div>
@@ -1135,6 +1138,52 @@
       </div>
       <div id="mixerTrackList" class="mixer-list"></div>
       <div class="text-center text-muted py-3 small" id="mixerEmptyMsg" style="display: none;">Load a Guitar Pro file to mix its tracks.</div>
+    </div>
+  </section>
+</div>
+
+<div id="aboutModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card synth-modal-card about-modal-card">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
+          <i class="bi-info-circle text-info fs-5"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="aboutModalTitle">About and licenses</h2>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="aboutModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body">
+      <div class="small text-white-50">MajesticTab is open source software released under the MIT License. Source code: <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer">github.com/cgarst/MajesticTab</a></div>
+      <div class="about-license">
+        <div class="fw-semibold small">MIT License</div>
+        <p>Copyright (c) 2025 Corey Garst</p>
+        <p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:</p>
+        <p>The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</p>
+        <p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
+      </div>
+
+      <div class="about-third-party">
+        <div class="fw-semibold small mb-2">Third-party software</div>
+        <ul class="small text-white-50 mb-0 ps-3">
+          <li><a href="https://github.com/CoderLine/alphaTab" target="_blank" rel="noopener noreferrer">AlphaTab</a> (Mozilla Public License 2.0)</li>
+          <li><a href="https://github.com/mozilla/pdf.js" target="_blank" rel="noopener noreferrer">PDF.js</a> (Apache License 2.0)</li>
+          <li><a href="https://github.com/parallax/jsPDF" target="_blank" rel="noopener noreferrer">jsPDF</a> (MIT License)</li>
+          <li><a href="https://github.com/101arrowz/fflate" target="_blank" rel="noopener noreferrer">fflate</a> (MIT License)</li>
+          <li><a href="https://github.com/codemirror/codemirror5" target="_blank" rel="noopener noreferrer">CodeMirror 5</a> (MIT License)</li>
+          <li><a href="https://github.com/pdf-lib/pdf-lib" target="_blank" rel="noopener noreferrer">pdf-lib</a> (MIT License)</li>
+          <li><a href="https://github.com/kazuhikoarase/qrcode-generator" target="_blank" rel="noopener noreferrer">qrcode-generator</a> (MIT License)</li>
+          <li><a href="https://github.com/steinbergmedia/bravura" target="_blank" rel="noopener noreferrer">Bravura</a> music font by Steinberg (SIL Open Font License 1.1)</li>
+          <li>Sonivox EAS SoundFont, copyright Sonic Network Inc. (Apache License 2.0)</li>
+          <li><a href="https://github.com/twbs/bootstrap" target="_blank" rel="noopener noreferrer">Bootstrap</a> and <a href="https://github.com/twbs/icons" target="_blank" rel="noopener noreferrer">Bootstrap Icons</a> (MIT License)</li>
+        </ul>
+      </div>
     </div>
   </section>
 </div>

@@ -1167,6 +1167,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     initSoundFontPanel();
     initMixerPanel();
     initAudioLatencyModal();
+    wireModal('aboutModal', 'aboutModalBtn');
     initScoreOptionsPanel();
     initPdfBookmarksUI();
     initFretboard();

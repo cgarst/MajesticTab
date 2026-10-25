@@ -6694,3 +6694,36 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
     box-shadow: none;
     border: 1px solid var(--border-subtle);
 }
+
+/* About and licenses modal */
+.about-modal-card .theme-modal-body > * {
+  flex-shrink: 0;
+}
+.about-modal-card a {
+  color: var(--accent-text);
+  text-decoration-color: var(--accent-border-alpha);
+  text-underline-offset: 2px;
+}
+.about-modal-card a:hover {
+  color: var(--text-primary);
+}
+.about-license {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem 0.875rem;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  user-select: text;
+}
+.about-license p {
+  margin: 0;
+}
+.about-third-party {
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-subtle);
+}
