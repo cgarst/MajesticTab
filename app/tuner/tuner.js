@@ -957,6 +957,7 @@ class PitchCraftTunerController {
             : '<span class="small text-muted">Chromatic mode detects all notes across any pitch range.</span>';
 
         container.innerHTML = `
+          <div class="tuner-controls-col">
           <!-- Instrument Carousel / Grid -->
           ${trackChipsHtml ? `<div class="tuner-instrument-grid" aria-label="Track tunings">${trackChipsHtml}</div>` : ''}
           <div class="tuner-selector-row">
@@ -978,10 +979,12 @@ class PitchCraftTunerController {
                 ${inst.isTrackTuning ? '<span class="badge bg-success-subtle text-success border border-success-subtle small ms-1" style="font-size: 0.65rem;">Active Track</span>' : ''}
               </div>
               <div class="tuner-banner-subtitle">${inst.description}</div>
-              <div class="tuner-strings-row">
+              <div class="tuner-strings-row" style="--n: ${inst.tuning ? inst.tuning.length : 0};">
                 ${stringsHtml}
               </div>
             </div>
+          </div>
+
           </div>
 
           <!-- Real-Time Chromatic Pitch & Cents Display -->
