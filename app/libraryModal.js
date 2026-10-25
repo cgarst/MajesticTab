@@ -2,7 +2,7 @@
 // Artwork-rich MusicBrainz-powered Tab Library Page aligned to themes.
 
 import {
-    getCollections, createCollection, deleteCollection, getLibraryHierarchy, getLibraryTuningsHierarchy,
+    getCollections, deleteCollection, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
     deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, setDefaultTabOption,
     togglePinSong, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
@@ -675,8 +675,8 @@ async function renderLibraryBrowseView(container) {
     // Top Library Body Toolbar (Collection Selector + Mode Selector + Universal Search/Filter + Add Music)
     const headerHtml = `
     <div class="library-page-container">
-      <div class="library-body-header mb-3">
-        <!-- Collection Selector & Browse Mode Group (Left) -->
+      <div class="library-body-header mb-3 ${collections.length > 1 ? '' : 'no-collections'}">
+        ${collections.length > 1 ? `<!-- Collection Selector (Left) -->
         <div class="lib-toolbar-left d-flex align-items-center gap-2 flex-wrap">
           ${libraryBrowseMode === 'tunings' && !selectedTuning ? `
           <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="libTuningsBackBtn" title="Back to Tab Library">
@@ -686,12 +686,8 @@ async function renderLibraryBrowseView(container) {
             <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
               ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
             </select>
-            <button class="btn collection-add-btn" id="libNewCollectionBtn" title="Create New Collection" aria-label="New Collection">
-              <i class="bi-plus-lg"></i>
-            </button>
           </div>
-
-        </div>
+        </div>` : ''}
 
         <!-- Universal Search & Filter Bar (True Center) -->
         <div class="lib-toolbar-center">
@@ -1431,22 +1427,6 @@ function bindLibraryToolbarEvents(container) {
         selectedTuning = null;
         isAlbumEditMode = false;
         renderLibraryBrowseView(container);
-    });
-
-    container.querySelector('#libNewCollectionBtn')?.addEventListener('click', () => {
-        openThemedInputModal({
-            title: 'New Collection',
-            subtitle: 'Create a dedicated tab collection',
-            icon: 'bi-folder-plus',
-            inputLabel: 'Collection Name',
-            placeholder: 'e.g. Live Setlist, Favorites, Acoustic...',
-            confirmText: 'Create Collection',
-            onConfirm: async (name) => {
-                const col = await createCollection(name);
-                activeCollectionId = col.id;
-                await renderLibraryBrowseView(container);
-            }
-        });
     });
 
     container.querySelector('#libRecentsBtn')?.addEventListener('click', () => switchView('recents'));
