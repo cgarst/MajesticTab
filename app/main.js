@@ -639,8 +639,8 @@ function setupSettings() {
     initBackupRestore();
     initSync();
 
-    // Setup Quit App button (Native desktop/Android clients only; omitted on iOS per Apple HIG)
-    if (window.__TAURI__ && !isIOSDevice()) {
+    // Setup Quit App button (Native Linux desktop client only; navigator.platform reports "Linux" on Android too)
+    if (window.__TAURI__ && /Linux/i.test(navigator.platform) && !/Android/i.test(navigator.userAgent)) {
         const fileMenuFooter = document.getElementById('fileMenuFooter');
         if (fileMenuFooter) fileMenuFooter.style.display = '';
         document.getElementById('menuQuitAppBtn')?.addEventListener('click', async () => {
