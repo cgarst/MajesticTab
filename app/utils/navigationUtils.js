@@ -3,7 +3,7 @@ import { showToast } from './toast.js';
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
-import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
+import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
 import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel } from '../youtubePlayer.js';
 
 // Navigation action constants
@@ -256,6 +256,20 @@ export function setupKeyboardNavigation(getConfig) {
                 showToast(mode === 'noGuitars' ? (isBass ? 'No bass' : 'No guitars') : 'Full band', 'info', 1500, 'synth-track-mode');
                 return;
             }
+        }
+
+        // M key toggles the metronome
+        if ((e.key === 'm' || e.key === 'M') && !e.ctrlKey && !e.metaKey && !e.altKey && isSynthAvailable()) {
+            e.preventDefault();
+            toggleMetronome();
+            return;
+        }
+
+        // C key toggles the count-in
+        if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey && isSynthAvailable()) {
+            e.preventDefault();
+            toggleCountIn();
+            return;
         }
 
         // Prevent default browser scrolling and radio group switching for navigation and spacebar
