@@ -440,14 +440,13 @@ body {
 }
 
 .tauri-windows #topBar {
-  padding-right: 148px;
   min-height: 50px;
 }
 
-@media (min-width: 1101px) {
-  .tauri-windows #topBar {
-    padding-left: 148px;
-  }
+/* Reserve the window-control inset inside the right column so the grid stays symmetric
+   (#centerSection centered in the window) without leaving a gap on the left */
+.tauri-windows #rightSection {
+  padding-right: 132px;
 }
 
 .win-ctrl-btn {
