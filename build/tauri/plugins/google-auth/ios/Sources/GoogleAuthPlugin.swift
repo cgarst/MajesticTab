@@ -8,11 +8,13 @@ import UIKit
 struct AuthResult: Encodable {
     let accessToken: String
     let expiresIn: Int
+    let refreshToken: String?
 }
 
 struct TokenResponse: Decodable {
     let access_token: String?
     let expires_in: Int?
+    let refresh_token: String?
     let token_type: String?
     let error: String?
     let error_description: String?
@@ -43,7 +45,8 @@ class GoogleAuthPlugin: Plugin, ASWebAuthenticationPresentationContextProviding 
             URLQueryItem(name: "code_challenge", value: codeChallenge),
             URLQueryItem(name: "code_challenge_method", value: "S256"),
             URLQueryItem(name: "state", value: state),
-            URLQueryItem(name: "prompt", value: "select_account")
+            URLQueryItem(name: "access_type", value: "offline"),
+            URLQueryItem(name: "prompt", value: "select_account consent")
         ]
 
         guard let authUrl = components.url else {
@@ -167,7 +170,7 @@ class GoogleAuthPlugin: Plugin, ASWebAuthenticationPresentationContextProviding 
                 }
 
                 let expiresIn = tokenRes.expires_in ?? 3600
-                invoke.resolve(AuthResult(accessToken: accessToken, expiresIn: expiresIn))
+                invoke.resolve(AuthResult(accessToken: accessToken, expiresIn: expiresIn, refreshToken: tokenRes.refresh_token))
             } catch {
                 invoke.reject("Failed to parse Google token exchange response: \(error.localizedDescription)")
             }

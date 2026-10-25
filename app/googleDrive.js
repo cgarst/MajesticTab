@@ -74,6 +74,65 @@ loadTabsDirectory();
 loadSavedFolder();
 if (folderHistory[0]?.id !== getDriveRoot().id) resetFolderToDriveRoot();
 
+function readStoredAuth() {
+    try {
+        return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    } catch (_) {
+        return null;
+    }
+}
+
+let refreshPromise = null;
+
+/**
+ * Resolves true when a usable access token is available, renewing it first if it has expired.
+ * Desktop and iOS exchange the stored refresh token; Android re-runs its (silent once granted)
+ * authorization. The browser's implicit flow has no refresh token, so it returns false there.
+ */
+export async function ensureFreshToken() {
+    if (isTokenValid()) return true;
+    const auth = readStoredAuth();
+    const isTauri = !!window.__TAURI__?.core?.invoke;
+    if (!isTauri || (!auth?.refresh_token && !(isMobilePlatform() && !isIOSDevice()))) return false;
+
+    refreshPromise ||= refreshAccessToken(auth?.refresh_token)
+        .catch((error) => {
+            console.warn('Google token refresh failed:', error);
+            return false;
+        })
+        .finally(() => { refreshPromise = null; });
+    return refreshPromise;
+}
+
+async function refreshAccessToken(refreshToken) {
+    if (isMobilePlatform() && !isIOSDevice()) {
+        const authData = await window.__TAURI__.core.invoke('plugin:google-auth|authorize');
+        return storeGoogleAuth(authData.accessToken, authData.expiresIn);
+    }
+
+    const params = {
+        client_id: isMobilePlatform() ? IOS_CLIENT_ID : DESKTOP_CLIENT_ID,
+        refresh_token: refreshToken,
+        grant_type: 'refresh_token'
+    };
+    if (!isMobilePlatform()) {
+        const { TAURI_CLIENT_SECRET } = await import('./googleDrive.local.js');
+        params.client_secret = TAURI_CLIENT_SECRET;
+    }
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams(params)
+    });
+    const authData = await response.json();
+    if (!response.ok) {
+        // invalid_grant means the refresh token was revoked or expired: force a fresh sign-in.
+        if (authData.error === 'invalid_grant') clearStoredToken({ all: true });
+        throw new Error(authData.error_description || 'Google token refresh failed.');
+    }
+    return storeGoogleAuth(authData.access_token, authData.expires_in);
+}
+
 export function isTokenValid() {
     try {
         const storedAuth = localStorage.getItem(STORAGE_KEY);
@@ -95,6 +154,7 @@ export function isTokenValid() {
  * Clears the stored token on 401 so the UI can prompt a reconnect.
  */
 export async function driveFetch(url, options = {}) {
+    await ensureFreshToken();
     if (!isTokenValid()) {
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
@@ -130,8 +190,14 @@ function openBackupModalForAuthState(state, { skipIfOpen = false } = {}) {
     import('./backupRestore.js').then(({ openBackupModal }) => openBackupModal(...target));
 }
 
-export function clearStoredToken() {
-    localStorage.removeItem(STORAGE_KEY);
+/** Drops the access token; the refresh token survives unless `all` (sign-out or revoked grant). */
+export function clearStoredToken({ all = false } = {}) {
+    const refreshToken = all ? null : readStoredAuth()?.refresh_token;
+    if (refreshToken) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ refresh_token: refreshToken }));
+    } else {
+        localStorage.removeItem(STORAGE_KEY);
+    }
     token = null;
 }
 
@@ -239,7 +305,7 @@ export function redirectToGoogleAuth(targetState = 'open_drive_browser', options
 async function startMobileGoogleAuth(targetState = 'open_drive_browser') {
     try {
         const authData = await window.__TAURI__.core.invoke('plugin:google-auth|authorize');
-        if (!storeGoogleAuth(authData.accessToken, authData.expiresIn)) {
+        if (!storeGoogleAuth(authData.accessToken, authData.expiresIn, authData.refreshToken)) {
             throw new Error('Google authorization did not return an access token.');
         }
         try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
@@ -307,7 +373,7 @@ async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
                     })
                 });
                 const authData = await response.json();
-                if (!response.ok || !storeGoogleAuth(authData.access_token, authData.expires_in)) {
+                if (!response.ok || !storeGoogleAuth(authData.access_token, authData.expires_in, authData.refresh_token)) {
                     throw new Error(authData.error_description || 'Google token exchange failed.');
                 }
                 try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
@@ -334,7 +400,9 @@ async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
             `&scope=${encodeURIComponent(SCOPE)}` +
             `&state=${encodeURIComponent(state)}` +
             `&code_challenge=${encodeURIComponent(codeChallenge)}` +
-            `&code_challenge_method=S256`;
+            `&code_challenge_method=S256` +
+            `&access_type=offline` +
+            `&prompt=consent`;
 
         await tauri.core.invoke('plugin:opener|open_url', { url: authUrl });
     } catch (error) {
@@ -353,13 +421,15 @@ function encodeBase64Url(bytes) {
     return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
 }
 
-function storeGoogleAuth(accessToken, expiresIn) {
+function storeGoogleAuth(accessToken, expiresIn, refreshToken = null) {
     if (!accessToken) return false;
 
     const authData = {
         access_token: accessToken,
         expiry_date: Date.now() + ((parseInt(expiresIn, 10) || 3600) * 1000)
     };
+    const keptRefreshToken = refreshToken || readStoredAuth()?.refresh_token;
+    if (keptRefreshToken) authData.refresh_token = keptRefreshToken;
     token = authData.access_token;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
     return true;
@@ -510,6 +580,7 @@ async function loadDriveFiles() {
         </div>
     `;
 
+    await ensureFreshToken();
     if (!isTokenValid()) {
         const currentOpts = getActiveDriveOptions();
         clearStoredToken();
@@ -876,7 +947,7 @@ export function setupDrivePicker() {
 
     const signOutBtn = document.getElementById('driveSignOutBtn');
     signOutBtn?.addEventListener('click', () => {
-        clearStoredToken();
+        clearStoredToken({ all: true });
         localStorage.removeItem(FOLDER_STORAGE_KEY);
         currentFolderId = 'root';
         folderHistory = [{ id: 'root', name: 'My Drive' }];
@@ -963,6 +1034,7 @@ export function setupDrivePicker() {
  * @returns {Promise<object>} Upload response containing file id and name
  */
 export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.mtbackup', folderId = null, onProgress = null) {
+    await ensureFreshToken();
     if (!isTokenValid()) {
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
@@ -1032,6 +1104,7 @@ export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.m
  * @returns {Promise<Array<object>>} List of Drive files sorted by modifiedTime descending
  */
 export async function fetchDriveBackups() {
+    await ensureFreshToken();
     if (!isTokenValid()) {
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
@@ -1053,6 +1126,7 @@ export async function fetchDriveBackups() {
  * @returns {Promise<File|Blob>}
  */
 export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbackup', onProgress = null) {
+    await ensureFreshToken();
     if (!isTokenValid()) {
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }

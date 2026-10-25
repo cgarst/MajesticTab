@@ -51,7 +51,8 @@ export function refreshSyncStatus() {
 /** @returns {Promise<{status: 'ready', backend: object}|{status: string, folderName?: string}>} */
 async function resolveBackend(target, { interactive = false } = {}) {
     if (target === DRIVE) {
-        const { isTokenValid } = await import('./googleDrive.js');
+        const { isTokenValid, ensureFreshToken } = await import('./googleDrive.js');
+        await ensureFreshToken();
         if (!isTokenValid()) return { status: 'needs-auth' };
         const { createDriveBackend } = await import('./driveBackup.js');
         return { status: 'ready', backend: createDriveBackend() };
@@ -377,7 +378,8 @@ async function handleAction(action) {
         if (action === 'switch') return showChooseLocation();
         if (action === 'pick-google-drive') {
             setTarget(DRIVE);
-            const { isTokenValid, redirectToGoogleAuth } = await import('./googleDrive.js');
+            const { isTokenValid, ensureFreshToken, redirectToGoogleAuth } = await import('./googleDrive.js');
+            await ensureFreshToken();
             if (!isTokenValid()) return redirectToGoogleAuth('sync');
             return start();
         }

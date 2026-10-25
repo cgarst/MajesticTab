@@ -3,7 +3,7 @@
 
 import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
-import { openDriveModal, redirectToGoogleAuth, isTokenValid } from './googleDrive.js';
+import { openDriveModal, redirectToGoogleAuth, isTokenValid, ensureFreshToken } from './googleDrive.js';
 import { openTabDownloader } from './tabDownloader.js';
 import { addTabOptionToSong, addTabOptionToAlbum, mapOpenFileToSong } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
@@ -229,6 +229,7 @@ export const GoogleDriveFileProvider = {
     badge: 'Cloud',
     actionLabel: 'Connect & Open',
     async open(options = {}) {
+        await ensureFreshToken();
         if (isTokenValid()) {
             openDriveModal(options);
         } else {
@@ -236,7 +237,8 @@ export const GoogleDriveFileProvider = {
         }
     },
     async save(fileBlob, filename = 'MajesticTab-backup.mtbackup', options = {}) {
-        const { saveFileToDrive, isTokenValid: checkToken, redirectToGoogleAuth: authDrive } = await import('./googleDrive.js');
+        const { saveFileToDrive, isTokenValid: checkToken, ensureFreshToken: refreshToken, redirectToGoogleAuth: authDrive } = await import('./googleDrive.js');
+        await refreshToken();
         if (!checkToken()) {
             authDrive();
             throw new Error('Please authorize Google Drive to save the file.');
