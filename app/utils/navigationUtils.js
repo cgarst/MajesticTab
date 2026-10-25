@@ -4,6 +4,7 @@ import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
 import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
+import { stepSetlist } from '../setlistPlayer.js';
 import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel } from '../youtubePlayer.js';
 
 // Navigation action constants
@@ -271,6 +272,13 @@ export function setupKeyboardNavigation(getConfig) {
         if ((e.key === 'c' || e.key === 'C') && !e.ctrlKey && !e.metaKey && !e.altKey && isSynthAvailable()) {
             e.preventDefault();
             toggleCountIn();
+            return;
+        }
+
+        // [ and ] step to the previous / next tab of the open setlist
+        if ((e.key === '[' || e.key === ']') && !e.ctrlKey && !e.metaKey && !e.altKey && config.currentFile.setlistId) {
+            e.preventDefault();
+            stepSetlist(e.key === ']' ? 1 : -1, config.currentFile);
             return;
         }
 

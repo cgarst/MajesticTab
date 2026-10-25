@@ -61,6 +61,16 @@
         <span class="breadcrumb-song-title text-truncate fw-semibold" id="topBarSongTitle"></span>
         <i class="bi-chevron-down song-title-chevron" aria-hidden="true"></i>
       </button>
+      <!-- Setlist navigation (only shown when the open tab was started from a setlist) -->
+      <div id="setlistNav" class="align-items-center gap-1" style="display:none;">
+        <button type="button" class="btn btn-sm btn-theme-icon p-1 px-2" id="setlistPrevBtn" title="Previous in setlist ([)" aria-label="Previous in setlist">
+          <i class="bi-skip-start-fill"></i>
+        </button>
+        <span class="small text-white-50 font-monospace" id="setlistNavPosition" style="font-size: 0.72rem;"></span>
+        <button type="button" class="btn btn-sm btn-theme-icon p-1 px-2" id="setlistNextBtn" title="Next in setlist (])" aria-label="Next in setlist">
+          <i class="bi-skip-end-fill"></i>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -370,6 +380,9 @@
       </div>
       <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="saveToLibraryBtn" type="button" style="display: none;">
         <i class="bi-bookmark-plus text-info"></i> Save to Library
+      </button>
+      <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="addToSetlistBtn" type="button" style="display: none;">
+        <i class="bi-collection-play text-info"></i> Add to Setlist
       </button>
       <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="exportSourceTabBtn" type="button">
         <i class="bi-download text-info"></i> Export Source Tab
