@@ -139,16 +139,15 @@
 
 <!-- Tools menu (opened from #toolsToggleBtn; rows keep their original ids so existing handlers still bind) -->
 <div id="toolsMenu" class="tools-menu" role="menu" aria-label="Tools" style="display:none;">
-  <div class="tools-menu-heading">Reference</div>
   <div class="tools-row" id="toolsReferenceRow">
     <button class="tools-item" id="toolsReferenceItem" type="button" role="menuitem">
       <i class="bi-journal-bookmark"></i>
       <span class="tools-item-text"><span>Reference library</span><small>Chords, scales, circle of fifths</small></span>
+      <kbd>R</kbd>
     </button>
     <button class="tools-pin" type="button" data-pin-tool="reference" aria-pressed="false" aria-label="Pin Reference library to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
   </div>
 
-  <div class="tools-menu-heading">Instruments</div>
   <div class="tools-row" id="fretboardPill" style="display:none;">
     <button class="tools-item" id="fretboardToggleBtn" type="button" role="menuitem">
       <i class="bi-grid-3x2-gap"></i>
@@ -163,11 +162,11 @@
         <path d="M12 12v9"/><circle cx="12" cy="21" r="1.5"/><path d="M7 3v6a5 5 0 0 0 10 0V3"/>
       </svg>
       <span class="tools-item-text"><span>Tuner</span><small>Tune with the microphone</small></span>
+      <kbd>T</kbd>
     </button>
     <button class="tools-pin" type="button" data-pin-tool="tuner" aria-pressed="false" aria-label="Pin Tuner to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
   </div>
 
-  <div class="tools-menu-heading">Play together</div>
   <div class="tools-row" id="jamPill" style="display:none;">
     <button class="tools-item" id="jamToggleBtn" type="button" role="menuitem" title="Jam mode (play together)">
       <i class="bi-people-fill"></i>
@@ -176,7 +175,6 @@
     <button class="tools-pin" type="button" data-pin-tool="jam" aria-pressed="false" aria-label="Pin Jam mode to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
   </div>
 
-  <div class="tools-menu-heading" id="toolsDevicesHeading">Devices</div>
   <div class="tools-row" id="controllerPill" style="display:none;">
     <button class="tools-item" id="controllerHelpBtn" type="button" role="menuitem" title="Game Controller Connected (Click for Controls Guide)">
       <i class="bi-controller" id="controllerStatusIcon"></i>
@@ -184,7 +182,7 @@
     </button>
   </div>
 
-  <div class="tools-menu-heading">Playback</div>
+  <div class="tools-menu-divider" role="separator"></div>
   <div class="tools-row" id="dockToggleRow">
     <button class="tools-item" id="dockToggleBtn" type="button" role="menuitemcheckbox" aria-checked="true">
       <i class="bi-play-circle"></i>
@@ -193,7 +191,6 @@
     </button>
   </div>
 
-  <div class="tools-menu-heading tools-view-heading">View</div>
   <div class="tools-row tools-collapsed-row" id="toolsFullscreenRow">
     <button class="tools-item" id="toolsFullscreenItem" type="button" role="menuitem"><i class="bi-arrows-fullscreen"></i><span class="tools-item-text"><span>Fullscreen</span></span></button>
   </div>
@@ -1234,9 +1231,17 @@
               <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">C</span> </span>
               <span class="small text-white fw-semibold text-end">Toggle count-in</span>
             </div>
-            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1">
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
               <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">F</span> </span>
               <span class="small text-white fw-semibold text-end">Toggle fretboard dock</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">R</span> </span>
+              <span class="small text-white fw-semibold text-end">Toggle reference library</span>
+            </div>
+            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1">
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">T</span> </span>
+              <span class="small text-white fw-semibold text-end">Toggle tuner</span>
             </div>
           </div>
         </div>
@@ -1325,7 +1330,6 @@
           </div>
         </div>
         </div>
-        <div class="small text-white-50 mt-2"><i class="bi-info-circle me-1 text-info"></i> Shortcuts are paused while typing in a text field.</div>
       </div>
       <div class="controls-panel" data-controls-panel="gamepad">
       <!-- Vector Controller Diagram -->

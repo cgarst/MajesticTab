@@ -52,17 +52,20 @@ export function initToolsMenu() {
 
     const isOpen = () => menu.style.display !== 'none';
 
-    function updateHeadings() {
-        let heading = null;
-        let any = false;
-        const flush = () => { if (heading) heading.style.display = any ? '' : 'none'; };
+    // Dividers only show between two groups that each have a visible row
+    function updateDividers() {
+        let divider = null;
+        let anyBefore = false;
+        let anyAfter = false;
+        const flush = () => { if (divider) divider.style.display = anyBefore && anyAfter ? '' : 'none'; };
         Array.from(menu.children).forEach((child) => {
-            if (child.classList.contains('tools-menu-heading')) {
+            if (child.classList.contains('tools-menu-divider')) {
                 flush();
-                heading = child;
-                any = false;
+                divider = child;
+                anyBefore = anyBefore || anyAfter;
+                anyAfter = false;
             } else if (child.classList.contains('tools-row')) {
-                if (getComputedStyle(child).display !== 'none') any = true;
+                if (getComputedStyle(child).display !== 'none') anyAfter = true;
             }
         });
         flush();
@@ -78,7 +81,7 @@ export function initToolsMenu() {
         syncAvailability();
         syncReferenceActive();
         menu.style.display = 'block';
-        updateHeadings();
+        updateDividers();
         placeMenu();
         toggleBtn.setAttribute('aria-expanded', 'true');
         toggleBtn.classList.add('active');
@@ -107,7 +110,7 @@ export function initToolsMenu() {
         }
     });
     window.addEventListener('resize', () => {
-        if (isOpen()) { updateHeadings(); placeMenu(); }
+        if (isOpen()) { updateDividers(); placeMenu(); }
     });
 
     // Choosing a tool closes the menu. The dock switch stays open so the change is visible.
@@ -128,6 +131,30 @@ export function initToolsMenu() {
     $('toolsReferenceItem')?.addEventListener('click', async () => {
         const ref = await import('../referenceLibrary.js');
         ref.openReferenceModal();
+    });
+
+    // ---- Keyboard shortcuts (R: Reference library, T: Tuner) ---------------
+
+    const isTypingTarget = (el) => Boolean(el) && (
+        (el.tagName === 'INPUT' && !['radio', 'checkbox', 'button', 'submit', 'range'].includes(el.type)) ||
+        el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable
+    );
+
+    // Pressing the key again closes the tool; any other open modal blocks it
+    window.addEventListener('keydown', async (e) => {
+        if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || isTypingTarget(document.activeElement)) return;
+        const key = e.key.toLowerCase();
+        if (key !== 'r' && key !== 't') return;
+        e.preventDefault();
+        if (key === 'r') {
+            const ref = await import('../referenceLibrary.js');
+            if (ref.isReferenceOpen()) ref.closeReferenceModal();
+            else if (!document.body.classList.contains('modal-open') && !$('tunerToggleBtn')?.classList.contains('active')) ref.openReferenceModal();
+        } else {
+            const tunerOpen = $('tunerToggleBtn')?.classList.contains('active');
+            if (tunerOpen) (await import('../tuner/tuner.js')).closeTunerModal();
+            else if (!document.body.classList.contains('modal-open')) $('tunerToggleBtn')?.click();
+        }
     });
 
     // ---- Folded controls ---------------------------------------------------
@@ -233,7 +260,7 @@ export function initToolsMenu() {
     const observer = new MutationObserver(() => {
         syncStatus();
         syncAvailability();
-        if (isOpen()) updateHeadings();
+        if (isOpen()) updateDividers();
     });
     ['fretboardPill', 'jamPill', 'controllerPill', 'fullscreenPill', 'pdfBookmarksBtn', 'fretboardToggleBtn', 'tunerToggleBtn', 'jamToggleBtn']
         .forEach((id) => {
