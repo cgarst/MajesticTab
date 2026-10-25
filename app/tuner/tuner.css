@@ -7,6 +7,7 @@
   max-width: 660px;
   width: 95%;
   max-height: 90vh;
+  max-height: 90dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -21,6 +22,8 @@
 .tuner-modal-body {
   overflow-y: auto;
   overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 1.25rem;
   display: flex;
   flex-direction: column;
@@ -431,4 +434,161 @@
 .tuner-calib-select option {
   background: var(--bg-card-solid, #1e1e2e);
   color: #fff;
+}
+
+.tuner-display-top {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+/* --------------------------------------------------------------------------
+   Phone layout: bottom sheet, live readout first, compact sizing
+   -------------------------------------------------------------------------- */
+@media (max-width: 576px) {
+  #tunerModal.theme-modal-backdrop {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .tuner-modal-card {
+    width: 100%;
+    max-width: none;
+    max-height: 92vh;
+    max-height: 92dvh;
+    border-radius: 1.25rem 1.25rem 0 0;
+    border-bottom: 0 !important;
+  }
+
+  #tunerModal .theme-modal-header {
+    padding: 0.7rem 1rem;
+  }
+
+  #tunerModal .theme-modal-icon {
+    width: 30px !important;
+    height: 30px !important;
+  }
+
+  .tuner-modal-subtitle {
+    display: none;
+  }
+
+  .tuner-modal-body {
+    padding: 0.875rem 0.875rem calc(0.875rem + env(safe-area-inset-bottom));
+    gap: 0.875rem;
+  }
+
+  /* Live readout and Start button come first */
+  .tuner-display-card {
+    order: -1;
+    padding: 0.75rem 0.75rem 1rem;
+  }
+
+  .tuner-display-top {
+    margin-bottom: 0.5rem;
+  }
+
+  .tuner-calib-select {
+    font-size: 16px; /* prevents iOS focus zoom */
+  }
+
+  .tuner-cents-meter {
+    height: 18px;
+    margin-bottom: 1rem;
+  }
+
+  .tuner-big-note {
+    font-size: 3.5rem;
+  }
+
+  .tuner-big-octave {
+    font-size: 1.4rem;
+  }
+
+  .tuner-pitch-display {
+    margin-bottom: 0.35rem;
+  }
+
+  .tuner-freq-readout {
+    font-size: 0.95rem;
+    margin-bottom: 0.15rem;
+  }
+
+  .tuner-status-readout {
+    font-size: 0.85rem;
+    min-height: 1.2rem;
+  }
+
+  .tuner-cents-readout {
+    min-height: 1rem;
+    margin-top: 0;
+  }
+
+  .tuner-volume-meter {
+    margin-top: 0.6rem;
+    height: 16px;
+  }
+
+  .tuner-action-row {
+    margin-top: 0.85rem;
+  }
+
+  .tuner-mic-btn {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+  }
+
+  /* Flatten the nested banner card */
+  .tuner-instrument-banner {
+    padding: 0.75rem;
+    border-radius: 0.875rem;
+  }
+
+  .tuner-strings-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
+    gap: 0.4rem;
+  }
+
+  .tuner-string-btn {
+    min-height: 44px;
+    justify-content: center;
+    padding: 0.35rem 0.25rem;
+  }
+
+  .tuner-string-hz {
+    white-space: nowrap;
+  }
+
+  .tuner-selector-row {
+    margin: 0;
+  }
+
+  .tuner-other-select {
+    width: 100%;
+    flex: 1 1 100%;
+    font-size: 16px;
+  }
+
+  /* One swipeable row of track chips instead of wrapped rows */
+  .tuner-instrument-grid {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-padding-inline: 0.875rem;
+    margin: 0 -0.875rem;
+    padding: 0 0.875rem 0.25rem;
+    scrollbar-width: none;
+  }
+
+  .tuner-instrument-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .tuner-inst-chip {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    white-space: nowrap;
+  }
 }

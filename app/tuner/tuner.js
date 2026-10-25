@@ -986,6 +986,20 @@ class PitchCraftTunerController {
 
           <!-- Real-Time Chromatic Pitch & Cents Display -->
           <div class="tuner-display-card">
+            <div class="tuner-display-top">
+              <div class="tuner-calib-group" title="Reference Pitch Calibration for A4">
+                <label for="tunerCalibSelect" class="mb-0">A4</label>
+                <select id="tunerCalibSelect" class="tuner-calib-select" aria-label="Reference pitch for A4">
+                  <option value="432">432 Hz</option>
+                  <option value="435">435 Hz</option>
+                  <option value="438">438 Hz</option>
+                  <option value="440">440 Hz</option>
+                  <option value="442">442 Hz</option>
+                  <option value="444">444 Hz</option>
+                </select>
+              </div>
+            </div>
+
             <!-- Cents Meter Bar -->
             <div class="tuner-cents-meter" id="tunerCentsMeter" role="meter" aria-label="Tuning Cents Meter">
               <div class="tuner-center-target"></div>
@@ -1066,7 +1080,7 @@ class PitchCraftTunerController {
             }
         });
 
-        // Calibration selector in header
+        // Calibration selector in the display card
         const calibSelect = document.getElementById('tunerCalibSelect');
         if (calibSelect) {
             calibSelect.value = String(this.referenceA);
