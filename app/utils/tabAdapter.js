@@ -9,7 +9,7 @@ const MISSING_STRING_PENALTY = 12;
 const MY_INSTRUMENT_KEY = 'majestictab_my_instrument';
 const REMAPPED_COLOR = '#ff9800';
 
-export const ADAPT_METHODS = ['shift', 'capo'];
+export const ADAPT_METHODS = ['shift', 'capo', 'transpose'];
 
 export function getAdaptTuningOptions(instrumentMode = getInstrumentMode()) {
     const wantBass = instrumentMode === 'bass';
@@ -194,6 +194,27 @@ function adaptStaff(track, staff, pref, tuning) {
             pitches.push({ i, pitch: tab[i] + o.fret + orig.capo });
         }
     });
+
+    if (pref.method === 'transpose') {
+        // Same strings and frets, new tuning: every note sounds lower (or higher) by the tuning difference
+        const shift = pickAlignment(tab, player, []);
+        let moved = 0;
+        forEachNote(staff, (beat, notes) => {
+            for (const note of notes) {
+                const o = note._adaptOrig;
+                if (!o || !isStringedNote(note) || o.string < 1 || o.string > n) continue;
+                const j = Math.min(m - 1, Math.max(0, n - o.string + shift));
+                note.string = m - j;
+                note._adaptNew = { j, fret: o.fret + orig.capo };
+                moved++;
+            }
+        });
+        staff.stringTuning.tunings = [...player];
+        staff.stringTuning.name = tuning.shortName;
+        if (typeof staff.stringTuning.finish === 'function') staff.stringTuning.finish();
+        if (Array.isArray(track.tuning)) track.tuning = [...player];
+        return { notes: moved, remapped: 0, unplayable: 0, harmonics: 0, capo: orig.capo, from: tab, to: player };
+    }
 
     const k = pickAlignment(tab, player, pitches);
     let capo = 0;
