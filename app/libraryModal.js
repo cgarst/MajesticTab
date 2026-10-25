@@ -26,7 +26,7 @@ import { pauseYouTube } from './youtubePlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 
-let activeView = 'library'; // 'library', 'search', 'recents'
+let activeView = 'library'; // 'library', 'search', 'recents', 'openFile'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let selectedArtist = null;
@@ -268,7 +268,7 @@ export async function handleBack() {
                 await switchView('library', false);
                 return true;
             }
-        } else if (activeView === 'recents' || activeView === 'openfile') {
+        } else if (activeView === 'recents' || activeView === 'openFile') {
             if (viewHistory.length > 0) {
                 const prev = viewHistory.pop();
                 activeView = prev.view || 'library';
@@ -640,7 +640,7 @@ async function renderView() {
         renderSearchMusicBrainzView(content);
     } else if (activeView === 'recents') {
         await renderRecentsView(content);
-    } else if (activeView === 'openfile') {
+    } else if (activeView === 'openFile') {
         renderOpenFileView(content, {
             onBack: () => switchView('library'),
             onAddToLibrary: () => switchView('search')
@@ -750,7 +750,7 @@ async function renderLibraryBrowseView(container) {
 
         bindLibraryToolbarEvents(container);
         container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => switchView('search'));
-        container.querySelector('#emptyStateOpenFileBtn')?.addEventListener('click', () => switchView('openfile'));
+        container.querySelector('#emptyStateOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
         return;
     }
 
@@ -1450,7 +1450,7 @@ function bindLibraryToolbarEvents(container) {
     });
 
     container.querySelector('#libRecentsBtn')?.addEventListener('click', () => switchView('recents'));
-    container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => switchView('openfile'));
+    container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
 
     container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
         switchView('search');
