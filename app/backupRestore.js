@@ -27,6 +27,7 @@ let modalElement = null;
 let currentBackupFile = null;
 let currentParsedBackup = null;
 let activeGoogleAuthHandler = null;
+let activeDriveAccountHandler = null;
 
 let activeReloadState = {
     running: false,
@@ -1249,6 +1250,10 @@ export function closeBackupModal() {
         window.removeEventListener('googleAuthSuccess', activeGoogleAuthHandler);
         activeGoogleAuthHandler = null;
     }
+    if (activeDriveAccountHandler) {
+        window.removeEventListener('googleAuthChanged', activeDriveAccountHandler);
+        activeDriveAccountHandler = null;
+    }
     activeReloadState.listeners.clear();
     activeReloadState.completionListeners.clear();
 }
@@ -1322,6 +1327,14 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
         </button>
         <button type="button" class="btn btn-sm ${activeTab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnDelete">
           <i class="bi-trash3 me-2"></i> Delete All Data
+        </button>
+      </div>
+
+      <!-- Linked Google account (shown only while connected) -->
+      <div id="driveAccountRow" class="px-3 pt-2 d-none align-items-center justify-content-between gap-2">
+        <span class="small text-white-50 text-truncate"><i class="bi-google text-danger me-1"></i> Google Drive is connected on this device</span>
+        <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" id="driveDisconnectBtn" style="font-size:0.72rem;">
+          <i class="bi-box-arrow-right me-1"></i> Disconnect
         </button>
       </div>
 
@@ -2653,7 +2666,28 @@ function attachModalHandlers(modal, options = {}) {
     if (activeGoogleAuthHandler) {
         window.removeEventListener('googleAuthSuccess', activeGoogleAuthHandler);
     }
+    const driveAccountRow = modal.querySelector('#driveAccountRow');
+    const refreshDriveAccountRow = async () => {
+        const { isGoogleDriveConnected } = await import('./googleDrive.js');
+        const connected = isGoogleDriveConnected();
+        driveAccountRow?.classList.toggle('d-none', !connected);
+        driveAccountRow?.classList.toggle('d-flex', connected);
+    };
+    refreshDriveAccountRow();
+    if (activeDriveAccountHandler) window.removeEventListener('googleAuthChanged', activeDriveAccountHandler);
+    activeDriveAccountHandler = () => {
+        refreshDriveAccountRow();
+        if (getBackupProviderId() === 'google-drive' && getBackupFormat() === 'incremental') renderIncrementalPreview();
+    };
+    window.addEventListener('googleAuthChanged', activeDriveAccountHandler);
+    modal.querySelector('#driveDisconnectBtn')?.addEventListener('click', async () => {
+        const { disconnectGoogleDrive } = await import('./googleDrive.js');
+        disconnectGoogleDrive();
+        showToast('Disconnected Google Drive on this device.', 'info');
+    });
+
     activeGoogleAuthHandler = (e) => {
+        refreshDriveAccountRow();
         if (e.detail?.state === 'restore_backup') {
             if (currentParsedBackup) return;
             loadGoogleDriveBackups();
