@@ -11,7 +11,6 @@ import { jamSongId, songTitleFromName, startLag, measureStartLag, waitForPlayerR
 import { createYouTubeHost } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor, getMixerSnapshot, onMixerChange } from '../gpProcessor/gpPlayer.js';
 import { describeActiveSoundFonts, getSoundFontData, onSoundFontSelectionChange } from '../soundFontStore.js';
-import { getEnabledExtensionSources } from '../fileAdapters.js';
 import { arrayBufferToBase64Async, base64ToArrayBuffer } from '../fileStore.js';
 
 const HEARTBEAT_MS = 500;
@@ -83,12 +82,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         };
     };
 
-    // Clients load these while following, so file adapters and score transforms match the host's.
-    const hostExtensions = () => getEnabledExtensionSources().map(({ source }) => ({ source }));
-
     const sessionState = () => ({
         song: session.song,
-        extensions: hostExtensions(),
         transport: transportSnapshot(),
         youtube: youtube.state(),
         controllerId: session.controllerId,
@@ -327,7 +322,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
 
     // ---- Song publishing ---------------------------------------------------
 
-    async function publishFile(file) {
+    // `converted` is the file after the host's extensions ran, which is what followers receive.
+    async function publishFile(file, converted = file) {
         if (!active || !file) return;
         if (file.jamTransient) return; // came from the host's own jam download (never the case on a host)
         const type = songTypeForName(file.name);
@@ -342,7 +338,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             return;
         }
         try {
-            const bytes = await file.arrayBuffer();
+            const bytes = await converted.arrayBuffer();
             const id = await jamSongId(bytes, file);
             session.songBytes = bytes;
             session.song = {
@@ -359,7 +355,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             clearTrackAssignments();
             roster.forEach((p) => { p.ready = false; });
             emitRoster();
-            broadcast(MSG.SONG_OPEN, { song: session.song, extensions: hostExtensions() });
+            broadcast(MSG.SONG_OPEN, { song: session.song });
             broadcastMixer();
             if (type !== 'gp') return;
             // Warm the synth while everyone else downloads, so the first start is on time.
@@ -562,7 +558,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     }
 
     function onFileLoaded(e) {
-        publishFile(e.detail?.file);
+        publishFile(e.detail?.file, e.detail?.converted);
     }
 
     return {

@@ -5,8 +5,6 @@ const LOAD_TIMEOUT_MS = 15000;
 const MATCH_TIMEOUT_MS = 15000;
 const TRANSFORM_TIMEOUT_MS = 120000;
 
-// Extensions a Jam host sent to this client. Installed ahead of the user's own, never saved.
-let sessionExtensions = [];
 // Adapters registered by loaded extensions, in run order, as { id, ext }.
 let adapters = [];
 let sandbox = null;
@@ -18,7 +16,7 @@ async function install(localExtensions) {
     sandbox = null;
     adapters = [];
 
-    const extensions = [...sessionExtensions, ...localExtensions];
+    const extensions = localExtensions;
     const errors = [];
     const idsByExtension = {};
     if (!extensions.length) return { count: 0, registrationCount: 0, errors, idsByExtension };
@@ -81,17 +79,6 @@ export function getEnabledExtensionSources() {
     } catch {
         return [];
     }
-}
-
-/** Temporarily load a Jam host's extensions next to this device's own; [] unloads them. */
-export function setSessionExtensions(sources) {
-    const next = (Array.isArray(sources) ? sources : [])
-        .filter(e => e && typeof e.source === 'string')
-        .map((e, i) => ({ id: `jam-host-${i}`, source: e.source }));
-    if (JSON.stringify(next) === JSON.stringify(sessionExtensions)) return;
-    sessionExtensions = next;
-    installExtensionSources(getEnabledExtensionSources())
-        .catch(error => console.warn('[fileAdapters] Could not load Jam host extensions:', error));
 }
 
 async function ensureExtensionsLoaded() {
