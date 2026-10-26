@@ -3706,33 +3706,22 @@ body:not(.synth-playback-started) .at-highlight {
   }
 }
 
-/* Phone: with no collection selector the action buttons span the full row instead of hugging the right edge */
-@media (max-width: 576px) {
-  .library-body-header.no-collections .lib-toolbar-right {
-    width: 100%;
-    margin-left: 0;
-  }
-
-  .library-body-header.no-collections .lib-toolbar-right .btn {
-    flex: 1 1 0;
-    min-width: 0;
-    justify-content: center;
-  }
-
-  /* Library has no breadcrumb, so show the brand in the otherwise empty top bar */
-  body.library-view-active #brandSection:not(.has-return-song) .brand-title {
-    display: inline-block;
-  }
+/* Library has no breadcrumb, so show the brand in the otherwise empty top bar at every width */
+body.library-view-active #brandSection:not(.has-return-song) .brand-title {
+  display: inline-block;
 }
 
-@media (max-width: 420px) {
-  .lib-open-file-btn span,
-  .lib-add-music-btn span {
-    display: none;
+/* Phone: the bottom nav replaces the view switcher and action buttons */
+@media (max-width: 576px) {
+  .lib-toolbar-right,
+  .lib-view-switch,
+  .lib-toolbar-left.switch-only {
+    display: none !important;
   }
-  .lib-open-file-btn,
-  .lib-add-music-btn {
-    padding: 0 0.45rem !important;
+
+  /* A header holding only the view switcher would be an empty card once the switcher is hidden */
+  .library-body-header.switch-only-header {
+    display: none !important;
   }
 }
 
@@ -3751,26 +3740,12 @@ body:not(.synth-playback-started) .at-highlight {
   justify-self: end;
 }
 
-/* Single collection: no selector, so the search bar fills the freed space */
-.library-body-header.no-collections {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.library-body-header.no-collections .lib-toolbar-center {
-  justify-self: stretch;
-  width: auto;
-  max-width: none;
-}
-
-.library-body-header.no-collections .lib-toolbar-right {
-  margin-left: auto;
-}
-
-@media (max-width: 992px) {
-  .library-body-header.no-collections .lib-toolbar-center {
-    order: 3;
-    width: 100% !important;
-  }
+/* View switcher: icon-only until there is room for labels */
+.lib-view-switch .btn i { font-size: 0.85rem; }
+.lib-view-switch .btn { gap: 0.35rem; }
+@media (min-width: 993px) and (max-width: 1100px) {
+  .lib-toolbar-left .lib-view-switch .lib-view-switch-label { display: none; }
+  .lib-toolbar-left .lib-view-switch .btn { padding: 0 0.75rem; }
 }
 
 /* Seamless Connected Collection Pill Group */
@@ -6582,6 +6557,10 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   #toolsBookmarksRow.is-available { display: flex; }
 }
 
+/* The library bar has no breadcrumb or playback pills, so keep the Tools label at every width */
+body.library-view-active .tools-btn-label { display: inline; }
+body.library-view-active .tools-btn-chevron { display: inline-block; }
+
 @media (max-width: 980px) {
   #navButtons .nav-first-page-btn,
   #fullscreenPill,
@@ -6591,6 +6570,10 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   #modeButtons .mode-btn-text { display: none; }
   #toolsFullscreenRow.is-available { display: flex; }
 }
+
+/* The library bar has room for Fullscreen as its own button, so it never folds into Tools there */
+body.library-view-active:not(.tauri-gamescope) #fullscreenPill { display: inline-flex !important; }
+body.library-view-active #toolsFullscreenRow { display: none !important; }
 
 @media (max-width: 576px) {
   #jamLivePill { display: none !important; }
@@ -6809,3 +6792,86 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   cursor: default;
   pointer-events: none;
 }
+
+
+/* --------------------------------------------------------------------------
+   Library bottom nav (phones, library view only) and Add Music sheet
+   -------------------------------------------------------------------------- */
+.library-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 576px) {
+  body.library-view-active .library-bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: end;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Below the settings offcanvas (1045), above page content */
+    z-index: 1040;
+    padding: 0.35rem 0.5rem max(env(safe-area-inset-bottom), 0.5rem) 0.5rem;
+    background: var(--bg-card);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--border-subtle);
+    box-shadow: 0 -4px 20px -2px rgba(0, 0, 0, 0.5);
+  }
+
+  body.library-view-active .library-page-body {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 5.5rem) !important;
+  }
+}
+
+.library-nav-tab,
+.library-nav-add {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0.25rem 0.1rem;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s ease;
+}
+
+.library-nav-tab i { font-size: 1.15rem; line-height: 1; }
+.library-nav-tab span,
+.library-nav-add > span:last-child {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-nav-tab.active,
+.library-nav-add.active { color: #ffffff; }
+.library-nav-tab.active i { color: var(--accent-primary); }
+
+.library-nav-add-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin-top: -1.1rem;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  box-shadow: 0 4px 16px var(--accent-glow);
+  border: 2px solid var(--bg-card-solid);
+  color: #ffffff;
+  font-size: 1.1rem;
+  transition: transform 0.15s ease;
+}
+.library-nav-add:active .library-nav-add-circle { transform: scale(0.92); }

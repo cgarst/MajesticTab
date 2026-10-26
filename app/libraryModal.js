@@ -571,6 +571,13 @@ export async function renderLibraryModal() {
     initLibraryTopBar();
     const page = document.getElementById('libraryPage') || createLibraryPageElement();
     if (!page) return;
+    if (!page.dataset.tabNavBound) {
+        page.dataset.tabNavBound = '1';
+        page.addEventListener('click', (e) => {
+            const tab = e.target.closest('[data-lib-tab]');
+            if (tab) goLibraryTab(tab.dataset.libTab);
+        });
+    }
 
     const collections = await getCollections();
     const currentCollection = collections.find(c => c.id === activeCollectionId) || collections[0] || { id: DEFAULT_COLLECTION_ID, name: 'My Library' };
@@ -630,6 +637,7 @@ async function renderView() {
     if (!content) return;
     content.scrollTop = 0;
     blurActiveLibraryElement(content);
+    syncLibraryBottomNav();
 
     if (activeView === 'library') {
         await renderLibraryBrowseView(content);
@@ -655,6 +663,7 @@ async function renderLibraryBrowseView(container) {
         container.scrollTop = 0;
         blurActiveLibraryElement(container);
     }
+    syncLibraryBottomNav();
     const collections = await getCollections();
     const currentCollection = collections.find(c => c.id === activeCollectionId) || collections[0] || { id: DEFAULT_COLLECTION_ID, name: 'My Library' };
     activeCollectionId = currentCollection.id;
@@ -672,23 +681,19 @@ async function renderLibraryBrowseView(container) {
     }
 
     // Top Library Body Toolbar (Collection Selector + Mode Selector + Universal Search/Filter + Add Music)
-    const showTuningsBack = libraryBrowseMode === 'tunings' && !selectedTuning;
-    const showToolbarLeft = collections.length > 1 || showTuningsBack;
+    const inTunings = libraryBrowseMode === 'tunings';
     const headerHtml = `
     <div class="library-page-container">
-      <div class="library-body-header mb-3 ${showToolbarLeft ? '' : 'no-collections'}">
-        ${showToolbarLeft ? `<!-- Collection Selector (Left) -->
-        <div class="lib-toolbar-left d-flex align-items-center gap-2 flex-wrap">
-          ${showTuningsBack ? `
-          <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="libTuningsBackBtn" title="Back to Tab Library">
-            <i class="bi-chevron-left"></i> <span>Library</span>
-          </button>` : ''}
+      <div class="library-body-header mb-3">
+        <!-- Collection selector + view switcher (Left). The switcher is replaced by the bottom nav on phones -->
+        <div class="lib-toolbar-left d-flex align-items-center gap-2 flex-wrap ${collections.length > 1 ? '' : 'switch-only'}">
           ${collections.length > 1 ? `<div class="collection-pill-group">
             <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
               ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
             </select>
           </div>` : ''}
-        </div>` : ''}
+          ${libraryViewSwitchHtml(inTunings ? 'tunings' : 'library')}
+        </div>
 
         <!-- Universal Search & Filter Bar (True Center) -->
         <div class="lib-toolbar-center">
@@ -705,24 +710,8 @@ async function renderLibraryBrowseView(container) {
           </div>
         </div>
 
-        <!-- Primary CTAs: Open File + Add Music (Right) -->
-        <div class="lib-toolbar-right d-flex align-items-center gap-2" ${libraryBrowseMode === 'tunings' ? 'style="display: none !important;"' : ''}>
-          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libSetlistsBtn" title="Build and play setlists of tabs">
-            <i class="bi-collection-play"></i>
-            <span>Setlists</span>
-          </button>
-          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libTuningsBtn" title="Browse songs by guitar and bass tuning">
-            <i class="bi-music-note"></i>
-            <span>Tunings</span>
-          </button>
-          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libRecentsBtn" title="Recently opened tabs">
-            <i class="bi-clock-history"></i>
-            <span>Recents</span>
-          </button>
-          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libOpenFileBtn" title="Open a tab file directly">
-            <i class="bi-folder2-open"></i>
-            <span>Open File</span>
-          </button>
+        <!-- Action: Add Music (Right). Phones use the bottom nav instead -->
+        <div class="lib-toolbar-right d-flex align-items-center gap-2" ${inTunings ? 'style="display: none !important;"' : ''}>
           <button type="button" class="btn btn-sm btn-theme-primary lib-add-music-btn" id="libAddMusicBtn" title="Search catalog or add custom music">
             <i class="bi-plus-lg"></i>
             <span>Add Music</span>
@@ -1413,6 +1402,70 @@ async function renderLibraryBrowseView(container) {
     hydrateCachedImages(container);
 }
 
+const LIBRARY_TABS = [
+    { id: 'library', label: 'Library', title: 'Browse your tab library', icon: 'bi-music-note-list' },
+    { id: 'setlists', label: 'Setlists', title: 'Build and play setlists of tabs', icon: 'bi-collection-play' },
+    { id: 'tunings', label: 'Tunings', title: 'Browse songs by guitar and bass tuning', icon: 'bi-sliders' },
+    { id: 'recents', label: 'Recents', title: 'Recently opened tabs', icon: 'bi-clock-history' }
+];
+
+// Desktop view switcher shared by every library page header (phones use the bottom nav instead)
+export function libraryViewSwitchHtml(activeTab = null) {
+    return `<div class="hud-pill-group lib-view-switch" role="group" aria-label="Library views">
+      ${LIBRARY_TABS.map(t => `<button type="button" class="btn btn-sm ${t.id === activeTab ? 'active' : ''}" data-lib-tab="${t.id}" title="${t.title}"><i class="${t.icon}"></i><span class="lib-view-switch-label">${t.label}</span></button>`).join('')}
+    </div>`;
+}
+
+function getActiveLibraryTab() {
+    if (activeView === 'library') return libraryBrowseMode === 'tunings' ? 'tunings' : 'library';
+    return activeView === 'setlists' || activeView === 'recents' ? activeView : null;
+}
+
+// Shared by the desktop view switcher and the phone bottom nav
+async function goLibraryTab(tab) {
+    if (tab === 'setlists' || tab === 'recents') {
+        if (activeView !== tab) await switchView(tab);
+        return;
+    }
+    const wantTunings = tab === 'tunings';
+    const alreadyThere = activeView === 'library' && (libraryBrowseMode === 'tunings') === wantTunings;
+    if (!alreadyThere) pushLibraryNavigationState();
+    activeView = 'library';
+    libraryBrowseMode = wantTunings ? 'tunings' : 'artists';
+    selectedArtist = null;
+    selectedAlbum = null;
+    selectedFolderPath = [];
+    selectedTuning = null;
+    isAlbumEditMode = false;
+    updateUrl(wantTunings ? 'tunings' : 'library');
+    await renderLibraryModal();
+}
+
+// Phone-only bottom nav (CSS hides it elsewhere); created once and kept in sync with the active view
+function syncLibraryBottomNav() {
+    let nav = document.getElementById('libraryBottomNav');
+    if (!nav) {
+        const tabHtml = (t) => `<button type="button" class="library-nav-tab" data-lib-tab="${t.id}" title="${t.title}"><i class="${t.icon}"></i><span>${t.label}</span></button>`;
+        const [lib, setlists, tunings, recents] = LIBRARY_TABS;
+        nav = document.createElement('nav');
+        nav.id = 'libraryBottomNav';
+        nav.className = 'library-bottom-nav';
+        nav.setAttribute('aria-label', 'Library');
+        nav.innerHTML = `${tabHtml(lib)}${tabHtml(setlists)}
+          <button type="button" class="library-nav-add" id="libraryNavAddBtn" aria-label="Add music" title="Add music"><span class="library-nav-add-circle"><i class="bi-plus-lg"></i></span><span>Add</span></button>
+          ${tabHtml(tunings)}${tabHtml(recents)}`;
+        nav.addEventListener('click', (e) => {
+            const tab = e.target.closest('[data-lib-tab]');
+            if (tab) return goLibraryTab(tab.dataset.libTab);
+            if (e.target.closest('#libraryNavAddBtn')) switchView('search');
+        });
+        document.body.appendChild(nav);
+    }
+    const active = getActiveLibraryTab();
+    nav.querySelectorAll('[data-lib-tab]').forEach(b => b.classList.toggle('active', b.dataset.libTab === active));
+    nav.querySelector('#libraryNavAddBtn')?.classList.toggle('active', activeView === 'search');
+}
+
 function bindLibraryToolbarEvents(container) {
     const collectionSelect = container.querySelector('#libCollectionSelect');
     collectionSelect?.addEventListener('change', (e) => {
@@ -1424,25 +1477,6 @@ function bindLibraryToolbarEvents(container) {
         renderLibraryBrowseView(container);
     });
 
-    container.querySelector('#libTuningsBackBtn')?.addEventListener('click', handleBack);
-
-    // Tunings button: opens the tunings page, and its back button returns to the artist view
-    container.querySelector('#libTuningsBtn')?.addEventListener('click', () => {
-        const entering = libraryBrowseMode !== 'tunings';
-        if (entering) pushLibraryNavigationState();
-        libraryBrowseMode = entering ? 'tunings' : 'artists';
-        selectedArtist = null;
-        selectedAlbum = null;
-        selectedFolderPath = [];
-        selectedTuning = null;
-        isAlbumEditMode = false;
-        updateUrl(entering ? 'tunings' : 'library');
-        renderLibraryBrowseView(container);
-    });
-
-    container.querySelector('#libSetlistsBtn')?.addEventListener('click', () => switchView('setlists'));
-    container.querySelector('#libRecentsBtn')?.addEventListener('click', () => switchView('recents'));
-    container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
 
     container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
         switchView('search');
@@ -2786,15 +2820,13 @@ function renderSearchMusicBrainzView(container) {
       <div class="search-sticky-header mb-3">
         <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
           <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="searchBackToLibBtn" title="Back to Library">
-              <i class="bi-arrow-left"></i> <span>Library</span>
-            </button>
+            ${libraryViewSwitchHtml()}
             <span class="small fw-semibold text-white-50">Add Music:</span>
           </div>
           <div class="hud-pill-group" role="group" id="searchTypePill">
+            <button type="button" class="btn btn-sm ${searchType === 'artist' ? 'active' : ''}" data-type="artist">Artist</button>
             <button type="button" class="btn btn-sm ${searchType === 'song' ? 'active' : ''}" data-type="song">Song</button>
             <button type="button" class="btn btn-sm ${searchType === 'album' ? 'active' : ''}" data-type="album">Album</button>
-            <button type="button" class="btn btn-sm ${searchType === 'artist' ? 'active' : ''}" data-type="artist">Artist</button>
             <button type="button" class="btn btn-sm ${searchType === 'musician' ? 'active' : ''}" data-type="musician">Musician</button>
             <button type="button" class="btn btn-sm ${searchType === 'custom' ? 'active' : ''}" data-type="custom" title="Add custom music, exercises, and custom folder structure">
               <i class="bi-folder-plus me-1"></i>Custom Music
@@ -2827,7 +2859,6 @@ function renderSearchMusicBrainzView(container) {
     </div>
     `;
 
-    container.querySelector('#searchBackToLibBtn')?.addEventListener('click', () => switchView('library'));
 
     // Type pills
     container.querySelectorAll('#searchTypePill button').forEach(btn => {
@@ -3934,10 +3965,8 @@ async function renderRecentsView(container) {
     if (recents.length === 0) {
         container.innerHTML = `
         <div class="library-page-container">
-          <div class="library-body-header d-flex align-items-center mb-3">
-            <button class="btn btn-sm btn-theme-outline lib-open-file-btn" id="recentsBackToLibraryBtn" title="Back to Tab Library">
-              <i class="bi-chevron-left"></i> <span>Library</span>
-            </button>
+          <div class="library-body-header switch-only-header d-flex align-items-center mb-3">
+            ${libraryViewSwitchHtml('recents')}
           </div>
           <div class="text-center py-5 text-muted">
             <i class="bi-clock-history fs-1 mb-2 d-block text-white-50"></i>
@@ -3946,7 +3975,6 @@ async function renderRecentsView(container) {
           </div>
         </div>
         `;
-        container.querySelector('#recentsBackToLibraryBtn')?.addEventListener('click', () => switchView('library'));
         return;
     }
 
@@ -3954,9 +3982,7 @@ async function renderRecentsView(container) {
     <div class="library-page-container recents-view">
       <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
         <div class="d-flex align-items-center gap-3 min-w-0">
-          <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="recentsBackToLibraryBtn" title="Back to Tab Library">
-            <i class="bi-chevron-left"></i> <span>Library</span>
-          </button>
+          ${libraryViewSwitchHtml('recents')}
           <span class="small fw-semibold text-white-50 text-truncate"><i class="bi-clock-history me-2 text-info"></i>Recently Opened (${recents.length})</span>
         </div>
         <div class="d-flex align-items-center gap-2">
@@ -4029,7 +4055,6 @@ async function renderRecentsView(container) {
     </div>
     `;
 
-    container.querySelector('#recentsBackToLibraryBtn')?.addEventListener('click', () => switchView('library'));
     container.querySelector('#toggleRecentsEditBtn')?.addEventListener('click', () => {
         isRecentsEditMode = !isRecentsEditMode;
         renderRecentsView(container);

@@ -3,6 +3,7 @@
 // and a slim Library callout.
 
 import { getFileProviders, openFromProvider, openLocalFile } from './fileProviders.js';
+import { libraryViewSwitchHtml } from './libraryModal.js';
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -22,9 +23,7 @@ export function renderOpenFileView(container, { onBack, onAddToLibrary }) {
     <div class="library-page-container open-file-view">
       <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
         <div class="d-flex align-items-center gap-3 min-w-0">
-          <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="openFileBackBtn" title="Back to Tab Library">
-            <i class="bi-chevron-left"></i> <span>Library</span>
-          </button>
+          ${libraryViewSwitchHtml()}
           <span class="small fw-semibold text-white-50 text-truncate"><i class="bi-folder2-open me-2 text-info"></i>Open Tab File</span>
         </div>
       </div>
@@ -69,7 +68,6 @@ export function renderOpenFileView(container, { onBack, onAddToLibrary }) {
     </div>
     `;
 
-    container.querySelector('#openFileBackBtn')?.addEventListener('click', onBack);
     container.querySelector('#openFileSwitchToLibraryBtn')?.addEventListener('click', onAddToLibrary);
 
     // Drop zone: click/keyboard opens the file picker, drop opens the file directly
