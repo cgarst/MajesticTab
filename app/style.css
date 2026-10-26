@@ -4885,6 +4885,35 @@ body:not(.synth-playback-started) .at-highlight {
   display: none;
 }
 
+@media (max-width: 576px) {
+  .downloader-nav-row {
+    gap: 8px;
+    padding-left: max(env(safe-area-inset-left), 12px);
+    padding-right: max(env(safe-area-inset-right), 12px);
+  }
+
+  .downloader-song-pill {
+    display: none !important;
+  }
+
+  .downloader-nav-center {
+    padding: 0;
+  }
+
+  .downloader-url-group {
+    padding: 4px 8px;
+  }
+
+  .downloader-nav-right {
+    gap: 4px;
+  }
+
+  .downloader-tabs-row {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
 .downloader-source-tab-btn {
   display: inline-flex;
   align-items: center;

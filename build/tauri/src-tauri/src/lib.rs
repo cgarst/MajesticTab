@@ -135,9 +135,17 @@ async fn open_tab_downloader(
     url: String,
     userscript: Option<String>,
     config: Option<tab_downloader_native::TabDownloaderConfig>,
-    _top_offset: Option<f64>,
+    top_offset: Option<f64>,
 ) -> Result<(), String> {
     if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
+        if let Some(offset) = top_offset {
+            if let Ok(mut g) = state.top_offset.lock() {
+                *g = offset;
+            }
+        }
+        if let Ok(mut g) = state.is_visible.lock() {
+            *g = true;
+        }
         if let Ok(mut g) = state.active_userscript.lock() {
             *g = userscript.clone();
         }
@@ -172,10 +180,14 @@ async fn open_tab_downloader(
                 let _ = main_win.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
             }
             let _ = existing.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
+            // On iOS the webview was configured when created and now lives inside the main window.
             #[cfg(target_os = "ios")]
-            tab_downloader_native::configure_ios_webview(&existing, 13.0, 15.0, 21.0);
-            let _ = existing.show();
-            let _ = existing.set_focus();
+            tab_downloader_native::ios_place_downloader(&app, top_offset, true);
+            #[cfg(target_os = "android")]
+            {
+                let _ = existing.show();
+                let _ = existing.set_focus();
+            }
             let _ = existing.navigate(parsed_url);
             tab_downloader_native::schedule_toolbar_injection(&app);
             return Ok(());
@@ -202,6 +214,11 @@ async fn open_tab_downloader(
     )
     .title("Tab Downloader - MajesticTab")
     .initialization_script(tab_downloader_native::CORE_DOWNLOADER_SHIM);
+    // iOS moves this webview into the main window, so its own window stays hidden.
+    #[cfg(target_os = "ios")]
+    {
+        builder = builder.visible(false);
+    }
     if force_desktop {
         builder = builder.user_agent(tab_downloader_native::DESKTOP_USER_AGENT);
     }
@@ -277,9 +294,19 @@ async fn open_tab_downloader(
 
     let window = builder.build().map_err(|e| e.to_string())?;
     #[cfg(target_os = "ios")]
-    tab_downloader_native::configure_ios_webview(&window, 13.0, 15.0, 21.0);
-    let _ = window.show();
-    let _ = window.set_focus();
+    {
+        tab_downloader_native::configure_ios_webview(&window, 13.0, 15.0, 21.0);
+        let _ = window.hide();
+        tab_downloader_native::ios_place_downloader(&app, top_offset, true);
+        if let Some(main_win) = app.get_webview_window("main") {
+            let _ = main_win.set_focus();
+        }
+    }
+    #[cfg(target_os = "android")]
+    {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
     if let Some(main_win) = app.get_webview_window("main") {
         let _ = main_win.eval("try { window.MajesticDownloaderNative?.show(); } catch(e) {}");
     }

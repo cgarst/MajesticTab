@@ -626,13 +626,33 @@ export function initTabDownloaderDomEvents() {
 }
 
 /**
+ * Native views draw above HTML, so the content webview has to be hidden while the settings modal is open.
+ * @param {boolean} visible
+ */
+function setDownloaderContentVisible(visible) {
+    if (window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke('tab_downloader_set_visible', { visible }).catch(() => {});
+    }
+    try { window.MajesticDownloaderNative?.setVisible?.(visible); } catch {}
+}
+
+/**
+ * Tell the native shell how tall the top bar is so the content webview starts below it.
+ * @param {number} cssHeight
+ */
+function syncDownloaderTopOffset(cssHeight) {
+    if (window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke('tab_downloader_update', { topOffset: cssHeight }).catch(() => {});
+    }
+    try { window.MajesticDownloaderNative?.setTopInsetPx?.(Math.round(cssHeight * (window.devicePixelRatio || 1))); } catch {}
+}
+
+/**
  * Open the Configure Tab Sources modal
  * @param {string} [targetSourceId]
  */
 export function openDownloaderSettings(targetSourceId = null) {
-    if (window.__TAURI__?.core?.invoke) {
-        window.__TAURI__.core.invoke('tab_downloader_set_visible', { visible: false }).catch(() => {});
-    }
+    setDownloaderContentVisible(false);
     localEditingSources = JSON.parse(JSON.stringify(getSources()));
     currentEditingSourceId = targetSourceId || activeSourceId || localEditingSources[0]?.id;
     renderSettingsPills();
@@ -650,8 +670,8 @@ export function closeDownloaderSettings() {
     const modal = document.getElementById('downloaderSettingsModal');
     if (modal) modal.style.display = 'none';
     const bar = document.getElementById('tabDownloaderBar');
-    if (bar && bar.style.display !== 'none' && window.__TAURI__?.core?.invoke) {
-        window.__TAURI__.core.invoke('tab_downloader_set_visible', { visible: true }).catch(() => {});
+    if (bar && bar.style.display !== 'none') {
+        setDownloaderContentVisible(true);
     }
 }
 
@@ -897,9 +917,7 @@ export function showTabDownloaderBar(isDebugToolsEnabled = false) {
                 const newHeight = Math.ceil(entry.contentRect.height + 1);
                 if (newHeight > 0 && Math.abs(newHeight - lastHeight) >= 2) {
                     lastHeight = newHeight;
-                    if (window.__TAURI__?.core?.invoke) {
-                        window.__TAURI__.core.invoke('tab_downloader_update', { topOffset: newHeight }).catch(() => {});
-                    }
+                    syncDownloaderTopOffset(newHeight);
                 }
             }
         });
@@ -1024,16 +1042,15 @@ export async function openTabDownloader(options = {}) {
     }
     currentSearchQuery = query;
 
-    const isDesktop = isDesktopNative();
+    // Every platform renders the bar in this webview and the site in a separate native webview below it,
+    // so pinch zooming the site never scales the bar.
     let barHeight = 84;
-
-    if (isDesktop) {
-        showTabDownloaderBar(Boolean(isDebugToolsEnabled));
-        const bar = document.getElementById('tabDownloaderBar');
-        if (bar) {
-            barHeight = Math.ceil(bar.getBoundingClientRect().height) || 84;
-        }
+    showTabDownloaderBar(Boolean(isDebugToolsEnabled));
+    const bar = document.getElementById('tabDownloaderBar');
+    if (bar) {
+        barHeight = Math.ceil(bar.getBoundingClientRect().height) || 84;
     }
+    try { window.MajesticDownloaderNative?.setTopInsetPx?.(Math.round(barHeight * (window.devicePixelRatio || 1))); } catch {}
 
     const targetUrl = buildSearchUrl(activeSource, currentSearchQuery);
     const urlTextEl = document.getElementById('downloaderUrlText');
@@ -1044,7 +1061,7 @@ export async function openTabDownloader(options = {}) {
     if (urlGroupEl) urlGroupEl.title = loadingText;
 
     const config = {
-        showToolbar: !isDesktop, // Disable injected toolbar on desktop (using native split webview)
+        showToolbar: false, // The bar lives in the main webview on every platform
         activeSourceId: activeSource.id,
         artist: activeArtistName || null,
         song: activeSongName || null,
@@ -1071,7 +1088,7 @@ export async function openTabDownloader(options = {}) {
             url: targetUrl,
             userscript: targetScript || null,
             config,
-            topOffset: isDesktop ? barHeight : 0.0
+            topOffset: barHeight
         });
     } catch (err) {
         console.error('[Tab Downloader] Failed to open native webview:', err);
