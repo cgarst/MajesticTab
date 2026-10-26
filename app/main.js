@@ -234,6 +234,24 @@ const fileMenu = new bootstrap.Offcanvas(fileMenuEl);
 fileMenuEl.addEventListener('hidden.bs.offcanvas', () => {
     document.activeElement?.blur?.();
 });
+
+// ` / ~ toggles the settings menu (unless typing or another modal is open)
+window.addEventListener('keydown', (e) => {
+    if (e.code !== 'Backquote' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+    const el = document.activeElement;
+    const isTyping = el && (
+        (el.tagName === 'INPUT' && !['radio', 'checkbox', 'button', 'submit', 'range'].includes(el.type)) ||
+        el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable
+    );
+    if (isTyping) return;
+    e.preventDefault();
+    if (fileMenuEl.classList.contains('show')) {
+        fileMenu.hide();
+    } else if (!document.body.classList.contains('modal-open')) {
+        fileMenu.show();
+    }
+});
+
 const output = document.getElementById('output');
 const progressContainer = document.getElementById('progressContainer');
 const progressBar = document.getElementById('progressBar');
