@@ -10,8 +10,8 @@ const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.g
 const IOS_CLIENT_ID = '1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p.apps.googleusercontent.com';
 // drive.file only: the app sees files it created plus files the user hands it through the Google Picker.
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
-// Browser API key (restricted to the app's origins in Cloud Console) and the Cloud project number, both required by the Picker.
-const PICKER_API_KEY = 'REPLACE_WITH_PICKER_API_KEY';
+// The Picker needs a browser API key and the Cloud project number. The key comes from the GOOGLE_PICKER_API_KEY
+// environment variable, which the build writes to the git-ignored pickerKey.local.js.
 const PICKER_APP_ID = '1059497343032';
 const STORAGE_KEY = 'gdrive_auth';
 // Bumped when the requested scope changes so tokens granted under the old scope force a fresh consent.
@@ -404,8 +404,9 @@ function loadPickerApi() {
  * Picking a file grants this app access to it under the drive.file scope.
  */
 export async function pickDriveFile({ title = 'Select a file from Google Drive' } = {}) {
-    if (!PICKER_API_KEY || PICKER_API_KEY.startsWith('REPLACE_')) {
-        throw new Error('Set PICKER_API_KEY in app/googleDrive.js to use the Google Drive picker.');
+    const apiKey = await import('./pickerKey.local.js').then(m => m.PICKER_API_KEY, () => '');
+    if (!apiKey) {
+        throw new Error('The Google Drive picker is not configured in this build (missing GOOGLE_PICKER_API_KEY).');
     }
     await ensureFreshToken();
     if (!isTokenValid()) throw new Error('Google Drive is not connected. Please connect your Google account.');
@@ -418,7 +419,7 @@ export async function pickDriveFile({ title = 'Select a file from Google Drive' 
             .setSelectFolderEnabled(false);
         new gp.PickerBuilder()
             .setAppId(PICKER_APP_ID)
-            .setDeveloperKey(PICKER_API_KEY)
+            .setDeveloperKey(apiKey)
             .setOAuthToken(token)
             .setTitle(title)
             .addView(view)
