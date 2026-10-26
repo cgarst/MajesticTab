@@ -797,6 +797,14 @@ export function switchActiveSource(src) {
 }
 
 /**
+ * Drop fragments that ad scripts append to the page URL (e.g. #google_vignette, #aswift_1)
+ * @param {string} url
+ */
+function stripAdFragment(url) {
+    return url.replace(/#(google_vignette|aswift_\d+[^#]*|gpt-[^#]*)$/i, '');
+}
+
+/**
  * Highlight matching source tab if webview navigates to a known source domain
  * @param {string} url
  */
@@ -934,7 +942,7 @@ export function initTauriDownloadListener() {
 
         // URL changed event from native webview
         window.__TAURI__.event.listen('tab-downloader-url-changed', (event) => {
-            const url = event.payload || '';
+            const url = stripAdFragment(event.payload || '');
             const urlText = document.getElementById('downloaderUrlText');
             const urlGroup = document.getElementById('downloaderUrlGroup');
             if (highlightSourceTabForUrl(url) === false) return;

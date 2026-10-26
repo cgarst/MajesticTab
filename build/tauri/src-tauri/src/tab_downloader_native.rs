@@ -775,7 +775,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
     }
 
     if url.scheme() == "http" || url.scheme() == "https" {
-        let _ = app_handle.emit("tab-downloader-url-changed", url_str.to_string());
+        // The bar URL is emitted from on_page_load, which only reports the top-level frame; this handler also sees iframes (ads)
         if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
             if let Some(host) = url.host_str().map(|h| h.to_lowercase()) {
                 let mut matched_sid: Option<String> = None;
