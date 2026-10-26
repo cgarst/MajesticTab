@@ -4,6 +4,7 @@ import { applyTabTrackColors, tintTrackCurves } from '../utils/trackColors.js';
 import { createCustomCursorHandler } from './gpPlayer.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { applyProgramMapping } from '../soundFontProgramMap.js';
+import { readGpSoundHints, applyGpSoundHints } from './gpSoundHints.js';
 import {
     getInstrumentMode,
     getGuitarTracks,
@@ -129,6 +130,7 @@ export function saveHiddenTracks(file, hiddenIndices, activeTracks = [], instrum
 
 export function loadGuitarPro(file, container, { debug = false, originalFile = null } = {}) {
     const targetFile = originalFile || (file instanceof File ? file : null) || (window.gpState?.currentFile) || null;
+    const soundHintsPromise = readGpSoundHints(originalFile || file);
     return new Promise((resolve, reject) => {
         if (!container) {
             reject(new Error("Container element is required"));
@@ -155,7 +157,7 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
             reject(error)
         });
 
-        tempApi.scoreLoaded.on((score) => {
+        tempApi.scoreLoaded.on(async (score) => {
             if (debug) console.log("Tracks:", score.tracks);
 
             if (Array.isArray(score.tracks)) {
@@ -193,6 +195,8 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
                 console.log("[GP] Embedded audio sync track detected in Guitar Pro file");
             }
 
+            const soundHints = await soundHintsPromise;
+
             // Step 3: dispose of temporary API
             tempApi.destroy();
 
@@ -227,6 +231,7 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
 
             // Set stylesheet properties on the new score
             api.scoreLoaded.on((newScore) => {
+                applyGpSoundHints(newScore, soundHints);
                 applyProgramMapping(newScore, api.soundFontPresets);
 
                 const adaptPref = getTabAdaptPref(targetFile || file);
