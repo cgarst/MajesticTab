@@ -202,6 +202,8 @@ let currentSearchQuery = '';
 // Source the user just clicked: the tab bar keeps it selected until its page starts loading,
 // instead of flickering back to the old page's source while the new one loads.
 let pendingSourceId = null;
+// Real address of the page in the downloader webview (the bar text can read "Loading...")
+let currentDownloaderUrl = '';
 let pendingSourceTimer = null;
 let lastDownloadedTime = 0;
 let lastDownloadedName = '';
@@ -512,6 +514,17 @@ export function initTabDownloaderDomEvents() {
         }
     });
 
+    document.getElementById('downloaderCopyUrlBtn')?.addEventListener('click', async () => {
+        const url = currentDownloaderUrl;
+        if (!url) return;
+        try {
+            await navigator.clipboard.writeText(url);
+            showToast('Web address copied', 'success');
+        } catch {
+            showToast('Could not copy the web address', 'error');
+        }
+    });
+
     // DevTools button
     document.getElementById('downloaderDevToolsBtn')?.addEventListener('click', () => {
         if (window.__TAURI__?.core?.invoke) {
@@ -795,6 +808,7 @@ export function switchActiveSource(src) {
 
     const query = formatSearchQueryForSource(src, activeArtistName, activeSongName) || currentSearchQuery;
     const nextUrl = buildSearchUrl(src, query);
+    currentDownloaderUrl = nextUrl;
     const userscript = src.userscriptEnabled ? (src.userscript || src.defaultUserscript || null) : null;
 
     if (window.__TAURI__?.core?.invoke) {
@@ -948,6 +962,7 @@ export function initTauriDownloadListener() {
             const urlText = document.getElementById('downloaderUrlText');
             const urlGroup = document.getElementById('downloaderUrlGroup');
             if (highlightSourceTabForUrl(url) === false) return;
+            if (url) currentDownloaderUrl = url;
             if (urlText && url) {
                 urlText.textContent = url;
             }
@@ -1035,6 +1050,7 @@ export async function openTabDownloader(options = {}) {
     const targetUrl = buildSearchUrl(activeSource, currentSearchQuery);
     const urlTextEl = document.getElementById('downloaderUrlText');
     const urlGroupEl = document.getElementById('downloaderUrlGroup');
+    currentDownloaderUrl = targetUrl;
     const loadingText = 'Loading ' + activeSource.name + '...';
     if (urlTextEl) urlTextEl.textContent = loadingText;
     if (urlGroupEl) urlGroupEl.title = loadingText;

@@ -4840,6 +4840,33 @@ body:not(.synth-playback-started) .at-highlight {
   letter-spacing: -0.2px;
 }
 
+.downloader-url-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.downloader-url-copy-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.downloader-url-copy-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-card-hover, rgba(255, 255, 255, 0.08));
+}
+
 .downloader-tabs-row {
   display: flex;
   align-items: center;
