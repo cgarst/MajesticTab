@@ -759,16 +759,9 @@ export function renderDownloaderTabs() {
         </button>
     `).join('');
 
-    html += `
-        <button type="button" class="downloader-source-tab-btn downloader-source-tab-add" id="downloaderAddSourceBtn" title="Add New Tab Source">
-            <i class="bi-plus-lg"></i>
-            <span>Add Source</span>
-        </button>
-    `;
-
     container.innerHTML = html;
 
-    container.querySelectorAll('.downloader-source-tab-btn:not(.downloader-source-tab-add)').forEach(btn => {
+    container.querySelectorAll('.downloader-source-tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const sid = btn.dataset.sourceId;
             const src = sources.find(s => s.id === sid);
@@ -776,11 +769,6 @@ export function renderDownloaderTabs() {
                 switchActiveSource(src);
             }
         });
-    });
-
-    container.querySelector('#downloaderAddSourceBtn')?.addEventListener('click', () => {
-        openDownloaderSettings();
-        document.getElementById('downloaderCfgNewBtn')?.click();
     });
 }
 
@@ -795,7 +783,7 @@ export function switchActiveSource(src) {
     pendingSourceTimer = setTimeout(() => { pendingSourceId = null; }, 10000);
     const container = document.getElementById('downloaderTabsRow');
     if (container) {
-        container.querySelectorAll('.downloader-source-tab-btn:not(.downloader-source-tab-add)').forEach(b => {
+        container.querySelectorAll('.downloader-source-tab-btn').forEach(b => {
             b.classList.toggle('active', b.dataset.sourceId === src.id);
         });
     }
@@ -857,7 +845,7 @@ export function highlightSourceTabForUrl(url) {
             activeSourceId = matchedId;
             const container = document.getElementById('downloaderTabsRow');
             if (container) {
-                container.querySelectorAll('.downloader-source-tab-btn:not(.downloader-source-tab-add)').forEach(b => {
+                container.querySelectorAll('.downloader-source-tab-btn').forEach(b => {
                     b.classList.toggle('active', b.dataset.sourceId === matchedId);
                 });
             }
