@@ -42,6 +42,8 @@ export function saveS3Config(config) {
         pathStyle: Boolean(config.pathStyle)
     };
     if (clean.endpoint && !/^https?:\/\//i.test(clean.endpoint)) clean.endpoint = `https://${clean.endpoint}`;
+    // Providers show the bucket URL (endpoint/bucket); the bucket is added when signing, so drop it here
+    if (clean.bucket) clean.endpoint = clean.endpoint.replace(new RegExp(`/${clean.bucket.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`), '');
     if (!clean.bucket || !clean.accessKeyId || !clean.secretAccessKey) {
         throw new Error('Enter a bucket, an access key ID and a secret access key.');
     }

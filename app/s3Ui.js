@@ -44,7 +44,7 @@ export function s3ConfigFormHtml(config = getS3Config() || {}) {
         ${field('s3Endpoint', 'Endpoint (leave empty for Amazon S3)', config.endpoint, { placeholder: 'https://<account>.r2.cloudflarestorage.com' })}
         <div class="row g-2">
             <div class="col-6">${field('s3Region', 'Region', config.region, { placeholder: 'us-east-1' })}</div>
-            <div class="col-6">${field('s3Prefix', 'Folder in bucket (optional)', config.prefix, { placeholder: 'tabs' })}</div>
+            <div class="col-6">${field('s3Prefix', 'Folder in bucket (optional)', config.prefix, { placeholder: 'Bucket root' })}</div>
         </div>
         ${field('s3AccessKey', 'Access key ID', config.accessKeyId)}
         ${field('s3Secret', 'Secret access key', config.secretAccessKey, { type: 'password' })}
