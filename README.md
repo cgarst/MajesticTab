@@ -164,6 +164,55 @@ The output will be saved to `dist/MajesticTab-ios.ipa`.
 
 ---
 
+## Extensions
+
+Extensions let you teach MajesticTab to open files it doesn't read on its own. An extension is a single `.js` file that converts a file you open (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`, `.pdf` or `.txt`) into contents MajesticTab can read. Add one from the menu: **Extensions**, then **Add .js File**.
+
+### Safety
+
+Extensions run in an isolated sandbox. They have no network access and can't read your library, settings, accounts or backups. They only see the file you are opening, and the only thing they can do is hand back a converted file. MajesticTab ships with none, and you should still only add files you trust or wrote yourself.
+
+### Writing an extension
+
+Call `registerFileAdapter` with an `id`, a `matches(file)` function and a `transform(file)` function. Both can be `async`.
+
+- `file` is a standard `File` (use `file.name`, `file.arrayBuffer()`, `file.text()`).
+- `matches` returns `true` when the extension wants to handle the file.
+- `transform` returns a `File` or `Blob` with the converted contents, or `null` to leave the file as it is.
+- Several extensions can be loaded together and run in order, each receiving the previous result.
+- [fflate](https://github.com/101arrowz/fflate) is available as `fflate` for zip and gzip work.
+
+```js
+// Opens text tabs saved in an older encoding (Windows-1252) with accents intact.
+registerFileAdapter({
+  id: 'windows-1252-to-utf8',
+  async matches(file) {
+    if (!file.name.toLowerCase().endsWith('.txt')) return false;
+    try {
+      new TextDecoder('utf-8', { fatal: true }).decode(await file.arrayBuffer());
+      return false; // already valid UTF-8
+    } catch {
+      return true;
+    }
+  },
+  async transform(file) {
+    const text = new TextDecoder('windows-1252').decode(await file.arrayBuffer());
+    return new File([text], file.name, { type: 'text/plain' });
+  }
+});
+```
+
+### Ideas for extensions
+
+- Convert text tabs saved in other encodings, like the example above.
+- Tidy your own text tabs: strip stray HTML tags, normalize line endings, or replace tabs with spaces so the columns line up.
+- Turn a simple format you export from your own tools (a JSON or CSV list of chords and lyrics, for example) into a formatted `.txt` chord sheet. Keep the `.txt` name on the file you hand back.
+- Clean up the view of a Guitar Pro 7 or newer file: strip lyrics, text annotations or chord diagrams so the sheet shows only the notation.
+
+### Jam mode
+
+Extensions don't travel over Jam. If the host has an extension that converts a file, the host shares the converted file, so everyone in the session can open it without having the extension installed.
+
 ## Contributing
 
 Contributions are welcome.
