@@ -1850,6 +1850,14 @@ export function getPdfPages() {
         }
     };
 
+    // Alt+Enter toggles fullscreen on Windows and Linux (macOS uses the native fullscreen shortcut)
+    window.addEventListener("keydown", (e) => {
+        if (e.key !== "Enter" || !e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.repeat) return;
+        if (/Mac/i.test(navigator.platform)) return;
+        e.preventDefault();
+        btn.click();
+    });
+
     window.addEventListener("resize", onChange);
     document.addEventListener("fullscreenchange", onChange);
     document.addEventListener("webkitfullscreenchange", onChange);
