@@ -20,6 +20,32 @@
       if (standalone && !native) document.documentElement.classList.add('ios-pwa');
     })();
   </script>
+  <script>
+    // Native macOS overlay title bar: reserve room for the traffic lights (hidden in fullscreen); mirrors main.js
+    (function () {
+      if (!window.__TAURI__ || !/Mac/i.test(navigator.platform)) return;
+      var ua = navigator.userAgent || '';
+      if (/iPad|iPhone|iPod/.test(ua) || navigator.maxTouchPoints > 1) return;
+      var root = document.documentElement;
+      var win = window.__TAURI__.window && window.__TAURI__.window.getCurrentWindow && window.__TAURI__.window.getCurrentWindow();
+      var token = 0;
+      function sync() {
+        var mine = ++token;
+        var fs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+        var done = function () { if (mine === token) root.classList.toggle('tauri-macos', !fs); };
+        if (!fs && win && win.isFullscreen) {
+          win.isFullscreen().then(function (v) { fs = !!v; done(); }, done);
+        } else {
+          done();
+        }
+      }
+      function scheduleSync() { sync(); setTimeout(sync, 600); }
+      sync();
+      window.addEventListener('resize', scheduleSync);
+      document.addEventListener('fullscreenchange', scheduleSync);
+      document.addEventListener('webkitfullscreenchange', scheduleSync);
+    })();
+  </script>
   <style>
     html.tauri-ios #topBar {
       padding-top: max(calc(env(safe-area-inset-top) + 0.5rem), 54px);
@@ -98,11 +124,7 @@
       </a>
       <span class="fs-6 fw-bold tracking-tight text-white ms-2">MajesticTab</span>
     </div>
-    <div id="rightSection">
-      <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="brand-btn text-decoration-none" title="View Source on GitHub">
-        <i class="bi-github"></i>
-      </a>
-    </div>
+    <div id="rightSection"></div>
   </header>
 
   <main class="privacy-container">
