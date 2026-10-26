@@ -50,7 +50,7 @@ jobs:
       - name: Build updater manifest
         run: |
           app_version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
-          node build/make-update-manifest.mjs artifacts "${app_version}-canary.${{ needs.check.outputs.build_id }}" \
+          node build/make-update-manifest.mjs artifacts "${app_version}" \
             "https://github.com/${{ github.repository }}/releases/download/canary" \
             artifacts/latest.json "Canary ${{ needs.check.outputs.build_id }}"
       - name: Replace canary release
