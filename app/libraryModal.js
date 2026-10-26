@@ -1020,6 +1020,11 @@ async function renderLibraryBrowseView(container) {
                       </div>
 
                       <div class="album-banner-actions d-flex align-items-center gap-2 flex-wrap flex-shrink-0">
+                        ${!isCustomArtist && (album.albumMbid || album.songs?.find(s => s.albumMbid)?.albumMbid) ? `
+                          <a class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 d-flex align-items-center gap-1" href="https://musicbrainz.org/release-group/${encodeURIComponent(album.albumMbid || album.songs.find(s => s.albumMbid).albumMbid)}" target="_blank" rel="noopener noreferrer" title="Open this album on MusicBrainz">
+                            <i class="bi-box-arrow-up-right text-info"></i> <span class="d-none d-sm-inline">MusicBrainz</span>
+                          </a>
+                        ` : ''}
                         ${!isCustomArtist ? `
                           <button class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 d-flex align-items-center gap-1" id="exploreLibAlbumTracklistBtn" title="Fetch complete album tracklist from MusicBrainz to view all tracks and add missing songs">
                             <i class="bi-music-note-list text-info"></i> <span class="d-none d-sm-inline">Explore Tracklist</span><span class="d-inline d-sm-none">Tracks</span>
@@ -3756,6 +3761,9 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
               <span class="badge badge-theme-success mb-1" style="font-size:0.68rem;">Release (${albumData.country || 'International'})</span>
               <h5 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(albumData.title)}">${escapeHtml(albumData.title)}</h5>
               <div class="small text-muted text-truncate" title="${escapeHtml(albumData.artist)}">${escapeHtml(albumData.artist)} ${albumData.year ? `• ${albumData.year}` : ''} • ${albumData.tracks.length} Tracks</div>
+              <a class="small text-info text-decoration-none d-inline-flex align-items-center gap-1 mt-1" href="https://musicbrainz.org/release-group/${encodeURIComponent(albumData.releaseGroupId || releaseGroupMbid)}" target="_blank" rel="noopener noreferrer" title="Open this album on MusicBrainz">
+                <i class="bi-box-arrow-up-right"></i> View on MusicBrainz
+              </a>
             </div>
           </div>
 
