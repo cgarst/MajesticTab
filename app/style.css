@@ -3728,6 +3728,28 @@ body:not(.synth-playback-started) .at-highlight {
   justify-self: end;
 }
 
+/* Single collection: no selector, so the search bar fills the freed space */
+.library-body-header.no-collections {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.library-body-header.no-collections .lib-toolbar-center {
+  justify-self: stretch;
+  width: auto;
+  max-width: none;
+}
+
+.library-body-header.no-collections .lib-toolbar-right {
+  margin-left: auto;
+}
+
+@media (max-width: 992px) {
+  .library-body-header.no-collections .lib-toolbar-center {
+    order: 3;
+    width: 100% !important;
+  }
+}
+
 /* Seamless Connected Collection Pill Group */
 .collection-pill-group {
   display: inline-flex;
