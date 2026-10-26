@@ -586,7 +586,6 @@ pub fn run() {
         tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
-        tab_downloader_native::tab_downloader_save_sources,
         youtube_search,
         youtube_macos::youtube_player_update,
         youtube_macos::youtube_player_command
@@ -620,7 +619,6 @@ pub fn run() {
         tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
-        tab_downloader_native::tab_downloader_save_sources,
         youtube_search,
         #[cfg(target_os = "ios")]
         youtube_ios::youtube_player_update,
