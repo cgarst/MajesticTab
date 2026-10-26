@@ -10,7 +10,7 @@ import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDi
 import { setupPageScrubber } from './utils/pageScrubber.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
-import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
+import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupTrackpadSwipeNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
 import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtils.js';
@@ -1319,6 +1319,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupPrevNextNavigation(prevBtn, nextBtn, getNavigationConfig);
     setupKeyboardNavigation(getNavigationConfig);
     setupMouseNavigation(getNavigationConfig);
+    setupTrackpadSwipeNavigation(getNavigationConfig);
     setupSystemBackNavigation(getNavigationConfig);
     setupViewModeToggles(pageModeRadio, continuousModeRadio, getNavigationConfig);
     setupTapClickNavigation(output, getNavigationConfig);
