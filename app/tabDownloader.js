@@ -967,6 +967,8 @@ export function initTauriDownloadListener() {
     }
 }
 
+let debugToolsEnabled = null;
+
 /**
  * Open the Native Tab Downloader UI
  * @param {Object} [options]
@@ -997,14 +999,16 @@ export async function openTabDownloader(options = {}) {
     activeArtistName = options.artist || activeTargetSong?.artist || activeTargetAlbum?.artistName || '';
     activeSongName = options.songName || activeTargetSong?.title || activeTargetAlbum?.albumTitle || '';
 
-    let isDebugToolsEnabled = false;
-    if (window.__TAURI__?.core?.invoke) {
-        try {
-            isDebugToolsEnabled = await window.__TAURI__.core.invoke('tab_downloader_is_debug_tools_enabled');
-        } catch {
-            isDebugToolsEnabled = false;
+    // A build-time constant, so ask the shell once (on Android its sync commands can stall after a close)
+    if (debugToolsEnabled === null) {
+        debugToolsEnabled = false;
+        if (window.__TAURI__?.core?.invoke) {
+            try {
+                debugToolsEnabled = await window.__TAURI__.core.invoke('tab_downloader_is_debug_tools_enabled');
+            } catch {}
         }
     }
+    const isDebugToolsEnabled = debugToolsEnabled;
 
     const sources = getSources();
     const activeSource = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
@@ -1057,6 +1061,8 @@ export async function openTabDownloader(options = {}) {
         }))
     };
     const targetScript = activeSource.userscriptEnabled ? (activeSource.userscript || '') : '';
+    // Android shows its site view natively; the shell's own eval of this can stall after a close
+    try { window.MajesticDownloaderNative?.show?.(); } catch {}
     try {
         await window.__TAURI__.core.invoke('open_tab_downloader', {
             url: targetUrl,
@@ -1080,6 +1086,7 @@ export function closeTabDownloaderModal(invokeNative = true) {
     activeTargetSong = null;
     activeTargetAlbum = null;
 
+    try { window.MajesticDownloaderNative?.close?.(); } catch {}
     hideTabDownloaderBar();
 
     if (invokeNative && window.__TAURI__?.core?.invoke) {
