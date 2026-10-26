@@ -126,9 +126,32 @@ const notice = (icon, text) => `<div class="small text-white-50 py-2"><i class="
 
 // --- screens ---
 
+let checkingTimer = null;
+
+function stopChecking() {
+    clearInterval(checkingTimer);
+    checkingTimer = null;
+}
+
+/** Show the compare screen; returns a setter for the current step. A timer shows how long it has run. */
 function showChecking(target) {
-    frame(`<div class="py-4 text-center text-white-50 small"><span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>Comparing this device with ${targetLabel(target)}...</div>`,
-        { subtitle: 'Checking for changes' });
+    stopChecking();
+    frame(`<div class="py-4 text-center text-white-50 small">
+        <div><span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>Comparing this device with ${targetLabel(target)}...</div>
+        <div class="mt-2 text-white" data-sync-step>Starting...</div>
+        <div class="mt-1" style="font-size:0.72rem;" data-sync-elapsed></div>
+    </div>`, { subtitle: 'Checking for changes' });
+    const startedAt = Date.now();
+    const elapsed = document.querySelector('[data-sync-elapsed]');
+    checkingTimer = setInterval(() => {
+        const secs = Math.floor((Date.now() - startedAt) / 1000);
+        if (!elapsed || !elapsed.isConnected) return stopChecking();
+        elapsed.textContent = secs < 10 ? '' : `${secs}s elapsed${secs >= 30 ? '. Large libraries or slow connections can take a while.' : ''}`;
+    }, 1000);
+    return (text) => {
+        const el = document.querySelector('[data-sync-step]');
+        if (el) el.textContent = text;
+    };
 }
 
 function showChooseLocation() {
@@ -326,8 +349,9 @@ async function start({ interactive = false } = {}) {
     const mine = ++session;
     const target = getTarget();
     if (!target) return showChooseLocation();
-    showChecking(target);
+    const setStep = showChecking(target);
     try {
+        setStep(target === DRIVE ? 'Signing in to Google Drive...' : 'Opening the sync folder...');
         const resolved = await resolveBackend(target, { interactive });
         if (mine !== session) return;
         if (resolved.status === 'needs-auth' && !interactive && !sessionStorage.getItem(AUTO_AUTH_KEY)) {
@@ -339,13 +363,16 @@ async function start({ interactive = false } = {}) {
         sessionStorage.removeItem(AUTO_AUTH_KEY);
         if (resolved.status !== 'ready') return showNeedsSetup(resolved.status, resolved.folderName);
 
-        const plan = await planSync(resolved.backend);
+        setStep(target === DRIVE ? 'Listing snapshots on Google Drive...' : 'Listing snapshots in the folder...');
+        const plan = await planSync(resolved.backend, (text) => { if (mine === session) setStep(text); });
+        stopChecking();
         if (mine !== session) return;
         // Nothing to move yet: record the baseline now so later removals are understood
         if (plan.firstSync && !plan.changes.length && !plan.needsPush) await applySync(resolved.backend, plan);
         context = { target, backend: resolved.backend, plan };
         showReview(target, resolved.backend, plan);
     } catch (err) {
+        stopChecking();
         if (mine !== session) return;
         console.error('[Sync] Could not compare:', err);
         showError(err.message);

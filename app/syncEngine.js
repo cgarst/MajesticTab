@@ -141,7 +141,9 @@ function compareOther(manifest, localLibrary) {
     return out;
 }
 
-export async function planSync(backend) {
+export async function planSync(backend, onStatus) {
+    const say = (text) => { if (typeof onStatus === 'function') onStatus(text); };
+    say('Reading this device\'s library and listing snapshots...');
     const [backups, fileMetas, soundFonts] = await Promise.all([
         listIncrementalBackups(backend),
         getAllStoredFiles(),
@@ -149,7 +151,9 @@ export async function planSync(backend) {
     ]);
     const local = localItems(fileMetas, soundFonts);
     const latest = backups[0] ? { name: backups[0].name, exportedAt: backups[0].exportedAt } : null;
+    say(latest ? `Downloading the latest snapshot (${backups.length} found)...` : 'No snapshot found; this is a first sync.');
     const manifest = latest ? await backend.readManifest(backups[0]) : null;
+    say('Comparing tabs, SoundFonts and settings...');
     const remote = latest ? remoteItems(manifest) : new Map();
     const other = latest ? compareOther(manifest, await getAllLibraryData()) : { receive: [], send: [] };
 
