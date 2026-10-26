@@ -6772,3 +6772,11 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   padding-top: 1rem;
   border-top: 1px solid var(--border-subtle);
 }
+
+/* MusicBrainz tracks that were filtered out (instrumentals, video, vinyl): visible but inert */
+.library-track-row.is-filtered-out {
+  opacity: 0.45;
+  filter: grayscale(1);
+  cursor: default;
+  pointer-events: none;
+}

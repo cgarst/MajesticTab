@@ -802,6 +802,7 @@ export async function getAlbumTracks(releaseGroupMbid) {
     let chosenRelease = null;
     let detailData = null;
     let tracks = [];
+    let excludedTracks = [];
     const scrubbedRecordingMbids = new Set();
     const scrubbedMediumNumbers = new Set();
 
@@ -812,10 +813,29 @@ export async function getAlbumTracks(releaseGroupMbid) {
         const candidateDetail = await fetchMusicBrainz(releaseDetailUrl);
         const candidateMedia = candidateDetail.media || [];
         const candidateTracks = [];
+        const candidateExcluded = [];
 
         const hasAnyCdOrDigital = candidateMedia.some(m => !isDvdOrBlurayMedium(m) && !isVinylOrTapeMedium(m));
 
         const earlierMediaTracks = [];
+
+        // Tracks dropped from the list are still returned so the UI can show them grayed out
+        const collectExcluded = (medium, mediumNumber, reason) => {
+            for (const tr of medium.tracks || []) {
+                const recording = tr.recording || {};
+                candidateExcluded.push({
+                    id: recording.id || tr.id,
+                    recordingMbid: recording.id || '',
+                    trackNumber: typeof tr.position === 'number' ? tr.position : (parseInt(tr.position || tr.number, 10) || candidateExcluded.length + 1),
+                    mediumNumber,
+                    mediumTitle: medium.title || '',
+                    mediumFormat: medium.format || 'CD',
+                    title: tr.title || recording.title || 'Untitled Track',
+                    length: tr.length ? Math.round(tr.length / 1000) : (recording.length ? Math.round(recording.length / 1000) : null),
+                    excludedReason: reason
+                });
+            }
+        };
 
         for (const medium of candidateMedia) {
             const mediumTitle = medium.title || '';
@@ -828,6 +848,7 @@ export async function getAlbumTracks(releaseGroupMbid) {
             // Filter out DVD/Blu-ray always, and filter out Vinyl/Tape if CD/Digital media exist in the release
             if (isDvd || (isVinyl && hasAnyCdOrDigital)) {
                 scrubbedMediumNumbers.add(mediumNumber);
+                collectExcluded(medium, mediumNumber, isDvd ? 'video' : 'vinyl');
                 for (const tr of medium.tracks || []) {
                     const recording = tr.recording || {};
                     if (recording.id) scrubbedRecordingMbids.add(recording.id);
@@ -845,6 +866,7 @@ export async function getAlbumTracks(releaseGroupMbid) {
 
             if (mediumNumber > 1 && isInstrumentalBonusMedium(medTracks, earlierMediaTracks, mediumTitle)) {
                 scrubbedMediumNumbers.add(mediumNumber);
+                collectExcluded(medium, mediumNumber, 'instrumental');
                 for (const tr of medium.tracks || []) {
                     const recording = tr.recording || {};
                     if (recording.id) scrubbedRecordingMbids.add(recording.id);
@@ -889,6 +911,7 @@ export async function getAlbumTracks(releaseGroupMbid) {
             chosenRelease = rel;
             detailData = candidateDetail;
             tracks = candidateTracks;
+            excludedTracks = candidateExcluded;
             if (candidateTracks.length > 0) {
                 break;
             }
@@ -915,6 +938,7 @@ export async function getAlbumTracks(releaseGroupMbid) {
         year,
         coverUrl,
         tracks,
+        excludedTracks,
         hasCdMedia: Boolean(tracks.some(t => !isVinylOrTapeMedium(t) && !isDvdOrBlurayMedium(t))),
         scrubbedRecordingMbids: Array.from(scrubbedRecordingMbids),
         scrubbedMediumNumbers: Array.from(scrubbedMediumNumbers)

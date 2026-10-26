@@ -3761,7 +3761,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
 
           <!-- Tracks Checklist -->
           <div class="d-flex flex-column gap-2" id="albumTracksChecklist">
-            ${renderAddAlbumTracksList(albumData.tracks, existingSongKeys, albumData.artist)}
+            ${renderAddAlbumTracksList(albumData.tracks, existingSongKeys, albumData.artist, albumData.excludedTracks)}
           </div>
         </div>
         `;
@@ -3818,13 +3818,24 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
     }
 }
 
-function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistName = '') {
+function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistName = '', excludedTracks = []) {
     const hasCd = (tracks || []).some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
     let cleanTracks = (tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
     cleanTracks = filterInstrumentalBonusDiscs(cleanTracks);
     if (!cleanTracks || cleanTracks.length === 0) return '';
+
+    // Tracks left out of the album (instrumental bonus discs, video and vinyl media) stay visible but grayed out
+    const keptTracks = new Set(cleanTracks);
+    const leftOut = [
+        ...(tracks || []).filter(t => !keptTracks.has(t)).map(t => ({
+            ...t,
+            excludedReason: isDvdOrBlurayMedium(t) ? 'video' : (isVinylOrTapeMedium(t) ? 'vinyl' : 'instrumental')
+        })),
+        ...(excludedTracks || [])
+    ];
+
     const mediaGroups = new Map();
-    cleanTracks.forEach((t, idx) => {
+    const addToGroup = (t, idx, excluded) => {
         const medNum = t.mediumNumber || 1;
         if (!mediaGroups.has(medNum)) {
             mediaGroups.set(medNum, {
@@ -3837,10 +3848,24 @@ function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistNa
         const grp = mediaGroups.get(medNum);
         if (!grp.mediumTitle && t.mediumTitle) grp.mediumTitle = t.mediumTitle;
         if (!grp.mediumFormat && t.mediumFormat) grp.mediumFormat = t.mediumFormat;
-        grp.items.push({ track: t, idx });
-    });
+        grp.items.push({ track: t, idx, excluded });
+    };
+    cleanTracks.forEach((t, idx) => addToGroup(t, idx, false));
+    leftOut.forEach((t, idx) => addToGroup(t, idx, true));
+    mediaGroups.forEach(grp => grp.items.sort((a, b) => (a.excluded === b.excluded ? (a.track.trackNumber || 0) - (b.track.trackNumber || 0) : 0)));
 
     const groups = Array.from(mediaGroups.values()).sort((a, b) => a.mediumNumber - b.mediumNumber);
+
+    const excludedLabels = { instrumental: 'Instrumental', video: 'Video disc', vinyl: 'Vinyl or tape' };
+    const renderExcludedItem = (t, idx) => `
+        <div class="library-track-row is-filtered-out d-flex align-items-center justify-content-between gap-2 gap-sm-3" title="Not added: ${escapeHtml(excludedLabels[t.excludedReason] || 'Filtered out')}">
+          <div class="d-flex align-items-center gap-2 gap-sm-3 min-w-0 flex-grow-1">
+            <span class="badge-track-num flex-shrink-0">${t.trackNumber || idx + 1}</span>
+            <span class="library-song-title fw-semibold text-white" title="${escapeHtml(t.title)}">${escapeHtml(t.title)}</span>
+          </div>
+          <span class="badge badge-theme-secondary flex-shrink-0 ms-1 ms-sm-2">${escapeHtml(excludedLabels[t.excludedReason] || 'Filtered out')}</span>
+        </div>
+        `;
 
     const renderTrackItem = (t, idx) => {
         const isSongInLib = (t.recordingMbid && existingSongKeys.has(`rec:${t.recordingMbid}`)) ||
@@ -3865,24 +3890,27 @@ function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistNa
         `;
     };
 
+    const renderItem = ({ track: t, idx, excluded }) => (excluded ? renderExcludedItem(t, idx) : renderTrackItem(t, idx));
+
     if (groups.length === 1 && !groups[0].mediumTitle) {
-        return groups[0].items.map(({ track: t, idx }) => renderTrackItem(t, idx)).join('');
+        return groups[0].items.map(renderItem).join('');
     }
 
     return groups.map(grp => {
         const formatLabel = grp.mediumFormat || 'CD';
         const discTitle = grp.mediumTitle ? `: ${escapeHtml(grp.mediumTitle)}` : '';
         const headerText = `${formatLabel} ${grp.mediumNumber}${discTitle}`;
+        const keptCount = grp.items.filter(item => !item.excluded).length;
 
         return `
         <div class="library-medium-section mb-2">
           <div class="library-disc-header d-flex align-items-center gap-2 py-2 px-3 mb-2">
             <i class="bi-disc text-accent"></i>
             <span class="fw-bold small text-white text-uppercase" style="letter-spacing: 0.04em; font-size: 0.78rem;">${headerText}</span>
-            <span class="badge badge-theme-secondary py-0 px-2 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.items.length} ${grp.items.length === 1 ? 'Track' : 'Tracks'}</span>
+            <span class="badge badge-theme-secondary py-0 px-2 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${keptCount ? `${keptCount} ${keptCount === 1 ? 'Track' : 'Tracks'}` : 'Filtered out'}</span>
           </div>
           <div class="d-flex flex-column gap-2">
-            ${grp.items.map(({ track: t, idx }) => renderTrackItem(t, idx)).join('')}
+            ${grp.items.map(renderItem).join('')}
           </div>
         </div>
         `;
