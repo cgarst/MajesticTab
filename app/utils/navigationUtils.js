@@ -591,6 +591,53 @@ export function setupMouseNavigation(getConfig) {
 }
 
 /**
+ * Two-finger trackpad swipe back/forward for the native macOS app. WKWebView ships with
+ * history swipe gestures off and never fires popstate for them, so read the horizontal
+ * wheel deltas directly. (Browsers handle the swipe natively through popstate.)
+ * @param {Function} getConfig Function to get current navigation configuration
+ */
+export function setupTrackpadSwipeNavigation(getConfig) {
+    if (typeof window === 'undefined' || !window.__TAURI__) return;
+    if (!/Mac/i.test(navigator.platform || '') || navigator.maxTouchPoints > 1) return;
+
+    const SWIPE_THRESHOLD = 140;
+    const GESTURE_GAP_MS = 220;
+    let accum = 0;
+    let lastEventTime = 0;
+    let fired = false;
+
+    const hasHorizontalScroller = (el) => {
+        for (let node = el; node && node !== document.body; node = node.parentElement) {
+            if (node.scrollWidth <= node.clientWidth + 1) continue;
+            const overflowX = getComputedStyle(node).overflowX;
+            if (overflowX === 'auto' || overflowX === 'scroll') return true;
+        }
+        return false;
+    };
+
+    window.addEventListener('wheel', (e) => {
+        if (e.ctrlKey || Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.5) return;
+        const now = Date.now();
+        if (now - lastEventTime > GESTURE_GAP_MS) {
+            accum = 0;
+            fired = false;
+        }
+        lastEventTime = now;
+        if (fired || hasHorizontalScroller(e.target)) return;
+
+        accum += e.deltaX;
+        if (Math.abs(accum) < SWIPE_THRESHOLD) return;
+        fired = true;
+        // Natural scrolling: fingers moving right produce negative deltaX, which means back
+        if (accum < 0) {
+            performAppBack(getConfig);
+        } else {
+            performAppForward(getConfig);
+        }
+    }, { passive: true });
+}
+
+/**
  * Setup first page button navigation
  */
 export function setupFirstPageNavigation(firstBtn, getConfig) {
