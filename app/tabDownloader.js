@@ -447,6 +447,16 @@ export function initTabDownloaderDomEvents() {
     if (isDomInitialized || typeof document === 'undefined') return;
     isDomInitialized = true;
 
+    // Dismissible hint banner
+    const hintBanner = document.getElementById('downloaderHintBanner');
+    try {
+        if (localStorage.getItem('downloaderHintDismissed') === '1' && hintBanner) hintBanner.style.display = 'none';
+    } catch {}
+    document.getElementById('downloaderHintDismissBtn')?.addEventListener('click', () => {
+        if (hintBanner) hintBanner.style.display = 'none';
+        try { localStorage.setItem('downloaderHintDismissed', '1'); } catch {}
+    });
+
     // Navigation buttons
     document.getElementById('downloaderNavBackBtn')?.addEventListener('click', () => {
         if (window.__TAURI__?.core?.invoke) {
