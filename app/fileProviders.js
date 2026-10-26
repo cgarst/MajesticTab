@@ -3,7 +3,7 @@
 
 import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
-import { openDriveModal, redirectToGoogleAuth, isTokenValid, ensureFreshToken } from './googleDrive.js';
+import { openDrivePicker, redirectToGoogleAuth, isTokenValid, ensureFreshToken } from './googleDrive.js';
 import { openTabDownloader } from './tabDownloader.js';
 import { addTabOptionToSong, addTabOptionToAlbum, mapOpenFileToSong } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
@@ -243,7 +243,7 @@ export const GoogleDriveFileProvider = {
     async open(options = {}) {
         await ensureFreshToken();
         if (isTokenValid()) {
-            openDriveModal(options);
+            openDrivePicker(options);
         } else {
             redirectToGoogleAuth('open_drive_browser', options);
         }

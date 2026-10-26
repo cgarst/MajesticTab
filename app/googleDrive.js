@@ -2,77 +2,31 @@
 import { loadFile, hideFileMenu } from './main.js';
 import { saveStoredFile } from './fileStore.js';
 import { showToast } from './utils/toast.js';
+import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
 const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
 const IOS_CLIENT_ID = '1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p.apps.googleusercontent.com';
-const SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.readonly';
+// drive.file only: the app sees files it created plus files the user hands it through the Google Picker.
+const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+// Browser API key (restricted to the app's origins in Cloud Console) and the Cloud project number, both required by the Picker.
+const PICKER_API_KEY = 'REPLACE_WITH_PICKER_API_KEY';
+const PICKER_APP_ID = '1059497343032';
 const STORAGE_KEY = 'gdrive_auth';
-const FOLDER_STORAGE_KEY = 'gdrive_last_folder';
-const TABS_DIRECTORY_STORAGE_KEY = 'gdrive_tabs_directory';
+// Bumped when the requested scope changes so tokens granted under the old scope force a fresh consent.
+const AUTH_VERSION = 2;
+const LEGACY_BROWSER_KEYS = ['gdrive_last_folder', 'gdrive_tabs_directory', 'majestictab_drive_backup_folder'];
 const PENDING_OPTIONS_STORAGE_KEY = 'gdrive_pending_options';
 
 let token = null;
-let currentFolderId = 'root';
-let folderHistory = [{ id: 'root', name: 'My Drive' }];
-let tabsDirectory = null;
-let currentSearchQuery = '';
-let searchDebounceTimeout = null;
 
-function saveCurrentFolder() {
-    try {
-        localStorage.setItem(FOLDER_STORAGE_KEY, JSON.stringify({
-            currentFolderId,
-            folderHistory
-        }));
-    } catch (e) {
-        console.error('Failed to save last drive folder:', e);
-    }
-}
-
-function loadSavedFolder() {
-    try {
-        const saved = localStorage.getItem(FOLDER_STORAGE_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.currentFolderId && Array.isArray(parsed.folderHistory) && parsed.folderHistory.length > 0) {
-                currentFolderId = parsed.currentFolderId;
-                folderHistory = parsed.folderHistory;
-            }
-        }
-    } catch (e) {
-        console.error('Failed to load last drive folder:', e);
-    }
-}
-
-function loadTabsDirectory() {
-    try {
-        const saved = localStorage.getItem(TABS_DIRECTORY_STORAGE_KEY);
-        if (saved) {
-            const parsed = JSON.parse(saved);
-            if (parsed.id && parsed.name) tabsDirectory = parsed;
-        }
-    } catch (e) {
-        console.error('Failed to load tabs directory:', e);
-    }
-}
-
-function getDriveRoot() {
-    return tabsDirectory || { id: 'root', name: 'My Drive' };
-}
-
-function resetFolderToDriveRoot() {
-    const root = getDriveRoot();
-    currentFolderId = root.id;
-    folderHistory = [{ id: root.id, name: root.name }];
-    saveCurrentFolder();
-}
-
-// Load saved root and folder location on script initialization
-loadTabsDirectory();
-loadSavedFolder();
-if (folderHistory[0]?.id !== getDriveRoot().id) resetFolderToDriveRoot();
+// Drop tokens (and the refresh token) issued under the broader drive.readonly scope, and the folder-browser state they supported.
+try {
+    const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+    if (stored && stored.v !== AUTH_VERSION) localStorage.removeItem(STORAGE_KEY);
+    LEGACY_BROWSER_KEYS.forEach(key => localStorage.removeItem(key));
+} catch (_) {}
 
 function readStoredAuth() {
     try {
@@ -207,10 +161,6 @@ function getRedirectUri() {
 
 let pendingAuthState = 'open_drive_browser';
 let pendingDriveOptions = null;
-let activeDriveTargetSongId = null;
-let activeDriveTargetSong = null;
-let activeDriveTargetAlbum = null;
-let activeDriveOnFileSelected = null;
 
 function savePendingDriveOptions(options) {
     if (!options || typeof options !== 'object') {
@@ -249,20 +199,6 @@ function restorePendingDriveOptions() {
     return null;
 }
 
-function getActiveDriveOptions() {
-    const opts = {};
-    if (activeDriveTargetSongId) opts.songId = activeDriveTargetSongId;
-    if (activeDriveTargetSong) opts.targetSong = activeDriveTargetSong;
-    if (activeDriveTargetAlbum) {
-        opts.isAlbumTab = true;
-        opts.albumTitle = activeDriveTargetAlbum.albumTitle;
-        opts.artistName = activeDriveTargetAlbum.artistName;
-        opts.collectionId = activeDriveTargetAlbum.collectionId;
-    }
-    if (activeDriveOnFileSelected) opts.onFileSelected = activeDriveOnFileSelected;
-    return Object.keys(opts).length > 0 ? opts : null;
-}
-
 export function isMobilePlatform() {
     if (typeof navigator === 'undefined') return false;
     const ua = navigator.userAgent || '';
@@ -271,7 +207,7 @@ export function isMobilePlatform() {
 
 export function redirectToGoogleAuth(targetState = 'open_drive_browser', options = null) {
     pendingAuthState = targetState;
-    const opts = options || getActiveDriveOptions();
+    const opts = options;
     if (opts) {
         savePendingDriveOptions(opts);
     }
@@ -311,7 +247,7 @@ async function startMobileGoogleAuth(targetState = 'open_drive_browser') {
         try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
         window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
         if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
-            openDriveModal(restorePendingDriveOptions() || {});
+            openDrivePicker(restorePendingDriveOptions() || {});
         } else if (BACKUP_AUTH_STATES[targetState]) {
             openBackupModalForAuthState(targetState, { skipIfOpen: true });
         }
@@ -379,7 +315,7 @@ async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
                 try { localStorage.removeItem('gdrive_pending_state'); } catch (_) {}
                 window.dispatchEvent(new CustomEvent('googleAuthSuccess', { detail: { state: targetState } }));
                 if (targetState === 'open_drive_browser' || targetState === 'open_picker') {
-                    openDriveModal(restorePendingDriveOptions() || {});
+                    openDrivePicker(restorePendingDriveOptions() || {});
                 } else if (BACKUP_AUTH_STATES[targetState]) {
                     openBackupModalForAuthState(targetState, { skipIfOpen: true });
                 }
@@ -425,6 +361,7 @@ function storeGoogleAuth(accessToken, expiresIn, refreshToken = null) {
     if (!accessToken) return false;
 
     const authData = {
+        v: AUTH_VERSION,
         access_token: accessToken,
         expiry_date: Date.now() + ((parseInt(expiresIn, 10) || 3600) * 1000)
     };
@@ -435,202 +372,152 @@ function storeGoogleAuth(accessToken, expiresIn, refreshToken = null) {
     return true;
 }
 
-export function openDriveModal(options = {}) {
-    const savedOpts = restorePendingDriveOptions();
-    const mergedOptions = { ...(savedOpts || {}), ...(options || {}) };
-    activeDriveOnFileSelected = mergedOptions.onFileSelected || null;
-    activeDriveTargetSongId = mergedOptions.songId || mergedOptions.targetSong?.id || null;
-    activeDriveTargetSong = mergedOptions.targetSong || null;
-    if (mergedOptions.isAlbumTab && mergedOptions.albumTitle) {
-        activeDriveTargetAlbum = {
-            collectionId: mergedOptions.collectionId,
-            artistName: mergedOptions.artistName,
-            albumTitle: mergedOptions.albumTitle
-        };
-    } else {
-        activeDriveTargetAlbum = null;
-    }
-    const modal = document.getElementById('driveModal');
-    if (!modal) return;
-
-    if (folderHistory[0]?.id !== getDriveRoot().id) resetFolderToDriveRoot();
-
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-
-    // Reset search input
-    const searchInput = document.getElementById('driveSearchInput');
-    if (searchInput) searchInput.value = currentSearchQuery;
-
-    loadDriveFiles();
-}
-
-export function closeDriveModal(isReauthenticating = false) {
-    if (!isReauthenticating) {
-        activeDriveTargetSongId = null;
-        activeDriveTargetSong = null;
-        activeDriveTargetAlbum = null;
-        activeDriveOnFileSelected = null;
-        pendingDriveOptions = null;
-        try { localStorage.removeItem(PENDING_OPTIONS_STORAGE_KEY); } catch (_) {}
-    }
-    const modal = document.getElementById('driveModal');
-    if (!modal) return;
-    modal.style.display = 'none';
-    document.body.style.overflow = '';
-}
-
-function formatBytes(bytes, decimals = 1) {
-    if (!+bytes) return '';
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
-}
-
-function formatDate(dateStr) {
-    if (!dateStr) return '';
-    try {
-        const d = new Date(dateStr);
-        return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch (e) {
-        return '';
-    }
-}
-
-function getFileIconClass(mimeType, name = '') {
-    const lower = name.toLowerCase();
-    if (mimeType === 'application/vnd.google-apps.folder') {
-        return { icon: 'bi-folder-fill', color: 'text-warning' };
-    }
-    if (lower.endsWith('.pdf')) {
-        return { icon: 'bi-file-earmark-pdf-fill', color: 'text-danger' };
-    }
-    if (lower.endsWith('.gp') || lower.endsWith('.gp3') || lower.endsWith('.gp4') || lower.endsWith('.gp5') || lower.endsWith('.gpx')) {
-        return { icon: 'bi-music-note-beamed', color: 'text-info' };
-    }
-    if (lower.endsWith('.txt')) {
-        return { icon: 'bi-file-earmark-text-fill', color: 'text-secondary' };
-    }
-    if (lower.endsWith('.mtbackup')) {
-        return { icon: 'bi-archive-fill', color: 'text-info' };
-    }
-    if (lower.endsWith('.json') || lower.endsWith('.majestictab')) {
-        return { icon: 'bi-file-earmark-code-fill', color: 'text-warning' };
-    }
-    return { icon: 'bi-file-earmark-fill', color: 'text-light' };
-}
-
-function renderBreadcrumbs() {
-    const container = document.getElementById('driveBreadcrumbs');
-    if (!container) return;
-
-    if (currentSearchQuery) {
-        container.innerHTML = `<span class="text-white-50"><i class="bi-search me-1"></i> Search results for "${escapeHtml(currentSearchQuery)}"</span>`;
-        return;
-    }
-
-    container.innerHTML = folderHistory.map((item, index) => {
-        const isLast = index === folderHistory.length - 1;
-        const icon = index === 0 ? '<i class="bi-folder2-open me-1"></i>' : '';
-        if (isLast) {
-            return `<span class="drive-breadcrumb-item active">${icon}${escapeHtml(item.name)}</span>`;
-        }
-        return `
-            <span class="drive-breadcrumb-item" data-history-index="${index}">${icon}${escapeHtml(item.name)}</span>
-            <span class="text-white-50 opacity-50"><i class="bi-chevron-right" style="font-size:0.65rem;"></i></span>
-        `;
-    }).join('');
-
-    container.querySelectorAll('.drive-breadcrumb-item[data-history-index]').forEach(el => {
-        el.addEventListener('click', () => {
-            const idx = parseInt(el.getAttribute('data-history-index'), 10);
-            folderHistory = folderHistory.slice(0, idx + 1);
-            currentFolderId = folderHistory[folderHistory.length - 1].id;
-            saveCurrentFolder();
-            loadDriveFiles();
-        });
+/** Loads the Google Picker library once. */
+let pickerApiPromise = null;
+function loadPickerApi() {
+    pickerApiPromise ||= new Promise((resolve, reject) => {
+        const fail = (message) => { pickerApiPromise = null; reject(new Error(message)); };
+        const start = () => window.gapi.load('picker', { callback: resolve, onerror: () => fail('Could not load the Google Picker.') });
+        if (window.gapi?.load) return start();
+        const script = document.createElement('script');
+        script.src = 'https://apis.google.com/js/api.js';
+        script.onload = start;
+        script.onerror = () => fail('Could not reach Google. Check your connection and try again.');
+        document.head.appendChild(script);
     });
+    return pickerApiPromise;
+}
 
-    const backBtn = document.getElementById('driveModalBackBtn');
-    if (backBtn) {
-        backBtn.style.display = (folderHistory.length > 1 && !currentSearchQuery) ? 'inline-flex' : 'none';
+/**
+ * Shows the Google Picker and resolves with the chosen file ({ id, name, mimeType }), or null if cancelled.
+ * Picking a file grants this app access to it under the drive.file scope.
+ */
+export async function pickDriveFile({ title = 'Select a file from Google Drive' } = {}) {
+    if (!PICKER_API_KEY || PICKER_API_KEY.startsWith('REPLACE_')) {
+        throw new Error('Set PICKER_API_KEY in app/googleDrive.js to use the Google Drive picker.');
     }
-
-    const resetRootBtn = document.getElementById('driveResetTabsDirectoryBtn');
-    if (resetRootBtn) resetRootBtn.hidden = !tabsDirectory;
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-async function loadDriveFiles() {
-    const listContainer = document.getElementById('driveFileListContainer');
-    if (!listContainer) return;
-
-    renderBreadcrumbs();
-
-    listContainer.innerHTML = `
-        <div class="text-center py-5 text-muted">
-            <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
-            <div class="small">Loading files from Google Drive...</div>
-        </div>
-    `;
-
     await ensureFreshToken();
-    if (!isTokenValid()) {
-        const currentOpts = getActiveDriveOptions();
-        clearStoredToken();
-        closeDriveModal(true);
-        redirectToGoogleAuth('open_drive_browser', currentOpts);
+    if (!isTokenValid()) throw new Error('Google Drive is not connected. Please connect your Google account.');
+    await loadPickerApi();
+
+    return new Promise((resolve) => {
+        const { picker: gp } = window.google;
+        const view = new gp.DocsView(gp.ViewId.DOCS)
+            .setIncludeFolders(true)
+            .setSelectFolderEnabled(false);
+        new gp.PickerBuilder()
+            .setAppId(PICKER_APP_ID)
+            .setDeveloperKey(PICKER_API_KEY)
+            .setOAuthToken(token)
+            .setTitle(title)
+            .addView(view)
+            .setCallback((data) => {
+                const action = data[gp.Response.ACTION];
+                if (action === gp.Action.PICKED) {
+                    const doc = data[gp.Response.DOCUMENTS][0];
+                    resolve({ id: doc[gp.Document.ID], name: doc[gp.Document.NAME], mimeType: doc[gp.Document.MIME_TYPE] });
+                } else if (action === gp.Action.CANCEL) {
+                    resolve(null);
+                }
+            })
+            .build()
+            .setVisible(true);
+    });
+}
+
+/**
+ * Lets the user pick a tab file from Google Drive, then opens it or attaches it to the song or album in `options`.
+ * Mirrors the Local Device provider's options (onFileSelected, songId/targetSong, album fields).
+ */
+export async function openDrivePicker(options = {}) {
+    const savedOpts = restorePendingDriveOptions();
+    const opts = { ...(savedOpts || {}), ...(options || {}) };
+
+    let doc;
+    try {
+        doc = await pickDriveFile({ title: 'Select a tab file from Google Drive' });
+    } catch (err) {
+        console.error('[Drive] Picker failed:', err);
+        showToast(err.message, 'error');
+        return;
+    }
+    if (!doc) return;
+
+    try {
+        const fileObj = await downloadDriveFile(doc.id, doc.name);
+        const isBackup = doc.name.toLowerCase().endsWith('.mtbackup');
+        if (!isBackup && !(await isSupportedTabFile(fileObj))) {
+            showToast(`"${doc.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+            return;
+        }
+        await handleDriveFileSelected(fileObj, doc.id, opts);
+    } catch (err) {
+        console.error('Error downloading file from Drive:', err);
+        if (/authorization expired/i.test(err.message)) {
+            redirectToGoogleAuth('open_drive_browser', opts);
+            return;
+        }
+        showToast('Failed to download file from Google Drive.', 'error');
+    }
+}
+
+async function handleDriveFileSelected(fileObj, fileId, opts) {
+    const { onFileSelected, songId, targetSong, isAlbumTab, albumTitle, artistName, collectionId } = opts;
+    const targetSongId = songId || targetSong?.id;
+
+    if (typeof onFileSelected === 'function') {
+        try {
+            if (fileObj.name.toLowerCase().endsWith('.mtbackup')) {
+                onFileSelected({ file: fileObj, providerId: 'google-drive', name: fileObj.name });
+                return;
+            }
+            const { detectFileMetadata } = await import('./utils/tuningUtils.js');
+            const meta = await detectFileMetadata(fileObj, fileObj.name);
+            const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
+            onFileSelected({ file: fileObj, providerId: 'google-drive', fileStoreId: stored.id, name: fileObj.name, meta });
+        } catch (err) {
+            console.warn('Could not process selected Drive file:', err);
+            onFileSelected({ file: fileObj, providerId: 'google-drive', name: fileObj.name });
+        }
         return;
     }
 
-    try {
-        let files;
-        if (currentSearchQuery.trim()) {
-            const cleanSearch = currentSearchQuery.trim().replace(/'/g, "\\'");
-            files = await searchDriveFolderTree(getDriveRoot().id, cleanSearch);
-        } else {
-            let query = "trashed = false and (mimeType = 'application/vnd.google-apps.folder' or name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt')";
-            query += ` and '${currentFolderId}' in parents`;
+    const attachTab = async (label, addTab) => {
+        try {
+            const { detectFileMetadata } = await import('./utils/tuningUtils.js');
+            const meta = await detectFileMetadata(fileObj, fileObj.name);
+            const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
+            await addTab({
+                name: fileObj.name,
+                providerId: 'google-drive',
+                relativePath: fileObj.name,
+                fileStoreId: stored.id,
+                driveFileId: fileId,
+                tuning: meta.primaryTuning,
+                tunings: meta.tunings,
+                stringCount: meta.stringCount,
+                fileType: fileObj.name.split('.').pop().toLowerCase()
+            });
+            showToast(`Added "${fileObj.name}" to ${label}`, 'success');
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+        } catch (err) {
+            console.error(`Could not persist Drive file to ${label}:`, err);
+            showToast(`Error attaching tab file to ${label}`, 'error');
+        }
+    };
 
-            files = await fetchDriveFiles(query);
-        }
-
-        files.sort((a, b) => {
-            const aIsFolder = a.mimeType === 'application/vnd.google-apps.folder';
-            const bIsFolder = b.mimeType === 'application/vnd.google-apps.folder';
-            return Number(bIsFolder) - Number(aIsFolder) || a.name.localeCompare(b.name);
-        });
-        renderFileList(files);
-    } catch (err) {
-        if (err.status === 401) {
-            const currentOpts = getActiveDriveOptions();
-            clearStoredToken();
-            closeDriveModal(true);
-            redirectToGoogleAuth('open_drive_browser', currentOpts);
-            return;
-        }
-        if ((err.status === 404 || err.status === 400) && currentFolderId !== getDriveRoot().id) {
-            console.warn('[Drive] Saved folder inaccessible, falling back to tabs directory');
-            resetFolderToDriveRoot();
-            loadDriveFiles();
-            return;
-        }
-        console.error('[Drive Error]', err);
-        listContainer.innerHTML = `
-            <div class="text-center py-4 text-white-50">
-                <i class="bi-exclamation-triangle text-warning fs-3 mb-2 d-block"></i>
-                <div>Failed to load files from Google Drive.</div>
-                <button class="btn btn-theme-primary btn-sm mt-3" id="driveRetryBtn">Try Again</button>
-            </div>
-        `;
-        document.getElementById('driveRetryBtn')?.addEventListener('click', loadDriveFiles);
+    if (targetSongId) {
+        const { addTabOptionToSong } = await import('./libraryStore.js');
+        await attachTab('song', (tab) => addTabOptionToSong(targetSongId, { ...tab, targetSong }));
+        return;
     }
+    if (isAlbumTab && albumTitle) {
+        const { addTabOptionToAlbum } = await import('./libraryStore.js');
+        await attachTab('album', (tab) => addTabOptionToAlbum(collectionId, artistName, albumTitle, tab));
+        return;
+    }
+
+    await loadFile(fileObj);
 }
 
 async function fetchDriveFiles(query) {
@@ -648,11 +535,7 @@ async function fetchDriveFiles(query) {
         const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
-        if (!res.ok) {
-            const error = new Error(`Google Drive API error: ${res.status} ${res.statusText}`);
-            error.status = res.status;
-            throw error;
-        }
+        if (!res.ok) throw new Error(`Google Drive API error: ${res.status} ${res.statusText}`);
 
         const data = await res.json();
         files.push(...(data.files || []));
@@ -660,208 +543,6 @@ async function fetchDriveFiles(query) {
     } while (pageToken);
 
     return files;
-}
-
-async function searchDriveFolderTree(rootFolderId, searchTerm) {
-    const pendingFolderIds = [rootFolderId];
-    const visitedFolderIds = new Set();
-    const matchingFiles = [];
-    const supportedFileQuery = "name contains '.gp' or name contains '.gp3' or name contains '.gp4' or name contains '.gp5' or name contains '.gpx' or name contains '.pdf' or name contains '.txt'";
-
-    while (pendingFolderIds.length > 0) {
-        const folderId = pendingFolderIds.pop();
-        if (visitedFolderIds.has(folderId)) continue;
-        visitedFolderIds.add(folderId);
-
-        const query = `trashed = false and '${folderId}' in parents and (mimeType = 'application/vnd.google-apps.folder' or (name contains '${searchTerm}' and (${supportedFileQuery})))`;
-        const children = await fetchDriveFiles(query);
-
-        for (const child of children) {
-            if (child.mimeType === 'application/vnd.google-apps.folder') {
-                pendingFolderIds.push(child.id);
-                if (child.name.toLowerCase().includes(searchTerm.toLowerCase())) matchingFiles.push(child);
-            } else {
-                matchingFiles.push(child);
-            }
-        }
-    }
-
-    return matchingFiles;
-}
-
-function renderFileList(files) {
-    const listContainer = document.getElementById('driveFileListContainer');
-    if (!listContainer) return;
-
-    if (files.length === 0) {
-        listContainer.innerHTML = `
-            <div class="text-center py-5 text-white-50">
-                <i class="bi-folder2 text-secondary fs-2 mb-2 d-block"></i>
-                <div>No supported tab files found (.gp, .pdf, .txt) in this location.</div>
-            </div>
-        `;
-        return;
-    }
-
-    listContainer.innerHTML = files.map(file => {
-        const isFolder = file.mimeType === 'application/vnd.google-apps.folder';
-        const { icon, color } = getFileIconClass(file.mimeType, file.name);
-        const metaStr = isFolder ? 'Folder' : [formatBytes(file.size), formatDate(file.modifiedTime)].filter(Boolean).join(' • ');
-
-        return `
-            <div class="drive-file-item" data-file-id="${file.id}" data-is-folder="${isFolder}" data-file-name="${escapeHtml(file.name)}" data-mime-type="${file.mimeType || ''}">
-                <div class="drive-file-item-left">
-                    <span class="drive-file-icon ${color}">
-                        <i class="bi ${icon}"></i>
-                    </span>
-                    <span class="drive-file-name" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</span>
-                </div>
-                <div class="drive-file-meta">${metaStr}</div>
-            </div>
-        `;
-    }).join('');
-
-    // Attach click listeners to file / folder items
-    listContainer.querySelectorAll('.drive-file-item').forEach(item => {
-        item.addEventListener('click', async () => {
-            const isFolder = item.getAttribute('data-is-folder') === 'true';
-            const fileId = item.getAttribute('data-file-id');
-            const fileName = item.getAttribute('data-file-name');
-            const mimeType = item.getAttribute('data-mime-type');
-
-            if (isFolder) {
-                currentSearchQuery = '';
-                const searchInput = document.getElementById('driveSearchInput');
-                if (searchInput) searchInput.value = '';
-                folderHistory.push({ id: fileId, name: fileName });
-                currentFolderId = fileId;
-                saveCurrentFolder();
-                loadDriveFiles();
-            } else {
-                // Fetch and open tab file
-                item.style.opacity = '0.6';
-                item.style.pointerEvents = 'none';
-                const originalContent = item.innerHTML;
-                item.innerHTML = `
-                    <div class="d-flex align-items-center gap-2 text-primary py-1">
-                        <div class="spinner-border spinner-border-sm" role="status"></div>
-                        <span class="small">Downloading ${escapeHtml(fileName)}...</span>
-                    </div>
-                `;
-
-                try {
-                    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-                        headers: { Authorization: `Bearer ${token}` }
-                    });
-
-                    if (!res.ok) {
-                        if (res.status === 401) {
-                            const currentOpts = getActiveDriveOptions();
-                            clearStoredToken();
-                            closeDriveModal(true);
-                            redirectToGoogleAuth('open_drive_browser', currentOpts);
-                            return;
-                        }
-                        throw new Error(`Download failed: ${res.statusText}`);
-                    }
-
-                    const blob = await res.blob();
-                    const fileObj = new File([blob], fileName, { type: mimeType || 'application/octet-stream' });
-                    const targetSongId = activeDriveTargetSongId;
-                    const targetAlbum = activeDriveTargetAlbum;
-
-                    if (typeof activeDriveOnFileSelected === 'function') {
-                        const cb = activeDriveOnFileSelected;
-                        closeDriveModal();
-                        try {
-                            const isBackup = fileName.toLowerCase().endsWith('.mtbackup');
-                            if (isBackup) {
-                                cb({ file: fileObj, providerId: 'google-drive', name: fileObj.name });
-                                return;
-                            }
-                            const { detectFileMetadata } = await import('./utils/tuningUtils.js');
-                            const meta = await detectFileMetadata(fileObj, fileObj.name);
-                            const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
-                            cb({ file: fileObj, providerId: 'google-drive', fileStoreId: stored.id, name: fileObj.name, meta });
-                            return;
-                        } catch (err) {
-                            console.warn('Could not process selected Drive file:', err);
-                            cb({ file: fileObj, providerId: 'google-drive', name: fileObj.name });
-                            return;
-                        }
-                    }
-
-                    if (targetSongId) {
-                        try {
-                            const { detectFileMetadata } = await import('./utils/tuningUtils.js');
-                            const meta = await detectFileMetadata(fileObj, fileObj.name);
-                            const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
-                            const { addTabOptionToSong } = await import('./libraryStore.js');
-                            await addTabOptionToSong(targetSongId, {
-                                name: fileObj.name,
-                                providerId: 'google-drive',
-                                relativePath: fileObj.name,
-                                fileStoreId: stored.id,
-                                driveFileId: fileId,
-                                targetSong: activeDriveTargetSong,
-                                tuning: meta.primaryTuning,
-                                tunings: meta.tunings,
-                                stringCount: meta.stringCount,
-                                fileType: fileObj.name.split('.').pop().toLowerCase()
-                            });
-                            closeDriveModal();
-                            showToast(`Added "${fileObj.name}" to song`, 'success');
-                            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                            return;
-                        } catch (err) {
-                            console.error('Could not persist Drive file to store:', err);
-                            closeDriveModal();
-                            showToast('Error attaching tab file to song', 'error');
-                            return;
-                        }
-                    }
-
-                    if (targetAlbum?.albumTitle) {
-                        try {
-                            const { detectFileMetadata } = await import('./utils/tuningUtils.js');
-                            const meta = await detectFileMetadata(fileObj, fileObj.name);
-                            const stored = await saveStoredFile(fileObj, 'google-drive', { driveFileId: fileId });
-                            const { addTabOptionToAlbum } = await import('./libraryStore.js');
-                            await addTabOptionToAlbum(targetAlbum.collectionId, targetAlbum.artistName, targetAlbum.albumTitle, {
-                                name: fileObj.name,
-                                providerId: 'google-drive',
-                                relativePath: fileObj.name,
-                                fileStoreId: stored.id,
-                                driveFileId: fileId,
-                                tuning: meta.primaryTuning,
-                                tunings: meta.tunings,
-                                stringCount: meta.stringCount,
-                                fileType: fileObj.name.split('.').pop().toLowerCase()
-                            });
-                            closeDriveModal();
-                            showToast(`Added "${fileObj.name}" to album`, 'success');
-                            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                            return;
-                        } catch (err) {
-                            console.error('Could not persist Drive file to album:', err);
-                            closeDriveModal();
-                            showToast('Error attaching tab file to album', 'error');
-                            return;
-                        }
-                    }
-
-                    closeDriveModal();
-                    await loadFile(fileObj);
-                } catch (err) {
-                    console.error('Error downloading file from Drive:', err);
-                    showToast('Failed to download file from Google Drive.', 'error');
-                    item.innerHTML = originalContent;
-                    item.style.opacity = '1';
-                    item.style.pointerEvents = 'auto';
-                }
-            }
-        });
-    });
 }
 
 function handleAuthRedirect() {
@@ -893,7 +574,7 @@ function handleAuthRedirect() {
         window.history.replaceState(null, '', cleanUrl);
 
         if (state === 'open_drive_browser' || state === 'open_picker') {
-            openDriveModal();
+            openDrivePicker();
         } else if (BACKUP_AUTH_STATES[state]) {
             openBackupModalForAuthState(state);
         }
@@ -911,66 +592,6 @@ export function setupDrivePicker() {
             await openFromProvider('google-drive');
         });
     }
-
-    const backBtn = document.getElementById('driveModalBackBtn');
-    backBtn?.addEventListener('click', () => {
-        if (folderHistory.length > 1) {
-            folderHistory.pop();
-            currentFolderId = folderHistory[folderHistory.length - 1].id;
-            saveCurrentFolder();
-            loadDriveFiles();
-        }
-    });
-
-    const closeBtn = document.getElementById('driveModalCloseBtn');
-    closeBtn?.addEventListener('click', closeDriveModal);
-
-    const refreshBtn = document.getElementById('driveRefreshBtn');
-    refreshBtn?.addEventListener('click', () => loadDriveFiles());
-
-    const setRootBtn = document.getElementById('driveSetTabsDirectoryBtn');
-    setRootBtn?.addEventListener('click', () => {
-        const currentFolder = folderHistory[folderHistory.length - 1];
-        tabsDirectory = { id: currentFolder.id, name: currentFolder.name };
-        localStorage.setItem(TABS_DIRECTORY_STORAGE_KEY, JSON.stringify(tabsDirectory));
-        resetFolderToDriveRoot();
-        loadDriveFiles();
-    });
-
-    const resetRootBtn = document.getElementById('driveResetTabsDirectoryBtn');
-    resetRootBtn?.addEventListener('click', () => {
-        tabsDirectory = null;
-        localStorage.removeItem(TABS_DIRECTORY_STORAGE_KEY);
-        resetFolderToDriveRoot();
-        loadDriveFiles();
-    });
-
-    const signOutBtn = document.getElementById('driveSignOutBtn');
-    signOutBtn?.addEventListener('click', () => {
-        clearStoredToken({ all: true });
-        localStorage.removeItem(FOLDER_STORAGE_KEY);
-        currentFolderId = 'root';
-        folderHistory = [{ id: 'root', name: 'My Drive' }];
-        closeDriveModal();
-        showToast('Disconnected Google Drive account.', 'info');
-    });
-
-    const searchInput = document.getElementById('driveSearchInput');
-    searchInput?.addEventListener('input', (e) => {
-        clearTimeout(searchDebounceTimeout);
-        searchDebounceTimeout = setTimeout(() => {
-            currentSearchQuery = e.target.value;
-            loadDriveFiles();
-        }, 350);
-    });
-
-    // Close on clicking backdrop
-    const modal = document.getElementById('driveModal');
-    modal?.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            closeDriveModal();
-        }
-    });
 
     // Check if returning from Google OAuth redirect
     handleAuthRedirect();
@@ -1039,7 +660,7 @@ export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.m
         throw new Error('Google Drive is not connected. Please connect your Google account.');
     }
 
-    const targetFolder = folderId || (tabsDirectory ? tabsDirectory.id : 'root');
+    const targetFolder = folderId || 'root';
     const metadata = {
         name: filename,
         mimeType: fileBlob.type || 'application/octet-stream'
@@ -1100,7 +721,7 @@ export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.m
 }
 
 /**
- * Non-recursively fetch .mtbackup files located in the known path (Drive root / tabs directory).
+ * Fetch the .mtbackup files this app saved to Drive (drive.file only exposes files the app created or the user picked).
  * @returns {Promise<Array<object>>} List of Drive files sorted by modifiedTime descending
  */
 export async function fetchDriveBackups() {
