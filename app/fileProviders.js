@@ -100,7 +100,7 @@ export async function saveToProvider(id, fileBlob, filename, options = {}) {
         throw new Error(`File provider "${id}" not found.`);
     }
     if (provider.id.startsWith('tab-downloader')) {
-        throw new Error('Tab Downloader does not support saving files.');
+        throw new Error('Web Search does not support saving files.');
     }
     if (typeof provider.save !== 'function') {
         throw new Error(`Provider "${provider.name}" does not support saving files.`);
@@ -335,12 +335,12 @@ export const S3FileProvider = {
 // --- Built-in Provider: Tab Downloader (Native Only) ---
 export const TabDownloaderNativeProvider = {
     id: 'tab-downloader',
-    name: 'Tab Downloader',
-    icon: 'bi-cloud-arrow-down',
+    name: 'Web Search',
+    icon: 'bi-search',
     iconColorClass: 'text-info',
-    description: 'Search and download guitar tabs from online archives',
+    description: 'Search the web and open the tab files you find',
     badge: 'Online',
-    actionLabel: 'Search Tabs',
+    actionLabel: 'Search the Web',
     async open(options = {}) {
         return openTabDownloader(options);
     }
