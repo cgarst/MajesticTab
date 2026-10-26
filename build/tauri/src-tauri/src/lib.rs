@@ -287,60 +287,6 @@ async fn open_tab_downloader(
 }
 
 #[tauri::command]
-async fn youtube_open_auth(app: tauri::AppHandle, url: Option<String>) -> Result<(), String> {
-    let auth_url = url
-        .unwrap_or_else(|| "https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F".to_string())
-        .parse::<tauri::Url>()
-        .map_err(|e| e.to_string())?;
-
-    let label = "youtube-auth";
-    if let Some(existing) = app.get_webview_window(label) {
-        let _ = existing.navigate(auth_url);
-        let _ = existing.show();
-        let _ = existing.set_focus();
-        return Ok(());
-    }
-
-    let app_handle = app.clone();
-    #[cfg(target_os = "macos")]
-    let ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15";
-    #[cfg(target_os = "windows")]
-    let ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-    let ua = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
-
-    #[allow(unused_mut)]
-    let mut builder = tauri::WebviewWindowBuilder::new(
-        &app,
-        label,
-        tauri::WebviewUrl::External(auth_url),
-    )
-    .title("Sign In - YouTube")
-    .user_agent(ua);
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    {
-        builder = builder.inner_size(650.0, 780.0).center();
-    }
-
-    let window = builder.build().map_err(|e| e.to_string())?;
-    let _ = window.show();
-    let _ = window.set_focus();
-
-    window.on_window_event(move |event| {
-        if let tauri::WindowEvent::CloseRequested { .. } = event {
-            #[cfg(target_os = "macos")]
-            if let Some(player) = app_handle.get_webview("youtubeplayer") {
-                let _ = player.eval("if (player && player.src) { player.src = player.src; }");
-            }
-            let _ = app_handle.emit("youtube-auth-completed", ());
-        }
-    });
-
-    Ok(())
-}
-
-#[tauri::command]
 fn configure_ios_main_window(_app: tauri::AppHandle) {
     #[cfg(target_os = "ios")]
     if let Some(main_win) = _app.get_webview_window("main") {
@@ -604,7 +550,6 @@ pub fn run() {
         self_update::update_install_mode,
         self_update::install_update,
         open_tab_downloader,
-        youtube_open_auth,
         configure_ios_main_window,
         tab_downloader_native::tab_downloader_update,
         tab_downloader_native::tab_downloader_navigate,
@@ -639,7 +584,6 @@ pub fn run() {
         self_update::update_install_mode,
         self_update::install_update,
         open_tab_downloader,
-        youtube_open_auth,
         configure_ios_main_window,
         tab_downloader_native::tab_downloader_update,
         tab_downloader_native::tab_downloader_navigate,

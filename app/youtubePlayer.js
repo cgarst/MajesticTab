@@ -806,41 +806,17 @@ function closePanelWhenPlaying(timeoutMs = 8000) {
 }
 
 /**
- * Open YouTube/Google sign in window
- */
-export function openYouTubeSignIn(targetUrl = null) {
-    if (window.__TAURI__) {
-        window.__TAURI__.core.invoke('youtube_open_auth', { url: targetUrl }).catch(() => {});
-    } else {
-        window.open(targetUrl || 'https://accounts.google.com/ServiceLogin?service=youtube&continue=https%3A%2F%2Fwww.youtube.com%2F', '_blank');
-    }
-}
-
-/**
  * Initialize YouTube Player controls and event listeners
  */
 export function initYouTubePlayer() {
     const toggleBtn = document.getElementById('ytToggleBtn');
     const closeBtn = document.getElementById('ytPanelCloseBtn');
-    const signInBtn = document.getElementById('ytSignInBtn');
-    const promptSignInBtn = document.getElementById('ytPromptSignInBtn');
     const cancelSearchBtn = document.getElementById('ytCancelSearchBtn');
     const originalRadio = document.getElementById('ytTrackOriginal');
     const backingRadio = document.getElementById('ytTrackBacking');
     const searchBtn = document.getElementById('ytSearchBtn');
     const searchInput = document.getElementById('ytSearchInput');
     const ytApiKeyInput = document.getElementById('ytApiKeyInput');
-
-    // Sign in buttons
-    signInBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openYouTubeSignIn();
-    });
-
-    promptSignInBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        openYouTubeSignIn();
-    });
 
     // Load saved API Key if any
     if (ytApiKeyInput) {
