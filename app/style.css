@@ -5547,7 +5547,7 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 #controllerHelpModal[data-controls-tab="keyboard"] .controls-gamepad-only {
-  visibility: hidden;
+  display: none !important;
 }
 
 .badge-key {
