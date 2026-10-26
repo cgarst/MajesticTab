@@ -1,6 +1,7 @@
 // libraryStore.js
 // Storage and querying layer for Collections > Artists > Albums > Songs and Recents.
 
+import { getAllSetlists, clearAllSetlists, importSetlists } from './setlistStore.js';
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile, getAllStoredFiles, deleteStoredFile } from './fileStore.js';
 import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium, filterInstrumentalBonusDiscs } from './musicbrainz.js';
@@ -1212,10 +1213,12 @@ export async function getAllLibraryData() {
     const collections = await getCollections();
     const songs = await getAllSongs();
     const recents = await getRecents(500);
+    const setlists = await getAllSetlists();
     return {
         collections,
         songs,
-        recents
+        recents,
+        setlists
     };
 }
 
@@ -1231,7 +1234,7 @@ export async function clearAllLibraryData() {
         tx.objectStore(STORE_RECENTS).clear();
         tx.oncomplete = () => resolve(true);
         tx.onerror = () => reject(tx.error);
-    });
+    }).then(async (ok) => { await clearAllSetlists(); return ok; });
 }
 
 /**
@@ -1364,10 +1367,13 @@ export async function importLibraryData(data = {}, { wipe = false } = {}) {
         });
     }
 
+    const setlistsCount = await importSetlists(Array.isArray(data.setlists) ? data.setlists : [], { wipe });
+
     return {
         collectionsCount,
         songsCount,
-        recentsCount
+        recentsCount,
+        setlistsCount
     };
 }
 

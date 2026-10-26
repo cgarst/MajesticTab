@@ -17,6 +17,7 @@ import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { renderOpenFileView } from './openFileModal.js';
+import { renderSetlistsView, openAddToSetlistModal } from './setlistUi.js';
 import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
@@ -26,7 +27,7 @@ import { pauseYouTube } from './youtubePlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 
-let activeView = 'library'; // 'library', 'search', 'recents', 'openFile'
+let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let selectedArtist = null;
@@ -268,7 +269,7 @@ export async function handleBack() {
                 await switchView('library', false);
                 return true;
             }
-        } else if (activeView === 'recents' || activeView === 'openFile') {
+        } else if (activeView === 'recents' || activeView === 'openFile' || activeView === 'setlists') {
             if (viewHistory.length > 0) {
                 const prev = viewHistory.pop();
                 activeView = prev.view || 'library';
@@ -640,6 +641,8 @@ async function renderView() {
         renderSearchMusicBrainzView(content);
     } else if (activeView === 'recents') {
         await renderRecentsView(content);
+    } else if (activeView === 'setlists') {
+        await renderSetlistsView(content, { onBack: () => switchView('library') });
     } else if (activeView === 'openFile') {
         renderOpenFileView(content, {
             onBack: () => switchView('library'),
@@ -706,6 +709,10 @@ async function renderLibraryBrowseView(container) {
 
         <!-- Primary CTAs: Open File + Add Music (Right) -->
         <div class="lib-toolbar-right d-flex align-items-center gap-2" ${libraryBrowseMode === 'tunings' ? 'style="display: none !important;"' : ''}>
+          <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libSetlistsBtn" title="Build and play setlists of tabs">
+            <i class="bi-collection-play"></i>
+            <span>Setlists</span>
+          </button>
           <button type="button" class="btn btn-sm btn-theme-outline lib-open-file-btn" id="libTuningsBtn" title="Browse songs by guitar and bass tuning">
             <i class="bi-music-note"></i>
             <span>Tunings</span>
@@ -1429,6 +1436,7 @@ function bindLibraryToolbarEvents(container) {
         renderLibraryBrowseView(container);
     });
 
+    container.querySelector('#libSetlistsBtn')?.addEventListener('click', () => switchView('setlists'));
     container.querySelector('#libRecentsBtn')?.addEventListener('click', () => switchView('recents'));
     container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
 
@@ -1919,6 +1927,12 @@ function renderSongRow(song, options = {}) {
 
         <!-- Action Buttons -->
         <div class="d-flex align-items-center gap-1 gap-sm-2 flex-shrink-0 ms-1 ms-sm-2">
+          ${hasTabs ? `
+            <button class="btn btn-sm btn-theme-icon p-1 px-2 text-muted add-to-setlist-btn" data-song-id="${song.id}" title="Add to setlist">
+              <i class="bi-collection-play"></i>
+            </button>
+          ` : ''}
+
           <!-- Pin Song Button -->
           <button class="btn btn-sm btn-theme-icon p-1 px-2 pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song from collection' : 'Pin song to collection'}">
             <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
@@ -2078,6 +2092,16 @@ function setupSongRowActions(container) {
                 }
             }, 4000);
         }
+    });
+
+    // Add song's default tab to a setlist
+    container.querySelectorAll('.add-to-setlist-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const song = await getSongById(btn.dataset.songId);
+            const tab = song?.tabOptions && ((song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song.tabOptions[0]);
+            if (song && tab) openAddToSetlistModal({ songId: song.id, tabId: tab.id, title: song.title });
+        });
     });
 
     // Toggle Pin Song
@@ -2654,7 +2678,17 @@ function matchSongInAlbum(songs, fileName) {
 /**
  * Load a song's tab into MajesticTab viewer
  */
-async function loadSongTab(song, tabOption) {
+/** Open a library song's tab by id (null tabId = default tab), optionally as part of a setlist. */
+export async function openLibraryTab(songId, tabId = null, setlistContext = {}) {
+    const song = await getSongById(songId);
+    if (!song?.tabOptions?.length) return false;
+    const tab = (tabId && song.tabOptions.find(t => t.id === tabId))
+        || (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId))
+        || song.tabOptions[0];
+    return loadSongTab(song, tab, setlistContext);
+}
+
+async function loadSongTab(song, tabOption, setlistContext = {}) {
     try {
         let file = null;
         if (tabOption.fileStoreId) {
@@ -2700,6 +2734,8 @@ async function loadSongTab(song, tabOption) {
             file.fileStoreId = tabOption.fileStoreId;
             file.preferredStringCount = tabOption.preferredStringCount || null;
             file.librarySongId = song.id;
+            file.setlistId = setlistContext.setlistId || null;
+            file.setlistItemId = setlistContext.setlistItemId || null;
             closeLibraryModal();
             await loadFile(file);
 
@@ -2726,13 +2762,14 @@ async function loadSongTab(song, tabOption) {
                 tunings: song.tunings,
                 preferredStringCount: tabOption.preferredStringCount || null
             });
-        } else {
-            showToast(`Tab file not found locally. Please re-import tab for ${song.title}.`, 'warning');
+            return true;
         }
+        showToast(`Tab file not found locally. Please re-import tab for ${song.title}.`, 'warning');
     } catch (err) {
         console.error('Failed to load song tab:', err);
         showToast(`Error opening tab: ${err.message}`, 'error');
     }
+    return false;
 }
 
 // -----------------------------------------------------------------------------
@@ -3942,6 +3979,9 @@ async function renderRecentsView(container) {
                     <i class="bi-trash"></i>
                   </button>
                 ` : `
+                  <button class="btn btn-sm btn-theme-icon p-1 px-2 text-muted add-recent-to-setlist-btn" data-song-id="${escapeHtml(r.librarySongId)}" data-tab-id="${escapeHtml(r.tabId || '')}" data-title="${escapeHtml(r.songTitle || r.name)}" title="Add to setlist">
+                    <i class="bi-collection-play"></i>
+                  </button>
                   <button class="btn btn-sm btn-theme-primary py-1 px-3 open-recent-btn" data-recent='${escapeHtml(JSON.stringify(r))}'>
                     <i class="bi-play-fill me-1"></i> Open
                   </button>
@@ -3987,6 +4027,18 @@ async function renderRecentsView(container) {
                 }
             }, 4000);
         }
+    });
+
+    container.querySelectorAll('.add-recent-to-setlist-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const song = await getSongById(btn.dataset.songId);
+            const tabId = (btn.dataset.tabId && song?.tabOptions?.some(t => t.id === btn.dataset.tabId))
+                ? btn.dataset.tabId
+                : ((song?.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song?.tabOptions?.[0])?.id;
+            if (song && tabId) openAddToSetlistModal({ songId: song.id, tabId, title: btn.dataset.title || song.title });
+            else showToast('This song has no tab to add.', 'info');
+        });
     });
 
     container.querySelectorAll('.open-recent-btn').forEach(btn => {
