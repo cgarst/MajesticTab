@@ -540,6 +540,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 if (source.id === 'gprotab') return 'https://gprotab.net/';
                 if (source.id === 'songsterr') return 'https://www.songsterr-downloader.com/';
                 if (source.id === 'classtab') return 'https://www.classtab.org/';
+                if (source.id === 'google') return 'https://www.google.com/';
                 if (source.defaultUrl) return source.defaultUrl.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
                 if (template) {
                     try {
@@ -574,7 +575,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             if (h.includes('metaltabs.org')) return 'metaltabs';
             if (h.includes('gprotab.net')) return 'gprotab';
             if (h.includes('songsterr-downloader.com')) return 'songsterr';
-            if (h.includes('classtab.org')) return 'classtab';
+            if (h.includes('classtab.org') || (h.includes('google.') && window.location.href.includes('classtab.org'))) return 'classtab';
             for (let i = 0; i < sources.length; i++) {
                 const s = sources[i];
                 try {
@@ -2052,7 +2053,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
                                 true
                             } else if s.id == "songsterr" && host.contains("songsterr-downloader.com") {
                                 true
-                            } else if s.id == "classtab" && host.contains("classtab.org") {
+                            } else if s.id == "classtab" && (host.contains("classtab.org") || (host.contains("google.") && url_str.contains("classtab.org"))) {
                                 true
                             } else if let Ok(u) = tauri::Url::parse(if !s.default_url.is_empty() { &s.default_url } else { &s.url_template }) {
                                 u.host_str().map(|h| host.contains(h)).unwrap_or(false)
