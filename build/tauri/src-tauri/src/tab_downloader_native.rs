@@ -1724,6 +1724,64 @@ pub fn schedule_toolbar_injection(app_handle: &AppHandle) {
     }
 }
 
+/// iOS has no Tauri child webviews, so the downloader's WKWebView (still created and wired up by Tauri
+/// as its own hidden window) is moved into the main webview's parent view, below the app's top bar.
+/// That keeps pinch zoom on the site inside its own frame instead of scaling the bar.
+#[cfg(target_os = "ios")]
+pub fn ios_place_downloader(app: &AppHandle, top_offset: Option<f64>, visible: bool) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+    use objc2_foundation::{NSPoint, NSRect, NSSize};
+
+    let (Some(main), Some(downloader)) = (
+        app.get_webview_window("main"),
+        app.get_webview_window(DOWNLOADER_LABEL),
+    ) else {
+        return;
+    };
+    let top = top_offset
+        .or_else(|| {
+            app.try_state::<TabDownloaderState>()
+                .and_then(|state| state.top_offset.lock().ok().map(|g| *g))
+        })
+        .unwrap_or(84.0);
+
+    let _ = main.with_webview(move |main_platform| {
+        let main_view = main_platform.inner().cast::<AnyObject>();
+        let parent: *mut AnyObject = unsafe { msg_send![main_view, superview] };
+        let parent_addr = parent as usize;
+        let _ = downloader.with_webview(move |platform| unsafe {
+            let webview = platform.inner().cast::<AnyObject>();
+            let parent = parent_addr as *mut AnyObject;
+            if parent.is_null() {
+                return;
+            }
+            if !visible {
+                let _: () = msg_send![webview, setHidden: true];
+                return;
+            }
+            let current: *mut AnyObject = msg_send![webview, superview];
+            if current != parent {
+                if !current.is_null() {
+                    let _: () = msg_send![webview, removeFromSuperview];
+                }
+                let _: () = msg_send![parent, addSubview: webview];
+            }
+            let _: () = msg_send![parent, bringSubviewToFront: webview];
+            let bounds: NSRect = msg_send![parent, bounds];
+            let frame = NSRect::new(
+                NSPoint::new(0.0, top),
+                NSSize::new(bounds.size.width, (bounds.size.height - top).max(1.0)),
+            );
+            let _: () = msg_send![webview, setFrame: frame];
+            // UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight keeps it below the bar on rotation.
+            let _: () = msg_send![webview, setAutoresizingMask: 18usize];
+            let _: () = msg_send![webview, setClipsToBounds: true];
+            let _: () = msg_send![webview, setHidden: false];
+        });
+    });
+}
+
 pub fn hide_downloader(app_handle: &AppHandle) {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
@@ -1737,6 +1795,8 @@ pub fn hide_downloader(app_handle: &AppHandle) {
         let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
         let _ = w.hide();
     }
+    #[cfg(target_os = "ios")]
+    ios_place_downloader(app_handle, None, false);
     #[cfg(any(target_os = "android", target_os = "ios"))]
     if let Some(main) = app_handle.get_webview_window("main") {
         let _ = main.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
@@ -2353,13 +2413,32 @@ pub fn tab_downloader_update(
     Ok(())
 }
 
-#[cfg(any(target_os = "android", target_os = "ios"))]
+// Android lays the downloader out natively; the app calls MajesticDownloaderNative.setTopInsetPx instead.
+#[cfg(target_os = "android")]
 #[tauri::command]
 pub fn tab_downloader_update(
     _app: AppHandle,
     _state: State<'_, TabDownloaderState>,
     _top_offset: f64,
 ) -> Result<(), String> {
+    Ok(())
+}
+
+#[cfg(target_os = "ios")]
+#[tauri::command]
+pub fn tab_downloader_update(
+    app: AppHandle,
+    state: State<'_, TabDownloaderState>,
+    top_offset: f64,
+) -> Result<(), String> {
+    if let Ok(mut g) = state.top_offset.lock() {
+        *g = top_offset;
+    }
+    let is_open = state.is_open.lock().map(|g| *g).unwrap_or(false);
+    let is_visible = state.is_visible.lock().map(|g| *g).unwrap_or(true);
+    if is_open && is_visible {
+        ios_place_downloader(&app, Some(top_offset), true);
+    }
     Ok(())
 }
 
@@ -2419,6 +2498,11 @@ pub fn tab_downloader_set_visible(
 ) -> Result<(), String> {
     if let Ok(mut g) = state.is_visible.lock() {
         *g = visible;
+    }
+    // Android toggles its downloader view from the app through MajesticDownloaderNative.setVisible.
+    #[cfg(target_os = "ios")]
+    if state.is_open.lock().map(|g| *g).unwrap_or(false) {
+        ios_place_downloader(&_app, None, visible);
     }
     Ok(())
 }

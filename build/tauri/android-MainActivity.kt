@@ -22,6 +22,9 @@ class MainActivity : TauriActivity() {
   private var container: FrameLayout? = null
   private var mainWebView: WebView? = null
   private var downloaderWebView: WebView? = null
+  // Height of the main webview's tab downloader bar in device pixels; the downloader webview sits below it.
+  private var downloaderTopInsetPx = 0
+  private var webViewsConfigured = 0
   private var multicastLock: WifiManager.MulticastLock? = null
 
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -85,7 +88,7 @@ class MainActivity : TauriActivity() {
       container?.addView(view, FrameLayout.LayoutParams(
         FrameLayout.LayoutParams.MATCH_PARENT,
         FrameLayout.LayoutParams.MATCH_PARENT
-      ))
+      ).apply { topMargin = downloaderTopInsetPx })
       downloaderWebView?.visibility = View.VISIBLE
     }
   }
@@ -108,6 +111,18 @@ class MainActivity : TauriActivity() {
     }
   }
 
+  fun setDownloaderTopInset(px: Int) {
+    runOnUiThread {
+      downloaderTopInsetPx = px.coerceAtLeast(0)
+      downloaderWebView?.let { view ->
+        (view.layoutParams as? FrameLayout.LayoutParams)?.let { params ->
+          params.topMargin = downloaderTopInsetPx
+          view.layoutParams = params
+        }
+      }
+    }
+  }
+
   fun showDownloader() {
     runOnUiThread {
       downloaderWebView?.visibility = View.VISIBLE
@@ -117,10 +132,14 @@ class MainActivity : TauriActivity() {
 
   // The WebView's requestFullscreen only covers video; the app's immersive mode is toggled natively.
   override fun onWebViewCreate(webView: WebView) {
+    // The first webview is the app itself, which must not pinch zoom: that would scale the downloader bar.
+    // Only the downloader webview (created later) zooms, and only inside its own bounds.
+    val isAppWebView = webViewsConfigured++ == 0
     webView.settings.apply {
       useWideViewPort = true
       loadWithOverviewMode = true
-      builtInZoomControls = true
+      setSupportZoom(!isAppWebView)
+      builtInZoomControls = !isAppWebView
       displayZoomControls = false
     }
     webView.addJavascriptInterface(object {
@@ -225,6 +244,17 @@ class MainActivity : TauriActivity() {
       @JavascriptInterface
       fun show() {
         showDownloader()
+      }
+
+      @JavascriptInterface
+      fun setTopInsetPx(px: Int) {
+        setDownloaderTopInset(px)
+      }
+
+      // Native views draw above HTML, so the app hides the downloader while its settings modal is open.
+      @JavascriptInterface
+      fun setVisible(on: Boolean) {
+        if (on) showDownloader() else runOnUiThread { downloaderWebView?.visibility = View.GONE }
       }
 
       @JavascriptInterface
