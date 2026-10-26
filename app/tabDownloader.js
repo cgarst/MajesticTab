@@ -127,8 +127,8 @@ export const DEFAULT_SOURCES = [
     {
         id: 'ug',
         name: 'Ultimate Guitar',
-        urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=SEARCH+TERM',
-        defaultUrl: 'https://www.ultimate-guitar.com/search.php?title=SEARCH+TERM',
+        urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=$s',
+        defaultUrl: 'https://www.ultimate-guitar.com/search.php?title=$s',
         queryFormat: 'artist_song',
         userscriptEnabled: true,
         userscript: UG_DEFAULT_USERSCRIPT,
@@ -138,8 +138,8 @@ export const DEFAULT_SOURCES = [
     {
         id: 'metaltabs',
         name: 'MetalTabs',
-        urlTemplate: 'https://metaltabs.org/search?search=SEARCH+TERM&bands=true&albums=false&tracks=true',
-        defaultUrl: 'https://metaltabs.org/search?search=SEARCH+TERM&bands=true&albums=false&tracks=true',
+        urlTemplate: 'https://metaltabs.org/search?search=$s&bands=true&albums=false&tracks=true',
+        defaultUrl: 'https://metaltabs.org/search?search=$s&bands=true&albums=false&tracks=true',
         queryFormat: 'song_only',
         userscriptEnabled: false,
         userscript: '',
@@ -149,8 +149,8 @@ export const DEFAULT_SOURCES = [
     {
         id: 'gprotab',
         name: 'GProTab',
-        urlTemplate: 'https://gprotab.net/en/search?type=song&q=SEARCH+TERM',
-        defaultUrl: 'https://gprotab.net/en/search?type=song&q=SEARCH+TERM',
+        urlTemplate: 'https://gprotab.net/en/search?type=song&q=$s',
+        defaultUrl: 'https://gprotab.net/en/search?type=song&q=$s',
         queryFormat: 'song_only',
         userscriptEnabled: false,
         userscript: '',
@@ -171,7 +171,7 @@ export const DEFAULT_SOURCES = [
     {
         id: 'classtab',
         name: 'Classical Tab',
-        urlTemplate: 'https://www.google.com/search?q=SEARCH+TERM&sitesearch=https%3A%2F%2Fwww.classtab.org',
+        urlTemplate: 'https://www.google.com/search?q=$s&sitesearch=https%3A%2F%2Fwww.classtab.org',
         defaultUrl: 'https://www.classtab.org/',
         queryFormat: 'artist_song',
         userscriptEnabled: false,
@@ -182,8 +182,8 @@ export const DEFAULT_SOURCES = [
     {
         id: 'google',
         name: 'Google',
-        urlTemplate: 'https://www.google.com/search?q=SEARCH+TERM+tab',
-        defaultUrl: 'https://www.google.com/search?q=SEARCH+TERM+tab',
+        urlTemplate: 'https://www.google.com/search?q=$s+guitar+pro+tab',
+        defaultUrl: 'https://www.google.com/search?q=$s+guitar+pro+tab',
         queryFormat: 'artist_song',
         userscriptEnabled: false,
         userscript: '',
@@ -291,7 +291,7 @@ export function buildSearchUrl(source, query) {
     if (template && !/^https?:\/\//i.test(template)) {
         template = 'https://' + template;
     }
-    const hasPlaceholder = template.includes('SEARCH+TERM') || template.includes('{search}');
+    const hasPlaceholder = template.includes('$s') || template.includes('SEARCH+TERM') || template.includes('{search}');
 
     // If the template is a fixed URL without templating placeholders, navigate directly to it
     if (template && !hasPlaceholder) {
@@ -307,14 +307,14 @@ export function buildSearchUrl(source, query) {
         if (source.id === 'classtab') return 'https://www.classtab.org/';
         if (source.id === 'google') return 'https://www.google.com/';
         if (source.defaultUrl) {
-            return source.defaultUrl.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
+            return source.defaultUrl.replace(/\$s|SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
         }
         if (template) {
             try {
                 const u = new URL(template);
                 return u.origin + (u.pathname && u.pathname !== '/' ? u.pathname : '/');
             } catch {
-                return template.replace(/SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
+                return template.replace(/\$s|SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
             }
         }
         return 'https://www.ultimate-guitar.com/';
@@ -324,8 +324,8 @@ export function buildSearchUrl(source, query) {
     const encodedStandard = encodeURIComponent(term);
 
     let url = template;
-    if (url.includes('SEARCH+TERM')) {
-        url = url.replace(/SEARCH\+TERM/g, encodedPlus);
+    if (url.includes('$s') || url.includes('SEARCH+TERM')) {
+        url = url.replace(/\$s|SEARCH\+TERM/g, () => encodedPlus);
     } else if (url.includes('{search}')) {
         url = url.replace(/\{search\}/g, encodedStandard);
     }
@@ -538,7 +538,7 @@ export function initTabDownloaderDomEvents() {
         const newSrc = {
             id: newId,
             name: 'Custom Source',
-            urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=SEARCH+TERM',
+            urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=$s',
             defaultUrl: '',
             queryFormat: 'artist_song',
             userscriptEnabled: false,
