@@ -9,6 +9,7 @@ import { closeLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
+const GOOGLE_FIRST_KEY = 'majestictab_tab_sources_google_first';
 export function isNative() {
     return typeof window !== 'undefined' && Boolean(window.__TAURI__);
 }
@@ -248,6 +249,13 @@ export function getSources() {
                     } else if (!existing) {
                         parsed.push(JSON.parse(JSON.stringify(seed)));
                     }
+                }
+                // One-time: put Google first (later user reordering is preserved)
+                if (!localStorage.getItem(GOOGLE_FIRST_KEY)) {
+                    const gi = parsed.findIndex(s => s.id === 'google');
+                    if (gi > 0) parsed.unshift(...parsed.splice(gi, 1));
+                    localStorage.setItem(GOOGLE_FIRST_KEY, '1');
+                    saveSources(parsed);
                 }
                 return parsed;
             }
