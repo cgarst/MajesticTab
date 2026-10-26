@@ -20,6 +20,8 @@ tauri = { version = "2", features = ["unstable"] }
 tauri-plugin-oauth = "2"
 tauri-plugin-opener = "2"
 tauri-plugin-fs = "2"
+# Lets the S3 client call buckets without browser CORS rules
+tauri-plugin-http = "2"
 tauri-plugin-google-auth = { path = "../plugins/google-auth" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

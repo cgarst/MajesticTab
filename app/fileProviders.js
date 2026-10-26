@@ -77,7 +77,7 @@ export function getSaveProviders() {
 
 const SYNC_TARGET_KEY = 'majestictab_sync_target';
 
-/** Where the user keeps their library: 'google-drive', 'icloud', 'folder', or null until they choose. Shared by Sync and Backup. */
+/** Where the user keeps their library: 'google-drive', 'icloud', 's3', 'folder', or null until they choose. Shared by Sync and Backup. */
 export function getPreferredStorage() {
     try { return localStorage.getItem(SYNC_TARGET_KEY); } catch (_) { return null; }
 }
@@ -302,6 +302,29 @@ export const ICloudDriveFileProvider = {
     }
 };
 
+// --- Built-in Provider: S3-compatible bucket ---
+// Talks to the bucket directly from the browser with the user's own access key (see s3Client.js).
+export const S3FileProvider = {
+    id: 's3',
+    name: 'S3 Bucket',
+    icon: 'bi-hdd-network',
+    iconColorClass: 'text-warning',
+    description: 'Open tab files from Amazon S3, Cloudflare R2, Backblaze B2, MinIO or any S3-compatible bucket',
+    badge: 'Cloud',
+    actionLabel: 'Open from Bucket',
+    async open(options = {}) {
+        const { openS3Browser } = await import('./s3Ui.js');
+        openS3Browser((file) => handlePickedFile(file, options));
+    },
+    async save(fileBlob, filename = 'MajesticTab-backup.mtbackup') {
+        const { getS3Config, s3Put, s3BasePrefix } = await import('./s3Client.js');
+        const config = getS3Config();
+        if (!config) throw new Error('Connect an S3 bucket first (Sync or Open File > S3 Bucket).');
+        await s3Put(config, `${s3BasePrefix(config)}${filename}`, await fileBlob.arrayBuffer());
+        return { success: true, name: filename, providerId: 's3' };
+    }
+};
+
 // --- Built-in Provider: Tab Downloader (Native Only) ---
 export const TabDownloaderNativeProvider = {
     id: 'tab-downloader',
@@ -319,6 +342,7 @@ export const TabDownloaderNativeProvider = {
 // Register built-in providers
 registerFileProvider(LocalFileProvider);
 registerFileProvider(GoogleDriveFileProvider);
+registerFileProvider(S3FileProvider);
 
 if (isIcloudDriveSupported()) {
     registerFileProvider(ICloudDriveFileProvider);

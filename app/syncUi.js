@@ -6,11 +6,13 @@ import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported, ICLOUD_UNAVAILABLE_MESSAGE } from './icloudDrive.js';
 import { getPreferredStorage, setPreferredStorage } from './fileProviders.js';
+import { s3ConfigFormHtml, saveS3ConfigFromForm } from './s3Ui.js';
 import { showToast } from './utils/toast.js';
 
 const DRIVE = 'google-drive';
 const FOLDER = 'folder';
 const ICLOUD = 'icloud';
+const S3 = 's3';
 // A plan that removes this share of the tabs (and at least MASS_REMOVAL_MIN) is called out as unusual
 const MASS_REMOVAL_SHARE = 0.5;
 const MASS_REMOVAL_MIN = 5;
@@ -25,7 +27,7 @@ const getTarget = getPreferredStorage;
 const setTarget = setPreferredStorage;
 // Set just before sending the user to Google, so a failed sign-in shows the Connect screen instead of looping
 const AUTO_AUTH_KEY = 'majestictab_sync_auto_auth';
-const targetLabel = (target) => target === DRIVE ? 'Google Drive' : target === ICLOUD ? 'iCloud Drive' : 'your backup folder';
+const targetLabel = (target) => target === DRIVE ? 'Google Drive' : target === ICLOUD ? 'iCloud Drive' : target === S3 ? 'your S3 bucket' : 'your backup folder';
 
 function relativeTime(ms) {
     const minutes = Math.round((Date.now() - ms) / 60000);
@@ -63,6 +65,11 @@ async function resolveBackend(target, { interactive = false } = {}) {
         const { getIcloudBackupFolder, createFolderBackend } = await import('./folderBackup.js');
         const handle = await getIcloudBackupFolder();
         return handle ? { status: 'ready', backend: createFolderBackend(handle) } : { status: 'needs-icloud' };
+    }
+    if (target === S3) {
+        const { createS3Backend } = await import('./s3Backup.js');
+        const backend = createS3Backend();
+        return backend ? { status: 'ready', backend } : { status: 'needs-s3' };
     }
     const folders = await import('./folderBackup.js');
     let handle = await folders.getSavedBackupFolder();
@@ -167,6 +174,7 @@ function showChooseLocation() {
         ...(isIcloudDriveSupported()
             ? [{ id: ICLOUD, icon: 'bi-cloud text-info', title: 'iCloud Drive', text: 'Sync through iCloud Drive across your Apple devices. No sign-in needed.' }]
             : []),
+        { id: S3, icon: 'bi-hdd-network text-warning', title: 'S3 bucket', text: 'Sync through Amazon S3, Cloudflare R2, Backblaze B2, MinIO or any S3-compatible storage.' },
         ...(isFolderBackupSupported()
             ? [{ id: FOLDER, icon: 'bi-folder2-open text-primary', title: 'A folder on this device', text: 'Sync through a folder, such as one a cloud drive app keeps in step.' }]
             : [])
@@ -185,6 +193,11 @@ function showChooseLocation() {
         </div>`, { subtitle: 'Choose a sync location', footer: button('close', 'Cancel') });
 }
 
+function showS3Form(error = '') {
+    frame(`${error ? notice('bi-exclamation-triangle text-warning', escapeHtml(error)) : ''}${s3ConfigFormHtml()}`,
+        { subtitle: 'S3 bucket', footer: button('switch', 'Choose Another') + button('save-s3', 'Save and Connect', { primary: true, icon: 'bi-plug' }) });
+}
+
 function showNeedsSetup(status, folderName = '') {
     if (status === 'needs-auth') {
         frame(notice('bi-info-circle', 'Connect Google Drive so MajesticTab can compare and sync your library.'),
@@ -192,6 +205,8 @@ function showNeedsSetup(status, folderName = '') {
     } else if (status === 'needs-icloud') {
         frame(notice('bi-cloud-slash', ICLOUD_UNAVAILABLE_MESSAGE),
             { subtitle: 'iCloud Drive', footer: button('switch', 'Choose Another') + button('retry', 'Try Again', { primary: true, icon: 'bi-arrow-repeat' }) });
+    } else if (status === 'needs-s3') {
+        showS3Form();
     } else if (status === 'needs-permission') {
         frame(notice('bi-lock', `MajesticTab needs permission to use "${escapeHtml(folderName)}" again.`),
             { subtitle: 'Backup folder', footer: button('switch', 'Choose Another') + button('allow-folder', 'Allow Access', { primary: true, icon: 'bi-unlock' }) });
@@ -268,7 +283,8 @@ function showReview(target, backend, plan) {
                 <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(backend.location)}"><i class="bi-folder2 me-1"></i>${escapeHtml(backend.location)}</div>
             </div>
             <div class="d-flex gap-1 flex-shrink-0">
-                ${target !== FOLDER ? '' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="change-folder">Change Folder</button>'}
+                ${target === FOLDER ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="change-folder">Change Folder</button>' : ''}
+                ${target === S3 ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="edit-s3">Bucket Settings</button>' : ''}
                 <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="switch">Change Location</button>
             </div>
         </div>`;
@@ -293,7 +309,7 @@ function showReview(target, backend, plan) {
             ${tile(down.length, 'To receive', 'text-info')}
             ${tile(up.length, 'To send', 'text-success')}
             ${tile(removeHere.length, 'Removed here', 'text-warning')}
-            ${tile(removeThere.length, `Removed from ${target === DRIVE ? 'Drive' : target === ICLOUD ? 'iCloud' : 'folder'}`, 'text-warning')}
+            ${tile(removeThere.length, `Removed from ${target === DRIVE ? 'Drive' : target === ICLOUD ? 'iCloud' : target === S3 ? 'bucket' : 'folder'}`, 'text-warning')}
         </div>
         ${section(removeHere, { icon: 'bi-trash3', title: 'Removed from this device', tone: 'text-warning', note: `Removed from ${where} on another device. Older snapshots still hold a copy.` })}
         ${section(removeThere, { icon: 'bi-cloud-minus', title: `Removed from ${where}`, tone: 'text-warning', note: 'You removed these here. Older snapshots still hold a copy.' })}
@@ -364,7 +380,7 @@ async function start({ interactive = false } = {}) {
     if (!target) return showChooseLocation();
     const setStep = showChecking(target);
     try {
-        setStep(target === DRIVE ? 'Signing in to Google Drive...' : target === ICLOUD ? 'Opening iCloud Drive...' : 'Opening the sync folder...');
+        setStep(target === DRIVE ? 'Signing in to Google Drive...' : target === ICLOUD ? 'Opening iCloud Drive...' : target === S3 ? 'Connecting to the bucket...' : 'Opening the sync folder...');
         const resolved = await resolveBackend(target, { interactive });
         if (mine !== session) return;
         if (resolved.status === 'needs-auth' && !interactive && !sessionStorage.getItem(AUTO_AUTH_KEY)) {
@@ -376,7 +392,7 @@ async function start({ interactive = false } = {}) {
         sessionStorage.removeItem(AUTO_AUTH_KEY);
         if (resolved.status !== 'ready') return showNeedsSetup(resolved.status, resolved.folderName);
 
-        setStep(target === DRIVE ? 'Listing snapshots on Google Drive...' : target === ICLOUD ? 'Listing snapshots in iCloud Drive...' : 'Listing snapshots in the folder...');
+        setStep(target === DRIVE ? 'Listing snapshots on Google Drive...' : target === ICLOUD ? 'Listing snapshots in iCloud Drive...' : target === S3 ? 'Listing snapshots in the bucket...' : 'Listing snapshots in the folder...');
         const plan = await planSync(resolved.backend, (text) => { if (mine === session) setStep(text); });
         stopChecking();
         if (mine !== session) return;
@@ -425,6 +441,16 @@ async function handleAction(action) {
         }
         if (action === 'pick-icloud') {
             setTarget(ICLOUD);
+            return start();
+        }
+        if (action === 'pick-s3' || action === 'edit-s3') return showS3Form();
+        if (action === 'save-s3') {
+            try {
+                await saveS3ConfigFromForm(modal);
+            } catch (err) {
+                return showS3Form(err.message);
+            }
+            setTarget(S3);
             return start();
         }
         if (action === 'pick-folder') {
