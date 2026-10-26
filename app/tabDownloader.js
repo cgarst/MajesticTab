@@ -149,9 +149,9 @@ export const DEFAULT_SOURCES = [
     {
         id: 'metaltabs',
         name: 'MetalTabs',
-        urlTemplate: 'https://metaltabs.org/search?search=$s&bands=true&albums=false&tracks=true',
-        defaultUrl: 'https://metaltabs.org/search?search=$s&bands=true&albums=false&tracks=true',
-        queryFormat: 'song_only',
+        urlTemplate: 'https://metaltabs.org/search?q=$s&type=track',
+        defaultUrl: 'https://metaltabs.org/search?q=$s&type=track',
+        queryFormat: 'artist_song',
         userscriptEnabled: false,
         userscript: '',
         defaultUserscript: '',
@@ -229,8 +229,12 @@ export function getSources() {
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
                         existing.defaultUserscript = seed.defaultUserscript;
-                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'song_only') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'classtab' && existing.queryFormat !== 'artist_song') || (existing.id === 'google' && existing.queryFormat !== 'artist_song')) {
+                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'artist_song') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'classtab' && existing.queryFormat !== 'artist_song') || (existing.id === 'google' && existing.queryFormat !== 'artist_song')) {
                             existing.queryFormat = seed.queryFormat;
+                        }
+                        if (existing.id === 'metaltabs' && (existing.urlTemplate || '').includes('search?search=')) {
+                            existing.urlTemplate = seed.urlTemplate;
+                            existing.defaultUrl = seed.defaultUrl;
                         }
                         if (existing.id === 'google' && /^https:\/\/www\.google\.com\/search\?q=(SEARCH\+TERM|\$s)\+tab$/.test(existing.urlTemplate || '')) {
                             existing.urlTemplate = seed.urlTemplate;
