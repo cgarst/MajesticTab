@@ -4053,6 +4053,28 @@ async function renderRecentsView(container) {
         });
     });
 
+    // Whole row is clickable (outside edit mode); delegate to the row's Open button
+    if (!isRecentsEditMode) {
+        container.querySelectorAll('#recentsList .library-row-card').forEach(row => {
+            const openBtn = row.querySelector('.open-recent-btn');
+            if (!openBtn) return;
+            row.classList.add('library-row-clickable');
+            row.tabIndex = 0;
+            row.setAttribute('role', 'button');
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('button, a')) return;
+                openBtn.click();
+            });
+            row.addEventListener('keydown', (e) => {
+                if (e.target !== row) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    openBtn.click();
+                }
+            });
+        });
+    }
+
     hydrateCachedImages(container);
 }
 
