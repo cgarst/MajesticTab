@@ -25,9 +25,9 @@ const PLATFORMS = {
   // Linux/freedesktop: transparent, slight padding so it sits well beside other hicolor icons.
   linux: { box: 900 },
   // macOS (Big Sur+ template): 824px rounded square centered in 1024 with a fixed background; art ~60% of it.
-  macos: { box: 500, tile: { inset: 100, radius: 185 } },
+  macos: { box: 538, tile: { inset: 100, radius: 185 } },
   // iOS: opaque full-bleed square (the OS applies the mask); art kept inside the grid.
-  ios: { box: 640, tile: { inset: 0, radius: 0 } },
+  ios: { box: 668, tile: { inset: 0, radius: 0 } },
   // Android adaptive foreground: art stays inside the 66/108 safe zone; the background layer is a solid color.
   androidFg: { box: 590 },
 };
