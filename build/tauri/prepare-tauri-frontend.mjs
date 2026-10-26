@@ -104,7 +104,6 @@ const allowedRemoteHosts = new Set([
   'www.classtab.org',
   'google.com',
   'www.google.com',
-  'userscripts.adtidy.org',
 ]);
 
 async function copyAsset(source, destination) {
