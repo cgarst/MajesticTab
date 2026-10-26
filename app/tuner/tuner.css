@@ -167,9 +167,15 @@
   margin-bottom: 0.5rem;
 }
 
+.tuner-banner-meta {
+  container: tuner-banner / inline-size;
+}
+
+/* Equal-width string buttons. One row when they fit; otherwise two balanced rows. */
 .tuner-strings-row {
-  display: flex;
-  flex-wrap: wrap;
+  --cols: var(--n, 6);
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 64px));
   gap: 0.4rem;
 }
 
@@ -183,7 +189,11 @@
   display: inline-flex;
   flex-direction: column;
   align-items: center;
-  min-width: 44px;
+  min-width: 0;
+  min-height: 44px;
+  justify-content: center;
+  padding-inline: 0.25rem;
+  white-space: nowrap;
   transition: all 0.15s ease;
 }
 
@@ -197,6 +207,60 @@
   background: var(--accent-primary, #6366f1);
   border-color: var(--accent-primary, #6366f1);
   box-shadow: 0 0 10px var(--accent-glow);
+}
+
+@container tuner-banner (max-width: 212px) {
+  .tuner-strings-row[style*="--n: 4;"] {
+    --cols: 2;
+  }
+}
+
+@container tuner-banner (max-width: 266px) {
+  .tuner-strings-row[style*="--n: 5;"] {
+    --cols: 3;
+  }
+}
+
+@container tuner-banner (max-width: 320px) {
+  .tuner-strings-row[style*="--n: 6;"] {
+    --cols: 3;
+  }
+}
+
+@container tuner-banner (max-width: 375px) {
+  .tuner-strings-row[style*="--n: 7;"] {
+    --cols: 4;
+  }
+}
+
+@container tuner-banner (max-width: 429px) {
+  .tuner-strings-row[style*="--n: 8;"] {
+    --cols: 4;
+  }
+}
+
+@container tuner-banner (max-width: 484px) {
+  .tuner-strings-row[style*="--n: 9;"] {
+    --cols: 5;
+  }
+}
+
+@container tuner-banner (max-width: 538px) {
+  .tuner-strings-row[style*="--n: 10;"] {
+    --cols: 5;
+  }
+}
+
+@container tuner-banner (max-width: 592px) {
+  .tuner-strings-row[style*="--n: 11;"] {
+    --cols: 6;
+  }
+}
+
+@container tuner-banner (max-width: 647px) {
+  .tuner-strings-row[style*="--n: 12;"] {
+    --cols: 6;
+  }
 }
 
 .tuner-string-note {
@@ -436,6 +500,55 @@
   color: #fff;
 }
 
+.tuner-controls-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  min-width: 0;
+}
+
+/* Wide layout: tuning controls on the left, live readout on the right */
+@media (min-width: 768px) {
+  .tuner-modal-card {
+    max-width: 920px;
+  }
+
+  .tuner-modal-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 1.25rem;
+  }
+
+  .tuner-display-card {
+    position: sticky;
+    top: 0;
+  }
+}
+
+/* Short windows: tighten the readout so Start Tuner stays visible */
+@media (min-width: 577px) and (max-height: 800px) {
+  .tuner-modal-body {
+    padding: 1rem;
+  }
+
+  .tuner-display-card {
+    padding: 1rem;
+  }
+
+  .tuner-big-note {
+    font-size: 3.5rem;
+  }
+
+  .tuner-cents-meter {
+    margin-bottom: 1rem;
+  }
+
+  .tuner-action-row {
+    margin-top: 0.85rem;
+  }
+}
+
 .tuner-display-top {
   display: flex;
   justify-content: flex-end;
@@ -446,6 +559,10 @@
    Phone layout: bottom sheet, live readout first, compact sizing
    -------------------------------------------------------------------------- */
 @media (max-width: 576px) {
+  .tuner-controls-col {
+    display: contents;
+  }
+
   #tunerModal.theme-modal-backdrop {
     align-items: flex-end;
     padding: 0;
@@ -546,19 +663,7 @@
   }
 
   .tuner-strings-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(44px, 1fr));
-    gap: 0.4rem;
-  }
-
-  .tuner-string-btn {
-    min-height: 44px;
-    justify-content: center;
-    padding: 0.35rem 0.25rem;
-  }
-
-  .tuner-string-hz {
-    white-space: nowrap;
+    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
   }
 
   .tuner-selector-row {
