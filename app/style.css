@@ -1009,6 +1009,9 @@ body {
 
 .synth-panel-body, .yt-panel-body {
   padding: 1rem;
+  /* Panels only scroll vertically; stops the iOS sideways drag even when content fits */
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
 }
 
 /* Short viewports (phones in landscape): keep the SoundFont / YouTube panels on screen and scrollable */
@@ -3472,7 +3475,12 @@ body:not(.synth-playback-started) .at-highlight {
   background: var(--bg-card-hover);
   border-color: var(--border-prominent);
 }
+.gp-track-row > .form-check {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .gp-track-row .form-check-label {
+  min-width: 0;
   color: var(--text-primary);
   font-weight: 500;
   cursor: pointer;
