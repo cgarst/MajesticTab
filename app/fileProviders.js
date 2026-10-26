@@ -106,6 +106,18 @@ export async function saveToProvider(id, fileBlob, filename, options = {}) {
     return provider.save(fileBlob, filename, options);
 }
 
+/**
+ * Open a local File object directly (used by drag-and-drop)
+ * @param {File} file
+ */
+export async function openLocalFile(file) {
+    if (!(await isSupportedTabFile(file))) {
+        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+        return;
+    }
+    await loadFile(file);
+}
+
 // --- Built-in Provider: Local Device ---
 export const LocalFileProvider = {
     id: 'local',
