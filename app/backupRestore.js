@@ -1456,22 +1456,19 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive, an S3 bucket or a backup folder, or open a single .mtbackup file (you can also drop one here)</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreBrowseBtn">
-                <i class="bi-file-earmark-zip text-primary"></i> <span>Open .mtbackup File</span>
+                <i class="bi-file-earmark-zip text-primary"></i> <span>From File…</span>
               </button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none align-items-center gap-1" id="restoreFolderBtn">
-                <i class="bi-hdd text-primary"></i> <span>Backup Folder</span>
+                <i class="bi-hdd text-primary"></i> <span>From Local Folder</span>
               </button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none align-items-center gap-1" id="restoreIcloudBtn">
-                <i class="bi-cloud text-info"></i> <span>iCloud Drive Backups</span>
+                <i class="bi-cloud text-info"></i> <span>From iCloud Drive</span>
               </button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreS3Btn">
-                <i class="bi-hdd-network text-warning"></i> <span>S3 Bucket Backups</span>
+                <i class="bi-hdd-network text-warning"></i> <span>From S3 Bucket</span>
               </button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
-                <i class="bi-google text-danger"></i> <span>Google Drive Backups</span>
-              </button>
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDrivePickBtn">
-                <i class="bi-google text-danger"></i> <span>Pick From Drive</span>
+                <i class="bi-google text-danger"></i> <span>From Google Drive</span>
               </button>
             </div>
 
@@ -1490,6 +1487,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
                 <span class="text-white-50 text-truncate" id="restoreSourceLocation" style="font-size: 0.72rem;"></span>
                 <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" id="restoreChangeLocationBtn" style="font-size: 0.72rem;">Change</button>
+                <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0 d-none" id="restoreDrivePickBtn" style="font-size: 0.72rem;">Pick a different file…</button>
               </div>
               <div id="restoreDriveLoading" class="py-3 text-center text-white-50 small" style="display: none;">
                 <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
@@ -1555,18 +1553,18 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <div class="backup-summary-box p-3 rounded-3 mb-3" id="restoreIncrementalPreview" style="display:none;" aria-live="polite"></div>
 
             <!-- Restore Mode Options -->
-            <label class="form-label small fw-semibold text-white-50 mb-2 d-block">Choose Restore Method:</label>
+            <label class="form-label small fw-semibold text-white-50 mb-2 d-block">How should this be restored?</label>
             <div class="d-flex flex-column gap-2 mb-3">
               <!-- Merge Mode Option (Recommended) -->
               <label class="restore-mode-card p-3 rounded-3 d-flex align-items-start gap-3" style="cursor: pointer;">
                 <input class="form-check-input theme-radio mt-1" type="radio" name="restoreModeRadio" value="merge" checked>
                 <div class="min-w-0">
                   <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="fw-bold text-white small">Merge with Existing Data</span>
+                    <span class="fw-bold text-white small">Add Missing Items</span>
                     <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.62rem;">Recommended</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
-                    Safely adds any missing tabs, songs, collections, extensions, and preferences from the backup. Keeps your existing tabs intact.
+                    Keeps everything you have and adds any tabs, songs, collections, extensions, and preferences that are missing from the backup.
                   </div>
                 </div>
               </label>
@@ -1576,8 +1574,8 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <input class="form-check-input theme-radio mt-1" type="radio" name="restoreModeRadio" value="wipe">
                 <div class="min-w-0">
                   <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="fw-bold text-danger-emphasis small">Wipe &amp; Replace Everything</span>
-                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger-subtle py-0 px-2" style="font-size:0.62rem;">Clean Slate</span>
+                    <span class="fw-bold text-danger-emphasis small">Replace All Data</span>
+                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger-subtle py-0 px-2" style="font-size:0.62rem;">Destructive</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
                     Erases all current local stored tabs, library entries, extensions, and settings, and replaces them cleanly with this backup.
@@ -1601,7 +1599,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreCancelBtn">Cancel</button>
             <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="restoreExecuteBtn" disabled>
-              <i class="bi-cloud-arrow-down"></i> Restore Data
+              <i class="bi-cloud-arrow-down"></i> Restore Backup
             </button>
           </div>
         </div>
@@ -2429,6 +2427,7 @@ function attachModalHandlers(modal, options = {}) {
     const restoreSourceTitle = modal.querySelector('#restoreSourceTitle');
     const restoreSourceLocation = modal.querySelector('#restoreSourceLocation');
     const restoreChangeLocationBtn = modal.querySelector('#restoreChangeLocationBtn');
+    const restoreDrivePickBtn = modal.querySelector('#restoreDrivePickBtn');
     const restoreDriveEmptyText = modal.querySelector('#restoreDriveEmptyText');
     // d-inline-flex is !important, so visibility is toggled by swapping classes rather than inline display
     if (restoreFolderBtn && isFolderBackupSupported()) {
@@ -2467,6 +2466,7 @@ function attachModalHandlers(modal, options = {}) {
             const backend = createDriveBackend();
             activeSource = { type: 'drive', backend };
             restoreChangeLocationBtn?.classList.add('d-none');
+            restoreDrivePickBtn?.classList.remove('d-none');
             if (restoreSourceIcon) restoreSourceIcon.className = 'bi-google text-danger';
             if (restoreSourceTitle) restoreSourceTitle.textContent = 'Google Drive Backups:';
             if (restoreSourceLocation) restoreSourceLocation.textContent = backend.location;
@@ -2526,6 +2526,7 @@ function attachModalHandlers(modal, options = {}) {
             const backend = folders.createFolderBackend(handle);
             activeSource = { type: icloud ? 'icloud' : 'folder', backend };
             restoreChangeLocationBtn?.classList.toggle('d-none', icloud);
+            restoreDrivePickBtn?.classList.add('d-none');
             if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
             if (restoreDriveLoading) restoreDriveLoading.style.display = 'block';
             if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
@@ -2566,6 +2567,7 @@ function attachModalHandlers(modal, options = {}) {
             }
             activeSource = { type: 's3', backend };
             restoreChangeLocationBtn?.classList.add('d-none');
+            restoreDrivePickBtn?.classList.add('d-none');
             if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
             if (restoreDriveLoading) restoreDriveLoading.style.display = 'block';
             if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
@@ -2732,7 +2734,7 @@ function attachModalHandlers(modal, options = {}) {
     restoreDriveBtn?.addEventListener('click', loadGoogleDriveBackups);
 
     // A .mtbackup file the app didn't save itself: the user hands it over through the Google Picker
-    modal.querySelector('#restoreDrivePickBtn')?.addEventListener('click', async () => {
+    restoreDrivePickBtn?.addEventListener('click', async () => {
         const { isTokenValid, ensureFreshToken, redirectToGoogleAuth, pickDriveFile, downloadDriveBackupFile } = await import('./googleDrive.js');
         try {
             await ensureFreshToken();
@@ -3021,7 +3023,7 @@ function attachModalHandlers(modal, options = {}) {
             restoreExecuteBtn.innerHTML = '<i class="bi-check2"></i> Restored';
             setTimeout(() => {
                 restoreExecuteBtn.disabled = false;
-                restoreExecuteBtn.innerHTML = '<i class="bi-cloud-arrow-down"></i> Restore Data';
+                restoreExecuteBtn.innerHTML = '<i class="bi-cloud-arrow-down"></i> Restore Backup';
             }, 3000);
         } catch (err) {
             console.error('Restore failed:', err);
