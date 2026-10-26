@@ -413,6 +413,10 @@ if (target === 'android') {
   if (await stat(templateInfoPlist).catch(() => null)) {
     await cp(templateInfoPlist, path.join(iosProject, 'majestictab_iOS', 'Info.plist'));
   }
+  const templatePrivacyManifest = path.join(tauriDir, 'ios-PrivacyInfo.xcprivacy');
+  if (await stat(templatePrivacyManifest).catch(() => null)) {
+    await cp(templatePrivacyManifest, path.join(iosProject, 'majestictab_iOS', 'PrivacyInfo.xcprivacy'));
+  }
   run('xcodegen', ['generate'], { cwd: iosProject });
   // Refresh iOS AppIcon assets from src-tauri/icons/ios
   const iosAppIcon = path.join(iosProject, 'Assets.xcassets', 'AppIcon.appiconset');

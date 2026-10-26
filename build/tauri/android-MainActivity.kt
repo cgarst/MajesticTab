@@ -136,6 +136,7 @@ class MainActivity : TauriActivity() {
   override fun onWebViewCreate(webView: WebView) {
     // The first webview is the app itself, which must not pinch zoom: that would scale the downloader bar.
     // Only the downloader webview (created later) zooms, and only inside its own bounds.
+    // The same order decides the bridges: the app webview gets all of them, any later webview only the downloader's.
     val isAppWebView = webViewsConfigured++ == 0
     webView.settings.apply {
       useWideViewPort = true
@@ -143,6 +144,10 @@ class MainActivity : TauriActivity() {
       setSupportZoom(!isAppWebView)
       builtInZoomControls = !isAppWebView
       displayZoomControls = false
+    }
+    if (!isAppWebView) {
+      addDownloaderBridges(webView)
+      return
     }
     webView.addJavascriptInterface(object {
       @JavascriptInterface
@@ -154,11 +159,6 @@ class MainActivity : TauriActivity() {
           if (on) controller.hide(WindowInsetsCompat.Type.systemBars())
           else controller.show(WindowInsetsCompat.Type.systemBars())
         }
-      }
-
-      @JavascriptInterface
-      fun closeDownloader() {
-        hideDownloader()
       }
     }, "AndroidImmersive")
 
@@ -264,6 +264,17 @@ class MainActivity : TauriActivity() {
       @JavascriptInterface
       fun setVisible(on: Boolean) {
         if (on) showDownloader() else runOnUiThread { downloaderWebView?.visibility = View.GONE }
+      }
+    }, "MajesticDownloaderNative")
+  }
+
+  // The downloader webview loads third-party pages, so it gets only the two calls its shim makes:
+  // handing back a captured file and closing itself. Everything else stays on the app webview.
+  private fun addDownloaderBridges(webView: WebView) {
+    webView.addJavascriptInterface(object {
+      @JavascriptInterface
+      fun close() {
+        hideDownloader()
       }
 
       @JavascriptInterface
