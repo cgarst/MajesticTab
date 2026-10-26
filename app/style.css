@@ -3702,6 +3702,25 @@ body:not(.synth-playback-started) .at-highlight {
   }
 }
 
+/* Phone: with no collection selector the action buttons span the full row instead of hugging the right edge */
+@media (max-width: 576px) {
+  .library-body-header.no-collections .lib-toolbar-right {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .library-body-header.no-collections .lib-toolbar-right .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  /* Library has no breadcrumb, so show the brand in the otherwise empty top bar */
+  body.library-view-active #brandSection:not(.has-return-song) .brand-title {
+    display: inline-block;
+  }
+}
+
 @media (max-width: 420px) {
   .lib-open-file-btn span,
   .lib-add-music-btn span {
