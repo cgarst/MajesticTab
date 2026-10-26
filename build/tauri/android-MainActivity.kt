@@ -213,15 +213,22 @@ class MainActivity : TauriActivity() {
             val uri = androidx.core.content.FileProvider.getUriForFile(
               this@MainActivity, "$packageName.updateprovider", apk
             )
-            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+            // ACTION_INSTALL_PACKAGE is the dedicated installer intent; a plain ACTION_VIEW can be swallowed
+            // silently on some devices. Launch from the UI thread and report real failures.
+            val intent = android.content.Intent(android.content.Intent.ACTION_INSTALL_PACKAGE).apply {
               setDataAndType(uri, "application/vnd.android.package-archive")
-              addFlags(
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                  android.content.Intent.FLAG_ACTIVITY_NEW_TASK
-              )
+              putExtra(android.content.Intent.EXTRA_NOT_UNKNOWN_SOURCE, true)
+              addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            runOnUiThread { startActivity(intent) }
-            reportUpdate("installing", 100)
+            runOnUiThread {
+              try {
+                startActivity(intent)
+                reportUpdate("installing", 100)
+              } catch (e: Exception) {
+                android.util.Log.e("MajesticTab", "Could not open the package installer", e)
+                reportUpdate("error", 0)
+              }
+            }
           } catch (e: Exception) {
             android.util.Log.e("MajesticTab", "APK update failed", e)
             reportUpdate("error", 0)
