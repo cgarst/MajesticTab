@@ -51,6 +51,6 @@ block2 = "0.6"
 tauri = { version = "2", features = ["devtools"] }
 objc2 = "0.6"
 objc2-ui-kit = { version = "0.3", features = ["UIColor", "UIView", "UIViewController", "UIScrollView"] }
-objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSURLRequest", "NSGeometry"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSFileManager", "NSURLRequest", "NSGeometry"] }
 block2 = "0.6"
 

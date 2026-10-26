@@ -56,6 +56,13 @@ function nativeHandle(path) {
     return { kind: 'native-path', path, name: baseName(path) };
 }
 
+/** The MajesticTab folder in iCloud Drive as a backup folder, or null when iCloud Drive is unavailable. */
+export async function getIcloudBackupFolder() {
+    const { getIcloudDriveRoot } = await import('./icloudDrive.js');
+    const root = await getIcloudDriveRoot();
+    return root ? { kind: 'native-path', path: root, name: 'iCloud Drive' } : null;
+}
+
 /** The previously chosen backup folder, or null. Access may still need re-granting. */
 export async function getSavedBackupFolder() {
     if (hasNativeFolders()) {
@@ -220,7 +227,7 @@ function createNativeFolderBackend(root) {
 
     return {
         label: 'the backup folder',
-        location: `${root.name} / ${ROOT_FOLDER_NAME}`,
+        location: root.name === 'iCloud Drive' ? `iCloud Drive / MajesticTab / ${ROOT_FOLDER_NAME}` : `${root.name} / ${ROOT_FOLDER_NAME}`,
 
         async open({ create }) {
             if (create) {
