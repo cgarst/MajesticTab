@@ -3615,15 +3615,12 @@ body:not(.synth-playback-started) .at-highlight {
   gap: 1rem;
 }
 
-/* Search gets its own card on every library view */
+/* Search is a single capsule, capped and centered under the view switcher */
 .library-search-box {
-  background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem;
-  padding: 0.65rem 1rem;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  width: 100%;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 @media (max-width: 576px) {
@@ -3634,15 +3631,6 @@ body:not(.synth-playback-started) .at-highlight {
   .library-body-header {
     padding: 0.45rem 0.55rem !important;
     gap: 0.35rem !important;
-  }
-
-  .lib-toolbar-left {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem !important;
-    flex: 1 1 auto;
-    min-width: 0;
-    flex-wrap: nowrap !important;
   }
 
   .collection-pill-group {
@@ -3673,10 +3661,6 @@ body:not(.synth-playback-started) .at-highlight {
   }
 
 
-  .library-search-box {
-    padding: 0.45rem 0.55rem;
-  }
-
   .library-search-bar {
     height: 32px !important;
     padding: 0 0.5rem 0 0.75rem !important;
@@ -3701,19 +3685,16 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 
 /* Phone: the bottom nav replaces the view switcher and action buttons */
 @media (max-width: 576px) {
-  .lib-view-switch,
-  .lib-toolbar-left.switch-only {
-    display: none !important;
-  }
-
-  /* A header holding only the view switcher would be an empty card once the switcher is hidden */
-  .library-body-header.switch-only-header {
+  .lib-view-switch-row {
     display: none !important;
   }
 }
 
-.lib-toolbar-left {
-  justify-self: start;
+/* The switcher is a pill with its own surface, so it sits centered on the page without a card */
+.lib-view-switch-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.75rem;
 }
 
 
@@ -3729,13 +3710,9 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   margin-bottom: 0.65rem;
 }
 
-/* View switcher: icon-only until there is room for labels */
+/* View switcher: icons and labels at every width (it has its own row now) */
 .lib-view-switch .btn i { font-size: 0.85rem; }
 .lib-view-switch .btn { gap: 0.35rem; }
-@media (min-width: 993px) and (max-width: 1100px) {
-  .lib-toolbar-left .lib-view-switch .lib-view-switch-label { display: none; }
-  .lib-toolbar-left .lib-view-switch .btn { padding: 0 0.75rem; }
-}
 
 /* Seamless Connected Collection Pill Group */
 .collection-pill-group {
