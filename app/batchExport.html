@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bulk Export PDFs — MajesticTab</title>
+  <title>Bulk Export — MajesticTab</title>
   <link rel="icon" type="image/x-icon" href="../icons/favicon.ico">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
   <link rel="stylesheet" href="style.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';</script>
   <style>
@@ -117,10 +118,26 @@
             <i class="bi-file-earmark-pdf text-danger fs-4"></i>
           </div>
           <div>
-            <h1 class="h3 fw-bold text-white mb-0">Bulk Export PDFs</h1>
-            <div class="small text-muted">Condense and export multiple tab PDFs into optimized layouts</div>
+            <h1 class="h3 fw-bold text-white mb-0">Bulk export</h1>
+            <div class="small text-muted">Export your whole library as original files, or condense tab PDFs into optimized layouts</div>
           </div>
         </div>
+      </div>
+
+      <section class="mb-4">
+        <h2 class="h6 fw-bold text-white mb-1">Original files</h2>
+        <div class="small text-muted mb-2">Every tab in your library exactly as you added it (Guitar Pro, PDF and others), organized into artist and album folders in one ZIP.</div>
+        <div class="d-flex align-items-center flex-wrap gap-2">
+          <button type="button" id="exportOriginalsBtn" class="btn btn-theme-primary d-flex align-items-center gap-2">
+            <i class="bi-file-earmark-zip"></i> <span id="exportOriginalsBtnText">Export Library as ZIP</span>
+          </button>
+          <span id="exportOriginalsStatus" class="small text-muted"></span>
+        </div>
+      </section>
+
+      <div class="border-top border-secondary-subtle pt-4 mb-3">
+        <h2 class="h6 fw-bold text-white mb-1">Condensed PDFs</h2>
+        <div class="small text-muted">Re-lay out PDF tabs into compact A4 pages.</div>
       </div>
 
       <div class="drop-zone" id="dropZone">
@@ -151,9 +168,14 @@
         </div>
       </div>
 
+      <div class="form-check form-switch mb-3">
+        <input class="form-check-input theme-switch" type="checkbox" id="zipOutputToggle" checked>
+        <label class="form-check-label small text-white" for="zipOutputToggle">Bundle the PDFs into a single ZIP</label>
+      </div>
+
       <div class="d-flex gap-2">
         <button id="processButton" class="btn btn-theme-primary px-4 py-2 fw-semibold" disabled>
-          <i class="bi-gear-wide-connected me-1"></i> Process & Export All
+          <i class="bi-gear-wide-connected me-1"></i> Process and Export All
         </button>
       </div>
 
@@ -168,7 +190,7 @@
   <script type="module">
     import { processPDF } from './pdfProcessor/pdfProcessor.js';
     import { initTheming } from './themeEngine.js';
-    import { getAllSongs } from './libraryStore.js';
+    import { getAllSongs, getCollections } from './libraryStore.js';
     import { getStoredFile } from './fileStore.js';
 
     // Initialize active theme
@@ -247,6 +269,94 @@
     
     let files = [];
     let processedFiles = new Set();
+
+    function safeName(str, fallback = 'Untitled') {
+      const cleaned = String(str || '').replace(/[/\\?%*:|"<>]/g, '_').replace(/\s+/g, ' ').trim();
+      return cleaned || fallback;
+    }
+
+    function downloadBlob(blob, filename) {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    function uniquePath(path, used) {
+      if (!used.has(path)) {
+        used.add(path);
+        return path;
+      }
+      const dot = path.lastIndexOf('.');
+      const base = dot > path.lastIndexOf('/') ? path.slice(0, dot) : path;
+      const ext = dot > path.lastIndexOf('/') ? path.slice(dot) : '';
+      let n = 2;
+      while (used.has(`${base} (${n})${ext}`)) n++;
+      const next = `${base} (${n})${ext}`;
+      used.add(next);
+      return next;
+    }
+
+    // Original files: every stored tab file in the library, zipped as Artist/Album/file
+    const exportOriginalsBtn = document.getElementById('exportOriginalsBtn');
+    const exportOriginalsBtnText = document.getElementById('exportOriginalsBtnText');
+    const exportOriginalsStatus = document.getElementById('exportOriginalsStatus');
+    exportOriginalsBtn?.addEventListener('click', async () => {
+      exportOriginalsBtn.disabled = true;
+      exportOriginalsBtnText.textContent = 'Exporting...';
+      exportOriginalsStatus.textContent = '';
+      try {
+        const songs = await getAllSongs();
+        const collections = await getCollections().catch(() => []);
+        const collectionNames = new Map(collections.map(c => [c.id, c.name]));
+        const multipleCollections = collections.length > 1;
+        const entries = {};
+        const usedPaths = new Set();
+        const seenFileIds = new Set();
+        let count = 0;
+        let total = songs.reduce((n, song) => n + (Array.isArray(song.tabOptions) ? song.tabOptions.length : 0), 0);
+        let done = 0;
+
+        for (const song of songs) {
+          const tabs = Array.isArray(song.tabOptions) ? song.tabOptions : [];
+          for (const t of tabs) {
+            done++;
+            exportOriginalsStatus.textContent = `Reading ${done} of ${total}...`;
+            if (!t.fileStoreId) continue;
+            const stored = await getStoredFile(t.fileStoreId);
+            if (!stored?.file) continue;
+            const dedupeKey = `${song.id}_${t.fileStoreId}`;
+            if (seenFileIds.has(dedupeKey)) continue;
+            seenFileIds.add(dedupeKey);
+
+            const parts = [];
+            if (multipleCollections) parts.push(safeName(collectionNames.get(song.collectionId), 'Library'));
+            parts.push(safeName(song.artist, 'Unknown Artist'));
+            if (song.album) parts.push(safeName(song.album));
+            parts.push(safeName(stored.file.name, 'tab'));
+            const path = uniquePath(parts.join('/'), usedPaths);
+            entries[path] = [new Uint8Array(await stored.file.arrayBuffer()), { level: 0 }];
+            count++;
+          }
+        }
+
+        if (count === 0) {
+          exportOriginalsStatus.textContent = 'No tab files found in library';
+          return;
+        }
+        exportOriginalsStatus.textContent = 'Building ZIP...';
+        const zipped = fflate.zipSync(entries);
+        downloadBlob(new Blob([zipped], { type: 'application/zip' }), `MajesticTab_Library_${new Date().toISOString().slice(0, 10)}.zip`);
+        exportOriginalsStatus.textContent = `Exported ${count} file${count === 1 ? '' : 's'}`;
+      } catch (err) {
+        console.error('Error exporting library files:', err);
+        exportOriginalsStatus.textContent = 'Export failed';
+      } finally {
+        exportOriginalsBtn.disabled = false;
+        exportOriginalsBtnText.textContent = 'Export Library as ZIP';
+      }
+    });
 
     // Handle drag and drop
     dropZone.addEventListener('dragover', (e) => {
@@ -394,7 +504,11 @@
     processButton.addEventListener('click', async () => {
       processButton.disabled = true;
       progressContainer.style.display = 'block';
-      
+
+      const zipOutput = document.getElementById('zipOutputToggle')?.checked;
+      const zipEntries = {};
+      const zipNames = new Set();
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         progressBar.style.width = `${(i / files.length * 100)}%`;
@@ -448,21 +562,22 @@
         }
 
         const pdfBytes = await pdfDoc.save();
-        const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-        const downloadLink = document.createElement('a');
-        downloadLink.href = URL.createObjectURL(blob);
-        if (file.displayName) {
-          const safeName = file.displayName.replace(/[/\\?%*:|"<>]/g, '_').replace(/\.pdf$/i, '');
-          downloadLink.download = `Majestic_${safeName}.pdf`;
+        const pdfName = file.displayName
+          ? `Majestic_${safeName(file.displayName).replace(/\.pdf$/i, '')}.pdf`
+          : `Majestic_${file.name}`;
+        if (zipOutput) {
+          zipEntries[uniquePath(pdfName, zipNames)] = [pdfBytes, { level: 0 }];
         } else {
-          downloadLink.download = `Majestic_${file.name}`;
+          downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), pdfName);
         }
-        downloadLink.click();
-        URL.revokeObjectURL(downloadLink.href);
 
         const statusIcon = document.getElementById(`status-${i}`);
         if (statusIcon) statusIcon.classList.add('complete');
         processedFiles.add(file.exportKey || file.displayName || file.name);
+      }
+
+      if (zipOutput && Object.keys(zipEntries).length > 0) {
+        downloadBlob(new Blob([fflate.zipSync(zipEntries)], { type: 'application/zip' }), `MajesticTab_PDFs_${new Date().toISOString().slice(0, 10)}.zip`);
       }
 
       progressBar.style.width = '100%';
