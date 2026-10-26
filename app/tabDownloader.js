@@ -125,6 +125,17 @@ export const UG_DEFAULT_USERSCRIPT = `
 
 export const DEFAULT_SOURCES = [
     {
+        id: 'google',
+        name: 'Google',
+        urlTemplate: 'https://www.google.com/search?q=$s+guitar+pro+tab',
+        defaultUrl: 'https://www.google.com/search?q=$s+guitar+pro+tab',
+        queryFormat: 'artist_song',
+        userscriptEnabled: false,
+        userscript: '',
+        defaultUserscript: '',
+        isSeed: true
+    },
+    {
         id: 'ug',
         name: 'Ultimate Guitar',
         urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=$s',
@@ -158,32 +169,10 @@ export const DEFAULT_SOURCES = [
         isSeed: true
     },
     {
-        id: 'songsterr',
-        name: 'Songsterr Downloader',
-        urlTemplate: 'https://www.songsterr-downloader.com/',
-        defaultUrl: 'https://www.songsterr-downloader.com/',
-        queryFormat: 'artist_song',
-        userscriptEnabled: false,
-        userscript: '',
-        defaultUserscript: '',
-        isSeed: true
-    },
-    {
         id: 'classtab',
         name: 'Classical Tab',
         urlTemplate: 'https://www.google.com/search?q=$s&sitesearch=https%3A%2F%2Fwww.classtab.org',
         defaultUrl: 'https://www.classtab.org/',
-        queryFormat: 'artist_song',
-        userscriptEnabled: false,
-        userscript: '',
-        defaultUserscript: '',
-        isSeed: true
-    },
-    {
-        id: 'google',
-        name: 'Google',
-        urlTemplate: 'https://www.google.com/search?q=$s+guitar+pro+tab',
-        defaultUrl: 'https://www.google.com/search?q=$s+guitar+pro+tab',
         queryFormat: 'artist_song',
         userscriptEnabled: false,
         userscript: '',
@@ -197,7 +186,7 @@ let activeTargetAlbum = null;
 let activeDownloaderOnFileSelected = null;
 let activeArtistName = '';
 let activeSongName = '';
-let activeSourceId = 'ug';
+let activeSourceId = 'google';
 let currentSearchQuery = '';
 // Source the user just clicked: the tab bar keeps it selected until its page starts loading,
 // instead of flickering back to the old page's source while the new one loads.
@@ -235,13 +224,17 @@ export function getSources() {
             let parsed = JSON.parse(raw);
             if (Array.isArray(parsed) && parsed.length > 0) {
                 // Purge deprecated guitarprotabs default seed
-                parsed = parsed.filter(s => s.id !== 'guitarprotabs');
+                parsed = parsed.filter(s => s.id !== 'guitarprotabs' && s.id !== 'songsterr');
                 for (const seed of DEFAULT_SOURCES) {
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
                         existing.defaultUserscript = seed.defaultUserscript;
-                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'song_only') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'songsterr' && existing.queryFormat !== 'artist_song') || (existing.id === 'classtab' && existing.queryFormat !== 'artist_song') || (existing.id === 'google' && existing.queryFormat !== 'artist_song')) {
+                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'song_only') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'classtab' && existing.queryFormat !== 'artist_song') || (existing.id === 'google' && existing.queryFormat !== 'artist_song')) {
                             existing.queryFormat = seed.queryFormat;
+                        }
+                        if (existing.id === 'google' && /^https:\/\/www\.google\.com\/search\?q=(SEARCH\+TERM|\$s)\+tab$/.test(existing.urlTemplate || '')) {
+                            existing.urlTemplate = seed.urlTemplate;
+                            existing.defaultUrl = seed.defaultUrl;
                         }
                         if (existing.id === 'ug') {
                             if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v14-mobile')) {
@@ -303,7 +296,6 @@ export function buildSearchUrl(source, query) {
         if (source.id === 'ug') return 'https://www.ultimate-guitar.com/';
         if (source.id === 'metaltabs') return 'https://metaltabs.org/';
         if (source.id === 'gprotab') return 'https://gprotab.net/';
-        if (source.id === 'songsterr') return 'https://www.songsterr-downloader.com/';
         if (source.id === 'classtab') return 'https://www.classtab.org/';
         if (source.id === 'google') return 'https://www.google.com/';
         if (source.defaultUrl) {
@@ -817,7 +809,6 @@ export function highlightSourceTabForUrl(url) {
         if (host.includes('ultimate-guitar.com')) matchedId = 'ug';
         else if (host.includes('metaltabs.org')) matchedId = 'metaltabs';
         else if (host.includes('gprotab.net')) matchedId = 'gprotab';
-        else if (host.includes('songsterr-downloader.com')) matchedId = 'songsterr';
         else if (host.includes('classtab.org') || (host.includes('google.') && url.includes('classtab.org'))) matchedId = 'classtab';
         else {
             const sources = getSources();
