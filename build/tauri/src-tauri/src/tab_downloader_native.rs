@@ -77,17 +77,6 @@ pub struct TabSourceInfo {
     pub is_seed: bool,
 }
 
-pub const DEFAULT_ADBLOCK_URL: &str =
-    "https://userscripts.adtidy.org/release/popup-blocker/2.5/popupblocker.user.js";
-
-pub fn default_true() -> bool {
-    true
-}
-
-pub fn default_adblock_url() -> String {
-    DEFAULT_ADBLOCK_URL.to_string()
-}
-
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TabDownloaderConfig {
@@ -109,10 +98,6 @@ pub struct TabDownloaderConfig {
     pub platform: Option<String>,
     #[serde(default)]
     pub force_desktop: bool,
-    #[serde(default = "default_true")]
-    pub adblock_enabled: bool,
-    #[serde(default = "default_adblock_url")]
-    pub adblock_url: String,
 }
 
 impl Default for TabDownloaderConfig {
@@ -127,8 +112,6 @@ impl Default for TabDownloaderConfig {
             sources: Vec::new(),
             platform: None,
             force_desktop: false,
-            adblock_enabled: true,
-            adblock_url: default_adblock_url(),
         }
     }
 }
@@ -600,11 +583,9 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             return activeSourceId;
         }
 
-        function persistSources(updatedSources, adblockConfig) {
+        function persistSources(updatedSources) {
             const payload = {
-                sources: updatedSources,
-                adblockEnabled: adblockConfig ? adblockConfig.enabled : (config.adblockEnabled !== false),
-                adblockUrl: adblockConfig ? adblockConfig.url : (config.adblockUrl || 'https://userscripts.adtidy.org/release/popup-blocker/2.5/popupblocker.user.js')
+                sources: updatedSources
             };
             const jsonStr = JSON.stringify(payload);
             try {
@@ -1138,17 +1119,6 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                                     <textarea id="cfg-userscript-code" rows="5" style="width: 100%; box-sizing: border-box; background: #0b0f19; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 7px 10px; color: #cbd5e1; font-family: ui-monospace, monospace; font-size: 12px; outline: none; resize: vertical;" placeholder="// Custom JavaScript injected into webview"></textarea>
                                 </div>
 
-                                <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px;">
-                                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
-                                        <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; color: #cbd5e1; cursor: pointer;">
-                                            <input type="checkbox" id="cfg-adblock-enabled" style="accent-color: #38bdf8; cursor: pointer;">
-                                            <span>Block Popups &amp; Ads (AdGuard Userscript)</span>
-                                        </label>
-                                        <button type="button" id="cfg-reset-adblock-url-btn" style="background: none; border: none; color: #38bdf8; font-size: 11px; cursor: pointer; padding: 0;">Reset URL</button>
-                                    </div>
-                                    <input type="text" id="cfg-adblock-url" style="width: 100%; box-sizing: border-box; background: #0b0f19; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; padding: 7px 10px; color: #cbd5e1; font-family: ui-monospace, monospace; font-size: 11px; outline: none;" placeholder="https://userscripts.adtidy.org/release/popup-blocker/2.5/popupblocker.user.js">
-                                    <div style="font-size: 11px; color: #64748b; margin-top: 4px;">Global popup blocker userscript automatically fetched and cached.</div>
-                                </div>
                             </div>
 
                             <!-- Footer -->
@@ -1284,21 +1254,11 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 }
             });
 
-            shadow.getElementById('cfg-reset-adblock-url-btn')?.addEventListener('click', () => {
-                const abUrlInp = shadow.getElementById('cfg-adblock-url');
-                if (abUrlInp) abUrlInp.value = 'https://userscripts.adtidy.org/release/popup-blocker/2.5/popupblocker.user.js';
-            });
-
             shadow.getElementById('cfg-save-btn')?.addEventListener('click', () => {
                 saveCurrentFormValues();
-                const abChk = shadow.getElementById('cfg-adblock-enabled');
-                const abUrlInp = shadow.getElementById('cfg-adblock-url');
-                if (abChk) config.adblockEnabled = abChk.checked;
-                if (abUrlInp) config.adblockUrl = abUrlInp.value.trim() || 'https://userscripts.adtidy.org/release/popup-blocker/2.5/popupblocker.user.js';
-
                 sources = JSON.parse(JSON.stringify(localSources));
                 config.sources = sources;
-                persistSources(sources, { enabled: config.adblockEnabled, url: config.adblockUrl });
+                persistSources(sources);
                 renderSourceTabs();
                 const overlay = shadow.getElementById('settings-overlay');
                 if (overlay) overlay.style.display = 'none';
@@ -1435,11 +1395,6 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             if (resetScriptBtn) resetScriptBtn.style.display = src.defaultUserscript ? 'inline-block' : 'none';
             if (userscriptCodeTextarea) userscriptCodeTextarea.value = src.userscript || '';
             if (deleteBtn) deleteBtn.style.display = src.isSeed ? 'none' : 'flex';
-
-            const abChk = shadow.getElementById('cfg-adblock-enabled');
-            const abUrlInp = shadow.getElementById('cfg-adblock-url');
-            if (abChk) abChk.checked = config.adblockEnabled !== false;
-            if (abUrlInp) abUrlInp.value = config.adblockUrl || 'https://userscripts.adtidy.org/release/popup-blocker/2.5/popupblocker.user.js';
         }
 
         renderSourceTabs();
@@ -1607,7 +1562,6 @@ pub struct DownloadChunkState {
 pub struct TabDownloaderState {
     pub current_url: Mutex<Option<String>>,
     pub active_userscript: Mutex<Option<String>>,
-    pub adblock_userscript: Mutex<Option<String>>,
     pub current_config: Mutex<Option<TabDownloaderConfig>>,
     pub is_open: Mutex<bool>,
     pub is_visible: Mutex<bool>,
@@ -1618,78 +1572,7 @@ pub struct TabDownloaderState {
     pub download_chunks: Mutex<std::collections::HashMap<String, DownloadChunkState>>,
 }
 
-pub async fn get_or_update_popup_blocker(app_handle: &tauri::AppHandle, custom_url: Option<&str>) -> String {
-    use tauri::Manager;
-    let cache_dir = app_handle.path().app_local_data_dir().unwrap_or_default();
-    let script_path = cache_dir.join("popupblocker.user.js");
-
-    let default_url = DEFAULT_ADBLOCK_URL;
-    let url = match custom_url {
-        Some(u) if !u.trim().is_empty() => u.trim(),
-        _ => default_url,
-    };
-
-    // 1. If local cache already exists, return immediately so downloader opens without delay
-    if script_path.exists() {
-        if let Ok(cached_text) = std::fs::read_to_string(&script_path) {
-            if !cached_text.trim().is_empty() {
-                // Spawn background refresh if needed without blocking
-                let handle = app_handle.clone();
-                let url_string = url.to_string();
-                tauri::async_runtime::spawn(async move {
-                    let client = reqwest::Client::builder()
-                        .timeout(std::time::Duration::from_secs(5))
-                        .build()
-                        .ok();
-                    if let Some(client) = client {
-                        if let Ok(res) = client.get(&url_string).send().await {
-                            if let Ok(text) = res.text().await {
-                                if !text.trim().is_empty() {
-                                    let c_dir = handle.path().app_local_data_dir().unwrap_or_default();
-                                    let s_path = c_dir.join("popupblocker.user.js");
-                                    let _ = std::fs::write(s_path, &text);
-                                }
-                            }
-                        }
-                    }
-                });
-                return cached_text;
-            }
-        }
-    }
-
-    // 2. Fall back to fetch with short timeout if no cache exists
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(4))
-        .build()
-        .ok();
-    if let Some(client) = client {
-        if let Ok(response) = client.get(url).send().await {
-            if let Ok(text) = response.text().await {
-                if !text.trim().is_empty() {
-                    let _ = std::fs::create_dir_all(&cache_dir);
-                    let _ = std::fs::write(&script_path, &text);
-                    return text;
-                }
-            }
-        }
-    }
-
-    // 3. Absolute fallback if no cache exists and fetch fails
-    String::new()
-}
-
-pub async fn ensure_adblock_loaded(app_handle: &tauri::AppHandle, custom_url: Option<&str>) {
-    use tauri::Manager;
-    let script = get_or_update_popup_blocker(app_handle, custom_url).await;
-    if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
-        if let Ok(mut g) = state.adblock_userscript.lock() {
-            *g = if script.trim().is_empty() { None } else { Some(script) };
-        }
-    }
-}
-
-pub fn wrap_userscript(raw_js: &str, adblock_js: Option<&str>, config: Option<&TabDownloaderConfig>) -> String {
+pub fn wrap_userscript(raw_js: &str, config: Option<&TabDownloaderConfig>) -> String {
     let trimmed = raw_js.trim();
     let mut cfg = config.cloned().unwrap_or_default();
     if cfg.platform.is_none() {
@@ -1715,26 +1598,6 @@ pub fn wrap_userscript(raw_js: &str, adblock_js: Option<&str>, config: Option<&T
         }
     }
     let config_json = serde_json::to_string(&cfg).unwrap_or_else(|_| "null".to_string());
-    let adblock_injection = if cfg.adblock_enabled {
-        if let Some(ab) = adblock_js.filter(|s| !s.trim().is_empty()) {
-            format!(
-                r#"if (!window.__majesticAdblockInitialized) {{
-    window.__majesticAdblockInitialized = true;
-    try {{
-        {}
-    }} catch (e) {{
-        console.error("[MajesticTab Adblock Error]", e);
-    }}
-}}"#,
-                ab
-            )
-        } else {
-            String::new()
-        }
-    } else {
-        String::new()
-    };
-
     format!(
         r#"{core_shim}
 (function() {{
@@ -1745,7 +1608,6 @@ pub fn wrap_userscript(raw_js: &str, adblock_js: Option<&str>, config: Option<&T
             window.__initMajesticToolbar(cfg);
         }}
     }}
-    {adblock_injection}
     window.__majesticActiveUserscript = function() {{
         try {{
             {userscript}
@@ -1811,7 +1673,6 @@ pub fn wrap_userscript(raw_js: &str, adblock_js: Option<&str>, config: Option<&T
 }})();"#,
         core_shim = CORE_DOWNLOADER_SHIM,
         config_json = config_json,
-        adblock_injection = adblock_injection,
         userscript = trimmed
     )
 }
@@ -1819,9 +1680,8 @@ pub fn wrap_userscript(raw_js: &str, adblock_js: Option<&str>, config: Option<&T
 pub fn schedule_toolbar_injection(app_handle: &AppHandle) {
     if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
         let js_opt = state.active_userscript.lock().ok().and_then(|g| g.clone());
-        let adblock_opt = state.adblock_userscript.lock().ok().and_then(|g| g.clone());
         let cfg_opt = state.current_config.lock().ok().and_then(|g| g.clone());
-        let wrapped = wrap_userscript(js_opt.as_deref().unwrap_or(""), adblock_opt.as_deref(), cfg_opt.as_ref());
+        let wrapped = wrap_userscript(js_opt.as_deref().unwrap_or(""), cfg_opt.as_ref());
         let handle = app_handle.clone();
         std::thread::spawn(move || {
             for delay in [25, 80, 200, 500, 1000, 2000, 3500] {
@@ -2089,12 +1949,8 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             #[serde(rename_all = "camelCase")]
             struct SaveSourcesPayload {
                 sources: Option<Vec<TabSourceInfo>>,
-                adblock_enabled: Option<bool>,
-                adblock_url: Option<String>,
             }
 
-            let mut adblock_updated_url: Option<String> = None;
-            let mut adblock_is_enabled = true;
 
             if let Ok(payload) = serde_json::from_str::<SaveSourcesPayload>(&raw_json) {
                 if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
@@ -2102,14 +1958,6 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
                         if let Some(ref mut cfg) = *cfg_guard {
                             if let Some(sources) = payload.sources {
                                 cfg.sources = sources;
-                            }
-                            if let Some(enabled) = payload.adblock_enabled {
-                                cfg.adblock_enabled = enabled;
-                                adblock_is_enabled = enabled;
-                            }
-                            if let Some(url) = payload.adblock_url {
-                                adblock_updated_url = Some(url.clone());
-                                cfg.adblock_url = url;
                             }
                         }
                     }
@@ -2121,17 +1969,6 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
                             cfg.sources = updated_sources;
                         }
                     }
-                }
-            }
-
-            if adblock_is_enabled {
-                let handle = app_handle.clone();
-                tauri::async_runtime::spawn(async move {
-                    ensure_adblock_loaded(&handle, adblock_updated_url.as_deref()).await;
-                });
-            } else if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
-                if let Ok(mut g) = state.adblock_userscript.lock() {
-                    *g = None;
                 }
             }
 
@@ -2646,12 +2483,8 @@ pub fn tab_downloader_save_sources(app: AppHandle, sources_json: String) -> Resu
     #[serde(rename_all = "camelCase")]
     struct SaveSourcesPayload {
         sources: Option<Vec<TabSourceInfo>>,
-        adblock_enabled: Option<bool>,
-        adblock_url: Option<String>,
     }
 
-    let mut adblock_updated_url: Option<String> = None;
-    let mut adblock_is_enabled = true;
 
     if let Ok(payload) = serde_json::from_str::<SaveSourcesPayload>(&sources_json) {
         if let Some(state) = app.try_state::<TabDownloaderState>() {
@@ -2659,14 +2492,6 @@ pub fn tab_downloader_save_sources(app: AppHandle, sources_json: String) -> Resu
                 if let Some(ref mut cfg) = *cfg_guard {
                     if let Some(sources) = payload.sources {
                         cfg.sources = sources;
-                    }
-                    if let Some(enabled) = payload.adblock_enabled {
-                        cfg.adblock_enabled = enabled;
-                        adblock_is_enabled = enabled;
-                    }
-                    if let Some(url) = payload.adblock_url {
-                        adblock_updated_url = Some(url.clone());
-                        cfg.adblock_url = url;
                     }
                 }
             }
@@ -2678,17 +2503,6 @@ pub fn tab_downloader_save_sources(app: AppHandle, sources_json: String) -> Resu
                     cfg.sources = updated_sources;
                 }
             }
-        }
-    }
-
-    if adblock_is_enabled {
-        let handle = app.clone();
-        tauri::async_runtime::spawn(async move {
-            ensure_adblock_loaded(&handle, adblock_updated_url.as_deref()).await;
-        });
-    } else if let Some(state) = app.try_state::<TabDownloaderState>() {
-        if let Ok(mut g) = state.adblock_userscript.lock() {
-            *g = None;
         }
     }
 

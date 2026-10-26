@@ -9,33 +9,6 @@ import { closeLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
-export const DEFAULT_ADBLOCK_URL = 'https://userscripts.adtidy.org/release/popup-blocker/2.5/popupblocker.user.js';
-const ADBLOCK_ENABLED_STORAGE_KEY = 'majestictab_downloader_adblock_enabled';
-const ADBLOCK_URL_STORAGE_KEY = 'majestictab_downloader_adblock_url';
-
-export function getAdblockConfig() {
-    let enabled = true;
-    let url = DEFAULT_ADBLOCK_URL;
-    try {
-        const storedEnabled = localStorage.getItem(ADBLOCK_ENABLED_STORAGE_KEY);
-        if (storedEnabled !== null) {
-            enabled = storedEnabled === 'true';
-        }
-        const storedUrl = localStorage.getItem(ADBLOCK_URL_STORAGE_KEY);
-        if (storedUrl && storedUrl.trim()) {
-            url = storedUrl.trim();
-        }
-    } catch {}
-    return { enabled, url };
-}
-
-export function saveAdblockConfig(enabled, url) {
-    try {
-        localStorage.setItem(ADBLOCK_ENABLED_STORAGE_KEY, String(Boolean(enabled)));
-        localStorage.setItem(ADBLOCK_URL_STORAGE_KEY, (url || DEFAULT_ADBLOCK_URL).trim());
-    } catch {}
-}
-
 export function isNative() {
     return typeof window !== 'undefined' && Boolean(window.__TAURI__);
 }
@@ -481,13 +454,7 @@ export function handleSaveSourcesPayload(sourcesData) {
             if (Array.isArray(parsed.sources)) {
                 saveSources(parsed.sources);
             }
-            if (typeof parsed.adblockEnabled === 'boolean' || typeof parsed.adblockUrl === 'string') {
-                const cur = getAdblockConfig();
-                const enabled = typeof parsed.adblockEnabled === 'boolean' ? parsed.adblockEnabled : cur.enabled;
-                const url = typeof parsed.adblockUrl === 'string' ? parsed.adblockUrl : cur.url;
-                saveAdblockConfig(enabled, url);
-            }
-            console.log('[Tab Downloader] Saved updated sources & adblock config from native webview');
+            console.log('[Tab Downloader] Saved updated sources from native webview');
         }
     } catch (e) {
         console.error('[Tab Downloader] Failed to save sources from native webview:', e);
@@ -609,11 +576,6 @@ export function initTabDownloaderDomEvents() {
         }
     });
 
-    document.getElementById('downloaderCfgResetAdblockUrlBtn')?.addEventListener('click', () => {
-        const adblockUrlInp = document.getElementById('downloaderCfgAdblockUrl');
-        if (adblockUrlInp) adblockUrlInp.value = DEFAULT_ADBLOCK_URL;
-    });
-
     // Keyboard shortcut Escape
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
@@ -648,12 +610,6 @@ export function openDownloaderSettings(targetSourceId = null) {
     if (currentEditingSourceId) {
         populateSettingsForm(currentEditingSourceId);
     }
-    const adblock = getAdblockConfig();
-    const adblockChk = document.getElementById('downloaderCfgAdblockEnabled');
-    const adblockUrlInp = document.getElementById('downloaderCfgAdblockUrl');
-    if (adblockChk) adblockChk.checked = Boolean(adblock.enabled);
-    if (adblockUrlInp) adblockUrlInp.value = adblock.url || DEFAULT_ADBLOCK_URL;
-
     const modal = document.getElementById('downloaderSettingsModal');
     if (modal) modal.style.display = 'flex';
 }
@@ -747,19 +703,11 @@ function saveCurrentFormValues() {
 }
 
 function saveAndCloseSettings() {
-    const adblockChk = document.getElementById('downloaderCfgAdblockEnabled');
-    const adblockUrlInp = document.getElementById('downloaderCfgAdblockUrl');
-    const adblockEnabled = adblockChk ? adblockChk.checked : true;
-    const adblockUrl = (adblockUrlInp ? adblockUrlInp.value.trim() : '') || DEFAULT_ADBLOCK_URL;
-    saveAdblockConfig(adblockEnabled, adblockUrl);
-
     saveCurrentFormValues();
     saveSources(localEditingSources);
     if (window.__TAURI__?.core?.invoke) {
         const payload = {
-            sources: localEditingSources,
-            adblockEnabled,
-            adblockUrl
+            sources: localEditingSources
         };
         window.__TAURI__.core.invoke('tab_downloader_save_sources', { sourcesJson: JSON.stringify(payload) }).catch(() => {});
     }
@@ -1064,15 +1012,12 @@ export async function openTabDownloader(options = {}) {
     if (urlTextEl) urlTextEl.textContent = loadingText;
     if (urlGroupEl) urlGroupEl.title = loadingText;
 
-    const adblockConfig = getAdblockConfig();
     const config = {
         showToolbar: !isDesktop, // Disable injected toolbar on desktop (using native split webview)
         activeSourceId: activeSource.id,
         artist: activeArtistName || null,
         song: activeSongName || null,
         query: currentSearchQuery || null,
-        adblockEnabled: Boolean(adblockConfig.enabled),
-        adblockUrl: adblockConfig.url || DEFAULT_ADBLOCK_URL,
         isDebugToolsEnabled: Boolean(isDebugToolsEnabled),
         forceDesktop: Boolean(activeSource.forceDesktop),
         platform: (/iphone|ipad|ipod/i.test(navigator.userAgent || '')) ? 'ios' : (/android/i.test(navigator.userAgent || '') ? 'android' : ((/mac/i.test(navigator.platform || navigator.userAgent)) ? 'macos' : ((/win/i.test(navigator.platform || navigator.userAgent)) ? 'windows' : 'other'))),
