@@ -1644,6 +1644,17 @@ export function setPlaybackSpeed(speed) {
     setPlaybackSpeedLocal(speed);
 }
 
+/**
+ * Nudge playback speed by a percentage step, clamped to the 10-200% range the speed controls allow
+ * @returns {number} the resulting speed as a percentage
+ */
+export function adjustPlaybackSpeed(deltaPct) {
+    const currentPct = Math.round(synthPlayerState.playbackSpeed * 100);
+    const newPct = Math.min(200, Math.max(10, currentPct + deltaPct));
+    if (newPct !== currentPct) setPlaybackSpeed(newPct / 100);
+    return newPct;
+}
+
 function setPlaybackSpeedLocal(speed) {
     synthPlayerState.playbackSpeed = speed;
     if (currentApi) {
@@ -2174,6 +2185,9 @@ export function initSynthPlayer() {
         const panel = document.getElementById('synthDropdownPanel');
         const sourcePill = document.getElementById('audioSourcePill');
         const mobileDock = document.getElementById('mobilePlaybackDock');
+
+        // Modals opened from the panel (SoundFonts, Mixer, Audio Latency) live outside it; interacting with them is not an outside click
+        if (e.target.closest?.('.theme-modal-backdrop')) return;
 
         if (synthPlayerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target) && !mobileDock?.contains(e.target)) {
             toggleSynthPanel(false);
