@@ -613,12 +613,9 @@ export function applyRestoredExtensions(backupExtensions, { wipe }) {
         }
 
         localStorage.setItem('customExtensions', JSON.stringify(finalExtensions));
-        try {
-            const active = finalExtensions.filter(e => e.enabled);
-            installExtensionSources(active.map(({ id, source }) => ({ id, source })));
-        } catch (e) {
-            console.warn('Could not compile restored extensions:', e);
-        }
+        const active = finalExtensions.filter(e => e.enabled);
+        installExtensionSources(active.map(({ id, source }) => ({ id, source })))
+            .catch(e => console.warn('Could not load restored extensions:', e));
     }
     return extensionsImported;
 }
@@ -1065,11 +1062,7 @@ export async function deleteAllAppData() {
     for (const k of keysToRemove) localStorage.removeItem(k);
 
     // 4. Reset extensions
-    try {
-        installExtensionSources([]);
-    } catch (e) {
-        console.warn('Could not reset extensions:', e);
-    }
+    installExtensionSources([]).catch(e => console.warn('Could not reset extensions:', e));
 
     // 5. Reset UI preferences to defaults
     applyRestoredPreferences();

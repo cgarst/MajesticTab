@@ -302,12 +302,10 @@ img {
   user-select: none;
 }
 
-/* Keep selection working in editable fields and the extension code editor. */
+/* Keep selection working in editable fields. */
 input,
 textarea,
-[contenteditable="true"],
-.CodeMirror,
-.CodeMirror * {
+[contenteditable="true"] {
   -webkit-user-select: text;
   user-select: text;
 }
@@ -1934,8 +1932,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   gap: 0.75rem;
 }
 
-.extension-list-toolbar,
-.extension-editor-toolbar {
+.extension-list-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2015,104 +2012,6 @@ input[type=range]::-webkit-slider-thumb:hover {
   color: var(--text-muted);
 }
 
-.extension-editor-view {
-  gap: 0.7rem;
-}
-
-.extension-name {
-  width: 100%;
-}
-
-.extension-code-field {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-}
-
-.CodeMirror {
-  min-height: 16rem;
-  height: 100%;
-  flex: 1;
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.5rem;
-  background: var(--bg-card) !important;
-  color: var(--text-primary);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.85rem;
-  line-height: 1.55;
-}
-
-.CodeMirror-focused {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 0 0.2rem var(--accent-primary-alpha);
-}
-
-.CodeMirror-gutters {
-  border-right: 1px solid var(--border-subtle);
-  background: var(--bg-card-solid);
-}
-
-.CodeMirror-linenumber {
-  color: var(--text-dim);
-}
-
-.CodeMirror-cursor {
-  border-left-color: var(--text-primary);
-}
-
-.CodeMirror-selected {
-  background: var(--accent-primary-alpha) !important;
-}
-
-.cm-keyword,
-.cm-operator {
-  color: var(--accent-text) !important;
-}
-
-.cm-def,
-.cm-variable-2,
-.cm-builtin {
-  color: #7dd3fc !important;
-}
-
-.cm-string,
-.cm-string-2 {
-  color: #86efac !important;
-}
-
-.cm-number,
-.cm-atom {
-  color: #fdba74 !important;
-}
-
-.cm-comment {
-  color: var(--text-dim) !important;
-}
-
-.cm-property {
-  color: #f0abfc !important;
-}
-
-.CodeMirror-placeholder {
-  color: var(--text-muted) !important;
-  opacity: 0.8;
-}
-
-.extension-source {
-  flex: 1;
-  min-height: 16rem;
-  resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
-  white-space: pre;
-  tab-size: 2;
-}
-
-.extension-source::placeholder {
-  color: var(--text-muted);
-  opacity: 1;
-}
-
 @media (max-width: 575.98px) {
   .extension-modal-body {
     height: min(76vh, 680px);
@@ -2143,9 +2042,6 @@ input[type=range]::-webkit-slider-thumb:hover {
     flex: 1;
   }
 
-  .extension-code-field .CodeMirror {
-    min-height: 12rem;
-  }
 }
 
 .offcanvas input[type="file"]::file-selector-button,

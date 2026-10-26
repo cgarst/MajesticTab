@@ -7,7 +7,6 @@
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
 <link href="style.css" rel="stylesheet">
 <link href="fretboard/fretboard.css" rel="stylesheet">
 <link href="tuner/tuner.css" rel="stylesheet">
@@ -891,7 +890,7 @@
         </div>
         <div class="theme-modal-titles">
           <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="extensionModalTitle">Extensions</h2>
-          <small class="text-muted d-none d-sm-block">Manage browser-side extension code</small>
+          <small class="text-muted d-none d-sm-block">Sandboxed file transforms</small>
         </div>
       </div>
       <div class="theme-modal-actions">
@@ -905,28 +904,12 @@
         <span class="small text-white-50" id="extensionCount">0 extensions</span>
         <div class="extension-list-actions">
           <input class="d-none" id="importExtensionInput" type="file" accept=".js,.mjs,text/javascript,application/javascript">
-          <button class="btn theme-control-btn" id="importExtensionFile" type="button"><i class="bi-file-earmark-code me-1"></i>Import .js</button>
-          <button class="btn theme-control-btn" id="addExtension" type="button"><i class="bi-plus-lg me-1"></i>Add extension</button>
+          <button class="btn theme-control-btn" id="importExtensionFile" type="button"><i class="bi-file-earmark-code me-1"></i>Add .js File</button>
         </div>
       </div>
       <div class="extension-list" id="extensionList" role="list"></div>
       <div class="small text-info" id="extensionManagerStatus" role="status" aria-live="polite">No extensions registered</div>
-    </div>
-    <div class="theme-modal-body extension-modal-body extension-editor-view d-none" id="extensionEditorView">
-      <div class="extension-editor-toolbar">
-        <button class="btn btn-sm theme-control-btn" id="backToExtensions" type="button"><i class="bi-arrow-left me-1"></i>Extensions</button>
-        <span class="small text-white-50" id="extensionEditorMode">New extension</span>
-      </div>
-      <div class="extension-code-field">
-        <label class="form-label small text-white-50 mb-1" for="extensionSource">JavaScript source</label>
-        <textarea class="form-control extension-source" id="extensionSource" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="registerFileAdapter({ id: 'example', matches: file => false, transform: async file => file });"></textarea>
-      </div>
-      <div class="small text-white-50">Extension code runs in this browser and may access page data. Only paste code you trust.</div>
-      <div class="d-flex flex-wrap align-items-center gap-2">
-        <button class="btn btn-theme-primary flex-grow-1" id="saveExtension" type="button"><i class="bi-check2 me-1"></i>Save extension</button>
-        <button class="btn theme-control-btn" id="cancelExtensionEdit" type="button">Cancel</button>
-      </div>
-      <div class="small text-danger-emphasis" id="extensionEditorStatus" role="status" aria-live="polite"></div>
+      <div class="small text-white-50">Extensions run in an isolated sandbox with no network access and no access to your library or accounts. They can only transform files you open.</div>
     </div>
   </section>
 </div>
@@ -1123,7 +1106,6 @@
           <li><a href="https://github.com/mozilla/pdf.js" target="_blank" rel="noopener noreferrer">PDF.js</a> (Apache License 2.0)</li>
           <li><a href="https://github.com/parallax/jsPDF" target="_blank" rel="noopener noreferrer">jsPDF</a> (MIT License)</li>
           <li><a href="https://github.com/101arrowz/fflate" target="_blank" rel="noopener noreferrer">fflate</a> (MIT License)</li>
-          <li><a href="https://github.com/codemirror/codemirror5" target="_blank" rel="noopener noreferrer">CodeMirror 5</a> (MIT License)</li>
           <li><a href="https://github.com/pdf-lib/pdf-lib" target="_blank" rel="noopener noreferrer">pdf-lib</a> (MIT License)</li>
           <li><a href="https://github.com/kazuhikoarase/qrcode-generator" target="_blank" rel="noopener noreferrer">qrcode-generator</a> (MIT License)</li>
           <li><a href="https://github.com/steinbergmedia/bravura" target="_blank" rel="noopener noreferrer">Bravura</a> music font by Steinberg (SIL Open Font License 1.1)</li>
@@ -1761,9 +1743,6 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.3/umd/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@coderline/alphatab@1.8.4/dist/alphaTab.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/display/placeholder.min.js"></script>
 <script type="module" src="main.js"></script>
 </body>
 </html>
