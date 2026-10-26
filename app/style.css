@@ -4912,11 +4912,6 @@ body:not(.synth-playback-started) .at-highlight {
   box-shadow: 0 0 10px var(--accent-glow);
 }
 
-.downloader-source-tab-add {
-  border-style: dashed;
-  color: var(--accent-primary);
-}
-
 .downloader-cfg-pill {
   display: inline-flex;
   align-items: center;

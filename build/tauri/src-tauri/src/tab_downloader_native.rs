@@ -974,10 +974,6 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         border-color: #38bdf8;
                         box-shadow: 0 0 10px rgba(56, 189, 248, 0.25);
                     }
-                    .tab-btn-add {
-                        border-style: dashed;
-                        color: #38bdf8;
-                    }
                     .pill-btn {
                         display: inline-flex;
                         align-items: center;
@@ -1326,15 +1322,9 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 </button>
             `).join('');
 
-            html += `
-                <button type="button" class="tab-btn tab-btn-add" id="btn-add-source" title="Add New Tab Source">
-                    <svg viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
-                    <span>Add Source</span>
-                </button>
-            `;
             tabsRow.innerHTML = html;
 
-            tabsRow.querySelectorAll('.tab-btn:not(.tab-btn-add)').forEach(btn => {
+            tabsRow.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const sid = btn.dataset.sourceId;
                     const src = sources.find(s => s.id === sid);
@@ -1355,28 +1345,6 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         window.location.href = 'majestictab://switch-source?sourceId=' + encodeURIComponent(src.id) + '&url=' + encodeURIComponent(nextUrl);
                     }
                 });
-            });
-
-            tabsRow.querySelector('#btn-add-source')?.addEventListener('click', () => {
-                saveCurrentFormValues();
-                const newId = 'source_' + Date.now();
-                const newSrc = {
-                    id: newId,
-                    name: 'Custom Source',
-                    urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=SEARCH+TERM',
-                    defaultUrl: '',
-                    queryFormat: 'artist_song',
-                    userscriptEnabled: false,
-                    userscript: '',
-                    defaultUserscript: '',
-                    isSeed: false
-                };
-                localSources.push(newSrc);
-                editingSourceId = newId;
-                renderSettingsPills();
-                renderSettingsForm(newId);
-                const overlay = shadow.getElementById('settings-overlay');
-                if (overlay) overlay.style.display = 'flex';
             });
         }
 
@@ -1480,7 +1448,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 urlGroup.title = cur;
             }
             const currentActiveId = pendingSourceId || detectActiveSourceId();
-            shadow.querySelectorAll('.tab-btn:not(.tab-btn-add)').forEach(btn => {
+            shadow.querySelectorAll('.tab-btn').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.sourceId === currentActiveId);
             });
 
