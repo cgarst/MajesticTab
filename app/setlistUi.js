@@ -8,7 +8,7 @@ import {
 import { getSongById, getAllSongs, getRecents } from './libraryStore.js';
 import { getPlaceholderCoverSvg, hydrateCachedImages } from './musicbrainz.js';
 import { playSetlist } from './setlistPlayer.js';
-import { openThemedInputModal, libraryViewSwitchHtml } from './libraryModal.js';
+import { openThemedInputModal, libraryViewSwitchHtml, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, bindListFilter } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
 import { showToast } from './utils/toast.js';
 
@@ -61,29 +61,29 @@ async function renderSetlistList(container, onBack) {
 
     container.innerHTML = `
     <div class="library-page-container setlists-view">
-      <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
-        <div class="d-flex align-items-center gap-3 min-w-0">
-          ${libraryViewSwitchHtml('setlists')}
-          <span class="small fw-semibold text-white-50 text-truncate"><i class="bi-collection-play me-2 text-info"></i>Setlists (${setlists.length})</span>
-        </div>
-        <div class="d-flex align-items-center gap-2 flex-shrink-0">
-          <button class="btn btn-sm btn-theme-primary p-1 px-3 d-flex align-items-center gap-1" id="newSetlistBtn" title="Create a new setlist">
-            <i class="bi-plus-lg"></i> <span>New Setlist</span>
-          </button>
-          ${setlists.length > 0 ? `
+      ${libraryHeaderHtml({
+          activeTab: 'setlists', searchId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn',
+          placeholder: 'Search setlists...', searchLabel: 'Search setlists', searchDisabled: setlists.length === 0
+      })}
+
+      ${setlists.length > 0 ? libraryListToolbarHtml({
+          count: `${setlists.length} ${setlists.length === 1 ? 'setlist' : 'setlists'}`,
+          actionsHtml: `
+            <button class="btn btn-sm btn-theme-primary p-1 px-3 d-flex align-items-center gap-1" id="newSetlistBtn" title="Create a new setlist">
+              <i class="bi-plus-lg"></i> <span>New Setlist</span>
+            </button>
             <button class="btn btn-sm ${isEditMode ? 'btn-theme-primary' : 'btn-theme-outline'} p-1 px-3 d-flex align-items-center gap-1" id="toggleSetlistsEditBtn" title="${isEditMode ? 'Done editing' : 'Edit setlists'}">
               <i class="bi-${isEditMode ? 'check-lg' : 'pencil'}"></i> <span>${isEditMode ? 'Done' : 'Edit'}</span>
-            </button>
-          ` : ''}
-        </div>
-      </div>
+            </button>`
+      }) : ''}
 
       ${setlists.length === 0 ? `
-        <div class="text-center py-5 text-muted">
-          <i class="bi-collection-play fs-1 mb-2 d-block text-white-50"></i>
-          <h6 class="text-white fw-semibold">No Setlists Yet</h6>
-          <p class="small text-muted mb-0">Create a setlist, then add songs from your library, recents or tunings, or from a tab's notation menu.</p>
-        </div>
+        ${libraryEmptyStateHtml({
+          icon: 'bi-collection-play',
+          title: 'No setlists yet',
+          message: 'Create a setlist, then add songs from your library, recents or tunings, or from a tab\'s notation menu.',
+          actionsHtml: `<button class="btn btn-sm btn-theme-primary px-4" id="newSetlistBtn"><i class="bi-plus-lg me-1"></i> New Setlist</button>`
+        })}
       ` : `
         <div class="d-flex flex-column gap-2" id="setlistsList">
           ${setlists.map(sl => `
@@ -108,6 +108,8 @@ async function renderSetlistList(container, onBack) {
     </div>`;
 
     const rerender = () => renderSetlistList(container, onBack);
+
+    bindListFilter(container, { inputId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn', rowSelector: '#setlistsList .library-row-card' });
 
     container.querySelector('#toggleSetlistsEditBtn')?.addEventListener('click', () => {
         isEditMode = !isEditMode;
