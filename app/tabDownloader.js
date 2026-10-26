@@ -1026,7 +1026,6 @@ export async function openTabDownloader(options = {}) {
     if (urlGroupEl) urlGroupEl.title = loadingText;
 
     const config = {
-        showToolbar: false, // The bar lives in the main webview on every platform
         activeSourceId: activeSource.id,
         artist: activeArtistName || null,
         song: activeSongName || null,
