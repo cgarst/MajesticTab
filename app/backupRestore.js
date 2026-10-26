@@ -15,6 +15,7 @@ import {
 } from './fileProviders.js';
 import { showToast } from './utils/toast.js';
 import { isFolderBackupSupported } from './folderBackup.js';
+import { isIcloudDriveSupported } from './icloudDrive.js';
 import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { installExtensionSources } from './fileAdapters.js';
@@ -1467,6 +1468,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none align-items-center gap-1" id="restoreFolderBtn">
                 <i class="bi-hdd text-primary"></i> <span>Backup Folder</span>
               </button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none align-items-center gap-1" id="restoreIcloudBtn">
+                <i class="bi-cloud text-info"></i> <span>iCloud Drive Backups</span>
+              </button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
                 <i class="bi-google text-danger"></i> <span>Google Drive Backups</span>
               </button>
@@ -2143,6 +2147,10 @@ function attachModalHandlers(modal, options = {}) {
             return { status: 'ready', backend: createDriveBackend() };
         }
         const folders = await import('./folderBackup.js');
+        if (provider === 'icloud-drive') {
+            const handle = await folders.getIcloudBackupFolder();
+            return handle ? { status: 'ready', backend: folders.createFolderBackend(handle) } : { status: 'needs-icloud' };
+        }
         let handle = await folders.getSavedBackupFolder();
         if (!handle && interactive) handle = await folders.pickBackupFolder();
         if (!handle) return { status: 'needs-folder' };
@@ -2158,7 +2166,8 @@ function attachModalHandlers(modal, options = {}) {
         if (!backupIncrementalPreview) return;
         const request = ++previewRequest;
         const isDrive = getBackupProviderId() === 'google-drive';
-        const where = isDrive ? 'Google Drive' : 'the backup folder';
+        const isIcloud = getBackupProviderId() === 'icloud-drive';
+        const where = isDrive ? 'Google Drive' : isIcloud ? 'iCloud Drive' : 'the backup folder';
         const note = (html) => { if (request === previewRequest) backupIncrementalPreview.innerHTML = html; };
         const actionBtn = (action, icon, label) => `<button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="${action}"><i class="${icon}"></i> <span>${label}</span></button>`;
 
@@ -2167,6 +2176,9 @@ function attachModalHandlers(modal, options = {}) {
             const target = await resolveIncrementalTarget();
             if (target.status === 'needs-auth') {
                 return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Connect Google Drive to back up there and see what changed since your last backup.</div>${actionBtn('connect', 'bi-google text-danger', 'Connect Google Drive')}`);
+            }
+            if (target.status === 'needs-icloud') {
+                return note(`<div class="small text-white-50"><i class="bi-cloud-slash me-1"></i> iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud, and make sure MajesticTab is allowed to use it.</div>`);
             }
             if (target.status === 'needs-folder') {
                 return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Choose a folder on this device to keep your backups in.</div>${actionBtn('choose-folder', 'bi-folder2-open text-primary', 'Choose Folder')}`);
@@ -2189,7 +2201,7 @@ function attachModalHandlers(modal, options = {}) {
                         <div class="small fw-semibold text-white">${head}</div>
                         <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(target.backend.location)}"><i class="bi-folder2 me-1"></i>${escapeHtml(target.backend.location)}</div>
                     </div>
-                    ${isDrive ? '' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
+                    ${isDrive || isIcloud ? '' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
                 </div>
                 <div class="row g-2">
                     ${stat(p.added, 'New tabs', 'text-success')}
@@ -2233,14 +2245,14 @@ function attachModalHandlers(modal, options = {}) {
     // keep the format and destination consistent
     const syncBackupFormat = ({ providerChanged = false, refresh = true } = {}) => {
         const providerId = getBackupProviderId();
-        const canIncrement = providerId === 'google-drive' || (providerId === 'local' && isFolderBackupSupported());
+        const canIncrement = providerId === 'google-drive' || providerId === 'icloud-drive' || (providerId === 'local' && isFolderBackupSupported());
         if (incrementalRadio) incrementalRadio.disabled = !canIncrement;
         const hint = modal.querySelector('#backupIncrementalHint');
         if (hint) {
             hint.style.display = canIncrement ? 'none' : 'block';
             hint.textContent = providerId === 'local'
                 ? 'Local folders need the desktop app, or Chrome or Edge on a computer. Use Google Drive instead, or save a single file.'
-                : 'Choose Google Drive or Local Device to use incremental snapshots.';
+                : 'Choose Google Drive, iCloud Drive or Local Device to use incremental snapshots.';
         }
         if (incrementalOption) incrementalOption.style.opacity = canIncrement ? '' : '0.5';
         if (providerChanged && canIncrement) incrementalRadio.checked = true;
@@ -2302,6 +2314,7 @@ function attachModalHandlers(modal, options = {}) {
                     redirectToGoogleAuth('backup_create');
                     throw new Error('Please authorize Google Drive to save the backup.');
                 }
+                if (target.status === 'needs-icloud') throw new Error('iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud.');
                 if (target.status !== 'ready') throw new Error('Choose a backup folder and allow access to it first.');
                 const { createIncrementalBackup } = await import('./incrementalBackup.js');
                 const result = await createIncrementalBackup(target.backend, {
@@ -2397,6 +2410,12 @@ function attachModalHandlers(modal, options = {}) {
         restoreFolderBtn.classList.add('d-inline-flex');
     }
 
+    const restoreIcloudBtn = modal.querySelector('#restoreIcloudBtn');
+    if (restoreIcloudBtn && isIcloudDriveSupported()) {
+        restoreIcloudBtn.classList.remove('d-none');
+        restoreIcloudBtn.classList.add('d-inline-flex');
+    }
+
     // Which storage the snapshot list currently shows; set by loadGoogleDriveBackups / loadFolderBackups
     let activeSource = { type: 'drive', backend: null };
 
@@ -2458,29 +2477,38 @@ function attachModalHandlers(modal, options = {}) {
     };
 
     // Lists snapshots in a local backup folder. Must start from a click (folder access needs a gesture).
-    const loadFolderBackups = async ({ pickNew = false } = {}) => {
+    const loadFolderBackups = async ({ pickNew = false, icloud = false } = {}) => {
         const folders = await import('./folderBackup.js');
         try {
-            let handle = pickNew ? null : await folders.getSavedBackupFolder();
-            if (!handle) handle = await folders.pickBackupFolder();
+            let handle;
+            if (icloud) {
+                handle = await folders.getIcloudBackupFolder();
+                if (!handle) {
+                    showToast('iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud.', 'warning');
+                    return;
+                }
+            } else {
+                handle = pickNew ? null : await folders.getSavedBackupFolder();
+                if (!handle) handle = await folders.pickBackupFolder();
+            }
             if (!handle) return;
-            if (!(await folders.ensureFolderPermission(handle))) {
+            if (!icloud && !(await folders.ensureFolderPermission(handle))) {
                 showToast('Access to the backup folder was not granted.', 'warning');
                 return;
             }
 
             const backend = folders.createFolderBackend(handle);
-            activeSource = { type: 'folder', backend };
-            restoreChangeLocationBtn?.classList.remove('d-none');
+            activeSource = { type: icloud ? 'icloud' : 'folder', backend };
+            restoreChangeLocationBtn?.classList.toggle('d-none', icloud);
             if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
             if (restoreDriveLoading) restoreDriveLoading.style.display = 'block';
             if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
             if (restoreDriveError) restoreDriveError.style.display = 'none';
             if (restoreDriveList) restoreDriveList.innerHTML = '';
-            if (restoreSourceIcon) restoreSourceIcon.className = 'bi-hdd text-primary';
-            if (restoreSourceTitle) restoreSourceTitle.textContent = 'Backup Folder:';
+            if (restoreSourceIcon) restoreSourceIcon.className = icloud ? 'bi-cloud text-info' : 'bi-hdd text-primary';
+            if (restoreSourceTitle) restoreSourceTitle.textContent = icloud ? 'iCloud Drive:' : 'Backup Folder:';
             if (restoreSourceLocation) restoreSourceLocation.textContent = backend.location;
-            if (restoreDriveEmptyText) restoreDriveEmptyText.textContent = 'No snapshots found in this folder.';
+            if (restoreDriveEmptyText) restoreDriveEmptyText.textContent = icloud ? 'No snapshots found in iCloud Drive.' : 'No snapshots found in this folder.';
 
             const { listIncrementalBackups } = await import('./incrementalBackup.js');
             const backups = (await listIncrementalBackups(backend))
@@ -2502,6 +2530,7 @@ function attachModalHandlers(modal, options = {}) {
     };
 
     restoreFolderBtn?.addEventListener('click', () => loadFolderBackups());
+    restoreIcloudBtn?.addEventListener('click', () => loadFolderBackups({ icloud: true }));
     restoreChangeLocationBtn?.addEventListener('click', async () => {
         if (activeSource.type === 'folder') loadFolderBackups({ pickNew: true });
     });
@@ -2580,7 +2609,7 @@ function attachModalHandlers(modal, options = {}) {
                         bundle.name = `Snapshot · ${dateStr}`;
                         bundle.size = bundle.summary?.totalTabsSize || 0;
                         if (dlProgressContainer) dlProgressContainer.style.display = 'none';
-                        await handleSelectedBackupFile(bundle, activeSource.type === 'folder' ? 'Backup Folder' : 'Google Drive');
+                        await handleSelectedBackupFile(bundle, activeSource.type === 'folder' ? 'Backup Folder' : activeSource.type === 'icloud' ? 'iCloud Drive' : 'Google Drive');
                         return;
                     }
                     const { downloadDriveBackupFile } = await import('./googleDrive.js');

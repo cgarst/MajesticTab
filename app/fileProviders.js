@@ -5,6 +5,7 @@ import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
 import { openDrivePicker, redirectToGoogleAuth, isTokenValid, ensureFreshToken } from './googleDrive.js';
 import { isIcloudDriveSupported } from './icloudDrive.js';
+import { isIOSDevice } from './utils/iosAudioUnlock.js';
 import { openTabDownloader } from './tabDownloader.js';
 import { addTabOptionToSong, addTabOptionToAlbum, mapOpenFileToSong } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
@@ -271,14 +272,20 @@ export const ICloudDriveFileProvider = {
     name: 'iCloud Drive',
     icon: 'bi-cloud',
     iconColorClass: 'text-info',
-    description: 'Open tab files from iCloud Drive',
+    description: 'Open tab files from iCloud Drive, and save backups there',
     badge: 'Cloud',
     actionLabel: 'Open from iCloud',
+    async save(fileBlob, filename = 'MajesticTab-backup.mtbackup') {
+        const { saveToIcloudDrive } = await import('./icloudDrive.js');
+        await saveToIcloudDrive(fileBlob, filename);
+        return { success: true, name: filename, providerId: 'icloud-drive' };
+    },
     async open(options = {}) {
         const dialog = window.__TAURI__?.dialog;
-        if (!dialog?.open) {
-            // iOS: the system Files picker lists iCloud Drive alongside other locations
-            return LocalFileProvider.open(options);
+        if (isIOSDevice() || !dialog?.open) {
+            // iOS: the system picker can't start in iCloud Drive, so browse the folder in the app instead
+            const { openIcloudBrowser } = await import('./icloudUi.js');
+            return openIcloudBrowser((file) => handlePickedFile(file, options));
         }
         const { getIcloudDriveRoot } = await import('./icloudDrive.js');
         // Start in the folder MajesticTab uses; its parent is the top of iCloud Drive
