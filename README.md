@@ -135,7 +135,7 @@ Build macOS and Windows installers on their respective operating systems. The Li
 
 To enable Google Drive in a Tauri build, set the `GOOGLE_CLIENT_SECRET` environment variable (e.g., in a git-ignored `.env` file in the project root, via `export GOOGLE_CLIENT_SECRET="your-client-secret"`) before building, or configure it as a GitHub Actions secret. The build process automatically embeds the secret into the generated frontend bundle. Note that the secret is embedded in the packaged client app and can be extracted from it; do not treat it as confidential.
 
-The Google Drive picker also needs `GOOGLE_PICKER_API_KEY` (a Google Cloud browser API key), set the same way in `.env` or as a GitHub Actions secret. The build writes it to the git-ignored `app/pickerKey.local.js`; without it, picking from Drive shows a "not configured" message.
+The Google Drive picker also needs `GOOGLE_PICKER_API_KEY` (a Google Cloud browser API key), set the same way in `.env` or as a GitHub Actions secret. The build writes it to the git-ignored `app/pickerKey.local.js`; without it, the app falls back to the key in `app/googleDrive.js`.
 
 ### iOS sideloading (SideStore, AltStore, and LiveContainer)
 

@@ -11,7 +11,9 @@ const IOS_CLIENT_ID = '1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p.apps.googl
 // drive.file only: the app sees files it created plus files the user hands it through the Google Picker.
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 // The Picker needs a browser API key and the Cloud project number. The key comes from the GOOGLE_PICKER_API_KEY
-// environment variable, which the build writes to the git-ignored pickerKey.local.js.
+// environment variable, which the build writes to the git-ignored pickerKey.local.js. Builds without it (the
+// website) fall back to this key, which is public by design and restricted to the app's origins and the Picker API.
+const FALLBACK_PICKER_API_KEY = 'AIzaSyCohcbDpEo2PvNPV4Imixd3a_Exu4B-kKY';
 const PICKER_APP_ID = '1059497343032';
 const STORAGE_KEY = 'gdrive_auth';
 // Bumped when the requested scope changes so tokens granted under the old scope force a fresh consent.
@@ -404,10 +406,7 @@ function loadPickerApi() {
  * Picking a file grants this app access to it under the drive.file scope.
  */
 export async function pickDriveFile({ title = 'Select a file from Google Drive' } = {}) {
-    const apiKey = await import('./pickerKey.local.js').then(m => m.PICKER_API_KEY, () => '');
-    if (!apiKey) {
-        throw new Error('The Google Drive picker is not configured in this build (missing GOOGLE_PICKER_API_KEY).');
-    }
+    const apiKey = await import('./pickerKey.local.js').then(m => m.PICKER_API_KEY, () => '') || FALLBACK_PICKER_API_KEY;
     await ensureFreshToken();
     if (!isTokenValid()) throw new Error('Google Drive is not connected. Please connect your Google account.');
     await loadPickerApi();
