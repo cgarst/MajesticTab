@@ -188,6 +188,10 @@ let activeArtistName = '';
 let activeSongName = '';
 let activeSourceId = 'ug';
 let currentSearchQuery = '';
+// Source the user just clicked: the tab bar keeps it selected until its page starts loading,
+// instead of flickering back to the old page's source while the new one loads.
+let pendingSourceId = null;
+let pendingSourceTimer = null;
 let lastDownloadedTime = 0;
 let lastDownloadedName = '';
 
@@ -761,6 +765,9 @@ export function renderDownloaderTabs() {
  */
 export function switchActiveSource(src) {
     activeSourceId = src.id;
+    pendingSourceId = src.id;
+    clearTimeout(pendingSourceTimer);
+    pendingSourceTimer = setTimeout(() => { pendingSourceId = null; }, 10000);
     const container = document.getElementById('downloaderTabsRow');
     if (container) {
         container.querySelectorAll('.downloader-source-tab-btn:not(.downloader-source-tab-add)').forEach(b => {
@@ -810,6 +817,14 @@ export function highlightSourceTabForUrl(url) {
                         break;
                     }
                 } catch {}
+            }
+        }
+        if (pendingSourceId) {
+            // Ignore URL events from the page being left; the target source's page ends the wait
+            if (matchedId && matchedId !== pendingSourceId) return false;
+            if (matchedId) {
+                pendingSourceId = null;
+                clearTimeout(pendingSourceTimer);
             }
         }
         if (matchedId && matchedId !== activeSourceId) {
@@ -920,13 +935,13 @@ export function initTauriDownloadListener() {
             const url = event.payload || '';
             const urlText = document.getElementById('downloaderUrlText');
             const urlGroup = document.getElementById('downloaderUrlGroup');
+            if (highlightSourceTabForUrl(url) === false) return;
             if (urlText && url) {
                 urlText.textContent = url;
             }
             if (urlGroup && url) {
                 urlGroup.title = url;
             }
-            highlightSourceTabForUrl(url);
         });
 
         // Window closed event from native webview toolbar

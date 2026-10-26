@@ -566,6 +566,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
 
+        let pendingSourceId = null;
+
         function detectActiveSourceId() {
             const h = (window.location.hostname || '').toLowerCase();
             if (h.includes('ultimate-guitar.com')) return 'ug';
@@ -1303,6 +1305,8 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                             urlGroup.title = 'Loading ' + src.name + '...';
                         }
                         config.activeSourceId = sid;
+                        // Keep the clicked tab selected while the old page is still showing
+                        pendingSourceId = sid;
                         const nextUrl = buildSearchUrl(src, artist, song, query);
                         window.location.href = 'majestictab://switch-source?sourceId=' + encodeURIComponent(src.id) + '&url=' + encodeURIComponent(nextUrl);
                     }
@@ -1431,7 +1435,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             if (urlGroup && urlGroup.title !== cur) {
                 urlGroup.title = cur;
             }
-            const currentActiveId = detectActiveSourceId();
+            const currentActiveId = pendingSourceId || detectActiveSourceId();
             shadow.querySelectorAll('.tab-btn:not(.tab-btn-add)').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.sourceId === currentActiveId);
             });
