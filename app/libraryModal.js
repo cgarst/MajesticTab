@@ -1414,6 +1414,14 @@ export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, s
       </div>`;
 }
 
+// Centered page title for library pages that are not a switcher tab (Open File, Add Music)
+export function libraryPageTitleHtml({ icon, title, subtitle = '' }) {
+    return `<div class="library-page-title">
+        <h5 class="library-page-title-text"><i class="${icon} text-info"></i>${title}</h5>
+        ${subtitle ? `<p class="library-page-title-sub">${subtitle}</p>` : ''}
+      </div>`;
+}
+
 // Same icon, title, message and button sizes for every "nothing here yet" state
 export function libraryEmptyStateHtml({ icon, title, message, actionsHtml = '' }) {
     return `<div class="text-center py-5 text-muted">
@@ -2854,35 +2862,32 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
 function renderSearchMusicBrainzView(container) {
     container.innerHTML = `
     <div class="library-page-container search-mb-view">
-      <!-- Search Sticky Toolbar -->
-      <div class="search-sticky-header mb-3">
-        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
-          <div class="d-flex align-items-center gap-2">
-            ${libraryViewSwitchHtml()}
-            <span class="small fw-semibold text-white-50">Add Music:</span>
-          </div>
-          <div class="hud-pill-group" role="group" id="searchTypePill">
-            <button type="button" class="btn btn-sm ${searchType === 'artist' ? 'active' : ''}" data-type="artist">Artist</button>
-            <button type="button" class="btn btn-sm ${searchType === 'song' ? 'active' : ''}" data-type="song">Song</button>
-            <button type="button" class="btn btn-sm ${searchType === 'album' ? 'active' : ''}" data-type="album">Album</button>
-            <button type="button" class="btn btn-sm ${searchType === 'musician' ? 'active' : ''}" data-type="musician">Musician</button>
-            <button type="button" class="btn btn-sm ${searchType === 'custom' ? 'active' : ''}" data-type="custom" title="Add custom music, exercises, and custom folder structure">
-              <i class="bi-folder-plus me-1"></i>Custom Music
-            </button>
-          </div>
-        </div>
+      <div class="search-sticky-header search-view-header">
+      <div class="lib-view-switch-row">${libraryViewSwitchHtml()}</div>
+      ${libraryPageTitleHtml({
+        icon: 'bi-plus-circle',
+        title: 'Add music',
+        subtitle: 'Find an artist, song or album, or create your own folders.'
+      })}
+      <div class="hud-pill-group library-type-pills" role="group" id="searchTypePill">
+        <button type="button" class="btn btn-sm ${searchType === 'artist' ? 'active' : ''}" data-type="artist">Artist</button>
+        <button type="button" class="btn btn-sm ${searchType === 'song' ? 'active' : ''}" data-type="song">Song</button>
+        <button type="button" class="btn btn-sm ${searchType === 'album' ? 'active' : ''}" data-type="album">Album</button>
+        <button type="button" class="btn btn-sm ${searchType === 'musician' ? 'active' : ''}" data-type="musician">Musician</button>
+        <button type="button" class="btn btn-sm ${searchType === 'custom' ? 'active' : ''}" data-type="custom" title="Add custom music, exercises, and custom folder structure">
+          <i class="bi-folder-plus me-1"></i>Custom Music
+        </button>
+      </div>
 
-        ${searchType === 'custom' ? '' : `
-          <form id="mbSearchForm" class="d-flex align-items-center gap-2">
-            <div class="input-group input-group-sm flex-grow-1">
-              <span class="input-group-text"><i class="bi-search"></i></span>
-              <input type="text" class="form-control" id="mbSearchInput" placeholder="Search ${searchType} to add music..." value="${escapeHtml(currentSearchQuery)}" autofocus>
-            </div>
-            <button type="submit" class="btn btn-theme-primary btn-sm px-3" id="mbSearchSubmitBtn">
-              Search
-            </button>
-          </form>
-        `}
+      ${searchType === 'custom' ? '' : `
+        <form id="mbSearchForm" class="library-search-box library-search-form mb-3">
+          <div class="library-search-bar">
+            <i class="bi-search search-icon"></i>
+            <input type="text" class="search-input" id="mbSearchInput" placeholder="Search ${searchType} to add music..." value="${escapeHtml(currentSearchQuery)}" autocomplete="off" spellcheck="false" aria-label="Search ${searchType}" autofocus>
+          </div>
+          <button type="submit" class="btn btn-theme-primary btn-sm px-3 flex-shrink-0" id="mbSearchSubmitBtn">Search</button>
+        </form>
+      `}
       </div>
 
       <!-- Search Results / Custom Form Area -->
