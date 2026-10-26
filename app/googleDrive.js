@@ -150,7 +150,7 @@ function openBackupModalForAuthState(state, { skipIfOpen = false } = {}) {
 export function clearStoredToken({ all = false } = {}) {
     const refreshToken = all ? null : readStoredAuth()?.refresh_token;
     if (refreshToken) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ refresh_token: refreshToken }));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: AUTH_VERSION, refresh_token: refreshToken }));
     } else {
         localStorage.removeItem(STORAGE_KEY);
     }

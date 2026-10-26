@@ -495,5 +495,11 @@ export async function openSyncModal() {
 
 export function initSync() {
     document.getElementById('syncDataBtn')?.addEventListener('click', openSyncModal);
+    // Desktop and mobile sign in without reloading the page, so resume the comparison that was waiting on it
+    window.addEventListener('googleAuthSuccess', (e) => {
+        if (e.detail?.state !== 'sync' || modal?.style.display !== 'flex') return;
+        sessionStorage.removeItem(AUTO_AUTH_KEY);
+        start({ interactive: true });
+    });
     refreshSyncStatus();
 }
