@@ -858,6 +858,26 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                         user-select: none;
                         -webkit-user-select: none;
                     }
+                    .url-copy-btn {
+                        background: transparent;
+                        border: none;
+                        color: #94a3b8;
+                        width: 22px;
+                        height: 22px;
+                        border-radius: 4px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        cursor: pointer;
+                        flex-shrink: 0;
+                        padding: 0;
+                        -webkit-app-region: no-drag;
+                        app-region: no-drag;
+                    }
+                    .url-copy-btn:hover {
+                        background: rgba(255, 255, 255, 0.12);
+                        color: #ffffff;
+                    }
                     .icon-btn {
                         background: rgba(255, 255, 255, 0.06);
                         border: 1px solid rgba(255, 255, 255, 0.15);
@@ -1021,6 +1041,9 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                             <div class="url-group" id="url-group" title="${escapeHtml(window.location.href)}" data-tauri-drag-region>
                                 <svg viewBox="0 0 16 16"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.87.21-1.688.508-2.428l-.008-.072H1.36a7.03 7.03 0 0 0 0 5h2.648a10.6 10.6 0 0 1-.508-2.428l.008-.072zm.76 3.5c.29 1.05.7 1.93 1.218 2.54.516.61 1.08.96 1.514 1.037V11H4.268zm4.232 0v3.577c.434-.077.998-.427 1.514-1.037.518-.61.928-1.49 1.218-2.54H8.5zm3.41-3.5a10.6 10.6 0 0 1-.508 2.428l.008.072h2.648a7.03 7.03 0 0 0 0-5h-2.648a10.6 10.6 0 0 1 .508 2.428l-.008.072zm-.178-4.5H9.5V1.077c.67.204 1.335.82 1.887 1.855.22.41.4.85.545 1.068zm.908-1.539A9.267 9.267 0 0 0 11.91 4h1.835a7.025 7.025 0 0 0-3.072-2.467c.18.27.38.58.58.928zM8.5 4h2.355a7.97 7.97 0 0 0-.468-1.068C9.835 1.897 9.17 1.28 8.5 1.077V4zM8.5 5v5h3.04a9.63 9.63 0 0 0 .428-2.5c0-.88-.15-1.72-.428-2.5H8.5zM7.5 5H4.46a9.63 9.63 0 0 0-.428 2.5c0 .88.15 1.72.428 2.5H7.5V5z"/></svg>
                                 <span class="url-text" id="url-text">${escapeHtml(window.location.href)}</span>
+                                <button type="button" class="url-copy-btn" id="btn-copy-url" title="Copy Web Address">
+                                    <svg viewBox="0 0 16 16"><path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/><path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/></svg>
+                                </button>
                             </div>
                         </div>
 
@@ -1147,6 +1170,26 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             shadow.getElementById('btn-back')?.addEventListener('click', () => window.history.back());
             shadow.getElementById('btn-forward')?.addEventListener('click', () => window.history.forward());
             shadow.getElementById('btn-reload')?.addEventListener('click', () => window.location.reload());
+            shadow.getElementById('btn-copy-url')?.addEventListener('click', async (e) => {
+                const btn = e.currentTarget;
+                const text = window.location.href;
+                let copied = false;
+                try {
+                    await navigator.clipboard.writeText(text);
+                    copied = true;
+                } catch (_) {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.style.cssText = 'position:fixed;opacity:0;';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    try { copied = document.execCommand('copy'); } catch (_) {}
+                    ta.remove();
+                }
+                btn.title = copied ? 'Copied!' : 'Copy failed';
+                btn.style.color = copied ? '#4ade80' : '#f87171';
+                setTimeout(() => { btn.title = 'Copy Web Address'; btn.style.color = ''; }, 1500);
+            });
             shadow.getElementById('btn-close')?.addEventListener('click', () => {
                 try {
                     if (window.MajesticDownloaderNative && typeof window.MajesticDownloaderNative.close === 'function') {
