@@ -677,9 +677,13 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                     }
                     .toolbar-root.is-mobile-screen .nav-center.show-fallback {
                         display: flex;
-                        flex: 1 1 auto;
+                        flex: 1 1 0;
                         min-width: 0;
                         padding: 0 4px;
+                    }
+                    /* The URL takes the remaining width; the nav buttons keep their own size instead of being squeezed under it */
+                    .toolbar-root.is-mobile-screen.url-fallback .nav-left {
+                        flex: 0 0 auto;
                     }
                     .toolbar-root.is-mobile-screen .nav-right {
                         gap: 6px;
@@ -1455,6 +1459,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 if (navCenter) {
                     navCenter.classList.toggle('show-fallback', isMobileScreen && !songText);
                 }
+                toolbarRoot.classList.toggle('url-fallback', isMobileScreen && !songText);
 
                 const vv = window.visualViewport;
                 const vvScale = (vv && vv.scale) ? vv.scale : 1.0;
