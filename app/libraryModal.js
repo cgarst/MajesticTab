@@ -672,20 +672,22 @@ async function renderLibraryBrowseView(container) {
     }
 
     // Top Library Body Toolbar (Collection Selector + Mode Selector + Universal Search/Filter + Add Music)
+    const showTuningsBack = libraryBrowseMode === 'tunings' && !selectedTuning;
+    const showToolbarLeft = collections.length > 1 || showTuningsBack;
     const headerHtml = `
     <div class="library-page-container">
-      <div class="library-body-header mb-3 ${collections.length > 1 ? '' : 'no-collections'}">
-        ${collections.length > 1 ? `<!-- Collection Selector (Left) -->
+      <div class="library-body-header mb-3 ${showToolbarLeft ? '' : 'no-collections'}">
+        ${showToolbarLeft ? `<!-- Collection Selector (Left) -->
         <div class="lib-toolbar-left d-flex align-items-center gap-2 flex-wrap">
-          ${libraryBrowseMode === 'tunings' && !selectedTuning ? `
+          ${showTuningsBack ? `
           <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="libTuningsBackBtn" title="Back to Tab Library">
             <i class="bi-chevron-left"></i> <span>Library</span>
           </button>` : ''}
-          <div class="collection-pill-group">
+          ${collections.length > 1 ? `<div class="collection-pill-group">
             <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
               ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
             </select>
-          </div>
+          </div>` : ''}
         </div>` : ''}
 
         <!-- Universal Search & Filter Bar (True Center) -->
