@@ -4,6 +4,7 @@ import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
 import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
+import { gamepadManager } from './gamepadManager.js';
 import { stepSetlist } from '../setlistPlayer.js';
 import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel } from '../youtubePlayer.js';
 
@@ -236,6 +237,13 @@ export function setupKeyboardNavigation(getConfig) {
         if (isMacForward) {
             e.preventDefault();
             performAppForward(getConfig);
+            return;
+        }
+
+        // Z key toggles zen mode (hides the top bar)
+        if ((e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat && !document.body.classList.contains('modal-open')) {
+            e.preventDefault();
+            gamepadManager.toggleTopBar();
             return;
         }
 
