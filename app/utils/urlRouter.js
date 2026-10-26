@@ -3,6 +3,7 @@
 // Supported URL routes:
 // - #library
 // - #recents
+// - #setlists, #openfile, #search (add music)
 // - #tuner
 // - #reference
 // - #reference/circle
@@ -48,7 +49,7 @@ export function updateUrl(main, sub = null, replace = false) {
     if (main === 'reference') {
         const activeSub = sub || getActiveReferenceTab() || 'chords';
         targetHash = `#reference/${activeSub}`;
-    } else if (main === 'library' || main === 'recents' || main === 'tuner') {
+    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'setlists' || main === 'openfile' || main === 'search' || main === 'tunings') {
         targetHash = `#${main}`;
     } else if (!main) {
         targetHash = '';
@@ -96,13 +97,18 @@ export async function navigateToUrlRoute(route, isInitial = false) {
             return true;
         }
 
-        if (route.main === 'library' || route.main === 'recents') {
+        const libraryViews = { library: 'library', recents: 'recents', setlists: 'setlists', openfile: 'openFile', search: 'search', tunings: 'library' };
+        if (libraryViews[route.main]) {
+            const view = libraryViews[route.main];
             closeTunerModal();
             closeReferenceModal();
             if (isLibraryOpen()) {
-                await switchLibraryView(route.main, false);
+                await switchLibraryView(view, false);
             } else {
-                await openLibraryModal(route.main);
+                await openLibraryModal(view);
+            }
+            if (route.main === 'tunings') {
+                document.getElementById('libTuningsBtn')?.click();
             }
             return true;
         }

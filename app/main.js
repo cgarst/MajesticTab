@@ -1255,6 +1255,12 @@ window.addEventListener('DOMContentLoaded', async () => {
             console.log('[Test Mode] Calling loadFile...');
             await loadFile(file);
             console.log('[Test Mode] ✅ Test file loaded successfully');
+            // A deep-link hash (e.g. #recents) should show over the loaded test file
+            const testRoute = getRouteFromUrl();
+            if (testRoute) {
+                const { navigateToUrlRoute } = await import('./utils/urlRouter.js');
+                await navigateToUrlRoute(testRoute, true);
+            }
         } catch (error) {
             console.error('[Test Mode] ❌ Failed to load test file:', error);
             console.error('[Test Mode] Error stack:', error.stack);
