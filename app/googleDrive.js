@@ -244,7 +244,6 @@ export function redirectToGoogleAuth(targetState = 'open_drive_browser', options
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
         `&response_type=token` +
         `&scope=${encodeURIComponent(SCOPE)}` +
-        `&include_granted_scopes=true` +
         `&prompt=select_account` +
         `&state=${encodeURIComponent(targetState)}`;
 

@@ -21,7 +21,7 @@ class GoogleAuthPlugin(private val activity: Activity) : Plugin(activity) {
     @Command
     fun authorize(invoke: Invoke) {
         val request = AuthorizationRequest.builder()
-            .setRequestedScopes(listOf(Scope("https://www.googleapis.com/auth/drive.readonly")))
+            .setRequestedScopes(listOf(Scope("https://www.googleapis.com/auth/drive.file")))
             .build()
 
         Identity.getAuthorizationClient(activity)
