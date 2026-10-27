@@ -1707,13 +1707,16 @@ export function getPdfPages() {
     // The native macOS green button handles fullscreen on macOS.
     // Gamescope / Steam Deck Gaming Mode is dedicated fullscreen.
     // iOS is already a full-screen app shell without windowed mode.
+    // The library view's stylesheet rule forces the pill visible, so also flag the root for it to honor.
     if (root.classList.contains('tauri-gamescope') || isIOSDevice() || (window.__TAURI__ && /Mac/i.test(navigator.platform))) {
         if (btn.parentElement) btn.parentElement.style.display = "none";
+        root.classList.add('fullscreen-unavailable');
         return;
     }
 
     if (!request && !nativeImmersive && !appWindow) {
         if (btn.parentElement) btn.parentElement.style.display = "none";
+        root.classList.add('fullscreen-unavailable');
         return;
     }
 
