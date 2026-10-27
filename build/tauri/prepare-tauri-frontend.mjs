@@ -259,6 +259,10 @@ try {
   } else if (iosBuild) {
     await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
   }
+  const pickerApiKey = (process.env.GOOGLE_PICKER_API_KEY || '').trim();
+  if (pickerApiKey) {
+    await writeFile(path.join(frontendDir, 'pickerKey.local.js'), `export const PICKER_API_KEY = '${pickerApiKey}';\n`);
+  }
   if (!androidBuild && !iosBuild && !desktopSecret) {
     await hideUnavailableDriveOptions();
     console.log('Google Drive hidden: no Desktop OAuth client secret configured.');
