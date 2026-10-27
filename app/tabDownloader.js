@@ -48,6 +48,26 @@ let pendingSourceId = null;
 // Real address of the page in the downloader webview (the bar text can read "Loading...")
 let currentDownloaderUrl = '';
 let pendingSourceTimer = null;
+let loadingBarTimer = null;
+
+/**
+ * Show "Loading <source>..." in the URL bar, falling back to the real address if the
+ * native page-load event never arrives to replace it.
+ * @param {string} sourceName
+ */
+function showLoadingInUrlBar(sourceName) {
+    const urlText = document.getElementById('downloaderUrlText');
+    const urlGroup = document.getElementById('downloaderUrlGroup');
+    const loadingMsg = 'Loading ' + sourceName + '...';
+    if (urlText) urlText.textContent = loadingMsg;
+    if (urlGroup) urlGroup.title = loadingMsg;
+    clearTimeout(loadingBarTimer);
+    loadingBarTimer = setTimeout(() => {
+        if (!currentDownloaderUrl) return;
+        if (urlText && urlText.textContent === loadingMsg) urlText.textContent = currentDownloaderUrl;
+        if (urlGroup && urlGroup.title === loadingMsg) urlGroup.title = currentDownloaderUrl;
+    }, 4000);
+}
 let lastDownloadedTime = 0;
 let lastDownloadedName = '';
 
@@ -648,11 +668,7 @@ export function switchActiveSource(src) {
         });
     }
 
-    const urlText = document.getElementById('downloaderUrlText');
-    const urlGroup = document.getElementById('downloaderUrlGroup');
-    const loadingMsg = 'Loading ' + src.name + '...';
-    if (urlText) urlText.textContent = loadingMsg;
-    if (urlGroup) urlGroup.title = loadingMsg;
+    showLoadingInUrlBar(src.name);
 
     const query = formatSearchQueryForSource(src, activeArtistName, activeSongName) || currentSearchQuery;
     const nextUrl = buildSearchUrl(src, query);
@@ -811,7 +827,10 @@ export function initTauriDownloadListener() {
             const urlText = document.getElementById('downloaderUrlText');
             const urlGroup = document.getElementById('downloaderUrlGroup');
             if (highlightSourceTabForUrl(url) === false) return;
-            if (url) currentDownloaderUrl = url;
+            if (url) {
+                currentDownloaderUrl = url;
+                clearTimeout(loadingBarTimer);
+            }
             if (urlText && url) {
                 urlText.textContent = url;
             }
@@ -895,12 +914,8 @@ export async function openTabDownloader(options = {}) {
     try { window.MajesticDownloaderNative?.setTopInsetPx?.(Math.round(barHeight * (window.devicePixelRatio || 1))); } catch {}
 
     const targetUrl = buildSearchUrl(activeSource, currentSearchQuery);
-    const urlTextEl = document.getElementById('downloaderUrlText');
-    const urlGroupEl = document.getElementById('downloaderUrlGroup');
     currentDownloaderUrl = targetUrl;
-    const loadingText = 'Loading ' + activeSource.name + '...';
-    if (urlTextEl) urlTextEl.textContent = loadingText;
-    if (urlGroupEl) urlGroupEl.title = loadingText;
+    showLoadingInUrlBar(activeSource.name);
 
     const config = {
         activeSourceId: activeSource.id,
