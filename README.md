@@ -209,7 +209,7 @@ Extensions don't travel over Jam. If the host has an extension that converts a f
 
 ## Screenshots
 
-The website screenshots live in the MajesticTab-Support repo. Regenerate them here, then copy the results into its `img/screenshots/`:
+The website screenshots live in the MajesticTab-Support repo. The generator writes straight into `../MajesticTab-Support/img/screenshots/` (clone that repo next to this one, or pass `--out-dir`):
 
 ```bash
 pip install playwright && playwright install chromium

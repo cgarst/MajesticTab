@@ -2,7 +2,8 @@
 """Generate website screenshots of the MajesticTab app using the demo files and user backup.
 
 Serves the repo root on a temporary local port, drives the app with Playwright
-(desktop 1440x900 and mobile 390x844), and writes PNGs to img/screenshots/.
+(desktop 1440x900 and mobile 390x844), and writes PNGs to img/screenshots/ in the sibling MajesticTab-Support repo
+(override with --out-dir).
 
 Usage:
     pip install playwright pillow && playwright install chromium
@@ -19,7 +20,7 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT_DIR = ROOT / "img" / "screenshots"
+OUT_DIR = ROOT.parent / "MajesticTab-Support" / "img" / "screenshots"
 GP_FILE = ROOT / "tests" / "Keystone.gp"
 PDF_FILE = ROOT / "tests" / "Keystone.pdf"
 _BACKUPS = sorted((Path.home() / "Downloads").glob("MajesticTab-backup-*.mtbackup"))
@@ -275,7 +276,11 @@ def main():
     parser.add_argument("--only", nargs="*", help="Only capture these shot names")
     parser.add_argument("--backup-file", default=str(DEFAULT_BACKUP), help="Path to .mtbackup file")
     parser.add_argument("--base-url", default=None, help="Custom base URL (e.g. https://majestictab.zathu.net)")
+    parser.add_argument("--out-dir", default=None, help="Output directory (default: ../MajesticTab-Support/img/screenshots)")
     args = parser.parse_args()
+    if args.out_dir:
+        global OUT_DIR
+        OUT_DIR = Path(args.out_dir).resolve()
 
     try:
         from playwright.sync_api import sync_playwright

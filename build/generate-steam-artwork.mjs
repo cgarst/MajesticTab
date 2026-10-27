@@ -1,5 +1,6 @@
 // Generates Steam Big Picture and Steam Grid artwork assets
-// Output files are prefixed with grid, hero, logo, or icon in img/steam/
+// Output files are prefixed with grid, hero, logo, or icon in img/steam/ of the sibling MajesticTab-Support repo
+// (override with --out-dir <path>)
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -8,7 +9,10 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, '..');
 const sourceSvg = path.join(rootDir, 'icons', 'icon_v2_mystic.svg');
-const outDir = path.join(rootDir, 'img', 'steam');
+const outDirArg = process.argv.indexOf('--out-dir');
+const outDir = outDirArg > -1
+  ? path.resolve(process.argv[outDirArg + 1])
+  : path.join(rootDir, '..', 'MajesticTab-Support', 'img', 'steam');
 
 const require = createRequire(path.join(scriptDir, 'tauri', 'package.json'));
 const { Resvg } = require('@resvg/resvg-js');
