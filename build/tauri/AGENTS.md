@@ -22,15 +22,15 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
   # From build/tauri:
   npm run prepare:frontend
   # Build for Apple Silicon simulator (fast, unoptimized debug):
-  npx tauri ios build --target aarch64-sim --debug --no-sign
+  npx tauri ios build --target aarch64-sim --debug --no-sign --features debug-tools
   # Install the built app bundle into the booted simulator:
   xcrun simctl install booted src-tauri/gen/apple/build/majestictab_iOS.xcarchive/Products/Applications/MajesticTab.app
   # Launch installed app:
   xcrun simctl launch booted net.zathu.majestictab
   # Or run interactive dev mode:
-  npx tauri ios dev "iPhone 17"
+  npx tauri ios dev "iPhone 17" --features debug-tools
   ```
-- **Inspect Simulator WebViews via Safari Web Inspector:**
+- **Inspect Simulator WebViews via Safari Web Inspector** (needs the `debug-tools` feature above; release and App Store builds ship without devtools):
   1. In Safari preferences/settings, ensure **Advanced -> Show features for web developers** (or Develop menu) is enabled.
   2. Open Safari and go to menu **Develop -> iPhone 17 (Simulator) -> MajesticTab** (or the target page title/URL, such as `localhost` or `www.ultimate-guitar.com`).
   3. Once Web Inspector opens, inspect elements, evaluate scripts in the console, view CSS rules, and monitor network requests inside the simulator's WKWebViews.
