@@ -1544,7 +1544,8 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
 
     const supportedFile = isFileType(file, ['pdf', 'gp', 'gp3', 'gp4', 'gp5', 'gpx', 'txt']);
     let fileToLoad = file;
-    if (supportedFile && file instanceof File) {
+    // A file received over Jam was already converted by the host's extensions.
+    if (supportedFile && file instanceof File && !file.jamSongId) {
         try {
             showProgress(progressContainer, progressBar);
             fileToLoad = await applyFileAdapters(file);
@@ -1575,7 +1576,7 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
         navButtons.style.display = 'none';
         modeButtons.style.display = 'none';
     }
-    window.dispatchEvent(new CustomEvent('majestictab:file-loaded', { detail: { file } }));
+    window.dispatchEvent(new CustomEvent('majestictab:file-loaded', { detail: { file, converted: fileToLoad } }));
 }
 
 // --- RESET FUNCTION ---

@@ -11,7 +11,6 @@ import { createYouTubeClient } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor, reloadSynthSoundFonts } from '../gpProcessor/gpPlayer.js';
 import { setSessionSoundFonts } from '../soundFontStore.js';
 import { jamYouTubeControl } from '../youtubePlayer.js';
-import { setSessionExtensions } from '../fileAdapters.js';
 import { base64ToArrayBuffer, arrayBufferToBase64Async } from '../fileStore.js';
 
 const PING_BURST = 10;
@@ -441,7 +440,6 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         trackState = state;
         applyTracks();
         hostSong = state.song || null;
-        setSessionExtensions(state.extensions);
         jamPlayerControl.setHostMixer(state.mixer || {});
         syncSoundFonts(state.soundFonts);
         youtube.apply(state.youtube, hostTs);
@@ -573,7 +571,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                 break;
             case MSG.SONG_OPEN:
                 hostSong = msg.song;
-                if (following) { setSessionExtensions(msg.extensions); jamPlayerControl.setHostMixer({}); }
+                if (following) jamPlayerControl.setHostMixer({});
                 pendingTransport = null;
                 lastDriftMs = null;
                 lastRawDriftMs = null;
@@ -702,7 +700,6 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         stop() {
             active = false;
             applyMute(false);
-            setSessionExtensions([]);
             releaseHostAudioSettings();
             fontCache.clear();
             trackState = null;
