@@ -1114,7 +1114,7 @@ async function checkNativeOpenedFiles() {
 }
 
 // --- INITIALIZATION ---
-window.addEventListener('DOMContentLoaded', async () => {
+async function initApp() {
     // Debug: Always log that we're starting
     console.log('[App Init] DOMContentLoaded fired');
     console.log('[App Init] Current URL:', window.location.href);
@@ -1297,7 +1297,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupViewModeToggles(pageModeRadio, continuousModeRadio, getNavigationConfig);
     setupTapClickNavigation(output, getNavigationConfig);
     setupPageScrubber(pageIndicator, getNavigationConfig);
-});
+}
+
+// Modules with top-level await (channel.js) can finish evaluating after DOMContentLoaded has fired.
+if (document.readyState === 'loading') {
+    window.addEventListener('DOMContentLoaded', initApp);
+} else {
+    initApp();
+}
 
 // --- LOAD PDF ---
 let pdfLoadingProcessing = null;
