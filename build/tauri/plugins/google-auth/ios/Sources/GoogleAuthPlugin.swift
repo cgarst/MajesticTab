@@ -24,7 +24,7 @@ class GoogleAuthPlugin: Plugin, ASWebAuthenticationPresentationContextProviding 
     private var authSession: ASWebAuthenticationSession?
     private let clientId = "1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p.apps.googleusercontent.com"
     private let callbackScheme = "com.googleusercontent.apps.1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p"
-    private let scope = "https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file"
+    private let scope = "https://www.googleapis.com/auth/drive.file"
 
     @objc public func authorize(_ invoke: Invoke) {
         guard let codeVerifier = generateCodeVerifier(),
