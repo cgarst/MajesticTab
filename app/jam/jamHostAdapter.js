@@ -8,6 +8,7 @@ import { MSG, makeMessage, songTypeForName, isGpSong, chunkBase64, JAM_MAX_UPLOA
 import { nowMs, jam } from './jamTransport.js';
 import { computeLeadMs } from './jamClock.js';
 import { jamSongId, songTitleFromName, startLag, measureStartLag, waitForPlayerReady, estimateOutputLatencyMs, trackPolicyFor } from './jamCommon.js';
+import { normAudioMode, normListening } from './jamTrackPolicy.js';
 import { createYouTubeHost } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor, getMixerSnapshot, onMixerChange } from '../gpProcessor/gpPlayer.js';
 import { describeActiveSoundFonts, getSoundFontData, onSoundFontSelectionChange } from '../soundFontStore.js';
@@ -22,7 +23,6 @@ const SOUNDFONT_BROADCAST_MS = 700;
 // Raw bytes per SoundFont part: a multiple of 3 so each part's base64 is exactly JAM_CHUNK_B64_CHARS.
 const SOUNDFONT_PART_BYTES = 384 * 1024;
 
-const normAudioMode = (m) => (m === 'assigned' || m === 'backing' ? m : 'all');
 
 export function createHostAdapter({ loadFile, ui, getSettings }) {
     const roster = new Map(); // id -> { id, name, ready, rttMs, driftMs, status }
@@ -36,7 +36,10 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         trackAssignments: {}, // peer id or 'host' -> track indices
         assignedAudioMode: 'all', // 'all' | 'assigned' (own tracks only) | 'backing' (everything but own tracks)
         assignedViewOnly: false,
-        muteAssignedForUnassigned: false
+        listeners: [], // people the host marked Listening (no tracks, on purpose); everyone else without tracks is unrestricted
+        listeningHears: 'all', // 'all' | 'backing' (not the tracks assigned to others)
+        listeningSees: 'all', // 'all' | 'backing'
+        newJoinerDefault: 'unset' // 'unset' | 'listening'
     };
     let unsubscribe = null;
     let unsubscribeMixer = null;
@@ -140,7 +143,9 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         trackAssignments: session.trackAssignments,
         assignedAudioMode: session.assignedAudioMode,
         assignedViewOnly: session.assignedViewOnly,
-        muteAssignedForUnassigned: session.muteAssignedForUnassigned
+        listeners: session.listeners,
+        listeningHears: session.listeningHears,
+        listeningSees: session.listeningSees
     });
 
     const applyOwnTracks = () => jamPlayerControl.setTrackPolicy(trackPolicyFor(session, 'host'));
@@ -149,7 +154,9 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         if (patch.trackAssignments) session.trackAssignments = patch.trackAssignments;
         if (patch.assignedAudioMode !== undefined) session.assignedAudioMode = normAudioMode(patch.assignedAudioMode);
         if (patch.assignedViewOnly !== undefined) session.assignedViewOnly = Boolean(patch.assignedViewOnly);
-        if (patch.muteAssignedForUnassigned !== undefined) session.muteAssignedForUnassigned = Boolean(patch.muteAssignedForUnassigned);
+        if (patch.listeningHears !== undefined) session.listeningHears = normListening(patch.listeningHears);
+        if (patch.listeningSees !== undefined) session.listeningSees = normListening(patch.listeningSees);
+        if (patch.newJoinerDefault !== undefined) session.newJoinerDefault = patch.newJoinerDefault === 'listening' ? 'listening' : 'unset';
         applyOwnTracks();
         broadcast(MSG.TRACK_ASSIGN, trackState());
         emitRoster();
@@ -158,6 +165,17 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     function setTrackAssignment(key, indices) {
         const next = { ...session.trackAssignments };
         if (indices.length) next[key] = indices; else delete next[key];
+        // Taking a track makes someone a player; clearing the last one leaves them Not set.
+        session.listeners = session.listeners.filter((k) => k !== key);
+        updateTracks({ trackAssignments: next });
+    }
+
+    /** Marks a person Listening (clearing their tracks), or back to Not set. */
+    function setListening(key, on) {
+        const next = { ...session.trackAssignments };
+        delete next[key];
+        session.listeners = session.listeners.filter((k) => k !== key);
+        if (on) session.listeners.push(key);
         updateTracks({ trackAssignments: next });
     }
 
@@ -540,10 +558,12 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     function handlePeers(info) {
         if (info.event === 'joined') {
             roster.set(info.id, { id: info.id, name: info.name, ready: !session.song, rttMs: 0, driftMs: null, status: 'joined' });
+            if (session.newJoinerDefault === 'listening') session.listeners.push(info.id);
             sendTo(info.id, MSG.STATE, { state: sessionState() });
+            if (session.listeners.includes(info.id)) broadcast(MSG.TRACK_ASSIGN, trackState());
         } else if (info.event === 'left') {
             roster.delete(info.id);
-            if (session.trackAssignments[info.id]) setTrackAssignment(info.id, []);
+            if (session.trackAssignments[info.id] || session.listeners.includes(info.id)) setTrackAssignment(info.id, []);
             uploads.delete(info.id);
             pendingRequests.delete(info.id);
             ui.onRequestsChanged?.(Array.from(pendingRequests.values()));
@@ -568,7 +588,10 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             session.muteGuests = Boolean(getSettings().muteGuests);
             session.assignedAudioMode = normAudioMode(getSettings().assignedAudioMode);
             session.assignedViewOnly = Boolean(getSettings().assignedViewOnly);
-            session.muteAssignedForUnassigned = Boolean(getSettings().muteAssignedForUnassigned);
+            session.listeningHears = normListening(getSettings().listeningHears);
+            session.listeningSees = normListening(getSettings().listeningSees);
+            session.newJoinerDefault = getSettings().newJoinerDefault === 'listening' ? 'listening' : 'unset';
+            session.listeners = [];
             unsubscribe = onTransportEvent(onPlayerEvent);
             unsubscribeMixer = onMixerChange(scheduleMixerBroadcast);
             unsubscribeSoundFonts = onSoundFontSelectionChange(scheduleSoundFontBroadcast);
@@ -606,6 +629,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             session.playing = false;
             session.controllerId = null;
             session.trackAssignments = {};
+            session.listeners = [];
             applyOwnTracks();
             ui.onRequestsChanged?.([]);
         },
@@ -617,6 +641,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         setPolicy,
         setMuteGuests,
         setTrackAssignment,
+        setListening,
         updateTracks,
         kick: (id) => jam.hostKick(id),
         getRoster: () => Array.from(roster.values()),
