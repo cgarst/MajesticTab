@@ -11,7 +11,7 @@ export const SUPPORTER_FEATURES = ['themes', 'sheetModes', 'jamHost', 'setlists'
 
 const FULL = {
   tabDownloader: 'google-only', // 'google-only' | 'off'
-  userscripts: false, // ships the userscript editor; userscripts restored from a backup run regardless
+  userscripts: true, // ships the userscript editor; store builds turn it off (restored backups' userscripts run regardless)
   extensions: 'full', // 'full' | 'off'
   selfUpdate: true,
   googleDrive: true,
@@ -36,7 +36,7 @@ const APPLE_STORE = { storeName: 'the App Store', supporterManageUrl: 'https://r
 const PLAY_STORE = { storeName: 'Google Play', supporterManageUrl: 'market://details?id=net.zathu.majestictab' };
 const MS_STORE = { storeName: 'Microsoft Store', supporterManageUrl: 'ms-windows-store://pdp/?productid=9P7MB2C84CFV' };
 
-const STORE_DOWNLOADER = { selfUpdate: false };
+const STORE_DOWNLOADER = { selfUpdate: false, userscripts: false };
 
 export const channels = {
   direct: {
