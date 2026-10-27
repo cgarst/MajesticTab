@@ -449,6 +449,36 @@ fn setup_macos_mouse_navigation(app_handle: tauri::AppHandle) {
     }
 }
 
+/// Serves the extension sandbox frame from its own URI scheme so the frame's CSP is set here, not
+/// inherited from (or merged with) the app's. Only these two bundled files are served.
+fn extension_sandbox_response(
+    request: tauri::http::Request<Vec<u8>>,
+) -> tauri::http::Response<Vec<u8>> {
+    const CSP: &str = "default-src 'none'; script-src 'self' mtsandbox: 'unsafe-eval'; worker-src blob:";
+    let (content_type, body): (&str, &str) = match request.uri().path() {
+        "/extensionSandbox/frame.html" => (
+            "text/html; charset=utf-8",
+            include_str!("../../../../app/extensionSandbox/frame.html"),
+        ),
+        "/extensionSandbox/frame.js" => (
+            "text/javascript; charset=utf-8",
+            include_str!("../../../../app/extensionSandbox/frame.js"),
+        ),
+        _ => {
+            return tauri::http::Response::builder()
+                .status(404)
+                .body(Vec::new())
+                .unwrap();
+        }
+    };
+    tauri::http::Response::builder()
+        .header("Content-Type", content_type)
+        .header("Content-Security-Policy", CSP)
+        .header("Cache-Control", "no-store")
+        .body(body.as_bytes().to_vec())
+        .unwrap()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     #[cfg(target_os = "linux")]
@@ -476,6 +506,7 @@ pub fn run() {
         .manage(OpenedFilesState(Mutex::new(initial_files)))
         .manage(tab_downloader_native::TabDownloaderState::default())
         .manage(jam::JamState::default())
+        .register_uri_scheme_protocol("mtsandbox", |_ctx, request| extension_sandbox_response(request))
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_oauth::init())
