@@ -155,6 +155,17 @@ export function clearStoredToken({ all = false } = {}) {
     token = null;
 }
 
+/** True when a Google account is linked (a live access token, or a refresh token that can renew one). */
+export function isGoogleDriveConnected() {
+    return isTokenValid() || Boolean(readStoredAuth()?.refresh_token);
+}
+
+/** Forgets the linked Google account on this device. */
+export function disconnectGoogleDrive() {
+    clearStoredToken({ all: true });
+    window.dispatchEvent(new CustomEvent('googleAuthChanged'));
+}
+
 function getRedirectUri() {
     return window.location.origin + window.location.pathname;
 }

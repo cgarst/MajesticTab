@@ -239,7 +239,7 @@ export const GoogleDriveFileProvider = {
     iconColorClass: 'text-danger',
     description: 'Save or load tab files and backups directly to your Google Drive account',
     badge: 'Cloud',
-    actionLabel: 'Connect & Open',
+    actionLabel: 'Connect and Open',
     async open(options = {}) {
         await ensureFreshToken();
         if (isTokenValid()) {
