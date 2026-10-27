@@ -41,8 +41,6 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         assignedViewOnly: false,
         listeners: [], // people the host marked Listening (no tracks, on purpose); everyone else without tracks is unrestricted
         listeningHears: 'all', // 'all' | 'backing' (not the tracks assigned to others)
-        listeningSees: 'all', // 'all' | 'backing'
-        newJoinerDefault: 'unset' // 'unset' | 'listening'
     };
     let unsubscribe = null;
     let unsubscribeMixer = null;
@@ -149,7 +147,6 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         assignedViewOnly: session.assignedViewOnly,
         listeners: session.listeners,
         listeningHears: session.listeningHears,
-        listeningSees: session.listeningSees
     });
 
     const applyOwnTracks = () => jamPlayerControl.setTrackPolicy(trackPolicyFor(session, 'host'));
@@ -159,8 +156,6 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         if (patch.assignedAudioMode !== undefined) session.assignedAudioMode = normAudioMode(patch.assignedAudioMode);
         if (patch.assignedViewOnly !== undefined) session.assignedViewOnly = Boolean(patch.assignedViewOnly);
         if (patch.listeningHears !== undefined) session.listeningHears = normListening(patch.listeningHears);
-        if (patch.listeningSees !== undefined) session.listeningSees = normListening(patch.listeningSees);
-        if (patch.newJoinerDefault !== undefined) session.newJoinerDefault = patch.newJoinerDefault === 'listening' ? 'listening' : 'unset';
         applyOwnTracks();
         broadcast(MSG.TRACK_ASSIGN, trackState());
         emitRoster();
@@ -567,7 +562,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
                 departedAliases.delete(info.name);
                 sendTo(info.id, MSG.RENAME, { name: aliases.get(info.id) });
             }
-            if (session.newJoinerDefault === 'listening') session.listeners.push(info.id);
+            session.listeners.push(info.id); // new people listen until the host gives them tracks
             sendTo(info.id, MSG.STATE, { state: sessionState() });
             if (session.listeners.includes(info.id)) broadcast(MSG.TRACK_ASSIGN, trackState());
         } else if (info.event === 'left') {
@@ -601,8 +596,6 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             session.assignedAudioMode = normAudioMode(getSettings().assignedAudioMode);
             session.assignedViewOnly = Boolean(getSettings().assignedViewOnly);
             session.listeningHears = normListening(getSettings().listeningHears);
-            session.listeningSees = normListening(getSettings().listeningSees);
-            session.newJoinerDefault = getSettings().newJoinerDefault === 'listening' ? 'listening' : 'unset';
             session.listeners = [];
             unsubscribe = onTransportEvent(onPlayerEvent);
             unsubscribeMixer = onMixerChange(scheduleMixerBroadcast);

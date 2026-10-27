@@ -97,7 +97,6 @@ const effectiveVolume = () => (jamMuted ? 0 : synthPlayerState.masterVolume);
 let jamAudioTracks = null; // Jam host assigned this device track indices: only those are audible
 let jamMuteTracks = null; // Jam host: tracks assigned to others, silenced on this unassigned device
 let jamViewTracks = null; // Jam host assigned this device track indices: only those are shown
-let jamViewHide = null; // Jam host: tracks assigned to others, hidden on this listening device
 let jamPrevViewTracks = null; // tracks that were visible before the Jam view restriction
 let warmingUp = false; // muted Jam Mode warm-up play in progress; player events are suppressed
 
@@ -410,8 +409,7 @@ export function toggleSynthNoGuitars() {
 export function reapplyJamTrackView() {
     const api = currentApi;
     if (!api?.score?.tracks) return;
-    const wanted = jamViewTracks || (jamViewHide ? api.score.tracks.map((_, i) => i).filter(i => !jamViewHide.includes(i)) : []);
-    const valid = wanted.filter(i => api.score.tracks[i]);
+    const valid = (jamViewTracks || []).filter(i => api.score.tracks[i]);
     if (valid.length) {
         if (!jamPrevViewTracks) jamPrevViewTracks = (api.tracks || []).map(t => t.index);
         applyGpTrackSelection(valid);
@@ -2437,12 +2435,11 @@ export const jamPlayerControl = {
     /** Jam client: follow the host's per-track mix (see getMixerSnapshot), or null to hand the mixer back. */
     setHostMixer,
     /** Jam track assignment: `audio` / `view` are index arrays, or null for no restriction. */
-    setTrackPolicy({ audio = null, view = null, mute = null, viewHide = null } = {}) {
+    setTrackPolicy({ audio = null, view = null, mute = null } = {}) {
         const norm = (a) => (Array.isArray(a) && a.length ? a : null);
         jamAudioTracks = norm(audio);
         jamViewTracks = norm(view);
         jamMuteTracks = norm(mute);
-        jamViewHide = norm(viewHide);
         if (!currentApi) return;
         applySynthTrackMode();
         reapplyJamTrackView();

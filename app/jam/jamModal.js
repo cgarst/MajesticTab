@@ -187,7 +187,7 @@ export function createJamModal(manager, { updateSetting }) {
         const hears = policy.audio ? `${names(policy.audio)} only`
             : policy.mute ? (trackStateFor(session, key) === 'assigned' ? `everything but ${names(policy.mute)}` : 'only the backing')
             : 'everything';
-        const sees = policy.view ? `${names(policy.view)} only` : policy.viewHide ? 'only the backing' : 'all tracks';
+        const sees = policy.view ? `${names(policy.view)} only` : 'all tracks';
         return `Sees ${sees} · hears ${hears}`;
     }
 
@@ -204,7 +204,7 @@ export function createJamModal(manager, { updateSetting }) {
         const unsetCount = roster.filter((p) => trackStateFor(session, p.id) === 'unset').length;
         return `
         <div class="jam-label">Track assignments</div>
-        <div class="jam-help mb-2">Give each person tracks, or mark them Listening. People who are neither are Not set and get everything.${unsetCount ? ` ${unsetCount} ${unsetCount === 1 ? 'person is' : 'people are'} Not set.` : ''}</div>
+        <div class="jam-help mb-2">Give each person tracks, or mark them Listening. New people start as Listening.${unsetCount ? ` ${unsetCount} ${unsetCount === 1 ? 'person is' : 'people are'} Not set.` : ''}</div>
         <div class="jam-matrix-wrap mb-3">
           <div class="jam-matrix" style="--jam-cols:${tracks.length + 1}">
             <span></span>
@@ -233,11 +233,6 @@ export function createJamModal(manager, { updateSetting }) {
           ${pillGroup('Sees', 'assignedViewOnly', settings.assignedViewOnly ? 'own' : 'all', [['all', 'All tracks'], ['own', 'Own tracks only']])}
           <div class="jam-label mt-2">Rules for people who are Listening</div>
           ${pillGroup('Hears', 'listeningHears', normListening(settings.listeningHears), [['all', 'Everything'], ['backing', 'Only the backing']])}
-          ${pillGroup('Sees', 'listeningSees', normListening(settings.listeningSees), [['all', 'All tracks'], ['backing', 'Only the backing']])}
-          <div class="jam-label mt-2">New people start as</div>
-          <div class="hud-pill-group jam-tab-group" role="group" aria-label="New people start as">
-            ${[['unset', 'Not set'], ['listening', 'Listening']].map(([value, text]) => `<button type="button" class="btn btn-sm ${(settings.newJoinerDefault || 'unset') === value ? 'active' : ''}" data-jam-rule="newJoinerDefault" data-jam-value="${value}">${text}</button>`).join('')}
-          </div>
         </div>
         <div class="jam-help mb-3">The backing is every track nobody has.${anyTaken ? '' : ' Listening rules do nothing until a track is assigned.'} Only ${instrument} tracks can be assigned. Assignments reset when the song changes; Listening stays.</div>`;
     }
