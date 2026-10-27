@@ -96,15 +96,15 @@ function requireHost(expected, name) {
   }
 }
 
-// makeappx.exe ships with the Windows SDK, which windows-latest runners include.
-async function findMakeAppx() {
+// makeappx.exe and makepri.exe ship with the Windows SDK, which windows-latest runners include.
+async function findWindowsSdkTool(exeName) {
   const binRoot = path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Windows Kits', '10', 'bin');
   const versions = (await readdir(binRoot).catch(() => [])).filter((name) => /^10\./.test(name)).sort();
   for (const version of versions.reverse()) {
-    const candidate = path.join(binRoot, version, 'x64', 'makeappx.exe');
+    const candidate = path.join(binRoot, version, 'x64', exeName);
     if (await stat(candidate).catch(() => null)) return candidate;
   }
-  return fail('makeappx.exe not found. Install the Windows 10/11 SDK.');
+  return fail(`${exeName} not found. Install the Windows 10/11 SDK.`);
 }
 
 async function findApk(directory) {
@@ -543,7 +543,8 @@ if (target === 'android') {
   };
   const missing = Object.entries(identity).filter(([, value]) => !value).map(([key]) => `MSSTORE_${key}`);
   if (missing.length > 0) fail(`The msstore channel needs ${missing.join(', ')} (Partner Center, Product identity).`);
-  const makeappx = await findMakeAppx();
+  const makeappx = await findWindowsSdkTool('makeappx.exe');
+  const makepri = await findWindowsSdkTool('makepri.exe');
   const version = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
   if (!/^\d+\.\d+\.\d+$/.test(version)) fail(`Cannot make an MSIX version from "${version}".`);
   run('npm', ['run', 'tauri', '--', 'build', '--no-bundle']);
@@ -556,15 +557,22 @@ if (target === 'android') {
   for (const [size, name] of [[44, 'Square44x44Logo'], [50, 'StoreLogo'], [150, 'Square150x150Logo']]) {
     await cp(path.join(iconDir, `${size}x${size}.png`), path.join(layout, 'Assets', `${name}.png`));
   }
-  // Unplated variants keep Windows from drawing the accent-color plate behind the taskbar icon.
+  // Target-size and unplated variants (dark + light taskbar) keep Windows from drawing the accent-color plate.
   for (const size of [16, 24, 32, 48, 256]) {
-    await cp(path.join(iconDir, `${size}x${size}.png`), path.join(layout, 'Assets', `Square44x44Logo.targetsize-${size}_altform-unplated.png`));
+    for (const suffix of ['', '_altform-unplated', '_altform-lightunplated']) {
+      await cp(path.join(iconDir, `${size}x${size}.png`), path.join(layout, 'Assets', `Square44x44Logo.targetsize-${size}${suffix}.png`));
+    }
   }
   // The Store requires a four-part version whose last part is 0.
   const tokens = { ...identity, VERSION: `${version}.0` };
   const manifest = (await readFile(path.join(tauriDir, 'msix', 'AppxManifest.xml'), 'utf8'))
     .replace(/\{\{(\w+)\}\}/g, (_, key) => String(tokens[key]).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'));
-  await writeFile(path.join(layout, 'AppxManifest.xml'), manifest);
+  const manifestPath = path.join(layout, 'AppxManifest.xml');
+  await writeFile(manifestPath, manifest);
+  // Windows only resolves targetsize / altform-unplated asset qualifiers when indexed in resources.pri.
+  const priConfig = path.join(tauriDir, 'target', 'msix-priconfig.xml');
+  run(makepri, ['createconfig', '/cf', priConfig, '/dq', 'en-US', '/pv', '10.0.0', '/o'], { shell: false });
+  run(makepri, ['new', '/pr', layout, '/cf', priConfig, '/mn', manifestPath, '/of', path.join(layout, 'resources.pri'), '/o'], { shell: false });
   const msix = path.join(distDir, 'MajesticTab-msstore.msix');
   await rm(msix, { force: true });
   run(makeappx, ['pack', '/o', '/d', layout, '/p', msix], { shell: false });
