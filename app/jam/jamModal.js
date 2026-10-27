@@ -14,7 +14,7 @@ const WEB_SCHEME = 'http:';
 const QR_SCRIPT_URL = 'https://cdn.jsdelivr.net/npm/qrcode-generator@2.0.4/dist/qrcode.js';
 
 const POLICY_LABELS = { host: 'Host only', ask: 'Ask me', anyone: 'Anyone' };
-const PEER_STATUS_LABELS = { joined: 'Joined', loading: 'Loading', synced: 'Ready', idle: 'Waiting for song', detached: 'Detached', error: 'Error' };
+const PEER_STATUS_LABELS = { joined: 'Joined', loading: 'Loading', synced: 'Finishing up', idle: 'Waiting for song', detached: 'Detached', error: 'Error' };
 
 function esc(value) {
     return String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
