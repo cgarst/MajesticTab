@@ -2,6 +2,7 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { transform } from 'esbuild';
 import { DEFAULT_CHANNEL, resolveChannel } from '../channels.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -11,6 +12,7 @@ const frontendDir = path.join(scriptDir, 'frontend-dist');
 const nodeModulesDir = path.join(scriptDir, 'node_modules');
 const androidBuild = process.argv.includes('--android');
 const iosBuild = process.argv.includes('--ios');
+const skipMinify = process.argv.includes('--no-minify') || process.env.MAJESTICTAB_NO_MINIFY === '1';
 
 const assets = [
   ['bootstrap/dist/css/bootstrap.min.css', 'vendor/bootstrap/dist/css/bootstrap.min.css'],
@@ -96,6 +98,7 @@ const allowedRemoteHosts = new Set([
   'classtab.org',
   'www.classtab.org',
   'google.com',
+  'majestictab.zathu.net',
   'www.google.com',
 ]);
 
@@ -254,6 +257,25 @@ async function hideUnavailableDriveOptions() {
   await writeFile(indexPath, indexHtml);
 }
 
+async function minifyAppScripts(directory) {
+  let count = 0;
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === 'vendor') continue;
+      count += await minifyAppScripts(entryPath);
+    } else if (/\.js$/i.test(entry.name)) {
+      const source = await readFile(entryPath, 'utf8');
+      // Properties are never mangled: AlphaTab's minified fields are accessed by name.
+      const { code } = await transform(source, { minify: true, format: 'esm', target: 'es2022', legalComments: 'none' });
+      await writeFile(entryPath, code);
+      count++;
+    }
+  }
+  return count;
+}
+
 try {
   await rm(frontendDir, { recursive: true, force: true });
   await cp(sourceDir, frontendDir, { recursive: true });
@@ -285,6 +307,9 @@ try {
     throw new Error('No CDN asset references were rewritten; check the asset mappings.');
   }
   await validateRemoteUrls(frontendDir);
+  if (!skipMinify) {
+    console.log(`Minified ${await minifyAppScripts(frontendDir)} app scripts.`);
+  }
   console.log(`Prepared Tauri frontend with local assets (${replacementCount} CDN references rewritten).`);
 } catch (error) {
   console.error(error.message);
