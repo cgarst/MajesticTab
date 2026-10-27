@@ -1424,7 +1424,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <!-- Single file: filename -->
           <div class="mb-3" id="backupFilenameGroup">
             <label class="form-label small fw-semibold text-white-50 mb-1" for="backupFilenameInput">Filename:</label>
-            <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="backupFilenameInput" value="${escapeHtml(defaultFilename)}">
+            <input type="text" class="form-control form-control-sm" id="backupFilenameInput" value="${escapeHtml(defaultFilename)}">
           </div>
 
           <!-- Incremental: what this backup will do -->
