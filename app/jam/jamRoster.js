@@ -24,3 +24,16 @@ export function resolveNames(peers, aliases) {
         return { ...p, originalName: p.name, name: shown };
     });
 }
+
+/** A recognizable default name for a browser guest, from its user agent. */
+export function guestNameFromUserAgent(ua) {
+    const s = String(ua || '');
+    if (/iPhone/.test(s)) return 'iPhone';
+    if (/iPad/.test(s)) return 'iPad';
+    if (/Android/.test(s)) return /Mobile/.test(s) ? 'Android phone' : 'Android tablet';
+    if (/CrOS/.test(s)) return 'Chromebook';
+    if (/Windows/.test(s)) return 'Windows PC';
+    if (/Macintosh|Mac OS X/.test(s)) return 'Mac';
+    if (/Linux/.test(s)) return 'Linux PC';
+    return 'Guest';
+}
