@@ -101,7 +101,7 @@ async fn open_tab_downloader(
     }
 
     let _ = downloader.navigate(parsed_url);
-    tab_downloader_native::schedule_toolbar_injection(&app);
+    tab_downloader_native::schedule_userscript_injection(&app);
     let _ = downloader.show();
 
     #[cfg(target_os = "macos")]
@@ -189,7 +189,7 @@ async fn open_tab_downloader(
                 let _ = existing.set_focus();
             }
             let _ = existing.navigate(parsed_url);
-            tab_downloader_native::schedule_toolbar_injection(&app);
+            tab_downloader_native::schedule_userscript_injection(&app);
             return Ok(());
         }
     }
@@ -234,7 +234,7 @@ async fn open_tab_downloader(
         if s.starts_with("http://") || s.starts_with("https://") {
             let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
         }
-        tab_downloader_native::schedule_toolbar_injection(&app_handle_for_load);
+        tab_downloader_native::schedule_userscript_injection(&app_handle_for_load);
     });
 
     let app_handle = app.clone();
@@ -583,7 +583,6 @@ pub fn run() {
         tab_downloader_native::tab_downloader_nav,
         tab_downloader_native::tab_downloader_hide,
         tab_downloader_native::tab_downloader_set_visible,
-        tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
         youtube_search,
@@ -616,7 +615,6 @@ pub fn run() {
         tab_downloader_native::tab_downloader_nav,
         tab_downloader_native::tab_downloader_hide,
         tab_downloader_native::tab_downloader_set_visible,
-        tab_downloader_native::tab_downloader_eval,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
         youtube_search,

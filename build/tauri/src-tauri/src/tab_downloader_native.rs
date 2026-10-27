@@ -8,7 +8,6 @@ use objc2_web_kit::WKWebView;
 
 use crate::DownloadedTabPayload;
 
-#[allow(dead_code)]
 pub const DOWNLOADER_LABEL: &str = "tab-downloader";
 
 pub const DESKTOP_USER_AGENT: &str =
@@ -415,25 +414,18 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
 })();"#;
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub struct DownloadChunkState {
     pub name: String,
-    pub total: usize,
     pub chunks: Vec<Option<String>>,
 }
 
 #[derive(Default)]
-#[allow(dead_code)]
 pub struct TabDownloaderState {
-    pub current_url: Mutex<Option<String>>,
     pub active_userscript: Mutex<Option<String>>,
     pub current_config: Mutex<Option<TabDownloaderConfig>>,
     pub is_open: Mutex<bool>,
     pub is_visible: Mutex<bool>,
     pub top_offset: Mutex<f64>,
-    pub last_bounds: Mutex<Option<(i32, i32, u32, u32, bool)>>,
-    pub pending_downloads: Mutex<std::collections::HashMap<String, std::path::PathBuf>>,
-    pub last_destination: Mutex<Option<std::path::PathBuf>>,
     pub download_chunks: Mutex<std::collections::HashMap<String, DownloadChunkState>>,
 }
 
@@ -539,7 +531,7 @@ pub fn wrap_userscript(raw_js: &str, config: Option<&TabDownloaderConfig>) -> St
     )
 }
 
-pub fn schedule_toolbar_injection(app_handle: &AppHandle) {
+pub fn schedule_userscript_injection(app_handle: &AppHandle) {
     if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
         let js_opt = state.active_userscript.lock().ok().and_then(|g| g.clone());
         let cfg_opt = state.current_config.lock().ok().and_then(|g| g.clone());
@@ -675,7 +667,6 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             if let Ok(mut lock) = state.download_chunks.lock() {
                 let entry = lock.entry(id.clone()).or_insert_with(|| DownloadChunkState {
                     name: name.clone(),
-                    total,
                     chunks: vec![None; total],
                 });
                 if idx < entry.chunks.len() {
@@ -827,7 +818,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
                 }
             }
         }
-        schedule_toolbar_injection(app_handle);
+        schedule_userscript_injection(app_handle);
     }
 
     true
@@ -936,7 +927,7 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
         if s.starts_with("http://") || s.starts_with("https://") {
             let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
         }
-        schedule_toolbar_injection(&app_handle_for_load);
+        schedule_userscript_injection(&app_handle_for_load);
     });
 
     builder = builder.on_download(move |_webview, event| {
@@ -1199,7 +1190,7 @@ pub fn tab_downloader_navigate(
     } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
         let _ = w.navigate(parsed_url);
     }
-    schedule_toolbar_injection(&app);
+    schedule_userscript_injection(&app);
     Ok(())
 }
 
@@ -1245,16 +1236,6 @@ pub fn tab_downloader_hide(app: AppHandle, state: State<'_, TabDownloaderState>)
 
     hide_downloader(&app);
     let _ = app.emit("tab-downloader-closed", ());
-    Ok(())
-}
-
-#[tauri::command]
-pub fn tab_downloader_eval(app: AppHandle, script: String) -> Result<(), String> {
-    if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
-        let _ = w.eval(&script);
-    } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
-        let _ = w.eval(&script);
-    }
     Ok(())
 }
 
@@ -1339,7 +1320,6 @@ mod tests {
 
         let mut entry = DownloadChunkState {
             name: "Haken - Nil By Mouth.gp".to_string(),
-            total,
             chunks: vec![None; total],
         };
 
