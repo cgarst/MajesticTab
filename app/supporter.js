@@ -137,7 +137,7 @@ function ensureModal() {
           </button>
         </header>
         <div class="theme-modal-body d-flex flex-column gap-3">
-          <p class="small text-white-50 mb-0">MajesticTab is free and open source. Supporter is a one-time purchase that covers the cost of keeping it on this store, with no subscription. It unlocks:</p>
+          <p class="small text-white-50 mb-0">MajesticTab is free to use. Supporter is a one-time purchase that covers the cost of keeping it on this store, with no subscription. It unlocks:</p>
           <ul class="supporter-feature-list small text-white mb-0">
             ${Object.values(FEATURE_LABELS).map((label) => `<li><i class="bi-check2 me-2"></i>${label}</li>`).join('')}
           </ul>

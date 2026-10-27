@@ -2,7 +2,8 @@
 name = "majestictab"
 version = "1.0.0"
 description = "Guitar tab viewer"
-authors = ["MajesticTab contributors"]
+authors = ["Corey Garst"]
+publish = false
 edition = "2021"
 
 [features]

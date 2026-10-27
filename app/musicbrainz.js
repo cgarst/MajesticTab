@@ -2,7 +2,7 @@
 // MusicBrainz API & Cover Art Archive client with rate limiting, US release preference, and client caching.
 
 const MB_BASE = 'https://musicbrainz.org/ws/2';
-const USER_AGENT = 'MajesticTab/1.0.0 (https://github.com/cgarst/MajesticTab; admin@localhost)';
+const USER_AGENT = 'MajesticTab/1.0.0 (https://github.com/cgarst/MajesticTab-Support; admin@localhost)';
 const CACHE_PREFIX = 'mb_cache_';
 
 // Polite rate limiting (1 request every 1.15s with exponential backoff on rate limits)
