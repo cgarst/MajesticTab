@@ -489,13 +489,18 @@ pub fn run() {
         gtk_window_set_default_icon_name(b"net.zathu.majestictab\0".as_ptr() as *const _);
     }
 
-    #[cfg(feature = "debug-tools")]
     let mut context = tauri::generate_context!();
-    #[cfg(not(feature = "debug-tools"))]
-    let context = tauri::generate_context!();
     #[cfg(feature = "debug-tools")]
     if let Some(window_config) = context.config_mut().app.windows.first_mut() {
         window_config.devtools = Some(true);
+    }
+    // Tauri's built-in dev server sets dev_url to http://127.0.0.1:1430, and YouTube rejects
+    // embeds whose Referer is an IP literal ("This video is unavailable"). Rewriting the host to
+    // localhost hits the same server and passes YouTube's embed check.
+    if let Some(dev_url) = context.config_mut().build.dev_url.as_mut() {
+        if dev_url.host_str() == Some("127.0.0.1") {
+            let _ = dev_url.set_host(Some("localhost"));
+        }
     }
 
     let initial_files: Vec<OpenedFilePayload> = std::env::args()
