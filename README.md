@@ -2,8 +2,10 @@
 
 MajesticTab is a guitar tab viewer designed for practice, learning, and focused reading on desktop, mobile, and tablet screens. It lets you open Guitar Pro files directly, load tab PDFs, or view text tabs in clean page or continuous scroll modes with minimal distractions.
 
- - [Read about MajesticTab features here](https://majestictab.zathu.net/)
- - [Try MajesticTab here](https://majestictab.zathu.net/app/)
+ - [MajesticTab website](https://majestictab.zathu.net/)
+ - [Report an issue](https://github.com/cgarst/MajesticTab-Support/issues)
+
+This is the private development repository. The public website, privacy policy, and issue tracker live in [MajesticTab-Support](https://github.com/cgarst/MajesticTab-Support).
 
 ---
 
@@ -11,29 +13,25 @@ MajesticTab is a guitar tab viewer designed for practice, learning, and focused 
 
 ### Prerequisites
 
-- Web version supports Chrome, Edge, Firefox, or Safari
-- Native versions include Windows, macOS, Linux, Android, or iOS
+- Native apps for iOS, iPadOS, macOS, Windows, Android, and Linux
+- The app can also be served locally in a modern browser for development
 
 ### Run locally
 
-Clone the repo and start a local static server:
+From the repo root, start a local static server:
 
 ```bash
-git clone https://github.com/cgarst/MajesticTab.git
 cd MajesticTab
 python3 -m http.server 8000
 ```
 
-Then open:
-
-- `http://localhost:8000/` for the landing page
-- `http://localhost:8000/app/` for the app
+Then open `http://localhost:8000/app/`.
 
 ---
 
 ## Usage
 
-1. Open the app in your browser.
+1. Open the app.
 2. Load a local Guitar Pro or PDF tab, or pick a file from Google Drive.
 3. Choose your preferred reading mode:
    - Page mode for traditional page-by-page reading
@@ -137,22 +135,8 @@ To enable Google Drive in a Tauri build, set the `GOOGLE_CLIENT_SECRET` environm
 
 The Google Drive picker also needs `GOOGLE_PICKER_API_KEY` (a Google Cloud browser API key), set the same way in `.env` or as a GitHub Actions secret. The build writes it to the git-ignored `app/pickerKey.local.js`; without it, the app falls back to the key in `app/googleDrive.js`.
 
-### iOS sideloading (SideStore, AltStore, and LiveContainer)
+### Building for iOS
 
-MajesticTab can be sideloaded onto iPhone and iPad without a paid Apple Developer account using SideStore, AltStore, LiveContainer, or TrollStore.
-
-#### Community source URL (SideStore, AltStore, and LiveContainer)
-
-Add the community source directly to SideStore, AltStore, or LiveContainer using this URL:
-
-```
-https://raw.githubusercontent.com/cgarst/MajesticTab/main/source.json
-```
-
-- **One-Click Add (SideStore):** [Add to SideStore](sidestore://source?url=https://raw.githubusercontent.com/cgarst/MajesticTab/main/source.json)
-- **One-Click Add (AltStore):** [Add to AltStore](altstore://source?url=https://raw.githubusercontent.com/cgarst/MajesticTab/main/source.json)
-
-#### Building for iOS
 To build the iOS IPA locally from macOS:
 
 ```bash
@@ -213,26 +197,6 @@ registerFileAdapter({
 
 Extensions don't travel over Jam. If the host has an extension that converts a file, the host shares the converted file, so everyone in the session can open it without having the extension installed.
 
-## Contributing
-
-Contributions are welcome.
-
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/awesome-feature`)
-3. Commit your changes (`git commit -m 'Add awesome feature'`)
-4. Push the branch (`git push origin feature/awesome-feature`)
-5. Open a pull request
-
-Please include screenshots or a description of the UI change when relevant.
-
----
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
-
----
-
 ## Acknowledgments
 
 - [AlphaTab](https://github.com/CoderLine/alphaTab) for Guitar Pro rendering and playback support
@@ -243,9 +207,9 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ---
 
-## Landing page screenshots
+## Screenshots
 
-To regenerate them:
+The website screenshots live in the MajesticTab-Support repo. Regenerate them here, then copy the results into its `img/screenshots/`:
 
 ```bash
 pip install playwright && playwright install chromium

@@ -2,7 +2,7 @@
 <component type="desktop-application">
   <id>net.zathu.majestictab</id>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>MIT</project_license>
+  <project_license>LicenseRef-proprietary</project_license>
   <name>MajesticTab</name>
   <summary>Guitar tab viewer</summary>
   <description>
@@ -19,22 +19,22 @@
     </ul>
   </description>
   <launchable type="desktop-id">net.zathu.majestictab.desktop</launchable>
-  <url type="homepage">https://github.com/cgarst/MajesticTab</url>
-  <url type="bugtracker">https://github.com/cgarst/MajesticTab/issues</url>
+  <url type="homepage">https://majestictab.zathu.net</url>
+  <url type="bugtracker">https://github.com/cgarst/MajesticTab-Support/issues</url>
   <developer id="net.zathu">
     <name>Corey Garst</name>
   </developer>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/main/img/screenshots/gp_page.png</image>
+      <image>https://majestictab.zathu.net/img/screenshots/gp_page.png</image>
       <caption>Guitar Pro tablature page view</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/main/img/screenshots/gp_themed.png</image>
+      <image>https://majestictab.zathu.net/img/screenshots/gp_themed.png</image>
       <caption>Themed view mode</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/main/img/screenshots/pdf_page.png</image>
+      <image>https://majestictab.zathu.net/img/screenshots/pdf_page.png</image>
       <caption>PDF sheet music viewer</caption>
     </screenshot>
   </screenshots>

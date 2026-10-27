@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate landing-page screenshots of the MajesticTab app using the demo files and user backup.
+"""Generate website screenshots of the MajesticTab app using the demo files and user backup.
 
 Serves the repo root on a temporary local port, drives the app with Playwright
 (desktop 1440x900 and mobile 390x844), and writes PNGs to img/screenshots/.
