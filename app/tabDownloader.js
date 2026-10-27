@@ -19,10 +19,12 @@ export function isDesktopNative() {
     return typeof window !== 'undefined' && Boolean(window.__TAURI__) && !/android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
 }
 
-// Store channels (Google-only Web Search) ship without the userscript file.
-export const { UG_DEFAULT_USERSCRIPT } = hasFeature('userscripts')
-    ? await import('./tabDownloaderUserscripts.js')
-    : { UG_DEFAULT_USERSCRIPT: '' };
+// Google-only channels (Web Search in store builds) ship without the curated sources and their userscripts.
+const fullSources = getFeature('tabDownloader') === 'full'
+    ? await import('./tabDownloaderFullSources.js')
+    : null;
+export const UG_DEFAULT_USERSCRIPT = fullSources?.UG_DEFAULT_USERSCRIPT ?? '';
+const GOOGLE_HOME_URL = 'https://www.google.com/';
 
 export const DEFAULT_SOURCES = [
     {
@@ -36,28 +38,7 @@ export const DEFAULT_SOURCES = [
         defaultUserscript: '',
         isSeed: true
     },
-    {
-        id: 'ug',
-        name: 'Ultimate Guitar',
-        urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=$s',
-        defaultUrl: 'https://www.ultimate-guitar.com/search.php?title=$s',
-        queryFormat: 'artist_song',
-        userscriptEnabled: true,
-        userscript: UG_DEFAULT_USERSCRIPT,
-        defaultUserscript: UG_DEFAULT_USERSCRIPT,
-        isSeed: true
-    },
-    {
-        id: 'classtab',
-        name: 'Classical Tab',
-        urlTemplate: 'https://www.google.com/search?q=$s&sitesearch=https%3A%2F%2Fwww.classtab.org',
-        defaultUrl: 'https://www.classtab.org/',
-        queryFormat: 'artist_song',
-        userscriptEnabled: false,
-        userscript: '',
-        defaultUserscript: '',
-        isSeed: true
-    }
+    ...(fullSources?.EXTRA_SEED_SOURCES ?? [])
 ];
 
 let activeTargetSong = null;
@@ -168,7 +149,7 @@ export function resetToDefaultSources() {
  * Build target search URL from template and query
  */
 export function buildSearchUrl(source, query) {
-    if (!source) return 'https://www.ultimate-guitar.com/';
+    if (!source) return fullSources?.FALLBACK_HOME_URL ?? GOOGLE_HOME_URL;
 
     const term = (query || '').trim();
     let template = (source.urlTemplate || '').trim();
@@ -184,9 +165,8 @@ export function buildSearchUrl(source, query) {
 
     // If no query/term was provided, return the home/base URL for the provider
     if (!term) {
-        if (source.id === 'ug') return 'https://www.ultimate-guitar.com/';
-        if (source.id === 'classtab') return 'https://www.classtab.org/';
-        if (source.id === 'google') return 'https://www.google.com/';
+        if (fullSources?.SOURCE_HOME_URLS[source.id]) return fullSources.SOURCE_HOME_URLS[source.id];
+        if (source.id === 'google') return GOOGLE_HOME_URL;
         if (source.defaultUrl) {
             return source.defaultUrl.replace(/\$s|SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
         }
@@ -198,7 +178,7 @@ export function buildSearchUrl(source, query) {
                 return template.replace(/\$s|SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
             }
         }
-        return 'https://www.ultimate-guitar.com/';
+        return fullSources?.FALLBACK_HOME_URL ?? GOOGLE_HOME_URL;
     }
 
     const encodedPlus = encodeURIComponent(term).replace(/%20/g, '+');
@@ -431,7 +411,7 @@ export function initTabDownloaderDomEvents() {
         const newSrc = {
             id: newId,
             name: 'Custom Source',
-            urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=$s',
+            urlTemplate: fullSources?.NEW_SOURCE_URL_TEMPLATE ?? DEFAULT_SOURCES[0].urlTemplate,
             defaultUrl: '',
             queryFormat: 'artist_song',
             userscriptEnabled: false,
@@ -706,10 +686,8 @@ export function highlightSourceTabForUrl(url) {
     try {
         const u = new URL(url);
         const host = u.hostname.toLowerCase();
-        let matchedId = null;
-        if (host.includes('ultimate-guitar.com')) matchedId = 'ug';
-        else if (host.includes('classtab.org') || (host.includes('google.') && url.includes('classtab.org'))) matchedId = 'classtab';
-        else {
+        let matchedId = fullSources?.matchSeedSourceId(host, url) ?? null;
+        if (!matchedId) {
             const sources = getSources();
             for (const s of sources) {
                 try {

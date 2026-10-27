@@ -1,5 +1,6 @@
-// Userscripts injected into third-party Tab Downloader pages.
-// Kept out of builds whose channel has userscripts off (see build/tauri/prepare-tauri-frontend.mjs).
+// Everything specific to the curated Tab Downloader sources (Ultimate Guitar, Classical Tab) and their userscripts.
+// Only imported when the channel's tabDownloader capability is 'full'; Google-only builds drop this file
+// (see build/tauri/prepare-tauri-frontend.mjs).
 
 export const UG_DEFAULT_USERSCRIPT = `
 // MajesticTab UG Userscript v14-mobile
@@ -106,3 +107,48 @@ export const UG_DEFAULT_USERSCRIPT = `
     }
 })();
 `;
+
+/** Seed sources listed after Google in the full Tab Downloader. */
+export const EXTRA_SEED_SOURCES = [
+    {
+        id: 'ug',
+        name: 'Ultimate Guitar',
+        urlTemplate: 'https://www.ultimate-guitar.com/search.php?title=$s',
+        defaultUrl: 'https://www.ultimate-guitar.com/search.php?title=$s',
+        queryFormat: 'artist_song',
+        userscriptEnabled: true,
+        userscript: UG_DEFAULT_USERSCRIPT,
+        defaultUserscript: UG_DEFAULT_USERSCRIPT,
+        isSeed: true
+    },
+    {
+        id: 'classtab',
+        name: 'Classical Tab',
+        urlTemplate: 'https://www.google.com/search?q=$s&sitesearch=https%3A%2F%2Fwww.classtab.org',
+        defaultUrl: 'https://www.classtab.org/',
+        queryFormat: 'artist_song',
+        userscriptEnabled: false,
+        userscript: '',
+        defaultUserscript: '',
+        isSeed: true
+    }
+];
+
+/** Home page for a seed source when there is no search term. */
+export const SOURCE_HOME_URLS = {
+    ug: 'https://www.ultimate-guitar.com/',
+    classtab: 'https://www.classtab.org/'
+};
+
+/** Used when no source is selected or a source has no usable URL. */
+export const FALLBACK_HOME_URL = 'https://www.ultimate-guitar.com/';
+
+/** Template for a new custom source. */
+export const NEW_SOURCE_URL_TEMPLATE = 'https://www.ultimate-guitar.com/search.php?title=$s';
+
+/** Seed source id for a page the downloader navigated to, or null. */
+export function matchSeedSourceId(host, url) {
+    if (host.includes('ultimate-guitar.com')) return 'ug';
+    if (host.includes('classtab.org') || (host.includes('google.') && url.includes('classtab.org'))) return 'classtab';
+    return null;
+}
