@@ -4,6 +4,7 @@ import { saveStoredFile } from './fileStore.js';
 import { showToast } from './utils/toast.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
+import { isSecureStorageAvailable, getSecret, setSecret, deleteSecret } from './secureStore.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
 const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
@@ -18,6 +19,8 @@ const PICKER_APP_ID = '1059497343032';
 const STORAGE_KEY = 'gdrive_auth';
 // Bumped when the requested scope changes so tokens granted under the old scope force a fresh consent.
 const AUTH_VERSION = 2;
+// With a keychain, the refresh token lives there (named per auth version) instead of in localStorage.
+export const GDRIVE_SECRET_NAME = `gdrive_refresh_token_v${AUTH_VERSION}`;
 const LEGACY_BROWSER_KEYS = ['gdrive_last_folder', 'gdrive_tabs_directory', 'majestictab_drive_backup_folder'];
 const PENDING_OPTIONS_STORAGE_KEY = 'gdrive_pending_options';
 
@@ -32,10 +35,25 @@ try {
 
 function readStoredAuth() {
     try {
-        return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        const auth = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        const refreshToken = isSecureStorageAvailable() ? getSecret(GDRIVE_SECRET_NAME) : null;
+        if (!refreshToken) return auth;
+        return { v: AUTH_VERSION, ...auth, refresh_token: refreshToken };
     } catch (_) {
         return null;
     }
+}
+
+/** Moves a refresh token saved in localStorage by an older build into the keychain. */
+export function migrateGoogleAuth() {
+    if (!isSecureStorageAvailable()) return;
+    try {
+        const auth = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+        if (!auth?.refresh_token || auth.v !== AUTH_VERSION) return;
+        const { refresh_token: refreshToken, ...rest } = auth;
+        setSecret(GDRIVE_SECRET_NAME, refreshToken);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
+    } catch (_) {}
 }
 
 let refreshPromise = null;
@@ -148,8 +166,11 @@ function openBackupModalForAuthState(state, { skipIfOpen = false } = {}) {
 
 /** Drops the access token; the refresh token survives unless `all` (sign-out or revoked grant). */
 export function clearStoredToken({ all = false } = {}) {
+    if (all && isSecureStorageAvailable()) deleteSecret(GDRIVE_SECRET_NAME);
     const refreshToken = all ? null : readStoredAuth()?.refresh_token;
-    if (refreshToken) {
+    if (refreshToken && isSecureStorageAvailable()) {
+        localStorage.removeItem(STORAGE_KEY); // the refresh token stays in the keychain
+    } else if (refreshToken) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: AUTH_VERSION, refresh_token: refreshToken }));
     } else {
         localStorage.removeItem(STORAGE_KEY);
@@ -378,7 +399,8 @@ function storeGoogleAuth(accessToken, expiresIn, refreshToken = null) {
         expiry_date: Date.now() + ((parseInt(expiresIn, 10) || 3600) * 1000)
     };
     const keptRefreshToken = refreshToken || readStoredAuth()?.refresh_token;
-    if (keptRefreshToken) authData.refresh_token = keptRefreshToken;
+    if (keptRefreshToken && isSecureStorageAvailable()) setSecret(GDRIVE_SECRET_NAME, keptRefreshToken);
+    else if (keptRefreshToken) authData.refresh_token = keptRefreshToken;
     token = authData.access_token;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
     return true;

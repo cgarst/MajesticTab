@@ -48,6 +48,12 @@ tauri-plugin-dialog = "2"
 tauri-plugin-persisted-scope = "2"
 tauri-plugin-updater = { version = "2", optional = true }
 
+[target.'cfg(target_vendor = "apple")'.dependencies]
+keyring = { version = "3", features = ["apple-native"] }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+keyring = { version = "3", features = ["windows-native"] }
+
 [target.'cfg(not(target_vendor = "apple"))'.dependencies]
 mdns-sd = "0.21.6"
 

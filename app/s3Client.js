@@ -2,7 +2,10 @@
 // Minimal S3-compatible client (AWS S3, Cloudflare R2, Backblaze B2, MinIO, Wasabi, ...) using Signature V4
 // through WebCrypto, so no SDK is needed. In the native app requests go through Tauri's http plugin, which
 // is not subject to CORS. In a browser the bucket must allow this origin in its CORS rules (see s3CorsRules).
+import { isSecureStorageAvailable, getSecret, setSecret, deleteSecret } from './secureStore.js';
+
 const CONFIG_KEY = 'majestictab_s3_config';
+export const S3_SECRET_NAME = 'majestictab_s3_secret';
 const EMPTY_SHA256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
 const encoder = new TextEncoder();
@@ -27,6 +30,8 @@ const encodeKey = (key) => key.split('/').map(encodeRfc3986).join('/');
 export function getS3Config() {
     try {
         const config = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null');
+        // With a keychain the secret lives there, not in the stored config
+        if (config && isSecureStorageAvailable()) config.secretAccessKey = getSecret(S3_SECRET_NAME) || config.secretAccessKey;
         return config?.bucket && config.accessKeyId && config.secretAccessKey ? config : null;
     } catch (_) { return null; }
 }
@@ -47,12 +52,29 @@ export function saveS3Config(config) {
     if (!clean.bucket || !clean.accessKeyId || !clean.secretAccessKey) {
         throw new Error('Enter a bucket, an access key ID and a secret access key.');
     }
-    localStorage.setItem(CONFIG_KEY, JSON.stringify(clean));
+    if (isSecureStorageAvailable()) {
+        setSecret(S3_SECRET_NAME, clean.secretAccessKey);
+        localStorage.setItem(CONFIG_KEY, JSON.stringify({ ...clean, secretAccessKey: '' }));
+    } else {
+        localStorage.setItem(CONFIG_KEY, JSON.stringify(clean));
+    }
     return clean;
 }
 
 export function clearS3Config() {
     try { localStorage.removeItem(CONFIG_KEY); } catch (_) {}
+    if (isSecureStorageAvailable()) deleteSecret(S3_SECRET_NAME);
+}
+
+/** Moves a secret saved in localStorage by an older build into the keychain. */
+export function migrateS3Secret() {
+    if (!isSecureStorageAvailable()) return;
+    try {
+        const config = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null');
+        if (!config?.secretAccessKey) return;
+        setSecret(S3_SECRET_NAME, config.secretAccessKey);
+        localStorage.setItem(CONFIG_KEY, JSON.stringify({ ...config, secretAccessKey: '' }));
+    } catch (_) {}
 }
 
 /** True in the native app, where requests bypass CORS. */
