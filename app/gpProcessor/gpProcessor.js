@@ -1,4 +1,3 @@
-import { applyGpScoreTransforms } from '../fileAdapters.js';
 import { showToast } from '../utils/toast.js';
 import { applyScoreAdaptation, getTabAdaptPref } from '../utils/tabAdapter.js';
 import { applyTabTrackColors, tintTrackCurves } from '../utils/trackColors.js';
@@ -157,7 +156,6 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
         });
 
         tempApi.scoreLoaded.on((score) => {
-            applyGpScoreTransforms(score);
             if (debug) console.log("Tracks:", score.tracks);
 
             if (Array.isArray(score.tracks)) {
@@ -229,7 +227,6 @@ export function loadGuitarPro(file, container, { debug = false, originalFile = n
 
             // Set stylesheet properties on the new score
             api.scoreLoaded.on((newScore) => {
-                applyGpScoreTransforms(newScore);
                 applyProgramMapping(newScore, api.soundFontPresets);
 
                 const adaptPref = getTabAdaptPref(targetFile || file);

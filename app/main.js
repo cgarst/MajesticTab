@@ -838,56 +838,38 @@ function setupMenuEdgeSwipeGesture() {
 function setupExtensionSettings() {
     const modal = document.getElementById('extensionModal');
     const openButton = document.getElementById('openExtensions');
-    const sourceInput = document.getElementById('extensionSource');
-    const listView = document.getElementById('extensionListView');
-    const editorView = document.getElementById('extensionEditorView');
     const extensionList = document.getElementById('extensionList');
     const extensionCount = document.getElementById('extensionCount');
     const managerStatus = document.getElementById('extensionManagerStatus');
-    const editorStatus = document.getElementById('extensionEditorStatus');
-    const addButton = document.getElementById('addExtension');
     const importButton = document.getElementById('importExtensionFile');
     const importInput = document.getElementById('importExtensionInput');
-    const saveButton = document.getElementById('saveExtension');
     const closeButton = modal?.querySelector('.extension-modal-close-btn');
     const extensionsKey = 'customExtensions';
     const legacySourceKey = 'customExtensionSource';
     const legacyEnabledKey = 'customExtensionEnabled';
     const adapterSourceKey = 'customFileAdapterSource';
+    const maxSourceBytes = 5 * 1024 * 1024;
 
-    if (!modal || !openButton || !sourceInput || !listView || !editorView || !extensionList) return;
+    if (!modal || !openButton || !extensionList || !importButton || !importInput) return;
 
     let returnFocusTarget = null;
-    let editingId = null;
     let extensions = [];
-    const editor = window.CodeMirror?.fromTextArea(sourceInput, {
-        mode: 'javascript',
-        lineNumbers: true,
-        indentUnit: 2,
-        tabSize: 2,
-        indentWithTabs: false,
-        lineWrapping: false,
-        placeholder: sourceInput.placeholder
-    });
 
-    editor?.on('change', () => {
-        sourceInput.value = editor.getValue();
-    });
-
-    const getSource = () => editor ? editor.getValue() : sourceInput.value;
-    const extensionLabel = extension => extension.registrationIds?.length
-        ? extension.registrationIds.join(', ')
-        : 'No registered ID';
-    const setSource = source => {
-        sourceInput.value = source;
-        editor?.setValue(source);
-    };
+    const extensionLabel = extension => extension.name
+        || (extension.registrationIds?.length ? extension.registrationIds.join(', ') : 'Extension');
     const saveExtensions = () => localStorage.setItem(extensionsKey, JSON.stringify(extensions));
 
-    const refreshInstalledExtensions = () => {
+    const refreshInstalledExtensions = async () => {
         extensions.forEach(extension => { extension.error = ''; });
         const active = extensions.filter(extension => extension.enabled);
-        const result = installExtensionSources(active.map(({ id, source }) => ({ id, source })));
+        managerStatus.textContent = active.length ? 'Loading extensions…' : 'No extensions registered';
+        let result;
+        try {
+            result = await installExtensionSources(active.map(({ id, source }) => ({ id, source })));
+        } catch (error) {
+            managerStatus.textContent = `Could not load extensions: ${error.message}`;
+            return;
+        }
         result.errors.forEach(error => {
             const extension = extensions.find(item => item.id === error.id);
             if (extension) extension.error = error.message;
@@ -903,6 +885,7 @@ function setupExtensionSettings() {
             : result.registrationCount
                 ? `${result.registrationCount} registration${result.registrationCount === 1 ? '' : 's'} active`
                 : 'No extensions registered';
+        renderExtensions();
     };
 
     const renderExtensions = () => {
@@ -948,18 +931,10 @@ function setupExtensionSettings() {
             enabledInput.addEventListener('change', () => {
                 extension.enabled = enabledInput.checked;
                 saveExtensions();
-                refreshInstalledExtensions();
                 renderExtensions();
+                refreshInstalledExtensions();
             });
             enabledLabel.append(enabledInput);
-
-            const editButton = document.createElement('button');
-            editButton.className = 'btn btn-sm theme-control-btn';
-            editButton.type = 'button';
-            editButton.title = `Edit ${label}`;
-            editButton.setAttribute('aria-label', `Edit ${label}`);
-            editButton.innerHTML = '<i class="bi-pencil"></i>';
-            editButton.addEventListener('click', () => showEditor(extension));
 
             const deleteButton = document.createElement('button');
             deleteButton.className = 'btn btn-sm theme-control-btn extension-delete-button';
@@ -986,34 +961,13 @@ function setupExtensionSettings() {
                 clearTimeout(resetConfirmTimer);
                 extensions = extensions.filter(item => item.id !== extension.id);
                 saveExtensions();
-                refreshInstalledExtensions();
                 renderExtensions();
+                refreshInstalledExtensions();
             });
 
-            actions.append(enabledLabel, editButton, deleteButton);
+            actions.append(enabledLabel, deleteButton);
             row.append(details, actions);
             extensionList.append(row);
-        });
-    };
-
-    const showList = () => {
-        editorView.classList.add('d-none');
-        listView.classList.remove('d-none');
-        renderExtensions();
-        addButton.focus();
-    };
-
-    const showEditor = (extension, sourceOverride) => {
-        editingId = extension?.id ?? null;
-        setSource(sourceOverride ?? extension?.source ?? '');
-        document.getElementById('extensionEditorMode').textContent = extension ? 'Edit extension' : 'New extension';
-        editorStatus.textContent = '';
-        listView.classList.add('d-none');
-        editorView.classList.remove('d-none');
-        requestAnimationFrame(() => {
-            editor?.refresh();
-            if (editor) editor.focus();
-            else sourceInput.focus();
         });
     };
 
@@ -1023,7 +977,8 @@ function setupExtensionSettings() {
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
         document.body.classList.add('modal-open');
-        showList();
+        renderExtensions();
+        importButton.focus();
     };
 
     const closeModal = () => {
@@ -1062,6 +1017,7 @@ function setupExtensionSettings() {
                         && extension.id !== 'builtin-acoustic-guitar'
                 ).map(extension => ({
                     id: extension.id,
+                    name: typeof extension.name === 'string' ? extension.name : '',
                     source: extension.source,
                     enabled: extension.enabled === true,
                     registrationIds: Array.isArray(extension.registrationIds)
@@ -1080,6 +1036,7 @@ function setupExtensionSettings() {
         if (!extensions.some(extension => extension.id === 'migrated-extension')) {
             extensions.push({
                 id: 'migrated-extension',
+                name: '',
                 source: oldSource,
                 enabled: (localStorage.getItem(legacyEnabledKey) ?? localStorage.getItem('customFileAdapterEnabled')) === 'true',
                 registrationIds: [],
@@ -1093,43 +1050,35 @@ function setupExtensionSettings() {
     localStorage.removeItem(adapterSourceKey);
     localStorage.removeItem('customFileAdapterEnabled');
     localStorage.removeItem('builtInAcousticGuitarExtensionInstalled');
-    refreshInstalledExtensions();
     renderExtensions();
+    refreshInstalledExtensions();
 
-    addButton.addEventListener('click', () => showEditor(null));
     importButton.addEventListener('click', () => importInput.click());
     importInput.addEventListener('change', async () => {
         const file = importInput.files?.[0];
         importInput.value = '';
         if (!file) return;
+        if (file.size > maxSourceBytes) {
+            managerStatus.textContent = 'Could not add extension: file is larger than 5 MB';
+            return;
+        }
 
         try {
-            showEditor(null, await file.text());
-        } catch (error) {
-            managerStatus.textContent = `Could not read extension file: ${error.message}`;
-        }
-    });
-    document.getElementById('backToExtensions').addEventListener('click', showList);
-    document.getElementById('cancelExtensionEdit').addEventListener('click', showList);
-    saveButton.addEventListener('click', () => {
-        const existing = extensions.find(extension => extension.id === editingId);
-        if (existing) {
-            existing.source = getSource();
-            existing.registrationIds = [];
-            existing.error = '';
-        } else {
             extensions.push({
                 id: globalThis.crypto?.randomUUID?.() ?? `extension-${Date.now()}`,
-                source: getSource(),
+                name: file.name,
+                source: await file.text(),
                 enabled: true,
                 registrationIds: [],
                 error: ''
             });
+        } catch (error) {
+            managerStatus.textContent = `Could not read extension file: ${error.message}`;
+            return;
         }
-
         saveExtensions();
+        renderExtensions();
         refreshInstalledExtensions();
-        showList();
     });
 }
 
