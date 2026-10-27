@@ -477,6 +477,7 @@ pub fn run() {
         .manage(tab_downloader_native::TabDownloaderState::default())
         .manage(jam::JamState::default())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_oauth::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_google_auth::init())

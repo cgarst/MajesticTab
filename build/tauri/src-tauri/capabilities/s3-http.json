@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "s3-http",
+  "description": "Outbound requests to the S3-compatible bucket the user configures, whose address is not known in advance",
+  "windows": ["main"],
+  "permissions": [
+    {
+      "identifier": "http:default",
+      "allow": [{ "url": "https://*" }, { "url": "https://*:*" }, { "url": "http://*" }, { "url": "http://*:*" }]
+    }
+  ]
+}
