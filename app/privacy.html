@@ -114,95 +114,118 @@
           </div>
           <div>
             <h1 class="h3 fw-bold text-white mb-0">Privacy Policy</h1>
-            <div class="small text-muted">Effective Date: October 3, 2026</div>
+            <div class="small text-muted">Effective Date: October 26, 2026</div>
           </div>
         </div>
         <p class="text-muted mb-0 mt-3">
-          MajesticTab is designed with a strict <strong>privacy-first, client-side architecture</strong>. We believe your sheet music, practice materials, and personal data belong entirely to you.
+          This policy covers MajesticTab on every platform: the web app, and the desktop (Windows, macOS, Linux), Android and iOS apps, however you install them. MajesticTab runs no servers and has no accounts, so the developer does not collect your data. Your sheet music and practice materials stay with you. A few optional features talk to other services, and this page lists every one of them.
         </p>
       </div>
 
-      <!-- Section 1 -->
       <section class="privacy-section">
-        <h2><i class="bi-laptop text-primary"></i> 1. 100% Client-Side Processing</h2>
+        <h2><i class="bi-laptop text-primary"></i> 1. What stays on your device</h2>
         <p>
-          All core functionality—including loading, parsing, rendering, and playing sheet music, PDFs, Guitar Pro files (<code class="text-info">.gp</code>, <code class="text-info">.gp5</code>, <code class="text-info">.gpx</code>, <code class="text-info">.gp3</code>, <code class="text-info">.gp4</code>), and plain text tabs—takes place entirely within your web browser on your local device.
+          Opening, parsing, rendering and playing sheet music, PDFs, Guitar Pro files (<code class="text-info">.gp</code>, <code class="text-info">.gp3</code>, <code class="text-info">.gp4</code>, <code class="text-info">.gp5</code>, <code class="text-info">.gpx</code>) and plain text tabs happens on your device. MajesticTab does not upload your files to any server run by the developer, and has no analytics, advertising or tracking.
         </p>
         <div class="privacy-highlight-box">
           <p class="text-white">
             <i class="bi-check-circle-fill text-success me-2"></i>
-            <strong>Your files never leave your device:</strong> MajesticTab does not upload, copy, analyze, or store your sheet music files on any external server.
+            <strong>Nothing leaves your device unless you turn on a feature below that sends it,</strong> and in every case it goes to a service you chose or to the people you share with, never to the developer.
           </p>
         </div>
       </section>
 
-      <!-- Section 2 -->
       <section class="privacy-section">
-        <h2><i class="bi-hdd-stack text-info"></i> 2. Local Storage & Preferences</h2>
+        <h2><i class="bi-hdd-stack text-info"></i> 2. What is stored on your device</h2>
         <p>
-          MajesticTab stores your application preferences locally on your device using your browser's <code class="text-info">localStorage</code>. This data includes:
+          MajesticTab keeps its data in your browser's local storage (the web app) or in the app's own storage (native apps). This includes:
         </p>
         <ul>
-          <li>Your active Guitar Finish theme selection (e.g., Mystic Dream, Blue Pearl)</li>
-          <li>Tab appearance settings (Light / Dark / Auto / Theme)</li>
-          <li>Playback speeds and metronome preferences</li>
-          <li>Viewing options (Page Mode vs. Continuous Scroll, dual-page advance preferences)</li>
+          <li>Your library: song files you save, tags, artwork, setlists and play history</li>
+          <li>Appearance, playback, metronome and viewing preferences</li>
+          <li>Extensions you upload (their source code)</li>
+          <li>Connection details for the optional services below, including a Google sign-in refresh token and, if you set up S3 backup, your endpoint, access key ID and <strong>secret access key</strong></li>
         </ul>
         <p>
-          This data remains exclusively in your browser and can be cleared at any time through your browser's settings.
+          Credentials are stored on your device only and are sent only to the service they belong to. They are not encrypted by MajesticTab, so anyone with access to your unlocked device or browser profile could read them. Use a key limited to one bucket. You can remove stored data at any time by disconnecting a service in the app, clearing your browser's site data, or uninstalling the app.
         </p>
       </section>
 
-      <!-- Section 3 -->
       <section class="privacy-section">
-        <h2><i class="bi-google text-warning"></i> 3. Google Drive Integration & Limited Use Disclosure</h2>
+        <h2><i class="bi-cloud-arrow-up text-warning"></i> 3. Backup and sync services you choose</h2>
         <p>
-          MajesticTab offers an optional feature that allows you to open sheet music files stored in your Google Drive using the standard Google Drive Picker.
+          These are optional. Each sends your data only to the account or storage you set up.
         </p>
         <ul>
-          <li><strong>Scope:</strong> When you connect to Google Drive, the app requests the <code>drive.file</code> permission only. MajesticTab can access just the file(s) you select in the Google Drive Picker and the files and folder it creates itself (such as backups). It cannot see or browse the rest of your Drive.</li>
-          <li><strong>Processing:</strong> Downloaded files and access tokens are held temporarily in your browser's memory and are never sent to or stored on any server.</li>
-          <li><strong>Compliance:</strong> MajesticTab's use and transfer to any other app of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" class="privacy-link">Google API Services User Data Policy</a>, including the <em>Limited Use</em> requirements.</li>
+          <li><strong>Google Drive.</strong> The app requests the <code class="text-info">drive.file</code> permission only. It can access just the files you pick in the Google Drive Picker and the files and folder it creates itself (such as backups). It cannot see or browse the rest of your Drive. Sign-in goes through Google, and the app keeps a refresh token on your device.</li>
+          <li><strong>S3-compatible storage.</strong> Backups go to the bucket and endpoint you enter, using your keys. The provider you choose has its own privacy policy.</li>
+          <li><strong>iCloud Drive</strong> (Apple devices). Backups can be saved to your iCloud container and are handled by Apple.</li>
+          <li><strong>Local folders and files.</strong> Backups and exports you save to your device or to a folder you pick.</li>
         </ul>
-      </section>
-
-      <!-- Section 4 -->
-      <section class="privacy-section">
-        <h2><i class="bi-youtube text-danger"></i> 4. YouTube Integration</h2>
         <p>
-          MajesticTab includes an integrated rehearsal player that embeds YouTube videos or backing tracks via standard YouTube IFrame embeds.
-        </p>
-        <p>
-          When using the YouTube player, interaction with YouTube is governed by <a href="https://www.youtube.com/t/terms" target="_blank" rel="noopener noreferrer" class="privacy-link">YouTube's Terms of Service</a> and the <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="privacy-link">Google Privacy Policy</a>. MajesticTab does not collect or store your YouTube viewing history or credentials.
+          MajesticTab's use and transfer to any other app of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" class="privacy-link">Google API Services User Data Policy</a>, including the Limited Use requirements. Downloaded files and tokens are never sent to the developer.
         </p>
       </section>
 
-      <!-- Section 5 -->
       <section class="privacy-section">
-        <h2><i class="bi-shield-slash text-success"></i> 5. No Tracking, No Analytics, No Cookies</h2>
+        <h2><i class="bi-wifi text-success"></i> 4. Jam sessions</h2>
         <p>
-          MajesticTab values user privacy above all else:
+          Jam mode lets devices play the same song together. A host advertises a session on the local network (Bonjour or multicast, where the platform supports it) and shares with connected guests the song file, playback position, settings and, if enabled, custom SoundFonts. Data travels directly between the devices in the session, not through a server. Guests can also join from a browser through the host's own address. Apps ask for local network permission for this. Only host or join a session with people you trust, because they receive the files you share.
+        </p>
+      </section>
+
+      <section class="privacy-section">
+        <h2><i class="bi-globe2 text-info"></i> 5. Online lookups and embedded services</h2>
+        <p>
+          Some features contact third parties directly from your device. Those services receive your IP address and the request itself, and apply their own policies.
         </p>
         <ul>
-          <li><strong>No Tracking:</strong> We do not use tracking cookies, tracking pixels, or third-party telemetry.</li>
-          <li><strong>No Ads or Monetization:</strong> We do not display advertisements, track your browsing behavior, or sell/monetize your personal information.</li>
-          <li><strong>No User Accounts:</strong> MajesticTab does not require you to create an account or provide an email address.</li>
+          <li><strong>Song and album details.</strong> Artist, album and song names from your files may be sent to <a href="https://musicbrainz.org/doc/About/Data_License" target="_blank" rel="noopener noreferrer" class="privacy-link">MusicBrainz</a> and the Cover Art Archive to find release information and cover art. Results are cached on your device.</li>
+          <li><strong>YouTube backing tracks.</strong> The rehearsal player embeds YouTube (privacy-enhanced mode where available) and is governed by <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" class="privacy-link">Google's Privacy Policy</a> and YouTube's Terms of Service. Finding a video may also send your search text to public YouTube search services, which receive it along with your IP address. MajesticTab does not collect your viewing history or credentials.</li>
+          <li><strong>Search and download browser</strong> (where available). A built-in web view opens third-party websites you choose, including Google search. Those sites may set cookies and collect data under their own policies, and nothing you enter there is read by MajesticTab. Files you download are saved into your library on your device.</li>
+          <li><strong>Update checks</strong> (versions installed outside an app store). The app asks GitHub whether a newer release exists. Versions installed from an app store do not do this.</li>
         </ul>
       </section>
 
-      <!-- Section 6 -->
       <section class="privacy-section">
-        <h2><i class="bi-code-slash text-primary"></i> 6. Open Source & Transparency</h2>
+        <h2><i class="bi-mic text-danger"></i> 6. Permissions</h2>
+        <ul>
+          <li><strong>Microphone</strong> (tuner). Audio is analyzed on your device to detect pitch. It is not recorded, stored or sent anywhere.</li>
+          <li><strong>Local network</strong> (Jam). See section 4.</li>
+          <li><strong>Files and folders.</strong> Used only for files and folders you pick.</li>
+          <li><strong>Game controllers and Bluetooth page turners.</strong> Input is read on your device only.</li>
+        </ul>
+      </section>
+
+      <section class="privacy-section">
+        <h2><i class="bi-puzzle text-primary"></i> 7. Extensions</h2>
         <p>
-          MajesticTab is free and open-source software distributed under the MIT License. You can review the complete source code, audit data security practices, or contribute to the project on <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="privacy-link">GitHub</a>.
+          You can optionally upload your own <code class="text-info">.js</code> extension files that convert a file when you open it. Extensions run in an isolated sandbox with no network access, no access to your stored data and no access to your accounts. They only receive the file being opened. MajesticTab includes no extensions and does not send extension code to other devices.
         </p>
       </section>
 
-      <!-- Section 7 -->
+      <section class="privacy-section">
+        <h2><i class="bi-shield-slash text-success"></i> 8. No tracking, ads or accounts</h2>
+        <ul>
+          <li>No analytics, telemetry, advertising or tracking by MajesticTab.</li>
+          <li>No MajesticTab account or email address is needed.</li>
+          <li>MajesticTab itself sets no tracking cookies. Embedded third-party content (YouTube and the sites in the browser described in section 5) may set their own.</li>
+          <li>Any optional paid unlock in an app store is handled entirely by that store. MajesticTab does not receive your payment details.</li>
+          <li>MajesticTab is not directed at children and does not knowingly collect information from anyone.</li>
+        </ul>
+      </section>
+
+      <section class="privacy-section">
+        <h2><i class="bi-code-slash text-primary"></i> 9. Open source and changes</h2>
+        <p>
+          MajesticTab is free and open-source software under the MIT License. You can review exactly what it does on <a href="https://github.com/cgarst/MajesticTab" target="_blank" rel="noopener noreferrer" class="privacy-link">GitHub</a>. If this policy changes, the new version and date will appear on this page.
+        </p>
+      </section>
+
       <section class="privacy-section mb-0">
-        <h2><i class="bi-envelope text-info"></i> 7. Questions & Contact</h2>
+        <h2><i class="bi-envelope text-info"></i> 10. Questions and contact</h2>
         <p>
-          If you have questions, suggestions, or concerns regarding this Privacy Policy or MajesticTab's privacy practices, please open an issue on our <a href="https://github.com/cgarst/MajesticTab/issues" target="_blank" rel="noopener noreferrer" class="privacy-link">GitHub Issues page</a>.
+          If you have questions or concerns about this policy or MajesticTab's privacy practices, please open an issue on our <a href="https://github.com/cgarst/MajesticTab/issues" target="_blank" rel="noopener noreferrer" class="privacy-link">GitHub Issues page</a>.
         </p>
       </section>
     </div>
