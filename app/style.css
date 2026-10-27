@@ -4523,7 +4523,7 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 
 .tab-option-chip .tab-option-name,
 .tab-option-chip .text-truncate {
-  max-width: min(220px, 100%);
+  max-width: 220px;
   min-width: 0;
   flex-shrink: 1;
   display: inline-block;
