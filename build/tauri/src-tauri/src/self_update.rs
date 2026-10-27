@@ -18,6 +18,67 @@ pub fn update_install_mode() -> &'static str {
     return "manual";
 }
 
+/// Token for reading releases while the repo is private: MAJESTICTAB_UPDATE_TOKEN, else the GitHub CLI's login.
+/// None on phones, or when neither is available (the repo is then assumed public).
+#[tauri::command]
+pub fn update_auth_token() -> Option<String> {
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    return None;
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        if let Ok(token) = std::env::var("MAJESTICTAB_UPDATE_TOKEN") {
+            let token = token.trim().to_string();
+            if !token.is_empty() {
+                return Some(token);
+            }
+        }
+        // GUI apps on macOS do not inherit the shell PATH, so try the usual install locations too.
+        for gh in ["gh", "/opt/homebrew/bin/gh", "/usr/local/bin/gh", "/usr/bin/gh"] {
+            if let Ok(out) = std::process::Command::new(gh).args(["auth", "token"]).output() {
+                let token = String::from_utf8_lossy(&out.stdout).trim().to_string();
+                if out.status.success() && !token.is_empty() {
+                    return Some(token);
+                }
+            }
+        }
+        None
+    }
+}
+
+#[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
+const REPO_API: &str = "https://api.github.com/repos/cgarst/MajesticTab";
+
+/// Asset name -> API URL for the channel's release. Private repos only serve assets through the API.
+#[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
+async fn release_asset_urls(token: &str, channel: &str) -> Result<std::collections::HashMap<String, String>, String> {
+    let path = match channel {
+        "canary" => "releases/tags/canary",
+        "stable" => "releases/latest",
+        other => return Err(format!("Unknown update channel: {other}")),
+    };
+    let body = reqwest::Client::new()
+        .get(format!("{REPO_API}/{path}"))
+        .header("Authorization", format!("Bearer {token}"))
+        .header("Accept", "application/vnd.github+json")
+        .header("User-Agent", "MajesticTab")
+        .send()
+        .await
+        .map_err(|e| e.to_string())?
+        .error_for_status()
+        .map_err(|e| e.to_string())?
+        .text()
+        .await
+        .map_err(|e| e.to_string())?;
+    let release: serde_json::Value = serde_json::from_str(&body).map_err(|e| e.to_string())?;
+    let mut urls = std::collections::HashMap::new();
+    for asset in release["assets"].as_array().into_iter().flatten() {
+        if let (Some(name), Some(url)) = (asset["name"].as_str(), asset["url"].as_str()) {
+            urls.insert(name.to_string(), url.to_string());
+        }
+    }
+    Ok(urls)
+}
+
 #[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
 #[derive(Clone, serde::Serialize)]
 struct UpdateProgress {
@@ -31,15 +92,29 @@ pub async fn install_update(app: tauri::AppHandle, channel: String) -> Result<()
     use tauri::Emitter;
     use tauri_plugin_updater::UpdaterExt;
 
-    let endpoint = match channel.as_str() {
-        "canary" => format!("{REPO_DOWNLOADS}/download/canary/latest.json"),
-        "stable" => format!("{REPO_DOWNLOADS}/latest/download/latest.json"),
-        other => return Err(format!("Unknown update channel: {other}")),
+    let token = update_auth_token();
+    let mut asset_urls = None;
+    let mut builder = app.updater_builder();
+    let endpoint = if let Some(token) = &token {
+        let urls = release_asset_urls(token, &channel).await?;
+        let manifest = urls.get("latest.json").cloned().ok_or("The release has no latest.json")?;
+        asset_urls = Some(urls);
+        builder = builder
+            .header("Authorization", format!("Bearer {token}"))
+            .map_err(|e| e.to_string())?
+            .header("Accept", "application/octet-stream")
+            .map_err(|e| e.to_string())?;
+        manifest
+    } else {
+        match channel.as_str() {
+            "canary" => format!("{REPO_DOWNLOADS}/download/canary/latest.json"),
+            "stable" => format!("{REPO_DOWNLOADS}/latest/download/latest.json"),
+            other => return Err(format!("Unknown update channel: {other}")),
+        }
     };
     let endpoint = endpoint.parse::<tauri::Url>().map_err(|e| e.to_string())?;
 
-    let updater = app
-        .updater_builder()
+    let updater = builder
         .endpoints(vec![endpoint])
         .map_err(|e| e.to_string())?
         // The JS side already confirmed the manifest is newer; canary versions are not ordered semver.
@@ -47,11 +122,20 @@ pub async fn install_update(app: tauri::AppHandle, channel: String) -> Result<()
         .build()
         .map_err(|e| e.to_string())?;
 
-    let update = updater
+    let mut update = updater
         .check()
         .await
         .map_err(|e| e.to_string())?
         .ok_or_else(|| "No update is available".to_string())?;
+
+    // The manifest links browser download URLs, which a private repo rejects; swap in the API asset URL.
+    if let Some(urls) = &asset_urls {
+        let name = update.download_url.path_segments().and_then(|mut s| s.next_back()).unwrap_or_default();
+        let name = percent_encoding::percent_decode_str(name).decode_utf8_lossy().into_owned();
+        if let Some(url) = urls.get(&name) {
+            update.download_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
+        }
+    }
 
     let mut downloaded: u64 = 0;
     let progress_app = app.clone();
