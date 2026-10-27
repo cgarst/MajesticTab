@@ -28,7 +28,7 @@ const STORE_DOWNLOADER = { tabDownloader: 'google-only', userscripts: false, sel
 
 export const channels = {
   direct: {
-    platforms: ['windows', 'macos', 'linux', 'android'],
+    platforms: ['windows', 'macos', 'linux', 'android', 'ios'],
     capabilities: { ...FULL },
   },
   play: {
