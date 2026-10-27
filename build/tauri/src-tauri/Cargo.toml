@@ -53,6 +53,8 @@ keyring = { version = "3", features = ["apple-native"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
+# tauri-plugin-iap's windows.rs uses Win32::UI::Shell but doesn't enable the feature; unification supplies it
+windows = { version = "0.61", features = ["Win32_UI_Shell"] }
 
 [target.'cfg(not(target_vendor = "apple"))'.dependencies]
 mdns-sd = "0.21.6"

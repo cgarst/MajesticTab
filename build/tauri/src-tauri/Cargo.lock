@@ -2478,6 +2478,7 @@ dependencies = [
  "tauri-plugin-updater",
  "tokio",
  "tokio-tungstenite",
+ "windows 0.61.3",
 ]
 
 [[package]]
