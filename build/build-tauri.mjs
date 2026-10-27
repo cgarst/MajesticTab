@@ -12,6 +12,7 @@ const target = process.argv[2];
 const buildOptions = process.argv.slice(3);
 const debugTools = buildOptions.includes('--debug-tools') || buildOptions.includes('--debug');
 const macosX64 = buildOptions.includes('--x86_64');
+const macosAppStore = buildOptions.includes('--appstore');
 const validTargets = ['windows', 'macos', 'linux', 'android', 'ios'];
 async function loadEnvFiles() {
   const possiblePaths = [
@@ -56,12 +57,13 @@ function fail(message) {
 }
 
 if (!validTargets.includes(target)
-  || buildOptions.some((option) => option !== '--debug-tools' && option !== '--debug' && option !== '--x86_64')
+  || buildOptions.some((option) => option !== '--debug-tools' && option !== '--debug' && option !== '--x86_64' && option !== '--appstore')
   || new Set(buildOptions).size !== buildOptions.length
   || (buildOptions.includes('--debug-tools') && buildOptions.includes('--debug'))
   || (debugTools && (target === 'android' || target === 'ios') && buildOptions.includes('--debug-tools'))
-  || (macosX64 && target !== 'macos')) {
-  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools|--debug] [--x86_64 (macos only)]`);
+  || (macosX64 && target !== 'macos')
+  || (macosAppStore && (target !== 'macos' || macosX64))) {
+  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools|--debug] [--x86_64 (macos only)] [--appstore (macos only, sandboxed Mac App Store build)]`);
   process.exit(2);
 }
 
@@ -482,13 +484,13 @@ if (target === 'android') {
   // Signed update bundles (.sig plus .app.tar.gz on macOS) are only produced when the updater
   // signing key is available, so local builds without it still work.
   // The public key comes from TAURI_UPDATER_PUBKEY and is merged over the placeholder in tauri.conf.json.
-  const updaterPubkey = (process.env.TAURI_UPDATER_PUBKEY ?? '').trim();
+  const updaterPubkey = macosAppStore ? '' : (process.env.TAURI_UPDATER_PUBKEY ?? '').trim();
   const signUpdates = Boolean(process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PATH)
     && updaterPubkey !== '';
-  if ((process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) && !updaterPubkey) {
+  if (!macosAppStore && (process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) && !updaterPubkey) {
     console.warn('[build-tauri] Skipping update bundles: TAURI_UPDATER_PUBKEY is not set.');
   }
-  const bundles = target === 'macos' ? ['dmg', 'app'] : ['nsis'];
+  const bundles = macosAppStore ? ['app'] : target === 'macos' ? ['dmg', 'app'] : ['nsis'];
   const buildEnv = target === 'macos' ? { ...env, CI: 'true' } : env;
   const buildArgs = ['run', 'tauri', '--', 'build', '--bundles', ...bundles];
   if (updaterPubkey) {
@@ -500,13 +502,23 @@ if (target === 'android') {
     }));
     buildArgs.push('--config', updaterConfig);
   }
+  if (macosAppStore) {
+    // Sandbox entitlements. The identity comes from APPLE_SIGNING_IDENTITY (an Apple Distribution certificate).
+    buildArgs.push('--config', path.join(tauriDir, 'src-tauri', 'tauri.macos.appstore.conf.json'));
+  }
   if (debugTools) buildArgs.push('--features', 'debug-tools');
   if (macosX64) buildArgs.push('--target', 'x86_64-apple-darwin');
   run('npm', buildArgs, { env: buildEnv });
   const bundleRoot = macosX64
     ? path.join(tauriDir, 'target', 'x86_64-apple-darwin', 'release', 'bundle')
     : path.join(tauriDir, 'target', 'release', 'bundle');
-  await copyBundleArtifacts(path.join(bundleRoot, target === 'macos' ? 'dmg' : 'nsis'), target === 'macos' ? '.dmg' : '.exe');
+  if (macosAppStore) {
+    await rm(path.join(distDir, 'MajesticTab-appstore.app'), { recursive: true, force: true });
+    await mkdir(distDir, { recursive: true });
+    await cp(path.join(bundleRoot, 'macos', 'MajesticTab.app'), path.join(distDir, 'MajesticTab-appstore.app'), { recursive: true });
+  } else {
+    await copyBundleArtifacts(path.join(bundleRoot, target === 'macos' ? 'dmg' : 'nsis'), target === 'macos' ? '.dmg' : '.exe');
+  }
   if (signUpdates) {
     if (target === 'macos') {
       // Both architectures produce MajesticTab.app.tar.gz, so the arch goes into the name.
