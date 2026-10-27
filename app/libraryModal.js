@@ -986,11 +986,6 @@ async function renderLibraryBrowseView(container) {
                       </div>
 
                       <div class="album-banner-actions d-flex align-items-center gap-2 flex-wrap flex-shrink-0">
-                        ${!isCustomArtist && (album.albumMbid || album.songs?.find(s => s.albumMbid)?.albumMbid) ? `
-                          <a class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 d-flex align-items-center gap-1" href="https://musicbrainz.org/release-group/${encodeURIComponent(album.albumMbid || album.songs.find(s => s.albumMbid).albumMbid)}" target="_blank" rel="noopener noreferrer" title="Open this album on MusicBrainz">
-                            <i class="bi-box-arrow-up-right text-info"></i> <span class="d-none d-sm-inline">MusicBrainz</span>
-                          </a>
-                        ` : ''}
                         ${!isCustomArtist ? `
                           <button class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 d-flex align-items-center gap-1" id="exploreLibAlbumTracklistBtn" title="Fetch complete album tracklist from MusicBrainz to view all tracks and add missing songs">
                             <i class="bi-music-note-list text-info"></i> <span class="d-none d-sm-inline">Explore Tracklist</span><span class="d-inline d-sm-none">Tracks</span>
@@ -3357,6 +3352,14 @@ async function performMusicBrainzSearch(query, type) {
 }
 
 function renderSearchResults(results, type, container) {
+    // Clicking anywhere on a result row/card triggers its primary action button
+    container.onclick = (e) => {
+        if (e.target.closest('button, a, input')) return;
+        const row = e.target.closest('[data-row-action]');
+        if (!row || !container.contains(row)) return;
+        const btn = row.querySelector(row.dataset.rowAction);
+        if (btn && !btn.disabled && !btn.classList.contains('disabled')) btn.click();
+    };
     const searchHeader = document.querySelector('.search-sticky-header');
     if (searchHeader) searchHeader.style.display = '';
 
@@ -3374,7 +3377,7 @@ function renderSearchResults(results, type, container) {
         container.innerHTML = `
         <div class="d-flex flex-column gap-2">
           ${results.map(a => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3">
+            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" data-row-action=".explore-artist-btn" style="cursor:pointer;">
               <div class="min-w-0 flex-grow-1">
                 <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</h6>
                 <div class="small text-muted text-truncate">${a.type || 'Artist'} • ${a.country || 'International'} ${a.lifeSpan ? `• ${a.lifeSpan}` : ''}</div>
@@ -3410,7 +3413,7 @@ function renderSearchResults(results, type, container) {
           ${results.map(rg => {
             const cover = rg.coverUrl || getPlaceholderCoverSvg(rg.title);
             return `
-            <div class="library-card album-card p-3" role="button" tabindex="0">
+            <div class="library-card album-card p-3" role="button" tabindex="0" data-row-action=".view-album-tracks-btn">
               <div class="album-card-body d-flex min-w-0">
                 <div class="album-cover-container">
                   <img src="${cover}" class="album-cover-img" alt="${escapeHtml(rg.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(rg.title)}'">
@@ -3454,7 +3457,7 @@ function renderSearchResults(results, type, container) {
         container.innerHTML = `
         <div class="d-flex flex-column gap-2">
           ${results.map(song => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3">
+            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" data-row-action=".add-single-song-btn" style="cursor:pointer;">
               <div class="min-w-0 flex-grow-1">
                 <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</h6>
                 <div class="small text-muted text-truncate" title="${escapeHtml(song.artist)} • ${escapeHtml(song.album || 'Single')} ${song.year ? `• ${song.year}` : ''}">
