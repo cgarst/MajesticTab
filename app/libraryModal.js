@@ -38,7 +38,7 @@ let selectedFolderPath = []; // Array of folder path segments e.g. ['Exercises',
 let selectedTuning = null;
 let isAlbumEditMode = false;
 let isRecentsEditMode = false;
-let searchType = 'song'; // 'song' (default), 'album', 'artist', 'musician', 'custom'
+let searchType = 'artist'; // 'artist' (default), 'song', 'album', 'musician', 'custom'
 let currentSearchQuery = '';
 let currentSearchResults = [];
 let searchSubView = null; // null | { type: 'albums', artistMbid, artistName } | { type: 'bands', musicianMbid, musicianName } | { type: 'tracks', releaseGroupMbid, parentView }
@@ -131,7 +131,7 @@ export async function restoreLibraryState(state) {
     selectedTuning = state.selectedTuning || null;
     isAlbumEditMode = false;
     searchSubView = state.searchSubView || null;
-    searchType = state.searchType || 'song';
+    searchType = state.searchType || 'artist';
     currentSearchQuery = state.currentSearchQuery || '';
     currentSearchResults = state.currentSearchResults ? [...state.currentSearchResults] : [];
     searchHistory = state.searchHistory ? [...state.searchHistory] : [];
@@ -684,68 +684,44 @@ async function renderLibraryBrowseView(container) {
     const inTunings = libraryBrowseMode === 'tunings';
     const headerHtml = `
     <div class="library-page-container">
-      <div class="library-body-header mb-3">
-        <!-- Collection selector + view switcher (Left). The switcher is replaced by the bottom nav on phones -->
-        <div class="lib-toolbar-left d-flex align-items-center gap-2 flex-wrap ${collections.length > 1 ? '' : 'switch-only'}">
-          ${collections.length > 1 ? `<div class="collection-pill-group">
+      ${libraryHeaderHtml({
+        activeTab: inTunings ? 'tunings' : 'library',
+        leftExtraHtml: collections.length > 1 ? `<div class="collection-pill-group">
             <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
               ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
             </select>
-          </div>` : ''}
-          ${libraryViewSwitchHtml(inTunings ? 'tunings' : 'library')}
-        </div>
-
-        <!-- Universal Search & Filter Bar (True Center) -->
-        <div class="lib-toolbar-center">
-          <div class="library-search-bar">
-            <i class="bi-search search-icon"></i>
-            <input type="text" class="search-input" id="libFilterInput" placeholder="${
-              libraryBrowseMode === 'tunings'
-                ? (selectedTuning ? `Search songs in ${selectedTuning}...` : 'Search tunings in library...')
-                : (selectedAlbum ? 'Search tracks in album...' : selectedArtist ? 'Search albums or songs...' : 'Search artists, albums, or songs...')
-            }" autocomplete="off" spellcheck="false" aria-label="Search library">
-            <button class="search-clear-btn" type="button" id="libFilterClearBtn" title="Clear search" aria-label="Clear search" style="display: none;">
-              <i class="bi-x-lg"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Action: Add Music (Right). Phones use the bottom nav instead -->
-        <div class="lib-toolbar-right d-flex align-items-center gap-2" ${inTunings ? 'style="display: none !important;"' : ''}>
-          <button type="button" class="btn btn-sm btn-theme-primary lib-add-music-btn" id="libAddMusicBtn" title="Search catalog or add custom music">
-            <i class="bi-plus-lg"></i>
-            <span>Add Music</span>
-          </button>
-        </div>
-      </div>
+          </div>` : '',
+        searchId: 'libFilterInput',
+        clearId: 'libFilterClearBtn',
+        placeholder: libraryBrowseMode === 'tunings'
+            ? (selectedTuning ? `Search songs in ${selectedTuning}...` : 'Search tunings in library...')
+            : (selectedAlbum ? 'Search tracks in album...' : selectedArtist ? 'Search albums or songs...' : 'Search artists, albums, or songs...'),
+        searchLabel: 'Search library'
+    })}
     `;
 
     if (artists.length === 0) {
         container.innerHTML = headerHtml + `
-          <div class="text-center py-5 text-muted">
-            <i class="bi-music-note-list fs-1 mb-2 d-block text-white-50"></i>
-            <h5 class="text-white fw-semibold">This Collection is Empty</h5>
-            <p class="small text-muted mb-4">Add your favorite songs and albums to build your personalized tab catalog, or add custom music and exercises.</p>
-            <div class="d-flex justify-content-center gap-2 flex-wrap">
-              <button class="btn btn-theme-outline btn-sm px-3 rounded-pill" id="emptyStateOpenFileBtn">
-                <i class="bi-folder2-open me-1"></i> Open File
-              </button>
-              <button class="btn btn-theme-primary btn-sm px-3 rounded-pill" id="emptyStateAddBtn">
-                <i class="bi-plus-circle me-1"></i> Add Music
-              </button>
-            </div>
-          </div>
+          ${libraryEmptyStateHtml({
+            icon: 'bi-music-note-list',
+            title: 'This collection is empty',
+            message: 'Add your favorite songs and albums to build your personalized tab catalog, or add custom music and exercises.',
+            actionsHtml: `<button class="btn btn-theme-outline btn-sm px-4" id="emptyStateOpenFileBtn"><i class="bi-folder2-open me-1"></i> Open File</button>
+              <button class="btn btn-theme-primary btn-sm px-4" id="emptyStateAddBtn"><i class="bi-plus-lg me-1"></i> Add Music</button>`
+          })}
         </div>
         `;
 
         bindLibraryToolbarEvents(container);
-        container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => switchView('search'));
+        container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => { searchType = 'artist'; switchView('search'); });
         container.querySelector('#emptyStateOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
         return;
     }
 
     let breadcrumbHtml = '';
     let bodyHtml = '';
+    let toolbarHtml = '';
+    const addMusicBtnHtml = `<button type="button" class="btn btn-sm btn-theme-primary p-1 px-3 d-flex align-items-center gap-1" id="libAddMusicBtn" title="Search catalog or add custom music"><i class="bi-plus-lg"></i> <span>Add Music</span></button>`;
 
     // ==========================================
     // A. TUNINGS BROWSE MODE
@@ -799,11 +775,11 @@ async function renderLibraryBrowseView(container) {
             // Tunings Grid
             if (tuningGroups.length === 0) {
                 bodyHtml = `
-                <div class="text-center py-5 text-muted">
-                  <i class="bi-music-note fs-1 mb-2 d-block text-white-50"></i>
-                  <h6 class="text-white fw-semibold mb-1">No Tunings Found</h6>
-                  <p class="small text-muted mb-3">Add tab files with guitar or bass scores to see your songs categorized by tuning.</p>
-                </div>
+                ${libraryEmptyStateHtml({
+                  icon: 'bi-music-note',
+                  title: 'No tunings yet',
+                  message: 'Add tab files with guitar or bass scores to see your songs categorized by tuning.'
+                })}
                 `;
             } else {
                 // Group tuningGroups into string count / baritone sections
@@ -823,6 +799,7 @@ async function renderLibraryBrowseView(container) {
                 }
 
                 const sortedSections = Array.from(sectionsMap.values()).sort((a, b) => a.order - b.order);
+                toolbarHtml = libraryListToolbarHtml({ count: `${tuningGroups.length} ${tuningGroups.length === 1 ? 'tuning' : 'tunings'}` });
 
                 bodyHtml = `
                 <div class="library-tunings-container d-flex flex-column gap-4" id="libTuningsGrid">
@@ -1172,6 +1149,10 @@ async function renderLibraryBrowseView(container) {
                 `;
             }
 
+            toolbarHtml = libraryListToolbarHtml({
+                count: `${artists.length} ${artists.length === 1 ? 'artist' : 'artists'}`,
+                actionsHtml: addMusicBtnHtml
+            });
             bodyHtml = `
             <div class="collection-root-view">
               ${pinnedHtml}
@@ -1184,7 +1165,7 @@ async function renderLibraryBrowseView(container) {
         }
     }
 
-    container.innerHTML = headerHtml + breadcrumbHtml + `
+    container.innerHTML = headerHtml + toolbarHtml + breadcrumbHtml + `
       <div id="libBrowseContent">${bodyHtml}</div>
       <div id="libFilteredSearchResults" style="display: none;"></div>
     </div>
@@ -1416,6 +1397,65 @@ export function libraryViewSwitchHtml(activeTab = null) {
     </div>`;
 }
 
+// Shared chrome for every library view: view switcher card, its own search box, then (below, via
+// libraryListToolbarHtml) a count on the left and the primary action on the right.
+export function libraryHeaderHtml({ activeTab, leftExtraHtml = '', searchId, clearId, placeholder, searchLabel, searchDisabled = false }) {
+    return `<div class="library-body-header mb-3 ${leftExtraHtml ? '' : 'switch-only-header'}">
+        <div class="lib-toolbar-left d-flex align-items-center gap-2 flex-wrap ${leftExtraHtml ? '' : 'switch-only'}">
+          ${leftExtraHtml}
+          ${libraryViewSwitchHtml(activeTab)}
+        </div>
+      </div>
+      <div class="library-search-box mb-3">
+        <div class="library-search-bar">
+          <i class="bi-search search-icon"></i>
+          <input type="text" class="search-input" id="${searchId}" placeholder="${placeholder}" autocomplete="off" spellcheck="false" aria-label="${searchLabel}" ${searchDisabled ? 'disabled' : ''}>
+          <button class="search-clear-btn" type="button" id="${clearId}" title="Clear search" aria-label="Clear search" style="display: none;">
+            <i class="bi-x-lg"></i>
+          </button>
+        </div>
+      </div>`;
+}
+
+// Same icon, title, message and button sizes for every "nothing here yet" state
+export function libraryEmptyStateHtml({ icon, title, message, actionsHtml = '' }) {
+    return `<div class="text-center py-5 text-muted">
+          <i class="${icon} fs-1 mb-2 d-block text-white-50"></i>
+          <h6 class="text-white fw-semibold">${title}</h6>
+          <p class="small text-muted ${actionsHtml ? 'mb-3' : 'mb-0'}">${message}</p>
+          ${actionsHtml ? `<div class="d-flex justify-content-center gap-2 flex-wrap">${actionsHtml}</div>` : ''}
+        </div>`;
+}
+
+// Count on the left, primary action (plus any secondary controls) on the right
+export function libraryListToolbarHtml({ count, actionsHtml = '' }) {
+    return `<div class="library-list-toolbar">
+        <span class="small text-white-50">${count}</span>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">${actionsHtml}</div>
+      </div>`;
+}
+
+// Client-side filter for simple list views (setlists, recents)
+export function bindListFilter(container, { inputId, clearId, rowSelector, emptyId }) {
+    const input = container.querySelector('#' + inputId);
+    const clear = container.querySelector('#' + clearId);
+    if (!input) return;
+    const apply = () => {
+        const q = input.value.trim().toLowerCase();
+        let shown = 0;
+        container.querySelectorAll(rowSelector).forEach(row => {
+            const hit = !q || row.textContent.toLowerCase().includes(q);
+            row.style.display = hit ? '' : 'none';
+            if (hit) shown++;
+        });
+        if (clear) clear.style.display = q ? '' : 'none';
+        const empty = emptyId && container.querySelector('#' + emptyId);
+        if (empty) empty.style.display = shown === 0 && q ? '' : 'none';
+    };
+    input.addEventListener('input', apply);
+    clear?.addEventListener('click', () => { input.value = ''; apply(); input.focus(); });
+}
+
 function getActiveLibraryTab() {
     if (activeView === 'library') return libraryBrowseMode === 'tunings' ? 'tunings' : 'library';
     return activeView === 'setlists' || activeView === 'recents' ? activeView : null;
@@ -1479,6 +1519,7 @@ function bindLibraryToolbarEvents(container) {
 
 
     container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
+        searchType = 'artist';
         switchView('search');
     });
 }
@@ -3965,28 +4006,26 @@ async function renderRecentsView(container) {
     if (recents.length === 0) {
         container.innerHTML = `
         <div class="library-page-container">
-          <div class="library-body-header switch-only-header d-flex align-items-center mb-3">
-            ${libraryViewSwitchHtml('recents')}
-          </div>
-          <div class="text-center py-5 text-muted">
-            <i class="bi-clock-history fs-1 mb-2 d-block text-white-50"></i>
-            <h6 class="text-white fw-semibold">No Recent Files</h6>
-            <p class="small text-muted">Files and tabs you open will appear here with rich metadata and artwork.</p>
-          </div>
+          ${libraryHeaderHtml({ activeTab: 'recents', searchId: 'recentsFilterInput', clearId: 'recentsFilterClearBtn', placeholder: 'Search recent tabs...', searchLabel: 'Search recent tabs', searchDisabled: true })}
+          ${libraryEmptyStateHtml({
+            icon: 'bi-clock-history',
+            title: 'No recent tabs yet',
+            message: 'Files and tabs you open will appear here with rich metadata and artwork.',
+            actionsHtml: `<button class="btn btn-sm btn-theme-primary px-4" id="recentsEmptyOpenBtn"><i class="bi-folder2-open me-1"></i> Open File</button>`
+          })}
         </div>
         `;
+        container.querySelector('#recentsEmptyOpenBtn')?.addEventListener('click', () => switchView('openFile'));
         return;
     }
 
     container.innerHTML = `
     <div class="library-page-container recents-view">
-      <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
-        <div class="d-flex align-items-center gap-3 min-w-0">
-          ${libraryViewSwitchHtml('recents')}
-          <span class="small fw-semibold text-white-50 text-truncate"><i class="bi-clock-history me-2 text-info"></i>Recently Opened (${recents.length})</span>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-          ${isRecentsEditMode ? `
+      ${libraryHeaderHtml({ activeTab: 'recents', searchId: 'recentsFilterInput', clearId: 'recentsFilterClearBtn', placeholder: 'Search recent tabs...', searchLabel: 'Search recent tabs' })}
+
+      ${libraryListToolbarHtml({
+        count: `${recents.length} recent ${recents.length === 1 ? 'tab' : 'tabs'}`,
+        actionsHtml: `${isRecentsEditMode ? `
             <button class="btn btn-sm btn-theme-danger p-1 px-3 d-flex align-items-center gap-1" id="clearRecentsBtn" title="Clear all recent history">
               <i class="bi-trash"></i> <span>Clear History</span>
             </button>
@@ -3997,9 +4036,8 @@ async function renderRecentsView(container) {
             <button class="btn btn-sm btn-theme-outline p-1 px-3 d-flex align-items-center gap-1" id="toggleRecentsEditBtn" title="Edit recents list">
               <i class="bi-pencil"></i> <span>Edit</span>
             </button>
-          `}
-        </div>
-      </div>
+          `}`
+      })}
 
       <div class="d-flex flex-column gap-2" id="recentsList">
         ${recents.map(r => {
@@ -4055,6 +4093,7 @@ async function renderRecentsView(container) {
     </div>
     `;
 
+    bindListFilter(container, { inputId: 'recentsFilterInput', clearId: 'recentsFilterClearBtn', rowSelector: '#recentsList .library-row-card' });
     container.querySelector('#toggleRecentsEditBtn')?.addEventListener('click', () => {
         isRecentsEditMode = !isRecentsEditMode;
         renderRecentsView(container);
