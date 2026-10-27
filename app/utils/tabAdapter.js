@@ -118,6 +118,14 @@ export function restoreScoreAdaptation(score, instrumentMode = getInstrumentMode
         });
         delete staff._adaptOrig;
     }
+    // Staves that were transposed at the synth level (non-guitar tracks) go back to their loaded pitch
+    for (const track of score.tracks) {
+        for (const staff of (track.staves || [])) {
+            if (staff._adaptOrigTransposition === undefined) continue;
+            staff.transpositionPitch = staff._adaptOrigTransposition;
+            delete staff._adaptOrigTransposition;
+        }
+    }
 }
 
 function pickAlignment(tab, player, pitches) {
@@ -167,6 +175,40 @@ function pickAutoCapo(tab, player, k) {
     return bestCount > 0 ? bestOffset : 0;
 }
 
+/** How many semitones the retune moves the sound: the most common pitch difference between aligned strings. */
+function pickTransposeSemitones(tab, player, shift) {
+    const counts = new Map();
+    for (let i = 0; i < tab.length; i++) {
+        const j = i + shift;
+        if (j < 0 || j >= player.length) continue;
+        const diff = player[j] - tab[i];
+        counts.set(diff, (counts.get(diff) || 0) + 1);
+    }
+    let best = 0;
+    let bestCount = 0;
+    for (const [diff, count] of counts) {
+        if (count > bestCount || (count === bestCount && Math.abs(diff) < Math.abs(best))) {
+            best = diff;
+            bestCount = count;
+        }
+    }
+    return best;
+}
+
+/** Moves every non-percussion staff the retune did not touch by the same interval, so the band stays in key. */
+function transposeRemainingStaves(score, adaptedStaves, semitones) {
+    if (!semitones) return;
+    for (const track of score.tracks) {
+        if (isTrackPercussion(track)) continue;
+        for (const staff of (track.staves || [])) {
+            if (staff.isPercussion || adaptedStaves.has(staff)) continue;
+            if (staff._adaptOrigTransposition === undefined) staff._adaptOrigTransposition = staff.transpositionPitch || 0;
+            // AlphaTab sounds a staff at the negative of its transpositionPitch
+            staff.transpositionPitch = staff._adaptOrigTransposition - semitones;
+        }
+    }
+}
+
 function markRemapped(note) {
     try {
         const model = globalThis.alphaTab?.model;
@@ -198,6 +240,7 @@ function adaptStaff(track, staff, pref, tuning) {
     if (pref.method === 'transpose') {
         // Same strings and frets, new tuning: every note sounds lower (or higher) by the tuning difference
         const shift = pickAlignment(tab, player, []);
+        const semitones = pickTransposeSemitones(tab, player, shift);
         let moved = 0;
         forEachNote(staff, (beat, notes) => {
             for (const note of notes) {
@@ -213,7 +256,7 @@ function adaptStaff(track, staff, pref, tuning) {
         staff.stringTuning.name = tuning.shortName;
         if (typeof staff.stringTuning.finish === 'function') staff.stringTuning.finish();
         if (Array.isArray(track.tuning)) track.tuning = [...player];
-        return { notes: moved, remapped: 0, unplayable: 0, harmonics: 0, capo: orig.capo, from: tab, to: player };
+        return { notes: moved, remapped: 0, unplayable: 0, harmonics: 0, capo: orig.capo, from: tab, to: player, semitones };
     }
 
     const k = pickAlignment(tab, player, pitches);
@@ -329,6 +372,8 @@ export function applyScoreAdaptation(score, pref, instrumentMode = getInstrument
 
     const total = { notes: 0, remapped: 0, unplayable: 0, harmonics: 0, capo: 0, from: null, to: tuning.midi };
     let adapted = false;
+    let semitones = 0;
+    const adaptedStaves = new Set();
     for (const { track, staff } of getPitchedStaves(score, instrumentMode)) {
         const tunings = Array.isArray(staff.stringTuning.tunings) ? [...staff.stringTuning.tunings] : [];
         if (tunings.length === 0) continue;
@@ -345,7 +390,10 @@ export function applyScoreAdaptation(score, pref, instrumentMode = getInstrument
         total.harmonics += result.harmonics;
         total.capo = Math.max(total.capo, result.capo);
         total.from = total.from || result.from;
+        if (!semitones && result.semitones) semitones = result.semitones;
+        adaptedStaves.add(staff);
         adapted = true;
     }
+    if (adapted && pref.method === 'transpose') transposeRemainingStaves(score, adaptedStaves, semitones);
     return adapted ? total : null;
 }
