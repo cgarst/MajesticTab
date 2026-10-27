@@ -783,17 +783,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
                 if let Ok(mut cfg_guard) = state.current_config.lock() {
                     if let Some(ref mut cfg) = *cfg_guard {
                         for s in &cfg.sources {
-                            let matches = if s.id == "ug" && host.contains("ultimate-guitar.com") {
-                                true
-                            } else if s.id == "metaltabs" && host.contains("metaltabs.org") {
-                                true
-                            } else if s.id == "gprotab" && host.contains("gprotab.net") {
-                                true
-                            } else if s.id == "songsterr" && host.contains("songsterr-downloader.com") {
-                                true
-                            } else if s.id == "classtab" && (host.contains("classtab.org") || (host.contains("google.") && url_str.contains("classtab.org"))) {
-                                true
-                            } else if let Ok(u) = tauri::Url::parse(if !s.default_url.is_empty() { &s.default_url } else { &s.url_template }) {
+                            let matches = if let Ok(u) = tauri::Url::parse(if !s.default_url.is_empty() { &s.default_url } else { &s.url_template }) {
                                 u.host_str().map(|h| host.contains(h)).unwrap_or(false)
                             } else {
                                 false

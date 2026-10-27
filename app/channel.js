@@ -1,10 +1,10 @@
 // Build channel capabilities. Store builds ship a channel.json (written by prepare-tauri-frontend.mjs
-// from build/channels.mjs). With no file (web build, ?test= dev server) everything is on.
+// from build/channels.mjs). With no file (web build, ?test= dev server) the defaults below apply.
 
 const DEFAULTS = {
     channel: 'web',
-    tabDownloader: 'full',
-    userscripts: true,
+    tabDownloader: 'google-only',
+    userscripts: false,
     extensions: 'full',
     selfUpdate: true,
     googleDrive: true,

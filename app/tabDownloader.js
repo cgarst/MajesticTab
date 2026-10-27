@@ -7,7 +7,7 @@ import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryS
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { closeLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
-import { getFeature, hasFeature } from './channel.js';
+import { hasFeature } from './channel.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 const GOOGLE_FIRST_KEY = 'majestictab_tab_sources_google_first';
@@ -19,11 +19,6 @@ export function isDesktopNative() {
     return typeof window !== 'undefined' && Boolean(window.__TAURI__) && !/android|iphone|ipad|ipod/i.test(navigator.userAgent || '');
 }
 
-// Google-only channels (Web Search in store builds) ship without the curated sources and their userscripts.
-const fullSources = getFeature('tabDownloader') === 'full'
-    ? await import('./tabDownloaderFullSources.js')
-    : null;
-export const UG_DEFAULT_USERSCRIPT = fullSources?.UG_DEFAULT_USERSCRIPT ?? '';
 const GOOGLE_HOME_URL = 'https://www.google.com/';
 
 export const DEFAULT_SOURCES = [
@@ -37,8 +32,7 @@ export const DEFAULT_SOURCES = [
         userscript: '',
         defaultUserscript: '',
         isSeed: true
-    },
-    ...(fullSources?.EXTRA_SEED_SOURCES ?? [])
+    }
 ];
 
 let activeTargetSong = null;
@@ -83,23 +77,16 @@ export function getSources() {
         if (raw) {
             let parsed = JSON.parse(raw);
             if (Array.isArray(parsed) && parsed.length > 0) {
-                // Purge deprecated guitarprotabs default seed
-                parsed = parsed.filter(s => s.id !== 'guitarprotabs' && s.id !== 'songsterr' && !((s.id === 'metaltabs' || s.id === 'gprotab') && s.isSeed));
                 for (const seed of DEFAULT_SOURCES) {
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
                         existing.defaultUserscript = seed.defaultUserscript;
-                        if (!existing.queryFormat || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'classtab' && existing.queryFormat !== 'artist_song') || (existing.id === 'google' && existing.queryFormat !== 'artist_song')) {
+                        if (!existing.queryFormat || (existing.id === 'google' && existing.queryFormat !== 'artist_song')) {
                             existing.queryFormat = seed.queryFormat;
                         }
                         if (existing.id === 'google' && /^https:\/\/www\.google\.com\/search\?q=(SEARCH\+TERM|\$s)\+tab$/.test(existing.urlTemplate || '')) {
                             existing.urlTemplate = seed.urlTemplate;
                             existing.defaultUrl = seed.defaultUrl;
-                        }
-                        if (existing.id === 'ug') {
-                            if (!existing.userscript || !existing.isUserModified || !existing.userscript.includes('v14-mobile')) {
-                                existing.userscript = seed.userscript;
-                            }
                         }
                     } else if (!existing) {
                         parsed.push(JSON.parse(JSON.stringify(seed)));
@@ -144,7 +131,7 @@ export function resetToDefaultSources() {
  * Build target search URL from template and query
  */
 export function buildSearchUrl(source, query) {
-    if (!source) return fullSources?.FALLBACK_HOME_URL ?? GOOGLE_HOME_URL;
+    if (!source) return GOOGLE_HOME_URL;
 
     const term = (query || '').trim();
     let template = (source.urlTemplate || '').trim();
@@ -160,7 +147,6 @@ export function buildSearchUrl(source, query) {
 
     // If no query/term was provided, return the home/base URL for the provider
     if (!term) {
-        if (fullSources?.SOURCE_HOME_URLS[source.id]) return fullSources.SOURCE_HOME_URLS[source.id];
         if (source.id === 'google') return GOOGLE_HOME_URL;
         if (source.defaultUrl) {
             return source.defaultUrl.replace(/\$s|SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
@@ -173,7 +159,7 @@ export function buildSearchUrl(source, query) {
                 return template.replace(/\$s|SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
             }
         }
-        return fullSources?.FALLBACK_HOME_URL ?? GOOGLE_HOME_URL;
+        return GOOGLE_HOME_URL;
     }
 
     const encodedPlus = encodeURIComponent(term).replace(/%20/g, '+');
@@ -404,7 +390,7 @@ export function initTabDownloaderDomEvents() {
         const newSrc = {
             id: newId,
             name: 'Custom Source',
-            urlTemplate: fullSources?.NEW_SOURCE_URL_TEMPLATE ?? DEFAULT_SOURCES[0].urlTemplate,
+            urlTemplate: DEFAULT_SOURCES[0].urlTemplate,
             defaultUrl: '',
             queryFormat: 'artist_song',
             userscriptEnabled: false,
@@ -684,18 +670,16 @@ export function highlightSourceTabForUrl(url) {
     try {
         const u = new URL(url);
         const host = u.hostname.toLowerCase();
-        let matchedId = fullSources?.matchSeedSourceId(host, url) ?? null;
-        if (!matchedId) {
-            const sources = getSources();
-            for (const s of sources) {
-                try {
-                    const su = new URL(s.defaultUrl || s.urlTemplate);
-                    if (su.hostname && host.includes(su.hostname)) {
-                        matchedId = s.id;
-                        break;
-                    }
-                } catch {}
-            }
+        let matchedId = null;
+        const sources = getSources();
+        for (const s of sources) {
+            try {
+                const su = new URL(s.defaultUrl || s.urlTemplate);
+                if (su.hostname && host.includes(su.hostname)) {
+                    matchedId = s.id;
+                    break;
+                }
+            } catch {}
         }
         if (pendingSourceId) {
             // Ignore URL events from the page being left; the target source's page ends the wait

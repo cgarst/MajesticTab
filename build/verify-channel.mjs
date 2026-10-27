@@ -84,17 +84,6 @@ export async function verifyChannel(id, options = {}) {
   for (const file of files) contents.set(path.relative(frontendDir, file), await readFile(file, 'utf8'));
   const containing = (needle) => [...contents].filter(([, text]) => text.includes(needle)).map(([name]) => name);
 
-  // Curated sources and userscripts only ship with the full Tab Downloader
-  if (expected.tabDownloader !== 'full') {
-    if (contents.has('tabDownloaderFullSources.js')) errors.push('tabDownloaderFullSources.js is present but the Tab Downloader is not "full"');
-    for (const marker of ['UG_DEFAULT_USERSCRIPT = `', 'MajesticTab UG Userscript', 'ultimate-guitar', 'classtab.org']) {
-      const hits = containing(marker);
-      if (hits.length) errors.push(`"${marker}" ships in: ${hits.join(', ')}`);
-    }
-  } else if (!expected.userscripts) {
-    errors.push('userscripts are off but the full Tab Downloader (which carries them) is on; use tabDownloader "google-only"');
-  }
-
   // Extension sandbox CSP is unchanged in every channel
   const frame = contents.get(path.join('extensionSandbox', 'frame.html'));
   if (!frame) errors.push('extensionSandbox/frame.html is missing');

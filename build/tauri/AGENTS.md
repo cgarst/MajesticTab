@@ -32,7 +32,7 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
   ```
 - **Inspect Simulator WebViews via Safari Web Inspector** (needs the `debug-tools` feature above; release and App Store builds ship without devtools):
   1. In Safari preferences/settings, ensure **Advanced -> Show features for web developers** (or Develop menu) is enabled.
-  2. Open Safari and go to menu **Develop -> iPhone 17 (Simulator) -> MajesticTab** (or the target page title/URL, such as `localhost` or `www.ultimate-guitar.com`).
+  2. Open Safari and go to menu **Develop -> iPhone 17 (Simulator) -> MajesticTab** (or the target page title/URL, such as `localhost`).
   3. Once Web Inspector opens, inspect elements, evaluate scripts in the console, view CSS rules, and monitor network requests inside the simulator's WKWebViews.
 
 ## In-app updates
@@ -45,7 +45,7 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
 
 `node build/build-tauri.mjs <target> --channel=<id>` selects a store channel (default `direct`, identical to the existing full-featured builds). `build/channels.mjs` is the source of truth for each channel's capabilities and Supporter (`monetization: 'iap'`) setting. `prepare-tauri-frontend.mjs` writes them to `frontend-dist/channel.json`, and `app/channel.js` exposes `hasFeature()`, `getFeature()` and `hasSupporter()`. With no `channel.json` (web, `?test=`) everything is on. This is separate from `MAJESTICTAB_CHANNEL` (CI stable/nightly, `build-info.js`); the store channel travels as `MAJESTICTAB_STORE_CHANNEL`. Native gating (Cargo features, Android flavors) and the purchase bridges are not wired yet.
 
-Store channels build in CI through `.github/workflows/store-build.yml` (manual dispatch). It uploads artifacts named `MajesticTab-<channel>-<version>.<ext>` and never publishes a release or `latest.json`; `release.yml` and `canary.yml` still build only `direct`. Curated Tab Downloader sources and their built-in userscripts live in `app/tabDownloaderFullSources.js`, which `prepare-tauri-frontend.mjs` drops from Google-only channels; `verify-channel.mjs` fails if Ultimate Guitar or Classical Tab strings remain. Userscripts that arrive through a restored backup (`majestictab_tab_sources`) still run on every channel: `getRestoredUserscriptSources()` hands them to the native webview, which matches them to pages by host. There is no editor for them on Google-only channels, and the Rust side always injects what it is given (the old `tab-downloader-full` Cargo feature is gone).
+Store channels build in CI through `.github/workflows/store-build.yml` (manual dispatch). It uploads artifacts named `MajesticTab-<channel>-<version>.<ext>` and never publishes a release or `latest.json`; `release.yml` and `canary.yml` still build only `direct`. Every channel ships the Google-only Tab Downloader; there are no built-in userscripts. Userscripts that arrive through a restored backup (`majestictab_tab_sources`) still run on every channel: `getRestoredUserscriptSources()` hands them to the native webview, which matches them to pages by host. There is no editor for them, and the Rust side always injects what it is given (the old `tab-downloader-full` Cargo feature is gone).
 
 ### Supporter (in-app purchase)
 
