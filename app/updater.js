@@ -115,7 +115,7 @@ async function installNatively(update, button, status) {
         console.warn('[Updater] In-app install failed:', error);
         button.disabled = false;
         button.textContent = 'Download';
-        if (status) status.textContent = 'Could not install automatically. Opening the download page.';
+        if (status) status.textContent = `Could not install automatically (${error?.message || error}). Opening the download page.`;
         openExternal(update.url);
     } finally {
         unlisten?.();

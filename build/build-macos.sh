@@ -13,6 +13,19 @@ for arg in "$@"; do
     fi
 done
 
+# Embed the updater public key so this local build can verify signed in-app updates from GitHub
+# releases. Precedence: existing env var, then ~/.tauri/majestictab-updater.key.pub, then the
+# project's public key (public by design; the private key stays in the TAURI_SIGNING_PRIVATE_KEY secret).
+if [ -z "${TAURI_UPDATER_PUBKEY:-}" ]; then
+    PUBKEY_FILE="$HOME/.tauri/majestictab-updater.key.pub"
+    if [ -f "$PUBKEY_FILE" ]; then
+        TAURI_UPDATER_PUBKEY="$(tr -d '\n' < "$PUBKEY_FILE")"
+    else
+        TAURI_UPDATER_PUBKEY="dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEVDRUZEMURFMUExRTI4MzUKUldRMUtCNGEzdEh2N0hhVmg3UXVEYzY5ZGNyWlBvc3pHempXR2djQWdYN1JUSmd3TEt0K2QvVzQK"
+    fi
+fi
+export TAURI_UPDATER_PUBKEY
+
 # Run macOS Tauri build
 node "$ROOT_DIR/build/build-tauri.mjs" macos "${ARGS[@]+"${ARGS[@]}"}"
 

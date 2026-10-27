@@ -62,7 +62,10 @@ pub async fn install_update(app: tauri::AppHandle, channel: String) -> Result<()
             || {},
         )
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            eprintln!("[self_update] download_and_install failed: {e:?}");
+            e.to_string()
+        })?;
 
     // Windows exits for the installer inside download_and_install; other platforms relaunch here.
     app.restart();
