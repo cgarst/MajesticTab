@@ -68,7 +68,8 @@ function initLibraryTopBar() {
     document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', closeLibraryModal);
 
     window.addEventListener('libraryDataChanged', () => {
-        if (isLibraryOpen()) {
+        // The add-music view updates its own buttons; a full re-render would reset it to the start
+        if (isLibraryOpen() && activeView !== 'search') {
             renderLibraryModal();
         }
     });
@@ -3829,7 +3830,12 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
             <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToAlbumsListBtn">
               <i class="bi-arrow-left"></i> <span>Back</span>
             </button>
-            ${addAllBtnHtml}
+            <div class="d-flex align-items-center gap-2 flex-shrink-0">
+              <button class="btn btn-sm btn-theme-outline px-3 flex-shrink-0 ${cleanTracks.length > missingTracks.length ? '' : 'd-none'}" id="viewAlbumInLibraryBtn">
+                <i class="bi-collection-play me-1"></i> View in Library
+              </button>
+              ${addAllBtnHtml}
+            </div>
           </div>
 
           <div class="library-album-banner d-flex align-items-center gap-3 mb-3">
@@ -3860,9 +3866,21 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
                 await addAlbumToLibrary(albumData, tracksToAdd, activeCollectionId);
                 showToast(`Added ${tracksToAdd.length} ${tracksToAdd.length === 1 ? 'track' : 'tracks'} to library`, 'success');
                 window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                await handleBack();
+                await exploreAlbumTracklist(releaseGroupMbid, container, false);
             });
         }
+
+        targetContainer.querySelector('#viewAlbumInLibraryBtn')?.addEventListener('click', async () => {
+            pushLibraryNavigationState();
+            searchSubView = null;
+            libraryBrowseMode = 'artists';
+            selectedTuning = null;
+            selectedFolderPath = [];
+            isAlbumEditMode = false;
+            selectedArtist = { name: albumData.artist, artistMbid: albumData.artistMbid };
+            selectedAlbum = { title: albumData.title, albumMbid: albumData.releaseGroupId || albumData.releaseId || null };
+            await switchView('library', false);
+        });
 
         // Add single track
         targetContainer.querySelectorAll('.add-single-track-btn').forEach(btn => {
@@ -3888,6 +3906,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
                 window.dispatchEvent(new CustomEvent('libraryDataChanged'));
                 btn.className = 'btn btn-sm btn-theme-success py-1 px-3 disabled flex-shrink-0 ms-2';
                 btn.innerHTML = '<i class="bi-check-lg me-1"></i> In Library';
+                targetContainer.querySelector('#viewAlbumInLibraryBtn')?.classList.remove('d-none');
             });
         });
     } catch (err) {
