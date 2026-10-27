@@ -998,7 +998,7 @@ async function renderLibraryBrowseView(container) {
                             <i class="bi-journal-album"></i> <span>+ Album Tab</span>
                           </button>
                           <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
-                            ${window.__TAURI__ ? `<li><button class="dropdown-item small import-album-tab-btn" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>` : ''}
+                            ${window.__TAURI__ ? `<li><button class="dropdown-item small import-album-tab-btn" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
                             <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
                             <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
                           </ul>
@@ -1581,8 +1581,8 @@ function renderDownloaderSearchButton(rawQuery) {
     return `
       <div class="text-center mt-3 mb-4">
         <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="libFilterDownloaderBtn">
-          <i class="bi-cloud-arrow-down text-info"></i>
-          <span>Search "${escapeHtml(rawQuery)}" in Tab Downloader</span>
+          <i class="bi-search text-info"></i>
+          <span>Search "${escapeHtml(rawQuery)}" on the web</span>
         </button>
       </div>`;
 }
@@ -2039,7 +2039,7 @@ function renderSongRow(song, options = {}) {
                 return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Set ${pdfPagesNoun} PDF Pages...</button></li>
                 <li><hr class="dropdown-divider"></li>`;
               })() : ''}
-              ${window.__TAURI__ ? `<li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-cloud-arrow-down me-2 text-info"></i> Tab Downloader</button></li>` : ''}
+              ${window.__TAURI__ ? `<li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
             </ul>
@@ -3036,7 +3036,7 @@ function renderCustomDocFormHtml() {
               </button>
               ${window.__TAURI__ ? `
                 <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickDownloaderBtn">
-                  <i class="bi-cloud-arrow-down text-info"></i> Tab Downloader
+                  <i class="bi-search text-info"></i> Web Search
                 </button>
               ` : ''}
             </div>
@@ -3078,7 +3078,7 @@ function setupCustomDocForm(container) {
             if (providerEl) {
                 let pName = 'Local Device';
                 if (attachedTab.providerId === 'google-drive') pName = 'Google Drive';
-                else if (attachedTab.providerId.startsWith('tab-downloader')) pName = 'Tab Downloader';
+                else if (attachedTab.providerId.startsWith('tab-downloader')) pName = 'Web Search';
                 providerEl.textContent = pName;
             }
             if (tuningEl) {
