@@ -6,6 +6,32 @@
 function workerMain() {
     'use strict';
     const adapters = [];
+    const cryptoPending = new Map();
+    let nextCryptoId = 1;
+
+    // Chromium marks blob:null/ Workers spawned from sandbox="allow-scripts" iframes as non-secure
+    // contexts (stripping self.crypto.subtle), even when the iframe itself is a secure context.
+    // Forward SubtleCrypto calls to the sandboxed iframe when the worker lacks its own.
+    const installSubtleBridge = () => {
+        if (self.crypto?.subtle) return;
+        const subtle = {};
+        for (const method of [
+            'encrypt', 'decrypt', 'sign', 'verify', 'digest',
+            'generateKey', 'deriveKey', 'deriveBits',
+            'importKey', 'exportKey', 'wrapKey', 'unwrapKey'
+        ]) {
+            subtle[method] = (...args) => new Promise((resolve, reject) => {
+                const cryptoId = nextCryptoId++;
+                cryptoPending.set(cryptoId, { resolve, reject });
+                self.postMessage({ cryptoId, method, args });
+            });
+        }
+        if (self.crypto) {
+            Object.defineProperty(self.crypto, 'subtle', { value: subtle, configurable: true });
+        } else {
+            Object.defineProperty(self, 'crypto', { value: { subtle }, configurable: true });
+        }
+    };
 
     const registerFileAdapter = adapter => {
         if (!adapter || typeof adapter.id !== 'string' || !adapter.id.trim()) {
@@ -31,10 +57,19 @@ function workerMain() {
     };
 
     self.onmessage = async ({ data }) => {
+        if (data && 'cryptoId' in data) {
+            const waiting = cryptoPending.get(data.cryptoId);
+            if (!waiting) return;
+            cryptoPending.delete(data.cryptoId);
+            if (data.ok) waiting.resolve(data.result);
+            else waiting.reject(new Error(data.error));
+            return;
+        }
         const { id, op } = data;
         try {
             let result;
             if (op === 'load') {
+                if (data.hasSubtle) installSubtleBridge();
                 if (data.lib) new Function(data.lib).call(self);
                 new Function('registerFileAdapter', 'registerGpScoreTransform', `"use strict";\n${data.source}`)(
                     registerFileAdapter, registerGpScoreTransform
@@ -71,7 +106,50 @@ function iframeMain() {
 
     const createWorker = () => {
         const entry = { worker: new Worker(workerUrl), pending: new Map(), nextId: 1 };
-        entry.worker.onmessage = ({ data }) => {
+        const keys = new Map();
+        let nextKeyId = 1;
+
+        const wrapKey = value => {
+            if (typeof CryptoKey !== 'undefined' && value instanceof CryptoKey) {
+                const keyId = nextKeyId++;
+                keys.set(keyId, value);
+                return {
+                    __cryptoKeyId: keyId,
+                    type: value.type,
+                    extractable: value.extractable,
+                    algorithm: value.algorithm,
+                    usages: value.usages
+                };
+            }
+            if (value && typeof value === 'object' && typeof CryptoKey !== 'undefined' &&
+                (value.publicKey instanceof CryptoKey || value.privateKey instanceof CryptoKey)) {
+                return {
+                    publicKey: wrapKey(value.publicKey),
+                    privateKey: wrapKey(value.privateKey)
+                };
+            }
+            return value;
+        };
+
+        const unwrapArg = arg => {
+            if (!arg || typeof arg !== 'object') return arg;
+            if (arg.__cryptoKeyId) return keys.get(arg.__cryptoKeyId);
+            if (arg.public?.__cryptoKeyId) return { ...arg, public: keys.get(arg.public.__cryptoKeyId) };
+            return arg;
+        };
+
+        entry.worker.onmessage = async ({ data }) => {
+            if (data && 'cryptoId' in data) {
+                try {
+                    const fn = window.crypto?.subtle?.[data.method];
+                    if (typeof fn !== 'function') throw new Error(`Unsupported crypto.subtle.${data.method}`);
+                    const result = wrapKey(await fn.apply(window.crypto.subtle, data.args.map(unwrapArg)));
+                    entry.worker.postMessage({ cryptoId: data.cryptoId, ok: true, result });
+                } catch (error) {
+                    entry.worker.postMessage({ cryptoId: data.cryptoId, ok: false, error: String(error?.message ?? error) });
+                }
+                return;
+            }
             const waiting = entry.pending.get(data.id);
             if (!waiting) return;
             entry.pending.delete(data.id);
@@ -89,10 +167,16 @@ function iframeMain() {
     const handle = async message => {
         if (message.op === 'load') {
             const results = [];
+            const hasSubtle = !!window.crypto?.subtle;
             for (const extension of message.extensions) {
                 const entry = createWorker();
                 try {
-                    const ids = await callWorker(entry, { op: 'load', source: extension.source, lib: message.lib });
+                    const ids = await callWorker(entry, {
+                        op: 'load',
+                        source: extension.source,
+                        lib: message.lib,
+                        hasSubtle
+                    });
                     workers.set(extension.id, entry);
                     results.push({ id: extension.id, ids });
                 } catch (error) {
