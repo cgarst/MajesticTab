@@ -25,15 +25,18 @@ export function resolveNames(peers, aliases) {
     });
 }
 
-/** A recognizable default name for a browser guest, from its user agent. */
-export function guestNameFromUserAgent(ua) {
+/**
+ * A recognizable default name for a browser guest, from its user agent. iPadOS 13+ sends a Mac user
+ * agent, but a Mac with a touch screen is an iPad, so `touchPoints` (navigator.maxTouchPoints) tells them apart.
+ */
+export function guestNameFromUserAgent(ua, touchPoints = 0) {
     const s = String(ua || '');
     if (/iPhone/.test(s)) return 'iPhone';
     if (/iPad/.test(s)) return 'iPad';
     if (/Android/.test(s)) return /Mobile/.test(s) ? 'Android phone' : 'Android tablet';
     if (/CrOS/.test(s)) return 'Chromebook';
     if (/Windows/.test(s)) return 'Windows PC';
-    if (/Macintosh|Mac OS X/.test(s)) return 'Mac';
+    if (/Macintosh|Mac OS X/.test(s)) return touchPoints > 1 ? 'iPad' : 'Mac';
     if (/Linux/.test(s)) return 'Linux PC';
     return 'Guest';
 }

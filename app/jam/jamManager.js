@@ -13,7 +13,7 @@ import { showToast } from '../utils/toast.js';
 
 const settings = {
     // A browser guest has no app name to show, so the host sees which kind of device it is
-    name: loadSetting('name', isJamWebGuest() ? guestNameFromUserAgent(navigator.userAgent) : 'MajesticTab'),
+    name: loadSetting('name', isJamWebGuest() ? guestNameFromUserAgent(navigator.userAgent, navigator.maxTouchPoints) : 'MajesticTab'),
     pin: loadSetting('pin', ''),
     policy: loadSetting('policy', 'ask'),
     muteGuests: loadSetting('muteGuests', false),
