@@ -96,6 +96,17 @@ function requireHost(expected, name) {
   }
 }
 
+// makeappx.exe ships with the Windows SDK, which windows-latest runners include.
+async function findMakeAppx() {
+  const binRoot = path.join(process.env['ProgramFiles(x86)'] ?? 'C:\\Program Files (x86)', 'Windows Kits', '10', 'bin');
+  const versions = (await readdir(binRoot).catch(() => [])).filter((name) => /^10\./.test(name)).sort();
+  for (const version of versions.reverse()) {
+    const candidate = path.join(binRoot, version, 'x64', 'makeappx.exe');
+    if (await stat(candidate).catch(() => null)) return candidate;
+  }
+  return fail('makeappx.exe not found. Install the Windows 10/11 SDK.');
+}
+
 async function findApk(directory) {
   let entries;
   try {
@@ -522,6 +533,37 @@ if (target === 'android') {
     path.join(distDir, 'MajesticTab.flatpak'),
     'net.zathu.majestictab',
   ], { cwd: rootDir });
+} else if (target === 'windows' && channel === 'msstore') {
+  // The Store signs MSIX packages itself, so this one is left unsigned. The identity values come from
+  // Partner Center (Product identity) and must match it exactly.
+  const identity = {
+    IDENTITY_NAME: process.env.MSSTORE_IDENTITY_NAME,
+    PUBLISHER: process.env.MSSTORE_PUBLISHER,
+    PUBLISHER_DISPLAY_NAME: process.env.MSSTORE_PUBLISHER_DISPLAY_NAME,
+  };
+  const missing = Object.entries(identity).filter(([, value]) => !value).map(([key]) => `MSSTORE_${key}`);
+  if (missing.length > 0) fail(`The msstore channel needs ${missing.join(', ')} (Partner Center, Product identity).`);
+  const makeappx = await findMakeAppx();
+  const version = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
+  if (!/^\d+\.\d+\.\d+$/.test(version)) fail(`Cannot make an MSIX version from "${version}".`);
+  run('npm', ['run', 'tauri', '--', 'build', '--no-bundle']);
+
+  const layout = path.join(tauriDir, 'target', 'msix-layout');
+  await rm(layout, { recursive: true, force: true });
+  await mkdir(path.join(layout, 'Assets'), { recursive: true });
+  await cp(path.join(tauriDir, 'target', 'release', 'majestictab.exe'), path.join(layout, 'majestictab.exe'));
+  const iconDir = path.join(tauriDir, 'src-tauri', 'icons', 'windows');
+  for (const [size, name] of [[44, 'Square44x44Logo'], [50, 'StoreLogo'], [150, 'Square150x150Logo']]) {
+    await cp(path.join(iconDir, `${size}x${size}.png`), path.join(layout, 'Assets', `${name}.png`));
+  }
+  // The Store requires a four-part version whose last part is 0.
+  const tokens = { ...identity, VERSION: `${version}.0` };
+  const manifest = (await readFile(path.join(tauriDir, 'msix', 'AppxManifest.xml'), 'utf8'))
+    .replace(/\{\{(\w+)\}\}/g, (_, key) => String(tokens[key]).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'));
+  await writeFile(path.join(layout, 'AppxManifest.xml'), manifest);
+  const msix = path.join(distDir, 'MajesticTab-msstore.msix');
+  await rm(msix, { force: true });
+  run(makeappx, ['pack', '/o', '/d', layout, '/p', msix]);
 } else {
   // Signed update bundles (.sig plus .app.tar.gz on macOS) are only produced when the updater
   // signing key is available, so local builds without it still work.
