@@ -6207,12 +6207,13 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 
 /* Track assignment matrix: people down the side, tracks across. Scrolls sideways when there are many tracks. */
 .jam-matrix-wrap {
+  flex-shrink: 0; /* the modal body is a flex column; a scroll container would otherwise collapse */
   overflow-x: auto;
   padding-bottom: 0.25rem;
 }
 .jam-matrix {
   display: grid;
-  grid-template-columns: 5rem repeat(var(--jam-cols), 1.9rem);
+  grid-template-columns: minmax(5rem, 1fr) repeat(var(--jam-cols), 1.9rem);
   gap: 0.35rem 0.25rem;
   align-items: center;
   width: max-content;
@@ -6242,7 +6243,7 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   flex-direction: column;
   min-width: 0;
   padding-right: 0.25rem;
-  background: var(--bg-card-solid);
+  background: var(--bg-modal);
 }
 .jam-matrix-person {
   overflow: hidden;
