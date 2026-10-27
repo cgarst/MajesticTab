@@ -45,7 +45,7 @@ test('guestNameFromUserAgent names the device kind', () => {
         chromebook: 'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 Chrome/120 Safari/537.36',
         linux: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
     };
-    assert.deepEqual(Object.values(ua).map(guestNameFromUserAgent),
+    assert.deepEqual(Object.values(ua).map((s) => guestNameFromUserAgent(s)),
         ['iPhone', 'iPad', 'Android phone', 'Android tablet', 'Windows PC', 'Mac', 'Chromebook', 'Linux PC']);
     assert.equal(guestNameFromUserAgent(''), 'Guest');
 });
