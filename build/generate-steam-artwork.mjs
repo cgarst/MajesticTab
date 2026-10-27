@@ -63,7 +63,6 @@ function composeGridVertical(w = 600, h = 900) {
     </g>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
     <text x="${w / 2}" y="${575 * scale}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${48 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="url(#accentGrad)">Tab</tspan></text>
-    <text x="${w / 2}" y="${620 * scale}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${14 * scale}" font-weight="600" fill="rgba(255,255,255,0.5)" letter-spacing="${6 * scale}">GUITAR TAB VIEWER</text>
   </svg>`;
 }
 
@@ -97,7 +96,6 @@ function composeGridHorizontal(w = 920, h = 430) {
     </g>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
     <text x="${340 * scale}" y="${230 * scale}" font-family="${FONT_FAMILY}" font-size="${64 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="url(#accentGrad)">Tab</tspan></text>
-    <text x="${345 * scale}" y="${278 * scale}" font-family="${FONT_FAMILY}" font-size="${18 * scale}" font-weight="600" fill="rgba(255,255,255,0.5)" letter-spacing="${5 * scale}">GUITAR TAB VIEWER</text>
   </svg>`;
 }
 
@@ -105,7 +103,7 @@ function composeHero(w = 3840, h = 1240) {
   const scale = w / 1920;
   const iconSize = 460 * scale;
   const iconX = w - iconSize - 220 * scale;
-  const iconY = (h - iconSize) / 2;
+  // No logo here: Steam overlays logo_1280x720.png on the hero; the glow stays where the mark used to sit.
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     <defs>
       ${GRADIENT_DEFS}
@@ -134,25 +132,45 @@ function composeHero(w = 3840, h = 1240) {
       <line x1="0" y1="${h - 100 * scale}" x2="${w}" y2="${h - 100 * scale}"/>
       <line x1="0" y1="${h - 60 * scale}" x2="${w}" y2="${h - 60 * scale}"/>
     </g>
-    <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
   </svg>`;
 }
 
-// Transparent overlay logo for Steam Hero view (16:9 canvas)
+// Transparent overlay logo for Steam Hero view (16:9 canvas). The artwork is scaled so its
+// bounding box fills the whole canvas, since Steam sizes and positions the logo from the image bounds.
 function composeLogo(w = 1280, h = 720) {
   const scale = w / 1280;
   const iconSize = 240 * scale;
   const totalWidth = iconSize + 35 * scale + 620 * scale;
   const startX = (w - totalWidth) / 2;
   const iconY = (h - iconSize) / 2;
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <defs>
+  const content = `<defs>
       ${GRADIENT_DEFS}
     </defs>
     <svg x="${startX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
     <text x="${startX + iconSize + 35 * scale}" y="${h / 2 + 20 * scale}" font-family="${FONT_FAMILY}" font-size="${84 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="url(#accentGrad)">Tab</tspan></text>
-    <text x="${startX + iconSize + 38 * scale}" y="${h / 2 + 75 * scale}" font-family="${FONT_FAMILY}" font-size="${22 * scale}" font-weight="600" fill="rgba(255,255,255,0.6)" letter-spacing="${6 * scale}">GUITAR TAB VIEWER</text>
+    <text x="${startX + iconSize + 38 * scale}" y="${h / 2 + 75 * scale}" font-family="${FONT_FAMILY}" font-size="${22 * scale}" font-weight="600" fill="rgba(255,255,255,0.6)" letter-spacing="${6 * scale}">GUITAR TAB VIEWER</text>`;
+  const wrap = (transform) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <g${transform ? ` transform="${transform}"` : ''}>${content}</g>
   </svg>`;
+  // Measure the painted pixels (glyph metrics from innerBBox are slightly loose).
+  const probe = new Resvg(wrap('')).render();
+  const { width: pw, height: ph, pixels } = probe;
+  let x0 = pw, y0 = ph, x1 = -1, y1 = -1;
+  for (let y = 0; y < ph; y++) {
+    for (let x = 0; x < pw; x++) {
+      if (pixels[(y * pw + x) * 4 + 3] === 0) continue;
+      if (x < x0) x0 = x;
+      if (x > x1) x1 = x;
+      if (y < y0) y0 = y;
+      if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) throw new Error('Could not measure logo bounds');
+  const box = { x: x0, y: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 };
+  const fit = Math.min(w / box.width, h / box.height);
+  const tx = (w - box.width * fit) / 2 - box.x * fit;
+  const ty = (h - box.height * fit) / 2 - box.y * fit;
+  return wrap(`translate(${tx} ${ty}) scale(${fit})`);
 }
 
 // Transparent square app icon for Steam Big Picture list / desktop shortcut
