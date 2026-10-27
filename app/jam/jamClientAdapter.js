@@ -662,6 +662,11 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                 trackState = msg;
                 if (following) applyTracks();
                 break;
+            case MSG.RENAME: {
+                const name = String(msg.name || '').trim().slice(0, 40);
+                if (name) ui.onRenamed?.(name);
+                break;
+            }
             case MSG.IDENTIFY:
                 runIdentify();
                 break;
