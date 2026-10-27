@@ -889,17 +889,19 @@ export function showTabDownloaderBar(isDebugToolsEnabled = false) {
     // Setup ResizeObserver to synchronize top bar height with native webview
     if (typeof ResizeObserver !== 'undefined' && bar) {
         if (resizeObserver) resizeObserver.disconnect();
-        let lastHeight = Math.ceil(bar.getBoundingClientRect().height) || 84;
-        resizeObserver = new ResizeObserver(entries => {
-            for (const entry of entries) {
-                const newHeight = Math.ceil(entry.contentRect.height + 1);
-                if (newHeight > 0 && Math.abs(newHeight - lastHeight) >= 2) {
-                    lastHeight = newHeight;
-                    syncDownloaderTopOffset(newHeight);
-                }
+        let lastHeight = 0;
+        // Border-box height, so the site webview starts exactly where the bar ends
+        const syncBarHeight = () => {
+            const height = Math.ceil(bar.getBoundingClientRect().height);
+            if (height > 0 && height !== lastHeight) {
+                lastHeight = height;
+                syncDownloaderTopOffset(height);
             }
-        });
+        };
+        resizeObserver = new ResizeObserver(syncBarHeight);
         resizeObserver.observe(bar);
+        // The tab pills and safe-area padding settle after the first paint
+        requestAnimationFrame(() => requestAnimationFrame(syncBarHeight));
     }
 }
 
