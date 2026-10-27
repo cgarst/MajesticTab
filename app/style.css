@@ -6840,3 +6840,18 @@ input[type=range]::-moz-range-thumb {
 .supporter-feature-list .bi-check2 {
   color: var(--accent-primary, currentColor);
 }
+
+/* Web Jam guest: minimal follower view (no library, open file, updates, backup, converters) */
+html.jam-web-guest #updateBanner,
+html.jam-web-guest #openFileMenuBtn,
+html.jam-web-guest #updatesBackupCard,
+html.jam-web-guest #updateSettingsCard,
+html.jam-web-guest #openExtensions,
+html.jam-web-guest #topBarBackToLibraryBtn,
+html.jam-web-guest .breadcrumb-back-btn,
+html.jam-web-guest .breadcrumb-back-btn + .breadcrumb-divider,
+html.jam-web-guest #libraryToggleBtn,
+html.jam-web-guest #libraryReturnToSongBtn,
+html.jam-web-guest #setlistNav {
+    display: none !important;
+}
