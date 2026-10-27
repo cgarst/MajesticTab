@@ -39,6 +39,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         trackAssignments: {}, // peer id or 'host' -> track indices
         assignedAudioMode: 'all', // 'all' | 'assigned' (own tracks only) | 'backing' (everything but own tracks)
         assignedViewOnly: false,
+        locked: false, // new people are turned away (in Rust); returning players still get in
         listeners: [], // people the host marked Listening (no tracks, on purpose); everyone else without tracks is unrestricted
         listeningHears: 'all', // 'all' | 'backing' (not the tracks assigned to others)
     };
@@ -347,6 +348,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         if (!type) {
             session.song = null;
             session.songBytes = null;
+            songPartsCache = null;
             session.playing = false;
             clearTrackAssignments();
             broadcast(MSG.SONG_CLOSE);
@@ -385,10 +387,19 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         }
     }
 
+    // Encoding a big song once per person is wasteful when a whole class joins, so encode once per song.
+    let songPartsCache = null; // { id, promise }
+    function songParts(song) {
+        if (songPartsCache?.id !== song.id) {
+            songPartsCache = { id: song.id, promise: arrayBufferToBase64Async(session.songBytes).then((b64) => chunkBase64(b64)) };
+        }
+        return songPartsCache.promise;
+    }
+
     async function sendSongData(id, requested) {
         const song = session.song;
         if (!song || !session.songBytes || requested.id !== song.id) return;
-        const parts = chunkBase64(await arrayBufferToBase64Async(session.songBytes));
+        const parts = await songParts(song);
         for (let part = 0; part < parts.length; part++) {
             if (session.song !== song || !roster.has(id)) return;
             await sendTo(id, MSG.SONG_DATA, { songId: song.id, fileName: song.fileName, part, parts: parts.length, b64: parts[part] });
@@ -597,6 +608,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             session.assignedViewOnly = Boolean(getSettings().assignedViewOnly);
             session.listeningHears = normListening(getSettings().listeningHears);
             session.listeners = [];
+            session.locked = false;
             unsubscribe = onTransportEvent(onPlayerEvent);
             unsubscribeMixer = onMixerChange(scheduleMixerBroadcast);
             unsubscribeSoundFonts = onSoundFontSelectionChange(scheduleSoundFontBroadcast);
@@ -631,10 +643,12 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             pendingRequests.clear();
             session.song = null;
             session.songBytes = null;
+            songPartsCache = null;
             session.playing = false;
             session.controllerId = null;
             session.trackAssignments = {};
             session.listeners = [];
+            session.locked = false;
             aliases.clear();
             departedAliases.clear();
             applyOwnTracks();
@@ -656,6 +670,12 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             await jam.hostKick(id);
         },
         getRoster: namedRoster,
+        /** Locked, nobody new can join; players who drop out can still come back. */
+        async setLocked(on) {
+            session.locked = Boolean(on);
+            await jam.hostSetLocked(session.locked);
+            emitRoster();
+        },
         /** Names a peer on the host only; an empty name goes back to what the client sent. */
         renamePeer(id, name) {
             if (!roster.has(id)) return;
