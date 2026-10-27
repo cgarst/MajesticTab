@@ -6419,7 +6419,7 @@ body.library-view-active .tools-btn-chevron { display: inline-block; }
 }
 
 /* The library bar has room for Fullscreen as its own button, so it never folds into Tools there */
-body.library-view-active:not(.tauri-gamescope) #fullscreenPill { display: inline-flex !important; }
+html:not(.fullscreen-unavailable) body.library-view-active:not(.tauri-gamescope) #fullscreenPill { display: inline-flex !important; }
 body.library-view-active #toolsFullscreenRow { display: none !important; }
 
 @media (max-width: 576px) {
