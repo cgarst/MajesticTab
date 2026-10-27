@@ -563,7 +563,7 @@ if (target === 'android') {
   await writeFile(path.join(layout, 'AppxManifest.xml'), manifest);
   const msix = path.join(distDir, 'MajesticTab-msstore.msix');
   await rm(msix, { force: true });
-  run(makeappx, ['pack', '/o', '/d', layout, '/p', msix]);
+  run(makeappx, ['pack', '/o', '/d', layout, '/p', msix], { shell: false });
 } else {
   // Signed update bundles (.sig plus .app.tar.gz on macOS) are only produced when the updater
   // signing key is available, so local builds without it still work.
