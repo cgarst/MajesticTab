@@ -211,17 +211,8 @@ class GamepadManager {
         }
 
         this.updatePillUI(true, gamepad.id);
-        showToast(`Controller connected: ${this.cleanGamepadName(gamepad.id)}`, 'info', 2500);
+        showToast(`Controller connected: ${this.cleanGamepadName(gamepad.id)} — Hold View to see controls`, 'info', 3500);
         this.startPolling();
-
-        // Automatically show the controller guide overlay on first controller connection
-        const hasSeenGuide = localStorage.getItem('hasSeenControllerGuide');
-        if (!hasSeenGuide) {
-            localStorage.setItem('hasSeenControllerGuide', 'true');
-            setTimeout(() => {
-                this.openHelpModal('gamepad');
-            }, 350);
-        }
     }
 
     handleGamepadDisconnected(gamepad) {
