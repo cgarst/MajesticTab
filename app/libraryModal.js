@@ -682,15 +682,15 @@ async function renderLibraryBrowseView(container) {
 
     // Top Library Body Toolbar (Collection Selector + Mode Selector + Universal Search/Filter + Add Music)
     const inTunings = libraryBrowseMode === 'tunings';
+    const collectionSelectHtml = collections.length > 1 ? `<div class="collection-pill-group">
+        <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
+          ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
+        </select>
+      </div>` : '';
     const headerHtml = `
     <div class="library-page-container">
       ${libraryHeaderHtml({
         activeTab: inTunings ? 'tunings' : 'library',
-        leftExtraHtml: collections.length > 1 ? `<div class="collection-pill-group">
-            <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
-              ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
-            </select>
-          </div>` : '',
         searchId: 'libFilterInput',
         clearId: 'libFilterClearBtn',
         placeholder: libraryBrowseMode === 'tunings'
@@ -701,7 +701,7 @@ async function renderLibraryBrowseView(container) {
     `;
 
     if (artists.length === 0) {
-        container.innerHTML = headerHtml + `
+        container.innerHTML = headerHtml + libraryListToolbarHtml({ leftHtml: collectionSelectHtml }) + `
           ${libraryEmptyStateHtml({
             icon: 'bi-music-note-list',
             title: 'This collection is empty',
@@ -799,7 +799,7 @@ async function renderLibraryBrowseView(container) {
                 }
 
                 const sortedSections = Array.from(sectionsMap.values()).sort((a, b) => a.order - b.order);
-                toolbarHtml = libraryListToolbarHtml({ count: `${tuningGroups.length} ${tuningGroups.length === 1 ? 'tuning' : 'tunings'}` });
+                toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml, count: `${tuningGroups.length} ${tuningGroups.length === 1 ? 'tuning' : 'tunings'}` });
 
                 bodyHtml = `
                 <div class="library-tunings-container d-flex flex-column gap-4" id="libTuningsGrid">
@@ -1150,6 +1150,7 @@ async function renderLibraryBrowseView(container) {
             }
 
             toolbarHtml = libraryListToolbarHtml({
+                leftHtml: collectionSelectHtml,
                 count: `${artists.length} ${artists.length === 1 ? 'artist' : 'artists'}`,
                 actionsHtml: addMusicBtnHtml
             });
@@ -1165,6 +1166,7 @@ async function renderLibraryBrowseView(container) {
         }
     }
 
+    if (!toolbarHtml) toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml });
     container.innerHTML = headerHtml + toolbarHtml + breadcrumbHtml + `
       <div id="libBrowseContent">${bodyHtml}</div>
       <div id="libFilteredSearchResults" style="display: none;"></div>
@@ -1397,15 +1399,10 @@ export function libraryViewSwitchHtml(activeTab = null) {
     </div>`;
 }
 
-// Shared chrome for every library view: view switcher card, its own search box, then (below, via
+// Shared chrome for every library view: centered view switcher, then its own search box, then (below, via
 // libraryListToolbarHtml) a count on the left and the primary action on the right.
-export function libraryHeaderHtml({ activeTab, leftExtraHtml = '', searchId, clearId, placeholder, searchLabel, searchDisabled = false }) {
-    return `<div class="library-body-header mb-3 ${leftExtraHtml ? '' : 'switch-only-header'}">
-        <div class="lib-toolbar-left d-flex align-items-center gap-2 flex-wrap ${leftExtraHtml ? '' : 'switch-only'}">
-          ${leftExtraHtml}
-          ${libraryViewSwitchHtml(activeTab)}
-        </div>
-      </div>
+export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, searchLabel, searchDisabled = false }) {
+    return `<div class="lib-view-switch-row">${libraryViewSwitchHtml(activeTab)}</div>
       <div class="library-search-box mb-3">
         <div class="library-search-bar">
           <i class="bi-search search-icon"></i>
@@ -1428,9 +1425,9 @@ export function libraryEmptyStateHtml({ icon, title, message, actionsHtml = '' }
 }
 
 // Count on the left, primary action (plus any secondary controls) on the right
-export function libraryListToolbarHtml({ count, actionsHtml = '' }) {
+export function libraryListToolbarHtml({ count = '', leftHtml = '', actionsHtml = '' }) {
     return `<div class="library-list-toolbar">
-        <span class="small text-white-50">${count}</span>
+        <div class="d-flex align-items-center gap-2 min-w-0">${leftHtml}<span class="small text-white-50">${count}</span></div>
         <div class="d-flex align-items-center gap-2 flex-shrink-0">${actionsHtml}</div>
       </div>`;
 }
