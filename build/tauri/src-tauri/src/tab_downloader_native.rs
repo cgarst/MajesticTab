@@ -455,6 +455,14 @@ pub fn wrap_userscript(raw_js: &str, config: Option<&TabDownloaderConfig>) -> St
         }
     }
     let config_json = serde_json::to_string(&cfg).unwrap_or_else(|_| "null".to_string());
+    // Store channels never run userscripts: deliver only the download shim and the page config.
+    if cfg!(not(feature = "tab-downloader-full")) {
+        return format!(
+            "{core_shim}\n(function() {{ const cfg = {config_json}; if (cfg) window.__MAJESTIC_TAB_DOWNLOADER_CONFIG__ = cfg; }})();",
+            core_shim = CORE_DOWNLOADER_SHIM,
+            config_json = config_json
+        );
+    }
     format!(
         r#"{core_shim}
 (function() {{

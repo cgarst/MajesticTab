@@ -3,16 +3,21 @@ import { writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { verifyOrExit } from './verify-channel.mjs';
+import { DEFAULT_CHANNEL, cargoFeatures, channels, isValidChannel } from './channels.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, '..');
 const tauriDir = path.join(scriptDir, 'tauri');
 const distDir = path.join(rootDir, 'dist');
 const target = process.argv[2];
-const buildOptions = process.argv.slice(3);
+const channelOption = process.argv.slice(3).find((option) => option.startsWith('--channel='));
+const buildOptions = process.argv.slice(3).filter((option) => option !== channelOption);
+const channel = channelOption ? channelOption.slice('--channel='.length) : DEFAULT_CHANNEL;
+const channelCapabilities = isValidChannel(channel) ? channels[channel].capabilities : {};
 const debugTools = buildOptions.includes('--debug-tools') || buildOptions.includes('--debug');
 const macosX64 = buildOptions.includes('--x86_64');
-const macosAppStore = buildOptions.includes('--appstore');
+const macosAppStore = buildOptions.includes('--appstore') || channel === 'appstore-mac';
 const validTargets = ['windows', 'macos', 'linux', 'android', 'ios'];
 async function loadEnvFiles() {
   const possiblePaths = [
@@ -57,16 +62,20 @@ function fail(message) {
 }
 
 if (!validTargets.includes(target)
+  || !isValidChannel(channel)
+  || !channels[channel].platforms.includes(target)
+  || (buildOptions.includes('--appstore') && channelOption && channel !== 'appstore-mac')
   || buildOptions.some((option) => option !== '--debug-tools' && option !== '--debug' && option !== '--x86_64' && option !== '--appstore')
   || new Set(buildOptions).size !== buildOptions.length
   || (buildOptions.includes('--debug-tools') && buildOptions.includes('--debug'))
   || (debugTools && (target === 'android' || target === 'ios') && buildOptions.includes('--debug-tools'))
   || (macosX64 && target !== 'macos')
   || (macosAppStore && (target !== 'macos' || macosX64))) {
-  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools|--debug] [--x86_64 (macos only)] [--appstore (macos only, sandboxed Mac App Store build)]`);
+  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools|--debug] [--x86_64 (macos only)] [--appstore (macos only, sandboxed Mac App Store build)] [--channel=<${Object.keys(channels).join('|')}> (default ${DEFAULT_CHANNEL}; must match the target platform)]`);
   process.exit(2);
 }
 
+env.MAJESTICTAB_STORE_CHANNEL = channel;
 if (target === 'macos') env.MAJESTICTAB_ARCH = macosX64 ? 'x86_64' : 'aarch64';
 
 function run(command, args, options = {}) {
@@ -250,11 +259,14 @@ async function ensureCrateTypeForTarget(currentTarget) {
   const pattern = /crate-type\s*=\s*\[.*?\]/;
   if (pattern.test(content)) {
     content = content.replace(pattern, targetTypes);
-    if (content !== originalContent) {
-      await writeFile(cargoTomlPath, content);
-      // Restore the committed Cargo.toml so builds don't leave the tree dirty.
-      process.on('exit', () => writeFileSync(cargoTomlPath, originalContent));
-    }
+  }
+  // Channel capabilities (self-update, userscripts) become the crate's default features.
+  const defaultFeatures = `default = [${cargoFeatures(channel).map((feature) => `"${feature}"`).join(', ')}]`;
+  content = content.replace(/^default\s*=\s*\[.*?\]$/m, defaultFeatures);
+  if (content !== originalContent) {
+    await writeFile(cargoTomlPath, content);
+    // Restore the committed Cargo.toml so builds don't leave the tree dirty.
+    process.on('exit', () => writeFileSync(cargoTomlPath, originalContent));
   }
 }
 
@@ -266,6 +278,7 @@ run('npm', [
 ]);
 run('node', ['generate-icons.mjs', target]);
 await ensureCrateTypeForTarget(target);
+await verifyOrExit(channel, { cargoToml: path.join(tauriDir, 'src-tauri', 'Cargo.toml'), debugTools });
 
 if (target === 'android') {
   const javaHome = process.env.JAVA_HOME;
@@ -334,10 +347,11 @@ if (target === 'android') {
   await rm(path.join(androidRes, 'drawable-v24', 'ic_launcher_foreground.xml'), { force: true });
   await rm(path.join(androidRes, 'drawable', 'ic_launcher_background.xml'), { force: true });
   await cp(path.join(tauriDir, 'src-tauri', 'icons', 'android'), androidRes, { recursive: true });
-  await writeFile(
-    path.join(androidPackageDir, 'MainActivity.kt'),
-    await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8'),
-  );
+  let mainActivity = await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8');
+  if (!channelCapabilities.selfUpdate) {
+    mainActivity = mainActivity.replace(/[ \t]*\/\/ @selfUpdate:begin[\s\S]*?\/\/ @selfUpdate:end\n?/, '');
+  }
+  await writeFile(path.join(androidPackageDir, 'MainActivity.kt'), mainActivity);
   // Jam mode: LAN sockets plus mDNS discovery (multicast) for finding hosts; tuner: microphone.
   const manifestPath = path.join(androidProject, 'app', 'src', 'main', 'AndroidManifest.xml');
   let manifest = await readFile(manifestPath, 'utf8');
@@ -348,11 +362,15 @@ if (target === 'android') {
     }
   }
   // In-app updates install the downloaded APK, which needs the install permission and a FileProvider for the cache folder.
+  // Channels without selfUpdate (play, fdroid) get neither, and any left over from an earlier build is removed.
   const installTag = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />';
-  if (!manifest.includes(installTag)) {
+  if (!channelCapabilities.selfUpdate) {
+    manifest = manifest.replace(new RegExp(`[ \\t]*${installTag}\\n?`), '');
+    manifest = manifest.replace(/[ \t]*<provider\s+android:name="androidx\.core\.content\.FileProvider"[^>]*updateprovider[\s\S]*?<\/provider>\s*/, '');
+  } else if (!manifest.includes(installTag)) {
     manifest = manifest.replace('<uses-permission android:name="android.permission.INTERNET" />', `<uses-permission android:name="android.permission.INTERNET" />\n    ${installTag}`);
   }
-  if (!manifest.includes('.updateprovider')) {
+  if (channelCapabilities.selfUpdate && !manifest.includes('.updateprovider')) {
     const provider = `<provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="\${applicationId}.updateprovider"
@@ -364,11 +382,16 @@ if (target === 'android') {
     manifest = manifest.replace('</application>', `${provider}</application>`);
   }
   await writeFile(manifestPath, manifest);
-  await mkdir(path.join(androidRes, 'xml'), { recursive: true });
-  await writeFile(
-    path.join(androidRes, 'xml', 'majestictab_update_paths.xml'),
-    '<?xml version="1.0" encoding="utf-8"?>\n<paths>\n    <cache-path name="updates" path="updates/" />\n</paths>\n',
-  );
+  await verifyOrExit(channel, { androidProject });
+  if (channelCapabilities.selfUpdate) {
+    await mkdir(path.join(androidRes, 'xml'), { recursive: true });
+    await writeFile(
+      path.join(androidRes, 'xml', 'majestictab_update_paths.xml'),
+      '<?xml version="1.0" encoding="utf-8"?>\n<paths>\n    <cache-path name="updates" path="updates/" />\n</paths>\n',
+    );
+  } else {
+    await rm(path.join(androidRes, 'xml', 'majestictab_update_paths.xml'), { force: true });
+  }
   const keystore = process.env.ANDROID_KEYSTORE_FILE;
   const keystorePassword = process.env.ANDROID_KEYSTORE_PASSWORD;
   const keyAlias = process.env.ANDROID_KEY_ALIAS;
@@ -484,10 +507,10 @@ if (target === 'android') {
   // Signed update bundles (.sig plus .app.tar.gz on macOS) are only produced when the updater
   // signing key is available, so local builds without it still work.
   // The public key comes from TAURI_UPDATER_PUBKEY and is merged over the placeholder in tauri.conf.json.
-  const updaterPubkey = macosAppStore ? '' : (process.env.TAURI_UPDATER_PUBKEY ?? '').trim();
+  const updaterPubkey = macosAppStore || !channelCapabilities.selfUpdate ? '' : (process.env.TAURI_UPDATER_PUBKEY ?? '').trim();
   const signUpdates = Boolean(process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PATH)
     && updaterPubkey !== '';
-  if (!macosAppStore && (process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) && !updaterPubkey) {
+  if (!macosAppStore && channelCapabilities.selfUpdate && (process.env.TAURI_SIGNING_PRIVATE_KEY || process.env.TAURI_SIGNING_PRIVATE_KEY_PATH) && !updaterPubkey) {
     console.warn('[build-tauri] Skipping update bundles: TAURI_UPDATER_PUBKEY is not set.');
   }
   const bundles = macosAppStore ? ['app'] : target === 'macos' ? ['dmg', 'app'] : ['nsis'];
