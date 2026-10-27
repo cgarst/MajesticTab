@@ -7,12 +7,12 @@ edition = "2021"
 
 [features]
 # Store channels turn these off (see build/channels.mjs); build-tauri.mjs rewrites `default` per channel.
-default = ["self-update", "tab-downloader-full"]
+default = ["self-update"]
 debug-tools = ["tauri/devtools"]
 # In-app updater (desktop only; the dependency does not exist on mobile)
 self-update = ["dep:tauri-plugin-updater"]
-# Userscript injection into Tab Downloader pages
-tab-downloader-full = []
+# In-app purchase for the Supporter unlock (App Store and Google Play channels only)
+iap = ["dep:tauri-plugin-iap"]
 
 [lib]
 name = "majestictab_lib"
@@ -29,6 +29,8 @@ tauri-plugin-fs = "2"
 # Lets the S3 client call buckets without browser CORS rules
 tauri-plugin-http = "2"
 tauri-plugin-google-auth = { path = "../plugins/google-auth" }
+# Release candidate; pinned exactly. Only compiled with the `iap` feature.
+tauri-plugin-iap = { version = "=0.10.0-rc.10", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"

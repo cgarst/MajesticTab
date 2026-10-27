@@ -594,6 +594,9 @@ pub fn run() {
     #[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
+    #[cfg(feature = "iap")]
+    let builder = builder.plugin(tauri_plugin_iap::init());
+
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         jam::jam_now_ms,

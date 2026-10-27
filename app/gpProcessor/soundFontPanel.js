@@ -3,10 +3,11 @@
 import { reloadSynthSoundFonts } from './gpPlayer.js';
 import {
     listOrderedSoundFonts, addSoundFont, deleteSoundFont,
-    getSelectedSoundFontIds, setSelectedSoundFontIds, setSoundFontOrder, getSoundFontStrict, setSoundFontStrict,
+    getSelectedSoundFontIds, getSavedSoundFontIds, setSelectedSoundFontIds, setSoundFontOrder, getSoundFontStrict, setSoundFontStrict,
     getForcedPreset, setForcedPreset, listSoundFontPresets
 } from '../soundFontStore.js';
 import { showToast } from '../utils/toast.js';
+import { requireSupporter } from '../supporter.js';
 
 function formatSize(bytes) {
     if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
@@ -77,6 +78,10 @@ export function initSoundFontPanel() {
     if (strictToggle) {
         strictToggle.checked = getSoundFontStrict();
         strictToggle.addEventListener('change', () => {
+            if (!requireSupporter('customSoundFonts')) {
+                strictToggle.checked = getSoundFontStrict();
+                return;
+            }
             setSoundFontStrict(strictToggle.checked);
             scheduleReload();
         });
@@ -115,6 +120,10 @@ export function initSoundFontPanel() {
 
     forceFont?.addEventListener('change', async () => {
         const id = forceFont.value;
+        if (id && !requireSupporter('customSoundFonts')) {
+            await render();
+            return;
+        }
         if (!id) {
             setForcedPreset(null);
         } else {
@@ -133,6 +142,10 @@ export function initSoundFontPanel() {
     forcePreset?.addEventListener('change', () => {
         const forced = getForcedPreset();
         if (!forced) return;
+        if (!requireSupporter('customSoundFonts')) {
+            render();
+            return;
+        }
         setForcedPreset({ id: forced.id, program: Number(forcePreset.value) });
         scheduleReload();
     });
@@ -164,7 +177,11 @@ export function initSoundFontPanel() {
         const input = e.target.closest('input[type="checkbox"]');
         const id = input?.closest('.soundfont-row')?.dataset.id;
         if (!id) return;
-        const next = new Set(getSelectedSoundFontIds());
+        if (!requireSupporter('customSoundFonts')) {
+            input.checked = !input.checked;
+            return;
+        }
+        const next = new Set(getSavedSoundFontIds());
         if (input.checked) next.add(id); else next.delete(id);
         if (next.size === 0) {
             // At least one SoundFont must stay on or there is nothing to play with
@@ -183,6 +200,7 @@ export function initSoundFontPanel() {
         const row = e.target.closest('.soundfont-row');
         const moveBtn = e.target.closest('.soundfont-move-up-btn, .soundfont-move-down-btn');
         if (moveBtn && row) {
+            if (!requireSupporter('customSoundFonts')) return;
             const ids = (await listOrderedSoundFonts()).map(f => f.id);
             const from = ids.indexOf(row.dataset.id);
             const to = from + (moveBtn.classList.contains('soundfont-move-up-btn') ? -1 : 1);
@@ -219,7 +237,9 @@ export function initSoundFontPanel() {
         if (wasEnabled) scheduleReload();
     });
 
-    addBtn.addEventListener('click', () => fileInput.click());
+    addBtn.addEventListener('click', () => {
+        if (requireSupporter('customSoundFonts')) fileInput.click();
+    });
     fileInput.addEventListener('change', async () => {
         const files = [...fileInput.files];
         fileInput.value = '';
@@ -234,7 +254,7 @@ export function initSoundFontPanel() {
         }
         if (added.length === 0) return;
         // New uploads are enabled right away so they are audible
-        setSelectedSoundFontIds([...getSelectedSoundFontIds(), ...added.map(a => a.id)]);
+        setSelectedSoundFontIds([...getSavedSoundFontIds(), ...added.map(a => a.id)]);
         await render();
         showToast(added.length === 1 ? `Added ${added[0].name}` : `Added ${added.length} SoundFonts`, 'success');
         scheduleReload();

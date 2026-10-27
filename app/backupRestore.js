@@ -16,7 +16,7 @@ import {
 import { showToast } from './utils/toast.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported } from './icloudDrive.js';
-import { setTheme, setSheetMode, getCurrentTheme } from './themeEngine.js';
+import { refreshAppearance } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
 import { installExtensionSources } from './fileAdapters.js';
 import {
@@ -66,7 +66,8 @@ const BACKUP_SETTINGS_KEYS = [
     'debugMode',
     'majestictab_update_channel',
     'youtubeApiKey',
-    'tab_downloader_sources',
+    'tab_downloader_sources', // legacy name, kept so older backups still restore
+    'majestictab_tab_sources',
     'majestictab_custom_tuning_names',
     'gpDefaultStringsGuitar',
     'gpDefaultStringsBass',
@@ -1107,10 +1108,8 @@ export async function clearAppCache() {
  */
 export function applyRestoredPreferences() {
     // Theme
-    const theme = localStorage.getItem('majestictab_theme') || 'Mystic Dream';
-    const sheetMode = localStorage.getItem('majestictab_sheet_mode') || 'auto';
-    setTheme(theme);
-    setSheetMode(sheetMode);
+    // The restored values are already saved; this applies whichever the current entitlement allows.
+    refreshAppearance();
 
     // GP Scale
     const scaleStr = localStorage.getItem('gpSheetScale');

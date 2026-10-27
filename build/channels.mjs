@@ -11,7 +11,7 @@ export const SUPPORTER_FEATURES = ['themes', 'sheetModes', 'jamHost', 'setlists'
 
 const FULL = {
   tabDownloader: 'full', // 'full' | 'google-only' | 'off'
-  userscripts: true,
+  userscripts: true, // ships the built-in userscripts and their editor; userscripts restored from a backup run regardless
   extensions: 'full', // 'full' | 'off'
   selfUpdate: true,
   googleDrive: true,
@@ -19,6 +19,10 @@ const FULL = {
   monetization: 'none', // 'none' | 'iap'
   supporterProductId: null,
 };
+
+// One-time "MajesticTab Supporter" product (non-consumable). Create it with this ID in App Store Connect
+// and Google Play Console.
+const SUPPORTER_PRODUCT_ID = 'net.zathu.majestictab.supporter';
 
 const STORE_DOWNLOADER = { tabDownloader: 'google-only', userscripts: false, selfUpdate: false };
 
@@ -29,7 +33,7 @@ export const channels = {
   },
   play: {
     platforms: ['android'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER, youtube: 'official-origin', monetization: 'iap' },
+    capabilities: { ...FULL, ...STORE_DOWNLOADER, youtube: 'official-origin', monetization: 'iap', supporterProductId: SUPPORTER_PRODUCT_ID },
   },
   fdroid: {
     platforms: ['android'],
@@ -37,11 +41,11 @@ export const channels = {
   },
   'appstore-ios': {
     platforms: ['ios'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap' },
+    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap', supporterProductId: SUPPORTER_PRODUCT_ID },
   },
   'appstore-mac': {
     platforms: ['macos'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap' },
+    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap', supporterProductId: SUPPORTER_PRODUCT_ID },
   },
   flathub: {
     platforms: ['linux'],
@@ -69,9 +73,9 @@ export function resolveChannel(id) {
 
 /** Cargo features the channel builds with (build/tauri/src-tauri/Cargo.toml replaces its `default` with these). */
 export function cargoFeatures(id) {
-  const { selfUpdate, tabDownloader, userscripts } = channels[id].capabilities;
+  const { selfUpdate, monetization } = channels[id].capabilities;
   return [
+    ...(monetization === 'iap' ? ['iap'] : []),
     ...(selfUpdate ? ['self-update'] : []),
-    ...(tabDownloader === 'full' && userscripts ? ['tab-downloader-full'] : []),
   ];
 }

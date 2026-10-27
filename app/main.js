@@ -23,6 +23,7 @@ import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdf
 import { initTheming } from './themeEngine.js';
 import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
+import { initSupporter } from './supporter.js';
 import { openFromProvider } from './fileProviders.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
@@ -1129,6 +1130,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     setupPinchToZoom();
     setupExtensionSettings();
     initUpdater();
+    initSupporter();
     initYouTubePlayer();
     initSynthPlayer();
     initSoundFontPanel();

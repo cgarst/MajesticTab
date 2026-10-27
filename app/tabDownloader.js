@@ -7,7 +7,7 @@ import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryS
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { closeLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
-import { getFeature, hasFeature } from './channel.js';
+import { getFeature } from './channel.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 const GOOGLE_FIRST_KEY = 'majestictab_tab_sources_google_first';
@@ -120,6 +120,22 @@ export function getSources() {
         }
     } catch {}
     return resetToDefaultSources();
+}
+
+/**
+ * Google-only builds list just Google and ship no userscripts, but a backup restored from a full build
+ * still carries the user's own. Those are handed to the native webview (which matches them to a page by
+ * host) so they keep working, with no UI to edit them here.
+ */
+function getRestoredUserscriptSources() {
+    if (getFeature('tabDownloader') === 'full') return [];
+    try {
+        const stored = JSON.parse(localStorage.getItem(SOURCES_STORAGE_KEY) || 'null');
+        if (!Array.isArray(stored)) return [];
+        return stored.filter(s => s && s.id !== 'google' && s.userscriptEnabled && String(s.userscript || '').trim());
+    } catch {
+        return [];
+    }
 }
 
 /**
@@ -660,7 +676,7 @@ export function switchActiveSource(src) {
     const query = formatSearchQueryForSource(src, activeArtistName, activeSongName) || currentSearchQuery;
     const nextUrl = buildSearchUrl(src, query);
     currentDownloaderUrl = nextUrl;
-    const userscript = hasFeature('userscripts') && src.userscriptEnabled ? (src.userscript || src.defaultUserscript || null) : null;
+    const userscript = src.userscriptEnabled ? (src.userscript || src.defaultUserscript || null) : null;
 
     if (window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl, userscript }).catch(err => {
@@ -915,7 +931,7 @@ export async function openTabDownloader(options = {}) {
         isDebugToolsEnabled: Boolean(isDebugToolsEnabled),
         forceDesktop: Boolean(activeSource.forceDesktop),
         platform: (/iphone|ipad|ipod/i.test(navigator.userAgent || '')) ? 'ios' : (/android/i.test(navigator.userAgent || '') ? 'android' : ((/mac/i.test(navigator.platform || navigator.userAgent)) ? 'macos' : ((/win/i.test(navigator.platform || navigator.userAgent)) ? 'windows' : 'other'))),
-        sources: sources.map(s => ({
+        sources: [...sources, ...getRestoredUserscriptSources()].map(s => ({
             id: s.id,
             name: s.name,
             urlTemplate: s.urlTemplate,
@@ -928,7 +944,7 @@ export async function openTabDownloader(options = {}) {
             isSeed: Boolean(s.isSeed)
         }))
     };
-    const targetScript = hasFeature('userscripts') && activeSource.userscriptEnabled ? (activeSource.userscript || '') : '';
+    const targetScript = activeSource.userscriptEnabled ? (activeSource.userscript || '') : '';
     // Android shows its site view natively; the shell's own eval of this can stall after a close
     try { window.MajesticDownloaderNative?.show?.(); } catch {}
     try {

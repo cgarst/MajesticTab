@@ -192,9 +192,33 @@
     import { initTheming } from './themeEngine.js';
     import { getAllSongs, getCollections } from './libraryStore.js';
     import { getStoredFile } from './fileStore.js';
+    import { hasSupporter } from './channel.js';
+    import { initSupporter, openPaywall } from './supporter.js';
 
     // Initialize active theme
     initTheming();
+
+    // Bulk export is a Supporter feature on store channels. This page is reachable by URL, so it gates itself.
+    await initSupporter();
+    const exportCard = document.querySelector('.export-card');
+    const gateCard = document.createElement('div');
+    gateCard.className = 'export-card text-center';
+    gateCard.innerHTML = `
+      <i class="bi-lock-fill text-info fs-2"></i>
+      <h1 class="h4 fw-bold text-white mt-2 mb-2">Bulk export is a Supporter feature</h1>
+      <p class="small text-white-50 mb-4">MajesticTab Supporter is a one-time purchase that also unlocks extra themes, tab modes, Jam hosting, custom SoundFonts and setlists.</p>
+      <div class="d-flex justify-content-center gap-2">
+        <a class="btn btn-theme-outline" href="index.html"><i class="bi-arrow-left me-1"></i> Back to App</a>
+        <button type="button" class="btn btn-theme-primary" id="unlockBatchExportBtn">Unlock</button>
+      </div>`;
+    exportCard.after(gateCard);
+    gateCard.querySelector('#unlockBatchExportBtn').addEventListener('click', () => openPaywall('batchExport'));
+    const syncGate = () => {
+      exportCard.hidden = !hasSupporter();
+      gateCard.hidden = hasSupporter();
+    };
+    syncGate();
+    window.addEventListener('supporterchange', syncGate);
 
     // Native macOS shell uses an overlay title bar; reserve room for the traffic lights.
     if (window.__TAURI__ && /Mac/i.test(navigator.platform)) {
