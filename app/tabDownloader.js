@@ -148,28 +148,6 @@ export const DEFAULT_SOURCES = [
         isSeed: true
     },
     {
-        id: 'metaltabs',
-        name: 'MetalTabs',
-        urlTemplate: 'https://metaltabs.org/search?q=$s&type=track',
-        defaultUrl: 'https://metaltabs.org/search?q=$s&type=track',
-        queryFormat: 'artist_song',
-        userscriptEnabled: false,
-        userscript: '',
-        defaultUserscript: '',
-        isSeed: true
-    },
-    {
-        id: 'gprotab',
-        name: 'GProTab',
-        urlTemplate: 'https://gprotab.net/en/search?type=song&q=$s',
-        defaultUrl: 'https://gprotab.net/en/search?type=song&q=$s',
-        queryFormat: 'song_only',
-        userscriptEnabled: false,
-        userscript: '',
-        defaultUserscript: '',
-        isSeed: true
-    },
-    {
         id: 'classtab',
         name: 'Classical Tab',
         urlTemplate: 'https://www.google.com/search?q=$s&sitesearch=https%3A%2F%2Fwww.classtab.org',
@@ -225,17 +203,13 @@ export function getSources() {
             let parsed = JSON.parse(raw);
             if (Array.isArray(parsed) && parsed.length > 0) {
                 // Purge deprecated guitarprotabs default seed
-                parsed = parsed.filter(s => s.id !== 'guitarprotabs' && s.id !== 'songsterr');
+                parsed = parsed.filter(s => s.id !== 'guitarprotabs' && s.id !== 'songsterr' && !((s.id === 'metaltabs' || s.id === 'gprotab') && s.isSeed));
                 for (const seed of DEFAULT_SOURCES) {
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
                         existing.defaultUserscript = seed.defaultUserscript;
-                        if (!existing.queryFormat || (existing.id === 'metaltabs' && existing.queryFormat !== 'artist_song') || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'gprotab' && existing.queryFormat !== 'song_only') || (existing.id === 'classtab' && existing.queryFormat !== 'artist_song') || (existing.id === 'google' && existing.queryFormat !== 'artist_song')) {
+                        if (!existing.queryFormat || (existing.id === 'ug' && existing.queryFormat !== 'artist_song') || (existing.id === 'classtab' && existing.queryFormat !== 'artist_song') || (existing.id === 'google' && existing.queryFormat !== 'artist_song')) {
                             existing.queryFormat = seed.queryFormat;
-                        }
-                        if (existing.id === 'metaltabs' && (existing.urlTemplate || '').includes('search?search=')) {
-                            existing.urlTemplate = seed.urlTemplate;
-                            existing.defaultUrl = seed.defaultUrl;
                         }
                         if (existing.id === 'google' && /^https:\/\/www\.google\.com\/search\?q=(SEARCH\+TERM|\$s)\+tab$/.test(existing.urlTemplate || '')) {
                             existing.urlTemplate = seed.urlTemplate;
@@ -306,8 +280,6 @@ export function buildSearchUrl(source, query) {
     // If no query/term was provided, return the home/base URL for the provider
     if (!term) {
         if (source.id === 'ug') return 'https://www.ultimate-guitar.com/';
-        if (source.id === 'metaltabs') return 'https://metaltabs.org/';
-        if (source.id === 'gprotab') return 'https://gprotab.net/';
         if (source.id === 'classtab') return 'https://www.classtab.org/';
         if (source.id === 'google') return 'https://www.google.com/';
         if (source.defaultUrl) {
@@ -819,8 +791,6 @@ export function highlightSourceTabForUrl(url) {
         const host = u.hostname.toLowerCase();
         let matchedId = null;
         if (host.includes('ultimate-guitar.com')) matchedId = 'ug';
-        else if (host.includes('metaltabs.org')) matchedId = 'metaltabs';
-        else if (host.includes('gprotab.net')) matchedId = 'gprotab';
         else if (host.includes('classtab.org') || (host.includes('google.') && url.includes('classtab.org'))) matchedId = 'classtab';
         else {
             const sources = getSources();
