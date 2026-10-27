@@ -53,16 +53,15 @@ export async function verifyChannel(id, options = {}) {
   for (const file of files) contents.set(path.relative(frontendDir, file), await readFile(file, 'utf8'));
   const containing = (needle) => [...contents].filter(([, text]) => text.includes(needle)).map(([name]) => name);
 
-  // Userscripts must not ship when the channel has them off
-  if (!expected.userscripts) {
-    if (contents.has('tabDownloaderUserscripts.js')) errors.push('tabDownloaderUserscripts.js is present but userscripts are off');
-    for (const marker of ['UG_DEFAULT_USERSCRIPT = `', 'MajesticTab UG Userscript']) {
+  // Curated sources and userscripts only ship with the full Tab Downloader
+  if (expected.tabDownloader !== 'full') {
+    if (contents.has('tabDownloaderFullSources.js')) errors.push('tabDownloaderFullSources.js is present but the Tab Downloader is not "full"');
+    for (const marker of ['UG_DEFAULT_USERSCRIPT = `', 'MajesticTab UG Userscript', 'ultimate-guitar', 'classtab.org']) {
       const hits = containing(marker);
-      if (hits.length) errors.push(`userscript source ("${marker}") ships in: ${hits.join(', ')}`);
+      if (hits.length) errors.push(`"${marker}" ships in: ${hits.join(', ')}`);
     }
-    // The seed URLs are still in tabDownloader.js as dead code in Google-only builds; tracked, not yet a failure.
-    const ugHits = containing('ultimate-guitar');
-    if (ugHits.length) warnings.push(`"ultimate-guitar" still appears in: ${ugHits.join(', ')} (seed URLs not yet split out)`);
+  } else if (!expected.userscripts) {
+    errors.push('userscripts are off but the full Tab Downloader (which carries them) is on; use tabDownloader "google-only"');
   }
 
   // Extension sandbox CSP is unchanged in every channel

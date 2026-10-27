@@ -232,9 +232,9 @@ async function writeChannelConfig() {
   const id = process.env.MAJESTICTAB_STORE_CHANNEL || DEFAULT_CHANNEL;
   const channelConfig = resolveChannel(id);
   await writeFile(path.join(frontendDir, 'channel.json'), `${JSON.stringify(channelConfig, null, 2)}\n`);
-  if (!channelConfig.userscripts) {
-    // The userscripts never ship in this channel; tabDownloader.js skips importing them.
-    await rm(path.join(frontendDir, 'tabDownloaderUserscripts.js'), { force: true });
+  if (channelConfig.tabDownloader !== 'full') {
+    // Curated sources and their userscripts never ship in this channel; tabDownloader.js skips importing them.
+    await rm(path.join(frontendDir, 'tabDownloaderFullSources.js'), { force: true });
   }
   console.log(`Distribution channel: ${id}`);
 }

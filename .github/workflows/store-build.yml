@@ -1,0 +1,103 @@
+name: Store build
+
+# Manual builds of a store distribution channel (see build/channels.mjs).
+# These upload workflow artifacts only. They never create a GitHub release or latest.json, so a store
+# binary can't become an update target for the `direct` builds (release.yml and canary.yml, unchanged).
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Store channel to build
+        required: true
+        type: choice
+        options:
+          - play
+          - appstore-ios
+          - appstore-mac
+          - msstore
+
+permissions:
+  contents: read
+
+env:
+  MAJESTICTAB_CHANNEL: stable
+  MAJESTICTAB_BUILD_ID: ${{ github.run_number }}
+  GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+  GOOGLE_PICKER_API_KEY: ${{ secrets.GOOGLE_PICKER_API_KEY }}
+
+jobs:
+  build:
+    runs-on: ${{ fromJSON('{"play":"ubuntu-latest","appstore-ios":"macos-latest","appstore-mac":"macos-latest","msstore":"windows-latest"}')[inputs.channel] }}
+    env:
+      TARGET: ${{ fromJSON('{"play":"android","appstore-ios":"ios","appstore-mac":"macos","msstore":"windows"}')[inputs.channel] }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: build/tauri/package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ inputs.channel == 'play' && 'aarch64-linux-android' || inputs.channel == 'appstore-ios' && 'aarch64-apple-ios' || '' }}
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: build/tauri/src-tauri -> ../target
+          key: ${{ inputs.channel }}
+
+      - uses: actions/setup-java@v5
+        if: inputs.channel == 'play'
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Locate Android NDK
+        if: inputs.channel == 'play'
+        run: |
+          if [ -d "$ANDROID_HOME/ndk" ]; then
+            NDK_PATH=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
+            echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          elif [ -n "$ANDROID_NDK_HOME" ]; then
+            echo "NDK_HOME=$ANDROID_NDK_HOME" >> "$GITHUB_ENV"
+          fi
+      - name: Restore release keystore
+        if: inputs.channel == 'play'
+        env:
+          ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_B64" || { echo "::error::Missing ANDROID_KEYSTORE_B64 secret"; exit 1; }
+          echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+      - name: Install iOS build tools
+        if: inputs.channel == 'appstore-ios'
+        run: brew install xcodegen
+
+      - name: Build
+        run: node build/build-tauri.mjs "$TARGET" --channel=${{ inputs.channel }}
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+
+      - name: Name artifacts MajesticTab-<channel>-<version>
+        shell: bash
+        run: |
+          version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          mkdir -p store-dist
+          for entry in dist/*; do
+            name=$(basename "$entry")
+            ext="${name#*.}"
+            out="store-dist/MajesticTab-${{ inputs.channel }}-${version}.${ext}"
+            [ ! -e "$out" ] && [ ! -e "$out.zip" ] || { echo "::error::Two build outputs map to $out"; exit 1; }
+            if [ -d "$entry" ]; then
+              ditto -c -k --keepParent "$entry" "$out.zip"
+            else
+              cp "$entry" "$out"
+            fi
+          done
+          ls -l store-dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.channel }}
+          path: store-dist/*
+          if-no-files-found: error
