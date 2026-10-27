@@ -749,9 +749,9 @@ export function showTabDownloaderBar(isDebugToolsEnabled = false) {
     if (typeof ResizeObserver !== 'undefined' && bar) {
         if (resizeObserver) resizeObserver.disconnect();
         let lastHeight = 0;
-        // Border-box height, so the site webview starts exactly where the bar ends
+        // Border-box height, floored so a fractional height never leaves a seam where the app shows through
         const syncBarHeight = () => {
-            const height = Math.ceil(bar.getBoundingClientRect().height);
+            const height = Math.floor(bar.getBoundingClientRect().height);
             if (height > 0 && height !== lastHeight) {
                 lastHeight = height;
                 syncDownloaderTopOffset(height);
@@ -886,7 +886,7 @@ export async function openTabDownloader(options = {}) {
     showTabDownloaderBar(Boolean(isDebugToolsEnabled));
     const bar = document.getElementById('tabDownloaderBar');
     if (bar) {
-        barHeight = Math.ceil(bar.getBoundingClientRect().height) || 84;
+        barHeight = Math.floor(bar.getBoundingClientRect().height) || 84;
     }
     try { window.MajesticDownloaderNative?.setTopInsetPx?.(Math.round(barHeight * (window.devicePixelRatio || 1))); } catch {}
 
@@ -932,7 +932,7 @@ export async function openTabDownloader(options = {}) {
         // open_tab_downloader overwrites the native offset with the height measured before the pills
         // rendered, and the ResizeObserver won't refire if the bar already settled, so push the final height.
         const settledBar = document.getElementById('tabDownloaderBar');
-        const settledHeight = settledBar ? Math.ceil(settledBar.getBoundingClientRect().height) : 0;
+        const settledHeight = settledBar ? Math.floor(settledBar.getBoundingClientRect().height) : 0;
         if (settledHeight > 0) syncDownloaderTopOffset(settledHeight);
     } catch (err) {
         console.error('[Tab Downloader] Failed to open native webview:', err);
