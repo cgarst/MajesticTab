@@ -862,7 +862,7 @@
         <i class="bi-keyboard text-info"></i> Controls
       </button>
       <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openExtensions" type="button">
-        <i class="bi-puzzle text-info"></i> Extensions
+        <i class="bi-puzzle text-info"></i> File Converters
       </button>
     </div>
 
@@ -897,27 +897,27 @@
           <i class="bi-puzzle-fill text-info"></i>
         </div>
         <div class="theme-modal-titles">
-          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="extensionModalTitle">Extensions</h2>
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="extensionModalTitle">File Converters</h2>
           <small class="text-muted d-none d-sm-block">Sandboxed file transforms</small>
         </div>
       </div>
       <div class="theme-modal-actions">
-        <button type="button" class="brand-btn extension-modal-close-btn p-1 px-2" aria-label="Close Extensions">
+        <button type="button" class="brand-btn extension-modal-close-btn p-1 px-2" aria-label="Close File Converters">
           <i class="bi-x-lg"></i>
         </button>
       </div>
     </header>
     <div class="theme-modal-body extension-modal-body extension-list-view" id="extensionListView">
       <div class="extension-list-toolbar">
-        <span class="small text-white-50" id="extensionCount">0 extensions</span>
+        <span class="small text-white-50" id="extensionCount">0 converters</span>
         <div class="extension-list-actions">
           <input class="d-none" id="importExtensionInput" type="file" accept=".js,.mjs,text/javascript,application/javascript">
-          <button class="btn theme-control-btn" id="importExtensionFile" type="button"><i class="bi-file-earmark-code me-1"></i>Add .js File</button>
+          <button class="btn theme-control-btn" id="importExtensionFile" type="button"><i class="bi-file-earmark-code me-1"></i>Add Converter</button>
         </div>
       </div>
       <div class="extension-list" id="extensionList" role="list"></div>
-      <div class="small text-info" id="extensionManagerStatus" role="status" aria-live="polite">No extensions registered</div>
-      <div class="small text-white-50">Extensions run in an isolated sandbox with no network access and no access to your library or accounts. They can only transform files you open.</div>
+      <div class="small text-info" id="extensionManagerStatus" role="status" aria-live="polite">No converters registered</div>
+      <div class="small text-white-50">Converters run in an isolated sandbox with no network access and no access to your library or accounts. They only convert files you open.</div>
     </div>
   </section>
 </div>

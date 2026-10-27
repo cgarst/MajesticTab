@@ -859,18 +859,18 @@ function setupExtensionSettings() {
     let extensions = [];
 
     const extensionLabel = extension => extension.name
-        || (extension.registrationIds?.length ? extension.registrationIds.join(', ') : 'Extension');
+        || (extension.registrationIds?.length ? extension.registrationIds.join(', ') : 'Converter');
     const saveExtensions = () => localStorage.setItem(extensionsKey, JSON.stringify(extensions));
 
     const refreshInstalledExtensions = async () => {
         extensions.forEach(extension => { extension.error = ''; });
         const active = extensions.filter(extension => extension.enabled);
-        managerStatus.textContent = active.length ? 'Loading extensions…' : 'No extensions registered';
+        managerStatus.textContent = active.length ? 'Loading converters…' : 'No converters registered';
         let result;
         try {
             result = await installExtensionSources(active.map(({ id, source }) => ({ id, source })));
         } catch (error) {
-            managerStatus.textContent = `Could not load extensions: ${error.message}`;
+            managerStatus.textContent = `Could not load converters: ${error.message}`;
             return;
         }
         result.errors.forEach(error => {
@@ -884,21 +884,21 @@ function setupExtensionSettings() {
         saveExtensions();
         const failedCount = result.errors.length;
         managerStatus.textContent = failedCount
-            ? `${result.registrationCount} registrations active; ${failedCount} extension${failedCount === 1 ? '' : 's'} failed to load`
+            ? `${result.registrationCount} registrations active; ${failedCount} converter${failedCount === 1 ? '' : 's'} failed to load`
             : result.registrationCount
                 ? `${result.registrationCount} registration${result.registrationCount === 1 ? '' : 's'} active`
-                : 'No extensions registered';
+                : 'No converters registered';
         renderExtensions();
     };
 
     const renderExtensions = () => {
         extensionList.replaceChildren();
-        extensionCount.textContent = `${extensions.length} extension${extensions.length === 1 ? '' : 's'}`;
+        extensionCount.textContent = `${extensions.length} converter${extensions.length === 1 ? '' : 's'}`;
 
         if (!extensions.length) {
             const emptyState = document.createElement('div');
             emptyState.className = 'extension-empty-state';
-            emptyState.textContent = 'No extensions yet';
+            emptyState.textContent = 'No converters yet';
             extensionList.append(emptyState);
             return;
         }
@@ -1030,7 +1030,7 @@ function setupExtensionSettings() {
                 }));
             }
         } catch (error) {
-            managerStatus.textContent = `Could not read saved extensions: ${error.message}`;
+            managerStatus.textContent = `Could not read saved converters: ${error.message}`;
         }
     }
 
@@ -1062,7 +1062,7 @@ function setupExtensionSettings() {
         importInput.value = '';
         if (!file) return;
         if (file.size > maxSourceBytes) {
-            managerStatus.textContent = 'Could not add extension: file is larger than 5 MB';
+            managerStatus.textContent = 'Could not add converter: file is larger than 5 MB';
             return;
         }
 
@@ -1076,7 +1076,7 @@ function setupExtensionSettings() {
                 error: ''
             });
         } catch (error) {
-            managerStatus.textContent = `Could not read extension file: ${error.message}`;
+            managerStatus.textContent = `Could not read converter file: ${error.message}`;
             return;
         }
         saveExtensions();
@@ -1560,7 +1560,7 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
 
     const supportedFile = isFileType(file, ['pdf', 'gp', 'gp3', 'gp4', 'gp5', 'gpx', 'txt']);
     let fileToLoad = file;
-    // A file received over Jam was already converted by the host's extensions.
+    // A file received over Jam was already converted by the host's file converters.
     if (supportedFile && file instanceof File && !file.jamSongId) {
         try {
             showProgress(progressContainer, progressBar);
