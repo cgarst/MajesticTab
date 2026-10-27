@@ -4670,6 +4670,25 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   background: var(--bg-card-hover, rgba(255, 255, 255, 0.08));
 }
 
+.downloader-hint-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px max(env(safe-area-inset-right), 16px) 6px max(env(safe-area-inset-left), 16px);
+  font-size: 0.8rem;
+  color: var(--text-primary, inherit);
+  background: var(--accent-glow, rgba(255, 255, 255, 0.06));
+  border-top: 1px solid var(--border-subtle);
+}
+
+.downloader-hint-banner i {
+  flex-shrink: 0;
+}
+
+.downloader-hint-banner .btn-theme-icon {
+  flex-shrink: 0;
+}
+
 .downloader-tabs-row {
   display: flex;
   align-items: center;

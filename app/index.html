@@ -264,6 +264,14 @@
   <div class="downloader-tabs-row" id="downloaderTabsRow" data-tauri-drag-region>
     <!-- Source pills will be dynamically rendered here -->
   </div>
+
+  <div class="downloader-hint-banner" id="downloaderHintBanner" role="note">
+    <i class="bi-info-circle"></i>
+    <span>Browse to a supported tab file (Guitar Pro, PDF or TXT) and download it to add it to MajesticTab.</span>
+    <button type="button" class="btn btn-sm btn-theme-icon ms-auto" id="downloaderHintDismissBtn" title="Dismiss" aria-label="Dismiss hint">
+      <i class="bi-x-lg"></i>
+    </button>
+  </div>
 </nav>
 
 <!-- Windows native shell: custom window controls (shown via .tauri-windows) -->
