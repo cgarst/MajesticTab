@@ -1401,7 +1401,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <input class="form-check-input theme-radio m-0" type="radio" name="backupFormat" value="incremental">
                 <div class="min-w-0">
                   <div class="fw-bold text-white small leading-tight">Incremental snapshots</div>
-                  <div class="text-muted" style="font-size: 0.73rem;">Saves only new or changed tabs. Each backup is a restorable snapshot. Works with Google Drive or a local folder.</div>
+                  <div class="text-muted" style="font-size: 0.73rem;">Saves only new or changed tabs. Each backup is a restorable snapshot. Works with Google Drive, an S3 bucket or a local folder.</div>
                   <div class="text-warning" id="backupIncrementalHint" style="font-size: 0.73rem; display: none;"></div>
                 </div>
               </label>
@@ -1453,7 +1453,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <input type="file" id="restoreFileInput" accept=".mtbackup" class="d-none">
             <i class="bi-file-earmark-arrow-up text-info fs-1 mb-2 d-block"></i>
             <div class="fw-bold text-white small mb-1">Restore from a snapshot or backup file</div>
-            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive or a backup folder, or open a single .mtbackup file (you can also drop one here)</div>
+            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive, an S3 bucket or a backup folder, or open a single .mtbackup file (you can also drop one here)</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreBrowseBtn">
                 <i class="bi-file-earmark-zip text-primary"></i> <span>Open .mtbackup File</span>
@@ -1463,6 +1463,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               </button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none align-items-center gap-1" id="restoreIcloudBtn">
                 <i class="bi-cloud text-info"></i> <span>iCloud Drive Backups</span>
+              </button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreS3Btn">
+                <i class="bi-hdd-network text-warning"></i> <span>S3 Bucket Backups</span>
               </button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
                 <i class="bi-google text-danger"></i> <span>Google Drive Backups</span>
@@ -1721,6 +1724,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             </div>
             <div class="d-flex flex-wrap gap-2 mb-2">
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="google-drive"><i class="bi-google text-danger"></i> Scan Google Drive</button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="s3"><i class="bi-hdd-network text-warning"></i> Scan S3 Bucket</button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="local"><i class="bi-folder2-open text-primary"></i> Scan Backup Folder</button>
             </div>
             <div id="snapshotOrphansList"></div>
@@ -2049,7 +2053,7 @@ function attachModalHandlers(modal, options = {}) {
             const target = await resolveIncrementalTarget({ interactive: true, provider });
             if (target.status !== 'ready') {
                 snapOrphansList.innerHTML = '';
-                return setSnapStatus('text-white-50', `<i class="bi-info-circle me-1"></i> ${target.status === 'needs-auth' ? 'Connect Google Drive from the Create Backup tab first.' : 'Choose a backup folder and allow access to scan it.'}`);
+                return setSnapStatus('text-white-50', `<i class="bi-info-circle me-1"></i> ${target.status === 'needs-auth' ? 'Connect Google Drive from the Create Backup tab first.' : target.status === 'needs-s3' ? 'Connect an S3 bucket from the Create Backup tab first.' : 'Choose a backup folder and allow access to scan it.'}`);
             }
             const { findUnusedBlobs } = await import('./incrementalBackup.js');
             snapOrphanScope = getSnapScope();
@@ -2139,6 +2143,11 @@ function attachModalHandlers(modal, options = {}) {
             const { createDriveBackend } = await import('./driveBackup.js');
             return { status: 'ready', backend: createDriveBackend() };
         }
+        if (provider === 's3') {
+            const { createS3Backend } = await import('./s3Backup.js');
+            const backend = createS3Backend();
+            return backend ? { status: 'ready', backend } : { status: 'needs-s3' };
+        }
         const folders = await import('./folderBackup.js');
         if (provider === 'icloud-drive') {
             const handle = await folders.getIcloudBackupFolder();
@@ -2160,7 +2169,8 @@ function attachModalHandlers(modal, options = {}) {
         const request = ++previewRequest;
         const isDrive = getBackupProviderId() === 'google-drive';
         const isIcloud = getBackupProviderId() === 'icloud-drive';
-        const where = isDrive ? 'Google Drive' : isIcloud ? 'iCloud Drive' : 'the backup folder';
+        const isS3 = getBackupProviderId() === 's3';
+        const where = isDrive ? 'Google Drive' : isIcloud ? 'iCloud Drive' : isS3 ? 'your S3 bucket' : 'the backup folder';
         const note = (html) => { if (request === previewRequest) backupIncrementalPreview.innerHTML = html; };
         const actionBtn = (action, icon, label) => `<button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="${action}"><i class="${icon}"></i> <span>${label}</span></button>`;
 
@@ -2172,6 +2182,10 @@ function attachModalHandlers(modal, options = {}) {
             }
             if (target.status === 'needs-icloud') {
                 return note(`<div class="small text-white-50"><i class="bi-cloud-slash me-1"></i> iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud, and make sure MajesticTab is allowed to use it.</div>`);
+            }
+            if (target.status === 'needs-s3') {
+                const { s3ConfigFormHtml } = await import('./s3Ui.js');
+                return note(`<div class="small text-white-50 mb-2"><i class="bi-info-circle me-1"></i> Connect an S3 bucket to keep your backups there.</div>${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div>${actionBtn('save-s3', 'bi-plug', 'Save and Connect')}`);
             }
             if (target.status === 'needs-folder') {
                 return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Choose a folder on this device to keep your backups in.</div>${actionBtn('choose-folder', 'bi-folder2-open text-primary', 'Choose Folder')}`);
@@ -2194,7 +2208,7 @@ function attachModalHandlers(modal, options = {}) {
                         <div class="small fw-semibold text-white">${head}</div>
                         <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(target.backend.location)}"><i class="bi-folder2 me-1"></i>${escapeHtml(target.backend.location)}</div>
                     </div>
-                    ${isDrive || isIcloud ? '' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
+                    ${isDrive || isIcloud ? '' : isS3 ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-s3">Bucket Settings</button>' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
                 </div>
                 <div class="row g-2">
                     ${stat(p.added, 'New tabs', 'text-success')}
@@ -2220,7 +2234,25 @@ function attachModalHandlers(modal, options = {}) {
                 redirectToGoogleAuth('backup_create');
                 return;
             }
-            if (action === 'choose-folder') {
+            if (action === 'edit-s3') {
+                const { s3ConfigFormHtml } = await import('./s3Ui.js');
+                backupIncrementalPreview.innerHTML = `${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="save-s3"><i class="bi-plug"></i> <span>Save and Connect</span></button>`;
+                return;
+            }
+            if (action === 'save-s3') {
+                const btn = e.target.closest('[data-backup-action]');
+                const errorEl = backupIncrementalPreview.querySelector('#backupS3Error');
+                if (errorEl) errorEl.style.display = 'none';
+                btn.disabled = true;
+                try {
+                    const { saveS3ConfigFromForm } = await import('./s3Ui.js');
+                    await saveS3ConfigFromForm(backupIncrementalPreview);
+                } catch (err) {
+                    btn.disabled = false;
+                    if (errorEl) { errorEl.textContent = err.message; errorEl.style.display = 'block'; }
+                    return;
+                }
+            } else if (action === 'choose-folder') {
                 const { pickBackupFolder } = await import('./folderBackup.js');
                 if (!(await pickBackupFolder())) return;
             } else if (action === 'allow-folder') {
@@ -2238,14 +2270,14 @@ function attachModalHandlers(modal, options = {}) {
     // keep the format and destination consistent
     const syncBackupFormat = ({ providerChanged = false, refresh = true } = {}) => {
         const providerId = getBackupProviderId();
-        const canIncrement = providerId === 'google-drive' || providerId === 'icloud-drive' || (providerId === 'local' && isFolderBackupSupported());
+        const canIncrement = providerId === 'google-drive' || providerId === 'icloud-drive' || providerId === 's3' || (providerId === 'local' && isFolderBackupSupported());
         if (incrementalRadio) incrementalRadio.disabled = !canIncrement;
         const hint = modal.querySelector('#backupIncrementalHint');
         if (hint) {
             hint.style.display = canIncrement ? 'none' : 'block';
             hint.textContent = providerId === 'local'
                 ? 'Local folders need the desktop app, or Chrome or Edge on a computer. Use Google Drive instead, or save a single file.'
-                : 'Choose Google Drive, iCloud Drive or Local Device to use incremental snapshots.';
+                : 'Choose Google Drive, iCloud Drive, S3 Bucket or Local Device to use incremental snapshots.';
         }
         if (incrementalOption) incrementalOption.style.opacity = canIncrement ? '' : '0.5';
         if (providerChanged && canIncrement) incrementalRadio.checked = true;
@@ -2308,6 +2340,7 @@ function attachModalHandlers(modal, options = {}) {
                     throw new Error('Please authorize Google Drive to save the backup.');
                 }
                 if (target.status === 'needs-icloud') throw new Error('iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud.');
+                if (target.status === 'needs-s3') throw new Error('Connect your S3 bucket first.');
                 if (target.status !== 'ready') throw new Error('Choose a backup folder and allow access to it first.');
                 const { createIncrementalBackup } = await import('./incrementalBackup.js');
                 const result = await createIncrementalBackup(target.backend, {
@@ -2522,7 +2555,48 @@ function attachModalHandlers(modal, options = {}) {
         }
     };
 
+    // Lists snapshots in the connected S3 bucket
+    const loadS3Backups = async () => {
+        try {
+            const { createS3Backend } = await import('./s3Backup.js');
+            const backend = createS3Backend();
+            if (!backend) {
+                showToast('Connect an S3 bucket first, from the Create Backup tab or Sync.', 'warning');
+                return;
+            }
+            activeSource = { type: 's3', backend };
+            restoreChangeLocationBtn?.classList.add('d-none');
+            if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'block';
+            if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
+            if (restoreDriveError) restoreDriveError.style.display = 'none';
+            if (restoreDriveList) restoreDriveList.innerHTML = '';
+            if (restoreSourceIcon) restoreSourceIcon.className = 'bi-hdd-network text-warning';
+            if (restoreSourceTitle) restoreSourceTitle.textContent = 'S3 Bucket:';
+            if (restoreSourceLocation) restoreSourceLocation.textContent = backend.location;
+            if (restoreDriveEmptyText) restoreDriveEmptyText.textContent = 'No snapshots found in this bucket.';
+
+            const { listIncrementalBackups } = await import('./incrementalBackup.js');
+            const backups = (await listIncrementalBackups(backend))
+                .map(b => ({ ...b, incremental: true, modifiedTime: b.exportedAt }));
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
+            if (!backups.length) {
+                if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'block';
+                return;
+            }
+            renderDriveBackupsList(backups);
+        } catch (err) {
+            console.error('Failed to read S3 backups:', err);
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
+            if (restoreDriveError) {
+                restoreDriveError.style.display = 'block';
+                restoreDriveError.textContent = `Could not read the bucket: ${err.message}`;
+            }
+        }
+    };
+
     restoreFolderBtn?.addEventListener('click', () => loadFolderBackups());
+    modal.querySelector('#restoreS3Btn')?.addEventListener('click', loadS3Backups);
     restoreIcloudBtn?.addEventListener('click', () => loadFolderBackups({ icloud: true }));
     restoreChangeLocationBtn?.addEventListener('click', async () => {
         if (activeSource.type === 'folder') loadFolderBackups({ pickNew: true });
@@ -2602,7 +2676,7 @@ function attachModalHandlers(modal, options = {}) {
                         bundle.name = `Snapshot · ${dateStr}`;
                         bundle.size = bundle.summary?.totalTabsSize || 0;
                         if (dlProgressContainer) dlProgressContainer.style.display = 'none';
-                        await handleSelectedBackupFile(bundle, activeSource.type === 'folder' ? 'Backup Folder' : activeSource.type === 'icloud' ? 'iCloud Drive' : 'Google Drive');
+                        await handleSelectedBackupFile(bundle, activeSource.type === 'folder' ? 'Backup Folder' : activeSource.type === 'icloud' ? 'iCloud Drive' : activeSource.type === 's3' ? 'S3 Bucket' : 'Google Drive');
                         return;
                     }
                     const { downloadDriveBackupFile } = await import('./googleDrive.js');
