@@ -24,8 +24,8 @@ PNG_SIZES = {
 BACKGROUND = ((0xFF, 0xFF, 0xFF), (0xDD, 0xD3, 0xF7))
 # name -> (size, art longest side as a fraction of the canvas)
 OPAQUE_SIZES = {
-    "apple-touch-icon.png": (180, 0.62),
-    "android-chrome-maskable-512x512.png": (512, 0.58),
+    "apple-touch-icon.png": (180, 0.65),
+    "android-chrome-maskable-512x512.png": (512, 0.65),
 }
 ICO_SIZES = [16, 32, 48]
 
