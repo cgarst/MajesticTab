@@ -6831,6 +6831,54 @@ input[type=range]::-moz-range-thumb {
 @media (max-width: 340px) {
   .sheet-mode-group .btn i { display: none; }
 }
+/* Settings drawer entry */
+.supporter-card {
+  border-color: color-mix(in srgb, var(--accent-primary) 45%, var(--border-subtle));
+}
+.supporter-card-owned {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 0.75rem;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-subtle);
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.supporter-card-owned:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 10px var(--accent-glow);
+}
+
+/* Floating bar while a locked theme is being previewed */
+.theme-preview-bar {
+  position: fixed;
+  left: 50%;
+  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 2000;
+  max-width: calc(100vw - 2rem);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--accent-primary);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), 0 0 12px var(--accent-glow);
+  color: #ffffff;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+.theme-preview-bar .theme-preview-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.theme-preview-bar .btn { flex-shrink: 0; }
+
 .supporter-feature-list {
   list-style: none;
   padding: 0;
@@ -6855,3 +6903,5 @@ html.jam-web-guest #libraryReturnToSongBtn,
 html.jam-web-guest #setlistNav {
     display: none !important;
 }
+
+#supporterModal { z-index: 2100; }

@@ -11,6 +11,8 @@ const DEFAULTS = {
     youtube: 'full',
     monetization: 'none',
     supporterProductId: null,
+    storeName: null,
+    supporterManageUrl: null,
     supporterFeatures: []
 };
 
