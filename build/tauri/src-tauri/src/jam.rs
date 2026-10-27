@@ -333,8 +333,8 @@ async fn serve_web_asset(app: &AppHandle, mut stream: TcpStream, head: String) {
     };
     if path == "index.html" {
         let html = String::from_utf8_lossy(&asset.bytes).replacen(
-            "</head>",
-            "<meta name=\"majestictab-jam-host\" content=\"1\"></head>",
+            "<head>",
+            "<head><meta name=\"majestictab-jam-host\" content=\"1\">",
             1,
         );
         write_http(&mut stream, "200 OK", &asset.mime_type, html.as_bytes()).await;
