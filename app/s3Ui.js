@@ -1,7 +1,8 @@
 // s3Ui.js
 // Shared S3 bucket UI: the connection form (used by Sync and the file picker) and a bucket browser
 // for opening a tab file.
-import { getS3Config, saveS3Config, s3Check, s3List, s3Get, s3BasePrefix, hasNativeHttp, s3CorsRules } from './s3Client.js';
+import { loadSecret, isSecureStorageAvailable } from './secureStore.js';
+import { S3_SECRET_NAME, getS3Config, saveS3Config, s3Check, s3List, s3Get, s3BasePrefix, hasNativeHttp, s3CorsRules } from './s3Client.js';
 import { escapeHtml, formatBytes } from './backupRestore.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
@@ -47,7 +48,7 @@ export function s3ConfigFormHtml(config = getS3Config() || {}) {
             <div class="col-6">${field('s3Prefix', 'Folder in bucket (optional)', config.prefix, { placeholder: 'Bucket root' })}</div>
         </div>
         ${field('s3AccessKey', 'Access key ID', config.accessKeyId)}
-        ${field('s3Secret', 'Secret access key', config.secretAccessKey, { type: 'password' })}
+        ${field('s3Secret', 'Secret access key', config.secretAccessKey, { type: 'password', placeholder: isSecureStorageAvailable() && config.accessKeyId ? 'Saved in your keychain (leave blank to keep)' : '' })}
         <div class="form-check form-switch mb-2">
             <input class="form-check-input theme-switch" type="checkbox" id="s3PathStyle" ${config.pathStyle ? 'checked' : ''}>
             <label class="form-check-label small text-white-50" for="s3PathStyle">Path-style addressing (some providers and MinIO need this)</label>
@@ -59,13 +60,15 @@ export function s3ConfigFormHtml(config = getS3Config() || {}) {
 /** Reads the form inside `root`, tests the connection and saves it. Throws with a readable reason. */
 export async function saveS3ConfigFromForm(root) {
     const value = (id) => root.querySelector(`#${id}`)?.value || '';
+    // A blank secret field means "keep the saved one", which lives in the keychain
+    const secretAccessKey = value('s3Secret') || await loadSecret(S3_SECRET_NAME) || '';
     const config = saveS3Config({
         bucket: value('s3Bucket'),
         endpoint: value('s3Endpoint'),
         region: value('s3Region'),
         prefix: value('s3Prefix'),
         accessKeyId: value('s3AccessKey'),
-        secretAccessKey: value('s3Secret'),
+        secretAccessKey,
         pathStyle: root.querySelector('#s3PathStyle')?.checked
     });
     await s3Check(config);

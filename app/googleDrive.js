@@ -4,7 +4,7 @@ import { saveStoredFile } from './fileStore.js';
 import { showToast } from './utils/toast.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
-import { isSecureStorageAvailable, getSecret, setSecret, deleteSecret } from './secureStore.js';
+import { isSecureStorageAvailable, getSecret, loadSecret, setSecret, deleteSecret } from './secureStore.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
 const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
@@ -19,7 +19,8 @@ const PICKER_APP_ID = '1059497343032';
 const STORAGE_KEY = 'gdrive_auth';
 // Bumped when the requested scope changes so tokens granted under the old scope force a fresh consent.
 const AUTH_VERSION = 2;
-// With a keychain, the refresh token lives there (named per auth version) instead of in localStorage.
+// With a keychain, the refresh token lives there (named per auth version) instead of in localStorage, and is read
+// only when a token must be renewed. localStorage keeps a `keychain_refresh` flag so the UI can tell a link exists.
 export const GDRIVE_SECRET_NAME = `gdrive_refresh_token_v${AUTH_VERSION}`;
 const LEGACY_BROWSER_KEYS = ['gdrive_last_folder', 'gdrive_tabs_directory', 'majestictab_drive_backup_folder'];
 const PENDING_OPTIONS_STORAGE_KEY = 'gdrive_pending_options';
@@ -52,8 +53,21 @@ export function migrateGoogleAuth() {
         if (!auth?.refresh_token || auth.v !== AUTH_VERSION) return;
         const { refresh_token: refreshToken, ...rest } = auth;
         setSecret(GDRIVE_SECRET_NAME, refreshToken);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(rest));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...rest, keychain_refresh: true }));
     } catch (_) {}
+}
+
+/** Reads the refresh token from the keychain (the first call may prompt for the OS password) and flags that one exists. */
+async function loadKeychainRefreshToken() {
+    if (!isSecureStorageAvailable()) return null;
+    const refreshToken = await loadSecret(GDRIVE_SECRET_NAME);
+    if (refreshToken) {
+        try {
+            const auth = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || { v: AUTH_VERSION };
+            if (!auth.keychain_refresh) localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...auth, keychain_refresh: true }));
+        } catch (_) {}
+    }
+    return refreshToken;
 }
 
 let refreshPromise = null;
@@ -65,6 +79,7 @@ let refreshPromise = null;
  */
 export async function ensureFreshToken() {
     if (isTokenValid()) return true;
+    await loadKeychainRefreshToken();
     const auth = readStoredAuth();
     const isTauri = !!window.__TAURI__?.core?.invoke;
     if (!isTauri || (!auth?.refresh_token && !(isMobilePlatform() && !isIOSDevice()))) return false;
@@ -167,9 +182,11 @@ function openBackupModalForAuthState(state, { skipIfOpen = false } = {}) {
 /** Drops the access token; the refresh token survives unless `all` (sign-out or revoked grant). */
 export function clearStoredToken({ all = false } = {}) {
     if (all && isSecureStorageAvailable()) deleteSecret(GDRIVE_SECRET_NAME);
-    const refreshToken = all ? null : readStoredAuth()?.refresh_token;
-    if (refreshToken && isSecureStorageAvailable()) {
-        localStorage.removeItem(STORAGE_KEY); // the refresh token stays in the keychain
+    const stored = all ? null : readStoredAuth();
+    const refreshToken = stored?.refresh_token;
+    if (isSecureStorageAvailable() && (refreshToken || stored?.keychain_refresh)) {
+        // the refresh token stays in the keychain; keep only the flag that says it exists
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: AUTH_VERSION, keychain_refresh: true }));
     } else if (refreshToken) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: AUTH_VERSION, refresh_token: refreshToken }));
     } else {
@@ -179,8 +196,9 @@ export function clearStoredToken({ all = false } = {}) {
 }
 
 /** True when a Google account is linked (a live access token, or a refresh token that can renew one). */
-export function isGoogleDriveConnected() {
-    return isTokenValid() || Boolean(readStoredAuth()?.refresh_token);
+export async function isGoogleDriveConnected() {
+    if (isTokenValid() || readStoredAuth()?.keychain_refresh) return true;
+    return Boolean((await loadKeychainRefreshToken()) || readStoredAuth()?.refresh_token);
 }
 
 /** Forgets the linked Google account on this device. */
@@ -398,9 +416,13 @@ function storeGoogleAuth(accessToken, expiresIn, refreshToken = null) {
         access_token: accessToken,
         expiry_date: Date.now() + ((parseInt(expiresIn, 10) || 3600) * 1000)
     };
-    const keptRefreshToken = refreshToken || readStoredAuth()?.refresh_token;
-    if (keptRefreshToken && isSecureStorageAvailable()) setSecret(GDRIVE_SECRET_NAME, keptRefreshToken);
-    else if (keptRefreshToken) authData.refresh_token = keptRefreshToken;
+    const previous = readStoredAuth();
+    if (isSecureStorageAvailable()) {
+        if (refreshToken) setSecret(GDRIVE_SECRET_NAME, refreshToken);
+        if (refreshToken || previous?.keychain_refresh || previous?.refresh_token) authData.keychain_refresh = true;
+    } else if (refreshToken || previous?.refresh_token) {
+        authData.refresh_token = refreshToken || previous.refresh_token;
+    }
     token = authData.access_token;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(authData));
     return true;

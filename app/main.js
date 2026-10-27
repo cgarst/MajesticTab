@@ -1,6 +1,6 @@
 // main.js
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
-import { setupDrivePicker, GDRIVE_SECRET_NAME, migrateGoogleAuth } from './googleDrive.js';
+import { setupDrivePicker, migrateGoogleAuth } from './googleDrive.js';
 import { setupExportPDFButton } from './exportPdf.js';
 import { setupSaveToLibraryButton } from './saveToLibrary.js';
 import { setupAddToSetlistButton } from './setlistUi.js';
@@ -26,7 +26,7 @@ import { initUpdater } from './updater.js';
 import { initSupporter } from './supporter.js';
 import { openFromProvider } from './fileProviders.js';
 import { initSecureStore } from './secureStore.js';
-import { S3_SECRET_NAME, migrateS3Secret } from './s3Client.js';
+import { migrateS3Secret } from './s3Client.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
 import { addRecentOpened } from './libraryStore.js';
@@ -1122,8 +1122,8 @@ async function initApp() {
     console.log('[App Init] Current URL:', window.location.href);
     console.log('[App Init] Query string:', window.location.search);
 
-    // Credentials must be in memory before anything reads them
-    await initSecureStore([S3_SECRET_NAME, GDRIVE_SECRET_NAME]);
+    // Detects the keychain only; secrets are read on first use so the OS password prompt isn't shown at launch
+    await initSecureStore();
     migrateS3Secret();
     migrateGoogleAuth();
 
