@@ -788,6 +788,7 @@ export function showTabDownloaderBar(isDebugToolsEnabled = false) {
  * Hide the native split-webview top bar and restore standard top bar
  */
 export function hideTabDownloaderBar() {
+    stopUrlPolling();
     if (resizeObserver) {
         resizeObserver.disconnect();
         resizeObserver = null;
@@ -800,6 +801,42 @@ export function hideTabDownloaderBar() {
 
     const topBar = document.getElementById('topBar');
     if (topBar) topBar.style.display = '';
+}
+
+/**
+ * Show a downloader page address in the URL bar and highlight its source tab
+ * @param {string} rawUrl
+ */
+function applyDownloaderUrl(rawUrl) {
+    const url = stripAdFragment(rawUrl || '');
+    const urlText = document.getElementById('downloaderUrlText');
+    const urlGroup = document.getElementById('downloaderUrlGroup');
+    if (highlightSourceTabForUrl(url) === false) return;
+    if (url) {
+        currentDownloaderUrl = url;
+        clearTimeout(loadingBarTimer);
+    }
+    if (urlText && url) {
+        urlText.textContent = url;
+    }
+    if (urlGroup && url) {
+        urlGroup.title = url;
+    }
+}
+
+// Android never delivers the shell's URL events to the app, so its bar reads the address from the webview.
+let urlPollTimer = null;
+function startUrlPolling() {
+    if (urlPollTimer || typeof window.MajesticDownloaderNative?.currentUrl !== 'function') return;
+    urlPollTimer = setInterval(() => {
+        let url = '';
+        try { url = window.MajesticDownloaderNative.currentUrl() || ''; } catch {}
+        if (/^https?:/i.test(url) && stripAdFragment(url) !== currentDownloaderUrl) applyDownloaderUrl(url);
+    }, 1000);
+}
+function stopUrlPolling() {
+    clearInterval(urlPollTimer);
+    urlPollTimer = null;
 }
 
 /**
@@ -822,22 +859,7 @@ export function initTauriDownloadListener() {
         });
 
         // URL changed event from native webview
-        window.__TAURI__.event.listen('tab-downloader-url-changed', (event) => {
-            const url = stripAdFragment(event.payload || '');
-            const urlText = document.getElementById('downloaderUrlText');
-            const urlGroup = document.getElementById('downloaderUrlGroup');
-            if (highlightSourceTabForUrl(url) === false) return;
-            if (url) {
-                currentDownloaderUrl = url;
-                clearTimeout(loadingBarTimer);
-            }
-            if (urlText && url) {
-                urlText.textContent = url;
-            }
-            if (urlGroup && url) {
-                urlGroup.title = url;
-            }
-        });
+        window.__TAURI__.event.listen('tab-downloader-url-changed', (event) => applyDownloaderUrl(event.payload));
 
         // Window closed event from the native shell
         window.__TAURI__.event.listen('tab-downloader-closed', () => {
@@ -941,6 +963,7 @@ export async function openTabDownloader(options = {}) {
     const targetScript = activeSource.userscriptEnabled ? (activeSource.userscript || '') : '';
     // Android shows its site view natively; the shell's own eval of this can stall after a close
     try { window.MajesticDownloaderNative?.show?.(); } catch {}
+    startUrlPolling();
     try {
         await window.__TAURI__.core.invoke('open_tab_downloader', {
             url: targetUrl,
@@ -970,6 +993,7 @@ export function closeTabDownloaderModal(invokeNative = true) {
     activeTargetAlbum = null;
 
     try { window.MajesticDownloaderNative?.close?.(); } catch {}
+    stopUrlPolling();
     hideTabDownloaderBar();
 
     if (invokeNative && window.__TAURI__?.core?.invoke) {

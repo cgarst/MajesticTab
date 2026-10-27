@@ -272,6 +272,19 @@ class MainActivity : TauriActivity() {
       fun setVisible(on: Boolean) {
         if (on) showDownloader() else runOnUiThread { downloaderWebView?.visibility = View.GONE }
       }
+
+      // The shell's page-load events never reach the app on Android, so the URL bar asks for the address instead.
+      @JavascriptInterface
+      fun currentUrl(): String {
+        var url = ""
+        val done = java.util.concurrent.CountDownLatch(1)
+        runOnUiThread {
+          url = downloaderWebView?.url ?: ""
+          done.countDown()
+        }
+        done.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
+        return url
+      }
     }, "MajesticDownloaderNative")
   }
 
@@ -295,20 +308,49 @@ class MainActivity : TauriActivity() {
     // shim can't recognise) are fetched here with the webview's cookies and handed back like a captured blob.
     webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
       if (!url.startsWith("http://") && !url.startsWith("https://")) return@setDownloadListener
-      val name = URLUtil.guessFileName(url, contentDisposition, mimeType)
+      val headerName = filenameFromDisposition(contentDisposition)
+      // WebView methods are main-thread only, so the page address is read before the download thread starts.
+      val referer = webView.url
       Thread {
         try {
           val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
           conn.setRequestProperty("User-Agent", userAgent)
           CookieManager.getInstance().getCookie(url)?.let { conn.setRequestProperty("Cookie", it) }
-          webView.url?.let { conn.setRequestProperty("Referer", it) }
+          referer?.let { conn.setRequestProperty("Referer", it) }
           val bytes = conn.inputStream.use { it.readBytes() }
           if (bytes.size < 20) return@Thread
-          deliverDownloadedTab(name, Base64.encodeToString(bytes, Base64.NO_WRAP))
+          val name = headerName ?: URLUtil.guessFileName(url, contentDisposition, mimeType)
+          deliverDownloadedTab(withTabExtension(name, bytes), Base64.encodeToString(bytes, Base64.NO_WRAP))
         } catch (e: Exception) {
           android.util.Log.w("MajesticTab", "Download failed: " + url, e)
         }
       }.start()
+    }
+  }
+
+  // URLUtil.guessFileName misses the RFC 5987 filename*= form, so the name falls back to download.bin.
+  private fun filenameFromDisposition(disposition: String?): String? {
+    if (disposition == null) return null
+    Regex("filename\\*\\s*=\\s*[^']*'[^']*'([^;]+)", RegexOption.IGNORE_CASE).find(disposition)?.let {
+      try {
+        return java.net.URLDecoder.decode(it.groupValues[1].trim().trim('"').replace("+", "%2B"), "UTF-8")
+      } catch (_: Exception) {}
+    }
+    return Regex("filename\\s*=\\s*\"?([^\";]+)\"?", RegexOption.IGNORE_CASE).find(disposition)?.groupValues?.get(1)?.trim()
+  }
+
+  // Gives a file without a tab extension the one its header bytes imply (Guitar Pro 3-5 or the zip-based .gp).
+  private fun withTabExtension(name: String, bytes: ByteArray): String {
+    if (Regex("\\.(gp\\d?|gpx|gp7)$", RegexOption.IGNORE_CASE).containsMatchIn(name)) return name
+    val base = name.substringBeforeLast('.', name)
+    val head = String(bytes, 0, minOf(bytes.size, 32), Charsets.ISO_8859_1)
+    return when {
+      head.startsWith("PK") -> "$base.gp"
+      head.startsWith("BCFZ") || head.startsWith("BCFS") -> "$base.gpx"
+      head.contains("FICHIER GUITAR PRO v3") -> "$base.gp3"
+      head.contains("FICHIER GUITAR PRO v4") -> "$base.gp4"
+      head.contains("FICHIER GUITAR PRO v5") -> "$base.gp5"
+      else -> name
     }
   }
 

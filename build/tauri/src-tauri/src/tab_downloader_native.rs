@@ -203,6 +203,18 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             return true;
         } catch (err) {
             console.error('[MajesticTab] Form download intercept error:', err);
+            // A cross-origin action (ultimate-guitar's mobile site) can't be fetched from the page, so let the
+            // webview perform the request itself and the native download handler pick up the file.
+            try {
+                if ((form.method || 'GET').toUpperCase() === 'POST') {
+                    origFormSubmit.call(form);
+                } else {
+                    const params = new URLSearchParams(new FormData(form)).toString();
+                    window.location.href = form.action + (form.action.includes('?') ? '&' : '?') + params;
+                }
+            } catch (navErr) {
+                console.error('[MajesticTab] Form download fallback failed:', navErr);
+            }
             return false;
         }
     }
