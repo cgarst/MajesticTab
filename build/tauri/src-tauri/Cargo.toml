@@ -6,7 +6,13 @@ authors = ["MajesticTab contributors"]
 edition = "2021"
 
 [features]
+# Store channels turn these off (see build/channels.mjs); build-tauri.mjs rewrites `default` per channel.
+default = ["self-update", "tab-downloader-full"]
 debug-tools = ["tauri/devtools"]
+# In-app updater (desktop only; the dependency does not exist on mobile)
+self-update = ["dep:tauri-plugin-updater"]
+# Userscript injection into Tab Downloader pages
+tab-downloader-full = []
 
 [lib]
 name = "majestictab_lib"
@@ -37,7 +43,7 @@ local-ip-address = "0.6.13"
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-dialog = "2"
 tauri-plugin-persisted-scope = "2"
-tauri-plugin-updater = "2"
+tauri-plugin-updater = { version = "2", optional = true }
 
 [target.'cfg(not(target_vendor = "apple"))'.dependencies]
 mdns-sd = "0.21.6"

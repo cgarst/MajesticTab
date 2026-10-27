@@ -2,28 +2,30 @@
 // The JS updater (app/updater.js) decides whether a newer build exists on the user's channel;
 // this module only downloads, verifies the signature, installs and relaunches.
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
 const REPO_DOWNLOADS: &str = "https://github.com/cgarst/MajesticTab/releases";
 
 /// "native" when this build can replace itself, otherwise "manual".
 #[tauri::command]
 pub fn update_install_mode() -> &'static str {
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(not(feature = "self-update"))]
+    return "manual";
+    #[cfg(all(feature = "self-update", any(target_os = "windows", target_os = "macos")))]
     return "native";
-    #[cfg(target_os = "linux")]
+    #[cfg(all(feature = "self-update", target_os = "linux"))]
     return if std::env::var_os("APPIMAGE").is_some() { "native" } else { "manual" };
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+    #[cfg(all(feature = "self-update", any(target_os = "android", target_os = "ios")))]
     return "manual";
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
 #[derive(Clone, serde::Serialize)]
 struct UpdateProgress {
     downloaded: u64,
     total: Option<u64>,
 }
 
-#[cfg(not(any(target_os = "android", target_os = "ios")))]
+#[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
 #[tauri::command]
 pub async fn install_update(app: tauri::AppHandle, channel: String) -> Result<(), String> {
     use tauri::Emitter;
@@ -71,8 +73,8 @@ pub async fn install_update(app: tauri::AppHandle, channel: String) -> Result<()
     app.restart();
 }
 
-#[cfg(any(target_os = "android", target_os = "ios"))]
+#[cfg(not(all(feature = "self-update", not(any(target_os = "android", target_os = "ios")))))]
 #[tauri::command]
 pub async fn install_update(_channel: String) -> Result<(), String> {
-    Err("In-app updates are not supported on this platform".to_string())
+    Err("In-app updates are not supported in this build".to_string())
 }

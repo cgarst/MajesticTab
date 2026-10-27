@@ -589,8 +589,10 @@ pub fn run() {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     let builder = builder
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_persisted_scope::init())
-        .plugin(tauri_plugin_updater::Builder::new().build());
+        .plugin(tauri_plugin_persisted_scope::init());
+
+    #[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 
     #[cfg(target_os = "macos")]
     let builder = builder.invoke_handler(tauri::generate_handler![

@@ -1,4 +1,6 @@
 // updater.js - checks GitHub Releases for newer native builds (Tauri only)
+import { hasFeature } from './channel.js';
+
 const REPO = 'cgarst/MajesticTab';
 const CHANNEL_KEY = 'updateChannel';
 const LAST_CHECK_KEY = 'updateLastCheck';
@@ -198,7 +200,7 @@ async function runCheck(buildInfo, { manual }) {
 }
 
 export async function initUpdater() {
-    if (!window.__TAURI__) return;
+    if (!window.__TAURI__ || !hasFeature('selfUpdate')) return;
     let buildInfo;
     try {
         buildInfo = (await import('./build-info.js')).default;

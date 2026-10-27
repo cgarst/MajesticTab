@@ -162,6 +162,7 @@ class MainActivity : TauriActivity() {
       }
     }, "AndroidImmersive")
 
+    // @selfUpdate:begin
     // In-app updates: download the release APK, then hand it to the system package installer.
     webView.addJavascriptInterface(object {
       @JavascriptInterface
@@ -236,6 +237,7 @@ class MainActivity : TauriActivity() {
         }.start()
       }
     }, "AndroidUpdater")
+    // @selfUpdate:end
 
     webView.addJavascriptInterface(object {
       @JavascriptInterface

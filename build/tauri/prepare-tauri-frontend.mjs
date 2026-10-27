@@ -2,6 +2,7 @@ import { cp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { DEFAULT_CHANNEL, resolveChannel } from '../channels.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, '../..');
@@ -227,6 +228,17 @@ async function writeBuildInfo() {
   await writeFile(path.join(frontendDir, 'build-info.js'), `export default ${JSON.stringify(info)};\n`);
 }
 
+async function writeChannelConfig() {
+  const id = process.env.MAJESTICTAB_STORE_CHANNEL || DEFAULT_CHANNEL;
+  const channelConfig = resolveChannel(id);
+  await writeFile(path.join(frontendDir, 'channel.json'), `${JSON.stringify(channelConfig, null, 2)}\n`);
+  if (!channelConfig.userscripts) {
+    // The userscripts never ship in this channel; tabDownloader.js skips importing them.
+    await rm(path.join(frontendDir, 'tabDownloaderUserscripts.js'), { force: true });
+  }
+  console.log(`Distribution channel: ${id}`);
+}
+
 async function hideUnavailableDriveOptions() {
   const indexPath = path.join(frontendDir, 'index.html');
   let indexHtml = await readFile(indexPath, 'utf8');
@@ -247,6 +259,7 @@ try {
   await cp(sourceDir, frontendDir, { recursive: true });
   await cp(path.join(rootDir, 'icons'), path.join(frontendDir, 'icons'), { recursive: true });
   await writeBuildInfo();
+  await writeChannelConfig();
   const desktopSecret = await getDesktopClientSecret();
   if (desktopSecret && !iosBuild) {
     await writeFile(path.join(frontendDir, 'googleDrive.local.js'), `export const TAURI_CLIENT_SECRET = '${desktopSecret}';\n`);
