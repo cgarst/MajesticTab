@@ -1,5 +1,5 @@
 // Generates Microsoft Store listing logos: 9:16-style poster art (720x1080) and 1:1 box art (1080x1080).
-// Same brand look as generate-steam-artwork.mjs. Output: store-screenshots/msstore/logos/ (gitignored),
+// Same brand look as generate-steam-artwork.mjs. Output: store-support/msstore/logos/ (gitignored),
 // override with --out-dir <path>. Upload them under "Store logos" in Partner Center.
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -11,7 +11,7 @@ const rootDir = path.resolve(scriptDir, '..');
 const outDirArg = process.argv.indexOf('--out-dir');
 const outDir = outDirArg > -1
   ? path.resolve(process.argv[outDirArg + 1])
-  : path.join(rootDir, 'store-screenshots', 'msstore', 'logos');
+  : path.join(rootDir, 'store-support', 'msstore', 'logos');
 
 const { Resvg } = createRequire(path.join(scriptDir, 'tauri', 'package.json'))('@resvg/resvg-js');
 
