@@ -65,6 +65,10 @@ def add_traffic_lights(path):
     im.convert("RGB").save(path, optimize=True)
 
 
+class _Server(http.server.ThreadingHTTPServer):
+    request_queue_size = 256  # default backlog of 5 resets connections during the app's module-load burst
+
+
 class _Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *args):
         pass
@@ -76,7 +80,7 @@ def start_server():
     port = sock.getsockname()[1]
     sock.close()
     handler = functools.partial(_Quiet, directory=str(ROOT))
-    httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
+    httpd = _Server(("127.0.0.1", port), handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, f"http://127.0.0.1:{port}"
 
@@ -124,12 +128,17 @@ def wait_for_album_artwork(page, timeout=12000):
 
 
 def load_file(page, base_url, path, mode, condense=False, scale=None):
-    """Open the app fresh with ?test=<filename>, and pick 'page' or 'continuous' view.
+    """Open the app fresh, load the tests/<filename> fixture, and pick 'page' or 'continuous' view.
 
     With condense=True the (experimental) Condense PDF option is enabled first.
     """
     filename = Path(path).name
-    page.goto(f"{base_url}/app/?test={filename}", wait_until="load", timeout=60000)
+    page.goto(f"{base_url}/app/", wait_until="networkidle", timeout=60000)
+    page.evaluate("""async (name) => {
+        const m = await import('/app/main.js');
+        const blob = await (await fetch('/tests/' + name)).blob();
+        await m.loadFile(new File([blob], name));
+    }""", filename)
     page.evaluate(FORCE_DEFAULT_THEME_JS)
     if scale:
         page.evaluate(f"""async () => {{
@@ -158,10 +167,17 @@ def load_file(page, base_url, path, mode, condense=False, scale=None):
     page.wait_for_timeout(2000)
 
 
+def goto_library(page, base_url):
+    """Load the app fresh and open the Tab Library (restored data suppresses the default home page)."""
+    page.goto(f"{base_url}/app/?lib={time.time_ns()}", wait_until="networkidle", timeout=60000)
+    page.evaluate("import('/app/libraryModal.js').then(m => m.openLibraryModal('library'))")
+    page.wait_for_selector(".lib-view-switch", state="visible", timeout=15000)
+
+
 def navigate_library_to_song(page, base_url, artist, album, song, mode="continuous", scale=None):
     """Navigate through the Tab Library UI to open a song by Artist -> Album -> Song."""
     print(f"[library] navigating to {artist} > {album} > {song}...")
-    page.goto(f"{base_url}/app/", wait_until="networkidle", timeout=60000)
+    goto_library(page, base_url)
     page.evaluate(FORCE_DEFAULT_THEME_JS)
     if scale:
         page.evaluate(f"""async () => {{
@@ -230,7 +246,7 @@ def navigate_library_to_song(page, base_url, artist, album, song, mode="continuo
 
 def load_stored_tab(page, base_url, search_query, mode="continuous", scale=None):
     """Navigate to a tab through the library by finding its library entry, or fallback to test tab."""
-    page.goto(f"{base_url}/app/", wait_until="networkidle", timeout=60000)
+    goto_library(page, base_url)
     page.evaluate(FORCE_DEFAULT_THEME_JS)
     page.wait_for_timeout(1000)
     meta = page.evaluate(
@@ -335,7 +351,7 @@ def main():
                 def save(name):
                     target = OUT_DIR / f"{name}{suffix}.png"
                     page.screenshot(path=str(target))
-                    print(f"  wrote {target.relative_to(ROOT)}")
+                    print(f"  wrote {target}")
 
                 # 1. Restore backup data if requested/available
                 has_backup = False
@@ -344,21 +360,21 @@ def main():
 
                 # 2. Tab Library View (Artists grid with artwork loaded)
                 if wanted("library_grid") and has_backup:
-                    page.goto(f"{base_url}/app/", wait_until="networkidle", timeout=60000)
+                    goto_library(page, base_url)
                     wait_for_album_artwork(page)
                     save("library_grid")
 
                 # 2b. Tab Library: Tunings View
                 if wanted("library_tunings") and has_backup and not is_mobile:
-                    page.goto(f"{base_url}/app/", wait_until="networkidle", timeout=60000)
-                    page.wait_for_selector("button[data-mode='tunings']", timeout=10000)
-                    page.locator("button[data-mode='tunings']").click()
+                    goto_library(page, base_url)
+                    page.wait_for_selector(".lib-view-switch button[data-lib-tab='tunings']", timeout=10000)
+                    page.locator(".lib-view-switch button[data-lib-tab='tunings']").click()
                     page.wait_for_timeout(1500)
                     save("library_tunings")
 
                 # 2c. Tab Library: Parasomnia Album Song List View
                 if wanted("library_album_parasomnia") and has_backup and not is_mobile:
-                    page.goto(f"{base_url}/app/", wait_until="networkidle", timeout=60000)
+                    goto_library(page, base_url)
                     page.wait_for_selector(".artist-card[data-artist-name='Dream Theater']", timeout=15000)
                     page.locator(".artist-card[data-artist-name='Dream Theater']").click()
                     page.wait_for_timeout(1500)
@@ -420,11 +436,11 @@ def main():
                     }
                     tb_target = OUT_DIR / "topbar_hud.png"
                     page.screenshot(path=str(tb_target), clip=clip_rect)
-                    print(f"  wrote {tb_target.relative_to(ROOT)}")
+                    print(f"  wrote {tb_target}")
                     
                     tb_2x_target = OUT_DIR / "topbar_hud_2x.png"
                     page.screenshot(path=str(tb_2x_target), clip=clip_rect, scale="device")
-                    print(f"  wrote {tb_2x_target.relative_to(ROOT)}")
+                    print(f"  wrote {tb_2x_target}")
 
                 # 6. Multi-Track View: Between the Buried and Me - White Walls
                 if wanted("multitrack"):
@@ -438,29 +454,20 @@ def main():
                         load_file(page, base_url, GP_FILE, "continuous")
                     save("multitrack")
 
-                # 7. YouTube Player Drawer: Dream Theater - The Mirror with embed loaded
-                if wanted("youtube_player"):
-                    yt_base_url = "https://majestictab.zathu.net" if ("127.0.0.1" in base_url or "localhost" in base_url) else base_url
-                    yt_has_backup = has_backup
-                    if yt_base_url != base_url and backup_path.exists():
-                        yt_has_backup = restore_backup(page, yt_base_url, backup_path)
-
-                    if yt_has_backup:
+                # 7. Synth menu open: Haken - 1985
+                if wanted("synth_menu"):
+                    if has_backup:
                         navigate_library_to_song(
-                            page, yt_base_url,
-                            artist="Dream Theater", album="Awake", song="The Mirror",
+                            page, base_url,
+                            artist="Haken", album="Affinity", song="1985",
                             mode="continuous"
                         )
                     else:
-                        load_file(page, yt_base_url, GP_FILE, "continuous")
+                        load_file(page, base_url, GP_FILE, "continuous")
                     # The button lives in the playback dock; the top-bar copy is hidden.
-                    page.locator("#mobileYtToggleBtn:visible, #ytToggleBtn:visible").first.click()
-                    try:
-                        page.wait_for_selector("#ytIframe[data-loaded='true']", timeout=15000)
-                    except Exception as e:
-                        print(f"  [youtube_player warning] wait for embed timed out: {e}")
-                    page.wait_for_timeout(3500)
-                    save("youtube_player")
+                    page.locator("#mobileSynthToggleBtn:visible, #synthToggleBtn:visible").first.click()
+                    page.wait_for_timeout(1500)
+                    save("synth_menu")
 
                 # 8. Game Controller Modal: Haken - 1985
                 if wanted("controller_modal"):
@@ -473,6 +480,9 @@ def main():
                     else:
                         load_file(page, base_url, GP_FILE, "continuous")
                     page.evaluate("import('/app/utils/gamepadManager.js').then(m => m.gamepadManager.openHelpModal())")
+                    page.wait_for_timeout(1000)
+                    # The modal opens on the Keyboard tab; the shot shows the game controller layout.
+                    page.click("#controllerHelpModal label[for='controlsTabGamepad']")
                     page.wait_for_timeout(1000)
                     save("controller_modal")
                     page.evaluate("import('/app/utils/gamepadManager.js').then(m => m.gamepadManager.closeHelpModal())")
