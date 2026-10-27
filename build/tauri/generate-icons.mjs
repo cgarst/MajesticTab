@@ -137,6 +137,9 @@ async function buildIcns(dir) {
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
 // Microsoft Store package logos (Square44x44Logo, StoreLogo, Square150x150Logo); the MSIX build copies them.
 const MSIX_SIZES = [44, 50, 150];
+// Sizes the MSIX also ships as Square44x44Logo.targetsize-N_altform-unplated.png. Without them Windows draws
+// the accent-color plate behind the taskbar and title bar icon.
+const MSIX_UNPLATED_SIZES = [16, 24, 32, 48, 256];
 
 // Each generator writes only its own icons/<platform>/ directory.
 const GENERATORS = {
@@ -146,7 +149,7 @@ const GENERATORS = {
     await mkdir(target, { recursive: true });
     await writeFile(path.join(target, 'icon.ico'), await buildIco(out, ICO_SIZES));
     console.log(`  ICO Creating icon.ico (${ICO_SIZES.join(', ')})`);
-    for (const size of [32, 128, 256, ...MSIX_SIZES]) {
+    for (const size of [...new Set([...MSIX_UNPLATED_SIZES, 128, ...MSIX_SIZES])]) {
       await cp(path.join(out, `${size}x${size}.png`), path.join(target, `${size}x${size}.png`));
     }
   },
