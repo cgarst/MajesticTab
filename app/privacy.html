@@ -132,7 +132,6 @@
           <li>Tab appearance settings (Light / Dark / Auto / Theme)</li>
           <li>Playback speeds and metronome preferences</li>
           <li>Viewing options (Page Mode vs. Continuous Scroll, dual-page advance preferences)</li>
-          <li>Your optional Google Drive tabs directory</li>
         </ul>
         <p>
           This data remains exclusively in your browser and can be cleared at any time through your browser's settings.
@@ -146,7 +145,7 @@
           MajesticTab offers an optional feature that allows you to open sheet music files stored in your Google Drive using the standard Google Drive Picker.
         </p>
         <ul>
-          <li><strong>Scope:</strong> When you connect to Google Drive, the app requests read-only authorization solely to download the specific file(s) you select.</li>
+          <li><strong>Scope:</strong> When you connect to Google Drive, the app requests the <code>drive.file</code> permission only. MajesticTab can access just the file(s) you select in the Google Drive Picker and the files and folder it creates itself (such as backups). It cannot see or browse the rest of your Drive.</li>
           <li><strong>Processing:</strong> Downloaded files and access tokens are held temporarily in your browser's memory and are never sent to or stored on any server.</li>
           <li><strong>Compliance:</strong> MajesticTab's use and transfer to any other app of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" class="privacy-link">Google API Services User Data Policy</a>, including the <em>Limited Use</em> requirements.</li>
         </ul>

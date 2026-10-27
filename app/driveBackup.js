@@ -1,6 +1,6 @@
 // driveBackup.js
 // Google Drive storage backend for incremental backups (see incrementalBackup.js for the layout).
-// Backups live under their own folder, chosen separately from the tab library's root directory.
+// Backups live in a "MajesticTab Backup" folder at the root of My Drive, created by the app so the drive.file scope covers it.
 import { driveFetch } from './googleDrive.js';
 import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName } from './incrementalBackup.js';
 
@@ -9,24 +9,7 @@ const DRIVE_UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
 const FOLDER_MIME = 'application/vnd.google-apps.folder';
 const MULTIPART_LIMIT = 8 * 1024 * 1024;
 const RESUMABLE_PIECE = 16 * 1024 * 1024; // must be a multiple of 256 KiB
-const BACKUP_FOLDER_STORAGE_KEY = 'majestictab_drive_backup_folder';
 const DRIVE_ROOT = { id: 'root', name: 'My Drive' };
-
-/** Drive folder that "MajesticTab Backup" is created in. Defaults to My Drive. */
-export function getDriveBackupFolder() {
-    try {
-        const parsed = JSON.parse(localStorage.getItem(BACKUP_FOLDER_STORAGE_KEY));
-        if (parsed?.id && parsed?.name) return parsed;
-    } catch (_) {}
-    return DRIVE_ROOT;
-}
-
-export function setDriveBackupFolder(folder) {
-    try {
-        if (!folder || folder.id === 'root') localStorage.removeItem(BACKUP_FOLDER_STORAGE_KEY);
-        else localStorage.setItem(BACKUP_FOLDER_STORAGE_KEY, JSON.stringify({ id: folder.id, name: folder.name }));
-    } catch (_) {}
-}
 
 async function driveJson(url, options) {
     const res = await driveFetch(url, options);
@@ -55,14 +38,8 @@ async function listChildren(parentId, extraQuery = '') {
     return files;
 }
 
-/** Subfolders of a Drive folder, for the backup folder chooser. */
-export async function listDriveSubfolders(parentId) {
-    const folders = await listChildren(parentId, ` and mimeType = '${FOLDER_MIME}'`);
-    return folders.map(f => ({ id: f.id, name: f.name })).sort((a, b) => a.name.localeCompare(b.name));
-}
-
 /** Create a subfolder, returning its id and name. */
-export async function createDriveFolder(name, parentId) {
+async function createDriveFolder(name, parentId) {
     const folder = await driveJson(DRIVE_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -110,7 +87,7 @@ async function downloadDriveFile(fileId, label) {
 /** Storage backend that keeps backups in "MajesticTab Backup" under the chosen Drive folder. */
 export function createDriveBackend() {
     let folders = null;
-    const parent = getDriveBackupFolder();
+    const parent = DRIVE_ROOT;
 
     return {
         label: 'Google Drive',

@@ -65,8 +65,6 @@ const BACKUP_SETTINGS_KEYS = [
     'majestictab_update_channel',
     'youtubeApiKey',
     'tab_downloader_sources',
-    'gdrive_last_folder',
-    'gdrive_tabs_directory',
     'majestictab_custom_tuning_names',
     'gpDefaultStringsGuitar',
     'gpDefaultStringsBass',
@@ -1459,6 +1457,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
                 <i class="bi-google text-danger"></i> <span>Google Drive Backups</span>
               </button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDrivePickBtn">
+                <i class="bi-google text-danger"></i> <span>Pick From Drive</span>
+              </button>
             </div>
 
             <!-- Inline Google Drive Backup Selector -->
@@ -2175,7 +2176,7 @@ function attachModalHandlers(modal, options = {}) {
                         <div class="small fw-semibold text-white">${head}</div>
                         <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(target.backend.location)}"><i class="bi-folder2 me-1"></i>${escapeHtml(target.backend.location)}</div>
                     </div>
-                    <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="${isDrive ? 'change-drive-folder' : 'choose-folder'}">Change</button>
+                    ${isDrive ? '' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
                 </div>
                 <div class="row g-2">
                     ${stat(p.added, 'New tabs', 'text-success')}
@@ -2201,13 +2202,7 @@ function attachModalHandlers(modal, options = {}) {
                 redirectToGoogleAuth('backup_create');
                 return;
             }
-            if (action === 'change-drive-folder') {
-                const { chooseDriveBackupFolder } = await import('./driveFolderPicker.js');
-                const folder = await chooseDriveBackupFolder();
-                if (!folder) return;
-                const { setDriveBackupFolder } = await import('./driveBackup.js');
-                setDriveBackupFolder(folder);
-            } else if (action === 'choose-folder') {
+            if (action === 'choose-folder') {
                 const { pickBackupFolder } = await import('./folderBackup.js');
                 if (!(await pickBackupFolder())) return;
             } else if (action === 'allow-folder') {
@@ -2413,6 +2408,7 @@ function attachModalHandlers(modal, options = {}) {
             const { listIncrementalBackups } = await import('./incrementalBackup.js');
             const backend = createDriveBackend();
             activeSource = { type: 'drive', backend };
+            restoreChangeLocationBtn?.classList.add('d-none');
             if (restoreSourceIcon) restoreSourceIcon.className = 'bi-google text-danger';
             if (restoreSourceTitle) restoreSourceTitle.textContent = 'Google Drive Backups:';
             if (restoreSourceLocation) restoreSourceLocation.textContent = backend.location;
@@ -2462,6 +2458,7 @@ function attachModalHandlers(modal, options = {}) {
 
             const backend = folders.createFolderBackend(handle);
             activeSource = { type: 'folder', backend };
+            restoreChangeLocationBtn?.classList.remove('d-none');
             if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
             if (restoreDriveLoading) restoreDriveLoading.style.display = 'block';
             if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
@@ -2493,20 +2490,7 @@ function attachModalHandlers(modal, options = {}) {
 
     restoreFolderBtn?.addEventListener('click', () => loadFolderBackups());
     restoreChangeLocationBtn?.addEventListener('click', async () => {
-        if (activeSource.type === 'folder') {
-            loadFolderBackups({ pickNew: true });
-            return;
-        }
-        try {
-            const { chooseDriveBackupFolder } = await import('./driveFolderPicker.js');
-            const folder = await chooseDriveBackupFolder();
-            if (!folder) return;
-            const { setDriveBackupFolder } = await import('./driveBackup.js');
-            setDriveBackupFolder(folder);
-            loadGoogleDriveBackups();
-        } catch (err) {
-            showToast(err.message, 'error');
-        }
+        if (activeSource.type === 'folder') loadFolderBackups({ pickNew: true });
     });
 
     const renderDriveBackupsList = (backups) => {
@@ -2637,6 +2621,28 @@ function attachModalHandlers(modal, options = {}) {
     };
 
     restoreDriveBtn?.addEventListener('click', loadGoogleDriveBackups);
+
+    // A .mtbackup file the app didn't save itself: the user hands it over through the Google Picker
+    modal.querySelector('#restoreDrivePickBtn')?.addEventListener('click', async () => {
+        const { isTokenValid, ensureFreshToken, redirectToGoogleAuth, pickDriveFile, downloadDriveBackupFile } = await import('./googleDrive.js');
+        try {
+            await ensureFreshToken();
+            if (!isTokenValid()) {
+                redirectToGoogleAuth('restore_backup');
+                return;
+            }
+            const doc = await pickDriveFile({ title: 'Select a .mtbackup file from Google Drive' });
+            if (!doc) return;
+            if (!doc.name.toLowerCase().endsWith('.mtbackup')) {
+                showToast(`"${doc.name}" is not a .mtbackup file.`, 'warning');
+                return;
+            }
+            await handleSelectedBackupFile(await downloadDriveBackupFile(doc.id, doc.name), 'Google Drive');
+        } catch (err) {
+            console.error('Failed to pick Drive backup:', err);
+            showToast(err.message, 'error');
+        }
+    });
     if (options.autoLoadDrive) {
         loadGoogleDriveBackups();
     }

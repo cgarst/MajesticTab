@@ -255,7 +255,7 @@ function showReview(target, backend, plan) {
                 <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(backend.location)}"><i class="bi-folder2 me-1"></i>${escapeHtml(backend.location)}</div>
             </div>
             <div class="d-flex gap-1 flex-shrink-0">
-                <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="change-folder">Change Folder</button>
+                ${target === DRIVE ? '' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="change-folder">Change Folder</button>'}
                 <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="switch">Change Location</button>
             </div>
         </div>`;
@@ -422,16 +422,8 @@ async function handleAction(action) {
         }
         if (action === 'choose-folder' || action === 'allow-folder') return start({ interactive: true });
         if (action === 'change-folder') {
-            if (getTarget() === DRIVE) {
-                const { chooseDriveBackupFolder } = await import('./driveFolderPicker.js');
-                const folder = await chooseDriveBackupFolder();
-                if (!folder) return;
-                const { setDriveBackupFolder } = await import('./driveBackup.js');
-                setDriveBackupFolder(folder);
-            } else {
-                const { pickBackupFolder } = await import('./folderBackup.js');
-                if (!(await pickBackupFolder())) return;
-            }
+            const { pickBackupFolder } = await import('./folderBackup.js');
+            if (!(await pickBackupFolder())) return;
             return start();
         }
     } catch (err) {
