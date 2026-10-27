@@ -76,6 +76,10 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
             ui: {
                 toast,
                 onStatus: () => refresh(),
+                onKicked: () => {
+                    toast('The host removed you from the Jam', 'warning');
+                    api.leave();
+                },
                 // The host named this player: use it from now on, including the next time they join
                 onRenamed: (name) => {
                     if (name === settings.name) return;

@@ -650,7 +650,11 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         setTrackAssignment,
         setListening,
         updateTracks,
-        kick: (id) => jam.hostKick(id),
+        // Tell the client first so it leaves for good; a bare close looks like a dropped connection and it would reconnect.
+        async kick(id) {
+            await sendTo(id, MSG.KICKED);
+            await jam.hostKick(id);
+        },
         getRoster: namedRoster,
         /** Names a peer on the host only; an empty name goes back to what the client sent. */
         renamePeer(id, name) {
