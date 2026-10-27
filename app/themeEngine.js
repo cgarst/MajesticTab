@@ -3,7 +3,13 @@
  * Ported from concerts with 8 iconic guitar finish themes.
  * Default theme: 'Mystic Dream'
  * Sheet appearance: Auto / Light / Dark / Guitar Finish (all in one row)
+ *
+ * On store channels the default theme and the light sheet are free; other finishes and sheet modes are
+ * Supporter features. The saved choice is never changed by the gate, so it applies again once Supporter does.
  */
+
+import { hasSupporter } from './channel.js';
+import { LOCK_ICON_HTML, requireSupporter } from './supporter.js';
 
 export const THEMES = [
   {
@@ -91,17 +97,31 @@ export const THEMES = [
 const STORAGE_THEME_KEY = 'majestictab_theme';
 const STORAGE_SHEET_MODE_KEY = 'majestictab_sheet_mode';
 
-export function getCurrentTheme() {
+const FREE_THEME_ID = 'Mystic Dream';
+
+function getSavedTheme() {
   try {
     return localStorage.getItem(STORAGE_THEME_KEY) ||
            document.documentElement.getAttribute('data-theme') ||
-           'Mystic Dream';
+           FREE_THEME_ID;
   } catch (e) {
-    return 'Mystic Dream';
+    return FREE_THEME_ID;
   }
 }
 
+/** The theme in effect: the saved one for Supporters, otherwise the free default. */
+export function getCurrentTheme() {
+  const saved = getSavedTheme();
+  return saved === FREE_THEME_ID || hasSupporter() ? saved : FREE_THEME_ID;
+}
+
+/** The sheet mode in effect: the saved one for Supporters, otherwise the light sheet. */
 export function getSheetMode() {
+  const saved = getSavedSheetMode();
+  return saved === 'light' || hasSupporter() ? saved : 'light';
+}
+
+function getSavedSheetMode() {
   try {
     let saved = localStorage.getItem(STORAGE_SHEET_MODE_KEY);
     if (!saved) {
@@ -165,26 +185,55 @@ export function applySheetAppearance() {
   const sheetRadios = document.querySelectorAll('input[name="sheetModeRadio"]');
   sheetRadios.forEach(radio => {
     radio.checked = radio.value === sheetMode;
+    // Mark the modes that need Supporter
+    const label = radio.labels?.[0];
+    if (label) {
+      let lock = label.querySelector('.supporter-lock');
+      if (!lock && radio.value !== 'light') {
+        label.insertAdjacentHTML('beforeend', ` ${LOCK_ICON_HTML}`);
+        lock = label.querySelector('.supporter-lock');
+      }
+      if (lock) lock.hidden = hasSupporter();
+    }
   });
 }
 
+/** User choice of sheet mode. Returns false (and shows the paywall) when it needs Supporter. */
 export function setSheetMode(mode) {
+  if (mode !== 'light' && !requireSupporter('sheetModes')) {
+    applySheetAppearance();
+    return false;
+  }
   try {
     localStorage.setItem(STORAGE_SHEET_MODE_KEY, mode);
   } catch (e) {}
   applySheetAppearance();
+  return true;
 }
 
+/** User choice of theme. Returns false (and shows the paywall) when it needs Supporter. */
 export function setTheme(themeName) {
+  const themeObj = THEMES.find(t => t.id === themeName) || THEMES[0];
+  if (themeObj.id !== FREE_THEME_ID && !requireSupporter('themes')) return false;
+  try {
+    localStorage.setItem(STORAGE_THEME_KEY, themeObj.id);
+  } catch (e) {}
+  applyTheme(themeObj.id);
+  return true;
+}
+
+/** Re-apply the theme and sheet mode in effect without saving anything (restores, entitlement changes). */
+export function refreshAppearance() {
+  applyTheme(getCurrentTheme());
+  applySheetAppearance();
+}
+
+function applyTheme(themeName) {
   const themeObj = THEMES.find(t => t.id === themeName) || THEMES[0];
   const validThemeId = themeObj.id;
 
   document.documentElement.setAttribute('data-theme', validThemeId);
   document.body.setAttribute('data-theme', validThemeId);
-
-  try {
-    localStorage.setItem(STORAGE_THEME_KEY, validThemeId);
-  } catch (e) {}
 
   // Update browser meta theme color
   let metaThemeColor = document.querySelector('meta[name="theme-color"]');
@@ -229,7 +278,9 @@ export function renderThemeModalGrid(activeThemeId = getCurrentTheme()) {
           </div>
           ${isActive 
             ? `<span class="theme-active-pill"><i class="bi-check-circle-fill me-1"></i> Active</span>` 
-            : `<span class="theme-select-hint">Select</span>`
+            : (t.id !== FREE_THEME_ID && !hasSupporter()
+              ? `<span class="theme-select-hint is-locked">${LOCK_ICON_HTML} Supporter</span>`
+              : `<span class="theme-select-hint">Select</span>`)
           }
         </div>
         <div class="theme-card-gradient-bar" style="background: ${t.gradient};"></div>
@@ -273,9 +324,9 @@ export function closeThemeModal() {
 }
 
 export function initTheming() {
-  const initialTheme = getCurrentTheme();
-  setTheme(initialTheme);
-  applySheetAppearance();
+  refreshAppearance();
+  // Ownership arrives (or is revoked) after launch
+  window.addEventListener('supporterchange', refreshAppearance);
 
   // Setup modal close listeners
   const closeBtns = document.querySelectorAll('.theme-modal-close-btn');

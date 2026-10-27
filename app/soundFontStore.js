@@ -3,6 +3,7 @@
 // Any number can be enabled at once; AlphaTab layers them in load order, so later ones override earlier ones.
 import { parseSoundFontPresets, mergePresetSets, applyProgramMapping, GM_PROGRAM_NAMES } from './soundFontProgramMap.js';
 import { clampNegativeAttenuation, convertStereoSamplesToMono } from './soundFontSanitize.js';
+import { hasSupporter } from './channel.js';
 import { getDB, STORE_SOUNDFONTS, arrayBufferToBase64Async, arrayBufferToBase64, base64ToArrayBuffer } from './fileStore.js';
 
 export const BUILTIN_SOUNDFONT_ID = 'builtin';
@@ -84,7 +85,7 @@ export async function addSoundFont(file) {
 
 export async function deleteSoundFont(id) {
     await request('readwrite', s => s.delete(id));
-    setSelectedSoundFontIds(getSelectedSoundFontIds().filter(x => x !== id));
+    setSelectedSoundFontIds(getSavedSoundFontIds().filter(x => x !== id));
     setSoundFontOrder(getSoundFontOrder().filter(x => x !== id));
 }
 
@@ -92,13 +93,18 @@ export async function clearAllSoundFonts() {
     await request('readwrite', s => s.clear());
 }
 
-/** Enabled ids. Defaults to the built-in SONiVOX font; never empty. */
-export function getSelectedSoundFontIds() {
+/** The user's saved selection, whatever the entitlement. Defaults to the built-in SONiVOX font; never empty. */
+export function getSavedSoundFontIds() {
     try {
         const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY_SOUNDFONT_SELECTION));
         if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter(x => typeof x === 'string');
     } catch (_) {}
     return [BUILTIN_SOUNDFONT_ID];
+}
+
+/** Enabled ids in effect: the saved selection for Supporters, otherwise just the built-in font (uploads stay saved). */
+export function getSelectedSoundFontIds() {
+    return hasSupporter() ? getSavedSoundFontIds() : [BUILTIN_SOUNDFONT_ID];
 }
 
 export function setSelectedSoundFontIds(ids) {
