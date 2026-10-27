@@ -58,6 +58,11 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
+        NSUbiquitousContainers:
+          iCloud.net.zathu.majestictab:
+            NSUbiquitousContainerIsDocumentScopePublic: true
+            NSUbiquitousContainerName: MajesticTab
+            NSUbiquitousContainerSupportedFolderLevels: Any
         CFBundleShortVersionString: 1.0.0
         CFBundleVersion: "1.0.0"
         CFBundleURLTypes:
@@ -67,6 +72,10 @@ targets:
               - com.googleusercontent.apps.1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p
     entitlements:
       path: majestictab_iOS/majestictab_iOS.entitlements
+      properties:
+        com.apple.developer.icloud-services: [CloudDocuments]
+        com.apple.developer.icloud-container-identifiers: [iCloud.net.zathu.majestictab]
+        com.apple.developer.ubiquity-container-identifiers: [iCloud.net.zathu.majestictab]
     scheme:
       environmentVariables:
         RUST_BACKTRACE: full

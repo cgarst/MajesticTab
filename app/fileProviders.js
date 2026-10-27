@@ -4,6 +4,7 @@
 import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
 import { openDrivePicker, redirectToGoogleAuth, isTokenValid, ensureFreshToken } from './googleDrive.js';
+import { isIcloudDriveSupported } from './icloudDrive.js';
 import { openTabDownloader } from './tabDownloader.js';
 import { addTabOptionToSong, addTabOptionToAlbum, mapOpenFileToSong } from './libraryStore.js';
 import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
@@ -76,7 +77,7 @@ export function getSaveProviders() {
 
 const SYNC_TARGET_KEY = 'majestictab_sync_target';
 
-/** Where the user keeps their library: 'google-drive', 'folder', or null until they choose. Shared by Sync and Backup. */
+/** Where the user keeps their library: 'google-drive', 'icloud', 'folder', or null until they choose. Shared by Sync and Backup. */
 export function getPreferredStorage() {
     try { return localStorage.getItem(SYNC_TARGET_KEY); } catch (_) { return null; }
 }
@@ -118,6 +119,79 @@ export async function openLocalFile(file) {
     await loadFile(file);
 }
 
+/** Attach or open a file the user picked, depending on what the caller asked for (song, album, callback or plain open). */
+async function handlePickedFile(file, options = {}) {
+    if (typeof options.onFileSelected === 'function' || options.songId || options.targetSong?.id || options.isAlbumTab) {
+        if (!(await isSupportedTabFile(file))) {
+            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+            return;
+        }
+    }
+
+    if (typeof options.onFileSelected === 'function') {
+        try {
+            const meta = await detectFileMetadata(file, file.name);
+            const stored = await saveStoredFile(file, 'local');
+            options.onFileSelected({ file, providerId: 'local', fileStoreId: stored.id, name: file.name, meta });
+        } catch (err) {
+            console.warn('Could not persist file to store:', err);
+            showToast('Error attaching tab file', 'error');
+        }
+        return;
+    }
+
+    const targetId = options.songId || options.targetSong?.id;
+    const isAlbumTab = Boolean(options.isAlbumTab && options.albumTitle);
+
+    if (targetId) {
+        try {
+            const meta = await detectFileMetadata(file, file.name);
+            const stored = await saveStoredFile(file, 'local');
+            await addTabOptionToSong(targetId, {
+                name: file.name,
+                providerId: 'local',
+                relativePath: file.name,
+                fileStoreId: stored.id,
+                tuning: meta.primaryTuning,
+                tunings: meta.tunings,
+                stringCount: meta.stringCount,
+                fileType: file.name.split('.').pop().toLowerCase()
+            });
+            showToast(`Added "${file.name}" to song`, 'success');
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+        } catch (err) {
+            console.warn('Could not persist file to store:', err);
+            showToast('Error attaching tab file', 'error');
+        }
+        return; // Do not auto-open when adding a tab to a song
+    }
+
+    if (isAlbumTab) {
+        try {
+            const meta = await detectFileMetadata(file, file.name);
+            const stored = await saveStoredFile(file, 'local');
+            await addTabOptionToAlbum(options.collectionId, options.artistName, options.albumTitle, {
+                name: file.name,
+                providerId: 'local',
+                relativePath: file.name,
+                fileStoreId: stored.id,
+                tuning: meta.primaryTuning,
+                tunings: meta.tunings,
+                stringCount: meta.stringCount,
+                fileType: file.name.split('.').pop().toLowerCase()
+            });
+            showToast(`Added "${file.name}" to album`, 'success');
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+        } catch (err) {
+            console.warn('Could not persist album tab to store:', err);
+            showToast('Error attaching album tab file', 'error');
+        }
+        return; // Do not auto-open when adding a tab to an album
+    }
+
+    await loadFile(file);
+}
+
 // --- Built-in Provider: Local Device ---
 export const LocalFileProvider = {
     id: 'local',
@@ -140,77 +214,7 @@ export const LocalFileProvider = {
         input.addEventListener('change', async () => {
             const file = input.files?.[0];
             input.remove();
-            if (file) {
-                if (typeof options.onFileSelected === 'function' || options.songId || options.targetSong?.id || options.isAlbumTab) {
-                    if (!(await isSupportedTabFile(file))) {
-                        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
-                        return;
-                    }
-                }
-
-                if (typeof options.onFileSelected === 'function') {
-                    try {
-                        const meta = await detectFileMetadata(file, file.name);
-                        const stored = await saveStoredFile(file, 'local');
-                        options.onFileSelected({ file, providerId: 'local', fileStoreId: stored.id, name: file.name, meta });
-                    } catch (err) {
-                        console.warn('Could not persist file to store:', err);
-                        showToast('Error attaching tab file', 'error');
-                    }
-                    return;
-                }
-
-                const targetId = options.songId || options.targetSong?.id;
-                const isAlbumTab = Boolean(options.isAlbumTab && options.albumTitle);
-
-                if (targetId) {
-                    try {
-                        const meta = await detectFileMetadata(file, file.name);
-                        const stored = await saveStoredFile(file, 'local');
-                        await addTabOptionToSong(targetId, {
-                            name: file.name,
-                            providerId: 'local',
-                            relativePath: file.name,
-                            fileStoreId: stored.id,
-                            tuning: meta.primaryTuning,
-                            tunings: meta.tunings,
-                            stringCount: meta.stringCount,
-                            fileType: file.name.split('.').pop().toLowerCase()
-                        });
-                        showToast(`Added "${file.name}" to song`, 'success');
-                        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                    } catch (err) {
-                        console.warn('Could not persist file to store:', err);
-                        showToast('Error attaching tab file', 'error');
-                    }
-                    return; // Do not auto-open when adding a tab to a song
-                }
-
-                if (isAlbumTab) {
-                    try {
-                        const meta = await detectFileMetadata(file, file.name);
-                        const stored = await saveStoredFile(file, 'local');
-                        await addTabOptionToAlbum(options.collectionId, options.artistName, options.albumTitle, {
-                            name: file.name,
-                            providerId: 'local',
-                            relativePath: file.name,
-                            fileStoreId: stored.id,
-                            tuning: meta.primaryTuning,
-                            tunings: meta.tunings,
-                            stringCount: meta.stringCount,
-                            fileType: file.name.split('.').pop().toLowerCase()
-                        });
-                        showToast(`Added "${file.name}" to album`, 'success');
-                        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                    } catch (err) {
-                        console.warn('Could not persist album tab to store:', err);
-                        showToast('Error attaching album tab file', 'error');
-                    }
-                    return; // Do not auto-open when adding a tab to an album
-                }
-
-                await loadFile(file);
-            }
+            if (file) await handlePickedFile(file, options);
         });
 
         // Synchronously trigger file picker in user event
@@ -260,6 +264,44 @@ export const GoogleDriveFileProvider = {
     }
 };
 
+// --- Built-in Provider: iCloud Drive (macOS and iOS app only) ---
+// Uses the system's own pickers and file access, so nothing goes over the network from MajesticTab.
+export const ICloudDriveFileProvider = {
+    id: 'icloud-drive',
+    name: 'iCloud Drive',
+    icon: 'bi-cloud',
+    iconColorClass: 'text-info',
+    description: 'Open tab files from iCloud Drive',
+    badge: 'Cloud',
+    actionLabel: 'Open from iCloud',
+    async open(options = {}) {
+        const dialog = window.__TAURI__?.dialog;
+        if (!dialog?.open) {
+            // iOS: the system Files picker lists iCloud Drive alongside other locations
+            return LocalFileProvider.open(options);
+        }
+        const { getIcloudDriveRoot } = await import('./icloudDrive.js');
+        // Start in the folder MajesticTab uses; its parent is the top of iCloud Drive
+        const root = await getIcloudDriveRoot().catch(() => null);
+        const picked = await dialog.open({
+            multiple: false,
+            title: 'Open from iCloud Drive',
+            filters: [{ name: 'Tab files', extensions: ['gp', 'gp3', 'gp4', 'gp5', 'gpx', 'pdf', 'txt'] }],
+            ...(root ? { defaultPath: root.replace(/\/[^/]+$/, '') } : {})
+        });
+        const path = Array.isArray(picked) ? picked[0] : picked;
+        if (!path) return;
+        try {
+            const bytes = await window.__TAURI__.fs.readFile(path);
+            const name = path.split(/[\\/]/).pop();
+            await handlePickedFile(new File([bytes], name), options);
+        } catch (err) {
+            console.warn('Could not read iCloud Drive file:', err);
+            showToast('Could not read that file from iCloud Drive', 'error');
+        }
+    }
+};
+
 // --- Built-in Provider: Tab Downloader (Native Only) ---
 export const TabDownloaderNativeProvider = {
     id: 'tab-downloader',
@@ -277,6 +319,10 @@ export const TabDownloaderNativeProvider = {
 // Register built-in providers
 registerFileProvider(LocalFileProvider);
 registerFileProvider(GoogleDriveFileProvider);
+
+if (isIcloudDriveSupported()) {
+    registerFileProvider(ICloudDriveFileProvider);
+}
 
 if (typeof window !== 'undefined' && Boolean(window.__TAURI__)) {
     registerFileProvider(TabDownloaderNativeProvider);

@@ -6,6 +6,8 @@ use tauri::{LogicalPosition, LogicalSize};
 use tauri::RunEvent;
 
 mod jam;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod icloud;
 mod self_update;
 mod tab_downloader_native;
 
@@ -574,6 +576,8 @@ pub fn run() {
         jam::jam_client_send,
         jam::jam_client_disconnect,
         get_opened_file,
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        icloud::icloud_drive_root,
         self_update::update_install_mode,
         self_update::install_update,
         open_tab_downloader,
@@ -606,6 +610,8 @@ pub fn run() {
         jam::jam_client_send,
         jam::jam_client_disconnect,
         get_opened_file,
+        #[cfg(any(target_os = "macos", target_os = "ios"))]
+        icloud::icloud_drive_root,
         self_update::update_install_mode,
         self_update::install_update,
         open_tab_downloader,

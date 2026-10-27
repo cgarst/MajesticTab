@@ -99,6 +99,18 @@
 	<string>MajesticTab uses the microphone for the instrument tuner.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>MajesticTab uses your local network to find and connect to other devices for Jam mode, so everyone plays the same song in time.</string>
+	<key>NSUbiquitousContainers</key>
+	<dict>
+		<key>iCloud.net.zathu.majestictab</key>
+		<dict>
+			<key>NSUbiquitousContainerIsDocumentScopePublic</key>
+			<true/>
+			<key>NSUbiquitousContainerName</key>
+			<string>MajesticTab</string>
+			<key>NSUbiquitousContainerSupportedFolderLevels</key>
+			<string>Any</string>
+		</dict>
+	</dict>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_majestictab-jam._tcp</string>
