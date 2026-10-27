@@ -77,6 +77,15 @@ export function createJamModal(manager, { updateSetting }) {
 
     const isOpen = () => backdrop.style.display === 'flex';
 
+    let renamingId = null; // roster row being renamed
+
+    function saveRename(id) {
+        manager.getHost()?.renamePeer(id, body.querySelector('#jamRenameInput')?.value);
+        renamingId = null;
+        body.dataset.role = '';
+        render();
+    }
+
     // A successful join drops the guest straight into the host's song; a failed one (bad PIN) stays here to retry.
     function afterJoin() {
         if (manager.getRole() === 'client') { close(); return; }
@@ -206,6 +215,7 @@ export function createJamModal(manager, { updateSetting }) {
               <div class="fw-semibold w-100">${esc(person.name)}${badge}</div>
               <div class="d-flex flex-wrap gap-2 w-100 mt-1">
                 ${tracks.map((t) => `<button type="button" class="btn btn-sm ${(assigned[person.key] || []).includes(t.index) ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-assign="${esc(person.key)}" data-jam-track="${t.index}">${esc(t.name)}</button>`).join('')}
+                ${person.key === 'host' ? '' : `<button type="button" class="btn btn-sm btn-theme-outline ms-auto" data-jam-identify="${esc(person.key)}" title="Flash and beep on this device">Identify</button>`}
                 <button type="button" class="btn btn-sm ${state === 'listening' ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-listening="${esc(person.key)}" aria-pressed="${state === 'listening'}">Listening</button>
               </div>
               <div class="jam-help w-100 mt-1">${esc(resultText(session, person.key, trackNames))}</div>
@@ -280,10 +290,16 @@ export function createJamModal(manager, { updateSetting }) {
             const isController = session?.controllerId === p.id;
             return `<div class="jam-list-row">
               <div class="jam-row-main">
-                <span class="fw-semibold">${esc(p.name)}${isController ? ' <span class="jam-badge">Controller</span>' : ''}</span>
+                ${renamingId === p.id
+                  ? `<div class="d-flex gap-2 align-items-center"><input type="text" class="form-control form-control-sm" id="jamRenameInput" maxlength="24" value="${esc(p.name === p.originalName ? p.name : p.name.replace(/ \(\d+\)$/, ''))}" placeholder="${esc(p.originalName)}" data-jam-rename-for="${esc(p.id)}">
+                      <button type="button" class="btn btn-sm btn-theme-primary" data-jam-rename-save="${esc(p.id)}">Save</button>
+                      <button type="button" class="btn btn-sm btn-theme-outline" data-jam-rename-cancel>Cancel</button></div>`
+                  : `<span class="fw-semibold">${esc(p.name)}${p.name !== p.originalName ? ` <span class="jam-help">(${esc(p.originalName)})</span>` : ''}${isController ? ' <span class="jam-badge">Controller</span>' : ''}</span>`}
                 <span class="jam-help">${p.ready ? 'Ready' : esc(PEER_STATUS_LABELS[p.status] || 'Loading')} · RTT ${Math.round(p.rttMs || 0)} ms${p.driftMs === null || p.driftMs === undefined ? '' : ` · drift ${p.driftMs} ms`}${p.ytDriftMs === null || p.ytDriftMs === undefined ? '' : ` · YouTube drift ${p.ytDriftMs} ms`}</span>
               </div>
-              <div class="d-flex gap-2 flex-shrink-0 ms-2">
+              <div class="d-flex flex-wrap gap-2 flex-shrink-0 ms-2">
+                <button type="button" class="btn btn-sm btn-theme-outline" data-jam-identify="${esc(p.id)}" title="Flash and beep on this device">Identify</button>
+                <button type="button" class="btn btn-sm btn-theme-outline" data-jam-rename="${esc(p.id)}">Rename</button>
                 <button type="button" class="btn btn-sm btn-theme-outline" data-jam-control="${esc(p.id)}">${isController ? 'Take Back' : 'Hand Over'}</button>
                 <button type="button" class="btn btn-sm btn-theme-danger" data-jam-kick="${esc(p.id)}">Kick</button>
               </div>
@@ -504,6 +520,10 @@ export function createJamModal(manager, { updateSetting }) {
             render();
             return;
         }
+        if (t.dataset.jamIdentify) { host?.identify(t.dataset.jamIdentify); return; }
+        if (t.dataset.jamRename) { renamingId = t.dataset.jamRename; body.dataset.role = ''; render(); body.querySelector('#jamRenameInput')?.focus(); return; }
+        if (t.dataset.jamRenameCancel !== undefined) { renamingId = null; body.dataset.role = ''; render(); return; }
+        if (t.dataset.jamRenameSave) { saveRename(t.dataset.jamRenameSave); return; }
         if (t.dataset.jamKick) { host?.kick(t.dataset.jamKick); return; }
         if (t.dataset.jamControl) {
             const session = host?.getSession();
@@ -576,6 +596,9 @@ export function createJamModal(manager, { updateSetting }) {
     backdrop.querySelector('#jamModalCloseBtn').addEventListener('click', close);
     backdrop.addEventListener('click', (e) => { if (e.target === backdrop) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) close(); });
+    body.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.dataset?.jamRenameFor) saveRename(e.target.dataset.jamRenameFor);
+    });
 
     return { open, close, render, setRequests, setStarting };
 }

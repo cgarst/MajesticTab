@@ -6178,6 +6178,33 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   overflow-wrap: anywhere;
 }
 
+.jam-identify-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: var(--accent-primary-alpha);
+}
+.jam-identify-flash.show {
+  display: flex;
+  animation: jam-identify-pulse 0.6s ease-in-out 4;
+}
+.jam-identify-label {
+  padding: 0.75rem 1.25rem;
+  border-radius: 9999px;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: var(--bg-card-solid);
+  border: 1px solid var(--accent-border-alpha);
+}
+@keyframes jam-identify-pulse {
+  0%, 100% { opacity: 0.25; }
+  50% { opacity: 1; }
+}
+
 .jam-badge {
   display: inline-block;
   margin-left: 0.4rem;

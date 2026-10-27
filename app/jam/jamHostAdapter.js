@@ -9,6 +9,7 @@ import { nowMs, jam } from './jamTransport.js';
 import { computeLeadMs } from './jamClock.js';
 import { jamSongId, songTitleFromName, startLag, measureStartLag, waitForPlayerReady, estimateOutputLatencyMs, trackPolicyFor } from './jamCommon.js';
 import { normAudioMode, normListening } from './jamTrackPolicy.js';
+import { resolveNames, cleanAlias } from './jamRoster.js';
 import { createYouTubeHost } from './jamYouTubeSync.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor, getMixerSnapshot, onMixerChange } from '../gpProcessor/gpPlayer.js';
 import { describeActiveSoundFonts, getSoundFontData, onSoundFontSelectionChange } from '../soundFontStore.js';
@@ -26,6 +27,8 @@ const SOUNDFONT_PART_BYTES = 384 * 1024;
 
 export function createHostAdapter({ loadFile, ui, getSettings }) {
     const roster = new Map(); // id -> { id, name, ready, rttMs, driftMs, status }
+    const aliases = new Map(); // peer id -> name the host gave them
+    const departedAliases = new Map(); // client's own name -> alias, so a reconnecting device keeps it
     const session = {
         song: null,
         songBytes: null,
@@ -61,7 +64,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     const uploads = new Map(); // client id -> { fileName, parts: [] } (controller song upload in progress)
     let active = false;
 
-    const emitRoster = () => ui.onRosterChange?.(Array.from(roster.values()), session);
+    const namedRoster = () => resolveNames(Array.from(roster.values()), aliases);
+    const emitRoster = () => ui.onRosterChange?.(namedRoster(), session);
     // The host's own position runs ahead of what its speaker plays by its output latency;
     // every message carries it so clients align with what the host actually sounds like.
     const hostOutputLatency = () => Math.round((estimateOutputLatencyMs() + (getSettings().trimMs || 0)) * 10) / 10;
@@ -456,7 +460,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         } else if (session.policy === 'anyone') {
             grantControl(id);
         } else {
-            pendingRequests.set(id, { id, name: peer.name, reason: msg.reason || '' });
+            pendingRequests.set(id, { id, name: namedRoster().find((p) => p.id === id)?.name || peer.name, reason: msg.reason || '' });
             ui.onRequestsChanged?.(Array.from(pendingRequests.values()));
         }
     }
@@ -558,10 +562,14 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     function handlePeers(info) {
         if (info.event === 'joined') {
             roster.set(info.id, { id: info.id, name: info.name, ready: !session.song, rttMs: 0, driftMs: null, status: 'joined' });
+            if (departedAliases.has(info.name)) { aliases.set(info.id, departedAliases.get(info.name)); departedAliases.delete(info.name); }
             if (session.newJoinerDefault === 'listening') session.listeners.push(info.id);
             sendTo(info.id, MSG.STATE, { state: sessionState() });
             if (session.listeners.includes(info.id)) broadcast(MSG.TRACK_ASSIGN, trackState());
         } else if (info.event === 'left') {
+            const left = roster.get(info.id);
+            if (left && aliases.has(info.id)) departedAliases.set(left.name, aliases.get(info.id));
+            aliases.delete(info.id);
             roster.delete(info.id);
             if (session.trackAssignments[info.id] || session.listeners.includes(info.id)) setTrackAssignment(info.id, []);
             uploads.delete(info.id);
@@ -630,6 +638,8 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             session.controllerId = null;
             session.trackAssignments = {};
             session.listeners = [];
+            aliases.clear();
+            departedAliases.clear();
             applyOwnTracks();
             ui.onRequestsChanged?.([]);
         },
@@ -644,7 +654,15 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         setListening,
         updateTracks,
         kick: (id) => jam.hostKick(id),
-        getRoster: () => Array.from(roster.values()),
+        getRoster: namedRoster,
+        /** Names a peer on the host only; an empty name goes back to what the client sent. */
+        renamePeer(id, name) {
+            if (!roster.has(id)) return;
+            const alias = cleanAlias(name);
+            if (alias) aliases.set(id, alias); else aliases.delete(id);
+            emitRoster();
+        },
+        identify: (id) => sendTo(id, MSG.IDENTIFY),
         getSession: () => session,
         getPendingRequests: () => Array.from(pendingRequests.values())
     };
