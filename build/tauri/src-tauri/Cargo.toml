@@ -72,3 +72,7 @@ objc2-ui-kit = { version = "0.3", features = ["UIColor", "UIView", "UIViewContro
 objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSFileManager", "NSURLRequest", "NSGeometry"] }
 block2 = "0.6"
 
+
+# Upstream 0.10.0-rc.10 passes tauri's windows 0.62 HWND to windows 0.61 and won't compile on Windows; patched copy converts it
+[patch.crates-io]
+tauri-plugin-iap = { path = "../plugins/tauri-plugin-iap" }

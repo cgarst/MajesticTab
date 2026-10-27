@@ -4686,8 +4686,6 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-iap"
 version = "0.10.0-rc.10"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e10bc106fd753fee26d54e92dd0084c5e7b78f256e1a0f8c9037f224511cacea"
 dependencies = [
  "base64 0.23.1",
  "log",
