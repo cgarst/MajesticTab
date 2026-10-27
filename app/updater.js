@@ -60,7 +60,7 @@ async function fetchRelease(channel) {
 
 // Returns { label, url } when a newer build exists on the selected channel, otherwise null.
 export async function checkForUpdate(buildInfo, channel = getUpdateChannel()) {
-    if (channel === 'none') return null;
+    if (channel === 'none' || !hasFeature('selfUpdate')) return null;
     const release = await fetchRelease(channel);
     if (!release) return null;
 
@@ -210,7 +210,13 @@ async function runCheck(buildInfo, { manual }) {
 }
 
 export async function initUpdater() {
-    if (!window.__TAURI__ || !hasFeature('selfUpdate')) return;
+    if (!window.__TAURI__) return;
+    if (!hasFeature('selfUpdate')) {
+        // Store channels have no in-app updates: drop the UI so nothing can show or trigger a check.
+        document.getElementById('updateSettingsCard')?.remove();
+        document.getElementById('updateBanner')?.remove();
+        return;
+    }
     let buildInfo;
     try {
         buildInfo = (await import('./build-info.js')).default;
