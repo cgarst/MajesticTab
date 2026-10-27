@@ -486,7 +486,7 @@ class GamepadManager {
             this.topBar.classList.remove('hud-transient');
             mobileDock?.classList.add('hud-hidden');
             mobileDock?.classList.remove('hud-transient');
-            showToast('Top Bar Hidden (Zen Mode) — Press (Y) to restore', 'info', 2000);
+            showToast('Top Bar Hidden (Zen Mode) — Press Z or (Y) to restore', 'info', 2000);
         } else {
             this.topBar.classList.remove('hud-hidden', 'hud-transient');
             mobileDock?.classList.remove('hud-hidden', 'hud-transient');

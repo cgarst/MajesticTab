@@ -56,7 +56,16 @@ Shortcuts apply while a tab is open and no text field has focus.
 | `Space` | Play or pause the SoundFont or YouTube audio (turns the page when no audio is loaded) |
 | `B` | Rewind audio by 10 seconds |
 | `G` | Toggle the SoundFont between full band and no guitars (no bass in bass mode) |
+| `M` | Toggle the metronome (SoundFont) |
+| `C` | Toggle the count-in (SoundFont) |
+| `,`, `.` | Slow down or speed up playback by 5% (SoundFont) |
 | `F` | Show or hide the fretboard (Guitar Pro files) |
+| `R` | Show or hide the reference library |
+| `T` | Show or hide the tuner |
+| `Z` | Toggle zen mode (hide the top bar) |
+| `` ` ``, `~` | Open or close the settings menu |
+| `[`, `]` | Previous or next tab in the open setlist |
+| `Alt+Enter` | Toggle fullscreen (Windows and Linux) |
 | `Esc` | Close the open panel, modal, or dialog |
 | `Cmd+[`, `Alt+←`, `Cmd+←` | Back (mouse button 4 also works) |
 | `Cmd+]`, `Alt+→`, `Cmd+→` | Forward (mouse button 5 also works) |
