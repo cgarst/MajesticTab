@@ -8,7 +8,7 @@ import {
 import { getSongById, getAllSongs, getRecents } from './libraryStore.js';
 import { getPlaceholderCoverSvg, hydrateCachedImages } from './musicbrainz.js';
 import { playSetlist } from './setlistPlayer.js';
-import { openThemedInputModal } from './libraryModal.js';
+import { openThemedInputModal, libraryViewSwitchHtml } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
 import { showToast } from './utils/toast.js';
 
@@ -63,9 +63,7 @@ async function renderSetlistList(container, onBack) {
     <div class="library-page-container setlists-view">
       <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
         <div class="d-flex align-items-center gap-3 min-w-0">
-          <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="setlistsBackBtn" title="Back to Tab Library">
-            <i class="bi-chevron-left"></i> <span>Library</span>
-          </button>
+          ${libraryViewSwitchHtml('setlists')}
           <span class="small fw-semibold text-white-50 text-truncate"><i class="bi-collection-play me-2 text-info"></i>Setlists (${setlists.length})</span>
         </div>
         <div class="d-flex align-items-center gap-2 flex-shrink-0">
@@ -111,7 +109,6 @@ async function renderSetlistList(container, onBack) {
 
     const rerender = () => renderSetlistList(container, onBack);
 
-    container.querySelector('#setlistsBackBtn')?.addEventListener('click', onBack);
     container.querySelector('#toggleSetlistsEditBtn')?.addEventListener('click', () => {
         isEditMode = !isEditMode;
         rerender();

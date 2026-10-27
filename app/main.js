@@ -1201,6 +1201,12 @@ window.addEventListener('DOMContentLoaded', async () => {
         openLibraryModal('library');
     });
 
+    document.getElementById('openFileMenuBtn')?.addEventListener('click', () => {
+        const fileMenu = document.getElementById('fileMenu');
+        if (fileMenu) bootstrap.Offcanvas.getInstance(fileMenu)?.hide();
+        openLibraryModal('openFile');
+    });
+
     document.getElementById('libraryToggleBtn')?.addEventListener('click', () => {
         if (isLibraryOpen() && getCurrentFile()) {
             closeLibraryModal();
