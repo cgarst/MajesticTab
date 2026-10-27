@@ -3,7 +3,7 @@
 // and a slim Library callout.
 
 import { getFileProviders, openFromProvider, openLocalFile } from './fileProviders.js';
-import { libraryViewSwitchHtml } from './libraryModal.js';
+import { libraryViewSwitchHtml, libraryPageTitleHtml } from './libraryModal.js';
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -21,13 +21,13 @@ export function renderOpenFileView(container, { onBack, onAddToLibrary }) {
 
     container.innerHTML = `
     <div class="library-page-container open-file-view">
-      <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
-        <div class="d-flex align-items-center gap-3 min-w-0">
-          ${libraryViewSwitchHtml()}
-          <span class="small fw-semibold text-white-50 text-truncate"><i class="bi-folder2-open me-2 text-info"></i>Open Tab File</span>
-        </div>
-      </div>
-
+      <div class="lib-view-switch-row">${libraryViewSwitchHtml()}</div>
+      ${libraryPageTitleHtml({
+        icon: 'bi-folder2-open',
+        title: 'Open a tab file',
+        subtitle: 'Play a file straight away without adding it to your library.'
+      })}
+      <div class="open-file-body">
       <div class="open-file-dropzone" id="openFileDropzone" role="button" tabindex="0" aria-label="Drop a tab file here or browse your device">
         <i class="bi-cloud-arrow-up open-file-dropzone-icon"></i>
         <div class="open-file-dropzone-title">Drop a tab file here</div>
@@ -64,6 +64,7 @@ export function renderOpenFileView(container, { onBack, onAddToLibrary }) {
         <button type="button" class="btn btn-sm btn-theme-outline px-3 flex-shrink-0" id="openFileSwitchToLibraryBtn">
           <i class="bi-plus-lg me-1"></i> Add Music
         </button>
+      </div>
       </div>
     </div>
     `;
