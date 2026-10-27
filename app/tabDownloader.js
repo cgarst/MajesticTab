@@ -1070,6 +1070,11 @@ export async function openTabDownloader(options = {}) {
             config,
             topOffset: barHeight
         });
+        // open_tab_downloader overwrites the native offset with the height measured before the pills
+        // rendered, and the ResizeObserver won't refire if the bar already settled, so push the final height.
+        const settledBar = document.getElementById('tabDownloaderBar');
+        const settledHeight = settledBar ? Math.ceil(settledBar.getBoundingClientRect().height) : 0;
+        if (settledHeight > 0) syncDownloaderTopOffset(settledHeight);
     } catch (err) {
         console.error('[Tab Downloader] Failed to open native webview:', err);
         hideTabDownloaderBar();
