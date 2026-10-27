@@ -65,6 +65,7 @@ const allowedRemoteHosts = new Set([
   '127.0.0.1',
   'accounts.google.com',
   'api.github.com',
+  'apis.google.com',
   'developers.google.com',
   'github.com',
   'invidious.drgns.space',
@@ -150,6 +151,8 @@ async function validateRemoteUrls(directory) {
       } else if (/\.(?:html|js|css|mjs)$/i.test(entry.name)) {
         const content = await readFile(entryPath, 'utf8');
         for (const match of content.matchAll(urlPattern)) {
+          // Template-literal URLs (e.g. user-configured S3 endpoints) have no static host to approve.
+          if (match[0].includes('${')) continue;
           let hostname;
           try {
             hostname = new URL(match[0]).hostname;
