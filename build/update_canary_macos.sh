@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 # Download the latest MajesticTab canary DMG and install it into /Applications.
+# The repo is private, so this needs the GitHub CLI signed in (gh auth login).
 set -euo pipefail
 
-URL="https://github.com/cgarst/MajesticTab/releases/download/canary/MajesticTab_1.0.0_aarch64.dmg"
+command -v gh >/dev/null || { echo "GitHub CLI (gh) is required: brew install gh && gh auth login" >&2; exit 1; }
+gh auth status >/dev/null 2>&1 || { echo "Not signed in to gh. Run: gh auth login" >&2; exit 1; }
+
+REPO="cgarst/MajesticTab"
 APP_NAME="MajesticTab"
 DEST="/Applications/${APP_NAME}.app"
 
@@ -25,11 +29,13 @@ if pgrep -x "$APP_NAME" >/dev/null; then
 fi
 
 echo "Downloading canary DMG..."
-curl -fL --progress-bar -o "$WORK/$APP_NAME.dmg" "$URL"
+gh release download canary --repo "$REPO" --pattern '*_aarch64.dmg' --dir "$WORK/dl"
+DMG="$(find "$WORK/dl" -maxdepth 1 -name '*.dmg' -print -quit)"
+[ -n "$DMG" ] || { echo "No aarch64 DMG in canary release" >&2; exit 1; }
 
 echo "Mounting..."
 mkdir -p "$MOUNT"
-hdiutil attach "$WORK/$APP_NAME.dmg" -nobrowse -readonly -mountpoint "$MOUNT" -quiet
+hdiutil attach "$DMG" -nobrowse -readonly -mountpoint "$MOUNT" -quiet
 
 APP_SRC="$(find "$MOUNT" -maxdepth 1 -name '*.app' -print -quit)"
 [ -n "$APP_SRC" ] || { echo "No .app found in DMG" >&2; exit 1; }
