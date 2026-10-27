@@ -7,7 +7,6 @@ const MAX_FRET = 24;
 const MAX_CAPO = 9;
 const MISSING_STRING_PENALTY = 12;
 const MY_INSTRUMENT_KEY = 'majestictab_my_instrument';
-const REMAPPED_COLOR = '#ff9800';
 
 export const ADAPT_METHODS = ['shift', 'capo', 'transpose'];
 
@@ -209,16 +208,6 @@ function transposeRemainingStaves(score, adaptedStaves, semitones) {
     }
 }
 
-function markRemapped(note) {
-    try {
-        const model = globalThis.alphaTab?.model;
-        if (!model?.NoteStyle || !model.Color || !model.NoteSubElement) return;
-        const style = new model.NoteStyle();
-        style.colors.set(model.NoteSubElement.GuitarTabFretNumber, model.Color.fromJson(REMAPPED_COLOR));
-        note.style = style;
-    } catch { /* styling is cosmetic */ }
-}
-
 function adaptStaff(track, staff, pref, tuning) {
     const orig = staff._adaptOrig;
     const tab = orig.tunings;
@@ -287,10 +276,7 @@ function adaptStaff(track, staff, pref, tuning) {
             // AlphaTab stores frets relative to the capo
             job.note.fret = fret - capo;
             job.note._adaptNew = { j, fret };
-            if (remapped) {
-                summary.remapped++;
-                markRemapped(job.note);
-            }
+            if (remapped) summary.remapped++;
             lastFret = fret;
             job.done = true;
         };
@@ -347,7 +333,6 @@ function adaptStaff(track, staff, pref, tuning) {
                 place(job, j, Math.min(MAX_FRET, Math.max(capo, fretFor(job, j))), false);
             }
             summary.unplayable++;
-            markRemapped(job.note);
         }
     });
 
