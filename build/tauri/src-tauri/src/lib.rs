@@ -298,6 +298,8 @@ async fn open_tab_downloader(
     });
 
     let window = builder.build().map_err(|e| e.to_string())?;
+    // The first load can start before on_page_load is attached, so the bar never hears about it
+    let _ = app.emit("tab-downloader-url-changed", url.clone());
     #[cfg(target_os = "ios")]
     {
         tab_downloader_native::configure_ios_webview(&window, 13.0, 15.0, 21.0);
