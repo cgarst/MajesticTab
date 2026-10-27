@@ -26,6 +26,7 @@ import { scoreOptionsState, pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
 import { pauseYouTube } from './youtubePlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
+import { gamepadManager } from './utils/gamepadManager.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -65,7 +66,7 @@ function initLibraryTopBar() {
     if (topBarInitialized) return;
     topBarInitialized = true;
 
-    document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', closeLibraryModal);
+    document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', () => closeLibraryModal(false));
 
     window.addEventListener('libraryDataChanged', () => {
         // The add-music view updates its own buttons; a full re-render would reset it to the start
@@ -177,30 +178,49 @@ export async function handleBack() {
         }
         if (activeView === 'library') {
             if (libraryBrowseMode === 'tunings' && selectedTuning) {
+                const prevKey = currentState.selectedTuning?.key || '';
                 selectedTuning = null;
                 await renderView();
+                if (prevKey) {
+                    const card = Array.from(document.querySelectorAll('#libraryModalContent .tuning-card')).find(el => el.dataset.tuningKey === prevKey);
+                    if (card) gamepadManager.setNavFocus(card);
+                }
                 return true;
             }
             if (selectedFolderPath.length > 0) {
-                selectedFolderPath.pop();
+                const poppedFolder = selectedFolderPath.pop();
                 selectedAlbum = (selectedFolderPath.length > 0 && selectedArtist?.albums)
                     ? (selectedArtist.albums.find(a => (a.folderPath || a.title) === selectedFolderPath.join('/')) || null)
                     : null;
                 isAlbumEditMode = false;
                 await renderView();
+                if (poppedFolder) {
+                    const card = Array.from(document.querySelectorAll('#libraryModalContent .album-card')).find(el => el.dataset.albumTitle === poppedFolder || el.dataset.folderName === poppedFolder);
+                    if (card) gamepadManager.setNavFocus(card);
+                }
                 return true;
             }
             if (selectedAlbum) {
+                const prevAlbumTitle = currentState.selectedAlbum?.title || currentState.selectedAlbum?.name || '';
                 selectedAlbum = null;
                 isAlbumEditMode = false;
                 await renderView();
+                if (prevAlbumTitle) {
+                    const card = Array.from(document.querySelectorAll('#libraryModalContent .album-card')).find(el => el.dataset.albumTitle === prevAlbumTitle);
+                    if (card) gamepadManager.setNavFocus(card);
+                }
                 return true;
             }
             if (selectedArtist) {
+                const prevArtistName = currentState.selectedArtist?.name || '';
                 selectedArtist = null;
                 selectedFolderPath = [];
                 isAlbumEditMode = false;
                 await renderView();
+                if (prevArtistName) {
+                    const card = Array.from(document.querySelectorAll('#libraryModalContent .artist-card')).find(el => el.dataset.artistName === prevArtistName);
+                    if (card) gamepadManager.setNavFocus(card);
+                }
                 return true;
             }
             if (viewHistory.length > 0) {
@@ -480,7 +500,7 @@ export function closeLibraryModal(force = false) {
     const page = document.getElementById('libraryPage');
     const currentOpen = getCurrentFile();
 
-    if (force || currentOpen) {
+    if (force === true || currentOpen) {
         if (page) page.style.display = 'none';
         clearUrl();
         const mainContent = document.getElementById('mainContent');
@@ -2678,6 +2698,8 @@ function setupSongRowActions(container) {
             }
         });
     }
+
+    gamepadManager.onLibraryViewRendered();
 }
 
 /**
@@ -2941,6 +2963,8 @@ function renderSearchMusicBrainzView(container) {
             }, 500);
         }
     });
+
+    gamepadManager.onLibraryViewRendered();
 }
 
 function renderCustomDocFormHtml() {
@@ -3380,7 +3404,7 @@ function renderSearchResults(results, type, container) {
         container.innerHTML = `
         <div class="d-flex flex-column gap-2">
           ${results.map(a => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" data-row-action=".explore-artist-btn" style="cursor:pointer;">
+            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0" data-row-action=".explore-artist-btn" style="cursor:pointer;">
               <div class="min-w-0 flex-grow-1">
                 <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</h6>
                 <div class="small text-muted text-truncate">${a.type || 'Artist'} • ${a.country || 'International'} ${a.lifeSpan ? `• ${a.lifeSpan}` : ''}</div>
@@ -3460,7 +3484,7 @@ function renderSearchResults(results, type, container) {
         container.innerHTML = `
         <div class="d-flex flex-column gap-2">
           ${results.map(song => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" data-row-action=".add-single-song-btn" style="cursor:pointer;">
+            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0" data-row-action=".add-single-song-btn" style="cursor:pointer;">
               <div class="min-w-0 flex-grow-1">
                 <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</h6>
                 <div class="small text-muted text-truncate" title="${escapeHtml(song.artist)} • ${escapeHtml(song.album || 'Single')} ${song.year ? `• ${song.year}` : ''}">
@@ -3485,6 +3509,8 @@ function renderSearchResults(results, type, container) {
             });
         });
     }
+
+    gamepadManager.onLibraryViewRendered();
 }
 
 async function handleAddAlbum(releaseGroupMbid, btn) {
@@ -3584,7 +3610,7 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
             const isAlbumInLib = (a.id && existingAlbumKeys.has(`mbid:${a.id}`)) ||
                                  existingAlbumKeys.has(`${artistName.toLowerCase().trim()}:::${(a.title || '').toLowerCase().trim()}`);
             return `
-            <div class="library-card album-card p-3" role="button" tabindex="0">
+            <div class="library-card album-card p-3" role="button" tabindex="0" data-row-action=".view-album-tracks-btn">
               <div class="album-card-body d-flex min-w-0">
                 <div class="album-cover-container">
                   <img src="${a.coverUrl || getPlaceholderCoverSvg(a.title)}" class="album-cover-img" alt="${escapeHtml(a.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(a.title)}'">
@@ -3625,6 +3651,15 @@ async function exploreArtistAlbums(artistMbid, artistName, container, pushHistor
                 await exploreAlbumTracklist(btn.dataset.rgId, targetContainer);
             });
         });
+
+        targetContainer.querySelectorAll('.album-card[data-row-action]').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('button, a, input')) return;
+                card.querySelector(card.dataset.rowAction)?.click();
+            });
+        });
+
+        gamepadManager.onLibraryViewRendered();
     } catch (err) {
         if (thisFetchToken !== currentExploreArtistToken) return;
         targetContainer.innerHTML = `
@@ -3697,7 +3732,7 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
         </div>
         <div class="d-flex flex-column gap-2">
           ${bands.map(b => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3">
+            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0" data-row-action=".explore-band-albums-btn" style="cursor:pointer;">
               <div class="min-w-0 flex-grow-1">
                 <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</h6>
                 <div class="small text-muted text-truncate">${b.role ? escapeHtml(b.role) : 'Band Member'}</div>
@@ -3717,6 +3752,15 @@ async function exploreMusicianBands(musicianMbid, musicianName, container, pushH
                 await exploreArtistAlbums(btn.dataset.bandId, btn.dataset.bandName, targetContainer);
             });
         });
+
+        targetContainer.querySelectorAll('.library-row-card[data-row-action]').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('button, a, input')) return;
+                row.querySelector(row.dataset.rowAction)?.click();
+            });
+        });
+
+        gamepadManager.onLibraryViewRendered();
     } catch (err) {
         if (thisFetchToken !== currentExploreMusicianToken) return;
         targetContainer.innerHTML = `
@@ -3911,6 +3955,18 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = 
                 targetContainer.querySelector('#viewAlbumInLibraryBtn')?.classList.remove('d-none');
             });
         });
+
+        targetContainer.querySelectorAll('.library-track-row:not(.is-filtered-out)').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('button, a, input')) return;
+                const addBtn = row.querySelector('.add-single-track-btn');
+                if (addBtn && !addBtn.disabled && !addBtn.classList.contains('disabled')) {
+                    addBtn.click();
+                }
+            });
+        });
+
+        gamepadManager.onLibraryViewRendered();
     } catch (err) {
         if (thisFetchToken !== currentExploreTracklistToken) return;
         targetContainer.innerHTML = `
@@ -4233,6 +4289,7 @@ async function renderRecentsView(container) {
     }
 
     hydrateCachedImages(container);
+    gamepadManager.onLibraryViewRendered();
 }
 
 // -----------------------------------------------------------------------------

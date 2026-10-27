@@ -10,7 +10,14 @@ Push-Location $tauriDir
 try {
     $pkgJson = Get-Content "package.json" -Raw | ConvertFrom-Json
     $missingPkg = $false
-    foreach ($dep in $pkgJson.dependencies.PSObject.Properties) {
+    $allDeps = @()
+    if ($pkgJson.dependencies) {
+        $allDeps += $pkgJson.dependencies.PSObject.Properties
+    }
+    if ($pkgJson.devDependencies) {
+        $allDeps += $pkgJson.devDependencies.PSObject.Properties
+    }
+    foreach ($dep in $allDeps) {
         if (-not (Test-Path (Join-Path "node_modules" $dep.Name))) {
             $missingPkg = $true
             break

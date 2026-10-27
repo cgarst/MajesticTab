@@ -3695,10 +3695,16 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   }
 }
 
-.library-search-bar:focus-within {
+.library-search-bar:focus-within,
+.library-search-bar:has(.nav-focused) {
   border-color: var(--accent-primary);
   background: var(--bg-card-hover);
   box-shadow: 0 0 0 2px var(--accent-primary-alpha);
+}
+
+.library-search-bar .search-input.nav-focused {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .library-search-bar .search-icon {
@@ -5496,24 +5502,72 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 }
 
 /* Controller & Keyboard Navigation: Visible Focus Rings for Library & Menu Mode */
+.library-page-view .library-song-row,
+.library-page-view .library-card,
+.library-page-view .library-row-card,
+.library-page-view .library-pinned-card,
+.library-page-view .library-track-row {
+  scroll-margin-top: 4.5rem;
+  scroll-margin-bottom: 2rem;
+}
+
 .library-page-view .library-song-row:focus-visible,
+.library-page-view .library-song-row.nav-focused,
 .library-page-view .library-card:focus-visible,
+.library-page-view .library-card.nav-focused,
+.library-page-view .library-row-card:focus-visible,
+.library-page-view .library-row-card.nav-focused,
 .library-page-view .library-pinned-card:focus-visible,
+.library-page-view .library-pinned-card.nav-focused,
 .library-page-view .library-track-row:focus-visible,
+.library-page-view .library-track-row.nav-focused,
+.library-page-view .open-file-dropzone:focus-visible,
+.library-page-view .open-file-dropzone.nav-focused,
+.library-page-view .open-file-provider-item:focus-visible,
+.library-page-view .open-file-provider-item.nav-focused,
+.theme-modal-backdrop .theme-card:focus-visible,
+.theme-modal-backdrop .theme-card.nav-focused {
+  background: var(--bg-card-hover) !important;
+  outline: 2px solid var(--accent-primary) !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 16px var(--accent-glow) !important;
+  border-color: var(--accent-primary) !important;
+}
+
 .library-page-view .tab-option-chip:focus-visible,
+.library-page-view .tab-option-chip.nav-focused,
 .library-page-view button:focus-visible,
+.library-page-view button.nav-focused,
 .library-page-view a:focus-visible,
-.library-page-view input:focus-visible,
+.library-page-view a.nav-focused,
+.library-page-view input:not(.search-input):focus-visible,
+.library-page-view input:not(.search-input).nav-focused,
 .library-page-view select:focus-visible,
+.library-page-view select.nav-focused,
 .offcanvas button:focus-visible,
+.offcanvas button.nav-focused,
 .offcanvas a:focus-visible,
+.offcanvas a.nav-focused,
 .offcanvas input:not(.btn-check):focus-visible,
+.offcanvas input:not(.btn-check).nav-focused,
 .offcanvas select:focus-visible,
+.offcanvas select.nav-focused,
 .theme-modal-backdrop .theme-modal-card button:focus-visible,
+.theme-modal-backdrop .theme-modal-card button.nav-focused,
 .theme-modal-backdrop .theme-modal-card a:focus-visible,
+.theme-modal-backdrop .theme-modal-card a.nav-focused,
 .theme-modal-backdrop .theme-modal-card input:not(.btn-check):focus-visible,
+.theme-modal-backdrop .theme-modal-card input:not(.btn-check).nav-focused,
 .theme-modal-backdrop .theme-modal-card select:focus-visible,
-.theme-modal-backdrop .theme-modal-card [tabindex="0"]:focus-visible {
+.theme-modal-backdrop .theme-modal-card select.nav-focused,
+.theme-modal-backdrop .theme-modal-card [tabindex="0"]:focus-visible,
+.theme-modal-backdrop .theme-modal-card [tabindex="0"].nav-focused,
+.modal.show button:focus-visible,
+.modal.show button.nav-focused,
+.dropdown-menu.show .dropdown-item:focus-visible,
+.dropdown-menu.show .dropdown-item.nav-focused,
+#toolsMenu .tools-item:focus-visible,
+#toolsMenu .tools-item.nav-focused {
   outline: 2px solid var(--accent-primary) !important;
   outline-offset: 2px !important;
   box-shadow: 0 0 14px var(--accent-glow) !important;
@@ -5523,10 +5577,13 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 /* Offcanvas and Modal segmented radio / pill button focus indicators */
 .offcanvas .btn-check:focus + .btn,
 .offcanvas .btn-check:focus-visible + .btn,
+.offcanvas .btn-check.nav-focused + .btn,
 .theme-modal-backdrop .btn-check:focus + .btn,
 .theme-modal-backdrop .btn-check:focus-visible + .btn,
+.theme-modal-backdrop .btn-check.nav-focused + .btn,
 .library-page-view .btn-check:focus + .btn,
-.library-page-view .btn-check:focus-visible + .btn {
+.library-page-view .btn-check:focus-visible + .btn,
+.library-page-view .btn-check.nav-focused + .btn {
   outline: 2px solid var(--accent-primary) !important;
   outline-offset: 2px !important;
   box-shadow: 0 0 14px var(--accent-glow) !important;
