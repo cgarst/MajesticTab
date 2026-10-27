@@ -459,30 +459,6 @@ if (typeof window !== 'undefined') {
     };
 }
 
-/**
- * Handle incoming updated sources payload from native webview toolbar
- */
-export function handleSaveSourcesPayload(sourcesData) {
-    try {
-        const parsed = typeof sourcesData === 'string' ? JSON.parse(sourcesData) : sourcesData;
-        if (Array.isArray(parsed) && parsed.length > 0) {
-            saveSources(parsed);
-            console.log('[Tab Downloader] Saved updated sources from native webview:', parsed.length);
-        } else if (parsed && typeof parsed === 'object') {
-            if (Array.isArray(parsed.sources)) {
-                saveSources(parsed.sources);
-            }
-            console.log('[Tab Downloader] Saved updated sources from native webview');
-        }
-    } catch (e) {
-        console.error('[Tab Downloader] Failed to save sources from native webview:', e);
-    }
-}
-
-if (typeof window !== 'undefined') {
-    window.__onSaveSources = handleSaveSourcesPayload;
-}
-
 let isDomInitialized = false;
 let resizeObserver = null;
 let currentEditingSourceId = null;
@@ -754,12 +730,6 @@ function saveCurrentFormValues() {
 function saveAndCloseSettings() {
     saveCurrentFormValues();
     saveSources(localEditingSources);
-    if (window.__TAURI__?.core?.invoke) {
-        const payload = {
-            sources: localEditingSources
-        };
-        window.__TAURI__.core.invoke('tab_downloader_save_sources', { sourcesJson: JSON.stringify(payload) }).catch(() => {});
-    }
     renderDownloaderTabs();
     closeDownloaderSettings();
 }
@@ -977,15 +947,10 @@ export function initTauriDownloadListener() {
             }
         });
 
-        // Window closed event from native webview toolbar
+        // Window closed event from the native shell
         window.__TAURI__.event.listen('tab-downloader-closed', () => {
             console.log('[Tab Downloader] Received close event from native webview');
             closeTabDownloaderModal(false);
-        });
-
-        // Saved sources event from native webview toolbar
-        window.__TAURI__.event.listen('tab-downloader-save-sources', (event) => {
-            handleSaveSourcesPayload(event.payload);
         });
 
         initTabDownloaderDomEvents();
