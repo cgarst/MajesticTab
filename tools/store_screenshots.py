@@ -4,7 +4,7 @@
 Each shot is captured from the app exactly as that channel ships it: the script runs
 build/tauri/prepare-tauri-frontend.mjs for the channel (channel.json, files and options the channel excludes
 removed), checks it with build/verify-channel.mjs, and serves the result. Capture is at the store's device size, then composed into a marketing frame
-(headline, subtitle, device-framed capture). Only the Keystone fixtures are used (no copyrighted tabs).
+(headline, subtitle, device-framed capture). Only public-domain / test fixtures in tests/ are used (no copyrighted tabs).
 
 Usage:
     pip install playwright pillow && playwright install chromium
@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import generate_screenshots as gs  # noqa: E402  (reuses the fixture loaders and local server)
 
 ROOT = gs.ROOT
+GP_FILE = ROOT / "tests" / "Duo No 2 In G Major.gp5"
 OUT_ROOT = ROOT / "store-support"
 TAURI_DIR = ROOT / "build" / "tauri"
 FRONTEND_DIR = TAURI_DIR / "frontend-dist"
@@ -244,7 +245,7 @@ def seed_library(page, base):
                                   year=2018 + len(al) % 6, coverUrl=cover, tunings=[tuning]))
     books = ["Acoustic Songbook Vol. 1.pdf", "Progressive Etudes.pdf"]
     custom_songs = [
-        dict(title="Keystone", isCustom=True, artist="Custom Music", album="", tunings=["Drop D"]),
+        dict(title="Duo No. 2 in G Major", isCustom=True, artist="Custom Music", album="", tunings=["Drop D"]),
         dict(title="Morning Prelude in G", isCustom=True, artist="Custom Music", album="", tunings=["Standard"]),
         dict(title="Odd-Meter Study No. 3", isCustom=True, artist="Custom Music", album="", tunings=["7-String Standard"]),
         dict(title="Fingerstyle Etude in D", isCustom=True, artist="Custom Music", album="", tunings=["DADGAD"]),
@@ -279,7 +280,7 @@ def setup_shot(page, base, kind, supporter=False):
         else:
             gs.wait_for_album_artwork(page)
         return
-    gs.load_file(page, base, gs.GP_FILE, "page" if kind == "gp_page" else "continuous")
+    gs.load_file(page, base, GP_FILE, "page" if kind == "gp_page" else "continuous")
     if supporter:
         page.evaluate("import('/app/channel.js').then(m => m.setSupporterOwned(true))")
     if kind == "synth_menu":
@@ -293,7 +294,7 @@ def setup_shot(page, base, kind, supporter=False):
             const gp = await import('/app/gpProcessor/gpPlayer.js');
             const { fretboardController } = await import('/app/fretboard/fretboardController.js');
             const api = window.gpState.canvases[0].api;
-            const beat = api.tracks[0].staves[0].bars[11].voices[0].beats[9];
+            const beat = api.tracks[0].staves[0].bars[6].voices[0].beats[1];
             document.body.classList.add('synth-playback-started');
             const bounds = api.renderer.boundsLookup.findBeat(beat);
             document.getElementById('output').scrollTop = Math.max(0, bounds.realBounds.y - 80);
