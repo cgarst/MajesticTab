@@ -29,7 +29,9 @@ class MainActivity : TauriActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     instance = this
-    WebView.setWebContentsDebuggingEnabled(true)
+    WebView.setWebContentsDebuggingEnabled(
+      (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+    )
     enableEdgeToEdge()
     super.onCreate(savedInstanceState)
     val root = findViewById<View>(android.R.id.content)
