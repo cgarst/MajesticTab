@@ -38,11 +38,21 @@ function platformAssetPattern() {
     return /\.flatpak$/i;
 }
 
+// Desktop builds read a token from the GitHub CLI login (or MAJESTICTAB_UPDATE_TOKEN) so a private repo works.
+async function getAuthToken() {
+    try {
+        return (await window.__TAURI__?.core?.invoke('update_auth_token')) || null;
+    } catch {
+        return null;
+    }
+}
+
 async function fetchRelease(channel) {
     const path = channel === 'canary' ? 'releases/tags/canary' : 'releases/latest';
-    const response = await fetch(`https://api.github.com/repos/${REPO}/${path}`, {
-        headers: { Accept: 'application/vnd.github+json' },
-    });
+    const headers = { Accept: 'application/vnd.github+json' };
+    const token = await getAuthToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch(`https://api.github.com/repos/${REPO}/${path}`, { headers });
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`GitHub returned ${response.status}`);
     return response.json();

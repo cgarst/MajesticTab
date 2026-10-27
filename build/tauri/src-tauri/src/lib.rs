@@ -616,6 +616,7 @@ pub fn run() {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         icloud::icloud_drive_root,
         self_update::update_install_mode,
+        self_update::update_auth_token,
         self_update::install_update,
         open_tab_downloader,
         configure_ios_main_window,
@@ -650,6 +651,7 @@ pub fn run() {
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         icloud::icloud_drive_root,
         self_update::update_install_mode,
+        self_update::update_auth_token,
         self_update::install_update,
         open_tab_downloader,
         configure_ios_main_window,
