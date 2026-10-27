@@ -23,6 +23,9 @@ const FULL = {
 // One-time "MajesticTab Supporter" product (non-consumable). Create it with this ID in App Store Connect
 // and Google Play Console.
 const SUPPORTER_PRODUCT_ID = 'net.zathu.majestictab.supporter';
+// Microsoft Store durable add-on (Store ID 9PBGGCDJ7776). The IAP plugin finds it by this developer-defined
+// Product ID in Partner Center, not by the Store ID.
+const MSSTORE_SUPPORTER_PRODUCT_ID = 'majestictab-supporter-2026-win';
 
 const STORE_DOWNLOADER = { tabDownloader: 'google-only', userscripts: false, selfUpdate: false };
 
@@ -53,7 +56,7 @@ export const channels = {
   },
   msstore: {
     platforms: ['windows'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER },
+    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap', supporterProductId: MSSTORE_SUPPORTER_PRODUCT_ID },
   },
 };
 
