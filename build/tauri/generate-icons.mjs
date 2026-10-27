@@ -135,16 +135,18 @@ async function buildIcns(dir) {
 }
 
 const ICO_SIZES = [16, 24, 32, 48, 64, 128, 256];
+// Microsoft Store package logos (Square44x44Logo, StoreLogo, Square150x150Logo); the MSIX build copies them.
+const MSIX_SIZES = [44, 50, 150];
 
 // Each generator writes only its own icons/<platform>/ directory.
 const GENERATORS = {
   async windows() {
-    const out = await generatePngs('windows', PLATFORMS.windows, ICO_SIZES);
+    const out = await generatePngs('windows', PLATFORMS.windows, [...ICO_SIZES, ...MSIX_SIZES]);
     const target = path.join(iconsDir, 'windows');
     await mkdir(target, { recursive: true });
     await writeFile(path.join(target, 'icon.ico'), await buildIco(out, ICO_SIZES));
     console.log(`  ICO Creating icon.ico (${ICO_SIZES.join(', ')})`);
-    for (const size of [32, 128, 256]) {
+    for (const size of [32, 128, 256, ...MSIX_SIZES]) {
       await cp(path.join(out, `${size}x${size}.png`), path.join(target, `${size}x${size}.png`));
     }
   },
