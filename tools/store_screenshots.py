@@ -9,6 +9,7 @@ removed), checks it with build/verify-channel.mjs, and serves the result. Captur
 Usage:
     pip install playwright pillow && playwright install chromium
     python3 tools/store_screenshots.py play                    # all Google Play phone shots
+    python3 tools/store_screenshots.py msstore                 # all Microsoft Store desktop shots
     python3 tools/store_screenshots.py play --only gp_scroll   # one shot
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
     python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist
@@ -54,6 +55,16 @@ STORES = {
         # iOS is always a full-screen app, so the Fullscreen button must not appear anywhere.
         "no_fullscreen": True,
     },
+    "msstore": {
+        # Microsoft Store desktop: 16:9, 1366x768 to 3840x2160.
+        "viewport": {"width": 1440, "height": 810},
+        "scale": 2,
+        "mobile": False,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0",
+        "final": (1920, 1080),
+        # Native Windows shell is undecorated and draws #winControls inside #topBar when .tauri-windows is set.
+        "root_classes": ["tauri-windows"],
+    },
 }
 
 # Marketing copy: sentence-case headline (max ~4 words), one short subtitle. `supporter` unlocks the
@@ -75,14 +86,14 @@ SHOTS = [
 
 
 def resolve_channel(channel):
-    js = f"import('{(ROOT / 'build' / 'channels.mjs').as_posix()}').then(m=>console.log(JSON.stringify(m.resolveChannel('{channel}'))))"
+    js = f"import('{(ROOT / 'build' / 'channels.mjs').as_uri()}').then(m=>console.log(JSON.stringify(m.resolveChannel('{channel}'))))"
     return json.loads(subprocess.check_output(["node", "-e", js]))
 
 
 def prepare_channel_frontend(channel):
     """Build the channel's frontend and fail if it contains anything the channel must not ship."""
     env = {**os.environ, "MAJESTICTAB_STORE_CHANNEL": channel}
-    subprocess.run(["npm", "run", "prepare:frontend"], cwd=TAURI_DIR, env=env, check=True, stdout=subprocess.DEVNULL)
+    subprocess.run(["node", "prepare-tauri-frontend.mjs"], cwd=TAURI_DIR, env=env, check=True, stdout=subprocess.DEVNULL)
     subprocess.run(["node", str(ROOT / "build" / "verify-channel.mjs"), channel], check=True)
 
 
@@ -160,13 +171,16 @@ def setup_shot(page, base, kind, supporter=False):
 
 # --- Composition -----------------------------------------------------------------------------------
 
-FONT = "/System/Library/Fonts/Avenir Next.ttc"  # index 0 Bold, 7 Regular
+FONT = "/System/Library/Fonts/Avenir Next.ttc"  # macOS: index 0 Bold, 7 Regular
+WIN_FONTS = ("C:/Windows/Fonts/segoeuib.ttf", "C:/Windows/Fonts/segoeui.ttf")
 BG_TOP, BG_BOTTOM, GLOW = (26, 14, 58), (8, 6, 22), (0, 190, 190)
 
 
 def font(size, bold=True):
     from PIL import ImageFont
-    return ImageFont.truetype(FONT, size, index=0 if bold else 7)
+    if os.path.exists(FONT):
+        return ImageFont.truetype(FONT, size, index=0 if bold else 7)
+    return ImageFont.truetype(WIN_FONTS[0 if bold else 1], size)
 
 
 def wrap(draw, text, fnt, width):
@@ -184,7 +198,8 @@ def wrap(draw, text, fnt, width):
 def compose(raw_path, out_path, size, headline, subtitle):
     from PIL import Image, ImageChops, ImageDraw, ImageFilter
     W, H = size
-    k = W / 1080  # layout below is authored at 1080 wide
+    landscape = W > H
+    k = min(W, H) / 1080  # layout below is authored at 1080 on the short side
     # Vertical gradient plus a soft accent glow behind the device.
     bg = Image.new("RGB", (W, H))
     px = ImageDraw.Draw(bg)
@@ -197,24 +212,29 @@ def compose(raw_path, out_path, size, headline, subtitle):
 
     draw = ImageDraw.Draw(bg)
     margin = 80 * k
-    head_f, sub_f = font(round(72 * k)), font(round(42 * k), bold=False)
-    y = 120 * k
+    head_sz, sub_sz = (56, 34) if landscape else (72, 42)
+    head_f, sub_f = font(round(head_sz * k)), font(round(sub_sz * k), bold=False)
+    y = (56 if landscape else 120) * k
     for line in wrap(draw, headline, head_f, W - 2 * margin):
         draw.text((W / 2, y), line, font=head_f, fill=(255, 255, 255), anchor="ma")
-        y += 90 * k
-    y += 16 * k
+        y += (70 if landscape else 90) * k
+    y += (10 if landscape else 16) * k
     for line in wrap(draw, subtitle, sub_f, W - 2 * margin):
         draw.text((W / 2, y), line, font=sub_f, fill=(196, 190, 226), anchor="ma")
-        y += 56 * k
+        y += (46 if landscape else 56) * k
 
     # Device: scaled capture with rounded top corners, bleeding off the bottom edge.
     shot = Image.open(raw_path).convert("RGB")
-    bezel, radius = round(14 * k), round(64 * k)
-    top = round(y + 70 * k)
-    # Taller phones (iPhone) would end above the canvas edge at the default width, so widen the device until
-    # the capture bleeds off the bottom, up to a narrow side margin.
-    need_w = round((H - top + radius - bezel) * shot.width / shot.height)
-    dev_w = min(max(round(860 * k), need_w), W - 2 * (bezel + round(30 * k)))
+    bezel, radius = (round(12 * k), round(28 * k)) if landscape else (round(14 * k), round(64 * k))
+    top = round(y + (42 if landscape else 70) * k)
+    if landscape:
+        # Fit the full capture height above the bottom edge so the desktop bottom playback dock stays visible.
+        dev_w = round((H - top - bezel) * shot.width / shot.height)
+    else:
+        # Taller phones (iPhone) would end above the canvas edge at the default width, so widen the device until
+        # the capture bleeds off the bottom, up to a narrow side margin.
+        need_w = round((H - top + radius - bezel) * shot.width / shot.height)
+        dev_w = min(max(round(860 * k), need_w), W - 2 * (bezel + round(30 * k)))
     shot = shot.resize((dev_w, round(shot.height * dev_w / shot.width)), Image.LANCZOS)
     frame_w, frame_h = dev_w + 2 * bezel, H - top + radius  # extra height keeps bottom corners off-canvas
     mask = Image.new("L", (frame_w, frame_h), 0)
@@ -257,8 +277,9 @@ def main():
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True, args=["--autoplay-policy=no-user-gesture-required"])
+            mobile = store.get("mobile", True)
             ctx = browser.new_context(viewport=store["viewport"], device_scale_factor=store["scale"],
-                                      is_mobile=True, has_touch=True, user_agent=store["user_agent"])
+                                      is_mobile=mobile, has_touch=mobile, user_agent=store["user_agent"])
             ctx.add_init_script("""
                 try { Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true });
                       localStorage.setItem('hasSeenControllerGuide', 'true'); } catch (e) {}
