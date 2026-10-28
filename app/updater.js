@@ -229,6 +229,8 @@ export async function initUpdater() {
 
     const section = document.getElementById('updateSettingsCard');
     if (section) section.hidden = false;
+    const title = document.getElementById('updatesBackupTitle');
+    if (title) title.textContent = 'Updates and backup';
     const version = document.getElementById('updateCurrentVersion');
     if (version) {
         version.textContent = buildInfo.channel === 'canary'
