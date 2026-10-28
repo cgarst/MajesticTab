@@ -77,6 +77,15 @@ export function getSources() {
         if (raw) {
             let parsed = JSON.parse(raw);
             if (Array.isArray(parsed) && parsed.length > 0) {
+                // Seeds removed from DEFAULT_SOURCES (Ultimate Guitar, Classical Tab) linger in
+                // storage as undeletable isSeed entries; drop them.
+                const seedIds = new Set(DEFAULT_SOURCES.map(s => s.id));
+                const pruned = parsed.filter(s => !s.isSeed || seedIds.has(s.id));
+                if (pruned.length !== parsed.length) {
+                    parsed = pruned;
+                    saveSources(parsed.length > 0 ? parsed : []);
+                }
+                if (parsed.length === 0) return resetToDefaultSources();
                 for (const seed of DEFAULT_SOURCES) {
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
