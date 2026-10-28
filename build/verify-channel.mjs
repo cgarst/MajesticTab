@@ -24,6 +24,19 @@ async function sourceFiles(directory) {
   return files;
 }
 
+async function allRelativeFiles(directory, root = directory) {
+  const files = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...await allRelativeFiles(entryPath, root));
+    } else {
+      files.push(path.relative(root, entryPath).split(path.sep).join('/'));
+    }
+  }
+  return files;
+}
+
 /**
  * @param {string} id channel id
  * @param {object} [options]
@@ -46,6 +59,24 @@ export async function verifyChannel(id, options = {}) {
     if (JSON.stringify(actual) !== JSON.stringify(expected)) errors.push(`channel.json does not match the "${id}" definition in build/channels.mjs`);
   } catch {
     errors.push(`${frontendDir}/channel.json is missing or unreadable`);
+  }
+
+  // tests/ and tab fixtures never ship in the prepared frontend or Tauri bundle resources
+  const shippedFiles = await allRelativeFiles(frontendDir).catch(() => []);
+  const shippedTests = shippedFiles.filter((f) => f === 'tests' || f.startsWith('tests/') || /\.(?:gp|gp3|gp4|gp5|gpx|pdf)$/i.test(f));
+  if (shippedTests.length) {
+    errors.push(`test fixtures or tests/ shipped in frontend-dist: ${shippedTests.join(', ')}`);
+  }
+  try {
+    const tauriConf = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.conf.json'), 'utf8'));
+    if (tauriConf?.build?.frontendDist !== '../frontend-dist') {
+      errors.push(`tauri.conf.json build.frontendDist is "${tauriConf?.build?.frontendDist}", expected "../frontend-dist"`);
+    }
+    if (tauriConf?.bundle?.resources) {
+      errors.push('tauri.conf.json defines bundle.resources (only frontend-dist and icons may ship)');
+    }
+  } catch {
+    errors.push('could not read src-tauri/tauri.conf.json');
   }
 
   const files = await sourceFiles(frontendDir).catch(() => []);
