@@ -544,7 +544,9 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
             embedUrl.searchParams.set('playsinline', '1');
 
             const origin = (typeof window !== 'undefined' && window.location?.origin && window.location.origin !== 'null') ? window.location.origin : '';
-            const isValidHttpOrigin = origin && origin.startsWith('http') && !origin.includes('localhost') && !origin.includes('tauri');
+            const hostname = (typeof window !== 'undefined' && window.location?.hostname) ? window.location.hostname : '';
+            const isLocalOrInternalHost = !hostname || hostname === 'localhost' || hostname.endsWith('.localhost') || hostname === '127.0.0.1' || hostname === '[::1]';
+            const isValidHttpOrigin = origin && origin.startsWith('http') && !isLocalOrInternalHost && !origin.includes('tauri');
             if (isValidHttpOrigin) {
                 embedUrl.searchParams.set('origin', origin);
                 embedUrl.searchParams.set('widget_referrer', origin);
