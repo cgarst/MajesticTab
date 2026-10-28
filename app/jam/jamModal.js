@@ -256,6 +256,8 @@ export function createJamModal(manager, { updateSetting }) {
           ${open ? `<div class="jam-qr mt-1 mb-2" id="jamQr" data-url="${esc(text)}" aria-label="QR code for ${esc(text)}"></div>` : ''}`;
     }
 
+    // Host panel, most-used first: who plays what, who is here, who controls, then one-off setup (address, timing).
+    // On wide screens the assignments get their own column; on phones everything stacks in this order.
     function hostPanel(settings) {
         const host = manager.getHost();
         const info = manager.getHostInfo();
@@ -263,7 +265,7 @@ export function createJamModal(manager, { updateSetting }) {
         const session = host?.getSession();
         const addrs = (info?.addresses || []).map((a) => `${a}:${info.port}`);
         const webUrls = (info?.addresses || []).map((a) => `${WEB_SCHEME}//${a}:${info.port}/`);
-        return `
+        const addressHtml = `
         <div class="jam-card mb-3">
           <div class="jam-label">Share this address</div>
           <div class="jam-help mb-1">For others who have MajesticTab installed.</div>
@@ -273,22 +275,8 @@ export function createJamModal(manager, { updateSetting }) {
           ${webUrls.map((u) => addrRow(u, true)).join('')}` : ''}
           ${session?.song ? `<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Song: ${esc(session.song.title)}</div>` : `<div class="jam-help ${webUrls.length ? 'mt-3' : 'mt-1'}">Open a Guitar Pro, PDF or text file to share it with everyone. YouTube playback is shared too.</div>`}
         </div>
-        <div class="jam-field mb-3">
-          <label class="jam-label" for="jamPolicySelect">Who can control</label>
-          <select class="form-select form-select-sm" id="jamPolicySelect">
-            ${CONTROL_POLICIES.map((p) => `<option value="${p}" ${session?.policy === p ? 'selected' : ''}>${POLICY_LABELS[p]}</option>`).join('')}
-          </select>
-        </div>
-        <div class="d-flex flex-column gap-2 mb-3">
-          ${switchHtml('jamMuteGuestsSwitch', 'Mute audio on guests', settings.muteGuests)}
-          ${switchHtml('jamWaitSwitch', 'Wait for everyone before playing', settings.waitForEveryone)}
-          <div class="d-flex align-items-center gap-2">
-            <label class="jam-label mb-0" for="jamLeadInput">Lead time (ms, 0 = auto)</label>
-            <input type="number" class="form-control form-control-sm jam-number-input" id="jamLeadInput" min="0" max="400" step="10" value="${settings.leadOverrideMs || 0}">
-          </div>
-        </div>
-        ${trimHtml(settings)}
-        ${assignmentHtml(roster, session, settings)}
+`;
+        const playersHtml = `
         <div class="jam-label">Players (${roster.length}/8)</div>
         <div class="jam-list mb-3">
           ${roster.length ? roster.map((p) => {
@@ -310,6 +298,40 @@ export function createJamModal(manager, { updateSetting }) {
               </div>
             </div>`;
           }).join('') : '<div class="jam-help px-1">Nobody has joined yet.</div>'}
+        </div>
+`;
+        const controlHtml = `
+        <div class="jam-field mb-3">
+          <label class="jam-label" for="jamPolicySelect">Who can control</label>
+          <select class="form-select form-select-sm" id="jamPolicySelect">
+            ${CONTROL_POLICIES.map((p) => `<option value="${p}" ${session?.policy === p ? 'selected' : ''}>${POLICY_LABELS[p]}</option>`).join('')}
+          </select>
+        </div>
+        <div class="d-flex flex-column gap-2 mb-3">
+          ${switchHtml('jamMuteGuestsSwitch', 'Mute audio on guests', settings.muteGuests)}
+          ${switchHtml('jamWaitSwitch', 'Wait for everyone before playing', settings.waitForEveryone)}
+        </div>`;
+        const timingHtml = `
+        <div class="jam-label">Timing</div>
+        <div class="d-flex align-items-center gap-2 mb-3">
+          <label class="jam-label mb-0" for="jamLeadInput">Lead time (ms, 0 = auto)</label>
+          <input type="number" class="form-control form-control-sm jam-number-input" id="jamLeadInput" min="0" max="400" step="10" value="${settings.leadOverrideMs || 0}">
+        </div>
+        ${trimHtml(settings)}`;
+        // With nobody here yet the address is the one thing the host needs, so it leads.
+        const lonely = roster.length === 0;
+        return `
+        <div class="jam-host-layout">
+          <div class="jam-host-main">
+            ${lonely ? addressHtml : ''}
+            ${assignmentHtml(roster, session, settings)}
+            ${playersHtml}
+          </div>
+          <div class="jam-host-side">
+            ${controlHtml}
+            ${lonely ? '' : addressHtml}
+            ${timingHtml}
+          </div>
         </div>
         <button type="button" class="btn btn-sm btn-theme-danger" id="jamStopHostBtn">Stop Hosting</button>`;
     }
@@ -351,6 +373,7 @@ export function createJamModal(manager, { updateSetting }) {
         if (!isOpen()) return;
         const settings = manager.getSettings();
         const role = manager.getRole();
+        backdrop.querySelector('.jam-modal-card').classList.toggle('jam-modal-wide', role === 'host');
         // Preserve focus / typed values across re-renders triggered by status ticks.
         const active = document.activeElement;
         if (role === 'off') {
