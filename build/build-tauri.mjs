@@ -107,7 +107,7 @@ async function findWindowsSdkTool(exeName) {
   return fail(`${exeName} not found. Install the Windows 10/11 SDK.`);
 }
 
-async function findApk(directory) {
+async function findAndroidArtifact(directory, extension) {
   let entries;
   try {
     entries = await readdir(directory, { withFileTypes: true });
@@ -117,9 +117,9 @@ async function findApk(directory) {
   for (const entry of entries) {
     const entryPath = path.join(directory, entry.name);
     if (entry.isDirectory()) {
-      const nested = await findApk(entryPath);
+      const nested = await findAndroidArtifact(entryPath, extension);
       if (nested) return nested;
-    } else if (entry.isFile() && entry.name.endsWith('.apk')) {
+    } else if (entry.isFile() && entry.name.endsWith(extension)) {
       return entryPath;
     }
   }
@@ -430,9 +430,16 @@ if (target === 'android') {
   if (signRelease && (!keystorePassword || !keyAlias)) {
     fail('ANDROID_KEYSTORE_FILE requires ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS.');
   }
-  await rm(path.join(androidProject, 'app', 'build', 'outputs', 'apk'), { recursive: true, force: true });
-  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(signRelease ? [] : ['--debug']), '--target', 'aarch64']);
-  const apk = await findApk(path.join(androidProject, 'app', 'build', 'outputs', 'apk'));
+  // Google Play only accepts an AAB, so the play channel also bundles one beside the APK.
+  const buildAab = channel === 'play';
+  if (buildAab && !signRelease) {
+    fail('The play channel requires ANDROID_KEYSTORE_FILE, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS to sign the AAB.');
+  }
+  const outputsDir = path.join(androidProject, 'app', 'build', 'outputs');
+  await rm(path.join(outputsDir, 'apk'), { recursive: true, force: true });
+  await rm(path.join(outputsDir, 'bundle'), { recursive: true, force: true });
+  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(buildAab ? ['--aab'] : []), ...(signRelease ? [] : ['--debug']), '--target', 'aarch64']);
+  const apk = await findAndroidArtifact(path.join(outputsDir, 'apk'), '.apk');
   if (!apk) fail('Tauri completed without producing an Android APK.');
   if (signRelease) {
     const buildToolsRoot = path.join(androidSdk, 'build-tools');
@@ -449,6 +456,17 @@ if (target === 'android') {
     ], { env: { ...env, ANDROID_KEYSTORE_PASSWORD: keystorePassword, ANDROID_KEY_PASSWORD: keyPassword } });
     await rm(aligned, { force: true });
     await rm(signed + '.idsig', { force: true });
+    if (buildAab) {
+      const aab = await findAndroidArtifact(path.join(outputsDir, 'bundle'), '.aab');
+      if (!aab) fail('Tauri completed without producing an Android App Bundle.');
+      const signedAab = path.join(distDir, 'MajesticTab-android.aab');
+      await cp(aab, signedAab);
+      // Play wants a jarsigner signature (the upload key); apksigner only handles APKs.
+      run(path.join(javaHome, 'bin', 'jarsigner' + (process.platform === 'win32' ? '.exe' : '')), [
+        '-keystore', keystore, '-storepass:env', 'ANDROID_KEYSTORE_PASSWORD', '-keypass:env', 'ANDROID_KEY_PASSWORD',
+        '-sigalg', 'SHA256withRSA', '-digestalg', 'SHA-256', signedAab, keyAlias,
+      ], { env: { ...env, ANDROID_KEYSTORE_PASSWORD: keystorePassword, ANDROID_KEY_PASSWORD: keyPassword } });
+    }
   } else {
     await cp(apk, path.join(distDir, 'MajesticTab-android-debug.apk'));
   }
