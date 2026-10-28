@@ -6823,6 +6823,11 @@ input[type=range]::-moz-range-thumb {
 .sheet-mode-group.is-locked .btn-check:checked + .btn {
   box-shadow: none;
 }
+/* No hover feedback while locked */
+.sheet-mode-group.is-locked .btn-check:not(:checked) + .btn:hover:not(:disabled) {
+  color: var(--text-muted) !important;
+  background: transparent;
+}
 @media (max-width: 340px) {
   .sheet-mode-group .btn i { display: none; }
 }
