@@ -174,7 +174,7 @@ export function createJamModal(manager, { updateSetting }) {
             ${audioModes.map(([value, label]) => `<button type="button" class="btn btn-sm ${mode === value ? 'active' : ''}" data-jam-audio-mode="${value}">${label}</button>`).join('')}
           </div>
           <div class="jam-help">Assigned only plays just their tracks. Backing only silences their tracks and plays everything else.</div>
-          ${switchHtml('jamMuteAssignedSwitch', 'Mute assigned tracks for people without assignments', settings.muteAssignedForUnassigned)}
+          ${switchHtml('jamMuteAssignedSwitch', 'People with no tracks don\'t hear tracks assigned to others', settings.muteAssignedForUnassigned)}
           ${switchHtml('jamAssignedViewSwitch', 'Only show each person\'s assigned tracks', settings.assignedViewOnly)}
         </div>
         <div class="jam-list mb-3">
