@@ -170,18 +170,4 @@ export function measureStartLag({ timeMs, targetLocalMs, usedLagMs, speed = 1, i
     }, wait);
 }
 
-/**
- * The track restrictions one device gets from the host's assignments. `selfKey` is the
- * client id, or 'host' for the host itself. Devices without an assignment are unrestricted.
- */
-export function trackPolicyFor(state, selfKey) {
-    const mine = state?.trackAssignments?.[selfKey];
-    const has = Array.isArray(mine) && mine.length > 0;
-    const taken = [...new Set(Object.values(state?.trackAssignments || {}).flat())];
-    return {
-        mute: !has ? (state?.muteAssignedForUnassigned && taken.length ? taken : null)
-            : state?.assignedAudioMode === 'backing' ? mine : null,
-        audio: has && state?.assignedAudioMode === 'assigned' ? mine : null,
-        view: has && state.assignedViewOnly ? mine : null
-    };
-}
+export { trackPolicyFor } from './jamTrackPolicy.js';
