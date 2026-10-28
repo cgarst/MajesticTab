@@ -18,7 +18,9 @@ Output: store-screenshots/<channel>/<NN>-<shot>.png (gitignored), raw captures u
 Add a store by adding an entry to STORES (channel id from build/channels.mjs, device profile, final size).
 """
 import argparse
+import base64
 import functools
+import io
 import json
 import os
 import socket
@@ -26,6 +28,7 @@ import subprocess
 import sys
 import threading
 import urllib.parse
+import urllib.request
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -72,10 +75,10 @@ STORES = {
 SHOTS = [
     dict(id="gp_scroll", headline="Scroll through your tabs", subtitle="Smooth, continuous reading on any screen",
          setup="gp_scroll"),
+    dict(id="gp_page", headline="Or, turn pages like a book", subtitle="Tap or use a Bluetooth page turner",
+         setup="gp_page"),
     dict(id="library", headline="Your whole tab library", subtitle="Browse by artist and album in one place",
          setup="library"),
-    dict(id="gp_page", headline="Turn pages like a book", subtitle="Tap or use a Bluetooth page turner",
-         setup="gp_page"),
     dict(id="synth_menu", headline="Play along with the band", subtitle="Built-in synth with per-track mixing",
          setup="synth_menu"),
     dict(id="controller_modal", headline="Hands-free control", subtitle="Gamepad and Bluetooth page turner support",
@@ -121,28 +124,125 @@ def has_feature(cfg, name):
     return v not in (False, "off", "none", None)
 
 
-# Fictional artists so the library shot never shows real (copyrighted) names or artwork; covers fall back
-# to the app's generated placeholders.
+# Fictional artists (1-4 albums each) plus Custom Music (books + songs) so the library shot never shows
+# copyrighted names or artwork while showcasing 1-, 2-, 3-, and 4-album artist collages.
 DEMO_LIBRARY = {
-    "Aurora Vale": {"Glass Meridian": ["Open Water", "Paper Lanterns", "Meridian", "Slow Burn", "Last Light"],
-                    "Northbound": ["Departure", "Cold Front", "Harbor Lights", "Northbound"]},
-    "Hollow Pines": {"Static Bloom": ["Wildfire", "Static Bloom", "Ember Road", "Hollow Hearts"]},
-    "Neon Harbor": {"Midnight Arcade": ["Insert Coin", "Neon Tide", "Afterglow", "Player Two"]},
-    "Copper Sky": {"Rustbelt": ["Iron Hymn", "Copper Sky", "Furnace", "Switchyard"]},
-    "The Velvet Hour": {"Low Tide Club": ["Velvet", "Low Tide", "Last Call"]},
-    "Stonebridge": {"Foundations": ["Keystone Lane", "Arches", "Bedrock", "Crossing"]},
+    "Aurora Vale": {
+        "Glass Meridian": ["Open Water", "Paper Lanterns", "Meridian", "Slow Burn", "Last Light"],
+        "Northbound": ["Departure", "Cold Front", "Harbor Lights", "Northbound"],
+        "Solstice Echoes": ["First Frost", "Midwinter", "Thaw", "Equinox"],
+    },
+    "Copper Sky": {
+        "Rustbelt": ["Iron Hymn", "Copper Sky", "Furnace", "Switchyard"],
+        "Signal Fires": ["Beacon", "Telegraph", "Cinder", "Red Horizon", "Ashfall"],
+    },
+    "Hollow Pines": {
+        "Static Bloom": ["Wildfire", "Static Bloom", "Ember Road", "Hollow Hearts"],
+        "Timberline": ["Ridge", "Canopy", "moss & Stone", "Firewatch"],
+        "Nightjar": ["Dusk", "Starlight", "Wingbeat", "Roost"],
+        "Pale October": ["Equinox", "Harvest Moon", "Driftwood", "Frostline"],
+    },
+    "Neon Harbor": {
+        "Midnight Arcade": ["Insert Coin", "Neon Tide", "Afterglow", "Player Two", "High Score"],
+    },
+    "Stonebridge": {
+        "Foundations": ["Keystone Lane", "Arches", "Bedrock", "Crossing"],
+        "Quarry": ["Granite", "Chisel", "Faultline", "Echo Chamber"],
+        "High Water": ["Floodgate", "Millrace", "Undertow", "Breakwater"],
+    },
+    "The Velvet Hour": {
+        "Low Tide Club": ["Velvet", "Low Tide", "Last Call"],
+        "Late Checkout": ["Room 404", "Minibar", "Lobby Piano", "Sunrise Cab"],
+        "Blue Neon": ["Rain on Glass", "Boulevard", "Nightcap", "Closing Time"],
+        "Silver Lining": ["Daybreak", "Overcast", "Clear Skies"],
+    },
 }
+
+COVER_TINTS = [
+    (255, 110, 90),   # warm coral / sunset
+    (70, 175, 255),   # glacial blue
+    (230, 95, 210),   # magenta dusk
+    (60, 220, 165),   # emerald / teal
+    (255, 185, 65),   # amber gold
+    (150, 115, 255),  # violet night
+    (255, 85, 120),   # crimson neon
+    (80, 210, 235),   # cyan horizon
+]
+
+
+def fake_cover_data_url(artist, title, idx):
+    """Fetch a deterministic Unsplash photo via picsum.photos and grade it like an album sleeve."""
+    from PIL import Image, ImageChops, ImageDraw, ImageEnhance
+    cache_dir = OUT_ROOT / ".cover-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    slug = "".join(c if c.isalnum() else "_" for c in f"{artist}_{title}").lower()
+    cached = cache_dir / f"{slug}.jpg"
+    if cached.exists():
+        b64 = base64.b64encode(cached.read_bytes()).decode("ascii")
+        return f"data:image/jpeg;base64,{b64}"
+
+    seed = urllib.parse.quote(f"mt-album-{idx}-{title}")
+    req = urllib.request.Request(
+        f"https://picsum.photos/seed/{seed}/240/240",
+        headers={"User-Agent": "MajesticTab-Screenshots/1.0"},
+    )
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        im = Image.open(io.BytesIO(resp.read())).convert("RGB").resize((240, 240), Image.LANCZOS)
+
+    # Color grade + contrast boost so each album in a multi-album collage has a distinct palette.
+    im = ImageEnhance.Contrast(im).enhance(1.22)
+    im = ImageEnhance.Color(im).enhance(0.85)
+    tint = Image.new("RGB", (240, 240), COVER_TINTS[idx % len(COVER_TINTS)])
+    im = Image.blend(im, ImageChops.multiply(im, tint), 0.38)
+
+    # Bottom gradient scrim + sleeve typography.
+    overlay = Image.new("RGBA", (240, 240), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    for y in range(130, 240):
+        alpha = round(185 * ((y - 130) / 110) ** 1.4)
+        draw.line([(0, y), (240, y)], fill=(8, 6, 16, alpha))
+    im = Image.alpha_composite(im.convert("RGBA"), overlay).convert("RGB")
+    draw = ImageDraw.Draw(im)
+    draw.text((16, 192), artist.upper(), font=font(13, bold=True), fill=(210, 205, 230))
+    draw.text((16, 210), title, font=font(18, bold=True), fill=(255, 255, 255))
+
+    buf = io.BytesIO()
+    im.save(buf, format="JPEG", quality=88, optimize=True)
+    data = buf.getvalue()
+    cached.write_bytes(data)
+    return "data:image/jpeg;base64," + base64.b64encode(data).decode("ascii")
 
 
 def seed_library(page, base):
-    songs = [dict(title=t, artist=a, album=al, trackNumber=i + 1, year=2018 + len(al) % 6)
-             for a, albums in DEMO_LIBRARY.items() for al, tracks in albums.items() for i, t in enumerate(tracks)]
+    songs = []
+    alb_idx = 0
+    for a, albums in DEMO_LIBRARY.items():
+        for al, tracks in albums.items():
+            cover = fake_cover_data_url(a, al, alb_idx)
+            alb_idx += 1
+            for i, t in enumerate(tracks):
+                songs.append(dict(title=t, artist=a, album=al, trackNumber=i + 1,
+                                  year=2018 + len(al) % 6, coverUrl=cover))
+    books = ["Acoustic Songbook Vol. 1.pdf", "Progressive Etudes.pdf"]
+    custom_songs = [
+        dict(title="Keystone", isCustom=True, artist="Custom Music", album=""),
+        dict(title="Morning Prelude in G", isCustom=True, artist="Custom Music", album=""),
+        dict(title="Odd-Meter Study No. 3", isCustom=True, artist="Custom Music", album=""),
+        dict(title="Fingerstyle Etude in D", isCustom=True, artist="Custom Music", album=""),
+        dict(title="Sweep Arpeggio Workout", isCustom=True, artist="Custom Music", album=""),
+    ]
     page.goto(f"{base}/app/", wait_until="networkidle", timeout=60000)
-    page.evaluate("""async (songs) => {
+    page.evaluate("""async ({ songs, books, customSongs }) => {
         const lib = await import('/app/libraryStore.js');
         await lib.clearAllLibraryData();
         for (const s of songs) await lib.saveSongToLibrary(s);
-    }""", songs)
+        for (const b of books) {
+            await lib.addTabOptionToAlbum('default', 'Custom Music', 'Custom Music', {
+                name: b, fileType: 'pdf', isCustom: true
+            });
+        }
+        for (const cs of customSongs) await lib.saveSongToLibrary(cs);
+    }""", dict(songs=songs, books=books, customSongs=custom_songs))
 
 
 def setup_shot(page, base, kind, supporter=False):
@@ -251,6 +351,7 @@ def compose(raw_path, out_path, size, headline, subtitle):
     shadow.paste((0, 0, 0, 170), (left, top + round(24 * k)), mask)
     bg = Image.alpha_composite(bg.convert("RGBA"), shadow.filter(ImageFilter.GaussianBlur(36 * k))).convert("RGB")
     bg.paste(frame, (left, top), mask)
+    Path(out_path).unlink(missing_ok=True)  # Windows: unlinking first avoids Errno 22 when Explorer memory-maps the PNG
     bg.save(out_path, optimize=True)
 
 
@@ -269,6 +370,9 @@ def main():
     out = Path(args.out_dir).resolve() if args.out_dir else OUT_ROOT / args.channel
     raw_dir = out / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
+    if not args.only:
+        for f in out.glob("[0-9][0-9]-*.png"):
+            f.unlink(missing_ok=True)
     shots = [s for s in SHOTS if (not args.only or s["id"] in args.only)]
     if not args.no_prepare:
         prepare_channel_frontend(args.channel)
