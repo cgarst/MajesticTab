@@ -14,7 +14,7 @@ Usage:
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
     python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist
 
-Output: store-screenshots/<channel>/<NN>-<shot>.png (gitignored), raw captures under .../raw/.
+Output: store-support/<channel>/<NN>-<shot>.png (gitignored), raw captures under .../raw/.
 Add a store by adding an entry to STORES (channel id from build/channels.mjs, device profile, final size).
 """
 import argparse
@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import generate_screenshots as gs  # noqa: E402  (reuses the fixture loaders and local server)
 
 ROOT = gs.ROOT
-OUT_ROOT = ROOT / "store-screenshots"
+OUT_ROOT = ROOT / "store-support"
 TAURI_DIR = ROOT / "build" / "tauri"
 FRONTEND_DIR = TAURI_DIR / "frontend-dist"
 
