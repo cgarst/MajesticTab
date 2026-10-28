@@ -321,6 +321,7 @@ export function createJamModal(manager, { updateSetting }) {
         return `
         <div class="jam-card mb-3">
           <div class="fw-semibold">${connected ? `Connected to ${esc(st.hostName)}` : 'Connection lost'}</div>
+          <div class="jam-help mt-1">You're ${esc(settings.name)}</div>
           <div class="jam-help mt-1">${esc(stateText)}${connected ? ` · RTT ${Math.round(st.rttMs || 0)} ms` : ''}${st.driftMs === null || st.driftMs === undefined ? '' : ` · drift ${Math.round(st.driftMs)} ms`}${st.ytDriftMs === null || st.ytDriftMs === undefined ? '' : ` · YouTube drift ${st.ytDriftMs} ms`}</div>
           ${st.song ? `<div class="jam-help mt-1">Song: ${esc(st.song.title)}</div>` : ''}
         </div>

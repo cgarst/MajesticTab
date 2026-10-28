@@ -562,7 +562,11 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
     function handlePeers(info) {
         if (info.event === 'joined') {
             roster.set(info.id, { id: info.id, name: info.name, ready: !session.song, rttMs: 0, driftMs: null, status: 'joined' });
-            if (departedAliases.has(info.name)) { aliases.set(info.id, departedAliases.get(info.name)); departedAliases.delete(info.name); }
+            if (departedAliases.has(info.name)) {
+                aliases.set(info.id, departedAliases.get(info.name));
+                departedAliases.delete(info.name);
+                sendTo(info.id, MSG.RENAME, { name: aliases.get(info.id) });
+            }
             if (session.newJoinerDefault === 'listening') session.listeners.push(info.id);
             sendTo(info.id, MSG.STATE, { state: sessionState() });
             if (session.listeners.includes(info.id)) broadcast(MSG.TRACK_ASSIGN, trackState());
@@ -659,7 +663,12 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         renamePeer(id, name) {
             if (!roster.has(id)) return;
             const alias = cleanAlias(name);
-            if (alias) aliases.set(id, alias); else aliases.delete(id);
+            if (alias) {
+                aliases.set(id, alias);
+                sendTo(id, MSG.RENAME, { name: alias });
+            } else {
+                aliases.delete(id);
+            }
             emitRoster();
         },
         identify: (id) => sendTo(id, MSG.IDENTIFY),

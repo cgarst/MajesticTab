@@ -75,7 +75,17 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
             getCurrentFile,
             recordFileToRecents,
             getSettings: () => settings,
-            ui: { toast, onStatus: () => refresh() }
+            ui: {
+                toast,
+                onStatus: () => refresh(),
+                // The host named this player: use it from now on, including the next time they join
+                onRenamed: (name) => {
+                    if (name === settings.name) return;
+                    updateJamSetting('name', name);
+                    toast(`The host named you ${name}`, 'info');
+                    refresh();
+                }
+            }
         });
     }
 
