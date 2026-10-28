@@ -20,8 +20,6 @@ const settings = {
     assignedAudioMode: loadSetting('assignedAudioMode', loadSetting('assignedAudioOnly', false) ? 'assigned' : 'all'),
     assignedViewOnly: loadSetting('assignedViewOnly', false),
     listeningHears: loadSetting('listeningHears', loadSetting('muteAssignedForUnassigned', false) ? 'backing' : 'all'),
-    listeningSees: loadSetting('listeningSees', 'all'),
-    newJoinerDefault: loadSetting('newJoinerDefault', 'unset'),
     waitForEveryone: loadSetting('waitForEveryone', true),
     leadOverrideMs: loadSetting('leadOverrideMs', 0),
     trimMs: loadSetting('trimMs', 0),

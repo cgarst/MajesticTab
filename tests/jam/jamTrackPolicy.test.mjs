@@ -3,11 +3,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { trackPolicyFor, trackStateFor } from '../../app/jam/jamTrackPolicy.js';
 
-const none = { mute: null, audio: null, view: null, viewHide: null };
+const none = { mute: null, audio: null, view: null };
 const base = { trackAssignments: { sam: [1], alex: [2, 3] }, listeners: ['jordan'] };
 
 test('Not set people are unrestricted whatever the rules say', () => {
-    const state = { ...base, assignedAudioMode: 'assigned', assignedViewOnly: true, listeningHears: 'backing', listeningSees: 'backing' };
+    const state = { ...base, assignedAudioMode: 'assigned', assignedViewOnly: true, listeningHears: 'backing' };
     assert.equal(trackStateFor(state, 'riley'), 'unset');
     assert.deepEqual(trackPolicyFor(state, 'riley'), none);
     assert.deepEqual(trackPolicyFor(undefined, 'riley'), none);
@@ -24,11 +24,11 @@ test('Listening people follow the listening rules and ignore the assigned rules'
     assert.equal(trackStateFor(base, 'jordan'), 'listening');
     assert.deepEqual(trackPolicyFor({ ...base, assignedAudioMode: 'assigned', assignedViewOnly: true }, 'jordan'), none);
     assert.deepEqual(trackPolicyFor({ ...base, listeningHears: 'backing' }, 'jordan'), { ...none, mute: [1, 2, 3] });
-    assert.deepEqual(trackPolicyFor({ ...base, listeningSees: 'backing' }, 'jordan'), { ...none, viewHide: [1, 2, 3] });
+    assert.deepEqual(trackPolicyFor({ ...base, assignedViewOnly: true, listeningHears: 'backing' }, 'jordan'), { ...none, mute: [1, 2, 3] });
 });
 
 test('Listening rules do nothing while no tracks are assigned', () => {
-    const state = { trackAssignments: {}, listeners: ['jordan'], listeningHears: 'backing', listeningSees: 'backing' };
+    const state = { trackAssignments: {}, listeners: ['jordan'], listeningHears: 'backing' };
     assert.deepEqual(trackPolicyFor(state, 'jordan'), none);
 });
 
