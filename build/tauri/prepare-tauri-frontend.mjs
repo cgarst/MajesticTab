@@ -86,17 +86,6 @@ const allowedRemoteHosts = new Set([
   'musicbrainz.org',
   'coverartarchive.org',
   'archive.org',
-  'www.ultimate-guitar.com',
-  'ultimate-guitar.com',
-  'tabs.ultimate-guitar.com',
-  'metaltabs.org',
-  'www.metaltabs.org',
-  'gprotab.net',
-  'www.gprotab.net',
-  'songsterr-downloader.com',
-  'www.songsterr-downloader.com',
-  'classtab.org',
-  'www.classtab.org',
   'google.com',
   'majestictab.zathu.net',
   'www.google.com',
@@ -235,10 +224,6 @@ async function writeChannelConfig() {
   const id = process.env.MAJESTICTAB_STORE_CHANNEL || DEFAULT_CHANNEL;
   const channelConfig = resolveChannel(id);
   await writeFile(path.join(frontendDir, 'channel.json'), `${JSON.stringify(channelConfig, null, 2)}\n`);
-  if (channelConfig.tabDownloader !== 'full') {
-    // Curated sources and their userscripts never ship in this channel; tabDownloader.js skips importing them.
-    await rm(path.join(frontendDir, 'tabDownloaderFullSources.js'), { force: true });
-  }
   console.log(`Distribution channel: ${id}`);
 }
 

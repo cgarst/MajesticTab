@@ -10,8 +10,8 @@ export const DEFAULT_CHANNEL = 'direct';
 export const SUPPORTER_FEATURES = ['themes', 'sheetModes', 'jamHost', 'setlists', 'batchExport', 'customSoundFonts'];
 
 const FULL = {
-  tabDownloader: 'full', // 'full' | 'google-only' | 'off'
-  userscripts: true, // ships the built-in userscripts and their editor; userscripts restored from a backup run regardless
+  tabDownloader: 'google-only', // 'google-only' | 'off'
+  userscripts: false, // ships the userscript editor; userscripts restored from a backup run regardless
   extensions: 'full', // 'full' | 'off'
   selfUpdate: true,
   googleDrive: true,
@@ -36,7 +36,7 @@ const APPLE_STORE = { storeName: 'the App Store', supporterManageUrl: 'https://r
 const PLAY_STORE = { storeName: 'Google Play', supporterManageUrl: 'market://details?id=net.zathu.majestictab' };
 const MS_STORE = { storeName: 'Microsoft Store', supporterManageUrl: 'ms-windows-store://pdp/?productid=9P7MB2C84CFV' };
 
-const STORE_DOWNLOADER = { tabDownloader: 'google-only', userscripts: false, selfUpdate: false };
+const STORE_DOWNLOADER = { selfUpdate: false };
 
 export const channels = {
   direct: {
