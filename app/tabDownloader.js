@@ -7,7 +7,7 @@ import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryS
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { closeLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
-import { getFeature } from './channel.js';
+import { getFeature, hasFeature } from './channel.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 const GOOGLE_FIRST_KEY = 'majestictab_tab_sources_google_first';
@@ -78,9 +78,6 @@ export function formatSearchQueryForSource(source, artist = '', songName = '') {
  * Get configured sources with fallback to defaults
  */
 export function getSources() {
-    if (getFeature('tabDownloader') !== 'full') {
-        return DEFAULT_SOURCES.filter(s => s.id === 'google').map(s => JSON.parse(JSON.stringify(s)));
-    }
     try {
         const raw = localStorage.getItem(SOURCES_STORAGE_KEY);
         if (raw) {
@@ -123,27 +120,9 @@ export function getSources() {
 }
 
 /**
- * Google-only builds list just Google and ship no userscripts, but a backup restored from a full build
- * still carries the user's own. Those are handed to the native webview (which matches them to a page by
- * host) so they keep working, with no UI to edit them here.
- */
-function getRestoredUserscriptSources() {
-    if (getFeature('tabDownloader') === 'full') return [];
-    try {
-        const stored = JSON.parse(localStorage.getItem(SOURCES_STORAGE_KEY) || 'null');
-        if (!Array.isArray(stored)) return [];
-        return stored.filter(s => s && s.id !== 'google' && s.userscriptEnabled && String(s.userscript || '').trim());
-    } catch {
-        return [];
-    }
-}
-
-/**
  * Persist sources list to localStorage
  */
 export function saveSources(sources) {
-    // Google-only builds never persist a source list, so a later full build keeps the user's own.
-    if (getFeature('tabDownloader') !== 'full') return;
     try {
         localStorage.setItem(SOURCES_STORAGE_KEY, JSON.stringify(sources));
     } catch {}
@@ -396,8 +375,6 @@ export function initTabDownloaderDomEvents() {
     });
 
     // Settings button
-    const settingsBtn = document.getElementById('downloaderSettingsBtn');
-    if (settingsBtn && getFeature('tabDownloader') !== 'full') settingsBtn.style.display = 'none';
     document.getElementById('downloaderSettingsBtn')?.addEventListener('click', () => {
         openDownloaderSettings();
     });
@@ -524,6 +501,11 @@ export function openDownloaderSettings(targetSourceId = null) {
     if (currentEditingSourceId) {
         populateSettingsForm(currentEditingSourceId);
     }
+    // Store builds ship no userscripts, so the editor is hidden there.
+    const showScripts = hasFeature('userscripts');
+    document.getElementById('downloaderCfgUserscriptRow')?.classList.toggle('d-none', !showScripts);
+    const subtitle = document.getElementById('downloaderCfgSubtitle');
+    if (subtitle) subtitle.textContent = showScripts ? 'Manage search providers and custom userscripts' : 'Manage search providers';
     const modal = document.getElementById('downloaderSettingsModal');
     if (modal) modal.style.display = 'flex';
 }
@@ -931,7 +913,7 @@ export async function openTabDownloader(options = {}) {
         isDebugToolsEnabled: Boolean(isDebugToolsEnabled),
         forceDesktop: Boolean(activeSource.forceDesktop),
         platform: (/iphone|ipad|ipod/i.test(navigator.userAgent || '')) ? 'ios' : (/android/i.test(navigator.userAgent || '') ? 'android' : ((/mac/i.test(navigator.platform || navigator.userAgent)) ? 'macos' : ((/win/i.test(navigator.platform || navigator.userAgent)) ? 'windows' : 'other'))),
-        sources: [...sources, ...getRestoredUserscriptSources()].map(s => ({
+        sources: sources.map(s => ({
             id: s.id,
             name: s.name,
             urlTemplate: s.urlTemplate,
