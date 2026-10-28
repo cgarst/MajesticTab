@@ -556,6 +556,10 @@ if (target === 'android') {
   for (const [size, name] of [[44, 'Square44x44Logo'], [50, 'StoreLogo'], [150, 'Square150x150Logo']]) {
     await cp(path.join(iconDir, `${size}x${size}.png`), path.join(layout, 'Assets', `${name}.png`));
   }
+  // Unplated variants keep Windows from drawing the accent-color plate behind the taskbar icon.
+  for (const size of [16, 24, 32, 48, 256]) {
+    await cp(path.join(iconDir, `${size}x${size}.png`), path.join(layout, 'Assets', `Square44x44Logo.targetsize-${size}_altform-unplated.png`));
+  }
   // The Store requires a four-part version whose last part is 0.
   const tokens = { ...identity, VERSION: `${version}.0` };
   const manifest = (await readFile(path.join(tauriDir, 'msix', 'AppxManifest.xml'), 'utf8'))
