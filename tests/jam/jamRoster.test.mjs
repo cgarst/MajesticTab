@@ -49,3 +49,9 @@ test('guestNameFromUserAgent names the device kind', () => {
         ['iPhone', 'iPad', 'Android phone', 'Android tablet', 'Windows PC', 'Mac', 'Chromebook', 'Linux PC']);
     assert.equal(guestNameFromUserAgent(''), 'Guest');
 });
+
+test('an iPad that sends a Mac user agent is still an iPad', () => {
+    const mac = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15';
+    assert.equal(guestNameFromUserAgent(mac, 5), 'iPad');
+    assert.equal(guestNameFromUserAgent(mac, 0), 'Mac');
+});
