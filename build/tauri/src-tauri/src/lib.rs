@@ -1,5 +1,7 @@
 use std::sync::Mutex;
-use tauri::{Emitter, Manager};
+use tauri::Manager;
+#[cfg(any(target_os = "macos", target_os = "ios", target_os = "android"))]
+use tauri::Emitter;
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
 use tauri::{LogicalPosition, LogicalSize};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
