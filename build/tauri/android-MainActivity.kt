@@ -3,8 +3,11 @@ package net.zathu.majestictab
 import android.content.Context
 import android.net.wifi.WifiManager
 import android.os.Bundle
+import android.util.Base64
 import android.view.View
+import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.URLUtil
 import android.webkit.WebView
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
@@ -284,14 +287,38 @@ class MainActivity : TauriActivity() {
       @JavascriptInterface
       fun onTabDownloaded(name: String, base64Data: String) {
         android.util.Log.i("MajesticTab", "onTabDownloaded received: " + name + " (" + base64Data.length + " chars)")
-        runOnUiThread {
-          hideDownloader()
-          val script = "window.__onTabDownloaded && window.__onTabDownloaded(" +
-            org.json.JSONObject.quote(name) + ", " +
-            org.json.JSONObject.quote(base64Data) + ");"
-          mainWebView?.evaluateJavascript(script, null)
-        }
+        deliverDownloadedTab(name, base64Data)
       }
     }, "MajesticDownloaderNative")
+
+    // wry has no Android download hook, so real file downloads (the mobile site's buttons that the
+    // shim can't recognise) are fetched here with the webview's cookies and handed back like a captured blob.
+    webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, _ ->
+      if (!url.startsWith("http://") && !url.startsWith("https://")) return@setDownloadListener
+      val name = URLUtil.guessFileName(url, contentDisposition, mimeType)
+      Thread {
+        try {
+          val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+          conn.setRequestProperty("User-Agent", userAgent)
+          CookieManager.getInstance().getCookie(url)?.let { conn.setRequestProperty("Cookie", it) }
+          webView.url?.let { conn.setRequestProperty("Referer", it) }
+          val bytes = conn.inputStream.use { it.readBytes() }
+          if (bytes.size < 20) return@Thread
+          deliverDownloadedTab(name, Base64.encodeToString(bytes, Base64.NO_WRAP))
+        } catch (e: Exception) {
+          android.util.Log.w("MajesticTab", "Download failed: " + url, e)
+        }
+      }.start()
+    }
+  }
+
+  private fun deliverDownloadedTab(name: String, base64Data: String) {
+    runOnUiThread {
+      hideDownloader()
+      val script = "window.__onTabDownloaded && window.__onTabDownloaded(" +
+        org.json.JSONObject.quote(name) + ", " +
+        org.json.JSONObject.quote(base64Data) + ");"
+      mainWebView?.evaluateJavascript(script, null)
+    }
   }
 }
