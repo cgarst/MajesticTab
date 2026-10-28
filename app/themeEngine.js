@@ -9,7 +9,7 @@
  */
 
 import { hasSupporter } from './channel.js';
-import { LOCK_ICON_HTML, requireSupporter } from './supporter.js';
+import { LOCK_ICON_HTML, requireSupporter, openPaywall } from './supporter.js';
 
 export const THEMES = [
   {
@@ -210,10 +210,45 @@ export function setSheetMode(mode) {
   return true;
 }
 
-/** User choice of theme. Returns false (and shows the paywall) when it needs Supporter. */
+// A locked theme being tried out. Never saved: it ends on Exit, on picking another theme, or at reload.
+let previewThemeId = null;
+
+function endPreview() {
+  previewThemeId = null;
+  document.getElementById('themePreviewBar')?.remove();
+}
+
+function showPreviewBar(themeObj) {
+  let bar = document.getElementById('themePreviewBar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'themePreviewBar';
+    bar.className = 'theme-preview-bar';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = `
+      <span class="theme-preview-name"></span>
+      <button type="button" class="btn btn-theme-primary btn-sm" data-action="unlock">Unlock</button>
+      <button type="button" class="btn btn-theme-outline btn-sm" data-action="exit">Exit</button>`;
+    bar.querySelector('[data-action="unlock"]').addEventListener('click', () => openPaywall('themes'));
+    bar.querySelector('[data-action="exit"]').addEventListener('click', () => {
+      endPreview();
+      refreshAppearance();
+    });
+    document.body.appendChild(bar);
+  }
+  bar.querySelector('.theme-preview-name').textContent = `Previewing ${themeObj.name}`;
+}
+
+/** User choice of theme. A locked theme is previewed instead (returns false); the bar offers the paywall. */
 export function setTheme(themeName) {
   const themeObj = THEMES.find(t => t.id === themeName) || THEMES[0];
-  if (themeObj.id !== FREE_THEME_ID && !requireSupporter('themes')) return false;
+  if (themeObj.id !== FREE_THEME_ID && !hasSupporter()) {
+    previewThemeId = themeObj.id;
+    applyTheme(themeObj.id);
+    showPreviewBar(themeObj);
+    return false;
+  }
+  endPreview();
   try {
     localStorage.setItem(STORAGE_THEME_KEY, themeObj.id);
   } catch (e) {}
@@ -223,7 +258,7 @@ export function setTheme(themeName) {
 
 /** Re-apply the theme and sheet mode in effect without saving anything (restores, entitlement changes). */
 export function refreshAppearance() {
-  applyTheme(getCurrentTheme());
+  applyTheme(previewThemeId || getCurrentTheme());
   applySheetAppearance();
 }
 
@@ -276,7 +311,7 @@ export function renderThemeModalGrid(activeThemeId = getCurrentTheme()) {
             </div>
           </div>
           ${isActive 
-            ? `<span class="theme-active-pill"><i class="bi-check-circle-fill me-1"></i> Active</span>` 
+            ? `<span class="theme-active-pill"><i class="bi-check-circle-fill me-1"></i> ${previewThemeId ? 'Previewing' : 'Active'}</span>` 
             : (t.id !== FREE_THEME_ID && !hasSupporter()
               ? `<span class="theme-select-hint is-locked">${LOCK_ICON_HTML} Supporter</span>`
               : `<span class="theme-select-hint">Select</span>`)
@@ -325,7 +360,14 @@ export function closeThemeModal() {
 export function initTheming() {
   refreshAppearance();
   // Ownership arrives (or is revoked) after launch
-  window.addEventListener('supporterchange', refreshAppearance);
+  window.addEventListener('supporterchange', (event) => {
+    // Unlocking while previewing keeps the previewed theme
+    if (event.detail?.owned && previewThemeId) setTheme(previewThemeId);
+    else {
+      endPreview();
+      refreshAppearance();
+    }
+  });
 
   // Setup modal close listeners
   const closeBtns = document.querySelectorAll('.theme-modal-close-btn');

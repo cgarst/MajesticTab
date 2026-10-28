@@ -18,6 +18,8 @@ const FULL = {
   youtube: 'full', // 'full' | 'official-origin' (official IFrame origin, no Referer override)
   monetization: 'none', // 'none' | 'iap'
   supporterProductId: null,
+  storeName: null, // shown as "Manage in <storeName>" on the Supporter card
+  supporterManageUrl: null, // where the store lists purchases; opened by the Supporter card
 };
 
 // One-time "MajesticTab Supporter" product (non-consumable). Create it with this ID in App Store Connect
@@ -26,6 +28,13 @@ const SUPPORTER_PRODUCT_ID = 'net.zathu.majestictab.supporter';
 // Microsoft Store durable add-on (Store ID 9PBGGCDJ7776). The IAP plugin finds it by this developer-defined
 // Product ID in Partner Center, not by the Store ID.
 const MSSTORE_SUPPORTER_PRODUCT_ID = 'majestictab-supporter-2026-win';
+
+// Where "Manage in <store>" goes: the app's own store page on Google Play and the Microsoft Store (opened by
+// custom scheme, which src-tauri/capabilities/default.json must allow), the purchase history on Apple (there is
+// no per-purchase page for one-time products, and the app's store ID is not known yet).
+const APPLE_STORE = { storeName: 'the App Store', supporterManageUrl: 'https://reportaproblem.apple.com/' };
+const PLAY_STORE = { storeName: 'Google Play', supporterManageUrl: 'market://details?id=net.zathu.majestictab' };
+const MS_STORE = { storeName: 'Microsoft Store', supporterManageUrl: 'ms-windows-store://pdp/?productid=9P7MB2C84CFV' };
 
 const STORE_DOWNLOADER = { tabDownloader: 'google-only', userscripts: false, selfUpdate: false };
 
@@ -36,7 +45,7 @@ export const channels = {
   },
   play: {
     platforms: ['android'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER, youtube: 'official-origin', monetization: 'iap', supporterProductId: SUPPORTER_PRODUCT_ID },
+    capabilities: { ...FULL, ...STORE_DOWNLOADER, youtube: 'official-origin', monetization: 'iap', supporterProductId: SUPPORTER_PRODUCT_ID, ...PLAY_STORE },
   },
   fdroid: {
     platforms: ['android'],
@@ -44,11 +53,11 @@ export const channels = {
   },
   'appstore-ios': {
     platforms: ['ios'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap', supporterProductId: SUPPORTER_PRODUCT_ID },
+    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap', supporterProductId: SUPPORTER_PRODUCT_ID, ...APPLE_STORE },
   },
   'appstore-mac': {
     platforms: ['macos'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap', supporterProductId: SUPPORTER_PRODUCT_ID },
+    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap', supporterProductId: SUPPORTER_PRODUCT_ID, ...APPLE_STORE },
   },
   flathub: {
     platforms: ['linux'],
@@ -56,7 +65,7 @@ export const channels = {
   },
   msstore: {
     platforms: ['windows'],
-    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap', supporterProductId: MSSTORE_SUPPORTER_PRODUCT_ID },
+    capabilities: { ...FULL, ...STORE_DOWNLOADER, monetization: 'iap', supporterProductId: MSSTORE_SUPPORTER_PRODUCT_ID, ...MS_STORE },
   },
 };
 
