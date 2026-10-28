@@ -260,8 +260,12 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
 
     function ensureSong(song) {
         if (!song) return Promise.resolve(false);
-        if (loadedSongId === song.id) return Promise.resolve(true);
         if (loadingSong?.id === song.id) return loadingSong.promise;
+        if (loadedSongId === song.id) {
+            // The host forgets who is ready on a republish or a reconnect, so say so again.
+            send(MSG.SONG_READY, { songId: song.id, loadMs: 0 });
+            return Promise.resolve(true);
+        }
         const promise = (async () => {
             const started = performance.now();
             try {
