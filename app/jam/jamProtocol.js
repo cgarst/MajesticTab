@@ -50,6 +50,7 @@ export const MSG = Object.freeze({
     CONTROL_POLICY: 'control.policy',
     GUEST_MUTE: 'guest.mute',
     TRACK_ASSIGN: 'tracks.assign',
+    IDENTIFY: 'identify', // host -> one client: flash and beep so the host can tell whose device it is
     // host mixer and SoundFonts (host -> clients)
     MIXER: 'mixer.update',
     SOUNDFONTS: 'soundfonts.update',

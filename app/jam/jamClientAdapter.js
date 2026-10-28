@@ -8,6 +8,7 @@ import { nowMs, jam } from './jamTransport.js';
 import { ClockSync, DriftFilter, NudgeMonitor, decideDriftAction, DRIFT_IGNORE_MS, DRIFT_SEEK_NO_NUDGE_MS } from './jamClock.js';
 import { estimateOutputLatencyMs, createCoalescer, jamSongId, startLag, measureStartLag, waitForPlayerReady, loadSetting, saveSetting, trackPolicyFor } from './jamCommon.js';
 import { createYouTubeClient } from './jamYouTubeSync.js';
+import { runIdentify } from './jamIdentify.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor, reloadSynthSoundFonts } from '../gpProcessor/gpPlayer.js';
 import { setSessionSoundFonts } from '../soundFontStore.js';
 import { jamYouTubeControl } from '../youtubePlayer.js';
@@ -660,6 +661,9 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
             case MSG.TRACK_ASSIGN:
                 trackState = msg;
                 if (following) applyTracks();
+                break;
+            case MSG.IDENTIFY:
+                runIdentify();
                 break;
             case MSG.GUEST_MUTE:
                 applyMute(msg.muteGuests);
