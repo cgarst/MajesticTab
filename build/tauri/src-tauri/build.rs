@@ -1,4 +1,15 @@
+// tauri.conf.json is the only place the app version is set.
+fn app_version() -> String {
+    let conf = std::fs::read_to_string("tauri.conf.json").expect("read tauri.conf.json");
+    let rest = &conf[conf.find("\"version\"").expect("version in tauri.conf.json")..];
+    let rest = &rest[rest.find(':').unwrap() + 1..];
+    let rest = &rest[rest.find('"').unwrap() + 1..];
+    rest[..rest.find('"').unwrap()].to_string()
+}
+
 fn main() {
+    println!("cargo:rerun-if-changed=tauri.conf.json");
+    println!("cargo:rustc-env=MAJESTICTAB_VERSION={}", app_version());
     println!("cargo:rerun-if-changed=../frontend-dist");
     println!("cargo:rerun-if-changed=../flatpak");
     // Android 15+ devices may use 16 KB pages, and Google Play requires 16 KB

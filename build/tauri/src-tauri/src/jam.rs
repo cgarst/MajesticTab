@@ -642,7 +642,7 @@ pub async fn jam_client_connect(
         "pin": pin.unwrap_or_default(),
         "resume": resume,
         "protocol": PROTOCOL_VERSION,
-        "appVersion": env!("CARGO_PKG_VERSION"),
+        "appVersion": env!("MAJESTICTAB_VERSION"),
     })
     .to_string();
     sink.send(Message::Text(hello.into()))

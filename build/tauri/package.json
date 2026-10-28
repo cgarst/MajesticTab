@@ -2,7 +2,7 @@
   "name": "majestictab-tauri-build",
   "private": true,
   "license": "UNLICENSED",
-  "version": "1.0.0",
+  "version": "0.0.0",
   "scripts": {
     "tauri": "tauri",
     "prepare:frontend": "node prepare-tauri-frontend.mjs",

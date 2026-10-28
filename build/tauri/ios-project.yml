@@ -63,8 +63,8 @@ targets:
             NSUbiquitousContainerIsDocumentScopePublic: true
             NSUbiquitousContainerName: MajesticTab
             NSUbiquitousContainerSupportedFolderLevels: Any
-        CFBundleShortVersionString: 1.0.0
-        CFBundleVersion: "1.0.0"
+        CFBundleShortVersionString: __APP_VERSION__
+        CFBundleVersion: "__APP_VERSION__"
         CFBundleURLTypes:
           - CFBundleTypeRole: Editor
             CFBundleURLName: google-oauth
