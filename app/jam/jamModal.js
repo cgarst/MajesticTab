@@ -76,6 +76,13 @@ export function createJamModal(manager, { updateSetting }) {
 
     const isOpen = () => backdrop.style.display === 'flex';
 
+    // A successful join drops the guest straight into the host's song; a failed one (bad PIN) stays here to retry.
+    function afterJoin() {
+        if (manager.getRole() === 'client') { close(); return; }
+        body.dataset.role = '';
+        render();
+    }
+
     // ---- Panels ------------------------------------------------------------
 
     function switchHtml(id, label, checked) {
@@ -421,13 +428,13 @@ export function createJamModal(manager, { updateSetting }) {
         if (t.dataset.jamJoinFound !== undefined) {
             const h = discovered[Number(t.dataset.jamJoinFound)];
             const pin = body.querySelector('#jamJoinPinInput')?.value || '';
-            if (h) { await manager.join(`${h.addr}:${h.port}`, pin); body.dataset.role = ''; render(); }
+            if (h) { await manager.join(`${h.addr}:${h.port}`, pin); afterJoin(); }
             return;
         }
         if (t.id === 'jamJoinBtn') {
             const addr = isJamWebGuest() ? location.host : body.querySelector('#jamAddrInput')?.value.trim();
             const pin = body.querySelector('#jamJoinPinInput')?.value.trim();
-            if (addr) { await manager.join(addr, pin); body.dataset.role = ''; render(); }
+            if (addr) { await manager.join(addr, pin); afterJoin(); }
             return;
         }
         if (t.id === 'jamStartHostBtn') {
