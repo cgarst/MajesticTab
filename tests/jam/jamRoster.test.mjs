@@ -1,7 +1,7 @@
 // Run with: node --test tests/jam/jamRoster.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveNames, cleanAlias, MAX_ALIAS_LENGTH } from '../../app/jam/jamRoster.js';
+import { resolveNames, cleanAlias, guestNameFromUserAgent, MAX_ALIAS_LENGTH } from '../../app/jam/jamRoster.js';
 
 const peers = (...names) => names.map((name, i) => ({ id: `p${i}`, name }));
 
@@ -32,4 +32,20 @@ test('cleanAlias trims, collapses spaces and caps the length', () => {
     assert.equal(cleanAlias(''), '');
     assert.equal(cleanAlias(null), '');
     assert.equal(cleanAlias('x'.repeat(100)).length, MAX_ALIAS_LENGTH);
+});
+
+test('guestNameFromUserAgent names the device kind', () => {
+    const ua = {
+        iphone: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1',
+        ipad: 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15',
+        phone: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36',
+        tablet: 'Mozilla/5.0 (Linux; Android 14; SM-X900) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+        windows: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+        mac: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Safari/605.1.15',
+        chromebook: 'Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 Chrome/120 Safari/537.36',
+        linux: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/120 Safari/537.36'
+    };
+    assert.deepEqual(Object.values(ua).map(guestNameFromUserAgent),
+        ['iPhone', 'iPad', 'Android phone', 'Android tablet', 'Windows PC', 'Mac', 'Chromebook', 'Linux PC']);
+    assert.equal(guestNameFromUserAgent(''), 'Guest');
 });

@@ -7,11 +7,13 @@ import { createHostAdapter } from './jamHostAdapter.js';
 import { requireSupporter } from '../supporter.js';
 import { createClientAdapter } from './jamClientAdapter.js';
 import { createJamModal } from './jamModal.js';
+import { guestNameFromUserAgent } from './jamRoster.js';
 import { loadSetting, saveSetting, primeAudio, setScreenWakeLock } from './jamCommon.js';
 import { showToast } from '../utils/toast.js';
 
 const settings = {
-    name: loadSetting('name', 'MajesticTab'),
+    // A browser guest has no app name to show, so the host sees which kind of device it is
+    name: loadSetting('name', isJamWebGuest() ? guestNameFromUserAgent(navigator.userAgent) : 'MajesticTab'),
     pin: loadSetting('pin', ''),
     policy: loadSetting('policy', 'ask'),
     muteGuests: loadSetting('muteGuests', false),
