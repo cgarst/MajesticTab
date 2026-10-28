@@ -1356,7 +1356,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6">${extensions.length}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Custom Extensions</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">File Converters</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
@@ -1543,7 +1543,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div class="col-4">
                 <div class="p-2 rounded-2 backup-stat-card text-center">
                   <div class="text-white fw-bold" id="restoreExtCount">0</div>
-                  <div style="font-size:0.7rem;">Extensions</div>
+                  <div style="font-size:0.7rem;">Converters</div>
                 </div>
               </div>
             </div>
@@ -1563,7 +1563,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                     <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.62rem;">Recommended</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
-                    Keeps everything you have and adds any tabs, songs, collections, extensions, and preferences that are missing from the backup.
+                    Keeps everything you have and adds any tabs, songs, collections, file converters, and preferences that are missing from the backup.
                   </div>
                 </div>
               </label>
@@ -1577,7 +1577,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                     <span class="badge bg-danger bg-opacity-25 text-danger border border-danger-subtle py-0 px-2" style="font-size:0.62rem;">Destructive</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
-                    Erases all current local stored tabs, library entries, extensions, and settings, and replaces them cleanly with this backup.
+                    Erases all current local stored tabs, library entries, file converters, and settings, and replaces them cleanly with this backup.
                   </div>
                 </div>
               </label>
@@ -1806,7 +1806,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6" id="deleteStatExt">${extensions.length}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Custom Extensions</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">File Converters</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
@@ -1825,7 +1825,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div>
                 <div class="fw-bold text-white small mb-1">Permanent Data Deletion Warning</div>
                 <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
-                  This action permanently removes all locally stored tab files, library tracks, playlists, collections, custom extensions, and resets all application settings to factory defaults.
+                  This action permanently removes all locally stored tab files, library tracks, playlists, collections, file converters, and resets all application settings to factory defaults.
                 </div>
               </div>
             </div>
@@ -2315,7 +2315,7 @@ function attachModalHandlers(modal, options = {}) {
         backupExecuteBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> ${incremental ? 'Backing Up...' : 'Creating Backup...'}`;
         backupStatusAlert.style.display = 'block';
         backupStatusAlert.className = 'small mb-2 text-info';
-        backupStatusAlert.textContent = incremental ? 'Comparing with existing backups...' : 'Packaging settings, extensions, and stored tabs...';
+        backupStatusAlert.textContent = incremental ? 'Comparing with existing backups...' : 'Packaging settings, file converters, and stored tabs...';
         if (backupProgressContainer) {
             backupProgressContainer.style.display = 'block';
             if (backupProgressBar) backupProgressBar.style.width = '0%';
@@ -2999,7 +2999,7 @@ function attachModalHandlers(modal, options = {}) {
             if (results.soundFontsImported > 0) details.push(`${results.soundFontsImported} SoundFonts imported`);
             if (results.filesSkipped > 0) details.push(`${results.filesSkipped} existing tabs kept`);
             if (results.songsImported > 0) details.push(`${results.songsImported} library songs added/merged`);
-            if (results.extensionsImported > 0) details.push(`${results.extensionsImported} extensions updated`);
+            if (results.extensionsImported > 0) details.push(`${results.extensionsImported} file converters updated`);
             if (results.settingsApplied > 0) details.push('preferences restored');
 
             const summaryStr = details.length > 0 ? details.join(', ') : 'All data up to date';
@@ -3051,7 +3051,7 @@ function attachModalHandlers(modal, options = {}) {
         deleteExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Deleting All Data...';
         deleteStatusAlert.style.display = 'block';
         deleteStatusAlert.className = 'small mb-2 text-info';
-        deleteStatusAlert.textContent = 'Clearing stored tabs, library, extensions, and settings...';
+        deleteStatusAlert.textContent = 'Clearing stored tabs, library, file converters, and settings...';
 
         try {
             await deleteAllAppData();

@@ -148,22 +148,22 @@ The output will be saved to `dist/MajesticTab-ios.ipa`.
 
 ---
 
-## Extensions
+## File converters
 
-Extensions let you teach MajesticTab to open files it doesn't read on its own. An extension is a single `.js` file that converts a file you open (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`, `.pdf` or `.txt`) into contents MajesticTab can read. Add one from the menu: **Extensions**, then **Add .js File**.
+File converters let you teach MajesticTab to open files it doesn't read on its own. A converter is a single `.js` file that converts a file you open (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`, `.pdf` or `.txt`) into contents MajesticTab can read. Add one from the menu: **File Converters**, then **Add Converter**.
 
 ### Safety
 
-Extensions run in an isolated sandbox. They have no network access and can't read your library, settings, accounts or backups. They only see the file you are opening, and the only thing they can do is hand back a converted file. MajesticTab ships with none, and you should still only add files you trust or wrote yourself.
+Converters run in an isolated sandbox. They have no network access and can't read your library, settings, accounts or backups. They only see the file you are opening, and the only thing they can do is hand back a converted file. MajesticTab ships with none, and you should still only add files you trust or wrote yourself.
 
-### Writing an extension
+### Writing a converter
 
 Call `registerFileAdapter` with an `id`, a `matches(file)` function and a `transform(file)` function. Both can be `async`.
 
 - `file` is a standard `File` (use `file.name`, `file.arrayBuffer()`, `file.text()`).
-- `matches` returns `true` when the extension wants to handle the file.
+- `matches` returns `true` when the converter wants to handle the file.
 - `transform` returns a `File` or `Blob` with the converted contents, or `null` to leave the file as it is.
-- Several extensions can be loaded together and run in order, each receiving the previous result.
+- Several converters can be loaded together and run in order, each receiving the previous result.
 - [fflate](https://github.com/101arrowz/fflate) is available as `fflate` for zip and gzip work.
 
 ```js
@@ -186,7 +186,7 @@ registerFileAdapter({
 });
 ```
 
-### Ideas for extensions
+### Ideas for converters
 
 - Convert text tabs saved in other encodings, like the example above.
 - Tidy your own text tabs: strip stray HTML tags, normalize line endings, or replace tabs with spaces so the columns line up.
@@ -195,7 +195,7 @@ registerFileAdapter({
 
 ### Jam mode
 
-Extensions don't travel over Jam. If the host has an extension that converts a file, the host shares the converted file, so everyone in the session can open it without having the extension installed.
+Converters don't travel over Jam. If the host has a converter that converts a file, the host shares the converted file, so everyone in the session can open it without having the converter installed.
 
 ## Acknowledgments
 
