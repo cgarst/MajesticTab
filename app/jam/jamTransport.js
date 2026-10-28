@@ -76,7 +76,7 @@ function emitWeb(kind, payload) {
     else if (kind === 'connection') h?.onConnection?.(payload);
 }
 
-function webConnect(pin, name) {
+function webConnect(pin, name, resume) {
     webDisconnect();
     emitWeb('connection', { state: 'connecting', reason: '' });
     const scheme = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -95,7 +95,7 @@ function webConnect(pin, name) {
         socket.onopen = () => {
             clearTimeout(timer);
             opened = true;
-            socket.send(JSON.stringify({ v: 1, type: 'hello', name, pin: pin || '', protocol: 1, appVersion: 'web' }));
+            socket.send(JSON.stringify({ v: 1, type: 'hello', name, pin: pin || '', resume: resume || null, protocol: 1, appVersion: 'web' }));
             resolve();
         };
         socket.onerror = () => {
@@ -144,8 +144,9 @@ const webJam = {
     hostStop: async () => {},
     hostSend: async () => {},
     hostKick: async () => {},
+    hostSetLocked: async () => {},
     discover: async () => [],
-    clientConnect: (_addr, pin, name) => webConnect(pin, name),
+    clientConnect: (_addr, pin, name, resume) => webConnect(pin, name, resume),
     clientSend: async (msg) => webSend(msg),
     clientDisconnect: async () => webDisconnect()
 };
@@ -157,8 +158,9 @@ const nativeJam = {
     hostStop: () => invoke('jam_host_stop'),
     hostSend: (msg, to = null) => invoke('jam_host_send', { to, msg: JSON.stringify(msg) }),
     hostKick: (id) => invoke('jam_host_kick', { id }),
+    hostSetLocked: (locked) => invoke('jam_host_set_locked', { locked }),
     discover: (timeoutMs = 2500) => invoke('jam_discover', { timeoutMs }),
-    clientConnect: (addr, pin, name) => invoke('jam_client_connect', { addr, pin: pin || null, name }),
+    clientConnect: (addr, pin, name, resume) => invoke('jam_client_connect', { addr, pin: pin || null, name, resume: resume || null }),
     clientSend: (msg) => invoke('jam_client_send', { msg: JSON.stringify(msg) }),
     clientDisconnect: () => invoke('jam_client_disconnect')
 };

@@ -1,7 +1,7 @@
 // jamModal.js
 // Jam Mode UI: top-bar pill, themed modal (host / client panels) and the control-request card.
 
-import { CONTROL_POLICIES, JAM_SONG_EXTENSIONS } from './jamProtocol.js';
+import { CONTROL_POLICIES, JAM_SONG_EXTENSIONS, JAM_MAX_CLIENTS } from './jamProtocol.js';
 import { jamPlayerControl } from '../gpProcessor/gpPlayer.js';
 import { getInstrumentMode } from '../utils/tuningUtils.js';
 import { isJamWebGuest } from './jamTransport.js';
@@ -272,7 +272,11 @@ export function createJamModal(manager, { updateSetting }) {
         </div>
 `;
         const playersHtml = `
-        <div class="jam-label">Players (${roster.length}/8)</div>
+        <div class="mb-2">
+          ${switchHtml('jamLockSwitch', 'Lock the jam so nobody new can join', session?.locked)}
+          <div class="jam-help mt-1">Players who drop out can still come back.</div>
+        </div>
+        <div class="jam-label">Players (${roster.length}/${JAM_MAX_CLIENTS})${session?.locked ? ' <span class="jam-badge">Locked</span>' : ''}</div>
         <div class="jam-list mb-3">
           ${roster.length ? roster.map((p) => {
             const isController = session?.controllerId === p.id;
@@ -602,6 +606,7 @@ export function createJamModal(manager, { updateSetting }) {
     body.addEventListener('change', (e) => {
         const id = e.target.id;
         if (id === 'jamPolicySelect') { manager.getHost()?.setPolicy(e.target.value); updateSetting('policy', e.target.value); }
+        if (id === 'jamLockSwitch') manager.getHost()?.setLocked(e.target.checked);
         if (id === 'jamMuteGuestsSwitch') { manager.getHost()?.setMuteGuests(e.target.checked); updateSetting('muteGuests', e.target.checked); }
         if (id === 'jamWaitSwitch') updateSetting('waitForEveryone', e.target.checked);
         if (id === 'jamSmoothSwitch') updateSetting('smoothDrift', e.target.checked);

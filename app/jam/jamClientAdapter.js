@@ -562,7 +562,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
                 emitStatus();
                 break;
             case MSG.REJECT: {
-                const text = { pin: 'Wrong PIN.', version: 'The host runs an incompatible version of Jam mode.', full: 'The jam is full.' }[msg.reason] || 'The host rejected the connection.';
+                const text = { pin: 'Wrong PIN.', version: 'The host runs an incompatible version of Jam mode.', full: 'The jam is full.', locked: 'This jam is locked. The host is not letting more people in.' }[msg.reason] || 'The host rejected the connection.';
                 ui.toast?.(text, 'error');
                 break;
             }

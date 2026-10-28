@@ -6,7 +6,7 @@
 // YouTube positions are video seconds (`timeSec`).
 
 export const JAM_PROTOCOL_VERSION = 1;
-export const JAM_MAX_CLIENTS = 8;
+export const JAM_MAX_CLIENTS = 32; // keep in step with MAX_CLIENTS in jam.rs
 export const JAM_GP_EXTENSIONS = ['gp', 'gp3', 'gp4', 'gp5', 'gpx'];
 export const JAM_SONG_EXTENSIONS = [...JAM_GP_EXTENSIONS, 'pdf', 'txt'];
 export const JAM_MAX_UPLOAD_BYTES = 30 * 1024 * 1024;

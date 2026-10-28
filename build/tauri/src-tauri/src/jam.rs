@@ -2,13 +2,14 @@
 //! playback between MajesticTab instances.
 //!
 //! Rust only handles transport concerns (sockets, handshake, PIN check, roster
-//! limit, clock-sync pings and mDNS discovery). All musical state and message
+//! limit, session lock, clock-sync pings and mDNS discovery). All musical state and message
 //! semantics live in the JS side (`app/jam/`). Messages are opaque JSON strings.
 
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;
 use serde_json::{json, Value};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter, Manager, State};
@@ -26,7 +27,8 @@ mod discovery;
 #[path = "jam_mdns.rs"]
 mod discovery;
 
-const MAX_CLIENTS: usize = 8;
+// A classroom is about 30 people; a connection is one task and a few small messages a second.
+const MAX_CLIENTS: usize = 32;
 const PROTOCOL_VERSION: u64 = 1;
 const SERVICE_TYPE: &str = "_majestictab-jam._tcp.local.";
 const DEFAULT_PORT: u16 = 47813;
@@ -43,9 +45,17 @@ struct Peer {
 
 type PeerMap = Arc<Mutex<HashMap<String, Peer>>>;
 
+/// While locked, only someone presenting an id this host issued (a dropped player coming back) gets in.
+#[derive(Clone, Default)]
+struct JoinGate {
+    locked: Arc<AtomicBool>,
+    issued: Arc<Mutex<HashSet<String>>>,
+}
+
 struct HostHandle {
     shutdown: watch::Sender<bool>,
     peers: PeerMap,
+    gate: JoinGate,
     // Dropping it unregisters the service.
     _advertisement: Option<discovery::Advertisement>,
 }
@@ -199,6 +209,7 @@ pub async fn jam_host_start(
 
     let (shutdown_tx, shutdown_rx) = watch::channel(false);
     let peers: PeerMap = Arc::new(Mutex::new(HashMap::new()));
+    let gate = JoinGate::default();
 
     // LAN discovery advertisement (best effort)
     let instance: String = name.chars().filter(|c| *c != '.').collect();
@@ -213,6 +224,7 @@ pub async fn jam_host_start(
     let pin = pin.unwrap_or_default();
     let host_name = name.clone();
     let peers_for_loop = peers.clone();
+    let gate_for_loop = gate.clone();
     let app_for_loop = app.clone();
     let mut accept_shutdown = shutdown_rx.clone();
 
@@ -225,11 +237,12 @@ pub async fn jam_host_start(
                     let _ = stream.set_nodelay(true);
                     let app = app_for_loop.clone();
                     let peers = peers_for_loop.clone();
+                    let gate = gate_for_loop.clone();
                     let pin = pin.clone();
                     let host_name = host_name.clone();
                     let shutdown = shutdown_rx.clone();
                     tauri::async_runtime::spawn(async move {
-                        handle_peer(app, stream, peers, pin, host_name, epoch, shutdown).await;
+                        handle_peer(app, stream, peers, gate, pin, host_name, epoch, shutdown).await;
                     });
                 }
             }
@@ -240,6 +253,7 @@ pub async fn jam_host_start(
     *guard = Some(HostHandle {
         shutdown: shutdown_tx,
         peers,
+        gate,
         _advertisement: advertisement,
     });
 
@@ -347,6 +361,7 @@ async fn handle_peer(
     app: AppHandle,
     stream: TcpStream,
     peers: PeerMap,
+    gate: JoinGate,
     pin: String,
     host_name: String,
     epoch: Instant,
@@ -389,6 +404,18 @@ async fn handle_peer(
         return;
     }
 
+    if gate.locked.load(Ordering::SeqCst) {
+        let returning = hello
+            .get("resume")
+            .and_then(Value::as_str)
+            .map(|id| gate.issued.lock().map(|set| set.contains(id)).unwrap_or(false))
+            .unwrap_or(false);
+        if !returning {
+            let _ = sink.send(Message::Text(reject("locked").into())).await;
+            return;
+        }
+    }
+
     let name = hello
         .get("name")
         .and_then(Value::as_str)
@@ -397,6 +424,9 @@ async fn handle_peer(
         .take(40)
         .collect::<String>();
     let id = random_id();
+    if let Ok(mut set) = gate.issued.lock() {
+        set.insert(id.clone());
+    }
     let (tx, mut rx) = mpsc::unbounded_channel::<Outgoing>();
 
     let accepted = match peers.lock() {
@@ -533,9 +563,23 @@ pub fn jam_host_send(
 pub fn jam_host_kick(state: State<'_, JamState>, id: String) -> Result<(), String> {
     let guard = state.host.lock().map_err(|e| e.to_string())?;
     if let Some(host) = guard.as_ref() {
+        // A kicked player must not walk back in through a lock with their old id.
+        if let Ok(mut set) = host.gate.issued.lock() {
+            set.remove(&id);
+        }
         if let Some(p) = host.peers.lock().map_err(|e| e.to_string())?.get(&id) {
             let _ = p.tx.send(Outgoing::Close);
         }
+    }
+    Ok(())
+}
+
+/// Lock or unlock the session. Locked, new people are turned away; returning players still get in.
+#[tauri::command]
+pub fn jam_host_set_locked(state: State<'_, JamState>, locked: bool) -> Result<(), String> {
+    let guard = state.host.lock().map_err(|e| e.to_string())?;
+    if let Some(host) = guard.as_ref() {
+        host.gate.locked.store(locked, Ordering::SeqCst);
     }
     Ok(())
 }
@@ -568,6 +612,7 @@ pub async fn jam_client_connect(
     addr: String,
     pin: Option<String>,
     name: String,
+    resume: Option<String>,
 ) -> Result<(), String> {
     jam_client_disconnect(state.clone())?;
 
@@ -595,6 +640,7 @@ pub async fn jam_client_connect(
         "type": "hello",
         "name": name,
         "pin": pin.unwrap_or_default(),
+        "resume": resume,
         "protocol": PROTOCOL_VERSION,
         "appVersion": env!("CARGO_PKG_VERSION"),
     })

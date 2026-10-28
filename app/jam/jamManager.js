@@ -8,7 +8,7 @@ import { requireSupporter } from '../supporter.js';
 import { createClientAdapter } from './jamClientAdapter.js';
 import { createJamModal } from './jamModal.js';
 import { guestNameFromUserAgent } from './jamRoster.js';
-import { loadSetting, saveSetting, primeAudio, setScreenWakeLock } from './jamCommon.js';
+import { loadSetting, saveSetting, primeAudio, setScreenWakeLock, createCoalescer } from './jamCommon.js';
 import { showToast } from '../utils/toast.js';
 
 const settings = {
@@ -52,7 +52,8 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
 
     const toast = (message, type = 'info', duration = 3500, id = null) => showToast(message, type, duration, id);
 
-    const refresh = () => modal?.render();
+    // Status ticks arrive from every player; redraw at most a few times a second
+    const refresh = createCoalescer(() => modal?.render(), 250);
 
     function startHostAdapter() {
         hostAdapter = createHostAdapter({
@@ -182,7 +183,7 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
         reconnect.timer = setTimeout(async () => {
             if (!reconnect.enabled || role !== 'client') return;
             try {
-                await jam.clientConnect(reconnect.addr, reconnect.pin, settings.name);
+                await jam.clientConnect(reconnect.addr, reconnect.pin, settings.name, reconnect.resume);
             } catch (_) {
                 scheduleReconnect();
             }
@@ -194,7 +195,10 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
         onMessage: (from, msg) => {
             if (role === 'host') hostAdapter?.handleMessage(from, msg);
             else if (role === 'client') {
-                if (msg.type === 'welcome') reconnect.attempt = 0;
+                if (msg.type === 'welcome') {
+                    reconnect.attempt = 0;
+                    reconnect.resume = msg.clientId || null; // lets us back in if the host locks the jam
+                }
                 clientAdapter?.handleMessage(from, msg);
             }
         },
