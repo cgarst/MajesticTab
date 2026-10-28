@@ -431,6 +431,7 @@ if (target === 'android') {
     fail('ANDROID_KEYSTORE_FILE requires ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS.');
   }
   // Google Play only accepts an AAB, so the play channel also bundles one beside the APK.
+  // It adds x86_64 (emulators, ChromeOS, x86 tablets); the APK from the same build carries it too.
   const buildAab = channel === 'play';
   if (buildAab && !signRelease) {
     fail('The play channel requires ANDROID_KEYSTORE_FILE, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS to sign the AAB.');
@@ -438,7 +439,7 @@ if (target === 'android') {
   const outputsDir = path.join(androidProject, 'app', 'build', 'outputs');
   await rm(path.join(outputsDir, 'apk'), { recursive: true, force: true });
   await rm(path.join(outputsDir, 'bundle'), { recursive: true, force: true });
-  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(buildAab ? ['--aab'] : []), ...(signRelease ? [] : ['--debug']), '--target', 'aarch64']);
+  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(buildAab ? ['--aab'] : []), ...(signRelease ? [] : ['--debug']), '--target', 'aarch64', ...(buildAab ? ['x86_64'] : [])]);
   const apk = await findAndroidArtifact(path.join(outputsDir, 'apk'), '.apk');
   if (!apk) fail('Tauri completed without producing an Android APK.');
   if (signRelease) {
