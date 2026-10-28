@@ -615,6 +615,14 @@ pub fn ios_place_downloader(app: &AppHandle, top_offset: Option<f64>, visible: b
     });
 }
 
+/// Unload the site once the downloader is hidden so its scripts, timers and media stop using resources
+/// while a tab plays. The webview itself is kept so the next open stays fast.
+fn blank_downloader_page(navigate: impl FnOnce(tauri::Url) -> tauri::Result<()>) {
+    if let Ok(blank) = tauri::Url::parse("about:blank") {
+        let _ = navigate(blank);
+    }
+}
+
 pub fn hide_downloader(app_handle: &AppHandle) {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
@@ -622,11 +630,13 @@ pub fn hide_downloader(app_handle: &AppHandle) {
         let _ = w.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
         let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
         let _ = w.hide();
+        blank_downloader_page(|url| w.navigate(url));
         return;
     }
     if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
         let _ = w.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
         let _ = w.hide();
+        blank_downloader_page(|url| w.navigate(url));
     }
     #[cfg(target_os = "ios")]
     ios_place_downloader(app_handle, None, false);

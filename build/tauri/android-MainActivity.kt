@@ -108,6 +108,8 @@ class MainActivity : TauriActivity() {
   fun hideDownloader() {
     runOnUiThread {
       downloaderWebView?.visibility = View.GONE
+      // Unload the site so it stops using resources while a tab plays
+      downloaderWebView?.loadUrl("about:blank")
       mainWebView?.visibility = View.VISIBLE
       mainWebView?.requestFocus()
     }
