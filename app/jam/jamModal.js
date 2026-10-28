@@ -205,22 +205,27 @@ export function createJamModal(manager, { updateSetting }) {
         return `
         <div class="jam-label">Track assignments</div>
         <div class="jam-help mb-2">Give each person tracks, or mark them Listening. People who are neither are Not set and get everything.${unsetCount ? ` ${unsetCount} ${unsetCount === 1 ? 'person is' : 'people are'} Not set.` : ''}</div>
-        <div class="jam-list mb-3">
-          ${people.map((person) => {
-              const state = trackStateFor(session, person.key);
-              const badge = state === 'listening' ? '<span class="badge text-bg-secondary ms-2">Listening</span>'
-                  : state === 'unset' ? '<span class="badge text-bg-warning ms-2">Not set</span>' : '';
-              return `
-            <div class="jam-list-row flex-wrap">
-              <div class="fw-semibold w-100">${esc(person.name)}${badge}</div>
-              <div class="d-flex flex-wrap gap-2 w-100 mt-1">
-                ${tracks.map((t) => `<button type="button" class="btn btn-sm ${(assigned[person.key] || []).includes(t.index) ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-assign="${esc(person.key)}" data-jam-track="${t.index}">${esc(t.name)}</button>`).join('')}
-                ${person.key === 'host' ? '' : `<button type="button" class="btn btn-sm btn-theme-outline ms-auto" data-jam-identify="${esc(person.key)}" title="Flash and beep on this device">Identify</button>`}
-                <button type="button" class="btn btn-sm ${state === 'listening' ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-listening="${esc(person.key)}" aria-pressed="${state === 'listening'}">Listening</button>
+        <div class="jam-matrix-wrap mb-3">
+          <div class="jam-matrix" style="--jam-cols:${tracks.length + 1}">
+            <span></span>
+            ${tracks.map((t) => `<span class="jam-matrix-col" title="${esc(t.name)}"><span>${esc(t.name)}</span></span>`).join('')}
+            <span class="jam-matrix-col" title="Listening: no tracks, on purpose"><span>Listening</span></span>
+            ${people.map((person) => {
+                const state = trackStateFor(session, person.key);
+                const mine = assigned[person.key] || [];
+                return `
+              <div class="jam-matrix-name">
+                <span class="jam-matrix-person">${esc(person.name)}</span>
+                <span class="jam-matrix-meta">
+                  ${state === 'unset' ? '<span class="badge text-bg-warning jam-matrix-badge">Not set</span>' : ''}
+                  ${person.key === 'host' ? '' : `<button type="button" class="btn btn-sm btn-theme-icon p-0 px-1" data-jam-identify="${esc(person.key)}" title="Flash and beep on this device" aria-label="Identify ${esc(person.name)}"><i class="bi-broadcast"></i></button>`}
+                </span>
               </div>
-              <div class="jam-help w-100 mt-1">${esc(resultText(session, person.key, trackNames))}</div>
-            </div>`;
-          }).join('')}
+              ${tracks.map((t) => `<button type="button" class="btn btn-sm p-0 jam-matrix-cell ${mine.includes(t.index) ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-assign="${esc(person.key)}" data-jam-track="${t.index}" aria-pressed="${mine.includes(t.index)}" aria-label="${esc(person.name)}: ${esc(t.name)}">${mine.includes(t.index) ? '<i class="bi-check-lg"></i>' : ''}</button>`).join('')}
+              <button type="button" class="btn btn-sm p-0 jam-matrix-cell ${state === 'listening' ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-listening="${esc(person.key)}" aria-pressed="${state === 'listening'}" aria-label="${esc(person.name)}: Listening">${state === 'listening' ? '<i class="bi-headphones"></i>' : ''}</button>
+              <div class="jam-matrix-sum jam-help">${esc(resultText(session, person.key, trackNames))}</div>`;
+            }).join('')}
+          </div>
         </div>
         <div class="d-flex flex-column gap-2 mb-2">
           <div class="jam-label">Rules for people with tracks</div>
