@@ -407,6 +407,8 @@ function setupLibraryTouchListeners(page) {
  * Open the Tab Library Page
  */
 export async function openLibraryModal(initialView = 'library') {
+    // Web Jam guests only follow the host's tab
+    if (document.documentElement.classList.contains('jam-web-guest')) return;
     // Going back to the library stops whatever song is playing
     pauseSynthPlayer();
     pauseYouTube();

@@ -1254,7 +1254,7 @@ async function initApp() {
         const hash = window.location.hash || '';
         const isAuthRedirect = hash.includes('access_token=') || hash.includes('state=restore_backup') || hash.includes('state=backup_create') || hash.includes('state=open_');
         const route = getRouteFromUrl();
-        if (!isAuthRedirect && !route) {
+        if (!isAuthRedirect && !route && !document.documentElement.classList.contains('jam-web-guest')) {
             console.log('[Normal Mode] Opening Tab Library as default home page');
             openLibraryModal('library');
         }
