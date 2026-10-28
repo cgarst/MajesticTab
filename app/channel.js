@@ -20,8 +20,10 @@ let supporterOwned = false;
 try {
     const response = await fetch('./channel.json', { cache: 'no-store' });
     if (response.ok) config = { ...DEFAULTS, ...(await response.json()) };
+    else if (window.__TAURI__) config.selfUpdate = false;
 } catch {
-    // No channel.json: keep defaults.
+    // No channel.json: keep defaults, except that a native build never assumes it may self-update.
+    if (window.__TAURI__) config.selfUpdate = false;
 }
 
 export function getChannel() {
