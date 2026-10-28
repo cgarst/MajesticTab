@@ -558,6 +558,10 @@ function populateSettingsForm(sourceId) {
         // Desktop builds always present a desktop user agent; the option only applies on mobile.
         document.getElementById('downloaderCfgForceDesktopRow')?.classList.toggle('d-none', isDesktopNative());
     }
+    // Built-in sources keep their name and URL template fixed.
+    if (nameInp) nameInp.disabled = Boolean(src.isSeed);
+    if (urlInp) urlInp.disabled = Boolean(src.isSeed);
+    document.getElementById('downloaderCfgResetUrlBtn')?.classList.toggle('d-none', Boolean(src.isSeed));
     if (deleteBtn) {
         deleteBtn.disabled = Boolean(src.isSeed);
         deleteBtn.style.opacity = src.isSeed ? '0.5' : '1';
@@ -576,8 +580,8 @@ function saveCurrentFormValues() {
     const scriptTxt = document.getElementById('downloaderCfgUserscriptCode');
     const desktopChk = document.getElementById('downloaderCfgForceDesktop');
 
-    if (nameInp) src.name = nameInp.value.trim() || src.name;
-    if (urlInp) {
+    if (nameInp && !src.isSeed) src.name = nameInp.value.trim() || src.name;
+    if (urlInp && !src.isSeed) {
         let uVal = urlInp.value.trim() || src.urlTemplate;
         if (uVal && !/^https?:\/\//i.test(uVal)) {
             uVal = 'https://' + uVal;
