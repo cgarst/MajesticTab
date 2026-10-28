@@ -301,7 +301,7 @@ export function renderThemeModalGrid(activeThemeId = getCurrentTheme()) {
     `).join('');
 
     return `
-      <div class="theme-card ${isActive ? 'active' : ''}" data-theme-id="${t.id}">
+      <div class="theme-card ${isActive ? 'active' : ''}" data-theme-id="${t.id}" role="button" tabindex="0">
         <div class="theme-card-top">
           <div class="theme-card-identity">
             <span class="theme-card-swatch" style="background: ${t.gradient};"></span>

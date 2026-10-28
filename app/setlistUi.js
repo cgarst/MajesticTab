@@ -12,6 +12,7 @@ import { openThemedInputModal, libraryViewSwitchHtml, libraryHeaderHtml, library
 import { getCurrentFile } from './main.js';
 import { requireSupporter } from './supporter.js';
 import { showToast } from './utils/toast.js';
+import { gamepadManager } from './utils/gamepadManager.js';
 
 let isEditMode = false;
 let selectedSetlistId = null;
@@ -153,6 +154,8 @@ async function renderSetlistList(container, onBack) {
             }
         });
     });
+
+    gamepadManager.onLibraryViewRendered();
 }
 
 async function renderSetlistDetail(container, onBack) {
@@ -207,7 +210,7 @@ async function renderSetlistDetail(container, onBack) {
               const tab = song?.tabOptions?.find(t => t.id === item.tabId);
               const cover = song?.coverUrl || getPlaceholderCoverSvg(song?.title || 'Missing');
               return `
-              <div class="library-row-card d-flex align-items-center justify-content-between gap-3 ${isEditMode ? '' : 'library-row-clickable'}" data-item-id="${escapeHtml(item.id)}" data-index="${idx}">
+              <div class="library-row-card d-flex align-items-center justify-content-between gap-3 ${isEditMode ? '' : 'library-row-clickable'}" data-item-id="${escapeHtml(item.id)}" data-index="${idx}" role="button" tabindex="0">
                 <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
                   <span class="badge-track-num flex-shrink-0">${idx + 1}</span>
                   <img src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 44px; height: 44px;" alt="" draggable="false">
@@ -289,7 +292,7 @@ async function renderSetlistDetail(container, onBack) {
             resultsEl.innerHTML = picks.length === 0
                 ? `<div class="small text-muted py-2">${allSongs.length === 0 ? 'No songs with tabs in your library yet.' : (q ? 'No matching songs.' : 'Nothing opened recently. Type to search your library.')}</div>`
                 : (q ? '' : '<div class="small text-white-50"><i class="bi-clock-history me-1"></i>Recently opened</div>') + picks.map(({ song, tabId }) => `
-                  <div class="library-row-card d-flex align-items-center justify-content-between gap-3">
+                  <div class="library-row-card d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0" data-row-action=".setlist-search-add-btn" style="cursor:pointer;">
                     <div class="min-w-0">
                       <div class="fw-semibold text-white text-truncate">${escapeHtml(song.title)}</div>
                       <div class="small text-muted text-truncate">${escapeHtml(song.artist || '')}${song.album ? ` • ${escapeHtml(song.album)}` : ''}</div>
@@ -300,7 +303,7 @@ async function renderSetlistDetail(container, onBack) {
         renderResults();
         searchInput.addEventListener('input', renderResults);
         resultsEl.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.setlist-search-add-btn');
+            const btn = e.target.closest('.setlist-search-add-btn') || e.target.closest('.library-row-card[data-row-action]')?.querySelector('.setlist-search-add-btn');
             if (!btn) return;
             const song = allSongs.find(x => x.id === btn.dataset.songId);
             const tab = song.tabOptions.find(t => t.id === btn.dataset.tabId)
@@ -314,6 +317,7 @@ async function renderSetlistDetail(container, onBack) {
     }
 
     hydrateCachedImages(container);
+    gamepadManager.onLibraryViewRendered();
 }
 
 function promptNewSetlist(onCreated) {

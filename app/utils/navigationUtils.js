@@ -222,7 +222,30 @@ export function setupKeyboardNavigation(getConfig) {
             activeEl.tagName === 'SELECT' ||
             activeEl.isContentEditable
         );
-        if (isTextInput) return;
+
+        const isSpatialMode = gamepadManager.isSpatialNavActive();
+
+        if (isTextInput) {
+            if (isSpatialMode && activeEl.tagName !== 'SELECT' && activeEl.tagName !== 'TEXTAREA') {
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    gamepadManager.navigateSpatial(e.key === 'ArrowDown' ? 'down' : 'up');
+                    return;
+                }
+                if (e.key === 'Escape') {
+                    e.preventDefault();
+                    activeEl.blur();
+                    gamepadManager.clearNavFocus();
+                    return;
+                }
+                if (e.key === 'Enter' && !activeEl.closest('form')) {
+                    e.preventDefault();
+                    gamepadManager.navigateSpatial('down');
+                    return;
+                }
+            }
+            return;
+        }
 
         // Back / Forward keyboard shortcuts (especially macOS mouse 4 / 5 translation: Cmd+[ and Cmd+], Alt+Left/Right, Cmd+Left/Right)
         const isMacBack = (e.metaKey && (e.key === '[' || e.code === 'BracketLeft')) || (e.altKey && e.key === 'ArrowLeft') || (e.metaKey && e.key === 'ArrowLeft');
@@ -245,6 +268,40 @@ export function setupKeyboardNavigation(getConfig) {
             e.preventDefault();
             gamepadManager.toggleTopBar();
             return;
+        }
+
+        // Spatial keyboard navigation when in Library or a Modal/Drawer/Dropdown
+        if (isSpatialMode && !e.ctrlKey && !e.metaKey && !e.altKey) {
+            const arrowMap = {
+                ArrowUp: 'up',
+                ArrowDown: 'down',
+                ArrowLeft: 'left',
+                ArrowRight: 'right'
+            };
+            const dir = arrowMap[e.key];
+            if (dir) {
+                if (activeEl && activeEl.tagName === 'INPUT' && activeEl.type === 'range' && (dir === 'left' || dir === 'right')) {
+                    return;
+                }
+                e.preventDefault();
+                gamepadManager.navigateSpatial(dir);
+                return;
+            }
+            if (e.key === 'Enter' || isSpace) {
+                if (!e.defaultPrevented) {
+                    e.preventDefault();
+                    gamepadManager.handleButtonA(gamepadManager.isLibraryViewOpen(), gamepadManager.isAnyModalOpen());
+                }
+                return;
+            }
+            if (e.key === 'Escape' || e.key === 'Backspace') {
+                if (!e.defaultPrevented) {
+                    if (performAppBack(getConfig)) {
+                        e.preventDefault();
+                    }
+                }
+                return;
+            }
         }
 
         if (!config.currentFile) return;
@@ -343,6 +400,24 @@ export function setupKeyboardNavigation(getConfig) {
  * @returns {boolean} Whether a back action was performed
  */
 export function performAppBack(getConfig = null) {
+    // 0. If any Bootstrap dropdown or Tools menu is open, dismiss it first
+    const openDropdownMenu = document.querySelector('.dropdown-menu.show');
+    if (openDropdownMenu) {
+        const toggle = openDropdownMenu.parentElement?.querySelector('[data-bs-toggle="dropdown"]');
+        if (toggle && window.bootstrap?.Dropdown) {
+            const inst = window.bootstrap.Dropdown.getInstance(toggle);
+            if (inst) { inst.hide(); return true; }
+        }
+        if (toggle) { toggle.click(); return true; }
+        openDropdownMenu.classList.remove('show');
+        return true;
+    }
+    const toolsMenu = document.getElementById('toolsMenu');
+    if (toolsMenu && (toolsMenu.style.display === 'block' || toolsMenu.style.display === 'flex' || toolsMenu.classList.contains('show'))) {
+        document.getElementById('toolsMenuBtn')?.click();
+        return true;
+    }
+
     // 1. If any synth/score/youtube dropdown panels are open, dismiss them
     const openSynth = document.getElementById('synthDropdownPanel');
     if (openSynth && openSynth.style.display !== 'none') {
