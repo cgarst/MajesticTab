@@ -5,6 +5,7 @@ import { CONTROL_POLICIES, JAM_SONG_EXTENSIONS } from './jamProtocol.js';
 import { jamPlayerControl } from '../gpProcessor/gpPlayer.js';
 import { getInstrumentMode } from '../utils/tuningUtils.js';
 import { isJamWebGuest } from './jamTransport.js';
+import { trackPolicyFor, trackStateFor, normAudioMode, normListening } from './jamTrackPolicy.js';
 import { hasSupporter } from '../channel.js';
 import { LOCK_ICON_HTML } from '../supporter.js';
 
@@ -163,37 +164,67 @@ export function createJamModal(manager, { updateSetting }) {
         `}`;
     }
 
+    function pillGroup(label, key, current, options) {
+        return `<div class="jam-label mb-0">${label}</div>
+          <div class="hud-pill-group jam-tab-group" role="group" aria-label="${label}">
+            ${options.map(([value, text]) => `<button type="button" class="btn btn-sm ${current === value ? 'active' : ''}" data-jam-rule="${key}" data-jam-value="${value}">${text}</button>`).join('')}
+          </div>`;
+    }
+
+    // What one person will see and hear, in words, from the same policy their device applies.
+    function resultText(session, key, trackNames) {
+        const names = (list) => list.map((i) => trackNames.get(i) || `Track ${i + 1}`).join(', ');
+        const policy = trackPolicyFor(session, key);
+        const hears = policy.audio ? `${names(policy.audio)} only`
+            : policy.mute ? (trackStateFor(session, key) === 'assigned' ? `everything but ${names(policy.mute)}` : 'only the backing')
+            : 'everything';
+        const sees = policy.view ? `${names(policy.view)} only` : policy.viewHide ? 'only the backing' : 'all tracks';
+        return `Sees ${sees} · hears ${hears}`;
+    }
+
     function assignmentHtml(roster, session, settings) {
         const all = session?.song && (session.song.type || 'gp') === 'gp' ? jamPlayerControl.listTracks() : [];
         if (!all.length) return '';
         const targets = all.filter((t) => t.isTarget);
         const tracks = targets.length ? targets : all;
+        const trackNames = new Map(all.map((t) => [t.index, t.name]));
         const instrument = targets.length && getInstrumentMode() === 'bass' ? 'bass' : 'guitar';
-        const mode = settings.assignedAudioMode || 'all';
-        const audioModes = [['all', 'Everything'], ['assigned', 'Assigned only'], ['backing', 'Backing only']];
         const people = [{ key: 'host', name: 'You (host)' }, ...roster.map((p) => ({ key: p.id, name: p.name }))];
         const assigned = session.trackAssignments || {};
+        const anyTaken = Object.values(assigned).some((list) => list.length);
+        const unsetCount = roster.filter((p) => trackStateFor(session, p.id) === 'unset').length;
         return `
         <div class="jam-label">Track assignments</div>
-        <div class="d-flex flex-column gap-2 mb-2">
-          <div class="jam-label mb-0">Audio for people with assignments</div>
-          <div class="hud-pill-group jam-tab-group" role="group" aria-label="Audio for people with assignments">
-            ${audioModes.map(([value, label]) => `<button type="button" class="btn btn-sm ${mode === value ? 'active' : ''}" data-jam-audio-mode="${value}">${label}</button>`).join('')}
-          </div>
-          <div class="jam-help">Assigned only plays just their tracks. Backing only silences their tracks and plays everything else.</div>
-          ${switchHtml('jamMuteAssignedSwitch', 'People with no tracks don\'t hear tracks assigned to others', settings.muteAssignedForUnassigned)}
-          ${switchHtml('jamAssignedViewSwitch', 'Only show each person\'s assigned tracks', settings.assignedViewOnly)}
-        </div>
+        <div class="jam-help mb-2">Give each person tracks, or mark them Listening. People who are neither are Not set and get everything.${unsetCount ? ` ${unsetCount} ${unsetCount === 1 ? 'person is' : 'people are'} Not set.` : ''}</div>
         <div class="jam-list mb-3">
-          ${people.map((person) => `
+          ${people.map((person) => {
+              const state = trackStateFor(session, person.key);
+              const badge = state === 'listening' ? '<span class="badge text-bg-secondary ms-2">Listening</span>'
+                  : state === 'unset' ? '<span class="badge text-bg-warning ms-2">Not set</span>' : '';
+              return `
             <div class="jam-list-row flex-wrap">
-              <div class="fw-semibold w-100">${esc(person.name)}</div>
+              <div class="fw-semibold w-100">${esc(person.name)}${badge}</div>
               <div class="d-flex flex-wrap gap-2 w-100 mt-1">
                 ${tracks.map((t) => `<button type="button" class="btn btn-sm ${(assigned[person.key] || []).includes(t.index) ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-assign="${esc(person.key)}" data-jam-track="${t.index}">${esc(t.name)}</button>`).join('')}
+                <button type="button" class="btn btn-sm ${state === 'listening' ? 'btn-theme-primary' : 'btn-theme-outline'}" data-jam-listening="${esc(person.key)}" aria-pressed="${state === 'listening'}">Listening</button>
               </div>
-            </div>`).join('')}
+              <div class="jam-help w-100 mt-1">${esc(resultText(session, person.key, trackNames))}</div>
+            </div>`;
+          }).join('')}
         </div>
-        <div class="jam-help mb-3">People with no assigned track hear and see everything, unless assigned tracks are muted for them. Only ${instrument} tracks can be assigned; other tracks play for everyone unless a person is set to Assigned only. Assignments reset when the song changes.</div>`;
+        <div class="d-flex flex-column gap-2 mb-2">
+          <div class="jam-label">Rules for people with tracks</div>
+          ${pillGroup('Hears', 'assignedAudioMode', normAudioMode(settings.assignedAudioMode), [['all', 'Everything'], ['assigned', 'Own tracks only'], ['backing', 'Everything but own']])}
+          ${pillGroup('Sees', 'assignedViewOnly', settings.assignedViewOnly ? 'own' : 'all', [['all', 'All tracks'], ['own', 'Own tracks only']])}
+          <div class="jam-label mt-2">Rules for people who are Listening</div>
+          ${pillGroup('Hears', 'listeningHears', normListening(settings.listeningHears), [['all', 'Everything'], ['backing', 'Only the backing']])}
+          ${pillGroup('Sees', 'listeningSees', normListening(settings.listeningSees), [['all', 'All tracks'], ['backing', 'Only the backing']])}
+          <div class="jam-label mt-2">New people start as</div>
+          <div class="hud-pill-group jam-tab-group" role="group" aria-label="New people start as">
+            ${[['unset', 'Not set'], ['listening', 'Listening']].map(([value, text]) => `<button type="button" class="btn btn-sm ${(settings.newJoinerDefault || 'unset') === value ? 'active' : ''}" data-jam-rule="newJoinerDefault" data-jam-value="${value}">${text}</button>`).join('')}
+          </div>
+        </div>
+        <div class="jam-help mb-3">The backing is every track nobody has.${anyTaken ? '' : ' Listening rules do nothing until a track is assigned.'} Only ${instrument} tracks can be assigned. Assignments reset when the song changes; Listening stays.</div>`;
     }
 
     let qrUrl = null;
@@ -447,10 +478,19 @@ export function createJamModal(manager, { updateSetting }) {
         if (t.id === 'jamLeaveBtn') { await manager.leave(); body.dataset.role = ''; render(); return; }
         const host = manager.getHost();
         const client = manager.getClient();
-        if (t.dataset.jamAudioMode) {
-            const value = t.dataset.jamAudioMode;
-            host?.updateTracks({ assignedAudioMode: value });
-            updateSetting('assignedAudioMode', value);
+        if (t.dataset.jamRule) {
+            const key = t.dataset.jamRule;
+            const raw = t.dataset.jamValue;
+            const value = key === 'assignedViewOnly' ? raw === 'own' : raw;
+            host?.updateTracks({ [key]: value });
+            updateSetting(key, value);
+            body.dataset.role = '';
+            render();
+            return;
+        }
+        if (t.dataset.jamListening) {
+            const key = t.dataset.jamListening;
+            host?.setListening(key, !host.getSession().listeners?.includes(key));
             body.dataset.role = '';
             render();
             return;
@@ -519,8 +559,6 @@ export function createJamModal(manager, { updateSetting }) {
         const id = e.target.id;
         if (id === 'jamPolicySelect') { manager.getHost()?.setPolicy(e.target.value); updateSetting('policy', e.target.value); }
         if (id === 'jamMuteGuestsSwitch') { manager.getHost()?.setMuteGuests(e.target.checked); updateSetting('muteGuests', e.target.checked); }
-        if (id === 'jamMuteAssignedSwitch') { manager.getHost()?.updateTracks({ muteAssignedForUnassigned: e.target.checked }); updateSetting('muteAssignedForUnassigned', e.target.checked); }
-        if (id === 'jamAssignedViewSwitch') { manager.getHost()?.updateTracks({ assignedViewOnly: e.target.checked }); updateSetting('assignedViewOnly', e.target.checked); }
         if (id === 'jamWaitSwitch') updateSetting('waitForEveryone', e.target.checked);
         if (id === 'jamSmoothSwitch') updateSetting('smoothDrift', e.target.checked);
         if (id === 'jamAlwaysSaveSwitch') updateSetting('alwaysSaveSongs', e.target.checked);
