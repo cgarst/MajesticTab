@@ -42,14 +42,14 @@ FRONTEND_DIR = TAURI_DIR / "frontend-dist"
 # Capture viewport is CSS px; final is the store's required pixel size.
 STORES = {
     "play": {
-        "viewport": {"width": 360, "height": 740},
+        "viewport": {"width": 360, "height": 640},
         "scale": 3,
         "user_agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
         "final": (1080, 1920),  # Play phone: 9:16, each side 320-3840 px, max 2:1
     },
     "appstore-ios": {
-        # iPhone 6.9" (16 Pro Max) logical size; App Store accepts 1320x2868.
-        "viewport": {"width": 440, "height": 956},
+        # iPhone 6.9" (16 Pro Max) logical width; height matched to visible frame so bottom docks aren't cropped.
+        "viewport": {"width": 440, "height": 840},
         "scale": 3,
         "user_agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
         "final": (1320, 2868),
@@ -73,16 +73,20 @@ STORES = {
 # Marketing copy: sentence-case headline (max ~4 words), one short subtitle. `supporter` unlocks the
 # paid Supporter features for that shot only; `requires` skips the shot when the channel lacks a capability.
 SHOTS = [
-    dict(id="gp_scroll", headline="Scroll through your tabs", subtitle="Smooth, continuous reading on any screen",
+    dict(id="gp_scroll", headline="Scroll through your tabs",
+         subtitle="All guitar parts stacked together, with no other clutter",
          setup="gp_scroll"),
     dict(id="gp_page", headline="Or, turn pages like a book", subtitle="Tap or use a Bluetooth page turner",
          setup="gp_page"),
     dict(id="library", headline="Your whole tab library", subtitle="Browse by artist and album in one place",
          setup="library"),
+    dict(id="tunings", headline="Browse tabs by tuning",
+         subtitle="Group your songs by 6-string, 7-string, and drop tunings",
+         setup="tunings"),
     dict(id="synth_menu", headline="Play along with the band", subtitle="Built-in synth with per-track mixing",
          setup="synth_menu"),
-    dict(id="controller_modal", headline="Hands-free control", subtitle="Gamepad and Bluetooth page turner support",
-         setup="controller"),
+    dict(id="fretboard", headline="Follow each note on a fretboard", subtitle="A color for every track as the tab plays",
+         setup="fretboard"),
     dict(id="theme_palettes", headline="Make it yours", subtitle="Visual finishes with MajesticTab Supporter",
          setup="themes", supporter=True),
 ]
@@ -213,23 +217,38 @@ def fake_cover_data_url(artist, title, idx):
     return "data:image/jpeg;base64," + base64.b64encode(data).decode("ascii")
 
 
+# Weighted pool so the Tunings view shows 6-String (Standard, Drop D, D Standard, DADGAD) and
+# 7-String (7-String Standard, 7-String Drop A) with distinct descending song counts.
+DEMO_TUNINGS = (
+    ["Standard"] * 7
+    + ["Drop D"] * 4
+    + ["D Standard"] * 3
+    + ["DADGAD"] * 2
+    + ["7-String Standard"] * 3
+    + ["7-String Drop A"] * 2
+)
+
+
 def seed_library(page, base):
     songs = []
     alb_idx = 0
+    song_idx = 0
     for a, albums in DEMO_LIBRARY.items():
         for al, tracks in albums.items():
             cover = fake_cover_data_url(a, al, alb_idx)
             alb_idx += 1
             for i, t in enumerate(tracks):
+                tuning = DEMO_TUNINGS[song_idx % len(DEMO_TUNINGS)]
+                song_idx += 1
                 songs.append(dict(title=t, artist=a, album=al, trackNumber=i + 1,
-                                  year=2018 + len(al) % 6, coverUrl=cover))
+                                  year=2018 + len(al) % 6, coverUrl=cover, tunings=[tuning]))
     books = ["Acoustic Songbook Vol. 1.pdf", "Progressive Etudes.pdf"]
     custom_songs = [
-        dict(title="Keystone", isCustom=True, artist="Custom Music", album=""),
-        dict(title="Morning Prelude in G", isCustom=True, artist="Custom Music", album=""),
-        dict(title="Odd-Meter Study No. 3", isCustom=True, artist="Custom Music", album=""),
-        dict(title="Fingerstyle Etude in D", isCustom=True, artist="Custom Music", album=""),
-        dict(title="Sweep Arpeggio Workout", isCustom=True, artist="Custom Music", album=""),
+        dict(title="Keystone", isCustom=True, artist="Custom Music", album="", tunings=["Drop D"]),
+        dict(title="Morning Prelude in G", isCustom=True, artist="Custom Music", album="", tunings=["Standard"]),
+        dict(title="Odd-Meter Study No. 3", isCustom=True, artist="Custom Music", album="", tunings=["7-String Standard"]),
+        dict(title="Fingerstyle Etude in D", isCustom=True, artist="Custom Music", album="", tunings=["DADGAD"]),
+        dict(title="Sweep Arpeggio Workout", isCustom=True, artist="Custom Music", album="", tunings=["Standard"]),
     ]
     page.goto(f"{base}/app/", wait_until="networkidle", timeout=60000)
     page.evaluate("""async ({ songs, books, customSongs }) => {
@@ -246,24 +265,41 @@ def seed_library(page, base):
 
 
 def setup_shot(page, base, kind, supporter=False):
-    if kind == "library":
+    if kind in ("library", "tunings"):
         seed_library(page, base)
         # Not gs.goto_library: its .lib-view-switch wait never resolves at phone width (the switch is hidden).
         page.goto(f"{base}/app/", wait_until="networkidle", timeout=60000)
         page.evaluate("import('/app/libraryModal.js').then(m => m.openLibraryModal('library'))")
         page.wait_for_selector(".artist-card", state="visible", timeout=15000)
         page.evaluate(gs.FORCE_DEFAULT_THEME_JS)
-        gs.wait_for_album_artwork(page)
+        if kind == "tunings":
+            page.locator("[data-lib-tab='tunings']:visible").first.click()
+            page.wait_for_selector(".tuning-card", state="visible", timeout=10000)
+            page.wait_for_timeout(500)
+        else:
+            gs.wait_for_album_artwork(page)
         return
     gs.load_file(page, base, gs.GP_FILE, "page" if kind == "gp_page" else "continuous")
     if supporter:
         page.evaluate("import('/app/channel.js').then(m => m.setSupporterOwned(true))")
     if kind == "synth_menu":
         page.locator("#mobileSynthToggleBtn:visible, #synthToggleBtn:visible").first.click()
-    elif kind == "controller":
-        page.evaluate("import('/app/utils/gamepadManager.js').then(m => m.gamepadManager.openHelpModal())")
+    elif kind == "fretboard":
+        page.evaluate("document.querySelector('#toolsToggleBtn').click()")
+        page.wait_for_timeout(400)
+        page.evaluate("document.querySelector('#fretboardToggleBtn').click()")
         page.wait_for_timeout(800)
-        page.click("#controllerHelpModal label[for='controlsTabGamepad']")
+        page.evaluate("""async () => {
+            const gp = await import('/app/gpProcessor/gpPlayer.js');
+            const { fretboardController } = await import('/app/fretboard/fretboardController.js');
+            const api = window.gpState.canvases[0].api;
+            const beat = api.tracks[0].staves[0].bars[11].voices[0].beats[9];
+            document.body.classList.add('synth-playback-started');
+            const bounds = api.renderer.boundsLookup.findBeat(beat);
+            document.getElementById('output').scrollTop = Math.max(0, bounds.realBounds.y - 80);
+            api.tickPosition = gp.getPlaybackTickForBeat(beat, api);
+            fretboardController.showBeatsAtCursor(beat);
+        }""")
     elif kind == "themes":
         page.evaluate("import('/app/themeEngine.js').then(m => m.openThemeModal())")
     page.wait_for_timeout(1500)
@@ -311,30 +347,23 @@ def compose(raw_path, out_path, size, headline, subtitle):
     bg = ImageChops.add(bg, glow.filter(ImageFilter.GaussianBlur(160 * k)))
 
     draw = ImageDraw.Draw(bg)
-    margin = 80 * k
-    head_sz, sub_sz = (56, 34) if landscape else (72, 42)
+    margin = 60 * k
+    head_sz, sub_sz = (56, 34) if landscape else (68, 40)
     head_f, sub_f = font(round(head_sz * k)), font(round(sub_sz * k), bold=False)
     y = (56 if landscape else 120) * k
     for line in wrap(draw, headline, head_f, W - 2 * margin):
         draw.text((W / 2, y), line, font=head_f, fill=(255, 255, 255), anchor="ma")
-        y += (70 if landscape else 90) * k
+        y += (70 if landscape else 86) * k
     y += (10 if landscape else 16) * k
     for line in wrap(draw, subtitle, sub_f, W - 2 * margin):
         draw.text((W / 2, y), line, font=sub_f, fill=(196, 190, 226), anchor="ma")
-        y += (46 if landscape else 56) * k
+        y += (46 if landscape else 54) * k
 
-    # Device: scaled capture with rounded top corners, bleeding off the bottom edge.
+    # Device: scaled capture with rounded top corners, bleeding off the bottom edge without cropping bottom UI.
     shot = Image.open(raw_path).convert("RGB")
     bezel, radius = (round(12 * k), round(28 * k)) if landscape else (round(14 * k), round(64 * k))
     top = round(y + (42 if landscape else 70) * k)
-    if landscape:
-        # Fit the full capture height above the bottom edge so the desktop bottom playback dock stays visible.
-        dev_w = round((H - top - bezel) * shot.width / shot.height)
-    else:
-        # Taller phones (iPhone) would end above the canvas edge at the default width, so widen the device until
-        # the capture bleeds off the bottom, up to a narrow side margin.
-        need_w = round((H - top + radius - bezel) * shot.width / shot.height)
-        dev_w = min(max(round(860 * k), need_w), W - 2 * (bezel + round(30 * k)))
+    dev_w = min(round((H - top - bezel) * shot.width / shot.height), W - 2 * (bezel + round(30 * k)))
     shot = shot.resize((dev_w, round(shot.height * dev_w / shot.width)), Image.LANCZOS)
     frame_w, frame_h = dev_w + 2 * bezel, H - top + radius  # extra height keeps bottom corners off-canvas
     mask = Image.new("L", (frame_w, frame_h), 0)
