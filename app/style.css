@@ -6123,6 +6123,7 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 }
 
 .jam-card {
+  container-type: inline-size; /* lets the address text size itself to the card */
   background: var(--bg-card-solid);
   border: 1px solid var(--border-subtle);
   border-radius: 0.85rem;
@@ -6132,22 +6133,29 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 
 .jam-addr-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
   padding: 0.25rem 0;
 }
 
+/* An address is only useful whole, so it keeps its own line; the buttons sit underneath. */
 .jam-addr-row .jam-address {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  max-width: 100%;
+  font-size: clamp(0.7rem, 5.6cqw, 0.95rem); /* a long address shrinks to fit rather than clip */
+  white-space: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.jam-addr-row .jam-address::-webkit-scrollbar {
+  display: none;
 }
 
 .jam-addr-actions {
   display: flex;
   gap: 0.5rem;
   flex-shrink: 0;
-  margin-left: 0.5rem;
 }
 
 .jam-address {
