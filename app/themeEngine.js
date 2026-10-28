@@ -185,17 +185,16 @@ export function applySheetAppearance() {
   const sheetRadios = document.querySelectorAll('input[name="sheetModeRadio"]');
   sheetRadios.forEach(radio => {
     radio.checked = radio.value === sheetMode;
-    // Mark the modes that need Supporter
-    const label = radio.labels?.[0];
-    if (label) {
-      let lock = label.querySelector('.supporter-lock');
-      if (!lock && radio.value !== 'light') {
-        label.insertAdjacentHTML('beforeend', ` ${LOCK_ICON_HTML}`);
-        lock = label.querySelector('.supporter-lock');
-      }
-      if (lock) lock.hidden = hasSupporter();
-    }
   });
+  // One lock on the control's title: the pill has no room for a lock per mode
+  const sheetModeLock = document.getElementById('sheetModeLock');
+  if (sheetModeLock) sheetModeLock.hidden = hasSupporter();
+  // Greyed out while locked; still clickable so a tap opens the paywall
+  const sheetModeGroup = document.querySelector('.sheet-mode-group');
+  if (sheetModeGroup) {
+    sheetModeGroup.classList.toggle('is-locked', !hasSupporter());
+    sheetModeGroup.setAttribute('aria-disabled', String(!hasSupporter()));
+  }
 }
 
 /** User choice of sheet mode. Returns false (and shows the paywall) when it needs Supporter. */
