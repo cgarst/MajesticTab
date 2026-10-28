@@ -328,7 +328,7 @@ fn configure_ios_main_window(_app: tauri::AppHandle) {
 
 #[tauri::command]
 async fn youtube_search(query: String) -> Result<Option<String>, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest_webpki::Client::new();
     let payload = serde_json::json!({
         "context": {
             "client": {

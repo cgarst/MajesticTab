@@ -36,6 +36,9 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
 reqwest = { version = "0.13", default-features = false, features = ["default-tls"] }
+# 0.13's rustls uses rustls-platform-verifier, which panics on Android unless a JNI-backed
+# verifier is initialized. 0.12 bundles webpki roots, so the YouTube search works there.
+reqwest_webpki = { package = "reqwest", version = "0.12", default-features = false, features = ["rustls-tls"] }
 percent-encoding = "2.3"
 tokio = { version = "1.54.0", features = ["rt-multi-thread", "net", "sync", "time", "macros", "io-util"] }
 tokio-tungstenite = "0.30.0"
