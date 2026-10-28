@@ -1,7 +1,8 @@
 // Browser stand-in for the Rust jam transport: two tabs talk over a BroadcastChannel.
 (() => {
   window.__jamMockLog = [];
-  const role = new URLSearchParams(location.search).get('jamMock');
+  // `?jamMock=host|client`, or window.__jamMockRole set by an init script (the store screenshot tool does)
+  const role = new URLSearchParams(location.search).get('jamMock') || window.__jamMockRole;
   if (!role) return;
   const offset = role === 'client' ? 123456.789 : 0; // distinct "device" clocks
   const now = () => performance.timeOrigin + performance.now() + offset;
@@ -9,7 +10,7 @@
   const listeners = {};
   const emit = (ev, payload) => (listeners[ev] || []).forEach((cb) => cb({ payload }));
   const clientId = 'cMOCK';
-  let hosting = false, connected = false, locked = false;
+  let hosting = false, connected = false, locked = false, lastSongId = null;
   const post = (m) => setTimeout(() => ch.postMessage(m), 3); // a little network delay
   ch.onmessage = ({ data }) => {
     if (data.to === 'host' && hosting) {
@@ -49,7 +50,10 @@
     jam_local_addresses: () => ['127.0.0.1'],
     jam_host_start: () => { hosting = true; return { port: 47900, addresses: ['192.168.1.254'] }; },
     jam_host_stop: () => { hosting = false; },
-    jam_host_send: ({ msg }) => post({ to: 'client', msg }),
+    jam_host_send: ({ msg }) => {
+      try { const v = JSON.parse(msg); if (v.type === 'song.open') lastSongId = v.song?.id; } catch (_) {}
+      post({ to: 'client', msg });
+    },
     jam_host_kick: () => {},
     jam_host_set_locked: ({ locked: on }) => { locked = Boolean(on); window.__jamMockLog.push({ cmd: 'set_locked', locked }); },
     jam_discover: () => [],
@@ -61,6 +65,17 @@
     },
     jam_client_disconnect: () => { connected = false; },
     jam_keep_awake: () => {}
+  };
+  // Fake players for screenshots and demos: they appear in the host's roster without a second window.
+  window.__jamMock = {
+    join: (id, name) => emit('jam-peers-changed', { event: 'joined', id, name, count: 1 }),
+    leave: (id, name = '') => emit('jam-peers-changed', { event: 'left', id, name, count: 0 }),
+    send: (from, message) => emit('jam-message', { from, msg: JSON.stringify({ v: 1, seq: 0, rxTs: now(), ...message }) }),
+    // A player that has the song loaded and is in sync, as the roster would show it
+    sync: (id, { rttMs = 8, driftMs = 3 } = {}) => {
+      window.__jamMock.send(id, { type: 'song.ready', songId: lastSongId });
+      window.__jamMock.send(id, { type: 'status', rttMs, driftMs, state: 'synced' });
+    }
   };
   window.__TAURI__ = {
     core: { invoke: async (cmd, args) => { if (cmds[cmd]) return cmds[cmd](args || {}); throw new Error('mock: no ' + cmd); } },

@@ -90,6 +90,9 @@ SHOTS = [
          setup="fretboard"),
     dict(id="theme_palettes", headline="Make it yours", subtitle="Visual finishes with MajesticTab Supporter",
          setup="themes", supporter=True),
+    # Jam mode is native-only, so this shot fakes the native shell (tests/jam/mockTauri.js) in a page of its own.
+    dict(id="jam", headline="Practice as a group", subtitle="Split up the parts with MajesticTab Supporter",
+         setup="jam", supporter=True, own_page=True),
 ]
 
 
@@ -265,7 +268,54 @@ def seed_library(page, base):
     }""", dict(songs=songs, books=books, customSongs=custom_songs))
 
 
+JAM_MOCK = ROOT / "tests" / "jam" / "mockTauri.js"
+# Fictional players for the Jam shot; the host is the capturing device.
+JAM_PLAYERS = [("p1", "Dave's iPad"), ("p2", "Adrian's phone")]
+
+
+def setup_jam(page, base):
+    """Host a Jam with two players who have the song and are in sync, and give each their own track."""
+    page.add_init_script("window.__jamMockRole = 'host';\n" + JAM_MOCK.read_text())
+    gs.load_file(page, base, GP_FILE, "continuous")
+    page.evaluate("import('/app/channel.js').then(m => m.setSupporterOwned(true))")
+    # The mock makes the page look native; on macOS that adds a title-bar inset the real capture has not got.
+    page.evaluate("document.documentElement.classList.remove('tauri-macos')")
+    page.evaluate("""async () => {
+        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+        document.getElementById('jamToggleBtn').click();
+        await sleep(500);
+        document.querySelector('[data-jam-tab=host]').click();
+        await sleep(300);
+        document.getElementById('jamStartHostBtn').click();
+        await sleep(1500);
+    }""")
+    for pid, name in JAM_PLAYERS:
+        page.evaluate("([id, name]) => window.__jamMock.join(id, name)", [pid, name])
+    page.wait_for_timeout(500)
+    for pid, _ in JAM_PLAYERS:
+        page.evaluate("(id) => window.__jamMock.sync(id)", pid)
+    page.wait_for_selector(".jam-matrix-cell", state="attached", timeout=10000)
+    # Click the real matrix: each player takes a guitar track (spread across the tracks there are) and the
+    # host, who hears everything, listens.
+    tracks = page.evaluate("document.querySelectorAll('.jam-matrix-col').length - 1")
+    for n, (pid, _) in enumerate(JAM_PLAYERS):
+        page.locator(f".jam-matrix-cell[data-jam-assign='{pid}'][data-jam-track]").nth(n % tracks).click()
+        page.wait_for_timeout(200)
+    page.locator(".jam-matrix-cell[data-jam-listening='host']").click()
+    page.wait_for_timeout(200)
+    # Players see only their own tracks and hear everything but them, so the summaries under each name differ.
+    page.locator("[data-jam-rule='assignedAudioMode'][data-jam-value='backing']").click()
+    page.wait_for_timeout(200)
+    page.locator("[data-jam-rule='assignedViewOnly'][data-jam-value='own']").click()
+    page.wait_for_timeout(200)
+    page.evaluate("document.getElementById('jamModalBody').scrollTop = 0")
+
+
 def setup_shot(page, base, kind, supporter=False):
+    if kind == "jam":
+        setup_jam(page, base)
+        page.wait_for_timeout(800)
+        return
     if kind in ("library", "tunings"):
         seed_library(page, base)
         # Not gs.goto_library: its .lib-view-switch wait never resolves at phone width (the switch is hidden).
@@ -436,14 +486,20 @@ def main():
                 n += 1  # numbering follows the full list so --only never renames files
                 if shot not in shots:
                     continue
-                setup_shot(page, base, shot["setup"], shot.get("supporter", False))
+                # A shot that fakes the native shell gets its own page so the mock never leaks into later shots.
+                shot_page = ctx.new_page() if shot.get("own_page") else page
+                if shot_page is not page:
+                    shot_page.on("pageerror", lambda e: errors.append(str(e)))
+                setup_shot(shot_page, base, shot["setup"], shot.get("supporter", False))
                 if store.get("no_fullscreen"):
-                    shown = page.evaluate("""() => ['#fullscreenPill', '#fullscreenToggleBtn', '#toolsFullscreenRow']
+                    shown = shot_page.evaluate("""() => ['#fullscreenPill', '#fullscreenToggleBtn', '#toolsFullscreenRow']
                         .filter(s => { const e = document.querySelector(s); return e && e.offsetParent !== null; })""")
                     if shown:
                         raise SystemExit(f"{shot['id']}: fullscreen control visible on {args.channel}: {shown}")
                 raw = raw_dir / f"{shot['id']}.png"
-                page.screenshot(path=str(raw))
+                shot_page.screenshot(path=str(raw))
+                if shot_page is not page:
+                    shot_page.close()
                 final = out / f"{n:02d}-{shot['id']}.png"
                 compose(raw, final, store["final"], shot["headline"], shot["subtitle"])
                 print(f"  wrote {final}")
