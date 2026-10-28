@@ -229,7 +229,7 @@ export function createJamModal(manager, { updateSetting }) {
         </div>
         <div class="d-flex flex-column gap-2 mb-2">
           <div class="jam-label">Rules for people with tracks</div>
-          ${pillGroup('Hears', 'assignedAudioMode', normAudioMode(settings.assignedAudioMode), [['all', 'Everything'], ['assigned', 'Own tracks only'], ['backing', 'Everything but own']])}
+          ${pillGroup('Hears', 'assignedAudioMode', normAudioMode(settings.assignedAudioMode), [['all', 'Everything'], ['assigned', 'Own tracks only'], ['backing', 'All but own']])}
           ${pillGroup('Sees', 'assignedViewOnly', settings.assignedViewOnly ? 'own' : 'all', [['all', 'All tracks'], ['own', 'Own tracks only']])}
           <div class="jam-label mt-2">Rules for people who are Listening</div>
           ${pillGroup('Hears', 'listeningHears', normListening(settings.listeningHears), [['all', 'Everything'], ['backing', 'Only the backing']])}
