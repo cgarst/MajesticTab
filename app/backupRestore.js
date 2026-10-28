@@ -2766,7 +2766,7 @@ function attachModalHandlers(modal, options = {}) {
     const driveAccountRow = modal.querySelector('#driveAccountRow');
     const refreshDriveAccountRow = async () => {
         const { isGoogleDriveConnected } = await import('./googleDrive.js');
-        const connected = isGoogleDriveConnected();
+        const connected = await isGoogleDriveConnected();
         driveAccountRow?.classList.toggle('d-none', !connected);
         driveAccountRow?.classList.toggle('d-flex', connected);
     };

@@ -2,7 +2,7 @@
 // Minimal S3-compatible client (AWS S3, Cloudflare R2, Backblaze B2, MinIO, Wasabi, ...) using Signature V4
 // through WebCrypto, so no SDK is needed. In the native app requests go through Tauri's http plugin, which
 // is not subject to CORS. In a browser the bucket must allow this origin in its CORS rules (see s3CorsRules).
-import { isSecureStorageAvailable, getSecret, setSecret, deleteSecret } from './secureStore.js';
+import { isSecureStorageAvailable, getSecret, loadSecret, setSecret, deleteSecret } from './secureStore.js';
 
 const CONFIG_KEY = 'majestictab_s3_config';
 export const S3_SECRET_NAME = 'majestictab_s3_secret';
@@ -30,9 +30,10 @@ const encodeKey = (key) => key.split('/').map(encodeRfc3986).join('/');
 export function getS3Config() {
     try {
         const config = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null');
-        // With a keychain the secret lives there, not in the stored config
-        if (config && isSecureStorageAvailable()) config.secretAccessKey = getSecret(S3_SECRET_NAME) || config.secretAccessKey;
-        return config?.bucket && config.accessKeyId && config.secretAccessKey ? config : null;
+        if (!config?.bucket || !config.accessKeyId) return null;
+        // With a keychain the secret lives there and is read when a request is signed
+        if (isSecureStorageAvailable()) return { ...config, secretAccessKey: getSecret(S3_SECRET_NAME) || config.secretAccessKey };
+        return config.secretAccessKey ? config : null;
     } catch (_) { return null; }
 }
 
@@ -118,7 +119,9 @@ async function signedFetch(config, method, key, { query, body, headers = {} } = 
 
     const scope = `${date}/${config.region}/s3/aws4_request`;
     const stringToSign = ['AWS4-HMAC-SHA256', amzDate, scope, await sha256Hex(canonicalRequest)].join('\n');
-    let signingKey = encoder.encode(`AWS4${config.secretAccessKey}`);
+    const secretAccessKey = config.secretAccessKey || await loadSecret(S3_SECRET_NAME);
+    if (!secretAccessKey) throw new Error('The S3 secret access key is missing. Re-enter it in the bucket settings.');
+    let signingKey = encoder.encode(`AWS4${secretAccessKey}`);
     for (const part of [date, config.region, 's3', 'aws4_request']) signingKey = await hmac(signingKey, part);
     const signature = hex(await hmac(signingKey, stringToSign));
 
