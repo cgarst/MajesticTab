@@ -2868,6 +2868,23 @@ body:not(.synth-playback-started) .at-highlight {
   transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
 }
 
+/* Android WebView sizes the icon-font line box differently, pushing glyphs off-center; pin the line box to the glyph. */
+.mobile-dock-btn i,
+.mobile-dock-play-btn i {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  height: 1em;
+}
+
+.mobile-dock-btn i::before,
+.mobile-dock-play-btn i::before {
+  display: block;
+  line-height: 1;
+  vertical-align: baseline;
+}
+
 .mobile-dock-btn:hover {
   background: var(--bg-card);
   border-color: var(--accent-primary);
