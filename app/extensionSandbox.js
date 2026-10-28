@@ -13,12 +13,8 @@ const READY_TIMEOUT_MS = 10000;
 
 function getSandboxUrl() {
     if (window.__TAURI__) {
-        // Tauri serves custom schemes as <scheme>.localhost on Windows and Android. Windows is configured
-        // for https (tauri.windows.conf.json useHttpsScheme) so the frame is a secure context and its
-        // workers get crypto.subtle; Android stays on http.
-        const userAgent = navigator.userAgent || '';
-        if (/windows/i.test(userAgent)) return `https://mtsandbox.localhost/${SANDBOX_PATH}`;
-        return /android/i.test(userAgent)
+        // Tauri serves custom schemes as http://<scheme>.localhost on Windows and Android.
+        return /windows|android/i.test(navigator.userAgent || '')
             ? `http://mtsandbox.localhost/${SANDBOX_PATH}`
             : `mtsandbox://localhost/${SANDBOX_PATH}`;
     }
