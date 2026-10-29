@@ -469,6 +469,16 @@ if (target === 'android') {
       if (!aab) fail('Tauri completed without producing an Android App Bundle.');
       const signedAab = path.join(distDir, 'MajesticTab-android.aab');
       await cp(aab, signedAab);
+      // Play's "native debug symbols" upload: the unstripped libraries, laid out by ABI.
+      const symbolsStage = path.join(tauriDir, 'target', 'android-symbols');
+      await rm(symbolsStage, { recursive: true, force: true });
+      for (const [triple, abi] of [['aarch64-linux-android', 'arm64-v8a'], ['x86_64-linux-android', 'x86_64']]) {
+        await mkdir(path.join(symbolsStage, abi), { recursive: true });
+        await cp(path.join(tauriDir, 'target', triple, 'release', 'libmajestictab_lib.so'), path.join(symbolsStage, abi, 'libmajestictab_lib.so'));
+      }
+      const symbolsZip = path.join(distDir, 'MajesticTab-android-symbols.zip');
+      await rm(symbolsZip, { force: true });
+      run('zip', ['-r', '-q', symbolsZip, 'arm64-v8a', 'x86_64'], { cwd: symbolsStage });
       // Play wants a jarsigner signature (the upload key); apksigner only handles APKs.
       run(path.join(javaHome, 'bin', 'jarsigner' + (process.platform === 'win32' ? '.exe' : '')), [
         '-keystore', keystore, '-storepass:env', 'ANDROID_KEYSTORE_PASSWORD', '-keypass:env', 'ANDROID_KEY_PASSWORD',

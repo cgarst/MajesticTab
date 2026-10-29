@@ -16,6 +16,8 @@ fn main() {
     // aligned LOAD segments. NDK r27 links at 4 KB by default.
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
         println!("cargo:rustc-link-arg-cdylib=-Wl,-z,max-page-size=16384");
+        // Play pairs the native debug symbols zip with the bundle by GNU build ID.
+        println!("cargo:rustc-link-arg-cdylib=-Wl,--build-id=sha1");
     }
     tauri_build::build()
 }
