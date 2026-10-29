@@ -23,7 +23,7 @@ const PURCHASED = 0;
 const PENDING = 2;
 
 const FEATURE_LABELS = {
-    themes: 'Finish themes',
+    themes: 'Themes',
     sheetModes: 'Dark, auto and theme tab modes',
     jamHost: 'Hosting a Jam',
     setlists: 'Creating and editing setlists',
@@ -162,10 +162,6 @@ function ensureModal() {
           <div id="supporterCodeSection">
             <button type="button" class="btn btn-link btn-sm p-0 border-0 text-white-50 text-decoration-none" id="supporterCodeToggle">Have a code?</button>
             <button type="button" class="btn btn-link btn-sm p-0 border-0 text-white-50 text-decoration-none" id="supporterCodeRemove" hidden>Remove review code</button>
-            <form class="d-flex align-items-center gap-2 mt-2" id="supporterCodeForm" hidden>
-              <input type="text" class="form-control form-control-sm" id="supporterCodeInput" placeholder="Enter code" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Review code">
-              <button type="submit" class="btn btn-theme-primary btn-sm flex-shrink-0">Redeem</button>
-            </form>
           </div>
         </div>
         <footer class="theme-modal-footer d-flex align-items-center justify-content-between gap-2 flex-wrap">
@@ -186,7 +182,7 @@ function ensureModal() {
     modal.querySelector('#supporterCancelBtn').addEventListener('click', close);
     modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
     window.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape' && modal.style.display !== 'none') close();
+        if (event.key === 'Escape' && modal.style.display !== 'none' && codeModal?.style.display !== 'flex') close();
     });
 
     const status = modal.querySelector('#supporterStatus');
@@ -213,23 +209,7 @@ function ensureModal() {
     };
     buy.addEventListener('click', () => run(purchaseSupporter, 'Thank you for supporting MajesticTab!'));
     restore.addEventListener('click', () => run(restoreSupporter, 'Supporter restored.'));
-    const codeForm = modal.querySelector('#supporterCodeForm');
-    const codeInput = modal.querySelector('#supporterCodeInput');
-    modal.querySelector('#supporterCodeToggle').addEventListener('click', () => {
-        codeForm.hidden = !codeForm.hidden;
-        if (!codeForm.hidden) codeInput.focus();
-    });
-    codeForm.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        if (!(await isReviewCode(codeInput.value))) {
-            status.textContent = 'That code is not valid.';
-            return;
-        }
-        codeInput.value = '';
-        setReviewUnlocked(true);
-        close();
-        showToast('Code accepted. Supporter features are unlocked on this device.', 'success');
-    });
+    modal.querySelector('#supporterCodeToggle').addEventListener('click', openCodePrompt);
     modal.querySelector('#supporterCodeRemove').addEventListener('click', () => {
         setReviewUnlocked(false);
         close();
@@ -238,6 +218,62 @@ function ensureModal() {
     modal.querySelector('#supporterManageBtn').addEventListener('click', () => openExternal(getFeature('supporterManageUrl')));
     window.addEventListener('supporterchange', (event) => { if (event.detail.owned) close(); });
     return modal;
+}
+
+let codeModal = null;
+
+/** A small dialog over the Supporter modal that asks for a review code. */
+function openCodePrompt() {
+    if (!codeModal) {
+        codeModal = document.createElement('div');
+        codeModal.id = 'supporterCodeModal';
+        codeModal.className = 'theme-modal-backdrop';
+        codeModal.setAttribute('role', 'dialog');
+        codeModal.setAttribute('aria-modal', 'true');
+        codeModal.setAttribute('aria-labelledby', 'supporterCodeTitle');
+        codeModal.innerHTML = `
+          <form class="theme-modal-card" style="max-width: 360px; width: 100%;" id="supporterCodeForm">
+            <header class="theme-modal-header d-flex align-items-center justify-content-between">
+              <h2 class="h6 mb-0 text-white fw-bold" id="supporterCodeTitle">Enter Code</h2>
+              <button type="button" class="brand-btn theme-modal-close-btn" data-action="cancel" aria-label="Close" title="Close">
+                <i class="bi-x-lg"></i>
+              </button>
+            </header>
+            <div class="theme-modal-body d-flex flex-column gap-2">
+              <input type="text" class="form-control form-control-sm" id="supporterCodeInput" placeholder="Code" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Review code">
+              <div class="small text-white-50" id="supporterCodeStatus" role="status"></div>
+            </div>
+            <footer class="theme-modal-footer d-flex align-items-center justify-content-end gap-2">
+              <button type="button" class="btn btn-theme-outline btn-sm" data-action="cancel">Cancel</button>
+              <button type="submit" class="btn btn-theme-primary btn-sm">Redeem</button>
+            </footer>
+          </form>`;
+        document.body.appendChild(codeModal);
+
+        const input = codeModal.querySelector('#supporterCodeInput');
+        const status = codeModal.querySelector('#supporterCodeStatus');
+        const close = () => { codeModal.style.display = 'none'; };
+        codeModal.querySelectorAll('[data-action="cancel"]').forEach((btn) => btn.addEventListener('click', close));
+        codeModal.addEventListener('click', (event) => { if (event.target === codeModal) close(); });
+        window.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape' && codeModal.style.display === 'flex') close();
+        });
+        codeModal.querySelector('#supporterCodeForm').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            if (!(await isReviewCode(input.value))) {
+                status.textContent = 'That code is not valid.';
+                return;
+            }
+            close();
+            modal.style.display = 'none';
+            setReviewUnlocked(true);
+            showToast('Code accepted. Supporter features are unlocked on this device.', 'success');
+        });
+    }
+    codeModal.querySelector('#supporterCodeInput').value = '';
+    codeModal.querySelector('#supporterCodeStatus').textContent = '';
+    codeModal.style.display = 'flex';
+    codeModal.querySelector('#supporterCodeInput').focus();
 }
 
 async function openExternal(url) {
@@ -261,7 +297,6 @@ export async function openPaywall(feature = null) {
     el.querySelector('#supporterCodeSection').hidden = owned && !reviewing;
     el.querySelector('#supporterCodeToggle').hidden = reviewing;
     el.querySelector('#supporterCodeRemove').hidden = !reviewing;
-    el.querySelector('#supporterCodeForm').hidden = true;
     const buy = el.querySelector('#supporterBuyBtn');
     buy.hidden = owned;
     buy.textContent = 'Unlock';
@@ -271,6 +306,9 @@ export async function openPaywall(feature = null) {
     manage.hidden = !(owned && getFeature('supporterManageUrl'));
     el.querySelector('#supporterManageLabel').textContent = storeName ? `Manage in ${storeName}` : 'Manage';
     el.style.display = 'flex';
+    // The Settings drawer's focus trap would otherwise pull focus out of the code input.
+    const fileMenuEl = document.getElementById('fileMenu');
+    if (fileMenuEl) window.bootstrap?.Offcanvas?.getInstance(fileMenuEl)?.hide();
     if (owned) return;
     const price = await loadPrice();
     if (price) buy.textContent = `Unlock for ${price}`;
