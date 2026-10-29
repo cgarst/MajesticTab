@@ -40,7 +40,7 @@ jobs:
           cache-dependency-path: build/tauri/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ inputs.channel == 'play' && 'aarch64-linux-android' || inputs.channel == 'appstore-ios' && 'aarch64-apple-ios' || '' }}
+          targets: ${{ inputs.channel == 'play' && 'aarch64-linux-android,x86_64-linux-android' || inputs.channel == 'appstore-ios' && 'aarch64-apple-ios' || '' }}
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: build/tauri/src-tauri -> ../target
