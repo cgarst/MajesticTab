@@ -3,7 +3,7 @@
 // Purchases go through tauri-plugin-iap (StoreKit 2 / Play Billing). There is no server: ownership is read
 // from the store on device, and the last answer is cached so a brief store outage doesn't lock features.
 
-import { getFeature, hasSupporter, setSupporterOwned } from './channel.js';
+import { getFeature, hasSupporter, isReviewUnlocked, setReviewUnlocked, setSupporterOwned } from './channel.js';
 import { showToast } from './utils/toast.js';
 
 const CACHE_KEY = 'majestictab_supporter_cache';
@@ -15,6 +15,10 @@ const NUDGE_KEY = 'majestictab_supporter_nudge';
 const NUDGE_MIN_LAUNCHES = 5;
 const NUDGE_DELAY_MS = 2000;
 const NUDGE_VISIBLE_MS = 12000;
+// Review code for store reviewers (who can't purchase). Only a salted SHA-256 is shipped; the code itself
+// goes in the App Review / Play "App access" notes. To rotate, add a new hash here and drop the old one.
+const REVIEW_CODE_SALT = 'majestictab-review-v1:';
+const REVIEW_CODE_HASHES = ['17998d7e86c5c33988053a47a04b56a7c34fe2bf36b0da949715a53c97050be2'];
 const PURCHASED = 0;
 const PENDING = 2;
 
@@ -104,6 +108,14 @@ async function purchaseSupporter() {
     return (await checkSupporter()) ? 'owned' : 'none';
 }
 
+async function isReviewCode(input) {
+    const normalized = input.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!normalized || !crypto?.subtle) return false;
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(REVIEW_CODE_SALT + normalized));
+    const hex = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
+    return REVIEW_CODE_HASHES.includes(hex);
+}
+
 async function restoreSupporter() {
     await iap('restore_purchases', { productType: 'inapp' });
     return (await checkSupporter()) ? 'owned' : 'none';
@@ -147,6 +159,14 @@ function ensureModal() {
             ${Object.values(FEATURE_LABELS).map((label) => `<li><i class="bi-check2 me-2"></i>${label}</li>`).join('')}
           </ul>
           <div class="small text-white-50" id="supporterStatus" role="status"></div>
+          <div id="supporterCodeSection">
+            <button type="button" class="btn btn-link btn-sm p-0 border-0 text-white-50 text-decoration-none" id="supporterCodeToggle">Have a code?</button>
+            <button type="button" class="btn btn-link btn-sm p-0 border-0 text-white-50 text-decoration-none" id="supporterCodeRemove" hidden>Remove review code</button>
+            <form class="d-flex align-items-center gap-2 mt-2" id="supporterCodeForm" hidden>
+              <input type="text" class="form-control form-control-sm" id="supporterCodeInput" placeholder="Enter code" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Review code">
+              <button type="submit" class="btn btn-theme-primary btn-sm flex-shrink-0">Redeem</button>
+            </form>
+          </div>
         </div>
         <footer class="theme-modal-footer d-flex align-items-center justify-content-between gap-2 flex-wrap">
           <button type="button" class="btn btn-theme-outline btn-sm" id="supporterRestoreBtn">Restore Purchases</button>
@@ -193,6 +213,28 @@ function ensureModal() {
     };
     buy.addEventListener('click', () => run(purchaseSupporter, 'Thank you for supporting MajesticTab!'));
     restore.addEventListener('click', () => run(restoreSupporter, 'Supporter restored.'));
+    const codeForm = modal.querySelector('#supporterCodeForm');
+    const codeInput = modal.querySelector('#supporterCodeInput');
+    modal.querySelector('#supporterCodeToggle').addEventListener('click', () => {
+        codeForm.hidden = !codeForm.hidden;
+        if (!codeForm.hidden) codeInput.focus();
+    });
+    codeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        if (!(await isReviewCode(codeInput.value))) {
+            status.textContent = 'That code is not valid.';
+            return;
+        }
+        codeInput.value = '';
+        setReviewUnlocked(true);
+        close();
+        showToast('Code accepted. Supporter features are unlocked on this device.', 'success');
+    });
+    modal.querySelector('#supporterCodeRemove').addEventListener('click', () => {
+        setReviewUnlocked(false);
+        close();
+        showToast('Review code removed.', 'info');
+    });
     modal.querySelector('#supporterManageBtn').addEventListener('click', () => openExternal(getFeature('supporterManageUrl')));
     window.addEventListener('supporterchange', (event) => { if (event.detail.owned) close(); });
     return modal;
@@ -215,6 +257,11 @@ export async function openPaywall(feature = null) {
         ? 'You own Supporter. It keeps MajesticTab on this store, and these are unlocked:'
         : 'MajesticTab is free to use. Supporter is a one-time purchase that covers the cost of keeping it on this store, with no subscription. It unlocks:';
     el.querySelector('#supporterStatus').textContent = '';
+    const reviewing = isReviewUnlocked();
+    el.querySelector('#supporterCodeSection').hidden = owned && !reviewing;
+    el.querySelector('#supporterCodeToggle').hidden = reviewing;
+    el.querySelector('#supporterCodeRemove').hidden = !reviewing;
+    el.querySelector('#supporterCodeForm').hidden = true;
     const buy = el.querySelector('#supporterBuyBtn');
     buy.hidden = owned;
     buy.textContent = 'Unlock';
