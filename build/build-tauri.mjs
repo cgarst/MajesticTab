@@ -278,6 +278,13 @@ async function ensureIapCapability() {
   process.on('exit', () => rmSync(capabilityPath, { force: true }));
 }
 
+// tauri.conf.json is the only place the release version is set; everything else derives from it.
+const appVersion = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
+
+async function readVersioned(file) {
+  return (await readFile(file, 'utf8')).replaceAll('__APP_VERSION__', appVersion);
+}
+
 async function ensureCrateTypeForTarget(currentTarget) {
   const cargoTomlPath = path.join(tauriDir, 'src-tauri', 'Cargo.toml');
   let content = await readFile(cargoTomlPath, 'utf8');
@@ -481,11 +488,11 @@ if (target === 'android') {
   // Sync version-controlled iOS configuration and manifest templates
   const templateProjectYml = path.join(tauriDir, 'ios-project.yml');
   if (await stat(templateProjectYml).catch(() => null)) {
-    await cp(templateProjectYml, path.join(iosProject, 'project.yml'));
+    await writeFile(path.join(iosProject, 'project.yml'), await readVersioned(templateProjectYml));
   }
   const templateInfoPlist = path.join(tauriDir, 'ios-Info.plist');
   if (await stat(templateInfoPlist).catch(() => null)) {
-    await cp(templateInfoPlist, path.join(iosProject, 'majestictab_iOS', 'Info.plist'));
+    await writeFile(path.join(iosProject, 'majestictab_iOS', 'Info.plist'), await readVersioned(templateInfoPlist));
   }
   const templatePrivacyManifest = path.join(tauriDir, 'ios-PrivacyInfo.xcprivacy');
   if (await stat(templatePrivacyManifest).catch(() => null)) {
@@ -532,6 +539,11 @@ if (target === 'android') {
     if (result.error) fail(`The Linux target requires ${command}.`);
   }
   run('npm', ['run', 'tauri', '--', 'build', '--no-bundle']);
+  const metainfoPath = path.join(tauriDir, 'flatpak', 'net.zathu.majestictab.metainfo.xml');
+  const metainfoTemplate = await readFile(metainfoPath, 'utf8');
+  await writeFile(metainfoPath, metainfoTemplate.replaceAll('__APP_VERSION__', appVersion));
+  // Restore the committed template so builds don't leave the tree dirty.
+  process.on('exit', () => writeFileSync(metainfoPath, metainfoTemplate));
   const repoDir = path.join(tauriDir, 'target', 'flatpak-repo');
   const buildDir = path.join(tauriDir, 'target', 'flatpak-build');
   const flatpakCacheDir = path.join(rootDir, '.flatpak-builder');
@@ -564,7 +576,7 @@ if (target === 'android') {
   if (missing.length > 0) fail(`The msstore channel needs ${missing.join(', ')} (Partner Center, Product identity).`);
   const makeappx = await findWindowsSdkTool('makeappx.exe');
   const makepri = await findWindowsSdkTool('makepri.exe');
-  const version = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
+  const version = appVersion;
   if (!/^\d+\.\d+\.\d+$/.test(version)) fail(`Cannot make an MSIX version from "${version}".`);
   run('npm', ['run', 'tauri', '--', 'build', '--no-bundle']);
 

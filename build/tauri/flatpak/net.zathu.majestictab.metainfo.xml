@@ -52,7 +52,7 @@
   </provides>
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="1.0.0" date="2026-01-01">
+    <release version="__APP_VERSION__" date="2026-01-01">
       <description>
         <p>Initial release of MajesticTab.</p>
       </description>
