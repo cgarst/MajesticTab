@@ -8,14 +8,16 @@ removed), checks it with build/verify-channel.mjs, and serves the result. Captur
 
 Usage:
     pip install playwright pillow && playwright install chromium
-    python3 tools/store_screenshots.py play                    # all Google Play phone shots
+    python3 tools/store_screenshots.py play                    # all Google Play phone shots (tab zoom 50%)
+    python3 tools/store_screenshots.py play-tablet-7           # Play 7-inch tablet shots (also play-tablet-10, play-desktop)
     python3 tools/store_screenshots.py msstore                 # all Microsoft Store desktop shots
     python3 tools/store_screenshots.py play --only gp_scroll   # one shot
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
     python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist
 
 Output: store-support/<channel>/<NN>-<shot>.png (gitignored), raw captures under .../raw/.
-Add a store by adding an entry to STORES (channel id from build/channels.mjs, device profile, final size).
+Add a store by adding an entry to STORES (device profile, final size; `channel` is the id from build/channels.mjs and
+defaults to the entry's own name, `out` is the folder under store-support/).
 """
 import argparse
 import base64
@@ -47,6 +49,36 @@ STORES = {
         "scale": 3,
         "user_agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
         "final": (1080, 1920),  # Play phone: 9:16, each side 320-3840 px, max 2:1
+        "out": "play/phone",
+        "tab_scale": 50,  # sheet zoom (%), so a phone shows several bars instead of a couple
+    },
+    # Play tablet and Chromebook/desktop shots: landscape 16:9 (how a tab stand is used), each side 320-3840 px. Same `play` build as the phone.
+    "play-tablet-7": {
+        "channel": "play",
+        "out": "play/tablet-7",
+        "tab_scale": 50,
+        "viewport": {"width": 960, "height": 540},
+        "scale": 2,
+        "user_agent": "Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "final": (1920, 1080),
+    },
+    "play-desktop": {
+        "channel": "play",
+        "out": "play/desktop",
+        "viewport": {"width": 1440, "height": 810},
+        "scale": 2,
+        "mobile": False,
+        "user_agent": "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "final": (1920, 1080),
+    },
+    "play-tablet-10": {
+        "channel": "play",
+        "out": "play/tablet-10",
+        "tab_scale": 80,
+        "viewport": {"width": 1280, "height": 720},
+        "scale": 2,
+        "user_agent": "Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "final": (2560, 1440),
     },
     "appstore-ios": {
         # iPhone 6.9" (16 Pro Max) logical width; height matched to visible frame so bottom docks aren't cropped.
@@ -273,10 +305,10 @@ JAM_MOCK = ROOT / "tests" / "jam" / "mockTauri.js"
 JAM_PLAYERS = [("p1", "Dave's iPad"), ("p2", "Adrian's phone")]
 
 
-def setup_jam(page, base):
+def setup_jam(page, base, scale=None):
     """Host a Jam with two players who have the song and are in sync, and give each their own track."""
     page.add_init_script("window.__jamMockRole = 'host';\n" + JAM_MOCK.read_text())
-    gs.load_file(page, base, GP_FILE, "continuous")
+    gs.load_file(page, base, GP_FILE, "continuous", scale=scale)
     page.evaluate("import('/app/channel.js').then(m => m.setSupporterOwned(true))")
     # The mock makes the page look native; on macOS that adds a title-bar inset the real capture has not got.
     page.evaluate("document.documentElement.classList.remove('tauri-macos')")
@@ -311,9 +343,9 @@ def setup_jam(page, base):
     page.evaluate("document.getElementById('jamModalBody').scrollTop = 0")
 
 
-def setup_shot(page, base, kind, supporter=False):
+def setup_shot(page, base, kind, supporter=False, scale=None):
     if kind == "jam":
-        setup_jam(page, base)
+        setup_jam(page, base, scale)
         page.wait_for_timeout(800)
         return
     if kind in ("library", "tunings"):
@@ -330,7 +362,7 @@ def setup_shot(page, base, kind, supporter=False):
         else:
             gs.wait_for_album_artwork(page)
         return
-    gs.load_file(page, base, GP_FILE, "page" if kind == "gp_page" else "continuous")
+    gs.load_file(page, base, GP_FILE, "page" if kind == "gp_page" else "continuous", scale=scale)
     if supporter:
         page.evaluate("import('/app/channel.js').then(m => m.setSupporterOwned(true))")
     if kind == "synth_menu":
@@ -446,8 +478,10 @@ def main():
 
     from playwright.sync_api import sync_playwright
 
-    store, cfg = STORES[args.channel], resolve_channel(args.channel)
-    out = Path(args.out_dir).resolve() if args.out_dir else OUT_ROOT / args.channel
+    store = STORES[args.channel]
+    channel = store.get("channel", args.channel)
+    cfg = resolve_channel(channel)
+    out = Path(args.out_dir).resolve() if args.out_dir else OUT_ROOT / store.get("out", args.channel)
     raw_dir = out / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
     if not args.only:
@@ -455,9 +489,9 @@ def main():
             f.unlink(missing_ok=True)
     shots = [s for s in SHOTS if (not args.only or s["id"] in args.only)]
     if not args.no_prepare:
-        prepare_channel_frontend(args.channel)
+        prepare_channel_frontend(channel)
     httpd, base = start_channel_server()
-    print(f"[{args.channel}] capabilities: {json.dumps(cfg)}")
+    print(f"[{channel}] capabilities: {json.dumps(cfg)}")
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True, args=["--autoplay-policy=no-user-gesture-required"])
@@ -476,8 +510,8 @@ def main():
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(f"{base}/app/", wait_until="networkidle", timeout=60000)
             live = page.evaluate("import('/app/channel.js').then(m => [m.getChannel(), m.hasSupporter()])")
-            if live != [args.channel, False]:
-                raise SystemExit(f"App is not running as the {args.channel} channel: {live}")
+            if live != [channel, False]:
+                raise SystemExit(f"App is not running as the {channel} channel: {live}")
             n = 0
             for shot in SHOTS:
                 if shot.get("requires") and not has_feature(cfg, shot["requires"]):
@@ -490,12 +524,14 @@ def main():
                 shot_page = ctx.new_page() if shot.get("own_page") else page
                 if shot_page is not page:
                     shot_page.on("pageerror", lambda e: errors.append(str(e)))
-                setup_shot(shot_page, base, shot["setup"], shot.get("supporter", False))
+                setup_shot(shot_page, base, shot["setup"], shot.get("supporter", False), store.get("tab_scale"))
                 if store.get("no_fullscreen"):
                     shown = shot_page.evaluate("""() => ['#fullscreenPill', '#fullscreenToggleBtn', '#toolsFullscreenRow']
                         .filter(s => { const e = document.querySelector(s); return e && e.offsetParent !== null; })""")
                     if shown:
-                        raise SystemExit(f"{shot['id']}: fullscreen control visible on {args.channel}: {shown}")
+                        raise SystemExit(f"{shot['id']}: fullscreen control visible on {channel}: {shown}")
+                # The app focuses #output for keyboard scrolling, and the browser draws an orange focus ring around it.
+                shot_page.evaluate("document.activeElement && document.activeElement.blur()")
                 raw = raw_dir / f"{shot['id']}.png"
                 shot_page.screenshot(path=str(raw))
                 if shot_page is not page:
