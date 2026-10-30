@@ -15,7 +15,7 @@ Usage:
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
     python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist
 
-Output: support/store/<channel>/<NN>-<shot>.png (gitignored), raw captures under .../raw/.
+Output: support/store/<channel>/<NN>-<shot>.png , raw captures under .../raw/.
 Add a store by adding an entry to STORES (device profile, final size; `channel` is the id from build/channels.mjs and
 defaults to the entry's own name, `out` is the folder under support/store/).
 """
@@ -49,13 +49,13 @@ STORES = {
         "scale": 3,
         "user_agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
         "final": (1080, 1920),  # Play phone: 9:16, each side 320-3840 px, max 2:1
-        "out": "play/phone",
+        "out": "../../fastlane/metadata/android/en-US/images/phoneScreenshots",
         "tab_scale": 50,  # sheet zoom (%), so a phone shows several bars instead of a couple
     },
     # Play tablet and Chromebook/desktop shots: landscape 16:9 (how a tab stand is used), each side 320-3840 px. Same `play` build as the phone.
     "play-tablet-7": {
         "channel": "play",
-        "out": "play/tablet-7",
+        "out": "../../fastlane/metadata/android/en-US/images/sevenInchScreenshots",
         "tab_scale": 50,
         "viewport": {"width": 960, "height": 540},
         "scale": 2,
@@ -73,7 +73,7 @@ STORES = {
     },
     "play-tablet-10": {
         "channel": "play",
-        "out": "play/tablet-10",
+        "out": "../../fastlane/metadata/android/en-US/images/tenInchScreenshots",
         "tab_scale": 80,
         "viewport": {"width": 1280, "height": 720},
         "scale": 2,

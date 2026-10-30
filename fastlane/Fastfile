@@ -1,0 +1,36 @@
+# Google Play lanes. Listing text, images and changelogs come from fastlane/metadata/android, which is
+# also what F-Droid reads. Build the AAB first: node build/build-tauri.mjs android --channel=play
+#
+# Credentials: PLAY_SERVICE_ACCOUNT_JSON=<path to service account key>
+# The Play API has no desktop (ChromeOS) screenshot type, so those stay in Play Console.
+
+default_platform(:android)
+
+platform :android do
+  desc "Sync the Play listing (text and images) without uploading a build"
+  lane :listing do
+    upload_to_play_store(
+      skip_upload_apk: true,
+      skip_upload_aab: true,
+      skip_upload_changelogs: true,
+      skip_upload_metadata: false,
+      skip_upload_images: false,
+      skip_upload_screenshots: false
+    )
+  end
+
+  desc "Upload the AAB, debug symbols and changelog, and sync the listing"
+  lane :release do |options|
+    aab = Dir[options[:aab] || "dist/*.aab"].first or UI.user_error!("No AAB found; build the play channel first")
+    symbols = Dir[options[:symbols] || "dist/*-symbols.zip"].first
+    upload_to_play_store(
+      aab: aab,
+      mapping_paths: symbols ? [symbols] : nil,
+      track: ENV["PLAY_TRACK"] || "internal",
+      # A draft is required until the app's first release is published from Play Console.
+      release_status: ENV["PLAY_RELEASE_STATUS"] || "draft",
+      release_name: options[:release_name],
+      skip_upload_apk: true
+    )
+  end
+end

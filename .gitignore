@@ -26,3 +26,6 @@
 /tools/__pycache__/*
 __pycache__/
 /tests/sample.pdf
+/vendor/bundle/
+/fastlane/report.xml
+/.bundle/

@@ -44,7 +44,8 @@ To ensure high visual polish, scannability, and consistency across marketing pag
 All website, store listing, and branding material lives under `support/`:
 
 - `support/site/`: the public website (`index.html`, `privacy.html`, `landing.css`, `CNAME`, `img/`, `icons/`), the deploy root for `majestictab.zathu.net`.
-- `support/store/`: Microsoft Store and Google Play listing assets (`description.txt`, `msstore/`, `play/`).
+- `support/store/`: Microsoft Store screenshots and logos (`msstore/`) and Play desktop screenshots (`play/desktop/`, which the Play API can't upload).
+- `fastlane/metadata/android/en-US/`: the single source for the Google Play and F-Droid listing (descriptions, changelogs, icon, feature graphic, phone and tablet screenshots). `msstore_listing.py` reads the same descriptions. `fastlane android listing` syncs the listing to Play and `fastlane android release` uploads the AAB (`bundle exec`, with `PLAY_SERVICE_ACCOUNT_JSON` set).
 - `support/branding/`: source icon SVGs and `generate_icons.py`, which writes the web PNG/ICO icons to both `src/icons/` and `support/site/icons/`.
 - `support/tools/`: generators (`generate_screenshots.py`, `store_screenshots.py`, `store_logos.py`, `generate-steam-artwork.mjs`, `generate-msstore-artwork.mjs`) and `landing/build.sh` (rebuilds `support/site/landing.css` after changing classes in `index.html`).
 

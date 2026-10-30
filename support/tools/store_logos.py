@@ -1,5 +1,5 @@
 """Regenerate the Microsoft Store box/poster art in support/store/msstore/logos, and the Google Play
-icon (512x512) and feature graphic (1024x500) in support/store/play.
+icon (512x512) and feature graphic (1024x500) in fastlane/metadata/android/en-US/images.
 
 Store tiles are shown at thumbnail size (~150-300px), so the art is built for that:
 a large pick mark, a wordmark spanning most of the width, and no tagline (it was
@@ -16,7 +16,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ROOT = Path(__file__).resolve().parent.parent.parent
 SOURCE = ROOT / "support" / "branding" / "icon_v2_mystic.svg"
 OUT = ROOT / "support" / "store" / "msstore" / "logos"
-PLAY_OUT = ROOT / "support" / "store" / "play"
+PLAY_OUT = ROOT / "fastlane" / "metadata" / "android" / "en-US" / "images"
 FONT = "/System/Library/Fonts/Helvetica.ttc"  # index 1 = Bold
 TOP, BOTTOM = (0x16, 0x13, 0x2A), (0x05, 0x04, 0x0A)
 TAB_COLOR = (0x14, 0xC4, 0xC8)
@@ -108,9 +108,9 @@ def main():
     for name, args in SIZES.items():
         render(*args).save(OUT / name)
         print(f"wrote {name}")
-    render_play_icon().save(PLAY_OUT / "icon-512.png")
-    render_play_feature().save(PLAY_OUT / "feature-graphic-1024x500.png")
-    print("wrote play/icon-512.png, play/feature-graphic-1024x500.png")
+    render_play_icon().save(PLAY_OUT / "icon.png")
+    render_play_feature().save(PLAY_OUT / "featureGraphic.png")
+    print("wrote fastlane icon.png, featureGraphic.png")
 
 
 if __name__ == "__main__":

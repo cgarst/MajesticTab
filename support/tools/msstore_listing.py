@@ -1,4 +1,4 @@
-"""Patch the Microsoft Store listing text in a submission JSON from support/store/description.txt.
+"""Patch the Microsoft Store listing text in a submission JSON from fastlane/metadata/android/en-US.
 
 Usage: msstore_listing.py <submission.json> [language]
 
@@ -7,25 +7,17 @@ description of the given listing language (default en-us), and rewrites the file
 it can be sent back with `msstore submission update`. Everything else in the draft is left as is.
 """
 import json
-import re
 import sys
 from pathlib import Path
 
-DESCRIPTION = Path(__file__).resolve().parent.parent / "store" / "description.txt"
+LISTING = Path(__file__).resolve().parents[2] / "fastlane" / "metadata" / "android" / "en-US"
 
 
-def read_sections(path):
-    sections = {}
-    name = None
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if re.fullmatch(r"-{3,}", line.strip()):
-            continue
-        if line in ("Short description", "Full description"):
-            name = line
-            sections[name] = []
-        elif name:
-            sections[name].append(line)
-    return {k: "\n".join(v).strip() for k, v in sections.items()}
+def read_sections(directory):
+    return {
+        "Short description": (directory / "short_description.txt").read_text(encoding="utf-8").strip(),
+        "Full description": (directory / "full_description.txt").read_text(encoding="utf-8").strip(),
+    }
 
 
 def pick(mapping, key):
@@ -38,7 +30,7 @@ def pick(mapping, key):
 def main():
     path = Path(sys.argv[1])
     language = sys.argv[2] if len(sys.argv) > 2 else "en-us"
-    text = read_sections(DESCRIPTION)
+    text = read_sections(LISTING)
     draft = json.loads(path.read_text(encoding="utf-8"))
 
     listings = draft[pick(draft, "listings")]
