@@ -81,6 +81,8 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: build/tauri/package-lock.json
+      - name: Check Flathub sources match the lockfiles
+        run: node build/tauri/flatpak/flathub/check-sources.mjs
       - uses: dtolnay/rust-toolchain@stable
       - uses: swatinem/rust-cache@v2
         with:

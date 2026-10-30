@@ -109,6 +109,10 @@ Outputs land in `dist/` (`MajesticTab-android.aab`, `.apk`, `-symbols.zip`). Nev
 
 When bumping `version` in `build/tauri/src-tauri/tauri.conf.json`, also set `bundle.android.versionCode` in `tauri.android.conf.json` to `major * 1000000 + minor * 1000 + patch` (1.0.9 is 1000009). F-Droid reads it with a regex and cannot run that formula; Android builds fail if the two disagree. The `fdroid` channel builds one unsigned universal release APK (arm64-v8a, armeabi-v7a and x86_64) into `dist/MajesticTab-android-unsigned.apk`.
 
+### Flathub Sources
+
+`build/tauri/flatpak/flathub/` holds the Flathub manifest plus `cargo-sources.json` and `node-sources.json`, which Flathub's offline build needs and which are generated from `src-tauri/Cargo.lock` and `package-lock.json`. Whenever either lockfile changes, run `build/tauri/flatpak/flathub/update-sources.sh` (needs `flatpak-node-generator` on PATH and `FLATPAK_CARGO_GENERATOR` pointing at `flatpak-cargo-generator.py`, both from github.com/flatpak/flatpak-builder-tools) and commit the result. `node build/tauri/flatpak/flathub/check-sources.mjs` checks it offline, and CI fails the Linux build if they drift. For each release, also bump `tag:` and `commit:` in the manifest. The metainfo template (`net.zathu.majestictab.metainfo.xml`) is filled in by `render-metainfo.mjs`: add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` for every version, or the Linux build fails.
+
 ### Area-specific guides
 
 - Jam mode (`src/jam/`, host/client sync): see `src/jam/AGENTS.md`.
