@@ -50,11 +50,12 @@ jobs:
     needs: store
     runs-on: ubuntu-latest
     steps:
+      # Checkout first: it cleans untracked files, which would delete the downloaded artifact.
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v8
         with:
           name: store-play
           path: store-play
-      - uses: actions/checkout@v5
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
@@ -80,11 +81,12 @@ jobs:
     needs: store
     runs-on: windows-latest
     steps:
+      # Checkout first: it cleans untracked files, which would delete the downloaded artifact.
+      - uses: actions/checkout@v5
       - uses: actions/download-artifact@v8
         with:
           name: store-msstore
           path: store-msstore
-      - uses: actions/checkout@v5
       - uses: microsoft/microsoft-store-apppublisher@v1.4
       # Uses the msstore CLI throughout (microsoft/store-submission is deprecated).
       - name: Upload package, sync listing, and submit
@@ -99,7 +101,9 @@ jobs:
           mkdir -p bundle-in
           cp store-msstore/*.msix bundle-in/
           "$makeappx" bundle //o //d bundle-in //p MajesticTab-msstore.msixbundle
-          msstore publish store-msstore --inputFile MajesticTab-msstore.msixbundle \
+          mkdir bundle-out
+          mv MajesticTab-msstore.msixbundle bundle-out/
+          msstore publish bundle-out --inputDirectory bundle-out \
             --appId "$MSSTORE_PRODUCT_ID" --noCommit
           # Sync the listing text from support/store/description.txt into the draft. The CLI round-trips
           # the whole draft, so pricing and other settings entered in Partner Center are preserved.
