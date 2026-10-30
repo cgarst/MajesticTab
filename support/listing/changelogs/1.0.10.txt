@@ -1,0 +1,1 @@
+- Prepared MajesticTab for Flathub and F-Droid distribution
