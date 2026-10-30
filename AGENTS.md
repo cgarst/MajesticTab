@@ -117,7 +117,7 @@ When bumping `version` in `build/tauri/src-tauri/tauri.conf.json`, also set `bun
 2. Draft the notes from `git log <previous tag>..HEAD` per Release Notes below and **wait for the user's approval of the text**.
 3. Bump `version` in `build/tauri/src-tauri/tauri.conf.json` and `bundle.android.versionCode` in `tauri.android.conf.json`, and update `support/store/fdroid/net.zathu.majestictab.yml` (`versionName`, `versionCode`, `commit: v<version>`, `CurrentVersion`, `CurrentVersionCode`) and the versionCode example in Local Store Builds.
 4. Write `support/listing/changelogs/<version>.txt`, run `node build/release-notes.mjs --link`, and commit as `Bump to <version>`.
-5. **Ask the user to confirm**, then `git tag v<version>` on that commit and `git push origin main v<version>`. Never push or tag without that confirmation, and never move or delete a pushed tag.
+5. Once the user has approved the notes, tag and push without asking again: asking to cut a release is the authorization. `git tag v<version>` on the bump commit, then `git push origin main v<version>`. Do not tag or push if the notes were never approved, and never move or delete a pushed tag.
 6. After the push, bump `tag:` and `commit:` in `build/tauri/flatpak/flathub/net.zathu.majestictab.yml` to the tagged commit in a follow-up commit.
 
 ### Release Notes
