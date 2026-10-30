@@ -101,10 +101,8 @@ jobs:
           mkdir -p bundle-in
           cp store-msstore/*.msix bundle-in/
           "$makeappx" bundle //o //d bundle-in //p MajesticTab-msstore.msixbundle
-          mkdir bundle-out
-          mv MajesticTab-msstore.msixbundle bundle-out/
-          msstore publish bundle-out --inputDirectory bundle-out \
-            --appId "$MSSTORE_PRODUCT_ID" --noCommit
+          # A package file as the path (not a directory) selects the CLI's MSIX publisher, which uploads it as is.
+          msstore publish MajesticTab-msstore.msixbundle --appId "$MSSTORE_PRODUCT_ID" --noCommit
           # Sync the listing text from support/store/description.txt into the draft. The CLI round-trips
           # the whole draft, so pricing and other settings entered in Partner Center are preserved.
           msstore submission get "$MSSTORE_PRODUCT_ID" > draft.json

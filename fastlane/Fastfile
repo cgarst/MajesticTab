@@ -21,8 +21,10 @@ platform :android do
 
   desc "Upload the AAB, debug symbols and changelog, and sync the listing"
   lane :release do |options|
-    aab = Dir[options[:aab] || "dist/*.aab"].first or UI.user_error!("No AAB found; build the play channel first")
-    symbols = Dir[options[:symbols] || "dist/*-symbols.zip"].first
+    # Fastlane runs lanes from fastlane/, so resolve globs against the repo root.
+    root = File.expand_path("..", FastlaneCore::FastlaneFolder.path)
+    aab = Dir[File.expand_path(options[:aab] || "dist/*.aab", root)].first or UI.user_error!("No AAB found; build the play channel first")
+    symbols = Dir[File.expand_path(options[:symbols] || "dist/*-symbols.zip", root)].first
     upload_to_play_store(
       aab: aab,
       mapping_paths: symbols ? [symbols] : nil,
