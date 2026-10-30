@@ -7,5 +7,5 @@ Terminal=false
 Type=Application
 StartupWMClass=net.zathu.majestictab
 Keywords=guitar;tab;tablature;Guitar Pro;sheet music;
-Categories=AudioVideo;Audio;Music;Education;
+Categories=AudioVideo;Audio;Music;
 MimeType=application/x-guitar-pro;application/x-gtp;

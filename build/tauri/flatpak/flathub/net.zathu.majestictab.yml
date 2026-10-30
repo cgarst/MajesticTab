@@ -1,6 +1,6 @@
 app-id: net.zathu.majestictab
 runtime: org.gnome.Platform
-runtime-version: '49'
+runtime-version: '51'
 sdk: org.gnome.Sdk
 sdk-extensions:
   - org.freedesktop.Sdk.Extension.rust-stable
@@ -13,6 +13,7 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
   - --device=input
+  - --require-version=1.16.0
 modules:
   - name: majestictab
     buildsystem: simple
