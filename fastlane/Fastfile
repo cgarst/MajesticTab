@@ -31,7 +31,7 @@ platform :android do
       track: ENV["PLAY_TRACK"] || "internal",
       # A draft is required until the app's first release is published from Play Console.
       release_status: ENV["PLAY_RELEASE_STATUS"] || "draft",
-      release_name: options[:release_name],
+      version_name: options[:release_name],
       skip_upload_apk: true
     )
   end
