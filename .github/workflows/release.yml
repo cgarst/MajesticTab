@@ -100,7 +100,9 @@ jobs:
           makeappx="$(find "/c/Program Files (x86)/Windows Kits/10/bin" -name makeappx.exe -path '*x64*' | sort -V | tail -n1)"
           mkdir -p bundle-in
           cp store-msstore/*.msix bundle-in/
-          "$makeappx" bundle //o //d bundle-in //p MajesticTab-msstore.msixbundle
+          # Without /bv makeappx stamps the bundle with the build date; match the MSIX version instead.
+          version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          "$makeappx" bundle //o //bv "$version.0" //d bundle-in //p MajesticTab-msstore.msixbundle
           # A package file as the path (not a directory) selects the CLI's MSIX publisher, which uploads it as is.
           msstore publish MajesticTab-msstore.msixbundle --appId "$MSSTORE_PRODUCT_ID" --noCommit
           # Sync the listing text from support/store/description.txt into the draft. The CLI round-trips
