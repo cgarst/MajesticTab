@@ -111,7 +111,7 @@ SHOTS = [
          setup="gp_scroll"),
     dict(id="gp_page", headline="Or, turn pages like a book", subtitle="Tap or use a Bluetooth page turner",
          setup="gp_page"),
-    dict(id="library", headline="Your whole tab library", subtitle="Browse by artist and album in one place",
+    dict(id="library", headline="Your whole tab library", subtitle="Browse by artist and album",
          setup="library"),
     dict(id="tunings", headline="Browse tabs by tuning",
          subtitle="Group your songs by 6-string, 7-string, and drop tunings",
