@@ -4,6 +4,7 @@
 
 import { showToast } from './toast.js';
 import { isTvMode } from '../tvMode.js';
+import { getDefaultGpDisplayScalePercent } from '../gpProcessor/gpProcessor.js';
 import { performAppBack } from './navigationUtils.js';
 
 // Controller configuration constants
@@ -1380,10 +1381,11 @@ class GamepadManager {
     resetZoom() {
         const scaleInput = document.getElementById('gpSheetScale');
         if (scaleInput) {
-            scaleInput.value = '100';
+            const defaultScale = getDefaultGpDisplayScalePercent();
+            scaleInput.value = String(defaultScale);
             scaleInput.dispatchEvent(new Event('input', { bubbles: true }));
             scaleInput.dispatchEvent(new Event('change', { bubbles: true }));
-            showToast('Zoom reset to 100%', 'info', 1200);
+            showToast(`Zoom reset to ${defaultScale}%`, 'info', 1200);
         }
     }
 

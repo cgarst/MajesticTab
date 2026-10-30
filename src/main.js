@@ -8,7 +8,7 @@ import { setupSaveToLibraryButton } from './saveToLibrary.js';
 import { setupAddToSetlistButton } from './setlistUi.js';
 import { setupSetlistNav, refreshSetlistNav } from './setlistPlayer.js';
 import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios, applyGpStringCount, syncGpStringCountRadios, syncGpStringCountUI } from './gpProcessor/gpHandler.js';
-import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
+import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { setupPageScrubber } from './utils/pageScrubber.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
@@ -272,7 +272,7 @@ let continuous = false;
 // --- TAB SIZE & DISPLAY SCALE ---
 export function syncGpSheetScale(nextValue) {
     const currentScale = Number.parseInt(nextValue, 10);
-    const safeValue = Number.isFinite(currentScale) ? Math.min(150, Math.max(50, currentScale)) : 100;
+    const safeValue = Number.isFinite(currentScale) ? Math.min(150, Math.max(50, currentScale)) : getDefaultGpDisplayScalePercent();
     const input = document.getElementById('gpSheetScale');
     const valueEl = document.getElementById('gpSheetScaleValue');
     if (input) input.value = String(safeValue);

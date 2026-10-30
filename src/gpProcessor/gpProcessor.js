@@ -30,22 +30,26 @@ export {
     getTabStorageId
 };
 
-export const DEFAULT_GP_DISPLAY_SCALE = 1.0;
+export const DEFAULT_GP_DISPLAY_SCALE = 0.8;
 export let GP_DISPLAY_SCALE = DEFAULT_GP_DISPLAY_SCALE;
+
+export function getDefaultGpDisplayScalePercent() {
+    return Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
+}
 
 export function getGpDisplayScalePercent() {
     if (typeof localStorage === 'undefined') {
-        return Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
+        return getDefaultGpDisplayScalePercent();
     }
 
     const raw = localStorage.getItem('gpSheetScale');
     if (raw === null || raw === '') {
-        return Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
+        return getDefaultGpDisplayScalePercent();
     }
 
     const value = Number.parseInt(raw, 10);
     if (!Number.isFinite(value)) {
-        return Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
+        return getDefaultGpDisplayScalePercent();
     }
 
     return Math.min(150, Math.max(50, value));
@@ -55,7 +59,7 @@ export function setGpDisplayScale(percent) {
     const numeric = Number.parseInt(percent, 10);
     const safePercent = Number.isFinite(numeric)
         ? Math.min(150, Math.max(50, numeric))
-        : Math.round(DEFAULT_GP_DISPLAY_SCALE * 100);
+        : getDefaultGpDisplayScalePercent();
 
     GP_DISPLAY_SCALE = safePercent / 100;
     if (typeof document !== 'undefined') {
