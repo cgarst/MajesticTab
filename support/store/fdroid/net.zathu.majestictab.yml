@@ -33,11 +33,16 @@ Builds:
       - update-java-alternatives -s java-1.21.0-openjdk-amd64 || true
     init: curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99.1
     rm:
+      - .github
       - docs
       - tests
-      - support/site
+      - support/listing
       - support/store
       - support/tools
+      - Gemfile
+      - Gemfile.lock
+      - source.json
+      - run.sh
     scanignore:
       - build/tauri/plugins/google-auth
     prebuild:
