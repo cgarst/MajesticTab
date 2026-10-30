@@ -31,16 +31,20 @@
   </branding>
   <screenshots>
     <screenshot type="default">
-      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/docs/img/screenshots/gp_page.png</image>
-      <caption>Guitar Pro tablature page view</caption>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/01-gp_scroll.png</image>
+      <caption>Scroll through your tabs</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/docs/img/screenshots/gp_themed.png</image>
-      <caption>Themed view mode</caption>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/02-gp_page.png</image>
+      <caption>Or turn pages like a book</caption>
     </screenshot>
     <screenshot>
-      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/docs/img/screenshots/pdf_page.png</image>
-      <caption>PDF sheet music viewer</caption>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/05-synth_menu.png</image>
+      <caption>Play along with the built-in synth</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/06-fretboard.png</image>
+      <caption>Follow each note on a fretboard</caption>
     </screenshot>
   </screenshots>
   <categories>

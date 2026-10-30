@@ -4,7 +4,7 @@
 Each shot is captured from the app exactly as that channel ships it: the script runs
 build/tauri/prepare-tauri-frontend.mjs for the channel (channel.json, files and options the channel excludes
 removed), checks it with build/verify-channel.mjs, and serves the result. Capture is at the store's device size, then composed into a marketing frame
-(headline, subtitle, device-framed capture). Only public-domain / test fixtures in tests/ are used (no copyrighted tabs).
+(headline, subtitle, device-framed capture); a store with "plain": True (flathub) gets the bare capture instead. Only public-domain / test fixtures in tests/ are used (no copyrighted tabs).
 
 Usage:
     pip install playwright pillow && playwright install chromium
@@ -12,6 +12,7 @@ Usage:
     python3 tools/store_screenshots.py play-tablet-7           # Play 7-inch tablet shots (also play-tablet-10, play-desktop)
     python3 tools/store_screenshots.py msstore                 # all Microsoft Store desktop shots
     python3 tools/store_screenshots.py play --only gp_scroll   # one shot
+    python3 tools/store_screenshots.py flathub --only gp_scroll gp_page library synth_menu fretboard   # Flathub (plain captures)
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
     python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist
 
@@ -90,6 +91,15 @@ STORES = {
         "root_classes": ["tauri-ios"],
         # iOS is always a full-screen app, so the Fullscreen button must not appear anywhere.
         "no_fullscreen": True,
+    },
+    "flathub": {
+        # Flathub wants plain window captures: no marketing frame, headline or device bezel. 16:9, 1920x1080.
+        "viewport": {"width": 1440, "height": 810},
+        "scale": 2,
+        "mobile": False,
+        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "final": (1920, 1080),
+        "plain": True,
     },
     "msstore": {
         # Microsoft Store desktop: 16:9, 1366x768 to 3840x2160.
@@ -534,7 +544,11 @@ def main():
                 if shot_page is not page:
                     shot_page.close()
                 final = out / f"{n:02d}-{shot['id']}.png"
-                compose(raw, final, store["final"], shot["headline"], shot["subtitle"])
+                if store.get("plain"):
+                    from PIL import Image
+                    Image.open(raw).convert("RGB").resize(store["final"], Image.LANCZOS).save(final, optimize=True)
+                else:
+                    compose(raw, final, store["final"], shot["headline"], shot["subtitle"])
                 print(f"  wrote {final}")
             browser.close()
         if errors:
