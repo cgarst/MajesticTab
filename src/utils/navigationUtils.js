@@ -213,6 +213,10 @@ export function setupKeyboardNavigation(getConfig) {
 
         const isSpace = (e.key === ' ' || e.code === 'Space');
         const isB = (e.key === 'b' || e.key === 'B');
+        // Remote and keyboard media keys act like Space; MediaPlay / MediaPause only do their half of the toggle
+        const isMediaToggle = e.key === 'MediaPlayPause'
+            || (e.key === 'MediaPlay' && !(isSynthPlaying() || isYouTubePlaying()))
+            || (e.key === 'MediaPause' && (isSynthPlaying() || isYouTubePlaying()));
 
         // Avoid handling keys when focused on editable text elements
         const activeEl = document.activeElement;
@@ -236,6 +240,10 @@ export function setupKeyboardNavigation(getConfig) {
                     e.preventDefault();
                     activeEl.blur();
                     gamepadManager.clearNavFocus();
+                    return;
+                }
+                if (e.key === 'Enter' && gamepadManager.openTvKeyboard(activeEl)) {
+                    e.preventDefault();
                     return;
                 }
                 if (e.key === 'Enter' && !activeEl.closest('form')) {
@@ -356,12 +364,12 @@ export function setupKeyboardNavigation(getConfig) {
         }
 
         // Prevent default browser scrolling and radio group switching for navigation and spacebar
-        if (nextPageKeys.includes(e.key) || prevPageKeys.includes(e.key) || isSpace) {
+        if (nextPageKeys.includes(e.key) || prevPageKeys.includes(e.key) || isSpace || isMediaToggle) {
             e.preventDefault();
         }
 
-        // Spacebar toggles playback
-        if (isSpace) {
+        // Spacebar and the media play/pause keys toggle playback
+        if (isSpace || isMediaToggle) {
             // 1. If a player is playing, pause it; otherwise resume the last
             //    active/selected source (soundfont or YouTube), falling back to
             //    whichever is available
@@ -383,12 +391,21 @@ export function setupKeyboardNavigation(getConfig) {
         const isPrev = prevPageKeys.includes(e.key);
 
         if (isNext || isPrev) {
+            // Up at the start of the score moves into the top bar
+            const isPageMode = config.pageModeChecked || config.pageModeRadio?.checked;
+            if (e.key === 'ArrowUp' && !isPageMode && gamepadManager.isScoreScrolledToTop() && gamepadManager.enterTopBar()) return;
+            const pageSnapshot = document.getElementById('pageIndicator')?.textContent;
             const navigationHandler = new NavigationHandler(config);
             const action = isNext ? NavigationAction.NEXT : NavigationAction.PREV;
             const result = navigationHandler.handleAction(action);
             
             if (result?.newPageIndex !== undefined && config.setCurrentPageIndex) {
                 config.setCurrentPageIndex(result.newPageIndex);
+            }
+            if (e.key === 'ArrowUp' && isPageMode) {
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    if (document.getElementById('pageIndicator')?.textContent === pageSnapshot) gamepadManager.enterTopBar();
+                }));
             }
         }
     });
@@ -410,6 +427,11 @@ export function performAppBack(getConfig = null) {
         }
         if (toggle) { toggle.click(); return true; }
         openDropdownMenu.classList.remove('show');
+        return true;
+    }
+    // Back from the top bar in the score view returns focus to the score
+    if (gamepadManager.isTopBarFocused() && !gamepadManager.isLibraryViewOpen() && !gamepadManager.isAnyModalOpen()) {
+        gamepadManager.exitTopBar();
         return true;
     }
     const toolsMenu = document.getElementById('toolsMenu');

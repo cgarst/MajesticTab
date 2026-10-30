@@ -3,6 +3,7 @@
 // Uses the W3C Gamepad API with standard XInput / Xbox / Steam Deck controller layout.
 
 import { showToast } from './toast.js';
+import { isTvMode } from '../tvMode.js';
 import { performAppBack } from './navigationUtils.js';
 
 // Controller configuration constants
@@ -587,10 +588,40 @@ class GamepadManager {
         }
     }
 
+    /**
+     * On TV the on-screen keyboard would open as soon as D-pad focus lands on a text field and then swallow the
+     * D-pad. The field is held at inputmode="none" until Enter asks to type (see openTvKeyboard).
+     */
+    armTvTextField(el) {
+        if (!isTvMode() || !el?.matches?.('input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]), textarea')) return;
+        if (!el.hasAttribute('data-tv-ime')) {
+            el.setAttribute('data-tv-ime', '1');
+            el.addEventListener('blur', () => {
+                if (el.hasAttribute('data-tv-reopen')) {
+                    el.removeAttribute('data-tv-reopen');
+                    return;
+                }
+                el.setAttribute('inputmode', 'none');
+            });
+        }
+        el.setAttribute('inputmode', 'none');
+    }
+
+    /** Whether Enter should open the keyboard for this field (it was reached by D-pad and is still held back). */
+    openTvKeyboard(el) {
+        if (!isTvMode() || el?.getAttribute?.('inputmode') !== 'none' || !el.hasAttribute('data-tv-ime')) return false;
+        el.removeAttribute('inputmode');
+        el.setAttribute('data-tv-reopen', '1');
+        el.blur();
+        el.focus();
+        return true;
+    }
+
     setNavFocus(target, scroll = true) {
         if (!target) return;
         this.lastInputWasNavigation = true;
         this.applyNavFocusClass(target);
+        this.armTvTextField(target);
         try {
             target.focus({ preventScroll: true });
         } catch {}
@@ -622,6 +653,8 @@ class GamepadManager {
         if (el.classList?.contains('btn-check') && el.nextElementSibling) {
             return this.isElementVisible(el.nextElementSibling);
         }
+        // Contents of a closed <details> keep their layout box but cannot take focus
+        if (el.checkVisibility && !el.checkVisibility({ contentVisibilityAuto: true, visibilityProperty: true })) return false;
         const style = window.getComputedStyle(el);
         if (style.display === 'none' || style.visibility === 'hidden') return false;
         if (el.offsetParent === null && style.position !== 'fixed' && style.position !== 'sticky') return false;
@@ -734,7 +767,7 @@ class GamepadManager {
         }
 
         this.hudTransientTimeout = setTimeout(() => {
-            if (this.isHudHidden && this.topBar) {
+            if (this.isHudHidden && this.topBar && !this.topBar.contains(document.activeElement)) {
                 this.topBar.classList.remove('hud-transient');
                 mobileDock?.classList.remove('hud-transient');
             }
@@ -742,8 +775,54 @@ class GamepadManager {
         }, 3200);
     }
 
+    /**
+     * Whether the score is at its start, so Up has nowhere further to go and should reach the top bar.
+     */
+    isScoreScrolledToTop() {
+        const output = document.getElementById('output');
+        const scroller = output && output.classList.contains('continuous-mode') ? output : document.getElementById('mainContent');
+        return !scroller || scroller.scrollTop <= 1;
+    }
+
+    /**
+     * Move focus from the score into the top bar (peeking it when Zen Mode hides it), so D-pad, keyboard and
+     * controller users can reach its buttons. Down at the bottom of the bar returns to the score.
+     */
+    enterTopBar() {
+        if (!this.topBar) this.topBar = document.getElementById('topBar');
+        if (!this.topBar) return false;
+        if (this.isHudHidden) {
+            this.topBar.classList.add('hud-transient');
+            if (this.hudTransientTimeout) {
+                clearTimeout(this.hudTransientTimeout);
+                this.hudTransientTimeout = null;
+            }
+        }
+        const target = this.getFocusableElements(this.topBar)[0];
+        if (!target) return false;
+        this.setNavFocus(target);
+        return true;
+    }
+
+    exitTopBar() {
+        const active = document.activeElement;
+        if (active && this.isTopBarFocused() && typeof active.blur === 'function') active.blur();
+        this.clearNavFocus();
+        if (this.isHudHidden) this.topBar?.classList.remove('hud-transient');
+    }
+
+    /** The always-visible score chrome: the top bar and the floating playback dock. */
+    getChromeRoots() {
+        return [this.topBar, document.getElementById('mobilePlaybackDock')].filter(Boolean);
+    }
+
+    isTopBarFocused() {
+        return this.getChromeRoots().some(root => root.contains(document.activeElement));
+    }
+
     activateElement(el) {
         if (!el) return false;
+        if (this.openTvKeyboard(el)) return true;
 
         if (el.classList?.contains('btn-check') && el.nextElementSibling) {
             el.nextElementSibling.click();
@@ -824,7 +903,7 @@ class GamepadManager {
         this.lastInputWasNavigation = true;
         const container = this.getActiveFocusContainer();
 
-        if (isModalOpen || isLibOpen || (this.topBar && this.topBar.contains(document.activeElement))) {
+        if (isModalOpen || isLibOpen || this.isTopBarFocused()) {
             const activeEl = this.getCurrentFocusedElement(container);
             if (activeEl) {
                 this.activateElement(activeEl);
@@ -966,6 +1045,7 @@ class GamepadManager {
             this.navigateSpatial('up');
             return;
         }
+        if (this.isScoreScrolledToTop() && this.enterTopBar()) return;
         this.scrollActiveContainer(-140);
     }
 
@@ -980,7 +1060,7 @@ class GamepadManager {
     isSpatialNavActive() {
         return this.isLibraryViewOpen() ||
                this.isAnyModalOpen() ||
-               Boolean(this.topBar && this.topBar.contains(document.activeElement));
+               this.isTopBarFocused();
     }
 
     getActiveFocusContainer() {
@@ -1016,6 +1096,9 @@ class GamepadManager {
             return libPage;
         }
 
+        // 6. Score view with focus in the top bar: keep navigation inside it
+        if (this.isTopBarFocused()) return this.topBar;
+
         return document;
     }
 
@@ -1034,11 +1117,14 @@ class GamepadManager {
             '.theme-card',
             '.dropdown-menu.show .dropdown-item:not(:disabled):not(.disabled)',
             'button:not([disabled]):not([tabindex="-1"])',
+            'summary',
             'a[href]:not([tabindex="-1"])',
             'input:not([type="hidden"]):not([disabled]):not([tabindex="-1"])',
             'select:not([disabled]):not([tabindex="-1"])',
             'textarea:not([disabled]):not([tabindex="-1"])',
-            '[tabindex]:not([tabindex="-1"])'
+            '[tabindex]:not([tabindex="-1"])',
+            // The Page/Scroll mode radios are kept out of the Tab order but still need a D-pad stop
+            '#centerSection .btn-check'
         ].join(', ');
 
         const raw = Array.from(container.querySelectorAll(selector)).filter(el => this.isElementVisible(el));
@@ -1090,8 +1176,17 @@ class GamepadManager {
     navigateSpatial(direction) {
         this.lastInputWasNavigation = true;
         const container = this.getActiveFocusContainer();
-        const currentActive = this.getCurrentFocusedElement(container);
-        const focusable = this.getFocusableElements(container, currentActive, direction);
+        // The library page sits below the top bar, so Up/Down must be able to cross between them
+        const topBar = this.topBar;
+        // (and the floating playback dock, which holds Play on narrow layouts) in the score view
+        const roots = (topBar && (container === document.getElementById('libraryPage') || container === topBar))
+            ? [...new Set([container, ...this.getChromeRoots()])]
+            : [container];
+        const scope = roots.length > 1
+            ? { contains: (n) => roots.some(r => r.contains(n)), querySelector: (s) => { for (const r of roots) { const m = r.querySelector(s); if (m) return m; } return null; } }
+            : container;
+        const currentActive = this.getCurrentFocusedElement(scope);
+        const focusable = [...new Set(roots.flatMap(r => this.getFocusableElements(r, currentActive, direction)))];
 
         if (!focusable.length) return;
 
@@ -1226,6 +1321,8 @@ class GamepadManager {
 
         if (bestElement) {
             this.setNavFocus(bestElement);
+        } else if (direction === 'down' && container === this.topBar) {
+            this.exitTopBar();
         }
     }
 

@@ -39,6 +39,7 @@ import { initGamepadManager } from './utils/gamepadManager.js';
 import { initJamMode } from './jam/jamManager.js';
 import { isSteamDeck, applyPlatformDefaults, getDefaultView, getDefaultLandscapePageLayout } from './utils/platformUtils.js';
 import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
+import { isTvMode } from './tvMode.js';
 import { initFretboard } from './fretboard/fretboardController.js';
 import { initTuner } from './tuner/tuner.js';
 import { initToolsMenu } from './utils/toolsMenu.js';
@@ -1191,9 +1192,17 @@ async function initApp() {
         console.log('[Test Mode] Detected test parameter:', testFile);
         console.log('[Test Mode] Attempting to fetch: tests/' + testFile);
         try {
-            let response = await fetch(`tests/${testFile}`);
-            if (!response.ok) {
-                response = await fetch(`../tests/${testFile}`);
+            // test_base lets a native build (which doesn't bundle tests/) fetch fixtures from a dev server,
+            // over `adb reverse`. Loopback only.
+            const testBase = urlParams.get('test_base');
+            let response;
+            if (testBase && /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(testBase)) {
+                response = await fetch(`${testBase}${encodeURIComponent(testFile)}`);
+            } else {
+                response = await fetch(`tests/${testFile}`);
+                if (!response.ok) {
+                    response = await fetch(`../tests/${testFile}`);
+                }
             }
             console.log('[Test Mode] Fetch response status:', response.status, response.statusText);
 
@@ -1712,7 +1721,7 @@ export function getPdfPages() {
     // Gamescope / Steam Deck Gaming Mode is dedicated fullscreen.
     // iOS is already a full-screen app shell without windowed mode.
     // The library view's stylesheet rule forces the pill visible, so also flag the root for it to honor.
-    if (root.classList.contains('tauri-gamescope') || isIOSDevice() || (window.__TAURI__ && /Mac/i.test(navigator.platform))) {
+    if (root.classList.contains('tauri-gamescope') || isTvMode() || isIOSDevice() || (window.__TAURI__ && /Mac/i.test(navigator.platform))) {
         if (btn.parentElement) btn.parentElement.style.display = "none";
         root.classList.add('fullscreen-unavailable');
         return;

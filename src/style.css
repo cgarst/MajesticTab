@@ -384,7 +384,8 @@ body {
   app-region: no-drag !important;
 }
 
-.tauri-gamescope #fullscreenPill {
+.tauri-gamescope #fullscreenPill,
+.tv-mode #fullscreenPill {
   display: none !important;
 }
 

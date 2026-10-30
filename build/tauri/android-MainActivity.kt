@@ -251,6 +251,15 @@ class MainActivity : TauriActivity() {
       }
     }, "AndroidJam")
 
+    // Android TV launches the same APK, so the page asks whether it is running on a television.
+    webView.addJavascriptInterface(object {
+      @JavascriptInterface
+      fun isTelevision(): Boolean {
+        val uiMode = getSystemService(Context.UI_MODE_SERVICE) as? android.app.UiModeManager
+        return uiMode?.currentModeType == android.content.res.Configuration.UI_MODE_TYPE_TELEVISION
+      }
+    }, "AndroidTv")
+
     webView.addJavascriptInterface(object {
       @JavascriptInterface
       fun close() {
