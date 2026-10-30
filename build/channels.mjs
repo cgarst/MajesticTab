@@ -63,8 +63,9 @@ export function resolveChannel(id) {
 
 /** Cargo features the channel builds with (build/tauri/src-tauri/Cargo.toml replaces its `default` with these). */
 export function cargoFeatures(id) {
-  const { selfUpdate } = channels[id].capabilities;
+  const { selfUpdate, googleDrive } = channels[id].capabilities;
   return [
     ...(selfUpdate ? ['self-update'] : []),
+    ...(googleDrive ? ['google-auth'] : []),
   ];
 }

@@ -1,6 +1,8 @@
 // main.js
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
+// @googleDrive:begin
 import { setupDrivePicker, migrateGoogleAuth } from './googleDrive.js';
+// @googleDrive:end
 import { setupExportPDFButton } from './exportPdf.js';
 import { setupSaveToLibraryButton } from './saveToLibrary.js';
 import { setupAddToSetlistButton } from './setlistUi.js';
@@ -1124,14 +1126,18 @@ async function initApp() {
     // Detects the keychain only; secrets are read on first use so the OS password prompt isn't shown at launch
     await initSecureStore();
     migrateS3Secret();
+    // @googleDrive:begin
     migrateGoogleAuth();
+    // @googleDrive:end
 
     initIOSAudioUnlock();
     setupExportPDFButton();
     setupSaveToLibraryButton();
     setupAddToSetlistButton();
     setupSetlistNav(getCurrentFile);
+    // @googleDrive:begin
     setupDrivePicker();
+    // @googleDrive:end
     setupSettings();
     setupPinchToZoom();
     setupExtensionSettings();

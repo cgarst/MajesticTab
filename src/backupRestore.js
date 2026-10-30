@@ -1324,12 +1324,14 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
       </div>
 
       <!-- Linked Google account (shown only while connected) -->
+      <!-- @googleDrive:begin -->
       <div id="driveAccountRow" class="px-3 pt-2 d-none align-items-center justify-content-between gap-2">
         <span class="small text-white-50 text-truncate"><i class="bi-google text-danger me-1"></i> Google Drive is connected on this device</span>
         <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" id="driveDisconnectBtn" style="font-size:0.72rem;">
           <i class="bi-box-arrow-right me-1"></i> Disconnect
         </button>
       </div>
+      <!-- @googleDrive:end -->
 
       <!-- Modal Body -->
       <div class="theme-modal-body p-3">
@@ -1466,16 +1468,18 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreS3Btn">
                 <i class="bi-hdd-network text-warning"></i> <span>From S3 Bucket</span>
               </button>
+              <!-- @googleDrive:begin -->
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
                 <i class="bi-google text-danger"></i> <span>From Google Drive</span>
               </button>
+              <!-- @googleDrive:end -->
             </div>
 
             <!-- Inline Google Drive Backup Selector -->
             <div id="restoreDriveContainer" class="mt-3 pt-3 border-top border-secondary-subtle text-start" style="display: none;">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <span class="small fw-semibold text-white d-flex align-items-center gap-1">
-                  <i class="bi-google text-danger" id="restoreSourceIcon"></i> <span id="restoreSourceTitle">Google Drive Backups:</span>
+                  <i class="bi-hdd text-primary" id="restoreSourceIcon"></i> <span id="restoreSourceTitle">Backups:</span>
                 </span>
                 <div class="d-flex align-items-center gap-2">
                   <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none" id="restoreDriveCloseBtn" title="Close" aria-label="Close backups">
@@ -1486,7 +1490,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
                 <span class="text-white-50 text-truncate" id="restoreSourceLocation" style="font-size: 0.72rem;"></span>
                 <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" id="restoreChangeLocationBtn" style="font-size: 0.72rem;">Change</button>
+                <!-- @googleDrive:begin -->
                 <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0 d-none" id="restoreDrivePickBtn" style="font-size: 0.72rem;">Pick a different file…</button>
+                <!-- @googleDrive:end -->
               </div>
               <div id="restoreDriveLoading" class="py-3 text-center text-white-50 small" style="display: none;">
                 <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
@@ -1720,7 +1726,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               </label>
             </div>
             <div class="d-flex flex-wrap gap-2 mb-2">
+              <!-- @googleDrive:begin -->
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="google-drive"><i class="bi-google text-danger"></i> Scan Google Drive</button>
+              <!-- @googleDrive:end -->
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="s3"><i class="bi-hdd-network text-warning"></i> Scan S3 Bucket</button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="local"><i class="bi-folder2-open text-primary"></i> Scan Backup Folder</button>
             </div>
@@ -2133,6 +2141,7 @@ function attachModalHandlers(modal, options = {}) {
     // Resolves where an incremental backup would be stored. `interactive` calls must come from a click,
     // since choosing a folder and re-granting access both need a user gesture.
     const resolveIncrementalTarget = async ({ interactive = false, provider = getBackupProviderId() } = {}) => {
+        // @googleDrive:begin
         if (provider === 'google-drive') {
             const { isTokenValid, ensureFreshToken } = await import('./googleDrive.js');
             await ensureFreshToken();
@@ -2140,6 +2149,7 @@ function attachModalHandlers(modal, options = {}) {
             const { createDriveBackend } = await import('./driveBackup.js');
             return { status: 'ready', backend: createDriveBackend() };
         }
+        // @googleDrive:end
         if (provider === 's3') {
             const { createS3Backend } = await import('./s3Backup.js');
             const backend = createS3Backend();
@@ -2174,9 +2184,11 @@ function attachModalHandlers(modal, options = {}) {
         note('<div class="small text-white-50"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Checking for existing backups...</div>');
         try {
             const target = await resolveIncrementalTarget();
+            // @googleDrive:begin
             if (target.status === 'needs-auth') {
                 return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Connect Google Drive to back up there and see what changed since your last backup.</div>${actionBtn('connect', 'bi-google text-danger', 'Connect Google Drive')}`);
             }
+            // @googleDrive:end
             if (target.status === 'needs-icloud') {
                 return note(`<div class="small text-white-50"><i class="bi-cloud-slash me-1"></i> iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud, and make sure MajesticTab is allowed to use it.</div>`);
             }
@@ -2226,11 +2238,13 @@ function attachModalHandlers(modal, options = {}) {
         const action = e.target.closest('[data-backup-action]')?.dataset.backupAction;
         if (!action) return;
         try {
+            // @googleDrive:begin
             if (action === 'connect') {
                 const { redirectToGoogleAuth } = await import('./googleDrive.js');
                 redirectToGoogleAuth('backup_create');
                 return;
             }
+            // @googleDrive:end
             if (action === 'edit-s3') {
                 const { s3ConfigFormHtml } = await import('./s3Ui.js');
                 backupIncrementalPreview.innerHTML = `${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="save-s3"><i class="bi-plug"></i> <span>Save and Connect</span></button>`;
@@ -2331,11 +2345,13 @@ function attachModalHandlers(modal, options = {}) {
             if (incremental) {
                 // Only tabs and SoundFonts the destination doesn't already hold are stored
                 const target = await resolveIncrementalTarget({ interactive: true });
+                // @googleDrive:begin
                 if (target.status === 'needs-auth') {
                     const { redirectToGoogleAuth } = await import('./googleDrive.js');
                     redirectToGoogleAuth('backup_create');
                     throw new Error('Please authorize Google Drive to save the backup.');
                 }
+                // @googleDrive:end
                 if (target.status === 'needs-icloud') throw new Error('iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud.');
                 if (target.status === 'needs-s3') throw new Error('Connect your S3 bucket first.');
                 if (target.status !== 'ready') throw new Error('Choose a backup folder and allow access to it first.');
@@ -2413,7 +2429,9 @@ function attachModalHandlers(modal, options = {}) {
 
     restoreBrowseBtn?.addEventListener('click', () => restoreFileInput?.click());
 
+    // @googleDrive:begin
     const restoreDriveBtn = modal.querySelector('#restoreDriveBtn');
+    // @googleDrive:end
     const restoreDriveContainer = modal.querySelector('#restoreDriveContainer');
     const restoreDriveCloseBtn = modal.querySelector('#restoreDriveCloseBtn');
     const restoreDriveLoading = modal.querySelector('#restoreDriveLoading');
@@ -2426,7 +2444,9 @@ function attachModalHandlers(modal, options = {}) {
     const restoreSourceTitle = modal.querySelector('#restoreSourceTitle');
     const restoreSourceLocation = modal.querySelector('#restoreSourceLocation');
     const restoreChangeLocationBtn = modal.querySelector('#restoreChangeLocationBtn');
+    // @googleDrive:begin
     const restoreDrivePickBtn = modal.querySelector('#restoreDrivePickBtn');
+    // @googleDrive:end
     const restoreDriveEmptyText = modal.querySelector('#restoreDriveEmptyText');
     // d-inline-flex is !important, so visibility is toggled by swapping classes rather than inline display
     if (restoreFolderBtn && isFolderBackupSupported()) {
@@ -2443,6 +2463,7 @@ function attachModalHandlers(modal, options = {}) {
     // Which storage the snapshot list currently shows; set by loadGoogleDriveBackups / loadFolderBackups
     let activeSource = { type: 'drive', backend: null };
 
+    // @googleDrive:begin
     const loadGoogleDriveBackups = async () => {
         const { isTokenValid, ensureFreshToken, redirectToGoogleAuth, fetchDriveBackups } = await import('./googleDrive.js');
 
@@ -2500,6 +2521,7 @@ function attachModalHandlers(modal, options = {}) {
             }
         }
     };
+    // @googleDrive:end
 
     // Lists snapshots in a local backup folder. Must start from a click (folder access needs a gesture).
     const loadFolderBackups = async ({ pickNew = false, icloud = false } = {}) => {
@@ -2680,6 +2702,7 @@ function attachModalHandlers(modal, options = {}) {
                         await handleSelectedBackupFile(bundle, activeSource.type === 'folder' ? 'Backup Folder' : activeSource.type === 'icloud' ? 'iCloud Drive' : activeSource.type === 's3' ? 'S3 Bucket' : 'Google Drive');
                         return;
                     }
+                    // @googleDrive:begin
                     const { downloadDriveBackupFile } = await import('./googleDrive.js');
                     const fileObj = await downloadDriveBackupFile(b.id, b.name, ({ loaded, total, percent }) => {
                         if (dlProgressBar) dlProgressBar.style.width = `${percent}%`;
@@ -2689,11 +2712,13 @@ function attachModalHandlers(modal, options = {}) {
                     });
                     if (dlProgressContainer) dlProgressContainer.style.display = 'none';
                     await handleSelectedBackupFile(fileObj, 'Google Drive');
+                    // @googleDrive:end
                 } catch (dlErr) {
                     if (dlProgressContainer) dlProgressContainer.style.display = 'none';
                     console.error('Failed to download Drive backup:', dlErr);
                     if (restoreDriveError) {
                         restoreDriveError.style.display = 'block';
+                        // @googleDrive:begin
                         const isAuthError = dlErr.message.includes('authorization') || dlErr.message.includes('expired') || dlErr.message.includes('connect');
                         if (isAuthError) {
                             restoreDriveError.innerHTML = `
@@ -2709,8 +2734,11 @@ function attachModalHandlers(modal, options = {}) {
                                 redirectToGoogleAuth('restore_backup');
                             });
                         } else {
+                        // @googleDrive:end
                             restoreDriveError.textContent = `Failed to download "${b.name}": ${dlErr.message}`;
+                        // @googleDrive:begin
                         }
+                        // @googleDrive:end
                     }
                     restoreDriveList.querySelectorAll('.drive-backup-item').forEach(el => {
                         el.style.pointerEvents = '';
@@ -2730,6 +2758,7 @@ function attachModalHandlers(modal, options = {}) {
         });
     };
 
+    // @googleDrive:begin
     restoreDriveBtn?.addEventListener('click', loadGoogleDriveBackups);
 
     // A .mtbackup file the app didn't save itself: the user hands it over through the Google Picker
@@ -2756,10 +2785,12 @@ function attachModalHandlers(modal, options = {}) {
     if (options.autoLoadDrive) {
         loadGoogleDriveBackups();
     }
+    // @googleDrive:end
     restoreDriveCloseBtn?.addEventListener('click', () => {
         if (restoreDriveContainer) restoreDriveContainer.style.display = 'none';
     });
 
+    // @googleDrive:begin
     if (activeGoogleAuthHandler) {
         window.removeEventListener('googleAuthSuccess', activeGoogleAuthHandler);
     }
@@ -2795,6 +2826,7 @@ function attachModalHandlers(modal, options = {}) {
         }
     };
     window.addEventListener('googleAuthSuccess', activeGoogleAuthHandler);
+    // @googleDrive:end
 
     // Drag and drop handlers
     ['dragenter', 'dragover'].forEach(eventName => {

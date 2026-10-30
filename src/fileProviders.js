@@ -3,8 +3,11 @@
 
 import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
+// @googleDrive:begin
 import { openDrivePicker, redirectToGoogleAuth, isTokenValid, ensureFreshToken } from './googleDrive.js';
+// @googleDrive:end
 import { isIcloudDriveSupported } from './icloudDrive.js';
+import { hasFeature } from './channel.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
 import { openTabDownloader } from './tabDownloader.js';
 import { addTabOptionToSong, addTabOptionToAlbum, mapOpenFileToSong } from './libraryStore.js';
@@ -80,7 +83,10 @@ const SYNC_TARGET_KEY = 'majestictab_sync_target';
 
 /** Where the user keeps their library: 'google-drive', 'icloud', 's3', 'folder', or null until they choose. Shared by Sync and Backup. */
 export function getPreferredStorage() {
-    try { return localStorage.getItem(SYNC_TARGET_KEY); } catch (_) { return null; }
+    try {
+        const target = localStorage.getItem(SYNC_TARGET_KEY);
+        return target === 'google-drive' && !hasFeature('googleDrive') ? null : target;
+    } catch (_) { return null; }
 }
 
 export function setPreferredStorage(target) {
@@ -236,6 +242,7 @@ export const LocalFileProvider = {
     }
 };
 
+// @googleDrive:begin
 // --- Built-in Provider: Google Drive ---
 export const GoogleDriveFileProvider = {
     id: 'google-drive',
@@ -264,6 +271,7 @@ export const GoogleDriveFileProvider = {
         return { success: true, name: filename, id: result.id, providerId: 'google-drive' };
     }
 };
+// @googleDrive:end
 
 // --- Built-in Provider: iCloud Drive (macOS and iOS app only) ---
 // Uses the system's own pickers and file access, so nothing goes over the network from MajesticTab.
@@ -348,7 +356,9 @@ export const TabDownloaderNativeProvider = {
 
 // Register built-in providers
 registerFileProvider(LocalFileProvider);
+// @googleDrive:begin
 registerFileProvider(GoogleDriveFileProvider);
+// @googleDrive:end
 registerFileProvider(S3FileProvider);
 
 if (isIcloudDriveSupported()) {

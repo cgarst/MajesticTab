@@ -37,7 +37,7 @@ jobs:
       fail-fast: false
       matrix:
         # appstore-ios and appstore-mac are left out until Apple signing is set up in CI.
-        channel: [play, msstore]
+        channel: [play, fdroid, msstore]
     uses: ./.github/workflows/store-build.yml
     secrets: inherit
     with:

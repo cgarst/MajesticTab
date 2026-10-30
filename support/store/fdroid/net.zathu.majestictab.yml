@@ -1,0 +1,48 @@
+# Draft recipe for https://gitlab.com/fdroid/fdroiddata (copy to metadata/net.zathu.majestictab.yml).
+# Not yet run through `fdroid build`; the Builds block is the part most likely to need changes.
+# Descriptions, icon and screenshots come from fastlane/metadata/android/en-US in this repo.
+
+Categories:
+  - Music Practice Tool
+License: MIT
+AuthorName: Corey Garst
+AuthorWebSite: https://majestictab.zathu.net
+WebSite: https://majestictab.zathu.net
+SourceCode: https://github.com/cgarst/MajesticTab
+IssueTracker: https://github.com/cgarst/MajesticTab/issues
+
+# The YouTube player and search depend on YouTube, a non-free network service.
+AntiFeatures:
+  NonFreeNet:
+    en-US: Links YouTube audio and backing tracks to tabs, and searches YouTube, so those features need YouTube.
+
+RepoType: git
+Repo: https://github.com/cgarst/MajesticTab.git
+
+Builds:
+  - versionName: 1.0.5
+    versionCode: 1000005
+    commit: v1.0.5
+    # Rust and Node are not in the base image; Android SDK and NDK come from the build server
+    sudo:
+      - apt-get update
+      - apt-get install -y nodejs npm curl build-essential openjdk-17-jdk-headless
+      - update-java-alternatives -s java-1.17.0-openjdk-amd64 || true
+    init: curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+    prebuild:
+      - export PATH="$HOME/.cargo/bin:$PATH"
+      - rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+    build:
+      - export PATH="$HOME/.cargo/bin:$PATH"
+      - export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+      - export NDK_HOME=$$NDK$$
+      - node build/build-tauri.mjs android --channel=fdroid
+    output: dist/MajesticTab-android-unsigned.apk
+    ndk: r27c
+
+AutoUpdateMode: Version
+# Only release tags; the repo also has canary and nightly tags
+UpdateCheckMode: Tags ^v\d+\.\d+\.\d+$
+UpdateCheckData: build/tauri/src-tauri/tauri.android.conf.json|"versionCode":\s*(\d+)|build/tauri/src-tauri/tauri.conf.json|"version":\s*"([\d.]+)"
+CurrentVersion: 1.0.5
+CurrentVersionCode: 1000005

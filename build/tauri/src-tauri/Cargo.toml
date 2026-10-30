@@ -8,8 +8,10 @@ edition = "2021"
 
 [features]
 # Store channels turn these off (see build/channels.mjs); build-tauri.mjs rewrites `default` per channel.
-default = ["self-update"]
+default = ["self-update", "google-auth"]
 debug-tools = ["tauri/devtools"]
+# Google Drive sign-in (the plugin links Google Play services on Android)
+google-auth = ["dep:tauri-plugin-google-auth"]
 # In-app updater (desktop only; the dependency does not exist on mobile)
 self-update = ["dep:tauri-plugin-updater"]
 
@@ -27,7 +29,7 @@ tauri-plugin-opener = "2"
 tauri-plugin-fs = "2"
 # Lets the S3 client call buckets without browser CORS rules
 tauri-plugin-http = "2"
-tauri-plugin-google-auth = { path = "../plugins/google-auth" }
+tauri-plugin-google-auth = { path = "../plugins/google-auth", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"

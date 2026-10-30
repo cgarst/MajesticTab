@@ -2,6 +2,8 @@ name: Store build
 
 # Manual builds of a store distribution channel (see build/channels.mjs).
 # Also called by release.yml for every store channel on a version tag.
+# The fdroid channel builds the unsigned APK F-Droid's own server builds from source; here it only checks
+# that the build still works and gives you the file to inspect.
 # These upload workflow artifacts only. They never create a GitHub release or latest.json, so a store
 # binary can't become an update target for the `direct` builds (release.yml and canary.yml, unchanged).
 
@@ -24,6 +26,7 @@ on:
         type: choice
         options:
           - play
+          - fdroid
           - appstore-ios
           - appstore-mac
           - msstore
@@ -39,9 +42,9 @@ env:
 
 jobs:
   build:
-    runs-on: ${{ fromJSON('{"play":"ubuntu-latest","appstore-ios":"macos-latest","appstore-mac":"macos-latest","msstore":"windows-latest"}')[inputs.channel] }}
+    runs-on: ${{ fromJSON('{"play":"ubuntu-latest","fdroid":"ubuntu-latest","appstore-ios":"macos-latest","appstore-mac":"macos-latest","msstore":"windows-latest"}')[inputs.channel] }}
     env:
-      TARGET: ${{ fromJSON('{"play":"android","appstore-ios":"ios","appstore-mac":"macos","msstore":"windows"}')[inputs.channel] }}
+      TARGET: ${{ fromJSON('{"play":"android","fdroid":"android","appstore-ios":"ios","appstore-mac":"macos","msstore":"windows"}')[inputs.channel] }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -51,19 +54,19 @@ jobs:
           cache-dependency-path: build/tauri/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ inputs.channel == 'play' && 'aarch64-linux-android,x86_64-linux-android' || inputs.channel == 'appstore-ios' && 'aarch64-apple-ios' || '' }}
+          targets: ${{ (inputs.channel == 'play' || inputs.channel == 'fdroid') && 'aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android' || inputs.channel == 'appstore-ios' && 'aarch64-apple-ios' || '' }}
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: build/tauri/src-tauri -> ../target
           key: ${{ inputs.channel }}
 
       - uses: actions/setup-java@v5
-        if: inputs.channel == 'play'
+        if: inputs.channel == 'play' || inputs.channel == 'fdroid'
         with:
           distribution: temurin
           java-version: 17
       - name: Locate Android NDK
-        if: inputs.channel == 'play'
+        if: inputs.channel == 'play' || inputs.channel == 'fdroid'
         run: |
           if [ -d "$ANDROID_HOME/ndk" ]; then
             NDK_PATH=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)

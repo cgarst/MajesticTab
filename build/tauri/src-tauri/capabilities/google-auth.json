@@ -1,0 +1,9 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "google-auth",
+  "description": "Google Drive sign-in. Channels without Google Drive build without the plugin and without this file (see build-tauri.mjs)",
+  "windows": ["main"],
+  "permissions": [
+    "google-auth:allow-authorize"
+  ]
+}

@@ -263,6 +263,17 @@ if (installedVersions.some((installed) => !installed)) {
 // tauri.conf.json is the only place the release version is set; everything else derives from it.
 const appVersion = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
 
+// Tauri derives the Android versionCode from the version (major * 1000000 + minor * 1000 + patch). F-Droid reads it
+// with a regex and cannot run that formula, so tauri.android.conf.json carries it literally; keep it in step here.
+if (target === 'android') {
+  const [major, minor, patch] = appVersion.split('.').map(Number);
+  const expectedVersionCode = major * 1_000_000 + minor * 1_000 + patch;
+  const androidConf = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.android.conf.json'), 'utf8'));
+  if (androidConf.bundle?.android?.versionCode !== expectedVersionCode) {
+    fail(`tauri.android.conf.json bundle.android.versionCode is ${androidConf.bundle?.android?.versionCode}, but version ${appVersion} needs ${expectedVersionCode}.`);
+  }
+}
+
 async function readVersioned(file) {
   return (await readFile(file, 'utf8')).replaceAll('__APP_VERSION__', appVersion);
 }
@@ -286,6 +297,15 @@ async function ensureCrateTypeForTarget(currentTarget) {
     // Restore the committed Cargo.toml so builds don't leave the tree dirty.
     process.on('exit', () => writeFileSync(cargoTomlPath, originalContent));
   }
+}
+
+// Channels without Google Drive build without the google-auth plugin, so its capability file (which names the
+// plugin's permission) must not be present either. Restored on exit so builds don't leave the tree dirty.
+if (!channelCapabilities.googleDrive) {
+  const capabilityPath = path.join(tauriDir, 'src-tauri', 'capabilities', 'google-auth.json');
+  const capabilityContent = await readFile(capabilityPath, 'utf8');
+  rmSync(capabilityPath);
+  process.on('exit', () => writeFileSync(capabilityPath, capabilityContent));
 }
 
 run('npm', [
@@ -347,7 +367,8 @@ if (target === 'android') {
     'utf8',
   );
   const sdkmanager = path.join(androidSdk, 'cmdline-tools', 'latest', 'bin', process.platform === 'win32' ? 'sdkmanager.bat' : 'sdkmanager');
-  if (!(await stat(sdkmanager).catch(() => null))) {
+  // F-Droid's build server provides the SDK and NDK without the command-line tools, and nothing here runs sdkmanager.
+  if (channel !== 'fdroid' && !(await stat(sdkmanager).catch(() => null))) {
     fail('Install Android SDK Command-line Tools in Android Studio (SDK Manager).');
   }
   const androidProject = path.join(tauriDir, 'src-tauri', 'gen', 'android');
@@ -400,6 +421,10 @@ if (target === 'android') {
     manifest = manifest.replace('</application>', `${provider}</application>`);
   }
   await writeFile(manifestPath, manifest);
+  // `tauri android build` rewrites these from the plugins compiled in, so ones left by an earlier build (possibly with
+  // google-auth) are dropped here and the finished project is verified again after the build.
+  await rm(path.join(androidProject, 'tauri.settings.gradle'), { force: true });
+  await rm(path.join(androidProject, 'app', 'tauri.build.gradle.kts'), { force: true });
   await verifyOrExit(channel, { androidProject });
   if (channelCapabilities.selfUpdate) {
     await mkdir(path.join(androidRes, 'xml'), { recursive: true });
@@ -414,20 +439,25 @@ if (target === 'android') {
   const keystorePassword = process.env.ANDROID_KEYSTORE_PASSWORD;
   const keyAlias = process.env.ANDROID_KEY_ALIAS;
   const keyPassword = process.env.ANDROID_KEY_PASSWORD ?? keystorePassword;
-  const signRelease = Boolean(keystore);
+  // F-Droid signs the APK with its own key, so the fdroid channel never uses the release keystore.
+  const signRelease = Boolean(keystore) && channel !== 'fdroid';
   if (signRelease && (!keystorePassword || !keyAlias)) {
     fail('ANDROID_KEYSTORE_FILE requires ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS.');
   }
   // Google Play only accepts an AAB, so the play channel also bundles one beside the APK.
   // It adds x86_64 (emulators, ChromeOS, x86 tablets); the APK from the same build carries it too.
   const buildAab = channel === 'play';
+  // F-Droid signs the APK itself, so its channel builds an unsigned release (not the debug build used for local runs).
+  // Like Play it carries x86_64, giving one universal APK.
+  const unsignedRelease = channel === 'fdroid';
   if (buildAab && !signRelease) {
     fail('The play channel requires ANDROID_KEYSTORE_FILE, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS to sign the AAB.');
   }
   const outputsDir = path.join(androidProject, 'app', 'build', 'outputs');
   await rm(path.join(outputsDir, 'apk'), { recursive: true, force: true });
   await rm(path.join(outputsDir, 'bundle'), { recursive: true, force: true });
-  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(buildAab ? ['--aab'] : []), ...(signRelease ? [] : ['--debug']), '--target', 'aarch64', ...(buildAab ? ['x86_64'] : [])]);
+  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(buildAab ? ['--aab'] : []), ...(signRelease || unsignedRelease ? [] : ['--debug']), '--target', 'aarch64', 'armv7', ...(buildAab || channel === 'fdroid' ? ['x86_64'] : [])]);
+  await verifyOrExit(channel, { androidProject });
   const apk = await findAndroidArtifact(path.join(outputsDir, 'apk'), '.apk');
   if (!apk) fail('Tauri completed without producing an Android APK.');
   if (signRelease) {
@@ -453,13 +483,13 @@ if (target === 'android') {
       // Play's "native debug symbols" upload: the unstripped libraries, laid out by ABI.
       const symbolsStage = path.join(tauriDir, 'target', 'android-symbols');
       await rm(symbolsStage, { recursive: true, force: true });
-      for (const [triple, abi] of [['aarch64-linux-android', 'arm64-v8a'], ['x86_64-linux-android', 'x86_64']]) {
+      for (const [triple, abi] of [['aarch64-linux-android', 'arm64-v8a'], ['armv7-linux-androideabi', 'armeabi-v7a'], ['x86_64-linux-android', 'x86_64']]) {
         await mkdir(path.join(symbolsStage, abi), { recursive: true });
         await cp(path.join(tauriDir, 'target', triple, 'release', 'libmajestictab_lib.so'), path.join(symbolsStage, abi, 'libmajestictab_lib.so'));
       }
       const symbolsZip = path.join(distDir, 'MajesticTab-android-symbols.zip');
       await rm(symbolsZip, { force: true });
-      run('zip', ['-r', '-q', symbolsZip, 'arm64-v8a', 'x86_64'], { cwd: symbolsStage });
+      run('zip', ['-r', '-q', symbolsZip, 'arm64-v8a', 'armeabi-v7a', 'x86_64'], { cwd: symbolsStage });
       // Play wants a jarsigner signature (the upload key); apksigner only handles APKs.
       run(path.join(javaHome, 'bin', 'jarsigner' + (process.platform === 'win32' ? '.exe' : '')), [
         '-keystore', keystore, '-storepass:env', 'ANDROID_KEYSTORE_PASSWORD', '-keypass:env', 'ANDROID_KEY_PASSWORD',
@@ -467,7 +497,8 @@ if (target === 'android') {
       ], { env: { ...env, ANDROID_KEYSTORE_PASSWORD: keystorePassword, ANDROID_KEY_PASSWORD: keyPassword } });
     }
   } else {
-    await cp(apk, path.join(distDir, 'MajesticTab-android-debug.apk'));
+    await mkdir(distDir, { recursive: true });
+    await cp(apk, path.join(distDir, unsignedRelease ? 'MajesticTab-android-unsigned.apk' : 'MajesticTab-android-debug.apk'));
   }
 } else if (target === 'ios') {
   await ensureSwiftPublicCdecl();

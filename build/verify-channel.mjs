@@ -103,6 +103,40 @@ export async function verifyChannel(id, options = {}) {
     if (!actual || actual.join() !== cargoFeatures(id).join()) errors.push(`Cargo default features are [${actual}] but the channel needs [${cargoFeatures(id)}]`);
   }
 
+  // No Google Drive means no google-auth plugin, and with it no Google Play services
+  if (!expected.googleDrive) {
+    const capabilityFile = path.join(tauriDir, 'src-tauri', 'capabilities', 'google-auth.json');
+    if (await readFile(capabilityFile, 'utf8').then(() => true, () => false)) errors.push('capabilities/google-auth.json is present in a channel without Google Drive');
+    // The Drive modules are replaced by stubs (build/tauri/stubs/no-drive), which must export what the real ones do
+    for (const [module, stubFile] of [['googleDrive.js', 'googleDrive.js'], ['driveBackup.js', 'driveBackup.js']]) {
+      const exportNames = (text) => [...text.matchAll(/^export\s+(?:async\s+)?(?:function|const)\s+(\w+)/gm)].map((m) => m[1]).sort().join();
+      const real = await readFile(path.join(tauriDir, '..', '..', 'src', module), 'utf8').catch(() => null);
+      const stub = await readFile(path.join(tauriDir, 'stubs', 'no-drive', stubFile), 'utf8').catch(() => null);
+      if (real !== null && stub !== null && exportNames(real) !== exportNames(stub)) errors.push(`stubs/no-drive/${stubFile} exports differ from src/${module}`);
+    }
+    // Call sites are cut out at prepare time (// @googleDrive:begin ... end), leaving nothing that imports the modules
+    for (const [name, text] of contents) {
+      if (/@googleDrive:(?:begin|end)/.test(text)) errors.push(`${name} still has a @googleDrive marker (unbalanced or not stripped)`);
+      if (name !== 'googleDrive.js' && name !== 'driveBackup.js' && /['"]\.\/(?:googleDrive|driveBackup)\.js['"]/.test(text)) {
+        errors.push(`${name} still imports the Google Drive modules`);
+      }
+    }
+    for (const needle of ['googleapis.com/drive', 'googleapis.com/upload', 'accounts.google.com', 'plugin:google-auth']) {
+      const found = containing(needle);
+      if (found.length) errors.push(`${found.join(', ')} references ${needle} in a channel without Google Drive`);
+    }
+    for (const local of ['googleDrive.local.js', 'pickerKey.local.js']) {
+      if (shippedFiles.includes(local)) errors.push(`${local} ships in a channel without Google Drive`);
+    }
+    if (options.androidProject) {
+      for (const file of await allRelativeFiles(options.androidProject).catch(() => [])) {
+        if (/(?:^|\/)(?:build|\.gradle)\//.test(file) || !/\.(?:gradle|kts|settings|xml|properties)$/.test(file)) continue;
+        const text = await readFile(path.join(options.androidProject, file), 'utf8');
+        if (/com\.google\.android\.gms|google-auth|googleauth/i.test(text)) errors.push(`${file} references Google Play services or the google-auth plugin`);
+      }
+    }
+  }
+
   // Android: the downloader webview (third-party pages) gets only close and onTabDownloaded
   if (channels[id].platforms.includes('android')) {
     const activity = await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8');

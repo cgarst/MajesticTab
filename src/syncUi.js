@@ -54,6 +54,7 @@ export function refreshSyncStatus() {
 
 /** @returns {Promise<{status: 'ready', backend: object}|{status: string, folderName?: string}>} */
 async function resolveBackend(target, { interactive = false } = {}) {
+    // @googleDrive:begin
     if (target === DRIVE) {
         const { isTokenValid, ensureFreshToken } = await import('./googleDrive.js');
         await ensureFreshToken();
@@ -61,6 +62,7 @@ async function resolveBackend(target, { interactive = false } = {}) {
         const { createDriveBackend } = await import('./driveBackup.js');
         return { status: 'ready', backend: createDriveBackend() };
     }
+    // @googleDrive:end
     if (target === ICLOUD) {
         const { getIcloudBackupFolder, createFolderBackend } = await import('./folderBackup.js');
         const handle = await getIcloudBackupFolder();
@@ -170,7 +172,9 @@ function showChecking(target) {
 
 function showChooseLocation() {
     const options = [
+        // @googleDrive:begin
         { id: DRIVE, icon: 'bi-google text-danger', title: 'Google Drive', text: 'Sync across your devices through your Google account.' },
+        // @googleDrive:end
         ...(isIcloudDriveSupported()
             ? [{ id: ICLOUD, icon: 'bi-cloud text-info', title: 'iCloud Drive', text: 'Sync through iCloud Drive across your Apple devices. No sign-in needed.' }]
             : []),
@@ -200,8 +204,10 @@ function showS3Form(error = '') {
 
 function showNeedsSetup(status, folderName = '') {
     if (status === 'needs-auth') {
+        // @googleDrive:begin
         frame(notice('bi-info-circle', 'Connect Google Drive so MajesticTab can compare and sync your library.'),
             { subtitle: 'Google Drive', footer: button('switch', 'Choose Another') + button('connect', 'Connect Google Drive', { primary: true, icon: 'bi-google' }) });
+        // @googleDrive:end
     } else if (status === 'needs-icloud') {
         frame(notice('bi-cloud-slash', ICLOUD_UNAVAILABLE_MESSAGE),
             { subtitle: 'iCloud Drive', footer: button('switch', 'Choose Another') + button('retry', 'Try Again', { primary: true, icon: 'bi-arrow-repeat' }) });
@@ -383,12 +389,14 @@ async function start({ interactive = false } = {}) {
         setStep(target === DRIVE ? 'Signing in to Google Drive...' : target === ICLOUD ? 'Opening iCloud Drive...' : target === S3 ? 'Connecting to the bucket...' : 'Opening the sync folder...');
         const resolved = await resolveBackend(target, { interactive });
         if (mine !== session) return;
+        // @googleDrive:begin
         if (resolved.status === 'needs-auth' && !interactive && !sessionStorage.getItem(AUTO_AUTH_KEY)) {
             // Google sign-ins last about an hour; go straight back instead of asking again
             sessionStorage.setItem(AUTO_AUTH_KEY, '1');
             const { redirectToGoogleAuth } = await import('./googleDrive.js');
             return redirectToGoogleAuth('sync');
         }
+        // @googleDrive:end
         sessionStorage.removeItem(AUTO_AUTH_KEY);
         if (resolved.status !== 'ready') return showNeedsSetup(resolved.status, resolved.folderName);
 
@@ -432,6 +440,7 @@ async function handleAction(action) {
         if (action === 'retry') return start({ interactive: true });
         if (action === 'apply') return apply();
         if (action === 'switch') return showChooseLocation();
+        // @googleDrive:begin
         if (action === 'pick-google-drive') {
             setTarget(DRIVE);
             const { isTokenValid, ensureFreshToken, redirectToGoogleAuth } = await import('./googleDrive.js');
@@ -439,6 +448,7 @@ async function handleAction(action) {
             if (!isTokenValid()) return redirectToGoogleAuth('sync');
             return start();
         }
+        // @googleDrive:end
         if (action === 'pick-icloud') {
             setTarget(ICLOUD);
             return start();
@@ -459,10 +469,12 @@ async function handleAction(action) {
             setTarget(FOLDER);
             return start();
         }
+        // @googleDrive:begin
         if (action === 'connect') {
             const { redirectToGoogleAuth } = await import('./googleDrive.js');
             return redirectToGoogleAuth('sync');
         }
+        // @googleDrive:end
         if (action === 'choose-folder' || action === 'allow-folder') return start({ interactive: true });
         if (action === 'change-folder') {
             const { pickBackupFolder } = await import('./folderBackup.js');

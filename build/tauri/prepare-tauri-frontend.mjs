@@ -227,6 +227,41 @@ async function writeChannelConfig() {
   console.log(`Distribution channel: ${id}`);
 }
 
+// Channels without Google Drive get inert modules in place of the real ones, so no Drive code, OAuth client ID or
+// secret ships. Callers are gated on the googleDrive capability and never reach the stubs.
+async function stubOutGoogleDrive() {
+  const stubDir = path.join(scriptDir, 'stubs', 'no-drive');
+  for (const name of await readdir(stubDir)) {
+    await cp(path.join(stubDir, name), path.join(frontendDir, name));
+  }
+  await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
+  await rm(path.join(frontendDir, 'pickerKey.local.js'), { force: true });
+  const stripped = await stripGoogleDriveBlocks(frontendDir);
+  console.log(`Google Drive stubbed out and stripped from ${stripped} files: channel has no googleDrive capability.`);
+}
+
+// Call sites of the Drive modules sit between `// @googleDrive:begin` and `// @googleDrive:end` lines (`<!-- ... -->`
+// inside HTML templates), and are cut out here so the Drive UI and its imports do not ship either.
+const driveBlock = /[ \t]*(?:\/\/|<!--)[ \t]*@googleDrive:begin[ \t]*(?:-->)?[ \t]*\n[\s\S]*?[ \t]*(?:\/\/|<!--)[ \t]*@googleDrive:end[ \t]*(?:-->)?[ \t]*\n?/g;
+
+async function stripGoogleDriveBlocks(directory) {
+  let count = 0;
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name !== 'vendor') count += await stripGoogleDriveBlocks(entryPath);
+    } else if (/\.(?:html|js|mjs)$/i.test(entry.name)) {
+      const source = await readFile(entryPath, 'utf8');
+      const stripped = source.replace(driveBlock, '');
+      if (stripped !== source) {
+        await writeFile(entryPath, stripped);
+        count++;
+      }
+    }
+  }
+  return count;
+}
+
 async function hideUnavailableDriveOptions() {
   const indexPath = path.join(frontendDir, 'index.html');
   let indexHtml = await readFile(indexPath, 'utf8');
@@ -266,17 +301,21 @@ try {
   await cp(sourceDir, frontendDir, { recursive: true });
   await writeBuildInfo();
   await writeChannelConfig();
-  const desktopSecret = await getDesktopClientSecret();
+  const driveEnabled = resolveChannel(process.env.MAJESTICTAB_STORE_CHANNEL || DEFAULT_CHANNEL).googleDrive;
+  if (!driveEnabled) {
+    await stubOutGoogleDrive();
+  }
+  const desktopSecret = driveEnabled ? await getDesktopClientSecret() : undefined;
   if (desktopSecret && !iosBuild) {
     await writeFile(path.join(frontendDir, 'googleDrive.local.js'), `export const TAURI_CLIENT_SECRET = '${desktopSecret}';\n`);
   } else if (iosBuild) {
     await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
   }
-  const pickerApiKey = (process.env.GOOGLE_PICKER_API_KEY || '').trim();
+  const pickerApiKey = driveEnabled ? (process.env.GOOGLE_PICKER_API_KEY || '').trim() : '';
   if (pickerApiKey) {
     await writeFile(path.join(frontendDir, 'pickerKey.local.js'), `export const PICKER_API_KEY = '${pickerApiKey}';\n`);
   }
-  if (!androidBuild && !iosBuild && !desktopSecret) {
+  if (driveEnabled && !androidBuild && !iosBuild && !desktopSecret) {
     await hideUnavailableDriveOptions();
     console.log('Google Drive hidden: no Desktop OAuth client secret configured.');
   }

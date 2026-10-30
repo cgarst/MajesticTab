@@ -103,7 +103,7 @@ jobs:
           java-version: 17
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android
+          targets: aarch64-linux-android,armv7-linux-androideabi
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: build/tauri/src-tauri -> ../target

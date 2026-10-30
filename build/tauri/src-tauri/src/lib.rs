@@ -521,7 +521,6 @@ pub fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_oauth::init())
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_google_auth::init())
         .setup(|_app| {
             #[cfg(target_os = "macos")]
             {
@@ -600,6 +599,10 @@ pub fn run() {
     let builder = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_persisted_scope::init());
+
+    // Google Drive sign-in; pulls in Google Play services on Android, so the F-Droid channel builds without it.
+    #[cfg(feature = "google-auth")]
+    let builder = builder.plugin(tauri_plugin_google_auth::init());
 
     #[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());

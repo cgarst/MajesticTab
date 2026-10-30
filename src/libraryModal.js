@@ -1022,7 +1022,9 @@ async function renderLibraryBrowseView(container) {
                           <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
                             ${window.__TAURI__ ? `<li><button class="dropdown-item small import-album-tab-btn" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
                             <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
+                            <!-- @googleDrive:begin -->
                             <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
+                            <!-- @googleDrive:end -->
                           </ul>
                         </div>
 
@@ -1107,7 +1109,9 @@ async function renderLibraryBrowseView(container) {
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
                           <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
+                          <!-- @googleDrive:begin -->
                           <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
+                          <!-- @googleDrive:end -->
                         </ul>
                       </div>
                       ${bookPdfs.length > 0 ? `
@@ -2063,7 +2067,9 @@ function renderSongRow(song, options = {}) {
               })() : ''}
               ${window.__TAURI__ ? `<li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
+              <!-- @googleDrive:begin -->
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
+              <!-- @googleDrive:end -->
             </ul>
           </div>
 
@@ -2551,6 +2557,7 @@ function setupSongRowActions(container) {
                 return;
             }
 
+            // @googleDrive:begin
             if (providerId === 'google-drive') {
                 getSongById(songId).then(song => {
                     openFromProvider('google-drive', {
@@ -2565,6 +2572,7 @@ function setupSongRowActions(container) {
                 });
                 return;
             }
+            // @googleDrive:end
 
             // Tab downloader
             getSongById(songId).then(song => {
@@ -2807,6 +2815,7 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
                 file = stored.file;
             }
         }
+        // @googleDrive:begin
         if (!file && tabOption.providerId === 'google-drive' && tabOption.driveFileId) {
             try {
                 showToast(`Downloading "${tabOption.name}" from Google Drive...`, 'info');
@@ -2823,6 +2832,7 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
                 console.warn('Could not download tab from Google Drive:', dlErr);
             }
         }
+        // @googleDrive:end
 
         if (file) {
             file.songTitle = song.title;
@@ -3057,9 +3067,11 @@ function renderCustomDocFormHtml() {
               <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickLocalBtn">
                 <i class="bi-folder2-open text-primary"></i> Local Device
               </button>
+              <!-- @googleDrive:begin -->
               <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickDriveBtn">
                 <i class="bi-google text-danger"></i> Google Drive
               </button>
+              <!-- @googleDrive:end -->
               ${window.__TAURI__ ? `
                 <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickDownloaderBtn">
                   <i class="bi-search text-info"></i> Web Search
@@ -3178,11 +3190,13 @@ function setupCustomDocForm(container) {
         openFromProvider('local', { onFileSelected: handleFileAttached });
     });
 
+    // @googleDrive:begin
     // Pick Google Drive
     container.querySelector('#customDocPickDriveBtn')?.addEventListener('click', () => {
         openFromProvider('google-drive', { onFileSelected: handleFileAttached });
     });
 
+    // @googleDrive:end
     // Pick Tab Downloader
     container.querySelector('#customDocPickDownloaderBtn')?.addEventListener('click', () => {
         const query = form.querySelector('#customDocTitle')?.value?.trim() || '';
