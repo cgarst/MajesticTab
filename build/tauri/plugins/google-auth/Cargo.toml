@@ -2,6 +2,7 @@
 name = "tauri-plugin-google-auth"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
 links = "tauri-plugin-google-auth"
 build = "build.rs"
 

@@ -4,6 +4,7 @@ version = "0.0.0"
 description = "Guitar tab viewer"
 authors = ["Corey Garst"]
 publish = false
+license = "MIT"
 edition = "2021"
 
 [features]
