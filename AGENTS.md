@@ -109,6 +109,17 @@ Outputs land in `dist/` (`MajesticTab-android.aab`, `.apk`, `-symbols.zip`). Nev
 
 When bumping `version` in `build/tauri/src-tauri/tauri.conf.json`, also set `bundle.android.versionCode` in `tauri.android.conf.json` to `major * 1000000 + minor * 1000 + patch` (1.0.9 is 1000009). F-Droid reads it with a regex and cannot run that formula; Android builds fail if the two disagree. The `fdroid` channel builds one unsigned universal release APK (arm64-v8a, armeabi-v7a and x86_64) into `dist/MajesticTab-android-unsigned.apk`.
 
+### Cutting a Release
+
+"Cut a release" (optionally with a version; default is the next patch) means the steps below, on `main` with a clean tree. Pushing a `v*` tag is what triggers `.github/workflows/release.yml` (GitHub release, updater manifest, SideStore source, Play and Microsoft Store publishing), so it is the one outward-facing step.
+
+1. Pick the version: next patch unless told otherwise, and confirm the previous tag is an ancestor of HEAD.
+2. Draft the notes from `git log <previous tag>..HEAD` per Release Notes below and **wait for the user's approval of the text**.
+3. Bump `version` in `build/tauri/src-tauri/tauri.conf.json` and `bundle.android.versionCode` in `tauri.android.conf.json`, and update `support/store/fdroid/net.zathu.majestictab.yml` (`versionName`, `versionCode`, `commit: v<version>`, `CurrentVersion`, `CurrentVersionCode`) and the versionCode example in Local Store Builds.
+4. Write `support/listing/changelogs/<version>.txt`, run `node build/release-notes.mjs --link`, and commit as `Bump to <version>`.
+5. **Ask the user to confirm**, then `git tag v<version>` on that commit and `git push origin main v<version>`. Never push or tag without that confirmation, and never move or delete a pushed tag.
+6. After the push, bump `tag:` and `commit:` in `build/tauri/flatpak/flathub/net.zathu.majestictab.yml` to the tagged commit in a follow-up commit.
+
 ### Release Notes
 
 `support/listing/changelogs/<version>.txt` (e.g. `1.0.9.txt`) is the single source of release notes. `build/release-notes.mjs` prints it for the current version and fails if it is missing, still the "Bug fixes and improvements." placeholder, over 500 characters, or if the fastlane symlink is wrong. It feeds Google Play, F-Droid, Flathub metainfo, Microsoft Store (`msstore_listing.py`), the GitHub release body, `latest.json` and the SideStore source. `release.yml` fails the tag if the notes are not written. Canary builds have no notes.
