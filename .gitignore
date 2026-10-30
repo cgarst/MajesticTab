@@ -24,3 +24,4 @@
 .env.*
 /tests/screenshots/
 /tools/__pycache__/*
+__pycache__/

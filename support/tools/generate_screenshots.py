@@ -21,7 +21,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 OUT_DIR = ROOT / "support" / "site" / "img" / "screenshots"
-GP_FILE = ROOT / "tests" / "Keystone.gp"
+GP_FILE = ROOT / "tests" / "Duo No 2 In G Major.gp5"
 PDF_FILE = ROOT / "tests" / "Keystone.pdf"
 _BACKUPS = sorted((Path.home() / "Downloads").glob("MajesticTab-backup-*.mtbackup"))
 DEFAULT_BACKUP = _BACKUPS[-1] if _BACKUPS else Path.home() / "Downloads" / "MajesticTab-backup.mtbackup"
@@ -527,7 +527,7 @@ def main():
                     save("theme_palettes")
 
                 # 15. Virtual fretboard (desktop only): Steven Wilson - Ancestral, scroll mode,
-                # cursor on the first note of bar 95. Falls back to Keystone without a backup.
+                # cursor on the first note of bar 95. Falls back to Duo No 2 without a backup.
                 if wanted("fretboard") and not is_mobile:
                     if has_backup:
                         navigate_library_to_song(
@@ -554,7 +554,7 @@ def main():
                         page.wait_for_timeout(2500)
                     save("fretboard")
 
-                # 16. Tuner modal (Keystone fixture, desktop only)
+                # 16. Tuner modal (Duo No 2 fixture, desktop only)
                 if wanted("tuner") and not is_mobile:
                     load_file(page, base_url, GP_FILE, "page")
                     page.evaluate("document.querySelector('#toolsToggleBtn').click()")
@@ -574,7 +574,7 @@ def main():
 
                 # 18. Jam mode: hosting panel with track assignments (browser mock transport)
                 if wanted("jam_host") and not is_mobile:
-                    page.goto(f"{base_url}/src/?jamMock=host&test=Keystone.gp", wait_until="load", timeout=60000)
+                    page.goto(f"{base_url}/src/?jamMock=host&test=Duo%20No%202%20In%20G%20Major.gp5", wait_until="load", timeout=60000)
                     page.evaluate(FORCE_DEFAULT_THEME_JS)
                     page.wait_for_selector("#output canvas, #output svg:not(.gp-reader-svg)", timeout=90000)
                     page.wait_for_timeout(3000)

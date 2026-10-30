@@ -1,5 +1,5 @@
 // Fake jam client that drives a real MajesticTab host (policy "anyone") and reports what it sees.
-// Usage: node tests/jam/probeHost.mjs <host:port> [tests/Keystone.gp]
+// Usage: node tests/jam/probeHost.mjs <host:port> ["tests/Duo No 2 In G Major.gp5"]
 // Start the host with: MAJESTICTAB_JAM_AUTOSTART=host:anyone <debug-tools build>
 import { readFileSync } from 'node:fs';
 import { performance } from 'node:perf_hooks';

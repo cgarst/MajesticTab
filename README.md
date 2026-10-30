@@ -217,4 +217,4 @@ python3 support/tools/generate_screenshots.py
 python3 support/tools/generate_screenshots.py --only gp_scroll theme_palettes
 ```
 
-Shot names include `gp_scroll`, `gp_page`, `pdf_page`, `pdf_condensed`, `menu`, `theme_palettes`, `gp_themed`, `fretboard`, `tuner`, `reference_chords`, and `jam_host`. The last four use the Keystone fixture and need no backup file.
+Shot names include `gp_scroll`, `gp_page`, `pdf_page`, `pdf_condensed`, `menu`, `theme_palettes`, `gp_themed`, `fretboard`, `tuner`, `reference_chords`, and `jam_host`. The last four use the Duo No 2 fixture and need no backup file.

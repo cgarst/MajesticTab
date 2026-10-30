@@ -52,7 +52,7 @@ Runtime app icons are in `src/icons/` (referenced as `icons/...` from `src/`).
 
 ## Repository Content Rules
 
-- **Never commit tabs to the repo:** Agents must not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) or tab PDFs anywhere in the repository. These are copyrighted. The only exceptions are the `Keystone` fixtures in `tests/` (`Keystone.gp`, `Keystone.pdf`). Use local, untracked copies for ad-hoc testing and keep them out of commits.
+- **Never commit tabs to the repo:** Agents must not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) or tab PDFs anywhere in the repository. These are copyrighted. The only exceptions are the `Duo No 2 In G Major.gp5` and `Keystone.pdf` fixtures in `tests/`. Use local, untracked copies for ad-hoc testing and keep them out of commits.
 
 ## Test Procedures
 
@@ -64,12 +64,12 @@ Serve from the project root, then open the app with a fixture via `?test=<filena
 python3 -m http.server 8000
 /Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
   --remote-debugging-port=9333 --user-data-dir=/tmp/edge-debug \
-  "http://localhost:8000/src/?test=Keystone.gp" >/dev/null 2>&1 &
+  "http://localhost:8000/src/?test=Duo%20No%202%20In%20G%20Major.gp5" >/dev/null 2>&1 &
 ```
 
 Ports 9222/9223 are often held by `adb` forwards (`lsof -i :<port>`), and if a normal Edge is already running the flags are ignored, so quit it first. Stop with `pkill -f /tmp/edge-debug`.
 
-Fixtures: `Keystone.gp` (repeats, multiple tracks; repeat/tick bugs only show here), `Haken - 1985.gp5` and `nightterror.gp5` (large GP5), `octavarium.gp3` (GP3). Add new cases to `tests/`.
+Fixtures: `Duo No 2 In G Major.gp5`, `Haken - 1985.gp5` and `nightterror.gp5` (large GP5), `octavarium.gp3` (GP3). Add new cases to `tests/`.
 
 ### Debugging Workflow
 

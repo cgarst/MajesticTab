@@ -1,5 +1,5 @@
 # Fake jam host: drives a real MajesticTab client and logs its song.ready / status (drift) reports.
-# Usage: python3 tests/jam/fake_host.py tests/Keystone.gp [port] [transport|nudge]
+# Usage: python3 tests/jam/fake_host.py "tests/Duo No 2 In G Major.gp5" [port] [transport|nudge]
 # Join with: MAJESTICTAB_JAM_AUTOSTART=join:<this-mac-ip>:<port> <debug-tools build>, or the Jam modal.
 import asyncio, base64, json, sys, time
 import websockets
@@ -9,7 +9,7 @@ PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 47900
 MODE = sys.argv[3] if len(sys.argv) > 3 else "transport"  # or "nudge"
 data = open(SONG, 'rb').read()
 import hashlib
-song = {"id": hashlib.sha256(data).hexdigest(), "title": "Keystone", "fileName": SONG.split('/')[-1], "size": len(data), "type": "gp"}
+song = {"id": hashlib.sha256(data).hexdigest(), "title": "Duo No 2 In G Major", "fileName": SONG.split('/')[-1], "size": len(data), "type": "gp"}
 
 def now():
     return time.monotonic() * 1000

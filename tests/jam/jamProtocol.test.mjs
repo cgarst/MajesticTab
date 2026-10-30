@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { songTypeForName, isGpSong, chunkBase64, JAM_CHUNK_B64_CHARS } from '../../src/jam/jamProtocol.js';
 
 test('song types', () => {
-    assert.equal(songTypeForName('Keystone.gp'), 'gp');
+    assert.equal(songTypeForName('Duo No 2 In G Major.gp5'), 'gp');
     assert.equal(songTypeForName('a.GP5'), 'gp');
     assert.equal(songTypeForName('chart.PDF'), 'pdf');
     assert.equal(songTypeForName('tab.txt'), 'txt');
