@@ -31,7 +31,7 @@ Builds:
       - echo '1805bcd35e6815559bd2eb97db438d3fdb0eb3a5e6a977b7c1badca76337e9ce  /tmp/node.tar.xz' | sha256sum -c -
       - tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
       - update-java-alternatives -s java-1.21.0-openjdk-amd64 || true
-    init: curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+    init: curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99.1
     # The build reads only src/, build/ and support/branding (app icons); drop the rest, including the tab fixture and the Steam artwork zip
     rm:
       - docs
