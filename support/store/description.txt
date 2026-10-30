@@ -5,26 +5,24 @@ Guitar tab reader and practice app for Guitar Pro, PDF, and text tabs.
 
 Full description
 ----------------
-MajesticTab is a clean, offline guitar tab reader and practice app. Open Guitar Pro files (.gp, .gp3, .gp4, .gp5, .gpx), PDFs, and text tabs with no ads, no account required, and no subscription.
+MajesticTab is a clean, offline guitar tab reader and practice app. Open Guitar Pro files (.gp, .gp3, .gp4, .gp5, .gpx), PDFs, and text tabs completely free and open source, with no ads, no account required, no subscription, and no in-app purchases.
 
 Read all your guitar parts together
 • Multi-track guitar view stacks rhythm and lead guitar parts together while hiding drums, bass, keys, and vocals so you never have to switch tracks mid-song.
 • Switch anytime between continuous vertical scroll and book-like pages (single page or two-page spread on wide screens).
 • Turn pages hands-free with a Bluetooth foot pedal (AirTurn, PageFlip, Donner) or a game controller.
-• Condense and clean up multi-track tab PDFs by removing empty staves and extra margins.
+• Condense and clean up multi-track tab PDFs by removing empty staves and extra margins, and export whole batches of tabs to PDF at once.
+• Choose from guitar-finish themes, with dark and theme-tinted sheets that are easy on the eyes.
 
 Organize your whole tab library
-• Browse your tabs by artist, album, custom music books, or guitar tuning (Standard, Drop D, DADGAD, 7-string, 8-string, and custom tunings).
+• Build setlists for gigs and rehearsals, or browse your tabs by artist, album, custom music books, or guitar tuning (Standard, Drop D, DADGAD, 7-string, 8-string, and custom tunings).
 • Automatic music metadata fills in artist discographies, album artwork, release years, and track orders.
 • Back up and sync your library, settings, and SoundFonts locally or in cloud storage.
 
 Play along and practice at your tempo
-• Built-in offline SoundFont synth with a per-track mixer, solo/mute controls, speed adjustment, count-in, metronome, and 10-second rewind.
+• Built-in offline SoundFont synth (load your own SF2/SF3 SoundFonts) with a per-track mixer, solo/mute controls, speed adjustment, count-in, metronome, and 10-second rewind.
 • Link YouTube audio and backing tracks directly to your tabs.
 • Follow every note on the virtual fretboard, with a distinct color for each guitar track and left-handed neck support.
 • Adapt any Guitar Pro tab to your guitar's tuning while preserving every pitch.
 • Includes a built-in microphone chromatic tuner, chord library, scales reference, and circle of fifths.
-• Join local-network Jam sessions for free so everyone in the room stays on the same bar in real time.
-
-Free, with every feature included
-• Everything is free forever, with no subscription and no in-app purchases: every guitar-finish theme, dark and theme-tinted sheets, setlists, hosting local Jam sessions, custom SF2/SF3 SoundFonts, and batch PDF export.
+• Host or join local-network Jam sessions so everyone in the room stays on the same bar in real time.
