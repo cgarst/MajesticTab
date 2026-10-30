@@ -115,7 +115,7 @@ jobs:
           java-version: 17
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: build/tauri/src-tauri -> ../target
@@ -145,7 +145,8 @@ jobs:
           path: dist/*.apk
           if-no-files-found: error
 
-  # Same app without Google Play services (no Google Drive sign-in); its own job so the Android project is not reused.
+  # The fdroid channel (no Google Play services, no self-update) signed with the release key. F-Droid verifies its own
+  # build against this APK; it is its own job so the Android project is not reused.
   android-no-gms:
     runs-on: ubuntu-latest
     steps:
@@ -161,7 +162,7 @@ jobs:
           java-version: 17
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: aarch64-linux-android,armv7-linux-androideabi
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: build/tauri/src-tauri -> ../target
@@ -181,7 +182,7 @@ jobs:
           test -n "$ANDROID_KEYSTORE_B64" || { echo "::error::Missing ANDROID_KEYSTORE_B64 secret"; exit 1; }
           echo "$ANDROID_KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
           echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
-      - run: node build/build-tauri.mjs android --channel=direct-no-gms
+      - run: node build/build-tauri.mjs android --channel=fdroid
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}

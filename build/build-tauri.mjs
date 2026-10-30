@@ -445,26 +445,26 @@ if (target === 'android') {
   const keystorePassword = process.env.ANDROID_KEYSTORE_PASSWORD;
   const keyAlias = process.env.ANDROID_KEY_ALIAS;
   const keyPassword = process.env.ANDROID_KEY_PASSWORD ?? keystorePassword;
-  // F-Droid signs the APK with its own key, so the fdroid channel never uses the release keystore.
+  // F-Droid has no keystore and signs the APK with its own key, so its build comes out unsigned. With the release
+  // keystore set (the GitHub release build) the fdroid channel is signed like the others.
   // `--debug` forces a local debuggable build (dist/MajesticTab-android-debug.apk, WebView attachable over CDP) even
   // when the keystore is configured. CI never passes it.
-  const signRelease = Boolean(keystore) && channel !== 'fdroid' && !buildOptions.includes('--debug');
+  const signRelease = Boolean(keystore) && !buildOptions.includes('--debug');
   if (signRelease && (!keystorePassword || !keyAlias)) {
     fail('ANDROID_KEYSTORE_FILE requires ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS.');
   }
   // Google Play only accepts an AAB, so the play channel also bundles one beside the APK.
-  // It adds x86_64 (emulators, ChromeOS, x86 tablets); the APK from the same build carries it too.
+  // Every Android build carries arm64, armv7 and x86_64 (emulators, ChromeOS, x86 tablets), giving one universal APK.
   const buildAab = channel === 'play';
-  // F-Droid signs the APK itself, so its channel builds an unsigned release (not the debug build used for local runs).
-  // Like Play it carries x86_64, giving one universal APK.
-  const unsignedRelease = channel === 'fdroid';
+  // Without a keystore the fdroid channel builds an unsigned release (not the debug build used for local runs).
+  const unsignedRelease = channel === 'fdroid' && !signRelease;
   if (buildAab && !signRelease) {
     fail('The play channel requires ANDROID_KEYSTORE_FILE, ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS to sign the AAB.');
   }
   const outputsDir = path.join(androidProject, 'app', 'build', 'outputs');
   await rm(path.join(outputsDir, 'apk'), { recursive: true, force: true });
   await rm(path.join(outputsDir, 'bundle'), { recursive: true, force: true });
-  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(buildAab ? ['--aab'] : []), ...(signRelease || unsignedRelease ? [] : ['--debug']), '--target', 'aarch64', 'armv7', ...(buildAab || channel === 'fdroid' ? ['x86_64'] : [])]);
+  run('npm', ['run', 'tauri', '--', 'android', 'build', '--apk', ...(buildAab ? ['--aab'] : []), ...(signRelease || unsignedRelease ? [] : ['--debug']), '--target', 'aarch64', 'armv7', 'x86_64']);
   await verifyOrExit(channel, { androidProject });
   const apk = await findAndroidArtifact(path.join(outputsDir, 'apk'), '.apk');
   if (!apk) fail('Tauri completed without producing an Android APK.');
@@ -474,11 +474,14 @@ if (target === 'android') {
     const buildTools = path.join(buildToolsRoot, versions[versions.length - 1]);
     const ext = process.platform === 'win32' ? '.bat' : '';
     const aligned = path.join(distDir, 'MajesticTab-android-aligned.apk');
-    // The GMS-free build sits beside the full one on the GitHub release; src/updater.js picks the asset by this name.
-    const signed = path.join(distDir, channel === 'direct-no-gms' ? 'MajesticTab-no-gms-android.apk' : 'MajesticTab-android.apk');
+    // The fdroid channel (no GMS, no self-update) sits beside the full build on the GitHub release; its name sorts after
+    // MajesticTab-android.apk so older installs (which take the first .apk asset) keep getting the full build.
+    const signed = path.join(distDir, channel === 'fdroid' ? 'MajesticTab-no-gms-android.apk' : 'MajesticTab-android.apk');
     run(path.join(buildTools, 'zipalign' + (process.platform === 'win32' ? '.exe' : '')), ['-f', '-p', '4', apk, aligned]);
     run(path.join(buildTools, 'apksigner' + ext), [
-      'sign', '--ks', keystore, '--ks-key-alias', keyAlias,
+      // Keep zipalign's layout: apksigner would otherwise realign the entries, and F-Droid's reproducible-build check
+      // (apksigcopier) could no longer copy the signature onto its own unsigned build.
+      'sign', '--alignment-preserved', '--ks', keystore, '--ks-key-alias', keyAlias,
       '--ks-pass', 'env:ANDROID_KEYSTORE_PASSWORD', '--key-pass', 'env:ANDROID_KEY_PASSWORD',
       '--out', signed, aligned,
     ], { env: { ...env, ANDROID_KEYSTORE_PASSWORD: keystorePassword, ANDROID_KEY_PASSWORD: keyPassword } });

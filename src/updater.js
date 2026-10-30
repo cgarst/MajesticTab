@@ -1,5 +1,5 @@
 // updater.js - checks GitHub Releases for newer native builds (Tauri only)
-import { getChannel, hasFeature } from './channel.js';
+import { hasFeature } from './channel.js';
 
 const REPO = 'cgarst/MajesticTab';
 const CHANNEL_KEY = 'updateChannel';
@@ -81,12 +81,7 @@ export async function checkForUpdate(buildInfo, channel = getUpdateChannel()) {
         label = release.tag_name;
     }
     const pattern = platformAssetPattern();
-    let matches = (release.assets || []).filter((a) => pattern.test(a.name));
-    // The release carries two Android APKs; each build updates to its own variant (-no-gms lacks Google Play services).
-    if (/android/i.test(navigator.userAgent)) {
-        const noGms = getChannel() === 'direct-no-gms';
-        matches = matches.filter((a) => /^MajesticTab-no-gms-/i.test(a.name) === noGms);
-    }
+    const matches = (release.assets || []).filter((a) => pattern.test(a.name));
     // Tauri names Intel macOS bundles "x64" and Apple Silicon ones "aarch64".
     const archPattern = buildInfo.arch === 'x86_64' ? /x64|x86_64/i : buildInfo.arch === 'aarch64' ? /aarch64|arm64/i : null;
     const asset = (archPattern && matches.find((a) => archPattern.test(a.name))) || matches[0];

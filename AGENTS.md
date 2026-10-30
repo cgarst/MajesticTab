@@ -109,7 +109,7 @@ For a local debuggable build (WebView attachable over CDP, e.g. for the Android 
 
 Outputs land in `dist/` (`MajesticTab-android.aab`, `.apk`, `-symbols.zip`). Never print `.env` values.
 
-When bumping `version` in `build/tauri/src-tauri/tauri.conf.json`, also set `bundle.android.versionCode` in `tauri.android.conf.json` to `major * 1000000 + minor * 1000 + patch` (1.0.13 is 1000013). F-Droid reads it with a regex and cannot run that formula; Android builds fail if the two disagree. The `fdroid` channel builds one unsigned universal release APK (arm64-v8a, armeabi-v7a and x86_64) into `dist/MajesticTab-android-unsigned.apk`.
+When bumping `version` in `build/tauri/src-tauri/tauri.conf.json`, also set `bundle.android.versionCode` in `tauri.android.conf.json` to `major * 1000000 + minor * 1000 + patch` (1.0.13 is 1000013). F-Droid reads it with a regex and cannot run that formula; Android builds fail if the two disagree. The `fdroid` channel (no Google Play services, no self-update) builds one universal release APK (arm64-v8a, armeabi-v7a and x86_64). Without a keystore (F-Droid's build) it is unsigned, `dist/MajesticTab-android-unsigned.apk`; the release workflow builds it with the keystore, giving the signed `dist/MajesticTab-no-gms-android.apk` on the GitHub release, which F-Droid can verify its own build against (`Binaries:` in the recipe). Every Android build carries all three ABIs.
 
 ### Cutting a Release
 
@@ -117,7 +117,7 @@ When bumping `version` in `build/tauri/src-tauri/tauri.conf.json`, also set `bun
 
 1. Pick the version: next patch unless told otherwise, and confirm the previous tag is an ancestor of HEAD.
 2. Draft the notes from `git log <previous tag>..HEAD` per Release Notes below and **wait for the user's approval of the text**.
-3. Bump `version` in `build/tauri/src-tauri/tauri.conf.json` and `bundle.android.versionCode` in `tauri.android.conf.json`, and update `support/store/fdroid/net.zathu.majestictab.yml` (`versionName`, `versionCode`, `commit: v<version>`, `CurrentVersion`, `CurrentVersionCode`) and the versionCode example in Local Store Builds.
+3. Bump `version` in `build/tauri/src-tauri/tauri.conf.json` and `bundle.android.versionCode` in `tauri.android.conf.json` and the versionCode example in Local Store Builds. The F-Droid recipe lives in F-Droid's `fdroiddata` repo (`metadata/net.zathu.majestictab.yml`), not here, and F-Droid's auto-update adds each new tag.
 4. Write `support/listing/changelogs/<version>.txt`, run `node build/release-notes.mjs --link`, and commit as `Bump to <version>`.
 5. Once the user has approved the notes, tag and push without asking again: asking to cut a release is the authorization. `git tag v<version>` on the bump commit, then `git push origin main v<version>`. Do not tag or push if the notes were never approved, and never move or delete a pushed tag.
 6. After the push, bump `tag:` and `commit:` in `build/tauri/flatpak/flathub/net.zathu.majestictab.yml` to the tagged commit in a follow-up commit.

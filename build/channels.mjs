@@ -22,15 +22,12 @@ export const channels = {
     platforms: ['windows', 'macos', 'linux', 'android', 'ios'],
     capabilities: { ...FULL },
   },
-  // GitHub APK without Google Play services (no Google Drive sign-in), for devices and users who avoid GMS.
-  'direct-no-gms': {
-    platforms: ['android'],
-    capabilities: { ...FULL, googleDrive: false },
-  },
   play: {
     platforms: ['android'],
     capabilities: { ...FULL, ...STORE_DOWNLOADER, youtube: 'official-origin' },
   },
+  // No Google Play services, no self-update. F-Droid builds it unsigned; the release workflow also signs it with the
+  // release key for the GitHub release (and F-Droid's reproducible-build check).
   fdroid: {
     platforms: ['android'],
     capabilities: { ...FULL, selfUpdate: false, googleDrive: false },
