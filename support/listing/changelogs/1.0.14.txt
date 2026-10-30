@@ -1,0 +1,4 @@
+- Added a GitHub Android APK without Google Play services or auto-update (no Google Drive sign-in)
+- Android builds now include x86_64, covering emulators, Chromebooks and x86 tablets
+- Fixed GPU rendering in the Linux Flatpak
+- Release downloads are now named with their version, e.g. MajesticTab-1.0.14-windows-x64-setup.exe
