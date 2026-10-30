@@ -22,6 +22,11 @@ export const channels = {
     platforms: ['windows', 'macos', 'linux', 'android', 'ios'],
     capabilities: { ...FULL },
   },
+  // GitHub APK without Google Play services (no Google Drive sign-in), for devices and users who avoid GMS.
+  'direct-no-gms': {
+    platforms: ['android'],
+    capabilities: { ...FULL, googleDrive: false },
+  },
   play: {
     platforms: ['android'],
     capabilities: { ...FULL, ...STORE_DOWNLOADER, youtube: 'official-origin' },

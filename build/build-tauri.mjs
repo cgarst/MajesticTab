@@ -474,7 +474,8 @@ if (target === 'android') {
     const buildTools = path.join(buildToolsRoot, versions[versions.length - 1]);
     const ext = process.platform === 'win32' ? '.bat' : '';
     const aligned = path.join(distDir, 'MajesticTab-android-aligned.apk');
-    const signed = path.join(distDir, 'MajesticTab-android.apk');
+    // The GMS-free build sits beside the full one on the GitHub release; src/updater.js picks the asset by this name.
+    const signed = path.join(distDir, channel === 'direct-no-gms' ? 'MajesticTab-no-gms-android.apk' : 'MajesticTab-android.apk');
     run(path.join(buildTools, 'zipalign' + (process.platform === 'win32' ? '.exe' : '')), ['-f', '-p', '4', apk, aligned]);
     run(path.join(buildTools, 'apksigner' + ext), [
       'sign', '--ks', keystore, '--ks-key-alias', keyAlias,
