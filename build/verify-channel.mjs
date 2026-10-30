@@ -103,13 +103,6 @@ export async function verifyChannel(id, options = {}) {
     if (!actual || actual.join() !== cargoFeatures(id).join()) errors.push(`Cargo default features are [${actual}] but the channel needs [${cargoFeatures(id)}]`);
   }
 
-  // The purchase permissions exist exactly when the channel sells Supporter (checked once the build has written them)
-  if (options.cargoToml) {
-    const capability = path.join(tauriDir, 'src-tauri', 'capabilities', 'iap.json');
-    const present = await readFile(capability, 'utf8').then(() => true, () => false);
-    if (present !== (expected.monetization === 'iap')) errors.push(`capabilities/iap.json ${present ? 'exists' : 'is missing'} but monetization is "${expected.monetization}"`);
-  }
-
   // Android: the downloader webview (third-party pages) gets only close and onTabDownloaded
   if (channels[id].platforms.includes('android')) {
     const activity = await readFile(path.join(tauriDir, 'android-MainActivity.kt'), 'utf8');

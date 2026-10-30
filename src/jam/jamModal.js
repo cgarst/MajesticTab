@@ -6,8 +6,6 @@ import { jamPlayerControl } from '../gpProcessor/gpPlayer.js';
 import { getInstrumentMode } from '../utils/tuningUtils.js';
 import { isJamWebGuest } from './jamTransport.js';
 import { trackPolicyFor, trackStateFor, normAudioMode, normListening } from './jamTrackPolicy.js';
-import { hasSupporter } from '../channel.js';
-import { LOCK_ICON_HTML } from '../supporter.js';
 
 // Guests load the app from the host over plain HTTP on the LAN.
 const WEB_SCHEME = 'http:';
@@ -146,7 +144,7 @@ export function createJamModal(manager, { updateSetting }) {
             <input type="text" class="form-control form-control-sm" id="jamPinInput" maxlength="12" inputmode="numeric" value="${esc(settings.pin)}">
           </div>
           <p class="jam-help mb-3">Other devices on the same Wi-Fi or network can join. Each device plays the song locally (synth or YouTube), so no audio is streamed.</p>
-          <button type="button" class="btn btn-sm btn-theme-primary" id="jamStartHostBtn">Start Hosting${hasSupporter() ? '' : ` ${LOCK_ICON_HTML}`}</button>
+          <button type="button" class="btn btn-sm btn-theme-primary" id="jamStartHostBtn">Start Hosting</button>
         ` : `
           <div class="jam-field mb-3">
             <div class="d-flex align-items-center justify-content-between gap-2 mb-2">

@@ -23,7 +23,6 @@ import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdf
 import { initTheming } from './themeEngine.js';
 import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
-import { initSupporter } from './supporter.js';
 import { openFromProvider } from './fileProviders.js';
 import { initSecureStore } from './secureStore.js';
 import { migrateS3Secret } from './s3Client.js';
@@ -1137,7 +1136,6 @@ async function initApp() {
     setupPinchToZoom();
     setupExtensionSettings();
     initUpdater();
-    initSupporter();
     initYouTubePlayer();
     initSynthPlayer();
     initSoundFontPanel();

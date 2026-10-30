@@ -103,8 +103,8 @@ STORES = {
     },
 }
 
-# Marketing copy: sentence-case headline (max ~4 words), one short subtitle. `supporter` unlocks the
-# paid Supporter features for that shot only; `requires` skips the shot when the channel lacks a capability.
+# Marketing copy: sentence-case headline (max ~4 words), one short subtitle. `requires` skips the shot
+# when the channel lacks a capability.
 SHOTS = [
     dict(id="gp_scroll", headline="Scroll through your tabs",
          subtitle="All guitar parts stacked together, with no other clutter",
@@ -120,11 +120,11 @@ SHOTS = [
          setup="synth_menu"),
     dict(id="fretboard", headline="Follow each note on a fretboard", subtitle="A color for every track as the tab plays",
          setup="fretboard"),
-    dict(id="theme_palettes", headline="Make it yours", subtitle="Visual finishes with MajesticTab Supporter",
-         setup="themes", supporter=True),
+    dict(id="theme_palettes", headline="Make it yours", subtitle="Visual finishes for the whole app",
+         setup="themes"),
     # Jam mode is native-only, so this shot fakes the native shell (tests/jam/mockTauri.js) in a page of its own.
-    dict(id="jam", headline="Practice as a group", subtitle="Split up the parts with MajesticTab Supporter",
-         setup="jam", supporter=True, own_page=True),
+    dict(id="jam", headline="Practice as a group", subtitle="Split up the parts over your network",
+         setup="jam", own_page=True),
 ]
 
 
@@ -309,7 +309,6 @@ def setup_jam(page, base, scale=None):
     """Host a Jam with two players who have the song and are in sync, and give each their own track."""
     page.add_init_script("window.__jamMockRole = 'host';\n" + JAM_MOCK.read_text())
     gs.load_file(page, base, GP_FILE, "continuous", scale=scale)
-    page.evaluate("import('/src/channel.js').then(m => m.setSupporterOwned(true))")
     # The mock makes the page look native; on macOS that adds a title-bar inset the real capture has not got.
     page.evaluate("document.documentElement.classList.remove('tauri-macos')")
     page.evaluate("""async () => {
@@ -343,7 +342,7 @@ def setup_jam(page, base, scale=None):
     page.evaluate("document.getElementById('jamModalBody').scrollTop = 0")
 
 
-def setup_shot(page, base, kind, supporter=False, scale=None):
+def setup_shot(page, base, kind, scale=None):
     if kind == "jam":
         setup_jam(page, base, scale)
         page.wait_for_timeout(800)
@@ -363,8 +362,6 @@ def setup_shot(page, base, kind, supporter=False, scale=None):
             gs.wait_for_album_artwork(page)
         return
     gs.load_file(page, base, GP_FILE, "page" if kind == "gp_page" else "continuous", scale=scale)
-    if supporter:
-        page.evaluate("import('/src/channel.js').then(m => m.setSupporterOwned(true))")
     if kind == "synth_menu":
         page.locator("#mobileSynthToggleBtn:visible, #synthToggleBtn:visible").first.click()
     elif kind == "fretboard":
@@ -509,8 +506,8 @@ def main():
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(f"{base}/src/", wait_until="networkidle", timeout=60000)
-            live = page.evaluate("import('/src/channel.js').then(m => [m.getChannel(), m.hasSupporter()])")
-            if live != [channel, False]:
+            live = page.evaluate("import('/src/channel.js').then(m => m.getChannel())")
+            if live != channel:
                 raise SystemExit(f"App is not running as the {channel} channel: {live}")
             n = 0
             for shot in SHOTS:
@@ -524,7 +521,7 @@ def main():
                 shot_page = ctx.new_page() if shot.get("own_page") else page
                 if shot_page is not page:
                     shot_page.on("pageerror", lambda e: errors.append(str(e)))
-                setup_shot(shot_page, base, shot["setup"], shot.get("supporter", False), store.get("tab_scale"))
+                setup_shot(shot_page, base, shot["setup"], store.get("tab_scale"))
                 if store.get("no_fullscreen"):
                     shown = shot_page.evaluate("""() => ['#fullscreenPill', '#fullscreenToggleBtn', '#toolsFullscreenRow']
                         .filter(s => { const e = document.querySelector(s); return e && e.offsetParent !== null; })""")

@@ -3,13 +3,8 @@
  * Ported from concerts with 8 iconic guitar finish themes.
  * Default theme: 'Mystic Dream'
  * Sheet appearance: Auto / Light / Dark / Guitar Finish (all in one row)
- *
- * On store channels the default theme and the light sheet are free; other finishes and sheet modes are
- * Supporter features. The saved choice is never changed by the gate, so it applies again once Supporter does.
  */
 
-import { hasSupporter } from './channel.js';
-import { LOCK_ICON_HTML, requireSupporter, openPaywall } from './supporter.js';
 
 export const THEMES = [
   {
@@ -97,28 +92,22 @@ export const THEMES = [
 const STORAGE_THEME_KEY = 'majestictab_theme';
 const STORAGE_SHEET_MODE_KEY = 'majestictab_sheet_mode';
 
-const FREE_THEME_ID = 'Mystic Dream';
+const DEFAULT_THEME_ID = 'Mystic Dream';
 
-function getSavedTheme() {
+/** The saved theme, or the default. */
+export function getCurrentTheme() {
   try {
     return localStorage.getItem(STORAGE_THEME_KEY) ||
            document.documentElement.getAttribute('data-theme') ||
-           FREE_THEME_ID;
+           DEFAULT_THEME_ID;
   } catch (e) {
-    return FREE_THEME_ID;
+    return DEFAULT_THEME_ID;
   }
 }
 
-/** The theme in effect: the saved one for Supporters, otherwise the free default. */
-export function getCurrentTheme() {
-  const saved = getSavedTheme();
-  return saved === FREE_THEME_ID || hasSupporter() ? saved : FREE_THEME_ID;
-}
-
-/** The sheet mode in effect: the saved one for Supporters, otherwise the light sheet. */
+/** The saved sheet mode, or the light sheet. */
 export function getSheetMode() {
-  const saved = getSavedSheetMode();
-  return saved === 'light' || hasSupporter() ? saved : 'light';
+  return getSavedSheetMode();
 }
 
 function getSavedSheetMode() {
@@ -186,23 +175,10 @@ export function applySheetAppearance() {
   sheetRadios.forEach(radio => {
     radio.checked = radio.value === sheetMode;
   });
-  // One lock on the control's title: the pill has no room for a lock per mode
-  const sheetModeLock = document.getElementById('sheetModeLock');
-  if (sheetModeLock) sheetModeLock.hidden = hasSupporter();
-  // Greyed out while locked; still clickable so a tap opens the paywall
-  const sheetModeGroup = document.querySelector('.sheet-mode-group');
-  if (sheetModeGroup) {
-    sheetModeGroup.classList.toggle('is-locked', !hasSupporter());
-    sheetModeGroup.setAttribute('aria-disabled', String(!hasSupporter()));
-  }
 }
 
-/** User choice of sheet mode. Returns false (and shows the paywall) when it needs Supporter. */
+/** User choice of sheet mode. */
 export function setSheetMode(mode) {
-  if (mode !== 'light' && !requireSupporter('sheetModes')) {
-    applySheetAppearance();
-    return false;
-  }
   try {
     localStorage.setItem(STORAGE_SHEET_MODE_KEY, mode);
   } catch (e) {}
@@ -210,45 +186,9 @@ export function setSheetMode(mode) {
   return true;
 }
 
-// A locked theme being tried out. Never saved: it ends on Exit, on picking another theme, or at reload.
-let previewThemeId = null;
-
-function endPreview() {
-  previewThemeId = null;
-  document.getElementById('themePreviewBar')?.remove();
-}
-
-function showPreviewBar(themeObj) {
-  let bar = document.getElementById('themePreviewBar');
-  if (!bar) {
-    bar = document.createElement('div');
-    bar.id = 'themePreviewBar';
-    bar.className = 'theme-preview-bar';
-    bar.setAttribute('role', 'status');
-    bar.innerHTML = `
-      <span class="theme-preview-name"></span>
-      <button type="button" class="btn btn-theme-primary btn-sm" data-action="unlock">Unlock</button>
-      <button type="button" class="btn btn-theme-outline btn-sm" data-action="exit">Exit</button>`;
-    bar.querySelector('[data-action="unlock"]').addEventListener('click', () => openPaywall('themes'));
-    bar.querySelector('[data-action="exit"]').addEventListener('click', () => {
-      endPreview();
-      refreshAppearance();
-    });
-    document.body.appendChild(bar);
-  }
-  bar.querySelector('.theme-preview-name').textContent = `Previewing ${themeObj.name}`;
-}
-
-/** User choice of theme. A locked theme is previewed instead (returns false); the bar offers the paywall. */
+/** User choice of theme. */
 export function setTheme(themeName) {
   const themeObj = THEMES.find(t => t.id === themeName) || THEMES[0];
-  if (themeObj.id !== FREE_THEME_ID && !hasSupporter()) {
-    previewThemeId = themeObj.id;
-    applyTheme(themeObj.id);
-    showPreviewBar(themeObj);
-    return false;
-  }
-  endPreview();
   try {
     localStorage.setItem(STORAGE_THEME_KEY, themeObj.id);
   } catch (e) {}
@@ -256,9 +196,9 @@ export function setTheme(themeName) {
   return true;
 }
 
-/** Re-apply the theme and sheet mode in effect without saving anything (restores, entitlement changes). */
+/** Re-apply the saved theme and sheet mode without saving anything (restores). */
 export function refreshAppearance() {
-  applyTheme(previewThemeId || getCurrentTheme());
+  applyTheme(getCurrentTheme());
   applySheetAppearance();
 }
 
@@ -311,10 +251,8 @@ export function renderThemeModalGrid(activeThemeId = getCurrentTheme()) {
             </div>
           </div>
           ${isActive 
-            ? `<span class="theme-active-pill"><i class="bi-check-circle-fill me-1"></i> ${previewThemeId ? 'Previewing' : 'Active'}</span>` 
-            : (t.id !== FREE_THEME_ID && !hasSupporter()
-              ? `<span class="theme-select-hint is-locked">${LOCK_ICON_HTML} Supporter</span>`
-              : `<span class="theme-select-hint">Select</span>`)
+            ? `<span class="theme-active-pill"><i class="bi-check-circle-fill me-1"></i> Active</span>` 
+            : `<span class="theme-select-hint">Select</span>`
           }
         </div>
         <div class="theme-card-gradient-bar" style="background: ${t.gradient};"></div>
@@ -359,16 +297,6 @@ export function closeThemeModal() {
 
 export function initTheming() {
   refreshAppearance();
-  // Ownership arrives (or is revoked) after launch
-  window.addEventListener('supporterchange', (event) => {
-    // Unlocking while previewing keeps the previewed theme
-    if (event.detail?.owned && previewThemeId) setTheme(previewThemeId);
-    else {
-      endPreview();
-      refreshAppearance();
-    }
-  });
-
   // Setup modal close listeners
   const closeBtns = document.querySelectorAll('.theme-modal-close-btn');
   closeBtns.forEach(btn => {

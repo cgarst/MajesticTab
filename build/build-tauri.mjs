@@ -260,24 +260,6 @@ const installedVersions = await Promise.all(Object.entries(requiredPackages).map
 if (installedVersions.some((installed) => !installed)) {
   run('npm', ['ci']);
 }
-// Tauri rejects a capability naming a plugin that isn't compiled in, so the in-app purchase permissions
-// are written only for channels with monetization 'iap', and removed again when the build exits.
-async function ensureIapCapability() {
-  const capabilityPath = path.join(tauriDir, 'src-tauri', 'capabilities', 'iap.json');
-  if (channelCapabilities.monetization !== 'iap') {
-    await rm(capabilityPath, { force: true });
-    return;
-  }
-  await writeFile(capabilityPath, `${JSON.stringify({
-    $schema: '../gen/schemas/desktop-schema.json',
-    identifier: 'iap',
-    description: 'In-app purchase of MajesticTab Supporter',
-    windows: ['main'],
-    permissions: ['iap:allow-get-products', 'iap:allow-purchase', 'iap:allow-restore-purchases', 'iap:allow-get-product-status', 'iap:allow-acknowledge-purchase'],
-  }, null, 2)}\n`);
-  process.on('exit', () => rmSync(capabilityPath, { force: true }));
-}
-
 // tauri.conf.json is the only place the release version is set; everything else derives from it.
 const appVersion = JSON.parse(await readFile(path.join(tauriDir, 'src-tauri', 'tauri.conf.json'), 'utf8')).version;
 
@@ -314,7 +296,6 @@ run('npm', [
 ]);
 run('node', ['generate-icons.mjs', target]);
 await ensureCrateTypeForTarget(target);
-await ensureIapCapability();
 await verifyOrExit(channel, { cargoToml: path.join(tauriDir, 'src-tauri', 'Cargo.toml'), debugTools });
 
 if (target === 'android') {

@@ -2,16 +2,9 @@
 // IndexedDB storage for setlists: ordered lists of library tabs ({ songId, tabId }).
 
 import { getDB, STORE_SETLISTS } from './fileStore.js';
-import { hasSupporter } from './channel.js';
 
 function genId(prefix) {
     return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
-}
-
-// Creating and changing setlists is a Supporter feature; reading, playing, restoring and importing are not.
-// The UI shows the paywall first, so this only stops callers that skip it.
-function assertCanEdit() {
-    if (!hasSupporter()) throw new Error('Editing setlists needs MajesticTab Supporter');
 }
 
 function tx(mode, run) {
@@ -40,13 +33,11 @@ async function saveSetlist(setlist) {
 }
 
 export async function createSetlist(name) {
-    assertCanEdit();
     const trimmed = String(name || '').trim() || 'Untitled setlist';
     return saveSetlist({ id: genId('setlist'), name: trimmed, items: [], createdAt: Date.now() });
 }
 
 export async function renameSetlist(id, name) {
-    assertCanEdit();
     const setlist = await getSetlist(id);
     const trimmed = String(name || '').trim();
     if (!setlist || !trimmed) return null;
@@ -55,13 +46,11 @@ export async function renameSetlist(id, name) {
 }
 
 export async function deleteSetlist(id) {
-    assertCanEdit();
     await tx('readwrite', s => s.delete(id));
 }
 
 /** Append a tab to a setlist. A null tabId means "the song's default tab" at play time. */
 export async function addToSetlist(setlistId, songId, tabId = null) {
-    assertCanEdit();
     const setlist = await getSetlist(setlistId);
     if (!setlist || !songId) return null;
     setlist.items.push({ id: genId('sli'), songId, tabId: tabId || null });
@@ -69,7 +58,6 @@ export async function addToSetlist(setlistId, songId, tabId = null) {
 }
 
 export async function removeFromSetlist(setlistId, itemId) {
-    assertCanEdit();
     const setlist = await getSetlist(setlistId);
     if (!setlist) return null;
     setlist.items = setlist.items.filter(i => i.id !== itemId);
@@ -78,7 +66,6 @@ export async function removeFromSetlist(setlistId, itemId) {
 
 /** Move an item by delta positions (-1 up, +1 down). */
 export async function moveSetlistItem(setlistId, itemId, delta) {
-    assertCanEdit();
     const setlist = await getSetlist(setlistId);
     if (!setlist) return null;
     const from = setlist.items.findIndex(i => i.id === itemId);

@@ -12,8 +12,6 @@ default = ["self-update"]
 debug-tools = ["tauri/devtools"]
 # In-app updater (desktop only; the dependency does not exist on mobile)
 self-update = ["dep:tauri-plugin-updater"]
-# In-app purchase for the Supporter unlock (App Store and Google Play channels only)
-iap = ["dep:tauri-plugin-iap"]
 
 [lib]
 name = "majestictab_lib"
@@ -30,8 +28,6 @@ tauri-plugin-fs = "2"
 # Lets the S3 client call buckets without browser CORS rules
 tauri-plugin-http = "2"
 tauri-plugin-google-auth = { path = "../plugins/google-auth" }
-# Release candidate; pinned exactly. Only compiled with the `iap` feature.
-tauri-plugin-iap = { version = "=0.10.0-rc.10", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
@@ -56,8 +52,6 @@ keyring = { version = "3", features = ["apple-native"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 keyring = { version = "3", features = ["windows-native"] }
-# tauri-plugin-iap's windows.rs uses Win32::UI::Shell but doesn't enable the feature; unification supplies it
-windows = { version = "0.61", features = ["Win32_UI_Shell"] }
 
 [target.'cfg(not(target_vendor = "apple"))'.dependencies]
 mdns-sd = "0.21.6"
@@ -74,8 +68,3 @@ objc2 = "0.6"
 objc2-ui-kit = { version = "0.3", features = ["UIColor", "UIView", "UIViewController", "UIScrollView"] }
 objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSFileManager", "NSURLRequest", "NSGeometry"] }
 block2 = "0.6"
-
-
-# Upstream 0.10.0-rc.10 passes tauri's windows 0.62 HWND to windows 0.61 and won't compile on Windows; patched copy converts it
-[patch.crates-io]
-tauri-plugin-iap = { path = "../plugins/tauri-plugin-iap" }

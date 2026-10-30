@@ -19,13 +19,6 @@
     "core:app:allow-exit",
     "oauth:allow-start",
     "oauth:allow-cancel",
-    {
-      "identifier": "opener:allow-open-url",
-      "allow": [
-        { "url": "market://*" },
-        { "url": "ms-windows-store://*" }
-      ]
-    },
     "opener:allow-default-urls",
     "google-auth:allow-authorize",
     "fs:default",

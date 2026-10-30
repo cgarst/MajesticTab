@@ -26,6 +26,5 @@ Play along and practice at your tempo
 • Includes a built-in microphone chromatic tuner, chord library, scales reference, and circle of fifths.
 • Join local-network Jam sessions for free so everyone in the room stays on the same bar in real time.
 
-Free to play, with an optional one-time Supporter unlock
-• Everything you need to read, hear, and practice is free forever, including the Mystic Dream finish theme and light sheet style.
-• MajesticTab Supporter is an optional one-time purchase (no subscription) that unlocks additional guitar-finish themes, dark and theme-tinted sheets, setlists, hosting local Jam sessions, custom SF2/SF3 SoundFonts, and batch PDF export.
+Free, with every feature included
+• Everything is free forever, with no subscription and no in-app purchases: every guitar-finish theme, dark and theme-tinted sheets, setlists, hosting local Jam sessions, custom SF2/SF3 SoundFonts, and batch PDF export.

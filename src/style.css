@@ -1601,10 +1601,6 @@ input[type=range]::-webkit-slider-thumb:hover {
   font-weight: 600;
 }
 
-.theme-select-hint.is-locked {
-  opacity: 0.85;
-}
-
 .theme-card:hover .theme-select-hint {
   opacity: 1;
   color: var(--accent-primary);
@@ -7001,13 +6997,6 @@ input[type=range]::-moz-range-thumb {
   box-shadow: 0 0 8px var(--accent-glow);
 }
 
-/* Supporter-gated controls and the paywall */
-.supporter-lock {
-  font-size: 0.75em;
-  opacity: 0.7;
-  margin-left: 0.25rem;
-}
-
 /* Tab mode pill: let each mode size from its content so the four fit narrow phones */
 .sheet-mode-group .btn {
   flex: 1 1 auto;
@@ -7016,80 +7005,9 @@ input[type=range]::-moz-range-thumb {
   gap: 0.25rem;
 }
 .sheet-mode-group .btn i { margin: 0 !important; }
-/* Locked (no Supporter): desaturate the whole pill, including the selected gradient and its glow */
-.sheet-mode-group.is-locked {
-  filter: grayscale(1);
-  opacity: 0.55;
-}
-.sheet-mode-group.is-locked .btn-check:checked + .btn {
-  box-shadow: none;
-}
-/* No hover feedback while locked */
-.sheet-mode-group.is-locked .btn-check:not(:checked) + .btn:hover:not(:disabled) {
-  color: var(--text-muted) !important;
-  background: transparent;
-}
 @media (max-width: 340px) {
   .sheet-mode-group .btn i { display: none; }
 }
-/* Settings drawer entry */
-.supporter-card {
-  border-color: color-mix(in srgb, var(--accent-primary) 45%, var(--border-subtle));
-}
-.supporter-card-owned {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.9rem;
-  border-radius: 0.75rem;
-  background: var(--bg-card-solid);
-  border: 1px solid var(--border-subtle);
-  color: #ffffff;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-.supporter-card-owned:hover {
-  border-color: var(--accent-primary);
-  box-shadow: 0 0 10px var(--accent-glow);
-}
-
-/* Floating bar while a locked theme is being previewed */
-.theme-preview-bar {
-  position: fixed;
-  left: 50%;
-  bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
-  transform: translateX(-50%);
-  z-index: 2000;
-  max-width: calc(100vw - 2rem);
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.5rem 0.6rem 0.5rem 0.9rem;
-  border-radius: 999px;
-  background: var(--bg-card-solid);
-  border: 1px solid var(--accent-primary);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), 0 0 12px var(--accent-glow);
-  color: #ffffff;
-  font-size: 0.8rem;
-  white-space: nowrap;
-}
-.theme-preview-bar .theme-preview-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.theme-preview-bar .btn { flex-shrink: 0; }
-
-.supporter-feature-list {
-  list-style: none;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
-.supporter-feature-list .bi-check2 {
-  color: var(--accent-primary, currentColor);
-}
-
 /* Web Jam guest: minimal follower view (no library, open file, updates, backup, converters) */
 html.jam-web-guest #updateBanner,
 html.jam-web-guest #openFileMenuBtn,
@@ -7104,6 +7022,3 @@ html.jam-web-guest #libraryReturnToSongBtn,
 html.jam-web-guest #setlistNav {
     display: none !important;
 }
-
-#supporterModal { z-index: 2100; }
-#supporterCodeModal { z-index: 2200; }

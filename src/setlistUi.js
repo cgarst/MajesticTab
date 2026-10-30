@@ -10,7 +10,6 @@ import { getPlaceholderCoverSvg, hydrateCachedImages } from './musicbrainz.js';
 import { playSetlist } from './setlistPlayer.js';
 import { openThemedInputModal, libraryViewSwitchHtml, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, bindListFilter } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
-import { requireSupporter } from './supporter.js';
 import { showToast } from './utils/toast.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 
@@ -114,7 +113,6 @@ async function renderSetlistList(container, onBack) {
     bindListFilter(container, { inputId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn', rowSelector: '#setlistsList .library-row-card' });
 
     container.querySelector('#toggleSetlistsEditBtn')?.addEventListener('click', () => {
-        if (!isEditMode && !requireSupporter('setlists')) return;
         isEditMode = !isEditMode;
         rerender();
     });
@@ -240,7 +238,6 @@ async function renderSetlistDetail(container, onBack) {
         renderSetlistList(container, onBack);
     });
     container.querySelector('#toggleSetlistEditBtn')?.addEventListener('click', () => {
-        if (!isEditMode && !requireSupporter('setlists')) return;
         isEditMode = !isEditMode;
         keepAddSongsOpen = false;
         rerender();
@@ -321,7 +318,6 @@ async function renderSetlistDetail(container, onBack) {
 }
 
 function promptNewSetlist(onCreated) {
-    if (!requireSupporter('setlists')) return;
     openThemedInputModal({
         title: 'New Setlist',
         icon: 'bi-collection-play',
@@ -333,7 +329,6 @@ function promptNewSetlist(onCreated) {
 }
 
 function promptRenameSetlist(setlist, onDone) {
-    if (!requireSupporter('setlists')) return;
     openThemedInputModal({
         title: 'Rename Setlist',
         icon: 'bi-pencil-square',
@@ -349,7 +344,6 @@ function promptRenameSetlist(setlist, onDone) {
 
 /** Themed picker: choose an existing setlist (or create one) to append a tab to. */
 export async function openAddToSetlistModal({ songId, tabId, title }) {
-    if (!requireSupporter('setlists')) return;
     const setlists = await getAllSetlists();
 
     let modal = document.getElementById('addToSetlistModal');

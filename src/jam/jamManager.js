@@ -4,7 +4,6 @@
 
 import { isJamSupported, isJamWebGuest, jam, listenJamEvents, calibrateNow, setMulticastEnabled } from './jamTransport.js';
 import { createHostAdapter } from './jamHostAdapter.js';
-import { requireSupporter } from '../supporter.js';
 import { createClientAdapter } from './jamClientAdapter.js';
 import { createJamModal } from './jamModal.js';
 import { guestNameFromUserAgent } from './jamRoster.js';
@@ -101,8 +100,6 @@ export function initJamMode({ loadFile, getCurrentFile, recordFileToRecents }) {
 
         async startHosting() {
             if (role !== 'off') return;
-            // Joining is free; hosting is a Supporter feature. Every way of starting a session comes through here.
-            if (!requireSupporter('jamHost')) return;
             primeAudio();
             setMulticastEnabled(true);
             try {
