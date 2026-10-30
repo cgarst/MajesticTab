@@ -102,7 +102,9 @@ jobs:
           for entry in dist/*; do
             name=$(basename "$entry")
             ext="${name#*.}"
-            out="store-dist/MajesticTab-${{ inputs.channel }}-${version}.${ext}"
+            # Keep a "-symbols" marker so the debug symbols zip isn't mistaken for the app.
+            case "$name" in *-symbols.*) kind="-symbols" ;; *) kind="" ;; esac
+            out="store-dist/MajesticTab-${{ inputs.channel }}-${version}${kind}.${ext}"
             [ ! -e "$out" ] && [ ! -e "$out.zip" ] || { echo "::error::Two build outputs map to $out"; exit 1; }
             if [ -d "$entry" ]; then
               ditto -c -k --keepParent "$entry" "$out.zip"
