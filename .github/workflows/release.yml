@@ -72,6 +72,12 @@ jobs:
           # A draft is required until the app's first release is published from Play Console.
           status: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
           releaseName: ${{ github.ref_name }}
+      # Sync the listing text and images from support/store (the Play API has no desktop screenshot type).
+      - uses: actions/checkout@v5
+      - name: Sync Play listing
+        run: |
+          pip install google-api-python-client google-auth
+          python3 support/tools/play_listing.py "$RUNNER_TEMP/play-sa.json"
 
   publish-msstore:
     needs: store
