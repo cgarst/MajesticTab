@@ -141,6 +141,16 @@ jobs:
           node build/make-update-manifest.mjs artifacts "${GITHUB_REF_NAME#v}" \
             "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}" \
             artifacts/latest.json "See https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}"
+      # Installer names carry the version; stable copies let the website link /releases/latest/download/<name>.
+      - name: Add stable download names
+        run: |
+          cp artifacts/MajesticTab_*_x64-setup.exe artifacts/MajesticTab-windows-x64-setup.exe
+          cp artifacts/MajesticTab_*_aarch64.dmg artifacts/MajesticTab-macos-apple-silicon.dmg
+          cp artifacts/MajesticTab_*_x64.dmg artifacts/MajesticTab-macos-intel.dmg
+      - name: Build SideStore source
+        run: |
+          node build/make-sidestore-source.mjs "${GITHUB_REF_NAME#v}" artifacts/MajesticTab-ios.ipa \
+            artifacts/source.json "https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}"
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -157,6 +167,8 @@ jobs:
           ### Sideloading on iOS
 
           Sideload `MajesticTab-ios.ipa` using AltStore, SideStore, TrollStore, or Sideloadly.
+
+          To add MajesticTab as a SideStore, AltStore, or LiveContainer source, use `https://github.com/cgarst/MajesticTab/releases/latest/download/source.json`.
 
           EOF
           gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md --generate-notes

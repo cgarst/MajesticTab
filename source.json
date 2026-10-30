@@ -1,0 +1,25 @@
+{
+  "name": "MajesticTab",
+  "identifier": "net.zathu.majestictab.source",
+  "subtitle": "Guitar Tablature & Score Reader",
+  "description": "Official community source for MajesticTab on iOS (SideStore, AltStore, and LiveContainer).",
+  "iconURL": "https://raw.githubusercontent.com/cgarst/MajesticTab/main/src/icons/apple-touch-icon.png",
+  "website": "https://majestictab.zathu.net",
+  "apps": [
+    {
+      "name": "MajesticTab",
+      "bundleIdentifier": "net.zathu.majestictab",
+      "developerName": "MajesticTab",
+      "version": "1.0.0",
+      "versionDate": "2026-10-18T00:00:00Z",
+      "versionDescription": "See the release notes on GitHub.",
+      "downloadURL": "https://github.com/cgarst/MajesticTab/releases/latest/download/MajesticTab-ios.ipa",
+      "localizedDescription": "Fast, distraction-free guitar tablature and score player with multi-track notation, SoundFont audio synth, and YouTube practice sync.",
+      "iconURL": "https://raw.githubusercontent.com/cgarst/MajesticTab/main/src/icons/apple-touch-icon.png",
+      "tintColor": "9f7aea",
+      "size": 30000000,
+      "screenshotURLs": []
+    }
+  ],
+  "news": []
+}
