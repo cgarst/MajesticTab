@@ -60,13 +60,17 @@ jobs:
         run: |
           test -n "$PLAY_SERVICE_ACCOUNT_JSON_B64" || { echo "::error::Missing PLAY_SERVICE_ACCOUNT_JSON_B64 secret"; exit 1; }
           echo "$PLAY_SERVICE_ACCOUNT_JSON_B64" | base64 -d > "$RUNNER_TEMP/play-sa.json"
+      # The action treats debugSymbols as a literal path (only releaseFiles is globbed).
+      - name: Locate debug symbols
+        id: symbols
+        run: echo "zip=$(ls store-play/*-symbols.zip)" >> "$GITHUB_OUTPUT"
       - name: Upload to Google Play
         uses: r0adkll/upload-google-play@v1.1.3
         with:
           serviceAccountJson: ${{ runner.temp }}/play-sa.json
           packageName: net.zathu.majestictab
           releaseFiles: store-play/*.aab
-          debugSymbols: store-play/*-symbols.zip
+          debugSymbols: ${{ steps.symbols.outputs.zip }}
           # Set the PLAY_TRACK repo variable to production once the listing is live.
           track: ${{ vars.PLAY_TRACK || 'internal' }}
           # A draft is required until the app's first release is published from Play Console.
@@ -87,42 +91,30 @@ jobs:
         with:
           name: store-msstore
           path: store-msstore
-      - uses: microsoft/store-submission@v1
-        with:
-          command: configure
-          type: packaged
-          seller-id: ${{ secrets.MSSTORE_SELLER_ID }}
-          product-id: ${{ secrets.MSSTORE_PRODUCT_ID }}
-          tenant-id: ${{ secrets.MSSTORE_TENANT_ID }}
-          client-id: ${{ secrets.MSSTORE_CLIENT_ID }}
-          client-secret: ${{ secrets.MSSTORE_CLIENT_SECRET }}
-      - uses: microsoft/store-submission@v1
-        with:
-          command: update
-          product-id: ${{ secrets.MSSTORE_PRODUCT_ID }}
-          package-path: store-msstore/*.msix
-      # Sync the listing text from support/store/description.txt into the draft. The CLI round-trips
-      # the whole draft, so pricing and other settings entered in Partner Center are preserved.
       - uses: actions/checkout@v5
       - uses: microsoft/microsoft-store-apppublisher@v1.4
-      - name: Sync listing description
+      # Uses the msstore CLI throughout (microsoft/store-submission is deprecated).
+      - name: Upload package, sync listing, and submit
         shell: bash
         run: |
           msstore reconfigure --tenantId "$MSSTORE_TENANT_ID" --sellerId "$MSSTORE_SELLER_ID" \
             --clientId "$MSSTORE_CLIENT_ID" --clientSecret "$MSSTORE_CLIENT_SECRET"
+          # Upload the package but keep the submission in draft. This recreates the draft, so it must
+          # run before the listing edits below.
+          msstore publish store-msstore --inputFile "$(ls store-msstore/*.msix | head -n1)" \
+            --appId "$MSSTORE_PRODUCT_ID" --noCommit
+          # Sync the listing text from support/store/description.txt into the draft. The CLI round-trips
+          # the whole draft, so pricing and other settings entered in Partner Center are preserved.
           msstore submission get "$MSSTORE_PRODUCT_ID" > draft.json
           python3 support/tools/msstore_listing.py draft.json en-us
-          msstore submission update "$MSSTORE_PRODUCT_ID" draft.json
+          msstore submission update "$MSSTORE_PRODUCT_ID" "$(cat draft.json)"
+          msstore submission publish "$MSSTORE_PRODUCT_ID"
         env:
           MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
           MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
           MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
           MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
           MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
-      - uses: microsoft/store-submission@v1
-        with:
-          command: publish
-          product-id: ${{ secrets.MSSTORE_PRODUCT_ID }}
 
   publish:
     needs: build
