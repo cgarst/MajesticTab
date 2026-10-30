@@ -54,7 +54,7 @@ jobs:
           cache-dependency-path: build/tauri/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ (inputs.channel == 'play' || inputs.channel == 'fdroid') && 'aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android' || inputs.channel == 'appstore-ios' && 'aarch64-apple-ios' || '' }}
+          targets: ${{ (inputs.channel == 'play' || inputs.channel == 'fdroid') && 'aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android' || inputs.channel == 'appstore-ios' && 'aarch64-apple-ios' || inputs.channel == 'msstore' && 'aarch64-pc-windows-msvc' || '' }}
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: build/tauri/src-tauri -> ../target
@@ -97,6 +97,15 @@ jobs:
           MSSTORE_PUBLISHER: ${{ secrets.MSSTORE_PUBLISHER }}
           MSSTORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.MSSTORE_PUBLISHER_DISPLAY_NAME }}
 
+      - name: Build Windows ARM64 package
+        if: inputs.channel == 'msstore'
+        shell: bash
+        run: node build/build-tauri.mjs "$TARGET" --channel=msstore --arm64
+        env:
+          MSSTORE_IDENTITY_NAME: ${{ secrets.MSSTORE_IDENTITY_NAME }}
+          MSSTORE_PUBLISHER: ${{ secrets.MSSTORE_PUBLISHER }}
+          MSSTORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.MSSTORE_PUBLISHER_DISPLAY_NAME }}
+
       - name: Name artifacts MajesticTab-<channel>-<version>
         shell: bash
         run: |
@@ -106,7 +115,7 @@ jobs:
             name=$(basename "$entry")
             ext="${name#*.}"
             # Keep a "-symbols" marker so the debug symbols zip isn't mistaken for the app.
-            case "$name" in *-symbols.*) kind="-symbols" ;; *) kind="" ;; esac
+            case "$name" in *-symbols.*) kind="-symbols" ;; *-arm64.*) kind="-arm64" ;; *) kind="" ;; esac
             out="store-dist/MajesticTab-${{ inputs.channel }}-${version}${kind}.${ext}"
             [ ! -e "$out" ] && [ ! -e "$out.zip" ] || { echo "::error::Two build outputs map to $out"; exit 1; }
             if [ -d "$entry" ]; then

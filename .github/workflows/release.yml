@@ -101,7 +101,12 @@ jobs:
             --clientId "$MSSTORE_CLIENT_ID" --clientSecret "$MSSTORE_CLIENT_SECRET"
           # Upload the package but keep the submission in draft. This recreates the draft, so it must
           # run before the listing edits below.
-          msstore publish store-msstore --inputFile "$(ls store-msstore/*.msix | head -n1)" \
+          # Both architectures go up as one bundle so the Store serves the right one per device.
+          makeappx="$(find "/c/Program Files (x86)/Windows Kits/10/bin" -name makeappx.exe -path '*x64*' | sort -V | tail -n1)"
+          mkdir -p bundle-in
+          cp store-msstore/*.msix bundle-in/
+          "$makeappx" bundle //o //d bundle-in //p MajesticTab-msstore.msixbundle
+          msstore publish store-msstore --inputFile MajesticTab-msstore.msixbundle \
             --appId "$MSSTORE_PRODUCT_ID" --noCommit
           # Sync the listing text from support/store/description.txt into the draft. The CLI round-trips
           # the whole draft, so pricing and other settings entered in Partner Center are preserved.
@@ -137,6 +142,7 @@ jobs:
       - name: Add stable download names
         run: |
           cp artifacts/MajesticTab_*_x64-setup.exe artifacts/MajesticTab-windows-x64-setup.exe
+          cp artifacts/MajesticTab_*_arm64-setup.exe artifacts/MajesticTab-windows-arm64-setup.exe
           cp artifacts/MajesticTab_*_aarch64.dmg artifacts/MajesticTab-macos-apple-silicon.dmg
           cp artifacts/MajesticTab_*_x64.dmg artifacts/MajesticTab-macos-intel.dmg
       - name: Build SideStore source

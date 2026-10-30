@@ -30,6 +30,11 @@ jobs:
           - os: windows-latest
             target: windows
             artifact: windows
+          - os: windows-latest
+            target: windows
+            artifact: windows-arm64
+            args: --arm64
+            rust_target: aarch64-pc-windows-msvc
           - os: macos-latest
             target: macos
             artifact: macos-arm64

@@ -17,6 +17,7 @@ const channel = channelOption ? channelOption.slice('--channel='.length) : DEFAU
 const channelCapabilities = isValidChannel(channel) ? channels[channel].capabilities : {};
 const debugTools = buildOptions.includes('--debug-tools') || buildOptions.includes('--debug');
 const macosX64 = buildOptions.includes('--x86_64');
+const windowsArm64 = buildOptions.includes('--arm64');
 const macosAppStore = buildOptions.includes('--appstore') || channel === 'appstore-mac';
 const validTargets = ['windows', 'macos', 'linux', 'android', 'ios'];
 async function loadEnvFiles() {
@@ -65,13 +66,14 @@ if (!validTargets.includes(target)
   || !isValidChannel(channel)
   || !channels[channel].platforms.includes(target)
   || (buildOptions.includes('--appstore') && channelOption && channel !== 'appstore-mac')
-  || buildOptions.some((option) => option !== '--debug-tools' && option !== '--debug' && option !== '--x86_64' && option !== '--appstore')
+  || buildOptions.some((option) => option !== '--debug-tools' && option !== '--debug' && option !== '--x86_64' && option !== '--arm64' && option !== '--appstore')
   || new Set(buildOptions).size !== buildOptions.length
   || (buildOptions.includes('--debug-tools') && buildOptions.includes('--debug'))
   || (debugTools && (target === 'android' || target === 'ios') && buildOptions.includes('--debug-tools'))
   || (macosX64 && target !== 'macos')
+  || (windowsArm64 && target !== 'windows')
   || (macosAppStore && (target !== 'macos' || macosX64))) {
-  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools|--debug] [--x86_64 (macos only)] [--appstore (macos only, sandboxed Mac App Store build)] [--channel=<${Object.keys(channels).join('|')}> (default ${DEFAULT_CHANNEL}; must match the target platform)]`);
+  console.error(`Usage: node build/build-tauri.mjs [${validTargets.join('|')}] [--debug-tools|--debug] [--x86_64 (macos only)] [--arm64 (windows only)] [--appstore (macos only, sandboxed Mac App Store build)] [--channel=<${Object.keys(channels).join('|')}> (default ${DEFAULT_CHANNEL}; must match the target platform)]`);
   process.exit(2);
 }
 
@@ -600,12 +602,16 @@ if (target === 'android') {
   const makepri = await findWindowsSdkTool('makepri.exe');
   const version = appVersion;
   if (!/^\d+\.\d+\.\d+$/.test(version)) fail(`Cannot make an MSIX version from "${version}".`);
-  run('npm', ['run', 'tauri', '--', 'build', '--no-bundle']);
+  const arch = windowsArm64 ? 'arm64' : 'x64';
+  run('npm', ['run', 'tauri', '--', 'build', '--no-bundle', ...(windowsArm64 ? ['--target', 'aarch64-pc-windows-msvc'] : [])]);
+  const releaseDir = windowsArm64
+    ? path.join(tauriDir, 'target', 'aarch64-pc-windows-msvc', 'release')
+    : path.join(tauriDir, 'target', 'release');
 
-  const layout = path.join(tauriDir, 'target', 'msix-layout');
+  const layout = path.join(tauriDir, 'target', `msix-layout-${arch}`);
   await rm(layout, { recursive: true, force: true });
   await mkdir(path.join(layout, 'Assets'), { recursive: true });
-  await cp(path.join(tauriDir, 'target', 'release', 'majestictab.exe'), path.join(layout, 'majestictab.exe'));
+  await cp(path.join(releaseDir, 'majestictab.exe'), path.join(layout, 'majestictab.exe'));
   const iconDir = path.join(tauriDir, 'src-tauri', 'icons', 'windows');
   for (const [size, name] of [[44, 'Square44x44Logo'], [50, 'StoreLogo'], [150, 'Square150x150Logo']]) {
     await cp(path.join(iconDir, `${size}x${size}.png`), path.join(layout, 'Assets', `${name}.png`));
@@ -617,16 +623,16 @@ if (target === 'android') {
     }
   }
   // The Store requires a four-part version whose last part is 0.
-  const tokens = { ...identity, VERSION: `${version}.0` };
+  const tokens = { ...identity, VERSION: `${version}.0`, ARCH: arch };
   const manifest = (await readFile(path.join(tauriDir, 'msix', 'AppxManifest.xml'), 'utf8'))
     .replace(/\{\{(\w+)\}\}/g, (_, key) => String(tokens[key]).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;'));
   const manifestPath = path.join(layout, 'AppxManifest.xml');
   await writeFile(manifestPath, manifest);
   // Windows only resolves targetsize / altform-unplated asset qualifiers when indexed in resources.pri.
-  const priConfig = path.join(tauriDir, 'target', 'msix-priconfig.xml');
+  const priConfig = path.join(tauriDir, 'target', `msix-priconfig-${arch}.xml`);
   run(makepri, ['createconfig', '/cf', priConfig, '/dq', 'en-US', '/pv', '10.0.0', '/o'], { shell: false });
   run(makepri, ['new', '/pr', layout, '/cf', priConfig, '/mn', manifestPath, '/of', path.join(layout, 'resources.pri'), '/o'], { shell: false });
-  const msix = path.join(distDir, 'MajesticTab-msstore.msix');
+  const msix = path.join(distDir, windowsArm64 ? 'MajesticTab-msstore-arm64.msix' : 'MajesticTab-msstore.msix');
   await rm(msix, { force: true });
   run(makeappx, ['pack', '/o', '/d', layout, '/p', msix], { shell: false });
 } else {
@@ -657,10 +663,13 @@ if (target === 'android') {
   }
   if (debugTools) buildArgs.push('--features', 'debug-tools');
   if (macosX64) buildArgs.push('--target', 'x86_64-apple-darwin');
+  if (windowsArm64) buildArgs.push('--target', 'aarch64-pc-windows-msvc');
   run('npm', buildArgs, { env: buildEnv });
   const bundleRoot = macosX64
     ? path.join(tauriDir, 'target', 'x86_64-apple-darwin', 'release', 'bundle')
-    : path.join(tauriDir, 'target', 'release', 'bundle');
+    : windowsArm64
+      ? path.join(tauriDir, 'target', 'aarch64-pc-windows-msvc', 'release', 'bundle')
+      : path.join(tauriDir, 'target', 'release', 'bundle');
   if (macosAppStore) {
     await rm(path.join(distDir, 'MajesticTab-appstore.app'), { recursive: true, force: true });
     await mkdir(distDir, { recursive: true });
