@@ -3,9 +3,9 @@
 MajesticTab is a guitar tab viewer designed for practice, learning, and focused reading on desktop, mobile, and tablet screens. It lets you open Guitar Pro files directly, load tab PDFs, or view text tabs in clean page or continuous scroll modes with minimal distractions.
 
  - [MajesticTab website](https://majestictab.zathu.net/)
- - [Report an issue](https://github.com/cgarst/MajesticTab-Support/issues)
+ - [Report an issue](https://github.com/cgarst/MajesticTab/issues)
 
-This is the private development repository. The public website, privacy policy, and issue tracker live in [MajesticTab-Support](https://github.com/cgarst/MajesticTab-Support).
+The website and privacy policy are in [`docs/`](docs/), and issues are tracked in this repository.
 
 ---
 
