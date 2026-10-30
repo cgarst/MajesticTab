@@ -1,6 +1,6 @@
 app-id: net.zathu.majestictab
 runtime: org.gnome.Platform
-runtime-version: '48'
+runtime-version: '49'
 sdk: org.gnome.Sdk
 command: majestictab
 finish-args:
@@ -9,7 +9,7 @@ finish-args:
   - --socket=pulseaudio
   - --socket=wayland
   - --socket=x11
-  - --device=all
+  - --device=input
 modules:
   - name: majestictab
     buildsystem: simple

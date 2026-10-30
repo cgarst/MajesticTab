@@ -565,7 +565,7 @@ if (target === 'android') {
   run('npm', ['run', 'tauri', '--', 'build', '--no-bundle']);
   const metainfoPath = path.join(tauriDir, 'flatpak', 'net.zathu.majestictab.metainfo.xml');
   const metainfoTemplate = await readFile(metainfoPath, 'utf8');
-  await writeFile(metainfoPath, metainfoTemplate.replaceAll('__APP_VERSION__', appVersion));
+  run('node', [path.join(tauriDir, 'flatpak', 'render-metainfo.mjs'), metainfoPath]);
   // Restore the committed template so builds don't leave the tree dirty.
   process.on('exit', () => writeFileSync(metainfoPath, metainfoTemplate));
   const repoDir = path.join(tauriDir, 'target', 'flatpak-repo');

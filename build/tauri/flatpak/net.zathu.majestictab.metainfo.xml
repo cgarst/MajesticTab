@@ -20,21 +20,26 @@
   </description>
   <launchable type="desktop-id">net.zathu.majestictab.desktop</launchable>
   <url type="homepage">https://majestictab.zathu.net</url>
+  <url type="vcs-browser">https://github.com/cgarst/MajesticTab</url>
   <url type="bugtracker">https://github.com/cgarst/MajesticTab-Support/issues</url>
   <developer id="net.zathu">
     <name>Corey Garst</name>
   </developer>
+  <branding>
+    <color type="primary" scheme_preference="light">#eee9fb</color>
+    <color type="primary" scheme_preference="dark">#2b2150</color>
+  </branding>
   <screenshots>
     <screenshot type="default">
-      <image>https://majestictab.zathu.net/img/screenshots/gp_page.png</image>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/docs/img/screenshots/gp_page.png</image>
       <caption>Guitar Pro tablature page view</caption>
     </screenshot>
     <screenshot>
-      <image>https://majestictab.zathu.net/img/screenshots/gp_themed.png</image>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/docs/img/screenshots/gp_themed.png</image>
       <caption>Themed view mode</caption>
     </screenshot>
     <screenshot>
-      <image>https://majestictab.zathu.net/img/screenshots/pdf_page.png</image>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/docs/img/screenshots/pdf_page.png</image>
       <caption>PDF sheet music viewer</caption>
     </screenshot>
   </screenshots>
@@ -47,14 +52,12 @@
   <provides>
     <mediatype>application/x-guitar-pro</mediatype>
     <mediatype>application/x-gtp</mediatype>
-    <mediatype>application/pdf</mediatype>
-    <mediatype>text/plain</mediatype>
   </provides>
   <content_rating type="oars-1.1" />
   <releases>
-    <release version="__APP_VERSION__" date="2026-01-01">
+    <release version="__APP_VERSION__" date="__RELEASE_DATE__">
       <description>
-        <p>Initial release of MajesticTab.</p>
+        <p>__RELEASE_NOTES__</p>
       </description>
     </release>
   </releases>
