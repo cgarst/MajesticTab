@@ -31,7 +31,7 @@ modules:
         MAJESTICTAB_BUILD_ID: flathub
     build-commands:
       - cd build/tauri && npm ci --offline
-      - sed -i 's/^default = .*/default = ["google-auth"]/; s/^crate-type = .*/crate-type = ["staticlib", "rlib"]/' build/tauri/src-tauri/Cargo.toml
+      - node build/cargo-toml.mjs flathub
       - cd build/tauri && node prepare-tauri-frontend.mjs
       - cd build/tauri && node generate-icons.mjs linux
       - node build/verify-channel.mjs flathub

@@ -3,6 +3,7 @@ import { rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
+import { rewriteCargoToml } from './cargo-toml.mjs';
 import { verifyOrExit } from './verify-channel.mjs';
 import { DEFAULT_CHANNEL, cargoFeatures, channels, isValidChannel } from './channels.mjs';
 
@@ -284,16 +285,7 @@ async function ensureCrateTypeForTarget(currentTarget) {
   const cargoTomlPath = path.join(tauriDir, 'src-tauri', 'Cargo.toml');
   let content = await readFile(cargoTomlPath, 'utf8');
   const originalContent = content;
-  const targetTypes = currentTarget === 'android'
-    ? 'crate-type = ["staticlib", "cdylib", "rlib"]'
-    : 'crate-type = ["staticlib", "rlib"]';
-  const pattern = /crate-type\s*=\s*\[.*?\]/;
-  if (pattern.test(content)) {
-    content = content.replace(pattern, targetTypes);
-  }
-  // Channel capabilities (self-update, userscripts) become the crate's default features.
-  const defaultFeatures = `default = [${cargoFeatures(channel).map((feature) => `"${feature}"`).join(', ')}]`;
-  content = content.replace(/^default\s*=\s*\[.*?\]$/m, defaultFeatures);
+  content = rewriteCargoToml(content, currentTarget, channel);
   if (content !== originalContent) {
     await writeFile(cargoTomlPath, content);
     // Restore the committed Cargo.toml so builds don't leave the tree dirty.
