@@ -402,6 +402,18 @@ if (target === 'android') {
       manifest = manifest.replace('<uses-permission android:name="android.permission.INTERNET" />', `<uses-permission android:name="android.permission.INTERNET" />\n    ${tag}`);
     }
   }
+  // Android TV: Play hides apps from devices lacking a *required* feature, and the permissions above imply microphone
+  // and wifi as required (TVs often have neither a mic nor wifi). Touchscreen is required unless declared otherwise.
+  const leanbackTag = '<uses-feature android:name="android.software.leanback" android:required="false" />';
+  const tvFeatures = ['touchscreen', 'microphone', 'wifi']
+    .filter((name) => !manifest.includes(`android:name="android.hardware.${name}"`))
+    .map((name) => `<uses-feature android:name="android.hardware.${name}" android:required="false" />`);
+  if (tvFeatures.length) manifest = manifest.replace(leanbackTag, `${leanbackTag}\n    ${tvFeatures.join('\n    ')}`);
+  if (!manifest.includes('android:banner=')) {
+    manifest = manifest.replace('<application\n', '<application\n        android:banner="@drawable/tv_banner"\n');
+  }
+  await mkdir(path.join(androidRes, 'drawable-xhdpi'), { recursive: true });
+  await cp(path.join(tauriDir, 'android-tv-banner.png'), path.join(androidRes, 'drawable-xhdpi', 'tv_banner.png'));
   // In-app updates install the downloaded APK, which needs the install permission and a FileProvider for the cache folder.
   // Channels without selfUpdate (play, fdroid) get neither, and any left over from an earlier build is removed.
   const installTag = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />';
@@ -442,7 +454,9 @@ if (target === 'android') {
   const keyAlias = process.env.ANDROID_KEY_ALIAS;
   const keyPassword = process.env.ANDROID_KEY_PASSWORD ?? keystorePassword;
   // F-Droid signs the APK with its own key, so the fdroid channel never uses the release keystore.
-  const signRelease = Boolean(keystore) && channel !== 'fdroid';
+  // `--debug` forces a local debuggable build (dist/MajesticTab-android-debug.apk, WebView attachable over CDP) even
+  // when the keystore is configured. CI never passes it.
+  const signRelease = Boolean(keystore) && channel !== 'fdroid' && !buildOptions.includes('--debug');
   if (signRelease && (!keystorePassword || !keyAlias)) {
     fail('ANDROID_KEYSTORE_FILE requires ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS.');
   }

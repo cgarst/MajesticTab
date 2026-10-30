@@ -105,6 +105,8 @@ Release signing secrets live in the gitignored `.env` at the repo root (`ANDROID
 node build/build-tauri.mjs android --channel=play > /tmp/play-build.log 2>&1
 ```
 
+For a local debuggable build (WebView attachable over CDP, e.g. for the Android TV emulator), add `--debug`: `node build/build-tauri.mjs android --debug` writes `dist/MajesticTab-android-debug.apk` without signing, even with the keystore configured. It is debug-signed, so `adb uninstall net.zathu.majestictab` first when a release build is installed. Never use it in workflows. Then `adb forward tcp:9444 localabstract:webview_devtools_remote_$(adb shell pidof net.zathu.majestictab)` and `CDP_PORT=9444 python3 tests/cdp.py ...`. Fixtures load with `?test=<file>&test_base=http://localhost:8000/tests/` after `adb reverse tcp:8000 tcp:8000` (loopback bases only).
+
 Outputs land in `dist/` (`MajesticTab-android.aab`, `.apk`, `-symbols.zip`). Never print `.env` values.
 
 When bumping `version` in `build/tauri/src-tauri/tauri.conf.json`, also set `bundle.android.versionCode` in `tauri.android.conf.json` to `major * 1000000 + minor * 1000 + patch` (1.0.11 is 1000011). F-Droid reads it with a regex and cannot run that formula; Android builds fail if the two disagree. The `fdroid` channel builds one unsigned universal release APK (arm64-v8a, armeabi-v7a and x86_64) into `dist/MajesticTab-android-unsigned.apk`.

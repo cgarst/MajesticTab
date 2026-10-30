@@ -1,5 +1,5 @@
 """Regenerate the Microsoft Store box/poster art in support/store/msstore/logos, and the Google Play
-icon (512x512) and feature graphic (1024x500) in fastlane/metadata/android/en-US/images.
+icon (512x512), feature graphic (1024x500) and TV banner (1280x720) in fastlane/metadata/android/en-US/images.
 
 Store tiles are shown at thumbnail size (~150-300px), so the art is built for that:
 a large pick mark, a wordmark spanning most of the width, and no tagline (it was
@@ -102,6 +102,27 @@ def render_play_feature(w=1024, h=500):
     return canvas.convert("RGB")
 
 
+def render_tv_banner(w=1280, h=720):
+    """Android TV banner: the Play listing's 1280x720 tvBanner and (scaled to 320x180) the launcher android:banner.
+
+    Mark left, wordmark right like the feature graphic, but sized to fill the 16:9 frame since the launcher shows
+    it small; the leanback launcher requires the app name in the banner itself.
+    """
+    canvas = background(w, h)
+    m = mark(round(h * 0.62))
+    t = wordmark(round(w * 0.44))
+    gap = round(w * 0.03)
+    x0 = round((w - (m.width + gap + t.width)) / 2)
+    my = (h - m.height) // 2
+    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(glow).ellipse((x0 - m.width * 0.3, my - m.height * 0.2, x0 + m.width * 1.3, my + m.height * 1.2),
+                                 fill=(20, 140, 170, 90))
+    canvas.alpha_composite(glow.filter(ImageFilter.GaussianBlur(h * 0.12)))
+    canvas.alpha_composite(m, (x0, my))
+    canvas.alpha_composite(t, (x0 + m.width + gap, (h - t.height) // 2))
+    return canvas.convert("RGB")
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     PLAY_OUT.mkdir(parents=True, exist_ok=True)
@@ -111,6 +132,10 @@ def main():
     render_play_icon().save(PLAY_OUT / "icon.png")
     render_play_feature().save(PLAY_OUT / "featureGraphic.png")
     print("wrote fastlane icon.png, featureGraphic.png")
+    tv = render_tv_banner()
+    tv.save(PLAY_OUT / "tvBanner.png")
+    tv.resize((320, 180), Image.LANCZOS).save(ROOT / "build" / "tauri" / "android-tv-banner.png")
+    print("wrote fastlane tvBanner.png, build/tauri/android-tv-banner.png")
 
 
 if __name__ == "__main__":
