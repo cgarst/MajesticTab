@@ -29,6 +29,21 @@ jobs:
       channel: stable
       build_id: ${{ github.ref_name }}
 
+  # Store binaries stay workflow artifacts (store-<channel>); publish excludes them so they never
+  # reach the GitHub release or latest.json.
+  store:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        # appstore-ios and appstore-mac are left out until Apple signing is set up in CI.
+        channel: [play, msstore]
+    uses: ./.github/workflows/store-build.yml
+    secrets: inherit
+    with:
+      channel: ${{ matrix.channel }}
+      build_id: ${{ github.ref_name }}
+
   publish:
     needs: build
     runs-on: ubuntu-latest
@@ -39,6 +54,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: artifacts
+          pattern: '!store-*'
           merge-multiple: true
       - name: Build updater manifest
         run: |

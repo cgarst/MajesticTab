@@ -1,10 +1,21 @@
 name: Store build
 
 # Manual builds of a store distribution channel (see build/channels.mjs).
+# Also called by release.yml for every store channel on a version tag.
 # These upload workflow artifacts only. They never create a GitHub release or latest.json, so a store
 # binary can't become an update target for the `direct` builds (release.yml and canary.yml, unchanged).
 
 on:
+  workflow_call:
+    inputs:
+      channel:
+        required: true
+        type: string
+      build_id:
+        description: Build identifier embedded in the app (defaults to the run number)
+        required: false
+        type: string
+        default: ''
   workflow_dispatch:
     inputs:
       channel:
@@ -22,7 +33,7 @@ permissions:
 
 env:
   MAJESTICTAB_CHANNEL: stable
-  MAJESTICTAB_BUILD_ID: ${{ github.run_number }}
+  MAJESTICTAB_BUILD_ID: ${{ inputs.build_id || github.run_number }}
   GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
   GOOGLE_PICKER_API_KEY: ${{ secrets.GOOGLE_PICKER_API_KEY }}
 
@@ -102,6 +113,6 @@ jobs:
           ls -l store-dist
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.channel }}
+          name: store-${{ inputs.channel }}
           path: store-dist/*
           if-no-files-found: error
