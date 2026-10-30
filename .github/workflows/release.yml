@@ -95,6 +95,24 @@ jobs:
           command: update
           product-id: ${{ secrets.MSSTORE_PRODUCT_ID }}
           package-path: store-msstore/*.msix
+      # Sync the listing text from support/store/description.txt into the draft. The CLI round-trips
+      # the whole draft, so pricing and other settings entered in Partner Center are preserved.
+      - uses: actions/checkout@v5
+      - uses: microsoft/microsoft-store-apppublisher@v1.4
+      - name: Sync listing description
+        shell: bash
+        run: |
+          msstore reconfigure --tenantId "$MSSTORE_TENANT_ID" --sellerId "$MSSTORE_SELLER_ID" \
+            --clientId "$MSSTORE_CLIENT_ID" --clientSecret "$MSSTORE_CLIENT_SECRET"
+          msstore submission get "$MSSTORE_PRODUCT_ID" > draft.json
+          python3 support/tools/msstore_listing.py draft.json en-us
+          msstore submission update "$MSSTORE_PRODUCT_ID" draft.json
+        env:
+          MSSTORE_TENANT_ID: ${{ secrets.MSSTORE_TENANT_ID }}
+          MSSTORE_SELLER_ID: ${{ secrets.MSSTORE_SELLER_ID }}
+          MSSTORE_CLIENT_ID: ${{ secrets.MSSTORE_CLIENT_ID }}
+          MSSTORE_CLIENT_SECRET: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          MSSTORE_PRODUCT_ID: ${{ secrets.MSSTORE_PRODUCT_ID }}
       - uses: microsoft/store-submission@v1
         with:
           command: publish
