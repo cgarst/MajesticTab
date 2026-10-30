@@ -9,6 +9,7 @@ finish-args:
   - --socket=pulseaudio
   - --socket=wayland
   - --socket=x11
+  - --device=dri
   - --device=input
   - --require-version=1.16.0
 modules:
