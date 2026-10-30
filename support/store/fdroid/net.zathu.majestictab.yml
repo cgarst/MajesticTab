@@ -26,15 +26,27 @@ Builds:
     # Rust and Node are not in the base image; Android SDK and NDK come from the build server
     sudo:
       - apt-get update
-      - apt-get install -y nodejs npm curl build-essential openjdk-17-jdk-headless
-      - update-java-alternatives -s java-1.17.0-openjdk-amd64 || true
+      - apt-get install -y xz-utils curl build-essential openjdk-21-jdk-headless
+      - curl -sSfLo /tmp/node.tar.xz https://nodejs.org/dist/v22.23.4/node-v22.23.4-linux-x64.tar.xz
+      - echo '1805bcd35e6815559bd2eb97db438d3fdb0eb3a5e6a977b7c1badca76337e9ce  /tmp/node.tar.xz' | sha256sum -c -
+      - tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
+      - update-java-alternatives -s java-1.21.0-openjdk-amd64 || true
     init: curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+    # The build reads only src/, build/ and support/branding (app icons); drop the rest, including the tab fixture and the Steam artwork zip
+    rm:
+      - docs
+      - tests
+      - support/site
+      - support/store
+      - support/tools
+    scanignore:
+      - build/tauri/plugins/google-auth
     prebuild:
       - export PATH="$HOME/.cargo/bin:$PATH"
       - rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
     build:
       - export PATH="$HOME/.cargo/bin:$PATH"
-      - export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+      - export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
       - export NDK_HOME=$$NDK$$
       - node build/build-tauri.mjs android --channel=fdroid
     output: dist/MajesticTab-android-unsigned.apk
