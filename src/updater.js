@@ -81,9 +81,10 @@ export async function checkForUpdate(buildInfo, channel = getUpdateChannel()) {
         label = release.tag_name;
     }
     const pattern = platformAssetPattern();
-    const matches = (release.assets || []).filter((a) => pattern.test(a.name));
-    // Tauri names Intel macOS bundles "x64" and Apple Silicon ones "aarch64".
-    const archPattern = buildInfo.arch === 'x86_64' ? /x64|x86_64/i : buildInfo.arch === 'aarch64' ? /aarch64|arm64/i : null;
+    // The release also carries the no-GMS, no-update APK; a build that can update stays on the normal one.
+    const matches = (release.assets || []).filter((a) => pattern.test(a.name) && !/-no-update\.apk$/i.test(a.name));
+    // Intel macOS files are named "intel" (or "x64"), Apple Silicon ones "apple-silicon" (or "aarch64").
+    const archPattern = buildInfo.arch === 'x86_64' ? /x64|x86_64|intel/i : buildInfo.arch === 'aarch64' ? /aarch64|arm64|apple-silicon/i : null;
     const asset = (archPattern && matches.find((a) => archPattern.test(a.name))) || matches[0];
     return { label, url: asset?.browser_download_url || release.html_url, releaseUrl: release.html_url };
 }

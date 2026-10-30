@@ -132,22 +132,19 @@ jobs:
           path: artifacts
           pattern: '!store-*'
           merge-multiple: true
+      - name: Name assets MajesticTab-<version>-<platform>
+        run: node build/name-release-assets.mjs artifacts "${GITHUB_REF_NAME#v}"
       - name: Build updater manifest
         run: |
           node build/make-update-manifest.mjs artifacts "${GITHUB_REF_NAME#v}" \
             "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}" \
             artifacts/latest.json "$(node build/release-notes.mjs)"
-      # Installer names carry the version; stable copies let the website link /releases/latest/download/<name>.
-      - name: Add stable download names
-        run: |
-          cp artifacts/MajesticTab_*_x64-setup.exe artifacts/MajesticTab-windows-x64-setup.exe
-          cp artifacts/MajesticTab_*_arm64-setup.exe artifacts/MajesticTab-windows-arm64-setup.exe
-          cp artifacts/MajesticTab_*_aarch64.dmg artifacts/MajesticTab-macos-apple-silicon.dmg
-          cp artifacts/MajesticTab_*_x64.dmg artifacts/MajesticTab-macos-intel.dmg
-          cp artifacts/MajesticTab-x86_64.flatpak artifacts/MajesticTab.flatpak
+      # The updater reads each signature from latest.json, so the .sig files are not release assets.
+      - name: Drop updater signature files
+        run: rm -f artifacts/*.sig
       - name: Build SideStore source
         run: |
-          node build/make-sidestore-source.mjs "${GITHUB_REF_NAME#v}" artifacts/MajesticTab-ios.ipa \
+          node build/make-sidestore-source.mjs "${GITHUB_REF_NAME#v}" "artifacts/MajesticTab-${GITHUB_REF_NAME#v}-ios.ipa" \
             artifacts/source.json "https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}" \
             "$(node build/release-notes.mjs)"
       - name: Create release
@@ -165,7 +162,7 @@ jobs:
 
           ### Sideloading on iOS
 
-          Sideload `MajesticTab-ios.ipa` using AltStore, SideStore, TrollStore, or Sideloadly.
+          Sideload the `-ios.ipa` asset using AltStore, SideStore, TrollStore, or Sideloadly.
 
           To add MajesticTab as a SideStore, AltStore, or LiveContainer source, use `https://github.com/cgarst/MajesticTab/releases/latest/download/source.json`.
 

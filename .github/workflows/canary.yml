@@ -45,12 +45,17 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
+      - name: Name assets MajesticTab-<version>-<platform>
+        run: node build/name-release-assets.mjs artifacts "$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")"
       - name: Build updater manifest
         run: |
           app_version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
           node build/make-update-manifest.mjs artifacts "${app_version}" \
             "https://github.com/${{ github.repository }}/releases/download/canary" \
             artifacts/latest.json "Canary ${{ needs.check.outputs.build_id }}"
+      # The updater reads each signature from latest.json, so the .sig files are not release assets.
+      - name: Drop updater signature files
+        run: rm -f artifacts/*.sig
       - name: Replace canary release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,7 +72,7 @@ jobs:
 
           ### Sideloading on iOS
 
-          Sideload \`MajesticTab-ios.ipa\` using AltStore, SideStore, or Sideloadly.
+          Sideload the \`-ios.ipa\` asset using AltStore, SideStore, or Sideloadly.
 
           EOF
           gh release delete canary --cleanup-tag --yes || true

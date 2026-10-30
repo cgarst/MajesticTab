@@ -11,10 +11,10 @@ if (!artifactsDir || !version || !baseUrl || !outFile) {
 
 // Update bundle file name -> platform key used by the updater plugin.
 function platformFor(name) {
-  if (/_arm64-setup\.exe$/i.test(name)) return 'windows-aarch64';
+  if (/-windows-arm64-setup\.exe$/i.test(name)) return 'windows-aarch64';
   if (/\.exe$/i.test(name)) return 'windows-x86_64';
-  if (/^MajesticTab_aarch64\.app\.tar\.gz$/.test(name)) return 'darwin-aarch64';
-  if (/^MajesticTab_x86_64\.app\.tar\.gz$/.test(name)) return 'darwin-x86_64';
+  if (/-macos-apple-silicon\.app\.tar\.gz$/.test(name)) return 'darwin-aarch64';
+  if (/-macos-intel\.app\.tar\.gz$/.test(name)) return 'darwin-x86_64';
   if (/\.AppImage$/i.test(name)) return 'linux-x86_64';
   return null;
 }

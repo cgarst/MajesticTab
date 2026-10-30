@@ -474,9 +474,8 @@ if (target === 'android') {
     const buildTools = path.join(buildToolsRoot, versions[versions.length - 1]);
     const ext = process.platform === 'win32' ? '.bat' : '';
     const aligned = path.join(distDir, 'MajesticTab-android-aligned.apk');
-    // The fdroid channel (no GMS, no self-update) sits beside the full build on the GitHub release; its name sorts after
-    // MajesticTab-android.apk so older installs (which take the first .apk asset) keep getting the full build.
-    const signed = path.join(distDir, channel === 'fdroid' ? 'MajesticTab-no-gms-android.apk' : 'MajesticTab-android.apk');
+    // The fdroid channel (no Google Play services, no self-update) is the GitHub release's second APK.
+    const signed = path.join(distDir, channel === 'fdroid' ? 'MajesticTab-android-no-gms-no-update.apk' : 'MajesticTab-android.apk');
     run(path.join(buildTools, 'zipalign' + (process.platform === 'win32' ? '.exe' : '')), ['-f', '-p', '4', apk, aligned]);
     run(path.join(buildTools, 'apksigner' + ext), [
       // Keep zipalign's layout: apksigner would otherwise realign the entries, and F-Droid's reproducible-build check
