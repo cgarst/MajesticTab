@@ -145,6 +145,7 @@ jobs:
           cp artifacts/MajesticTab_*_arm64-setup.exe artifacts/MajesticTab-windows-arm64-setup.exe
           cp artifacts/MajesticTab_*_aarch64.dmg artifacts/MajesticTab-macos-apple-silicon.dmg
           cp artifacts/MajesticTab_*_x64.dmg artifacts/MajesticTab-macos-intel.dmg
+          cp artifacts/MajesticTab-x86_64.flatpak artifacts/MajesticTab.flatpak
       - name: Build SideStore source
         run: |
           node build/make-sidestore-source.mjs "${GITHUB_REF_NAME#v}" artifacts/MajesticTab-ios.ipa \

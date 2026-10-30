@@ -585,7 +585,7 @@ if (target === 'android') {
   run('flatpak', [
     'build-bundle',
     repoDir,
-    path.join(distDir, 'MajesticTab.flatpak'),
+    path.join(distDir, `MajesticTab-${process.arch === 'arm64' ? 'aarch64' : 'x86_64'}.flatpak`),
     'net.zathu.majestictab',
   ], { cwd: rootDir });
 } else if (target === 'windows' && channel === 'msstore') {
