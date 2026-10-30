@@ -1,0 +1,3 @@
+- Android TV support: use MajesticTab with a TV remote, including D-pad navigation to the top bar and playback controls
+- The remote's Play/Pause key now starts and pauses playback
+- The on-screen keyboard now opens only when you press Enter on a text field

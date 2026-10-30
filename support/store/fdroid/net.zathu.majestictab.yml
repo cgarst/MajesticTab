@@ -20,9 +20,9 @@ RepoType: git
 Repo: https://github.com/cgarst/MajesticTab.git
 
 Builds:
-  - versionName: 1.0.11
-    versionCode: 1000011
-    commit: v1.0.11
+  - versionName: 1.0.12
+    versionCode: 1000012
+    commit: v1.0.12
     # Rust and Node are not in the base image; Android SDK and NDK come from the build server
     sudo:
       - apt-get update
@@ -60,5 +60,5 @@ AutoUpdateMode: Version
 # Only release tags; the repo also has canary and nightly tags
 UpdateCheckMode: Tags ^v\d+\.\d+\.\d+$
 UpdateCheckData: build/tauri/src-tauri/tauri.android.conf.json|"versionCode":\s*(\d+)|build/tauri/src-tauri/tauri.conf.json|"version":\s*"([\d.]+)"
-CurrentVersion: 1.0.11
-CurrentVersionCode: 1000011
+CurrentVersion: 1.0.12
+CurrentVersionCode: 1000012
