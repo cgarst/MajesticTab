@@ -3,7 +3,7 @@
 # Descriptions and changelogs (symlinks to support/listing), icon and screenshots come from fastlane/metadata/android/en-US in this repo.
 
 Categories:
-  - Music Practice Tool
+  - Multimedia
 License: MIT
 AuthorName: Corey Garst
 AuthorWebSite: https://majestictab.zathu.net
@@ -14,7 +14,7 @@ IssueTracker: https://github.com/cgarst/MajesticTab/issues
 # The YouTube player and search depend on YouTube, a non-free network service.
 AntiFeatures:
   NonFreeNet:
-    en-US: Links YouTube audio and backing tracks to tabs, and searches YouTube, so those features need YouTube.
+    en-US: Optionally searches for YouTube backing tracks for tabs.
 
 RepoType: git
 Repo: https://github.com/cgarst/MajesticTab.git
@@ -32,7 +32,6 @@ Builds:
       - tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
       - update-java-alternatives -s java-1.21.0-openjdk-amd64 || true
     init: curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain 1.99.1
-    # The build reads only src/, build/ and support/branding (app icons); drop the rest, including the tab fixture and the Steam artwork zip
     rm:
       - docs
       - tests
