@@ -52,7 +52,7 @@ Runtime app icons are in `src/icons/` (referenced as `icons/...` from `src/`).
 
 ## Repository Content Rules
 
-- **Never commit tabs to the repo:** Agents must not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) or tab PDFs anywhere in the repository. These are copyrighted. The only exceptions are the `Duo No 2 In G Major.gp5` and `Keystone.pdf` fixtures in `tests/`. Use local, untracked copies for ad-hoc testing and keep them out of commits.
+- **Never commit tabs to the repo:** Agents must not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) or tab PDFs anywhere in the repository. These are copyrighted. The only exception is the `Duo No 2 In G Major.gp5` fixture in `tests/`. Use local, untracked copies for ad-hoc testing and keep them out of commits.
 
 ## Test Procedures
 

@@ -1,6 +1,6 @@
 # Fake jam host for YouTube sync: shares a song (any type, sent in parts) and drives a virtual
 # YouTube timeline, logging the client's song.ready and status (ytDriftMs) reports.
-# Usage: python3 tests/jam/fake_yt_host.py tests/Keystone.pdf [port] [videoId]
+# Usage: python3 tests/jam/fake_yt_host.py tests/sample.pdf [port] [videoId]
 # Join from the Jam modal at <this-mac-ip>:<port>.
 # With CDP_PORT set (e.g. an adb-forwarded Android WebView), also samples the client's actual
 # video position and logs it against the host timeline (error bound = half the CDP round trip).

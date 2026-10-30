@@ -22,7 +22,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 OUT_DIR = ROOT / "support" / "site" / "img" / "screenshots"
 GP_FILE = ROOT / "tests" / "Duo No 2 In G Major.gp5"
-PDF_FILE = ROOT / "tests" / "Keystone.pdf"
+PDF_FILE = ROOT / "tests" / "sample.pdf"  # local, untracked: any tab PDF (pdf_page / pdf_condensed are skipped without it)
 _BACKUPS = sorted((Path.home() / "Downloads").glob("MajesticTab-backup-*.mtbackup"))
 DEFAULT_BACKUP = _BACKUPS[-1] if _BACKUPS else Path.home() / "Downloads" / "MajesticTab-backup.mtbackup"
 
@@ -503,12 +503,12 @@ def main():
                     save("notation_options")
 
                 # 10. PDF, page view
-                if wanted("pdf_page"):
+                if wanted("pdf_page") and PDF_FILE.exists():
                     load_file(page, base_url, PDF_FILE, "page")
                     save("pdf_page")
 
                 # 11. PDF condensed
-                if wanted("pdf_condensed"):
+                if wanted("pdf_condensed") and PDF_FILE.exists():
                     load_file(page, base_url, PDF_FILE, "page", condense=True)
                     save("pdf_condensed")
 

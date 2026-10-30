@@ -25,3 +25,4 @@
 /tests/screenshots/
 /tools/__pycache__/*
 __pycache__/
+/tests/sample.pdf
