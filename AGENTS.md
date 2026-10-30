@@ -85,6 +85,16 @@ Fixtures: `Keystone.gp` (repeats, multiple tracks; repeat/tick bugs only show he
 - The `.at-cursors` layer and `.gp-reader-cursor` are hidden by CSS until `body.synth-playback-started` is set.
 - Public AlphaTab fields are minified (`Qw`, `vy`, `Ny`); avoid depending on them, and if unavoidable, route through a single helper such as `getMidiTickLookup()`.
 
+### Local Store Builds
+
+Release signing secrets live in the gitignored `.env` at the repo root (`ANDROID_KEYSTORE_FILE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, etc.). `build/build-tauri.mjs` loads it automatically, but only for variables not already set in the environment. Do not export, override, or generate substitute keystores. Just run, e.g., the Play build:
+
+```bash
+node build/build-tauri.mjs android --channel=play > /tmp/play-build.log 2>&1
+```
+
+Outputs land in `dist/` (`MajesticTab-android.aab`, `.apk`, `-symbols.zip`). Never print `.env` values.
+
 ### Area-specific guides
 
 - Jam mode (`app/jam/`, host/client sync): see `app/jam/AGENTS.md`.
