@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { songTypeForName, isGpSong, chunkBase64, JAM_CHUNK_B64_CHARS } from '../../app/jam/jamProtocol.js';
+import { songTypeForName, isGpSong, chunkBase64, JAM_CHUNK_B64_CHARS } from '../../src/jam/jamProtocol.js';
 
 test('song types', () => {
     assert.equal(songTypeForName('Keystone.gp'), 'gp');

@@ -1,4 +1,4 @@
-// Builds per-platform app icons from icons/icon_v2_mystic.svg via `tauri icon`.
+// Builds per-platform app icons from support/branding/icon_v2_mystic.svg via `tauri icon`.
 // Output goes to src-tauri/icons/<platform>/ (generated, gitignored).
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const sourceSvg = path.resolve(scriptDir, '..', '..', 'icons', 'icon_v2_mystic.svg');
+const sourceSvg = path.resolve(scriptDir, '..', '..', 'support', 'branding', 'icon_v2_mystic.svg');
 const iconsDir = path.join(scriptDir, 'src-tauri', 'icons');
 const workDir = path.join(scriptDir, 'target', 'icon-build');
 

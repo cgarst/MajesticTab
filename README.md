@@ -25,7 +25,7 @@ cd MajesticTab
 python3 -m http.server 8000
 ```
 
-Then open `http://localhost:8000/app/`.
+Then open `http://localhost:8000/src/`.
 
 ---
 
@@ -90,10 +90,10 @@ The app then removes empty staves, cleans margins, and re-renders the tab into a
 
 ### File structure
 
-- `app/main.js` — main UI and navigation flow
-- `app/gpProcessor/` — Guitar Pro parsing and rendering
-- `app/pdfProcessor/` — PDF parsing, cleanup, and optimization logic
-- `app/exportPdf.js` — PDF export flow
+- `src/main.js` — main UI and navigation flow
+- `src/gpProcessor/` — Guitar Pro parsing and rendering
+- `src/pdfProcessor/` — PDF parsing, cleanup, and optimization logic
+- `src/exportPdf.js` — PDF export flow
 - `tools/` — screenshot generation and helper tooling
 
 ### Dependencies
@@ -133,7 +133,7 @@ Build macOS and Windows installers on their respective operating systems. The Li
 
 To enable Google Drive in a Tauri build, set the `GOOGLE_CLIENT_SECRET` environment variable (e.g., in a git-ignored `.env` file in the project root, via `export GOOGLE_CLIENT_SECRET="your-client-secret"`) before building, or configure it as a GitHub Actions secret. The build process automatically embeds the secret into the generated frontend bundle. Note that the secret is embedded in the packaged client app and can be extracted from it; do not treat it as confidential.
 
-The Google Drive picker also needs `GOOGLE_PICKER_API_KEY` (a Google Cloud browser API key), set the same way in `.env` or as a GitHub Actions secret. The build writes it to the git-ignored `app/pickerKey.local.js`; without it, the app falls back to the key in `app/googleDrive.js`.
+The Google Drive picker also needs `GOOGLE_PICKER_API_KEY` (a Google Cloud browser API key), set the same way in `.env` or as a GitHub Actions secret. The build writes it to the git-ignored `src/pickerKey.local.js`; without it, the app falls back to the key in `src/googleDrive.js`.
 
 ### Building for iOS
 
@@ -209,12 +209,12 @@ Converters don't travel over Jam. If the host has a converter that converts a fi
 
 ## Screenshots
 
-The website screenshots live in the MajesticTab-Support repo. The generator writes straight into `../MajesticTab-Support/img/screenshots/` (clone that repo next to this one, or pass `--out-dir`):
+The website screenshots live in `support/site/img/screenshots/`. The generator writes there by default (or pass `--out-dir`):
 
 ```bash
 pip install playwright && playwright install chromium
-python3 tools/generate_screenshots.py
-python3 tools/generate_screenshots.py --only gp_scroll theme_palettes
+python3 support/tools/generate_screenshots.py
+python3 support/tools/generate_screenshots.py --only gp_scroll theme_palettes
 ```
 
 Shot names include `gp_scroll`, `gp_page`, `pdf_page`, `pdf_condensed`, `menu`, `theme_palettes`, `gp_themed`, `fretboard`, `tuner`, `reference_chords`, and `jam_host`. The last four use the Keystone fixture and need no backup file.

@@ -3,7 +3,7 @@
 ## UI Theme Consistency
 
 - **Never Use Bootstrap Default Button Classes:** Do NOT use Bootstrap's color button classes (`btn-primary`, `btn-outline-primary`, `btn-secondary`, `btn-outline-secondary`, `btn-danger`, `btn-outline-danger`, `btn-success`, `btn-outline-success`, `btn-info`, `btn-outline-info`, `btn-warning`, `btn-outline-warning`, `btn-light`, `btn-outline-light`, `btn-dark`, `btn-outline-dark`). These apply hard-coded Bootstrap colors (e.g., `#0d6efd` blue) that ignore and break MajesticTab's dynamic finish themes (`data-theme`).
-- **Use MajesticTab Themed Button Classes:** Always use the standard themed button classes defined in `app/style.css`:
+- **Use MajesticTab Themed Button Classes:** Always use the standard themed button classes defined in `src/style.css`:
   - `btn-theme-primary`: Primary call-to-action buttons. Applies `--accent-gradient`, `--accent-glow`, white text, and themed hover elevation.
   - `btn-theme-outline`: Secondary / neutral action buttons. Applies `--bg-card-solid`, `--border-subtle`, and accent-glow on hover.
   - `btn-theme-danger`: Destructive / delete actions. Applies themed red tint, border, and hover contrast.
@@ -17,7 +17,7 @@
 ## UI Spacing & Layout Consistency
 
 - **Never Use Non-Existent or Tailwind-Style Spacing Classes:** Bootstrap 5 only supports standard integer spacing utility steps (`0`, `1`, `2`, `3`, `4`, `5`). Do **NOT** use Tailwind-like fractional or decimal spacing classes (such as `px-3.5`, `py-2.5`, `gap-3.5`, `m-1.5`, etc.). Browsers silently ignore unrecognized classes, resetting paddings/gaps to `0` and causing buttons, text, and badges to collide directly against outer borders.
-- **Explicit CSS Padding for Cards & Rows:** Always define proper explicit padding in `app/style.css` for reusable card and row containers (e.g. `.library-song-row`, `.library-track-row`, `.library-card`, `.library-album-banner`) rather than relying solely on inline utility classes.
+- **Explicit CSS Padding for Cards & Rows:** Always define proper explicit padding in `src/style.css` for reusable card and row containers (e.g. `.library-song-row`, `.library-track-row`, `.library-card`, `.library-album-banner`) rather than relying solely on inline utility classes.
 - **Prevent Edge & Sibling Collisions:**
   - **Leading Badges & Numbers:** Always assign fixed dimensions and `flex-shrink: 0` (e.g. `.badge-track-num { min-width: 28px; width: 28px; height: 28px; flex-shrink: 0; }`) with adequate gap (`gap-2.5` or `gap-3`) to song titles.
   - **Trailing Action Buttons & Dropdowns:** Always mark trailing action button groups with `flex-shrink: 0` and provide left separation (e.g. `ms-2`, `gap-2`) so buttons like `+ Tab`, edit, or delete never crash into the right card border or overlap titles.
@@ -39,6 +39,17 @@ To ensure high visual polish, scannability, and consistency across marketing pag
 - **Ampersands vs. "and":** Write out **"and"** in editorial headlines and body copy (e.g., *"Gamepad and Bluetooth page turner support"*, *"PDF export and condensing"*). Reserve the ampersand (`&`) only for compact badges, pill groups, or tight navigation links where space is strictly constrained.
 - **Navigation & CTA Buttons (Title Case):** Navigation links, standalone call-to-action buttons, and modal action triggers should use **Title Case** (e.g., `Download MajesticTab`, `Open App`, `Tab Library`).
 
+## Support and Marketing Assets (`support/`)
+
+All website, store listing, and branding material lives under `support/`:
+
+- `support/site/`: the public website (`index.html`, `privacy.html`, `landing.css`, `CNAME`, `img/`, `icons/`), the deploy root for `majestictab.zathu.net`.
+- `support/store/`: Microsoft Store and Google Play listing assets (`description.txt`, `msstore/`, `play/`).
+- `support/branding/`: source icon SVGs and `generate_icons.py`, which writes the web PNG/ICO icons to both `src/icons/` and `support/site/icons/`.
+- `support/tools/`: generators (`generate_screenshots.py`, `store_screenshots.py`, `store_logos.py`, `generate-steam-artwork.mjs`, `generate-msstore-artwork.mjs`) and `landing/build.sh` (rebuilds `support/site/landing.css` after changing classes in `index.html`).
+
+Runtime app icons are in `src/icons/` (referenced as `icons/...` from `src/`).
+
 ## Repository Content Rules
 
 - **Never commit tabs to the repo:** Agents must not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) or tab PDFs anywhere in the repository. These are copyrighted. The only exceptions are the `Keystone` fixtures in `tests/` (`Keystone.gp`, `Keystone.pdf`). Use local, untracked copies for ad-hoc testing and keep them out of commits.
@@ -53,7 +64,7 @@ Serve from the project root, then open the app with a fixture via `?test=<filena
 python3 -m http.server 8000
 /Applications/Microsoft\ Edge.app/Contents/MacOS/Microsoft\ Edge \
   --remote-debugging-port=9333 --user-data-dir=/tmp/edge-debug \
-  "http://localhost:8000/app/?test=Keystone.gp" >/dev/null 2>&1 &
+  "http://localhost:8000/src/?test=Keystone.gp" >/dev/null 2>&1 &
 ```
 
 Ports 9222/9223 are often held by `adb` forwards (`lsof -i :<port>`), and if a normal Edge is already running the flags are ignored, so quit it first. Stop with `pkill -f /tmp/edge-debug`.
@@ -71,13 +82,13 @@ Fixtures: `Keystone.gp` (repeats, multiple tracks; repeat/tick bugs only show he
   python3 tests/cdp.py screenshot /tmp/shot.png
   ```
   Wait for the `[GP Mode Switch] Page mode rendered` log before screenshotting. Screenshots are at device pixel ratio (2x on Retina).
-- **Do not grep `build/`** (Rust/Android binaries and large artifacts); restrict searches to `app/`.
+- **Do not grep `build/`** (Rust/Android binaries and large artifacts); restrict searches to `src/`.
 - **Stop after two failed approaches:** re-read the code path and compare its assumptions against the library's actual behavior instead of probing minified code.
 - **Ignore known noise:** `Unchecked runtime.lastError`, `Tracking Prevention blocked access to storage for cdn.*`, and `AlphaTab container was invisible while autosizing`.
 
 ### AlphaTab Internals (GP playback and cursor)
 
-- `api.tickPosition` is on the **MIDI timeline, which expands repeats**. `masterBar.start + beat.playbackStart` is the **notation timeline** and is wrong after any repeat. Always convert with `getPlaybackTickForBeat(beat, api)` in `app/gpProcessor/gpPlayer.js` (wraps the MidiTickLookup's `getBeatStart`).
+- `api.tickPosition` is on the **MIDI timeline, which expands repeats**. `masterBar.start + beat.playbackStart` is the **notation timeline** and is wrong after any repeat. Always convert with `getPlaybackTickForBeat(beat, api)` in `src/gpProcessor/gpPlayer.js` (wraps the MidiTickLookup's `getBeatStart`).
 - Setting `api.tickPosition` makes AlphaTab re-place its own cursor (calling our `customCursorHandler.placeBeatCursor`). If the tick is wrong, AlphaTab overwrites any manual cursor placement; fix the tick rather than the cursor.
 - `renderer.boundsLookup.staffSystems[].findBarAtPos(x)` returns a master-bar bounds object. Its per-track bars are in `.bars` (each with `.beats`), not `.beats`. `masterBar.findBeatAtPos(x)` returns a model beat.
 - `boundsLookup.getBeatAtPos(x, y)` returns null in gaps, margins and headers; fall back to the nearest system, then the vertically closest track bar, then the nearest beat by x.
@@ -97,5 +108,5 @@ Outputs land in `dist/` (`MajesticTab-android.aab`, `.apk`, `-symbols.zip`). Nev
 
 ### Area-specific guides
 
-- Jam mode (`app/jam/`, host/client sync): see `app/jam/AGENTS.md`.
+- Jam mode (`src/jam/`, host/client sync): see `src/jam/AGENTS.md`.
 - Native Tauri shell and iOS simulator: see `build/tauri/AGENTS.md`.

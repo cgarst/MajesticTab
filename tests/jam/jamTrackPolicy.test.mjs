@@ -1,7 +1,7 @@
 // Run with: node --test tests/jam/jamTrackPolicy.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { trackPolicyFor, trackStateFor } from '../../app/jam/jamTrackPolicy.js';
+import { trackPolicyFor, trackStateFor } from '../../src/jam/jamTrackPolicy.js';
 
 const none = { mute: null, audio: null, view: null };
 const base = { trackAssignments: { sam: [1], alex: [2, 3] }, listeners: ['jordan'] };

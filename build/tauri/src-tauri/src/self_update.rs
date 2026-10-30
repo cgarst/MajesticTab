@@ -1,5 +1,5 @@
 // In-app updates through tauri-plugin-updater (Windows, macOS, Linux AppImage).
-// The JS updater (app/updater.js) decides whether a newer build exists on the user's channel;
+// The JS updater (src/updater.js) decides whether a newer build exists on the user's channel;
 // this module only downloads, verifies the signature, installs and relaunches.
 
 #[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]

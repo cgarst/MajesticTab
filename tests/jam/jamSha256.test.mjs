@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash, randomBytes } from 'node:crypto';
-import { sha256HexFallback } from '../../app/jam/jamSha256.js';
+import { sha256HexFallback } from '../../src/jam/jamSha256.js';
 
 const ref = (buf) => createHash('sha256').update(buf).digest('hex');
 

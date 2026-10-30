@@ -463,11 +463,11 @@ fn extension_sandbox_response(
     let (content_type, body): (&str, &str) = match request.uri().path() {
         "/extensionSandbox/frame.html" => (
             "text/html; charset=utf-8",
-            include_str!("../../../../app/extensionSandbox/frame.html"),
+            include_str!("../../../../src/extensionSandbox/frame.html"),
         ),
         "/extensionSandbox/frame.js" => (
             "text/javascript; charset=utf-8",
-            include_str!("../../../../app/extensionSandbox/frame.js"),
+            include_str!("../../../../src/extensionSandbox/frame.js"),
         ),
         _ => {
             return tauri::http::Response::builder()

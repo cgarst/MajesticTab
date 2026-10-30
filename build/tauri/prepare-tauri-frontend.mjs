@@ -7,7 +7,7 @@ import { DEFAULT_CHANNEL, resolveChannel } from '../channels.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(scriptDir, '../..');
-const sourceDir = path.join(rootDir, 'app');
+const sourceDir = path.join(rootDir, 'src');
 const frontendDir = path.join(scriptDir, 'frontend-dist');
 const nodeModulesDir = path.join(scriptDir, 'node_modules');
 const androidBuild = process.argv.includes('--android');
@@ -264,7 +264,6 @@ async function minifyAppScripts(directory) {
 try {
   await rm(frontendDir, { recursive: true, force: true });
   await cp(sourceDir, frontendDir, { recursive: true });
-  await cp(path.join(rootDir, 'icons'), path.join(frontendDir, 'icons'), { recursive: true });
   await writeBuildInfo();
   await writeChannelConfig();
   const desktopSecret = await getDesktopClientSecret();

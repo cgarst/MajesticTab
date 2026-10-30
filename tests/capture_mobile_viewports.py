@@ -155,7 +155,7 @@ async def run_capture(output_subdir="baseline"):
 
     try:
         # Create a new page target
-        req = urllib.request.Request(f"http://127.0.0.1:{CDP_PORT}/json/new?http://127.0.0.1:{HTTP_PORT}/app/?test=Keystone.gp", method="PUT")
+        req = urllib.request.Request(f"http://127.0.0.1:{CDP_PORT}/json/new?http://127.0.0.1:{HTTP_PORT}/src/?test=Keystone.gp", method="PUT")
         with urllib.request.urlopen(req) as resp:
             page_info = json.loads(resp.read().decode())
             page_ws = page_info.get("webSocketDebuggerUrl")

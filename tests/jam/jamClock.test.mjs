@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {
     median, computeSample, ClockSync, decideDriftAction, DriftFilter, computeLeadMs,
     DRIFT_IGNORE_MS, DRIFT_HARD_SEEK_MS
-} from '../../app/jam/jamClock.js';
+} from '../../src/jam/jamClock.js';
 
 // Deterministic PRNG so jitter tests are repeatable.
 function rng(seed) {
@@ -87,7 +87,7 @@ test('decideDriftAction re-seeks earlier when nudging is unavailable', () => {
 });
 
 test('NudgeMonitor flags nudges that do not reduce drift', async () => {
-    const { NudgeMonitor } = await import('../../app/jam/jamClock.js');
+    const { NudgeMonitor } = await import('../../src/jam/jamClock.js');
     const working = new NudgeMonitor({ windowMs: 3000 });
     assert.equal(working.update(0, -60, true), false);
     assert.equal(working.update(3000, -20, true), false);

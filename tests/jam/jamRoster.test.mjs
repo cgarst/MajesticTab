@@ -1,7 +1,7 @@
 // Run with: node --test tests/jam/jamRoster.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { resolveNames, cleanAlias, guestNameFromUserAgent, MAX_ALIAS_LENGTH } from '../../app/jam/jamRoster.js';
+import { resolveNames, cleanAlias, guestNameFromUserAgent, MAX_ALIAS_LENGTH } from '../../src/jam/jamRoster.js';
 
 const peers = (...names) => names.map((name, i) => ({ id: `p${i}`, name }));
 

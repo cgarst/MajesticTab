@@ -3,7 +3,7 @@
 //!
 //! Rust only handles transport concerns (sockets, handshake, PIN check, roster
 //! limit, session lock, clock-sync pings and mDNS discovery). All musical state and message
-//! semantics live in the JS side (`app/jam/`). Messages are opaque JSON strings.
+//! semantics live in the JS side (`src/jam/`). Messages are opaque JSON strings.
 
 use futures_util::{SinkExt, StreamExt};
 use serde::Serialize;

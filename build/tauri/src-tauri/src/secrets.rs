@@ -1,5 +1,5 @@
 // Credential storage in the OS keychain (macOS and iOS Keychain, Windows Credential Manager).
-// Other platforms report "unsupported" and the JS side (app/secureStore.js) keeps using localStorage.
+// Other platforms report "unsupported" and the JS side (src/secureStore.js) keeps using localStorage.
 
 #[cfg(any(target_os = "macos", target_os = "ios", target_os = "windows"))]
 fn entry(name: &str) -> Result<keyring::Entry, String> {
