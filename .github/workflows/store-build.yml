@@ -37,8 +37,6 @@ permissions:
 env:
   MAJESTICTAB_CHANNEL: stable
   MAJESTICTAB_BUILD_ID: ${{ inputs.build_id || github.run_number }}
-  GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-  GOOGLE_PICKER_API_KEY: ${{ secrets.GOOGLE_PICKER_API_KEY }}
 
 jobs:
   build:

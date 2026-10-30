@@ -185,20 +185,22 @@ async function loadEnvFiles() {
   }
 }
 
-async function getDesktopClientSecret() {
-  await loadEnvFiles();
-  const envSecret = (process.env.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_DESKTOP_CLIENT_SECRET || '').trim();
-  if (envSecret && envSecret !== 'REPLACE_WITH_DESKTOP_CLIENT_SECRET') {
-    return envSecret;
+// The desktop OAuth client (src/googleDesktopClient.js) is public by design and committed. GOOGLE_DESKTOP_CLIENT_ID
+// and GOOGLE_DESKTOP_CLIENT_KEY replace its values for builds that use a different Google Cloud client.
+async function applyDesktopClientOverrides() {
+  const overrides = {
+    DESKTOP_CLIENT_ID: (process.env.GOOGLE_DESKTOP_CLIENT_ID || '').trim(),
+    DESKTOP_CLIENT_KEY: (process.env.GOOGLE_DESKTOP_CLIENT_KEY || '').trim(),
+  };
+  const file = path.join(frontendDir, 'googleDesktopClient.js');
+  let source = await readFile(file, 'utf8');
+  for (const [name, value] of Object.entries(overrides)) {
+    if (!value) continue;
+    const pattern = new RegExp(`(export const ${name} = )'[^']*'`);
+    if (!pattern.test(source)) throw new Error(`googleDesktopClient.js has no ${name} to override.`);
+    source = source.replace(pattern, (_, prefix) => `${prefix}${JSON.stringify(value)}`);
   }
-  try {
-    const config = await readFile(path.join(sourceDir, 'googleDrive.local.js'), 'utf8');
-    const secret = /export\s+const\s+TAURI_CLIENT_SECRET\s*=\s*(['"])(.*?)\1\s*;?/.exec(config)?.[2]?.trim();
-    if (secret && secret !== 'REPLACE_WITH_DESKTOP_CLIENT_SECRET') {
-      return secret;
-    }
-  } catch {}
-  return null;
+  await writeFile(file, source);
 }
 
 async function writeBuildInfo() {
@@ -228,12 +230,13 @@ async function writeChannelConfig() {
 }
 
 // Channels without Google Drive get inert modules in place of the real ones, so no Drive code, OAuth client ID or
-// secret ships. Callers are gated on the googleDrive capability and never reach the stubs.
+// key ships. Callers are gated on the googleDrive capability and never reach the stubs.
 async function stubOutGoogleDrive() {
   const stubDir = path.join(scriptDir, 'stubs', 'no-drive');
   for (const name of await readdir(stubDir)) {
     await cp(path.join(stubDir, name), path.join(frontendDir, name));
   }
+  await rm(path.join(frontendDir, 'googleDesktopClient.js'), { force: true });
   await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
   await rm(path.join(frontendDir, 'pickerKey.local.js'), { force: true });
   const stripped = await stripGoogleDriveBlocks(frontendDir);
@@ -260,21 +263,6 @@ async function stripGoogleDriveBlocks(directory) {
     }
   }
   return count;
-}
-
-async function hideUnavailableDriveOptions() {
-  const indexPath = path.join(frontendDir, 'index.html');
-  let indexHtml = await readFile(indexPath, 'utf8');
-  const hiddenMarkers = [
-    ['<label id="localFileSourceLabel"', '<label id="localFileSourceLabel" hidden'],
-    ['<div id="drivePickerSection"', '<div id="drivePickerSection" hidden'],
-  ];
-  for (const [marker, hiddenMarker] of hiddenMarkers) {
-    if (indexHtml.includes(marker)) {
-      indexHtml = indexHtml.replace(marker, hiddenMarker);
-    }
-  }
-  await writeFile(indexPath, indexHtml);
 }
 
 async function minifyAppScripts(directory) {
@@ -305,19 +293,16 @@ try {
   if (!driveEnabled) {
     await stubOutGoogleDrive();
   }
-  const desktopSecret = driveEnabled ? await getDesktopClientSecret() : undefined;
-  if (desktopSecret && !iosBuild) {
-    await writeFile(path.join(frontendDir, 'googleDrive.local.js'), `export const TAURI_CLIENT_SECRET = '${desktopSecret}';\n`);
-  } else if (iosBuild) {
-    await rm(path.join(frontendDir, 'googleDrive.local.js'), { force: true });
+  if (androidBuild || iosBuild) {
+    // Phones sign in through the platform's own flow and never load the desktop client.
+    await rm(path.join(frontendDir, 'googleDesktopClient.js'), { force: true });
+  } else if (driveEnabled) {
+    await loadEnvFiles();
+    await applyDesktopClientOverrides();
   }
   const pickerApiKey = driveEnabled ? (process.env.GOOGLE_PICKER_API_KEY || '').trim() : '';
   if (pickerApiKey) {
     await writeFile(path.join(frontendDir, 'pickerKey.local.js'), `export const PICKER_API_KEY = '${pickerApiKey}';\n`);
-  }
-  if (driveEnabled && !androidBuild && !iosBuild && !desktopSecret) {
-    await hideUnavailableDriveOptions();
-    console.log('Google Drive hidden: no Desktop OAuth client secret configured.');
   }
   for (const [source, destination] of assets) {
     await copyAsset(source, destination);

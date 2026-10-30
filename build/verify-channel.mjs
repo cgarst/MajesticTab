@@ -117,7 +117,7 @@ export async function verifyChannel(id, options = {}) {
     // Call sites are cut out at prepare time (// @googleDrive:begin ... end), leaving nothing that imports the modules
     for (const [name, text] of contents) {
       if (/@googleDrive:(?:begin|end)/.test(text)) errors.push(`${name} still has a @googleDrive marker (unbalanced or not stripped)`);
-      if (name !== 'googleDrive.js' && name !== 'driveBackup.js' && /['"]\.\/(?:googleDrive|driveBackup)\.js['"]/.test(text)) {
+      if (name !== 'googleDrive.js' && name !== 'driveBackup.js' && name !== 'googleDesktopClient.js' && /['"]\.\/(?:googleDrive|driveBackup|googleDesktopClient)\.js['"]/.test(text)) {
         errors.push(`${name} still imports the Google Drive modules`);
       }
     }
@@ -125,7 +125,7 @@ export async function verifyChannel(id, options = {}) {
       const found = containing(needle);
       if (found.length) errors.push(`${found.join(', ')} references ${needle} in a channel without Google Drive`);
     }
-    for (const local of ['googleDrive.local.js', 'pickerKey.local.js']) {
+    for (const local of ['googleDesktopClient.js', 'googleDrive.local.js', 'pickerKey.local.js']) {
       if (shippedFiles.includes(local)) errors.push(`${local} ships in a channel without Google Drive`);
     }
     if (options.androidProject) {

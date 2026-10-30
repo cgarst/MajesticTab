@@ -27,9 +27,6 @@ modules:
         MAJESTICTAB_STORE_CHANNEL: flathub
         MAJESTICTAB_CHANNEL: stable
         MAJESTICTAB_BUILD_ID: flathub
-        # Public by design (Desktop OAuth client secret, Picker browser key); filled in when the PR is opened.
-        GOOGLE_CLIENT_SECRET: REPLACE_WITH_DESKTOP_CLIENT_SECRET
-        GOOGLE_PICKER_API_KEY: REPLACE_WITH_PICKER_API_KEY
     build-commands:
       - cd build/tauri && npm ci --offline
       # Same Cargo features the flathub channel builds with (build/channels.mjs): no self-update.

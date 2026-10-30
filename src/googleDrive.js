@@ -7,14 +7,13 @@ import { isIOSDevice } from './utils/iosAudioUnlock.js';
 import { isSecureStorageAvailable, getSecret, loadSecret, setSecret, deleteSecret } from './secureStore.js';
 
 const BROWSER_CLIENT_ID = '1059497343032-rcmtq18q4bgrc495qbdkg2kpt0q0arq9.apps.googleusercontent.com';
-const DESKTOP_CLIENT_ID = '1059497343032-f0st8cbjrjksj2m0hgjk70hh9cg7l910.apps.googleusercontent.com';
 const IOS_CLIENT_ID = '1059497343032-251i1sb21bnbos0hc6ms8uij892oka3p.apps.googleusercontent.com';
 // drive.file only: the app sees files it created plus files the user hands it through the Google Picker.
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
-// The Picker needs a browser API key and the Cloud project number. The key comes from the GOOGLE_PICKER_API_KEY
-// environment variable, which the build writes to the git-ignored pickerKey.local.js. Builds without it (the
-// website) fall back to this key, which is public by design and restricted to the app's origins and the Picker API.
-const FALLBACK_PICKER_API_KEY = 'AIzaSyCohcbDpEo2PvNPV4Imixd3a_Exu4B-kKY';
+// The Picker needs a browser API key and the Cloud project number. The key is public by design (restricted to the
+// app's origins and the Picker API) and committed here. A build can replace it with GOOGLE_PICKER_API_KEY, which it
+// writes to the git-ignored pickerKey.local.js.
+const DEFAULT_PICKER_API_KEY = 'AIzaSyCohcbDpEo2PvNPV4Imixd3a_Exu4B-kKY';
 const PICKER_APP_ID = '1059497343032';
 const STORAGE_KEY = 'gdrive_auth';
 // Bumped when the requested scope changes so tokens granted under the old scope force a fresh consent.
@@ -99,14 +98,13 @@ async function refreshAccessToken(refreshToken) {
         return storeGoogleAuth(authData.accessToken, authData.expiresIn);
     }
 
-    const params = {
-        client_id: isMobilePlatform() ? IOS_CLIENT_ID : DESKTOP_CLIENT_ID,
-        refresh_token: refreshToken,
-        grant_type: 'refresh_token'
-    };
-    if (!isMobilePlatform()) {
-        const { TAURI_CLIENT_SECRET } = await import('./googleDrive.local.js');
-        params.client_secret = TAURI_CLIENT_SECRET;
+    const params = { refresh_token: refreshToken, grant_type: 'refresh_token' };
+    if (isMobilePlatform()) {
+        params.client_id = IOS_CLIENT_ID;
+    } else {
+        const { DESKTOP_CLIENT_ID, DESKTOP_CLIENT_KEY } = await import('./googleDesktopClient.js');
+        params.client_id = DESKTOP_CLIENT_ID;
+        params.client_secret = DESKTOP_CLIENT_KEY; // Google's token endpoint names this field client_secret
     }
     const response = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
@@ -316,10 +314,7 @@ async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
     let state;
 
     try {
-        const { TAURI_CLIENT_SECRET } = await import('./googleDrive.local.js');
-        if (!TAURI_CLIENT_SECRET || TAURI_CLIENT_SECRET === 'REPLACE_WITH_DESKTOP_CLIENT_SECRET') {
-            throw new Error('Set the Desktop OAuth client secret in src/googleDrive.local.js.');
-        }
+        const { DESKTOP_CLIENT_ID, DESKTOP_CLIENT_KEY } = await import('./googleDesktopClient.js');
 
         state = encodeBase64Url(crypto.getRandomValues(new Uint8Array(32)));
         const codeVerifier = encodeBase64Url(crypto.getRandomValues(new Uint8Array(32)));
@@ -352,7 +347,7 @@ async function startTauriGoogleAuth(targetState = 'open_drive_browser') {
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({
                         client_id: DESKTOP_CLIENT_ID,
-                        client_secret: TAURI_CLIENT_SECRET,
+                        client_secret: DESKTOP_CLIENT_KEY, // Google's token endpoint names this field client_secret
                         code: authorizationCode,
                         code_verifier: codeVerifier,
                         grant_type: 'authorization_code',
@@ -449,7 +444,7 @@ function loadPickerApi() {
  * Picking a file grants this app access to it under the drive.file scope.
  */
 export async function pickDriveFile({ title = 'Select a file from Google Drive' } = {}) {
-    const apiKey = await import('./pickerKey.local.js').then(m => m.PICKER_API_KEY, () => '') || FALLBACK_PICKER_API_KEY;
+    const apiKey = await import('./pickerKey.local.js').then(m => m.PICKER_API_KEY, () => '') || DEFAULT_PICKER_API_KEY;
     await ensureFreshToken();
     if (!isTokenValid()) throw new Error('Google Drive is not connected. Please connect your Google account.');
     await loadPickerApi();
