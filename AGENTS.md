@@ -45,7 +45,7 @@ Website, store listing, and branding material live in `docs/` and `support/`:
 
 - `docs/`: the public website (GitHub Pages root: `index.html`, `privacy.html`, `landing.css`, `CNAME`, `img/`, `icons/`), the deploy root for `majestictab.zathu.net`.
 - `support/store/`: Microsoft Store screenshots and logos (`msstore/`) and Play desktop screenshots (`play/desktop/`, which the Play API can't upload).
-- `fastlane/metadata/android/en-US/`: the single source for the Google Play and F-Droid listing (descriptions, changelogs, icon, feature graphic, phone and tablet screenshots). `msstore_listing.py` reads the same descriptions. `fastlane android listing` syncs the listing to Play and `fastlane android release` uploads the AAB (`bundle exec`, with `PLAY_SERVICE_ACCOUNT_JSON` set).
+- `support/listing/`: the single source for store listing text on every channel (`short_description.txt`, `full_description.txt`, `changelogs/<version>.txt`). `fastlane/metadata/android/en-US/` holds the Google Play and F-Droid listing images (icon, feature graphic, phone and tablet screenshots) plus symlinks to that text. `msstore_listing.py` reads the same descriptions and release notes. `fastlane android listing` syncs the listing to Play and `fastlane android release` uploads the AAB (`bundle exec`, with `PLAY_SERVICE_ACCOUNT_JSON` set).
 - `support/branding/`: source icon SVGs and `generate_icons.py`, which writes the web PNG/ICO icons to both `src/icons/` and `docs/icons/`.
 - `support/tools/`: generators (`generate_screenshots.py`, `store_screenshots.py`, `store_logos.py`, `generate-steam-artwork.mjs`, `generate-msstore-artwork.mjs`) and `landing/build.sh` (rebuilds `docs/landing.css` after changing classes in `index.html`).
 
@@ -108,6 +108,17 @@ node build/build-tauri.mjs android --channel=play > /tmp/play-build.log 2>&1
 Outputs land in `dist/` (`MajesticTab-android.aab`, `.apk`, `-symbols.zip`). Never print `.env` values.
 
 When bumping `version` in `build/tauri/src-tauri/tauri.conf.json`, also set `bundle.android.versionCode` in `tauri.android.conf.json` to `major * 1000000 + minor * 1000 + patch` (1.0.9 is 1000009). F-Droid reads it with a regex and cannot run that formula; Android builds fail if the two disagree. The `fdroid` channel builds one unsigned universal release APK (arm64-v8a, armeabi-v7a and x86_64) into `dist/MajesticTab-android-unsigned.apk`.
+
+### Release Notes
+
+`support/listing/changelogs/<version>.txt` (e.g. `1.0.9.txt`) is the single source of release notes. `build/release-notes.mjs` prints it for the current version and fails if it is missing, still the "Bug fixes and improvements." placeholder, over 500 characters, or if the fastlane symlink is wrong. It feeds Google Play, F-Droid, Flathub metainfo, Microsoft Store (`msstore_listing.py`), the GitHub release body, `latest.json` and the SideStore source. `release.yml` fails the tag if the notes are not written. Canary builds have no notes.
+
+Play and F-Droid read `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` from the repo, so that file is a committed symlink to the canonical one (as are `short_description.txt` and `full_description.txt` one level up); never add real text files under `fastlane/metadata/android/en-US/`. After adding the new changelog, run `node build/release-notes.mjs --link` to create the symlink.
+
+- **Agents draft, a human approves.** When bumping the version (or when asked), draft the notes from `git log <previous tag>..HEAD` and show them in chat. Do not write or change the changelog file until the user approves the text. Never reuse the placeholder.
+- **Only changes users notice:** new features, UX changes, fixes to behavior they could hit, new platforms or formats. Leave out CI, build, signing, store-listing, docs, refactor, dependency and version-bump commits.
+- **Brief:** 1 to 5 plain-text lines starting with `- `, sentence case, no trailing periods, under 500 characters, no markdown, no commit hashes. If nothing user-visible changed, write `- Bug fixes and stability improvements` (the check only rejects the exact placeholder sentence).
+- Creating the new version's changelog file and running `--link` is part of the version bump (see Local Store Builds); leave previous versions' files in place.
 
 ### Flathub Sources
 

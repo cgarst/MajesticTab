@@ -20,6 +20,8 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match tauri.conf.json version $version" >&2
             exit 1
           fi
+      - name: Release notes must be written
+        run: node build/release-notes.mjs > /dev/null
 
   build:
     needs: verify
@@ -67,7 +69,7 @@ jobs:
           test -n "$PLAY_SERVICE_ACCOUNT_JSON_B64" || { echo "::error::Missing PLAY_SERVICE_ACCOUNT_JSON_B64 secret"; exit 1; }
           echo "$PLAY_SERVICE_ACCOUNT_JSON_B64" | base64 -d > "$RUNNER_TEMP/play-sa.json"
       # Uploads the AAB and debug symbols, then syncs the listing text and images from
-      # fastlane/metadata/android (the Play API has no desktop screenshot type).
+      # fastlane/metadata/android and support/listing (the Play API has no desktop screenshot type).
       - name: Upload to Google Play
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/play-sa.json
@@ -134,7 +136,7 @@ jobs:
         run: |
           node build/make-update-manifest.mjs artifacts "${GITHUB_REF_NAME#v}" \
             "https://github.com/${{ github.repository }}/releases/download/${GITHUB_REF_NAME}" \
-            artifacts/latest.json "See https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}"
+            artifacts/latest.json "$(node build/release-notes.mjs)"
       # Installer names carry the version; stable copies let the website link /releases/latest/download/<name>.
       - name: Add stable download names
         run: |
@@ -146,13 +148,14 @@ jobs:
       - name: Build SideStore source
         run: |
           node build/make-sidestore-source.mjs "${GITHUB_REF_NAME#v}" artifacts/MajesticTab-ios.ipa \
-            artifacts/source.json "https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}"
+            artifacts/source.json "https://github.com/${{ github.repository }}/releases/tag/${GITHUB_REF_NAME}" \
+            "$(node build/release-notes.mjs)"
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          cat > notes.md <<'EOF'
+          { node build/release-notes.mjs; echo; cat <<'EOF'
           ### Opening on macOS
 
           The macOS build is not signed or notarized, so Gatekeeper may say the app is damaged or from an unidentified developer. After dragging MajesticTab to Applications, either:
@@ -167,4 +170,5 @@ jobs:
           To add MajesticTab as a SideStore, AltStore, or LiveContainer source, use `https://github.com/cgarst/MajesticTab/releases/latest/download/source.json`.
 
           EOF
-          gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md --generate-notes
+          } > notes.md
+          gh release create "$GITHUB_REF_NAME" artifacts/* --verify-tag --title "$GITHUB_REF_NAME" --notes-file notes.md

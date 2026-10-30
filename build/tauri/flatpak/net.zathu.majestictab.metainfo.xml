@@ -60,7 +60,7 @@
   <releases>
     <release version="__APP_VERSION__" date="__RELEASE_DATE__">
       <description>
-        <p>__RELEASE_NOTES__</p>
+        __RELEASE_NOTES__
       </description>
     </release>
   </releases>

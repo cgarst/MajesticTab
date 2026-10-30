@@ -1,6 +1,6 @@
 # Draft recipe for https://gitlab.com/fdroid/fdroiddata (copy to metadata/net.zathu.majestictab.yml).
 # Not yet run through `fdroid build`; the Builds block is the part most likely to need changes.
-# Descriptions, icon and screenshots come from fastlane/metadata/android/en-US in this repo.
+# Descriptions and changelogs (symlinks to support/listing), icon and screenshots come from fastlane/metadata/android/en-US in this repo.
 
 Categories:
   - Music Practice Tool

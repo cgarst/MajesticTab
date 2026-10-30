@@ -1,0 +1,2 @@
+- Add Windows ARM64 builds
+- Add Linux Flatpak for ARM64

@@ -1,0 +1,1 @@
+- Add an F-Droid build for Android with no Google services

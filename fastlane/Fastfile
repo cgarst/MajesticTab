@@ -1,5 +1,6 @@
-# Google Play lanes. Listing text, images and changelogs come from fastlane/metadata/android, which is
-# also what F-Droid reads. Build the AAB first: node build/build-tauri.mjs android --channel=play
+# Google Play lanes. Listing images come from fastlane/metadata/android, which is also what F-Droid
+# reads. Its descriptions and changelogs are symlinks to support/listing (see build/release-notes.mjs).
+# Build the AAB first: node build/build-tauri.mjs android --channel=play
 #
 # Credentials: PLAY_SERVICE_ACCOUNT_JSON=<path to service account key>
 # The Play API has no desktop (ChromeOS) screenshot type, so those stay in Play Console.
