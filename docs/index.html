@@ -655,7 +655,7 @@
               <span class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 text-sm font-semibold" aria-disabled="true">App Store &bull; Coming soon</span>
               <a href="https://github.com/cgarst/MajesticTab/releases/latest/download/MajesticTab-ios.ipa" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-sm font-semibold"><i class="fa-solid fa-download text-sky-400"></i> Download IPA</a>
             </div>
-            <p class="text-xs text-slate-400">MajesticTab is not yet on the App Store, so the IPA must be sideloaded with a tool such as SideStore, AltStore, LiveContainer, or Sideloadly. Or add our <a href="https://github.com/cgarst/MajesticTab/releases/latest/download/source.json" class="underline">SideStore source</a>.</p>
+            <p class="text-xs text-slate-400">MajesticTab is not yet on the App Store, so the IPA must be sideloaded with a tool such as SideStore, AltStore, LiveContainer, or Sideloadly. Or add our SideStore source: <button type="button" data-copy="https://github.com/cgarst/MajesticTab/releases/latest/download/source.json" class="underline"><i class="fa-regular fa-copy"></i> <span>Copy source link</span></button>.</p>
           </div>
           <div data-platform="macos" class="glass-card-interactive p-5 rounded-2xl space-y-3">
             <div class="flex items-center gap-3"><i class="fa-brands fa-apple text-3xl text-slate-200"></i><h3 class="text-lg font-bold">Mac</h3></div>
@@ -751,6 +751,23 @@
       var card = platform && document.querySelector('[data-platform="' + platform + '"]');
       if (card) card.classList.add('ring-1', 'ring-emerald-500/60');
     })();
+  </script>
+  <script>
+    document.querySelectorAll('[data-copy]').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var label = btn.querySelector('span');
+        var text = btn.getAttribute('data-copy');
+        var done = function () {
+          label.textContent = 'Copied!';
+          setTimeout(function () { label.textContent = 'Copy source link'; }, 2000);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copy this link:', text); });
+        } else {
+          window.prompt('Copy this link:', text);
+        }
+      });
+    });
   </script>
 </body>
 </html>
