@@ -12,7 +12,7 @@ import resvg_py
 from PIL import Image
 
 HERE = Path(__file__).resolve().parent
-OUT_DIRS = [HERE.parent.parent / "src" / "icons", HERE.parent / "site" / "icons"]
+OUT_DIRS = [HERE.parent.parent / "src" / "icons", HERE.parent.parent / "docs" / "icons"]
 SOURCE = HERE / "icon_v2_mystic.svg"
 
 PNG_SIZES = {

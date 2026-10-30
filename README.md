@@ -209,7 +209,7 @@ Converters don't travel over Jam. If the host has a converter that converts a fi
 
 ## Screenshots
 
-The website screenshots live in `support/site/img/screenshots/`. The generator writes there by default (or pass `--out-dir`):
+The website screenshots live in `docs/img/screenshots/`. The generator writes there by default (or pass `--out-dir`):
 
 ```bash
 pip install playwright && playwright install chromium
