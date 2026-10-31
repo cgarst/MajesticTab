@@ -38,8 +38,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # appstore-ios and appstore-mac are left out until Apple signing is set up in CI.
-        channel: [play, fdroid, msstore]
+        # appstore-ios and appstore-mac are left out until Apple signing is set up in CI. fdroid is built (signed) by
+        # build.yml's android-no-gms job for the release; F-Droid builds its own unsigned copy from source.
+        channel: [play, msstore]
     uses: ./.github/workflows/store-build.yml
     secrets: inherit
     with:
