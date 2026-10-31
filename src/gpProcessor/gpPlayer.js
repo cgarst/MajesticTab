@@ -882,6 +882,14 @@ export function applyCursorPositionFromBeat(beat) {
 }
 
 /**
+ * Positions the page-mode cursor with a transform (centered on x) so moving it only needs the compositor, not a layout
+ * and repaint of the large score SVG that contains it.
+ */
+function setPageCursorX(cursor, x) {
+    cursor.style.transform = `translateX(calc(${x}px - 50%))`;
+}
+
+/**
  * Create a custom cursor handler for AlphaTab in Scroll and Page Modes
  * - Suppresses the whole-measure highlight box
  * - Replaces the beat line with a Line Reader tool shape
@@ -1093,7 +1101,7 @@ export function createCustomCursorHandler(api) {
                 if (ctx) {
                     const posX = ctx.svgLeftOffset + (startBeatX * ctx.scaleX);
                     ctx.cursorBeat.style.transition = 'none';
-                    ctx.cursorBeat.style.left = `${posX}px`;
+                    setPageCursorX(ctx.cursorBeat, posX);
                     void ctx.cursorBeat.offsetWidth; // Force reflow
                     ctx.cursorBeat._placed = true;
                 }
@@ -1157,12 +1165,12 @@ export function createCustomCursorHandler(api) {
                     if (!ctx.cursorBeat._placed || ctx.isNew) {
                         const startX = ctx.svgLeftOffset + (startBeatX * ctx.scaleX);
                         ctx.cursorBeat.style.transition = 'none';
-                        ctx.cursorBeat.style.left = `${startX}px`;
+                        setPageCursorX(ctx.cursorBeat, startX);
                         void ctx.cursorBeat.offsetWidth;
                         ctx.cursorBeat._placed = true;
                     }
-                    ctx.cursorBeat.style.transition = `left ${animDuration}ms linear`;
-                    ctx.cursorBeat.style.left = `${posX}px`;
+                    ctx.cursorBeat.style.transition = `transform ${animDuration}ms linear`;
+                    setPageCursorX(ctx.cursorBeat, posX);
                 }
                 return;
             }

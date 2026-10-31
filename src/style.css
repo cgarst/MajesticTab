@@ -2577,15 +2577,18 @@ body:not(.synth-playback-started) .at-highlight {
 
 .gp-page-cursor-beat {
   position: absolute;
+  left: 0;
   pointer-events: none;
   z-index: 1000;
   width: 20px;
+  /* gpPlayer.js moves it with transform; it gets its own compositor layer so the score is not repainted each frame.
+     The glow comes from the inner svg's filter (.gp-reader-cursor svg), so it is not repeated here. */
   transform: translateX(-50%);
+  will-change: transform;
   box-sizing: border-box;
   display: none;
   background-color: transparent;
-  transition: left 0.12s linear;
-  filter: drop-shadow(0 0 5px var(--accent-glow));
+  transition: transform 0.12s linear;
 }
 
 /* Progress Bar */

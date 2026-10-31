@@ -205,6 +205,15 @@ const PLAYBACK_SPEED_KEY_STEP = 5;
  * @param {Function} getConfig Function to get current navigation configuration
  */
 export function setupKeyboardNavigation(getConfig) {
+    // WebKitGTK and Chromium keep a button focused after it is clicked; WKWebView on macOS does not. A focused top bar
+    // button counts as keyboard/gamepad navigation, so Space would activate it again (reopening the menu) instead of
+    // toggling playback. Drop focus after real mouse and touch clicks (detail 0 marks keyboard and scripted clicks).
+    document.addEventListener('click', (e) => {
+        if (e.detail === 0) return;
+        const control = e.target.closest?.('button, [role="button"], a.btn');
+        if (control && document.activeElement === control) control.blur();
+    });
+
     window.addEventListener('keydown', (e) => {
         const config = getConfig();
 
