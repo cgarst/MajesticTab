@@ -302,6 +302,13 @@ if (!channelCapabilities.googleDrive) {
   process.on('exit', () => writeFileSync(capabilityPath, capabilityContent));
 }
 
+if (channel === 'fdroid') {
+  // build-info.js is embedded in the native library, so F-Droid's rebuild (no CI variables) only matches the APK
+  // we publish if it records the same channel and build id the release workflow passes, and no git commit.
+  env.MAJESTICTAB_CHANNEL ||= 'stable';
+  env.MAJESTICTAB_BUILD_ID ||= `v${appVersion}`;
+}
+
 run('npm', [
   'run',
   'prepare:frontend',
