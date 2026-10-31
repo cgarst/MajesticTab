@@ -79,16 +79,10 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: build/tauri/package-lock.json
-      - name: Check Flathub sources match the lockfiles
-        run: node build/tauri/flatpak/flathub/check-sources.mjs
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: build/tauri/src-tauri -> ../target
       - name: Install system packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder libwebkit2gtk-4.1-dev libgtk-3-dev librsvg2-dev libssl-dev patchelf libayatana-appindicator3-dev
+          sudo apt-get install -y flatpak flatpak-builder
       - name: Install Flatpak runtime
         run: |
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo

@@ -1,7 +1,13 @@
+# Builds MajesticTab from source inside the GNOME SDK, offline, the way Flathub does (Flathub's manifest is this recipe
+# with a pinned git source and the flathub channel). build/build-tauri.mjs linux fills in the channel and CI values below
+# (see build/flatpak-manifest.mjs) and writes the .flatpak. Keep the lines it replaces in step with it.
 app-id: net.zathu.majestictab
 runtime: org.gnome.Platform
 runtime-version: '51'
 sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node22
 command: majestictab
 finish-args:
   - --share=ipc
@@ -15,55 +21,51 @@ finish-args:
 modules:
   - name: majestictab
     buildsystem: simple
+    build-options:
+      # The SDK's default -O2 is appended after aws-lc-sys's own -O0 and breaks its jitterentropy build.
+      cflags: -pipe -g
+      cflags-override: true
+      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
+      env:
+        CARGO_HOME: /run/build/majestictab/cargo
+        CARGO_NET_OFFLINE: 'true'
+        CARGO_TARGET_DIR: /run/build/majestictab/build/tauri/target
+        XDG_CACHE_HOME: /run/build/majestictab/flatpak-node/cache
+        npm_config_cache: /run/build/majestictab/flatpak-node/npm-cache
+        npm_config_offline: 'true'
+        MAJESTICTAB_STORE_CHANNEL: direct
+        MAJESTICTAB_CHANNEL: dev
+        MAJESTICTAB_BUILD_ID: dev
     build-commands:
-      - install -Dm755 majestictab /app/bin/majestictab.bin
-      - install -Dm755 majestictab-wrapper.sh /app/bin/majestictab
-      - install -Dm644 net.zathu.majestictab.desktop /app/share/applications/net.zathu.majestictab.desktop
-      - install -Dm644 net.zathu.majestictab.metainfo.xml /app/share/metainfo/net.zathu.majestictab.metainfo.xml
-      - install -Dm644 net.zathu.majestictab-16.png /app/share/icons/hicolor/16x16/apps/net.zathu.majestictab.png
-      - install -Dm644 net.zathu.majestictab-24.png /app/share/icons/hicolor/24x24/apps/net.zathu.majestictab.png
-      - install -Dm644 net.zathu.majestictab-32.png /app/share/icons/hicolor/32x32/apps/net.zathu.majestictab.png
-      - install -Dm644 net.zathu.majestictab-48.png /app/share/icons/hicolor/48x48/apps/net.zathu.majestictab.png
-      - install -Dm644 net.zathu.majestictab-64.png /app/share/icons/hicolor/64x64/apps/net.zathu.majestictab.png
-      - install -Dm644 net.zathu.majestictab-128.png /app/share/icons/hicolor/128x128/apps/net.zathu.majestictab.png
-      - install -Dm644 net.zathu.majestictab-256.png /app/share/icons/hicolor/256x256/apps/net.zathu.majestictab.png
-      - install -Dm644 net.zathu.majestictab-512.png /app/share/icons/hicolor/512x512/apps/net.zathu.majestictab.png
-      - install -Dm644 net.zathu.majestictab.svg /app/share/icons/hicolor/scalable/apps/net.zathu.majestictab.svg
+      - cd build/tauri && npm ci --offline
+      - node build/cargo-toml.mjs direct
+      - cd build/tauri && node prepare-tauri-frontend.mjs
+      - cd build/tauri && node generate-icons.mjs linux
+      - node build/verify-channel.mjs direct
+      - cd build/tauri && npm run tauri -- build --no-bundle
+      - install -Dm755 build/tauri/target/release/majestictab /app/bin/majestictab
+      - node build/tauri/flatpak/render-metainfo.mjs build/tauri/flatpak/net.zathu.majestictab.metainfo.xml
+      - install -Dm644 build/tauri/flatpak/net.zathu.majestictab.desktop /app/share/applications/net.zathu.majestictab.desktop
+      - install -Dm644 build/tauri/flatpak/net.zathu.majestictab.metainfo.xml /app/share/metainfo/net.zathu.majestictab.metainfo.xml
+      - |
+        for size in 16 24 32 48 64 128 256 512; do
+          install -Dm644 build/tauri/src-tauri/icons/linux/${size}x${size}.png /app/share/icons/hicolor/${size}x${size}/apps/net.zathu.majestictab.png
+        done
+      - install -Dm644 build/tauri/src-tauri/icons/linux/net.zathu.majestictab.svg /app/share/icons/hicolor/scalable/apps/net.zathu.majestictab.svg
     sources:
-      - type: file
-        path: ../target/release/majestictab
-        dest-filename: majestictab
-      - type: file
-        path: majestictab-wrapper.sh
-        dest-filename: majestictab-wrapper.sh
-      - type: file
-        path: net.zathu.majestictab.desktop
-      - type: file
-        path: net.zathu.majestictab.metainfo.xml
-      - type: file
-        path: ../src-tauri/icons/linux/16x16.png
-        dest-filename: net.zathu.majestictab-16.png
-      - type: file
-        path: ../src-tauri/icons/linux/24x24.png
-        dest-filename: net.zathu.majestictab-24.png
-      - type: file
-        path: ../src-tauri/icons/linux/32x32.png
-        dest-filename: net.zathu.majestictab-32.png
-      - type: file
-        path: ../src-tauri/icons/linux/48x48.png
-        dest-filename: net.zathu.majestictab-48.png
-      - type: file
-        path: ../src-tauri/icons/linux/64x64.png
-        dest-filename: net.zathu.majestictab-64.png
-      - type: file
-        path: ../src-tauri/icons/linux/128x128.png
-        dest-filename: net.zathu.majestictab-128.png
-      - type: file
-        path: ../src-tauri/icons/linux/256x256.png
-        dest-filename: net.zathu.majestictab-256.png
-      - type: file
-        path: ../src-tauri/icons/linux/512x512.png
-        dest-filename: net.zathu.majestictab-512.png
-      - type: file
-        path: ../src-tauri/icons/linux/net.zathu.majestictab.svg
-        dest-filename: net.zathu.majestictab.svg
+      - type: dir
+        path: ../../..
+        skip:
+          - .git
+          - .flatpak-builder
+          - dist
+          - node_modules
+          - build/node_modules
+          - build/tauri/node_modules
+          - build/tauri/target
+          - build/tauri/frontend-dist
+          - build/tauri/src-tauri/target
+          - build/tauri/src-tauri/icons
+          - build/tauri/src-tauri/gen
+      - cargo-sources.json
+      - node-sources.json

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { rewriteCargoToml } from './cargo-toml.mjs';
 import { verifyOrExit } from './verify-channel.mjs';
+import { fillManifest } from './flatpak-manifest.mjs';
 import { DEFAULT_CHANNEL, cargoFeatures, channels, isValidChannel } from './channels.mjs';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -587,12 +588,16 @@ if (target === 'android') {
     const result = spawnSync(command, ['--version'], { env, stdio: 'ignore' });
     if (result.error) fail(`The Linux target requires ${command}.`);
   }
-  run('npm', ['run', 'tauri', '--', 'build', '--no-bundle']);
-  const metainfoPath = path.join(tauriDir, 'flatpak', 'net.zathu.majestictab.metainfo.xml');
-  const metainfoTemplate = await readFile(metainfoPath, 'utf8');
-  run('node', [path.join(tauriDir, 'flatpak', 'render-metainfo.mjs'), metainfoPath]);
-  // Restore the committed template so builds don't leave the tree dirty.
-  process.on('exit', () => writeFileSync(metainfoPath, metainfoTemplate));
+  // The app is compiled inside the Flatpak build itself (the GNOME SDK, offline, from the sources JSON files), the same
+  // way Flathub builds it. The manifest gets this build's channel and CI values, and sits beside its source files.
+  const flatpakDir = path.join(tauriDir, 'flatpak');
+  const manifestPath = path.join(flatpakDir, 'manifest.local.yml');
+  await writeFile(manifestPath, fillManifest(await readFile(path.join(flatpakDir, 'manifest.yml'), 'utf8'), {
+    channel,
+    ciChannel: env.MAJESTICTAB_CHANNEL,
+    buildId: env.MAJESTICTAB_BUILD_ID,
+  }));
+  process.on('exit', () => rmSync(manifestPath, { force: true }));
   const repoDir = path.join(tauriDir, 'target', 'flatpak-repo');
   const buildDir = path.join(tauriDir, 'target', 'flatpak-build');
   const flatpakCacheDir = path.join(rootDir, '.flatpak-builder');
@@ -603,9 +608,11 @@ if (target === 'android') {
   run('flatpak-builder', [
     '--force-clean',
     '--disable-cache',
+    '--user',
+    '--install-deps-from=flathub',
     `--repo=${repoDir}`,
     buildDir,
-    path.join(tauriDir, 'flatpak', 'manifest.yml'),
+    manifestPath,
   ], { cwd: rootDir });
   run('flatpak', [
     'build-bundle',

@@ -120,7 +120,6 @@ When bumping `version` in `build/tauri/src-tauri/tauri.conf.json`, also set `bun
 3. Bump `version` in `build/tauri/src-tauri/tauri.conf.json` and `bundle.android.versionCode` in `tauri.android.conf.json` and the versionCode example in Local Store Builds. The F-Droid recipe lives in F-Droid's `fdroiddata` repo (`metadata/net.zathu.majestictab.yml`), not here, and F-Droid's auto-update adds each new tag.
 4. Write `support/listing/changelogs/<version>.txt`, run `node build/release-notes.mjs --link`, and commit as `Bump to <version>`.
 5. Once the user has approved the notes, tag and push without asking again: asking to cut a release is the authorization. `git tag v<version>` on the bump commit, then `git push origin main v<version>`. Do not tag or push if the notes were never approved, and never move or delete a pushed tag.
-6. After the push, bump `tag:` and `commit:` in `build/tauri/flatpak/flathub/net.zathu.majestictab.yml` to the tagged commit in a follow-up commit.
 
 ### Release Notes
 
@@ -132,10 +131,11 @@ Play and F-Droid read `fastlane/metadata/android/en-US/changelogs/<versionCode>.
 - **Only changes users notice:** new features, UX changes, fixes to behavior they could hit, new platforms or formats. Leave out CI, build, signing, store-listing, docs, refactor, dependency and version-bump commits.
 - **Brief:** 1 to 5 plain-text lines starting with `- `, sentence case, no trailing periods, under 500 characters, no markdown, no commit hashes. If nothing user-visible changed, write `- Bug fixes and stability improvements` (the check only rejects the exact placeholder sentence).
 - Creating the new version's changelog file and running `--link` is part of the version bump (see Local Store Builds); leave previous versions' files in place.
+- The Flatpak metainfo template (`build/tauri/flatpak/net.zathu.majestictab.metainfo.xml`) is filled in by `render-metainfo.mjs` from the version and these notes: add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` for every version, or the Linux build fails.
 
-### Flathub Sources
+### Flatpak Sources
 
-`build/tauri/flatpak/flathub/` holds the Flathub manifest plus `cargo-sources.json` and `node-sources.json`, which Flathub's offline build needs and which are generated from `src-tauri/Cargo.lock` and `package-lock.json`. Whenever either lockfile changes, run `build/tauri/flatpak/flathub/update-sources.sh` (needs `flatpak-node-generator` on PATH and `FLATPAK_CARGO_GENERATOR` pointing at `flatpak-cargo-generator.py`, both from github.com/flatpak/flatpak-builder-tools) and commit the result. `node build/tauri/flatpak/flathub/check-sources.mjs` checks it offline, and CI fails the Linux build if they drift. For each release, also bump `tag:` and `commit:` in the manifest. The metainfo template (`net.zathu.majestictab.metainfo.xml`) is filled in by `render-metainfo.mjs`: add `fastlane/metadata/android/en-US/changelogs/<versionCode>.txt` for every version, or the Linux build fails.
+The Linux build (`node build/build-tauri.mjs linux`, and CI) compiles the app inside the GNOME SDK from `build/tauri/flatpak/manifest.yml`, offline, the same way Flathub does. The offline dependency lists `build/tauri/flatpak/cargo-sources.json` and `node-sources.json` are generated from `src-tauri/Cargo.lock` and `package-lock.json`. Whenever either lockfile changes, run `build/tauri/flatpak/update-sources.sh` (needs `flatpak-node-generator` on PATH and `FLATPAK_CARGO_GENERATOR` pointing at `flatpak-cargo-generator.py`, both from github.com/flatpak/flatpak-builder-tools) and commit the result; CI's Linux build fails when they are stale. The Flathub submission manifest and its copies of these two files are kept outside this repo, so refresh them from here before updating Flathub.
 
 ### Area-specific guides
 

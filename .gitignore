@@ -10,6 +10,7 @@
 /build/tauri/src-tauri/icons/
 /build/tauri/src-tauri/target/
 /build/tauri/target/
+/build/tauri/flatpak/manifest.local.yml
 /build/tauri/plugins/*/target/
 /build/tauri/plugins/*/.tauri/
 /build/tauri/plugins/*/android/.tauri/
