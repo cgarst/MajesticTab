@@ -882,10 +882,10 @@ export function applyCursorPositionFromBeat(beat) {
 }
 
 /**
- * Positions the page-mode cursor with a transform (centered on x) so moving it only needs the compositor, not a layout
- * and repaint of the large score SVG that contains it.
+ * Positions a reader cursor with a transform (centered on x) so moving it only needs the compositor, not a layout and
+ * repaint of the score it sits over.
  */
-function setPageCursorX(cursor, x) {
+function setCursorX(cursor, x) {
     cursor.style.transform = `translateX(calc(${x}px - 50%))`;
 }
 
@@ -1101,7 +1101,7 @@ export function createCustomCursorHandler(api) {
                 if (ctx) {
                     const posX = ctx.svgLeftOffset + (startBeatX * ctx.scaleX);
                     ctx.cursorBeat.style.transition = 'none';
-                    setPageCursorX(ctx.cursorBeat, posX);
+                    setCursorX(ctx.cursorBeat, posX);
                     void ctx.cursorBeat.offsetWidth; // Force reflow
                     ctx.cursorBeat._placed = true;
                 }
@@ -1136,7 +1136,7 @@ export function createCustomCursorHandler(api) {
                 if (reader) {
                     updateReaderDimensions(cursorH);
                     reader.style.transition = 'none';
-                    reader.style.left = `${startBeatX}px`;
+                    setCursorX(reader, startBeatX);
                     reader.style.top = `${cursorY}px`;
                     reader.style.height = `${cursorH}px`;
                     reader.style.display = 'block';
@@ -1165,20 +1165,20 @@ export function createCustomCursorHandler(api) {
                     if (!ctx.cursorBeat._placed || ctx.isNew) {
                         const startX = ctx.svgLeftOffset + (startBeatX * ctx.scaleX);
                         ctx.cursorBeat.style.transition = 'none';
-                        setPageCursorX(ctx.cursorBeat, startX);
+                        setCursorX(ctx.cursorBeat, startX);
                         void ctx.cursorBeat.offsetWidth;
                         ctx.cursorBeat._placed = true;
                     }
                     ctx.cursorBeat.style.transition = `transform ${animDuration}ms linear`;
-                    setPageCursorX(ctx.cursorBeat, posX);
+                    setCursorX(ctx.cursorBeat, posX);
                 }
                 return;
             }
 
             const reader = getOrCreateReader();
             if (reader) {
-                reader.style.transition = `left ${animDuration}ms linear`;
-                reader.style.left = `${targetX}px`;
+                reader.style.transition = `transform ${animDuration}ms linear`;
+                setCursorX(reader, targetX);
             }
 
             if (beatCursor) {
