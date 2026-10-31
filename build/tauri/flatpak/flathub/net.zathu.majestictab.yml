@@ -19,9 +19,13 @@ modules:
   - name: majestictab
     buildsystem: simple
     build-options:
+      # The SDK's default -O2 is appended after aws-lc-sys's own -O0 and breaks its jitterentropy build.
+      cflags: -pipe -g
+      cflags-override: true
       append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
       env:
         CARGO_HOME: /run/build/majestictab/cargo
+        CARGO_TARGET_DIR: /run/build/majestictab/build/tauri/target
         CARGO_NET_OFFLINE: 'true'
         XDG_CACHE_HOME: /run/build/majestictab/flatpak-node/cache
         npm_config_cache: /run/build/majestictab/flatpak-node/npm-cache
