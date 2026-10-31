@@ -48,8 +48,8 @@ modules:
     sources:
       - type: git
         url: https://github.com/cgarst/MajesticTab.git
-        tag: v1.0.13
-        commit: 87572411036e3911ea2289df2c82ebe9174abd16
+        tag: v1.0.14
+        commit: d3d9f8dbc3481be39e7c895dbcf4ee44d04fd683
         x-checker-data:
           type: git
           tag-pattern: ^v([\d.]+)$
