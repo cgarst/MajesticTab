@@ -350,6 +350,15 @@ if (target === 'android') {
   env.ANDROID_SDK_ROOT = androidSdk;
   env.NDK_HOME = androidNdk;
   env.JAVA_HOME = javaHome;
+  if (channel === 'fdroid') {
+    // F-Droid rebuilds this channel from source and compares it with the APK we publish, byte for byte. rustc and clang
+    // embed absolute paths (the checkout and the cargo registry, which differ between CI runners and F-Droid's
+    // /home/vagrant), so both are mapped to fixed names.
+    const cargoHome = process.env.CARGO_HOME || path.join(process.env.HOME ?? '', '.cargo');
+    const prefixMaps = [[rootDir, '/build'], [cargoHome, '/cargo']];
+    env.RUSTFLAGS = [env.RUSTFLAGS, ...prefixMaps.map(([from, to]) => `--remap-path-prefix=${from}=${to}`)].filter(Boolean).join(' ');
+    env.CFLAGS = [env.CFLAGS, ...prefixMaps.map(([from, to]) => `-ffile-prefix-map=${from}=${to}`)].filter(Boolean).join(' ');
+  }
   env.PATH = [
     path.join(androidSdk, 'cmdline-tools', 'latest', 'bin'),
     path.join(androidSdk, 'platform-tools'),

@@ -160,21 +160,14 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: dtolnay/rust-toolchain@stable
+      # Rust and NDK versions match F-Droid's recipe: F-Droid rebuilds this channel and compares it with this APK.
+      - uses: dtolnay/rust-toolchain@1.99.1
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
-      - uses: swatinem/rust-cache@v2
-        with:
-          workspaces: build/tauri/src-tauri -> ../target
-          key: no-gms
-      - name: Locate Android NDK
+      - name: Install Android NDK r27c
         run: |
-          if [ -d "$ANDROID_HOME/ndk" ]; then
-            NDK_PATH=$(find "$ANDROID_HOME/ndk" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
-            echo "NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
-          elif [ -n "$ANDROID_NDK_HOME" ]; then
-            echo "NDK_HOME=$ANDROID_NDK_HOME" >> "$GITHUB_ENV"
-          fi
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018"
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
       - name: Restore release keystore
         env:
           ANDROID_KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
