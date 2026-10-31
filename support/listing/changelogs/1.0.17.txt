@@ -1,0 +1,5 @@
+- Fix Google Drive sign-in and the Privacy Policy and Support links on desktop
+- Fix file converters failing to start on Linux
+- Steam Deck Desktop Mode now opens a normal window with the fullscreen button
+- Smoother playback cursor and Space bar play/pause fixes on Linux
+- Album art now loads only when in view, easing slowdowns in the library
