@@ -211,7 +211,7 @@ async function renderSetlistDetail(container, onBack) {
               <div class="library-row-card d-flex align-items-center justify-content-between gap-3 ${isEditMode ? '' : 'library-row-clickable'}" data-item-id="${escapeHtml(item.id)}" data-index="${idx}" role="button" tabindex="0">
                 <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
                   <span class="badge-track-num flex-shrink-0">${idx + 1}</span>
-                  <img src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 44px; height: 44px;" alt="" draggable="false">
+                  <img loading="lazy" decoding="async" src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 44px; height: 44px;" alt="" draggable="false">
                   <div class="min-w-0 flex-grow-1">
                     <h6 class="mb-1 fw-bold text-white text-truncate">${escapeHtml(song?.title || 'Song removed from library')}</h6>
                     <div class="small text-muted text-truncate">${escapeHtml(song?.artist || '')}${tab ? ` • ${escapeHtml(tab.name)}` : ''}</div>

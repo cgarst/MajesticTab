@@ -166,6 +166,8 @@ export function getCoverArtUrl(releaseGroupMbid, releaseMbid, size = 250) {
 const ART_CACHE_NAME = 'majestictab_art_cache_v1';
 const artMemoryCache = new Map();
 const inFlightArt = new Map();
+// Art URLs the server refused this session (the art server returns 500s for some releases); not asked for again.
+const failedArt = new Set();
 
 /**
  * Get or fetch cached artwork as a local blob URL.
@@ -182,6 +184,8 @@ export async function getCachedArtUrl(url) {
     if (inFlightArt.has(url)) {
         return inFlightArt.get(url);
     }
+
+    if (failedArt.has(url)) return url;
 
     const promise = (async () => {
         try {
@@ -208,6 +212,7 @@ export async function getCachedArtUrl(url) {
                     artMemoryCache.set(url, objUrl);
                     return objUrl;
                 }
+                failedArt.add(url);
             }
         } catch (e) {
             // Silently fall back to remote URL on error
@@ -251,16 +256,43 @@ export async function clearArtCache() {
     return count;
 }
 
+// Covers are only fetched into the cache once they are near the viewport, so a long library does not request every
+// image up front (and nothing is requested for images that were removed before they scrolled into view).
+let artObserver = null;
+function getArtObserver() {
+    if (artObserver || typeof IntersectionObserver === 'undefined') return artObserver;
+    artObserver = new IntersectionObserver((entries) => {
+        for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            const img = entry.target;
+            artObserver.unobserve(img);
+            const src = img.getAttribute('src');
+            if (!src || !img.isConnected) continue;
+            getCachedArtUrl(src).then(cached => {
+                if (cached && cached !== src && img.isConnected) {
+                    img.src = cached;
+                }
+            }).catch(() => {});
+        }
+    }, { rootMargin: '300px' });
+    return artObserver;
+}
+
 /**
  * Hydrate remote cover images in a DOM container from the persistent art cache
  */
 export function hydrateCachedImages(container) {
     if (!container || typeof document === 'undefined') return;
     const images = container.querySelectorAll('img.album-cover-img, img.album-cover-banner, img.artist-collage-img, img.artist-thumbnail, img.recent-cover-img, img.pinned-cover-img');
+    const observer = getArtObserver();
     images.forEach(img => {
         img.setAttribute('draggable', 'false');
         const src = img.getAttribute('src');
         if (src && src.startsWith('https://coverartarchive.org')) {
+            if (observer) {
+                observer.observe(img);
+                return;
+            }
             getCachedArtUrl(src).then(cached => {
                 if (cached && cached !== src && img.isConnected) {
                     img.src = cached;
