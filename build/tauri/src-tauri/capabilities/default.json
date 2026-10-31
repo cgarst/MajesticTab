@@ -19,6 +19,7 @@
     "core:app:allow-exit",
     "oauth:allow-start",
     "oauth:allow-cancel",
+    "opener:allow-open-url",
     "opener:allow-default-urls",
     "fs:default",
     "core:event:allow-emit"
