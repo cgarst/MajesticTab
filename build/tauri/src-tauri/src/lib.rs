@@ -471,6 +471,9 @@ fn extension_sandbox_response(
     tauri::http::Response::builder()
         .header("Content-Type", content_type)
         .header("Content-Security-Policy", CSP)
+        // The frame is sandboxed without allow-same-origin, so its origin is opaque and WebKitGTK only lets it load
+        // frame.js from this scheme as a CORS request. Both files are public, bundled and read-only.
+        .header("Access-Control-Allow-Origin", "*")
         .header("Cache-Control", "no-store")
         .body(body.as_bytes().to_vec())
         .unwrap()
