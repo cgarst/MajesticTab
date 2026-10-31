@@ -369,26 +369,18 @@ async fn youtube_search(query: String) -> Result<Option<String>, String> {
 
 #[cfg(target_os = "linux")]
 fn is_gamescope_or_steam_deck() -> bool {
+    // Only a real Gaming Mode (gamescope) session counts. Steam Deck hardware or Steam's own variables also show up
+    // in Desktop Mode, where the window should stay a normal one with its fullscreen button.
     if std::env::var("GAMESCOPE_WAYLAND_DISPLAY").is_ok()
         || std::env::var("GAMESCOPE_WIDTH").is_ok()
         || std::env::var("GAMESCOPE_HEIGHT").is_ok()
-        || std::env::var("STEAM_DECK").is_ok()
-        || std::env::var("SteamDeck").is_ok()
-        || std::env::var("STEAM_ZEN").is_ok()
     {
         return true;
     }
 
     if let Ok(desktop) = std::env::var("XDG_CURRENT_DESKTOP") {
         let l = desktop.to_lowercase();
-        if l.contains("gamescope") || l.contains("steamos") {
-            return true;
-        }
-    }
-
-    if let Ok(product) = std::fs::read_to_string("/sys/devices/virtual/dmi/id/product_name") {
-        let p = product.trim();
-        if p == "Jupiter" || p == "Galileo" || p.contains("Steam Deck") {
+        if l.contains("gamescope") {
             return true;
         }
     }
