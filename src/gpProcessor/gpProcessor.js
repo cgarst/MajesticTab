@@ -132,7 +132,37 @@ export function saveHiddenTracks(file, hiddenIndices, activeTracks = [], instrum
     }
 }
 
-export function loadGuitarPro(file, container, { debug = false, originalFile = null } = {}) {
+// AlphaTab registers its music font ("alphaTab") with the first API created and keeps one shared checker polling until
+// the browser reports the font loaded. We create a short-lived API first (loadGuitarPro) and destroy it at once, which
+// removes the @font-face while that load is in flight; WebKit then never settles the load and the checker logs "Could
+// not load font 'alphaTab'" every 5 seconds forever. Loading the font up front means the checker finds it already
+// available. A failure or timeout here is harmless: AlphaTab loads the font itself as before.
+let musicFontPromise = null;
+function ensureMusicFont() {
+    musicFontPromise ||= (async () => {
+        try {
+            if (typeof FontFace === 'undefined' || !document.fonts) return;
+            const script = Array.from(document.scripts).find((el) => /alphaTab(\.min)?\.js/i.test(el.src));
+            if (!script) return;
+            const face = new FontFace('alphaTab', `url(${JSON.stringify(new URL('font/Bravura.woff2', script.src).href)}) format('woff2')`, {
+                weight: 'normal',
+                style: 'normal',
+                display: 'block'
+            });
+            await Promise.race([face.load(), new Promise((resolve) => setTimeout(resolve, 3000))]);
+            if (face.status === 'loaded') document.fonts.add(face);
+        } catch (error) {
+            console.warn('[GP] Could not preload the AlphaTab music font:', error);
+        }
+    })();
+    return musicFontPromise;
+}
+
+export function loadGuitarPro(file, container, options) {
+    return ensureMusicFont().then(() => loadGuitarProScore(file, container, options));
+}
+
+function loadGuitarProScore(file, container, { debug = false, originalFile = null } = {}) {
     const targetFile = originalFile || (file instanceof File ? file : null) || (window.gpState?.currentFile) || null;
     const soundHintsPromise = readGpSoundHints(originalFile || file);
     return new Promise((resolve, reject) => {
