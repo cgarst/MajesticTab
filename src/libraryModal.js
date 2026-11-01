@@ -879,7 +879,11 @@ async function renderLibraryBrowseView(container) {
                 const fullFolder = (alb.folderPath || alb.title || '').trim();
                 if (!fullFolder) continue;
                 let rest = '';
-                if (currentPath === '') {
+                // MusicBrainz titles may contain "/" (e.g. "Closure / Continuation"); only custom folders nest
+                if (!isCustomArtist) {
+                    if (currentPath !== '') continue;
+                    rest = fullFolder;
+                } else if (currentPath === '') {
                     rest = fullFolder;
                 } else if (fullFolder === currentPath) {
                     continue;
@@ -888,7 +892,7 @@ async function renderLibraryBrowseView(container) {
                 } else {
                     continue;
                 }
-                const immediateName = rest.split('/')[0];
+                const immediateName = isCustomArtist ? rest.split('/')[0] : rest;
                 if (!immediateName) continue;
                 const subPath = currentPath ? `${currentPath}/${immediateName}` : immediateName;
                 if (!subfolderMap.has(immediateName)) {
@@ -1873,7 +1877,7 @@ function setupLibraryFilter(container, context = {}) {
                 if (targetArtist) {
                     selectedArtist = targetArtist;
                     selectedAlbum = targetArtist.albums?.find(al => al.title === albumTitle || al.name === albumTitle) || null;
-                    selectedFolderPath = selectedAlbum ? (selectedAlbum.folderPath ? selectedAlbum.folderPath.split('/') : [selectedAlbum.title || selectedAlbum.name]) : [];
+                    selectedFolderPath = selectedAlbum ? (selectedAlbum.folderPath && selectedAlbum.isCustom ? selectedAlbum.folderPath.split('/') : [selectedAlbum.title || selectedAlbum.name]) : [];
                     isAlbumEditMode = false;
                     renderLibraryBrowseView(container);
                 }
@@ -2244,7 +2248,7 @@ function setupSongRowActions(container) {
                 selectedArtist = targetArtist;
                 if (albumTitle) {
                     selectedAlbum = targetArtist.albums?.find(a => a.title === albumTitle || a.name === albumTitle || a.folderPath === albumTitle) || null;
-                    selectedFolderPath = selectedAlbum ? (selectedAlbum.folderPath ? selectedAlbum.folderPath.split('/') : [selectedAlbum.title || selectedAlbum.name]) : [];
+                    selectedFolderPath = selectedAlbum ? (selectedAlbum.folderPath && selectedAlbum.isCustom ? selectedAlbum.folderPath.split('/') : [selectedAlbum.title || selectedAlbum.name]) : [];
                 } else {
                     selectedAlbum = null;
                     selectedFolderPath = [];
