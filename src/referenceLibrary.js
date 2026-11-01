@@ -66,6 +66,8 @@ let selectedScaleKey = 'majorPentatonic';
 let selectedRootNote = 0; // C (0 to 11)
 let stringCount = (() => { try { const n = parseInt(localStorage.getItem('majestictab_string_count'), 10); return [6, 7, 8].includes(n) ? n : 6; } catch (_) { return 6; } })();
 let tuningOffset = (() => { try { const n = parseInt(localStorage.getItem('majestictab_tuning_offset'), 10); return Number.isInteger(n) ? n : 0; } catch (_) { return 0; } })();
+const capoFrets = [0, 1, 2, 3, 4, 5, 6, 7];
+let capo = (() => { try { const n = parseInt(localStorage.getItem('majestictab_capo'), 10); return capoFrets.includes(n) ? n : 0; } catch (_) { return 0; } })();
 let selectedChordFilter = 'all'; // 'all', 'Major', 'Dominant', 'Minor', 'Suspended'
 let preferBarreChords = (() => { try { return (localStorage.getItem('majestictab_prefer_barre_chords') ?? localStorage.getItem('majestictab_prefer_bar_chords')) === 'true'; } catch (_) { return false; } })();
 let selectedRootFilter = 'all'; // 'all' or a root from chordRootFilters
@@ -661,6 +663,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
 
     let fretsStr = '';
     let startFret = explicitStartFret || 1;
+    const capoOn = Boolean(chordOrFrets && typeof chordOrFrets === 'object' && chordOrFrets.shapeOf);
     if (typeof chordOrFrets === 'string') {
         fretsStr = chordOrFrets;
     } else if (chordOrFrets && typeof chordOrFrets === 'object') {
@@ -699,7 +702,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         const startX = 30; // Nut x position
 
         // Nut (vertical line)
-        svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? 'var(--text-primary)' : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? 3.5 : 1.8}" stroke-linecap="round"/>`;
+        svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? (capoOn ? 'var(--accent-primary)' : 'var(--text-primary)') : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? (capoOn ? 5 : 3.5) : 1.8}" stroke-linecap="round"/>`;
 
         // Fret wire lines (vertical)
         for (let f = 1; f <= numFrets; f++) {
@@ -764,7 +767,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         const nutX = width - 30; // board extends from 12 to nutX
 
         // Nut (vertical line)
-        svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? 'var(--text-primary)' : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? 3.5 : 1.8}" stroke-linecap="round"/>`;
+        svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? (capoOn ? 'var(--accent-primary)' : 'var(--text-primary)') : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? (capoOn ? 5 : 3.5) : 1.8}" stroke-linecap="round"/>`;
 
         // Fret wire lines (vertical)
         for (let f = 1; f <= numFrets; f++) {
@@ -1093,6 +1096,14 @@ function buildTuningButtonsHtml() {
         `).join('');
 }
 
+function buildCapoButtonsHtml() {
+    return capoFrets.map(fret => `
+            <button type="button" class="btn btn-sm ${capo === fret ? 'btn-theme-primary' : 'btn-theme-outline'} ref-capo-btn" data-capo="${fret}" title="${fret === 0 ? 'No capo' : `Capo on fret ${fret}`}">
+                ${fret === 0 ? 'None' : fret}
+            </button>
+        `).join('');
+}
+
 function buildStringCountButtonsHtml() {
     return [6, 7, 8].map(n => `
             <button type="button" class="btn btn-sm ${stringCount === n ? 'btn-theme-primary' : 'btn-theme-outline'} ref-strings-btn" data-strings="${n}">
@@ -1103,8 +1114,9 @@ function buildStringCountButtonsHtml() {
 
 function getActiveChordData() {
     const source = stringCount === 7 ? chordData7 : stringCount === 8 ? chordData8 : chordData;
-    const offset = getTuningOffset();
-    if (offset === 0) return source;
+    // A capo raises the open strings like tuning up, so it cancels out the tuned-down semitones
+    const offset = getTuningOffset() - capo;
+    if (offset === 0 && capo === 0) return source;
 
     // Tuned down by `offset`, chord X sounds with the standard-tuning shape of the chord `offset` semitones higher
     const rootPitch = Object.fromEntries(chordRootFilters.map(name => [name, sharpNames.indexOf(name) >= 0 ? sharpNames.indexOf(name) : flatNames.indexOf(name)]));
@@ -1113,8 +1125,11 @@ function getActiveChordData() {
     const shifted = source.map(chord => {
         const [, root, suffix] = chord.name.match(/^([A-G][♯♭]?)(.*)$/);
         if (!suffixOrder.includes(suffix)) suffixOrder.push(suffix);
-        const name = rootByPitch[(rootPitch[root] - offset + 12) % 12] + suffix;
-        return { ...chord, name, suffix };
+        const soundingPitch = (rootPitch[root] - offset + 120) % 12;
+        const name = rootByPitch[soundingPitch] + suffix;
+        // With a capo the chord is played as the shape of the chord `capo` semitones lower
+        const shapeOf = capo > 0 ? rootByPitch[(soundingPitch - capo + 120) % 12] + suffix : undefined;
+        return { ...chord, name, suffix, shapeOf };
     });
     // Keep each chord type together, with roots in the same order as the standard-tuning list
     shifted.sort((a, b) => suffixOrder.indexOf(a.suffix) - suffixOrder.indexOf(b.suffix)
@@ -1174,7 +1189,7 @@ function renderChordsSection() {
             <div class="ref-chord-card">
                 <div class="ref-chord-card-header">
                     <span class="ref-chord-name">${chord.name}</span>
-                    <span class="ref-chord-cat">${chord.cat}</span>
+                    <span class="ref-chord-cat">${chord.cat}${chord.shapeOf ? ` • ${chord.shapeOf} shape` : ''}</span>
                 </div>
                 <div class="ref-chord-svg-container">
                     ${buildChordDiagramSvg(chord)}
@@ -1227,6 +1242,14 @@ function renderChordsSection() {
                     <span class="ref-filter-group-label">Tuning:</span>
                     <div class="d-flex flex-wrap gap-1 ref-tuning-filters">
                         ${buildTuningButtonsHtml()}
+                    </div>
+                </div>
+
+                <!-- Capo -->
+                <div class="ref-filter-group">
+                    <span class="ref-filter-group-label">Capo:</span>
+                    <div class="d-flex flex-wrap gap-1 ref-capo-filters">
+                        ${buildCapoButtonsHtml()}
                     </div>
                 </div>
 
@@ -1566,6 +1589,22 @@ function attachReferenceEventListeners(container) {
                 const contentContainer = document.getElementById('refTabContentContainer');
                 if (contentContainer) {
                     contentContainer.innerHTML = activeTab === 'scales' ? renderScalesSection() : renderChordsSection();
+                    attachReferenceEventListeners(container);
+                }
+            }
+        });
+    });
+
+    // Capo Buttons
+    container.querySelectorAll('.ref-capo-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const fret = parseInt(btn.getAttribute('data-capo'), 10);
+            if (capoFrets.includes(fret)) {
+                capo = fret;
+                try { localStorage.setItem('majestictab_capo', String(fret)); } catch (_) {}
+                const contentContainer = document.getElementById('refTabContentContainer');
+                if (contentContainer) {
+                    contentContainer.innerHTML = renderChordsSection();
                     attachReferenceEventListeners(container);
                 }
             }
