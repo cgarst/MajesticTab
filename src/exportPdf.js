@@ -386,6 +386,20 @@ export async function exportSourceTabFile() {
     }
   }
 
+  // Desktop shells: a download has no visible destination there, so ask where to save and say where it went.
+  const tauri = window.__TAURI__;
+  if (tauri?.dialog?.save && tauri?.fs?.writeFile && !/Android/i.test(navigator.userAgent)) {
+    try {
+      const path = await tauri.dialog.save({ defaultPath: filename });
+      if (!path) return false;
+      await tauri.fs.writeFile(path, new Uint8Array(await currentFile.arrayBuffer()));
+      showToast(`Exported to ${path}`, 'success', 9000);
+      return true;
+    } catch (err) {
+      console.warn('[Export] Native save failed, falling back to a download:', err);
+    }
+  }
+
   const url = URL.createObjectURL(currentFile);
   const a = document.createElement('a');
   a.href = url;

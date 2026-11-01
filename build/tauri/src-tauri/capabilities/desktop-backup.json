@@ -1,11 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "desktop-backup",
-  "description": "Folder chooser and file access for local incremental backups (desktop only)",
+  "description": "Folder chooser, save dialog and file access for local incremental backups and exports (desktop only)",
   "windows": ["main"],
   "platforms": ["macOS", "windows", "linux"],
   "permissions": [
     "dialog:allow-open",
+    "dialog:allow-save",
     "fs:allow-exists",
     "fs:allow-mkdir",
     "fs:allow-read-dir",
