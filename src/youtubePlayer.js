@@ -76,6 +76,14 @@ function isNativeOverlayPlayer() {
     return Boolean(window.__TAURI__) && /Macintosh|iPhone|iPad|iPod/.test(navigator.userAgent);
 }
 
+// The Linux and other desktop shells run the app at tauri://localhost, which YouTube also rejects with error 153 (it
+// needs an http(s) referrer). They embed the player through a relay page on the website, which frames YouTube under
+// its own https origin and passes the player's messages both ways (docs/youtube-player.html).
+const YOUTUBE_RELAY_URL = 'https://majestictab.zathu.net/youtube-player.html';
+function needsYouTubeRelay() {
+    return window.location.protocol === 'tauri:' && !isNativeOverlayPlayer();
+}
+
 function sendYouTubeMessage(iframe, message) {
     if (isNativeOverlayPlayer()) {
         window.__TAURI__.core.invoke('youtube_player_command', { message }).catch(() => {});
@@ -538,16 +546,21 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
         if (iframe) {
             iframe.style.display = 'block';
             const autoplayParam = autoplay ? '1' : '0';
-            const embedUrl = new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+            const relay = needsYouTubeRelay();
+            const embedUrl = relay ? new URL(YOUTUBE_RELAY_URL) : new URL(`https://www.youtube-nocookie.com/embed/${videoId}`);
+            if (relay) {
+                embedUrl.searchParams.set('v', videoId);
+            } else {
+                embedUrl.searchParams.set('enablejsapi', '1');
+                embedUrl.searchParams.set('playsinline', '1');
+            }
             embedUrl.searchParams.set('autoplay', autoplayParam);
-            embedUrl.searchParams.set('enablejsapi', '1');
-            embedUrl.searchParams.set('playsinline', '1');
 
             const origin = (typeof window !== 'undefined' && window.location?.origin && window.location.origin !== 'null') ? window.location.origin : '';
             const hostname = (typeof window !== 'undefined' && window.location?.hostname) ? window.location.hostname : '';
             const isLocalOrInternalHost = !hostname || hostname === 'localhost' || hostname.endsWith('.localhost') || hostname === '127.0.0.1' || hostname === '[::1]';
             const isValidHttpOrigin = origin && origin.startsWith('http') && !isLocalOrInternalHost && !origin.includes('tauri');
-            if (isValidHttpOrigin) {
+            if (isValidHttpOrigin && !relay) {
                 embedUrl.searchParams.set('origin', origin);
                 embedUrl.searchParams.set('widget_referrer', origin);
             }
