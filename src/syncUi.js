@@ -173,7 +173,7 @@ function showChecking(target) {
 function showChooseLocation() {
     const options = [
         // @googleDrive:begin
-        { id: DRIVE, icon: 'bi-google text-danger', title: 'Google Drive', text: 'Sync across your devices through your Google account.' },
+        { id: DRIVE, icon: 'icon-gdrive', title: 'Google Drive', text: 'Sync across your devices through your Google account.' },
         // @googleDrive:end
         ...(isIcloudDriveSupported()
             ? [{ id: ICLOUD, icon: 'bi-cloud text-info', title: 'iCloud Drive', text: 'Sync through iCloud Drive across your Apple devices. No sign-in needed.' }]
@@ -206,7 +206,7 @@ function showNeedsSetup(status, folderName = '') {
     if (status === 'needs-auth') {
         // @googleDrive:begin
         frame(notice('bi-info-circle', 'Connect Google Drive so MajesticTab can compare and sync your library.'),
-            { subtitle: 'Google Drive', footer: button('switch', 'Choose Another') + button('connect', 'Connect Google Drive', { primary: true, icon: 'bi-google' }) });
+            { subtitle: 'Google Drive', footer: button('switch', 'Choose Another') + button('connect', 'Connect Google Drive', { primary: true, icon: 'icon-gdrive' }) });
         // @googleDrive:end
     } else if (status === 'needs-icloud') {
         frame(notice('bi-cloud-slash', ICLOUD_UNAVAILABLE_MESSAGE),

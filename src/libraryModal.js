@@ -1030,7 +1030,7 @@ async function renderLibraryBrowseView(container) {
                             ${window.__TAURI__ ? `<li><button class="dropdown-item small import-album-tab-btn" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
                             <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
                             <!-- @googleDrive:begin -->
-                            <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
+                            <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="icon-gdrive me-2"></i> Google Drive</button></li>
                             <!-- @googleDrive:end -->
                           </ul>
                         </div>
@@ -1117,7 +1117,7 @@ async function renderLibraryBrowseView(container) {
                         <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
                           <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
                           <!-- @googleDrive:begin -->
-                          <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
+                          <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="icon-gdrive me-2"></i> Google Drive</button></li>
                           <!-- @googleDrive:end -->
                         </ul>
                       </div>
@@ -2075,7 +2075,7 @@ function renderSongRow(song, options = {}) {
               ${window.__TAURI__ ? `<li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
               <!-- @googleDrive:begin -->
-              <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="google-drive"><i class="bi-google me-2 text-danger"></i> Google Drive</button></li>
+              <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="google-drive"><i class="icon-gdrive me-2"></i> Google Drive</button></li>
               <!-- @googleDrive:end -->
             </ul>
           </div>
@@ -3076,7 +3076,7 @@ function renderCustomDocFormHtml() {
               </button>
               <!-- @googleDrive:begin -->
               <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickDriveBtn">
-                <i class="bi-google text-danger"></i> Google Drive
+                <i class="icon-gdrive"></i> Google Drive
               </button>
               <!-- @googleDrive:end -->
               ${window.__TAURI__ ? `

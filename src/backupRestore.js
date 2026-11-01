@@ -1326,7 +1326,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
       <!-- Linked Google account (shown only while connected) -->
       <!-- @googleDrive:begin -->
       <div id="driveAccountRow" class="px-3 pt-2 d-none align-items-center justify-content-between gap-2">
-        <span class="small text-white-50 text-truncate"><i class="bi-google text-danger me-1"></i> Google Drive is connected on this device</span>
+        <span class="small text-white-50 text-truncate"><i class="icon-gdrive me-1"></i> Google Drive is connected on this device</span>
         <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" id="driveDisconnectBtn" style="font-size:0.72rem;">
           <i class="bi-box-arrow-right me-1"></i> Disconnect
         </button>
@@ -1470,7 +1470,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               </button>
               <!-- @googleDrive:begin -->
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
-                <i class="bi-google text-danger"></i> <span>From Google Drive</span>
+                <i class="icon-gdrive"></i> <span>From Google Drive</span>
               </button>
               <!-- @googleDrive:end -->
             </div>
@@ -1727,7 +1727,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             </div>
             <div class="d-flex flex-wrap gap-2 mb-2">
               <!-- @googleDrive:begin -->
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="google-drive"><i class="bi-google text-danger"></i> Scan Google Drive</button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="google-drive"><i class="icon-gdrive"></i> Scan Google Drive</button>
               <!-- @googleDrive:end -->
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="s3"><i class="bi-hdd-network text-warning"></i> Scan S3 Bucket</button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="local"><i class="bi-folder2-open text-primary"></i> Scan Backup Folder</button>
@@ -2186,7 +2186,7 @@ function attachModalHandlers(modal, options = {}) {
             const target = await resolveIncrementalTarget();
             // @googleDrive:begin
             if (target.status === 'needs-auth') {
-                return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Connect Google Drive to back up there and see what changed since your last backup.</div>${actionBtn('connect', 'bi-google text-danger', 'Connect Google Drive')}`);
+                return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Connect Google Drive to back up there and see what changed since your last backup.</div>${actionBtn('connect', 'icon-gdrive', 'Connect Google Drive')}`);
             }
             // @googleDrive:end
             if (target.status === 'needs-icloud') {
@@ -2487,7 +2487,7 @@ function attachModalHandlers(modal, options = {}) {
             activeSource = { type: 'drive', backend };
             restoreChangeLocationBtn?.classList.add('d-none');
             restoreDrivePickBtn?.classList.remove('d-none');
-            if (restoreSourceIcon) restoreSourceIcon.className = 'bi-google text-danger';
+            if (restoreSourceIcon) restoreSourceIcon.className = 'icon-gdrive';
             if (restoreSourceTitle) restoreSourceTitle.textContent = 'Google Drive Backups:';
             if (restoreSourceLocation) restoreSourceLocation.textContent = backend.location;
             if (restoreDriveEmptyText) restoreDriveEmptyText.textContent = 'No backups found in this Google Drive folder.';

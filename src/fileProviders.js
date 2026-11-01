@@ -247,7 +247,7 @@ export const LocalFileProvider = {
 export const GoogleDriveFileProvider = {
     id: 'google-drive',
     name: 'Google Drive',
-    icon: 'bi-google',
+    icon: 'icon-gdrive',
     iconColorClass: 'text-danger',
     description: 'Save or load tab files and backups directly to your Google Drive account',
     badge: 'Cloud',
