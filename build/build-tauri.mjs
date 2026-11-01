@@ -402,6 +402,14 @@ if (target === 'android') {
     mainActivity = mainActivity.replace(/[ \t]*\/\/ @selfUpdate:begin[\s\S]*?\/\/ @selfUpdate:end\n?/, '');
   }
   await writeFile(path.join(androidPackageDir, 'MainActivity.kt'), mainActivity);
+  // Tauri already declares a plain FileProvider, and Android keys providers by class name, so the update provider needs
+  // its own subclass or the installer's URI grant is resolved against the wrong provider and denied.
+  const updateProviderFile = path.join(androidPackageDir, 'UpdateFileProvider.kt');
+  if (channelCapabilities.selfUpdate) {
+    await writeFile(updateProviderFile, 'package net.zathu.majestictab\n\nclass UpdateFileProvider : androidx.core.content.FileProvider()\n');
+  } else {
+    await rm(updateProviderFile, { force: true });
+  }
   // Jam mode: LAN sockets plus mDNS discovery (multicast) for finding hosts; tuner: microphone.
   const manifestPath = path.join(androidProject, 'app', 'src', 'main', 'AndroidManifest.xml');
   let manifest = await readFile(manifestPath, 'utf8');
@@ -426,15 +434,16 @@ if (target === 'android') {
   // In-app updates install the downloaded APK, which needs the install permission and a FileProvider for the cache folder.
   // Channels without selfUpdate (play, fdroid) get neither, and any left over from an earlier build is removed.
   const installTag = '<uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />';
+  // The update provider is always dropped here and re-added below, so a manifest from an earlier build is refreshed.
+  manifest = manifest.replace(/[ \t]*<provider\s+android:name="[^"]*"\s+android:authorities="[^"]*updateprovider"[\s\S]*?<\/provider>\s*/, '');
   if (!channelCapabilities.selfUpdate) {
     manifest = manifest.replace(new RegExp(`[ \\t]*${installTag}\\n?`), '');
-    manifest = manifest.replace(/[ \t]*<provider\s+android:name="androidx\.core\.content\.FileProvider"[^>]*updateprovider[\s\S]*?<\/provider>\s*/, '');
   } else if (!manifest.includes(installTag)) {
     manifest = manifest.replace('<uses-permission android:name="android.permission.INTERNET" />', `<uses-permission android:name="android.permission.INTERNET" />\n    ${installTag}`);
   }
   if (channelCapabilities.selfUpdate && !manifest.includes('.updateprovider')) {
     const provider = `<provider
-            android:name="androidx.core.content.FileProvider"
+            android:name=".UpdateFileProvider"
             android:authorities="\${applicationId}.updateprovider"
             android:exported="false"
             android:grantUriPermissions="true">
