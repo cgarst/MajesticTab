@@ -7,6 +7,8 @@ use tauri::{LogicalPosition, LogicalSize};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use tauri::RunEvent;
 
+#[cfg(feature = "debug-tools")]
+mod debug_bridge;
 mod jam;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod icloud;
@@ -529,6 +531,7 @@ pub fn run() {
             #[cfg(feature = "debug-tools")]
             if let Some(main_wv) = _app.get_webview("main") {
                 main_wv.open_devtools();
+                debug_bridge::start(_app.handle().clone());
             }
 
             #[cfg(target_os = "ios")]
@@ -637,6 +640,8 @@ pub fn run() {
         tab_downloader_native::tab_downloader_set_visible,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
+        #[cfg(feature = "debug-tools")]
+        debug_bridge::debug_bridge_result,
         youtube_search,
         youtube_macos::youtube_player_update,
         youtube_macos::youtube_player_command
@@ -677,6 +682,8 @@ pub fn run() {
         tab_downloader_native::tab_downloader_set_visible,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
+        #[cfg(feature = "debug-tools")]
+        debug_bridge::debug_bridge_result,
         youtube_search,
         #[cfg(target_os = "ios")]
         youtube_ios::youtube_player_update,
