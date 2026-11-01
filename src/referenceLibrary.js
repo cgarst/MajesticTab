@@ -1229,6 +1229,22 @@ function renderChordsSection() {
             </div>
 
             <div class="d-flex flex-column gap-2 pt-2 border-top border-secondary-subtle">
+                <!-- Root Note Filter -->
+                <div class="ref-filter-group">
+                    <span class="ref-filter-group-label">Root note:</span>
+                    <div class="d-flex flex-wrap gap-1 ref-chord-root-filters">
+                        ${rootButtonsHtml}
+                    </div>
+                </div>
+
+                <!-- Family / Category Filter -->
+                <div class="ref-filter-group">
+                    <span class="ref-filter-group-label">Family:</span>
+                    <div class="d-flex flex-wrap gap-1 ref-chord-filters">
+                        ${filterButtonsHtml}
+                    </div>
+                </div>
+
                 <!-- String Count -->
                 <div class="ref-filter-group">
                     <span class="ref-filter-group-label">Strings:</span>
@@ -1250,22 +1266,6 @@ function renderChordsSection() {
                     <span class="ref-filter-group-label">Capo:</span>
                     <div class="d-flex flex-wrap gap-1 ref-capo-filters">
                         ${buildCapoButtonsHtml()}
-                    </div>
-                </div>
-
-                <!-- Root Note Filter -->
-                <div class="ref-filter-group">
-                    <span class="ref-filter-group-label">Root note:</span>
-                    <div class="d-flex flex-wrap gap-1 ref-chord-root-filters">
-                        ${rootButtonsHtml}
-                    </div>
-                </div>
-
-                <!-- Family / Category Filter -->
-                <div class="ref-filter-group">
-                    <span class="ref-filter-group-label">Family:</span>
-                    <div class="d-flex flex-wrap gap-1 ref-chord-filters">
-                        ${filterButtonsHtml}
                     </div>
                 </div>
             </div>
