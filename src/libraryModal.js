@@ -85,6 +85,18 @@ let currentExploreMusicianToken = 0;
  */
 let forwardHistory = [];
 
+// Scroll offsets per library view, restored when navigating back or forward
+const libraryScrollPositions = new Map();
+let libraryScrollKey = null;
+let restoreLibraryScroll = false;
+
+function currentLibraryScrollKey() {
+    return JSON.stringify([
+        activeView, libraryBrowseMode, selectedArtist?.name || '', selectedAlbum?.title || selectedAlbum?.name || '',
+        selectedFolderPath, selectedTuning?.key || ''
+    ]);
+}
+
 export function captureCurrentLibraryState() {
     return {
         view: activeView,
@@ -145,6 +157,7 @@ export async function handleForward() {
     const currentState = captureCurrentLibraryState();
     const nextState = forwardHistory.pop();
     viewHistory.push(currentState);
+    restoreLibraryScroll = true;
     await restoreLibraryState(nextState);
     return true;
 }
@@ -156,6 +169,7 @@ export async function handleBack() {
     if (!canGoBack()) return false;
     const currentState = captureCurrentLibraryState();
     const content = document.getElementById('libraryModalContent');
+    restoreLibraryScroll = true;
 
     const executeBack = async () => {
         if (searchSubView && searchSubView.fromView === 'library') {
@@ -308,6 +322,7 @@ export async function handleBack() {
     };
 
     const didBack = await executeBack();
+    restoreLibraryScroll = false;
     if (didBack) {
         forwardHistory.push(currentState);
         return true;
@@ -661,10 +676,25 @@ function clearCardInteractionState(card) {
 async function renderView() {
     const content = document.getElementById('libraryModalContent');
     if (!content) return;
+    const restoring = restoreLibraryScroll;
+    restoreLibraryScroll = false;
+    const nextKey = currentLibraryScrollKey();
+    if (libraryScrollKey !== null && libraryScrollKey !== nextKey) {
+        libraryScrollPositions.set(libraryScrollKey, content.scrollTop);
+    }
+    libraryScrollKey = nextKey;
+    const savedScroll = restoring ? libraryScrollPositions.get(nextKey) : 0;
     content.scrollTop = 0;
     blurActiveLibraryElement(content);
     syncLibraryBottomNav();
+    try {
+        await renderViewContent(content);
+    } finally {
+        if (savedScroll) content.scrollTop = savedScroll;
+    }
+}
 
+async function renderViewContent(content) {
     if (activeView === 'library') {
         await renderLibraryBrowseView(content);
     } else if (activeView === 'search') {
