@@ -2591,6 +2591,120 @@ body:not(.synth-playback-started) .at-highlight {
   transition: transform 0.12s linear;
 }
 
+/* In-view loading card: a compact themed panel centered over #output while a score loads. It deliberately does not
+   imitate the page or scroll sheet (their geometry differs and is unknown until rendered). #output is hidden
+   (instantly) for the load so no blank white paper shows; the card then fades out over the revealed view.
+   Never animate #output's opacity: fading that large layer made the first play stall ~400 ms (software compositing). */
+#output.is-loading {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loading-card {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, visibility 0s linear 0.18s;
+}
+
+.loading-card.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.18s ease;
+}
+
+.loading-card-panel {
+  width: min(360px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1.1rem 1.25rem;
+  box-sizing: border-box;
+  background: var(--bg-modal);
+  border: 1px solid var(--border-subtle);
+  border-radius: 1.25rem;
+  box-shadow: 0 24px 48px -8px rgba(0, 0, 0, 0.8), 0 0 24px -4px var(--accent-glow);
+  color: var(--text-primary);
+}
+
+.loading-card-head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.loading-card-cover {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border-subtle);
+}
+
+.loading-card-cover[hidden] {
+  display: none;
+}
+
+.loading-card-text {
+  min-width: 0;
+  flex: 1;
+}
+
+.loading-card-title,
+.loading-card-subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.loading-card-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.loading-card-subtitle {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.loading-card-subtitle:empty {
+  display: none;
+}
+
+.loading-card-track {
+  height: 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  box-sizing: content-box;
+}
+
+.loading-card-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 3px;
+  background: var(--accent-gradient);
+  transition: width 0.25s ease;
+}
+
+.loading-card-stage {
+  min-height: 1.2em;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 /* Progress Bar */
 #progressContainer {
   width: 100%;

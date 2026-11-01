@@ -1679,6 +1679,21 @@
 <div id="mainContent">
     <div id="progressContainer"><div id="progressBar"></div></div>
     <div id="output" tabindex="0"></div>
+    <div id="loadingCard" class="loading-card" aria-live="polite" aria-hidden="true">
+        <div class="loading-card-panel">
+            <div class="loading-card-head">
+                <img class="loading-card-cover" id="loadingCardCover" alt="" hidden>
+                <div class="loading-card-text">
+                    <div class="loading-card-title" id="loadingCardTitle">Loading</div>
+                    <div class="loading-card-subtitle" id="loadingCardSubtitle"></div>
+                </div>
+            </div>
+            <div class="loading-card-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="loadingCardTrack">
+                <div class="loading-card-fill" id="loadingCardFill"></div>
+            </div>
+            <div class="loading-card-stage" id="loadingCardStage"></div>
+        </div>
+    </div>
 </div>
 
 <!-- Virtual Fretboard Dock -->

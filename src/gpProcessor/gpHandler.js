@@ -4,7 +4,9 @@ import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator, updateScrollIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
-import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions, reapplyJamTrackView } from './gpPlayer.js';
+import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions, reapplyJamTrackView, warmUpAfterLoad } from './gpPlayer.js';
+import { waitForMainThreadIdle } from '../utils/mainThreadIdle.js';
+import { showLoadingCard, setLoadingProgress, setLoadingIdentity, hideLoadingCard } from '../utils/loadingCard.js';
 import {
     extractScoreTunings,
     extractScoreMetadata,
@@ -71,22 +73,37 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     gpState.lastLayoutDimensions = null; // Force fresh layout calculation
     clearOutput(output);
 
+    const fileBaseName = (file.name || '').replace(/\.[^/.]+$/, '');
+    const loadingToken = showLoadingCard(output, {
+        title: file.librarySongTitle || file.songTitle || file.tabName || fileBaseName,
+        subtitle: file.artist || '',
+        coverUrl: file.coverUrl || '',
+        stage: 'Reading file…'
+    });
+
     // Ensure output is visible for alphaTab sizing
     output.style.display = 'flex';
     output.style.overflowY = isPageMode ? 'hidden' : 'auto';
 
     // Load file
     let dataToLoad;
-    if (file instanceof File) {
-        dataToLoad = await new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(file);
-        });
-    } else {
-        dataToLoad = file;
+    try {
+        if (file instanceof File) {
+            dataToLoad = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        } else {
+            dataToLoad = file;
+        }
+    } catch (err) {
+        hideLoadingCard(loadingToken, output);
+        throw err;
     }
+
+    setLoadingProgress(loadingToken, 15, 'Loading score…');
 
     // Init AlphaTab container with appropriate width for active mode
     const container = document.createElement('div');
@@ -117,6 +134,10 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
     try {
         const api = await loadGuitarPro(dataToLoad, container, { debug, originalFile: file });
+        setLoadingProgress(loadingToken, 55, 'Preparing sound…');
+        if (api.score?.title && !(file.librarySongTitle || file.songTitle)) {
+            setLoadingIdentity(loadingToken, { title: api.score.title, subtitle: file.artist || api.score.artist || '' });
+        }
         gpState.canvases = [{ container, api }];
         window.gpApi = api;
         window.gpState = gpState;
@@ -185,13 +206,31 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
         // Render directly in the active mode
         renderGPPage(output, isPageMode, continuousModeRadio);
+
+        // The first page layout / re-render can still be running here; let it finish so the first play doesn't hit it
+        setLoadingProgress(loadingToken, 70, 'Laying out pages…');
+        await waitForGpLayout();
+        await waitForMainThreadIdle();
+
+        // Warming the synth is part of loading: the card stays up until the first play would start promptly
+        await warmUpAfterLoad(() => setLoadingProgress(loadingToken, 80, 'Warming up audio…'));
+        setLoadingProgress(loadingToken, 100, 'Ready');
     } catch (err) {
         console.error('Error loading Guitar Pro file:', err);
         hideLoadingBar();
+    } finally {
+        // Let the freshly rendered pages paint before the card fades out
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        hideLoadingCard(loadingToken, output);
     }
 }
 
 let gpRenderToken = 0;
+// Resolves once the latest renderGPPage has finished laying out. Page mode re-renders offscreen first, then lays out
+// every page, which can land well after loadGP's caller has the api (~2 s and a ~1.4 s stall on a big score).
+let gpLayoutSettled = Promise.resolve();
+export const waitForGpLayout = (timeoutMs = 10000) =>
+    Promise.race([gpLayoutSettled, new Promise((r) => setTimeout(r, timeoutMs))]);
 
 /**
  * Re-render the loaded GP score at the current display scale without reloading
@@ -249,6 +288,8 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
     if (!gpState.canvases[0]?.container) return;
     
     const renderToken = ++gpRenderToken;
+    let settleLayout;
+    gpLayoutSettled = new Promise((r) => { settleLayout = r; });
     // Always clear output before rendering
     clearOutput(output);
 
@@ -280,9 +321,10 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
             const unsub = api.postRenderFinished.on(() => {
                 unsub();
                 if (offscreenHolder.parentNode) document.body.removeChild(offscreenHolder);
-                if (renderToken !== gpRenderToken) return; // superseded by a newer render
+                if (renderToken !== gpRenderToken) { settleLayout(); return; } // superseded by a newer render
                 gpState.lastLayoutDimensions = null; // force fresh layout calculation
                 renderGPPageMode(output);
+                settleLayout();
             });
             api.render();
             return;
@@ -290,6 +332,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
 
         // renderGPPageMode will handle layout calculation with caching
         renderGPPageMode(output);
+        settleLayout();
     } else {
         // Make sure the container is detached before reattaching
         if (container.parentNode) {
@@ -315,7 +358,10 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         updateScrollIndicator(document.getElementById('pageIndicator'), output, 1);
 
         if (wasNotFullWidth && api) {
+            const unsubSettle = api.postRenderFinished.on(() => { unsubSettle(); settleLayout(); });
             api.render();
+        } else {
+            settleLayout();
         }
     }
 }

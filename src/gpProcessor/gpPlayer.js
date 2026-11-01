@@ -1548,6 +1548,17 @@ export function playPauseSynth() {
 
 function playPauseSynthLocal(forcePlay = false) {
     if (!currentApi) return;
+    if (warmingUp) {
+        // The post-load warm-up is already running the synth muted; make it the real start
+        warmingUp = false;
+        try {
+            currentApi.masterVolume = effectiveVolume();
+            applyPlayerState(currentApi, 1);
+        } catch (e) {
+            console.error('[Synth Player] Warm-up takeover error:', e);
+        }
+        return;
+    }
     try {
         pauseYouTube();
         applyLoopSettings();
@@ -1565,6 +1576,39 @@ function playPauseSynthLocal(forcePlay = false) {
         else currentApi.playPause();
     } catch (e) {
         console.error('[Synth Player] Play/Pause error:', e);
+    }
+}
+
+const WARM_UP_MS = 300;
+const READY_TIMEOUT_MS = 15000;
+
+/**
+ * Part of loading a score: wait for the synth to be ready, then run the muted warm-up so the
+ * user's first real play starts promptly (measured: first start ~450-550 ms late, second ~40 ms).
+ * Resolves true if it warmed, false if skipped (not ready in time, song changed, or the browser
+ * has not allowed audio yet). Never rejects.
+ */
+export async function warmUpAfterLoad(onWarming) {
+    const api = currentApi;
+    if (!api) return false;
+    try {
+        const start = performance.now();
+        while (currentApi === api && !jamPlayerControl.isReady() && performance.now() - start < READY_TIMEOUT_MS) {
+            await new Promise((r) => setTimeout(r, 50));
+        }
+        if (currentApi !== api || !jamPlayerControl.isReady()) return false;
+        // Without a prior user gesture a browser keeps the audio context suspended, so there is nothing to warm
+        if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return false;
+        onWarming?.();
+        const warmed = await jamPlayerControl.warmUp(WARM_UP_MS);
+        // The muted warm-up suppresses the visual handlers, so the view's first scroll anchoring (a large layout pass
+        // that is a ~450 ms stall when first done cold at the first real play) is done here, behind the loading card.
+        // No-op in page mode.
+        if (currentApi === api && !synthPlayerState.isPlaying) updateContinuousPlaybackScroll(api.tickPosition, true);
+        return warmed;
+    } catch (e) {
+        console.warn('[Synth Player] post-load warm-up failed:', e);
+        return false;
     }
 }
 
