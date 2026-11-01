@@ -239,6 +239,7 @@ async fn open_tab_downloader(
     builder = builder.on_page_load(move |_webview, payload| {
         let s = payload.url().as_str();
         if s.starts_with("http://") || s.starts_with("https://") {
+            tab_downloader_native::bind_userscript_to_url(&app_handle_for_load, payload.url());
             let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
         }
         tab_downloader_native::schedule_userscript_injection(&app_handle_for_load);

@@ -543,6 +543,41 @@ pub fn wrap_userscript(raw_js: &str, config: Option<&TabDownloaderConfig>) -> St
     )
 }
 
+/// Selects the userscript of the source that owns the page's site, so a page reached through
+/// another source (a Google result for a site with its own source) runs that source's script.
+pub fn bind_userscript_to_url(app_handle: &AppHandle, url: &tauri::Url) {
+    let Some(host) = url.host_str().map(|h| h.to_lowercase()) else { return };
+    let Some(state) = app_handle.try_state::<TabDownloaderState>() else { return };
+    let mut matched_sid: Option<String> = None;
+    let mut matched_script: Option<String> = None;
+    if let Ok(mut cfg_guard) = state.current_config.lock() {
+        if let Some(ref mut cfg) = *cfg_guard {
+            for s in &cfg.sources {
+                let matches = if let Ok(u) = tauri::Url::parse(if !s.default_url.is_empty() { &s.default_url } else { &s.url_template }) {
+                    u.host_str().map(|h| host.contains(h)).unwrap_or(false)
+                } else {
+                    false
+                };
+                if matches {
+                    matched_sid = Some(s.id.clone());
+                    if s.userscript_enabled {
+                        matched_script = s.userscript.clone().or_else(|| s.default_userscript.clone());
+                    }
+                    break;
+                }
+            }
+            if let Some(ref msid) = matched_sid {
+                cfg.active_source_id = Some(msid.clone());
+            }
+        }
+    }
+    if matched_sid.is_some() {
+        if let Ok(mut js_guard) = state.active_userscript.lock() {
+            *js_guard = matched_script;
+        }
+    }
+}
+
 pub fn schedule_userscript_injection(app_handle: &AppHandle) {
     if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
         let js_opt = state.active_userscript.lock().ok().and_then(|g| g.clone());
@@ -798,38 +833,7 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
 
     if url.scheme() == "http" || url.scheme() == "https" {
         // The bar URL is emitted from on_page_load, which only reports the top-level frame; this handler also sees iframes (ads)
-        if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
-            if let Some(host) = url.host_str().map(|h| h.to_lowercase()) {
-                let mut matched_sid: Option<String> = None;
-                let mut matched_script: Option<String> = None;
-                if let Ok(mut cfg_guard) = state.current_config.lock() {
-                    if let Some(ref mut cfg) = *cfg_guard {
-                        for s in &cfg.sources {
-                            let matches = if let Ok(u) = tauri::Url::parse(if !s.default_url.is_empty() { &s.default_url } else { &s.url_template }) {
-                                u.host_str().map(|h| host.contains(h)).unwrap_or(false)
-                            } else {
-                                false
-                            };
-                            if matches {
-                                matched_sid = Some(s.id.clone());
-                                if s.userscript_enabled {
-                                    matched_script = s.userscript.clone().or_else(|| s.default_userscript.clone());
-                                }
-                                break;
-                            }
-                        }
-                        if let Some(ref msid) = matched_sid {
-                            cfg.active_source_id = Some(msid.clone());
-                        }
-                    }
-                }
-                if matched_sid.is_some() {
-                    if let Ok(mut js_guard) = state.active_userscript.lock() {
-                        *js_guard = matched_script;
-                    }
-                }
-            }
-        }
+        bind_userscript_to_url(app_handle, url);
         schedule_userscript_injection(app_handle);
     }
 
@@ -937,6 +941,7 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     builder = builder.on_page_load(move |_webview, payload| {
         let s = payload.url().as_str();
         if s.starts_with("http://") || s.starts_with("https://") {
+            bind_userscript_to_url(&app_handle_for_load, payload.url());
             let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
         }
         schedule_userscript_injection(&app_handle_for_load);
