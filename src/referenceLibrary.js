@@ -65,6 +65,7 @@ let selectedCircleIndex = 0; // default C Major / Am
 let selectedScaleKey = 'majorPentatonic';
 let selectedRootNote = 0; // C (0 to 11)
 let stringCount = (() => { try { const n = parseInt(localStorage.getItem('majestictab_string_count'), 10); return [6, 7, 8].includes(n) ? n : 6; } catch (_) { return 6; } })();
+let tuningOffset = (() => { try { const n = parseInt(localStorage.getItem('majestictab_tuning_offset'), 10); return Number.isInteger(n) ? n : 0; } catch (_) { return 0; } })();
 let selectedChordFilter = 'all'; // 'all', 'Major', 'Dominant', 'Minor', 'Suspended'
 let preferBarreChords = (() => { try { return (localStorage.getItem('majestictab_prefer_barre_chords') ?? localStorage.getItem('majestictab_prefer_bar_chords')) === 'true'; } catch (_) { return false; } })();
 let selectedRootFilter = 'all'; // 'all' or a root from chordRootFilters
@@ -105,11 +106,20 @@ export const scaleDefinitions = {
 };
 
 const noteNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
-const stringTunings = [4, 9, 2, 7, 11, 4]; // E2, A2, D3, G3, B3, E4
-const stringNames = ['E', 'A', 'D', 'G', 'B', 'e'];
+// Standard tunings per string count: lowest string's pitch class, each string's semitones above it,
+// and how many semitones the whole set can be tuned down (the options offered in the library).
+const tuningSpecs = {
+    6: { low: 4, steps: [0, 5, 10, 15, 19, 24], offsets: [0, 1, 2, 3, 5, 6] }, // E A D G B E
+    7: { low: 11, steps: [0, 5, 10, 15, 20, 24, 29], offsets: [0, 1, 2] }, // B E A D G B E
+    8: { low: 6, steps: [0, 5, 10, 15, 20, 25, 29, 34], offsets: [0, 1, 2] } // F♯ B E A D G B E
+};
+const sharpNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+const flatNames = ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B'];
+const sharpTuningOffsets = [3, 5];
 
 export const chordData = [
     // === MAJOR FAMILY (IMG_6420)[cite: 13] ===
+    { name: 'A♭', cat: 'Major', frets: '4 3 1 1 1 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'A', cat: 'Major', frets: 'x 0 2 2 2 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'A', cat: 'Major', frets: '5 7 7 6 5 5', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭', cat: 'Major', frets: 'x 1 3 3 3 1', startFret: 1, barreChord: 1, default: 1 },
@@ -126,8 +136,8 @@ export const chordData = [
     { name: 'F♯', cat: 'Major', frets: '2 4 4 3 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'G', cat: 'Major', frets: '3 2 0 0 0 3', startFret: 1, barreChord: 0, default: 1 },
     { name: 'G', cat: 'Major', frets: '3 5 5 4 3 3', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭', cat: 'Major', frets: '4 3 1 1 1 4', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭maj7', cat: 'Major', frets: '4 3 1 1 1 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Amaj7', cat: 'Major', frets: 'x 0 2 1 2 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Amaj7', cat: 'Major', frets: '5 x 6 6 5 x', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭maj7', cat: 'Major', frets: 'x 1 3 2 3 1', startFret: 1, barreChord: 1, default: 1 },
@@ -145,8 +155,8 @@ export const chordData = [
     { name: 'F♯maj7', cat: 'Major', frets: 'x x 4 3 2 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gmaj7', cat: 'Major', frets: '3 2 0 0 0 2', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Gmaj7', cat: 'Major', frets: '3 x 4 4 3 x', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭maj7', cat: 'Major', frets: '4 3 1 1 1 3', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭maj9', cat: 'Major', frets: '4 1 1 1 1 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Amaj9', cat: 'Major', frets: 'x 0 2 4 2 4', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Amaj9', cat: 'Major', frets: '5 x 6 6 5 7', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭maj9', cat: 'Major', frets: 'x 1 3 5 3 5', startFret: 1, barreChord: 1, default: 1 },
@@ -165,8 +175,8 @@ export const chordData = [
     { name: 'F♯maj9', cat: 'Major', frets: '2 4 3 3 2 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gmaj9', cat: 'Major', frets: '3 0 0 0 0 2', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Gmaj9', cat: 'Major', frets: '3 x 4 4 3 5', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭maj9', cat: 'Major', frets: '4 1 1 1 1 3', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭maj7-11', cat: 'Major', frets: '4 3 1 1 2 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Amaj7-11', cat: 'Major', frets: 'x 0 1 1 2 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Amaj7-11', cat: 'Major', frets: '5 x 6 6 4 x', startFret: 4, barreChord: 1, default: 0 },
     { name: 'B♭maj7-11', cat: 'Major', frets: 'x 1 2 2 3 1', startFret: 1, barreChord: 1, default: 1 },
@@ -184,8 +194,8 @@ export const chordData = [
     { name: 'F♯maj7-11', cat: 'Major', frets: '2 1 4 3 1 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gmaj7-11', cat: 'Major', frets: '3 2 0 0 1 2', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Gmaj7-11', cat: 'Major', frets: '3 x 4 4 2 x', startFret: 2, barreChord: 1, default: 0 },
-    { name: 'A♭maj7-11', cat: 'Major', frets: '4 3 1 1 2 3', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭maj7-13', cat: 'Major', frets: '4 3 1 5 6 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Amaj7-13', cat: 'Major', frets: 'x 0 2 1 2 2', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Amaj7-13', cat: 'Major', frets: '5 x 6 6 7 x', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭maj7-13', cat: 'Major', frets: 'x 1 3 2 3 3', startFret: 1, barreChord: 1, default: 1 },
@@ -202,8 +212,8 @@ export const chordData = [
     { name: 'F♯maj7-13', cat: 'Major', frets: '2 1 4 3 4 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gmaj7-13', cat: 'Major', frets: '3 2 0 4 5 2', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Gmaj7-13', cat: 'Major', frets: '3 x 4 4 5 x', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭maj7-13', cat: 'Major', frets: '4 3 1 5 6 3', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭6', cat: 'Major', frets: '4 3 1 1 1 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'A6', cat: 'Major', frets: 'x 0 2 2 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'B♭6', cat: 'Major', frets: 'x 1 3 3 3 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'B6', cat: 'Major', frets: 'x 2 4 4 4 4', startFret: 1, barreChord: 1, default: 1 },
@@ -220,9 +230,9 @@ export const chordData = [
     { name: 'F♯6', cat: 'Major', frets: 'x x 4 3 4 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'G6', cat: 'Major', frets: '3 2 0 0 0 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'G6', cat: 'Major', frets: '3 5 5 4 5 3', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭6', cat: 'Major', frets: '4 3 1 1 1 1', startFret: 1, barreChord: 1, default: 1 },
 
     // === DOMINANT FAMILY (IMG_6420)[cite: 13] ===
+    { name: 'A♭7', cat: 'Dominant', frets: '4 3 1 1 1 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'A7', cat: 'Dominant', frets: 'x 0 2 0 2 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'A7', cat: 'Dominant', frets: '5 7 5 6 5 5', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭7', cat: 'Dominant', frets: 'x 1 3 1 3 1', startFret: 1, barreChord: 1, default: 1 },
@@ -240,8 +250,8 @@ export const chordData = [
     { name: 'F♯7', cat: 'Dominant', frets: '2 4 2 3 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'G7', cat: 'Dominant', frets: '3 2 0 0 0 1', startFret: 1, barreChord: 0, default: 1 },
     { name: 'G7', cat: 'Dominant', frets: '3 5 3 4 3 3', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭7', cat: 'Dominant', frets: '4 3 1 1 1 2', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭9', cat: 'Dominant', frets: '4 3 4 3 4 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'A9', cat: 'Dominant', frets: 'x 0 2 4 2 3', startFret: 1, barreChord: 0, default: 1 },
     { name: 'A9', cat: 'Dominant', frets: '5 7 5 6 5 7', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭9', cat: 'Dominant', frets: 'x 1 3 5 3 4', startFret: 1, barreChord: 1, default: 1 },
@@ -255,8 +265,8 @@ export const chordData = [
     { name: 'F9', cat: 'Dominant', frets: '1 3 1 2 4 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯9', cat: 'Dominant', frets: '2 4 2 3 5 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'G9', cat: 'Dominant', frets: '3 2 3 2 3 3', startFret: 1, barreChord: 1, default: 1 },
-    { name: 'A♭9', cat: 'Dominant', frets: '4 3 4 3 4 4', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭7-11', cat: 'Dominant', frets: '4 3 4 3 3 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'A7-11', cat: 'Dominant', frets: 'x 0 0 0 2 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'A7-11', cat: 'Dominant', frets: '5 x 5 6 4 x', startFret: 4, barreChord: 1, default: 0 },
     { name: 'B♭7-11', cat: 'Dominant', frets: 'x 1 1 1 3 1', startFret: 1, barreChord: 1, default: 1 },
@@ -270,8 +280,8 @@ export const chordData = [
     { name: 'F7-11', cat: 'Dominant', frets: '1 2 1 2 4 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯7-11', cat: 'Dominant', frets: '2 3 2 3 5 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'G7-11', cat: 'Dominant', frets: '3 2 3 2 2 3', startFret: 1, barreChord: 1, default: 1 },
-    { name: 'A♭7-11', cat: 'Dominant', frets: '4 3 4 3 3 4', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭7-13', cat: 'Dominant', frets: '4 3 4 3 6 6', startFret: 1, barreChord: 1, default: 1 },
     { name: 'A7-13', cat: 'Dominant', frets: 'x 0 2 0 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'B♭7-13', cat: 'Dominant', frets: 'x 1 3 1 3 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'B7-13', cat: 'Dominant', frets: 'x 2 1 2 4 4', startFret: 1, barreChord: 1, default: 1 },
@@ -283,9 +293,9 @@ export const chordData = [
     { name: 'F7-13', cat: 'Dominant', frets: '1 3 1 2 3 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯7-13', cat: 'Dominant', frets: '2 4 2 3 4 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'G7-13', cat: 'Dominant', frets: '3 2 3 2 5 5', startFret: 1, barreChord: 1, default: 1 },
-    { name: 'A♭7-13', cat: 'Dominant', frets: '4 3 4 3 6 6', startFret: 1, barreChord: 1, default: 1 },
 
     // === MINOR FAMILY (IMG_6421)[cite: 14] ===
+    { name: 'A♭m', cat: 'Minor', frets: '4 6 6 4 4 4', startFret: 4, barreChord: 1, default: 1 },
     { name: 'Am', cat: 'Minor', frets: 'x 0 2 2 1 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Am', cat: 'Minor', frets: '5 7 7 5 5 5', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭m', cat: 'Minor', frets: 'x 1 3 3 2 1', startFret: 1, barreChord: 1, default: 1 },
@@ -300,8 +310,8 @@ export const chordData = [
     { name: 'Fm', cat: 'Minor', frets: '1 3 3 1 1 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯m', cat: 'Minor', frets: '2 4 4 2 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gm', cat: 'Minor', frets: '3 5 5 3 3 3', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭m', cat: 'Minor', frets: '4 6 6 4 4 4', startFret: 4, barreChord: 1, default: 1 },
 
+    { name: 'A♭m6', cat: 'Minor', frets: '4 6 6 4 6 4', startFret: 4, barreChord: 1, default: 1 },
     { name: 'Am6', cat: 'Minor', frets: 'x 0 2 2 1 2', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Am6', cat: 'Minor', frets: '5 7 7 5 7 5', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭m6', cat: 'Minor', frets: 'x 1 3 3 2 3', startFret: 1, barreChord: 1, default: 1 },
@@ -316,8 +326,8 @@ export const chordData = [
     { name: 'Fm6', cat: 'Minor', frets: '1 3 3 1 3 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯m6', cat: 'Minor', frets: '2 4 4 2 4 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gm6', cat: 'Minor', frets: '3 5 5 3 5 3', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭m6', cat: 'Minor', frets: '4 6 6 4 6 4', startFret: 4, barreChord: 1, default: 1 },
 
+    { name: 'A♭m7', cat: 'Minor', frets: '4 6 4 4 4 4', startFret: 4, barreChord: 1, default: 1 },
     { name: 'Am7', cat: 'Minor', frets: 'x 0 2 0 1 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Am7', cat: 'Minor', frets: '5 7 5 5 5 5', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭m7', cat: 'Minor', frets: 'x 1 3 1 2 1', startFret: 1, barreChord: 1, default: 1 },
@@ -331,8 +341,8 @@ export const chordData = [
     { name: 'Fm7', cat: 'Minor', frets: '1 3 1 1 1 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯m7', cat: 'Minor', frets: '2 4 2 2 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gm7', cat: 'Minor', frets: '3 5 3 3 3 3', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭m7', cat: 'Minor', frets: '4 6 4 4 4 4', startFret: 4, barreChord: 1, default: 1 },
 
+    { name: 'A♭m9', cat: 'Minor', frets: '4 6 4 4 4 6', startFret: 4, barreChord: 1, default: 1 },
     { name: 'Am9', cat: 'Minor', frets: 'x 0 2 4 1 3', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Am9', cat: 'Minor', frets: '5 7 5 5 5 7', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭m9', cat: 'Minor', frets: 'x 1 3 5 2 4', startFret: 1, barreChord: 1, default: 1 },
@@ -346,8 +356,8 @@ export const chordData = [
     { name: 'Fm9', cat: 'Minor', frets: '1 3 1 1 4 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯m9', cat: 'Minor', frets: '2 4 2 2 5 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gm9', cat: 'Minor', frets: '3 5 3 3 3 5', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭m9', cat: 'Minor', frets: '4 6 4 4 4 6', startFret: 4, barreChord: 1, default: 1 },
 
+    { name: 'A♭m7-11', cat: 'Minor', frets: '4 4 4 4 4 4', startFret: 4, barreChord: 1, default: 1 },
     { name: 'Am7-11', cat: 'Minor', frets: 'x 0 0 0 1 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Am7-11', cat: 'Minor', frets: '5 x 5 5 3 x', startFret: 3, barreChord: 1, default: 0 },
     { name: 'B♭m7-11', cat: 'Minor', frets: 'x 1 1 1 2 1', startFret: 1, barreChord: 1, default: 1 },
@@ -361,8 +371,8 @@ export const chordData = [
     { name: 'Fm7-11', cat: 'Minor', frets: '1 1 1 1 1 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯m7-11', cat: 'Minor', frets: '2 2 2 2 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gm7-11', cat: 'Minor', frets: '3 3 3 3 3 3', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭m7-11', cat: 'Minor', frets: '4 4 4 4 4 4', startFret: 4, barreChord: 1, default: 1 },
 
+    { name: 'A♭m7-13', cat: 'Minor', frets: '4 6 4 4 6 6', startFret: 4, barreChord: 1, default: 1 },
     { name: 'Am7-13', cat: 'Minor', frets: 'x 0 2 0 1 2', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Am7-13', cat: 'Minor', frets: '5 x 5 5 7 x', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭m7-13', cat: 'Minor', frets: 'x 1 3 1 2 3', startFret: 1, barreChord: 1, default: 1 },
@@ -376,9 +386,9 @@ export const chordData = [
     { name: 'Fm7-13', cat: 'Minor', frets: '1 3 1 1 3 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯m7-13', cat: 'Minor', frets: '2 4 2 2 4 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gm7-13', cat: 'Minor', frets: '3 5 3 3 5 5', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭m7-13', cat: 'Minor', frets: '4 6 4 4 6 6', startFret: 4, barreChord: 1, default: 1 },
 
     // === DIMINISHED & AUGMENTED (IMG_6421)[cite: 14] ===
+    { name: 'A♭dim', cat: 'Dim/Aug', frets: '4 5 6 4 x x', startFret: 4, barreChord: 1, default: 1 },
     { name: 'Adim', cat: 'Dim/Aug', frets: 'x 0 1 2 1 x', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Adim', cat: 'Dim/Aug', frets: '5 6 7 5 x x', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭dim', cat: 'Dim/Aug', frets: 'x 1 2 3 2 x', startFret: 1, barreChord: 1, default: 1 },
@@ -395,8 +405,8 @@ export const chordData = [
     { name: 'Fdim', cat: 'Dim/Aug', frets: '1 2 3 1 x x', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯dim', cat: 'Dim/Aug', frets: '2 3 4 2 x x', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gdim', cat: 'Dim/Aug', frets: '3 4 5 3 x x', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭dim', cat: 'Dim/Aug', frets: '4 5 6 4 x x', startFret: 4, barreChord: 1, default: 1 },
 
+    { name: 'A♭dim7', cat: 'Dim/Aug', frets: '4 5 6 4 6 4', startFret: 4, barreChord: 1, default: 1 },
     { name: 'Adim7', cat: 'Dim/Aug', frets: 'x 0 1 2 1 2', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Adim7', cat: 'Dim/Aug', frets: '5 6 7 5 7 5', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭dim7', cat: 'Dim/Aug', frets: 'x 1 2 3 2 3', startFret: 1, barreChord: 1, default: 1 },
@@ -411,8 +421,8 @@ export const chordData = [
     { name: 'Fdim7', cat: 'Dim/Aug', frets: '1 2 3 1 3 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯dim7', cat: 'Dim/Aug', frets: '2 3 4 2 4 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gdim7', cat: 'Dim/Aug', frets: '3 4 5 3 5 3', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭dim7', cat: 'Dim/Aug', frets: '4 5 6 4 6 4', startFret: 4, barreChord: 1, default: 1 },
 
+    { name: 'A♭aug', cat: 'Dim/Aug', frets: '4 3 2 1 1 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Aaug', cat: 'Dim/Aug', frets: 'x 0 3 2 2 1', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Aaug', cat: 'Dim/Aug', frets: '5 8 7 6 x x', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭aug', cat: 'Dim/Aug', frets: 'x 1 4 3 3 2', startFret: 1, barreChord: 1, default: 1 },
@@ -430,8 +440,8 @@ export const chordData = [
     { name: 'F♯aug', cat: 'Dim/Aug', frets: '2 x 4 3 3 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gaug', cat: 'Dim/Aug', frets: '3 2 1 0 0 3', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Gaug', cat: 'Dim/Aug', frets: '3 6 5 4 x x', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭aug', cat: 'Dim/Aug', frets: '4 3 2 1 1 4', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭7(-5)', cat: 'Dim/Aug', frets: '4 3 4 x 3 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'A7(-5)', cat: 'Dim/Aug', frets: 'x 0 1 0 2 x', startFret: 1, barreChord: 0, default: 1 },
     { name: 'A7(-5)', cat: 'Dim/Aug', frets: '5 6 5 6 8 5', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭7(-5)', cat: 'Dim/Aug', frets: 'x 1 2 1 3 x', startFret: 1, barreChord: 1, default: 1 },
@@ -449,8 +459,8 @@ export const chordData = [
     { name: 'F♯7(-5)', cat: 'Dim/Aug', frets: '2 3 2 3 x x', startFret: 1, barreChord: 1, default: 1 },
     { name: 'G7(-5)', cat: 'Dim/Aug', frets: '3 2 3 x 2 3', startFret: 1, barreChord: 0, default: 1 },
     { name: 'G7(-5)', cat: 'Dim/Aug', frets: '3 4 3 4 6 3', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭7(-5)', cat: 'Dim/Aug', frets: '4 3 4 x 3 4', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭6/9', cat: 'Major', frets: '4 3 3 3 4 4', startFret: 3, barreChord: 1, default: 1 },
     { name: 'A6/9', cat: 'Major', frets: '5 2 2 2 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'B♭6/9', cat: 'Major', frets: '6 3 3 3 3 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'B6/9', cat: 'Major', frets: 'x 2 1 1 2 2', startFret: 1, barreChord: 1, default: 1 },
@@ -463,9 +473,9 @@ export const chordData = [
     { name: 'F6/9', cat: 'Major', frets: 'x 8 7 7 8 8', startFret: 7, barreChord: 1, default: 1 },
     { name: 'F♯6/9', cat: 'Major', frets: 'x 9 8 8 9 9', startFret: 8, barreChord: 1, default: 1 },
     { name: 'G6/9', cat: 'Major', frets: '3 2 2 2 3 3', startFret: 2, barreChord: 1, default: 1 },
-    { name: 'A♭6/9', cat: 'Major', frets: '4 3 3 3 4 4', startFret: 3, barreChord: 1, default: 1 },
 
     // === SUSPENDED & ADD FAMILY (IMG_6421)[cite: 14] ===
+    { name: 'A♭sus2', cat: 'Suspended', frets: '4 1 1 1 4 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Asus2', cat: 'Suspended', frets: 'x 0 2 2 0 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Asus2', cat: 'Suspended', frets: '5 7 7 4 5 5', startFret: 4, barreChord: 1, default: 0 },
     { name: 'B♭sus2', cat: 'Suspended', frets: 'x 1 3 3 1 1', startFret: 1, barreChord: 1, default: 1 },
@@ -481,8 +491,8 @@ export const chordData = [
     { name: 'Fsus2', cat: 'Suspended', frets: 'x 3 3 0 1 1', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯sus2', cat: 'Suspended', frets: 'x 4 4 1 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gsus2', cat: 'Suspended', frets: '3 0 0 0 3 3', startFret: 1, barreChord: 1, default: 1 },
-    { name: 'A♭sus2', cat: 'Suspended', frets: '4 1 1 1 4 4', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭sus4', cat: 'Suspended', frets: '4 4 1 1 2 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Asus4', cat: 'Suspended', frets: 'x 0 2 2 3 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Asus4', cat: 'Suspended', frets: '5 7 7 7 5 5', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭sus4', cat: 'Suspended', frets: 'x 1 3 3 4 1', startFret: 1, barreChord: 1, default: 1 },
@@ -497,8 +507,8 @@ export const chordData = [
     { name: 'F♯sus4', cat: 'Suspended', frets: '2 4 4 4 2 2', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Gsus4', cat: 'Suspended', frets: '3 3 0 0 1 3', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Gsus4', cat: 'Suspended', frets: '3 5 5 5 3 3', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭sus4', cat: 'Suspended', frets: '4 4 1 1 2 4', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭7sus2', cat: 'Suspended', frets: '4 6 4 3 4 4', startFret: 3, barreChord: 1, default: 1 },
     { name: 'A7sus2', cat: 'Suspended', frets: 'x 0 2 0 0 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'A7sus2', cat: 'Suspended', frets: '5 7 5 4 5 5', startFret: 4, barreChord: 1, default: 0 },
     { name: 'B♭7sus2', cat: 'Suspended', frets: 'x 1 3 1 1 1', startFret: 1, barreChord: 1, default: 1 },
@@ -512,8 +522,8 @@ export const chordData = [
     { name: 'F7sus2', cat: 'Suspended', frets: '1 3 1 x 1 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯7sus2', cat: 'Suspended', frets: '2 4 2 x 2 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'G7sus2', cat: 'Suspended', frets: '3 5 3 2 3 3', startFret: 2, barreChord: 1, default: 1 },
-    { name: 'A♭7sus2', cat: 'Suspended', frets: '4 6 4 3 4 4', startFret: 3, barreChord: 1, default: 1 },
 
+    { name: 'A♭7sus4', cat: 'Suspended', frets: '4 6 4 6 4 x', startFret: 4, barreChord: 1, default: 1 },
     { name: 'A7sus4', cat: 'Suspended', frets: 'x 0 2 0 3 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'A7sus4', cat: 'Suspended', frets: '5 7 5 7 8 5', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭7sus4', cat: 'Suspended', frets: 'x 1 3 1 4 1', startFret: 1, barreChord: 1, default: 1 },
@@ -528,8 +538,8 @@ export const chordData = [
     { name: 'F7sus4', cat: 'Suspended', frets: '1 3 1 3 1 x', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯7sus4', cat: 'Suspended', frets: '2 4 2 4 2 x', startFret: 1, barreChord: 1, default: 1 },
     { name: 'G7sus4', cat: 'Suspended', frets: '3 5 3 5 3 x', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭7sus4', cat: 'Suspended', frets: '4 6 4 6 4 x', startFret: 4, barreChord: 1, default: 1 },
 
+    { name: 'A♭add9', cat: 'Major', frets: '4 3 1 3 1 4', startFret: 1, barreChord: 1, default: 1 },
     { name: 'Aadd9', cat: 'Major', frets: 'x 0 2 4 2 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Aadd9', cat: 'Major', frets: '5 7 7 6 5 7', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭add9', cat: 'Major', frets: 'x 1 3 5 3 1', startFret: 1, barreChord: 1, default: 1 },
@@ -546,8 +556,8 @@ export const chordData = [
     { name: 'F♯add9', cat: 'Major', frets: 'x 9 6 6 7 6', startFret: 6, barreChord: 1, default: 1 },
     { name: 'Gadd9', cat: 'Major', frets: '3 2 0 2 0 3', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Gadd9', cat: 'Major', frets: '3 5 5 4 3 5', startFret: 3, barreChord: 1, default: 0 },
-    { name: 'A♭add9', cat: 'Major', frets: '4 3 1 3 1 4', startFret: 1, barreChord: 1, default: 1 },
 
+    { name: 'A♭madd9', cat: 'Minor', frets: '4 6 6 4 4 6', startFret: 4, barreChord: 1, default: 1 },
     { name: 'Amadd9', cat: 'Minor', frets: 'x 0 2 4 1 0', startFret: 1, barreChord: 0, default: 1 },
     { name: 'Amadd9', cat: 'Minor', frets: '5 7 7 5 5 7', startFret: 5, barreChord: 1, default: 0 },
     { name: 'B♭madd9', cat: 'Minor', frets: 'x 1 3 5 2 1', startFret: 1, barreChord: 1, default: 1 },
@@ -561,8 +571,7 @@ export const chordData = [
     { name: 'Emadd9', cat: 'Minor', frets: 'x 7 5 4 7 x', startFret: 4, barreChord: 1, default: 0 },
     { name: 'Fmadd9', cat: 'Minor', frets: '1 3 3 1 1 3', startFret: 1, barreChord: 1, default: 1 },
     { name: 'F♯madd9', cat: 'Minor', frets: '2 4 4 2 2 4', startFret: 1, barreChord: 1, default: 1 },
-    { name: 'Gmadd9', cat: 'Minor', frets: '3 5 5 3 3 5', startFret: 3, barreChord: 1, default: 1 },
-    { name: 'A♭madd9', cat: 'Minor', frets: '4 6 6 4 4 6', startFret: 4, barreChord: 1, default: 1 }
+    { name: 'Gmadd9', cat: 'Minor', frets: '3 5 5 3 3 5', startFret: 3, barreChord: 1, default: 1 }
 ];
 
 // -----------------------------------------------------------------------------
@@ -664,7 +673,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
     const lastString = numStrings - 1;
     const startY = 14; // High e string y position (or Low E when flipped)
     const stringGap = 10;
-    const stringNamesNormal = ['e', 'B', 'G', 'D', 'A', 'E', 'B', 'F♯'].slice(0, numStrings);
+    const stringNamesNormal = getStringLabelsHighToLow().slice(0, numStrings);
     const stringNamesFlipped = [...stringNamesNormal].reverse();
     const stringNames = isFlipped ? stringNamesFlipped : stringNamesNormal;
 
@@ -839,16 +848,12 @@ function buildFretboardSvg(scaleKey, rootNote) {
     const totalHeight = startY + boardHeight + 32; // 230 with six strings
 
     // Standard strings: Index 0 is high e, Index 5 is low E (standard tablature)
-    const standardStrings = [
-        { name: 'e', tuning: 4, gauge: 1.0 },
-        { name: 'B', tuning: 11, gauge: 1.35 },
-        { name: 'G', tuning: 7, gauge: 1.7 },
-        { name: 'D', tuning: 2, gauge: 2.05 },
-        { name: 'A', tuning: 9, gauge: 2.4 },
-        { name: 'E', tuning: 4, gauge: 2.75 },
-        { name: 'B', tuning: 11, gauge: 3.1 },
-        { name: 'F♯', tuning: 6, gauge: 3.45 }
-    ].slice(0, stringCount);
+    const tuningSpec = tuningSpecs[stringCount];
+    const openStringNames = getStringLabelsHighToLow();
+    const standardStrings = openStringNames.map((name, i) => {
+        const step = tuningSpec.steps[stringCount - 1 - i];
+        return { name, tuning: (tuningSpec.low + step - getTuningOffset() + 120) % 12, gauge: 1 + 0.35 * (stringCount - 1 - i) };
+    });
     const visualStrings = isFlipped ? [...standardStrings].reverse() : standardStrings;
 
     let svg = `<svg viewBox="0 0 ${totalWidth} ${totalHeight}" class="ref-fretboard-svg" style="min-width: 840px;" aria-label="Interactive Scale Fretboard">`;
@@ -1056,9 +1061,37 @@ function renderCircleSection() {
     `;
 }
 
-const chordRootFilters = ['A', 'B♭', 'B', 'C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭'];
+const chordRootFilters = ['A♭', 'A', 'B♭', 'B', 'C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G'];
 // Circle of fifths spellings that the chord library files under another name
 const chordRootAliases = { 'D♭': 'C♯', 'D♯': 'E♭', 'G♭': 'F♯', 'G♯': 'A♭', 'A♯': 'B♭', 'E♯': 'F', 'B♯': 'C', 'C♭': 'B', 'F♭': 'E' };
+
+/** Semitones the strings are tuned down for the current string count (0 when the stored choice isn't offered). */
+function getTuningOffset() {
+    return tuningSpecs[stringCount].offsets.includes(tuningOffset) ? tuningOffset : 0;
+}
+
+/** Open-string note names from the lowest string up, e.g. ['E', 'A', 'D', 'G', 'B', 'E'] or ['E♭', 'A♭', ...]. */
+function getOpenStringNames(offset = getTuningOffset()) {
+    const spec = tuningSpecs[stringCount];
+    const names = offset !== 0 && !sharpTuningOffsets.includes(offset) ? flatNames : sharpNames;
+    return spec.steps.map(step => names[(spec.low + step - offset + 120) % 12]);
+}
+
+/** String labels for the diagrams, highest string first. The top string of a standard tuning is shown as 'e'. */
+function getStringLabelsHighToLow() {
+    const names = getOpenStringNames();
+    if (getTuningOffset() === 0) names[names.length - 1] = 'e';
+    return names.reverse();
+}
+
+function buildTuningButtonsHtml() {
+    const current = getTuningOffset();
+    return tuningSpecs[stringCount].offsets.map(offset => `
+            <button type="button" class="btn btn-sm ${current === offset ? 'btn-theme-primary' : 'btn-theme-outline'} ref-tuning-btn" data-offset="${offset}" title="${offset === 0 ? 'Standard tuning' : `Standard tuning, ${offset} semitone${offset === 1 ? '' : 's'} down`}">
+                ${getOpenStringNames(offset)[0]}
+            </button>
+        `).join('');
+}
 
 function buildStringCountButtonsHtml() {
     return [6, 7, 8].map(n => `
@@ -1069,9 +1102,24 @@ function buildStringCountButtonsHtml() {
 }
 
 function getActiveChordData() {
-    if (stringCount === 7) return chordData7;
-    if (stringCount === 8) return chordData8;
-    return chordData;
+    const source = stringCount === 7 ? chordData7 : stringCount === 8 ? chordData8 : chordData;
+    const offset = getTuningOffset();
+    if (offset === 0) return source;
+
+    // Tuned down by `offset`, chord X sounds with the standard-tuning shape of the chord `offset` semitones higher
+    const rootPitch = Object.fromEntries(chordRootFilters.map(name => [name, sharpNames.indexOf(name) >= 0 ? sharpNames.indexOf(name) : flatNames.indexOf(name)]));
+    const rootByPitch = Object.fromEntries(chordRootFilters.map(name => [rootPitch[name], name]));
+    const suffixOrder = [];
+    const shifted = source.map(chord => {
+        const [, root, suffix] = chord.name.match(/^([A-G][♯♭]?)(.*)$/);
+        if (!suffixOrder.includes(suffix)) suffixOrder.push(suffix);
+        const name = rootByPitch[(rootPitch[root] - offset + 12) % 12] + suffix;
+        return { ...chord, name, suffix };
+    });
+    // Keep each chord type together, with roots in the same order as the standard-tuning list
+    shifted.sort((a, b) => suffixOrder.indexOf(a.suffix) - suffixOrder.indexOf(b.suffix)
+        || chordRootFilters.indexOf(a.name.slice(0, a.name.length - a.suffix.length)) - chordRootFilters.indexOf(b.name.slice(0, b.name.length - b.suffix.length)));
+    return shifted;
 }
 
 /**
@@ -1174,6 +1222,14 @@ function renderChordsSection() {
                     </div>
                 </div>
 
+                <!-- Tuning -->
+                <div class="ref-filter-group">
+                    <span class="ref-filter-group-label">Tuning:</span>
+                    <div class="d-flex flex-wrap gap-1 ref-tuning-filters">
+                        ${buildTuningButtonsHtml()}
+                    </div>
+                </div>
+
                 <!-- Root Note Filter -->
                 <div class="ref-filter-group">
                     <span class="ref-filter-group-label">Root note:</span>
@@ -1207,7 +1263,8 @@ function renderScalesSection() {
     const isLeftHanded = getIsLeftHanded();
     const currentScale = scaleDefinitions[selectedScaleKey] || scaleDefinitions.majorPentatonic;
     const rootName = noteNames[selectedRootNote];
-    const standardStringNames = ['e', 'B', 'G', 'D', 'A', 'E', 'B', 'F♯'].slice(0, stringCount);
+    const stringLabels = getStringLabelsHighToLow();
+    const tuningLabel = getTuningOffset() === 0 ? 'standard tuning' : `${getOpenStringNames()[0]} standard tuning`;
 
     // Compute active notes in scale
     const activeNoteNames = currentScale.intervals.map(item => {
@@ -1261,6 +1318,12 @@ function renderScalesSection() {
                         ${buildStringCountButtonsHtml()}
                     </div>
                 </div>
+                <div>
+                    <span class="ref-select-label d-block">Tuning</span>
+                    <div class="d-flex flex-wrap gap-1 ref-tuning-filters">
+                        ${buildTuningButtonsHtml()}
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1288,7 +1351,7 @@ function renderScalesSection() {
                 <span class="d-flex align-items-center gap-2"><span class="ref-legend-dot ref-root-dot"></span> Root (R)</span>
                 <span class="d-flex align-items-center gap-2"><span class="ref-legend-dot ref-interval-dot"></span> Scale Interval</span>
             </div>
-            <span class="small text-muted d-none d-sm-inline">15 frets • ${stringCount}-string standard tuning (${[...(isFlipped ? [...standardStringNames].reverse() : standardStringNames)].join(' ')})</span>
+            <span class="small text-muted d-none d-sm-inline">15 frets • ${stringCount}-string ${tuningLabel} (${(isFlipped ? [...stringLabels].reverse() : stringLabels).join(' ')})</span>
         </div>
     </div>
     `;
@@ -1484,6 +1547,22 @@ function attachReferenceEventListeners(container) {
             if ([6, 7, 8].includes(count)) {
                 stringCount = count;
                 try { localStorage.setItem('majestictab_string_count', String(count)); } catch (_) {}
+                const contentContainer = document.getElementById('refTabContentContainer');
+                if (contentContainer) {
+                    contentContainer.innerHTML = activeTab === 'scales' ? renderScalesSection() : renderChordsSection();
+                    attachReferenceEventListeners(container);
+                }
+            }
+        });
+    });
+
+    // Tuning Buttons (standard tuning, tuned down), shared by the chord and scale views
+    container.querySelectorAll('.ref-tuning-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const offset = parseInt(btn.getAttribute('data-offset'), 10);
+            if (tuningSpecs[stringCount].offsets.includes(offset)) {
+                tuningOffset = offset;
+                try { localStorage.setItem('majestictab_tuning_offset', String(offset)); } catch (_) {}
                 const contentContainer = document.getElementById('refTabContentContainer');
                 if (contentContainer) {
                     contentContainer.innerHTML = activeTab === 'scales' ? renderScalesSection() : renderChordsSection();
