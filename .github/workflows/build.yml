@@ -140,26 +140,33 @@ jobs:
           if-no-files-found: error
 
   # The fdroid channel (no Google Play services, no self-update) signed with the release key. F-Droid verifies its own
-  # build against this APK; it is its own job so the Android project is not reused.
+  # build against this APK; it is its own job so the Android project is not reused. It must stay identical to F-Droid's
+  # recipe (fdroiddata metadata/net.zathu.majestictab.yml): the same Debian packages, Rust and NDK, installed the same way.
   android-no-gms:
     runs-on: ubuntu-latest
+    container: debian:trixie
+    env:
+      JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
+      ANDROID_HOME: /opt/android-sdk
     steps:
+      - name: Install build tools from Debian
+        run: |
+          apt-get update
+          apt-get install -y git ca-certificates curl unzip build-essential openjdk-21-jdk-headless nodejs npm rustup
+          update-java-alternatives -s java-1.21.0-openjdk-amd64 || true
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: build/tauri/package-lock.json
-      - uses: actions/setup-java@v5
-        with:
-          distribution: temurin
-          java-version: 17
-      # Rust and NDK versions match F-Droid's recipe: F-Droid rebuilds this channel and compares it with this APK.
-      - uses: dtolnay/rust-toolchain@1.99.1
-        with:
-          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+      - name: Install Rust 1.99.1
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --target aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+          rustup default 1.99.1
       - name: Install Android NDK r27c
         run: |
+          curl -sSfLo /tmp/cmdline-tools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+          echo '2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258  /tmp/cmdline-tools.zip' | sha256sum -c -
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          unzip -q /tmp/cmdline-tools.zip -d "$ANDROID_HOME/cmdline-tools"
+          mv "$ANDROID_HOME/cmdline-tools/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "ndk;27.2.12479018"
           echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
       - name: Restore release keystore
