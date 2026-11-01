@@ -9,7 +9,7 @@ removed), checks it with build/verify-channel.mjs, and serves the result. Captur
 Usage:
     pip install playwright pillow && playwright install chromium
     python3 tools/store_screenshots.py play                    # all Google Play phone shots (tab zoom 50%)
-    python3 tools/store_screenshots.py play-tablet-7           # Play 7-inch tablet shots (also play-tablet-10, play-desktop)
+    python3 tools/store_screenshots.py play-tablet-7           # Play 7-inch tablet shots (also play-tablet-10, play-tv, play-desktop)
     python3 tools/store_screenshots.py msstore                 # all Microsoft Store desktop shots
     python3 tools/store_screenshots.py play --only gp_scroll   # one shot
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
@@ -79,6 +79,21 @@ STORES = {
         "scale": 2,
         "user_agent": "Mozilla/5.0 (Linux; Android 14; Pixel Tablet) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
         "final": (2560, 1440),
+    },
+    # Play Android TV shots: 1920x1080 landscape, no touch. The real shell sets these root classes from AndroidTv.isTelevision() (src/tvMode.js).
+    "play-tv": {
+        "channel": "play",
+        "out": "../../fastlane/metadata/android/en-US/images/tvScreenshots",
+        "tab_scale": 80,
+        "shot_tab_scale": {"gp_page": 60},  # page mode shows a full spread, so it zooms out further
+        "viewport": {"width": 960, "height": 540},
+        "scale": 2,
+        "mobile": False,
+        "user_agent": "Mozilla/5.0 (Linux; Android 14; Android TV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "final": (1920, 1080),
+        "root_classes": ["tv-mode", "fullscreen-unavailable"],
+        "no_fullscreen": True,
+        "tv_frame": True,
     },
     "appstore-ios": {
         # iPhone 6.9" (16 Pro Max) logical width; height matched to visible frame so bottom docks aren't cropped.
@@ -376,7 +391,39 @@ def wrap(draw, text, fnt, width):
     return lines + [cur]
 
 
-def compose(raw_path, out_path, size, headline, subtitle):
+def compose_tv(bg, shot, k, text_bottom, out_path):
+    """A whole television on the background: square corners, thin bezel, slightly thicker chin, two feet."""
+    from PIL import Image, ImageDraw, ImageFilter
+    W, H = bg.size
+    bezel, chin, foot_h = round(10 * k), round(22 * k), round(46 * k)
+    top = round(text_bottom + 36 * k)
+    floor_gap = round(30 * k)
+    scr_h = H - top - floor_gap - foot_h - bezel - chin
+    scr_w = min(round(scr_h * shot.width / shot.height), W - 2 * round(60 * k))
+    scr_h = round(scr_w * shot.height / shot.width)
+    shot = shot.resize((scr_w, scr_h), Image.LANCZOS)
+    frame_w, frame_h = scr_w + 2 * bezel, scr_h + bezel + chin
+    left = (W - frame_w) // 2
+    bottom = top + frame_h
+
+    # Soft shadow under the set, then the feet (drawn first so the frame overlaps their tops).
+    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).rectangle([left, top + round(24 * k), left + frame_w, bottom + foot_h + round(24 * k)], fill=(0, 0, 0, 150))
+    bg = Image.alpha_composite(bg.convert("RGBA"), shadow.filter(ImageFilter.GaussianBlur(36 * k))).convert("RGB")
+    draw = ImageDraw.Draw(bg)
+    foot_w_top, foot_w_bottom = round(120 * k), round(170 * k)
+    for cx in (left + round(frame_w * 0.16), left + round(frame_w * 0.84)):
+        draw.polygon([(cx - foot_w_top // 2, bottom - 2), (cx + foot_w_top // 2, bottom - 2),
+                      (cx + foot_w_bottom // 2, bottom + foot_h), (cx - foot_w_bottom // 2, bottom + foot_h)], fill=(30, 30, 40))
+        draw.line([(cx - foot_w_bottom // 2, bottom + foot_h), (cx + foot_w_bottom // 2, bottom + foot_h)], fill=(70, 70, 88), width=max(1, round(3 * k)))
+    # Body: square corners, with a faint edge highlight, then the screen.
+    draw.rectangle([left, top, left + frame_w, bottom], fill=(12, 12, 20), outline=(58, 58, 74), width=max(1, round(2 * k)))
+    bg.paste(shot, (left + bezel, top + bezel))
+    Path(out_path).unlink(missing_ok=True)
+    bg.save(out_path, optimize=True)
+
+
+def compose(raw_path, out_path, size, headline, subtitle, tv=False):
     from PIL import Image, ImageChops, ImageDraw, ImageFilter
     W, H = size
     landscape = W > H
@@ -406,6 +453,9 @@ def compose(raw_path, out_path, size, headline, subtitle):
 
     # Device: scaled capture with rounded top corners, bleeding off the bottom edge without cropping bottom UI.
     shot = Image.open(raw_path).convert("RGB")
+    if tv:
+        compose_tv(bg, shot, k, y, Path(out_path))
+        return
     bezel, radius = (round(12 * k), round(28 * k)) if landscape else (round(14 * k), round(64 * k))
     top = round(y + (42 if landscape else 70) * k)
     dev_w = min(round((H - top - bezel) * shot.width / shot.height), W - 2 * (bezel + round(30 * k)))
@@ -486,7 +536,7 @@ def main():
                 shot_page = ctx.new_page() if shot.get("own_page") else page
                 if shot_page is not page:
                     shot_page.on("pageerror", lambda e: errors.append(str(e)))
-                setup_shot(shot_page, base, shot["setup"], store.get("tab_scale"))
+                setup_shot(shot_page, base, shot["setup"], store.get("shot_tab_scale", {}).get(shot["id"], store.get("tab_scale")))
                 if store.get("no_fullscreen"):
                     shown = shot_page.evaluate("""() => ['#fullscreenPill', '#fullscreenToggleBtn', '#toolsFullscreenRow']
                         .filter(s => { const e = document.querySelector(s); return e && e.offsetParent !== null; })""")
@@ -499,7 +549,7 @@ def main():
                 if shot_page is not page:
                     shot_page.close()
                 final = out / f"{n:02d}-{shot['id']}.png"
-                compose(raw, final, store["final"], shot["headline"], shot["subtitle"])
+                compose(raw, final, store["final"], shot["headline"], shot["subtitle"], tv=store.get("tv_frame", False))
                 print(f"  wrote {final}")
             browser.close()
         if errors:
