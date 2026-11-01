@@ -301,6 +301,31 @@ async function showIOSSharePrompt(file, filename) {
   });
 }
 
+// Desktop shells: a download has no visible destination there, so ask where to save and remember where it went.
+// Returns the chosen path, '' when the person cancelled, or null when there is no native dialog (or it failed).
+let lastSavedPath = '';
+async function saveWithNativeDialog(blob, filename) {
+  const tauri = window.__TAURI__;
+  if (!tauri?.dialog?.save || !tauri?.fs?.writeFile || /Android/i.test(navigator.userAgent)) return null;
+  try {
+    const path = await tauri.dialog.save({ defaultPath: filename });
+    if (!path) return '';
+    await tauri.fs.writeFile(path, new Uint8Array(await blob.arrayBuffer()));
+    lastSavedPath = path;
+    return path;
+  } catch (err) {
+    console.warn('[Export] Native save failed, falling back to a download:', err);
+    return null;
+  }
+}
+
+function showPdfExported() {
+  const path = lastSavedPath;
+  lastSavedPath = '';
+  if (path) showToast(`Exported to ${path}`, 'success', 9000);
+  else showToast('PDF exported successfully.', 'success');
+}
+
 async function saveOrSharePdf(pdf, filename) {
   if (isIOSDevice()) {
     const blob = pdf.output('blob');
@@ -322,6 +347,9 @@ async function saveOrSharePdf(pdf, filename) {
       return await showIOSSharePrompt(file, filename);
     }
   }
+
+  const savedPath = await saveWithNativeDialog(pdf.output('blob'), filename);
+  if (savedPath !== null) return savedPath !== '';
 
   pdf.save(filename);
   return true;
@@ -386,18 +414,12 @@ export async function exportSourceTabFile() {
     }
   }
 
-  // Desktop shells: a download has no visible destination there, so ask where to save and say where it went.
-  const tauri = window.__TAURI__;
-  if (tauri?.dialog?.save && tauri?.fs?.writeFile && !/Android/i.test(navigator.userAgent)) {
-    try {
-      const path = await tauri.dialog.save({ defaultPath: filename });
-      if (!path) return false;
-      await tauri.fs.writeFile(path, new Uint8Array(await currentFile.arrayBuffer()));
-      showToast(`Exported to ${path}`, 'success', 9000);
-      return true;
-    } catch (err) {
-      console.warn('[Export] Native save failed, falling back to a download:', err);
-    }
+  const savedPath = await saveWithNativeDialog(currentFile, filename);
+  if (savedPath !== null) {
+    if (savedPath === '') return false;
+    lastSavedPath = '';
+    showToast(`Exported to ${savedPath}`, 'success', 9000);
+    return true;
   }
 
   const url = URL.createObjectURL(currentFile);
@@ -456,7 +478,7 @@ export function setupExportPDFButton() {
       if (hasGP) {
         const ok = await exportGPToPDF(jsPDF, progressContainer, progressBar, filename);
         if (ok) {
-          showToast('PDF exported successfully.', 'success');
+          showPdfExported();
         }
       } else if (isCondensedPdf) {
         const canvases = getCondensedCanvases();
@@ -466,7 +488,7 @@ export function setupExportPDFButton() {
         }
         const ok = await exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar, filename);
         if (ok) {
-          showToast('PDF exported successfully.', 'success');
+          showPdfExported();
         }
       }
     } catch (err) {
