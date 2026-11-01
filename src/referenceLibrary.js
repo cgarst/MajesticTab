@@ -64,7 +64,7 @@ export function setReferenceTabChangeListener(fn) {
 let selectedCircleIndex = 0; // default C Major / Am
 let selectedScaleKey = 'majorPentatonic';
 let selectedRootNote = 0; // C (0 to 11)
-let chordStringCount = (() => { try { const n = parseInt(localStorage.getItem('majestictab_chord_string_count'), 10); return [6, 7, 8].includes(n) ? n : 6; } catch (_) { return 6; } })();
+let stringCount = (() => { try { const n = parseInt(localStorage.getItem('majestictab_string_count'), 10); return [6, 7, 8].includes(n) ? n : 6; } catch (_) { return 6; } })();
 let selectedChordFilter = 'all'; // 'all', 'Major', 'Dominant', 'Minor', 'Suspended'
 let preferBarreChords = (() => { try { return (localStorage.getItem('majestictab_prefer_barre_chords') ?? localStorage.getItem('majestictab_prefer_bar_chords')) === 'true'; } catch (_) { return false; } })();
 let selectedRootFilter = 'all'; // 'all' or a root from chordRootFilters
@@ -832,10 +832,11 @@ function buildFretboardSvg(scaleKey, rootNote) {
     const numFrets = 15;
     const fretWidth = 56;
     const stringSpacing = 32;
+    const boardHeight = (stringCount - 1) * stringSpacing;
     const startY = 38;
     const boardWidth = numFrets * fretWidth; // 840
     const totalWidth = 66 + boardWidth + 30; // 936
-    const totalHeight = startY + (5 * stringSpacing) + 32; // 230
+    const totalHeight = startY + boardHeight + 32; // 230 with six strings
 
     // Standard strings: Index 0 is high e, Index 5 is low E (standard tablature)
     const standardStrings = [
@@ -844,8 +845,10 @@ function buildFretboardSvg(scaleKey, rootNote) {
         { name: 'G', tuning: 7, gauge: 1.7 },
         { name: 'D', tuning: 2, gauge: 2.05 },
         { name: 'A', tuning: 9, gauge: 2.4 },
-        { name: 'E', tuning: 4, gauge: 2.75 }
-    ];
+        { name: 'E', tuning: 4, gauge: 2.75 },
+        { name: 'B', tuning: 11, gauge: 3.1 },
+        { name: 'F♯', tuning: 6, gauge: 3.45 }
+    ].slice(0, stringCount);
     const visualStrings = isFlipped ? [...standardStrings].reverse() : standardStrings;
 
     let svg = `<svg viewBox="0 0 ${totalWidth} ${totalHeight}" class="ref-fretboard-svg" style="min-width: 840px;" aria-label="Interactive Scale Fretboard">`;
@@ -854,16 +857,16 @@ function buildFretboardSvg(scaleKey, rootNote) {
         const startX = 66; // Nut x position
 
         // Fretboard body
-        svg += `<rect x="${startX}" y="${startY}" width="${boardWidth}" height="${5 * stringSpacing}" fill="var(--bg-elevated)" rx="4" stroke="var(--border-subtle)" stroke-width="1" />`;
+        svg += `<rect x="${startX}" y="${startY}" width="${boardWidth}" height="${boardHeight}" fill="var(--bg-elevated)" rx="4" stroke="var(--border-subtle)" stroke-width="1" />`;
 
         // Position inlay dots
         [3, 5, 7, 9, 12, 15].forEach(f => {
             const cx = startX + (f - 0.5) * fretWidth;
             if (f === 12) {
-                svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 1.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
-                svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 3.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+                svg += `<circle cx="${cx}" cy="${startY + boardHeight / 2 - stringSpacing}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+                svg += `<circle cx="${cx}" cy="${startY + boardHeight / 2 + stringSpacing}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
             } else if (f <= numFrets) {
-                svg += `<circle cx="${cx}" cy="${startY + (stringSpacing * 2.5)}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+                svg += `<circle cx="${cx}" cy="${startY + boardHeight / 2}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
             }
         });
 
@@ -871,7 +874,7 @@ function buildFretboardSvg(scaleKey, rootNote) {
         for (let f = 0; f <= numFrets; f++) {
             const x = startX + (f * fretWidth);
             const isNut = f === 0;
-            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + 5 * stringSpacing}" stroke="${isNut ? 'var(--text-primary)' : 'var(--border-subtle)'}" stroke-width="${isNut ? 5 : 1.5}" stroke-linecap="round"/>`;
+            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + boardHeight}" stroke="${isNut ? 'var(--text-primary)' : 'var(--border-subtle)'}" stroke-width="${isNut ? 5 : 1.5}" stroke-linecap="round"/>`;
             if (f > 0) {
                 svg += `<text x="${x - (fretWidth / 2)}" y="${startY - 14}" fill="var(--text-muted)" font-size="11" font-weight="600" text-anchor="middle">${f}</text>`;
             }
@@ -910,16 +913,16 @@ function buildFretboardSvg(scaleKey, rootNote) {
         const nutX = boardStartX + boardWidth; // 870
 
         // Fretboard body
-        svg += `<rect x="${boardStartX}" y="${startY}" width="${boardWidth}" height="${5 * stringSpacing}" fill="var(--bg-elevated)" rx="4" stroke="var(--border-subtle)" stroke-width="1" />`;
+        svg += `<rect x="${boardStartX}" y="${startY}" width="${boardWidth}" height="${boardHeight}" fill="var(--bg-elevated)" rx="4" stroke="var(--border-subtle)" stroke-width="1" />`;
 
         // Position inlay dots
         [3, 5, 7, 9, 12, 15].forEach(f => {
             const cx = nutX - (f - 0.5) * fretWidth;
             if (f === 12) {
-                svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 1.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
-                svg += `<circle cx="${cx}" cy="${startY + stringSpacing * 3.5}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+                svg += `<circle cx="${cx}" cy="${startY + boardHeight / 2 - stringSpacing}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+                svg += `<circle cx="${cx}" cy="${startY + boardHeight / 2 + stringSpacing}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
             } else if (f <= numFrets) {
-                svg += `<circle cx="${cx}" cy="${startY + (stringSpacing * 2.5)}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
+                svg += `<circle cx="${cx}" cy="${startY + boardHeight / 2}" r="4.5" fill="var(--border-prominent)" opacity="0.6"/>`;
             }
         });
 
@@ -927,7 +930,7 @@ function buildFretboardSvg(scaleKey, rootNote) {
         for (let f = 0; f <= numFrets; f++) {
             const x = nutX - (f * fretWidth);
             const isNut = f === 0;
-            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + 5 * stringSpacing}" stroke="${isNut ? 'var(--text-primary)' : 'var(--border-subtle)'}" stroke-width="${isNut ? 5 : 1.5}" stroke-linecap="round"/>`;
+            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + boardHeight}" stroke="${isNut ? 'var(--text-primary)' : 'var(--border-subtle)'}" stroke-width="${isNut ? 5 : 1.5}" stroke-linecap="round"/>`;
             if (f > 0) {
                 svg += `<text x="${x + (fretWidth / 2)}" y="${startY - 14}" fill="var(--text-muted)" font-size="11" font-weight="600" text-anchor="middle">${f}</text>`;
             }
@@ -1057,9 +1060,17 @@ const chordRootFilters = ['A', 'B♭', 'B', 'C', 'C♯', 'D', 'E♭', 'E', 'F', 
 // Circle of fifths spellings that the chord library files under another name
 const chordRootAliases = { 'D♭': 'C♯', 'D♯': 'E♭', 'G♭': 'F♯', 'G♯': 'A♭', 'A♯': 'B♭', 'E♯': 'F', 'B♯': 'C', 'C♭': 'B', 'F♭': 'E' };
 
+function buildStringCountButtonsHtml() {
+    return [6, 7, 8].map(n => `
+            <button type="button" class="btn btn-sm ${stringCount === n ? 'btn-theme-primary' : 'btn-theme-outline'} ref-strings-btn" data-strings="${n}">
+                ${n}
+            </button>
+        `).join('');
+}
+
 function getActiveChordData() {
-    if (chordStringCount === 7) return chordData7;
-    if (chordStringCount === 8) return chordData8;
+    if (stringCount === 7) return chordData7;
+    if (stringCount === 8) return chordData8;
     return chordData;
 }
 
@@ -1108,11 +1119,7 @@ function renderChordsSection() {
         `;
     }).join('');
 
-    const stringCountButtonsHtml = [6, 7, 8].map(n => `
-            <button type="button" class="btn btn-sm ${chordStringCount === n ? 'btn-theme-primary' : 'btn-theme-outline'} ref-chord-strings-btn" data-strings="${n}">
-                ${n}
-            </button>
-        `).join('');
+    const stringCountButtonsHtml = buildStringCountButtonsHtml();
 
     const chordCardsHtml = filteredChords.length > 0 ? filteredChords.map(chord => `
         <div class="col">
@@ -1162,7 +1169,7 @@ function renderChordsSection() {
                 <!-- String Count -->
                 <div class="ref-filter-group">
                     <span class="ref-filter-group-label">Strings:</span>
-                    <div class="d-flex flex-wrap gap-1 ref-chord-string-filters">
+                    <div class="d-flex flex-wrap gap-1 ref-string-filters">
                         ${stringCountButtonsHtml}
                     </div>
                 </div>
@@ -1200,6 +1207,7 @@ function renderScalesSection() {
     const isLeftHanded = getIsLeftHanded();
     const currentScale = scaleDefinitions[selectedScaleKey] || scaleDefinitions.majorPentatonic;
     const rootName = noteNames[selectedRootNote];
+    const standardStringNames = ['e', 'B', 'G', 'D', 'A', 'E', 'B', 'F♯'].slice(0, stringCount);
 
     // Compute active notes in scale
     const activeNoteNames = currentScale.intervals.map(item => {
@@ -1247,6 +1255,12 @@ function renderScalesSection() {
                         ${rootOptions}
                     </select>
                 </div>
+                <div>
+                    <span class="ref-select-label d-block">Strings</span>
+                    <div class="d-flex gap-1 ref-string-filters">
+                        ${buildStringCountButtonsHtml()}
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -1274,7 +1288,7 @@ function renderScalesSection() {
                 <span class="d-flex align-items-center gap-2"><span class="ref-legend-dot ref-root-dot"></span> Root (R)</span>
                 <span class="d-flex align-items-center gap-2"><span class="ref-legend-dot ref-interval-dot"></span> Scale Interval</span>
             </div>
-            <span class="small text-muted d-none d-sm-inline">15 frets • Standard tuning (${isFlipped ? 'E A D G B e' : 'e B G D A E'})</span>
+            <span class="small text-muted d-none d-sm-inline">15 frets • ${stringCount}-string standard tuning (${[...(isFlipped ? [...standardStringNames].reverse() : standardStringNames)].join(' ')})</span>
         </div>
     </div>
     `;
@@ -1463,16 +1477,16 @@ function attachReferenceEventListeners(container) {
         });
     }
 
-    // Chord String Count Buttons (6 / 7 / 8)
-    container.querySelectorAll('.ref-chord-strings-btn').forEach(btn => {
+    // String Count Buttons (6 / 7 / 8), shared by the chord and scale views
+    container.querySelectorAll('.ref-strings-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             const count = parseInt(btn.getAttribute('data-strings'), 10);
             if ([6, 7, 8].includes(count)) {
-                chordStringCount = count;
-                try { localStorage.setItem('majestictab_chord_string_count', String(count)); } catch (_) {}
+                stringCount = count;
+                try { localStorage.setItem('majestictab_string_count', String(count)); } catch (_) {}
                 const contentContainer = document.getElementById('refTabContentContainer');
                 if (contentContainer) {
-                    contentContainer.innerHTML = renderChordsSection();
+                    contentContainer.innerHTML = activeTab === 'scales' ? renderScalesSection() : renderChordsSection();
                     attachReferenceEventListeners(container);
                 }
             }
