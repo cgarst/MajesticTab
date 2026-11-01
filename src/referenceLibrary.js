@@ -653,6 +653,46 @@ function buildCircleOfFifthsSvg(selectedIndex) {
 }
 
 /**
+ * Work out which fingers have to lie across several strings. With four or more fretted notes every
+ * finger is in use, so the index finger bars the lowest fret and any fret shared by strings with a
+ * higher-fretted string between them gets a bar too. With more than four notes the next frets are
+ * barred until four fingers are enough. A bar only passes over strings fretted higher up or muted,
+ * never over a string that is open or held at a lower fret, so a fret shared by strings on both sides
+ * of such a string is split into separate bars.
+ * Returns [{ fret, strings: [indices into the frets array] }].
+ */
+function findFingerBars(frets) {
+    const fretNumbers = frets.map(f => parseInt(f, 10));
+    const groups = new Map();
+    fretNumbers.forEach((fret, i) => {
+        if (fret > 0) groups.set(fret, [...(groups.get(fret) || []), i]);
+    });
+    const totalNotes = [...groups.values()].reduce((sum, strings) => sum + strings.length, 0);
+    const sortedFrets = [...groups.keys()].sort((a, b) => a - b);
+    let fingersNeeded = totalNotes;
+    const bars = [];
+    for (const fret of sortedFrets) {
+        const isIndexFret = fret === sortedFrets[0];
+        const runs = [];
+        for (const string of groups.get(fret)) {
+            const run = runs[runs.length - 1];
+            const blocked = run && fretNumbers.slice(run[run.length - 1] + 1, string).some(other => other < fret);
+            if (run && !blocked) run.push(string);
+            else runs.push([string]);
+        }
+        for (const strings of runs) {
+            if (strings.length < 2) continue;
+            const bridgesHigherFret = fretNumbers.slice(strings[0] + 1, strings[strings.length - 1]).some(other => other > fret);
+            if ((totalNotes >= 4 && (isIndexFret || bridgesHigherFret)) || fingersNeeded > 4) {
+                bars.push({ fret, strings });
+                fingersNeeded -= strings.length - 1;
+            }
+        }
+    }
+    return bars;
+}
+
+/**
  * Generate Chord Box Diagram SVG (Rotated Left 90 degrees)
  * Nut on left (right-handed) or right (left-handed), frets extending horizontally.
  * Strings are horizontal: High e on top, Low E on bottom (Tab View), or inverted (Player View).
@@ -696,6 +736,16 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
     const fretNumY = startY + lastString * stringGap + 12;
     const height = fretNumY + 6;
 
+    const fingerBars = findFingerBars(frets);
+    const buildBarsSvg = fretX => fingerBars.map(bar => {
+        const relativeFret = bar.fret - baseFret + 1;
+        if (relativeFret < 1 || relativeFret > numFrets) return '';
+        const rows = bar.strings.map(i => isFlipped ? i : (lastString - i));
+        const y1 = startY + Math.min(...rows) * stringGap;
+        const y2 = startY + Math.max(...rows) * stringGap;
+        return `<rect class="ref-chord-barre" x="${fretX(relativeFret) - 4.5}" y="${y1 - 4.5}" width="9" height="${y2 - y1 + 9}" rx="4.5" fill="var(--accent-primary)" fill-opacity="0.3" stroke="var(--accent-primary)" stroke-opacity="0.55" stroke-width="1.2" />`;
+    }).join('');
+
     let svg = `<svg viewBox="0 0 ${width} ${height}" class="ref-chord-diagram-svg" style="aspect-ratio: ${width} / ${height}" aria-hidden="true">`;
 
     if (!isLeftHanded) {
@@ -734,7 +784,8 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
             }
         }
 
-        // Pressed note dots
+        // Bars for fingers that lie across several strings (drawn faintly under the dots), then the pressed note dots
+        svg += buildBarsSvg(relativeFret => startX + (relativeFret - 0.5) * fretGap);
         for (let s = 0; s < numStrings; s++) {
             const origStringIndex = isFlipped ? s : (lastString - s);
             const f = frets[origStringIndex];
@@ -797,7 +848,8 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
             }
         }
 
-        // Pressed note dots
+        // Bars for fingers that lie across several strings (drawn faintly under the dots), then the pressed note dots
+        svg += buildBarsSvg(relativeFret => nutX - (relativeFret - 0.5) * fretGap);
         for (let s = 0; s < numStrings; s++) {
             const origStringIndex = isFlipped ? s : (lastString - s);
             const f = frets[origStringIndex];
