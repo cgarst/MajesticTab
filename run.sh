@@ -35,4 +35,4 @@ fi
 
 cd build/tauri
 [ -d node_modules ] || npm ci
-npm run tauri:dev
+npm run tauri:dev -- --features debug-tools
