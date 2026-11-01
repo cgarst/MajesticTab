@@ -142,6 +142,11 @@ class GamepadManager {
                 this.clearNavFocus();
             }
         }, { passive: true });
+        // Tab starts keyboard navigation; until then a focused button is only left over from a click (Bootstrap and
+        // WebKitGTK restore focus to the opener when a menu or panel closes) and must not hijack Space or the arrows.
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') this.lastInputWasNavigation = true;
+        }, true);
         window.addEventListener('focusin', (e) => {
             if (this.lastInputWasNavigation && e.target && e.target !== document.body && e.target !== document.documentElement) {
                 this.applyNavFocusClass(e.target);
@@ -818,6 +823,9 @@ class GamepadManager {
     }
 
     isTopBarFocused() {
+        // Focus alone proves nothing: a mouse click or a closing menu leaves a button focused. Only count it while the
+        // user is navigating with the keyboard or a controller.
+        if (!this.lastInputWasNavigation) return false;
         return this.getChromeRoots().some(root => root.contains(document.activeElement));
     }
 
@@ -1415,7 +1423,8 @@ class GamepadManager {
 
     // --- Modal Controls ---
 
-    isAnyModalOpen() {
+    /** A dropdown menu, theme modal or drawer: something that blocks the score until dismissed. */
+    isBlockingOverlayOpen() {
         const openDropdown = Array.from(document.querySelectorAll('.dropdown-menu.show'))
             .some(el => this.isElementVisible(el));
         if (openDropdown) return true;
@@ -1425,7 +1434,11 @@ class GamepadManager {
         if (openBackdrops) return true;
 
         const openOffcanvas = document.querySelector('.offcanvas.show');
-        if (openOffcanvas && this.isElementVisible(openOffcanvas)) return true;
+        return !!(openOffcanvas && this.isElementVisible(openOffcanvas));
+    }
+
+    isAnyModalOpen() {
+        if (this.isBlockingOverlayOpen()) return true;
 
         for (const panelId of ['synthDropdownPanel', 'scoreOptionsDropdownPanel', 'ytDropdownPanel', 'toolsMenu']) {
             const panel = document.getElementById(panelId);

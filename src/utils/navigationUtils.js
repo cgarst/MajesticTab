@@ -304,7 +304,11 @@ export function setupKeyboardNavigation(getConfig) {
                 gamepadManager.navigateSpatial(dir);
                 return;
             }
-            if (e.key === 'Enter' || isSpace) {
+            // Space plays and pauses unless the user is navigating the interface (Tab, arrows, controller) or something
+            // blocks the score. A synth or options panel left open does not: its buttons are not Space targets.
+            const spaceIsPlayback = isSpace && !gamepadManager.lastInputWasNavigation
+                && !gamepadManager.isLibraryViewOpen() && !gamepadManager.isBlockingOverlayOpen();
+            if ((e.key === 'Enter' || isSpace) && !spaceIsPlayback) {
                 if (!e.defaultPrevented) {
                     e.preventDefault();
                     gamepadManager.handleButtonA(gamepadManager.isLibraryViewOpen(), gamepadManager.isAnyModalOpen());
