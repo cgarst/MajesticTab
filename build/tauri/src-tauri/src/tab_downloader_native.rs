@@ -97,6 +97,22 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         return origFormSubmit.apply(this, arguments);
     };
 
+    // 2b. iOS hands a tapped cross-site link (including its redirect chain, e.g. google.com/goto to songsterr.com)
+    // to the site's native app when it has a Universal Link. A script-initiated navigation is never handed off,
+    // so cross-site taps go through location.assign. Handlers that already prevented the click are left alone.
+    document.addEventListener('click', function(e) {
+        if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+        const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+        if (!a || a.hasAttribute('download')) return;
+        const target = (a.getAttribute('target') || '').toLowerCase();
+        if (target && target !== '_self' && target !== '_blank') return;
+        let u;
+        try { u = new URL(a.href, location.href); } catch (_) { return; }
+        if ((u.protocol !== 'http:' && u.protocol !== 'https:') || u.host === location.host) return;
+        e.preventDefault();
+        location.assign(u.href);
+    }, false);
+
     function arrayBufferToBase64(buf) {
         const bytes = new Uint8Array(buf);
         let binary = '';
