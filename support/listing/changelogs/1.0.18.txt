@@ -1,0 +1,1 @@
+- Fix Space bar not toggling playback after clicking a button with the mouse
