@@ -216,6 +216,14 @@ class MainActivity : TauriActivity() {
                 }
               }
             }
+            // A cut-off download would leave the installer with a corrupt APK, so fail here with the sizes logged.
+            if (total > 0 && done != total) {
+              android.util.Log.e("MajesticTab", "APK download incomplete: got $done of $total bytes")
+              apk.delete()
+              reportUpdate("error", 0)
+              return@Thread
+            }
+            android.util.Log.i("MajesticTab", "APK downloaded: $done bytes (expected $total), file ${apk.length()}")
             val uri = androidx.core.content.FileProvider.getUriForFile(
               this@MainActivity, "$packageName.updateprovider", apk
             )
