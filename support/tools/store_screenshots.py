@@ -4,7 +4,7 @@
 Each shot is captured from the app exactly as that channel ships it: the script runs
 build/tauri/prepare-tauri-frontend.mjs for the channel (channel.json, files and options the channel excludes
 removed), checks it with build/verify-channel.mjs, and serves the result. Capture is at the store's device size, then composed into a marketing frame
-(headline, subtitle, device-framed capture); a store with "plain": True (flathub) gets the bare capture instead. Only public-domain / test fixtures in tests/ are used (no copyrighted tabs).
+(headline, subtitle, device-framed capture); Flathub shots are not made here (see flathub_screenshots.mjs). Only public-domain / test fixtures in tests/ are used (no copyrighted tabs).
 
 Usage:
     pip install playwright pillow && playwright install chromium
@@ -12,7 +12,6 @@ Usage:
     python3 tools/store_screenshots.py play-tablet-7           # Play 7-inch tablet shots (also play-tablet-10, play-desktop)
     python3 tools/store_screenshots.py msstore                 # all Microsoft Store desktop shots
     python3 tools/store_screenshots.py play --only gp_scroll   # one shot
-    python3 tools/store_screenshots.py flathub --only gp_scroll gp_page library synth_menu fretboard   # Flathub (plain captures)
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
     python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist
 
@@ -92,15 +91,6 @@ STORES = {
         # iOS is always a full-screen app, so the Fullscreen button must not appear anywhere.
         "no_fullscreen": True,
     },
-    "flathub": {
-        # Flathub wants plain window captures: no marketing frame, headline or device bezel. 16:9, 1920x1080.
-        "viewport": {"width": 1440, "height": 810},
-        "scale": 2,
-        "mobile": False,
-        "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-        "final": (1920, 1080),
-        "plain": True,
-    },
     "msstore": {
         # Microsoft Store desktop: 16:9, 1366x768 to 3840x2160.
         "viewport": {"width": 1440, "height": 810},
@@ -176,37 +166,9 @@ def has_feature(cfg, name):
 
 # Fictional artists (1-4 albums each) plus Custom Music (books + songs) so the library shot never shows
 # copyrighted names or artwork while showcasing 1-, 2-, 3-, and 4-album artist collages.
-DEMO_LIBRARY = {
-    "Aurora Vale": {
-        "Glass Meridian": ["Open Water", "Paper Lanterns", "Meridian", "Slow Burn", "Last Light"],
-        "Northbound": ["Departure", "Cold Front", "Harbor Lights", "Northbound"],
-        "Solstice Echoes": ["First Frost", "Midwinter", "Thaw", "Equinox"],
-    },
-    "Copper Sky": {
-        "Rustbelt": ["Iron Hymn", "Copper Sky", "Furnace", "Switchyard"],
-        "Signal Fires": ["Beacon", "Telegraph", "Cinder", "Red Horizon", "Ashfall"],
-    },
-    "Hollow Pines": {
-        "Static Bloom": ["Wildfire", "Static Bloom", "Ember Road", "Hollow Hearts"],
-        "Timberline": ["Ridge", "Canopy", "moss & Stone", "Firewatch"],
-        "Nightjar": ["Dusk", "Starlight", "Wingbeat", "Roost"],
-        "Pale October": ["Equinox", "Harvest Moon", "Driftwood", "Frostline"],
-    },
-    "Neon Harbor": {
-        "Midnight Arcade": ["Insert Coin", "Neon Tide", "Afterglow", "Player Two", "High Score"],
-    },
-    "Stonebridge": {
-        "Foundations": ["Keystone Lane", "Arches", "Bedrock", "Crossing"],
-        "Quarry": ["Granite", "Chisel", "Faultline", "Echo Chamber"],
-        "High Water": ["Floodgate", "Millrace", "Undertow", "Breakwater"],
-    },
-    "The Velvet Hour": {
-        "Low Tide Club": ["Velvet", "Low Tide", "Last Call"],
-        "Late Checkout": ["Room 404", "Minibar", "Lobby Piano", "Sunrise Cab"],
-        "Blue Neon": ["Rain on Glass", "Boulevard", "Nightcap", "Closing Time"],
-        "Silver Lining": ["Daybreak", "Overcast", "Clear Skies"],
-    },
-}
+with open(Path(__file__).with_name("demo_library.json")) as _f:
+    _demo = json.load(_f)
+DEMO_LIBRARY = _demo["library"]
 
 COVER_TINTS = [
     (255, 110, 90),   # warm coral / sunset
@@ -265,14 +227,7 @@ def fake_cover_data_url(artist, title, idx):
 
 # Weighted pool so the Tunings view shows 6-String (Standard, Drop D, D Standard, DADGAD) and
 # 7-String (7-String Standard, 7-String Drop A) with distinct descending song counts.
-DEMO_TUNINGS = (
-    ["Standard"] * 7
-    + ["Drop D"] * 4
-    + ["D Standard"] * 3
-    + ["DADGAD"] * 2
-    + ["7-String Standard"] * 3
-    + ["7-String Drop A"] * 2
-)
+DEMO_TUNINGS = _demo["tunings"]
 
 
 def seed_library(page, base):
@@ -544,11 +499,7 @@ def main():
                 if shot_page is not page:
                     shot_page.close()
                 final = out / f"{n:02d}-{shot['id']}.png"
-                if store.get("plain"):
-                    from PIL import Image
-                    Image.open(raw).convert("RGB").resize(store["final"], Image.LANCZOS).save(final, optimize=True)
-                else:
-                    compose(raw, final, store["final"], shot["headline"], shot["subtitle"])
+                compose(raw, final, store["final"], shot["headline"], shot["subtitle"])
                 print(f"  wrote {final}")
             browser.close()
         if errors:

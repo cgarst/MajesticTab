@@ -1,0 +1,142 @@
+{
+  "library": {
+    "Aurora Vale": {
+      "Glass Meridian": [
+        "Open Water",
+        "Paper Lanterns",
+        "Meridian",
+        "Slow Burn",
+        "Last Light"
+      ],
+      "Northbound": [
+        "Departure",
+        "Cold Front",
+        "Harbor Lights",
+        "Northbound"
+      ],
+      "Solstice Echoes": [
+        "First Frost",
+        "Midwinter",
+        "Thaw",
+        "Equinox"
+      ]
+    },
+    "Copper Sky": {
+      "Rustbelt": [
+        "Iron Hymn",
+        "Copper Sky",
+        "Furnace",
+        "Switchyard"
+      ],
+      "Signal Fires": [
+        "Beacon",
+        "Telegraph",
+        "Cinder",
+        "Red Horizon",
+        "Ashfall"
+      ]
+    },
+    "Hollow Pines": {
+      "Static Bloom": [
+        "Wildfire",
+        "Static Bloom",
+        "Ember Road",
+        "Hollow Hearts"
+      ],
+      "Timberline": [
+        "Ridge",
+        "Canopy",
+        "moss & Stone",
+        "Firewatch"
+      ],
+      "Nightjar": [
+        "Dusk",
+        "Starlight",
+        "Wingbeat",
+        "Roost"
+      ],
+      "Pale October": [
+        "Equinox",
+        "Harvest Moon",
+        "Driftwood",
+        "Frostline"
+      ]
+    },
+    "Neon Harbor": {
+      "Midnight Arcade": [
+        "Insert Coin",
+        "Neon Tide",
+        "Afterglow",
+        "Player Two",
+        "High Score"
+      ]
+    },
+    "Stonebridge": {
+      "Foundations": [
+        "Keystone Lane",
+        "Arches",
+        "Bedrock",
+        "Crossing"
+      ],
+      "Quarry": [
+        "Granite",
+        "Chisel",
+        "Faultline",
+        "Echo Chamber"
+      ],
+      "High Water": [
+        "Floodgate",
+        "Millrace",
+        "Undertow",
+        "Breakwater"
+      ]
+    },
+    "The Velvet Hour": {
+      "Low Tide Club": [
+        "Velvet",
+        "Low Tide",
+        "Last Call"
+      ],
+      "Late Checkout": [
+        "Room 404",
+        "Minibar",
+        "Lobby Piano",
+        "Sunrise Cab"
+      ],
+      "Blue Neon": [
+        "Rain on Glass",
+        "Boulevard",
+        "Nightcap",
+        "Closing Time"
+      ],
+      "Silver Lining": [
+        "Daybreak",
+        "Overcast",
+        "Clear Skies"
+      ]
+    }
+  },
+  "tunings": [
+    "Standard",
+    "Standard",
+    "Standard",
+    "Standard",
+    "Standard",
+    "Standard",
+    "Standard",
+    "Drop D",
+    "Drop D",
+    "Drop D",
+    "Drop D",
+    "D Standard",
+    "D Standard",
+    "D Standard",
+    "DADGAD",
+    "DADGAD",
+    "7-String Standard",
+    "7-String Standard",
+    "7-String Standard",
+    "7-String Drop A",
+    "7-String Drop A"
+  ]
+}

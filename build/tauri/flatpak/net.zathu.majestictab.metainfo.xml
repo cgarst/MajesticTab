@@ -4,19 +4,9 @@
   <metadata_license>CC0-1.0</metadata_license>
   <project_license>MIT</project_license>
   <name>MajesticTab</name>
-  <summary>Guitar tab viewer</summary>
+  <summary>__SUMMARY__</summary>
   <description>
-    <p>
-      MajesticTab is a fast, modern tablature viewer and practice companion for Guitar Pro files, PDF sheet music, and plain text tabs.
-    </p>
-    <p>Features include:</p>
-    <ul>
-      <li>High-quality Guitar Pro score rendering and multi-track audio playback with soundfonts</li>
-      <li>Smart PDF tab condensing and page layout optimization</li>
-      <li>Integrated YouTube video player synchronized with tabs</li>
-      <li>Custom finish themes and palettes</li>
-      <li>Offline and local file library support</li>
-    </ul>
+__DESCRIPTION__
   </description>
   <launchable type="desktop-id">net.zathu.majestictab.desktop</launchable>
   <url type="homepage">https://majestictab.zathu.net</url>
@@ -39,12 +29,28 @@
       <caption>Or turn pages like a book</caption>
     </screenshot>
     <screenshot>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/03-library.png</image>
+      <caption>Keep your whole tab library in one place</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/04-tunings.png</image>
+      <caption>Browse your songs by tuning</caption>
+    </screenshot>
+    <screenshot>
       <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/05-synth_menu.png</image>
       <caption>Play along with the built-in synth</caption>
     </screenshot>
     <screenshot>
       <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/06-fretboard.png</image>
       <caption>Follow each note on a fretboard</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/07-theme_palettes.png</image>
+      <caption>Pick a guitar finish theme</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/cgarst/MajesticTab/v__APP_VERSION__/support/store/flathub/08-jam.png</image>
+      <caption>Jam with others and assign each person their tracks</caption>
     </screenshot>
   </screenshots>
   <categories>

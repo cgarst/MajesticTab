@@ -44,10 +44,10 @@ To ensure high visual polish, scannability, and consistency across marketing pag
 Website, store listing, and branding material live in `docs/` and `support/`:
 
 - `docs/`: the public website (GitHub Pages root: `index.html`, `privacy.html`, `landing.css`, `CNAME`, `img/`, `icons/`), the deploy root for `majestictab.zathu.net`.
-- `support/store/`: Microsoft Store screenshots and logos (`msstore/`) and Play desktop screenshots (`play/desktop/`, which the Play API can't upload).
+- `support/store/`: Microsoft Store screenshots and logos (`msstore/`), Play desktop screenshots (`play/desktop/`, which the Play API can't upload) and Flathub screenshots (`flathub/`). Flathub requires real window captures with native decorations, so `support/tools/flathub_screenshots.mjs` drives the installed release Flatpak on a KDE Wayland machine and captures it with Spectacle (never compose or emulate them); see the script header for how to run it.
 - `support/listing/`: the single source for store listing text on every channel (`short_description.txt`, `full_description.txt`, `changelogs/<version>.txt`). `fastlane/metadata/android/en-US/` holds the Google Play and F-Droid listing images (icon, feature graphic, phone and tablet screenshots) plus symlinks to that text. `msstore_listing.py` reads the same descriptions and release notes. `fastlane android listing` syncs the listing to Play and `fastlane android release` uploads the AAB (`bundle exec`, with `PLAY_SERVICE_ACCOUNT_JSON` set).
 - `support/branding/`: source icon SVGs and `generate_icons.py`, which writes the web PNG/ICO icons to both `src/icons/` and `docs/icons/`.
-- `support/tools/`: generators (`generate_screenshots.py`, `store_screenshots.py`, `store_logos.py`, `generate-steam-artwork.mjs`, `generate-msstore-artwork.mjs`) and `landing/build.sh` (rebuilds `docs/landing.css` after changing classes in `index.html`).
+- `support/tools/`: generators (`generate_screenshots.py`, `store_screenshots.py`, `store_logos.py`, `generate-steam-artwork.mjs`, `generate-msstore-artwork.mjs`, `flathub_screenshots.mjs`) and `landing/build.sh` (rebuilds `docs/landing.css` after changing classes in `index.html`).
 
 Runtime app icons are in `src/icons/` (referenced as `icons/...` from `src/`).
 
