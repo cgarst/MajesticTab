@@ -449,11 +449,21 @@ export async function openLibraryModal(initialView = 'library') {
     pauseSynthPlayer();
     pauseYouTube();
     initLibraryTopBar();
+    // 'tunings' is the Tunings tab of the library view
+    const wantTunings = initialView === 'tunings';
+    if (wantTunings) {
+        initialView = 'library';
+        libraryBrowseMode = 'tunings';
+        selectedArtist = null;
+        selectedAlbum = null;
+        selectedFolderPath = [];
+        selectedTuning = null;
+    }
     if (initialView !== activeView) {
         viewHistory = [];
     }
     activeView = initialView;
-    updateUrl(initialView.toLowerCase(), null, false);
+    updateUrl(wantTunings ? 'tunings' : initialView.toLowerCase(), null, false);
 
     let page = document.getElementById('libraryPage');
     if (!page) {
@@ -1545,7 +1555,7 @@ function getActiveLibraryTab() {
 }
 
 // Shared by the desktop view switcher and the phone bottom nav
-async function goLibraryTab(tab) {
+export async function goLibraryTab(tab) {
     if (tab === 'setlists' || tab === 'recents') {
         if (activeView !== tab) await switchView(tab);
         return;

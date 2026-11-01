@@ -12,7 +12,7 @@
 // - #reference/tone
 // (also supports corresponding slash formats e.g. #/library, #/reference/scales, and query params e.g. ?view=tuner, ?view=reference&tab=scales)
 
-import { openLibraryModal, closeLibraryModal, isLibraryOpen, getActiveLibraryView, switchLibraryView } from '../libraryModal.js';
+import { openLibraryModal, closeLibraryModal, isLibraryOpen, getActiveLibraryView, switchLibraryView, goLibraryTab } from '../libraryModal.js';
 import { openTunerModal, closeTunerModal } from '../tuner/tuner.js';
 import { getActiveReferenceTab, setReferenceTabChangeListener, openReferenceModal, closeReferenceModal, isReferenceOpen } from '../referenceLibrary.js';
 
@@ -97,18 +97,16 @@ export async function navigateToUrlRoute(route, isInitial = false) {
             return true;
         }
 
-        const libraryViews = { library: 'library', recents: 'recents', setlists: 'setlists', openfile: 'openFile', search: 'search', tunings: 'library' };
+        const libraryViews = { library: 'library', recents: 'recents', setlists: 'setlists', openfile: 'openFile', search: 'search', tunings: 'tunings' };
         if (libraryViews[route.main]) {
             const view = libraryViews[route.main];
             closeTunerModal();
             closeReferenceModal();
             if (isLibraryOpen()) {
-                await switchLibraryView(view, false);
+                if (view === 'tunings' || view === 'library') await goLibraryTab(view);
+                else await switchLibraryView(view, false);
             } else {
                 await openLibraryModal(view);
-            }
-            if (route.main === 'tunings') {
-                document.getElementById('libTuningsBtn')?.click();
             }
             return true;
         }
