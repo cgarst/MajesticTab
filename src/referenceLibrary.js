@@ -4,6 +4,7 @@
 // Optimized for desktop and mobile viewports with MajesticTab finish theme integration.
 
 import { fretboardController } from './fretboard/fretboardController.js';
+import { chordData7, chordData8 } from './extendedRangeChords.js';
 
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
 const STORAGE_KEY_FLIP = 'majestictab_fretboard_flip_strings';
@@ -63,6 +64,7 @@ export function setReferenceTabChangeListener(fn) {
 let selectedCircleIndex = 0; // default C Major / Am
 let selectedScaleKey = 'majorPentatonic';
 let selectedRootNote = 0; // C (0 to 11)
+let chordStringCount = (() => { try { const n = parseInt(localStorage.getItem('majestictab_chord_string_count'), 10); return [6, 7, 8].includes(n) ? n : 6; } catch (_) { return 6; } })();
 let selectedChordFilter = 'all'; // 'all', 'Major', 'Dominant', 'Minor', 'Suspended'
 let preferBarreChords = (() => { try { return (localStorage.getItem('majestictab_prefer_barre_chords') ?? localStorage.getItem('majestictab_prefer_bar_chords')) === 'true'; } catch (_) { return false; } })();
 let selectedRootFilter = 'all'; // 'all', 'A', 'B', 'C', 'D', 'E', 'F', 'G'
@@ -523,10 +525,12 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
     }
 
     const frets = fretsStr.trim().split(/\s+/);
+    const numStrings = Math.max(6, frets.length);
+    const lastString = numStrings - 1;
     const startY = 14; // High e string y position (or Low E when flipped)
     const stringGap = 10;
-    const stringNamesNormal = ['e', 'B', 'G', 'D', 'A', 'E'];
-    const stringNamesFlipped = ['E', 'A', 'D', 'G', 'B', 'e'];
+    const stringNamesNormal = ['e', 'B', 'G', 'D', 'A', 'E', 'B', 'F♯'].slice(0, numStrings);
+    const stringNamesFlipped = [...stringNamesNormal].reverse();
     const stringNames = isFlipped ? stringNamesFlipped : stringNamesNormal;
 
     // Check base fret
@@ -542,26 +546,27 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
     const fretGap = numFrets > 4 ? 18 : 22;
     const boardWidth = numFrets * fretGap;
     const width = 30 + boardWidth + 12;
-    const height = 82;
+    const fretNumY = startY + lastString * stringGap + 12;
+    const height = fretNumY + 6;
 
-    let svg = `<svg viewBox="0 0 ${width} ${height}" class="ref-chord-diagram-svg" aria-hidden="true">`;
+    let svg = `<svg viewBox="0 0 ${width} ${height}" class="ref-chord-diagram-svg" style="aspect-ratio: ${width} / ${height}" aria-hidden="true">`;
 
     if (!isLeftHanded) {
         const startX = 30; // Nut x position
 
         // Nut (vertical line)
-        svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + 5 * stringGap}" stroke="${baseFret === 1 ? 'var(--text-primary)' : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? 3.5 : 1.8}" stroke-linecap="round"/>`;
+        svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? 'var(--text-primary)' : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? 3.5 : 1.8}" stroke-linecap="round"/>`;
 
         // Fret wire lines (vertical)
         for (let f = 1; f <= numFrets; f++) {
             const x = startX + f * fretGap;
-            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + 5 * stringGap}" stroke="var(--border-subtle)" stroke-width="1.2" stroke-linecap="round"/>`;
+            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + lastString * stringGap}" stroke="var(--border-subtle)" stroke-width="1.2" stroke-linecap="round"/>`;
         }
 
         // Horizontal string lines and string indicators on the left
-        for (let s = 0; s < 6; s++) {
+        for (let s = 0; s < numStrings; s++) {
             const y = startY + s * stringGap;
-            const gauge = isFlipped ? 1 + ((5 - s) * 0.22) : 1 + (s * 0.22);
+            const gauge = isFlipped ? 1 + ((lastString - s) * 0.22) : 1 + (s * 0.22);
             // String line
             svg += `<line x1="${startX}" y1="${y}" x2="${startX + boardWidth}" y2="${y}" stroke="var(--border-subtle)" stroke-width="${gauge}" stroke-linecap="round"/>`;
 
@@ -571,7 +576,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
             // Corresponding original string in frets array:
             // Standard Tab: s=0 is High e (frets[5]), s=5 is Low E (frets[0])
             // Inverted Player: s=0 is Low E (frets[0]), s=5 is High e (frets[5])
-            const origStringIndex = isFlipped ? s : (5 - s);
+            const origStringIndex = isFlipped ? s : (lastString - s);
             const f = frets[origStringIndex] || 'x';
 
             // Indicator at x=20 (between string letter and nut)
@@ -583,8 +588,8 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         }
 
         // Pressed note dots
-        for (let s = 0; s < 6; s++) {
-            const origStringIndex = isFlipped ? s : (5 - s);
+        for (let s = 0; s < numStrings; s++) {
+            const origStringIndex = isFlipped ? s : (lastString - s);
             const f = frets[origStringIndex];
             if (f && f.toLowerCase() !== 'x' && f !== '0') {
                 const fretVal = parseInt(f, 10);
@@ -603,7 +608,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         for (let f = 1; f <= numFrets; f++) {
             const x = startX + (f - 0.5) * fretGap;
             const fretNumber = baseFret + f - 1;
-            svg += `<text x="${x}" y="76" fill="var(--text-dim)" font-size="8" text-anchor="middle">${fretNumber}</text>`;
+            svg += `<text x="${x}" y="${fretNumY}" fill="var(--text-dim)" font-size="8" text-anchor="middle">${fretNumber}</text>`;
         }
 
         // Base fret badge above fret 1 if shifted
@@ -615,18 +620,18 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         const nutX = width - 30; // board extends from 12 to nutX
 
         // Nut (vertical line)
-        svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + 5 * stringGap}" stroke="${baseFret === 1 ? 'var(--text-primary)' : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? 3.5 : 1.8}" stroke-linecap="round"/>`;
+        svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? 'var(--text-primary)' : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? 3.5 : 1.8}" stroke-linecap="round"/>`;
 
         // Fret wire lines (vertical)
         for (let f = 1; f <= numFrets; f++) {
             const x = nutX - f * fretGap;
-            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + 5 * stringGap}" stroke="var(--border-subtle)" stroke-width="1.2" stroke-linecap="round"/>`;
+            svg += `<line x1="${x}" y1="${startY}" x2="${x}" y2="${startY + lastString * stringGap}" stroke="var(--border-subtle)" stroke-width="1.2" stroke-linecap="round"/>`;
         }
 
         // Horizontal string lines and string indicators on the right
-        for (let s = 0; s < 6; s++) {
+        for (let s = 0; s < numStrings; s++) {
             const y = startY + s * stringGap;
-            const gauge = isFlipped ? 1 + ((5 - s) * 0.22) : 1 + (s * 0.22);
+            const gauge = isFlipped ? 1 + ((lastString - s) * 0.22) : 1 + (s * 0.22);
             // String line
             svg += `<line x1="12" y1="${y}" x2="${nutX}" y2="${y}" stroke="var(--border-subtle)" stroke-width="${gauge}" stroke-linecap="round"/>`;
 
@@ -634,7 +639,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
             svg += `<text x="${nutX + 22}" y="${y + 3}" fill="var(--text-dim)" font-size="8" font-weight="bold" text-anchor="middle">${stringNames[s]}</text>`;
 
             // Corresponding original string in frets array
-            const origStringIndex = isFlipped ? s : (5 - s);
+            const origStringIndex = isFlipped ? s : (lastString - s);
             const f = frets[origStringIndex] || 'x';
 
             // Indicator at nutX + 10 (between nut and string letter)
@@ -646,8 +651,8 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         }
 
         // Pressed note dots
-        for (let s = 0; s < 6; s++) {
-            const origStringIndex = isFlipped ? s : (5 - s);
+        for (let s = 0; s < numStrings; s++) {
+            const origStringIndex = isFlipped ? s : (lastString - s);
             const f = frets[origStringIndex];
             if (f && f.toLowerCase() !== 'x' && f !== '0') {
                 const fretVal = parseInt(f, 10);
@@ -666,7 +671,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         for (let f = 1; f <= numFrets; f++) {
             const x = nutX - (f - 0.5) * fretGap;
             const fretNumber = baseFret + f - 1;
-            svg += `<text x="${x}" y="76" fill="var(--text-dim)" font-size="8" text-anchor="middle">${fretNumber}</text>`;
+            svg += `<text x="${x}" y="${fretNumY}" fill="var(--text-dim)" font-size="8" text-anchor="middle">${fretNumber}</text>`;
         }
 
         // Base fret badge above fret 1 if shifted
@@ -913,6 +918,12 @@ function renderCircleSection() {
     `;
 }
 
+function getActiveChordData() {
+    if (chordStringCount === 7) return chordData7;
+    if (chordStringCount === 8) return chordData8;
+    return chordData;
+}
+
 /**
  * Render Chord Reference Library Section
  */
@@ -922,12 +933,13 @@ function renderChordsSection() {
     const filters = ['all', 'Major', 'Dominant', 'Minor', 'Dim/Aug', 'Suspended'];
     const rootFilters = ['all', 'A', 'B', 'C', 'D', 'E', 'F', 'G'];
 
-    const displayedChords = chordData.filter(chord => {
+    const activeChordData = getActiveChordData();
+    const displayedChords = activeChordData.filter(chord => {
         if (!preferBarreChords) return chord.default === 1;
         if (chord.barreChord === 1) {
-            return chord.default === 1 || chordData.some(c => c.name === chord.name && c.cat === chord.cat && c.default === 1 && c.barreChord === 0);
+            return chord.default === 1 || activeChordData.some(c => c.name === chord.name && c.cat === chord.cat && c.default === 1 && c.barreChord === 0);
         }
-        return chord.default === 1 && !chordData.some(c => c.name === chord.name && c.cat === chord.cat && c.barreChord === 1);
+        return chord.default === 1 && !activeChordData.some(c => c.name === chord.name && c.cat === chord.cat && c.barreChord === 1);
     });
 
     const filteredChords = displayedChords.filter(chord => {
@@ -956,6 +968,12 @@ function renderChordsSection() {
             </button>
         `;
     }).join('');
+
+    const stringCountButtonsHtml = [6, 7, 8].map(n => `
+            <button type="button" class="btn btn-sm ${chordStringCount === n ? 'btn-theme-primary' : 'btn-theme-outline'} ref-chord-strings-btn" data-strings="${n}">
+                ${n}
+            </button>
+        `).join('');
 
     const chordCardsHtml = filteredChords.length > 0 ? filteredChords.map(chord => `
         <div class="col">
@@ -1002,6 +1020,14 @@ function renderChordsSection() {
             </div>
 
             <div class="d-flex flex-column gap-2 pt-2 border-top border-secondary-subtle">
+                <!-- String Count -->
+                <div class="ref-filter-group">
+                    <span class="ref-filter-group-label">Strings:</span>
+                    <div class="d-flex flex-wrap gap-1 ref-chord-string-filters">
+                        ${stringCountButtonsHtml}
+                    </div>
+                </div>
+
                 <!-- Root Note Filter -->
                 <div class="ref-filter-group">
                     <span class="ref-filter-group-label">Root note:</span>
@@ -1297,6 +1323,22 @@ function attachReferenceEventListeners(container) {
             }
         });
     }
+
+    // Chord String Count Buttons (6 / 7 / 8)
+    container.querySelectorAll('.ref-chord-strings-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const count = parseInt(btn.getAttribute('data-strings'), 10);
+            if ([6, 7, 8].includes(count)) {
+                chordStringCount = count;
+                try { localStorage.setItem('majestictab_chord_string_count', String(count)); } catch (_) {}
+                const contentContainer = document.getElementById('refTabContentContainer');
+                if (contentContainer) {
+                    contentContainer.innerHTML = renderChordsSection();
+                    attachReferenceEventListeners(container);
+                }
+            }
+        });
+    });
 
     // Chord Root Note Filter Buttons
     container.querySelectorAll('.ref-chord-root-btn').forEach(btn => {
