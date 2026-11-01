@@ -37,6 +37,7 @@ let selectedAlbum = null;
 let pendingCustomDrop = null;
 let selectedFolderPath = []; // Array of folder path segments e.g. ['Exercises', 'Technique']
 let selectedTuning = null;
+let tuningsArtistFilter = ''; // artist name limiting the Tunings view, '' for all
 let isAlbumEditMode = false;
 let isRecentsEditMode = false;
 let searchType = 'artist'; // 'artist' (default), 'song', 'album', 'musician', 'custom'
@@ -774,6 +775,7 @@ async function renderLibraryBrowseView(container) {
         return;
     }
 
+    let tuningArtistSelectHtml = '';
     let breadcrumbHtml = '';
     let bodyHtml = '';
     let toolbarHtml = '';
@@ -784,11 +786,28 @@ async function renderLibraryBrowseView(container) {
     // ==========================================
     if (libraryBrowseMode === 'tunings') {
         const tuningsHierarchy = await getLibraryTuningsHierarchy(activeCollectionId);
-        const tuningGroups = tuningsHierarchy.tunings || [];
+        const allTuningGroups = tuningsHierarchy.tunings || [];
+        const tuningArtists = Array.from(new Set(allTuningGroups.flatMap(g => g.songs.map(s => s.artist).filter(Boolean))))
+            .sort((a, b) => a.localeCompare(b));
+        if (tuningsArtistFilter && !tuningArtists.includes(tuningsArtistFilter)) tuningsArtistFilter = '';
+        const tuningGroups = tuningsArtistFilter
+            ? allTuningGroups
+                .map(g => ({ ...g, songs: g.songs.filter(s => s.artist === tuningsArtistFilter) }))
+                .filter(g => g.songs.length > 0)
+            : allTuningGroups;
+        if (tuningArtists.length > 0) {
+            tuningArtistSelectHtml = `<div class="collection-pill-group">
+        <select class="theme-select collection-select-input" id="libTuningArtistSelect" title="Filter by artist" aria-label="Filter by artist">
+          <option value="">All artists</option>
+          ${tuningArtists.map(a => `<option value="${escapeHtml(a)}" ${a === tuningsArtistFilter ? 'selected' : ''}>${escapeHtml(a)}</option>`).join('')}
+        </select>
+      </div>`;
+        }
 
         if (selectedTuning) {
             // Tuning Detail View
             const currentGroup = tuningGroups.find(g => g.key === selectedTuning || g.tuning === selectedTuning || g.name === selectedTuning)
+                || allTuningGroups.find(g => g.key === selectedTuning || g.tuning === selectedTuning || g.name === selectedTuning)
                 || { key: selectedTuning, tuning: selectedTuning, name: selectedTuning, notes: selectedTuning, stringCount: 6, songs: [] };
             const currentCat = currentGroup.category || getTuningCategory(currentGroup);
 
@@ -855,7 +874,7 @@ async function renderLibraryBrowseView(container) {
                 }
 
                 const sortedSections = Array.from(sectionsMap.values()).sort((a, b) => a.order - b.order);
-                toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml, count: `${tuningGroups.length} ${tuningGroups.length === 1 ? 'tuning' : 'tunings'}` });
+                toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml, actionsHtml: tuningArtistSelectHtml, count: `${tuningGroups.length} ${tuningGroups.length === 1 ? 'tuning' : 'tunings'}` });
 
                 bodyHtml = `
                 <div class="library-tunings-container d-flex flex-column gap-4" id="libTuningsGrid">
@@ -1225,7 +1244,7 @@ async function renderLibraryBrowseView(container) {
         }
     }
 
-    if (!toolbarHtml) toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml });
+    if (!toolbarHtml) toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml, actionsHtml: tuningArtistSelectHtml });
     container.innerHTML = headerHtml + toolbarHtml + breadcrumbHtml + `
       <div id="libBrowseContent">${bodyHtml}</div>
       <div id="libFilteredSearchResults" style="display: none;"></div>
@@ -1574,6 +1593,7 @@ function bindLibraryToolbarEvents(container) {
     const collectionSelect = container.querySelector('#libCollectionSelect');
     collectionSelect?.addEventListener('change', (e) => {
         activeCollectionId = e.target.value;
+        tuningsArtistFilter = '';
         selectedArtist = null;
         selectedAlbum = null;
         selectedTuning = null;
@@ -1581,6 +1601,10 @@ function bindLibraryToolbarEvents(container) {
         renderLibraryBrowseView(container);
     });
 
+    container.querySelector('#libTuningArtistSelect')?.addEventListener('change', (e) => {
+        tuningsArtistFilter = e.target.value;
+        renderLibraryBrowseView(container);
+    });
 
     container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
         searchType = 'artist';
