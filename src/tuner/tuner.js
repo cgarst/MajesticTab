@@ -908,7 +908,7 @@ class PitchCraftTunerController {
         }
         if (noteEl) noteEl.textContent = '—';
         if (octaveEl) octaveEl.textContent = '';
-        if (freqEl) freqEl.textContent = 'Play a note...';
+        if (freqEl) freqEl.textContent = 'Play a note';
         if (statusEl) {
             statusEl.textContent = 'Waiting for audio...';
             statusEl.className = 'tuner-status-readout';
@@ -976,7 +976,7 @@ class PitchCraftTunerController {
             <div class="tuner-banner-meta">
               <div class="tuner-banner-title">
                 ${inst.name}
-                ${inst.isTrackTuning ? '<span class="badge bg-success-subtle text-success border border-success-subtle small ms-1" style="font-size: 0.65rem;">Active Track</span>' : ''}
+                ${inst.isTrackTuning ? '<span class="tuner-active-note small ms-1">Active track</span>' : ''}
               </div>
               <div class="tuner-banner-subtitle">${inst.description}</div>
               <div class="tuner-strings-row" style="--n: ${inst.tuning ? inst.tuning.length : 0};">
@@ -1021,7 +1021,7 @@ class PitchCraftTunerController {
               <span class="tuner-big-octave" id="tunerBigOctave"></span>
             </div>
 
-            <div class="tuner-freq-readout" id="tunerFreqReadout">Play a note...</div>
+            <div class="tuner-freq-readout" id="tunerFreqReadout">Play a note</div>
             <div class="tuner-status-readout" id="tunerStatusReadout">Ready</div>
             <div class="tuner-cents-readout" id="tunerCentsReadout"></div>
 

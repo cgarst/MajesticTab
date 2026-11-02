@@ -1566,3 +1566,44 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .search-mb-view { display: block; }
 .search-mb-view .library-type-pills, .search-mb-view .library-search-form { margin-left: 0; margin-right: 0; justify-content: flex-start; }
 .search-mb-view .search-results-container { text-align: left; }
+
+/* ---------- Reference library, Fretboard dock, Tuner: tools in the same flat language ---------- */
+.ref-filter-group-label, .ref-select-label, .tuner-strings-label, .tuner-status-readout, .ref-eyebrow {
+  text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; font-weight: 400 !important; color: var(--ink2) !important;
+}
+.ref-chord-card, .ref-section-box, .ref-scale-banner, .ref-stat-card, .ref-chord-deg-card {
+  background: var(--s2) !important; border: 0 !important; box-shadow: none !important; transform: none !important;
+}
+@media (hover: hover) { .ref-chord-card:hover { background: var(--s3) !important; box-shadow: none !important; transform: none !important; } }
+.ref-header-bar { border-bottom: 0 !important; }
+.ref-header-bar + hr, #referenceModal hr, .ref-section-box hr { display: none; }
+.ref-control-btn { background: var(--s2) !important; border: 0 !important; color: var(--ink2) !important; box-shadow: none !important; }
+.ref-control-btn i, .ref-control-btn svg { display: none !important; }
+.ref-control-btn.active { background: var(--s3) !important; color: var(--ink) !important; font-weight: 600; box-shadow: none !important; }
+.ref-chord-name, .ref-chord-card [class*="fingering"], .ref-chord-card code, .ref-chord-card .font-monospace { font-family: inherit !important; }
+.ref-chord-card [class*="frets"], .ref-chord-card [class*="fingers"] { font-family: inherit !important; font-variant-numeric: tabular-nums; }
+/* Selected filter chips: one tone step and the ink, not a saturated fill */
+.ref-filter-group .btn.active, .ref-filter-group .btn-theme-primary { background: var(--s3) !important; color: var(--ink) !important; font-weight: 600; }
+.ref-filter-group .btn { background: transparent !important; border: 0 !important; color: var(--ink2) !important; box-shadow: none !important; }
+.ref-filter-group .btn:hover { background: var(--s2) !important; }
+
+/* Fretboard dock */
+.fretboard-tuning-badge, .fretboard-track-badge { background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ink2) !important; border-radius: 0 !important; }
+#fretboardDock .btn i, .fretboard-panel .btn i, [id^="fretboard"] .btn-theme-outline i { display: none; }
+.fretboard-playhead, [class*="fretboard"] [class*="playhead"], [class*="fretboard"] [class*="cursor-glow"] { box-shadow: none !important; filter: none !important; }
+
+/* Tuner */
+.tuner-modal-body, .tuner-display-card, .tuner-instrument-banner, .tuner-inst-chip, .tuner-string-btn {
+  box-shadow: none !important;
+}
+.tuner-display-card, .tuner-instrument-banner { background: var(--s1) !important; border: 0 !important; }
+.tuner-inst-chip { background: var(--s2) !important; border: 0 !important; }
+.tuner-inst-chip.active, .tuner-inst-chip.is-track-chip.active { background: var(--s3) !important; color: var(--ink) !important; border: 0 !important; }
+.tuner-inst-icon-wrap, .tuner-inst-chip i, #tunerModal .btn i { display: none !important; }
+.tuner-string-btn { background: var(--s2) !important; border: 0 !important; }
+.tuner-freq-readout, .tuner-cents-readout, .tuner-string-hz { font-family: inherit !important; }
+.tuner-status-in-tune, .tuner-status-almost, .tuner-status-off { text-shadow: none !important; }
+.tuner-active-note { color: var(--ink2); font-size: 13px; }
+.ref-filter-group .btn.btn-theme-primary, .ref-filter-group .btn.active { background: var(--s3) !important; color: var(--ink) !important; font-weight: 600; }
+.fretboard-close-btn i, #tunerModal .theme-modal-close-btn i, #referenceModal .theme-modal-close-btn i { display: inline-block !important; }
+.fretboard-panel .btn:not(.fretboard-close-btn), #fretboardDock .btn:not(.fretboard-close-btn) { background: transparent !important; border: 0 !important; color: var(--ink2) !important; }
