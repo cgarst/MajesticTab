@@ -1897,3 +1897,7 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   .track-mix input[type="range"] { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) { .lib-browse-by-btn { transition: none; } }
+/* Reduced motion: the side panel and sheets, and the rail's inlay dot, appear without moving */
+@media (prefers-reduced-motion: reduce) {
+  #synthDropdownPanel, #ytDropdownPanel, .library-bottom-nav .library-nav-tab.active::before { animation: none !important; }
+}
