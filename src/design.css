@@ -740,7 +740,7 @@ body.practice-open #output { padding-right: 376px !important; }
 .library-card .small, .library-row-card .small { font-size: 13px; color: var(--ink2) !important; }
 
 /* Two-pane library */
-.panes { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); position: relative; width: 100%; }
+.panes { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); position: relative; width: 100%; }
 .pane { min-height: 0; display: flex; flex-direction: column; }
 .pane .pane-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; flex: 1; -webkit-overflow-scrolling: touch; }
 .pane h3.pane-head { margin: 0; padding: 12px 20px 6px; font: 500 13px system-ui, sans-serif; color: var(--ink2); display: flex; align-items: center; gap: 8px; justify-content: space-between; }
