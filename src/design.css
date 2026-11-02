@@ -1496,10 +1496,6 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 #viewMenu { padding-bottom: 12px; }
 
 /* Setlists: the page content spans the grid, rows are names and counts */
-.setlists-view > * { grid-column: 1 / -1; }
-.setlists-view > .title-row { padding-inline: 0; }
-.setlists-view > #setlistsList { margin: 8px -20px 0 !important; }
-@media (max-width: 576px) { .setlists-view > #setlistsList { margin-inline: -16px !important; } }
 .setlists-view .setrow .mono { display: none; }
 .setlists-view #toggleSetlistsEditBtn.btn-theme-outline { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; }
 .setlists-view #toggleSetlistsEditBtn.btn-theme-outline:hover { background: var(--s3) !important; color: var(--ink) !important; }
@@ -1507,7 +1503,6 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .setlists-view .rowwrap .row { flex-wrap: nowrap; margin: 0; --bs-gutter-x: 0; padding-inline: 20px; }
 .setlists-view .rowwrap .row > * { width: auto; max-width: none; padding: 0; margin-top: 0; }
 .setlists-view .rowwrap .row > .t { flex: 1; min-width: 0; }
-.setlists-view > .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .setlists-view .rowwrap { border-bottom: 0; }
 
 /* Pinned songs: a group of its own above the artist list */
@@ -1546,8 +1541,6 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .library-book-pdf-bar .btn:hover { background: transparent !important; text-decoration: underline; text-underline-offset: 3px; }
 
 /* Setlist detail: a text way back, quiet actions, no notes in the rows */
-.setlists-view .setback { display: inline-flex !important; background: transparent !important; border: 0 !important; color: var(--ink2) !important; padding-left: 0 !important; }
-.setlists-view .setback::before { content: "\2039"; margin-right: 6px; font-size: 18px; line-height: 1; }
 .setlists-view .theme-control-btn, .setlists-view #toggleSetlistEditBtn { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; }
 .setlists-view .theme-control-btn:hover, .setlists-view #toggleSetlistEditBtn:hover { background: var(--s3) !important; color: var(--ink) !important; }
 .setlists-view .setlist-add-songs { border: 0 !important; }
@@ -1953,3 +1946,13 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 .tool-pane { padding-top: 0; }
 .theme-modal-backdrop.tool-embedded .reference-modal-card { height: auto; }
 .theme-modal-backdrop.tool-embedded .reference-modal-body { overflow: visible; }
+
+/* Setlists: the library's two-pane page, setlists where the artists are */
+.library-page-container > .setlists-body { grid-column: 1 / -1; margin: 12px -20px 0; }
+@media (max-width: 576px) { .library-page-container > .setlists-body { margin-inline: -16px; } }
+.setlists-view .setlist-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 20px 12px; }
+.setlists-view .setlist-add-songs { margin-inline: 20px; }
+.setlists-view .setlist-danger { padding: 24px 20px 12px; }
+.setlist-card[aria-current="true"] { background: var(--s2) !important; position: relative; }
+.setlist-card[aria-current="true"]::before { content: ""; position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
+.setlists-view .setlist-actions .theme-control-btn, .setlists-view .pane-head .in-view-back-btn { color: var(--ink2) !important; }

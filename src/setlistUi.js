@@ -15,6 +15,7 @@ import { gamepadManager } from './utils/gamepadManager.js';
 
 let isEditMode = false;
 let selectedSetlistId = null;
+let activePane = 'list'; // 'list' | 'songs' (phones show one pane at a time)
 let songSearchQuery = '';
 let keepAddSongsOpen = false; // keep the search block after the first add to an empty setlist
 const MAX_SEARCH_RESULTS = 25;
@@ -58,133 +59,49 @@ function bindTwoClickDelete(btn, idleHtml, onConfirm) {
 }
 
 export async function renderSetlistsView(container, { onBack }) {
-    if (selectedSetlistId && await getSetlist(selectedSetlistId)) {
-        await renderSetlistDetail(container, onBack);
-    } else {
-        selectedSetlistId = null;
-        await renderSetlistList(container, onBack);
-    }
+    await renderSetlistsPage(container, onBack);
 }
 
-async function renderSetlistList(container, onBack) {
+// Same two-pane page as the library: setlists on the left (where artists are), the open setlist's songs on the right.
+async function renderSetlistsPage(container, onBack) {
     const setlists = await getAllSetlists();
-    const trashHtml = '<i class="bi-trash"></i>';
+    if (selectedSetlistId && !setlists.some(sl => sl.id === selectedSetlistId)) selectedSetlistId = null;
+    const setlist = setlists.find(sl => sl.id === selectedSetlistId) || setlists[0] || null;
+    if (!setlist) { activePane = 'list'; isEditMode = false; }
+    const rerender = () => renderSetlistsPage(container, onBack);
 
-    container.innerHTML = `
-    <div class="library-page-container setlists-view">
-      <div class="title-row mb-3">
-        <div>
-          <h2>Setlists</h2>
-          <p class="tnum">${setlists.length} ${setlists.length === 1 ? 'setlist' : 'setlists'} to play</p>
-        </div>
-        <div class="d-flex align-items-center gap-2">
-          <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-1" id="newSetlistBtn" title="Create a new setlist">
-            <i class="bi-plus-lg"></i> <span>New Setlist</span>
-          </button>
-          ${setlists.length > 0 ? `
-            <button class="btn btn-sm ${isEditMode ? 'btn-theme-primary' : 'btn-theme-outline'} d-flex align-items-center gap-1" id="toggleSetlistsEditBtn" title="${isEditMode ? 'Done editing' : 'Edit setlists'}">
-              <i class="bi-${isEditMode ? 'check-lg' : 'pencil'}"></i> <span>${isEditMode ? 'Done' : 'Edit'}</span>
-            </button>
-          ` : ''}
-        </div>
-      </div>
-
-      ${setlists.length > 0 ? `
-        <div class="library-search-bar mb-3">
-          <i class="bi-search search-icon"></i>
-          <input type="text" class="search-input" id="setlistsFilterInput" placeholder="Search setlists..." aria-label="Search setlists">
-          <button class="btn btn-sm search-clear-btn" id="setlistsFilterClearBtn" style="display:none;" aria-label="Clear search"><i class="bi-x-lg"></i></button>
-        </div>
-      ` : ''}
-
-      ${setlists.length === 0 ? `
-        ${libraryEmptyStateHtml({
-          icon: 'bi-collection-play',
-          title: 'No setlists yet',
-          message: 'Create a setlist, then add songs from your library, recents or tunings, or from a tab\'s notation menu.',
-          actionsHtml: `<button class="btn btn-sm btn-theme-primary px-4" id="newSetlistBtn"><i class="bi-plus-lg me-1"></i> New Setlist</button>`
-        })}
-      ` : `
-        <div class="scroll" style="margin-top: 8px;" id="setlistsList">
-          ${setlists.map(sl => `
-            <div class="rowwrap">
-              <button class="row setrow" data-setlist-id="${escapeHtml(sl.id)}">
-                <span class="mono"><i class="bi-collection-play"></i></span>
-                <span class="t">
-                  <b>${escapeHtml(sl.name)}</b>
-                  <span class="tnum">${countLabel(sl.items.length)}</span>
-                </span>
-                ${isEditMode ? '' : '<span class="end"><i class="bi-chevron-right text-white-50"></i></span>'}
-              </button>
-              ${isEditMode ? `
-                <div class="d-flex align-items-center gap-2 position-absolute end-0 me-3">
-                  <button class="btn btn-sm theme-control-btn p-1 px-2 rename-setlist-btn" data-setlist-id="${escapeHtml(sl.id)}" title="Rename setlist"><i class="bi-pencil"></i></button>
-                  <button class="btn btn-sm btn-theme-danger p-1 px-2 delete-setlist-btn" data-setlist-id="${escapeHtml(sl.id)}" title="Delete setlist">${trashHtml}</button>
-                </div>
-              ` : ''}
-            </div>
-          `).join('')}
-        </div>
-      `}
-    </div>`;
-
-    const rerender = () => renderSetlistList(container, onBack);
-
-    bindListFilter(container, { inputId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn', rowSelector: '#setlistsList .rowwrap' });
-
-    container.querySelector('#toggleSetlistsEditBtn')?.addEventListener('click', () => {
-        isEditMode = !isEditMode;
-        rerender();
+    const newBtnHtml = `<button class="btn btn-sm btn-theme-primary" id="newSetlistBtn" title="Create a new setlist">New setlist</button>`;
+    const headerHtml = libraryHeaderHtml({
+        activeTab: 'setlists',
+        searchId: 'setlistsFilterInput',
+        clearId: 'setlistsFilterClearBtn',
+        placeholder: 'Search setlists...',
+        searchLabel: 'Search setlists',
+        searchDisabled: setlists.length === 0
     });
-    container.querySelector('#newSetlistBtn')?.addEventListener('click', () => promptNewSetlist(async (sl) => {
-        selectedSetlistId = sl.id;
-        isEditMode = true;
-        await renderSetlistDetail(container, onBack);
-    }));
-
-    container.querySelectorAll('.delete-setlist-btn').forEach(btn => {
-        bindTwoClickDelete(btn, trashHtml, async () => {
-            await deleteSetlist(btn.dataset.setlistId);
-            showToast('Setlist deleted', 'info');
-            if (isEditMode && (await getAllSetlists()).length === 0) isEditMode = false;
-            rerender();
-        });
-    });
-    container.querySelectorAll('.rename-setlist-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const sl = await getSetlist(btn.dataset.setlistId);
-            if (sl) promptRenameSetlist(sl, rerender);
-        });
+    const toolbarHtml = libraryListToolbarHtml({
+        count: `${setlists.length} ${setlists.length === 1 ? 'setlist' : 'setlists'}`,
+        actionsHtml: newBtnHtml
     });
 
-    container.querySelectorAll('#setlistsList .rowwrap .setrow').forEach(row => {
-        const open = async () => {
-            if (isEditMode) return;
-            selectedSetlistId = row.dataset.setlistId;
-            await renderSetlistDetail(container, onBack);
-        };
-        row.addEventListener('click', (e) => { if (!e.target.closest('button.rename-setlist-btn, button.delete-setlist-btn')) open(); });
-        row.addEventListener('keydown', (e) => {
-            if (e.target === row && (e.key === 'Enter' || e.key === ' ')) {
-                e.preventDefault();
-                open();
-            }
-        });
-    });
-
-    gamepadManager.onLibraryViewRendered();
-}
-
-async function renderSetlistDetail(container, onBack) {
-    const setlist = await getSetlist(selectedSetlistId);
     if (!setlist) {
-        selectedSetlistId = null;
-        return renderSetlistList(container, onBack);
+        container.innerHTML = `
+        <div class="library-page-container setlists-view">
+          ${headerHtml}${toolbarHtml}
+          <div class="setlists-body">
+            ${libraryEmptyStateHtml({
+                icon: 'bi-collection-play',
+                title: 'No setlists yet',
+                message: 'Create a setlist, then add songs from your library, recents or tunings, or from a tab\'s notation menu.'
+            })}
+          </div>
+        </div>`;
+        bindSetlistsChrome(container, rerender);
+        gamepadManager.onLibraryViewRendered();
+        return;
     }
-    const songs = await Promise.all(setlist.items.map(i => getSongById(i.songId)));
-    const rerender = () => renderSetlistDetail(container, onBack);
 
+    const songs = await Promise.all(setlist.items.map(i => getSongById(i.songId)));
     let totSec = 0;
     const tuningsList = [];
     songs.forEach(s => {
@@ -198,45 +115,37 @@ async function renderSetlistDetail(container, onBack) {
     });
     const tuningChanges = Math.max(0, new Set(tuningsList).size - 1);
     const fmtTot = formatTrackDuration(totSec);
+    const summary = [countLabel(setlist.items.length), fmtTot, tuningsList.length > 0 ? (tuningChanges === 0 ? 'no tuning changes' : `${tuningChanges} ${tuningChanges === 1 ? 'tuning change' : 'tuning changes'}`) : ''].filter(Boolean).join(' \u00b7 ');
 
-    container.innerHTML = `
-    <div class="library-page-container setlists-view">
-      <div class="title-row mb-3">
-        <div>
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <button class="btn btn-sm btn-theme-outline setback" id="setlistsBackBtn" title="Back to all setlists">Setlists</button>
+    const cardHtml = (sl) => `
+      <div class="library-card setlist-card p-3" data-setlist-id="${escapeHtml(sl.id)}" ${sl.id === setlist.id ? 'aria-current="true"' : ''} role="button" tabindex="0">
+        <div class="d-flex align-items-center gap-3 min-w-0">
+          <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-collection-play"></i></span>
+          <div class="min-w-0 flex-grow-1">
+            <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(sl.name)}">${escapeHtml(sl.name)}</h6>
+            <div class="small text-muted text-truncate tnum">${countLabel(sl.items.length)}</div>
           </div>
-          <h2>${escapeHtml(setlist.name)}</h2>
-          <p class="tnum">${[`${setlist.items.length} ${setlist.items.length === 1 ? 'song' : 'songs'}`, fmtTot, tuningsList.length > 0 ? (tuningChanges === 0 ? 'no tuning changes' : `${tuningChanges} ${tuningChanges === 1 ? 'tuning change' : 'tuning changes'}`) : ''].filter(Boolean).join(' \u00b7 ')}</p>
+          <i class="bi-chevron-right text-muted flex-shrink-0"></i>
         </div>
-        <div class="d-flex align-items-center gap-2 flex-wrap">
-          ${setlist.items.length > 0 && !isEditMode ? `
-            <button class="btn btn-sm btn-theme-primary" id="playSetlistBtn" title="Start set from the first song">Start set</button>
-          ` : ''}
-          <button class="btn btn-sm theme-control-btn" id="renameSetlistBtn" title="Rename setlist">Rename</button>
-          <button class="btn btn-sm btn-theme-outline" id="toggleSetlistEditBtn" title="${isEditMode ? 'Done editing' : 'Edit setlist'}">${isEditMode ? 'Done' : 'Edit'}</button>
-        </div>
-      </div>
+      </div>`;
 
-      ${(isEditMode || keepAddSongsOpen || setlist.items.length === 0) ? `
-        <div class="setlist-add-songs mb-3 p-3 rounded-2" style="background:var(--s1);">
-          <div class="small fw-semibold text-white-50 mb-2">${setlist.items.length === 0 ? 'This setlist is empty. Search your library to add songs.' : 'Add songs'}</div>
-          <div class="library-search-bar mb-2">
-            <i class="bi-search search-icon"></i>
-            <input type="text" class="search-input" id="setlistSongSearch" placeholder="Search songs with tabs..." value="${escapeHtml(songSearchQuery)}" autocomplete="off" spellcheck="false" aria-label="Search songs to add">
+    const listPaneHtml = `
+      <section class="pane list" aria-label="Setlists">
+        <h3 class="pane-head"><span>Setlists</span><span class="tnum">${setlists.length}</span></h3>
+        <div class="pane-scroll">
+          <div class="library-artists-grid" id="setlistsList">
+            ${setlists.map(cardHtml).join('')}
           </div>
-          <div class="d-flex flex-column gap-1" id="setlistSongResults"></div>
         </div>
-      ` : ''}
+      </section>`;
 
-      ${setlist.items.length === 0 ? '' : `
-        <div class="scroll" style="margin-top: 8px;" id="setlistItems">
+    const itemsHtml = setlist.items.length === 0 ? '' : `
+        <div class="scroll" id="setlistItems">
           ${setlist.items.map((item, idx) => {
               const song = songs[idx];
               const tab = song?.tabOptions?.find(t => t.id === item.tabId);
               const tuning = tab?.tuning || song?.tunings?.[0] || song?.tuning || '';
               const dur = formatTrackDuration(song?.length);
-              const isStandard = tuning === 'Standard' || tuning === 'E Standard' || !tuning;
               const metaLine = [song?.artist || '', tuning].filter(Boolean).join(' \u00b7 ');
               return `
               <div class="rowwrap">
@@ -258,16 +167,77 @@ async function renderSetlistDetail(container, onBack) {
                 ` : ''}
               </div>`;
           }).join('')}
+        </div>`;
+
+    const addSongsHtml = (isEditMode || keepAddSongsOpen || setlist.items.length === 0) ? `
+        <div class="setlist-add-songs mb-3 p-3 rounded-2" style="background:var(--s1);">
+          <div class="small fw-semibold text-white-50 mb-2">${setlist.items.length === 0 ? 'This setlist is empty. Search your library to add songs.' : 'Add songs'}</div>
+          <div class="library-search-bar mb-2">
+            <i class="bi-search search-icon"></i>
+            <input type="text" class="search-input" id="setlistSongSearch" placeholder="Search songs with tabs..." value="${escapeHtml(songSearchQuery)}" autocomplete="off" spellcheck="false" aria-label="Search songs to add">
+          </div>
+          <div class="d-flex flex-column gap-1" id="setlistSongResults"></div>
+        </div>` : '';
+
+    const songsPaneHtml = `
+      <section class="pane songs" aria-label="${escapeHtml(setlist.name)}">
+        <h3 class="pane-head">
+          <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="setlistsBackBtn" type="button"><i class="bi-chevron-left"></i> Setlists</button>
+          <span class="text-white fw-semibold" style="flex:1;">${escapeHtml(setlist.name)}</span>
+          <span class="tnum">${escapeHtml(summary)}</span>
+        </h3>
+        <div class="setlist-actions">
+          ${setlist.items.length > 0 && !isEditMode ? `<button class="btn btn-sm btn-theme-primary" id="playSetlistBtn" title="Start set from the first song">Start set</button>` : ''}
+          <button class="btn btn-sm theme-control-btn" id="renameSetlistBtn" title="Rename setlist">Rename</button>
+          <button class="btn btn-sm btn-theme-outline" id="toggleSetlistEditBtn" title="${isEditMode ? 'Done editing' : 'Edit setlist'}">${isEditMode ? 'Done' : 'Edit'}</button>
         </div>
-      `}
+        <div class="pane-scroll">
+          <div class="artist-detail-view">
+            ${addSongsHtml}
+            ${itemsHtml}
+            ${isEditMode ? `<div class="setlist-danger"><button class="btn btn-sm btn-theme-danger" id="deleteSetlistBtn" title="Delete this setlist">Delete setlist</button></div>` : ''}
+          </div>
+        </div>
+      </section>`;
+
+    container.innerHTML = `
+    <div class="library-page-container setlists-view">
+      ${headerHtml}${toolbarHtml}
+      <div class="setlists-body">
+        <div class="panes" data-pane="${activePane}">
+          ${listPaneHtml}
+          ${songsPaneHtml}
+        </div>
+      </div>
     </div>`;
 
-    container.querySelector('#setlistsBackBtn')?.addEventListener('click', () => {
-        selectedSetlistId = null;
+    bindSetlistsChrome(container, rerender);
+    bindListFilter(container, { inputId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn', rowSelector: '#setlistsList .setlist-card' });
+
+    const selectCard = (card) => {
+        selectedSetlistId = card.dataset.setlistId;
+        activePane = 'songs';
         isEditMode = false;
-        songSearchQuery = '';
         keepAddSongsOpen = false;
-        renderSetlistList(container, onBack);
+        songSearchQuery = '';
+        rerender();
+    };
+    container.querySelectorAll('.setlist-card').forEach(card => {
+        card.addEventListener('click', () => selectCard(card));
+        card.addEventListener('keydown', (e) => {
+            if (e.target === card && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                selectCard(card);
+            }
+        });
+    });
+
+    container.querySelector('#setlistsBackBtn')?.addEventListener('click', () => {
+        activePane = 'list';
+        isEditMode = false;
+        keepAddSongsOpen = false;
+        songSearchQuery = '';
+        rerender();
     });
     container.querySelector('#toggleSetlistEditBtn')?.addEventListener('click', () => {
         isEditMode = !isEditMode;
@@ -276,6 +246,17 @@ async function renderSetlistDetail(container, onBack) {
     });
     container.querySelector('#renameSetlistBtn')?.addEventListener('click', () => promptRenameSetlist(setlist, rerender));
     container.querySelector('#playSetlistBtn')?.addEventListener('click', () => playSetlist(setlist.id, 0));
+    const deleteBtn = container.querySelector('#deleteSetlistBtn');
+    if (deleteBtn) {
+        bindTwoClickDelete(deleteBtn, 'Delete setlist', async () => {
+            await deleteSetlist(setlist.id);
+            showToast('Setlist deleted', 'info');
+            selectedSetlistId = null;
+            activePane = 'list';
+            isEditMode = false;
+            rerender();
+        });
+    }
 
     container.querySelectorAll('.move-item-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -349,6 +330,16 @@ async function renderSetlistDetail(container, onBack) {
 
     hydrateCachedImages(container);
     gamepadManager.onLibraryViewRendered();
+}
+
+
+function bindSetlistsChrome(container, rerender) {
+    container.querySelector('#newSetlistBtn')?.addEventListener('click', () => promptNewSetlist((sl) => {
+        selectedSetlistId = sl.id;
+        activePane = 'songs';
+        isEditMode = true;
+        rerender();
+    }));
 }
 
 function promptNewSetlist(onCreated) {
