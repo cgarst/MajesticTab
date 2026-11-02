@@ -777,6 +777,14 @@ body.practice-open #output { padding-right: 376px !important; }
 /* Library header: search and the primary action share one row */
 .library-page-container { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: center; padding: 16px 20px 0; }
 .library-page-container > .lib-view-switch-row { display: none; }
+/* Browse by: Artists, Tunings and Recents are views of the Library. Plain words, the current one a tone step up. */
+.lib-browse-by { grid-column: 1 / -1; grid-row: 3; display: flex; align-items: center; gap: 4px; padding: 8px 0 4px; min-width: 0; flex-wrap: wrap; }
+.lib-browse-by-label { color: var(--ink2); font-size: 13px; margin-right: 6px; }
+.lib-browse-by-btn { min-height: 32px; padding: 0 12px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink2); font-size: 14px; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out); }
+.lib-browse-by-btn:hover { background: var(--s1); color: var(--ink); }
+.lib-browse-by-btn.active { background: var(--s2); color: var(--ink); }
+.lib-browse-by-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (pointer: coarse) { .lib-browse-by-btn { min-height: 44px; padding: 0 14px; } }
 .library-page-container > .library-search-box { grid-column: 1; grid-row: 1; margin: 0 !important; max-width: none; }
 .library-page-container > .library-list-toolbar { display: contents; }
 .library-list-toolbar > div:last-child { grid-column: 2; grid-row: 1; }
