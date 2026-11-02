@@ -297,7 +297,7 @@
     <div id="synthTrackVisibilitySection" class="mb-3" style="display: none;">
       <div class="d-flex align-items-center justify-content-between mb-1">
         <label class="form-label small mb-0 fw-semibold text-muted">Tracks:</label>
-        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show All</button>
+        <span class="d-flex gap-3"><button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthMixResetBtn">Reset levels</button><button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show all</button></span>
       </div>
       <div id="synthTrackList" class="d-flex flex-column gap-1 mb-1"></div>
       <div class="form-check form-switch mb-0 mt-2">
@@ -496,10 +496,9 @@
       </div>
     </div>
 
-    <!-- SoundFonts and Mixer open in their own modals -->
+    <!-- SoundFonts opens in its own modal; the mixer lives under each track in Song -->
     <div class="mb-3 d-flex gap-2">
       <button type="button" class="btn btn-sm theme-control-btn" style="flex:1 1 0;min-width:0" id="soundFontModalBtn"><i class="bi-music-note-beamed me-1" aria-hidden="true"></i>SoundFonts</button>
-      <button type="button" class="btn btn-sm theme-control-btn" style="flex:1 1 0;min-width:0" id="mixerModalBtn"><i class="bi-sliders me-1" aria-hidden="true"></i>Mixer</button>
     </div>
     <div class="mb-3">
       <button type="button" class="btn btn-sm theme-control-btn w-100" id="latencyModalBtn"><i class="bi-bluetooth me-1" aria-hidden="true"></i>Audio Latency<span class="theme-value-badge ms-2" id="latencyModalBadge">0 ms</span></button>
@@ -1189,34 +1188,6 @@
     <div class="theme-modal-footer">
       <button type="button" class="btn btn-theme-outline" id="defaultsResetBtn">Reset to Defaults</button>
       <button type="button" class="btn btn-theme-primary" id="defaultsDoneBtn">Done</button>
-    </div>
-  </section>
-</div>
-
-<div id="mixerModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="mixerModalTitle" aria-hidden="true" style="display:none;">
-  <section class="theme-modal-card synth-modal-card">
-    <header class="theme-modal-header">
-      <div class="theme-modal-title-group">
-        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
-          <i class="bi-sliders text-info fs-5"></i>
-        </div>
-        <div class="theme-modal-titles">
-          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="mixerModalTitle">Mixer</h2>
-        </div>
-      </div>
-      <div class="theme-modal-actions">
-        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="mixerModalCloseBtn" aria-label="Close modal">
-          <i class="bi-x-lg"></i>
-        </button>
-      </div>
-    </header>
-    <div class="theme-modal-body">
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <div class="small text-white-50" id="mixerHint">Mute, solo, level and pan for each track.</div>
-        <button type="button" class="btn btn-sm theme-control-btn" id="mixerResetBtn">Reset</button>
-      </div>
-      <div id="mixerTrackList" class="mixer-list"></div>
-      <div class="text-center text-muted py-3 small" id="mixerEmptyMsg" style="display: none;">Load a Guitar Pro file to mix its tracks.</div>
     </div>
   </section>
 </div>

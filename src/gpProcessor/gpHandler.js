@@ -6,7 +6,7 @@ import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicato
 import { updateSongForYouTube } from '../youtubePlayer.js';
 import { updateSongForAudioFile } from '../audioSync/audioFilePlayer.js';
 import { updateSongForRealAudio } from '../audioSync/realAudioController.js';
-import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions, reapplyJamTrackView, warmUpAfterLoad } from './gpPlayer.js';
+import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions, reapplyJamTrackView, warmUpAfterLoad, getMixerTracks } from './gpPlayer.js';
 import { waitForMainThreadIdle } from '../utils/mainThreadIdle.js';
 import { showLoadingCard, setLoadingProgress, setLoadingIdentity, hideLoadingCard } from '../utils/loadingCard.js';
 import {
@@ -40,6 +40,7 @@ import {
     getAdaptTuningOptions,
     findAdaptTuning
 } from '../utils/tabAdapter.js';
+import { buildTrackMix, bindTrackMix } from './mixerPanel.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { setOverride, setNotationOverride } from '../utils/sessionOverrides.js';
 import { applyTabTrackColors, isTabTrackColorsEnabled, setTabTrackColorsEnabled, TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
@@ -716,7 +717,9 @@ export function populateGpTrackSelectionUI(api) {
     if (!synthList || !api?.score?.tracks) return;
 
     const activeTracks = getActiveInstrumentTracks(api.score);
-    if (activeTracks.length <= 1) {
+    const activeIdx = new Set(activeTracks.map(ti => ti.index));
+    const allTracks = api.score.tracks.map((track, index) => ({ track, index }));
+    if (allTracks.length <= 1) {
         if (synthSection) synthSection.style.display = 'none';
         synthList.innerHTML = '';
         return;
@@ -735,20 +738,31 @@ export function populateGpTrackSelectionUI(api) {
     const renderTrackRow = (ti) => {
         const id = `synth_track_${ti.index}`;
         const tuningLabel = getTrackTuningLabel(ti.track);
+        const name = (ti.track.name || `Track ${ti.index + 1}`).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const shows = activeIdx.has(ti.index);
         return `
-          <div class="gp-track-row d-flex align-items-center justify-content-between">
-            <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-              <input class="form-check-input theme-switch gp-track-checkbox" type="checkbox" id="${id}" data-track-index="${ti.index}" checked>
-              <span class="track-chip-dot gp-track-dot" title="Fretboard color"></span>
-              <label class="form-check-label small text-truncate" for="${id}" style="max-width: 170px;" title="${ti.track.name || `Track ${ti.index + 1}`}">${ti.track.name || `Track ${ti.index + 1}`}</label>
-              ${tuningLabel ? `<span class="badge badge-theme-secondary gp-track-tuning flex-shrink-0" title="Tuning">${tuningLabel}</span>` : ''}
+          <div class="gp-track-item" data-track-index="${ti.index}">
+            <div class="gp-track-row d-flex align-items-center justify-content-between${shows ? '' : ' no-switch'}">
+              <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
+                ${shows ? `<input class="form-check-input theme-switch gp-track-checkbox" type="checkbox" id="${id}" data-track-index="${ti.index}" checked aria-label="Show ${name}">` : ''}
+                <span class="track-chip-dot gp-track-dot" title="Track color"${shows ? '' : ` style="--track-color: ${TRACK_PALETTE[getTrackColorIndexFor(ti.index)]}"`}></span>
+                <label class="form-check-label small text-truncate" ${shows ? `for="${id}"` : ''} style="max-width: 170px;" title="${name}">${name}</label>
+                ${tuningLabel ? `<span class="gp-track-tuning flex-shrink-0" title="Tuning">${tuningLabel}</span>` : ''}
+              </div>
+              ${shows ? `<button type="button" class="btn btn-sm theme-control-btn gp-track-only-btn" data-track-index="${ti.index}" title="Show only this track">Only</button>` : ''}
+              <button type="button" class="btn btn-sm theme-control-btn gp-track-mix-btn" aria-expanded="false" aria-label="Mix ${name}: mute, solo, level, pan" title="Mute, solo, level and pan">Mix</button>
             </div>
-            <button type="button" class="btn btn-sm theme-control-btn gp-track-only-btn" data-track-index="${ti.index}" title="Show only this track">Only</button>
           </div>
         `;
     };
 
-    synthList.innerHTML = activeTracks.map(ti => renderTrackRow(ti)).join('');
+    synthList.innerHTML = allTracks.map(ti => renderTrackRow(ti)).join('');
+    const mixerTracks = getMixerTracks();
+    synthList.querySelectorAll('.gp-track-item').forEach((item) => {
+        const t = mixerTracks[Number(item.dataset.trackIndex)];
+        if (t) item.append(buildTrackMix(t));
+    });
+    bindTrackMix(synthList, document.getElementById('synthMixResetBtn'));
 
     const handleToggle = (trackIndex, isChecked) => {
         const currentRendered = (api.tracks || []).map(t => t.index);

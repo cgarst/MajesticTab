@@ -1663,36 +1663,23 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .library-song-rowwrap .tab-option-chip .tab-option-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 576px) { .library-song-rowwrap .tab-option-chip { gap: 10px; } .library-song-rowwrap .tab-option-chip .tab-option-meta { display: none; } }
 
-/* ---------- Mixer: a side panel (a bottom sheet on phones), one block per track, labelled sliders ---------- */
-#mixerModal { background: rgba(0,0,0,.35); align-items: stretch !important; justify-content: flex-end !important; padding: 0 !important; }
-#mixerModal .theme-modal-card { width: min(380px, 100%); max-width: 100%; height: 100%; max-height: 100%; border-radius: var(--r-card) 0 0 var(--r-card); border: 0; box-shadow: none; background: var(--s2); }
-#mixerModal .theme-modal-icon { display: none; }
-#mixerModal .theme-modal-body { overflow-y: auto; }
-.mixer-list { gap: 0; }
-.mixer-row {
-  display: grid; grid-template-columns: 4px minmax(0, 1fr) auto auto; grid-template-areas: "bar name m s" "bar vol vol vol" "bar pan pan pan";
-  gap: 6px 8px; padding: 12px 8px 12px 0; border: 0; border-radius: 0; background: transparent;
-}
-.mixer-row::before { content: ""; grid-area: bar; background: var(--track-color); border-radius: 2px; }
-.mixer-row .mixer-name { grid-area: name; font-size: 15px !important; font-weight: 600; color: var(--ink); padding-left: 8px; }
-.mixer-row .mixer-mute-btn { grid-area: m; }
-.mixer-row .mixer-solo-btn { grid-area: s; }
-.mixer-row .mixer-slider:nth-of-type(1) { grid-area: vol; }
-.mixer-row > .mixer-slider { padding-left: 8px; }
-.mixer-row > .mixer-slider:nth-last-of-type(2) { grid-area: vol; }
-.mixer-row > .mixer-slider:last-of-type { grid-area: pan; }
+/* ---------- Per-track mix, under each track in Song: Mix opens mute, solo, level and pan ---------- */
+.gp-track-item { display: block; }
+.gp-track-row { grid-template-columns: 10px minmax(0, 1fr) auto auto auto !important; grid-template-areas: "dot label only mix sw" "dot sub only mix sw" !important; }
+.gp-track-row.no-switch { grid-template-columns: 10px minmax(0, 1fr) auto auto !important; grid-template-areas: "dot label only mix" "dot sub only mix" !important; }
+.gp-track-row .gp-track-mix-btn { grid-area: mix; background: transparent !important; color: var(--ink2) !important; font-weight: 500; border: 0 !important; }
+.gp-track-item.mix-open .gp-track-mix-btn { background: var(--s3) !important; color: var(--ink) !important; }
+.gp-track-item.is-muted .gp-track-row .form-check-label { opacity: .5; }
+.track-mix { display: none; flex-direction: column; gap: 6px; padding: 6px 0 12px 22px; }
+.gp-track-item.mix-open .track-mix { display: flex; }
+.track-mix-toggles { display: flex; gap: 8px; }
+.track-mix .mixer-slider { display: flex; align-items: center; gap: 8px; }
+.track-mix .mixer-slider input[type="range"] { flex: 1; min-width: 0; }
 .mixer-slider-label { width: 52px; flex: none; font-size: 13px; color: var(--ink2); }
-.mixer-toggle { width: 36px; height: 36px; border: 0 !important; background: var(--s3) !important; color: var(--ink2) !important; box-shadow: none !important; }
+.mixer-toggle { width: auto; min-width: 64px; height: 36px; padding: 0 14px; border: 0 !important; background: var(--s3) !important; color: var(--ink2) !important; box-shadow: none !important; }
 .mixer-toggle.active { background: var(--ink) !important; color: var(--ground) !important; }
-.mixer-mute-btn.active { background: var(--danger, #f87171) !important; color: #fff !important; }
 .mixer-slider .theme-value-badge { background: transparent !important; border: 0 !important; color: var(--ink2) !important; min-width: 40px; font-variant-numeric: tabular-nums; }
 .mixer-slider input[type="range"] { accent-color: var(--hue, currentColor); }
-@media (max-width: 576px) {
-  #mixerModal { align-items: flex-end !important; }
-  #mixerModal .theme-modal-card { height: auto; max-height: 86%; width: 100%; border-radius: var(--r-card) var(--r-card) 0 0; }
-  .mixer-row { grid-template-columns: 4px minmax(0, 1fr) auto auto; }
-  .mixer-row > .mixer-slider { grid-column: auto; }
-}
 
 /* Library lists scroll with the page: a pane that is not height-limited must not trap the wheel */
 .pane .pane-scroll, .pane-scroll { overscroll-behavior: auto; }

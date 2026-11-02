@@ -49,121 +49,105 @@ export function wireModal(id, openBtnId, onOpen) {
     });
 }
 
-function buildRow(t) {
-    const row = document.createElement('div');
-    row.className = 'mixer-row';
-    row.dataset.index = t.index;
-    row.style.setProperty('--track-color', TRACK_PALETTE[getTrackColorIndexFor(t.index)] || 'var(--ink2)');
-
-    const name = document.createElement('div');
-    name.className = 'mixer-name text-truncate small';
-    name.textContent = t.name;
-    name.title = t.name;
-
-    const mute = document.createElement('button');
-    mute.type = 'button';
-    mute.className = 'btn btn-sm theme-control-btn mixer-toggle mixer-mute-btn';
-    mute.textContent = 'M';
-    mute.title = `Mute ${t.name}`;
-    mute.setAttribute('aria-label', `Mute ${t.name}`);
-
-    const solo = document.createElement('button');
-    solo.type = 'button';
-    solo.className = 'btn btn-sm theme-control-btn mixer-toggle mixer-solo-btn';
-    solo.textContent = 'S';
-    solo.title = `Solo ${t.name}`;
-    solo.setAttribute('aria-label', `Solo ${t.name}`);
-
-    const vol = document.createElement('input');
-    vol.type = 'range';
-    vol.className = 'mixer-volume';
-    vol.min = '0'; vol.max = '150'; vol.step = '1';
-    vol.setAttribute('aria-label', `${t.name} volume`);
-    const volBadge = document.createElement('span');
-    volBadge.className = 'theme-value-badge mixer-volume-badge';
-
-    const pan = document.createElement('input');
-    pan.type = 'range';
-    pan.className = 'mixer-pan';
-    pan.min = '0'; pan.max = '16'; pan.step = '1';
-    pan.setAttribute('aria-label', `${t.name} pan`);
-    const panBadge = document.createElement('span');
-    panBadge.className = 'theme-value-badge mixer-pan-badge';
-
-    const volWrap = document.createElement('div');
-    volWrap.className = 'mixer-slider';
-    const volLabel = document.createElement('span');
-    volLabel.className = 'mixer-slider-label';
-    volLabel.textContent = 'Volume';
-    volWrap.append(volLabel, vol, volBadge);
-    const panWrap = document.createElement('div');
-    panWrap.className = 'mixer-slider';
-    const panLabel = document.createElement('span');
-    panLabel.className = 'mixer-slider-label';
-    panLabel.textContent = 'Pan';
-    panWrap.append(panLabel, pan, panBadge);
-
-    row.append(name, mute, solo, volWrap, panWrap);
-    return row;
+// ---- Per-track mix (mute, solo, level, pan): lives under each track in Song, Tracks ----
+function slider(label, cls, min, max, name) {
+    const wrap = document.createElement('div');
+    wrap.className = 'mixer-slider';
+    const l = document.createElement('span');
+    l.className = 'mixer-slider-label';
+    l.textContent = label;
+    const input = document.createElement('input');
+    input.type = 'range';
+    input.className = cls;
+    input.min = String(min); input.max = String(max); input.step = '1';
+    input.setAttribute('aria-label', `${name} ${label.toLowerCase()}`);
+    const badge = document.createElement('span');
+    badge.className = 'theme-value-badge ' + cls + '-badge';
+    wrap.append(l, input, badge);
+    return wrap;
 }
 
-function updateRow(row, t) {
-    row.querySelector('.mixer-mute-btn').classList.toggle('active', t.mute);
-    row.querySelector('.mixer-solo-btn').classList.toggle('active', t.solo);
-    row.classList.toggle('is-muted', t.mute);
-    const vol = row.querySelector('.mixer-volume');
+export function buildTrackMix(t) {
+    const box = document.createElement('div');
+    box.className = 'track-mix';
+    box.dataset.index = t.index;
+    const toggles = document.createElement('div');
+    toggles.className = 'track-mix-toggles';
+    [['mixer-mute-btn', 'Mute'], ['mixer-solo-btn', 'Solo']].forEach(([cls, label]) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = `btn btn-sm theme-control-btn mixer-toggle ${cls}`;
+        b.textContent = label;
+        b.setAttribute('aria-pressed', 'false');
+        b.setAttribute('aria-label', `${label} ${t.name}`);
+        toggles.append(b);
+    });
+    box.append(toggles, slider('Level', 'mixer-volume', 0, 150, t.name), slider('Pan', 'mixer-pan', 0, 16, t.name));
+    return box;
+}
+
+function updateTrackMix(box, t) {
+    const mute = box.querySelector('.mixer-mute-btn');
+    const solo = box.querySelector('.mixer-solo-btn');
+    mute.classList.toggle('active', t.mute); mute.setAttribute('aria-pressed', String(!!t.mute));
+    solo.classList.toggle('active', t.solo); solo.setAttribute('aria-pressed', String(!!t.solo));
+    box.closest('.gp-track-item')?.classList.toggle('is-muted', !!t.mute);
+    const vol = box.querySelector('.mixer-volume');
     if (document.activeElement !== vol) vol.value = Math.round(t.volume * 100);
-    row.querySelector('.mixer-volume-badge').textContent = `${Math.round(t.volume * 100)}%`;
-    const pan = row.querySelector('.mixer-pan');
+    box.querySelector('.mixer-volume-badge').textContent = `${Math.round(t.volume * 100)}%`;
+    const pan = box.querySelector('.mixer-pan');
     if (document.activeElement !== pan) pan.value = t.pan;
-    row.querySelector('.mixer-pan-badge').textContent = PAN_LABELS(t.pan);
+    box.querySelector('.mixer-pan-badge').textContent = PAN_LABELS(t.pan);
 }
 
-export function initMixerPanel() {
-    const list = document.getElementById('mixerTrackList');
-    const empty = document.getElementById('mixerEmptyMsg');
-    const resetBtn = document.getElementById('mixerResetBtn');
-    if (!list) return;
-
-    const render = () => {
+/** Wire the Song panel's track list: delegated mix controls, live refresh, and the Reset levels button. */
+export function bindTrackMix(list, resetBtn) {
+    if (!list || list.dataset.mixBound) return;
+    list.dataset.mixBound = '1';
+    const refresh = () => {
         const tracks = getMixerTracks();
-        if (empty) empty.style.display = tracks.length ? 'none' : '';
+        list.querySelectorAll('.track-mix').forEach((box) => {
+            const t = tracks[Number(box.dataset.index)];
+            if (t) updateTrackMix(box, t);
+        });
         if (resetBtn) resetBtn.disabled = tracks.length === 0;
-        const rows = [...list.children];
-        // Rebuild only when the track set changed so sliders keep focus while dragging
-        if (rows.length !== tracks.length || rows.some((r, i) => Number(r.dataset.index) !== tracks[i].index)) {
-            list.replaceChildren(...tracks.map(buildRow));
-        }
-        [...list.children].forEach((row, i) => updateRow(row, tracks[i]));
     };
-
     list.addEventListener('click', (e) => {
-        const row = e.target.closest('.mixer-row');
         const btn = e.target.closest('.mixer-toggle');
-        if (!row || !btn) return;
-        const t = getMixerTracks()[Number(row.dataset.index)];
-        if (btn.classList.contains('mixer-mute-btn')) setTrackMixer(t.index, { mute: !t.mute });
-        else setTrackMixer(t.index, { solo: !t.solo });
+        if (btn) {
+            const box = btn.closest('.track-mix');
+            const t = getMixerTracks()[Number(box.dataset.index)];
+            setTrackMixer(t.index, btn.classList.contains('mixer-mute-btn') ? { mute: !t.mute } : { solo: !t.solo });
+            return;
+        }
+        const open = e.target.closest('.gp-track-mix-btn');
+        if (open) {
+            const item = open.closest('.gp-track-item');
+            const on = item.classList.toggle('mix-open');
+            open.setAttribute('aria-expanded', String(on));
+            refresh();
+        }
     });
     list.addEventListener('input', (e) => {
-        const row = e.target.closest('.mixer-row');
-        if (!row) return;
-        const index = Number(row.dataset.index);
+        const box = e.target.closest('.track-mix');
+        if (!box) return;
+        const index = Number(box.dataset.index);
         if (e.target.classList.contains('mixer-volume')) setTrackMixer(index, { volume: Number(e.target.value) / 100 });
         else if (e.target.classList.contains('mixer-pan')) setTrackMixer(index, { pan: Number(e.target.value) });
     });
     // Double-click a slider to snap it back to its default
     list.addEventListener('dblclick', (e) => {
-        const row = e.target.closest('.mixer-row');
-        if (!row) return;
-        const index = Number(row.dataset.index);
+        const box = e.target.closest('.track-mix');
+        if (!box) return;
+        const index = Number(box.dataset.index);
         if (e.target.classList.contains('mixer-volume')) setTrackMixer(index, { volume: 1 });
         else if (e.target.classList.contains('mixer-pan')) setTrackMixer(index, { pan: getMixerTracks()[index].defaultPan });
     });
     resetBtn?.addEventListener('click', () => resetMixer());
+    onMixerChange(refresh);
+    refresh();
+}
 
-    onMixerChange(render);
-    wireModal('mixerModal', 'mixerModalBtn', render);
+export function initMixerPanel() {
     wireModal('soundFontModal', 'soundFontModalBtn');
-    render();
 }
