@@ -476,3 +476,56 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .form-range::-webkit-slider-thumb { background: var(--hue); border: 0; width: 18px; height: 18px; margin-top: -6px; box-shadow: none; }
 .form-range::-moz-range-thumb { background: var(--hue); border: 0; width: 18px; height: 18px; box-shadow: none; }
 .form-range:focus { box-shadow: none; }
+
+/* ---------- Switches: the mockup's 46x28 toggle with a spring thumb ---------- */
+.form-switch .form-check-input, .form-check-input.theme-switch {
+  width: 46px !important; height: 28px !important; margin: 0 !important; padding: 0; border: 0 !important; border-radius: 14px !important;
+  background-color: var(--s3) !important;
+  background-image: radial-gradient(circle at center, var(--ink) 0 10.5px, transparent 11px) !important;
+  background-size: 28px 28px !important; background-repeat: no-repeat !important; background-position: left center !important;
+  transition: background-position var(--dur-slow) cubic-bezier(.34,1.36,.64,1), background-color var(--dur-base) ease-in-out !important;
+  box-shadow: none !important; flex: none;
+}
+.form-switch .form-check-input:checked, .form-check-input.theme-switch:checked {
+  background-color: var(--action) !important; background-position: right center !important;
+  background-image: radial-gradient(circle at center, var(--on-action, #fff) 0 10.5px, transparent 11px) !important;
+}
+.form-switch { padding-left: 0 !important; min-height: 0; }
+.form-switch .form-check-label { cursor: pointer; }
+
+/* ---------- This song: popover from the title; tracks as colour bar, name and tuning, Only, toggle ---------- */
+.score-options-panel { width: min(360px, calc(100vw - 24px)); padding-bottom: 8px; }
+.score-options-panel .synth-panel-header { background: transparent !important; border: 0 !important; padding: 14px 16px 6px; }
+.score-options-panel .synth-panel-title { font: 600 17px system-ui, sans-serif; color: var(--ink); }
+.score-options-panel .synth-panel-body { padding: 4px 16px 12px; }
+.score-options-panel .form-label { font-size: 13px; color: var(--ink2) !important; font-weight: 400 !important; }
+.score-options-panel .hud-pill-group { width: 100%; display: flex; }
+.score-options-panel .hud-pill-group .btn { flex: 1; justify-content: center; }
+.score-options-panel .hud-pill-group i { display: none; }
+.gp-track-row {
+  display: grid !important; grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  grid-template-areas: "dot label only sw" "dot sub only sw"; column-gap: 12px; align-items: center; min-height: 52px;
+}
+.gp-track-row .form-check { display: contents !important; }
+.gp-track-row .gp-track-dot { grid-area: dot; width: 10px !important; height: 36px !important; border-radius: 3px !important; background: var(--track-color) !important; border: 0 !important; }
+.gp-track-row .form-check-label { grid-area: label; max-width: none !important; font-size: 14px !important; font-weight: 600; color: var(--ink); align-self: end; }
+.gp-track-row .gp-track-tuning { grid-area: sub; justify-self: start; background: transparent !important; color: var(--ink2) !important; padding: 0 !important; font-size: 12px; font-weight: 400; align-self: start; }
+.gp-track-row .gp-track-only-btn { grid-area: only; background: transparent !important; color: var(--ink2) !important; font-weight: 500; }
+.gp-track-row .gp-track-checkbox { grid-area: sw; }
+.gp-track-row:has(.gp-track-checkbox:not(:checked)) .gp-track-dot, .gp-track-row:has(.gp-track-checkbox:not(:checked)) .form-check-label { opacity: .35; }
+
+/* ---------- Tools and other menus: roomy rows, tone-step hover ---------- */
+.tools-menu { width: min(320px, calc(100vw - 24px)); padding: 6px !important; }
+.tools-row { padding: 0 !important; }
+.tools-item, .tools-row > .btn {
+  display: flex !important; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 12px !important;
+  border-radius: var(--r) !important; background: transparent !important; border: 0 !important; color: var(--ink) !important; text-align: left;
+}
+.tools-item:hover, .tools-row > .btn:hover { background: var(--s3) !important; }
+.tools-menu-divider { background: transparent !important; height: 6px !important; }
+.tools-menu-hint { color: var(--ink2); }
+.gp-track-row { border: 0 !important; background: transparent !important; padding: 0 !important; }
+.score-options-panel .synth-panel-header i, .score-options-panel .synth-panel-header .bi-layers-fill { display: none; }
+#synthTrackVisibilitySection .form-check.form-switch { display: flex !important; flex-direction: row-reverse; justify-content: space-between; align-items: center; width: 100%; padding: 0 !important; min-height: 44px; }
+#synthTrackVisibilitySection .form-check.form-switch .form-check-label { font-size: 15px !important; color: var(--ink) !important; }
+#scoreOptionsAdaptSection .form-check.form-switch { flex-direction: row-reverse; }
