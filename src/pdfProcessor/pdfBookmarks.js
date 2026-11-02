@@ -176,7 +176,19 @@ export function updateBookmarkButtonIcon() {
 /**
  * Render the combined list of user bookmarks and outline items
  */
+/** The saved bookmarks and the document outline as [{title, pageIndex}], first page first. The page strip labels them. */
+export function getPdfBookmarkMarks() {
+    const { userBookmarks, outline } = bookmarksState;
+    const seen = new Set();
+    return [...outline, ...userBookmarks]
+        .filter((b) => b && b.pageIndex >= 0 && b.title)
+        .sort((a, b) => a.pageIndex - b.pageIndex)
+        .filter((b) => (seen.has(b.pageIndex) ? false : (seen.add(b.pageIndex), true)))
+        .map((b) => ({ title: b.title, pageIndex: b.pageIndex }));
+}
+
 export function renderBookmarksList() {
+    document.dispatchEvent(new CustomEvent('pdfbookmarks:changed'));
     const listEl = document.getElementById('pdfBookmarksList');
     const emptyMsg = document.getElementById('pdfNoBookmarksMsg');
     const countBadge = document.getElementById('pdfBookmarkCount');

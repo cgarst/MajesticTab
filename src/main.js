@@ -9,7 +9,7 @@ import { setupAddToSetlistButton } from './setlistUi.js';
 import { setupSetlistNav, refreshSetlistNav } from './setlistPlayer.js';
 import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios, applyGpStringCount, syncGpStringCountRadios, syncGpStringCountUI } from './gpProcessor/gpHandler.js';
 import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
-import { setupPageScrubber } from './utils/pageScrubber.js';
+import { initPageStrip } from './utils/pageStrip.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupTrackpadSwipeNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
@@ -1327,7 +1327,7 @@ async function initApp() {
     setupSystemBackNavigation(getNavigationConfig);
     setupViewModeToggles(pageModeRadio, continuousModeRadio, getNavigationConfig);
     setupTapClickNavigation(output, getNavigationConfig);
-    setupPageScrubber(pageIndicator, getNavigationConfig);
+    initPageStrip(getNavigationConfig);
 }
 
 // Modules with top-level await (channel.js) can finish evaluating after DOMContentLoaded has fired.

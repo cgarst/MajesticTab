@@ -1842,3 +1842,21 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 #scoreOptionsSaveGroup .btn { background: var(--s3) !important; border: 0 !important; color: var(--ink) !important; justify-content: flex-start !important; padding-inline: 12px !important; border-radius: var(--r) !important; min-height: 44px; }
 #scoreOptionsSaveGroup .btn i { display: none; }
 .top-bar-song-btn.active { background: transparent !important; }
+
+/* ---------- Page strip (PDF and text tabs) ---------- */
+.page-strip { flex: none; width: 100%; background: var(--s1); padding: 12px 14px 8px; position: relative; z-index: 1045; }
+.page-strip[hidden] { display: none; }
+.page-strip-track { position: relative; height: 40px; display: grid; grid-template-columns: repeat(var(--pages, 1), 1fr); gap: 2px; touch-action: none; cursor: pointer; border-radius: var(--r-sm); }
+.page-strip-seg { display: block; background: var(--s3); border-radius: 2px; min-width: 1px; }
+.page-strip-seg.is-current { background: var(--hue); }
+.page-strip-track:has(.page-strip-fill) { display: block; background: var(--s2); overflow: hidden; }
+.page-strip-fill { position: absolute; inset: 0; background: var(--s3); transform-origin: 0 50%; transform: scaleX(0); display: block; }
+.page-strip-head { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; background: var(--hue); display: block; pointer-events: none; }
+/* With a strip there are no bars: the dock keeps play, the sound switch and volume */
+body.page-strip-on .dock-ruler, body.page-strip-on .dock-time, body.page-strip-on .dock-bpm { display: none !important; }
+body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto; }
+.page-strip-track:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+.page-strip-marks { position: relative; height: 26px; margin-top: 4px; }
+.page-strip-mark { position: absolute; top: 0; transform: translateX(-2px); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: transparent; border: 0; padding: 4px 6px; color: var(--ink2); font: 500 12px system-ui, sans-serif; min-height: 24px; border-radius: var(--r-sm); }
+.page-strip-mark:hover { background: var(--s2); color: var(--ink); }
+.page-strip-marks:empty { display: none; }
