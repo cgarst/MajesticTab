@@ -8,6 +8,7 @@ import { nowMs, jam } from './jamTransport.js';
 import { ClockSync, DriftFilter, NudgeMonitor, decideDriftAction, DRIFT_IGNORE_MS, DRIFT_SEEK_NO_NUDGE_MS } from './jamClock.js';
 import { estimateOutputLatencyMs, createCoalescer, jamSongId, startLag, measureStartLag, waitForPlayerReady, loadSetting, saveSetting, trackPolicyFor } from './jamCommon.js';
 import { createYouTubeClient } from './jamYouTubeSync.js';
+import { readSyncPayload, setSessionSync, setJamGuest, setJamFollowing } from '../audioSync/jamBridge.js';
 import { runIdentify } from './jamIdentify.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor, reloadSynthSoundFonts } from '../gpProcessor/gpPlayer.js';
 import { setSessionSoundFonts } from '../soundFontStore.js';
@@ -438,6 +439,11 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         emitStatus();
     }
 
+    /** The host's sync points for its video: kept for this session only, and used while following. */
+    function applySessionSync(raw) {
+        setSessionSync(raw ? readSyncPayload(raw) : null);
+    }
+
     async function applySessionState(state, hostTs) {
         controllerId = state.controllerId ?? null;
         policy = state.policy || 'ask';
@@ -448,6 +454,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         jamPlayerControl.setHostMixer(state.mixer || {});
         syncSoundFonts(state.soundFonts);
         youtube.apply(state.youtube, hostTs);
+        applySessionSync(state.ytSync);
         emitStatus();
         if (!hostSong) return;
         pendingTransport = { transport: state.transport, hostTs };
@@ -620,6 +627,9 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
             case MSG.YT_STATE:
                 youtube.apply(msg.yt, msg.hostTs);
                 break;
+            case MSG.YT_SYNC:
+                applySessionSync(msg.ytSync);
+                break;
             case MSG.PLAY:
                 if (!following || !hostSongIsGp()) break;
                 hostSpeed = msg.speed ?? hostSpeed;
@@ -691,6 +701,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
     function setFollowing(on) {
         if (following === on) return;
         following = on;
+        setJamFollowing(on);
         if (!on) {
             cancelScheduledPlay();
             resetNudge();
@@ -707,6 +718,8 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         start() {
             active = true;
             following = true;
+            setJamGuest(true);
+            setJamFollowing(true);
             clientId = null;
             unsubscribe = onTransportEvent(onPlayerEvent);
             setTransportInterceptor(interceptor);
@@ -715,6 +728,7 @@ export function createClientAdapter({ loadFile, getCurrentFile, recordFileToRece
         },
         stop() {
             active = false;
+            setJamGuest(false);
             applyMute(false);
             releaseHostAudioSettings();
             fontCache.clear();

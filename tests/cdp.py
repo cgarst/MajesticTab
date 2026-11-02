@@ -8,17 +8,19 @@ Usage:
   python3 tests/cdp.py screenshot [path]        # default /tmp/screenshot.png
   python3 tests/cdp.py targets                  # list page targets
 
-Env: CDP_PORT (default 9333). CDP_VIEWPORT=390x844 emulates a phone viewport for the command. Requires `pip3 install websockets`.
+Env: CDP_PORT (default 9333). CDP_URL_FILTER picks the page whose URL contains it (default "localhost"). CDP_VIEWPORT=390x844 emulates a phone viewport for the command. Requires `pip3 install websockets`.
 """
 import asyncio, base64, json, os, sys, urllib.request
 
 PORT = os.environ.get("CDP_PORT", "9333")
+# Which page to drive when several are open (for example the two windows of a mock Jam): part of its URL
+URL_FILTER = os.environ.get("CDP_URL_FILTER", "localhost")
 
 
 def page_ws():
     targets = json.load(urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json"))
     for t in targets:
-        if t.get("type") == "page" and "localhost" in t.get("url", ""):
+        if t.get("type") == "page" and URL_FILTER in t.get("url", ""):
             return t["webSocketDebuggerUrl"]
     raise SystemExit("No localhost page target found; is the app open?")
 

@@ -12,6 +12,7 @@ import { startAudioSync, stopAudioSync, getAudioSyncSession } from './audioSyncC
 import { initAudioSyncEditor, SYNC_CHANGED_EVENT } from './audioSyncEditor.js';
 import { enterSyncMode } from './syncMode.js';
 import { isTvMode } from '../tvMode.js';
+import { sessionPointsFor, isJamGuestFollowing, JAM_BRIDGE_EVENT } from './jamBridge.js';
 
 const FOLLOW_PREF_KEY = 'audio_sync_follow';
 
@@ -50,6 +51,13 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
     const switchWrap = toggle.closest('.form-check');
     editor ||= initAudioSyncEditor();
 
+    // A Jam guest follows the host's video with the host's points (kept for the session), and cannot author them
+    const guestOnVideo = (media) => media?.kind === 'youtube' && isJamGuestFollowing();
+    const recordFor = (media) => {
+        const fromHost = sessionPointsFor(media);
+        return fromHost ? { points: fromHost, fromHost: true } : loadRecord(getSongKey(), media);
+    };
+
     /**
      * `kind` says what may happen: 'idle' starts following only when nothing else is, 'play' also takes the cursor
      * from another recording, 'stop' never starts (pausing the synth must not pull the cursor back).
@@ -57,12 +65,14 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
     function refresh(kind = 'idle') {
         const media = getMedia();
         const source = getSource();
-        const record = media ? loadRecord(getSongKey(), media) : null;
+        const record = media ? recordFor(media) : null;
         const has = Boolean(record?.points.length);
-        // A TV only follows existing points, so with none the row has nothing to offer
-        row.hidden = !media || (isTvMode() && !has);
+        // A TV, or a guest following the host, only follows existing points, so with none the row has nothing to offer
+        row.hidden = !media || ((isTvMode() || guestOnVideo(media)) && !has);
         switchWrap.hidden = !has;
-        info.textContent = has ? `${record.points.length} sync point${record.points.length === 1 ? '' : 's'}` : 'No sync points';
+        info.textContent = has
+            ? `${record.points.length} sync point${record.points.length === 1 ? '' : 's'}${record.fromHost ? ' from the host' : ''}`
+            : 'No sync points';
         toggle.checked = has && readFollowPref();
 
         const session = getAudioSyncSession();
@@ -88,16 +98,17 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
     editBtn?.addEventListener('click', () => {
         const media = getMedia();
         const source = getSource();
-        if (media && source && !isTvMode()) editor.open({ source, media, peaks: getPeaks?.() || null });
+        if (media && source && !isTvMode() && !guestOnVideo(media)) editor.open({ source, media, peaks: getPeaks?.() || null });
     });
     $tap(prefix)?.addEventListener('click', () => {
         const media = getMedia();
         const source = getSource();
-        if (!media || !source || isTvMode()) return;
+        if (!media || !source || isTvMode() || guestOnVideo(media)) return;
         prepareSync?.();
         enterSyncMode({ source, media, peaks: getPeaks?.() || null, getAudioData });
     });
     window.addEventListener(SYNC_CHANGED_EVENT, () => refresh('idle'));
+    window.addEventListener(JAM_BRIDGE_EVENT, () => refresh('idle'));
     subscribe(refresh);
     onTransportEvent((e) => {
         if (e.type === 'state') refresh('stop');

@@ -9,7 +9,9 @@
 import { MSG } from './jamProtocol.js';
 import { DriftFilter, median } from './jamClock.js';
 import { loadSetting, saveSetting } from './jamCommon.js';
-import { jamYouTubeControl, onYouTubeEvent } from '../youtubePlayer.js';
+import { jamYouTubeControl, onYouTubeEvent, getSongKey } from '../youtubePlayer.js';
+import { loadRecord, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
+import { buildSyncPayload } from '../audioSync/jamBridge.js';
 
 const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
 const HOST_HEARTBEAT_MS = 1000;
@@ -32,6 +34,7 @@ const CORRECTION_COOLDOWN_MS = 2500;
 const COMMAND_SETTLE_MS = 1500; // state echoes of our own commands arrive within this
 const USER_SEEK_SEC = 1.5;
 const AUTOPLAY_HINT_MS = 4000;
+const SYNC_PUBLISH_MS = 300; // tapping edits points quickly; guests get the result once it settles
 
 const round3 = (v) => Math.round((Number(v) || 0) * 1000) / 1000;
 
@@ -43,6 +46,7 @@ function ytState() {
 export function createYouTubeHost({ broadcast }) {
     let unsubscribe = null;
     let heartbeat = null;
+    let syncTimer = null;
     let last = null; // { timeSec, at, playing, rate } as last broadcast
 
     function publish() {
@@ -51,7 +55,19 @@ export function createYouTubeHost({ broadcast }) {
         broadcast(MSG.YT_STATE, { yt });
     }
 
+    /** The host's own sync points for the video it has loaded (null when it has none), for guests' cursors. */
+    function syncPayload() {
+        const videoId = jamYouTubeControl.snapshot().videoId;
+        return videoId ? buildSyncPayload(videoId, loadRecord(getSongKey(), { kind: 'youtube', videoId })) : null;
+    }
+
+    function publishSync() {
+        clearTimeout(syncTimer);
+        syncTimer = setTimeout(() => broadcast(MSG.YT_SYNC, { ytSync: syncPayload() }), SYNC_PUBLISH_MS);
+    }
+
     function onEvent(e) {
+        if (e.type === 'video') publishSync();
         if (e.type !== 'time' || !last) {
             publish();
             return;
@@ -91,14 +107,20 @@ export function createYouTubeHost({ broadcast }) {
         start() {
             unsubscribe = onYouTubeEvent(onEvent);
             heartbeat = setInterval(() => { if (jamYouTubeControl.snapshot().playing) publish(); }, HOST_HEARTBEAT_MS);
+            window.addEventListener(SYNC_CHANGED_EVENT, publishSync);
+            window.addEventListener('majestictab:file-loaded', publishSync);
         },
         stop() {
             unsubscribe?.();
             unsubscribe = null;
             clearInterval(heartbeat);
+            clearTimeout(syncTimer);
+            window.removeEventListener(SYNC_CHANGED_EVENT, publishSync);
+            window.removeEventListener('majestictab:file-loaded', publishSync);
             last = null;
         },
         state: ytState,
+        syncPayload,
         handleCommand
     };
 }

@@ -30,6 +30,8 @@ export const MSG = Object.freeze({
     SONG_READY: 'song.ready',
     // YouTube (host -> clients), any song type
     YT_STATE: 'yt.state',
+    // The host's sync points for its video, so guests' cursors follow it too (host -> clients)
+    YT_SYNC: 'yt.sync',
     // transport (host -> clients)
     SEEK: 'transport.seek',
     PLAY: 'transport.play',

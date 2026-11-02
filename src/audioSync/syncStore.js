@@ -7,6 +7,9 @@
 // Record: { version: 1, media: { kind: 'youtube', videoId } | { kind: 'local', audioId, name, durationMs, fingerprint },
 //           points: [{ id, barIndex, occurrence, pos, timeMs, source }], updatedAt }
 
+/** Fired on `window` when a recording's sync points change. */
+export const SYNC_CHANGED_EVENT = 'audiosync:changed';
+
 export const AUDIO_SYNC_PREFIX = 'audio_sync_';
 export const AUDIO_SYNC_VERSION = 1;
 

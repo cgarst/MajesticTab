@@ -390,6 +390,8 @@ body {
 }
 
 /* Android TV plays along with existing sync points but does not author them: no tap mode, no points editor */
+.jam-guest-following #ytSyncTapBtn,
+.jam-guest-following #ytSyncEditBtn,
 .tv-mode #ytSyncTapBtn,
 .tv-mode #afSyncTapBtn,
 .tv-mode #ytSyncEditBtn,

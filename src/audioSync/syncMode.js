@@ -22,6 +22,7 @@ import { decodeOnsets, nearestOnset } from './onsets.js';
 import { nudgePoint, wholeBarRange, retapWindow } from './refine.js';
 import { openTapCalibration } from './tapCalibrationModal.js';
 import { isTvMode } from '../tvMode.js';
+import { isJamGuestFollowing } from './jamBridge.js';
 
 const OFFSET_KEY = 'audio_sync_tap_offset';
 const TIMELINE_KEY = 'audio_sync_timeline';
@@ -95,7 +96,7 @@ async function ensureScrollView() {
  * @param {() => Promise<ArrayBuffer|null>} [opts.getAudioData] the audio of a local file, to find the sounds taps can snap to
  */
 export async function enterSyncMode({ source, media, peaks = null, getAudioData = null }) {
-    if (session || isTvMode()) return;
+    if (session || isTvMode() || (media.kind === 'youtube' && isJamGuestFollowing())) return;
     if (!getScoreContext()) {
         showToast('Open a tab first', 'info', 2000);
         return;

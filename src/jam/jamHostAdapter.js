@@ -11,6 +11,7 @@ import { jamSongId, songTitleFromName, startLag, measureStartLag, waitForPlayerR
 import { normAudioMode, normListening } from './jamTrackPolicy.js';
 import { resolveNames, cleanAlias } from './jamRoster.js';
 import { createYouTubeHost } from './jamYouTubeSync.js';
+import { setJamHosting } from '../audioSync/jamBridge.js';
 import { jamPlayerControl, onTransportEvent, setTransportInterceptor, getMixerSnapshot, onMixerChange } from '../gpProcessor/gpPlayer.js';
 import { describeActiveSoundFonts, getSoundFontData, onSoundFontSelectionChange } from '../soundFontStore.js';
 import { arrayBufferToBase64Async, base64ToArrayBuffer } from '../fileStore.js';
@@ -92,6 +93,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
         song: session.song,
         transport: transportSnapshot(),
         youtube: youtube.state(),
+        ytSync: youtube.syncPayload(),
         controllerId: session.controllerId,
         policy: session.policy,
         muteGuests: session.muteGuests,
@@ -617,6 +619,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             window.addEventListener('majestictab:file-loaded', onFileLoaded);
             heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
             youtube.start();
+            setJamHosting(true);
             if (initialFile) publishFile(initialFile);
         },
         stop() {
@@ -637,6 +640,7 @@ export function createHostAdapter({ loadFile, ui, getSettings }) {
             clearTimeout(controllerGraceTimer);
             clearTimeout(seekDebounce);
             youtube.stop();
+            setJamHosting(false);
             setStartingUI(false);
             roster.clear();
             uploads.clear();

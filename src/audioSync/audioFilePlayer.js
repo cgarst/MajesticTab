@@ -14,6 +14,7 @@ import {
     setAudioExcluded, setAudioPeaks, relinkAudioFile
 } from './audioFileStore.js';
 import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
+import { isJamHosting, JAM_BRIDGE_EVENT } from './jamBridge.js';
 import { listRecords, loadRecord, saveRecord } from './syncStore.js';
 import { mountSyncRow } from './audioSyncUi.js';
 import { formatTime } from './syncEdit.js';
@@ -556,6 +557,10 @@ export function initAudioFilePlayer() {
     window.addEventListener('resize', () => { positionPanel(); drawWave(); });
     // A restore or sync can bring files in
     window.addEventListener(AUDIO_FILES_CHANGED_EVENT, () => refreshFiles());
+    // A host is told that guests cannot hear a local file
+    const updateJamNote = () => { $('afJamNote').hidden = !isJamHosting(); };
+    window.addEventListener(JAM_BRIDGE_EVENT, updateJamNote);
+    updateJamNote();
 
     mountSyncRow({
         prefix: 'af',

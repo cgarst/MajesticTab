@@ -5,7 +5,7 @@
 
 import { getSongKey } from '../youtubePlayer.js';
 import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
-import { loadRecord, saveRecord } from './syncStore.js';
+import { loadRecord, saveRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { getScoreContext } from './audioSyncController.js';
 import { pointProblems } from './pointCheck.js';
 import { createSyncTimeline } from './syncTimeline.js';
@@ -16,7 +16,7 @@ import {
     toAlphaTexSync, toJson, importPoints
 } from './syncEdit.js';
 
-export const SYNC_CHANGED_EVENT = 'audiosync:changed';
+export { SYNC_CHANGED_EVENT };
 
 const PROBLEM_TEXT = {
     missing: 'This bar pass is not played in the score',
