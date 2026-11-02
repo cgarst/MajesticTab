@@ -1242,8 +1242,25 @@ async function renderLibraryBrowseView(container) {
                 count: `${artists.length} ${artists.length === 1 ? 'artist' : 'artists'}`,
                 actionsHtml: addMusicBtnHtml
             });
+            let resumeHtml = '';
+            try {
+                const [last] = await getRecents(1);
+                if (last) {
+                    const name = last.songTitle || last.name || 'Untitled';
+                    resumeHtml = `<div class="resume-card" id="libResumeCard">
+                      <img class="resume-cover" alt="" src="${getPlaceholderCoverSvg(last.artist || name)}">
+                      <div class="resume-meta">
+                        <div class="resume-kicker">Pick up where you left off</div>
+                        <h2 class="resume-title">${escapeHtml(name)}</h2>
+                        <div class="resume-sub">${escapeHtml([last.artist, last.album].filter(Boolean).join(', '))}</div>
+                      </div>
+                      <button type="button" class="btn btn-theme-primary resume-btn" id="libResumeBtn"><i class="bi-play"></i> Resume</button>
+                    </div>`;
+                }
+            } catch (_) { resumeHtml = ''; }
             bodyHtml = `
             <div class="collection-root-view">
+              ${resumeHtml}
               ${pinnedHtml}
               ${pinnedHtml ? `<div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2" id="libArtistsSectionHeading"><i class="bi-person me-1 text-info"></i> Artists</div>` : ''}
               <div class="library-artists-grid" id="libArtistsGrid">
@@ -1262,6 +1279,13 @@ async function renderLibraryBrowseView(container) {
     `;
 
     bindLibraryToolbarEvents(container);
+
+    // Resume opens the newest recent: go to Recents, then press its Open button once it has rendered
+    container.querySelector('#libResumeBtn')?.addEventListener('click', async () => {
+        await goLibraryTab('recents');
+        const open = document.querySelector('#libraryPage .open-recent-btn');
+        open?.click();
+    });
 
     // In-view Back button click
     container.querySelector('#libBrowseBackBtn')?.addEventListener('click', handleBack);

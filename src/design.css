@@ -628,3 +628,26 @@ body.practice-open #output { padding-right: 376px !important; }
 }
 .library-card h6, .library-row-card h6 { font-size: 15px; font-weight: 600; }
 .library-card .small, .library-row-card .small { font-size: 13px; color: var(--ink2) !important; }
+
+/* Resume card */
+.resume-card { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 16px; align-items: center; background: var(--s2); border-radius: var(--r-lg); padding: 16px; margin: 4px 20px 12px; }
+.resume-cover { width: 64px; height: 64px; border-radius: var(--r); grid-row: span 1; }
+.resume-meta { min-width: 0; }
+.resume-kicker { font-size: 13px; color: var(--ink2); }
+.resume-title { font: 700 36px/1.02 var(--font-display); margin: 2px 0 4px; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.resume-sub { font-size: 13px; color: var(--ink2); }
+.resume-btn { min-height: 44px; padding: 0 20px; font-size: 15px; }
+@media (max-width: 640px) { .resume-card { grid-template-columns: auto 1fr; margin: 4px 16px 12px; } .resume-btn { grid-column: 1 / -1; } .resume-title { font-size: 30px; } }
+
+/* Library header: search and the primary action share one row */
+.library-page-container { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: center; padding: 16px 20px 0; }
+.library-page-container > .lib-view-switch-row { display: none; }
+.library-page-container > .library-search-box { grid-column: 1; grid-row: 1; margin: 0 !important; max-width: none; }
+.library-page-container > .library-list-toolbar { display: contents; }
+.library-list-toolbar > div:last-child { grid-column: 2; grid-row: 1; }
+.library-list-toolbar > div:first-child { grid-column: 1 / -1; grid-row: 2; }
+.library-list-toolbar > div:first-child > span.small { display: none; }
+.library-page-container > .library-sticky-breadcrumbs, .library-page-container > #libBrowseContent, .library-page-container > #libFilteredSearchResults { grid-column: 1 / -1; }
+.library-page-container > #libBrowseContent { margin: 12px -20px 0; }
+.resume-card { margin-top: 0; }
+@media (max-width: 576px) { .library-page-container { padding: 12px 16px 0; } .library-page-container > #libBrowseContent { margin-inline: -16px; } }
