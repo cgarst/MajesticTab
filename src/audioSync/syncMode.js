@@ -21,6 +21,7 @@ import { createSyncTimeline } from './syncTimeline.js';
 import { decodeOnsets, nearestOnset } from './onsets.js';
 import { nudgePoint, wholeBarRange, retapWindow } from './refine.js';
 import { openTapCalibration } from './tapCalibrationModal.js';
+import { isTvMode } from '../tvMode.js';
 
 const OFFSET_KEY = 'audio_sync_tap_offset';
 const TIMELINE_KEY = 'audio_sync_timeline';
@@ -94,7 +95,7 @@ async function ensureScrollView() {
  * @param {() => Promise<ArrayBuffer|null>} [opts.getAudioData] the audio of a local file, to find the sounds taps can snap to
  */
 export async function enterSyncMode({ source, media, peaks = null, getAudioData = null }) {
-    if (session) return;
+    if (session || isTvMode()) return;
     if (!getScoreContext()) {
         showToast('Open a tab first', 'info', 2000);
         return;

@@ -110,6 +110,14 @@ export async function linkAudioFile(id, songKey) {
     await request('readwrite', s => s.put(rec));
 }
 
+/** Moves a file's link from one song key to another (the file is kept). */
+export async function relinkAudioFile(id, fromKey, toKey) {
+    const rec = await getAudioFile(id);
+    if (!rec) return;
+    rec.songKeys = [...new Set([...rec.songKeys.filter(k => k !== fromKey), toKey])];
+    await request('readwrite', s => s.put(rec));
+}
+
 /** Removes the file for a song; the audio itself is deleted when no song uses it any more. */
 export async function unlinkAudioFile(id, songKey) {
     const rec = await getAudioFile(id);

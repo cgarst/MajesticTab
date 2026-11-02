@@ -11,7 +11,7 @@ import { createLocalAudioSource } from './localAudioSource.js';
 import { decodePeaks } from './peaks.js';
 import {
     saveAudioFile, listAudioFilesForSong, getAudioFile, unlinkAudioFile, fingerprintOf, MAX_AUDIO_BYTES,
-    setAudioExcluded, setAudioPeaks
+    setAudioExcluded, setAudioPeaks, relinkAudioFile
 } from './audioFileStore.js';
 import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
 import { listRecords, loadRecord, saveRecord } from './syncStore.js';
@@ -31,7 +31,11 @@ const state = {
     peaks: null,
     rate: 1,
     relinkTarget: null, // media descriptor being relinked, or null when choosing a new file
-    uiTimer: 0
+    uiTimer: 0,
+    // A song is known by its file name until its score has been read, then by artist and title. Files added in
+    // between are linked to the first and moved to the second.
+    songFinal: false,
+    pendingAdds: []     // { id, key } of files added while the song's key was still provisional
 };
 
 const syncListeners = new Set();
@@ -266,6 +270,7 @@ async function addFile(file, { relink = null } = {}) {
 }
 
 async function finishAdd(meta) {
+    if (!state.songFinal) state.pendingAdds.push({ id: meta.id, key: getSongKey() });
     destroySource();
     state.currentId = meta.id;
     await refreshFiles();
@@ -482,8 +487,22 @@ export function toggleAudioFilePanel(force = null) {
     }
 }
 
-/** Called when a song is loaded: forget the previous song's file and list this song's. */
-export function updateSongForAudioFile() {
+/**
+ * Called when a song is loaded: forget the previous song's file and list this song's. Called again with
+ * `{ final: true }` once the score has been read and the song's key is its artist and title.
+ */
+export async function updateSongForAudioFile({ final = false } = {}) {
+    if (!final) {
+        state.songFinal = false;
+        state.pendingAdds = [];
+    } else {
+        state.songFinal = true;
+        const key = getSongKey();
+        for (const add of state.pendingAdds) {
+            if (add.key !== key) await relinkAudioFile(add.id, add.key, key);
+        }
+        state.pendingAdds = [];
+    }
     destroySource();
     state.files = [];
     state.missing = [];

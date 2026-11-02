@@ -389,6 +389,14 @@ body {
   display: none !important;
 }
 
+/* Android TV plays along with existing sync points but does not author them: no tap mode, no points editor */
+.tv-mode #ytSyncTapBtn,
+.tv-mode #afSyncTapBtn,
+.tv-mode #ytSyncEditBtn,
+.tv-mode #afSyncEditBtn {
+  display: none !important;
+}
+
 .tauri-macos #topBar {
   min-height: 50px;
 }

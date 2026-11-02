@@ -166,7 +166,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
                 scoreArtist: api.score.artist
             });
             // The song's identity is now the score's artist and title, so list that song's audio files
-            updateSongForAudioFile();
+            updateSongForAudioFile({ final: true });
 
             const scoreMeta = extractScoreMetadata(api.score);
             const tunings = scoreMeta.tunings || [];

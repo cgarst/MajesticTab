@@ -11,6 +11,7 @@ import { createYouTubeSource } from './mediaSource.js';
 import { startAudioSync, stopAudioSync, getAudioSyncSession } from './audioSyncController.js';
 import { initAudioSyncEditor, SYNC_CHANGED_EVENT } from './audioSyncEditor.js';
 import { enterSyncMode } from './syncMode.js';
+import { isTvMode } from '../tvMode.js';
 
 const FOLLOW_PREF_KEY = 'audio_sync_follow';
 
@@ -58,7 +59,8 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
         const source = getSource();
         const record = media ? loadRecord(getSongKey(), media) : null;
         const has = Boolean(record?.points.length);
-        row.hidden = !media;
+        // A TV only follows existing points, so with none the row has nothing to offer
+        row.hidden = !media || (isTvMode() && !has);
         switchWrap.hidden = !has;
         info.textContent = has ? `${record.points.length} sync point${record.points.length === 1 ? '' : 's'}` : 'No sync points';
         toggle.checked = has && readFollowPref();
@@ -86,12 +88,12 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
     editBtn?.addEventListener('click', () => {
         const media = getMedia();
         const source = getSource();
-        if (media && source) editor.open({ source, media, peaks: getPeaks?.() || null });
+        if (media && source && !isTvMode()) editor.open({ source, media, peaks: getPeaks?.() || null });
     });
     $tap(prefix)?.addEventListener('click', () => {
         const media = getMedia();
         const source = getSource();
-        if (!media || !source) return;
+        if (!media || !source || isTvMode()) return;
         prepareSync?.();
         enterSyncMode({ source, media, peaks: getPeaks?.() || null, getAudioData });
     });

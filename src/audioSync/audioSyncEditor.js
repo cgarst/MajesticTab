@@ -9,6 +9,7 @@ import { loadRecord, saveRecord } from './syncStore.js';
 import { getScoreContext } from './audioSyncController.js';
 import { pointProblems } from './pointCheck.js';
 import { createSyncTimeline } from './syncTimeline.js';
+import { isTvMode } from '../tvMode.js';
 import { tickToPosition, scoreMsToTick, positionToScoreMs } from './scorePositions.js';
 import {
     addPoint, updatePoint, removePoints, shiftAfter, formatTime, parseTime,
@@ -273,6 +274,7 @@ export function initAudioSyncEditor() {
 
     return {
         open(ctx) {
+            if (isTvMode()) return;
             current = ctx;
             selectedId = null;
             undoStack = [];
