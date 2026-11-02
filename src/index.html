@@ -298,7 +298,7 @@
   <div class="synth-panel-header">
     <div class="d-flex align-items-center text-truncate me-2">
       <i class="bi-layers-half text-info me-2 fs-6"></i>
-      <span class="synth-panel-title text-truncate" id="scoreOptionsPanelTitle">Notation</span>
+      <span class="synth-panel-title text-truncate" id="scoreOptionsPanelTitle">This song</span>
     </div>
     <button class="brand-btn p-1 px-2 text-muted" id="scoreOptionsPanelCloseBtn" title="Close">
       <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
@@ -306,8 +306,21 @@
   </div>
   <div class="synth-panel-body">
     <!-- Notation Style (GP only) -->
+    <div id="synthTrackVisibilitySection" class="mb-3" style="display: none;">
+      <div class="d-flex align-items-center justify-content-between mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted">Tracks:</label>
+        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show All</button>
+      </div>
+      <div id="synthTrackList" class="d-flex flex-column gap-1 mb-1"></div>
+      <div class="form-check form-switch mb-0 mt-2">
+        <input class="form-check-input theme-switch" type="checkbox" id="tabTrackColorSwitch">
+        <label class="form-check-label small text-white" for="tabTrackColorSwitch" title="Match tab colors to the fretboard track colors">Color by track</label>
+      </div>
+    </div>
+
+    <!-- PDF Options (PDF only) -->
     <div class="mb-3" id="scoreOptionsNotationStyleSection">
-      <label class="form-label small mb-1 fw-semibold text-muted">Notation Style:</label>
+      <label class="form-label small mb-1 fw-semibold text-muted">Staff:</label>
       <div class="hud-pill-group w-100" role="group" aria-label="Notation Style">
         <input type="radio" class="btn-check" name="synthNotationRadio" id="synthNotationTabOnly" value="tab" autocomplete="off" checked>
         <label class="btn btn-sm" for="synthNotationTabOnly" style="flex: 1;"><i class="bi-file-earmark-music me-1"></i>Tab Only</label>
@@ -319,10 +332,10 @@
     <!-- Tab String Count (GP only) -->
     <div class="mb-3" id="scoreOptionsStringCountSection" style="display: none;">
       <div class="d-flex align-items-center justify-content-between mb-1">
-        <label class="form-label small mb-0 fw-semibold text-muted">Tab String Count:</label>
+        <label class="form-label small mb-0 fw-semibold text-muted">Strings:</label>
         <span class="badge badge-theme-secondary py-0 px-1" style="font-size: 0.65rem;" id="scoreCurrentStringsBadge">6-String</span>
       </div>
-      <div class="hud-pill-group w-100" role="group" aria-label="Tab String Count" id="scoreOptionsStringCountPills">
+      <div class="hud-pill-group w-100" role="group" aria-label="Strings" id="scoreOptionsStringCountPills">
         <input type="radio" class="btn-check" name="synthStringCountRadio" id="synthStringCountNative" value="native" autocomplete="off" checked>
         <label class="btn btn-sm" for="synthStringCountNative" style="flex: 1;">Original</label>
         <input type="radio" class="btn-check" name="synthStringCountRadio" id="synthStringCount7" value="7" autocomplete="off">
@@ -335,7 +348,7 @@
     <!-- Adapt to My Tuning (GP only, opt-in per tab) -->
     <div class="mb-3" id="scoreOptionsAdaptSection" style="display: none;">
       <div class="d-flex align-items-center justify-content-between mb-1">
-        <label class="form-label small mb-0 fw-semibold text-muted" for="adaptEnableSwitch">Adapt to My Tuning:</label>
+        <label class="form-label small mb-0 fw-semibold text-muted" for="adaptEnableSwitch">Tuning:</label>
         <div class="d-flex align-items-center gap-2">
           <span class="badge badge-theme-secondary py-0 px-1" style="font-size: 0.65rem; display: none;" id="adaptStateBadge">Adapted</span>
           <div class="form-check form-switch mb-0">
@@ -362,19 +375,6 @@
     </div>
 
     <!-- Visible Guitar Tracks (GP only) -->
-    <div id="synthTrackVisibilitySection" class="mb-3" style="display: none;">
-      <div class="d-flex align-items-center justify-content-between mb-1">
-        <label class="form-label small mb-0 fw-semibold text-muted">Visible Guitar Tracks:</label>
-        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show All</button>
-      </div>
-      <div id="synthTrackList" class="d-flex flex-column gap-1 mb-1"></div>
-      <div class="form-check form-switch mb-0 mt-2">
-        <input class="form-check-input theme-switch" type="checkbox" id="tabTrackColorSwitch">
-        <label class="form-check-label small text-white" for="tabTrackColorSwitch" title="Match tab colors to the fretboard track colors">Color Tabs by Track</label>
-      </div>
-    </div>
-
-    <!-- PDF Options (PDF only) -->
     <div id="scoreOptionsPdfSection" class="mb-3" style="display: none;">
       <label class="form-label small mb-2 fw-semibold text-muted">PDF Rendering:</label>
       <div class="form-check form-switch mb-2">
@@ -391,7 +391,9 @@
     </div>
 
     <!-- Export Actions -->
-    <div class="pt-2 border-top border-secondary-subtle d-flex flex-column gap-2" id="scoreOptionsExportSection">
+    <details class="settings-advanced-details pt-2 border-top border-secondary-subtle" id="scoreOptionsMoreDetails">
+      <summary class="small text-white-50 py-1 d-flex align-items-center justify-content-between" style="cursor: pointer; user-select: none;"><span>More</span><i class="bi-chevron-down ms-1" style="font-size: 0.75rem;"></i></summary>
+    <div class="d-flex flex-column gap-2 pt-2" id="scoreOptionsExportSection">
       <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="exportPDFBtn" type="button" style="display: none;">
         <i class="bi-file-earmark-pdf text-danger"></i> Export as PDF
       </button>
@@ -410,6 +412,7 @@
         <i class="bi-download text-info"></i> Export Source Tab
       </button>
     </div>
+    </details>
   </div>
 </div>
 
