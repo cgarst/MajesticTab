@@ -1451,31 +1451,31 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <!-- Bundle Contents Overview -->
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
-              <i class="bi-collection text-info"></i> Data Included in this Bundle
+              <i class="bi-collection text-info"></i> In this backup
             </div>
             <div class="row g-2 text-white-50 small">
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6">${storedFiles.length}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Stored Tabs (${formatBytes(tabsTotalSize)})</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Stored tabs (${formatBytes(tabsTotalSize)})</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6">${libraryData.songs?.length || 0}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Library Songs</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Library songs</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6">${extensions.length}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">File Converters</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">File converters</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6"><i class="bi-check2 text-success"></i></div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">All App Settings</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">App settings</div>
                 </div>
               </div>
             </div>
@@ -1484,7 +1484,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <!-- Destination Provider Selector -->
           <div class="mb-3">
             <label class="form-label small fw-semibold text-white-50 mb-2 d-block">
-              Save Backup Destination:
+              Save to
             </label>
             <div class="d-flex flex-column gap-2" id="backupProviderList">
               ${providers.map((p, idx) => `
@@ -1499,7 +1499,6 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                       <div class="text-muted text-truncate" style="font-size: 0.73rem;">${escapeHtml(p.description || '')}</div>
                     </div>
                   </div>
-                  ${p.badge ? `<span class="badge badge-theme-secondary py-0 px-2" style="font-size: 0.65rem;">${escapeHtml(p.badge)}</span>` : ''}
                 </label>
               `).join('')}
             </div>
@@ -1507,7 +1506,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
 
           <!-- Backup Format -->
           <div class="mb-3">
-            <label class="form-label small fw-semibold text-white-50 mb-2 d-block">Backup Format:</label>
+            <label class="form-label small fw-semibold text-white-50 mb-2 d-block">Format</label>
             <div class="d-flex flex-column gap-2">
               <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center gap-3" id="backupFormatIncrementalOption" style="cursor: pointer;">
                 <input class="form-check-input theme-radio m-0" type="radio" name="backupFormat" value="incremental">
@@ -1567,7 +1566,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="backup-dropzone p-4 rounded-3 text-center mb-3" id="restoreDropzone">
             <input type="file" id="restoreFileInput" accept=".mtbackup" class="d-none">
             <i class="bi-file-earmark-arrow-up text-info fs-1 mb-2 d-block"></i>
-            <div class="fw-bold text-white small mb-1">Restore from a snapshot or backup file</div>
+            <div class="fw-bold text-white small mb-1">Restore from a snapshot or a backup file</div>
             <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive, an S3 bucket or a backup folder, or open a single .mtbackup file (you can also drop one here)</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreBrowseBtn">
@@ -1723,16 +1722,16 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
 
         <!-- TAB 3: RELOAD METADATA -->
         <div id="reloadTabContent" style="display: ${activeTab === 'reload' ? 'block' : 'none'};">
-          <!-- Library Metadata Status Overview -->
+          <!-- Library status Overview -->
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
-              <i class="bi-music-note-list text-info"></i> Library Metadata Status
+              <i class="bi-music-note-list text-info"></i> Library status
             </div>
             <div class="row g-2 text-white-50 small">
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6" id="reloadStatTotalSongs">${libraryData.songs?.length || 0}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Total Songs</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Songs</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
@@ -1744,13 +1743,13 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6 ${songsMissingDuration > 0 ? 'text-warning' : 'text-success'}" id="reloadStatMissingDuration">${songsMissingDuration}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Missing Track Times</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Missing track times</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6 ${songsMissingCover > 0 ? 'text-warning' : 'text-success'}" id="reloadStatMissingCovers">${songsMissingCover}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Missing Cover Art</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Missing cover art</div>
                 </div>
               </div>
             </div>
@@ -1761,7 +1760,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <div class="d-flex align-items-start gap-3">
               <i class="bi-info-circle-fill text-info fs-5 flex-shrink-0 mt-1"></i>
               <div>
-                <div class="fw-bold text-white small mb-1">Refresh All Metadata from MusicBrainz &amp; Guitar Pro Files</div>
+                <div class="fw-bold text-white small mb-1">Refresh metadata from MusicBrainz and your Guitar Pro files</div>
                 <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
                   Performs a comprehensive refresh of all library metadata: queries MusicBrainz for canonical <strong>track durations</strong>, official track numbers, release years, and cover artwork, while re-analyzing all stored Guitar Pro tab files to extract accurate guitar &amp; bass tunings and string counts.
                 </div>
@@ -1805,7 +1804,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
         <div id="orphansTabContent" style="display: ${activeTab === 'orphans' ? 'block' : 'none'};">
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
-              <i class="bi-file-earmark-x text-warning"></i> Orphaned Stored Files
+              <i class="bi-file-earmark-x text-warning"></i> Stored files no song uses
             </div>
             <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
               These stored files are not attached to any song or album in your library. Removing them frees space and does not affect your songs, collections, or settings. Related Recents entries are removed too.
@@ -1816,13 +1815,13 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="orphansCancelBtn">Close</button>
             <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="orphansDeleteBtn" disabled>
-              <i class="bi-trash3"></i> Delete Selected
+              <i class="bi-trash3"></i> Delete selected
             </button>
           </div>
 
           <div class="backup-summary-box p-3 rounded-3 mt-3">
             <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
-              <i class="bi-clock-history text-warning"></i> Orphaned Files in Incremental Backups
+              <i class="bi-clock-history text-warning"></i> Unused files in snapshots
             </div>
             <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
               Saved tabs and SoundFonts in a Google Drive or folder backup that you can remove to free space. Files newer than 24 hours are kept.
@@ -1848,7 +1847,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <div id="snapshotOrphansStatus" class="small mt-2" style="display:none;" role="status"></div>
             <div class="d-flex justify-content-end pt-2">
               <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="snapshotOrphansDeleteBtn" disabled>
-                <i class="bi-trash3"></i> Delete Selected
+                <i class="bi-trash3"></i> Delete selected
               </button>
             </div>
           </div>
@@ -1908,31 +1907,31 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <!-- Data Summary Overview -->
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
-              <i class="bi-exclamation-octagon text-danger"></i> Data to be Erased
+              <i class="bi-exclamation-octagon text-danger"></i> What will be erased
             </div>
             <div class="row g-2 text-white-50 small">
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6" id="deleteStatTabs">${storedFiles.length}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Stored Tabs (${formatBytes(tabsTotalSize)})</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Stored tabs (${formatBytes(tabsTotalSize)})</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6" id="deleteStatSongs">${libraryData.songs?.length || 0}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Library Songs</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Library songs</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6" id="deleteStatExt">${extensions.length}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">File Converters</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">File converters</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6"><i class="bi-gear text-warning"></i></div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">All Settings &amp; Cache</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Settings and cache</div>
                 </div>
               </div>
             </div>
@@ -1943,14 +1942,14 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <div class="d-flex align-items-start gap-3 mb-2">
               <i class="bi-exclamation-triangle-fill text-danger fs-5 flex-shrink-0 mt-1"></i>
               <div>
-                <div class="fw-bold text-white small mb-1">Permanent Data Deletion Warning</div>
+                <div class="fw-bold text-white small mb-1">This cannot be undone</div>
                 <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
                   This action permanently removes all locally stored tab files, library tracks, playlists, collections, file converters, and resets all application settings to factory defaults.
                 </div>
               </div>
             </div>
             <div class="text-white-50 small p-2 rounded-2 mt-2" style="background: rgba(0,0,0,0.25); font-size: 0.74rem;">
-              <i class="bi-info-circle text-info me-1"></i> Tip: If you want to keep a copy of your current files and settings, create a backup using the <strong>Create Backup</strong> tab first.
+              <i class="bi-info-circle text-info me-1"></i> Tip: If you want to keep a copy of your current files and settings, create a backup using <strong>Create a backup</strong> first.
             </div>
           </div>
 
@@ -2045,7 +2044,7 @@ function attachModalHandlers(modal, options = {}) {
     const updateOrphansDeleteBtn = () => {
         const n = orphansList.querySelectorAll('.orphan-check:checked').length;
         orphansDeleteBtn.disabled = n === 0;
-        orphansDeleteBtn.innerHTML = `<i class="bi-trash3"></i> Delete Selected${n ? ` (${n})` : ''}`;
+        orphansDeleteBtn.innerHTML = `<i class="bi-trash3"></i> Delete selected${n ? ` (${n})` : ''}`;
     };
     const renderOrphans = async () => {
         let orphans = [];
@@ -2122,7 +2121,7 @@ function attachModalHandlers(modal, options = {}) {
     const updateSnapOrphansDeleteBtn = () => {
         const n = snapOrphansList.querySelectorAll('.snapshot-orphan-check:checked').length;
         snapOrphansDeleteBtn.disabled = n === 0;
-        snapOrphansDeleteBtn.innerHTML = `<i class="bi-trash3"></i> Delete Selected${n ? ` (${n})` : ''}`;
+        snapOrphansDeleteBtn.innerHTML = `<i class="bi-trash3"></i> Delete selected${n ? ` (${n})` : ''}`;
     };
     const renderSnapOrphans = (found) => {
         snapOrphanFiles = found.unused;

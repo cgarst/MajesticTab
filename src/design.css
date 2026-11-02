@@ -1725,3 +1725,35 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 /* Data tasks open in place under their row */
 .data-task-slot { background: var(--s1); padding: 4px 16px 16px; }
 #backupModal.is-embedded .backup-nav-tabs { display: none !important; }
+
+/* ---------- Data task content: rows and words, no boxes inside boxes ---------- */
+.data-task-slot { padding: 4px 16px 20px; }
+.data-task-slot .backup-summary-box, .data-task-slot .backup-stat-card, .data-task-slot .restore-mode-card, .data-task-slot .backup-provider-option,
+.data-task-slot .backup-dropzone, .data-task-slot #restoreInspectionCard, .data-task-slot [class*="alert"], .data-task-slot .rounded-3 {
+  background: transparent !important; border: 0 !important; box-shadow: none !important;
+}
+.data-task-slot .backup-provider-option, .data-task-slot .restore-mode-card { background: var(--s2) !important; }
+.data-task-slot .backup-provider-option:has(input:checked), .data-task-slot .restore-mode-card:has(input:checked) { background: var(--s3) !important; }
+.data-task-slot .backup-summary-box { padding: 12px 0 !important; }
+.data-task-slot .backup-stat-card { background: transparent !important; padding-left: 0 !important; }
+.data-task-slot .provider-mini-icon, .data-task-slot .backup-provider-option .badge, .data-task-slot .backup-provider-option > :last-child:not(label):not(div:has(input)) { }
+.data-task-slot .provider-mini-icon { display: none !important; }
+.data-task-slot .backup-provider-option > span.small:last-child, .data-task-slot .backup-provider-option .text-muted.small:last-child { display: none; }
+.data-task-slot i[class^="bi"], .data-task-slot i[class*=" bi-"], .data-task-slot i.icon-gdrive, .data-task-slot svg.bi { display: none !important; }
+.data-task-slot .btn i { display: none !important; }
+.data-task-slot .small.fw-semibold, .data-task-slot .form-label, .data-task-slot h6, .data-task-slot .fw-bold.text-white.small { text-transform: none !important; letter-spacing: 0 !important; }
+.data-task-slot .text-white-50, .data-task-slot .text-muted { color: var(--ink2) !important; }
+.data-task-slot .text-danger, .data-task-slot .text-danger-emphasis { color: var(--ink) !important; }
+.data-task-slot .text-success { color: var(--ink2) !important; }
+.data-task-slot .bg-danger, .data-task-slot [class*="bg-danger"] { background: transparent !important; }
+.data-task-slot .border, .data-task-slot [class*="border-"] { border: 0 !important; }
+.data-task-slot hr, .data-task-slot .border-top, .data-task-slot .border-bottom { display: none; }
+/* The row's Close does this job */
+.data-task-slot #restoreCancelBtn, .data-task-slot #backupCancelBtn, .data-task-slot [id$="CancelBtn"], .data-task-slot #orphansCloseBtn, .data-task-slot #reloadCancelBtn { display: none !important; }
+.data-task-slot .theme-modal-footer { background: transparent !important; border: 0 !important; padding-inline: 0 !important; }
+.data-task-slot .btn-theme-outline, .data-task-slot .theme-control-btn { background: var(--s3) !important; border: 0 !important; }
+/* The one destructive action in a task keeps the danger colour */
+.data-task-slot #deleteAllExecuteBtn, .data-task-slot [id*="Delete"][id$="Btn"].btn-theme-danger, .data-task-slot .btn-theme-danger { background: color-mix(in srgb, var(--danger, #f87171) 24%, var(--s2)) !important; color: var(--ink) !important; border: 0 !important; }
+.data-task-slot .text-center { text-align: left !important; }
+.data-task-slot .justify-content-center { justify-content: flex-start !important; }
+.data-task-slot .backup-dropzone { padding: 8px 0 !important; }
