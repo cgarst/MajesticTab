@@ -1632,3 +1632,4 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .fretboard-dock-left { flex: 1 1 0 !important; min-width: 0; }
 .fretboard-dock-center { order: 2; flex: none !important; }
 .fretboard-dock-right { order: 3; flex: none !important; }
+.library-song-row .song-cover { width: 44px; height: 44px; border-radius: var(--r); object-fit: cover; flex: none; background: var(--s3); }

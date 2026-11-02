@@ -1410,7 +1410,7 @@ async function renderLibraryBrowseView(container) {
               <div class="pane-scroll" id="libArtistDetailScroll">
                 <div class="artist-detail-view">
                   <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
-                    ${pinnedSongs.map(song => renderSongRow(song, { showArtistAlbum: true, showTrackNumber: false })).join('')}
+                    ${pinnedSongs.map(song => renderSongRow(song, { showArtistAlbum: true, showTrackNumber: false, showCover: true })).join('')}
                   </div>
                 </div>
               </div>
@@ -2425,6 +2425,7 @@ function renderSongRow(song, options = {}) {
       <div class="song-row-container">
         <div class="song-row library-song-row" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
           ${trackNumStr === '\u2022' ? '' : `<span class="num tnum">${trackNumStr}</span>`}
+          ${options.showCover ? `<img loading="lazy" decoding="async" class="song-cover" src="${song.coverUrl || getPlaceholderCoverSvg(song.album || song.title || 'Tab')}" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(song.title || 'Tab')}'">` : ''}
           <span class="t">
             <b>${escapeHtml(song.title)}</b>
             <span class="sub">
