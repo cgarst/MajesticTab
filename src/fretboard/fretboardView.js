@@ -44,7 +44,6 @@ export class FretboardView {
         this.poolSize = 48;
         this.markerPool = [];
         this.stringLabels = {};
-        this.pickIndicators = {};
 
         this.initDOM();
     }
@@ -380,8 +379,6 @@ export class FretboardView {
     buildPickIndicators() {
         const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
         group.setAttribute('class', 'fretboard-pick-indicators');
-        this.pickIndicators = {};
-
         // Bridge anchor plate / saddles visual on picking side
         const bridgeXPos = !this.isLeftHanded ? this.bridgeX : (this.bridgeX - 6);
         const bridgePlate = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -398,52 +395,6 @@ export class FretboardView {
         this.reachGroup.setAttribute('class', 'fretboard-pick-reach');
         this.partPickPool = []; // the neck was rebuilt, so any earlier part picks are gone with it
         group.appendChild(this.reachGroup);
-
-        for (let v = 1; v <= this.stringCount; v++) {
-            const atString = this.getAtString(v);
-            const posY = this.stringYs[v];
-
-            const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            g.setAttribute('class', 'fretboard-pick-marker');
-            g.setAttribute('transform', `translate(${this.pickX}, ${posY})`);
-            g.style.display = 'none';
-
-            // Inner container isolates CSS transform animations from outer SVG translation
-            const inner = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            inner.setAttribute('class', 'pick-marker-inner');
-
-            // Pluck spark glow
-            const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            glow.setAttribute('class', 'pick-strike-glow');
-            glow.setAttribute('r', '11');
-
-            // Plectrum shape pointing into string
-            const pick = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            pick.setAttribute('class', 'pick-strike-shape');
-            // The same pick as the logo, scaled to about 17 units wide, tip toward the string
-            pick.setAttribute('d', PLECTRUM_PATH);
-            pick.setAttribute('transform', 'translate(0 -1) scale(0.056) translate(-256 -255)');
-
-            // A soft edge line along the top, the way a moulded pick catches the light
-            const shine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            shine.setAttribute('class', 'pick-strike-shine');
-            shine.setAttribute('d', 'M -5.2 -6.8 Q 0 -9.4 5.2 -6.8');
-
-            inner.appendChild(glow);
-            inner.appendChild(pick);
-            inner.appendChild(shine);
-            g.appendChild(inner);
-            group.appendChild(g);
-
-            this.pickIndicators[atString] = {
-                group: g,
-                inner,
-                glow,
-                pick,
-                visualLine: v,
-                struckToggle: false
-            };
-        }
 
         this.svg.appendChild(group);
     }
@@ -556,13 +507,6 @@ export class FretboardView {
      */
     updateActiveNotes(notes = [], displayMode = this.displayMode) {
         this.displayMode = displayMode === 'frets' ? 'frets' : 'notes';
-
-        // Reset all pick indicators
-        for (let s = 1; s <= this.stringCount; s++) {
-            if (this.pickIndicators?.[s]) {
-                this.pickIndicators[s].group.style.display = 'none';
-            }
-        }
 
         const partPicks = new Map();
         let poolIdx = 0;
@@ -703,7 +647,7 @@ export class FretboardView {
         let partIndex = 0;
 
         partPicks.forEach((part) => {
-            const strings = [...part.strings].filter(n => this.pickIndicators?.[n]).sort((a, b) => a - b);
+            const strings = [...part.strings].filter(n => n >= 1 && n <= this.stringCount).sort((a, b) => a - b);
             if (strings.length === 0) return;
             const lowest = strings[0];
             const pick = this.getPartPick(partIndex++);
@@ -759,11 +703,6 @@ export class FretboardView {
         this.clearPickReach();
         for (const marker of this.markerPool) {
             marker.element.style.display = 'none';
-        }
-        for (let s = 1; s <= this.stringCount; s++) {
-            if (this.pickIndicators?.[s]) {
-                this.pickIndicators[s].group.style.display = 'none';
-            }
         }
     }
 

@@ -375,10 +375,6 @@ body.library-view-active .fretboard-dock {
   stroke-linecap: round;
 }
 
-.pick-strike-glow {
-  display: none;
-}
-
 /* Active Note Markers */
 @keyframes fretboard-marker-pop {
   0% {
