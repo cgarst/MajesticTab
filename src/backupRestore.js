@@ -2,6 +2,7 @@
 // Complete single-file Backup and Restore engine for MajesticTab.
 // Bundles all settings, custom extensions, downloaded tabs local store, and library hierarchy.
 
+import { collectAudioSync, mergeAudioSync, clearAudioSync } from './audioSync/syncStore.js';
 import {
     getDB, STORE_NAME, getAllStoredFiles, getStoredFileRecord, clearAllStoredFiles,
     arrayBufferToBase64, arrayBufferToBase64Async, base64ToArrayBuffer
@@ -140,6 +141,10 @@ export function collectAllSettings() {
     }
     if (Object.keys(gpTabStrings).length > 0) {
         settings.gpTabStrings = gpTabStrings;
+    }
+    const audioSync = collectAudioSync();
+    if (Object.keys(audioSync).length > 0) {
+        settings.audioSync = audioSync;
     }
 
     return settings;
@@ -639,6 +644,11 @@ export function applyRestoredSettings(settings, { wipe }) {
                 continue;
             }
 
+            if (key === 'audioSync' && val && typeof val === 'object') {
+                mergeAudioSync(val, { wipe });
+                continue;
+            }
+
             if (key === 'gpTabStrings' && typeof val === 'object') {
                 for (const [tabKey, tabVal] of Object.entries(val)) {
                     if (wipe || localStorage.getItem(tabKey) === null) {
@@ -696,6 +706,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
             if (k && k.startsWith('yt_track_')) keysToRemove.push(k);
         }
         for (const k of keysToRemove) localStorage.removeItem(k);
+        clearAudioSync();
     }
 
     const fflateObj = (typeof window !== 'undefined' && window.fflate)
@@ -933,6 +944,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
             if (k && k.startsWith('yt_track_')) keysToRemove.push(k);
         }
         for (const k of keysToRemove) localStorage.removeItem(k);
+        clearAudioSync();
     }
 
     let filesImported = 0;
@@ -1062,6 +1074,7 @@ export async function deleteAllAppData() {
         }
     }
     for (const k of keysToRemove) localStorage.removeItem(k);
+    clearAudioSync();
 
     // 4. Reset extensions
     installExtensionSources([]).catch(e => console.warn('Could not reset extensions:', e));

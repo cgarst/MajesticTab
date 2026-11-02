@@ -249,8 +249,12 @@ export function extractVideoId(urlOrText) {
  * Key for localStorage caching of video IDs per song and mode
  */
 function getStorageKey(mode = playerState.trackMode) {
-    const base = [playerState.artist, playerState.title].filter(Boolean).join(' - ') || playerState.filename;
-    return `yt_track_${encodeURIComponent(base.toLowerCase())}_${mode}`;
+    return `yt_track_${encodeURIComponent(getSongKey().toLowerCase())}_${mode}`;
+}
+
+/** Identity of the loaded song (artist and title, or the file name); also keys the song's audio sync data. */
+export function getSongKey() {
+    return [playerState.artist, playerState.title].filter(Boolean).join(' - ') || playerState.filename;
 }
 
 /**

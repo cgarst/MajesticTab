@@ -181,7 +181,7 @@ function compareOther(manifest, localLibrary) {
     const names = (list) => list.slice(0, 6).join(', ') + (list.length > 6 ? `, +${list.length - 6} more` : '');
     const gain = [], lose = [], differ = [];
     for (const key of new Set([...Object.keys(mineSettings), ...Object.keys(theirSettings)])) {
-        if (key === 'ytCache' || key === 'gpTabStrings') continue;
+        if (key === 'ytCache' || key === 'gpTabStrings' || key === 'audioSync') continue;
         if (key === TAB_SOURCES_DELETED_KEY) continue;
         if (key === TAB_SOURCES_KEY) {
             const mine = readSourceList(mineSettings[key]);
@@ -303,9 +303,10 @@ function mergeRemoteLibrary(library, droppedFileIds) {
 function fillMissingPreferences(manifest) {
     const settings = {};
     for (const [key, val] of Object.entries(manifest.settings || {})) {
-        // ytCache and gpTabStrings are per-key maps that the restore code already fills without overwriting
+        // ytCache and gpTabStrings are per-key maps that the restore code already fills without overwriting; audioSync is
+        // merged by the restore code too (newer record wins)
         if (key === TAB_SOURCES_KEY || key === TAB_SOURCES_DELETED_KEY) continue;
-        if (key === 'ytCache' || key === 'gpTabStrings' || localStorage.getItem(key) === null) settings[key] = val;
+        if (key === 'ytCache' || key === 'gpTabStrings' || key === 'audioSync' || localStorage.getItem(key) === null) settings[key] = val;
     }
     const theirSources = readSourceList(manifest.settings?.[TAB_SOURCES_KEY]);
     const theirTombs = readTombstones(manifest.settings?.[TAB_SOURCES_DELETED_KEY]);
