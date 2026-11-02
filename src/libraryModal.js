@@ -1187,11 +1187,11 @@ async function renderLibraryBrowseView(container) {
 
                         <div class="album-header-actions d-flex align-items-center gap-2 flex-shrink-0">
                           <button type="button" class="btn btn-sm btn-theme-outline explore-album-tracklist-btn py-1 px-2 d-none d-sm-inline-flex align-items-center gap-1" data-album-title="${escapeHtml(alb.title)}" title="Explore complete album tracklist on MusicBrainz">
-                            <i class="bi-music-note-list text-info"></i> <span class="d-none d-md-inline">Explore</span>
+                            <span>Tracklist</span>
                           </button>
                           <div class="dropdown">
                             <button class="btn btn-sm btn-theme-outline py-1 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach tab or book to album">
-                              <i class="bi-journal-album"></i> <span class="d-none d-sm-inline">+ Album Tab</span>
+                              <span>Album tab</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
                               ${window.__TAURI__ ? `<li><button class="dropdown-item small import-album-tab-btn" data-album-title="${escapeHtml(alb.title)}" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
@@ -2414,7 +2414,7 @@ function renderSongRow(song, options = {}) {
           <div class="dropdown">
             ${!hasTabs ? `
               <button class="btn btn-sm btn-theme-outline py-0 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
-                <i class="bi-plus-lg"></i> <span class="d-none d-sm-inline">Tab</span>
+                <span>Add tab</span>
               </button>
             ` : `
               <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Song options">

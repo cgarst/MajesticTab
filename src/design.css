@@ -1418,3 +1418,50 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
   body:not(.library-view-active) #topBar { grid-template-columns: minmax(0, 1fr) auto !important; }
   body:not(.library-view-active) #pageIndicator { display: none; }
 }
+
+/* ---------- Meta text, not pills ----------
+   Counts, tunings, years and statuses read as plain grey text beside what they describe. Only real controls
+   (filters, switches) and key caps keep a shape. */
+.badge-theme-primary, .badge-theme-secondary, .badge-theme-success, .badge-theme-info, .badge-theme-warning,
+.badge-theme-year, .badge-tuning, .badge-no-tab, .badge-has-tabs {
+  background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+  padding: 0 !important; font-family: inherit !important; font-size: 13px !important; font-weight: 400 !important;
+  letter-spacing: 0 !important; text-transform: none !important; color: var(--ink2) !important;
+}
+.badge-theme-warning, .badge-no-tab { color: var(--warn) !important; }
+.album-year-badge { display: none !important; }
+
+/* Library rows carry their meta as plain text */
+.library-song-row .sub .chip, .library-song-row .sub .chip.hot, .library-song-row .sub .chip.sec {
+  background: transparent; padding: 0; height: auto; border-radius: 0; font-size: 13px; font-weight: 400; color: var(--ink2);
+}
+.library-song-row .sub .chip.hot { color: var(--ink); }
+.library-song-row .sub .chip i { display: none; }
+.library-song-row .sub .chip + .chip::before, .library-song-row .sub .album-label + .chip::before { content: "\00b7"; margin-right: 8px; }
+.library-song-row .sub .chip.text-muted { opacity: 1 !important; }
+.library-song-rowwrap.library-song-row-pinned { border-left: 0; }
+
+/* Pinned songs: ordinary rows under a heading, no outline or accent bar */
+.library-pinned-card {
+  background: transparent !important; border: 0 !important; border-left: 0 !important; border-radius: 0 !important;
+  box-shadow: none !important; height: auto; min-height: 56px;
+}
+@media (hover: hover) and (pointer: fine) { .library-pinned-card:hover { background: var(--s2) !important; transform: none !important; } }
+.library-pinned-grid { gap: 0; grid-template-columns: 1fr; }
+
+/* Album shelf: names in a row; the open album takes a tone step and the inlay dot */
+.discography-shelf { border-bottom: 0; }
+.shelf-item { background: transparent; border: 0; padding: 6px 12px 6px 6px; position: relative; }
+.shelf-item:hover { background: var(--s2); border-color: transparent; }
+.shelf-item.active { background: var(--s2); border-color: transparent; box-shadow: none; }
+.shelf-item.active::before { content: ""; position: absolute; left: 2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
+
+/* Row and album actions are words, not boxed buttons */
+.library-song-rowwrap .song-actions { flex-direction: row; flex-wrap: nowrap; }
+.library-song-rowwrap .song-actions .dropdown { display: inline-flex; }
+.song-actions .dropdown > .btn-theme-outline, .album-header-actions .btn-theme-outline {
+  background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ink2) !important;
+  font-weight: 500; font-size: 14px;
+}
+@media (hover: hover) { .song-actions .dropdown > .btn-theme-outline:hover, .album-header-actions .btn-theme-outline:hover { background: var(--s3) !important; color: var(--ink) !important; } }
+.library-song-rowwrap .song-row-container .song-actions { display: flex !important; align-items: center; }
