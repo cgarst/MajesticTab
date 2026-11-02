@@ -1688,3 +1688,19 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 
 /* Library lists scroll with the page: a pane that is not height-limited must not trap the wheel */
 .pane .pane-scroll, .pane-scroll { overscroll-behavior: auto; }
+
+/* ---------- Song loading card: a tone-step panel, flat progress, platform radius ---------- */
+.loading-card { transition: opacity var(--dur-fast) var(--ease-out), visibility 0s linear var(--dur-fast); }
+.loading-card.is-visible { transition: opacity var(--dur-base) var(--ease-out); }
+.loading-card-panel {
+  background: var(--s2) !important; border: 0 !important; box-shadow: none !important; border-radius: var(--r-card) !important;
+  width: min(380px, 100%); padding: 16px 18px; gap: 14px;
+  transform: translate3d(0, 8px, 0); transition: transform var(--dur-base) var(--ease-out);
+}
+.loading-card.is-visible .loading-card-panel { transform: none; }
+.loading-card-cover { border: 0 !important; border-radius: var(--r-control) !important; background: var(--s3); }
+.loading-card-title { font-family: var(--font-display); font-size: 22px; font-weight: 700; line-height: 1.1; letter-spacing: -0.005em; }
+.loading-card-subtitle, .loading-card-stage { color: var(--ink2) !important; font-size: 13px; }
+.loading-card-track { height: 4px; border: 0 !important; border-radius: 2px; background: var(--s3) !important; box-sizing: border-box; }
+.loading-card-fill { background: var(--hue) !important; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) { .loading-card-panel, .loading-card, .loading-card-fill { transition: none !important; } }
