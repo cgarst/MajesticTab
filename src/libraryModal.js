@@ -1376,7 +1376,7 @@ async function renderLibraryBrowseView(container) {
                     const subText = subParts.length > 0 ? `${subParts.join(', ')}. ` : '';
                     const rulerHtml = renderMiniBarRulerHtml(lastBar, totalBars);
                     resumeHtml = `<div class="resume-card" id="libResumeCard">
-                      <img class="resume-cover" alt="" src="${getPlaceholderCoverSvg(last.artist || name)}">
+                      <img class="resume-cover" alt="" src="${last.coverUrl || getPlaceholderCoverSvg(last.artist || name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(last.artist || name)}'">
                       <div class="resume-meta">
                         <div class="resume-kicker">Pick up where you left off</div>
                         <h2 class="resume-title">${escapeHtml(name)}</h2>

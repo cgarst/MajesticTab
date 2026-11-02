@@ -761,7 +761,7 @@ body.practice-open #output { padding-right: 376px !important; }
 
 /* Resume card */
 .resume-card { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 16px; align-items: center; background: var(--s2); border-radius: var(--r-lg); padding: 16px; margin: 4px 20px 12px; }
-.resume-cover { width: 64px; height: 64px; border-radius: var(--r); grid-row: span 1; }
+.resume-cover { width: 64px; height: 64px; object-fit: cover; border-radius: var(--r); grid-row: span 1; }
 .resume-meta { min-width: 0; }
 .resume-kicker { font-size: 13px; color: var(--ink2); }
 .resume-title { font: 700 36px/1.02 var(--font-display); margin: 2px 0 4px; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
