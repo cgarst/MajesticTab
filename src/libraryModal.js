@@ -1743,13 +1743,6 @@ export function libraryViewSwitchHtml(activeTab = null) {
     </div>`;
 }
 
-// "Browse by" inside Library: Artists, Tunings and Recents are views of the same collection, not rail destinations
-export function libraryBrowseByHtml(active) {
-    const items = [['library', 'Artists'], ['tunings', 'Tunings'], ['recents', 'Recents']];
-    return `<div class="lib-browse-by" role="group" aria-label="Browse by"><span class="lib-browse-by-label">Browse by</span>${items.map(([id, label]) =>
-        `<button type="button" class="lib-browse-by-btn${id === active ? ' active' : ''}" data-lib-tab="${id}" ${id === active ? 'aria-pressed="true"' : 'aria-pressed="false"'}>${label}</button>`).join('')}</div>`;
-}
-
 // Shared chrome for every library view: centered view switcher, then its own search box, then (below, via
 // libraryListToolbarHtml) a count on the left and the primary action on the right.
 export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, searchLabel, searchDisabled = false }) {
@@ -1762,8 +1755,7 @@ export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, s
             <i class="bi-x-lg"></i>
           </button>
         </div>
-      </div>
-      ${['library', 'tunings', 'recents'].includes(activeTab) ? libraryBrowseByHtml(activeTab) : ''}`;
+      </div>`;
 }
 
 // Centered page title for library pages that are not a switcher tab (Open File, Add Music)
@@ -1813,8 +1805,8 @@ export function bindListFilter(container, { inputId, clearId, rowSelector, empty
 }
 
 function getActiveLibraryTab() {
-    if (activeView === 'library' || activeView === 'recents') return 'library';
-    return activeView === 'setlists' || activeView === 'tools' ? activeView : null;
+    if (activeView === 'library') return libraryBrowseMode === 'tunings' ? 'tunings' : 'library';
+    return activeView === 'setlists' || activeView === 'recents' || activeView === 'tools' ? activeView : null;
 }
 
 // Shared by the desktop view switcher and the phone bottom nav
@@ -1843,7 +1835,7 @@ function syncLibraryBottomNav() {
     let nav = document.getElementById('libraryBottomNav');
     if (!nav) {
         const tabHtml = (t) => `<button type="button" class="library-nav-tab" data-lib-tab="${t.id}" title="${t.title}"><i class="${t.icon}"></i><span>${t.label}</span></button>`;
-        const [lib, setlists, tools] = LIBRARY_TABS;
+        const [lib, setlists, tools, tunings, recents] = LIBRARY_TABS;
         nav = document.createElement('nav');
         nav.id = 'libraryBottomNav';
         nav.className = 'library-bottom-nav';
@@ -1852,7 +1844,7 @@ function syncLibraryBottomNav() {
         const PICK_D = "M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z";
         const LETTERS_D = "M232.00,343.05L232.00,330.10L237.25,329.80L242.50,329.50L242.77,306.25L243.04,283.00L228.27,283.00L213.50,283.00L213.84,289.00L214.18,295.00L218.09,295.00L222.00,295.00L222.00,307.50L222.00,320.00L198.00,320.00L174.00,320.00L174.00,307.50L174.00,295.00L178.00,295.00L182.00,295.00L182.00,237.50L182.00,180.00L175.00,180.00L168.00,180.00L168.00,163.98L168.00,147.96L191.10,148.23L214.20,148.50L232.67,178.50C242.83,195.00 252.24,210.64 253.59,213.25C254.93,215.86 256.20,218.00 256.41,218.00C256.61,218.00 266.17,202.26 277.64,183.03L298.50,148.05L321.25,148.03L344.00,148.00L344.00,164.00L344.00,180.00L337.00,180.00L330.00,180.00L330.00,237.50L330.00,295.00L334.50,295.00L339.00,295.00L339.00,307.50L339.00,320.00L314.50,320.00L290.00,320.00L290.00,307.50L290.00,295.00L294.50,295.00L299.00,295.00L299.00,288.75L299.00,282.50L284.50,282.80L270.00,283.10L270.00,306.55L270.00,330.00L275.50,330.00L281.00,330.00L281.00,343.00L281.00,356.00L256.50,356.00L232.00,356.00L232.00,343.05ZM239.24,251.75C238.16,249.96 232.42,240.40 226.49,230.50C220.55,220.60 215.31,212.07 214.85,211.55C214.38,211.03 214.00,220.57 214.00,232.80L214.00,255.00L227.60,255.00L241.20,255.00L239.24,251.75ZM299.00,232.27L299.00,209.55L291.04,223.30C286.67,230.87 280.59,241.10 277.54,246.03L271.99,255.00L285.49,255.00L299.00,255.00L299.00,232.27Z";
         const PICK = `<svg class="rail-pick" viewBox="105 97 303 316" aria-hidden="true"><path fill="var(--action)" d="${PICK_D}"/><path fill="var(--on-action)" d="${LETTERS_D}"/></svg>`;
-        nav.innerHTML = `<div class="rail-brand">${PICK}<span class="rail-wordmark">Majestic<b>Tab</b></span></div>${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tools)}
+        nav.innerHTML = `<div class="rail-brand">${PICK}<span class="rail-wordmark">Majestic<b>Tab</b></span></div>${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tunings)}${tabHtml(recents)}${tabHtml(tools)}
           <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
             const tab = e.target.closest('[data-lib-tab]');
