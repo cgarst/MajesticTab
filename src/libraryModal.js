@@ -1385,13 +1385,18 @@ async function renderLibraryBrowseView(container) {
                 }
             } catch (_) { resumeHtml = ''; }
 
+            // Custom Music sits with Pinned songs above the artists; it is not one of the artists
+            const customGroup = artists.filter(a => a.isCustom);
+            const regularArtists = artists.filter(a => !a.isCustom);
+            const artistCardHtml = (artist) => (pinnedActive ? renderArtistCard(artist).replace(' aria-current="true"', '') : renderArtistCard(artist));
             const listPaneHtml = `
             <section class="pane list" aria-label="Artists">
               ${pinnedGroupHtml}
-              <h3 class="pane-head"><span>Artists</span><span class="tnum">${artists.length}</span></h3>
+              ${customGroup.map(artistCardHtml).join('')}
+              <h3 class="pane-head"><span>Artists</span><span class="tnum">${regularArtists.length}</span></h3>
               <div class="pane-scroll">
                 <div class="library-artists-grid" id="libArtistsGrid">
-                  ${artists.map(artist => (pinnedActive ? renderArtistCard(artist).replace(' aria-current="true"', '') : renderArtistCard(artist))).join('')}
+                  ${regularArtists.map(artistCardHtml).join('')}
                 </div>
               </div>
             </section>
