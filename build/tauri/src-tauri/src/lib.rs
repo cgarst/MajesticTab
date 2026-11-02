@@ -9,6 +9,8 @@ use tauri::RunEvent;
 
 #[cfg(feature = "debug-tools")]
 mod debug_bridge;
+#[cfg(feature = "debug-tools")]
+mod debug_restore;
 mod jam;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 mod icloud;
@@ -643,6 +645,10 @@ pub fn run() {
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
         #[cfg(feature = "debug-tools")]
         debug_bridge::debug_bridge_result,
+        #[cfg(feature = "debug-tools")]
+        debug_restore::debug_restore_request,
+        #[cfg(feature = "debug-tools")]
+        debug_restore::debug_restore_data,
         youtube_search,
         youtube_macos::youtube_player_update,
         youtube_macos::youtube_player_command
@@ -685,6 +691,10 @@ pub fn run() {
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
         #[cfg(feature = "debug-tools")]
         debug_bridge::debug_bridge_result,
+        #[cfg(feature = "debug-tools")]
+        debug_restore::debug_restore_request,
+        #[cfg(feature = "debug-tools")]
+        debug_restore::debug_restore_data,
         youtube_search,
         #[cfg(target_os = "ios")]
         youtube_ios::youtube_player_update,
