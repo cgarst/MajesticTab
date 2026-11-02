@@ -345,32 +345,6 @@ body.library-view-active .fretboard-dock {
   }
 }
 
-@keyframes pick-wave-pulse {
-  0% {
-    opacity: 1;
-    stroke-width: 2.6;
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 0.2;
-    stroke-width: 1.0;
-    transform: scale(1.22);
-  }
-}
-
-@keyframes pick-wave-pulse-alt {
-  0% {
-    opacity: 1;
-    stroke-width: 2.6;
-    transform: scale(0.9);
-  }
-  100% {
-    opacity: 0.2;
-    stroke-width: 1.0;
-    transform: scale(1.22);
-  }
-}
-
 .fretboard-pick-marker {
   pointer-events: none;
 }
@@ -403,30 +377,6 @@ body.library-view-active .fretboard-dock {
 
 .pick-strike-glow {
   display: none;
-}
-
-.pick-strike-wave {
-  fill: none;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  transform-origin: 0 0;
-  will-change: transform, opacity;
-}
-
-.pick-strike-wave.wave-inner {
-  opacity: 0.9;
-}
-
-.fretboard-pick-marker.is-struck .wave-inner {
-  animation: pick-wave-pulse 0.11s cubic-bezier(0.12, 0.9, 0.24, 1.0);
-}
-
-.fretboard-pick-marker.is-struck-alt .wave-inner {
-  animation: pick-wave-pulse-alt 0.11s cubic-bezier(0.12, 0.9, 0.24, 1.0);
-}
-
-.pick-strike-wave.wave-outer {
-  opacity: 0.55;
 }
 
 /* Active Note Markers */

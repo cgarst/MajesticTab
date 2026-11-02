@@ -423,22 +423,9 @@ export class FretboardView {
             shine.setAttribute('class', 'pick-strike-shine');
             shine.setAttribute('d', 'M -5.2 -6.8 Q 0 -9.4 5.2 -6.8');
 
-            // Pluck acoustic ripple wave arcs radiating towards the neck
-            const wave1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            wave1.setAttribute('class', 'pick-strike-wave wave-inner');
-            const wave1D = !this.isLeftHanded ? 'M -5 -7 Q -11 0 -5 7' : 'M 5 -7 Q 11 0 5 7';
-            wave1.setAttribute('d', wave1D);
-
-            const wave2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-            wave2.setAttribute('class', 'pick-strike-wave wave-outer');
-            const wave2D = !this.isLeftHanded ? 'M -9 -10 Q -17 0 -9 10' : 'M 9 -10 Q 17 0 9 10';
-            wave2.setAttribute('d', wave2D);
-
             inner.appendChild(glow);
             inner.appendChild(pick);
             inner.appendChild(shine);
-            inner.appendChild(wave1);
-            inner.appendChild(wave2);
             g.appendChild(inner);
             group.appendChild(g);
 
@@ -447,8 +434,6 @@ export class FretboardView {
                 inner,
                 glow,
                 pick,
-                wave1,
-                wave2,
                 visualLine: v,
                 struckToggle: false
             };
@@ -603,8 +588,6 @@ export class FretboardView {
 
                 pick.glow.style.fill = trackColor;
                 pick.pick.style.fill = trackGrad;
-                pick.wave1.style.stroke = trackColor;
-                pick.wave2.style.stroke = trackColor;
             }
 
             // 2. For Fretted Notes (fret > 0), place Finger Dot Marker on the fret
