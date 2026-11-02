@@ -1960,3 +1960,17 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 .tuning-card[aria-current="true"]::before { content: ""; position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
 .setlists-view .setlist-actions .theme-control-btn, .setlists-view .pane-head .in-view-back-btn,
 .tunings-view .tuning-actions .theme-control-btn, .tunings-view .pane-head .in-view-back-btn { color: var(--ink2) !important; }
+
+/* Slate Blue: selection is shown by tone alone, so the inlay dots on selected items are dropped */
+[data-theme="Slate Blue"] .library-bottom-nav .library-nav-tab.active::before,
+[data-theme="Slate Blue"] .library-card[aria-current="true"]::before,
+[data-theme="Slate Blue"] .artist-card[aria-current="true"]::before,
+[data-theme="Slate Blue"] .setnav button[aria-current="true"]::before,
+[data-theme="Slate Blue"] .shelf-item.active::before,
+[data-theme="Slate Blue"] .pinned-group-card[aria-current="true"]::before,
+[data-theme="Slate Blue"] .tuning-card[aria-current="true"]::before { content: none; }
+
+/* Slate Blue: the rail's ground is close to the card tone, so the open destination takes the hover tone to stay visible */
+@media (min-width: 577px) {
+  [data-theme="Slate Blue"] .library-bottom-nav .library-nav-tab.active { background: var(--s3); }
+}

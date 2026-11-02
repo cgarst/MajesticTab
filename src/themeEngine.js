@@ -38,6 +38,16 @@ export const THEMES = [
     colorway: ['#06b6d4', '#0284c7', '#14b8a6', '#22d3ee', '#38bdf8', '#10b981']
   },
   {
+    id: 'Slate Blue',
+    name: 'Slate Blue',
+    subtitle: 'Charcoal Flame Top, Slate and Copper',
+    gradient: 'linear-gradient(135deg, #8db4f2, #1e2636)',
+    bg: '#1e2636',
+    accent: '#8db4f2',
+    secondary: '#f0a850',
+    colorway: ['#8db4f2', '#f0a850', '#8fb0e8', '#b0bfda', '#d98f3a', '#6f93cf']
+  },
+  {
     id: 'Dark Side',
     name: 'Dark Side',
     subtitle: 'Pure Monochromatic Blackout',

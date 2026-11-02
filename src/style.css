@@ -92,6 +92,35 @@
   --sheet-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
 }
 
+[data-theme="Slate Blue"] {
+  --bg-body: #1e2636;
+  --bg-ambient-1: transparent;
+  --bg-ambient-2: transparent;
+  --bg-card: #212d44;
+  --bg-card-solid: #212d44;
+  --bg-card-hover: #2f4066;
+  --bg-elevated: #111724;
+  --bg-modal: #181f2e;
+  --border-subtle: rgba(150, 185, 245, 0.16);
+  --border-prominent: rgba(150, 185, 245, 0.36);
+  --text-primary: #f4f7fc;
+  --text-muted: #a9b8d2;
+  --text-dim: #a4b4d0;
+  --accent-primary: #8db4f2;
+  --accent-secondary: #f0a850;
+  --accent-gradient: linear-gradient(135deg, #8db4f2, #8db4f2);
+  --accent-gradient-hover: linear-gradient(135deg, #a5c5f7, #a5c5f7);
+  --accent-glow: transparent;
+  --accent-primary-alpha: rgba(141, 180, 242, 0.2);
+  --accent-border-alpha: rgba(150, 185, 245, 0.42);
+  --on-action: #0a0e17;
+  --accent-text: #c3d5f5;
+  --sheet-bg: #ffffff;
+  --sheet-text: #111827;
+  --sheet-border: #e2e8f0;
+  --sheet-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.4);
+}
+
 [data-theme="Dark Side"] {
   --bg-body: #000000;
   --bg-ambient-1: rgba(212, 212, 216, 0.05);
