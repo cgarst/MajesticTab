@@ -7,6 +7,7 @@ import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, cle
 import { gamepadManager } from './gamepadManager.js';
 import { stepSetlist } from '../setlistPlayer.js';
 import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel } from '../youtubePlayer.js';
+import { playPauseAudioFile, isAudioFileAvailable, isAudioFilePlaying, rewindAudioFile10Seconds } from '../audioSync/audioFilePlayer.js';
 
 // Navigation action constants
 export const NavigationAction = {
@@ -1037,16 +1038,19 @@ export function updateGlobalAudioControls() {
 
     const synthBtn = document.getElementById('synthToggleBtn');
     const ytBtn = document.getElementById('ytToggleBtn');
+    const afBtn = document.getElementById('audioFileToggleBtn');
 
     const isSynthVisible = Boolean(synthBtn && synthBtn.style.display !== 'none');
     const isYtVisible = Boolean(ytBtn && ytBtn.style.display !== 'none');
+    const isAfVisible = Boolean(afBtn && afBtn.style.display !== 'none');
+    const anySource = isSynthVisible || isYtVisible || isAfVisible;
 
     if (sourcePill) {
-        sourcePill.style.display = (isSynthVisible || isYtVisible) ? 'inline-flex' : 'none';
+        sourcePill.style.display = anySource ? 'inline-flex' : 'none';
     }
 
     if (controlsContainer) {
-        if (isSynthVisible || isYtVisible) {
+        if (anySource) {
             controlsContainer.style.display = 'inline-flex';
         } else {
             controlsContainer.style.display = 'none';
@@ -1058,13 +1062,13 @@ export function updateGlobalAudioControls() {
 
     const synthPlayable = isSynthAvailable();
     const ytPlayable = isYouTubeAvailable();
-    const canPlay = synthPlayable || ytPlayable;
+    const canPlay = synthPlayable || ytPlayable || isAudioFileAvailable();
 
     if (rewindBtn) {
         rewindBtn.disabled = !canPlay;
     }
 
-    const isPlaying = isSynthPlaying() || isYouTubePlaying();
+    const isPlaying = isSynthPlaying() || isYouTubePlaying() || isAudioFilePlaying();
 
     if (playPauseBtn) {
         playPauseBtn.disabled = !canPlay;
@@ -1081,12 +1085,13 @@ export function updateGlobalAudioControls() {
     const mobilePlayPauseIcon = document.getElementById('mobilePlayPauseIcon');
     const mobileSynthBtn = document.getElementById('mobileSynthToggleBtn');
     const mobileYtBtn = document.getElementById('mobileYtToggleBtn');
+    const mobileAfBtn = document.getElementById('mobileAudioFileToggleBtn');
     const mobileDivider = document.getElementById('mobileAudioSourceDivider');
 
     if (mobileDock) {
         const mainContent = document.getElementById('mainContent');
         const isScoreMode = mainContent && mainContent.style.display !== 'none';
-        mobileDock.classList.toggle('has-audio-sources', Boolean(isScoreMode && (isSynthVisible || isYtVisible)));
+        mobileDock.classList.toggle('has-audio-sources', Boolean(isScoreMode && anySource));
     }
     if (mobileRewindBtn) mobileRewindBtn.disabled = !canPlay;
     if (mobilePlayPauseBtn) {
@@ -1104,8 +1109,12 @@ export function updateGlobalAudioControls() {
         mobileYtBtn.style.display = isYtVisible ? 'inline-flex' : 'none';
         mobileYtBtn.classList.toggle('active-audio-mode', Boolean(ytBtn?.classList.contains('active-audio-mode')));
     }
+    if (mobileAfBtn) {
+        mobileAfBtn.style.display = isAfVisible ? 'inline-flex' : 'none';
+        mobileAfBtn.classList.toggle('active-audio-mode', Boolean(afBtn?.classList.contains('active-audio-mode')));
+    }
     if (mobileDivider) {
-        mobileDivider.style.display = (isSynthVisible || isYtVisible) ? 'block' : 'none';
+        mobileDivider.style.display = anySource ? 'block' : 'none';
     }
 }
 
@@ -1123,9 +1132,18 @@ export function handleGlobalRewind10Seconds() {
         rewindYouTube10Seconds();
         return;
     }
+    if (isAudioFilePlaying()) {
+        rewindAudioFile10Seconds();
+        return;
+    }
     const ytActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
     const synthActive = document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode');
+    const afActive = document.getElementById('audioFileToggleBtn')?.classList.contains('active-audio-mode');
 
+    if (afActive && isAudioFileAvailable()) {
+        rewindAudioFile10Seconds();
+        return;
+    }
     if (ytActive && isYouTubeAvailable()) {
         rewindYouTube10Seconds();
         return;
@@ -1140,6 +1158,10 @@ export function handleGlobalRewind10Seconds() {
     }
     if (isYouTubeAvailable()) {
         rewindYouTube10Seconds();
+        return;
+    }
+    if (isAudioFileAvailable()) {
+        rewindAudioFile10Seconds();
         return;
     }
 }
@@ -1157,11 +1179,20 @@ export function handleGlobalPlayPause() {
         playPauseYouTube();
         return;
     }
+    if (isAudioFilePlaying()) {
+        playPauseAudioFile();
+        return;
+    }
 
-    // 2. If neither is playing, start whichever mode is highlighted/active or available
+    // 2. If none is playing, start whichever mode is highlighted/active or available
     const ytActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
     const synthActive = document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode');
+    const afActive = document.getElementById('audioFileToggleBtn')?.classList.contains('active-audio-mode');
 
+    if (afActive && isAudioFileAvailable()) {
+        playPauseAudioFile();
+        return;
+    }
     if (ytActive && isYouTubeAvailable()) {
         playPauseYouTube();
         return;
@@ -1178,6 +1209,10 @@ export function handleGlobalPlayPause() {
         playPauseYouTube();
         return;
     }
+    if (isAudioFileAvailable()) {
+        playPauseAudioFile();
+        return;
+    }
 }
 
 /**
@@ -1190,6 +1225,7 @@ export function setupGlobalAudioControls() {
     const mobilePlayPauseBtn = document.getElementById('mobilePlayPauseBtn');
     const mobileSynthBtn = document.getElementById('mobileSynthToggleBtn');
     const mobileYtBtn = document.getElementById('mobileYtToggleBtn');
+    const mobileAfBtn = document.getElementById('mobileAudioFileToggleBtn');
 
     rewindBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1221,35 +1257,27 @@ export function setupGlobalAudioControls() {
         document.getElementById('ytToggleBtn')?.click();
     });
 
+    mobileAfBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        document.getElementById('audioFileToggleBtn')?.click();
+    });
+
     updateGlobalAudioControls();
 }
 
 export const setupGlobalRewindButton = setupGlobalAudioControls;
 
 /**
- * Highlight the active audio mode toggle button (Instrument vs YouTube)
- * @param {'synth'|'youtube'|null} mode
+ * Highlight the active audio mode toggle button (Instrument, YouTube or audio file)
+ * @param {'synth'|'youtube'|'audio'|null} mode
  */
 export function setActiveAudioMode(mode) {
-    const synthBtn = document.getElementById('synthToggleBtn');
-    const ytBtn = document.getElementById('ytToggleBtn');
-    const mobileSynthBtn = document.getElementById('mobileSynthToggleBtn');
-    const mobileYtBtn = document.getElementById('mobileYtToggleBtn');
-
-    if (mode === 'synth') {
-        synthBtn?.classList.add('active-audio-mode');
-        ytBtn?.classList.remove('active-audio-mode');
-        mobileSynthBtn?.classList.add('active-audio-mode');
-        mobileYtBtn?.classList.remove('active-audio-mode');
-    } else if (mode === 'youtube') {
-        ytBtn?.classList.add('active-audio-mode');
-        synthBtn?.classList.remove('active-audio-mode');
-        mobileYtBtn?.classList.add('active-audio-mode');
-        mobileSynthBtn?.classList.remove('active-audio-mode');
-    } else if (mode === null) {
-        synthBtn?.classList.remove('active-audio-mode');
-        ytBtn?.classList.remove('active-audio-mode');
-        mobileSynthBtn?.classList.remove('active-audio-mode');
-        mobileYtBtn?.classList.remove('active-audio-mode');
+    const buttons = {
+        synth: ['synthToggleBtn', 'mobileSynthToggleBtn'],
+        youtube: ['ytToggleBtn', 'mobileYtToggleBtn'],
+        audio: ['audioFileToggleBtn', 'mobileAudioFileToggleBtn']
+    };
+    for (const [name, ids] of Object.entries(buttons)) {
+        for (const id of ids) document.getElementById(id)?.classList.toggle('active-audio-mode', name === mode);
     }
 }

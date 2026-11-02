@@ -23,18 +23,20 @@ const PROBLEM_TEXT = {
 };
 
 /**
- * @param {object} source MediaSource of the loaded recording
- * @param {() => object} getMedia the record's media descriptor (`{ kind: 'youtube', videoId }`)
+ * One editor serves every recording: `open({ source, media })` edits the points of that MediaSource and its media
+ * descriptor (`{ kind: 'youtube', videoId }` or a local file's).
  */
-export function initAudioSyncEditor({ source, getMedia }) {
+export function initAudioSyncEditor() {
     const $ = (id) => document.getElementById(id);
     const modal = $('syncEditorModal');
     if (!modal) return { open() {} };
 
     const rowsEl = $('syncRows');
     let points = [];
+    let current = null; // { source, media } of the open editor
 
-    const media = () => getMedia();
+    const media = () => current.media;
+    const source = { getTimeMs: () => current.source.getTimeMs(), seek: (ms) => current.source.seek(ms) };
     const songKey = () => getSongKey();
 
     function persist(next) {
@@ -206,7 +208,8 @@ export function initAudioSyncEditor({ source, getMedia }) {
     });
 
     return {
-        open() {
+        open(ctx) {
+            current = ctx;
             points = loadRecord(songKey(), media())?.points || [];
             $('syncImportPanel').hidden = true;
             openModal('syncEditorModal');

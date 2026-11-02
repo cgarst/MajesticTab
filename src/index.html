@@ -103,6 +103,9 @@
       <button class="btn btn-sm" id="ytToggleBtn" title="YouTube Audio & Controls" style="display:none;">
         <i class="bi-youtube"></i>
       </button>
+      <button class="btn btn-sm" id="audioFileToggleBtn" title="Audio File & Controls" style="display:none;">
+        <i class="bi-file-earmark-music"></i>
+      </button>
     </div>
 
     <!-- Flexible zone (max: live Jam session, pinned tool, Tools, Fullscreen). Behavior lives in utils/toolsMenu.js -->
@@ -1131,6 +1134,53 @@
   </section>
 </div>
 
+<div id="audioFileDropdownPanel" class="yt-panel" style="display: none;">
+  <div class="yt-panel-header">
+    <div class="d-flex align-items-center text-truncate me-2">
+      <div class="yt-header-badge me-2">
+        <i class="bi-file-earmark-music"></i>
+      </div>
+      <span class="yt-panel-title text-truncate" id="afPanelTitle">Audio File</span>
+    </div>
+    <div class="d-flex align-items-center gap-1">
+      <button class="brand-btn p-1 px-2 text-muted" id="afPanelCloseBtn" title="Close">
+        <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
+      </button>
+    </div>
+  </div>
+  <div class="yt-panel-body">
+    <div class="small text-white-50 mb-2" id="afHint">Choose a recording of this song, such as a studio track or your own take. The file stays on this device.</div>
+    <div id="afFileList" class="d-flex flex-column gap-2 mb-2"></div>
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <button type="button" class="btn btn-sm btn-theme-primary" id="afChooseBtn">Choose Audio File</button>
+      <input type="file" id="afFileInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" hidden>
+      <span class="small text-white-50 text-truncate" id="afStatus" role="status"></span>
+    </div>
+    <div id="afPlayer" hidden>
+      <canvas id="afWave" class="af-wave mb-2" height="72" aria-label="Waveform. Click to seek."></canvas>
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <button type="button" class="btn btn-sm btn-theme-icon" id="afPlayBtn" title="Play / Pause" aria-label="Play / Pause"><i class="bi-play-fill" id="afPlayIcon"></i></button>
+        <span class="small text-white-50 af-time" id="afTime">0:00 / 0:00</span>
+        <div class="hud-pill-group ms-auto" role="group" aria-label="Playback speed" id="afRates">
+          <button type="button" class="btn btn-sm" data-af-rate="0.5">0.5x</button>
+          <button type="button" class="btn btn-sm" data-af-rate="0.75">0.75x</button>
+          <button type="button" class="btn btn-sm active" data-af-rate="1">1x</button>
+        </div>
+      </div>
+      <div id="afSyncRow" class="mb-1" hidden>
+        <div class="d-flex align-items-center justify-content-between gap-2">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input theme-switch" type="checkbox" id="afSyncFollow">
+            <label class="form-check-label small text-white" for="afSyncFollow" title="Move the tab cursor with this recording using its sync points">Follow recording</label>
+          </div>
+          <span class="text-muted text-truncate" id="afSyncInfo" style="font-size: 0.72rem;"></span>
+          <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="afSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div id="syncEditorModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncEditorModalTitle" aria-hidden="true" style="display:none;">
   <section class="theme-modal-card synth-modal-card sync-editor-card">
     <header class="theme-modal-header">
@@ -1820,6 +1870,9 @@
     </button>
     <button type="button" class="btn mobile-dock-btn" id="mobileYtToggleBtn" title="YouTube Audio & Controls" aria-label="YouTube Audio Controls" style="display: none;">
       <i class="bi-youtube"></i>
+    </button>
+    <button type="button" class="btn mobile-dock-btn" id="mobileAudioFileToggleBtn" title="Audio File & Controls" aria-label="Audio File Controls" style="display: none;">
+      <i class="bi-file-earmark-music"></i>
     </button>
   </div>
 </aside>
