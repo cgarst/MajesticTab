@@ -27,7 +27,7 @@ import { pauseYouTube } from './youtubePlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
-import { toggleToolsMenu } from './utils/toolsMenu.js';
+import { toggleToolsMenu, closeToolsMenu } from './utils/toolsMenu.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -1804,7 +1804,12 @@ function syncLibraryBottomNav() {
           <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
             const tab = e.target.closest('[data-lib-tab]');
-            if (tab) return goLibraryTab(tab.dataset.libTab);
+            if (tab) {
+                // Settings is a page beside the rail: leaving it for another destination closes it
+                closeSettingsPage();
+                closeToolsMenu();
+                return goLibraryTab(tab.dataset.libTab);
+            }
             if (e.target.closest('#libraryNavToolsBtn')) {
                 e.stopPropagation();
                 const btn = e.target.closest('#libraryNavToolsBtn');
@@ -1818,16 +1823,38 @@ function syncLibraryBottomNav() {
                     document.body.classList.add('settings-as-page');
                     if (!panel.dataset.pageHooked) {
                         panel.dataset.pageHooked = '1';
-                        panel.addEventListener('hidden.bs.offcanvas', () => document.body.classList.remove('settings-as-page'));
+                        panel.addEventListener('shown.bs.offcanvas', syncLibraryBottomNav);
+                        panel.addEventListener('hidden.bs.offcanvas', () => {
+                            document.body.classList.remove('settings-as-page');
+                            syncLibraryBottomNav();
+                        });
                     }
+                    closeToolsMenu();
                     window.bootstrap.Offcanvas.getOrCreateInstance(panel).toggle();
+                    syncLibraryBottomNav();
                 }
             }
         });
         document.body.appendChild(nav);
     }
-    const active = getActiveLibraryTab();
+    // While the Settings page is open it is the one current destination, not the tab underneath it
+    const settingsOpen = isSettingsPageOpen();
+    const active = settingsOpen ? null : getActiveLibraryTab();
     nav.querySelectorAll('[data-lib-tab]').forEach(b => b.classList.toggle('active', b.dataset.libTab === active));
+    const settingsBtn = nav.querySelector('#libraryNavSettingsBtn');
+    settingsBtn?.classList.toggle('active', settingsOpen);
+    if (settingsBtn) settingsOpen ? settingsBtn.setAttribute('aria-current', 'page') : settingsBtn.removeAttribute('aria-current');
+}
+
+function isSettingsPageOpen() {
+    return document.body.classList.contains('settings-as-page') && document.getElementById('fileMenu')?.classList.contains('show');
+}
+
+function closeSettingsPage() {
+    const panel = document.getElementById('fileMenu');
+    if (panel?.classList.contains('show') && window.bootstrap?.Offcanvas) {
+        window.bootstrap.Offcanvas.getOrCreateInstance(panel).hide();
+    }
 }
 
 function bindLibraryToolbarEvents(container) {
