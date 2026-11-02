@@ -1472,3 +1472,10 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .tuning.tuning-card .edit-tuning-btn { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; font-size: 14px; min-height: 36px; }
 .tuning.tuning-card .edit-tuning-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
 @media (max-width: 576px) { .tuning.tuning-card { padding-inline: 16px; } }
+
+/* Album shelf: artwork only. The title, year and track count are in the album header below. */
+.shelf-meta { display: none; }
+.shelf-item { padding: 6px; max-width: none; }
+.shelf-item .shelf-cover { width: 56px; height: 56px; }
+.discography-shelf { gap: 6px; }
+.shelf-item.active::before { left: 50%; top: auto; bottom: 0; margin: 0 0 0 -3px; }

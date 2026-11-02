@@ -1130,7 +1130,7 @@ async function renderLibraryBrowseView(container) {
                 if (selectedArtist.albums.length > 0) {
                     shelfHtml = `
                     <div class="discography-shelf" role="tablist" aria-label="Discography filter">
-                      <button type="button" class="shelf-item ${selectedAlbumFilter === 'all' ? 'active' : ''}" data-album-filter="all" role="tab" aria-selected="${selectedAlbumFilter === 'all'}">
+                      <button type="button" class="shelf-item ${selectedAlbumFilter === 'all' ? 'active' : ''}" data-album-filter="all" role="tab" aria-selected="${selectedAlbumFilter === 'all'}" aria-label="All albums" title="All albums, ${totalArtistSongs} ${totalArtistSongs === 1 ? 'track' : 'tracks'}">
                         <div class="shelf-cover shelf-cover-all">
                           <i class="bi-collection-play"></i>
                         </div>
@@ -1143,7 +1143,7 @@ async function renderLibraryBrowseView(container) {
                         const coverSrc = alb.coverUrl || getPlaceholderCoverSvg(alb.title);
                         const isSel = selectedAlbumFilter === alb.title;
                         return `
-                        <button type="button" class="shelf-item ${isSel ? 'active' : ''}" data-album-filter="${escapeHtml(alb.title)}" role="tab" aria-selected="${isSel}">
+                        <button type="button" class="shelf-item ${isSel ? 'active' : ''}" data-album-filter="${escapeHtml(alb.title)}" role="tab" aria-selected="${isSel}" aria-label="${escapeHtml(alb.title)}" title="${escapeHtml(alb.title)}${alb.year ? `, ${alb.year}` : ''}">
                           <img src="${coverSrc}" class="shelf-cover" alt="" loading="lazy" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(alb.title)}'">
                           <div class="shelf-meta">
                             <div class="shelf-title" title="${escapeHtml(alb.title)}">${escapeHtml(alb.title)}</div>
