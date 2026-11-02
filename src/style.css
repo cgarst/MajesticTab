@@ -7483,6 +7483,20 @@ html.jam-web-guest #setlistNav {
   position: absolute;
   inset: -8px;
 }
+.sync-marker.is-ghost {
+  background: transparent;
+  border: 2px dashed var(--text-muted, #8a8f9c);
+  box-shadow: none;
+  opacity: 0.6;
+  pointer-events: none;
+}
+.sync-marker.is-range-start {
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-color: var(--accent-secondary);
+  animation: syncTargetPulse 1.4s ease-in-out infinite;
+}
 .sync-marker.is-selected {
   width: 16px;
   height: 16px;

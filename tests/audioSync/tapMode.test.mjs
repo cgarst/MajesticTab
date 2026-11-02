@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildBeatMap, candidatesForBeat, entryAt, nextTarget, firstUnsyncedTarget } from '../../src/audioSync/beatMap.js';
-import { chooseTap } from '../../src/audioSync/tapRules.js';
+import { chooseTap, patchPlan, rangePlan } from '../../src/audioSync/tapRules.js';
 
 // A fake of AlphaTab's lookup: bars of 1920 ticks with beats every 480 ticks, play order 0 1 2 1 2 3.
 function fakeLookup(order) {
@@ -76,4 +76,28 @@ test('in a repeat, the pass that keeps the order is chosen', () => {
     assert.equal(chosen.replaceId, null);
     // tapping bar 1 early in the recording is the first pass: it replaces point a
     assert.equal(chooseTap(pts, cands, 3100).candidate.occurrence, 0);
+});
+
+test('patchPlan keeps the tap and drops the points it contradicts', () => {
+    const pts = [{ id: 'a', scoreMs: 0, timeMs: 1000 }, { id: 'b', scoreMs: 2000, timeMs: 3000 }, { id: 'c', scoreMs: 4000, timeMs: 5000 }, { id: 'd', scoreMs: 6000, timeMs: 7000 }];
+    // bar at 4000 heard at 8000: c is replaced, d (heard before) is dropped
+    const plan = patchPlan(pts, [{ scoreMs: 4000 }], 8000);
+    assert.deepEqual([plan.replaceIds, plan.dropIds], [['c'], ['d']]);
+    // consistent tap drops nothing
+    assert.deepEqual(patchPlan(pts, [{ scoreMs: 3000 }], 4000).dropIds, []);
+    // a repeat picks the pass that contradicts the fewest points
+    const rep = patchPlan(pts, [{ occurrence: 0, scoreMs: 2000 }, { occurrence: 1, scoreMs: 8000 }], 9000);
+    assert.equal(rep.candidate.occurrence, 1);
+    assert.equal(patchPlan(pts, [], 1), null);
+});
+
+test('rangePlan clears the points between two taps', () => {
+    const pts = [{ id: 'a', scoreMs: 0, timeMs: 1000 }, { id: 'b', scoreMs: 2000, timeMs: 3000 }, { id: 'c', scoreMs: 4000, timeMs: 5000 }, { id: 'd', scoreMs: 6000, timeMs: 7000 }, { id: 'e', scoreMs: 8000, timeMs: 9000 }];
+    const plan = rangePlan(pts, [{ scoreMs: 2000 }], 3500, [{ scoreMs: 6000 }], 6500);
+    assert.deepEqual(plan.removeIds.sort(), ['b', 'c', 'd']);
+    // a stretch tapped end before start in the recording, or reversed in the score, is refused
+    assert.equal(rangePlan(pts, [{ scoreMs: 2000 }], 6500, [{ scoreMs: 6000 }], 3500), null);
+    assert.equal(rangePlan(pts, [{ scoreMs: 6000 }], 3500, [{ scoreMs: 2000 }], 6500), null);
+    // an end that runs past a later point also removes it
+    assert.deepEqual(rangePlan(pts, [{ scoreMs: 2000 }], 3500, [{ scoreMs: 4000 }], 9500).removeIds.sort(), ['b', 'c', 'd', 'e']);
 });
