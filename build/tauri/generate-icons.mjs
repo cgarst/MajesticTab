@@ -1,4 +1,4 @@
-// Builds per-platform app icons from support/branding/icon_v2_mystic.svg via `tauri icon`.
+// Builds per-platform app icons from support/branding/icon_v3.svg via `tauri icon`.
 // Output goes to src-tauri/icons/<platform>/ (generated, gitignored).
 import { cp, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -6,17 +6,14 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const sourceSvg = path.resolve(scriptDir, '..', '..', 'support', 'branding', 'icon_v2_mystic.svg');
+const sourceSvg = path.resolve(scriptDir, '..', '..', 'support', 'branding', 'icon_v3.svg');
 const iconsDir = path.join(scriptDir, 'src-tauri', 'icons');
 const workDir = path.join(scriptDir, 'target', 'icon-build');
 
 const CANVAS = 1024;
-const BACKGROUND_TOP = '#ffffff';
-const BACKGROUND_BOTTOM = '#ddd3f7';
-// Solid midpoint for the places that only accept a flat color.
-const BACKGROUND = '#eee9fb';
-const TILE_GRADIENT = '<defs><linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">'
-  + `<stop offset="0" stop-color="${BACKGROUND_TOP}"/><stop offset="1" stop-color="${BACKGROUND_BOTTOM}"/></linearGradient></defs>`;
+// Flat ground (--ground), no gradient.
+const BACKGROUND = '#06050a';
+const TILE_GRADIENT = '';
 
 // Art box = longest side of the artwork, in 1024-unit canvas coordinates.
 const PLATFORMS = {
@@ -41,7 +38,7 @@ function composeSvg({ box, tile }, backgroundOnly = false) {
   const offset = (CANVAS - box) / 2;
   const size = tile ? CANVAS - tile.inset * 2 : 0;
   const background = tile
-    ? `${TILE_GRADIENT}<rect x="${tile.inset}" y="${tile.inset}" width="${size}" height="${size}" rx="${tile.radius}" fill="url(#tile)"/>`
+    ? `${TILE_GRADIENT}<rect x="${tile.inset}" y="${tile.inset}" width="${size}" height="${size}" rx="${tile.radius}" fill="${BACKGROUND}"/>`
     : '';
   const art = backgroundOnly
     ? ''

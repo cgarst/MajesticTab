@@ -1,4 +1,4 @@
-"""Regenerate the web PNG/ICO icons from icon_v2_mystic.svg.
+"""Regenerate the web PNG/ICO icons from icon_v3.svg.
 
 The iOS and maskable icons are opaque full-bleed squares (the OS applies its own mask);
 the rest keep a transparent background.
@@ -13,7 +13,7 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 OUT_DIRS = [HERE.parent.parent / "src" / "icons", HERE.parent.parent / "docs" / "icons"]
-SOURCE = HERE / "icon_v2_mystic.svg"
+SOURCE = HERE / "icon_v3.svg"
 
 PNG_SIZES = {
     "android-chrome-192x192.png": 192,
@@ -21,12 +21,12 @@ PNG_SIZES = {
     "favicon-16x16.png": 16,
     "favicon-32x32.png": 32,
 }
-# Vertical gradient (top, bottom) for the opaque icons.
-BACKGROUND = ((0xFF, 0xFF, 0xFF), (0xDD, 0xD3, 0xF7))
+# Flat ground (--ground) for the opaque icons: no gradient.
+BACKGROUND = ((0x06, 0x05, 0x0A), (0x06, 0x05, 0x0A))
 # name -> (size, art longest side as a fraction of the canvas)
 OPAQUE_SIZES = {
-    "apple-touch-icon.png": (180, 0.65),
-    "android-chrome-maskable-512x512.png": (512, 0.65),
+    "apple-touch-icon.png": (180, 0.62),
+    "android-chrome-maskable-512x512.png": (512, 0.62),
 }
 ICO_SIZES = [16, 32, 48]
 

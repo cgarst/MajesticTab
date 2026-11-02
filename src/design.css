@@ -1924,3 +1924,13 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 @media (hover: none) { .tools-page-row kbd { display: none; } }
 @media (prefers-reduced-motion: reduce) { .tools-page-row { transition: none; } }
 .tools-view > * { grid-column: 1 / -1; }
+
+/* ---------- Brand mark in the top bar ---------- */
+/* Same pick as the rail, so the logo does not change with width. The rail carries it from 577px;
+   below that the library has a top bar instead, so the bar carries it. Flat: no gradient text. */
+.brand-pick { display: none; width: 28px; height: 30px; flex: none; }
+.brand-title { color: var(--ink) !important; }
+.brand-title .brand-title-accent { background: none; -webkit-text-fill-color: currentColor; color: var(--accent-text); }
+@media (max-width: 576px) {
+  body.library-view-active #brandSection:not(.has-return-song) .brand-pick { display: block; margin-right: 8px; }
+}

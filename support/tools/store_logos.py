@@ -11,15 +11,15 @@ import io
 from pathlib import Path
 
 import resvg_py
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-SOURCE = ROOT / "support" / "branding" / "icon_v2_mystic.svg"
+SOURCE = ROOT / "support" / "branding" / "icon_v3.svg"
 OUT = ROOT / "support" / "store" / "msstore" / "logos"
 PLAY_OUT = ROOT / "fastlane" / "metadata" / "android" / "en-US" / "images"
 FONT = "/System/Library/Fonts/Helvetica.ttc"  # index 1 = Bold
-TOP, BOTTOM = (0x16, 0x13, 0x2A), (0x05, 0x04, 0x0A)
-TAB_COLOR = (0x14, 0xC4, 0xC8)
+TOP, BOTTOM = (0x06, 0x05, 0x0A), (0x06, 0x05, 0x0A)  # flat --ground
+TAB_COLOR = (0xA7, 0xF3, 0xD0)  # --accent-text
 
 # name -> (w, h, mark width fraction, wordmark width fraction, content block center y fraction)
 SIZES = {
@@ -64,11 +64,6 @@ def render(w, h, mark_frac, word_frac, center):
     gap = round(h * 0.05)
     block = m.height + gap + t.height
     y0 = round(h * center - block / 2)
-    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).ellipse(
-        (w * 0.1, y0 - m.height * 0.1, w * 0.9, y0 + m.height * 1.1), fill=(20, 140, 170, 90)
-    )
-    canvas.alpha_composite(glow.filter(ImageFilter.GaussianBlur(w * 0.08)))
     canvas.alpha_composite(m, ((w - m.width) // 2, y0))
     canvas.alpha_composite(t, ((w - t.width) // 2, y0 + m.height + gap))
     return canvas.convert("RGB")
@@ -77,11 +72,9 @@ def render(w, h, mark_frac, word_frac, center):
 def render_play_icon(size=512):
     """The launcher icon (opaque full-bleed square; Play applies its own mask), so the listing matches the installed app.
 
-    Needs the generated iOS icon: run `npm run generate:icons -- ios` in build/tauri first.
+    Run support/branding/generate_icons.py first.
     """
-    source = ROOT / "build" / "tauri" / "src-tauri" / "icons" / "ios" / "AppIcon-512@2x.png"
-    if not source.exists():
-        raise SystemExit(f"Missing {source.relative_to(ROOT)}; run `npm run generate:icons -- ios` in build/tauri.")
+    source = ROOT / "src" / "icons" / "android-chrome-maskable-512x512.png"  # from generate_icons.py
     return Image.open(source).convert("RGBA").resize((size, size), Image.LANCZOS)
 
 
@@ -93,10 +86,6 @@ def render_play_feature(w=1024, h=500):
     gap = round(w * 0.04)
     x0 = round((w - (m.width + gap + t.width)) / 2)
     my = (h - m.height) // 2
-    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).ellipse((x0 - m.width * 0.3, my - m.height * 0.2, x0 + m.width * 1.3, my + m.height * 1.2),
-                                 fill=(20, 140, 170, 90))
-    canvas.alpha_composite(glow.filter(ImageFilter.GaussianBlur(h * 0.12)))
     canvas.alpha_composite(m, (x0, my))
     canvas.alpha_composite(t, (x0 + m.width + gap, (h - t.height) // 2))
     return canvas.convert("RGB")
@@ -114,10 +103,6 @@ def render_tv_banner(w=1280, h=720):
     gap = round(w * 0.03)
     x0 = round((w - (m.width + gap + t.width)) / 2)
     my = (h - m.height) // 2
-    glow = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(glow).ellipse((x0 - m.width * 0.3, my - m.height * 0.2, x0 + m.width * 1.3, my + m.height * 1.2),
-                                 fill=(20, 140, 170, 90))
-    canvas.alpha_composite(glow.filter(ImageFilter.GaussianBlur(h * 0.12)))
     canvas.alpha_composite(m, (x0, my))
     canvas.alpha_composite(t, (x0 + m.width + gap, (h - t.height) // 2))
     return canvas.convert("RGB")

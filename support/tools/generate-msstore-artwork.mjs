@@ -15,41 +15,25 @@ const outDir = outDirArg > -1
 
 const { Resvg } = createRequire(path.join(scriptDir, 'tauri', 'package.json'))('@resvg/resvg-js');
 
-const source = await readFile(path.join(rootDir, 'support', 'branding', 'icon_v2_mystic.svg'), 'utf8');
+const source = await readFile(path.join(rootDir, 'support', 'branding', 'icon_v3.svg'), 'utf8');
 const viewBox = /viewBox="([^"]+)"/.exec(source)?.[1];
 const inner = /<svg[^>]*>([\s\S]*)<\/svg>/.exec(source)?.[1];
-if (!viewBox || inner === undefined) throw new Error('Could not parse support/branding/icon_v2_mystic.svg');
+if (!viewBox || inner === undefined) throw new Error('Could not parse support/branding/icon_v3.svg');
 
 const FONT_FAMILY = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif";
 
-// Mystic Dream accent gradient (src/style.css --accent-gradient) and Steam artwork background.
-const DEFS = (id) => `
-  <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="100%">
-    <stop offset="0%" stop-color="#9333ea"/><stop offset="50%" stop-color="#06b6d4"/><stop offset="100%" stop-color="#10b981"/>
-  </linearGradient>
-  <linearGradient id="bg_${id}" x1="0" y1="0" x2="0" y2="1">
-    <stop offset="0%" stop-color="#130d24"/><stop offset="50%" stop-color="#0a0614"/><stop offset="100%" stop-color="#050409"/>
-  </linearGradient>
-  <radialGradient id="glow_${id}" cx="50%" cy="45%" r="50%">
-    <stop offset="0%" stop-color="#9333ea" stop-opacity="0.4"/>
-    <stop offset="50%" stop-color="#06b6d4" stop-opacity="0.15"/>
-    <stop offset="100%" stop-color="#050409" stop-opacity="0"/>
-  </radialGradient>`;
-
-const staff = (w, h, y0, gap, stroke) => [0, 1, 2, 3, 4].map((i) =>
-  `<line x1="0" y1="${y0 + i * gap}" x2="${w}" y2="${y0 + i * gap}" stroke="rgba(255,255,255,0.04)" stroke-width="${stroke}"/>`).join('');
+// Flat finish tokens (Mystic Dream): --ground and --accent-text. No gradients, glow or hairlines.
+const DEFS = () => '';
 
 // One layout for both shapes: icon + wordmark + tagline centred over the glow. `iconY`, `iconSize`, text
 // baselines are fractions of the canvas so the 2:3 and 1:1 versions keep the same proportions.
 function compose({ id, w, h, iconSize, iconY, titleY, titleSize, tagY, tagSize, staffY }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <defs>${DEFS(id)}</defs>
-    <rect width="100%" height="100%" fill="url(#bg_${id})"/>
-    <circle cx="${w / 2}" cy="${iconY + iconSize / 2}" r="${iconSize * 0.95}" fill="url(#glow_${id})"/>
-    ${staff(w, h, staffY, h * 0.022, w / 400)}
+    
+    <rect width="100%" height="100%" fill="#06050a"/>
     <svg x="${(w - iconSize) / 2}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
-    <text x="${w / 2}" y="${titleY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${titleSize}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="url(#accent)">Tab</tspan></text>
-    <text x="${w / 2}" y="${tagY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${tagSize}" font-weight="600" letter-spacing="${tagSize * 0.27}" fill="rgba(255,255,255,0.6)">GUITAR TAB VIEWER</text>
+    <text x="${w / 2}" y="${titleY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${titleSize}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="#a7f3d0">Tab</tspan></text>
+    <text x="${w / 2}" y="${tagY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${tagSize}" font-weight="600" fill="#a4aebf">Guitar tab viewer</text>
   </svg>`;
 }
 
