@@ -1140,7 +1140,8 @@ export function createCustomCursorHandler(api) {
             }
         },
         placeBeatCursorNow(beatCursor, beatBounds, startBeatX) {
-            if (beatBounds?.beat && !synthPlayerState.isPlaying) {
+            // While a recording plays, the fretboard follows its position itself (all tracks, not only the drawn top staff)
+            if (beatBounds?.beat && !synthPlayerState.isPlaying && !externalPlayback) {
                 fretboardController.showBeatsAtCursor(beatBounds.beat);
             }
 

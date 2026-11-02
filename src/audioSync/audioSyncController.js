@@ -13,6 +13,7 @@ import { buildBeatMap } from './beatMap.js';
 import { createCursorGlide } from './cursorGlide.js';
 import { resolvePoints } from './pointCheck.js';
 import { createFollower } from './follower.js';
+import { fretboardController } from '../fretboard/fretboardController.js';
 import { hasOrderProblems, validatePoints } from './syncMap.js';
 
 /** Largest start <= tick (binary search); the tick itself when there are no beats. */
@@ -142,12 +143,28 @@ export function startAudioSync({ source, points: storedPoints }) {
             glide.freeze();
             glide.destroy();
             follower.stop();
+            stopFretLoop();
             // The cursor layer is only wanted while something drives it; the synth keeps it once it has played
             if (!synthPlayerState.hasPlayed) document.body.classList.remove('synth-playback-started');
             if (active === this) active = null;
         }
     };
     follower.start();
+
+    // The fretboard follows the recording every frame, at the exact position and for every visible track. The
+    // follower's ticks only change per drawn beat of the top staff, which is slower than a busier track plays.
+    let fretFrame = 0;
+    const fretLoop = () => {
+        fretFrame = requestAnimationFrame(fretLoop);
+        if (!source.isPlaying() || source.isBuffering?.()) return;
+        const heard = source.getTimeMs() - getAudioLatencyMs();
+        const tick = scoreMsToTick(timeline, mediaToScore(resolved, heard));
+        let bar = null;
+        for (let i = 0; i < map.bars.length && map.bars[i].startTick <= tick; i++) bar = map.bars[i];
+        if (bar) fretboardController.followPosition(bar.barIndex, tick - bar.startTick);
+    };
+    fretFrame = requestAnimationFrame(fretLoop);
+    const stopFretLoop = () => cancelAnimationFrame(fretFrame);
     return active;
 }
 

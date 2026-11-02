@@ -635,6 +635,36 @@ class FretboardController {
     }
 
     /**
+     * Follow a recording: show what every visible track sounds `rel` ticks into bar `barIndex`. Called every frame
+     * the recording's position changes, so unlike showBeatsAtCursor it keeps the struck-note state (only beats that
+     * began since the last call are new) and does nothing when the same beats are still sounding.
+     * @param {number} barIndex master bar index
+     * @param {number} rel ticks from the start of the bar (notation timeline)
+     */
+    followPosition(barIndex, rel) {
+        if (!this.isScoreAvailable) return;
+        const activeBeats = [];
+        for (const track of this.visibleTracks) {
+            const bar = track.staves?.[0]?.bars?.[barIndex];
+            if (!bar) continue;
+            let match = null;
+            for (const v of (bar.voices || [])) {
+                for (const b of (v.beats || [])) {
+                    const bStart = b.playbackStart ?? b.start ?? 0;
+                    const bDuration = b.playbackDuration ?? b.duration ?? 0;
+                    if (rel >= bStart && (bDuration === 0 || rel < bStart + bDuration) && (!match || bStart > (match.playbackStart ?? 0))) match = b;
+                }
+            }
+            if (match) activeBeats.push(match);
+        }
+        if (activeBeats.length === 0) return;
+        const same = this.activeBeatIds && activeBeats.length === this.activeBeatIds.size
+            && activeBeats.every(b => this.activeBeatIds.has(b.id));
+        if (same) return;
+        this.onActiveBeatsChanged(activeBeats);
+    }
+
+    /**
      * Show notes at the current cursor position across all visible tracks (still / paused / seeked)
      * @param {Object} primaryBeat
      */
