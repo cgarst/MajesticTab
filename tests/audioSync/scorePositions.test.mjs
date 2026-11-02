@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    buildScoreTimeline, positionToScoreMs, scoreMsToPosition, scoreMsToTick, playedBarsFromLookup
+    buildScoreTimeline, positionToScoreMs, scoreMsToPosition, scoreMsToTick, playedBarsFromLookup, tempoAtScoreMs, tickToPosition
 } from '../../src/audioSync/scorePositions.js';
 import { createYouTubeSource } from '../../src/audioSync/mediaSource.js';
 
@@ -48,6 +48,21 @@ test('scoreMsToTick gives the expanded playback tick', () => {
     assert.equal(scoreMsToTick(tl, 7000), 3 * 3840 + 1920);
     assert.equal(scoreMsToTick(tl, -10), 0);
     assert.equal(scoreMsToTick(tl, 99999), 6 * 3840);
+});
+
+test('tempo and position lookups', () => {
+    const tl = buildScoreTimeline([
+        bar(0, 0, [{ tick: 0, tempo: 120 }]),
+        bar(1, 1, [{ tick: 3840, tempo: 60 }, { tick: 5760, tempo: 90 }])
+    ]);
+    assert.equal(tempoAtScoreMs(tl, 1000), 120);
+    assert.equal(tempoAtScoreMs(tl, 2500), 60);
+    assert.equal(tempoAtScoreMs(tl, 5500), 90);
+    assert.equal(tempoAtScoreMs(buildScoreTimeline([]), 0), null);
+    assert.deepEqual(tickToPosition(tl, 3840 + 1920), { barIndex: 1, occurrence: 0, pos: 0.5 });
+    const rep = buildScoreTimeline(played);
+    assert.deepEqual(tickToPosition(rep, 3 * 3840 + 960), { barIndex: 1, occurrence: 1, pos: 0.25 });
+    assert.equal(tickToPosition(buildScoreTimeline([]), 0), null);
 });
 
 test('playedBarsFromLookup reads AlphaTab lookup entries', () => {

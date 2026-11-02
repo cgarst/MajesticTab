@@ -4,7 +4,8 @@
 // whenever the score or the points change.
 
 import { getMidiTickLookup, getAudioLatencyMs, synthPlayerState } from '../gpProcessor/gpPlayer.js';
-import { buildScoreTimeline, playedBarsFromLookup, positionToScoreMs } from './scorePositions.js';
+import { buildScoreTimeline, playedBarsFromLookup } from './scorePositions.js';
+import { resolvePoints } from './pointCheck.js';
 import { createFollower } from './follower.js';
 import { hasOrderProblems, validatePoints } from './syncMap.js';
 
@@ -38,14 +39,6 @@ function snapTo(starts, tick) {
         if (starts[mid] <= tick) { found = mid; lo = mid + 1; } else { hi = mid - 1; }
     }
     return starts[found];
-}
-
-/** Resolve stored points to `scoreMs`. Points whose bar pass is not played are dropped. */
-export function resolvePoints(timeline, stored) {
-    return stored
-        .map(p => ({ id: p.id, timeMs: p.timeMs, scoreMs: positionToScoreMs(timeline, { barIndex: p.barIndex, occurrence: p.occurrence || 0, pos: p.pos || 0 }) }))
-        .filter(p => p.scoreMs !== null)
-        .sort((a, b) => a.timeMs - b.timeMs);
 }
 
 let active = null;
@@ -128,4 +121,12 @@ export function createClockSource({ startMs = 0, rate = 1 } = {}) {
         isBuffering: () => false,
         on: () => () => {}
     };
+}
+
+/** The loaded score's timeline and AlphaTab API, or null until a score is ready. */
+export function getScoreContext() {
+    const api = window.gpApi;
+    const lookup = api && getMidiTickLookup(api);
+    if (!api?.score || !lookup) return null;
+    return { api, timeline: buildScoreTimeline(playedBarsFromLookup(lookup), api.score.tempo) };
 }

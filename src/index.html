@@ -629,6 +629,7 @@
           <label class="form-check-label small text-white" for="ytSyncFollow" title="Move the tab cursor with this video using its sync points">Follow recording</label>
         </div>
         <span class="text-muted text-truncate" id="ytSyncInfo" style="font-size: 0.72rem;"></span>
+        <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="ytSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
       </div>
     </div>
     <div class="input-group input-group-sm yt-search-group">
@@ -1130,6 +1131,58 @@
   </section>
 </div>
 
+<div id="syncEditorModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncEditorModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card synth-modal-card sync-editor-card">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
+          <i class="bi-sliders text-info fs-5"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="syncEditorModalTitle">Sync points</h2>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="syncEditorModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body">
+      <div class="small text-white-50 mb-2" id="syncEditorInfo"></div>
+      <div class="d-flex flex-wrap gap-2 mb-2">
+        <button type="button" class="btn btn-sm btn-theme-primary" id="syncAddBtn" title="Add a point at the cursor's position and the recording's current time">Add Point at Cursor</button>
+        <button type="button" class="btn btn-sm btn-theme-outline" id="syncImportToggleBtn">Import</button>
+        <button type="button" class="btn btn-sm btn-theme-outline" id="syncCopyBtn" title="Copy the points as AlphaTab sync points text">Copy Text</button>
+        <button type="button" class="btn btn-sm btn-theme-outline" id="syncDownloadBtn" title="Download the points as JSON">Download JSON</button>
+        <button type="button" class="btn btn-sm btn-theme-danger ms-auto" id="syncClearBtn">Clear All</button>
+      </div>
+      <div id="syncImportPanel" class="mb-2" hidden>
+        <textarea class="form-control form-control-sm mb-2" id="syncImportText" rows="4" spellcheck="false" placeholder="Paste AlphaTab sync points (\sync bar pass ms) or exported JSON"></textarea>
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <button type="button" class="btn btn-sm btn-theme-primary" id="syncImportReplaceBtn">Replace Points</button>
+          <button type="button" class="btn btn-sm btn-theme-outline" id="syncImportMergeBtn">Add to Points</button>
+          <label class="btn btn-sm btn-theme-outline mb-0" for="syncImportFile">Choose File</label>
+          <input type="file" id="syncImportFile" accept=".json,.txt,.atex,.tex" hidden>
+          <span class="small text-white-50" id="syncImportStatus"></span>
+        </div>
+      </div>
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-2 small">
+        <span class="text-white-50">Shift points from</span>
+        <input type="text" class="form-control form-control-sm sync-input-time" id="syncShiftFrom" value="0:00.000" aria-label="Shift points from this time" spellcheck="false">
+        <span class="text-white-50">by</span>
+        <input type="number" class="form-control form-control-sm sync-input-ms" id="syncShiftMs" value="0" step="10" aria-label="Shift by milliseconds">
+        <span class="text-white-50">ms</span>
+        <button type="button" class="btn btn-sm btn-theme-outline" id="syncShiftBtn">Shift</button>
+      </div>
+      <div class="sync-row sync-row-head small text-white-50" aria-hidden="true">
+        <span>Bar</span><span>Pass</span><span>Pos</span><span>Time</span><span class="sync-col-extra">Tempo</span><span class="sync-col-extra">Source</span><span></span>
+      </div>
+      <div id="syncRows" class="sync-rows"></div>
+      <div class="small text-white-50 mt-2" id="syncEmpty" hidden>No sync points yet. Play the recording, move the cursor to the bar you hear, and add a point.</div>
+    </div>
+  </section>
+</div>
 <div id="latencyModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="latencyModalTitle" aria-hidden="true" style="display:none;">
   <section class="theme-modal-card synth-modal-card">
     <header class="theme-modal-header">

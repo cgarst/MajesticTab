@@ -115,3 +115,34 @@ export function scoreMsToTick(timeline, scoreMs) {
     if (scoreMs >= last.endMs) return last.endTick;
     return Math.round(msToTickInBar(bar, Math.max(scoreMs, bars[0].startMs)));
 }
+
+/** Written tempo (bpm) at `scoreMs`, for showing the tempo a sync segment implies. */
+export function tempoAtScoreMs(timeline, scoreMs) {
+    const { bars } = timeline;
+    if (!bars.length) return null;
+    let bar = bars[0];
+    for (const b of bars) {
+        if (b.startMs <= scoreMs) bar = b;
+    }
+    let seg = bar.segments[0];
+    for (const s of bar.segments) {
+        if (s.ms <= scoreMs) seg = s;
+    }
+    return seg.tempo;
+}
+
+/** The bar, pass and position under a playback tick (for example the cursor), or null for an empty score. */
+export function tickToPosition(timeline, tick) {
+    const { bars } = timeline;
+    if (!bars.length) return null;
+    let bar = bars[0];
+    for (const b of bars) {
+        if (b.startTick <= tick) bar = b;
+    }
+    const span = bar.endTick - bar.startTick;
+    return {
+        barIndex: bar.barIndex,
+        occurrence: bar.occurrence,
+        pos: span > 0 ? Math.min(Math.max((tick - bar.startTick) / span, 0), 1) : 0
+    };
+}
