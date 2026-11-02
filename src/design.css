@@ -745,7 +745,7 @@ body.practice-open #output { padding-right: 376px !important; }
 .pane .pane-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; flex: 1; -webkit-overflow-scrolling: touch; }
 .pane h3.pane-head { margin: 0; padding: 12px 20px 6px; font: 500 13px system-ui, sans-serif; color: var(--ink2); display: flex; align-items: center; gap: 8px; justify-content: space-between; }
 @media (min-width: 1000px) {
-  .panes { grid-template-columns: 320px 1fr !important; margin-top: 16px; align-items: start; }
+  .panes { grid-template-columns: 320px minmax(0, 1fr) !important; margin-top: 16px; align-items: start; }
   .pane.list { border-right: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08)); padding-right: 12px; }
   .pane.songs { padding-left: 20px; }
   .panes .in-view-back-btn, .panes #libBrowseBackBtn { display: none !important; }
@@ -1508,3 +1508,17 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .setlists-view .rowwrap .row > .t { flex: 1; min-width: 0; }
 .setlists-view > .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .setlists-view .rowwrap { border-bottom: 0; }
+
+/* Pinned songs: a group of its own above the artist list */
+.pinned-group-card {
+  display: flex; align-items: center; gap: 14px; width: 100%; text-align: left; color: inherit;
+  background: transparent !important; border: 0 !important; border-radius: 0 !important; min-height: 56px; padding: 6px 20px !important; position: relative;
+}
+.pinned-group-card[aria-current="true"] { background: var(--s2) !important; }
+.pinned-group-card[aria-current="true"]::before { content: ""; position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
+@media (hover: hover) { .pinned-group-card:hover { background: var(--s2) !important; } }
+.pinned-group-glyph { width: 40px; height: 40px; border-radius: var(--r); display: grid; place-items: center; background: var(--s3); color: var(--ink); flex: none; }
+@media (max-width: 576px) { .pinned-group-card { padding-inline: 16px !important; } }
+/* Pinned songs list: ordinary rows, no accent bar, no bullet where there is no track number */
+.library-song-rowwrap.library-song-row-pinned { border-left: 0 !important; box-shadow: none !important; }
+.library-song-rowwrap, #libSongsList { min-width: 0; max-width: 100%; }

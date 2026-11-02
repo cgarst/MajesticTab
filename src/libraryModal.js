@@ -34,6 +34,8 @@ let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let activeLibraryPane = 'list'; // 'list' | 'songs'
 let selectedArtist = null;
+// The Pinned songs group at the top of the artist list: true when picked, false when an artist was, null for the default
+let pinnedGroupSelected = null;
 let selectedAlbum = null;
 let selectedAlbumFilter = 'all';
 // File dropped on a custom folder, consumed by the Add Custom Music form: { file, folderPath }
@@ -146,6 +148,7 @@ export async function restoreLibraryState(state) {
     activeView = state.view || 'library';
     libraryBrowseMode = state.libraryBrowseMode || 'artists';
     selectedArtist = state.selectedArtist || null;
+    pinnedGroupSelected = state.selectedArtist ? false : null;
     selectedAlbum = state.selectedAlbum || null;
     selectedAlbumFilter = state.selectedAlbumFilter || 'all';
     selectedFolderPath = state.selectedFolderPath ? [...state.selectedFolderPath] : [];
@@ -186,6 +189,7 @@ export async function handleBack() {
                 activeView = prev.view || 'library';
                 libraryBrowseMode = prev.libraryBrowseMode || 'artists';
                 selectedArtist = prev.selectedArtist || null;
+                pinnedGroupSelected = prev.selectedArtist ? false : null;
                 selectedAlbum = prev.selectedAlbum || null;
                 selectedAlbumFilter = prev.selectedAlbumFilter || 'all';
                 selectedFolderPath = prev.selectedFolderPath || [];
@@ -252,6 +256,7 @@ export async function handleBack() {
                 libraryBrowseMode = prev.libraryBrowseMode || 'artists';
                 activeLibraryPane = prev.activeLibraryPane || 'list';
                 selectedArtist = prev.selectedArtist || null;
+                pinnedGroupSelected = prev.selectedArtist ? false : null;
                 selectedAlbum = prev.selectedAlbum || null;
                 selectedAlbumFilter = prev.selectedAlbumFilter || 'all';
                 selectedFolderPath = prev.selectedFolderPath || [];
@@ -305,6 +310,7 @@ export async function handleBack() {
                 const prev = viewHistory.pop();
                 activeView = prev.view || 'library';
                 selectedArtist = prev.selectedArtist || null;
+                pinnedGroupSelected = prev.selectedArtist ? false : null;
                 selectedAlbum = prev.selectedAlbum || null;
                 selectedAlbumFilter = prev.selectedAlbumFilter || 'all';
                 selectedFolderPath = prev.selectedFolderPath || [];
@@ -321,6 +327,7 @@ export async function handleBack() {
                 const prev = viewHistory.pop();
                 activeView = prev.view || 'library';
                 selectedArtist = prev.selectedArtist || null;
+                pinnedGroupSelected = prev.selectedArtist ? false : null;
                 selectedAlbum = prev.selectedAlbum || null;
                 searchSubView = prev.searchSubView || null;
                 await renderLibraryModal();
@@ -974,6 +981,7 @@ async function renderLibraryBrowseView(container) {
             });
         } else {
             // Keep selectedArtist in sync; default to first artist if not set
+            const hadSelectedArtist = Boolean(selectedArtist);
             if (!selectedArtist || !artists.some(a => a.name === selectedArtist.name || (selectedArtist.artistMbid && a.artistMbid === selectedArtist.artistMbid))) {
                 selectedArtist = artists[0];
             }
@@ -1336,23 +1344,17 @@ async function renderLibraryBrowseView(container) {
                 `;
             }
 
-            // Pinned Songs (if any)
-            let pinnedHtml = '';
-            if (pinnedSongs.length > 0) {
-                pinnedHtml = `
-                <div class="library-pinned-section mb-3" id="libPinnedSection">
-                  <div class="d-flex align-items-center justify-content-between mb-2">
-                    <div class="small fw-semibold text-white d-flex align-items-center gap-2">
-                      <i class="bi-pin-angle-fill text-warning"></i> Pinned Songs
-                      <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${pinnedSongs.length}</span>
-                    </div>
-                  </div>
-                  <div class="library-pinned-grid" id="libPinnedSongsList">
-                    ${pinnedSongs.map(song => renderPinnedSongTile(song)).join('')}
-                  </div>
-                </div>
-                `;
-            }
+            // Pinned songs are their own group above the artists, and the default one when there are any
+            const pinnedActive = pinnedSongs.length > 0 && (pinnedGroupSelected === true || (pinnedGroupSelected === null && !hadSelectedArtist));
+            const pinnedGroupHtml = pinnedSongs.length > 0 ? `
+              <button type="button" class="library-card pinned-group-card" id="libPinnedGroupBtn" ${pinnedActive ? 'aria-current="true"' : ''}>
+                <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-pin-angle-fill"></i></span>
+                <span class="min-w-0 flex-grow-1 text-start">
+                  <span class="d-block fw-bold text-white">Pinned songs</span>
+                  <span class="d-block small text-muted tnum">${pinnedSongs.length} ${pinnedSongs.length === 1 ? 'song' : 'songs'}</span>
+                </span>
+                <i class="bi-chevron-right text-muted flex-shrink-0"></i>
+              </button>` : '';
 
             toolbarHtml = libraryListToolbarHtml({
                 leftHtml: collectionSelectHtml,
@@ -1385,11 +1387,11 @@ async function renderLibraryBrowseView(container) {
 
             const listPaneHtml = `
             <section class="pane list" aria-label="Artists">
+              ${pinnedGroupHtml}
               <h3 class="pane-head"><span>Artists</span><span class="tnum">${artists.length}</span></h3>
               <div class="pane-scroll">
-                ${pinnedHtml}
                 <div class="library-artists-grid" id="libArtistsGrid">
-                  ${artists.map(artist => renderArtistCard(artist)).join('')}
+                  ${artists.map(artist => (pinnedActive ? renderArtistCard(artist).replace(' aria-current="true"', '') : renderArtistCard(artist))).join('')}
                 </div>
               </div>
             </section>
@@ -1399,7 +1401,24 @@ async function renderLibraryBrowseView(container) {
                 ? (currentSongs.length + currentSubfolders.reduce((acc, f) => acc + f.songsCount, 0))
                 : ((selectedArtist.songs?.length || 0) + selectedArtist.albums.reduce((acc, a) => acc + (a.songs?.length || 0), 0));
 
-            const songsPaneHtml = `
+            const pinnedPaneHtml = `
+            <section class="pane songs" aria-label="Pinned songs">
+              <h3 class="pane-head">
+                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Artists</button>
+                <span class="text-white fw-semibold" style="flex:1;">Pinned songs</span>
+                <span class="tnum">${pinnedSongs.length} ${pinnedSongs.length === 1 ? 'song' : 'songs'}</span>
+              </h3>
+              <div class="pane-scroll" id="libArtistDetailScroll">
+                <div class="artist-detail-view">
+                  <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
+                    ${pinnedSongs.map(song => renderSongRow(song, { showArtistAlbum: true, showTrackNumber: false })).join('')}
+                  </div>
+                </div>
+              </div>
+            </section>
+            `;
+
+            const songsPaneHtml = pinnedActive ? pinnedPaneHtml : `
             <section class="pane songs" aria-label="Songs">
               <h3 class="pane-head">
                 <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Artists</button>
@@ -1523,6 +1542,14 @@ async function renderLibraryBrowseView(container) {
         renderLibraryBrowseView(container);
     });
 
+    // Pinned songs group
+    container.querySelector('#libPinnedGroupBtn')?.addEventListener('click', () => {
+        pushLibraryNavigationState();
+        pinnedGroupSelected = true;
+        activeLibraryPane = 'songs';
+        renderLibraryBrowseView(container);
+    });
+
     // Artist card clicks
     container.querySelectorAll('.artist-card').forEach(card => {
         card.addEventListener('click', () => {
@@ -1530,6 +1557,7 @@ async function renderLibraryBrowseView(container) {
             pushLibraryNavigationState();
             const artistName = card.dataset.artistName;
             selectedArtist = artists.find(a => a.name === artistName);
+            pinnedGroupSelected = false;
             selectedAlbum = null;
             selectedAlbumFilter = 'all';
             selectedFolderPath = [];
@@ -1775,6 +1803,7 @@ export async function goLibraryTab(tab) {
     activeView = 'library';
     libraryBrowseMode = wantTunings ? 'tunings' : 'artists';
     selectedArtist = null;
+    pinnedGroupSelected = null;
     selectedAlbum = null;
     selectedFolderPath = [];
     selectedTuning = null;
