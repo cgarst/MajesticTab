@@ -939,9 +939,7 @@ async function renderLibraryBrowseView(container) {
                                 ${escapeHtml(group.name)}
                                 <em class="tnum">${group.songs.length} ${group.songs.length === 1 ? 'song' : 'songs'}</em>
                               </h4>
-                              <button class="btn btn-sm theme-control-btn edit-tuning-btn p-1 px-2" data-tuning-key="${escapeHtml(group.key || group.tuning)}" title="Edit Tuning Name" aria-label="Edit Tuning Name">
-                                <i class="bi-pencil"></i>
-                              </button>
+                              <button class="btn btn-sm theme-control-btn edit-tuning-btn" data-tuning-key="${escapeHtml(group.key || group.tuning)}" title="Rename this tuning" aria-label="Rename ${escapeHtml(group.name)}">Rename</button>
                             </div>
                             <div class="strings">
                               ${notesList.map((n, i) => `<span><small>${notesList.length - i}</small>${escapeHtml(n)}</span>`).join('')}

@@ -1465,3 +1465,10 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 }
 @media (hover: hover) { .song-actions .dropdown > .btn-theme-outline:hover, .album-header-actions .btn-theme-outline:hover { background: var(--s3) !important; color: var(--ink) !important; } }
 .library-song-rowwrap .song-row-container .song-actions { display: flex !important; align-items: center; }
+
+/* Tunings: rows on the page, no cards */
+.library-tunings-grid { gap: 0; }
+.tuning.tuning-card { background: transparent; border: 0; border-radius: 0; padding: 14px 20px; }
+.tuning.tuning-card .edit-tuning-btn { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; font-size: 14px; min-height: 36px; }
+.tuning.tuning-card .edit-tuning-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+@media (max-width: 576px) { .tuning.tuning-card { padding-inline: 16px; } }
