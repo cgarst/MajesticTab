@@ -677,3 +677,13 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 @media (max-width: 899px) { .srow { flex-wrap: wrap; } .srow .sc { width: 100%; } }
 #updateSettingsCard { background: var(--s2) !important; border: 0 !important; border-radius: 0 !important; margin: 0 !important; padding: 12px 14px !important; }
 #fileMenu .offcanvas-header > :not(button) { display: none !important; }
+
+/* Phone: five tabs, no brand or Tools (Tools stays in the top bar) */
+@media (max-width: 576px) {
+  .library-bottom-nav .rail-brand, .library-bottom-nav .library-nav-tools { display: none !important; }
+  body.library-view-active .library-bottom-nav { background: var(--s1) !important; }
+  .library-bottom-nav .library-nav-tab { font-size: 11px; font-weight: 500; }
+  .library-bottom-nav .library-nav-tab.active { background: transparent; color: var(--ink); }
+  .library-bottom-nav .library-nav-tab.active::before { top: 3px; left: 50%; margin-left: -3px; margin-top: 0; }
+  body.library-view-active #libraryPage { padding-left: 0; }
+}
