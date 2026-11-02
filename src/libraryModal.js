@@ -2392,27 +2392,19 @@ function renderSongRow(song, options = {}) {
 
     const tabOptionsListHtml = tabOptions.length > 1 ? `
       <div class="tab-options-container">
-        <span class="small text-muted fw-semibold me-1 tab-options-label" style="font-size: 0.72rem;">Tabs:</span>
-        <div class="tab-options-chips d-flex flex-wrap align-items-center gap-2">
+        <div class="tab-options-chips" role="list" aria-label="Tabs for ${escapeHtml(song.title)}">
         ${tabOptions.map((t, idx) => {
           const isDefault = (t.id === defaultTabId) || (!defaultTabId && idx === 0);
           const isPdfRange = Boolean(t.isAlbumRange || t.startPage);
-          const iconClass = isPdfRange ? 'bi-file-earmark-pdf text-warning' : 'bi-file-earmark-music text-info';
+          const tuningLabel = (t.tuning && isTuningMatchingInstrument(t.tuning)) ? (getTuningInfo(t.tuning)?.displayName || t.tuning) : '';
+          const meta = [(t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '', tuningLabel].filter(Boolean).join(' \u00b7 ');
           return `
-          <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" role="button" tabindex="0" title="Load ${escapeHtml(t.name)}">
-            <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'text-warning' : 'text-muted'} me-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="${isDefault ? 'Default Tab' : 'Set as default tab'}">
-              <i class="bi-star${isDefault ? '-fill' : ''}"></i>
-            </button>
-            <i class="${iconClass} me-1" style="font-size: 0.78rem;"></i>
+          <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-tab-chip-btn" role="listitem" data-song-id="${song.id}" data-tab-id="${t.id}" tabindex="0" title="Load ${escapeHtml(t.name)}">
             <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
-            ${(t.startPage && t.endPage) ? `<span class="badge badge-theme-warning py-0 px-1 ms-1" style="font-size:0.6rem;">${formatPageRange(t.startPage, t.endPage)}</span>` : ''}
-            ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
-              const info = getTuningInfo(t.tuning);
-              const label = info?.displayName || t.tuning;
-              return `<span class="badge badge-theme-secondary py-0 px-2 ms-1" style="font-size:0.62rem;" title="${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</span>`;
-            })() : ''}
-            ${isPdfRange && isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
-            ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>` : ''}
+            ${meta ? `<span class="tab-option-meta">${escapeHtml(meta)}</span>` : ''}
+            <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'is-default' : ''}" data-song-id="${song.id}" data-tab-id="${t.id}" ${isDefault ? 'aria-pressed="true"' : ''} title="${isDefault ? 'This tab opens by default' : 'Open this tab by default'}">${isDefault ? 'Default' : 'Make default'}</button>
+            ${isPdfRange && isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" aria-label="Edit page range" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
+            ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" aria-label="Remove tab" title="Remove tab"><i class="bi-x"></i></button>` : ''}
           </div>
           `;
         }).join('')}
