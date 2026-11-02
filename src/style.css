@@ -7325,6 +7325,28 @@ html.jam-web-guest #setlistNav {
   gap: 0.3rem;
   margin: 0;
 }
+.sync-mode-bar .form-control,
+.sync-mode-offset .form-control {
+  background-color: var(--bg-card);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+.sync-mode-bar .form-control:focus,
+.sync-mode-offset .form-control:focus {
+  background-color: var(--bg-card-hover);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+  box-shadow: 0 0 0 0.2rem var(--accent-primary-alpha);
+}
+.sync-mode-bar .form-control::placeholder,
+.sync-mode-offset .form-control::placeholder {
+  color: var(--text-dim);
+  opacity: 0.85;
+}
+.sync-mode-bar .form-control:disabled,
+.sync-mode-offset .form-control:disabled {
+  opacity: 0.55;
+}
 .sync-mode-offset .form-control {
   width: 4.2rem;
   padding: 0.15rem 0.35rem;
