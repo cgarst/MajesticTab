@@ -1901,3 +1901,12 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 @media (prefers-reduced-motion: reduce) {
   #synthDropdownPanel, #ytDropdownPanel, .library-bottom-nav .library-nav-tab.active::before { animation: none !important; }
 }
+
+/* Phones: the library has no reader controls (the reader's five words and page buttons belong to a song) */
+@media (max-width: 640px) { body.library-view-active #topFlexZone { display: none !important; } }
+/* The way back to the open song: its name in plain ink, icons in grey (colour is for the primary action, playhead and dot) */
+#libraryReturnToSongBtn i { color: var(--ink2) !important; }
+@media (max-width: 640px) {
+  #libraryReturnToSongBtn { min-height: 44px; }
+  #libraryReturnToSongBtn .library-return-song-name { display: inline !important; color: var(--ink); max-width: 60vw !important; }
+}
