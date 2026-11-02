@@ -47,7 +47,7 @@ export function refreshSyncStatus() {
     const target = getTarget();
     el.textContent = base && target
         ? `Last synced ${relativeTime(base.syncedAt)} with ${targetLabel(target)}`
-        : 'Keep this device and your backup location matching';
+        : 'Not synced yet';
 }
 
 // --- backend ---
