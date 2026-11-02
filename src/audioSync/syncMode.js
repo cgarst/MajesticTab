@@ -40,6 +40,12 @@ const YOUTUBE_DEFAULT_RATE = 0.75;
 const HISTORY_LIMIT = 100;
 const SCROLL_IDLE_MS = 600;
 
+/** Where Step Sync starts: the first bar without a point, but never bar 1, which the recording starts on. */
+function startTarget(map, points) {
+    const first = map.bars[0];
+    return firstUnsyncedTarget(map, first ? [...points, { barIndex: first.barIndex, occurrence: first.occurrence }] : points);
+}
+
 const $ = (id) => document.getElementById(id);
 
 let session = null;
@@ -182,7 +188,7 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
     source.setRate(source.kind === 'youtube' ? YOUTUBE_DEFAULT_RATE : 1);
 
     wireToolbar(s);
-    s.target = s.mode === 'step' ? firstUnsyncedTarget(map, s.points) : null;
+    s.target = s.mode === 'step' ? startTarget(map, s.points) : null;
     document.body.classList.add('sync-mode');
     $('syncModeBar').hidden = false;
     // The toolbar floats over the top of the score: pad the score by its height so every system can be scrolled clear of it
@@ -461,7 +467,7 @@ function retarget() {
     const latest = s.points.reduce((a, p) => (!a || p.timeMs > a.timeMs ? p : a), null);
     const entry = latest && entryAt(s.map, latest);
     s.lastTick = entry ? entry.tick : null;
-    s.target = entry ? nextTarget(s.map, entry.tick, s.granularity) : firstUnsyncedTarget(s.map, s.points);
+    s.target = entry ? nextTarget(s.map, entry.tick, s.granularity) : startTarget(s.map, s.points);
     renderOverlay();
     updateToolbar();
     scrollToTarget(false);
@@ -817,7 +823,7 @@ function wireToolbar(s) {
     document.querySelectorAll('#smGranularity [data-sm-granularity]').forEach((b) => {
         const handler = () => {
             s.granularity = b.dataset.smGranularity;
-            s.target = s.lastTick === null ? firstUnsyncedTarget(s.map, s.points) : nextTarget(s.map, s.lastTick, s.granularity);
+            s.target = s.lastTick === null ? startTarget(s.map, s.points) : nextTarget(s.map, s.lastTick, s.granularity);
             renderOverlay();
             updateToolbar();
         };
