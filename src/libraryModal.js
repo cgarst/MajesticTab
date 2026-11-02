@@ -4493,41 +4493,30 @@ async function renderRecentsView(container) {
             const tabLabel = r.tabName || r.fileName || ((r.name && r.name !== r.songTitle) ? r.name : '');
             const isPdf = Boolean((r.fileName || r.name || '').toLowerCase().endsWith('.pdf') || r.startPage);
 
-            return `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" data-recent-id="${escapeHtml(r.id)}">
-              <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-                <img loading="lazy" decoding="async" src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="${escapeHtml(r.songTitle || r.name)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
-                <div class="min-w-0 flex-grow-1">
-                  <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(r.songTitle || r.name)}">${escapeHtml(r.songTitle || r.name)}</h6>
-                  <div class="small text-muted text-truncate" title="${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}">${escapeHtml(r.artist || 'Unknown Artist')}${r.album ? ` • ${escapeHtml(r.album)}` : ''}${r.lastBar && r.totalBars ? ` <span class="tnum">• Bar ${r.lastBar} of ${r.totalBars}</span>` : ''}</div>
-                  ${tabLabel ? `
-                    <div class="small text-white-50 text-truncate mt-1 d-flex align-items-center gap-1" style="font-size: 0.72rem;">
-                      <i class="bi-${isPdf ? 'file-earmark-pdf text-warning' : 'file-earmark-music text-info'}"></i>
-                      <span class="text-truncate fw-medium">${escapeHtml(tabLabel)}${r.startPage ? ` (p. ${r.startPage}${r.endPage && r.endPage !== r.startPage ? `-${r.endPage}` : ''})` : ''}</span>
-                    </div>
-                  ` : ''}
-                  <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
-                    ${tunings.map(t => {
-                      const info = getTuningInfo(t);
-                      const label = info?.displayName || t;
-                      return `<span class="badge badge-tuning" title="${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</span>`;
-                    }).join('')}
-                    <span class="small text-white-50" style="font-size:0.7rem;"><i class="bi-clock me-1"></i>${timeAgo}</span>
-                  </div>
-                </div>
-              </div>
+            // One quiet line: who, where you stopped, what tuning, how long ago. The file name lives in the tooltip.
+            const meta = [
+                [r.artist || 'Unknown artist', r.album].filter(Boolean).join(', '),
+                r.lastBar && r.totalBars ? `bar ${r.lastBar} of ${r.totalBars}` : '',
+                ...tunings.map(t => getTuningInfo(t)?.displayName || t),
+                timeAgo
+            ].filter(Boolean).join(' \u00b7 ');
+            const rowTitle = [tabLabel, isPdf && r.startPage ? `p. ${r.startPage}${r.endPage && r.endPage !== r.startPage ? `-${r.endPage}` : ''}` : ''].filter(Boolean).join(' ');
 
-              <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+            return `
+            <div class="library-row-card recent-row d-flex align-items-center gap-3 open-recent-row ${isRecentsEditMode ? '' : 'library-row-clickable'}" data-recent-id="${escapeHtml(r.id)}" data-recent='${escapeHtml(JSON.stringify(r))}' ${isRecentsEditMode ? '' : 'role="button" tabindex="0"'} title="${escapeHtml(rowTitle)}">
+              <img loading="lazy" decoding="async" src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
+              <div class="min-w-0 flex-grow-1">
+                <h6 class="mb-0 fw-bold text-white text-truncate">${escapeHtml(r.songTitle || r.name)}</h6>
+                <div class="small text-truncate tnum">${escapeHtml(meta)}</div>
+              </div>
+              <div class="recent-row-actions d-flex align-items-center flex-shrink-0">
                 ${isRecentsEditMode ? `
-                  <button class="btn btn-sm btn-theme-danger p-1 px-2 delete-recent-item-btn" data-recent-id="${escapeHtml(r.id)}" title="Delete from recents">
+                  <button class="btn btn-sm btn-theme-danger delete-recent-item-btn" data-recent-id="${escapeHtml(r.id)}" aria-label="Remove from recents" title="Remove from recents">
                     <i class="bi-trash"></i>
                   </button>
                 ` : `
-                  <button class="btn btn-sm btn-theme-icon p-1 px-2 text-muted add-recent-to-setlist-btn" data-song-id="${escapeHtml(r.librarySongId)}" data-tab-id="${escapeHtml(r.tabId || '')}" data-title="${escapeHtml(r.songTitle || r.name)}" title="Add to setlist">
+                  <button class="btn btn-sm btn-theme-icon add-recent-to-setlist-btn" data-song-id="${escapeHtml(r.librarySongId)}" data-tab-id="${escapeHtml(r.tabId || '')}" data-title="${escapeHtml(r.songTitle || r.name)}" aria-label="Add to setlist" title="Add to setlist">
                     <i class="bi-collection-play"></i>
-                  </button>
-                  <button class="btn btn-sm btn-theme-primary py-1 px-3 open-recent-btn" data-recent='${escapeHtml(JSON.stringify(r))}'>
-                    <i class="bi-play-fill me-1"></i> Open
                   </button>
                 `}
               </div>
@@ -4589,8 +4578,8 @@ async function renderRecentsView(container) {
         });
     });
 
-    container.querySelectorAll('.open-recent-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
+    container.querySelectorAll('.open-recent-row[role="button"]').forEach(btn => {
+        const openRecent = async () => {
             const r = JSON.parse(btn.dataset.recent);
 
             // 1. If associated with a library song, load that specific tab
@@ -4630,30 +4619,20 @@ async function renderRecentsView(container) {
                 }
             }
             showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
+        };
+        // The whole row opens the tab; the setlist button inside it does not
+        btn.addEventListener('click', (e) => {
+            if (e.target.closest('button, a')) return;
+            openRecent();
+        });
+        btn.addEventListener('keydown', (e) => {
+            if (e.target !== btn) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openRecent();
+            }
         });
     });
-
-    // Whole row is clickable (outside edit mode); delegate to the row's Open button
-    if (!isRecentsEditMode) {
-        container.querySelectorAll('#recentsList .library-row-card').forEach(row => {
-            const openBtn = row.querySelector('.open-recent-btn');
-            if (!openBtn) return;
-            row.classList.add('library-row-clickable');
-            row.tabIndex = 0;
-            row.setAttribute('role', 'button');
-            row.addEventListener('click', (e) => {
-                if (e.target.closest('button, a')) return;
-                openBtn.click();
-            });
-            row.addEventListener('keydown', (e) => {
-                if (e.target !== row) return;
-                if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    openBtn.click();
-                }
-            });
-        });
-    }
 
     hydrateCachedImages(container);
     gamepadManager.onLibraryViewRendered();

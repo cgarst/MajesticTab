@@ -1388,3 +1388,23 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 
 
 
+
+/* ---------- Phone: the library has no reader controls ----------
+   Over the library the bar keeps the brand and Tools. View, More, fullscreen and the hamburger belong to an open
+   score (Settings is in the tab bar), and the Settings page needs the whole screen. */
+@media (max-width: 576px) {
+  body.library-view-active #menuToggleBtn,
+  body.library-view-active #viewToggleBtn,
+  body.library-view-active #practiceToggleBtn,
+  body.library-view-active #moreToggleBtn,
+  body.library-view-active #fullscreenToggleBtn { display: none !important; }
+  body.library-view-active.settings-as-page #topBar { display: none !important; }
+}
+
+/* Recents: one flat row, the row opens the tab */
+.recent-row { min-height: 64px; }
+.recent-row .small { color: var(--ink2) !important; }
+.recent-row-actions .btn { min-width: 40px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; }
+@media (pointer: coarse), (max-width: 576px) { .recent-row-actions .btn { min-width: 44px; min-height: 44px; } }
+.library-page-container > #recentsList { grid-column: 1 / -1; margin: 8px -20px 0; }
+@media (max-width: 576px) { .library-page-container > #recentsList { margin-inline: -16px; } }
