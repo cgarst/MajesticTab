@@ -64,10 +64,14 @@ async function install(localExtensions) {
         });
         (result.syncIds || []).forEach(id => syncSources.push({ id, ext: result.id }));
         (result.urlImporters || []).forEach(({ id, hosts, libs }) => urlImporters.push({ id, ext: result.id, hosts, libs }));
-        idsByExtension[result.id] = result.ids;
+        idsByExtension[result.id] = [
+            ...result.ids,
+            ...(result.syncIds || []),
+            ...(result.urlImporters || []).map(({ id }) => id)
+        ];
     }
     sandbox = next;
-    return { count: adapters.length, registrationCount: adapters.length, errors, idsByExtension };
+    return { count: adapters.length, registrationCount: Object.values(idsByExtension).reduce((total, ids) => total + ids.length, 0), errors, idsByExtension };
 }
 
 /** Load these { id, source } extensions in the sandbox, replacing whatever was loaded before. */
