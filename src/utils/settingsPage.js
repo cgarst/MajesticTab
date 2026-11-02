@@ -275,16 +275,38 @@ export function initSettingsPage() {
         if (syncStatus) r.querySelector('.st').appendChild(syncStatus);
         lib.push(r);
     }
-    // The data tasks (back up, restore, reload metadata, orphaned files, clear cache, delete) are on this page,
-    // switched by a row of text options. They are the same screens the old popup had, mounted in place.
-    const dataHost = el('div', 'data-task-host');
-    dataHost.id = 'dataTaskHost';
+    // The data tasks are rows like every other setting. Choosing one opens it in place under its row, and only one
+    // is open at a time. They are the same screens the old popup had.
+    const taskRow = (tab, title, help, label, danger) => {
+        const btn = el('button', 'btn btn-sm ' + (danger ? 'btn-theme-danger' : 'btn-theme-outline'), label);
+        btn.type = 'button';
+        btn.setAttribute('aria-expanded', 'false');
+        const slot = el('div', 'data-task-slot');
+        slot.dataset.task = tab;
+        slot.hidden = true;
+        btn.addEventListener('click', async () => {
+            const mod = await import('../backupRestore.js');
+            if (btn.getAttribute('aria-expanded') === 'true') mod.closeBackupModal();
+            else mod.openBackupModal(tab);
+        });
+        return [row(title, help, btn), slot];
+    };
+    const taskGroup = (title, ...tasks) => {
+        const g = group(title, ...tasks.flat());
+        return g;
+    };
     if (lib.length) panes.library.appendChild(group('Sync', ...lib));
-    panes.library.appendChild(dataHost);
-    nav.addEventListener('click', async (e) => {
-        if (!e.target.closest('[data-section="library"]')) return;
-        if (dataHost.childElementCount === 0) (await import('../backupRestore.js')).openBackupModal('backup');
-    });
+    panes.library.appendChild(taskGroup('Back up and restore',
+        ...[taskRow('backup', 'Create a backup', 'Save everything to a file, a folder or your cloud.', 'Open'),
+            taskRow('restore', 'Restore from a backup', 'Bring a backup or snapshot back.', 'Open')]));
+    panes.library.appendChild(taskGroup('Upkeep',
+        ...[taskRow('reload', 'Reload library metadata', 'Refresh covers, durations and album details.', 'Open'),
+            taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Open')]));
+    const danger = taskGroup('Danger zone',
+        ...[taskRow('cache', 'Clear cached data', 'Covers and downloads, kept only to load faster.', 'Open', true),
+            taskRow('delete', 'Delete all data', 'Removes your library, setlists and settings from this device.', 'Open', true)]);
+    danger.classList.add('danger');
+    panes.library.appendChild(danger);
     // keep the originals referenced so their ids stay unique if anything still looks them up
     void moreData; void clearCache; void deleteAll; void backupBtn; void restoreBtn;
 

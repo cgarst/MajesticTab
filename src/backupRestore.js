@@ -1272,8 +1272,8 @@ function getOrCreateModal() {
 }
 
 
-/** The place on the Settings page where a data task renders, opening Settings first when the library navigation is there. */
-async function getSettingsDataHost() {
+/** The slot under a data task's row on the Settings page, opening Settings first when the library navigation is there. */
+async function getSettingsDataHost(tab) {
     const navBtn = document.getElementById('libraryNavSettingsBtn');
     if (!navBtn) return null;
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -1283,24 +1283,37 @@ async function getSettingsDataHost() {
     }
     const section = document.querySelector('.setnav [data-section="library"]');
     if (section && !section.hasAttribute('aria-current')) section.click();
-    const host = document.getElementById('dataTaskHost');
-    host?.scrollIntoView?.({ block: 'start' });
-    return host;
+    return document.querySelector(`.data-task-slot[data-task="${tab}"]`);
+}
+
+function setTaskOpenState(openTab) {
+    document.querySelectorAll('.data-task-slot').forEach((slot) => {
+        const open = slot.dataset.task === openTab;
+        slot.hidden = !open;
+        slot.previousElementSibling?.querySelector('button[aria-expanded]')?.setAttribute('aria-expanded', String(open));
+        const btn = slot.previousElementSibling?.querySelector('button[aria-expanded]');
+        if (btn) btn.textContent = open ? 'Close' : 'Open';
+    });
 }
 
 async function mountBackupInSettings(host, tab, options) {
     const modal = getOrCreateModal();
     modal.classList.add('is-embedded');
     modal.style.display = 'block';
-    if (modal.parentElement !== host) host.appendChild(modal);
+    setTaskOpenState(tab);
+    host.appendChild(modal);
     await renderModal(modal, tab, options);
+    host.scrollIntoView?.({ block: 'nearest' });
 }
 
-/** In Settings the tasks stay on the page, so "closing" one only returns to the default task. */
+/** Collapses the open data task in Settings and puts the modal element back out of the way. */
 function leaveEmbeddedBackup() {
     const modal = modalElement;
     if (!modal?.classList.contains('is-embedded')) return false;
-    renderModal(modal, 'backup').catch(() => {});
+    modal.classList.remove('is-embedded');
+    modal.style.display = 'none';
+    document.body.appendChild(modal);
+    setTaskOpenState(null);
     return true;
 }
 
@@ -1311,7 +1324,7 @@ function leaveEmbeddedBackup() {
 export async function openBackupModal(initialTab = 'backup', options = {}) {
     // Data management is part of Settings, on the Library and backup page. The popup remains only where Settings
     // is not reachable (for example while a score is open).
-    const host = await getSettingsDataHost();
+    const host = await getSettingsDataHost(initialTab);
     if (host) return mountBackupInSettings(host, initialTab, options);
     const modal = getOrCreateModal();
     modal.style.display = 'flex';
