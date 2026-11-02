@@ -779,6 +779,25 @@ function wireToolbar(s) {
         b.addEventListener('click', handler);
         s.cleanup.push(() => b.removeEventListener('click', handler));
     });
+    on('smTapBtn', tapTarget);
+    // A press moves the target a bar; holding moves it 4, for touch screens without arrow keys
+    for (const [id, dir] of [['smPrevBarBtn', -1], ['smNextBarBtn', 1]]) {
+        const btn = $(id);
+        let timer = 0;
+        let held = false;
+        const down = () => { held = false; timer = setTimeout(() => { held = true; moveTarget(dir * 4); }, 500); };
+        const up = () => clearTimeout(timer);
+        const click = () => { if (held) held = false; else moveTarget(dir); };
+        btn.addEventListener('pointerdown', down);
+        for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, up);
+        btn.addEventListener('click', click);
+        s.cleanup.push(() => {
+            clearTimeout(timer);
+            btn.removeEventListener('pointerdown', down);
+            for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.removeEventListener(ev, up);
+            btn.removeEventListener('click', click);
+        });
+    }
     on('smRangeBtn', () => {
         if (s.rangeArmed) cancelRange();
         else { s.rangeArmed = true; s.rangeStart = null; updateToolbar(); }
@@ -909,6 +928,8 @@ function updateToolbar() {
     document.querySelectorAll('#smMode [data-sm-mode]').forEach((b) => b.classList.toggle('active', b.dataset.smMode === s.mode));
     $('smGranularity').style.display = s.mode === 'patch' ? 'none' : '';
     $('smRangeBtn').hidden = s.mode !== 'patch';
+    document.querySelectorAll('#syncModeBar [data-sm-step]').forEach((b) => { b.style.display = s.mode === 'step' ? '' : 'none'; });
+    $('smTapBtn').disabled = !s.target;
     $('smRangeBtn').classList.toggle('active', s.rangeArmed);
     $('smUndoBtn').disabled = !s.undo.length;
     $('smRedoBtn').disabled = !s.redo.length;
@@ -945,8 +966,8 @@ function updateToolbar() {
     else {
         const where = `bar ${s.target.barIndex + 1}${s.target.occurrence ? ` (pass ${s.target.occurrence + 1})` : ''}${s.granularity === 'beat' ? `, beat at ${Math.round(s.target.pos * 100)}%` : ''}`;
         if (s.retap) hint = `Re-tapping from bar ${(s.ctx.timeline.bars.find((b) => b.startMs >= s.retap.scoreFrom) || s.ctx.timeline.bars[0]).barIndex + 1}: tap ${where} when you hear it.`;
-        else if (playing) hint = `Tap ${where} when you hear it (J or a click). Arrow keys skip bars; a click on a later bar skips too.`;
-        else hint = `Press play, then tap ${where} when you hear it (J or a click). Arrow keys skip bars. Or pause on a sound and click a beat to put a point there.`;
+        else if (playing) hint = `Tap ${where} when you hear it (J, the Tap button or a click). Arrow keys or the arrow buttons skip bars.`;
+        else hint = `Press play, then tap ${where} when you hear it (J, the Tap button or a click). Arrow keys or the arrow buttons skip bars. Or pause on a sound and click a beat to put a point there.`;
     }
     if (s.lastSnap !== null && !s.audition) hint += ` (Last tap snapped ${Math.abs(s.lastSnap)} ms ${s.lastSnap < 0 ? 'earlier' : 'later'}.)`;
     $('smHint').textContent = hint;
