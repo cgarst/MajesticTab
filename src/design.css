@@ -1,0 +1,356 @@
+/* MajesticTab design 1: the app recedes, the score leads. Loaded after style.css and overrides it.
+   Target: MajesticTab-local/design-1/majestictab-reimagined.html (tokens, shapes and structure follow that page). */
+
+/* ==========================================================================
+   DESIGN 1 — FLAT FINISHES, QUIET CHROME (the app recedes, the score leads)
+   One tone step between surfaces, flat hues, no gradients, glass, glow or
+   resting shadows (they are the costliest on low-end Android GPUs).
+   Tokens first, then the few places that bypass tokens.
+   ========================================================================== */
+@font-face { font-family: 'Barlow Condensed'; font-weight: 500; font-display: swap; src: url('fonts/barlow-condensed-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; font-display: swap; src: url('fonts/barlow-condensed-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url('fonts/barlow-condensed-latin-700-normal.woff2') format('woff2'); }
+
+:root, [data-theme] {
+  /* Four-step ground ladder: body, elevated, card, hover (existing tokens). Cards become opaque. */
+  --bg-card: var(--bg-card-solid);
+  --bg-ambient-1: transparent;
+  --bg-ambient-2: transparent;
+  /* Flat action colour (the original primary). A same-colour gradient keeps `background-image` uses valid. */
+  --accent-gradient: linear-gradient(var(--accent-primary), var(--accent-primary));
+  --accent-gradient-hover: linear-gradient(var(--accent-secondary), var(--accent-secondary));
+  --accent-glow: transparent;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  /* Motion tokens (exits faster than entries) */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 350ms;
+  --dur-slower: 400ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --r-control: 8px;
+  --r-card: 12px;
+}
+
+/* Platform corner radius: tighter on desktop, rounder on iOS */
+.tauri-ios, .tauri-macos { --r-control: 10px; --r-card: 14px; }
+.tauri-windows, .tauri-linux { --r-control: 4px; --r-card: 8px; }
+
+body {
+  background-image: none;
+  background-attachment: scroll;
+}
+
+/* No glass anywhere; scrims keep their dimming but lose the blur */
+*, *::before, *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+#topBar {
+  background: var(--bg-elevated) !important;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border-subtle);
+}
+#topBar.hud-hidden.hud-transient { box-shadow: none; }
+
+/* Buttons: flat fill, tone-step hover, no glow or lift */
+.btn-theme-primary,
+.btn-theme-primary:hover:not(:disabled) {
+  background: var(--accent-primary) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none;
+  transform: none;
+}
+.btn-theme-primary:hover:not(:disabled) { filter: brightness(1.12); }
+.btn-theme-outline:hover:not(:disabled) { box-shadow: none; }
+.btn-theme-primary,
+.btn-theme-outline,
+.btn-theme-danger,
+.btn-theme-success,
+.theme-control-btn,
+.btn-theme-icon {
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out), filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.btn-theme-primary:active:not(:disabled),
+.btn-theme-outline:active:not(:disabled),
+.theme-control-btn:active:not(:disabled),
+.btn-theme-icon:active:not(:disabled) { transform: scale(0.97); }
+
+/* Display face: song titles and big numerals only, like pedal and amp labels */
+.brand-title,
+.breadcrumb-song-title,
+.theme-modal-title,
+.offcanvas-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.breadcrumb-song-title { font-size: 1.3em; font-weight: 600; letter-spacing: 0.02em; }
+
+/* Modals and panels: opaque cards, scale-in, faster out */
+.theme-modal-card { box-shadow: none; border: 1px solid var(--border-subtle); border-radius: var(--r-card); }
+.offcanvas { box-shadow: none; }
+
+/* --- Motion (phase 2): transform and opacity only, exits faster than entries --- */
+@keyframes modalScaleUp {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes scrimIn { from { opacity: 0; } to { opacity: 1; } }
+.theme-modal-card { animation: modalScaleUp var(--dur-base) var(--ease-out); }
+.theme-modal-backdrop { animation: scrimIn var(--dur-base) var(--ease-out); }
+.theme-modal-backdrop.is-closing { animation: scrimOut var(--dur-fast) ease-in forwards; }
+.theme-modal-backdrop.is-closing .theme-modal-card { animation: modalScaleDown var(--dur-fast) ease-in forwards; }
+@keyframes scrimOut { to { opacity: 0; } }
+@keyframes modalScaleDown { to { opacity: 0; transform: scale(0.97); } }
+
+/* Spring switch: the thumb overshoots slightly, the track recolours quickly */
+.form-switch .form-check-input {
+  transition: background-position var(--dur-base) cubic-bezier(0.34, 1.36, 0.64, 1),
+              background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out);
+  box-shadow: none !important;
+}
+.form-switch .form-check-input:focus-visible { box-shadow: 0 0 0 0.2rem var(--accent-primary-alpha) !important; }
+.synth-panel .theme-switch:checked, .form-check-input:checked { box-shadow: none; }
+
+/* Panels grow from where they were opened */
+.dropdown-menu, .tools-menu, .popover-pop {
+  transform-origin: top right;
+  animation: popIn var(--dur-base) var(--ease-out);
+}
+@keyframes popIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+.offcanvas { transition: transform var(--dur-slow) var(--ease-out), visibility var(--dur-slow); }
+.offcanvas.hiding { transition-duration: var(--dur-base); }
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-modal-card, .theme-modal-backdrop, .dropdown-menu, .tools-menu, .popover-pop { animation: none !important; }
+  .form-switch .form-check-input, .offcanvas { transition: none !important; }
+  .btn-theme-primary:active:not(:disabled),
+  .btn-theme-outline:active:not(:disabled),
+  .theme-control-btn:active:not(:disabled),
+  .btn-theme-icon:active:not(:disabled) { transform: none; }
+}
+
+/* --- Shell (phase 5): one nav, two shapes. Bottom tab bar on phones, left rail on wide windows. --- */
+:root { --rail-w: 76px; --topbar-h: 57px; }
+@media (min-width: 577px) {
+  body.library-view-active .library-bottom-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    position: fixed;
+    top: var(--topbar-h);
+    bottom: 0;
+    left: 0;
+    width: var(--rail-w);
+    z-index: 1040;
+    padding: 0.75rem 0.5rem;
+    background: var(--bg-elevated);
+    border-right: 1px solid var(--border-subtle);
+    box-shadow: none;
+  }
+  body.library-view-active .library-bottom-nav .library-nav-settings { margin-top: auto; }
+  body.library-view-active #libraryPage { padding-left: var(--rail-w); }
+  .library-bottom-nav .library-nav-tab { border-radius: var(--r-control); min-height: 56px; }
+  .library-bottom-nav .library-nav-tab:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+}
+/* Active item: a flat dot in the second hue, no glow */
+.library-bottom-nav .library-nav-tab { position: relative; }
+.library-bottom-nav .library-nav-tab.active::before {
+  content: ''; position: absolute; top: 4px; left: 50%; width: 4px; height: 4px; margin-left: -2px;
+  border-radius: 50%; background: var(--accent-secondary);
+}
+@media (max-width: 576px) {
+  body.library-view-active .library-bottom-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    background: var(--bg-elevated);
+    box-shadow: none;
+  }
+}
+.library-nav-tab { transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.library-nav-tab:active { transform: scale(0.96); }
+@media (prefers-reduced-motion: reduce) { .library-nav-tab:active { transform: none; } }
+/* The rail replaces the in-page view switcher */
+@media (min-width: 577px) { body.library-view-active .lib-view-switch-row { display: none; } }
+/* View is a reader menu */
+body.library-view-active #viewPill { display: none; }
+
+/* --- Sound switch (phase 6): Synth or Recording, one choice, named in words, one active colour --- */
+#audioSourcePill .audio-src-label { margin-left: 0.4rem; font-weight: 600; font-size: 0.85em; }
+#synthToggleBtn.active, #synthToggleBtn.active-audio-mode,
+#ytToggleBtn.active, #ytToggleBtn.active-audio-mode,
+#ytToggleBtn.btn-source-local.active, #ytToggleBtn.btn-source-local.active-audio-mode {
+  color: #ffffff !important;
+  background: var(--accent-primary) !important;
+  box-shadow: none !important;
+}
+#fretboardToggleBtn.active, #tunerToggleBtn.active { background: var(--accent-primary) !important; box-shadow: none !important; }
+.mobile-dock-btn.active-audio-mode { background: var(--accent-primary); color: #fff; }
+#mobileSynthToggleBtn, #mobileYtToggleBtn { width: auto; padding: 0 0.85rem; border-radius: 9999px; gap: 0.4rem; }
+#mobilePlaybackDock .audio-src-label { font-size: 0.8rem; font-weight: 600; }
+@media (max-width: 359px) { #mobilePlaybackDock .audio-src-label { display: none; } #mobileSynthToggleBtn, #mobileYtToggleBtn { width: 36px; padding: 0; } }
+
+/* --- Bar ruler (phase 7): the transport you can see. Flat bands, one tone step apart. --- */
+.bar-ruler {
+  position: relative;
+  z-index: 900;
+  flex: 0 0 auto;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.4rem max(env(safe-area-inset-right), 1rem) 0.4rem max(env(safe-area-inset-left), 1rem);
+}
+.bar-ruler[hidden], .bar-ruler.is-in-library { display: none; }
+.bar-ruler-main { display: flex; align-items: center; gap: 0.75rem; }
+.bar-ruler-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 34px;
+  cursor: pointer;
+  touch-action: none;
+  border-radius: var(--r-control);
+  overflow: hidden;
+  background: var(--bg-card-solid);
+}
+.bar-ruler-track:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.bar-ruler-parts { position: absolute; inset: 0; display: flex; }
+.bar-ruler-part {
+  flex-basis: 0;
+  min-width: 0;
+  padding: 0 0.4rem;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 20px;
+  height: 20px;
+  background: var(--bg-card-solid);
+  overflow: hidden;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.bar-ruler-part.tone-1 { background: var(--bg-card-hover); }
+.bar-ruler-part.is-current { background: var(--accent-primary); color: #fff; }
+.bar-ruler-ticks { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; pointer-events: none; }
+.bar-ruler-track:not(.has-parts) .bar-ruler-ticks { height: 100%; display: flex; align-items: center; }
+.bar-ruler-tick {
+  position: absolute;
+  bottom: 0;
+  padding-left: 3px;
+  font-size: 0.66rem;
+  line-height: 14px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.bar-ruler-track:not(.has-parts) .bar-ruler-tick { bottom: auto; font-size: 0.72rem; }
+.bar-ruler-loop {
+  position: absolute; top: 0; bottom: 0;
+  background: color-mix(in srgb, var(--accent-secondary) 28%, transparent);
+  border-left: 3px solid var(--accent-secondary);
+  border-right: 3px solid var(--accent-secondary);
+  pointer-events: none;
+}
+/* The pick is the playhead: a line with a flat triangle head. Moves by transform only. */
+.bar-ruler-head {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
+  background: var(--accent-secondary);
+  pointer-events: none;
+  will-change: transform;
+}
+.bar-ruler-head::before {
+  content: ''; position: absolute; top: 0; left: -4px;
+  border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--accent-secondary);
+}
+.bar-ruler-side { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
+.bar-ruler-readout { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bar-ruler-loop-btn.active { background: var(--accent-primary) !important; color: #fff !important; }
+.bar-ruler-info { margin-top: 0.4rem; padding: 0.5rem 0.75rem; background: var(--bg-card-solid); border-radius: var(--r-control); max-height: 30vh; overflow: auto; }
+.bar-ruler-marks { list-style: none; margin: 0; padding: 0; font-size: 0.82rem; }
+.bar-ruler-mark-bar { display: inline-block; min-width: 4.5rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+@media (max-width: 576px) {
+  .bar-ruler-main { flex-wrap: wrap; gap: 0.35rem; }
+  .bar-ruler-track { flex-basis: 100%; }
+  .bar-ruler-side { flex-basis: 100%; justify-content: space-between; }
+}
+@media (prefers-reduced-motion: reduce) { .bar-ruler-part { transition: none; } }
+.bar-ruler-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bar-ruler-col .bar-ruler-track { flex: none; }
+@media (max-width: 576px) { .bar-ruler-col { flex-basis: 100%; } }
+/* Sync coverage lane */
+.bar-ruler-sync { position: relative; height: 6px; }
+.bar-ruler-sync[hidden] { display: none; }
+.bar-ruler-sync-base { position: absolute; inset: 2px 0; background: var(--accent-secondary); border-radius: 1px; }
+.bar-ruler-sync-gap {
+  position: absolute; top: 0; bottom: 0;
+  background: var(--bg-elevated);
+  background-image: repeating-linear-gradient(90deg, var(--text-dim) 0 4px, transparent 4px 8px);
+  background-size: 100% 2px; background-repeat: no-repeat; background-position: 0 2px;
+}
+.bar-ruler-sync-point { position: absolute; top: 0; width: 2px; height: 6px; margin-left: -1px; background: var(--text-primary); }
+.bar-ruler-sync-point.is-flagged { background: #f59e0b; }
+
+/* --- Toast (phase 8): rises from below, slower in than out, with an optional action such as Undo --- */
+.theme-toast { box-shadow: none; border-color: var(--border-prominent); transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out); }
+.theme-toast-hiding { transition-duration: var(--dur-base); }
+.theme-toast-action {
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--r-control);
+  color: var(--accent-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.theme-toast-action:hover { background: var(--accent-primary-alpha); }
+.theme-toast-action:active { transform: scale(0.96); }
+
+/* --- Screens slide in sideways: forward from the right, so the library to reader move reads as depth --- */
+@keyframes screenInRight { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes screenInLeft { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: translateX(0); } }
+#libraryPage { animation: screenInLeft var(--dur-base) var(--ease-out); }
+#barRuler:not([hidden]) { animation: screenInRight var(--dur-base) var(--ease-out); }
+
+/* Modal close: anything that adds .is-closing before hiding gets the faster exit */
+@media (prefers-reduced-motion: reduce) {
+  .theme-toast, .theme-toast-hiding { transition: none; }
+  #libraryPage, #barRuler { animation: none !important; }
+}
+
+/* --- Settings as a page (opened from the navigation): fills the content area beside the rail --- */
+body.settings-as-page .offcanvas-backdrop { display: none; }
+body.settings-as-page #fileMenu {
+  --bs-offcanvas-width: 100vw;
+  width: 100vw !important;
+  max-width: 100vw;
+  top: var(--topbar-h);
+  height: calc(100% - var(--topbar-h));
+  border-right: 0;
+  background: var(--bg-body);
+  z-index: 1030;
+}
+@media (min-width: 577px) {
+  body.settings-as-page #fileMenu { --bs-offcanvas-width: calc(100vw - var(--rail-w)); width: calc(100vw - var(--rail-w)) !important; left: var(--rail-w); }
+  body.settings-as-page #fileMenu .offcanvas-body {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+    align-content: start;
+    gap: 1rem;
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 1.25rem;
+  }
+  body.settings-as-page #fileMenu .offcanvas-body > .settings-card { margin: 0; }
+  body.settings-as-page #fileMenu .offcanvas-body > #openFileMenuBtn,
+  body.settings-as-page #fileMenu .offcanvas-body > .mt-auto { grid-column: 1 / -1; }
+}
+@media (max-width: 576px) {
+  body.settings-as-page #fileMenu { padding-bottom: calc(env(safe-area-inset-bottom) + 4.5rem); }
+}
