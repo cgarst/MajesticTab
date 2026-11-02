@@ -3,7 +3,7 @@
 // position (`{ id, barIndex, occurrence, pos, timeMs }`); `scoreMs` is derived from the score's MIDI tick lookup
 // whenever the score or the points change.
 
-import { getMidiTickLookup, getAudioLatencyMs } from '../gpProcessor/gpPlayer.js';
+import { getMidiTickLookup, getAudioLatencyMs, synthPlayerState } from '../gpProcessor/gpPlayer.js';
 import { buildScoreTimeline, playedBarsFromLookup, positionToScoreMs } from './scorePositions.js';
 import { createFollower } from './follower.js';
 import { hasOrderProblems, validatePoints } from './syncMap.js';
@@ -86,6 +86,8 @@ export function startAudioSync({ source, points: storedPoints }) {
         usable: () => !hasOrderProblems(resolved),
         stop() {
             follower.stop();
+            // The cursor layer is only wanted while something drives it; the synth keeps it once it has played
+            if (!synthPlayerState.hasPlayed) document.body.classList.remove('synth-playback-started');
             if (active === this) active = null;
         }
     };
