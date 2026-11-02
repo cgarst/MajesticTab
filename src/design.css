@@ -1947,12 +1947,16 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 .theme-modal-backdrop.tool-embedded .reference-modal-card { height: auto; }
 .theme-modal-backdrop.tool-embedded .reference-modal-body { overflow: visible; }
 
-/* Setlists: the library's two-pane page, setlists where the artists are */
+/* Setlists & Tunings: the library's two-pane page */
 .library-page-container > .setlists-body { grid-column: 1 / -1; margin: 12px -20px 0; }
 @media (max-width: 576px) { .library-page-container > .setlists-body { margin-inline: -16px; } }
-.setlists-view .setlist-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 20px 12px; }
+.setlists-view .setlist-actions,
+.tunings-view .tuning-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 20px 12px; }
 .setlists-view .setlist-add-songs { margin-inline: 20px; }
 .setlists-view .setlist-danger { padding: 24px 20px 12px; }
-.setlist-card[aria-current="true"] { background: var(--s2) !important; position: relative; }
-.setlist-card[aria-current="true"]::before { content: ""; position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
-.setlists-view .setlist-actions .theme-control-btn, .setlists-view .pane-head .in-view-back-btn { color: var(--ink2) !important; }
+.setlist-card[aria-current="true"],
+.tuning-card[aria-current="true"] { background: var(--s2) !important; position: relative; }
+.setlist-card[aria-current="true"]::before,
+.tuning-card[aria-current="true"]::before { content: ""; position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
+.setlists-view .setlist-actions .theme-control-btn, .setlists-view .pane-head .in-view-back-btn,
+.tunings-view .tuning-actions .theme-control-btn, .tunings-view .pane-head .in-view-back-btn { color: var(--ink2) !important; }
