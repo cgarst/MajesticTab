@@ -634,6 +634,7 @@
         <span class="text-muted text-truncate" id="ytSyncInfo" style="font-size: 0.72rem;"></span>
         <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="ytSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
       </div>
+      <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="ytSyncTapBtn" title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
     </div>
     <div class="input-group input-group-sm yt-search-group">
       <input type="text" id="ytSearchInput" class="form-control" placeholder="Paste YouTube link or video ID...">
@@ -1134,6 +1135,31 @@
   </section>
 </div>
 
+<div id="syncModeBar" class="sync-mode-bar" role="toolbar" aria-label="Tap to sync" hidden>
+  <div class="sync-mode-hint small" id="smHint" role="status"></div>
+  <div class="sync-mode-controls">
+    <button type="button" class="btn btn-sm btn-theme-icon" id="smPlayBtn" title="Play / Pause (Space)" aria-label="Play / Pause"><i class="bi-play-fill" id="smPlayIcon"></i></button>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smBack5Btn" title="Back 5 seconds">-5s</button>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smBack10Btn" title="Back 10 seconds">-10s</button>
+    <div class="hud-pill-group" role="group" aria-label="Playback speed" id="smRates">
+      <button type="button" class="btn btn-sm" data-sm-rate="0.5">0.5x</button>
+      <button type="button" class="btn btn-sm" data-sm-rate="0.75">0.75x</button>
+      <button type="button" class="btn btn-sm" data-sm-rate="1">1x</button>
+    </div>
+    <div class="hud-pill-group" role="group" aria-label="What to tap" id="smGranularity">
+      <button type="button" class="btn btn-sm active" data-sm-granularity="bar" title="Tap the first beat of each bar">Bars</button>
+      <button type="button" class="btn btn-sm" data-sm-granularity="beat" title="Tap every beat">Beats</button>
+    </div>
+    <label class="sync-mode-offset small text-white-50" title="Subtracted from every tap, for a reaction delay. Raise it if your taps land late.">
+      Offset <input type="number" class="form-control form-control-sm" id="smOffset" value="0" step="10" min="0" max="500" aria-label="Tap offset in milliseconds"> ms
+    </label>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smUndoBtn" title="Undo (Ctrl+Z)">Undo</button>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smRedoBtn" title="Redo (Ctrl+Shift+Z)">Redo</button>
+    <span class="small text-white-50 sync-mode-count" id="smCount"></span>
+    <button type="button" class="btn btn-sm btn-theme-primary" id="smDoneBtn">Done</button>
+  </div>
+</div>
+
 <div id="audioFileDropdownPanel" class="yt-panel" style="display: none;">
   <div class="yt-panel-header">
     <div class="d-flex align-items-center text-truncate me-2">
@@ -1176,6 +1202,7 @@
           <span class="text-muted text-truncate" id="afSyncInfo" style="font-size: 0.72rem;"></span>
           <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="afSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
         </div>
+        <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="afSyncTapBtn" title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
       </div>
     </div>
   </div>

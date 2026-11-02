@@ -1,7 +1,7 @@
 // mediaSource.js
 // The recording a score is synced to, behind one interface so the follower and the editor don't care whether it
 // is a YouTube video or a local audio file:
-//   { kind, id, durationMs, getTimeMs(), seek(ms), play(), pause(), setRate(r), isPlaying(), isBuffering(),
+//   { kind, id, durationMs, getTimeMs(), seek(ms), play(), pause(), setRate(r), getRate(), isPlaying(), isBuffering(),
 //     on(cb) -> off, capabilities: { waveform, preciseClock, pitchPreservedRate } }
 // Events passed to `on` callbacks: { type: 'state' | 'time' | 'rate' | 'buffering' | 'ended' | 'video' }.
 
@@ -21,6 +21,7 @@ export function createYouTubeSource(control, subscribe) {
         play: () => control.play(),
         pause: () => control.pause(),
         setRate: (rate) => control.setRate(rate),
+        getRate: () => control.snapshot().rate || 1,
         isPlaying: () => control.snapshot().playing,
         isBuffering: () => control.snapshot().buffering,
         on: (cb) => subscribe((e) => {

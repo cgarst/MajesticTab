@@ -42,6 +42,13 @@ function snapTo(starts, tick) {
 }
 
 let active = null;
+let suspended = false;
+
+/** While suspended (tap mode) no follower runs, so the cursor isn't moved by the points being edited. */
+export function setAudioSyncSuspended(on) {
+    suspended = Boolean(on);
+    if (suspended) stopAudioSync();
+}
 
 /**
  * Starts following `source` with `storedPoints`. Replaces any earlier session. Returns the session
@@ -49,6 +56,7 @@ let active = null;
  */
 export function startAudioSync({ source, points: storedPoints }) {
     stopAudioSync();
+    if (suspended) return null;
     const api = window.gpApi;
     const lookup = api && getMidiTickLookup(api);
     if (!api?.score || !lookup) return null;
@@ -117,6 +125,7 @@ export function createClockSource({ startMs = 0, rate = 1 } = {}) {
         play() { base = now(); from = performance.now(); playing = true; },
         pause() { base = now(); playing = false; },
         setRate(next) { base = now(); from = performance.now(); r = next; },
+        getRate: () => r,
         isPlaying: () => playing,
         isBuffering: () => false,
         on: () => () => {}

@@ -504,6 +504,7 @@ export function initAudioFilePlayer() {
         prefix: 'af',
         getSource: () => state.source,
         getMedia: () => (state.meta ? mediaOf(state.meta) : null),
+        prepareSync: () => toggleAudioFilePanel(false),
         subscribe: (cb) => syncListeners.add(cb)
     });
 }

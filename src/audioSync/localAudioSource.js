@@ -76,6 +76,7 @@ export function createLocalAudioSource(file) {
         play() { return audio.play(); },
         pause() { audio.pause(); },
         setRate(rate) { audio.playbackRate = rate; },
+        getRate: () => audio.playbackRate,
         isPlaying: () => !audio.paused && !audio.ended,
         isBuffering: () => buffering,
         on(cb) {

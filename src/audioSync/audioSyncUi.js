@@ -4,12 +4,13 @@
 // follower. Only one recording drives the cursor at a time. The synth and a recording are never the clock together:
 // the follower stands down while the synth plays and resumes when the recording does.
 
-import { getSongKey, onYouTubeEvent, jamYouTubeControl } from '../youtubePlayer.js';
+import { getSongKey, onYouTubeEvent, jamYouTubeControl, toggleYouTubePanel } from '../youtubePlayer.js';
 import { onTransportEvent, isSynthPlaying } from '../gpProcessor/gpPlayer.js';
 import { loadRecord } from './syncStore.js';
 import { createYouTubeSource } from './mediaSource.js';
 import { startAudioSync, stopAudioSync, getAudioSyncSession } from './audioSyncController.js';
 import { initAudioSyncEditor, SYNC_CHANGED_EVENT } from './audioSyncEditor.js';
+import { enterSyncMode } from './syncMode.js';
 
 const FOLLOW_PREF_KEY = 'audio_sync_follow';
 
@@ -22,10 +23,11 @@ function writeFollowPref(on) {
 }
 
 let editor = null;
+const $tap = (prefix) => document.getElementById(`${prefix}SyncTapBtn`);
 
 /**
  * Wires the row whose elements are `<prefix>SyncRow`, `<prefix>SyncFollow`, `<prefix>SyncInfo` and
- * `<prefix>SyncEditBtn`.
+ * `<prefix>SyncEditBtn` and `<prefix>SyncTapBtn`.
  *
  * @param {object} opts
  * @param {string} opts.prefix element id prefix
@@ -33,9 +35,10 @@ let editor = null;
  * @param {() => object|null} opts.getMedia the recording's media descriptor, or null when no recording is chosen
  * @param {(cb:(kind:string)=>void) => void} opts.subscribe calls `cb('idle' | 'play' | 'stop')` when the recording
  *   changes: 'play' when it starts playing (it may take the cursor over), 'stop' when it pauses, 'idle' otherwise
+ * @param {() => void} [opts.prepareSync] called before tap mode starts, to get this recording's panel out of the way
  * @returns {{ refresh: Function }}
  */
-export function mountSyncRow({ prefix, getSource, getMedia, subscribe }) {
+export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSync }) {
     const row = document.getElementById(`${prefix}SyncRow`);
     const toggle = document.getElementById(`${prefix}SyncFollow`);
     const info = document.getElementById(`${prefix}SyncInfo`);
@@ -83,6 +86,13 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe }) {
         const source = getSource();
         if (media && source) editor.open({ source, media });
     });
+    $tap(prefix)?.addEventListener('click', () => {
+        const media = getMedia();
+        const source = getSource();
+        if (!media || !source) return;
+        prepareSync?.();
+        enterSyncMode({ source, media });
+    });
     window.addEventListener(SYNC_CHANGED_EVENT, () => refresh('idle'));
     subscribe(refresh);
     onTransportEvent((e) => {
@@ -103,6 +113,8 @@ export function initAudioSyncUi() {
         prefix: 'yt',
         getSource: () => (source.id ? source : null),
         getMedia: () => (source.id ? { kind: 'youtube', videoId: source.id } : null),
+        // The video must have played once to be allowed to keep playing with its panel closed
+        prepareSync: () => { if (jamYouTubeControl.hasPlayed()) toggleYouTubePanel(false); },
         subscribe(cb) {
             onYouTubeEvent((e) => {
                 if (e.type === 'video') cb('idle');

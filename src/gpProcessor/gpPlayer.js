@@ -663,6 +663,12 @@ export function getPlaybackTickForBeat(beat, api) {
     return masterBarStart + (beat.playbackStart ?? 0);
 }
 
+// While set, a click on a beat goes to `fn(beat, event)` instead of moving the cursor (tap mode for audio sync)
+let scoreClickOverride = null;
+export function setScoreClickOverride(fn) {
+    scoreClickOverride = typeof fn === 'function' ? fn : null;
+}
+
 // Manual scrolling (incl. inertial momentum) takes priority over playback follow, otherwise both write scrollTop and the sheet jitters
 const USER_SCROLL_IDLE_MS = 150;
 const USER_SCROLL_GRACE_MS = 2000;
@@ -1375,7 +1381,7 @@ export function attachAlphaTabApi(api) {
             const pageModeRadio = document.getElementById('pageModeRadio');
             const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
             if (isPageMode) {
-                if (beat) {
+                if (beat && !scoreClickOverride) {
                     applyCursorPositionFromBeat(beat);
                 }
             } else {
@@ -2350,7 +2356,8 @@ export function initSynthPlayer() {
         }
 
         if (beat) {
-            applyCursorPositionFromBeat(beat);
+            if (scoreClickOverride) scoreClickOverride(beat, e);
+            else applyCursorPositionFromBeat(beat);
         }
     });
 
