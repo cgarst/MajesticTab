@@ -1081,7 +1081,8 @@ async function renderLibraryBrowseView(container) {
                 `;
             }
 
-            breadcrumbHtml = `
+            const customTopLevel = isCustomArtist && selectedFolderPath.length === 0;
+            breadcrumbHtml = customTopLevel ? '' : `
             <div class="library-sticky-breadcrumbs d-flex align-items-center justify-content-between gap-3 small mb-3">
               <div class="d-flex align-items-center gap-3 flex-wrap min-w-0">
                 <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="libBrowseBackBtn" title="Back">
@@ -1285,19 +1286,16 @@ async function renderLibraryBrowseView(container) {
                     folderAlbumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, matchingAlbum ? matchingAlbum.title : 'Custom Music');
                     const bookPdfs = folderAlbumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.fileType === 'pdf');
                     bookPdfHtml = `
-                    <div class="library-book-pdf-bar d-flex flex-wrap align-items-center gap-2 mb-3 py-2 px-3">
-                      <span class="small text-muted fw-semibold me-1" style="font-size: 0.72rem;"><i class="bi-journal-bookmark me-1 text-info"></i>Book PDFs:</span>
+                    <div class="library-book-pdf-bar d-flex flex-wrap align-items-center gap-2 mb-3">
+                      <span class="book-row-label">Books</span>
                       ${bookPdfs.map(t => `
-                        <div class="tab-option-chip play-album-tab-chip-btn" data-tab-id="${t.id}" role="button" tabindex="0" title="Open book: ${escapeHtml(t.name)}">
-                          <i class="bi-file-earmark-pdf text-warning me-1" style="font-size: 0.78rem;"></i>
-                          <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
-                          ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" title="Remove book PDF"><i class="bi-x"></i></button>` : ''}
+                        <div class="tab-option-chip play-album-tab-chip-btn book-link" data-tab-id="${t.id}" role="button" tabindex="0" title="Open book: ${escapeHtml(t.name)}">
+                          <span class="tab-option-name text-truncate">${escapeHtml(String(t.name).replace(/\.pdf$/i, ''))}</span>
+                          ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" aria-label="Remove ${escapeHtml(t.name)}" title="Remove book"><i class="bi-x"></i></button>` : ''}
                         </div>
                       `).join('')}
-                      <div class="dropdown ms-auto flex-shrink-0">
-                        <button class="btn btn-sm btn-theme-outline py-1 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach a whole-book PDF to this folder">
-                          <i class="bi-plus-lg"></i> <span>Book PDF</span>
-                        </button>
+                      <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-sm btn-theme-outline dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach a whole-book PDF to this folder">Add book</button>
                         <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
                           <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
                           <!-- @googleDrive:begin -->
@@ -1305,11 +1303,7 @@ async function renderLibraryBrowseView(container) {
                           <!-- @googleDrive:end -->
                         </ul>
                       </div>
-                      ${bookPdfs.length > 0 ? `
-                        <button class="btn btn-sm btn-theme-primary py-1 px-3 d-flex align-items-center gap-1 flex-shrink-0" id="addSongsFromBookPdfBtn" title="Create songs from page ranges of a book PDF">
-                          <i class="bi-file-earmark-pdf"></i> <span>Set Book PDF Pages</span>
-                        </button>
-                      ` : ''}
+                      ${bookPdfs.length > 0 ? `<button class="btn btn-sm btn-theme-outline flex-shrink-0" id="addSongsFromBookPdfBtn" title="Create songs from page ranges of a book PDF">Set book pages</button>` : ''}
                     </div>
                     `;
                 }
@@ -1409,7 +1403,7 @@ async function renderLibraryBrowseView(container) {
             const pinnedPaneHtml = `
             <section class="pane songs" aria-label="Pinned songs">
               <h3 class="pane-head">
-                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Artists</button>
+                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
                 <span class="text-white fw-semibold" style="flex:1;">Pinned songs</span>
                 <span class="tnum">${pinnedSongs.length} ${pinnedSongs.length === 1 ? 'song' : 'songs'}</span>
               </h3>
@@ -1426,9 +1420,10 @@ async function renderLibraryBrowseView(container) {
             const songsPaneHtml = pinnedActive ? pinnedPaneHtml : `
             <section class="pane songs" aria-label="Songs">
               <h3 class="pane-head">
-                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Artists</button>
+                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
                 <span class="text-white fw-semibold" style="flex:1;">${escapeHtml(selectedArtist.name)}</span>
                 <span class="tnum">${totalSongsForPane} ${totalSongsForPane === 1 ? 'song' : 'songs'}${!isCustomArtist && selectedArtist.albums.length > 0 ? ` · ${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'album' : 'albums'}` : ''}</span>
+                ${customTopLevel ? `<button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>` : ''}
               </h3>
               ${isCustomArtist ? breadcrumbHtml : ''}
               ${shelfHtml}
@@ -2353,6 +2348,11 @@ function getBookFolderTitle() {
     return null;
 }
 
+// "p. 152" for a single page, "pp. 152-155" for a range
+function formatPageRange(start, end) {
+    return start && end && String(start) !== String(end) ? `pp. ${start}\u2013${end}` : `p. ${start || end}`;
+}
+
 function renderSongRow(song, options = {}) {
     const pdfPagesNoun = selectedArtist?.isCustom ? 'Book' : 'Album';
     const tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
@@ -2382,7 +2382,7 @@ function renderSongRow(song, options = {}) {
     }).join('');
 
     const pdfTab = tabOptions.find(t => t.startPage && t.endPage);
-    const pdfChipHtml = pdfTab ? `<span class="chip sec" title="PDF Pages ${pdfTab.startPage}–${pdfTab.endPage}"><i class="bi-file-earmark-pdf me-1 text-warning"></i>pp. ${pdfTab.startPage}–${pdfTab.endPage}</span>` : '';
+    const pdfChipHtml = pdfTab ? `<span class="chip sec" title="PDF ${formatPageRange(pdfTab.startPage, pdfTab.endPage)}">${formatPageRange(pdfTab.startPage, pdfTab.endPage)}</span>` : '';
 
     const multiTabsChipHtml = tabOptions.length > 1
         ? `<span class="chip sec" title="${tabOptions.length} tab versions attached"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} tabs</span>`
@@ -2406,7 +2406,7 @@ function renderSongRow(song, options = {}) {
             </button>
             <i class="${iconClass} me-1" style="font-size: 0.78rem;"></i>
             <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
-            ${(t.startPage && t.endPage) ? `<span class="badge badge-theme-warning py-0 px-1 ms-1" style="font-size:0.6rem;">pp. ${t.startPage}-${t.endPage}</span>` : ''}
+            ${(t.startPage && t.endPage) ? `<span class="badge badge-theme-warning py-0 px-1 ms-1" style="font-size:0.6rem;">${formatPageRange(t.startPage, t.endPage)}</span>` : ''}
             ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
               const info = getTuningInfo(t.tuning);
               const label = info?.displayName || t.tuning;
@@ -2425,7 +2425,7 @@ function renderSongRow(song, options = {}) {
     <div class="rowwrap library-song-rowwrap ${isPinned ? 'library-song-row-pinned' : ''}">
       <div class="song-row-container">
         <div class="song-row library-song-row" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
-          <span class="num tnum">${trackNumStr}</span>
+          ${trackNumStr === '\u2022' ? '' : `<span class="num tnum">${trackNumStr}</span>`}
           <span class="t">
             <b>${escapeHtml(song.title)}</b>
             <span class="sub">

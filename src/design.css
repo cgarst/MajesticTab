@@ -1525,3 +1525,24 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 
 /* Settings is a page in the navigation; the hamburger drawer is gone */
 #menuToggleBtn { display: none !important; }
+
+/* ---------- Custom Music: no boxed bars, books are words ---------- */
+.library-sticky-breadcrumbs { background: transparent !important; border: 0 !important; box-shadow: none !important; padding-inline: 20px !important; }
+.library-book-pdf-bar { background: transparent !important; border: 0 !important; padding: 4px 20px !important; margin-bottom: 4px; }
+.book-row-label { color: var(--ink2); font-size: 13px; }
+.library-book-pdf-bar .book-link, .library-book-pdf-bar .tab-option-chip {
+  background: transparent !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important; min-height: 36px; display: inline-flex; align-items: center;
+  color: var(--ink); font-weight: 600; font-size: 14px;
+}
+.library-book-pdf-bar .book-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.library-book-pdf-bar .btn-theme-outline, .pane-head .toggle-album-edit-btn {
+  background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ink2) !important; font-weight: 500; font-size: 14px;
+}
+.library-book-pdf-bar .btn-theme-outline:hover, .pane-head .toggle-album-edit-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+.pane-head .in-view-back-btn { color: var(--ink) !important; }
+.library-sticky-breadcrumbs .btn-theme-outline { background: transparent !important; border: 0 !important; color: var(--ink2) !important; }
+.theme-breadcrumb-btn { background: transparent !important; border: 0 !important; box-shadow: none !important; }
+@media (max-width: 576px) { .library-sticky-breadcrumbs, .library-book-pdf-bar { padding-inline: 16px !important; } }
+.library-book-pdf-bar { row-gap: 0 !important; column-gap: 14px !important; }
+.library-book-pdf-bar .btn { padding-inline: 0 !important; min-height: 40px; }
+.library-book-pdf-bar .btn:hover { background: transparent !important; text-decoration: underline; text-underline-offset: 3px; }
