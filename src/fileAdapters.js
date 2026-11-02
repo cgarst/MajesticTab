@@ -4,9 +4,12 @@ const EXTENSIONS_STORAGE_KEY = 'customExtensions';
 const LOAD_TIMEOUT_MS = 15000;
 const MATCH_TIMEOUT_MS = 15000;
 const TRANSFORM_TIMEOUT_MS = 120000;
+const SYNC_STEP_TIMEOUT_MS = 15000;
 
 // Adapters registered by loaded extensions, in run order, as { id, ext }.
 let adapters = [];
+// Sync sources registered by loaded extensions, as { id, ext }.
+let syncSources = [];
 let sandbox = null;
 let loaded = false;
 let installChain = Promise.resolve();
@@ -15,6 +18,7 @@ async function install(localExtensions) {
     sandbox?.dispose();
     sandbox = null;
     adapters = [];
+    syncSources = [];
 
     const extensions = localExtensions;
     const errors = [];
@@ -54,6 +58,7 @@ async function install(localExtensions) {
             seen.add(id);
             adapters.push({ id, ext: result.id });
         });
+        (result.syncIds || []).forEach(id => syncSources.push({ id, ext: result.id }));
         idsByExtension[result.id] = result.ids;
     }
     sandbox = next;
@@ -91,6 +96,7 @@ function noteSandboxFailure(error) {
     if (!error?.fatal) return;
     sandbox = null;
     adapters = [];
+    syncSources = [];
     loaded = false;
 }
 
@@ -133,4 +139,26 @@ export async function hasMatchingFileAdapter(file) {
         }
     }
     return false;
+}
+
+/**
+ * The extension sync source that claims this address, as `{ id, step(url, responses) }`, or null. A sync source turns
+ * an address into sync point text; see `registerSyncSource` in extensionSandbox/frame.js. Its `step` never fetches:
+ * audioSync/importers/syncSource.js runs it and does the fetching.
+ */
+export async function findSyncSource(url) {
+    await ensureExtensionsLoaded();
+    for (const source of [...syncSources]) {
+        try {
+            if (!sandbox || !await sandbox.call({ op: 'syncMatches', ext: source.ext, source: source.id, url }, MATCH_TIMEOUT_MS)) continue;
+            return {
+                id: source.id,
+                ext: source.ext,
+                step: (address, responses) => sandbox.call({ op: 'syncStep', ext: source.ext, source: source.id, url: address, responses }, SYNC_STEP_TIMEOUT_MS)
+            };
+        } catch (error) {
+            noteSandboxFailure(error);
+        }
+    }
+    return null;
 }

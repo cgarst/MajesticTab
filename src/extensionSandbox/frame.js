@@ -6,6 +6,7 @@
 function workerMain() {
     'use strict';
     const adapters = [];
+    const syncSources = [];
     const cryptoPending = new Map();
     let nextCryptoId = 1;
 
@@ -46,6 +47,28 @@ function workerMain() {
         adapters.push(adapter);
     };
 
+    // A sync source turns an address into sync point text. The sandbox has no network, so `step` never fetches: it is
+    // called with the address and the response texts so far, and returns `{ fetch: [addresses] }` for the app to fetch
+    // (their responses are appended on the next call) or `{ text }` when done.
+    const registerSyncSource = source => {
+        if (!source || typeof source.id !== 'string' || !source.id.trim()) {
+            throw new TypeError('Each sync source must have a non-empty id.');
+        }
+        if (syncSources.some(existing => existing.id === source.id)) {
+            throw new TypeError(`Duplicate sync source id: ${source.id}`);
+        }
+        if (typeof source.matches !== 'function' || typeof source.step !== 'function') {
+            throw new TypeError(`Sync source "${source.id}" must provide matches and step functions.`);
+        }
+        syncSources.push(source);
+    };
+
+    const findSyncSource = id => {
+        const source = syncSources.find(item => item.id === id);
+        if (!source) throw new Error(`Unknown sync source: ${id}`);
+        return source;
+    };
+
     const registerGpScoreTransform = () => {
         throw new Error('registerGpScoreTransform is no longer supported. Extensions can only register file adapters.');
     };
@@ -71,12 +94,21 @@ function workerMain() {
             if (op === 'load') {
                 if (data.hasSubtle) installSubtleBridge();
                 if (data.lib) new Function(data.lib).call(self);
-                new Function('registerFileAdapter', 'registerGpScoreTransform', `"use strict";\n${data.source}`)(
-                    registerFileAdapter, registerGpScoreTransform
+                new Function('registerFileAdapter', 'registerGpScoreTransform', 'registerSyncSource', `"use strict";\n${data.source}`)(
+                    registerFileAdapter, registerGpScoreTransform, registerSyncSource
                 );
                 result = adapters.map(adapter => adapter.id);
             } else if (op === 'matches') {
                 result = !!(await findAdapter(data.adapter).matches(data.file));
+            } else if (op === 'syncIds') {
+                result = syncSources.map(source => source.id);
+            } else if (op === 'syncMatches') {
+                result = !!(await findSyncSource(data.source).matches(data.url));
+            } else if (op === 'syncStep') {
+                const out = await findSyncSource(data.source).step(data.url, data.responses);
+                const ok = out && (typeof out.text === 'string' || (Array.isArray(out.fetch) && out.fetch.every(u => typeof u === 'string')));
+                if (!ok) throw new TypeError(`Sync source "${data.source}" must return { text } or { fetch: [addresses] }.`);
+                result = typeof out.text === 'string' ? { text: out.text } : { fetch: out.fetch };
             } else if (op === 'transform') {
                 result = await findAdapter(data.adapter).transform(data.file);
                 if (result != null && !(result instanceof Blob)) {
@@ -178,7 +210,8 @@ function iframeMain() {
                         hasSubtle
                     });
                     workers.set(extension.id, entry);
-                    results.push({ id: extension.id, ids });
+                    const syncIds = await callWorker(entry, { op: 'syncIds' });
+                    results.push({ id: extension.id, ids, syncIds });
                 } catch (error) {
                     entry.worker.terminate();
                     results.push({ id: extension.id, error: error.message });

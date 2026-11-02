@@ -8,6 +8,11 @@ import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
 import { loadRecord, saveRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { getScoreContext } from './audioSyncController.js';
 import { pointProblems } from './pointCheck.js';
+import { buildBeatMap } from './beatMap.js';
+import { loadFromUrl, setToPoints, setsFittingScore } from './importers/index.js';
+import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
+import { hasNativeHttp } from '../s3Client.js';
+import { findSyncSource } from '../fileAdapters.js';
 import { createSyncTimeline } from './syncTimeline.js';
 import { isTvMode } from '../tvMode.js';
 import { tickToPosition, scoreMsToTick, positionToScoreMs } from './scorePositions.js';
@@ -226,6 +231,83 @@ export function initAudioSyncEditor() {
         $('syncImportText').value = '';
     }
 
+    /** Text from a web address. The native app is not bound by CORS; in a browser the site has to allow it. */
+    async function fetchText(url) {
+        let res;
+        try {
+            res = await (hasNativeHttp() ? window.__TAURI__.http.fetch : fetch)(url, { headers: { Accept: 'application/json, text/plain, */*' } });
+        } catch {
+            throw new Error('Could not reach that address. In the browser the site must allow cross-origin requests; the desktop and mobile apps can fetch it.');
+        }
+        if (!res.ok) throw new Error(`That address answered ${res.status}.`);
+        return res.text();
+    }
+
+    const APPROVED_KEY = 'audio_sync_source_approved';
+
+    /** An extension's converter for this address, once the user has agreed to it fetching from that site. */
+    async function findApprovedSource(url) {
+        const source = await findSyncSource(url);
+        if (!source) return null;
+        const approval = `${source.ext}:${source.id}@${new URL(url).origin}`;
+        let approved = [];
+        try { approved = JSON.parse(localStorage.getItem(APPROVED_KEY) || '[]'); } catch { /* none yet */ }
+        if (!approved.includes(approval)) {
+            if (!confirm(`The extension converter "${source.id}" will fetch data from ${new URL(url).host} to find the sync points. Continue?`)) throw new Error('Cancelled.');
+            try { localStorage.setItem(APPROVED_KEY, JSON.stringify([...approved, approval])); } catch { /* asked again next time */ }
+        }
+        return source;
+    }
+
+    let urlSets = [];
+
+    /** The played bars of the open score, in play order. */
+    function playedBars() {
+        const ctx = getScoreContext();
+        const bars = ctx ? buildBeatMap(getMidiTickLookup(ctx.api)).bars : [];
+        if (!bars.length) throw new Error('Open the tab first, so the points can be matched to its bars.');
+        return bars;
+    }
+
+    function showUrlSet(index) {
+        const status = $('syncImportStatus');
+        try {
+            const incoming = setToPoints(urlSets[index], playedBars());
+            $('syncImportText').value = toAlphaTexSync(incoming);
+            status.textContent = `${incoming.length} points ready. Choose Replace Points or Add to Points.`;
+        } catch (e) {
+            $('syncImportText').value = '';
+            status.textContent = e.message;
+        }
+    }
+
+    async function importFromUrl() {
+        const row = $('syncImportUrlRow');
+        const input = $('syncImportUrl');
+        const status = $('syncImportStatus');
+        if (row.hidden) {
+            row.hidden = false;
+            input.focus();
+            return;
+        }
+        if (!input.value.trim()) {
+            status.textContent = 'Enter an address first';
+            return;
+        }
+        status.textContent = 'Fetching...';
+        const select = $('syncImportSet');
+        select.hidden = true;
+        try {
+            const found = await loadFromUrl(input.value, fetchText, { findSource: findApprovedSource });
+            urlSets = setsFittingScore(found, playedBars());
+            select.replaceChildren(...urlSets.map((s, i) => Object.assign(document.createElement('option'), { value: String(i), textContent: s.label })));
+            select.hidden = urlSets.length < 2;
+            showUrlSet(0);
+        } catch (e) {
+            status.textContent = e.message;
+        }
+    }
+
     function download(name, text, type) {
         const url = URL.createObjectURL(new Blob([text], { type }));
         const a = document.createElement('a');
@@ -247,6 +329,9 @@ export function initAudioSyncEditor() {
     });
     $('syncImportReplaceBtn').addEventListener('click', () => importFrom($('syncImportText').value, false));
     $('syncImportMergeBtn').addEventListener('click', () => importFrom($('syncImportText').value, true));
+    $('syncImportUrlBtn').addEventListener('click', importFromUrl);
+    $('syncImportUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); importFromUrl(); } });
+    $('syncImportSet').addEventListener('change', (e) => showUrlSet(Number(e.target.value)));
     $('syncImportFile').addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
         e.target.value = '';
