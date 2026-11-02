@@ -1742,18 +1742,17 @@ export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, s
 // Centered page title for library pages that are not a switcher tab (Open File, Add Music)
 export function libraryPageTitleHtml({ icon, title, subtitle = '' }) {
     return `<div class="library-page-title">
-        <h5 class="library-page-title-text"><i class="${icon} text-info"></i>${title}</h5>
+        <h5 class="library-page-title-text">${title}</h5>
         ${subtitle ? `<p class="library-page-title-sub">${subtitle}</p>` : ''}
       </div>`;
 }
 
 // Same icon, title, message and button sizes for every "nothing here yet" state
 export function libraryEmptyStateHtml({ icon, title, message, actionsHtml = '' }) {
-    return `<div class="text-center py-5 text-muted">
-          <i class="${icon} fs-1 mb-2 d-block text-white-50"></i>
+    return `<div class="library-empty py-5 text-muted">
           <h6 class="text-white fw-semibold">${title}</h6>
-          <p class="small text-muted ${actionsHtml ? 'mb-3' : 'mb-0'}">${message}</p>
-          ${actionsHtml ? `<div class="d-flex justify-content-center gap-2 flex-wrap">${actionsHtml}</div>` : ''}
+          <p class="text-muted ${actionsHtml ? 'mb-3' : 'mb-0'}">${message}</p>
+          ${actionsHtml ? `<div class="d-flex gap-2 flex-wrap">${actionsHtml}</div>` : ''}
         </div>`;
 }
 
@@ -3286,7 +3285,7 @@ function renderSearchMusicBrainzView(container) {
         <button type="button" class="btn btn-sm ${searchType === 'album' ? 'active' : ''}" data-type="album">Album</button>
         <button type="button" class="btn btn-sm ${searchType === 'musician' ? 'active' : ''}" data-type="musician">Musician</button>
         <button type="button" class="btn btn-sm ${searchType === 'custom' ? 'active' : ''}" data-type="custom" title="Add custom music, exercises, and custom folder structure">
-          <i class="bi-folder-plus me-1"></i>Custom Music
+          Custom Music
         </button>
       </div>
 
@@ -3304,10 +3303,7 @@ function renderSearchMusicBrainzView(container) {
       <!-- Search Results / Custom Form Area -->
       <div id="mbSearchResultsContainer" class="search-results-container">
         ${searchType === 'custom' ? renderCustomDocFormHtml() : `
-          <div class="text-center py-5 text-muted">
-            <i class="bi-compass fs-2 mb-2 d-block text-white-50"></i>
-            <div>Search across songs, albums, and artists to add music to your library</div>
-          </div>
+          <p class="library-empty py-4 text-muted mb-0">Type a name to find music to add to your library.</p>
         `}
       </div>
     </div>

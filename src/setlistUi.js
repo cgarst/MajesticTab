@@ -242,6 +242,7 @@ async function renderSetlistDetail(container, onBack) {
               <div class="rowwrap">
                 <button class="row setrow ${isEditMode ? '' : 'clickable'}" data-index="${idx}" ${isEditMode ? 'style="cursor:default;"' : ''}>
                   <span class="num tnum">${idx + 1}</span>
+                  <img loading="lazy" decoding="async" class="setrow-cover" src="${song?.coverUrl || getPlaceholderCoverSvg(song?.album || song?.title || 'Tab')}" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(song?.title || 'Tab')}'">
                   <span class="t">
                     <b>${escapeHtml(song?.title || 'Song removed from library')}</b>
                     <span title="${escapeHtml(tab ? tab.name : '')}">${escapeHtml(metaLine)}</span>

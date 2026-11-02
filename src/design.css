@@ -1553,3 +1553,16 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .setlists-view .theme-control-btn, .setlists-view #toggleSetlistEditBtn { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; }
 .setlists-view .theme-control-btn:hover, .setlists-view #toggleSetlistEditBtn:hover { background: var(--s3) !important; color: var(--ink) !important; }
 .setlists-view .setlist-add-songs { border: 0 !important; }
+
+/* Page titles and empty states are left aligned words, not centred glyphs */
+.library-page-title, .library-page-title-text, .library-page-title-sub { text-align: left !important; justify-content: flex-start !important; }
+.library-empty { text-align: left; }
+.library-empty h6 { font-size: 17px; }
+.search-mb-view .library-type-pills { overflow: visible; }
+
+/* Setlist rows carry the album art */
+.setrow .setrow-cover { width: 44px; height: 44px; border-radius: var(--r); object-fit: cover; flex: none; background: var(--s3); }
+/* Add music: one column, left aligned */
+.search-mb-view { display: block; }
+.search-mb-view .library-type-pills, .search-mb-view .library-search-form { margin-left: 0; margin-right: 0; justify-content: flex-start; }
+.search-mb-view .search-results-container { text-align: left; }
