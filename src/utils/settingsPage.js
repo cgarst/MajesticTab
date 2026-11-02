@@ -275,39 +275,18 @@ export function initSettingsPage() {
         if (syncStatus) r.querySelector('.st').appendChild(syncStatus);
         lib.push(r);
     }
-    if (backupBtn && restoreBtn) {
-        const pair = el('div', 'd-flex gap-2');
-        [backupBtn, restoreBtn].forEach((b) => { b.classList.add('btn-sm'); b.classList.remove('py-2'); pair.appendChild(b); });
-        pair.style.gridTemplateColumns = '';
-        lib.push(row('Backup and restore', 'Save everything to a file or your cloud, or bring it back.', pair));
-    }
-    // A data task (back up, restore, reload metadata, clean up, delete) renders here, in place of the list
+    // The data tasks (back up, restore, reload metadata, orphaned files, clear cache, delete) are on this page,
+    // switched by a row of text options. They are the same screens the old popup had, mounted in place.
     const dataHost = el('div', 'data-task-host');
     dataHost.id = 'dataTaskHost';
-    dataHost.hidden = true;
-    const dataBack = el('button', 'btn btn-sm data-task-back', 'Library and backup');
-    dataBack.type = 'button';
-    dataBack.addEventListener('click', async () => { (await import('../backupRestore.js')).closeBackupModal(); });
-    dataHost.appendChild(dataBack);
+    if (lib.length) panes.library.appendChild(group('Sync', ...lib));
     panes.library.appendChild(dataHost);
-    if (lib.length) panes.library.appendChild(group('Your data', ...lib));
-    if (moreData) {
-        moreData.open = false;
-        const inner = moreData.querySelector('.d-flex.flex-column');
-        // Destructive actions get their own group, with a second press to confirm (the modal still asks)
-        const dangerRows = [];
-        if (clearCache) { clearCache.classList.add('btn-theme-danger'); clearCache.classList.remove('btn-theme-outline'); dangerRows.push(row('Clear cached data', 'Covers and downloads, kept only to load faster.', clearCache)); }
-        if (deleteAll) { deleteAll.classList.add('btn-theme-danger'); deleteAll.classList.remove('btn-theme-outline'); dangerRows.push(row('Delete all data', 'Removes your library, setlists and settings from this device.', deleteAll)); }
-        const more = el('div', 'sgroup');
-        more.appendChild(moreData);
-        panes.library.appendChild(more);
-        if (dangerRows.length) {
-            const g = group('Danger zone', ...dangerRows);
-            g.classList.add('danger');
-            panes.library.appendChild(g);
-        }
-        inner?.classList.add('gap-2');
-    }
+    nav.addEventListener('click', async (e) => {
+        if (!e.target.closest('[data-section="library"]')) return;
+        if (dataHost.childElementCount === 0) (await import('../backupRestore.js')).openBackupModal('backup');
+    });
+    // keep the originals referenced so their ids stay unique if anything still looks them up
+    void moreData; void clearCache; void deleteAll; void backupBtn; void restoreBtn;
 
     // About
     const abt = [];

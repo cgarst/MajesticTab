@@ -1713,7 +1713,6 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 .backup-summary-box i { display: none; }
 
 /* ---------- Data tasks live on the Settings page (Library and backup) ---------- */
-.setsec.data-task-open > .sgroup, .setsec.data-task-open > .snote { display: none; }
 .data-task-back { display: inline-flex; background: transparent !important; border: 0 !important; color: var(--ink2) !important; padding-left: 0 !important; margin: 4px 0 8px; }
 .data-task-back::before { content: "\2039"; margin-right: 6px; font-size: 18px; line-height: 1; }
 #backupModal.is-embedded { position: static !important; display: block; background: transparent !important; padding: 0 !important; inset: auto !important; }
@@ -1722,3 +1721,13 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 #backupModal.is-embedded .theme-modal-icon, #backupModal.is-embedded #backupModalCloseBtn { display: none !important; }
 #backupModal.is-embedded .theme-modal-body { padding-inline: 0 !important; overflow: visible; max-height: none; }
 #backupModal.is-embedded .theme-modal-header { display: none; }
+
+/* The task switch on the Library and backup page: text options, destructive ones last and in the danger colour */
+#backupModal.is-embedded .backup-nav-tabs { display: flex !important; flex-wrap: wrap; gap: 2px !important; padding: 0 0 8px !important; margin-top: 8px; }
+#backupModal.is-embedded .backup-nav-tabs .btn { flex: 0 0 auto !important; background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ink2) !important; font-size: 14px; font-weight: 500; padding: 6px 12px !important; min-height: 36px; }
+#backupModal.is-embedded .backup-nav-tabs .btn i { display: none; }
+#backupModal.is-embedded .backup-nav-tabs .btn.btn-theme-primary { background: var(--s3) !important; color: var(--ink) !important; font-weight: 600; }
+#backupModal.is-embedded .backup-nav-tabs #tabBtnCache, #backupModal.is-embedded .backup-nav-tabs #tabBtnDelete { color: var(--danger, #f87171) !important; }
+#backupModal.is-embedded .backup-nav-tabs #tabBtnCache { margin-left: auto; }
+#backupModal.is-embedded .backup-nav-tabs { border: 0 !important; background: transparent !important; }
+#backupModal.is-embedded .backup-nav-tabs #tabBtnCache { margin-left: 12px; }

@@ -1283,31 +1283,24 @@ async function getSettingsDataHost() {
     }
     const section = document.querySelector('.setnav [data-section="library"]');
     if (section && !section.hasAttribute('aria-current')) section.click();
-    return document.getElementById('dataTaskHost');
+    const host = document.getElementById('dataTaskHost');
+    host?.scrollIntoView?.({ block: 'start' });
+    return host;
 }
 
 async function mountBackupInSettings(host, tab, options) {
     const modal = getOrCreateModal();
     modal.classList.add('is-embedded');
     modal.style.display = 'block';
-    host.appendChild(modal);
-    host.hidden = false;
-    host.parentElement?.classList.add('data-task-open');
+    if (modal.parentElement !== host) host.appendChild(modal);
     await renderModal(modal, tab, options);
-    host.scrollIntoView?.({ block: 'start' });
 }
 
+/** In Settings the tasks stay on the page, so "closing" one only returns to the default task. */
 function leaveEmbeddedBackup() {
     const modal = modalElement;
     if (!modal?.classList.contains('is-embedded')) return false;
-    const host = modal.parentElement;
-    modal.classList.remove('is-embedded');
-    modal.style.display = 'none';
-    document.body.appendChild(modal);
-    if (host) {
-        host.hidden = true;
-        host.parentElement?.classList.remove('data-task-open');
-    }
+    renderModal(modal, 'backup').catch(() => {});
     return true;
 }
 
