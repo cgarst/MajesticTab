@@ -7,6 +7,7 @@
 const $ = (id) => document.getElementById(id);
 
 export function initReaderViewMenu() {
+    initPhoneChrome();
     initSongButton();
     arrangeSongPanel();
     initPracticePanels();
@@ -248,6 +249,34 @@ function arrangeSongPanel() {
 
     const pdf = $('scoreOptionsPdfSection');
     const save = $('scoreOptionsSaveGroup');
+    // Notation, strings and tuning leave this panel: View and Guitar claim them. Until they do (they initialise after
+    // this), park them in the DOM so they stay reachable by id.
+    const parking = document.createElement('div');
+    parking.id = 'songPanelParking';
+    parking.hidden = true;
+    ['scoreOptionsNotationStyleSection', 'scoreOptionsStringCountSection', 'scoreOptionsAdaptSection'].forEach((id) => { const n = $(id); if (n) parking.appendChild(n); });
+    document.body.appendChild(parking);
     body.replaceChildren(...[tracks, recGroup, marksGroup, pdf, save].filter(Boolean));
-    // the moved notation, strings and tuning sections are re-parented by View and Guitar; nothing else is left here
+}
+
+
+// ---- Phone: the bottom row of words slides away while you scroll down in Scroll mode and returns on scroll up ----
+function initPhoneChrome() {
+    const output = $('output');
+    if (!output) return;
+    let last = 0;
+    const narrow = () => window.matchMedia('(max-width: 640px)').matches;
+    output.addEventListener('scroll', () => {
+        if (!narrow()) { document.body.classList.remove('chrome-hidden'); return; }
+        const y = output.scrollTop;
+        const delta = y - last;
+        if (Math.abs(delta) < 12) return;
+        // never hide it while one of its sheets is open
+        const sheetOpen = ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'scoreOptionsDropdownPanel'].some((id) => {
+            const el = $(id); return el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
+        });
+        document.body.classList.toggle('chrome-hidden', delta > 0 && y > 80 && !sheetOpen);
+        last = y;
+    }, { passive: true });
+    window.addEventListener('resize', () => { if (!narrow()) document.body.classList.remove('chrome-hidden'); });
 }
