@@ -1592,7 +1592,15 @@ function syncLibraryBottomNav() {
             if (tab) return goLibraryTab(tab.dataset.libTab);
             if (e.target.closest('#libraryNavSettingsBtn')) {
                 const panel = document.getElementById('fileMenu');
-                if (panel && window.bootstrap?.Offcanvas) window.bootstrap.Offcanvas.getOrCreateInstance(panel).toggle();
+                if (panel && window.bootstrap?.Offcanvas) {
+                    // Opened from the navigation, Settings is a page: it fills the content area beside the rail
+                    document.body.classList.add('settings-as-page');
+                    if (!panel.dataset.pageHooked) {
+                        panel.dataset.pageHooked = '1';
+                        panel.addEventListener('hidden.bs.offcanvas', () => document.body.classList.remove('settings-as-page'));
+                    }
+                    window.bootstrap.Offcanvas.getOrCreateInstance(panel).toggle();
+                }
             }
         });
         document.body.appendChild(nav);
