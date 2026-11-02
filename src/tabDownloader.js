@@ -10,6 +10,7 @@ import { showToast } from './utils/toast.js';
 import { hasFeature } from './channel.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
+const SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
 const GOOGLE_FIRST_KEY = 'majestictab_tab_sources_google_first';
 export function isNative() {
     return typeof window !== 'undefined' && Boolean(window.__TAURI__);
@@ -617,8 +618,33 @@ function saveCurrentFormValues() {
     if (desktopChk) src.forceDesktop = desktopChk.checked;
 }
 
+/**
+ * Mark the sources this save edited or added with updatedAt, and record the deleted ones with the
+ * time, so sync can tell a newer edit or a deletion from a stale copy on another device.
+ * @param {object[]} edited
+ */
+function stampSourceChanges(edited) {
+    const now = Date.now();
+    const before = new Map(getSources().map(s => [s.id, s]));
+    let tombs = {};
+    try { tombs = JSON.parse(localStorage.getItem(SOURCES_DELETED_KEY)) || {}; } catch {}
+    for (const s of edited) {
+        const old = before.get(s.id);
+        if (!old || JSON.stringify({ ...old, updatedAt: 0 }) !== JSON.stringify({ ...s, updatedAt: 0 })) {
+            s.updatedAt = now;
+            delete tombs[s.id];
+        }
+    }
+    const kept = new Set(edited.map(s => s.id));
+    for (const [id, old] of before) {
+        if (!kept.has(id) && !old.isSeed) tombs[id] = now;
+    }
+    try { localStorage.setItem(SOURCES_DELETED_KEY, JSON.stringify(tombs)); } catch {}
+}
+
 function saveAndCloseSettings() {
     saveCurrentFormValues();
+    stampSourceChanges(localEditingSources);
     saveSources(localEditingSources);
     renderDownloaderTabs();
     closeDownloaderSettings();

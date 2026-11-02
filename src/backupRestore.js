@@ -68,6 +68,7 @@ const BACKUP_SETTINGS_KEYS = [
     'youtubeApiKey',
     'tab_downloader_sources', // legacy name, kept so older backups still restore
     'majestictab_tab_sources',
+    'majestictab_tab_sources_deleted',
     'majestictab_custom_tuning_names',
     'gpDefaultStringsGuitar',
     'gpDefaultStringsBass',

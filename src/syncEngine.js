@@ -96,14 +96,58 @@ function remoteItems(manifest) {
  * }>}
  */
 // The downloader's source list is written on first use, so "fill gaps" would never bring in sources
-// added on another device. It merges by id instead: each side keeps its own entries and gains the other's.
+// added on another device. It merges by id instead: the copy with the newer updatedAt wins, and a
+// deletion (a tombstone with its time) wins over any copy that was last edited before it.
 const TAB_SOURCES_KEY = 'majestictab_tab_sources';
+const TAB_SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
 
 function readSourceList(value) {
     if (typeof value === 'string') {
         try { value = JSON.parse(value); } catch { return []; }
     }
     return Array.isArray(value) ? value.filter(s => s && s.id) : [];
+}
+
+function readTombstones(value) {
+    if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch { return {}; }
+    }
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+}
+
+function mergeSourceLists(mine, theirs, mineTombs, theirTombs) {
+    const tombs = { ...theirTombs };
+    for (const [id, at] of Object.entries(mineTombs)) tombs[id] = Math.max(Number(tombs[id]) || 0, Number(at) || 0);
+    const theirById = new Map(theirs.map(x => [x.id, x]));
+    const mineIds = new Set(mine.map(x => x.id));
+    const sources = [];
+    for (const x of [...mine, ...theirs.filter(t => !mineIds.has(t.id))]) {
+        const other = theirById.get(x.id);
+        const pick = other && mineIds.has(x.id) && (other.updatedAt || 0) > (x.updatedAt || 0) ? other : x;
+        if (!pick.isSeed && (Number(tombs[pick.id]) || 0) > (pick.updatedAt || 0)) continue;
+        sources.push(pick);
+    }
+    return { sources, tombs };
+}
+
+/** What moving from one source list to another adds, changes and removes, by id. */
+function diffSourceLists(from, to) {
+    const fromById = new Map(from.map(x => [x.id, x]));
+    const toIds = new Set(to.map(x => x.id));
+    let added = 0, changed = 0;
+    for (const x of to) {
+        if (!fromById.has(x.id)) added++;
+        else if (!sameValue(fromById.get(x.id), x)) changed++;
+    }
+    return { added, changed, removed: from.filter(x => !toIds.has(x.id)).length };
+}
+
+function describeSourceDiff(d) {
+    const parts = [];
+    if (d.added) parts.push(`${d.added} added`);
+    if (d.changed) parts.push(`${d.changed} edited`);
+    if (d.removed) parts.push(`${d.removed} removed`);
+    return parts.length ? `tab sources ${parts.join(', ')}` : '';
 }
 
 function sameValue(a, b) {
@@ -138,8 +182,15 @@ function compareOther(manifest, localLibrary) {
     const gain = [], lose = [], differ = [];
     for (const key of new Set([...Object.keys(mineSettings), ...Object.keys(theirSettings)])) {
         if (key === 'ytCache' || key === 'gpTabStrings') continue;
+        if (key === TAB_SOURCES_DELETED_KEY) continue;
         if (key === TAB_SOURCES_KEY) {
-            sides('tab source', readSourceList(mineSettings[key]), readSourceList(theirSettings[key]), x => x.id);
+            const mine = readSourceList(mineSettings[key]);
+            const theirs = readSourceList(theirSettings[key]);
+            const { sources } = mergeSourceLists(mine, theirs, readTombstones(mineSettings[TAB_SOURCES_DELETED_KEY]), readTombstones(theirSettings[TAB_SOURCES_DELETED_KEY]));
+            const receive = describeSourceDiff(diffSourceLists(mine, sources));
+            const send = describeSourceDiff(diffSourceLists(theirs, sources));
+            if (receive) out.receive.push({ kind: 'setting', text: `${receive} from the snapshot` });
+            if (send) out.send.push({ kind: 'setting', text: `${send} on this device` });
             continue;
         }
         const has = key in mineSettings;
@@ -253,14 +304,18 @@ function fillMissingPreferences(manifest) {
     const settings = {};
     for (const [key, val] of Object.entries(manifest.settings || {})) {
         // ytCache and gpTabStrings are per-key maps that the restore code already fills without overwriting
+        if (key === TAB_SOURCES_KEY || key === TAB_SOURCES_DELETED_KEY) continue;
         if (key === 'ytCache' || key === 'gpTabStrings' || localStorage.getItem(key) === null) settings[key] = val;
     }
     const theirSources = readSourceList(manifest.settings?.[TAB_SOURCES_KEY]);
-    if (theirSources.length && localStorage.getItem(TAB_SOURCES_KEY) !== null) {
-        const mine = readSourceList(localStorage.getItem(TAB_SOURCES_KEY));
-        const known = new Set(mine.map(x => x.id));
-        const added = theirSources.filter(x => !known.has(x.id));
-        if (added.length) settings[TAB_SOURCES_KEY] = [...mine, ...added];
+    const theirTombs = readTombstones(manifest.settings?.[TAB_SOURCES_DELETED_KEY]);
+    if (theirSources.length || Object.keys(theirTombs).length) {
+        const merged = mergeSourceLists(
+            readSourceList(localStorage.getItem(TAB_SOURCES_KEY)), theirSources,
+            readTombstones(localStorage.getItem(TAB_SOURCES_DELETED_KEY)), theirTombs
+        );
+        if (merged.sources.length) settings[TAB_SOURCES_KEY] = merged.sources;
+        settings[TAB_SOURCES_DELETED_KEY] = merged.tombs;
     }
     applyRestoredSettings(settings, { wipe: false });
     const known = new Set(collectExtensions().map(e => e.id));
