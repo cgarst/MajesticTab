@@ -1,6 +1,7 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel } from './gpProcessor/gpPlayer.js';
+import { songHasSyncPoints } from './audioSync/syncStore.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 
 let activeSearchController = null;
@@ -770,6 +771,9 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     if (ytBtn) {
         ytBtn.style.display = 'inline-flex';
     }
+
+    // A song with sync points opens on its recording; otherwise no player is picked and the synth is the default
+    setActiveAudioMode(songHasSyncPoints(getSongKey()) ? 'real' : null);
 
     updatePlaybackControls();
 

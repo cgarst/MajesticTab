@@ -100,6 +100,11 @@ export function listRecords(songKey, storage = localStorage) {
     return out.sort((a, b) => b.updatedAt - a.updatedAt);
 }
 
+/** True when any recording of the song has at least one sync point. */
+export function songHasSyncPoints(songKey, storage = localStorage) {
+    try { return listRecords(songKey, storage).some(r => r.points.length > 0); } catch { return false; }
+}
+
 // --- Backup and cloud sync plumbing ------------------------------------------------------------------------------
 
 /** All entries as `{ storageKey: record }` for a backup or snapshot. Empty when there are none. */

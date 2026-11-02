@@ -6,8 +6,9 @@ import { clearOutput } from './renderUtils.js';
 import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
 import { gamepadManager } from './gamepadManager.js';
 import { stepSetlist } from '../setlistPlayer.js';
-import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel } from '../youtubePlayer.js';
+import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel, getSongKey } from '../youtubePlayer.js';
 import { playPauseAudioFile, isAudioFileAvailable, isAudioFilePlaying, rewindAudioFile10Seconds } from '../audioSync/audioFilePlayer.js';
+import { songHasSyncPoints } from '../audioSync/syncStore.js';
 import {
     isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds
 } from '../audioSync/realAudioController.js';
@@ -1117,6 +1118,18 @@ export function updateGlobalAudioControls() {
 export const updateGlobalRewindButton = updateGlobalAudioControls;
 
 /**
+ * Which player the transport buttons drive when the user has not picked one: a recording the song has
+ * sync points for beats the synth, otherwise the synth.
+ */
+function preferRealAudio() {
+    const realAudioActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
+    const synthActive = document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode');
+    if (realAudioActive) return true;
+    if (synthActive) return false;
+    return isRealAudioAvailable() && songHasSyncPoints(getSongKey());
+}
+
+/**
  * Handle Back 10 Seconds for whichever audio player is active/playing
  */
 export function handleGlobalRewind10Seconds() {
@@ -1128,15 +1141,8 @@ export function handleGlobalRewind10Seconds() {
         rewindRealAudio10Seconds();
         return;
     }
-    const realAudioActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
-    const synthActive = document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode');
-
-    if (realAudioActive && isRealAudioAvailable()) {
+    if (preferRealAudio() && isRealAudioAvailable()) {
         rewindRealAudio10Seconds();
-        return;
-    }
-    if (synthActive && isSynthAvailable()) {
-        rewindSynth10Seconds();
         return;
     }
     if (isSynthAvailable()) {
@@ -1162,15 +1168,8 @@ export function handleGlobalPlayPause() {
         return;
     }
 
-    const realAudioActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
-    const synthActive = document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode');
-
-    if (realAudioActive && isRealAudioAvailable()) {
+    if (preferRealAudio() && isRealAudioAvailable()) {
         playPauseRealAudio();
-        return;
-    }
-    if (synthActive && isSynthAvailable()) {
-        playPauseSynth();
         return;
     }
     if (isSynthAvailable()) {
