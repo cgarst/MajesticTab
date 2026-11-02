@@ -35,8 +35,10 @@ const FLAG_TEXT = {
  * @param {(points: Array) => void} opts.onChangePoints called with the new point list after a drag or a range delete
  * @param {(target: {mediaMs:number, scoreMs:number}) => void} opts.onSeek
  * @param {(id: string|null) => void} [opts.onSelect]
+ * @param {(range: {scoreFrom:number, scoreTo:number}) => void} [opts.onRetap] when given, a selected range offers
+ *   "Re-tap Range" (the range in score time)
  */
-export function createSyncTimeline({ host, getData, onChangePoints, onSeek, onSelect }) {
+export function createSyncTimeline({ host, getData, onChangePoints, onSeek, onSelect, onRetap }) {
     host.innerHTML = `
       <div class="sync-tl">
         <div class="sync-tl-bar">
@@ -48,6 +50,7 @@ export function createSyncTimeline({ host, getData, onChangePoints, onSeek, onSe
             <button type="button" class="btn btn-sm" data-tl-zoom="out" title="Zoom out" aria-label="Zoom out"><i class="bi-dash-lg"></i></button>
             <button type="button" class="btn btn-sm" data-tl-zoom="in" title="Zoom in" aria-label="Zoom in"><i class="bi-plus-lg"></i></button>
           </div>
+          <button type="button" class="btn btn-sm btn-theme-primary" data-tl-retap hidden>Re-tap Range</button>
           <button type="button" class="btn btn-sm btn-theme-danger" data-tl-delete hidden></button>
           <span class="small text-white-50 sync-tl-status" data-tl-status></span>
         </div>
@@ -62,6 +65,7 @@ export function createSyncTimeline({ host, getData, onChangePoints, onSeek, onSe
     const base = host.querySelector('.sync-tl-canvas');
     const head = host.querySelector('.sync-tl-head');
     const deleteBtn = host.querySelector('[data-tl-delete]');
+    const retapBtn = host.querySelector('[data-tl-retap]');
     const status = host.querySelector('[data-tl-status]');
 
     let axis = 'bars';
@@ -312,6 +316,7 @@ export function createSyncTimeline({ host, getData, onChangePoints, onSeek, onSe
     }
 
     function updateDeleteButton() {
+        retapBtn.hidden = !range || !onRetap;
         const ids = range ? pointsInRange() : [];
         deleteBtn.hidden = !range || !ids.length;
         deleteBtn.textContent = `Delete ${ids.length} Point${ids.length === 1 ? '' : 's'}`;
@@ -408,6 +413,15 @@ export function createSyncTimeline({ host, getData, onChangePoints, onSeek, onSe
         drawStatic();
     }));
     host.querySelectorAll('[data-tl-zoom]').forEach((b) => b.addEventListener('click', () => setZoom(zoom * (b.dataset.tlZoom === 'in' ? 1.6 : 0.625))));
+    retapBtn.addEventListener('click', () => {
+        if (!range || !model) return;
+        const scoreFrom = model.xToScoreMs(range.x0);
+        const scoreTo = model.xToScoreMs(range.x1);
+        range = null;
+        updateDeleteButton();
+        drawHead();
+        onRetap({ scoreFrom, scoreTo });
+    });
     deleteBtn.addEventListener('click', () => {
         if (!range) return;
         const ids = new Set(pointsInRange());

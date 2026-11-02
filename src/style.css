@@ -7280,9 +7280,16 @@ html.jam-web-guest #setlistNav {
 .sync-mode-bar[hidden] {
   display: none;
 }
-.sync-mode-hint {
+.sync-mode-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
   margin-bottom: 0.4rem;
+}
+.sync-mode-hint {
   color: var(--text-primary);
+  padding-top: 0.2rem;
 }
 .sync-mode-controls {
   display: flex;
@@ -7405,4 +7412,37 @@ html.jam-web-guest #setlistNav {
 .sync-row.is-selected {
   border-color: var(--accent-border-alpha);
   background: var(--accent-primary-alpha);
+}
+
+/* Tap mode refine tools */
+.sync-mode-refine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-subtle);
+}
+.sync-mode-refine[hidden] {
+  display: none;
+}
+.sync-mode-selected {
+  margin-right: 0.25rem;
+}
+.sync-marker {
+  pointer-events: auto;
+  cursor: pointer;
+}
+.sync-marker::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+.sync-marker.is-selected {
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-color: var(--accent-secondary);
+  box-shadow: 0 0 10px var(--accent-glow);
 }

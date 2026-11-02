@@ -544,6 +544,7 @@ export function initAudioFilePlayer() {
         getMedia: () => (state.meta ? mediaOf(state.meta) : null),
         prepareSync: () => toggleAudioFilePanel(false),
         getPeaks: () => state.peaks,
+        getAudioData: async () => (state.currentId ? (await getAudioFile(state.currentId))?.data || null : null),
         subscribe: (cb) => syncListeners.add(cb)
     });
 }

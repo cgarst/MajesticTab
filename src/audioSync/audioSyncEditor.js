@@ -43,7 +43,34 @@ export function initAudioSyncEditor() {
     const source = { getTimeMs: () => current.source.getTimeMs(), seek: (ms) => current.source.seek(ms) };
     const songKey = () => getSongKey();
 
-    function persist(next) {
+    // Every edit in this dialog can be undone: the points before each one are kept (in memory only)
+    let undoStack = [];
+    let redoStack = [];
+    const HISTORY_LIMIT = 100;
+
+    function updateUndoButtons() {
+        $('syncUndoBtn').disabled = !undoStack.length;
+        $('syncRedoBtn').disabled = !redoStack.length;
+    }
+
+    function undo() {
+        if (!undoStack.length) return;
+        redoStack.push(points);
+        persist(undoStack.pop(), { record: false });
+    }
+
+    function redo() {
+        if (!redoStack.length) return;
+        undoStack.push(points);
+        persist(redoStack.pop(), { record: false });
+    }
+
+    function persist(next, { record = true } = {}) {
+        if (record) {
+            undoStack.push(points);
+            if (undoStack.length > HISTORY_LIMIT) undoStack.shift();
+            redoStack = [];
+        }
         points = next;
         saveRecord(songKey(), media(), points);
         window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
@@ -155,6 +182,7 @@ export function initAudioSyncEditor() {
         if (selectedId && !points.some(p => p.id === selectedId)) selectedId = null;
         selectRow(selectedId);
         timeline.refresh();
+        updateUndoButtons();
         $('syncEmpty').hidden = points.length > 0;
         const issues = Object.values(info.flags).filter(f => f !== 'tempo').length;
         const warnings = Object.values(info.flags).filter(f => f === 'tempo').length;
@@ -209,6 +237,8 @@ export function initAudioSyncEditor() {
     }
 
     $('syncAddBtn').addEventListener('click', addAtCursor);
+    $('syncUndoBtn').addEventListener('click', undo);
+    $('syncRedoBtn').addEventListener('click', redo);
     $('syncImportToggleBtn').addEventListener('click', () => {
         const panel = $('syncImportPanel');
         panel.hidden = !panel.hidden;
@@ -245,6 +275,8 @@ export function initAudioSyncEditor() {
         open(ctx) {
             current = ctx;
             selectedId = null;
+            undoStack = [];
+            redoStack = [];
             points = loadRecord(songKey(), media())?.points || [];
             offSource?.();
             offSource = ctx.source.on(() => timeline.wake());

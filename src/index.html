@@ -1136,7 +1136,10 @@
 </div>
 
 <div id="syncModeBar" class="sync-mode-bar" role="toolbar" aria-label="Tap to sync" hidden>
-  <div class="sync-mode-hint small" id="smHint" role="status"></div>
+  <div class="sync-mode-head">
+    <div class="sync-mode-hint small" id="smHint" role="status"></div>
+    <button type="button" class="btn btn-sm btn-theme-primary flex-shrink-0" id="smDoneBtn">Done</button>
+  </div>
   <div class="sync-mode-controls">
     <button type="button" class="btn btn-sm btn-theme-icon" id="smPlayBtn" title="Play / Pause (Space)" aria-label="Play / Pause"><i class="bi-play-fill" id="smPlayIcon"></i></button>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smBack5Btn" title="Back 5 seconds">-5s</button>
@@ -1153,11 +1156,23 @@
     <label class="sync-mode-offset small text-white-50" title="Subtracted from every tap, for a reaction delay. Raise it if your taps land late.">
       Offset <input type="number" class="form-control form-control-sm" id="smOffset" value="0" step="10" min="0" max="500" aria-label="Tap offset in milliseconds"> ms
     </label>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smSnapBtn" title="Move each tap to the nearest sound in the recording, up to 80 ms away" hidden>Snap</button>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smUndoBtn" title="Undo (Ctrl+Z)">Undo</button>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smRedoBtn" title="Redo (Ctrl+Shift+Z)">Redo</button>
     <span class="small text-white-50 sync-mode-count" id="smCount"></span>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smTimelineBtn" title="Show or hide the timeline of all the points">Timeline</button>
-    <button type="button" class="btn btn-sm btn-theme-primary" id="smDoneBtn">Done</button>
+  </div>
+  <div id="smRefine" class="sync-mode-refine" hidden>
+    <span class="small text-white sync-mode-selected" id="smSelectedLabel"></span>
+    <div class="hud-pill-group" role="group" aria-label="Nudge the selected point">
+      <button type="button" class="btn btn-sm" data-sm-nudge="-50" title="Earlier by 50 ms (Shift+Left)">-50</button>
+      <button type="button" class="btn btn-sm" data-sm-nudge="-10" title="Earlier by 10 ms (Left)">-10</button>
+      <button type="button" class="btn btn-sm" data-sm-nudge="10" title="Later by 10 ms (Right)">+10</button>
+      <button type="button" class="btn btn-sm" data-sm-nudge="50" title="Later by 50 ms (Shift+Right)">+50</button>
+    </div>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smAuditionBtn" title="Play 2 seconds around the point (A)">Audition</button>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smSnapPointBtn" title="Move the point to the nearest sound in the recording" hidden>Snap to Sound</button>
+    <button type="button" class="btn btn-sm btn-theme-danger" id="smDeletePointBtn" title="Delete the point (Delete)">Delete Point</button>
   </div>
   <div id="smTimeline" class="sync-tl-host mt-2" hidden></div>
 </div>
@@ -1231,6 +1246,8 @@
       <div class="small text-white-50 mb-2" id="syncEditorInfo"></div>
       <div class="d-flex flex-wrap gap-2 mb-2">
         <button type="button" class="btn btn-sm btn-theme-primary" id="syncAddBtn" title="Add a point at the cursor's position and the recording's current time">Add Point at Cursor</button>
+        <button type="button" class="btn btn-sm btn-theme-outline" id="syncUndoBtn" title="Undo the last change">Undo</button>
+        <button type="button" class="btn btn-sm btn-theme-outline" id="syncRedoBtn" title="Redo">Redo</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncImportToggleBtn">Import</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncCopyBtn" title="Copy the points as AlphaTab sync points text">Copy Text</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncDownloadBtn" title="Download the points as JSON">Download JSON</button>
