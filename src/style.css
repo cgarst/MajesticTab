@@ -481,7 +481,7 @@ body {
   background: #e81123;
 }
 
-.tauri-windows .offcanvas {
+.tauri-windows .settings-page {
   top: 50px;
 }
 
@@ -1674,7 +1674,7 @@ input[type=range]::-webkit-slider-thumb:hover {
 /* --------------------------------------------------------------------------
    Modernized Offcanvas Settings Drawer
    -------------------------------------------------------------------------- */
-.offcanvas {
+.settings-page {
   background: var(--bg-modal) !important;
   color: var(--text-primary) !important;
   border-right: 1px solid var(--border-subtle) !important;
@@ -1694,7 +1694,7 @@ input[type=range]::-webkit-slider-thumb:hover {
 }
 
 /* No footer on iOS, so let the body scroll through the home-indicator inset instead of leaving a blank strip */
-.tauri-ios .offcanvas {
+.tauri-ios .settings-page {
   padding-bottom: 0;
 }
 
@@ -1703,7 +1703,7 @@ input[type=range]::-webkit-slider-thumb:hover {
 }
 
 @media (orientation: portrait) {
-  .tauri-ios .offcanvas {
+  .tauri-ios .settings-page {
     padding-top: 0;
   }
   .tauri-ios .offcanvas-header {
@@ -1717,13 +1717,13 @@ input[type=range]::-webkit-slider-thumb:hover {
   }
 }
 
-.tauri-macos .offcanvas {
+.tauri-macos .settings-page {
   top: 50px;
 }
 
 /* Clip the shadow's upward bleed onto the top bar */
-.tauri-macos .offcanvas,
-.tauri-windows .offcanvas {
+.tauri-macos .settings-page,
+.tauri-windows .settings-page {
   clip-path: inset(0 -60px 0 0);
 }
 
@@ -1910,7 +1910,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   background: var(--accent-gradient);
 }
 
-.offcanvas .form-control {
+.settings-page .form-control {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   color: #ffffff;
@@ -1919,7 +1919,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   padding: 0.4rem 0.65rem;
 }
 
-.offcanvas .form-control:focus {
+.settings-page .form-control:focus {
   background: var(--bg-card-hover);
   border-color: var(--accent-primary);
   color: #ffffff;
@@ -2067,8 +2067,8 @@ input[type=range]::-webkit-slider-thumb:hover {
 
 }
 
-.offcanvas input[type="file"]::file-selector-button,
-.offcanvas input[type="file"]::-webkit-file-upload-button {
+.settings-page input[type="file"]::file-selector-button,
+.settings-page input[type="file"]::-webkit-file-upload-button {
   margin: -0.4rem 0.65rem -0.4rem -0.65rem;
   padding: 0.4rem 0.65rem;
   background: var(--bg-card-hover);
@@ -2079,8 +2079,8 @@ input[type=range]::-webkit-slider-thumb:hover {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.offcanvas input[type="file"]:hover::file-selector-button,
-.offcanvas input[type="file"]:hover::-webkit-file-upload-button {
+.settings-page input[type="file"]:hover::file-selector-button,
+.settings-page input[type="file"]:hover::-webkit-file-upload-button {
   background: var(--accent-gradient);
   border-color: var(--accent-border-alpha);
   border-radius: 0.5rem;
@@ -2088,20 +2088,20 @@ input[type=range]::-webkit-slider-thumb:hover {
   box-shadow: 0 2px 8px var(--accent-glow);
 }
 
-.offcanvas .btn-theme-outline,
-.offcanvas .btn-theme-primary,
-.offcanvas .btn-theme-danger {
+.settings-page .btn-theme-outline,
+.settings-page .btn-theme-primary,
+.settings-page .btn-theme-danger {
   border-radius: 0.5rem;
   font-size: 0.82rem;
   padding: 0.45rem 0.75rem;
 }
 
-.offcanvas .form-check-input {
+.settings-page .form-check-input {
   background-color: var(--bg-card);
   border-color: var(--border-subtle);
 }
 
-.offcanvas .form-check-input:checked {
+.settings-page .form-check-input:checked {
   background-color: var(--accent-primary);
   border-color: var(--accent-primary);
   box-shadow: 0 0 8px var(--accent-glow);
@@ -2129,20 +2129,20 @@ input[type=range]::-webkit-slider-thumb:hover {
   box-shadow: 0 0 0 0.2rem var(--accent-primary-alpha);
 }
 
-.offcanvas .form-range {
+.settings-page .form-range {
   accent-color: var(--accent-primary);
   background: transparent;
   cursor: pointer;
 }
 
-.offcanvas .form-range::-webkit-slider-runnable-track {
+.settings-page .form-range::-webkit-slider-runnable-track {
   height: 0.38rem;
   border-radius: 999px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
 }
 
-.offcanvas .form-range::-webkit-slider-thumb {
+.settings-page .form-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 1rem;
@@ -2154,14 +2154,14 @@ input[type=range]::-webkit-slider-thumb:hover {
   margin-top: -0.32rem;
 }
 
-.offcanvas .form-range::-moz-range-track {
+.settings-page .form-range::-moz-range-track {
   height: 0.38rem;
   border-radius: 999px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
 }
 
-.offcanvas .form-range::-moz-range-thumb {
+.settings-page .form-range::-moz-range-thumb {
   width: 1rem;
   height: 1rem;
   border-radius: 50%;
@@ -2174,7 +2174,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   min-width: 0;
 }
 
-.offcanvas .gp-scale-slider .form-range::-webkit-slider-runnable-track {
+.settings-page .gp-scale-slider .form-range::-webkit-slider-runnable-track {
   background-image:
     linear-gradient(var(--text-muted), var(--text-muted)),
     linear-gradient(var(--text-muted), var(--text-muted)),
@@ -2191,7 +2191,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   background-size: 1px 60%;
 }
 
-.offcanvas .gp-scale-slider .form-range::-moz-range-track {
+.settings-page .gp-scale-slider .form-range::-moz-range-track {
   background-image:
     linear-gradient(var(--text-muted), var(--text-muted)),
     linear-gradient(var(--text-muted), var(--text-muted)),
@@ -5639,14 +5639,14 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 .library-page-view input:not(.search-input).nav-focused,
 .library-page-view select:focus-visible,
 .library-page-view select.nav-focused,
-.offcanvas button:focus-visible,
-.offcanvas button.nav-focused,
-.offcanvas a:focus-visible,
-.offcanvas a.nav-focused,
-.offcanvas input:not(.btn-check):focus-visible,
-.offcanvas input:not(.btn-check).nav-focused,
-.offcanvas select:focus-visible,
-.offcanvas select.nav-focused,
+.settings-page button:focus-visible,
+.settings-page button.nav-focused,
+.settings-page a:focus-visible,
+.settings-page a.nav-focused,
+.settings-page input:not(.btn-check):focus-visible,
+.settings-page input:not(.btn-check).nav-focused,
+.settings-page select:focus-visible,
+.settings-page select.nav-focused,
 .theme-modal-backdrop .theme-modal-card button:focus-visible,
 .theme-modal-backdrop .theme-modal-card button.nav-focused,
 .theme-modal-backdrop .theme-modal-card a:focus-visible,
@@ -5670,9 +5670,9 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 }
 
 /* Offcanvas and Modal segmented radio / pill button focus indicators */
-.offcanvas .btn-check:focus + .btn,
-.offcanvas .btn-check:focus-visible + .btn,
-.offcanvas .btn-check.nav-focused + .btn,
+.settings-page .btn-check:focus + .btn,
+.settings-page .btn-check:focus-visible + .btn,
+.settings-page .btn-check.nav-focused + .btn,
 .theme-modal-backdrop .btn-check:focus + .btn,
 .theme-modal-backdrop .btn-check:focus-visible + .btn,
 .theme-modal-backdrop .btn-check.nav-focused + .btn,
@@ -7022,7 +7022,7 @@ body.library-view-active #toolsFullscreenRow { display: none !important; }
 /* ===== Global themed form controls =====
    Switches, checkboxes, radios, text inputs and selects pick up the active
    finish theme everywhere (modals, drawers, standalone pages), not just inside
-   .synth-panel / .offcanvas / .library-modal-card. */
+   .synth-panel / .settings-page / .library-modal-card. */
 .form-check-input {
   background-color: var(--bg-elevated);
   border-color: var(--border-subtle);

@@ -2,6 +2,7 @@
 // Complete single-file Backup and Restore engine for MajesticTab.
 // Bundles all settings, custom extensions, downloaded tabs local store, and library hierarchy.
 
+import { settingsPanel } from './utils/settingsPanel.js';
 import { collectAudioSync, mergeAudioSync, clearAudioSync } from './audioSync/syncStore.js';
 import { clearAllAudioFiles } from './audioSync/audioFileStore.js';
 import {
@@ -1330,12 +1331,8 @@ export async function openBackupModal(initialTab = 'backup', options = {}) {
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
-    // Hide fileMenu offcanvas if open
-    const fileMenuEl = document.getElementById('fileMenu');
-    if (fileMenuEl) {
-        const offcanvas = bootstrap.Offcanvas.getInstance(fileMenuEl);
-        offcanvas?.hide();
-    }
+    // Hide the Settings page if open
+    settingsPanel.hide();
 
     await renderModal(modal, initialTab, options);
 }

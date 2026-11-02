@@ -1,6 +1,7 @@
 // syncUi.js
 // The Sync dialog: one tap from Settings, then a single review of exactly what will change
 // (see syncEngine.js), one confirmation, and a short result. The sync location is remembered.
+import { settingsPanel } from './utils/settingsPanel.js';
 import { planSync, applySync, getSyncBase, SYNC_ACTION } from './syncEngine.js';
 import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
@@ -491,8 +492,7 @@ export async function openSyncModal() {
     reloadOnClose = false;
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
-    const fileMenu = document.getElementById('fileMenu');
-    if (fileMenu) bootstrap.Offcanvas.getInstance(fileMenu)?.hide();
+    settingsPanel.hide();
 
     if (!modal.dataset.wired) {
         modal.dataset.wired = '1';

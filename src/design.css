@@ -90,7 +90,7 @@ body {
 
 /* Modals and panels: opaque cards, scale-in, faster out */
 .theme-modal-card { box-shadow: none; border: 1px solid var(--border-subtle); border-radius: var(--r-card); }
-.offcanvas { box-shadow: none; }
+.settings-page { box-shadow: none; }
 
 /* --- Motion (phase 2): transform and opacity only, exits faster than entries --- */
 @keyframes modalScaleUp {
@@ -120,12 +120,12 @@ body {
   animation: popIn var(--dur-base) var(--ease-out);
 }
 @keyframes popIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
-.offcanvas { transition: transform var(--dur-slow) var(--ease-out), visibility var(--dur-slow); }
-.offcanvas.hiding { transition-duration: var(--dur-base); }
+.settings-page { transition: transform var(--dur-slow) var(--ease-out), visibility var(--dur-slow); }
+.settings-page.hiding { transition-duration: var(--dur-base); }
 
 @media (prefers-reduced-motion: reduce) {
   .theme-modal-card, .theme-modal-backdrop, .dropdown-menu, .tools-menu, .popover-pop { animation: none !important; }
-  .form-switch .form-check-input, .offcanvas { transition: none !important; }
+  .form-switch .form-check-input, .settings-page { transition: none !important; }
   .btn-theme-primary:active:not(:disabled),
   .btn-theme-outline:active:not(:disabled),
   .theme-control-btn:active:not(:disabled),
@@ -798,7 +798,9 @@ body.practice-open #output { padding-right: 376px !important; }
 /* ==========================================================================
    Settings: a page. Big title, section list, grouped rows (title, help, control).
    ========================================================================== */
-body.settings-as-page .offcanvas-backdrop { display: none; }
+/* Settings is a regular page, not a drawer: shown and hidden in place (src/utils/settingsPanel.js). */
+.settings-page { position: fixed; bottom: 0; left: 0; z-index: 1030; display: none; flex-direction: column; outline: 0; }
+.settings-page.show { display: flex; }
 #fileMenu { background: var(--s1) !important; border: 0 !important; box-shadow: none !important; }
 body.settings-as-page #fileMenu {
   --bs-offcanvas-width: 100vw; width: 100vw !important; max-width: 100vw; left: 0; top: var(--topbar-h, 52px); height: calc(100% - var(--topbar-h, 52px));
@@ -1938,3 +1940,24 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 @media (hover: hover) { .album-book-link:hover { text-decoration: underline; text-underline-offset: 3px; } }
 .album-book-link:focus-visible { outline: 2px solid var(--ink2); outline-offset: 2px; }
 @media (pointer: coarse) { .album-book-link { min-height: 44px; } }
+
+
+/* ==========================================================================
+   Tools and Setlists share the Settings page's title and subtitle type.
+   Tools render in place beside their list; their own screens lose the dialog chrome.
+   ========================================================================== */
+.setlists-view > .title-row h2 { font: 700 44px/1.02 var(--font-display); letter-spacing: -.01em; margin: 0; color: var(--ink); }
+.setlists-view > .title-row p { margin: 6px 0 0; color: var(--ink2); font-size: 14px; }
+@media (max-width: 899px) { .setlists-view > .title-row h2 { font-size: 36px; } }
+.tools-shell { min-height: 100%; }
+.tools-shell .setpage { max-width: none; }
+.tool-pane-host:empty::before { content: 'Choose a tool.'; color: var(--ink2); font-size: 14px; }
+.theme-modal-backdrop.tool-embedded { position: static; inset: auto; z-index: auto; background: transparent; padding: 0; height: auto; display: block; }
+.theme-modal-backdrop.tool-embedded[style*="display: none"] { display: none; }
+.theme-modal-backdrop.tool-embedded .theme-modal-card { max-width: none; max-height: none; height: auto; background: transparent !important; border: 0 !important; border-radius: 0; box-shadow: none; animation: none; overflow: visible; }
+.theme-modal-backdrop.tool-embedded .theme-modal-header { display: none !important; }
+.theme-modal-backdrop.tool-embedded .theme-modal-body { padding: 0; }
+.theme-modal-backdrop.tool-embedded .library-page-container { padding-top: 0; }
+.tool-pane { padding-top: 0; }
+.theme-modal-backdrop.tool-embedded .reference-modal-card { height: auto; }
+.theme-modal-backdrop.tool-embedded .reference-modal-body { overflow: visible; }

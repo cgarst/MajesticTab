@@ -94,8 +94,8 @@ export function initSlidingPills() {
         }
     }, { passive: true });
 
-    // Handle Bootstrap dropdown / modal / offcanvas open events
-    ['shown.bs.dropdown', 'shown.bs.offcanvas', 'shown.bs.modal', 'shown.bs.collapse'].forEach(evt => {
+    // Handle Bootstrap dropdown / modal / settings page open events
+    ['shown.bs.dropdown', 'settings:shown', 'shown.bs.modal', 'shown.bs.collapse'].forEach(evt => {
         document.addEventListener(evt, (e) => {
             const root = e.target || document;
             requestAnimationFrame(() => refreshAllSlidingPills(root, true));

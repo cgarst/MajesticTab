@@ -1,4 +1,5 @@
 // main.js
+import { settingsPanel } from './utils/settingsPanel.js';
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 // @googleDrive:begin
 import { setupDrivePicker, migrateGoogleAuth } from './googleDrive.js';
@@ -244,11 +245,7 @@ const navButtons = document.getElementById('navButtons');
 const modeButtons = document.getElementById('modeButtons');
 const pageModeRadio = document.getElementById('pageModeRadio');
 const continuousModeRadio = document.getElementById('continuousModeRadio');
-const fileMenuEl = document.getElementById('fileMenu');
-const fileMenu = new bootstrap.Offcanvas(fileMenuEl);
-fileMenuEl.addEventListener('hidden.bs.offcanvas', () => {
-    document.activeElement?.blur?.();
-});
+const fileMenu = settingsPanel;
 
 // ` / ~ toggles the settings menu (unless typing or another modal is open)
 window.addEventListener('keydown', (e) => {
@@ -260,7 +257,7 @@ window.addEventListener('keydown', (e) => {
     );
     if (isTyping) return;
     e.preventDefault();
-    if (fileMenuEl.classList.contains('show')) {
+    if (fileMenu.isOpen()) {
         fileMenu.hide();
     } else if (!document.body.classList.contains('modal-open')) {
         fileMenu.show();
@@ -314,8 +311,8 @@ function setupPinchToZoom() {
     let wheelDeltaAccumulator = 0;
 
     const isInteractiveOverlayOpen = (e) => {
-        if (isLibraryOpen() || document.querySelector('.modal.show, .offcanvas.show')) return true;
-        if (e && e.target && e.target.closest && e.target.closest('.modal, .offcanvas, input, textarea, select')) return true;
+        if (isLibraryOpen() || document.querySelector('.modal.show, .settings-page.show')) return true;
+        if (e && e.target && e.target.closest && e.target.closest('.modal, .settings-page, input, textarea, select')) return true;
         return false;
     };
 
@@ -815,14 +812,7 @@ function setupMenuEdgeSwipeGesture() {
 
             // Trigger closing when threshold reached
             if (deltaX <= -SWIPE_MIN_DISTANCE && Math.abs(deltaX) > deltaY * 1.2) {
-                const fileMenu = document.getElementById('fileMenu');
-                if (fileMenu) {
-                    if (window.bootstrap?.Offcanvas) {
-                        window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).hide();
-                    } else {
-                        fileMenu.querySelector('.btn-close')?.click();
-                    }
-                }
+                settingsPanel.hide();
                 isTrackingClose = false;
             }
         }
@@ -995,10 +985,9 @@ function setupExtensionSettings() {
 
     openButton.addEventListener('click', () => {
         const menu = document.getElementById('fileMenu');
-        const offcanvas = menu && window.bootstrap?.Offcanvas?.getInstance(menu);
-        if (menu?.classList.contains('show') && offcanvas) {
-            menu.addEventListener('hidden.bs.offcanvas', openModal, { once: true });
-            offcanvas.hide();
+        if (menu?.classList.contains('show')) {
+            menu.addEventListener('settings:hidden', openModal, { once: true });
+            settingsPanel.hide();
         } else {
             openModal();
         }
@@ -1173,8 +1162,7 @@ async function initApp() {
     });
 
     document.getElementById('openFileMenuBtn')?.addEventListener('click', () => {
-        const fileMenu = document.getElementById('fileMenu');
-        if (fileMenu) bootstrap.Offcanvas.getInstance(fileMenu)?.hide();
+        settingsPanel.hide();
         openLibraryModal('openFile');
     });
 

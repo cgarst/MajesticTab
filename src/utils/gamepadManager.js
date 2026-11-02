@@ -2,6 +2,7 @@
 // Cross-platform game controller manager for MajesticTab (Web, Tauri Linux / Steam Deck, Windows, macOS).
 // Uses the W3C Gamepad API with standard XInput / Xbox / Steam Deck controller layout.
 
+import { settingsPanel } from './settingsPanel.js';
 import { showToast } from './toast.js';
 import { isTvMode } from '../tvMode.js';
 import { getDefaultGpDisplayScalePercent } from '../gpProcessor/gpProcessor.js';
@@ -176,11 +177,7 @@ class GamepadManager {
         const drawerBtn = document.getElementById('openControllerHelpMenuBtn');
         drawerBtn?.addEventListener('click', () => {
             // Dismiss offcanvas drawer first if needed
-            const fileMenu = document.getElementById('fileMenu');
-            if (fileMenu) {
-                const offcanvas = window.bootstrap?.Offcanvas?.getInstance?.(fileMenu);
-                offcanvas?.hide();
-            }
+            settingsPanel.hide();
             this.openHelpModal('keyboard');
         });
 
@@ -1079,7 +1076,7 @@ class GamepadManager {
         if (openDropdown) return openDropdown;
 
         // 2. If an offcanvas drawer is open (Menu / Settings)
-        const openOffcanvas = document.querySelector('.offcanvas.show');
+        const openOffcanvas = document.querySelector('.settings-page.show');
         if (openOffcanvas && this.isElementVisible(openOffcanvas)) return openOffcanvas;
 
         // 3. If a theme modal is open (e.g. Colorway finish picker, Controller guide, Tuner, etc.)
@@ -1433,7 +1430,7 @@ class GamepadManager {
             .some(el => (el.classList.contains('show') || el.style.display === 'flex' || el.style.display === 'block') && this.isElementVisible(el));
         if (openBackdrops) return true;
 
-        const openOffcanvas = document.querySelector('.offcanvas.show');
+        const openOffcanvas = document.querySelector('.settings-page.show');
         return !!(openOffcanvas && this.isElementVisible(openOffcanvas));
     }
 

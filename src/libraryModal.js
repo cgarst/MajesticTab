@@ -1,6 +1,7 @@
 // libraryModal.js
 // Artwork-rich MusicBrainz-powered Tab Library Page aligned to themes.
 
+import { settingsPanel } from './utils/settingsPanel.js';
 import {
     getCollections, deleteCollection, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
@@ -28,6 +29,7 @@ import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 import { toggleToolsMenu, closeToolsMenu } from './utils/toolsMenu.js';
+import { renderToolsPage, releaseEmbeddedTools } from './utils/toolsPage.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists', 'tools'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -547,6 +549,7 @@ export function closeLibraryModal(force = false) {
     const currentOpen = getCurrentFile();
 
     if (force === true || currentOpen) {
+        releaseEmbeddedTools();
         if (page) page.style.display = 'none';
         // Drop the hidden library's DOM: covers still loading (or retrying 500s from the art server) are cancelled, and
         // nothing keeps requesting art while a tab is open. Opening the library renders it again.
@@ -731,6 +734,7 @@ async function renderView() {
 }
 
 async function renderViewContent(content) {
+    if (activeView !== 'tools') releaseEmbeddedTools();
     if (activeView === 'library') {
         await renderLibraryBrowseView(content);
     } else if (activeView === 'search') {
@@ -1727,7 +1731,7 @@ async function renderLibraryBrowseView(container) {
 const LIBRARY_TABS = [
     { id: 'library', label: 'Library', title: 'Browse your tab library', icon: 'bi-music-note-list' },
     { id: 'setlists', label: 'Setlists', title: 'Build and play setlists of tabs', icon: 'bi-collection-play' },
-    { id: 'tools', label: 'Tools', title: 'Tuner, reference library, fretboard and Jam', icon: 'bi-grid-3x3-gap' },
+    { id: 'tools', label: 'Tools', title: 'Tuner, reference library and Jam', icon: 'bi-grid-3x3-gap' },
     { id: 'tunings', label: 'Tunings', title: 'Browse songs by guitar and bass tuning', icon: 'bi-sliders' },
     { id: 'recents', label: 'Recents', title: 'Recently opened tabs', icon: 'bi-clock-history' }
 ];
@@ -1860,19 +1864,15 @@ function syncLibraryBottomNav() {
             }
             if (e.target.closest('#libraryNavSettingsBtn')) {
                 const panel = document.getElementById('fileMenu');
-                if (panel && window.bootstrap?.Offcanvas) {
+                if (panel) {
                     // Opened from the navigation, Settings is a page: it fills the content area beside the rail
-                    document.body.classList.add('settings-as-page');
                     if (!panel.dataset.pageHooked) {
                         panel.dataset.pageHooked = '1';
-                        panel.addEventListener('shown.bs.offcanvas', syncLibraryBottomNav);
-                        panel.addEventListener('hidden.bs.offcanvas', () => {
-                            document.body.classList.remove('settings-as-page');
-                            syncLibraryBottomNav();
-                        });
+                        panel.addEventListener('settings:shown', syncLibraryBottomNav);
+                        panel.addEventListener('settings:hidden', syncLibraryBottomNav);
                     }
                     closeToolsMenu();
-                    window.bootstrap.Offcanvas.getOrCreateInstance(panel).toggle();
+                    settingsPanel.toggle();
                     syncLibraryBottomNav();
                 }
             }
@@ -1893,10 +1893,7 @@ function isSettingsPageOpen() {
 }
 
 function closeSettingsPage() {
-    const panel = document.getElementById('fileMenu');
-    if (panel?.classList.contains('show') && window.bootstrap?.Offcanvas) {
-        window.bootstrap.Offcanvas.getOrCreateInstance(panel).hide();
-    }
+    settingsPanel.hide();
 }
 
 function bindLibraryToolbarEvents(container) {
@@ -4524,33 +4521,15 @@ export async function openRecentItem(r) {
         showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
 }
 
-// Tools page: one row per tool, each opening it where it works. The reader's Tools button keeps its small menu.
+// Tools page: laid out like Settings. Tuner, Reference library and Jam render in the page. The fretboard belongs to the open tab, so it lives only in the reader's Tools menu.
 function renderToolsView(container) {
     const $ = (id) => document.getElementById(id);
-    const hasSong = Boolean(getCurrentFile());
     const tools = [
-        { id: 'reference', title: 'Reference library', help: 'Chords, scales and the circle of fifths.', key: 'R', open: () => $('toolsReferenceItem')?.click() },
-        { id: 'tuner', title: 'Tuner', help: 'Tune with the microphone.', key: 'T', open: () => $('tunerToggleBtn')?.click() },
-        { id: 'fretboard', title: 'Fretboard', help: hasSong ? 'Show notes on the neck.' : 'Open a song first. The fretboard shows the notes of the song you are playing.', key: 'F', disabled: !hasSong,
-          open: () => { closeLibraryModal(false); setTimeout(() => $('fretboardToggleBtn')?.click(), 60); } }
+        { id: 'reference', title: 'Reference library' },
+        { id: 'tuner', title: 'Tuner' }
     ];
-    const jamBtn = $('jamToggleBtn');
-    if (jamBtn && $('jamPill') && $('jamPill').style.display !== 'none') {
-        tools.push({ id: 'jam', title: 'Jam', help: $('jamStatusLabel')?.textContent || 'Play together on your network.', open: () => jamBtn.click() });
-    }
-    container.innerHTML = `
-    <div class="library-page-container tools-view">
-      <div class="title-row mb-3"><div><h2>Tools</h2><p class="tnum">${tools.length} tools</p></div></div>
-      <div class="tools-page-list" role="list">
-        ${tools.map(t => `<button type="button" class="tools-page-row" role="listitem" data-tool="${t.id}" ${t.disabled ? 'disabled aria-disabled="true"' : ''}>
-          <span class="tools-page-text"><b>${escapeHtml(t.title)}</b><small>${escapeHtml(t.help)}</small></span>
-          ${t.key ? `<kbd>${t.key}</kbd>` : ''}
-        </button>`).join('')}
-      </div>
-    </div>`;
-    container.querySelectorAll('.tools-page-row').forEach((row) => {
-        row.addEventListener('click', () => tools.find(t => t.id === row.dataset.tool)?.open());
-    });
+    if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', title: 'Jam' });
+    renderToolsPage(container, { tools, escapeHtml });
 }
 
 async function renderRecentsView(container) {

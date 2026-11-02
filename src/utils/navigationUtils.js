@@ -1,4 +1,5 @@
 // navigationUtils.js
+import { settingsPanel } from './settingsPanel.js';
 import { showToast } from './toast.js';
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
@@ -488,9 +489,9 @@ export function performAppBack(getConfig = null) {
         return true;
     }
 
-    const openModal = document.querySelector('.modal.show, .offcanvas.show');
+    const openModal = document.querySelector('.modal.show, .settings-page.show');
     if (openModal) {
-        const closeBtn = openModal.querySelector('[data-bs-dismiss="modal"], [data-bs-dismiss="offcanvas"], .btn-close, .theme-modal-close-btn');
+        const closeBtn = openModal.querySelector('[data-bs-dismiss="modal"], [data-settings-close], .btn-close, .theme-modal-close-btn');
         if (closeBtn) {
             closeBtn.click();
             return true;
@@ -631,10 +632,7 @@ export function setupSystemBackNavigation(getConfig) {
             if (!handled) {
                 // Nothing left to go back to (e.g. iOS PWA edge swipe at the library root):
                 // reveal settings instead of letting the gesture leave the app.
-                const fileMenu = document.getElementById('fileMenu');
-                if (fileMenu && window.bootstrap?.Offcanvas) {
-                    window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).show();
-                }
+                settingsPanel.show();
             }
             // Re-arm the guard entry so the next back gesture is also caught
             if (handled || !window.history.state?.depth) {

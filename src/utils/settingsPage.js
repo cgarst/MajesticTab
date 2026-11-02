@@ -390,6 +390,5 @@ export function initSettingsPage() {
     window.matchMedia('(min-width: 900px)').addEventListener?.('change', (e) => { if (e.matches && wrap.dataset.pane === 'list') wrap.dataset.pane = 'page'; });
 
     // Settings is a page wherever it opens from
-    panel.addEventListener('show.bs.offcanvas', () => { document.body.classList.add('settings-as-page'); if (!wide()) wrap.dataset.pane = 'list'; });
-    panel.addEventListener('hidden.bs.offcanvas', () => document.body.classList.remove('settings-as-page'));
+    panel.addEventListener('settings:show', () => { if (!wide()) wrap.dataset.pane = 'list'; });
 }
