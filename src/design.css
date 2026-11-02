@@ -1493,3 +1493,18 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 #restoreInspectionCard .restore-mode-card { background: var(--s1) !important; }
 #restoreInspectionCard .restore-mode-card:has(input:checked) { background: var(--s3) !important; }
 #viewMenu { padding-bottom: 12px; }
+
+/* Setlists: the page content spans the grid, rows are names and counts */
+.setlists-view > * { grid-column: 1 / -1; }
+.setlists-view > .title-row { padding-inline: 0; }
+.setlists-view > #setlistsList { margin: 8px -20px 0 !important; }
+@media (max-width: 576px) { .setlists-view > #setlistsList { margin-inline: -16px !important; } }
+.setlists-view .setrow .mono { display: none; }
+.setlists-view #toggleSetlistsEditBtn.btn-theme-outline { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; }
+.setlists-view #toggleSetlistsEditBtn.btn-theme-outline:hover { background: var(--s3) !important; color: var(--ink) !important; }
+.setlists-view #toggleSetlistsEditBtn i { display: none; }
+.setlists-view .rowwrap .row { flex-wrap: nowrap; margin: 0; --bs-gutter-x: 0; padding-inline: 20px; }
+.setlists-view .rowwrap .row > * { width: auto; max-width: none; padding: 0; margin-top: 0; }
+.setlists-view .rowwrap .row > .t { flex: 1; min-width: 0; }
+.setlists-view > .title-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.setlists-view .rowwrap { border-bottom: 0; }
