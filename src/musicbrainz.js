@@ -148,8 +148,13 @@ export function fetchMusicBrainz(url) {
  * Placeholder SVG for missing cover artwork
  */
 export function getPlaceholderCoverSvg(title = 'Tab') {
+    // A flat tile with the initial: a muted colour picked from the name, so the same artist always looks the same
     const initial = (title || 'T').trim().charAt(0).toUpperCase() || 'T';
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="#1a1528"/><circle cx="100" cy="100" r="45" fill="#2c2440"/><path d="M90 80 L120 100 L90 120 Z" fill="#a855f7"/><text x="100" y="170" font-size="20" font-family="sans-serif" font-weight="bold" fill="#94a3b8" text-anchor="middle">${initial}</text></svg>`;
+    let hash = 0;
+    for (const ch of String(title)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    const tiles = ['#4a3a34', '#2f3a5c', '#3c2a58', '#563838', '#35414f', '#3a3868', '#47382c', '#2c4a47'];
+    const fill = tiles[hash % tiles.length];
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200"><rect width="200" height="200" fill="${fill}"/><text x="100" y="134" font-size="108" font-family="Barlow Condensed,Arial Narrow,Helvetica Neue,Arial,sans-serif" font-weight="700" fill="#f4f1f8" fill-opacity="0.92" text-anchor="middle">${initial}</text></svg>`;
     return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 

@@ -573,3 +573,58 @@ body.practice-open #output { padding-right: 376px !important; }
 .btn-check:checked + .yt-mode-btn { background: var(--s3) !important; }
 #ytDropdownPanel #ytPlayerWrapper { border-radius: var(--r); overflow: hidden; }
 #synthDropdownPanel .btn-group > .btn.active, #ytDropdownPanel .btn-group > .btn.active, #realAudioRates .btn.active { background: var(--s3) !important; color: var(--ink) !important; }
+
+/* ==========================================================================
+   Library: a branded rail, flat rows on a 56px pitch, no card grid, no borders
+   ========================================================================== */
+@media (min-width: 577px) {
+  /* No top bar over the library on the web: the rail carries the brand, Tools and Settings. Desktop apps keep a quiet drag strip. */
+  body.library-view-active:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) #topBar { display: none; }
+  body.library-view-active:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) .library-bottom-nav { top: 0; }
+  body.library-view-active .library-bottom-nav {
+    width: 76px; padding: 14px 8px; gap: 2px; background: var(--ground) !important; border: 0 !important;
+  }
+  body.library-view-active #libraryPage { padding-left: 76px; }
+  .rail-brand { display: flex; align-items: center; justify-content: center; height: 48px; margin-bottom: 10px; gap: 10px; font-weight: 600; font-size: 16px; letter-spacing: -.01em; }
+  .rail-pick { width: 34px; height: 36px; flex: none; }
+  .rail-wordmark { display: none; }
+  .rail-wordmark b { font-weight: 600; color: var(--accent-text); }
+  .library-bottom-nav .library-nav-tab { min-height: 48px; border-radius: var(--r) !important; font-size: 11px; font-weight: 500; }
+  .library-bottom-nav .library-nav-tab.active { background: var(--s2); color: var(--ink); }
+  .library-bottom-nav .library-nav-tab.active i { color: var(--ink); }
+  .library-bottom-nav .library-nav-tab.active::before { content: ''; top: 50%; left: 3px; margin: -3px 0 0; width: 6px; height: 6px; background: var(--hue); animation: inlay var(--dur-base) cubic-bezier(.34,1.36,.64,1); }
+  .library-bottom-nav .library-nav-tools { margin-top: auto; }
+  .library-bottom-nav .library-nav-settings { margin-top: 0 !important; }
+}
+@keyframes inlay { from { transform: scale(0); } to { transform: scale(1); } }
+@media (min-width: 1000px) {
+  body.library-view-active .library-bottom-nav { width: 212px; padding: 16px 12px; }
+  body.library-view-active #libraryPage { padding-left: 212px; }
+  .rail-brand { justify-content: flex-start; padding-left: 6px; }
+  .rail-wordmark { display: inline; }
+  .library-bottom-nav .library-nav-tab { flex-direction: row; justify-content: flex-start; gap: 12px; font-size: 14px; padding: 0 12px; }
+  .library-bottom-nav .library-nav-tab.active::before { left: -2px; }
+}
+.tauri-macos.library-view-active .library-bottom-nav, body.tauri-macos.library-view-active .library-bottom-nav { padding-top: 52px; }
+
+/* Content */
+.library-page-view { background: var(--s1) !important; }
+@media (min-width: 577px) { .library-page-view { border-radius: var(--r-lg) 0 0 0; margin-left: 0; } }
+.library-page-container { max-width: none; }
+.library-search-box .library-search-bar, .library-search-bar {
+  background: var(--s2) !important; border: 0 !important; border-radius: var(--r) !important; height: 40px; box-shadow: none !important;
+}
+.library-search-bar:focus-within { background: var(--s3) !important; outline: 2px solid var(--hue); }
+.library-search-bar .search-input { background: transparent !important; color: var(--ink) !important; border: 0 !important; }
+.library-list-toolbar { padding: 0 4px; font-size: 13px; color: var(--ink2); }
+.library-artists-grid, .library-albums-grid, .library-songs-list { display: flex !important; flex-direction: column; gap: 0 !important; }
+.library-card, .library-row-card, .library-song-row, .library-track-row {
+  background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+  min-height: 56px; padding: 6px 20px !important; transition: background-color var(--dur-fast) var(--ease-out);
+}
+@media (hover: hover) { .library-card:hover, .library-row-card:hover, .library-song-row:hover, .library-track-row:hover { background: var(--s2) !important; transform: none !important; } }
+.library-card .artist-thumbnail, .library-card img[class*="thumbnail"], .library-row-card img {
+  width: 40px !important; height: 40px !important; border-radius: var(--r) !important; border: 0 !important; object-fit: cover;
+}
+.library-card h6, .library-row-card h6 { font-size: 15px; font-weight: 600; }
+.library-card .small, .library-row-card .small { font-size: 13px; color: var(--ink2) !important; }

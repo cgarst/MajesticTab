@@ -1585,11 +1585,14 @@ function syncLibraryBottomNav() {
         nav.className = 'library-bottom-nav';
         nav.setAttribute('aria-label', 'Library');
         // Phones: bottom tab bar. Wide windows: left rail (CSS). Settings sits last; Add music stays in each list's toolbar.
-        nav.innerHTML = `${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tunings)}${tabHtml(recents)}
+        const PICK = '<svg class="rail-pick" viewBox="105 97 303 316" aria-hidden="true"><path fill="var(--action)" d="M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z"/><text x="256" y="320" text-anchor="middle" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="190" fill="#fff">M</text></svg>';
+        nav.innerHTML = `<div class="rail-brand">${PICK}<span class="rail-wordmark">Majestic<b>Tab</b></span></div>${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tunings)}${tabHtml(recents)}
+          <button type="button" class="library-nav-tab library-nav-tools" id="libraryNavToolsBtn" title="Tools" aria-haspopup="menu"><i class="bi-grid-3x3-gap"></i><span>Tools</span></button>
           <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
             const tab = e.target.closest('[data-lib-tab]');
             if (tab) return goLibraryTab(tab.dataset.libTab);
+            if (e.target.closest('#libraryNavToolsBtn')) { e.stopPropagation(); document.getElementById('toolsToggleBtn')?.click(); return; }
             if (e.target.closest('#libraryNavSettingsBtn')) {
                 const panel = document.getElementById('fileMenu');
                 if (panel && window.bootstrap?.Offcanvas) {
