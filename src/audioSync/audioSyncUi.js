@@ -88,7 +88,7 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
             return;
         }
         if (kind === 'stop' || (session && kind !== 'play')) return;
-        startAudioSync({ source, points: record.points });
+        startAudioSync({ source, points: record.points, alignToCursor: !guestOnVideo(media) });
     }
 
     toggle.addEventListener('change', () => {

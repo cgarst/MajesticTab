@@ -40,9 +40,10 @@ export function setAudioSyncSuspended(on) {
 
 /**
  * Starts following `source` with `storedPoints`. Replaces any earlier session. Returns the session
- * (`stop()`, `setPoints(points)`, `problems()`), or null when no score is loaded.
+ * (`stop()`, `setPoints(points)`, `problems()`), or null when no score is loaded. With `alignToCursor` the recording
+ * is moved to where the cursor is (as left by the synth or another recording) instead of the cursor jumping to it.
  */
-export function startAudioSync({ source, points: storedPoints }) {
+export function startAudioSync({ source, points: storedPoints, alignToCursor = false }) {
     stopAudioSync();
     if (suspended) return null;
     const api = window.gpApi;
@@ -149,6 +150,10 @@ export function startAudioSync({ source, points: storedPoints }) {
             if (active === this) active = null;
         }
     };
+    if (alignToCursor) {
+        const tick = api.tickPosition;
+        if (Number.isFinite(tick)) seekRecordingToTick(snapTo(starts, tick));
+    }
     follower.start();
 
     // The fretboard follows the recording every frame, at the exact position and for every visible track. The
