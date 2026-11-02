@@ -204,30 +204,22 @@ async function renderSetlistDetail(container, onBack) {
       <div class="title-row mb-3">
         <div>
           <div class="d-flex align-items-center gap-2 mb-2">
-            <button class="btn btn-sm btn-theme-outline setback" id="setlistsBackBtn" title="Back to all setlists">
-              <i class="bi-chevron-left"></i> Setlists
-            </button>
+            <button class="btn btn-sm btn-theme-outline setback" id="setlistsBackBtn" title="Back to all setlists">Setlists</button>
           </div>
           <h2>${escapeHtml(setlist.name)}</h2>
-          <p class="tnum">${setlist.items.length} ${setlist.items.length === 1 ? 'song' : 'songs'}${fmtTot ? `, ${fmtTot} total` : ''}${tuningsList.length > 0 ? `, tuning changes: ${tuningChanges}` : ''}</p>
+          <p class="tnum">${[`${setlist.items.length} ${setlist.items.length === 1 ? 'song' : 'songs'}`, fmtTot, tuningsList.length > 0 ? (tuningChanges === 0 ? 'no tuning changes' : `${tuningChanges} ${tuningChanges === 1 ? 'tuning change' : 'tuning changes'}`) : ''].filter(Boolean).join(' \u00b7 ')}</p>
         </div>
         <div class="d-flex align-items-center gap-2 flex-wrap">
           ${setlist.items.length > 0 && !isEditMode ? `
-            <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-2" id="playSetlistBtn" title="Start set from the first song">
-              <i class="bi-play-fill fs-5"></i> <span>Start set</span>
-            </button>
+            <button class="btn btn-sm btn-theme-primary" id="playSetlistBtn" title="Start set from the first song">Start set</button>
           ` : ''}
-          <button class="btn btn-sm theme-control-btn p-1 px-3 d-flex align-items-center gap-1" id="renameSetlistBtn" title="Rename setlist">
-            <i class="bi-pencil"></i> <span>Rename</span>
-          </button>
-          <button class="btn btn-sm ${isEditMode ? 'btn-theme-primary' : 'btn-theme-outline'} p-1 px-3 d-flex align-items-center gap-1" id="toggleSetlistEditBtn" title="${isEditMode ? 'Done editing' : 'Edit setlist'}">
-            <i class="bi-${isEditMode ? 'check-lg' : 'pencil'}"></i> <span>${isEditMode ? 'Done' : 'Edit'}</span>
-          </button>
+          <button class="btn btn-sm theme-control-btn" id="renameSetlistBtn" title="Rename setlist">Rename</button>
+          <button class="btn btn-sm btn-theme-outline" id="toggleSetlistEditBtn" title="${isEditMode ? 'Done editing' : 'Edit setlist'}">${isEditMode ? 'Done' : 'Edit'}</button>
         </div>
       </div>
 
       ${(isEditMode || keepAddSongsOpen || setlist.items.length === 0) ? `
-        <div class="setlist-add-songs mb-3 p-3 rounded-2" style="background:var(--s1);border:1px solid var(--border-subtle);">
+        <div class="setlist-add-songs mb-3 p-3 rounded-2" style="background:var(--s1);">
           <div class="small fw-semibold text-white-50 mb-2">${setlist.items.length === 0 ? 'This setlist is empty. Search your library to add songs.' : 'Add songs'}</div>
           <div class="library-search-bar mb-2">
             <i class="bi-search search-icon"></i>
@@ -245,25 +237,22 @@ async function renderSetlistDetail(container, onBack) {
               const tuning = tab?.tuning || song?.tunings?.[0] || song?.tuning || '';
               const dur = formatTrackDuration(song?.length);
               const isStandard = tuning === 'Standard' || tuning === 'E Standard' || !tuning;
+              const metaLine = [song?.artist || '', tuning].filter(Boolean).join(' \u00b7 ');
               return `
               <div class="rowwrap">
                 <button class="row setrow ${isEditMode ? '' : 'clickable'}" data-index="${idx}" ${isEditMode ? 'style="cursor:default;"' : ''}>
                   <span class="num tnum">${idx + 1}</span>
                   <span class="t">
                     <b>${escapeHtml(song?.title || 'Song removed from library')}</b>
-                    <span>
-                      ${escapeHtml(song?.artist || '')}
-                      ${tuning ? `<span class="chip ${isStandard ? '' : 'hot'}">${escapeHtml(tuning)}</span>` : ''}
-                      ${tab ? `<span class="text-white-50 ms-1 small">(${escapeHtml(tab.name)})</span>` : ''}
-                    </span>
+                    <span title="${escapeHtml(tab ? tab.name : '')}">${escapeHtml(metaLine)}</span>
                   </span>
                   ${dur ? `<span class="end tnum">${dur}</span>` : ''}
                 </button>
                 ${isEditMode ? `
                   <div class="d-flex align-items-center gap-1 position-absolute end-0 me-3">
-                    <button class="btn btn-sm btn-theme-icon p-1 px-2 move-item-btn" data-item-id="${escapeHtml(item.id)}" data-delta="-1" title="Move up" ${idx === 0 ? 'disabled' : ''}><i class="bi-arrow-up"></i></button>
-                    <button class="btn btn-sm btn-theme-icon p-1 px-2 move-item-btn" data-item-id="${escapeHtml(item.id)}" data-delta="1" title="Move down" ${idx === setlist.items.length - 1 ? 'disabled' : ''}><i class="bi-arrow-down"></i></button>
-                    <button class="btn btn-sm btn-theme-danger p-1 px-2 remove-item-btn" data-item-id="${escapeHtml(item.id)}" title="Remove from setlist"><i class="bi-x-lg"></i></button>
+                    <button class="btn btn-sm btn-theme-icon p-1 px-2 move-item-btn" data-item-id="${escapeHtml(item.id)}" data-delta="-1" title="Move up" aria-label="Move up" ${idx === 0 ? 'disabled' : ''}><i class="bi-arrow-up"></i></button>
+                    <button class="btn btn-sm btn-theme-icon p-1 px-2 move-item-btn" data-item-id="${escapeHtml(item.id)}" data-delta="1" title="Move down" aria-label="Move down" ${idx === setlist.items.length - 1 ? 'disabled' : ''}><i class="bi-arrow-down"></i></button>
+                    <button class="btn btn-sm btn-theme-danger p-1 px-2 remove-item-btn" data-item-id="${escapeHtml(item.id)}" title="Remove from setlist" aria-label="Remove from setlist"><i class="bi-x-lg"></i></button>
                   </div>
                 ` : ''}
               </div>`;

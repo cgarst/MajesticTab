@@ -1546,3 +1546,10 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .library-book-pdf-bar { row-gap: 0 !important; column-gap: 14px !important; }
 .library-book-pdf-bar .btn { padding-inline: 0 !important; min-height: 40px; }
 .library-book-pdf-bar .btn:hover { background: transparent !important; text-decoration: underline; text-underline-offset: 3px; }
+
+/* Setlist detail: a text way back, quiet actions, no notes in the rows */
+.setlists-view .setback { display: inline-flex !important; background: transparent !important; border: 0 !important; color: var(--ink2) !important; padding-left: 0 !important; }
+.setlists-view .setback::before { content: "\2039"; margin-right: 6px; font-size: 18px; line-height: 1; }
+.setlists-view .theme-control-btn, .setlists-view #toggleSetlistEditBtn { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; }
+.setlists-view .theme-control-btn:hover, .setlists-view #toggleSetlistEditBtn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+.setlists-view .setlist-add-songs { border: 0 !important; }
