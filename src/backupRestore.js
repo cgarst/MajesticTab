@@ -1587,9 +1587,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div id="restoreInspectionCard" class="p-3 rounded-3 mb-3" style="display:none; background: var(--bg-card); border: 1px solid var(--border-prominent);">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <div class="d-flex align-items-center gap-2">
-                <span class="badge badge-theme-primary px-2 py-1" style="font-size: 0.68rem;">
-                  <i class="bi-check-circle me-1"></i> Valid Backup
-                </span>
+                <span class="small fw-semibold text-white">Valid backup</span>
                 <span class="small text-white-50" id="restoreFilenameLabel" style="font-size: 0.75rem;"></span>
               </div>
               <div class="d-flex align-items-center gap-2">
@@ -1631,7 +1629,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <div class="min-w-0">
                   <div class="d-flex align-items-center gap-2 mb-1">
                     <span class="fw-bold text-white small">Add Missing Items</span>
-                    <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.62rem;">Recommended</span>
+                    <span class="small text-white-50">Recommended</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
                     Keeps everything you have and adds any tabs, songs, collections, file converters, and preferences that are missing from the backup.
@@ -1645,7 +1643,6 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <div class="min-w-0">
                   <div class="d-flex align-items-center gap-2 mb-1">
                     <span class="fw-bold text-danger-emphasis small">Replace All Data</span>
-                    <span class="badge bg-danger bg-opacity-25 text-danger border border-danger-subtle py-0 px-2" style="font-size:0.62rem;">Destructive</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
                     Erases all current local stored tabs, library entries, file converters, settings and audio files (unless you leave audio out above), and replaces them cleanly with this backup.

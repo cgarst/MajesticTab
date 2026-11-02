@@ -1479,3 +1479,16 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .shelf-item .shelf-cover { width: 56px; height: 56px; }
 .discography-shelf { gap: 6px; }
 .shelf-item.active::before { left: 50%; top: auto; bottom: 0; margin: 0 0 0 -3px; }
+
+/* ---------- Data management: one task at a time, tone steps instead of outlines ----------
+   Settings, Library and backup opens the right task directly, so the six-button tab strip is gone. */
+.backup-nav-tabs { display: none !important; }
+.backup-stat-card, .restore-mode-card, .backup-provider-option, .drive-backup-item, .backup-dropzone, #restoreInspectionCard {
+  background: var(--s2) !important; border: 0 !important; box-shadow: none !important;
+}
+.backup-stat-card:hover, .restore-mode-card:hover, .backup-provider-option:hover, .drive-backup-item:hover { background: var(--s3) !important; }
+.restore-mode-card:has(input:checked) { background: var(--s3) !important; }
+.backup-dropzone.drag-over { background: var(--s3) !important; }
+.provider-mini-icon { background: var(--s3); border: 0; }
+#restoreInspectionCard .restore-mode-card { background: var(--s1) !important; }
+#restoreInspectionCard .restore-mode-card:has(input:checked) { background: var(--s3) !important; }
