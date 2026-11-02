@@ -17,6 +17,7 @@ import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
+import { initAudioSyncUi } from './audioSync/audioSyncUi.js';
 import { initSoundFontPanel } from './gpProcessor/soundFontPanel.js';
 import { initMixerPanel, wireModal, closeModal } from './gpProcessor/mixerPanel.js';
 import { initAudioLatencyModal } from './gpProcessor/audioLatencyModal.js';
@@ -1144,6 +1145,7 @@ async function initApp() {
     setupExtensionSettings();
     initUpdater();
     initYouTubePlayer();
+    initAudioSyncUi();
     initSynthPlayer();
     initSoundFontPanel();
     initMixerPanel();

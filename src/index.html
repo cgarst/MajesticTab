@@ -622,6 +622,15 @@
         </div>
       </div>
     </div>
+    <div id="ytSyncRow" class="mb-3" hidden>
+      <div class="d-flex align-items-center justify-content-between gap-2">
+        <div class="form-check form-switch mb-0">
+          <input class="form-check-input theme-switch" type="checkbox" id="ytSyncFollow">
+          <label class="form-check-label small text-white" for="ytSyncFollow" title="Move the tab cursor with this video using its sync points">Follow recording</label>
+        </div>
+        <span class="text-muted text-truncate" id="ytSyncInfo" style="font-size: 0.72rem;"></span>
+      </div>
+    </div>
     <div class="input-group input-group-sm yt-search-group">
       <input type="text" id="ytSearchInput" class="form-control" placeholder="Paste YouTube link or video ID...">
       <button class="btn yt-play-btn" id="ytSearchBtn" type="button" title="Load Video"><i class="bi-play-fill"></i> Play</button>
