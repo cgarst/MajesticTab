@@ -1,5 +1,41 @@
 # MajesticTab — Development Guide
 
+## Re-imagined UI (requirements)
+
+MajesticTab's interface follows the "MajesticTab Reimagined" design: the app recedes and the score leads. These rules are requirements for every new or changed screen, on all five targets (Windows, macOS, Linux, Android, iOS). Where they conflict with the older rules below, these win. All redesign CSS lives in `src/design.css`; it loads after `src/style.css` and overrides it. Put new redesign styles there, not in `style.css`.
+
+**Look**
+- **Flat only.** No gradients, glass, `backdrop-filter`, glow or shadows on things at rest. Shadows are for what truly floats (menus, dialogs). Scrims dim; they do not blur.
+- **Tone steps, not outlines.** Separate surfaces with the ground ladder (`--ground`, `--s1`, `--s2`, `--s3`), never with 1px borders, dashed boxes, hairline dividers or outlined cards. A selected or hovered row takes one tone step. Boxed toolbars and bordered cards are not allowed.
+- **Colour sits on three things only:** the one primary action, the playhead (and loop band), and the active-item inlay dot. Everything else is ink (`--ink`, `--ink2`) on the ground ladder. Use the finish tokens; never hard-code hex values.
+- **No pills.** Counts, tunings, years, page ranges and statuses are plain grey text beside what they describe, separated by a middle dot. A filled shape is only for a real control (a filter, a switch) or a key cap. Do not add `badge`, `chip` or `rounded-pill` for metadata.
+- **No decorative glyphs.** An icon appears only where it carries meaning that the label does not (navigation, play, pin, status dot). No icon beside a text button, no tinted icon squares, no emoji.
+- **Type.** System font for UI text. Barlow Condensed (`--font-display`) only for song titles, section titles and big numerals. Sentence case for labels, headings and actions. No small uppercase tracked labels, no eyebrows above headings, no index numbering unless the content is a sequence.
+- **Radius follows the platform** through `--r-control` and `--r-card` (set per platform at the top of `design.css`: rounder on macOS and iOS, tighter on Windows and Linux). Do not hard-code radii. Press feedback follows the platform too: a tonal layer on Android, scale-on-press on iOS, a 1px nudge on desktop.
+- **The notation is never restyled.** AlphaTab output is drawn as it is. The redesign only supplies the paper behind it, the zoom and the playhead layer.
+
+**Layout**
+- **Rows, not cards.** Lists of artists, songs, setlists, recents, tunings and settings are flat rows on a 56px pitch with the same left edge. No card grids.
+- **One title per screen and one back control.** Do not repeat a title in a pane header, a breadcrumb bar and a back button. A breadcrumb appears only when the user is at least two levels deep.
+- **One primary action per screen.** Everything else is a text action ("Add tab", "Rename", "Edit"): ghost style, `--ink2`, one tone step on hover. Do not stack several filled buttons in one row.
+- **Redundancy is a defect.** The same control, readout or setting must not live in two places on one screen (for example position shown in both the ruler and a percentage, or a setting reachable from both a menu and a page). Remove the weaker copy.
+- **Options are sorted by when you need them:** while playing (the reader's View menu: layout, pages, size, paper); about this song (the title's "This song" menu: tracks first, then staff, strings, tuning); instrument tools (Tools: reference library, fretboard, tuner, Jam); set once (Settings). Do not add a fifth place.
+- **Settings is a page in the navigation**, reached only from the library rail or tab bar. It is not a drawer, and there is no hamburger or edge swipe for it. The rail highlights Settings while it is open and any other destination closes it. Settings pages have one row per setting with the label and a short description; the whole row is the target.
+- **Library order:** Pinned songs (its own group, selected by default when anything is pinned), then Custom Music, then the Artists list. Album shelves show artwork only, since the album header already names the album.
+- **The navigation shell is chosen by container width, not user agent:** a sidebar rail (76px from 577px wide, full width from 1000px), a bottom tab bar below that (phone), at most five items, always with labels. The library has no reader controls on phones; the reader has no library chrome.
+- **Destructive actions** sit in a Danger zone, use the danger colour, and need a second press or confirmation.
+
+**Interaction and accessibility**
+- Touch targets are at least 44px on coarse pointers (and 24px minimum anywhere); keep 8px between neighbours. Every icon-only control has an accessible name; every control works from the keyboard with a visible focus ring.
+- Text contrast is at least 4.5:1 (3:1 for large text and non-text UI) in every finish, light and dark. Colour is never the only signal.
+- Motion uses the shared tokens in `design.css` (`--dur-fast` 150ms, `--dur-base` 250ms, `--dur-slow` 350ms, `--dur-slower` 400ms; `--ease-out`), animates `transform` and `opacity` only, makes exits faster than entries, and is switched off under `prefers-reduced-motion`. Every modal and menu needs a close transition, not only an open one.
+- Long lists use `content-visibility: auto`; no layout-shifting animations.
+
+**Process**
+- Check every changed screen at desktop (1440 wide) and phone (390 wide), and in at least two finishes, one of them Snow White.
+- Real data first: restore a full backup before judging density, truncation and empty states.
+- Do not reintroduce a removed pattern by copying an older screen. If an older screen still uses pills, cards or outlines, fix it as part of the change that touches it.
+
 ## UI Theme Consistency
 
 - **Never Use Bootstrap Default Button Classes:** Do NOT use Bootstrap's color button classes (`btn-primary`, `btn-outline-primary`, `btn-secondary`, `btn-outline-secondary`, `btn-danger`, `btn-outline-danger`, `btn-success`, `btn-outline-success`, `btn-info`, `btn-outline-info`, `btn-warning`, `btn-outline-warning`, `btn-light`, `btn-outline-light`, `btn-dark`, `btn-outline-dark`). These apply hard-coded Bootstrap colors (e.g., `#0d6efd` blue) that ignore and break MajesticTab's dynamic finish themes (`data-theme`).
