@@ -8,6 +8,7 @@ const $ = (id) => document.getElementById(id);
 
 export function initReaderViewMenu() {
     initSongButton();
+    arrangeSongPanel();
     initPracticePanels();
     const toggleBtn = $('viewToggleBtn');
     const menu = $('viewMenu');
@@ -180,4 +181,73 @@ function initPracticePanels() {
     if (bar && 'ResizeObserver' in window) {
         new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${bar.offsetHeight}px`)).observe(bar);
     }
+}
+
+
+// ---- Song panel: tracks (show and hear), recording, section marks, PDF, save and share ----
+// Moves the original controls into place (ids kept). Notation went to View and strings and tuning to Guitar.
+function arrangeSongPanel() {
+    const body = document.querySelector('#scoreOptionsDropdownPanel .synth-panel-body');
+    const tracks = $('synthTrackVisibilitySection');
+    if (!body || !tracks) return;
+
+    const group = (id, title, ...nodes) => {
+        const g = document.createElement('div');
+        g.className = 'score-options-group';
+        g.id = id;
+        const t = document.createElement('div');
+        t.className = 'score-options-group-title';
+        t.textContent = title;
+        g.append(t, ...nodes.filter(Boolean));
+        return g;
+    };
+
+    const tracksLabel = tracks.querySelector('label.form-label');
+    if (tracksLabel) tracksLabel.textContent = 'Tracks';
+
+    // Hear: Full band, Guitars only, No guitars, sits with the track list it belongs to
+    const hear = $('synthTrackModeContainer');
+    if (hear) {
+        const l = hear.querySelector('label.form-label');
+        if (l) l.textContent = 'Hear';
+        tracks.appendChild(hear);
+    }
+
+    // Recording and sync: the Recording panel opens from here and from the dock's Recording button
+    const recBtn = document.createElement('button');
+    recBtn.type = 'button';
+    recBtn.id = 'songRecordingBtn';
+    recBtn.className = 'btn btn-sm song-row-btn';
+    recBtn.innerHTML = '<span><b>Recording and sync</b><small>Play along with a video or a file, and sync the tab to it</small></span>';
+    recBtn.addEventListener('click', () => {
+        $('scoreOptionsPanelCloseBtn')?.click();
+        $('ytToggleBtn')?.click();
+    });
+    const audioSync = $('synthAudioSyncSection');
+    const recGroup = group('scoreOptionsRecordingGroup', 'Recording', recBtn, audioSync);
+
+    // Section marks: what the ruler's labels were read from (only when the file has marks)
+    const marksBtn = document.createElement('button');
+    marksBtn.type = 'button';
+    marksBtn.id = 'songMarksBtn';
+    marksBtn.className = 'btn btn-sm song-row-btn';
+    marksBtn.innerHTML = '<span><b>Section marks in this file</b><small>See what the ruler\'s part labels were read from</small></span>';
+    marksBtn.addEventListener('click', () => {
+        $('scoreOptionsPanelCloseBtn')?.click();
+        $('barRulerInfoBtn')?.click();
+    });
+    const marksGroup = group('scoreOptionsMarksGroup', 'Parts', marksBtn);
+    const syncMarks = () => { marksGroup.style.display = $('barRulerInfoBtn') && !$('barRulerInfoBtn').hidden ? '' : 'none'; };
+    marksGroup.style.display = 'none';
+    const watchMarks = () => {
+        const info = $('barRulerInfoBtn');
+        if (info) { new MutationObserver(syncMarks).observe(info, { attributes: true, attributeFilter: ['hidden'] }); syncMarks(); return true; }
+        return false;
+    };
+    if (!watchMarks()) { const t = setInterval(() => { if (watchMarks()) clearInterval(t); }, 500); setTimeout(() => clearInterval(t), 20000); }
+
+    const pdf = $('scoreOptionsPdfSection');
+    const save = $('scoreOptionsSaveGroup');
+    body.replaceChildren(...[tracks, recGroup, marksGroup, pdf, save].filter(Boolean));
+    // the moved notation, strings and tuning sections are re-parented by View and Guitar; nothing else is left here
 }

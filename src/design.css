@@ -1829,3 +1829,16 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 .dock-pop > div { margin: 0 !important; }
 .dock-pop-title { font: 600 17px system-ui, sans-serif; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .dock-pop { transition: none; transform: none; } }
+
+/* ---------- Song panel ---------- */
+.score-options-panel .synth-panel-body { display: flex; flex-direction: column; gap: 18px; }
+.score-options-panel .synth-panel-body > div { margin: 0 !important; }
+.score-options-group-title { color: var(--ink2); font-size: 13px; font-weight: 500; }
+.song-row-btn { display: flex !important; width: 100%; text-align: left; justify-content: flex-start !important; padding: 10px 12px !important; background: var(--s3) !important; border: 0 !important; color: var(--ink) !important; border-radius: var(--r) !important; min-height: 56px; }
+.song-row-btn span { display: flex; flex-direction: column; gap: 2px; }
+.song-row-btn small { color: var(--ink2); font-size: 12px; font-weight: 400; }
+.score-options-group .song-row-btn + * { margin-top: 10px; }
+#synthAudioSyncSection:has(#synthAudioSyncSwitch:disabled) { display: none; }
+#scoreOptionsSaveGroup .btn { background: var(--s3) !important; border: 0 !important; color: var(--ink) !important; justify-content: flex-start !important; padding-inline: 12px !important; border-radius: var(--r) !important; min-height: 44px; }
+#scoreOptionsSaveGroup .btn i { display: none; }
+.top-bar-song-btn.active { background: transparent !important; }
