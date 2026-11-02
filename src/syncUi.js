@@ -239,7 +239,7 @@ function section(changes, { icon, title, note = '', tone }) {
             <ul class="list-unstyled mb-0 rounded-2 backup-summary-box" style="max-height: 28vh; overflow-y: auto;">
                 ${changes.map(c => `
                     <li class="d-flex align-items-start gap-2 px-2 py-2 border-bottom border-secondary-subtle">
-                        <i class="${c.kind === 'soundfont' ? 'bi-music-note-list' : 'bi-file-earmark-music'} text-white-50 flex-shrink-0 mt-1"></i>
+                        <i class="${c.kind === 'soundfont' ? 'bi-music-note-list' : c.kind === 'audio' ? 'bi-soundwave' : 'bi-file-earmark-music'} text-white-50 flex-shrink-0 mt-1"></i>
                         <div class="min-w-0 flex-grow-1">
                             <div class="small text-white text-truncate" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</div>
                             <div class="text-white-50" style="font-size:0.7rem;">${escapeHtml(c.reason)}${c.size ? ` · ${formatBytes(c.size)}` : ''}</div>

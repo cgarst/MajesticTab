@@ -176,7 +176,7 @@ function createBrowserFolderBackend(rootHandle) {
                 let counts = null;
                 try {
                     const summary = JSON.parse(await file.text()).summary;
-                    if (summary) counts = { tabs: summary.tabsCount || 0, soundFonts: summary.soundFontsCount || 0 };
+                    if (summary) counts = { tabs: summary.tabsCount || 0, soundFonts: summary.soundFontsCount || 0, audio: summary.audioCount || 0 };
                 } catch (_) {}
                 manifests.push({ id: name, name, size: file.size, modifiedTime: new Date(file.lastModified).toISOString(), counts });
             }
@@ -259,7 +259,7 @@ function createNativeFolderBackend(root) {
                 let counts = null;
                 try {
                     const summary = JSON.parse(await fs.readTextFile(joinPath(manifestsDir, entry.id))).summary;
-                    if (summary) counts = { tabs: summary.tabsCount || 0, soundFonts: summary.soundFontsCount || 0 };
+                    if (summary) counts = { tabs: summary.tabsCount || 0, soundFonts: summary.soundFontsCount || 0, audio: summary.audioCount || 0 };
                 } catch (_) {}
                 return { ...entry, counts };
             }));

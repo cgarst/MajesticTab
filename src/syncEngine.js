@@ -1,17 +1,24 @@
 // syncEngine.js
 // Two-way sync between this device and the newest incremental snapshot (see incrementalBackup.js).
-// Tabs and SoundFonts are compared three ways: this device, the snapshot, and a baseline saved after
+// Tabs, SoundFonts and audio files are compared three ways: this device, the snapshot, and a baseline saved after
 // the last sync. The baseline tells "deleted since last sync" apart from "never had it", and which
 // side changed an item. Library entries merge without losing anything, and settings only fill gaps.
 // Applying a plan pulls remote changes into this device, then pushes the result as a new snapshot.
+// Audio files only ever add: sync never deletes one from this device, because a file kept out of the backup on
+// one device would otherwise disappear from the others. Audio this device chose not to download stays in the
+// snapshot (it is carried into the next one).
 import { getAllStoredFiles, deleteStoredFile, putStoredFileRecord } from './fileStore.js';
 import { getAllSongs, getAllLibraryData, importLibraryData, removeTabOptionFromSong } from './libraryStore.js';
 import { listSoundFonts, deleteSoundFont, restoreSoundFontEntry } from './soundFontStore.js';
+import { listAudioFiles } from './audioSync/audioFileStore.js';
+import {
+    listAudioForBackup, restoreAudioEntry, isAudioItem, isAudioDownloadEnabled, audioItemFingerprint, audioSyncDecision
+} from './audioSync/audioBackup.js';
 import {
     collectAllSettings, collectExtensions, applyRestoredSettings, applyRestoredExtensions, applyRestoredPreferences
 } from './backupRestore.js';
 import {
-    listIncrementalBackups, loadIncrementalBundle, createIncrementalBackup, fileFingerprint, soundFontFingerprint, runPool
+    listIncrementalBackups, loadIncrementalBundle, createIncrementalBackup, fileFingerprint, soundFontFingerprint, runPool, itemKey
 } from './incrementalBackup.js';
 
 const BASE_KEY = 'majestictab_sync_base';
@@ -46,8 +53,10 @@ export function clearSyncBase() {
 
 const fileKey = (id) => `f:${id}`;
 const soundFontKey = (id) => `s:${id}`;
+const audioKey = (id) => `a:${id}`;
+const keyOf = (item) => (item.kind === 'tab' ? fileKey(item.id) : item.kind === 'audio' ? audioKey(item.id) : soundFontKey(item.id));
 
-function localItems(fileMetas, soundFonts) {
+function localItems(fileMetas, soundFonts, audioMetas = []) {
     const items = new Map();
     for (const m of fileMetas) {
         items.set(fileKey(m.id), {
@@ -61,6 +70,12 @@ function localItems(fileMetas, soundFonts) {
             fingerprint: soundFontFingerprint(m), time: m.addedAt || 0
         });
     }
+    for (const m of audioMetas) {
+        items.set(audioKey(m.id), {
+            kind: 'audio', id: m.id, name: m.name, size: m.size || 0,
+            fingerprint: audioItemFingerprint(m), time: m.savedAt || 0
+        });
+    }
     return items;
 }
 
@@ -68,7 +83,12 @@ function remoteItems(manifest) {
     const items = new Map();
     for (const f of manifest?.files || []) {
         if (!f.blob) continue;
-        if (f.store) {
+        if (isAudioItem(f)) {
+            items.set(audioKey(f.id), {
+                kind: 'audio', id: f.id, name: f.name, size: f.size || 0,
+                fingerprint: audioItemFingerprint(f), time: f.savedAt || 0
+            });
+        } else if (f.store) {
             items.set(soundFontKey(f.id), {
                 kind: 'soundfont', id: f.id, name: f.name, size: f.size || 0,
                 fingerprint: soundFontFingerprint(f), time: f.addedAt || 0
@@ -89,7 +109,7 @@ function remoteItems(manifest) {
  * Compare this device with the newest snapshot in `backend` without changing anything.
  * @returns {Promise<{
  *   latest: {name: string, exportedAt: string}|null, firstSync: boolean, lastSyncedAt: number|null,
- *   changes: Array<{action: string, kind: 'tab'|'soundfont', id: string, key: string, name: string, size: number,
+ *   changes: Array<{action: string, kind: 'tab'|'soundfont'|'audio', id: string, key: string, name: string, size: number,
  *     reason: string, conflict?: boolean}>,
  *   other: {receive: Array<{kind: string, text: string}>, send: Array<{kind: string, text: string}>},
  *   unchanged: number, bytesUp: number, bytesDown: number, needsPush: boolean
@@ -210,16 +230,18 @@ function compareOther(manifest, localLibrary) {
 export async function planSync(backend, onStatus) {
     const say = (text) => { if (typeof onStatus === 'function') onStatus(text); };
     say('Reading this device\'s library and listing snapshots...');
-    const [backups, fileMetas, soundFonts] = await Promise.all([
+    const [backups, fileMetas, soundFonts, audioMetas] = await Promise.all([
         listIncrementalBackups(backend),
         getAllStoredFiles(),
-        listSoundFonts()
+        listSoundFonts(),
+        listAudioForBackup()
     ]);
-    const local = localItems(fileMetas, soundFonts);
+    const local = localItems(fileMetas, soundFonts, audioMetas);
+    const downloadAudio = isAudioDownloadEnabled();
     const latest = backups[0] ? { name: backups[0].name, exportedAt: backups[0].exportedAt } : null;
     say(latest ? `Downloading the latest snapshot (${backups.length} found)...` : 'No snapshot found; this is a first sync.');
     const manifest = latest ? await backend.readManifest(backups[0]) : null;
-    say('Comparing tabs, SoundFonts and settings...');
+    say('Comparing tabs, SoundFonts, audio files and settings...');
     const remote = latest ? remoteItems(manifest) : new Map();
     const other = latest ? compareOther(manifest, await getAllLibraryData()) : { receive: [], send: [] };
 
@@ -229,7 +251,7 @@ export async function planSync(backend, onStatus) {
     const changes = [];
     let unchanged = 0;
     const add = (action, item, reason, extra = {}) => changes.push({
-        action, kind: item.kind, id: item.id, key: item.kind === 'tab' ? fileKey(item.id) : soundFontKey(item.id),
+        action, kind: item.kind, id: item.id, key: keyOf(item),
         name: item.name, size: item.size, reason, ...extra
     });
 
@@ -237,6 +259,13 @@ export async function planSync(backend, onStatus) {
         const mine = local.get(key);
         const theirs = remote.get(key);
         const was = base ? base[key] : undefined;
+
+        if ((mine || theirs).kind === 'audio') {
+            const decision = audioSyncDecision(mine, theirs, was, downloadAudio);
+            if (!decision) unchanged++;
+            else add(decision.action, decision.action === SYNC_ACTION.UPLOAD ? mine : theirs, decision.reason, decision.conflict ? { conflict: true } : {});
+            continue;
+        }
 
         if (mine && theirs) {
             if (mine.fingerprint === theirs.fingerprint) { unchanged++; continue; }
@@ -344,16 +373,19 @@ export async function applySync(backend, plan, onProgress) {
     const result = { downloaded: 0, uploaded: 0, removedLocal: 0, removedRemote: 0, bytesSent: 0, pushed: false };
     const of = (action) => plan.changes.filter(c => c.action === action);
     const downloads = of(SYNC_ACTION.DOWNLOAD);
+    let carryForward = [];
 
     if (plan.latest) {
         const bundle = await loadIncrementalBundle(backend, newest);
-        const remoteById = new Map((bundle.files || []).map(f => [f.store ? soundFontKey(f.id) : fileKey(f.id), f]));
+        const remoteById = new Map((bundle.files || []).map(f => [itemKey(f), f]));
 
         let done = 0;
         await runPool(downloads, DOWNLOAD_CONCURRENCY, async (change) => {
             const item = remoteById.get(change.key);
             if (item) {
-                if (change.kind === 'soundfont') {
+                if (change.kind === 'audio') {
+                    await restoreAudioEntry(item, { wipe: true });
+                } else if (change.kind === 'soundfont') {
                     await restoreSoundFontEntry(item, { wipe: true });
                 } else {
                     const data = await item.fetchData();
@@ -374,6 +406,11 @@ export async function applySync(backend, plan, onProgress) {
             report('pull', ++done, downloads.length, `Receiving ${change.name}`);
         });
 
+        // Audio this device doesn't hold (it chose not to download it) stays in the snapshot it pushes next
+        const heldAudio = new Set((await listAudioFiles()).map(m => m.id));
+        const leaving = new Set(of(SYNC_ACTION.DELETE_REMOTE).filter(c => c.kind === 'audio').map(c => c.id));
+        carryForward = (bundle.files || []).filter(f => isAudioItem(f) && !heldAudio.has(f.id) && !leaving.has(f.id));
+
         for (const change of of(SYNC_ACTION.DELETE_LOCAL)) {
             if (change.kind === 'soundfont') await deleteSoundFont(change.id);
             else await removeLocalTab(change.id);
@@ -387,6 +424,7 @@ export async function applySync(backend, plan, onProgress) {
 
     if (plan.needsPush) {
         const pushed = await createIncrementalBackup(backend, {
+            carryForward,
             onProgress: ({ phase, current, total, name }) => report(
                 'push', current, total,
                 phase === 'manifest' ? 'Saving the new snapshot' : name ? `Sending ${name}` : 'Checking what the backup already holds'
@@ -399,7 +437,7 @@ export async function applySync(backend, plan, onProgress) {
     result.removedRemote = of(SYNC_ACTION.DELETE_REMOTE).length;
 
     // The baseline is whatever this device holds now, which matches the snapshot after a push or pull
-    const settled = localItems(await getAllStoredFiles(), await listSoundFonts());
+    const settled = localItems(await getAllStoredFiles(), await listSoundFonts(), await listAudioForBackup());
     saveSyncBase(backend, Object.fromEntries([...settled].map(([key, item]) => [key, item.fingerprint])));
     return result;
 }

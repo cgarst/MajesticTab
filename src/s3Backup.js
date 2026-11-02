@@ -46,7 +46,7 @@ export function createS3Backend(config = getS3Config()) {
             await runPool(entries, READ_CONCURRENCY, async (entry) => {
                 try {
                     const summary = (await (await s3Get(config, entry.id)).json()).summary;
-                    entry.counts = summary ? { tabs: summary.tabsCount || 0, soundFonts: summary.soundFontsCount || 0 } : null;
+                    entry.counts = summary ? { tabs: summary.tabsCount || 0, soundFonts: summary.soundFontsCount || 0, audio: summary.audioCount || 0 } : null;
                 } catch (_) { entry.counts = null; }
             });
             return entries;

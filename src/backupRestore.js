@@ -3,6 +3,11 @@
 // Bundles all settings, custom extensions, downloaded tabs local store, and library hierarchy.
 
 import { collectAudioSync, mergeAudioSync, clearAudioSync } from './audioSync/syncStore.js';
+import { clearAllAudioFiles } from './audioSync/audioFileStore.js';
+import {
+    AUDIO_BACKUP_STORE, iterateAudioBackupEntries, audioBackupPlan, audioBackupOverview, restoreAudioEntry,
+    isAudioDownloadEnabled, setAudioUploadEnabled, LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
+} from './audioSync/audioBackup.js';
 import {
     getDB, STORE_NAME, getAllStoredFiles, getStoredFileRecord, clearAllStoredFiles,
     arrayBufferToBase64, arrayBufferToBase64Async, base64ToArrayBuffer
@@ -84,6 +89,8 @@ const BACKUP_SETTINGS_KEYS = [
 /**
  * Format bytes to readable string (e.g. 1.2 MB)
  */
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
 export function formatBytes(bytes, decimals = 1) {
     if (!+bytes) return '0 B';
     const k = 1024;
@@ -175,10 +182,15 @@ async function* backupTextChunks(onProgress) {
 
     const settings = collectAllSettings();
     const extensions = collectExtensions();
+    // Audio files that fit in one file; larger ones belong in a snapshot or folder backup
+    const audioPlan = await audioBackupPlan();
 
     const summary = {
         tabsCount: fileMetas.length,
         soundFontsCount: soundFonts.length,
+        audioCount: audioPlan.count,
+        totalAudioSize: audioPlan.bytes,
+        audioTooLargeCount: audioPlan.tooLarge.length,
         totalTabsSize: fileMetas.reduce((acc, f) => acc + (f.size || 0), 0),
         songsCount: libraryData.songs?.length || 0,
         collectionsCount: libraryData.collections?.length || 0,
@@ -237,6 +249,13 @@ async function* backupTextChunks(onProgress) {
     for (let i = 0; i < soundFontEntries.length; i++) {
         yield (fileMetas.length + i > 0 ? ',' : '') + JSON.stringify(soundFontEntries[i]);
         soundFontEntries[i].dataBase64 = null;
+    }
+
+    // Audio files too, one at a time, tagged `store: 'audio'`
+    let written = fileMetas.length + soundFontEntries.length;
+    for await (const entry of iterateAudioBackupEntries()) {
+        yield (written > 0 ? ',' : '') + JSON.stringify(entry);
+        written++;
     }
 
     yield ']}}';
@@ -502,7 +521,9 @@ function inspectBackupContentSync(fileContent) {
         isFullBundle,
         exportedAt: formattedDate,
         rawExportedAt: parsed.exportedAt || null,
-        tabsCount: files.filter(f => f?.store !== SOUNDFONT_BACKUP_STORE).length,
+        tabsCount: files.filter(f => !f?.store).length,
+        audioCount: files.filter(f => f?.store === AUDIO_BACKUP_STORE).length,
+        audioBytes: files.filter(f => f?.store === AUDIO_BACKUP_STORE).reduce((acc, f) => acc + (f.size || 0), 0),
         totalTabsSize: totalSize,
         songsCount: songs.length,
         collectionsCount: collections.length,
@@ -578,6 +599,8 @@ async function inspectBackupBlob(file) {
                         exportedAt: formattedDate,
                         rawExportedAt,
                         tabsCount: summary.tabsCount ?? 0,
+                        audioCount: summary.audioCount ?? 0,
+                        audioBytes: summary.totalAudioSize ?? 0,
                         totalTabsSize: summary.totalTabsSize ?? 0,
                         songsCount: summary.songsCount ?? 0,
                         collectionsCount: summary.collectionsCount ?? 0,
@@ -672,29 +695,31 @@ export function applyRestoredSettings(settings, { wipe }) {
  * Restore a backup bundle with either 'merge' or 'wipe' mode
  * Supports File/Blob for ultra-low-memory streaming restore, or parsed object.
  * @param {object|Blob|File} bundleOrFile - Backup File/Blob or parsed bundle object
- * @param {object} options - { mode: 'merge' | 'wipe', onProgress?: function(current: number, total: number): void }
+ * @param {object} options - { mode: 'merge' | 'wipe', onProgress?: function(current: number, total: number): void,
+ *   restoreAudio?: boolean } `restoreAudio` false leaves audio files out of the restore (and out of a wipe)
  * @returns {Promise<object>} Results of the restore operation
  */
-export async function restoreBackup(bundleOrFile, { mode = 'merge', onProgress } = {}) {
+export async function restoreBackup(bundleOrFile, { mode = 'merge', onProgress, restoreAudio = isAudioDownloadEnabled() } = {}) {
     if (!bundleOrFile) {
         throw new Error('Invalid backup bundle provided.');
     }
 
     if (bundleOrFile instanceof Blob || (typeof File !== 'undefined' && bundleOrFile instanceof File)) {
-        return await restoreBackupStream(bundleOrFile, { mode, onProgress });
+        return await restoreBackupStream(bundleOrFile, { mode, onProgress, restoreAudio });
     }
 
     const bundle = bundleOrFile.data || bundleOrFile;
-    return await restoreBackupObject(bundle, { mode, onProgress });
+    return await restoreBackupObject(bundle, { mode, onProgress, restoreAudio });
 }
 
-export async function restoreBackupStream(file, { mode = 'merge', onProgress } = {}) {
+export async function restoreBackupStream(file, { mode = 'merge', onProgress, restoreAudio = true } = {}) {
     const wipe = mode === 'wipe';
     const db = await getDB();
 
     if (wipe) {
         await clearAllStoredFiles();
         await clearAllSoundFonts();
+        if (restoreAudio) await clearAllAudioFiles();
         await clearAllLibraryData();
         for (const key of BACKUP_SETTINGS_KEYS) {
             localStorage.removeItem(key);
@@ -723,6 +748,8 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
     let filesImported = 0;
     let filesSkipped = 0;
     let soundFontsImported = 0;
+    let audioImported = 0;
+    let audioSkipped = 0;
     let libraryResults = { collectionsCount: 0, songsCount: 0, recentsCount: 0 };
     let extensionsImported = 0;
     let settingsApplied = 0;
@@ -747,7 +774,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
                     inFiles = true;
                     buffer = buffer.slice(arrayStart + 1);
 
-                    totalFilesExpected = (headerObj.summary?.tabsCount || 0) + (headerObj.summary?.soundFontsCount || 0);
+                    totalFilesExpected = (headerObj.summary?.tabsCount || 0) + (headerObj.summary?.soundFontsCount || 0) + (headerObj.summary?.audioCount || 0);
 
                     if (headerObj.library && typeof headerObj.library === 'object') {
                         libraryResults = await importLibraryData(headerObj.library, { wipe });
@@ -814,7 +841,13 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
                     buffer = buffer.slice(endIdx + 1);
                     const item = JSON.parse(fileJson);
 
-                    if (item && item.store === SOUNDFONT_BACKUP_STORE && item.id && item.name && item.dataBase64) {
+                    if (item && item.store === AUDIO_BACKUP_STORE) {
+                        if (restoreAudio && item.id && item.name && item.dataBase64 && await restoreAudioEntry(item, { wipe })) audioImported++;
+                        else audioSkipped++;
+                        if (typeof onProgress === 'function') {
+                            onProgress(filesImported + filesSkipped + soundFontsImported + audioImported + audioSkipped, totalFilesExpected);
+                        }
+                    } else if (item && item.store === SOUNDFONT_BACKUP_STORE && item.id && item.name && item.dataBase64) {
                         if (await restoreSoundFontEntry(item, { wipe })) soundFontsImported++;
                         else filesSkipped++;
                         if (typeof onProgress === 'function') {
@@ -916,6 +949,8 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
         filesImported,
         filesSkipped,
         soundFontsImported,
+        audioImported,
+        audioSkipped,
         collectionsImported: libraryResults.collectionsCount,
         songsImported: libraryResults.songsCount,
         recentsCount: libraryResults.recentsCount,
@@ -924,13 +959,14 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress } =
     };
 }
 
-async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) {
+async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restoreAudio = true } = {}) {
     const wipe = mode === 'wipe';
     const db = await getDB();
 
     if (wipe) {
         await clearAllStoredFiles();
         await clearAllSoundFonts();
+        if (restoreAudio) await clearAllAudioFiles();
         await clearAllLibraryData();
 
         for (const key of BACKUP_SETTINGS_KEYS) {
@@ -950,6 +986,8 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
     let filesImported = 0;
     let filesSkipped = 0;
     let soundFontsImported = 0;
+    let audioImported = 0;
+    let audioSkipped = 0;
 
     const files = bundle.fileStore?.files || (Array.isArray(bundle.files) ? bundle.files : []);
     const totalFiles = files.length;
@@ -965,6 +1003,12 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
 
         if (i > 0 && i % 10 === 0) {
             await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        if (item.store === AUDIO_BACKUP_STORE) {
+            if (restoreAudio && await restoreAudioEntry(item, { wipe })) audioImported++;
+            else audioSkipped++;
+            continue;
         }
 
         if (item.store === SOUNDFONT_BACKUP_STORE) {
@@ -1041,6 +1085,8 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress } = {}) 
         filesImported,
         filesSkipped,
         soundFontsImported,
+        audioImported,
+        audioSkipped,
         collectionsImported: libraryResults.collectionsCount,
         songsImported: libraryResults.songsCount,
         recentsCount: libraryResults.recentsCount,
@@ -1056,6 +1102,7 @@ export async function deleteAllAppData() {
     // 1. Wipe IndexedDB stored files and library
     await clearAllStoredFiles();
     await clearAllSoundFonts();
+    await clearAllAudioFiles();
     await clearAllLibraryData();
     await ensureDefaultCollection();
 
@@ -1439,6 +1486,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <!-- Incremental: what this backup will do -->
           <div class="backup-summary-box p-3 rounded-3 mb-3" id="backupIncrementalPreview" style="display:none;" aria-live="polite"></div>
 
+          <!-- Audio files: whether they go with the backup -->
+          <div class="backup-summary-box p-3 rounded-3 mb-3" id="backupAudioBox" style="display:none;" aria-live="polite"></div>
+
           <!-- Backup Progress Bar -->
           <div id="backupProgressContainer" class="p-2 rounded-2 mb-2" style="display:none; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
             <div class="d-flex justify-content-between text-white small mb-1" style="font-size: 0.75rem;">
@@ -1570,6 +1620,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
 
             <!-- Snapshot restore preview (incremental backups only) -->
             <div class="backup-summary-box p-3 rounded-3 mb-3" id="restoreIncrementalPreview" style="display:none;" aria-live="polite"></div>
+            <div class="backup-summary-box p-3 rounded-3 mb-3" id="restoreAudioBox" style="display:none;" aria-live="polite"></div>
 
             <!-- Restore Mode Options -->
             <label class="form-label small fw-semibold text-white-50 mb-2 d-block">How should this be restored?</label>
@@ -1597,7 +1648,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                     <span class="badge bg-danger bg-opacity-25 text-danger border border-danger-subtle py-0 px-2" style="font-size:0.62rem;">Destructive</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
-                    Erases all current local stored tabs, library entries, file converters, and settings, and replaces them cleanly with this backup.
+                    Erases all current local stored tabs, library entries, file converters, settings and audio files (unless you leave audio out above), and replaces them cleanly with this backup.
                   </div>
                 </div>
               </label>
@@ -2184,6 +2235,42 @@ function attachModalHandlers(modal, options = {}) {
         return { status: 'ready', backend: folders.createFolderBackend(handle) };
     };
 
+    // Audio files are the big part of a backup, so say how much goes and let the user keep it all on this device
+    const backupAudioBox = modal.querySelector('#backupAudioBox');
+    const renderAudioBox = async () => {
+        if (!backupAudioBox) return;
+        const o = await audioBackupOverview();
+        if (!o.total) { backupAudioBox.style.display = 'none'; return; }
+        backupAudioBox.style.display = 'block';
+        const single = getBackupFormat() === 'single';
+        const plan = single && o.enabled ? await audioBackupPlan() : null;
+        const lines = [];
+        if (!o.enabled) {
+            lines.push('Audio files stay on this device and are not backed up.');
+        } else {
+            lines.push(`${plural(o.count, 'audio file')} (${formatBytes(o.bytes)}) will be included${o.excluded ? `, ${o.excluded} kept out` : ''}. Audio goes only to the backup destination you choose here, never to MajesticTab.`);
+            if (plan?.tooLarge.length) lines.push(`${plural(plan.tooLarge.length, 'file')} over ${formatBytes(SINGLE_FILE_AUDIO_LIMIT)} cannot go into a single file. Use incremental snapshots to include ${plan.tooLarge.length === 1 ? 'it' : 'them'}.`);
+            if (o.bytes >= LARGE_AUDIO_UPLOAD_BYTES) lines.push('That is a lot to send the first time. Later backups send only new or changed audio.');
+            if (o.count < o.total && o.excluded) lines.push('Choose which files to keep out in the Audio File panel.');
+        }
+        backupAudioBox.innerHTML = `
+            <div class="d-flex align-items-start justify-content-between gap-2">
+                <div class="min-w-0">
+                    <div class="small fw-semibold text-white"><i class="bi-file-earmark-music text-info me-1"></i> Audio files</div>
+                    ${lines.map(l => `<div class="small text-white-50 mt-1" style="font-size:0.75rem;">${escapeHtml(l)}</div>`).join('')}
+                </div>
+                <div class="form-check form-switch mb-0 flex-shrink-0">
+                    <input class="form-check-input theme-switch" type="checkbox" id="backupAudioSwitch" ${o.enabled ? 'checked' : ''} aria-label="Include audio files in backups">
+                </div>
+            </div>`;
+    };
+    backupAudioBox?.addEventListener('change', (e) => {
+        if (e.target.id !== 'backupAudioSwitch') return;
+        setAudioUploadEnabled(e.target.checked);
+        renderAudioBox();
+        if (getBackupFormat() === 'incremental') renderIncrementalPreview();
+    });
+
     let previewRequest = 0;
     const renderIncrementalPreview = async () => {
         if (!backupIncrementalPreview) return;
@@ -2224,7 +2311,12 @@ function attachModalHandlers(modal, options = {}) {
                 ? `<i class="bi-check-circle text-success me-1"></i> Last backup ${escapeHtml(when)} (${p.backupCount} saved)`
                 : `<i class="bi-exclamation-circle text-warning me-1"></i> No backup in ${where} yet. This will be your first.`;
             const stat = changeStatHtml;
-            const nothing = p.latest && !p.added && !p.modified && !p.removed;
+            const nothing = p.latest && !p.added && !p.modified && !p.removed && !p.audio.added && !p.audio.modified;
+            const audioLine = p.audio.count
+                ? `<div class="small text-white-50 mt-1" style="font-size:0.75rem;"><i class="bi-file-earmark-music me-1"></i>${p.audio.added + p.audio.modified
+                    ? `${plural(p.audio.added + p.audio.modified, 'audio file')} new or changed (${formatBytes(p.audio.bytesToSend)} to send)`
+                    : 'No new audio'}${p.audio.unchanged ? `, ${p.audio.unchanged} already backed up` : ''}.</div>`
+                : '';
             note(`
                 <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
                     <div class="min-w-0">
@@ -2242,7 +2334,8 @@ function attachModalHandlers(modal, options = {}) {
                 <div class="small text-white-50 mt-2" style="font-size:0.75rem;">
                     ${nothing ? 'No tab changes. Library and settings are still saved as a new snapshot.' : `About ${formatBytes(p.bytesToSend)} to save. Library and settings are saved with every snapshot.`}
                     ${p.removed ? ' Removed tabs stay in older snapshots.' : ''}
-                </div>`);
+                </div>
+                ${audioLine}`);
         } catch (err) {
             note(`<div class="small text-warning"><i class="bi-exclamation-triangle me-1"></i> Could not check ${where}: ${escapeHtml(err.message)}</div>`);
         }
@@ -2314,6 +2407,7 @@ function attachModalHandlers(modal, options = {}) {
             ? '<i class="bi-cloud-arrow-up"></i> Back Up Changes'
             : '<i class="bi-cloud-arrow-up"></i> Create &amp; Save Backup';
         if (incremental && refresh) renderIncrementalPreview();
+        renderAudioBox();
     };
     modal.querySelectorAll('input[name="backupTargetProvider"]').forEach(el =>
         el.addEventListener('change', () => syncBackupFormat({ providerChanged: true })));
@@ -2655,7 +2749,7 @@ function attachModalHandlers(modal, options = {}) {
             const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
             const subtitle = b.incremental
                 ? (b.counts
-                    ? [plural(b.counts.tabs, 'tab'), b.counts.soundFonts ? plural(b.counts.soundFonts, 'SoundFont') : null].filter(Boolean).join(' • ')
+                    ? [plural(b.counts.tabs, 'tab'), b.counts.soundFonts ? plural(b.counts.soundFonts, 'SoundFont') : null, b.counts.audio ? plural(b.counts.audio, 'audio file') : null].filter(Boolean).join(' • ')
                     : 'Incremental snapshot')
                 : `${dateStr} • ${sizeStr}`;
 
@@ -2872,12 +2966,46 @@ function attachModalHandlers(modal, options = {}) {
     // For snapshot restores, show what this device would gain or lose; follows the Merge / Wipe choice
     const restoreIncrementalPreview = modal.querySelector('#restoreIncrementalPreview');
     let restorePreviewData = null;
+    // Audio can be left out of a restore (for example when the device is short of space): sync points are kept
+    // either way, and the files can be relinked later
+    let restoreAudioChoice = isAudioDownloadEnabled();
+    let restoreInspection = null;
+    let restoreAudioInfo = null;
+    const restoreAudioBox = modal.querySelector('#restoreAudioBox');
+    const renderRestoreAudioBox = (info) => {
+        restoreAudioInfo = info;
+        if (!restoreAudioBox) return;
+        if (!info || !info.count) { restoreAudioBox.style.display = 'none'; return; }
+        restoreAudioBox.style.display = 'block';
+        const detail = `${plural(info.count, 'audio file')}, ${formatBytes(info.bytes)}${info.onDevice ? ` (${info.onDevice} already on this device)` : ''}`;
+        restoreAudioBox.innerHTML = `
+            <div class="d-flex align-items-start justify-content-between gap-2">
+                <div class="min-w-0">
+                    <div class="small fw-semibold text-white"><i class="bi-file-earmark-music text-info me-1"></i> Restore audio files</div>
+                    <div class="small text-white-50 mt-1" style="font-size:0.75rem;">${escapeHtml(detail)}. ${restoreAudioChoice
+                        ? 'They are downloaded with the rest.'
+                        : 'They are left out. Sync points are kept, and you can choose the files again later from the Audio File panel.'}</div>
+                </div>
+                <div class="form-check form-switch mb-0 flex-shrink-0">
+                    <input class="form-check-input theme-switch" type="checkbox" id="restoreAudioSwitch" ${restoreAudioChoice ? 'checked' : ''} aria-label="Restore audio files">
+                </div>
+            </div>`;
+    };
+    restoreAudioBox?.addEventListener('change', (e) => {
+        if (e.target.id !== 'restoreAudioSwitch') return;
+        restoreAudioChoice = e.target.checked;
+        renderRestoreAudioBox(restoreAudioInfo);
+    });
     const renderRestorePreview = async () => {
         if (!restoreIncrementalPreview) return;
         const bundle = currentBackupFile;
         const isSnapshot = Array.isArray(bundle?.files) && bundle.files.some(f => f.blob);
         restoreIncrementalPreview.style.display = isSnapshot ? 'block' : 'none';
-        if (!isSnapshot) { restorePreviewData = null; return; }
+        if (!isSnapshot) {
+            restorePreviewData = null;
+            renderRestoreAudioBox(restoreInspection?.audioCount ? { count: restoreInspection.audioCount, bytes: restoreInspection.audioBytes || 0, onDevice: 0 } : null);
+            return;
+        }
 
         try {
             if (!restorePreviewData || restorePreviewData.bundle !== bundle) {
@@ -2891,6 +3019,10 @@ function attachModalHandlers(modal, options = {}) {
             const stats = wipe
                 ? [changeStatHtml(p.total, 'Tabs restored', 'text-success'), changeStatHtml(p.localOnly, 'Erased from device', 'text-warning')]
                 : [changeStatHtml(p.missing, 'Tabs to restore', 'text-success'), changeStatHtml(p.same + p.differs, 'Already on device', 'text-white'), changeStatHtml(p.localOnly, 'Only on device (kept)', 'text-info')];
+            const a = p.audio;
+            renderRestoreAudioBox(a.total ? {
+                count: wipe ? a.total : a.missing, bytes: wipe ? a.totalBytes : a.missingBytes, onDevice: wipe ? 0 : a.same
+            } : null);
             const bytes = wipe ? p.totalBytes : p.missingBytes;
             const note = wipe
                 ? `About ${formatBytes(bytes)} to restore. Everything currently stored on this device is replaced.`
@@ -2947,6 +3079,7 @@ function attachModalHandlers(modal, options = {}) {
 
             currentBackupFile = file;
             currentParsedBackup = inspection.data || inspection;
+            restoreInspection = inspection;
 
             // Populate Inspection Card
             const filenameLabel = modal.querySelector('#restoreFilenameLabel');
@@ -3030,6 +3163,7 @@ function attachModalHandlers(modal, options = {}) {
         try {
             const results = await restoreBackup(currentBackupFile || currentParsedBackup, {
                 mode,
+                restoreAudio: restoreAudioChoice,
                 onProgress: (current, total) => {
                     if (total > 0) {
                         restoreStatusAlert.textContent = `Restoring tab ${current} of ${total}...`;
@@ -3043,6 +3177,8 @@ function attachModalHandlers(modal, options = {}) {
             const details = [];
             if (results.filesImported > 0) details.push(`${results.filesImported} tabs imported`);
             if (results.soundFontsImported > 0) details.push(`${results.soundFontsImported} SoundFonts imported`);
+            if (results.audioImported > 0) details.push(`${results.audioImported} audio files imported`);
+            if (results.audioSkipped > 0 && !restoreAudioChoice) details.push(`${results.audioSkipped} audio files left out`);
             if (results.filesSkipped > 0) details.push(`${results.filesSkipped} existing tabs kept`);
             if (results.songsImported > 0) details.push(`${results.songsImported} library songs added/merged`);
             if (results.extensionsImported > 0) details.push(`${results.extensionsImported} file converters updated`);

@@ -1,7 +1,7 @@
 // incrementalBackup.js
 // Incremental snapshot backups, independent of where they are stored. A storage backend
 // (Google Drive folder, local folder) holds:
-//   blobs/<sha256>.bin                      raw bytes of one tab or SoundFont, immutable
+//   blobs/<sha256>.bin                      raw bytes of one tab, SoundFont or audio file, immutable
 //   manifests/manifest-<timestamp>.json     settings, library and a file table pointing at blobs
 // A backup only stores blobs the backend doesn't have yet and writes its manifest last, so an
 // interrupted run leaves earlier manifests fully restorable.
@@ -21,6 +21,10 @@ import { getAllStoredFiles, getStoredFileRecord } from './fileStore.js';
 import { getAllLibraryData } from './libraryStore.js';
 import { listSoundFonts, getSoundFontData, SOUNDFONT_BACKUP_STORE } from './soundFontStore.js';
 import { collectAllSettings, collectExtensions } from './backupRestore.js';
+import { getAudioFile, listAudioFiles } from './audioSync/audioFileStore.js';
+import {
+    AUDIO_BACKUP_STORE, listAudioForBackup, audioManifestEntry, audioItemFingerprint, isAudioItem
+} from './audioSync/audioBackup.js';
 
 export const ROOT_FOLDER_NAME = 'MajesticTab Backup';
 export const BLOBS_FOLDER_NAME = 'blobs';
@@ -84,6 +88,17 @@ export function soundFontFingerprint(meta) {
     return `${meta.size || 0}:${meta.addedAt || 0}`;
 }
 
+/** Key and change detector of a manifest item, by what kind it is (tab, SoundFont or audio file). */
+export function itemKey(item) {
+    if (isAudioItem(item)) return `a:${item.id}`;
+    return item.store ? `s:${item.id}` : `f:${item.id}`;
+}
+
+export function itemFingerprint(item) {
+    if (isAudioItem(item)) return audioItemFingerprint(item);
+    return item.store ? soundFontFingerprint(item) : fileFingerprint(item);
+}
+
 // --- manifest names ---
 
 export function manifestNameFor(date) {
@@ -106,9 +121,11 @@ function exportedAtFromManifestName(name) {
  * @param {object} backend
  * @param {object} [options]
  * @param {function({phase: string, current: number, total: number, bytesSent: number, uploaded?: number, reused?: number, name?: string}): void} [options.onProgress]
+ * @param {Array} [options.carryForward] audio items of the previous snapshot that this device doesn't hold, kept in
+ *   the new snapshot as they are (their blobs are already in the backend) so a device that skipped them doesn't drop them
  * @returns {Promise<{manifestName: string, uploaded: number, reused: number, bytesSent: number, pruned: number}>}
  */
-export async function createIncrementalBackup(backend, { onProgress } = {}) {
+export async function createIncrementalBackup(backend, { onProgress, carryForward = [] } = {}) {
     const report = (info) => { if (typeof onProgress === 'function') onProgress(info); };
 
     report({ phase: 'scan', current: 0, total: 0, bytesSent: 0 });
@@ -116,10 +133,11 @@ export async function createIncrementalBackup(backend, { onProgress } = {}) {
     const remote = await backend.listBlobs();
     const remoteHashes = new Set(remote.map(f => blobHash(f.name)));
 
-    const [fileMetas, libraryData, soundFonts] = await Promise.all([
+    const [fileMetas, libraryData, soundFonts, audioMetas] = await Promise.all([
         getAllStoredFiles(),
         getAllLibraryData(),
-        listSoundFonts()
+        listSoundFonts(),
+        listAudioForBackup()
     ]);
 
     // Each source knows how to read its bytes lazily and which cache key proves they're unchanged
@@ -137,6 +155,13 @@ export async function createIncrementalBackup(backend, { onProgress } = {}) {
             cacheKey: `s:${meta.id}`,
             fingerprint: soundFontFingerprint(meta),
             read: async () => getSoundFontData(meta.id)
+        })),
+        ...audioMetas.map(meta => ({
+            kind: 'audio',
+            meta,
+            cacheKey: `a:${meta.id}`,
+            fingerprint: audioItemFingerprint(meta),
+            read: async () => (await getAudioFile(meta.id))?.data || null
         }))
     ];
 
@@ -148,7 +173,7 @@ export async function createIncrementalBackup(backend, { onProgress } = {}) {
     let reused = 0;
     let bytesSent = 0;
 
-    await runPool(sources, UPLOAD_CONCURRENCY, async (source) => {
+    const processSource = async (source) => {
         let hash = hashCache[source.cacheKey]?.fingerprint === source.fingerprint
             ? hashCache[source.cacheKey].hash
             : null;
@@ -177,16 +202,23 @@ export async function createIncrementalBackup(backend, { onProgress } = {}) {
 
         current++;
         report({ phase: 'upload', current, total: sources.length, bytesSent, uploaded, reused, name: source.meta.name });
-    });
+    };
+
+    // Audio files can be hundreds of megabytes: one at a time, after the small files, so memory stays bounded
+    await runPool(sources.filter(source => source.kind !== 'audio'), UPLOAD_CONCURRENCY, processSource);
+    await runPool(sources.filter(source => source.kind === 'audio'), 1, processSource);
 
     saveHashCache(nextCache);
 
     const files = [];
     const soundFontEntries = [];
+    const audioEntries = [];
     for (const source of sources) {
         if (!source.hash) continue;
         const meta = source.meta;
-        if (source.kind === 'file') {
+        if (source.kind === 'audio') {
+            audioEntries.push(audioManifestEntry(meta, source.hash));
+        } else if (source.kind === 'file') {
             files.push({
                 id: meta.id,
                 name: meta.name,
@@ -210,6 +242,15 @@ export async function createIncrementalBackup(backend, { onProgress } = {}) {
         }
     }
 
+    // Audio this device doesn't hold stays in the snapshot as it was
+    const heldIds = new Set(audioEntries.map(e => e.id));
+    for (const item of carryForward) {
+        if (isAudioItem(item) && item.blob && !heldIds.has(item.id)) {
+            const { fetchData, dataBase64, ...kept } = item;
+            audioEntries.push(kept);
+        }
+    }
+
     const extensions = collectExtensions();
     const exportedAt = new Date();
     const manifest = {
@@ -220,6 +261,8 @@ export async function createIncrementalBackup(backend, { onProgress } = {}) {
         summary: {
             tabsCount: files.length,
             soundFontsCount: soundFontEntries.length,
+            audioCount: audioEntries.length,
+            totalAudioSize: audioEntries.reduce((acc, f) => acc + (f.size || 0), 0),
             totalTabsSize: files.reduce((acc, f) => acc + (f.size || 0), 0),
             songsCount: libraryData.songs?.length || 0,
             collectionsCount: libraryData.collections?.length || 0,
@@ -229,13 +272,13 @@ export async function createIncrementalBackup(backend, { onProgress } = {}) {
         settings: collectAllSettings(),
         extensions,
         library: libraryData,
-        files: [...files, ...soundFontEntries]
+        files: [...files, ...soundFontEntries, ...audioEntries]
     };
 
     // Written last: until it lands, the previous manifest remains the newest restorable state
     report({ phase: 'manifest', current: sources.length, total: sources.length, bytesSent });
     const manifestName = manifestNameFor(exportedAt);
-    const counts = { tabs: files.length, soundFonts: soundFontEntries.length, songs: manifest.summary.songsCount };
+    const counts = { tabs: files.length, soundFonts: soundFontEntries.length, audio: audioEntries.length, songs: manifest.summary.songsCount };
     await withRetry(() => backend.putManifest(manifestName, JSON.stringify(manifest), counts));
 
     let pruned = 0;
@@ -249,63 +292,91 @@ export async function createIncrementalBackup(backend, { onProgress } = {}) {
 }
 
 /**
- * Compare local tabs and SoundFonts with the newest snapshot without writing anything.
- * Files are matched by id and judged changed when their size/date fingerprint differs.
+ * Compare local tabs, SoundFonts and audio files with the newest snapshot without writing anything.
+ * Files are matched by id and judged changed when their size/date fingerprint differs. Audio is counted apart
+ * (`audio`) so its size can be shown and warned about; `bytesToSend` covers everything.
  * @returns {Promise<{latest: {name: string, exportedAt: string}|null, added: number, modified: number,
- *   removed: number, unchanged: number, bytesToSend: number, backupCount: number}>}
+ *   removed: number, unchanged: number, bytesToSend: number, backupCount: number,
+ *   audio: {count: number, bytes: number, added: number, modified: number, unchanged: number, bytesToSend: number}}>}
  */
 export async function previewIncrementalBackup(backend) {
-    const [backups, fileMetas, soundFonts] = await Promise.all([
+    const [backups, fileMetas, soundFonts, audioMetas] = await Promise.all([
         listIncrementalBackups(backend),
         getAllStoredFiles(),
-        listSoundFonts()
+        listSoundFonts(),
+        listAudioForBackup()
     ]);
     const local = [
         ...fileMetas.map(m => ({ key: `f:${m.id}`, fingerprint: fileFingerprint(m), size: m.size || 0 })),
         ...soundFonts.map(m => ({ key: `s:${m.id}`, fingerprint: soundFontFingerprint(m), size: m.size || 0 }))
     ];
-    const summary = { latest: null, added: 0, modified: 0, removed: 0, unchanged: 0, bytesToSend: 0, backupCount: backups.length };
+    const localAudio = audioMetas.map(m => ({ key: `a:${m.id}`, fingerprint: audioItemFingerprint(m), size: m.size || 0 }));
+    const audio = {
+        count: localAudio.length, bytes: localAudio.reduce((acc, f) => acc + f.size, 0),
+        added: 0, modified: 0, unchanged: 0, bytesToSend: 0
+    };
+    const summary = { latest: null, added: 0, modified: 0, removed: 0, unchanged: 0, bytesToSend: 0, backupCount: backups.length, audio };
 
     if (!backups.length) {
         summary.added = local.length;
         summary.bytesToSend = local.reduce((acc, f) => acc + f.size, 0);
+        audio.added = localAudio.length;
+        audio.bytesToSend = audio.bytes;
+        summary.bytesToSend += audio.bytesToSend;
         return summary;
     }
 
     const manifest = await backend.readManifest(backups[0]);
     summary.latest = { name: backups[0].name, exportedAt: backups[0].exportedAt };
 
-    const previous = new Map((manifest.files || []).map(item => [
-        item.store ? `s:${item.id}` : `f:${item.id}`,
-        item.store ? soundFontFingerprint(item) : fileFingerprint(item)
-    ]));
+    const previous = new Map((manifest.files || []).map(item => [itemKey(item), itemFingerprint(item)]));
     for (const item of local) {
         if (!previous.has(item.key)) { summary.added++; summary.bytesToSend += item.size; }
         else if (previous.get(item.key) !== item.fingerprint) { summary.modified++; summary.bytesToSend += item.size; }
         else summary.unchanged++;
         previous.delete(item.key);
     }
-    summary.removed = previous.size;
+    for (const item of localAudio) {
+        if (!previous.has(item.key)) { audio.added++; audio.bytesToSend += item.size; }
+        else if (previous.get(item.key) !== item.fingerprint) { audio.modified++; audio.bytesToSend += item.size; }
+        else audio.unchanged++;
+        previous.delete(item.key);
+    }
+    summary.bytesToSend += audio.bytesToSend;
+    // What is left is in the snapshot but not on this device: removed tabs and SoundFonts. Audio left out of
+    // the new snapshot (excluded, or sending turned off) is not counted as a removal here.
+    summary.removed = [...previous.keys()].filter(key => !key.startsWith('a:')).length;
     return summary;
 }
 
 /**
  * Compare a loaded snapshot with what is on this device, for the restore preview.
  * Merge skips tabs already on the device, so only `missing` is restored; wipe replaces everything.
+ * Audio files are counted apart in `audio`, since they can be left out of a restore.
  * @param {{files?: Array}} bundle From loadIncrementalBundle
  * @returns {Promise<{total: number, totalBytes: number, missing: number, missingBytes: number,
- *   same: number, differs: number, localOnly: number}>}
+ *   same: number, differs: number, localOnly: number,
+ *   audio: {total: number, totalBytes: number, missing: number, missingBytes: number, same: number, localOnly: number}}>}
  */
 export async function previewIncrementalRestore(bundle) {
-    const [fileMetas, soundFonts] = await Promise.all([getAllStoredFiles(), listSoundFonts()]);
+    const [fileMetas, soundFonts, audioMetas] = await Promise.all([getAllStoredFiles(), listSoundFonts(), listAudioFiles()]);
     const local = new Map([
         ...fileMetas.map(m => [`f:${m.id}`, fileFingerprint(m)]),
         ...soundFonts.map(m => [`s:${m.id}`, soundFontFingerprint(m)])
     ]);
-    const summary = { total: 0, totalBytes: 0, missing: 0, missingBytes: 0, same: 0, differs: 0, localOnly: 0 };
+    const localAudio = new Map(audioMetas.map(m => [`a:${m.id}`, audioItemFingerprint(m)]));
+    const audio = { total: 0, totalBytes: 0, missing: 0, missingBytes: 0, same: 0, localOnly: 0 };
+    const summary = { total: 0, totalBytes: 0, missing: 0, missingBytes: 0, same: 0, differs: 0, localOnly: 0, audio };
     for (const item of (bundle.files || []).filter(f => f.blob)) {
-        const key = item.store ? `s:${item.id}` : `f:${item.id}`;
-        const fingerprint = item.store ? soundFontFingerprint(item) : fileFingerprint(item);
+        const key = itemKey(item);
+        if (isAudioItem(item)) {
+            audio.total++;
+            audio.totalBytes += item.size || 0;
+            if (!localAudio.has(key)) { audio.missing++; audio.missingBytes += item.size || 0; } else audio.same++;
+            localAudio.delete(key);
+            continue;
+        }
+        const fingerprint = itemFingerprint(item);
         summary.total++;
         summary.totalBytes += item.size || 0;
         if (!local.has(key)) { summary.missing++; summary.missingBytes += item.size || 0; }
@@ -314,6 +385,7 @@ export async function previewIncrementalRestore(bundle) {
         local.delete(key);
     }
     summary.localOnly = local.size;
+    audio.localOnly = localAudio.size;
     return summary;
 }
 

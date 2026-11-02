@@ -152,7 +152,7 @@ export function createDriveBackend() {
                 // Counts ride along as Drive properties, so listing needs no manifest downloads.
                 // Absent on snapshots written before they were recorded.
                 counts: f.appProperties?.tabs != null
-                    ? { tabs: Number(f.appProperties.tabs), soundFonts: Number(f.appProperties.soundFonts) || 0 }
+                    ? { tabs: Number(f.appProperties.tabs), soundFonts: Number(f.appProperties.soundFonts) || 0, audio: Number(f.appProperties.audio) || 0 }
                     : null
             }));
         },
@@ -161,6 +161,7 @@ export function createDriveBackend() {
             const appProperties = {
                 tabs: String(counts.tabs),
                 soundFonts: String(counts.soundFonts),
+                audio: String(counts.audio || 0),
                 songs: String(counts.songs)
             };
             return multipartUpload(name, folders.manifestsId, 'application/json', text, { appProperties });

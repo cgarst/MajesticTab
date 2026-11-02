@@ -10,8 +10,10 @@ import { setActiveAudioMode, updateGlobalAudioControls } from '../utils/navigati
 import { createLocalAudioSource } from './localAudioSource.js';
 import { decodePeaks } from './peaks.js';
 import {
-    saveAudioFile, listAudioFilesForSong, getAudioFile, unlinkAudioFile, fingerprintOf, MAX_AUDIO_BYTES
+    saveAudioFile, listAudioFilesForSong, getAudioFile, unlinkAudioFile, fingerprintOf, MAX_AUDIO_BYTES,
+    setAudioExcluded, setAudioPeaks
 } from './audioFileStore.js';
+import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
 import { listRecords, loadRecord, saveRecord } from './syncStore.js';
 import { mountSyncRow } from './audioSyncUi.js';
 import { formatTime } from './syncEdit.js';
@@ -133,6 +135,18 @@ async function refreshFiles() {
     if (state.isOpen && state.currentId && !state.source) ensureSource();
 }
 
+const peaksTried = new Set();
+
+async function rebuildPeaks(id, data) {
+    const analysed = await decodePeaks(data);
+    if (!analysed) return;
+    await setAudioPeaks(id, analysed.peaks, analysed.durationMs);
+    if (state.currentId === id) {
+        state.peaks = analysed.peaks;
+        drawWave();
+    }
+}
+
 /** Loads the selected file from storage into a playable source. Resolves true when a source is ready. */
 let loading = null;
 function ensureSource() {
@@ -162,6 +176,11 @@ function ensureSource() {
             state.source = source;
             state.meta = meta;
             state.peaks = rec.peaks || null;
+            // A file restored from a backup comes without its waveform; build it once
+            if (!rec.peaks && !peaksTried.has(id)) {
+                peaksTried.add(id);
+                rebuildPeaks(id, rec.data);
+            }
             source.setRate(state.rate);
             source.on((e) => {
                 if (e.type === 'state') {
@@ -261,6 +280,11 @@ async function finishAdd(meta) {
     setStatus('');
 }
 
+async function toggleExcluded(file) {
+    await setAudioExcluded(file.id, !file.excludeFromBackup);
+    await refreshFiles();
+}
+
 async function removeFile(id) {
     if (!confirm('Remove this audio file from this device? Its sync points are kept.')) return;
     if (id === state.currentId) destroySource();
@@ -315,7 +339,13 @@ function render() {
         detail: `${f.durationMs ? clock(f.durationMs) : 'Unknown length'} · ${megabytes(f.size)}`,
         selected: f.id === state.currentId,
         onSelect: () => selectFile(f.id),
-        actions: [actionButton('Remove this file', 'bi-trash', null, () => removeFile(f.id))]
+        actions: [
+            actionButton(
+                f.excludeFromBackup ? 'Kept out of backups and sync. Click to include it.' : 'Included in backups and sync. Click to keep it out.',
+                f.excludeFromBackup ? 'bi-cloud-slash' : 'bi-cloud-check', null, () => toggleExcluded(f)
+            ),
+            actionButton('Remove this file', 'bi-trash', null, () => removeFile(f.id))
+        ]
     }));
     for (const m of state.missing) {
         rows.push(fileRow({
@@ -505,6 +535,8 @@ export function initAudioFilePlayer() {
         $(id)?.addEventListener('click', () => { if (state.isOpen) toggleAudioFilePanel(false); });
     }
     window.addEventListener('resize', () => { positionPanel(); drawWave(); });
+    // A restore or sync can bring files in
+    window.addEventListener(AUDIO_FILES_CHANGED_EVENT, () => refreshFiles());
 
     mountSyncRow({
         prefix: 'af',
