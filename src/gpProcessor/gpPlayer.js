@@ -1665,6 +1665,11 @@ export async function warmUpAfterLoad(onWarming) {
     }
 }
 
+/** The attached AlphaTab api and its score, or nulls. Read-only access for views such as the bar ruler. */
+export function getPlayerContext() {
+    return { api: currentApi, score: currentScore };
+}
+
 export function isSynthAvailable() {
     const synthBtn = document.getElementById('synthToggleBtn');
     return Boolean(synthBtn && synthBtn.style.display !== 'none' && currentApi);

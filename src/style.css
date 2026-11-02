@@ -7703,3 +7703,89 @@ body.library-view-active #viewPill { display: none; }
 #mobileSynthToggleBtn, #mobileYtToggleBtn { width: auto; padding: 0 0.85rem; border-radius: 9999px; gap: 0.4rem; }
 #mobilePlaybackDock .audio-src-label { font-size: 0.8rem; font-weight: 600; }
 @media (max-width: 359px) { #mobilePlaybackDock .audio-src-label { display: none; } #mobileSynthToggleBtn, #mobileYtToggleBtn { width: 36px; padding: 0; } }
+
+/* --- Bar ruler (phase 7): the transport you can see. Flat bands, one tone step apart. --- */
+.bar-ruler {
+  position: relative;
+  z-index: 900;
+  flex: 0 0 auto;
+  background: var(--bg-elevated);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0.4rem max(env(safe-area-inset-right), 1rem) 0.4rem max(env(safe-area-inset-left), 1rem);
+}
+.bar-ruler[hidden], .bar-ruler.is-in-library { display: none; }
+.bar-ruler-main { display: flex; align-items: center; gap: 0.75rem; }
+.bar-ruler-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 34px;
+  cursor: pointer;
+  touch-action: none;
+  border-radius: var(--r-control);
+  overflow: hidden;
+  background: var(--bg-card-solid);
+}
+.bar-ruler-track:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
+.bar-ruler-parts { position: absolute; inset: 0; display: flex; }
+.bar-ruler-part {
+  flex-basis: 0;
+  min-width: 0;
+  padding: 0 0.4rem;
+  border: 0;
+  border-radius: 0;
+  text-align: left;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 20px;
+  height: 20px;
+  background: var(--bg-card-solid);
+  overflow: hidden;
+  white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.bar-ruler-part.tone-1 { background: var(--bg-card-hover); }
+.bar-ruler-part.is-current { background: var(--accent-primary); color: #fff; }
+.bar-ruler-ticks { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; pointer-events: none; }
+.bar-ruler-track:not(.has-parts) .bar-ruler-ticks { height: 100%; display: flex; align-items: center; }
+.bar-ruler-tick {
+  position: absolute;
+  bottom: 0;
+  padding-left: 3px;
+  font-size: 0.66rem;
+  line-height: 14px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+.bar-ruler-track:not(.has-parts) .bar-ruler-tick { bottom: auto; font-size: 0.72rem; }
+.bar-ruler-loop {
+  position: absolute; top: 0; bottom: 0;
+  background: color-mix(in srgb, var(--accent-secondary) 28%, transparent);
+  border-left: 3px solid var(--accent-secondary);
+  border-right: 3px solid var(--accent-secondary);
+  pointer-events: none;
+}
+/* The pick is the playhead: a line with a flat triangle head. Moves by transform only. */
+.bar-ruler-head {
+  position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
+  background: var(--accent-secondary);
+  pointer-events: none;
+  will-change: transform;
+}
+.bar-ruler-head::before {
+  content: ''; position: absolute; top: 0; left: -4px;
+  border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--accent-secondary);
+}
+.bar-ruler-side { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
+.bar-ruler-readout { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.bar-ruler-loop-btn.active { background: var(--accent-primary) !important; color: #fff !important; }
+.bar-ruler-info { margin-top: 0.4rem; padding: 0.5rem 0.75rem; background: var(--bg-card-solid); border-radius: var(--r-control); max-height: 30vh; overflow: auto; }
+.bar-ruler-marks { list-style: none; margin: 0; padding: 0; font-size: 0.82rem; }
+.bar-ruler-mark-bar { display: inline-block; min-width: 4.5rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+@media (max-width: 576px) {
+  .bar-ruler-main { flex-wrap: wrap; gap: 0.35rem; }
+  .bar-ruler-track { flex-basis: 100%; }
+  .bar-ruler-side { flex-basis: 100%; justify-content: space-between; }
+}
+@media (prefers-reduced-motion: reduce) { .bar-ruler-part { transition: none; } }
