@@ -935,7 +935,14 @@ function updateToolbar() {
     $('smGranularity').style.display = s.mode === 'patch' ? 'none' : '';
     $('smRangeBtn').hidden = s.mode !== 'patch';
     document.querySelectorAll('#syncModeBar [data-sm-step]').forEach((b) => { b.style.display = s.mode === 'step' ? '' : 'none'; });
-    $('smTapBtn').disabled = !s.target;
+    const tapBtn = $('smTapBtn');
+    if (tapBtn) {
+        tapBtn.disabled = !s.target;
+        const barNum = s.target ? s.target.barIndex + 1 : '';
+        tapBtn.innerHTML = s.mode === 'step'
+            ? (s.target ? `Tap bar <b>${barNum}</b> <kbd>J</kbd>` : 'All bars covered')
+            : `Pin bar <b>${barNum}</b> to now <kbd>J</kbd>`;
+    }
     $('smRangeBtn').classList.toggle('active', s.rangeArmed);
     $('smUndoBtn').disabled = !s.undo.length;
     $('smRedoBtn').disabled = !s.redo.length;

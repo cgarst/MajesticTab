@@ -29,6 +29,7 @@ export function initReaderViewMenu() {
         place();
         menu.style.display = '';
         toggleBtn.setAttribute('aria-expanded', 'true');
+        window.refreshSlidingPills?.(menu, true);
     }
 
     function close() {

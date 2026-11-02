@@ -179,6 +179,31 @@ export function initAudioSyncEditor() {
             row.classList.toggle('is-selected', on);
             if (on) row.scrollIntoView({ block: 'nearest' });
         }
+        const panel = $('syncSelectedPointPanel');
+        if (!panel) return;
+        const p = points.find(pt => pt.id === id);
+        if (!p) {
+            panel.style.display = 'none';
+            return;
+        }
+        panel.style.display = 'block';
+        const barLabel = $('syncSelectedBarLabel');
+        if (barLabel) barLabel.textContent = `Bar ${p.barIndex + 1}`;
+        const timeLabel = $('syncSelectedTimeLabel');
+        if (timeLabel) timeLabel.textContent = `at ${formatTime(p.timeMs)}`;
+        const ctx = scoreCtx || getScoreContext();
+        const info = ctx ? pointProblems(ctx.timeline, points) : { flags: {} };
+        const flag = info.flags[p.id];
+        const chip = $('syncSelectedStatusChip');
+        if (chip) {
+            if (flag) {
+                chip.className = 'chip warn';
+                chip.textContent = 'Check';
+            } else {
+                chip.className = 'chip ok';
+                chip.textContent = 'On the beat';
+            }
+        }
     }
 
     function render() {
@@ -352,6 +377,36 @@ export function initAudioSyncEditor() {
         const delta = Number($('syncShiftMs').value);
         if (from === null || !Number.isFinite(delta) || !delta) return;
         persist(shiftAfter(points, from, Math.round(delta)));
+    });
+
+    document.querySelectorAll('#syncSelectedPointPanel [data-nudge]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!selectedId) return;
+            const delta = parseInt(btn.dataset.nudge, 10);
+            const p = points.find(pt => pt.id === selectedId);
+            if (p) {
+                persist(updatePoint(points, p.id, { timeMs: Math.max(0, p.timeMs + delta) }));
+            }
+        });
+    });
+
+    $('syncSelectedAuditionBtn')?.addEventListener('click', () => {
+        if (!selectedId || !current) return;
+        const p = points.find(pt => pt.id === selectedId);
+        if (!p) return;
+        const startMs = Math.max(0, p.timeMs - 1000);
+        seekTo(startMs, null);
+        current.source.play?.();
+        setTimeout(() => {
+            current.source.pause?.();
+            seekTo(p.timeMs, null);
+        }, 2000);
+    });
+
+    $('syncSelectedDeleteBtn')?.addEventListener('click', () => {
+        if (!selectedId) return;
+        persist(removePoints(points, [selectedId]));
+        selectRow(null);
     });
 
     $('syncEditorModalCloseBtn')?.addEventListener('click', () => closeModal('syncEditorModal'));

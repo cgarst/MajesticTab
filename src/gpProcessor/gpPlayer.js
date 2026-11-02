@@ -8,6 +8,7 @@ import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUt
 import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning } from '../utils/iosAudioUnlock.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
+import { deriveSections, DEFAULT_MIN_BARS } from './songSections.js';
 
 const STORAGE_KEY_SYNTH_VOLUME = 'majestic_synth_volume';
 
@@ -536,7 +537,9 @@ export function updateSynthUI() {
     }
 
     if (speedBadge) {
-        speedBadge.textContent = `${Math.round(synthPlayerState.playbackSpeed * 100)}%`;
+        const tempo = currentScore?.tempo || currentScore?.masterBars?.[0]?.tempoAutomation?.value || 120;
+        const currentBpm = Math.round(tempo * synthPlayerState.playbackSpeed);
+        speedBadge.textContent = `${Math.round(synthPlayerState.playbackSpeed * 100)}% (${currentBpm} bpm)`;
     }
 
     if (loopSwitch) {
@@ -555,6 +558,42 @@ export function updateSynthUI() {
         loopEndInput.max = String(measureCount);
         loopEndInput.value = String(synthPlayerState.loopEndMeasure);
         loopEndInput.disabled = !hasScore;
+    }
+
+    // Update section chips
+    const sectionsContainer = document.getElementById('synthSectionsContainer');
+    const sectionChips = document.getElementById('synthSectionChips');
+    if (sectionsContainer && sectionChips && currentScore?.masterBars) {
+        let minBars = DEFAULT_MIN_BARS;
+        try {
+            const stored = parseInt(localStorage.getItem('majestictab.sectionMinBars'), 10);
+            if ([1, 2, 4, 8].includes(stored)) minBars = stored;
+        } catch (_) {}
+        const { parts } = deriveSections(currentScore.masterBars, { minBars });
+        if (parts.length > 0) {
+            sectionsContainer.style.display = '';
+            sectionChips.innerHTML = parts.map((part, idx) => {
+                const isSelected = synthPlayerState.loopEnabled &&
+                    synthPlayerState.loopStartMeasure === part.startBar &&
+                    synthPlayerState.loopEndMeasure === part.endBar;
+                const partLabel = String(part.name || part.short || `Part ${idx + 1}`).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+                return `<button type="button" class="chipbtn ${isSelected ? 'on' : ''}" data-part-idx="${idx}"><span>${partLabel}</span></button>`;
+            }).join('');
+            sectionChips.querySelectorAll('.chipbtn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.dataset.partIdx, 10);
+                    const part = parts[idx];
+                    if (!part) return;
+                    synthPlayerState.loopStartMeasure = part.startBar;
+                    synthPlayerState.loopEndMeasure = part.endBar;
+                    synthPlayerState.loopEnabled = true;
+                    applyLoopSettings();
+                    updateSynthUI();
+                });
+            });
+        } else {
+            sectionsContainer.style.display = 'none';
+        }
     }
 
     // Update speed button active classes
@@ -1299,6 +1338,16 @@ export function attachAlphaTabApi(api) {
     if (jamHostMixer) localMixerBackup = new Map();
     emitMixerChange();
 
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('sections') && api.score?.masterBars?.length) {
+            const SECS = [['Intro', 1], ['Verse', 9], ['Chorus', 25], ['Solo', 41], ['Verse 2', 57], ['Outro', 89]];
+            SECS.forEach(([name, bar]) => {
+                if (api.score.masterBars[bar - 1]) api.score.masterBars[bar - 1].section = { text: name };
+            });
+        }
+    } catch (_) {}
+
     if (!api.customCursorHandler) {
         api.customCursorHandler = createCustomCursorHandler(api);
         const handler = api.customCursorHandler;
@@ -2025,6 +2074,7 @@ export function toggleScoreOptionsPanel(forceState = null) {
         panel.style.display = 'block';
         toggleBtn?.classList.add('active');
         toggleBtn?.setAttribute('aria-expanded', 'true');
+        window.refreshSlidingPills?.(panel, true);
     } else {
         panel.style.display = 'none';
         toggleBtn?.classList.remove('active');
@@ -2246,6 +2296,38 @@ export function initSynthPlayer() {
 
     loopEndInput?.addEventListener('input', handleLoopEndChange);
     loopEndInput?.addEventListener('change', handleLoopEndChange);
+
+    document.getElementById('synthLoopStartMinusBtn')?.addEventListener('click', () => {
+        const next = Math.max(1, synthPlayerState.loopStartMeasure - 1);
+        synthPlayerState.loopStartMeasure = next;
+        synthPlayerState.loopEnabled = true;
+        applyLoopSettings();
+        updateSynthUI();
+    });
+    document.getElementById('synthLoopStartPlusBtn')?.addEventListener('click', () => {
+        const max = Math.max(1, synthPlayerState.loopEndMeasure - 1);
+        const next = Math.min(max, synthPlayerState.loopStartMeasure + 1);
+        synthPlayerState.loopStartMeasure = next;
+        synthPlayerState.loopEnabled = true;
+        applyLoopSettings();
+        updateSynthUI();
+    });
+    document.getElementById('synthLoopEndMinusBtn')?.addEventListener('click', () => {
+        const min = Math.min(synthPlayerState.loopStartMeasure + 1, currentScore?.masterBars?.length || 1);
+        const next = Math.max(min, synthPlayerState.loopEndMeasure - 1);
+        synthPlayerState.loopEndMeasure = next;
+        synthPlayerState.loopEnabled = true;
+        applyLoopSettings();
+        updateSynthUI();
+    });
+    document.getElementById('synthLoopEndPlusBtn')?.addEventListener('click', () => {
+        const max = currentScore?.masterBars?.length || 1;
+        const next = Math.min(max, synthPlayerState.loopEndMeasure + 1);
+        synthPlayerState.loopEndMeasure = next;
+        synthPlayerState.loopEnabled = true;
+        applyLoopSettings();
+        updateSynthUI();
+    });
 
     const speedMinusBtn = document.getElementById('synthSpeedMinusBtn');
     const speedPlusBtn = document.getElementById('synthSpeedPlusBtn');

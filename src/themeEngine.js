@@ -234,42 +234,26 @@ export function renderThemeModalGrid(activeThemeId = getCurrentTheme()) {
   const grid = document.getElementById('themeModalGrid');
   if (!grid) return;
 
+  grid.className = 'fin';
   grid.innerHTML = THEMES.map(t => {
     const isActive = t.id === activeThemeId;
-    const paletteChips = (t.colorway || []).map(color => `
-      <span class="theme-colorway-chip" style="background-color: ${color};" title="${color}"></span>
-    `).join('');
+    const f0 = t.bg || '#06050a';
+    const fInk = t.id === 'Snow White' ? '#0f172a' : '#f8fafc';
+    const c1 = t.accent || '#9333ea';
+    const c2 = t.secondary || '#10b981';
 
     return `
-      <div class="theme-card ${isActive ? 'active' : ''}" data-theme-id="${t.id}" role="button" tabindex="0">
-        <div class="theme-card-top">
-          <div class="theme-card-identity">
-            <span class="theme-card-swatch" style="background: ${t.gradient};"></span>
-            <div class="theme-card-text">
-              <div class="theme-card-title">${t.name}</div>
-              <div class="theme-card-subtitle">${t.subtitle}</div>
-            </div>
-          </div>
-          ${isActive 
-            ? `<span class="theme-active-pill"><i class="bi-check-circle-fill me-1"></i> Active</span>` 
-            : `<span class="theme-select-hint">Select</span>`
-          }
-        </div>
-        <div class="theme-card-gradient-bar" style="background: ${t.gradient};"></div>
-        <div class="theme-card-bottom">
-          <span class="theme-palette-label">COLORWAY</span>
-          <div class="theme-palette-chips">
-            ${paletteChips}
-          </div>
-        </div>
-      </div>
+      <button type="button" class="fin-tile" data-theme-id="${t.id}" aria-pressed="${isActive ? 'true' : 'false'}" style="--f0:${f0};--f-ink:${fInk}">
+        <span class="bands"><i style="background:${c1}"></i><i style="background:${c2}"></i></span>
+        <span class="nm">${t.name}</span>
+      </button>
     `;
   }).join('');
 
-  // Attach click listeners to cards
-  grid.querySelectorAll('.theme-card').forEach(card => {
-    card.addEventListener('click', () => {
-      const id = card.getAttribute('data-theme-id');
+  // Attach click listeners to tiles
+  grid.querySelectorAll('[data-theme-id]').forEach(tile => {
+    tile.addEventListener('click', () => {
+      const id = tile.getAttribute('data-theme-id');
       if (id) {
         setTheme(id);
       }
@@ -290,21 +274,28 @@ export function openThemeModal() {
 export function closeThemeModal() {
   const modal = document.getElementById('themeModal');
   if (!modal) return;
-  modal.classList.remove('show');
-  modal.style.display = 'none';
-  document.body.classList.remove('modal-open');
+  if (modal.classList.contains('is-closing')) return;
+  modal.classList.add('is-closing');
+  const finishClose = () => {
+    modal.classList.remove('show', 'is-closing');
+    modal.style.display = 'none';
+    document.body.classList.remove('modal-open');
+  };
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    finishClose();
+  } else {
+    setTimeout(finishClose, 150);
+  }
 }
 
 export function initTheming() {
   refreshAppearance();
-  // Setup modal close listeners
-  const closeBtns = document.querySelectorAll('.theme-modal-close-btn');
-  closeBtns.forEach(btn => {
-    btn.addEventListener('click', closeThemeModal);
-  });
-
   const modal = document.getElementById('themeModal');
   if (modal) {
+    const closeBtns = modal.querySelectorAll('.theme-modal-close-btn');
+    closeBtns.forEach(btn => {
+      btn.addEventListener('click', closeThemeModal);
+    });
     modal.addEventListener('click', (e) => {
       if (e.target === modal) {
         closeThemeModal();

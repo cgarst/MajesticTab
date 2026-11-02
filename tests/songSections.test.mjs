@@ -12,10 +12,15 @@ test('classifyMark reads each style', () => {
     assert.equal(classifyMark({ text: '(0:09)' }).kind, 'time');
     assert.equal(classifyMark({ text: '[A] (0:00)' }).kind, 'letter');
     assert.equal(classifyMark({ text: '[A] (0:00)' }).letter, 'A');
+    assert.equal(classifyMark({ text: "[A'] (2:01)" }).name, 'A′');
+    assert.equal(classifyMark({ text: "[A'']" }).name, 'A″');
     const solo = classifyMark({ text: "[E | Solo 1] (1:52)" });
     assert.equal(solo.name, 'Solo 1');
     assert.equal(solo.letter, 'E');
     assert.equal(classifyMark({ text: 'Section 14' }).kind, 'generic');
+    assert.equal(classifyMark({ text: 'Section 14' }).name, 'Part 14');
+    assert.equal(classifyMark({ text: 'Section 14 (Tempo : 145)' }).name, 'Part 14');
+    assert.equal(classifyMark({ text: 'Section -125' }).name, 'Part 125');
     assert.equal(classifyMark({ text: 'Tempo : 130' }).kind, 'tempo');
     assert.equal(classifyMark({ text: '"hold me now"' }).kind, 'lyric');
     assert.equal(classifyMark({ text: '  ' }).kind, 'blank');
@@ -70,3 +75,30 @@ test('partAtBar finds the current part', () => {
     assert.equal(partAtBar(parts, 10).name, 'Verse');
     assert.equal(partAtBar(parts, 99), null);
 });
+
+test('letters format with unicode prime and become part names', () => {
+    const { parts } = deriveSections(bars(40, { 1: '[A] (0:00)', 11: '[B] (0:30)', 21: "[A'] (1:00)", 31: "[B'] (1:30)" }));
+    assert.deepEqual(parts.map((p) => [p.name, p.short]), [
+        ['A', 'A'], ['B', 'B'], ['A′', 'A′'], ['B′', 'B′']
+    ]);
+});
+
+test('repeat numbering runs before merging short parts', () => {
+    // Bar 1-4 Intro, Bar 5-6 Bridge (short, 2 bars), Bar 7-14 Verse, Bar 15-20 Bridge (6 bars)
+    // Bridge at bar 5 is Bridge #1, Bridge at bar 15 is Bridge #2
+    // With minBars = 4, Bridge at bar 5 joins Intro. The surviving Bridge retains "Bridge 2".
+    const { parts } = deriveSections(bars(20, { 1: 'Intro', 5: 'Bridge', 7: 'Verse', 15: 'Bridge' }), { minBars: 4 });
+    assert.deepEqual(parts.map((p) => [p.name, p.startBar, p.endBar]), [
+        ['Intro', 1, 6], ['Verse', 7, 14], ['Bridge 2', 15, 20]
+    ]);
+});
+
+test('time code sequential renumbering after short part merge', () => {
+    // 4 time parts, part 2 is only 2 bars (bar 5-6) and merges into part 1.
+    // Resulting parts renumber sequentially: Part 1, Part 2, Part 3.
+    const { parts } = deriveSections(bars(20, { 1: '(0:00)', 5: '(0:10)', 7: '(0:20)', 15: '(0:40)' }), { minBars: 4 });
+    assert.deepEqual(parts.map((p) => [p.name, p.startBar, p.endBar]), [
+        ['Part 1', 1, 6], ['Part 2', 7, 14], ['Part 3', 15, 20]
+    ]);
+});
+

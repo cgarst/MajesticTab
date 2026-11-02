@@ -50,6 +50,7 @@ import { initToolsMenu } from './utils/toolsMenu.js';
 import { initReaderViewMenu } from './utils/readerViewMenu.js';
 import { initBarRuler } from './gpProcessor/barRuler.js';
 import { initSettingsPage } from './utils/settingsPage.js';
+import { initSlidingPills } from './utils/slidingPill.js';
 import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
@@ -1172,6 +1173,7 @@ async function initApp() {
     initReaderViewMenu();
     initBarRuler();
     initSettingsPage();
+    initSlidingPills();
 
     document.getElementById('topBarBackToLibraryBtn')?.addEventListener('click', () => {
         openLibraryModal('library');

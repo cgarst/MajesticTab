@@ -19,10 +19,19 @@ export function openModal(id) {
 export function closeModal(id) {
     const modal = document.getElementById(id);
     if (!modal) return;
-    modal.classList.remove('show');
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('modal-open');
+    if (modal.classList.contains('is-closing')) return;
+    modal.classList.add('is-closing');
+    const finishClose = () => {
+        modal.classList.remove('show', 'is-closing');
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('modal-open');
+    };
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        finishClose();
+    } else {
+        setTimeout(finishClose, 150);
+    }
 }
 
 export function wireModal(id, openBtnId, onOpen) {

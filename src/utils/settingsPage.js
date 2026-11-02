@@ -153,6 +153,31 @@ export function initSettingsPage() {
         panes.reading.appendChild(group('New tabs',
             row('Defaults', 'How a tab opens the first time: layout, strings and notation.', defaultsBtn)));
         panes.reading.appendChild(note('Size, paper and pages shown are in the reader’s View menu, next to the score.'));
+
+        const makeMinBarsSelector = () => {
+            let current = 4;
+            try {
+                const stored = parseInt(localStorage.getItem('majestictab.sectionMinBars'), 10);
+                if ([1, 2, 4, 8].includes(stored)) current = stored;
+            } catch (_) {}
+            const seg = el('div', 'hud-pill-group');
+            seg.setAttribute('role', 'radiogroup');
+            seg.setAttribute('aria-label', 'Minimum section size');
+            [1, 2, 4, 8].forEach(val => {
+                const b = el('button', 'btn btn-sm' + (val === current ? ' active' : ''));
+                b.type = 'button';
+                b.textContent = `${val} ${val === 1 ? 'bar' : 'bars'}`;
+                b.addEventListener('click', () => {
+                    try { localStorage.setItem('majestictab.sectionMinBars', String(val)); } catch (_) {}
+                    seg.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+                    b.classList.add('active');
+                    window.dispatchEvent(new Event('resize'));
+                });
+                seg.appendChild(b);
+            });
+            return seg;
+        };
+        panes.reading.appendChild(group('Song sections', row('Minimum section size', 'Shorter labeled sections are joined with adjacent parts.', makeMinBarsSelector())));
     }
 
     // Controls

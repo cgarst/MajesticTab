@@ -30,3 +30,5 @@ __pycache__/
 /vendor/bundle/
 /fastlane/report.xml
 /.bundle/
+.agents/
+.claude/

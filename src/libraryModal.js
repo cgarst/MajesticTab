@@ -31,6 +31,7 @@ import { gamepadManager } from './utils/gamepadManager.js';
 let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
+let activeLibraryPane = 'list'; // 'list' | 'songs'
 let selectedArtist = null;
 let selectedAlbum = null;
 // File dropped on a custom folder, consumed by the Add Custom Music form: { file, folderPath }
@@ -102,6 +103,7 @@ export function captureCurrentLibraryState() {
     return {
         view: activeView,
         libraryBrowseMode,
+        activeLibraryPane,
         selectedArtist,
         selectedAlbum,
         selectedFolderPath: [...selectedFolderPath],
@@ -231,6 +233,7 @@ export async function handleBack() {
                 selectedArtist = null;
                 selectedFolderPath = [];
                 isAlbumEditMode = false;
+                activeLibraryPane = 'list';
                 await renderView();
                 if (prevArtistName) {
                     const card = Array.from(document.querySelectorAll('#libraryModalContent .artist-card')).find(el => el.dataset.artistName === prevArtistName);
@@ -242,6 +245,7 @@ export async function handleBack() {
                 const prev = viewHistory.pop();
                 activeView = prev.view || 'library';
                 libraryBrowseMode = prev.libraryBrowseMode || 'artists';
+                activeLibraryPane = prev.activeLibraryPane || 'list';
                 selectedArtist = prev.selectedArtist || null;
                 selectedAlbum = prev.selectedAlbum || null;
                 selectedFolderPath = prev.selectedFolderPath || [];
@@ -898,22 +902,25 @@ async function renderLibraryBrowseView(container) {
                       </div>
                       <div class="library-tunings-grid">
                         ${sec.groups.map(group => {
-                          const sampleArtists = Array.from(new Set(group.songs.map(s => s.artist).filter(Boolean))).slice(0, 3).join(', ');
                           const cat = group.category || getTuningCategory(group);
+                          const rawNotes = (group.notes || group.key || group.tuning || '').trim().split(/[\s,]+/);
+                          const notesList = rawNotes.map(n => n.replace(/\d+$/, '')).filter(Boolean);
+                          const sampleSongs = group.songs.slice(0, 4).map(s => s.title).join(', ') + (group.songs.length > 4 ? '…' : '');
                           return `
-                          <div class="library-card tuning-card p-3 position-relative" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}" role="button" tabindex="0">
-                            <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
-                              <span class="badge badge-theme-secondary py-1 px-2" style="font-size: 0.68rem;">${escapeHtml(cat.label || `${group.stringCount || 6}-String`)}</span>
+                          <div class="tuning tuning-card" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}" role="button" tabindex="0">
+                            <div class="d-flex align-items-center justify-content-between gap-2">
+                              <h4>
+                                ${escapeHtml(group.name)}
+                                <em class="tnum">${group.songs.length} ${group.songs.length === 1 ? 'song' : 'songs'}</em>
+                              </h4>
                               <button class="btn btn-sm theme-control-btn edit-tuning-btn p-1 px-2" data-tuning-key="${escapeHtml(group.key || group.tuning)}" title="Edit Tuning Name" aria-label="Edit Tuning Name">
                                 <i class="bi-pencil"></i>
                               </button>
                             </div>
-                            <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(group.name)}">${escapeHtml(group.name)}</h6>
-                            <div class="fw-semibold text-info small mb-2" style="font-family: var(--font-monospace, monospace); letter-spacing: 0.06em; font-size: 0.78rem;" title="Tuning Notes">
-                              ${escapeHtml(group.notes || group.key || group.tuning)}
+                            <div class="strings">
+                              ${notesList.map((n, i) => `<span><small>${notesList.length - i}</small>${escapeHtml(n)}</span>`).join('')}
                             </div>
-                            <div class="small text-muted text-truncate mb-1">${group.songs.length} ${group.songs.length === 1 ? 'Song' : 'Songs'}</div>
-                            ${sampleArtists ? `<div class="small text-white-50 text-truncate" style="font-size: 0.74rem;">${escapeHtml(sampleArtists)}</div>` : ''}
+                            ${sampleSongs ? `<div class="tuning-songs text-truncate" style="font-size:13px;color:var(--ink2);">${escapeHtml(sampleSongs)}</div>` : ''}
                           </div>
                           `;
                         }).join('')}
@@ -928,7 +935,25 @@ async function renderLibraryBrowseView(container) {
         // ==========================================
         // B. ARTISTS / ALBUMS / TRACKS / CUSTOM FOLDERS BROWSE MODE
         // ==========================================
-        if (selectedArtist) {
+        if (artists.length === 0) {
+            bodyHtml = `
+            ${libraryEmptyStateHtml({
+              icon: 'bi-collection',
+              title: 'Your library is empty',
+              message: 'Add songs by importing local tab files or connecting Google Drive.'
+            })}
+            `;
+            toolbarHtml = libraryListToolbarHtml({
+                leftHtml: collectionSelectHtml,
+                count: '0 artists',
+                actionsHtml: addMusicBtnHtml
+            });
+        } else {
+            // Keep selectedArtist in sync; default to first artist if not set
+            if (!selectedArtist || !artists.some(a => a.name === selectedArtist.name || (selectedArtist.artistMbid && a.artistMbid === selectedArtist.artistMbid))) {
+                selectedArtist = artists[0];
+            }
+
             const isCustomArtist = Boolean(selectedArtist.isCustom);
             const currentPath = selectedFolderPath.join('/');
 
@@ -1048,6 +1073,7 @@ async function renderLibraryBrowseView(container) {
             </div>
             `;
 
+            let detailBodyHtml = '';
             if (isStandardAlbumView && matchingAlbum) {
                 // Standard Album View
                 const album = matchingAlbum;
@@ -1059,7 +1085,7 @@ async function renderLibraryBrowseView(container) {
                 const hasAlbumTabs = albumTabs.length > 0;
                 const defaultAlbumTabId = album.defaultTabId || (albumTabs[0]?.id || null);
 
-                bodyHtml = `
+                detailBodyHtml = `
                 <div class="album-detail-view">
                   <div class="library-album-banner d-flex flex-column gap-3 mb-3">
                     <div class="album-banner-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 min-w-0">
@@ -1209,7 +1235,7 @@ async function renderLibraryBrowseView(container) {
                     `;
                 }
 
-                bodyHtml = `
+                detailBodyHtml = `
                 <div class="artist-detail-view">
                   ${bookPdfHtml}
                   ${subfoldersHtml}
@@ -1218,12 +1244,12 @@ async function renderLibraryBrowseView(container) {
                 </div>
                 `;
             }
-        } else {
-            // Render Pinned Songs (if any) and Artists Grid (Top Level)
+
+            // Pinned Songs (if any)
             let pinnedHtml = '';
             if (pinnedSongs.length > 0) {
                 pinnedHtml = `
-                <div class="library-pinned-section mb-4" id="libPinnedSection">
+                <div class="library-pinned-section mb-3" id="libPinnedSection">
                   <div class="d-flex align-items-center justify-content-between mb-2">
                     <div class="small fw-semibold text-white d-flex align-items-center gap-2">
                       <i class="bi-pin-angle-fill text-warning"></i> Pinned Songs
@@ -1242,6 +1268,7 @@ async function renderLibraryBrowseView(container) {
                 count: `${artists.length} ${artists.length === 1 ? 'artist' : 'artists'}`,
                 actionsHtml: addMusicBtnHtml
             });
+
             let resumeHtml = '';
             try {
                 const [last] = await getRecents(1);
@@ -1258,13 +1285,34 @@ async function renderLibraryBrowseView(container) {
                     </div>`;
                 }
             } catch (_) { resumeHtml = ''; }
+
+            const listPaneHtml = `
+            <section class="pane list" aria-label="Artists">
+              <h3 class="pane-head"><span>Artists</span><span class="tnum">${artists.length}</span></h3>
+              <div class="pane-scroll">
+                ${pinnedHtml}
+                <div class="library-artists-grid" id="libArtistsGrid">
+                  ${artists.map(artist => renderArtistCard(artist)).join('')}
+                </div>
+              </div>
+            </section>
+            `;
+
+            const songsPaneHtml = `
+            <section class="pane songs" aria-label="Songs">
+              ${breadcrumbHtml}
+              <div class="pane-scroll" id="libArtistDetailScroll">
+                ${detailBodyHtml}
+              </div>
+            </section>
+            `;
+
             bodyHtml = `
             <div class="collection-root-view">
               ${resumeHtml}
-              ${pinnedHtml}
-              ${pinnedHtml ? `<div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2" id="libArtistsSectionHeading"><i class="bi-person me-1 text-info"></i> Artists</div>` : ''}
-              <div class="library-artists-grid" id="libArtistsGrid">
-                ${artists.map(artist => renderArtistCard(artist)).join('')}
+              <div class="panes" data-pane="${activeLibraryPane}">
+                ${listPaneHtml}
+                ${songsPaneHtml}
               </div>
             </div>
             `;
@@ -1272,7 +1320,7 @@ async function renderLibraryBrowseView(container) {
     }
 
     if (!toolbarHtml) toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml, actionsHtml: tuningArtistSelectHtml });
-    container.innerHTML = headerHtml + toolbarHtml + breadcrumbHtml + `
+    container.innerHTML = headerHtml + toolbarHtml + (libraryBrowseMode === 'tunings' ? breadcrumbHtml : '') + `
       <div id="libBrowseContent">${bodyHtml}</div>
       <div id="libFilteredSearchResults" style="display: none;"></div>
     </div>
@@ -1288,7 +1336,16 @@ async function renderLibraryBrowseView(container) {
     });
 
     // In-view Back button click
-    container.querySelector('#libBrowseBackBtn')?.addEventListener('click', handleBack);
+    container.querySelector('#libBrowseBackBtn')?.addEventListener('click', () => {
+        if (selectedFolderPath.length > 0 || selectedAlbum) {
+            handleBack();
+        } else {
+            activeLibraryPane = 'list';
+            const panes = container.querySelector('.panes');
+            if (panes) panes.dataset.pane = 'list';
+            handleBack();
+        }
+    });
 
     // Drop a file on the custom music space (the whole library pane, or the Custom Music card) to open Add Custom Music with it attached
     const getCustomDropTarget = (e) => {
@@ -1322,10 +1379,10 @@ async function renderLibraryBrowseView(container) {
     // Breadcrumb clicks
     container.querySelector('#bcRoot')?.addEventListener('click', () => {
         pushLibraryNavigationState();
-        selectedArtist = null;
         selectedAlbum = null;
         selectedFolderPath = [];
         isAlbumEditMode = false;
+        activeLibraryPane = 'list';
         renderLibraryBrowseView(container);
     });
     container.querySelector('#bcArtist')?.addEventListener('click', () => {
@@ -1364,6 +1421,7 @@ async function renderLibraryBrowseView(container) {
             selectedAlbum = null;
             selectedFolderPath = [];
             isAlbumEditMode = false;
+            activeLibraryPane = 'songs';
             renderLibraryBrowseView(container);
         });
     });
@@ -1670,8 +1728,9 @@ function renderArtistCard(artist) {
     const songCount = (artist.songs ? artist.songs.length : 0) + (artist.albums ? artist.albums.reduce((acc, a) => acc + (a.songs ? a.songs.length : 0), 0) : 0);
     const bookCount = (artist.rootBooks || 0) + (artist.albums ? artist.albums.reduce((acc, a) => acc + (a.tabOptions ? a.tabOptions.length : 0), 0) : 0);
     const collageHtml = renderArtistCollageHtml(artist);
+    const isCurrent = selectedArtist && (artist.name === selectedArtist.name || (selectedArtist.artistMbid && artist.artistMbid === selectedArtist.artistMbid));
     return `
-    <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" role="button" tabindex="0">
+    <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" ${isCurrent ? 'aria-current="true"' : ''} role="button" tabindex="0">
       <div class="d-flex align-items-center gap-3 min-w-0">
         ${collageHtml}
         <div class="min-w-0 flex-grow-1">
