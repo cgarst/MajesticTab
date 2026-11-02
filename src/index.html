@@ -1271,16 +1271,12 @@
         <button type="button" class="btn btn-sm btn-theme-danger ms-auto" id="syncClearBtn">Clear All</button>
       </div>
       <div id="syncImportPanel" class="mb-2" hidden>
-        <div id="syncImportUrlRow" class="mb-2" hidden>
-          <input type="url" class="form-control form-control-sm mb-2" id="syncImportUrl" placeholder="Address of sync points or JSON that lists the start time of each bar" spellcheck="false" autocomplete="off" aria-label="Sync points address">
-          <select class="form-select form-select-sm" id="syncImportSet" aria-label="Which set of points" hidden></select>
-        </div>
-        <textarea class="form-control form-control-sm mb-2" id="syncImportText" rows="4" spellcheck="false" placeholder="Paste AlphaTab sync points (\sync bar pass ms) or exported JSON"></textarea>
+        <textarea class="form-control form-control-sm mb-2" id="syncImportText" rows="4" spellcheck="false" aria-label="Sync points text or address" placeholder="Paste AlphaTab sync points (\sync bar pass ms), a web address or exported JSON"></textarea>
+        <select class="form-select form-select-sm mb-2" id="syncImportSet" aria-label="Which set of points" hidden></select>
         <div class="d-flex flex-wrap gap-2 align-items-center">
           <button type="button" class="btn btn-sm btn-theme-primary" id="syncImportReplaceBtn">Replace Points</button>
           <button type="button" class="btn btn-sm btn-theme-outline" id="syncImportMergeBtn">Add to Points</button>
           <label class="btn btn-sm btn-theme-outline mb-0" for="syncImportFile">Choose File</label>
-          <button type="button" class="btn btn-sm btn-theme-outline" id="syncImportUrlBtn" title="Fetch sync points from a web address: AlphaTab or MajesticTab sync text, or JSON that lists the start time of each bar">From URL</button>
           <input type="file" id="syncImportFile" accept=".json,.txt,.atex,.tex" hidden>
           <span class="small text-white-50" id="syncImportStatus"></span>
         </div>

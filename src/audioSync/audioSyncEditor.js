@@ -219,8 +219,15 @@ export function initAudioSyncEditor() {
         persist(addPoint(points, { ...pos, timeMs: Math.round(source.getTimeMs()), source: 'manual' }));
     }
 
-    function importFrom(text, merge) {
+    /** A lone web address in the box, rather than sync text. */
+    const isUrl = (text) => /^https?:\/\/\S+$/i.test(text.trim());
+
+    async function importFrom(text, merge) {
         const status = $('syncImportStatus');
+        if (isUrl(text)) {
+            if (!await importFromUrl(text.trim())) return;
+            text = $('syncImportText').value;
+        }
         const incoming = importPoints(text);
         if (!incoming || !incoming.length) {
             status.textContent = 'No sync points found';
@@ -281,30 +288,22 @@ export function initAudioSyncEditor() {
         }
     }
 
-    async function importFromUrl() {
-        const row = $('syncImportUrlRow');
-        const input = $('syncImportUrl');
+    /** Fetches the address and puts the converted points text in the box. Resolves true when points are ready. */
+    async function importFromUrl(url) {
         const status = $('syncImportStatus');
-        if (row.hidden) {
-            row.hidden = false;
-            input.focus();
-            return;
-        }
-        if (!input.value.trim()) {
-            status.textContent = 'Enter an address first';
-            return;
-        }
         status.textContent = 'Fetching...';
         const select = $('syncImportSet');
         select.hidden = true;
         try {
-            const found = await loadFromUrl(input.value, fetchText, { findSource: findApprovedSource });
+            const found = await loadFromUrl(url, fetchText, { findSource: findApprovedSource });
             urlSets = setsFittingScore(found, playedBars());
             select.replaceChildren(...urlSets.map((s, i) => Object.assign(document.createElement('option'), { value: String(i), textContent: s.label })));
             select.hidden = urlSets.length < 2;
             showUrlSet(0);
+            return $('syncImportText').value !== '';
         } catch (e) {
             status.textContent = e.message;
+            return false;
         }
     }
 
@@ -329,8 +328,12 @@ export function initAudioSyncEditor() {
     });
     $('syncImportReplaceBtn').addEventListener('click', () => importFrom($('syncImportText').value, false));
     $('syncImportMergeBtn').addEventListener('click', () => importFrom($('syncImportText').value, true));
-    $('syncImportUrlBtn').addEventListener('click', importFromUrl);
-    $('syncImportUrl').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); importFromUrl(); } });
+    // A web address pasted or typed into the box is fetched and converted in place
+    $('syncImportText').addEventListener('input', (e) => {
+        const text = e.target.value;
+        $('syncImportSet').hidden = true;
+        if (isUrl(text)) importFromUrl(text.trim());
+    });
     $('syncImportSet').addEventListener('change', (e) => showUrlSet(Number(e.target.value)));
     $('syncImportFile').addEventListener('change', async (e) => {
         const file = e.target.files?.[0];
