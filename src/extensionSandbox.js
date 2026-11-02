@@ -34,6 +34,23 @@ export function getSandboxLibSource() {
     return libSourcePromise;
 }
 
+let alphaTabSourcePromise = null;
+
+/** Source of the AlphaTab build the page already loads, for importers that ask for `libs: ['alphaTab']`. */
+export function getAlphaTabSource() {
+    if (!alphaTabSourcePromise) {
+        const src = document.querySelector('script[src*="alphaTab"]')?.src;
+        alphaTabSourcePromise = (src
+            ? fetch(src).then(response => (response.ok ? response.text() : null)).catch(() => null)
+            : Promise.resolve(null)
+        ).then(text => {
+            if (!text) alphaTabSourcePromise = null;
+            return text;
+        });
+    }
+    return alphaTabSourcePromise;
+}
+
 export function createExtensionSandbox() {
     const frame = document.createElement('iframe');
     const pending = new Map();

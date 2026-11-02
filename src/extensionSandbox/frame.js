@@ -7,6 +7,8 @@ function workerMain() {
     'use strict';
     const adapters = [];
     const syncSources = [];
+    const urlImporters = [];
+    const loadedLibs = new Set();
     const cryptoPending = new Map();
     let nextCryptoId = 1;
 
@@ -69,6 +71,35 @@ function workerMain() {
         return source;
     };
 
+    // A URL importer turns an address into a tab file. Like a sync source it never fetches: `step(url, responses)` returns
+    // `{ fetch: [addresses], optional? }` (answered by the app, only from `hosts` or the address's own site; `optional` makes a failed request an empty response) or a finished
+    // `{ file: { name, bytes }, sync? }`. `libs: ['alphaTab']` loads alphaTab into the worker first, so the importer can
+    // build a score and export it. `sync` is an optional list of `{ label, videoId, barTimesMs }` for the opened score.
+    const registerUrlImporter = importer => {
+        if (!importer || typeof importer.id !== 'string' || !importer.id.trim()) {
+            throw new TypeError('Each URL importer must have a non-empty id.');
+        }
+        if (urlImporters.some(existing => existing.id === importer.id)) {
+            throw new TypeError(`Duplicate URL importer id: ${importer.id}`);
+        }
+        if (!Array.isArray(importer.hosts) || importer.hosts.some(h => typeof h !== 'string' || !h.trim())) {
+            throw new TypeError(`URL importer "${importer.id}" must declare hosts as an array of host names.`);
+        }
+        if (typeof importer.matches !== 'function' || typeof importer.step !== 'function') {
+            throw new TypeError(`URL importer "${importer.id}" must provide matches and step functions.`);
+        }
+        if (importer.libs !== undefined && (!Array.isArray(importer.libs) || importer.libs.some(name => name !== 'alphaTab'))) {
+            throw new TypeError(`URL importer "${importer.id}" may only ask for libs: ['alphaTab'].`);
+        }
+        urlImporters.push(importer);
+    };
+
+    const findUrlImporter = id => {
+        const importer = urlImporters.find(item => item.id === id);
+        if (!importer) throw new Error(`Unknown URL importer: ${id}`);
+        return importer;
+    };
+
     const registerGpScoreTransform = () => {
         throw new Error('registerGpScoreTransform is no longer supported. Extensions can only register file adapters.');
     };
@@ -94,8 +125,8 @@ function workerMain() {
             if (op === 'load') {
                 if (data.hasSubtle) installSubtleBridge();
                 if (data.lib) new Function(data.lib).call(self);
-                new Function('registerFileAdapter', 'registerGpScoreTransform', 'registerSyncSource', `"use strict";\n${data.source}`)(
-                    registerFileAdapter, registerGpScoreTransform, registerSyncSource
+                new Function('registerFileAdapter', 'registerGpScoreTransform', 'registerSyncSource', 'registerUrlImporter', `"use strict";\n${data.source}`)(
+                    registerFileAdapter, registerGpScoreTransform, registerSyncSource, registerUrlImporter
                 );
                 result = adapters.map(adapter => adapter.id);
             } else if (op === 'matches') {
@@ -109,6 +140,26 @@ function workerMain() {
                 const ok = out && (typeof out.text === 'string' || (Array.isArray(out.fetch) && out.fetch.every(u => typeof u === 'string')));
                 if (!ok) throw new TypeError(`Sync source "${data.source}" must return { text } or { fetch: [addresses] }.`);
                 result = typeof out.text === 'string' ? { text: out.text } : { fetch: out.fetch };
+            } else if (op === 'lib') {
+                // A library an importer asked for (`libs`), loaded once into this worker's global scope.
+                if (!loadedLibs.has(data.name)) {
+                    new Function(data.source).call(self);
+                    loadedLibs.add(data.name);
+                }
+                result = true;
+            } else if (op === 'urlIds') {
+                result = urlImporters.map(importer => ({ id: importer.id, hosts: importer.hosts, libs: importer.libs || [] }));
+            } else if (op === 'urlMatches') {
+                result = !!(await findUrlImporter(data.importer).matches(data.url));
+            } else if (op === 'urlStep') {
+                const out = await findUrlImporter(data.importer).step(data.url, data.responses);
+                const hasFile = out && out.file && typeof out.file.name === 'string' &&
+                    (out.file.bytes instanceof Uint8Array || out.file.bytes instanceof ArrayBuffer);
+                const hasFetch = out && Array.isArray(out.fetch) && out.fetch.every(u => typeof u === 'string');
+                if (!hasFile && !hasFetch) {
+                    throw new TypeError(`URL importer "${data.importer}" must return { file: { name, bytes } } or { fetch: [addresses] }.`);
+                }
+                result = hasFile ? { file: out.file, sync: Array.isArray(out.sync) ? out.sync : [] } : { fetch: out.fetch, optional: out.optional === true };
             } else if (op === 'transform') {
                 result = await findAdapter(data.adapter).transform(data.file);
                 if (result != null && !(result instanceof Blob)) {
@@ -211,7 +262,8 @@ function iframeMain() {
                     });
                     workers.set(extension.id, entry);
                     const syncIds = await callWorker(entry, { op: 'syncIds' });
-                    results.push({ id: extension.id, ids, syncIds });
+                    const urlImporters = await callWorker(entry, { op: 'urlIds' });
+                    results.push({ id: extension.id, ids, syncIds, urlImporters });
                 } catch (error) {
                     entry.worker.terminate();
                     results.push({ id: extension.id, error: error.message });

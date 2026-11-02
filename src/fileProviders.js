@@ -340,6 +340,50 @@ export const S3FileProvider = {
     }
 };
 
+// --- Built-in Provider: Web Address ---
+// A direct link to a tab file. An extension's URL importer can claim other sites (see urlImport/openFromUrl.js).
+export const UrlFileProvider = {
+    id: 'url',
+    name: 'From URL',
+    icon: 'bi-link-45deg',
+    iconColorClass: 'text-info',
+    description: 'Open a tab file from a web address',
+    badge: 'Online',
+    actionLabel: 'Open from URL',
+    async open(options = {}) {
+        const { openThemedInputModal } = await import('./libraryModal.js');
+        openThemedInputModal({
+            title: 'Open from URL',
+            subtitle: 'A link to a Guitar Pro, PDF or text file',
+            icon: 'bi-link-45deg',
+            inputLabel: 'Web address',
+            placeholder: 'https://example.com/song.gp5',
+            confirmText: 'Open',
+            onConfirm: (text) => openTabFromUrl(text, options)
+        });
+    }
+};
+
+async function openTabFromUrl(text, options = {}) {
+    try {
+        showToast('Fetching...', 'info', 1500);
+        const { openFromUrl } = await import('./urlImport/openFromUrl.js');
+        const { file, sync } = await openFromUrl(text);
+        if (!(await isSupportedTabFile(file))) {
+            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+            return;
+        }
+        await handlePickedFile(file, options);
+        if (!sync.length) return;
+        const { attachSyncSets } = await import('./urlImport/attachSync.js');
+        const { saved, skipped } = await attachSyncSets(sync);
+        if (saved.length) showToast(`Added sync points for ${saved.length === 1 ? saved[0] : `${saved.length} videos`}`, 'success');
+        if (skipped.length) showToast(`Sync points not added: ${skipped.join('; ')}`, 'warning', 6000);
+    } catch (error) {
+        if (error?.message !== 'Cancelled.') showToast(error?.message || 'Could not open that address.', 'error');
+    }
+}
+
 // --- Built-in Provider: Tab Downloader (Native Only) ---
 export const TabDownloaderNativeProvider = {
     id: 'tab-downloader',
@@ -360,6 +404,7 @@ registerFileProvider(LocalFileProvider);
 registerFileProvider(GoogleDriveFileProvider);
 // @googleDrive:end
 registerFileProvider(S3FileProvider);
+registerFileProvider(UrlFileProvider);
 
 if (isIcloudDriveSupported()) {
     registerFileProvider(ICloudDriveFileProvider);

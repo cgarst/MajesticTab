@@ -1,15 +1,18 @@
-import { createExtensionSandbox, getSandboxLibSource } from './extensionSandbox.js';
+import { createExtensionSandbox, getSandboxLibSource, getAlphaTabSource } from './extensionSandbox.js';
 
 const EXTENSIONS_STORAGE_KEY = 'customExtensions';
 const LOAD_TIMEOUT_MS = 15000;
 const MATCH_TIMEOUT_MS = 15000;
 const TRANSFORM_TIMEOUT_MS = 120000;
 const SYNC_STEP_TIMEOUT_MS = 15000;
+const URL_STEP_TIMEOUT_MS = 120000;
 
 // Adapters registered by loaded extensions, in run order, as { id, ext }.
 let adapters = [];
 // Sync sources registered by loaded extensions, as { id, ext }.
 let syncSources = [];
+// URL importers registered by loaded extensions, as { id, ext, hosts }.
+let urlImporters = [];
 let sandbox = null;
 let loaded = false;
 let installChain = Promise.resolve();
@@ -19,6 +22,7 @@ async function install(localExtensions) {
     sandbox = null;
     adapters = [];
     syncSources = [];
+    urlImporters = [];
 
     const extensions = localExtensions;
     const errors = [];
@@ -59,6 +63,7 @@ async function install(localExtensions) {
             adapters.push({ id, ext: result.id });
         });
         (result.syncIds || []).forEach(id => syncSources.push({ id, ext: result.id }));
+        (result.urlImporters || []).forEach(({ id, hosts, libs }) => urlImporters.push({ id, ext: result.id, hosts, libs }));
         idsByExtension[result.id] = result.ids;
     }
     sandbox = next;
@@ -97,6 +102,7 @@ function noteSandboxFailure(error) {
     sandbox = null;
     adapters = [];
     syncSources = [];
+    urlImporters = [];
     loaded = false;
 }
 
@@ -161,4 +167,39 @@ export async function findSyncSource(url) {
         }
     }
     return null;
+}
+
+/**
+ * The extension URL importer that claims this address, as `{ id, ext, hosts, step(url, responses) }`, or null. An
+ * importer turns an address into a tab file; see `registerUrlImporter` in extensionSandbox/frame.js. Its `step` never
+ * fetches: urlImport/urlImport.js runs it and does the fetching, limited to `hosts` and the address's own site.
+ */
+export async function findUrlImporter(url) {
+    await ensureExtensionsLoaded();
+    for (const importer of [...urlImporters]) {
+        try {
+            if (!sandbox || !await sandbox.call({ op: 'urlMatches', ext: importer.ext, importer: importer.id, url }, MATCH_TIMEOUT_MS)) continue;
+            const ready = importer.libs?.includes('alphaTab') ? provideAlphaTab(importer.ext) : Promise.resolve();
+            ready.catch(() => {}); // reported when the step awaits it
+            return {
+                id: importer.id,
+                ext: importer.ext,
+                hosts: importer.hosts,
+                step: async (address, responses) => {
+                    await ready;
+                    return sandbox.call({ op: 'urlStep', ext: importer.ext, importer: importer.id, url: address, responses }, URL_STEP_TIMEOUT_MS);
+                }
+            };
+        } catch (error) {
+            noteSandboxFailure(error);
+        }
+    }
+    return null;
+}
+
+/** Loads the page's AlphaTab into one extension's worker, once. */
+async function provideAlphaTab(ext) {
+    const source = await getAlphaTabSource();
+    if (!source) throw new Error('AlphaTab could not be loaded for the importer.');
+    await sandbox.call({ op: 'lib', ext, name: 'alphaTab', source }, LOAD_TIMEOUT_MS);
 }
