@@ -29,7 +29,7 @@ import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 import { toggleToolsMenu, closeToolsMenu } from './utils/toolsMenu.js';
 
-let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists'
+let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists', 'tools'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let activeLibraryPane = 'list'; // 'list' | 'songs'
@@ -322,7 +322,7 @@ export async function handleBack() {
                 await switchView('library', false);
                 return true;
             }
-        } else if (activeView === 'recents' || activeView === 'openFile' || activeView === 'setlists') {
+        } else if (activeView === 'recents' || activeView === 'openFile' || activeView === 'setlists' || activeView === 'tools') {
             if (viewHistory.length > 0) {
                 const prev = viewHistory.pop();
                 activeView = prev.view || 'library';
@@ -566,6 +566,11 @@ export function closeLibraryModal(force = false) {
         if (modeButtons) modeButtons.style.display = currentOpen ? 'flex' : 'none';
         if (returnBtn) returnBtn.style.display = 'none';
 
+        // The library hid the fretboard; coming back to a Guitar Pro song brings it back
+        try {
+            if (currentOpen && fretboardController?.currentApi?.score && scoreOptionsState.isAvailable) fretboardController.setScoreAvailable(true);
+        } catch (_) {}
+
         if (currentOpen) {
             if (brandText) brandText.style.display = 'none';
             if (songBreadcrumb) songBreadcrumb.style.display = 'inline-flex';
@@ -732,6 +737,8 @@ async function renderViewContent(content) {
         renderSearchMusicBrainzView(content);
     } else if (activeView === 'recents') {
         await renderRecentsView(content);
+    } else if (activeView === 'tools') {
+        renderToolsView(content);
     } else if (activeView === 'setlists') {
         await renderSetlistsView(content, { onBack: () => switchView('library') });
     } else if (activeView === 'openFile') {
@@ -1720,6 +1727,7 @@ async function renderLibraryBrowseView(container) {
 const LIBRARY_TABS = [
     { id: 'library', label: 'Library', title: 'Browse your tab library', icon: 'bi-music-note-list' },
     { id: 'setlists', label: 'Setlists', title: 'Build and play setlists of tabs', icon: 'bi-collection-play' },
+    { id: 'tools', label: 'Tools', title: 'Tuner, reference library, fretboard and Jam', icon: 'bi-grid-3x3-gap' },
     { id: 'tunings', label: 'Tunings', title: 'Browse songs by guitar and bass tuning', icon: 'bi-sliders' },
     { id: 'recents', label: 'Recents', title: 'Recently opened tabs', icon: 'bi-clock-history' }
 ];
@@ -1802,12 +1810,12 @@ export function bindListFilter(container, { inputId, clearId, rowSelector, empty
 
 function getActiveLibraryTab() {
     if (activeView === 'library' || activeView === 'recents') return 'library';
-    return activeView === 'setlists' ? 'setlists' : null;
+    return activeView === 'setlists' || activeView === 'tools' ? activeView : null;
 }
 
 // Shared by the desktop view switcher and the phone bottom nav
 export async function goLibraryTab(tab) {
-    if (tab === 'setlists' || tab === 'recents') {
+    if (tab === 'setlists' || tab === 'recents' || tab === 'tools') {
         if (activeView !== tab) await switchView(tab);
         return;
     }
@@ -1831,7 +1839,7 @@ function syncLibraryBottomNav() {
     let nav = document.getElementById('libraryBottomNav');
     if (!nav) {
         const tabHtml = (t) => `<button type="button" class="library-nav-tab" data-lib-tab="${t.id}" title="${t.title}"><i class="${t.icon}"></i><span>${t.label}</span></button>`;
-        const [lib, setlists] = LIBRARY_TABS;
+        const [lib, setlists, tools] = LIBRARY_TABS;
         nav = document.createElement('nav');
         nav.id = 'libraryBottomNav';
         nav.className = 'library-bottom-nav';
@@ -1840,8 +1848,7 @@ function syncLibraryBottomNav() {
         const PICK_D = "M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z";
         const LETTERS_D = "M232.00,343.05L232.00,330.10L237.25,329.80L242.50,329.50L242.77,306.25L243.04,283.00L228.27,283.00L213.50,283.00L213.84,289.00L214.18,295.00L218.09,295.00L222.00,295.00L222.00,307.50L222.00,320.00L198.00,320.00L174.00,320.00L174.00,307.50L174.00,295.00L178.00,295.00L182.00,295.00L182.00,237.50L182.00,180.00L175.00,180.00L168.00,180.00L168.00,163.98L168.00,147.96L191.10,148.23L214.20,148.50L232.67,178.50C242.83,195.00 252.24,210.64 253.59,213.25C254.93,215.86 256.20,218.00 256.41,218.00C256.61,218.00 266.17,202.26 277.64,183.03L298.50,148.05L321.25,148.03L344.00,148.00L344.00,164.00L344.00,180.00L337.00,180.00L330.00,180.00L330.00,237.50L330.00,295.00L334.50,295.00L339.00,295.00L339.00,307.50L339.00,320.00L314.50,320.00L290.00,320.00L290.00,307.50L290.00,295.00L294.50,295.00L299.00,295.00L299.00,288.75L299.00,282.50L284.50,282.80L270.00,283.10L270.00,306.55L270.00,330.00L275.50,330.00L281.00,330.00L281.00,343.00L281.00,356.00L256.50,356.00L232.00,356.00L232.00,343.05ZM239.24,251.75C238.16,249.96 232.42,240.40 226.49,230.50C220.55,220.60 215.31,212.07 214.85,211.55C214.38,211.03 214.00,220.57 214.00,232.80L214.00,255.00L227.60,255.00L241.20,255.00L239.24,251.75ZM299.00,232.27L299.00,209.55L291.04,223.30C286.67,230.87 280.59,241.10 277.54,246.03L271.99,255.00L285.49,255.00L299.00,255.00L299.00,232.27Z";
         const PICK = `<svg class="rail-pick" viewBox="105 97 303 316" aria-hidden="true"><path fill="var(--action)" d="${PICK_D}"/><path fill="var(--on-action)" d="${LETTERS_D}"/></svg>`;
-        nav.innerHTML = `<div class="rail-brand">${PICK}<span class="rail-wordmark">Majestic<b>Tab</b></span></div>${tabHtml(lib)}${tabHtml(setlists)}
-          <button type="button" class="library-nav-tab library-nav-tools" id="libraryNavToolsBtn" title="Tools" aria-haspopup="menu"><i class="bi-grid-3x3-gap"></i><span>Tools</span></button>
+        nav.innerHTML = `<div class="rail-brand">${PICK}<span class="rail-wordmark">Majestic<b>Tab</b></span></div>${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tools)}
           <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
             const tab = e.target.closest('[data-lib-tab]');
@@ -1850,12 +1857,6 @@ function syncLibraryBottomNav() {
                 closeSettingsPage();
                 closeToolsMenu();
                 return goLibraryTab(tab.dataset.libTab);
-            }
-            if (e.target.closest('#libraryNavToolsBtn')) {
-                e.stopPropagation();
-                const btn = e.target.closest('#libraryNavToolsBtn');
-                toggleToolsMenu(btn);
-                return;
             }
             if (e.target.closest('#libraryNavSettingsBtn')) {
                 const panel = document.getElementById('fileMenu');
@@ -4521,6 +4522,35 @@ export async function openRecentItem(r) {
             }
         }
         showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
+}
+
+// Tools page: one row per tool, each opening it where it works. The reader's Tools button keeps its small menu.
+function renderToolsView(container) {
+    const $ = (id) => document.getElementById(id);
+    const hasSong = Boolean(getCurrentFile());
+    const tools = [
+        { id: 'reference', title: 'Reference library', help: 'Chords, scales and the circle of fifths.', key: 'R', open: () => $('toolsReferenceItem')?.click() },
+        { id: 'tuner', title: 'Tuner', help: 'Tune with the microphone.', key: 'T', open: () => $('tunerToggleBtn')?.click() },
+        { id: 'fretboard', title: 'Fretboard', help: hasSong ? 'Show notes on the neck.' : 'Open a song first. The fretboard shows the notes of the song you are playing.', key: 'F', disabled: !hasSong,
+          open: () => { closeLibraryModal(false); setTimeout(() => $('fretboardToggleBtn')?.click(), 60); } }
+    ];
+    const jamBtn = $('jamToggleBtn');
+    if (jamBtn && $('jamPill') && $('jamPill').style.display !== 'none') {
+        tools.push({ id: 'jam', title: 'Jam', help: $('jamStatusLabel')?.textContent || 'Play together on your network.', open: () => jamBtn.click() });
+    }
+    container.innerHTML = `
+    <div class="library-page-container tools-view">
+      <div class="title-row mb-3"><div><h2>Tools</h2><p class="tnum">${tools.length} tools</p></div></div>
+      <div class="tools-page-list" role="list">
+        ${tools.map(t => `<button type="button" class="tools-page-row" role="listitem" data-tool="${t.id}" ${t.disabled ? 'disabled aria-disabled="true"' : ''}>
+          <span class="tools-page-text"><b>${escapeHtml(t.title)}</b><small>${escapeHtml(t.help)}</small></span>
+          ${t.key ? `<kbd>${t.key}</kbd>` : ''}
+        </button>`).join('')}
+      </div>
+    </div>`;
+    container.querySelectorAll('.tools-page-row').forEach((row) => {
+        row.addEventListener('click', () => tools.find(t => t.id === row.dataset.tool)?.open());
+    });
 }
 
 async function renderRecentsView(container) {

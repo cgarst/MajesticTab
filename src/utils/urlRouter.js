@@ -49,7 +49,7 @@ export function updateUrl(main, sub = null, replace = false) {
     if (main === 'reference') {
         const activeSub = sub || getActiveReferenceTab() || 'chords';
         targetHash = `#reference/${activeSub}`;
-    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'setlists' || main === 'openfile' || main === 'search' || main === 'tunings') {
+    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'setlists' || main === 'tools' || main === 'openfile' || main === 'search' || main === 'tunings') {
         targetHash = `#${main}`;
     } else if (!main) {
         targetHash = '';
@@ -97,7 +97,7 @@ export async function navigateToUrlRoute(route, isInitial = false) {
             return true;
         }
 
-        const libraryViews = { library: 'library', recents: 'recents', setlists: 'setlists', openfile: 'openFile', search: 'search', tunings: 'tunings' };
+        const libraryViews = { library: 'library', recents: 'recents', setlists: 'setlists', tools: 'tools', openfile: 'openFile', search: 'search', tunings: 'tunings' };
         if (libraryViews[route.main]) {
             const view = libraryViews[route.main];
             closeTunerModal();

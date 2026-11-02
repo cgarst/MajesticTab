@@ -67,30 +67,7 @@ export function initToolsMenu() {
 
     function placeMenu(trigger = activeTriggerBtn || toggleBtn) {
         if (!trigger) return;
-        let rect = trigger.getBoundingClientRect();
-        if (rect.width === 0 && rect.height === 0) {
-            const fallback = $('libraryNavToolsBtn');
-            if (fallback && fallback.getBoundingClientRect().width > 0) {
-                trigger = fallback;
-                activeTriggerBtn = fallback;
-                rect = trigger.getBoundingClientRect();
-            }
-        }
-        if (trigger.id === 'libraryNavToolsBtn' || trigger.closest?.('#libraryBottomNav')) {
-            const isRail = rect.left < 100 && rect.width < 250;
-            if (isRail) {
-                menu.style.left = `${Math.round(rect.right + 10)}px`;
-                menu.style.right = 'auto';
-                menu.style.bottom = `${Math.max(12, Math.round(window.innerHeight - rect.bottom))}px`;
-                menu.style.top = 'auto';
-            } else {
-                menu.style.left = `${Math.max(8, Math.round(rect.left))}px`;
-                menu.style.right = 'auto';
-                menu.style.bottom = `${Math.round(window.innerHeight - rect.top + 8)}px`;
-                menu.style.top = 'auto';
-            }
-            return;
-        }
+        const rect = trigger.getBoundingClientRect();
         menu.style.left = 'auto';
         menu.style.bottom = 'auto';
         menu.style.top = `${Math.round(rect.bottom + 8)}px`;
@@ -139,7 +116,6 @@ export function initToolsMenu() {
         if (menu.contains(e.target)) return;
         if (toggleBtn?.contains(e.target)) return;
         if (activeTriggerBtn?.contains(e.target)) return;
-        if (e.target.closest('#libraryNavToolsBtn')) return;
         closeMenu();
     });
     document.addEventListener('keydown', (e) => {

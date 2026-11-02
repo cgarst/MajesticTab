@@ -703,8 +703,7 @@ body.practice-open #output { padding-right: 376px !important; }
   .library-bottom-nav .library-nav-tab.active { background: var(--s2); color: var(--ink); }
   .library-bottom-nav .library-nav-tab.active i { color: var(--ink); }
   .library-bottom-nav .library-nav-tab.active::before { content: ''; top: 50%; left: 3px; margin: -3px 0 0; width: 6px; height: 6px; background: var(--hue); animation: inlay var(--dur-base) cubic-bezier(.34,1.36,.64,1); }
-  .library-bottom-nav .library-nav-tools { margin-top: auto; }
-  .library-bottom-nav .library-nav-settings { margin-top: 0 !important; }
+  .library-bottom-nav .library-nav-settings { margin-top: auto !important; }
 }
 @keyframes inlay { from { transform: scale(0); } to { transform: scale(1); } }
 @media (min-width: 1000px) {
@@ -855,7 +854,7 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 
 /* Phone: five tabs, no brand or Tools (Tools stays in the top bar) */
 @media (max-width: 576px) {
-  .library-bottom-nav .rail-brand, .library-bottom-nav .library-nav-tools { display: none !important; }
+  .library-bottom-nav .rail-brand { display: none !important; }
   body.library-view-active .library-bottom-nav { background: var(--s1) !important; }
   .library-bottom-nav .library-nav-tab { font-size: 11px; font-weight: 500; }
   .library-bottom-nav .library-nav-tab.active { background: transparent; color: var(--ink); }
@@ -1910,3 +1909,18 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   #libraryReturnToSongBtn { min-height: 44px; }
   #libraryReturnToSongBtn .library-return-song-name { display: inline !important; color: var(--ink); max-width: 60vw !important; }
 }
+
+/* Tools page: flat rows on a 56px pitch, the same left edge as Setlists and Library */
+.tools-view .tools-page-list { display: flex; flex-direction: column; }
+.tools-page-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 12px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink); text-align: left; transition: background-color var(--dur-fast) var(--ease-out); }
+.tools-page-row:hover:not(:disabled) { background: var(--s1); }
+.tools-page-row:active:not(:disabled) { background: var(--s2); }
+.tools-page-row:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.tools-page-row:disabled { opacity: .55; cursor: default; }
+.tools-page-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.tools-page-text b { font-size: 16px; font-weight: 600; }
+.tools-page-text small { font-size: 13px; color: var(--ink2); margin-top: 2px; }
+.tools-page-row kbd { font: 600 12px system-ui, sans-serif; color: var(--ink2); background: var(--s3); border: 0; border-radius: 4px; padding: 2px 7px; }
+@media (hover: none) { .tools-page-row kbd { display: none; } }
+@media (prefers-reduced-motion: reduce) { .tools-page-row { transition: none; } }
+.tools-view > * { grid-column: 1 / -1; }
