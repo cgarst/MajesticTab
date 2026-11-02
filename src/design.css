@@ -1711,3 +1711,14 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 @media (max-width: 576px) { body.settings-as-page #fileMenu { left: 0 !important; width: 100vw !important; } }
 .backup-summary-box { background: var(--s2) !important; border: 0 !important; box-shadow: none !important; }
 .backup-summary-box i { display: none; }
+
+/* ---------- Data tasks live on the Settings page (Library and backup) ---------- */
+.setsec.data-task-open > .sgroup, .setsec.data-task-open > .snote { display: none; }
+.data-task-back { display: inline-flex; background: transparent !important; border: 0 !important; color: var(--ink2) !important; padding-left: 0 !important; margin: 4px 0 8px; }
+.data-task-back::before { content: "\2039"; margin-right: 6px; font-size: 18px; line-height: 1; }
+#backupModal.is-embedded { position: static !important; display: block; background: transparent !important; padding: 0 !important; inset: auto !important; }
+#backupModal.is-embedded .theme-modal-card { width: 100%; max-width: 100%; max-height: none; height: auto; background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0; transform: none !important; opacity: 1 !important; }
+#backupModal.is-embedded .theme-modal-header { padding-inline: 0; background: transparent !important; border: 0 !important; }
+#backupModal.is-embedded .theme-modal-icon, #backupModal.is-embedded #backupModalCloseBtn { display: none !important; }
+#backupModal.is-embedded .theme-modal-body { padding-inline: 0 !important; overflow: visible; max-height: none; }
+#backupModal.is-embedded .theme-modal-header { display: none; }

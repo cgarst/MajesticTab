@@ -1271,11 +1271,55 @@ function getOrCreateModal() {
     return modal;
 }
 
+
+/** The place on the Settings page where a data task renders, opening Settings first when the library navigation is there. */
+async function getSettingsDataHost() {
+    const navBtn = document.getElementById('libraryNavSettingsBtn');
+    if (!navBtn) return null;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    if (!document.body.classList.contains('settings-as-page')) {
+        navBtn.click();
+        await wait(450);
+    }
+    const section = document.querySelector('.setnav [data-section="library"]');
+    if (section && !section.hasAttribute('aria-current')) section.click();
+    return document.getElementById('dataTaskHost');
+}
+
+async function mountBackupInSettings(host, tab, options) {
+    const modal = getOrCreateModal();
+    modal.classList.add('is-embedded');
+    modal.style.display = 'block';
+    host.appendChild(modal);
+    host.hidden = false;
+    host.parentElement?.classList.add('data-task-open');
+    await renderModal(modal, tab, options);
+    host.scrollIntoView?.({ block: 'start' });
+}
+
+function leaveEmbeddedBackup() {
+    const modal = modalElement;
+    if (!modal?.classList.contains('is-embedded')) return false;
+    const host = modal.parentElement;
+    modal.classList.remove('is-embedded');
+    modal.style.display = 'none';
+    document.body.appendChild(modal);
+    if (host) {
+        host.hidden = true;
+        host.parentElement?.classList.remove('data-task-open');
+    }
+    return true;
+}
+
 /**
  * Open the Data Management modal
  * @param {'backup'|'restore'|'reload'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
+    // Data management is part of Settings, on the Library and backup page. The popup remains only where Settings
+    // is not reachable (for example while a score is open).
+    const host = await getSettingsDataHost();
+    if (host) return mountBackupInSettings(host, initialTab, options);
     const modal = getOrCreateModal();
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
@@ -1294,7 +1338,7 @@ export async function openBackupModal(initialTab = 'backup', options = {}) {
  * Close the Data Management modal
  */
 export function closeBackupModal() {
-    if (modalElement) {
+    if (!leaveEmbeddedBackup() && modalElement) {
         modalElement.style.display = 'none';
     }
     document.body.style.overflow = '';

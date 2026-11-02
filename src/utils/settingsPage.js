@@ -281,6 +281,15 @@ export function initSettingsPage() {
         pair.style.gridTemplateColumns = '';
         lib.push(row('Backup and restore', 'Save everything to a file or your cloud, or bring it back.', pair));
     }
+    // A data task (back up, restore, reload metadata, clean up, delete) renders here, in place of the list
+    const dataHost = el('div', 'data-task-host');
+    dataHost.id = 'dataTaskHost';
+    dataHost.hidden = true;
+    const dataBack = el('button', 'btn btn-sm data-task-back', 'Library and backup');
+    dataBack.type = 'button';
+    dataBack.addEventListener('click', async () => { (await import('../backupRestore.js')).closeBackupModal(); });
+    dataHost.appendChild(dataBack);
+    panes.library.appendChild(dataHost);
     if (lib.length) panes.library.appendChild(group('Your data', ...lib));
     if (moreData) {
         moreData.open = false;
