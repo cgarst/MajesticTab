@@ -357,7 +357,7 @@ export const UrlFileProvider = {
             subtitle: 'A link to a Guitar Pro, PDF or text file',
             icon: 'bi-link-45deg',
             inputLabel: 'Web address',
-            placeholder: 'https://example.com/song.gp5',
+            placeholder: 'Address of a tab file',
             confirmText: 'Open',
             onConfirm: (text) => openTabFromUrl(text, options)
         });
