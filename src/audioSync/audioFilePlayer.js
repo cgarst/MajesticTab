@@ -386,7 +386,6 @@ function render() {
         }));
     }
     list.replaceChildren(...rows);
-    if ($('afHint')) $('afHint').hidden = rows.length > 0;
     const loaded = Boolean(state.source);
     if ($('afPlayer')) $('afPlayer').hidden = !loaded;
     if ($('afPanelTitle')) $('afPanelTitle').textContent = state.meta?.name || 'Audio File';
