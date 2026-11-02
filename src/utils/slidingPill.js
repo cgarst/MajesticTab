@@ -4,6 +4,7 @@ const EXCLUDED_PILL_IDS = new Set([
     'navButtons',
     'toolsPill',
     'viewPill',
+    'practicePill',
     'songPill',
     'guitarPill',
     'fullscreenPill',

@@ -2,7 +2,12 @@
 // Settings as a page: a title, a section list (Player, Appearance, Reading, Controls, Sound, Library and backup,
 // About) and grouped rows (title, one line of help, the control). The controls are the ones already in the
 // settings markup, moved into rows, so their ids and handlers keep working. Things you change while playing
-// (size, paper, pages) live in the reader's View menu, not here.
+// (size, paper, pages) live in the reader's View menu, not here. Notation and the usual guitar are defaults here; the
+// reader's View and Guitar panels override them for the song that is open.
+
+import { getDefaultGpNotationMode, setGpNotationMode } from '../gpProcessor/gpProcessor.js';
+import { getUsualGuitar, setUsualGuitar, getAdaptTuningOptions } from './tabAdapter.js';
+import { getInstrumentMode } from './tuningUtils.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -48,21 +53,50 @@ function note(text) {
     return el('p', 'snote', text);
 }
 
-/** A switch row whose state mirrors an existing menu item (role menuitemcheckbox) and which clicks it. */
-function proxySwitch(sourceId) {
-    const src = $(sourceId);
-    if (!src) return null;
-    const sw = el('input', 'form-check-input theme-switch');
-    sw.type = 'checkbox';
-    const read = () => { sw.checked = src.getAttribute('aria-checked') === 'true'; };
-    read();
-    sw.addEventListener('change', () => { src.click(); setTimeout(read, 0); });
-    new MutationObserver(read).observe(src, { attributes: true, attributeFilter: ['aria-checked'] });
-    const wrap = el('div', 'form-check form-switch mb-0');
-    wrap.appendChild(sw);
-    return wrap;
+
+// ---- Defaults for every song: notation, and the usual guitar ----
+function makeNotationDefault() {
+    let current = getDefaultGpNotationMode();
+    const seg = el('div', 'hud-pill-group');
+    seg.setAttribute('role', 'radiogroup');
+    seg.setAttribute('aria-label', 'Notation');
+    [['Tab only', 'tab'], ['Tab and standard', 'scoreTab']].forEach(([label, val]) => {
+        const b = el('button', 'btn btn-sm' + (val === current ? ' active' : ''));
+        b.type = 'button';
+        b.textContent = label;
+        b.addEventListener('click', () => {
+            current = val;
+            setGpNotationMode(val);
+            seg.querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
+        });
+        seg.appendChild(b);
+    });
+    return seg;
 }
 
+/** Tuning, method and capo of the guitar every song opens on. "As written" means no fit. */
+function makeUsualGuitar() {
+    const wrap = el('div', 'usual-guitar');
+    const usual = getUsualGuitar();
+    const select = el('select', 'form-select form-select-sm');
+    select.setAttribute('aria-label', 'Usual tuning');
+    select.innerHTML = '<option value="">As written</option>' + getAdaptTuningOptions(getInstrumentMode())
+        .map((t) => `<option value="${t.shortName}"${usual?.tuningName === t.shortName ? ' selected' : ''}>${t.name}</option>`).join('');
+    const method = el('select', 'form-select form-select-sm');
+    method.setAttribute('aria-label', 'How to fit');
+    [['shift', 'Shift frets'], ['capo', 'Capo'], ['transpose', 'Transpose']].forEach(([v, label]) => {
+        const o = el('option'); o.value = v; o.textContent = label; if ((usual?.method || 'shift') === v) o.selected = true; method.appendChild(o);
+    });
+    const save = () => {
+        method.disabled = !select.value;
+        setUsualGuitar(select.value ? { enabled: true, tuningName: select.value, method: method.value, capo: 'auto' } : null);
+    };
+    select.addEventListener('change', save);
+    method.addEventListener('change', save);
+    method.disabled = !select.value;
+    wrap.append(select, method);
+    return wrap;
+}
 
 // ---- Neck preferences: one place for the fretboard dock and the reference library's chord diagrams ----
 const LH_KEY = 'majestictab_fretboard_left_handed';
@@ -212,8 +246,10 @@ export function initSettingsPage() {
             return group(title, ...rows);
         };
         const viewGroup = defaultRows('A new tab opens as', 0, ['', '', '']);
-        const stringGroup = defaultRows('Tab strings', 1, ['Show 6 strings, or 7 or 8 for extended range guitars. "From file" keeps what the tab was saved with.', 'Show 4 strings, or 5 or 6 for extended range basses.']);
+        const stringGroup = defaultRows('Usual strings', 1, ['Show 6 strings, or 7 or 8 for extended range guitars. "From file" keeps what the tab was saved with.', 'Show 4 strings, or 5 or 6 for extended range basses.']);
         if (viewGroup) panes.reading.appendChild(viewGroup);
+        panes.reading.appendChild(group('Notation', row('A new tab shows', 'Tab only, or tab with the standard staff above it. Change it for one song in View.', makeNotationDefault())));
+        panes.reading.appendChild(group('Usual guitar', row('Every song opens fitted to', 'Pick the tuning of the guitar you normally play and songs in other tunings are re-fingered for it. Change it for one song in Guitar.', makeUsualGuitar())));
         if (stringGroup) panes.reading.appendChild(stringGroup);
         const resetBtn = $('defaultsResetBtn');
         if (resetBtn) {

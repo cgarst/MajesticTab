@@ -448,7 +448,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 @media (prefers-reduced-motion: reduce) { .mobile-dock-play-btn { transition: none; } }
 
 /* page navigation keeps its buttons but loses the pill outline */
-#navButtons, #navButtons.hud-pill-group, #fullscreenPill, #songPill, #guitarPill, #viewPill, #toolsPill {
+#navButtons, #navButtons.hud-pill-group, #fullscreenPill, #practicePill, #songPill, #guitarPill, #viewPill, #toolsPill {
   border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important;
 }
 #topBar .btn svg.i-aa { display: block; }
@@ -1802,3 +1802,30 @@ body:not(.library-view-active) #brandSection { min-width: 0; width: 100%; }
 body:not(.library-view-active) #songBreadcrumb { flex: 1 1 auto; min-width: 0; }
 body:not(.library-view-active) .top-bar-song-btn { max-width: none !important; min-width: 0; flex: 0 1 auto; }
 body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-width: none !important; }
+.usual-guitar { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.usual-guitar .form-select { width: auto; min-width: 150px; background-color: var(--s3); border: 0; color: var(--ink); }
+
+/* ---------- Practice panel (top bar) and the dock's volume ---------- */
+/* The old Practice panel is never shown. Its controls live in the Practice menu; what is left stays in the DOM for the
+   Settings rows that click it (SoundFonts, Mixer, Audio latency). */
+#synthDropdownPanel { display: none !important; }
+#barRulerInfoBtn { display: none !important; }
+.dock-more { width: 32px !important; min-width: 32px !important; padding: 0 !important; }
+#practiceToggleBtn.has-state .bar-btn-label::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle; }
+.practice-menu { width: 360px; max-width: calc(100vw - 16px); max-height: calc(100vh - 90px); overflow-y: auto; padding: 14px 16px 14px; position: fixed; z-index: 1085; display: flex; flex-direction: column; gap: 16px; }
+.practice-menu > div { margin: 0 !important; }
+.practice-title { font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1.1; }
+.practice-sub { color: var(--ink2); font-size: 13px; margin-top: 2px; }
+.practice-menu .form-label, .practice-label { color: var(--ink2) !important; font-size: 13px; font-weight: 500 !important; }
+.practice-speed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.practice-speed-value { font: 700 30px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.practice-step { width: 44px; height: 44px; padding: 0 !important; background: var(--s3) !important; border: 0 !important; color: var(--ink) !important; border-radius: var(--r) !important; font-size: 20px; }
+.practice-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+.practice-preset { background: var(--s3) !important; border: 0 !important; color: var(--ink2) !important; min-height: 44px; font-weight: 600; border-radius: var(--r) !important; }
+.practice-preset.active { background: var(--action) !important; color: var(--on-action, #fff) !important; }
+.dock-pop { position: fixed; z-index: 1086; width: 300px; max-width: calc(100vw - 16px); background: var(--s2); border-radius: var(--r-lg); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; opacity: 0; transform: translateY(6px) scale(0.98); transform-origin: bottom center; transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
+.dock-pop[hidden] { display: none; }
+.dock-pop.is-open { opacity: 1; transform: none; }
+.dock-pop > div { margin: 0 !important; }
+.dock-pop-title { font: 600 17px system-ui, sans-serif; color: var(--ink); }
+@media (prefers-reduced-motion: reduce) { .dock-pop { transition: none; transform: none; } }

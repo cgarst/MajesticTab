@@ -1213,9 +1213,12 @@ export function setupGlobalAudioControls() {
         handleGlobalPlayPause();
     });
 
+    // Synth is a switch in the dock: it changes the sound without opening a panel
     mobileSynthBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
-        document.getElementById('synthToggleBtn')?.click();
+        if (mobileSynthBtn.classList.contains('active-audio-mode')) return;
+        document.getElementById('synthToggleBtn')?.click();   // switches to the synth and opens its (hidden) panel
+        document.getElementById('synthPanelCloseBtn')?.click(); // and closes it again
     });
 
     mobileRealAudioBtn?.addEventListener('click', (e) => {

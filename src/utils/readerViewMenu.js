@@ -165,21 +165,7 @@ function initPracticePanels() {
     const toggles = { synth: $('synthToggleBtn'), recording: $('ytToggleBtn') };
     for (const { id, which } of panels) {
         const panel = $(id);
-        const body = panel?.querySelector('.synth-panel-body, .yt-panel-body');
-        if (!panel || !body) continue;
-        const seg = document.createElement('div');
-        seg.className = 'hud-pill-group practice-seg';
-        seg.setAttribute('role', 'group');
-        seg.setAttribute('aria-label', 'Sound');
-        seg.innerHTML = `<button type="button" class="btn btn-sm${which === 'synth' ? ' active' : ''}" data-which="synth">Synth</button>`
-            + `<button type="button" class="btn btn-sm${which === 'recording' ? ' active' : ''}" data-which="recording">Recording</button>`;
-        seg.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const b = e.target.closest('[data-which]');
-            if (!b || b.dataset.which === which) return;
-            toggles[b.dataset.which]?.click();
-        });
-        body.insertBefore(seg, body.firstChild);
+        if (!panel) continue;
         new MutationObserver(updateOpen).observe(panel, { attributes: true, attributeFilter: ['style', 'class'] });
     }
     function updateOpen() {

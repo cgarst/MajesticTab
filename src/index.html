@@ -122,6 +122,12 @@
         </button>
       </div>
 
+      <div id="practicePill" class="hud-pill-group" role="group" aria-label="Practice">
+        <button class="btn btn-sm" id="practiceToggleBtn" type="button" title="Practice: speed, parts, loop and click" aria-haspopup="dialog" aria-expanded="false" aria-controls="practiceMenu">
+          <span class="bar-btn-label">Practice</span>
+        </button>
+      </div>
+
       <div id="songPill" class="hud-pill-group" role="group" aria-label="Song">
         <button class="btn btn-sm" id="songToggleBtn" type="button" title="Song: tracks, recording, save and share" aria-haspopup="dialog" aria-expanded="false" aria-controls="scoreOptionsDropdownPanel">
           <span class="bar-btn-label">Song</span>
@@ -158,6 +164,9 @@
     </div>
   </div>
 </nav>
+
+<!-- Practice: speed, parts, loop and click. Built by utils/practiceMenu.js -->
+<div id="practiceMenu" class="tools-menu practice-menu" role="dialog" aria-label="Practice" style="display:none;"></div>
 
 <!-- Guitar: what is in your hands right now (temporary; not saved). Built by utils/guitarMenu.js -->
 <div id="guitarMenu" class="tools-menu guitar-menu" role="dialog" aria-label="Guitar" style="display:none;"></div>
@@ -2053,17 +2062,21 @@
     <div class="dock-time" id="dockTime" aria-live="off"><span class="dock-section" id="dockSection" style="display:none;"></span><span id="dockBarPrefix">Bar </span><b id="dockBar">1</b><span class="dock-clock"> &middot; <span id="dockClock">0:00 / 0:00</span></span></div>
     <div class="dock-bpm" id="dockBpmBox" title="Tempo"><b id="dockBpm">&ndash;</b><span>bpm</span></div>
     <div class="dock-tools">
+      <!-- Loop and metronome are driven from the Practice panel; these buttons carry their state for barRuler.js -->
+      <div hidden>
+        <button type="button" id="dockLoopBtn" aria-pressed="false" tabindex="-1">Loop</button>
+        <button type="button" id="dockMetroBtn" aria-pressed="false" tabindex="-1">Click</button>
+      </div>
       <div class="dock-src" role="group" aria-label="Sound">
         <div class="mobile-dock-divider" id="mobileAudioSourceDivider" style="display: none;"></div>
-        <button type="button" class="btn mobile-dock-btn" id="mobileSynthToggleBtn" title="MIDI Synth Audio & Controls" aria-label="MIDI Synth Controls" style="display: none;">
-          <i class="bi-soundwave"></i><span class="audio-src-label">Synth</span>
+        <button type="button" class="btn mobile-dock-btn" id="mobileSynthToggleBtn" title="Play the tab with the built-in synth" aria-label="Synth" style="display: none;">
+          <span class="audio-src-label">Synth</span>
         </button>
-        <button type="button" class="btn mobile-dock-btn" id="mobileYtToggleBtn" title="Real Audio & Controls" aria-label="Real Audio Controls" style="display: none;">
-          <i class="bi-youtube"></i><span class="audio-src-label">Recording</span>
+        <button type="button" class="btn mobile-dock-btn" id="mobileYtToggleBtn" title="Play along with a recording" aria-label="Recording" style="display: none;">
+          <span class="audio-src-label">Recording</span>
         </button>
+        <button type="button" class="btn mobile-dock-btn dock-more" id="dockVolumeBtn" aria-haspopup="dialog" aria-expanded="false" aria-label="Volume" title="Volume"><i class="bi-volume-up"></i></button>
       </div>
-      <button type="button" class="btn mobile-dock-btn dock-icon-btn" id="dockLoopBtn" title="Loop the current part" aria-label="Loop the current part" aria-pressed="false"><i class="bi-repeat"></i></button>
-      <button type="button" class="btn mobile-dock-btn dock-icon-btn" id="dockMetroBtn" title="Metronome" aria-label="Metronome" aria-pressed="false"><i class="bi-stopwatch"></i></button>
     </div>
   </div>
 </aside>
