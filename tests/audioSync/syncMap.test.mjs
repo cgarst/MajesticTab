@@ -20,11 +20,12 @@ test('maps linearly inside a segment and round-trips', () => {
     }
 });
 
-test('extrapolates 1:1 before the first and after the last point', () => {
+test('carries the adjacent segment rate before the first and after the last point', () => {
+    // First segment is 1:1, last segment runs at half rate (2 recording ms per score ms).
     assert.equal(mediaToScore(pts, 500), -500);
-    assert.equal(mediaToScore(pts, 8000), 5000);
+    assert.equal(mediaToScore(pts, 9000), 5000);
     assert.equal(scoreToMedia(pts, -100), 900);
-    assert.equal(scoreToMedia(pts, 4500), 7500);
+    assert.equal(scoreToMedia(pts, 4500), 8000);
 });
 
 test('exact point positions map exactly', () => {

@@ -6,7 +6,8 @@
 // which expands repeats) with a time in the recording (`timeMs`). Callers convert bar/occurrence/position to
 // `scoreMs`. Between two points the mapping is linear in written time, like AlphaTab's own sync points: it rescales
 // the tempo by recording time / written time, which differs from linear-in-ticks when the written tempo changes
-// between two points. Before the first and after the last point the recording runs at the written tempo (1:1).
+// between two points. Before the first and after the last point the adjacent segment's rate carries on, as in
+// AlphaTab; with a single point there is no segment, so the recording runs at the written tempo (1:1).
 
 export const MIN_TEMPO_RATIO = 0.25;
 export const MAX_TEMPO_RATIO = 4;
@@ -55,10 +56,13 @@ function lastAtOrBefore(points, key, value) {
 }
 
 function convert(points, value, fromKey, toKey) {
-    if (!points.length) return value;
+    const n = points.length;
+    if (!n) return value;
     const i = lastAtOrBefore(points, fromKey, value);
-    if (i < 0) return points[0][toKey] - (points[0][fromKey] - value);
-    if (i === points.length - 1) return points[i][toKey] + (value - points[i][fromKey]);
+    // Outside the first/last point, carry on at the adjacent segment's rate (1:1 with a single point).
+    const edgeRate = (a, b) => (n < 2 ? 1 : (b[toKey] - a[toKey]) / (b[fromKey] - a[fromKey]));
+    if (i < 0) return points[0][toKey] - (points[0][fromKey] - value) * edgeRate(points[0], points[1]);
+    if (i === n - 1) return points[i][toKey] + (value - points[i][fromKey]) * edgeRate(points[n - 2], points[n - 1]);
     const a = points[i];
     const b = points[i + 1];
     const t = (value - a[fromKey]) / (b[fromKey] - a[fromKey]);
