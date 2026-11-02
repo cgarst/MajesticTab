@@ -20,6 +20,7 @@ import { SYNC_CHANGED_EVENT } from './audioSyncEditor.js';
 import { createSyncTimeline } from './syncTimeline.js';
 import { decodeOnsets, nearestOnset } from './onsets.js';
 import { nudgePoint, wholeBarRange, retapWindow } from './refine.js';
+import { openTapCalibration } from './tapCalibrationModal.js';
 
 const OFFSET_KEY = 'audio_sync_tap_offset';
 const TIMELINE_KEY = 'audio_sync_timeline';
@@ -571,6 +572,19 @@ function wireToolbar(s) {
     on('smUndoBtn', undo);
     on('smRedoBtn', redo);
     on('smAuditionBtn', audition);
+    on('smCalibrateBtn', () => {
+        endAudition();
+        s.source.pause();
+        openTapCalibration({
+            latencyMs: getAudioLatencyMs(),
+            onApply: (ms) => {
+                const field = $('smOffset');
+                field.value = String(ms);
+                field.dispatchEvent(new Event('change'));
+                showToast(`Tap offset set to ${session ? session.offsetMs : ms} ms`, 'info', 2200);
+            }
+        });
+    });
     on('smSnapPointBtn', snapSelected);
     on('smDeletePointBtn', deleteSelected);
     on('smSnapBtn', () => {
@@ -642,6 +656,8 @@ async function playSource() {
 function handleKey(e) {
     const s = session;
     if (!s) return;
+    // A dialog (calibration, Sync Points) has its own keys
+    if (document.body.classList.contains('modal-open')) return;
     const typing = e.target instanceof HTMLElement && e.target.closest('input, textarea, select');
     if (typing) return;
     const mod = e.metaKey || e.ctrlKey;

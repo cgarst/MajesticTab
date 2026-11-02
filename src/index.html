@@ -1156,6 +1156,7 @@
     <label class="sync-mode-offset small text-white-50" title="Subtracted from every tap, for a reaction delay. Raise it if your taps land late.">
       Offset <input type="number" class="form-control form-control-sm" id="smOffset" value="0" step="10" min="0" max="500" aria-label="Tap offset in milliseconds"> ms
     </label>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smCalibrateBtn" title="Measure how long after a sound your taps land, and take it off every tap">Calibrate</button>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smSnapBtn" title="Move each tap to the nearest sound in the recording, up to 80 ms away" hidden>Snap</button>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smUndoBtn" title="Undo (Ctrl+Z)">Undo</button>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smRedoBtn" title="Redo (Ctrl+Shift+Z)">Redo</button>
@@ -1324,6 +1325,42 @@
           <button type="button" class="btn btn-sm theme-control-btn flex-grow-1" id="latencyStartBtn">Start Clicks</button>
           <button type="button" class="btn btn-sm btn-theme-primary flex-grow-1" id="latencyApplyBtn" disabled>Apply</button>
         </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<div id="tapCalModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tapCalModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card synth-modal-card">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
+          <i class="bi-hand-index-thumb text-info fs-5"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="tapCalModalTitle">Calibrate tap offset</h2>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="tapCalModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body">
+      <div class="small text-white-50 mb-3">Everyone taps a little after they hear a sound. Measure yours once, and tap mode takes it off every tap. Start the clicks, then tap the big button (or press Space) each time you hear one. They come at uneven times, so you cannot tap ahead of them.</div>
+      <div class="d-flex align-items-center gap-3 mb-2">
+        <div id="tapCalFlash" class="latency-flash" aria-hidden="true"></div>
+        <button type="button" class="btn theme-control-btn flex-grow-1 py-3" id="tapCalTapBtn" disabled>Tap on click</button>
+      </div>
+      <div class="d-flex justify-content-between align-items-center mb-1 small">
+        <span>Your taps land: <strong id="tapCalMeasured">–</strong></span>
+        <span class="text-white-50" id="tapCalCount">0 taps</span>
+      </div>
+      <div class="small text-white-50 mb-2" id="tapCalNote" role="status" style="min-height: 2.4em;"></div>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm theme-control-btn flex-grow-1" id="tapCalStartBtn">Start Clicks</button>
+        <button type="button" class="btn btn-sm btn-theme-primary flex-grow-1" id="tapCalApplyBtn" disabled>Use This Offset</button>
       </div>
     </div>
   </section>
