@@ -1102,7 +1102,26 @@ export function createCustomCursorHandler(api) {
                 barCursor.setBounds(0, 0, 0, 0);
             }
         },
+        /** Stops the cursor where it is, partway through a glide (audio sync pauses it with the recording). */
+        freezeBeatCursor() {
+            const cursors = [readerEl, ...document.querySelectorAll('.gp-page-cursor-beat')].filter(Boolean);
+            for (const el of cursors) {
+                const current = getComputedStyle(el).transform;
+                el.style.transition = 'none';
+                if (current && current !== 'none') el.style.transform = current;
+            }
+        },
+        /** Called once, after the next time AlphaTab places the cursor (audio sync waits for that before gliding). */
+        afterNextPlace: null,
         placeBeatCursor(beatCursor, beatBounds, startBeatX) {
+            this.placeBeatCursorNow(beatCursor, beatBounds, startBeatX);
+            const waiting = this.afterNextPlace;
+            if (waiting) {
+                this.afterNextPlace = null;
+                waiting();
+            }
+        },
+        placeBeatCursorNow(beatCursor, beatBounds, startBeatX) {
             if (beatBounds?.beat && !synthPlayerState.isPlaying) {
                 fretboardController.showBeatsAtCursor(beatBounds.beat);
             }

@@ -4,30 +4,13 @@
 // whenever the score or the points change.
 
 import { getMidiTickLookup, getAudioLatencyMs, synthPlayerState, onUserSeekTick } from '../gpProcessor/gpPlayer.js';
-import { buildScoreTimeline, playedBarsFromLookup, tickToScoreMs } from './scorePositions.js';
-import { scoreToMedia } from './syncMap.js';
+import { buildScoreTimeline, playedBarsFromLookup, tickToScoreMs, scoreMsToTick } from './scorePositions.js';
+import { scoreToMedia, mediaToScore } from './syncMap.js';
+import { buildBeatMap } from './beatMap.js';
+import { createCursorGlide } from './cursorGlide.js';
 import { resolvePoints } from './pointCheck.js';
 import { createFollower } from './follower.js';
 import { hasOrderProblems, validatePoints } from './syncMap.js';
-
-/**
- * Sorted start ticks of every beat played, repeat passes included. Walks each played bar's chain of tick slices
- * (a beat can span several) and keeps the first slice of each beat.
- */
-function beatStartTicks(lookup) {
-    const starts = new Set();
-    for (const bar of lookup?.masterBars || []) {
-        const seen = new Set();
-        for (let slice = bar.firstBeat; slice; slice = slice.nextBeat) {
-            const beat = slice.highlightedBeats?.[0]?.beat;
-            if (!beat || seen.has(beat)) continue;
-            seen.add(beat);
-            // slice ticks are relative to their bar
-            if (Number.isFinite(slice.start)) starts.add(bar.start + slice.start);
-        }
-    }
-    return [...starts].sort((a, b) => a - b);
-}
 
 /** Largest start <= tick (binary search); the tick itself when there are no beats. */
 function snapTo(starts, tick) {
@@ -62,15 +45,51 @@ export function startAudioSync({ source, points: storedPoints }) {
     const lookup = api && getMidiTickLookup(api);
     if (!api?.score || !lookup) return null;
     const timeline = buildScoreTimeline(playedBarsFromLookup(lookup), api.score.tempo);
-    const starts = beatStartTicks(lookup);
+    const map = buildBeatMap(lookup);
+    const starts = map.entries.map(e => e.tick);
+    const glide = createCursorGlide(api, map);
     let stored = storedPoints;
     let resolved = resolvePoints(timeline, stored);
+
+    // The cursor is where the recording is between two beats, and runs on to the next beat in the time that is left
+    // (as the synth's cursor does), so a bar of rests is a smooth sweep instead of a stop and a jump.
+    let glideTimer = 0;
+    function glideNow() {
+        clearTimeout(glideTimer);
+        if (source.isBuffering?.()) return;
+        const playing = source.isPlaying();
+        const heard = source.getTimeMs() - getAudioLatencyMs();
+        const scoreMs = mediaToScore(resolved, heard);
+        const located = glide.locate(scoreMsToTick(timeline, scoreMs));
+        if (!located) return;
+        let fraction = 0;
+        let duration = 0;
+        if (located.next) {
+            const fromMs = tickToScoreMs(timeline, located.fromTick);
+            const toMs = tickToScoreMs(timeline, located.next.tick);
+            fraction = toMs > fromMs ? (scoreMs - fromMs) / (toMs - fromMs) : 0;
+            duration = Math.min(60000, Math.max(0, (scoreToMedia(resolved, toMs) - heard) / (source.getRate?.() || 1)));
+        }
+        // Paused, the cursor stands exactly where the recording is, between the beats, and does not move
+        glide.run(located, fraction, playing ? duration : 0);
+        // On reaching that beat, start the next leg: the beats that are drawn are not all in the tick lookup, so the
+        // follower's own ticks can stay put for a whole bar. Each leg is worked out from the clock again.
+        if (playing && located.next) glideTimer = setTimeout(glideNow, Math.max(30, duration + 5));
+    }
+
     const follower = createFollower({
         source,
         timeline,
         getPoints: () => resolved,
         // AlphaTab places its own cursor when the tick is set, but the cursor layer stays hidden until this class is set
         setTick: (tick) => {
+            // AlphaTab drops the cursor on the beat when the tick is set; glide from where it is once that is done
+            const handler = api.customCursorHandler;
+            if (handler) {
+                const go = () => { clearTimeout(fallback); handler.afterNextPlace = null; glideNow(); };
+                const fallback = setTimeout(go, 120);
+                handler.afterNextPlace = go;
+            }
             api.tickPosition = tick;
             document.body.classList.add('synth-playback-started');
         },
@@ -86,6 +105,13 @@ export function startAudioSync({ source, points: storedPoints }) {
         follower.refresh();
     };
     const stopListeningForSeeks = onUserSeekTick(seekRecordingToTick);
+    // The cursor stops with the recording, picks up where it is on play, and re-aims when the speed changes
+    const stopListeningToSource = source.on?.((e) => {
+        if (e.type === 'rate') glideNow();
+        else if (e.type === 'state' || e.type === 'buffering') {
+            if (source.isPlaying() && !source.isBuffering?.()) glideNow(); else { clearTimeout(glideTimer); glide.freeze(); }
+        }
+    });
 
     active = {
         source,
@@ -98,6 +124,10 @@ export function startAudioSync({ source, points: storedPoints }) {
         usable: () => !hasOrderProblems(resolved),
         stop() {
             stopListeningForSeeks();
+            stopListeningToSource?.();
+            clearTimeout(glideTimer);
+            glide.freeze();
+            glide.destroy();
             follower.stop();
             // The cursor layer is only wanted while something drives it; the synth keeps it once it has played
             if (!synthPlayerState.hasPlayed) document.body.classList.remove('synth-playback-started');
