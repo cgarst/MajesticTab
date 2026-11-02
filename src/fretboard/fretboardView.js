@@ -393,6 +393,12 @@ export class FretboardView {
         bridgePlate.setAttribute('rx', '3');
         group.appendChild(bridgePlate);
 
+        // Where one part's pick reaches across several strings (rebuilt on every beat, under the pick markers)
+        this.reachGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        this.reachGroup.setAttribute('class', 'fretboard-pick-reach');
+        this.partPickPool = []; // the neck was rebuilt, so any earlier part picks are gone with it
+        group.appendChild(this.reachGroup);
+
         for (let v = 1; v <= this.stringCount; v++) {
             const atString = this.getAtString(v);
             const posY = this.stringYs[v];
@@ -558,8 +564,9 @@ export class FretboardView {
             }
         }
 
-        const pickedStringsThisBeat = new Set();
+        const partPicks = new Map();
         let poolIdx = 0;
+        this.clearPickReach();
 
         for (const note of notes) {
             const atString = note.string;
@@ -578,16 +585,14 @@ export class FretboardView {
             const visualLine = this.getVisualString(atString);
             const posY = this.stringYs[visualLine];
 
-            // 1. Activate Picking Hand Strike Indicator on picking side if picked this beat
-            const pick = this.pickIndicators?.[atString];
-            if (pick && note.isPicked !== false && !pickedStringsThisBeat.has(atString)) {
-                pickedStringsThisBeat.add(atString);
-                pick.group.style.display = '';
-                pick.struckToggle = !pick.struckToggle;
-                pick.group.setAttribute('class', `fretboard-pick-marker ${pick.struckToggle ? 'is-struck' : 'is-struck-alt'}`);
-
-                pick.glow.style.fill = trackColor;
-                pick.pick.style.fill = trackGrad;
+            // 1. Collect what each part picks this beat; one pick per part is drawn after the loop
+            if (note.isPicked !== false) {
+                let part = partPicks.get(primaryTrackColorIdx);
+                if (!part) {
+                    part = { strings: new Set(), trackColor, trackGrad };
+                    partPicks.set(primaryTrackColorIdx, part);
+                }
+                part.strings.add(atString);
             }
 
             // 2. For Fretted Notes (fret > 0), place Finger Dot Marker on the fret
@@ -639,6 +644,8 @@ export class FretboardView {
         for (let i = poolIdx; i < this.markerPool.length; i++) {
             this.markerPool[i].element.style.display = 'none';
         }
+
+        this.drawPartPicks(partPicks);
     }
 
     /**
@@ -652,10 +659,104 @@ export class FretboardView {
         return NOTE_NAMES[((midi % 12) + 12) % 12] || '';
     }
 
+    clearPickReach() {
+        if (this.reachGroup) this.reachGroup.textContent = '';
+        (this.partPickPool || []).forEach((p) => { p.group.style.display = 'none'; });
+    }
+
+    /** A pick marker that belongs to one part, created on first use and then reused. */
+    getPartPick(index) {
+        this.partPickPool = this.partPickPool || [];
+        while (this.partPickPool.length <= index) {
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const g = document.createElementNS(svgNS, 'g');
+            g.setAttribute('class', 'fretboard-pick-marker');
+            g.style.display = 'none';
+            const inner = document.createElementNS(svgNS, 'g');
+            inner.setAttribute('class', 'pick-marker-inner');
+            const pick = document.createElementNS(svgNS, 'path');
+            pick.setAttribute('class', 'pick-strike-shape');
+            pick.setAttribute('d', PLECTRUM_PATH);
+            pick.setAttribute('transform', 'translate(0 -1) scale(0.056) translate(-256 -255)');
+            const shine = document.createElementNS(svgNS, 'path');
+            shine.setAttribute('class', 'pick-strike-shine');
+            shine.setAttribute('d', 'M -5.2 -6.8 Q 0 -9.4 5.2 -6.8');
+            inner.appendChild(pick);
+            inner.appendChild(shine);
+            g.appendChild(inner);
+            this.reachGroup.parentNode.appendChild(g);
+            this.partPickPool.push({ group: g, pick, struckToggle: false });
+        }
+        return this.partPickPool[index];
+    }
+
+    /**
+     * One pick per part. The pick sits on the lowest string the part plays. Where the part also plays the strings
+     * directly above it (a strum) a solid bar joins them; where there is a gap and higher strings still sound
+     * (plucked), a dotted line runs on to them. Every other sounding string gets a bead at the pick's position.
+     * @param {Map<number, {strings: Set<number>, trackColor: string, trackGrad: string}>} partPicks
+     */
+    drawPartPicks(partPicks) {
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const stackStep = 22 * (this.isLeftHanded ? 1 : -1);
+        const stackedAt = {};
+        let partIndex = 0;
+
+        partPicks.forEach((part) => {
+            const strings = [...part.strings].filter(n => this.pickIndicators?.[n]).sort((a, b) => a - b);
+            if (strings.length === 0) return;
+            const lowest = strings[0];
+            const pick = this.getPartPick(partIndex++);
+
+            // Two parts on the same lowest string sit side by side instead of on top of each other
+            const n = stackedAt[lowest] || 0;
+            stackedAt[lowest] = n + 1;
+            const x = this.pickX + n * stackStep;
+            const yOf = (str) => this.stringYs[this.getVisualString(str)];
+            pick.group.setAttribute('transform', `translate(${x}, ${yOf(lowest)})`);
+            pick.group.style.display = '';
+            pick.struckToggle = !pick.struckToggle;
+            pick.group.setAttribute('class', `fretboard-pick-marker ${pick.struckToggle ? 'is-struck' : 'is-struck-alt'}`);
+            pick.pick.style.fill = part.trackGrad;
+
+            if (strings.length === 1 || !this.reachGroup) return;
+
+            // The unbroken run of strings above the pick is the strum
+            let strumEnd = lowest;
+            for (let i = 1; i < strings.length && strings[i] === strumEnd + 1; i++) strumEnd = strings[i];
+            const last = strings[strings.length - 1];
+
+            const line = (y1, y2, cls) => {
+                const l = document.createElementNS(svgNS, 'line');
+                l.setAttribute('class', cls);
+                l.setAttribute('x1', x);
+                l.setAttribute('x2', x);
+                l.setAttribute('y1', y1);
+                l.setAttribute('y2', y2);
+                l.style.stroke = part.trackColor;
+                this.reachGroup.appendChild(l);
+            };
+            if (strumEnd > lowest) line(yOf(lowest), yOf(strumEnd), 'pick-reach-strum');
+            if (last > strumEnd) line(yOf(strumEnd), yOf(last), 'pick-reach-pluck');
+
+            strings.slice(1).forEach((str) => {
+                const bead = document.createElementNS(svgNS, 'circle');
+                bead.setAttribute('class', str <= strumEnd ? 'pick-reach-bead is-strum' : 'pick-reach-bead is-pluck');
+                bead.setAttribute('cx', x);
+                bead.setAttribute('cy', yOf(str));
+                bead.setAttribute('r', str <= strumEnd ? '3' : '3.4');
+                bead.style.fill = str <= strumEnd ? part.trackColor : 'none';
+                bead.style.stroke = part.trackColor;
+                this.reachGroup.appendChild(bead);
+            });
+        });
+    }
+
     /**
      * Clear all active markers from the neck
      */
     clearActiveNotes() {
+        this.clearPickReach();
         for (const marker of this.markerPool) {
             marker.element.style.display = 'none';
         }

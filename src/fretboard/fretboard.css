@@ -543,3 +543,10 @@ body.library-view-active .fretboard-dock {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* One pick per part: a solid bar for the strummed run, a dotted line to higher strings that are plucked */
+.fretboard-pick-reach { pointer-events: none; }
+.pick-reach-strum { stroke-width: 3; stroke-linecap: round; opacity: 0.85; }
+.pick-reach-pluck { stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 0.1 4.5; opacity: 0.9; }
+.pick-reach-bead.is-strum { stroke-width: 0; }
+.pick-reach-bead.is-pluck { stroke-width: 1.8; fill: var(--ground, #0b0910) !important; }
