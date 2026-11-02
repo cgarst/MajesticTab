@@ -1882,8 +1882,18 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #ytDropdownPanel {
     position: fixed !important; left: 0 !important; right: 0 !important; top: auto !important; width: auto !important; max-width: none !important;
     bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--dock-h, 0px)) !important; transform: none !important;
-    max-height: calc(100vh - 56px - var(--dock-h, 0px) - 70px); overflow-y: auto; border-radius: var(--r-lg) var(--r-lg) 0 0 !important;
+    max-height: calc(100vh - 56px - var(--dock-h, 0px) - 70px) !important; overflow-y: auto; border-radius: var(--r-lg) var(--r-lg) 0 0 !important;
   }
   .dock-pop { left: 8px !important; right: 8px; width: auto; }
 }
 @media (max-width: 640px) and (prefers-reduced-motion: reduce) { body:not(.library-view-active) #topFlexZone { transition: none; } }
+
+/* Song, Tracks: visible keyboard focus and 44px targets on touch */
+.gp-track-mix-btn:focus-visible, .gp-track-only-btn:focus-visible, .mixer-toggle:focus-visible, #synthMixResetBtn:focus-visible, #synthShowAllTracksBtn:focus-visible,
+.track-mix input[type="range"]:focus-visible { outline: 2px solid var(--ink) !important; outline-offset: 2px; }
+@media (pointer: coarse) {
+  .gp-track-mix-btn, .gp-track-only-btn, .mixer-toggle { min-height: 44px; }
+  #synthMixResetBtn, #synthShowAllTracksBtn { min-height: 44px; padding: 0 4px !important; }
+  .track-mix input[type="range"] { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { .lib-browse-by-btn { transition: none; } }
