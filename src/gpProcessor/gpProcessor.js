@@ -1,5 +1,6 @@
 import { showToast } from '../utils/toast.js';
 import { applyScoreAdaptation, getTabAdaptPref } from '../utils/tabAdapter.js';
+import { getNotationOverride, beginSong } from '../utils/sessionOverrides.js';
 import { applyTabTrackColors, tintTrackCurves } from '../utils/trackColors.js';
 import { createCustomCursorHandler } from './gpPlayer.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
@@ -77,12 +78,21 @@ export function applySavedGpDisplayScale() {
 
 export const DEFAULT_GP_NOTATION_MODE = 'tab';
 
+/** The notation for the open song: the temporary choice from View if there is one, otherwise the Settings default. */
 export function getGpNotationMode() {
+    const temporary = getNotationOverride();
+    if (temporary === 'scoreTab' || temporary === 'tab') return temporary;
+    return getDefaultGpNotationMode();
+}
+
+/** The saved default (Settings, Defaults). */
+export function getDefaultGpNotationMode() {
     if (typeof localStorage === 'undefined') return DEFAULT_GP_NOTATION_MODE;
     const saved = localStorage.getItem('gpNotationMode');
     return saved === 'scoreTab' ? 'scoreTab' : DEFAULT_GP_NOTATION_MODE;
 }
 
+/** Saves the default. The reader's View menu changes the open song only (see sessionOverrides.js). */
 export function setGpNotationMode(mode) {
     const safeMode = mode === 'scoreTab' ? 'scoreTab' : 'tab';
     if (typeof localStorage !== 'undefined') {
@@ -164,6 +174,8 @@ export function loadGuitarPro(file, container, options) {
 
 function loadGuitarProScore(file, container, { debug = false, originalFile = null } = {}) {
     const targetFile = originalFile || (file instanceof File ? file : null) || (window.gpState?.currentFile) || null;
+    // A different song starts with no temporary overrides (notation, strings, guitar fit)
+    if (targetFile) beginSong(targetFile);
     const soundHintsPromise = readGpSoundHints(originalFile || file);
     return new Promise((resolve, reject) => {
         if (!container) {

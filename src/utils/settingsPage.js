@@ -258,9 +258,7 @@ export function initSettingsPage() {
     if (ctl.length) panes.controls.appendChild(group('Input', ...ctl));
 
     // Sound
-    const dockSwitch = proxySwitch('dockToggleBtn');
     const soundRows = [];
-    if (dockSwitch) soundRows.push(row('Playback controls dock', 'Keep the transport at the bottom of the reader.', dockSwitch));
     if ($('soundFontModalBtn')) soundRows.push(row('SoundFonts', 'Choose and manage the instrument sounds.', proxyButton('Manage', 'soundFontModalBtn')));
     if ($('mixerModalBtn')) soundRows.push(row('Mixer', 'Volume, pan, mute and solo for each track.', proxyButton('Open', 'mixerModalBtn')));
     if ($('latencyModalBtn')) soundRows.push(row('Audio latency', 'Delay the cursor to match Bluetooth speakers.', proxyButton('Adjust', 'latencyModalBtn')));

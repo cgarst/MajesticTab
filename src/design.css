@@ -420,7 +420,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .lane-point.is-flagged { background: var(--warn, #e9b44c); }
 
 /* ---------- More menu and popovers share the mockup's popover look ---------- */
-.tools-menu, .view-menu, .more-menu, .score-options-panel, .synth-panel, .yt-panel, .pdf-bookmarks-panel {
+.tools-menu, .view-menu, .guitar-menu, .more-menu, .score-options-panel, .synth-panel, .yt-panel, .pdf-bookmarks-panel {
   background: var(--s2) !important; border: 0 !important; border-radius: var(--r-lg) !important; box-shadow: none !important;
 }
 .more-menu { width: 280px; padding: 6px; }
@@ -448,7 +448,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 @media (prefers-reduced-motion: reduce) { .mobile-dock-play-btn { transition: none; } }
 
 /* page navigation keeps its buttons but loses the pill outline */
-#navButtons, #navButtons.hud-pill-group, #fullscreenPill, #practicePill, #morePill, #viewPill, #toolsPill {
+#navButtons, #navButtons.hud-pill-group, #fullscreenPill, #songPill, #guitarPill, #viewPill, #toolsPill {
   border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important;
 }
 #topBar .btn svg.i-aa { display: block; }
@@ -1757,3 +1757,48 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 .data-task-slot .text-center { text-align: left !important; }
 .data-task-slot .justify-content-center { justify-content: flex-start !important; }
 .data-task-slot .backup-dropzone { padding: 8px 0 !important; }
+
+
+/* ---------- Reader vocabulary: View, Song, Guitar, Tools. Four labelled buttons, then Full screen and the page buttons ---------- */
+/* Page / Scroll lives in View; the centre switch is gone. The radios stay in the DOM for the code that drives them. */
+#modeButtons, #centerSection { display: none !important; }
+#topBar { grid-template-columns: minmax(0, 1fr) auto !important; }
+#topFlexZone { gap: 2px; }
+.bar-btn-label { font-size: 14px; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
+#topFlexZone .btn, #toolsToggleBtn { padding-inline: 12px !important; }
+#topFlexZone .btn.active, #topFlexZone .btn[aria-expanded="true"] { background: var(--s2) !important; color: var(--ink) !important; }
+#songToggleBtn:disabled, #guitarToggleBtn:disabled { opacity: 0.4; }
+/* The title is a plain label. Its old button role stays for code that clicks it. */
+.top-bar-song-btn { pointer-events: none; cursor: default; }
+.top-bar-song-btn .song-title-chevron { display: none !important; }
+/* Page buttons: the far right, always in the same spot, large targets for use while performing */
+#navButtons { margin-left: 6px; }
+#navButtons .btn { min-width: 44px; min-height: 44px; font-size: 1.1rem; }
+#pageIndicator { min-width: 4.5ch; font-size: 14px; }
+/* Guitar button shows the state when an override is on */
+#guitarToggleBtn.is-adapted .bar-btn-label::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle; }
+
+/* ---------- Guitar panel ---------- */
+.guitar-menu { width: 340px; max-width: calc(100vw - 16px); padding: 14px 16px 12px; position: fixed; z-index: 1085; display: flex; flex-direction: column; gap: 14px; }
+.guitar-menu-title { font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1.1; }
+.guitar-menu-sub { color: var(--ink2); font-size: 13px; margin-top: 2px; }
+.guitar-menu-written { display: flex; flex-direction: column; gap: 2px; }
+.guitar-menu-label { color: var(--ink2); font-size: 13px; }
+.guitar-menu-written b { font-size: 15px; font-weight: 600; }
+.guitar-menu > div { margin: 0 !important; }
+.guitar-menu .form-label { color: var(--ink2) !important; font-size: 13px; font-weight: 500 !important; }
+.guitar-menu-foot { display: flex; gap: 6px; justify-content: space-between; }
+.guitar-menu-action { background: transparent !important; border: 0 !important; color: var(--ink2) !important; padding: 8px 10px !important; border-radius: var(--r) !important; min-height: 40px; font-weight: 600; }
+.guitar-menu-action:hover:not(:disabled) { background: var(--s3) !important; color: var(--ink) !important; }
+.guitar-menu-action:disabled { opacity: 0.4; }
+.guitar-menu .hud-pill-group { width: 100%; display: flex; }
+.guitar-menu .hud-pill-group .btn { flex: 1; text-align: center; justify-content: center; padding-inline: 4px; }
+.guitar-menu .hud-pill-group i { display: none; }
+.guitar-menu .form-select { background-color: var(--s3); border: 0; color: var(--ink); }
+.guitar-menu .form-check-input.theme-switch { flex: none; }
+
+/* The song title takes all the room the bar has, and only truncates when it must */
+body:not(.library-view-active) #brandSection { min-width: 0; width: 100%; }
+body:not(.library-view-active) #songBreadcrumb { flex: 1 1 auto; min-width: 0; }
+body:not(.library-view-active) .top-bar-song-btn { max-width: none !important; min-width: 0; flex: 0 1 auto; }
+body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-width: none !important; }

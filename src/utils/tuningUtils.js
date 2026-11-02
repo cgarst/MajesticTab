@@ -1,5 +1,6 @@
 // tuningUtils.js
 // Helpers for parsing, formatting, and detecting guitar tunings & string counts from score data and binary files.
+import { getTabStorageId, getOverride } from './sessionOverrides.js';
 import { applyFileAdapters } from '../fileAdapters.js';
 
 export const KNOWN_TUNINGS = [
@@ -959,26 +960,7 @@ export function computeExtraLowStringTunings(tunings, delta, isBass = false) {
 /**
  * Gets a stable identifier for a tab file or record to key per-tab preferences.
  */
-export function getTabStorageId(file) {
-    if (!file) return null;
-    if (typeof file === 'string') return file;
-    if (file.librarySongId && file.tabId) {
-        return `${file.librarySongId}_tab_${file.tabId}`;
-    }
-    if (file.tabId) {
-        return file.tabId;
-    }
-    if (file.fileStoreId) {
-        return file.fileStoreId;
-    }
-    if (file.driveFileId) {
-        return file.driveFileId;
-    }
-    if (file.name) {
-        return file.name;
-    }
-    return null;
-}
+export { getTabStorageId };
 
 /**
  * Generates the storage key for a specific tab's string count preference.
@@ -1098,15 +1080,40 @@ export const getGpStringCountPreference = getDefaultGpStringCount;
 export const setGpStringCountPreference = setDefaultGpStringCount;
 
 /**
- * Gets the effective string count for a tab: uses the specific tab's persisted preference if set,
- * otherwise falls back to the default from the settings menu.
+ * Gets the effective string count for a tab: the temporary choice made in the Guitar panel for the open song,
+ * else the count saved for this song ("Save for this song"), else the default from Settings, Defaults.
  */
 export function getEffectiveGpStringCount(file, instrumentMode = getInstrumentMode()) {
-    const tabPref = getTabStringCountPreference(file, instrumentMode);
-    if (tabPref !== null && tabPref !== undefined) {
-        return tabPref;
+    const temporary = getOverride(file, 'strings');
+    if (temporary && temporary.mode === instrumentMode) return temporary.value;
+    return getBaselineGpStringCount(file, instrumentMode);
+}
+
+/** What the song opens on when nothing temporary is set: the count saved for this song, else the Settings default. */
+export function getBaselineGpStringCount(file, instrumentMode = getInstrumentMode()) {
+    const saved = getTabStringCountPreference(file, instrumentMode);
+    return saved !== null && saved !== undefined ? saved : getDefaultGpStringCount(instrumentMode);
+}
+
+/** Forgets the count saved for this song, so it opens on the Settings default again. */
+export function clearTabStringCountPreference(file, instrumentMode = getInstrumentMode()) {
+    if (!file) return;
+    if (typeof file === 'object') {
+        delete file[`preferredStringCount_${instrumentMode}`];
+        if (file.preferredStringCount && typeof file.preferredStringCount === 'object') delete file.preferredStringCount[instrumentMode];
     }
-    return getDefaultGpStringCount(instrumentMode);
+    try {
+        const key = getTabStringCountStorageKey(file, instrumentMode);
+        if (key) localStorage.removeItem(key);
+        if (file.name) localStorage.removeItem(`gp_tab_strings_${instrumentMode}_${file.name.toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`);
+    } catch { /* storage can be blocked */ }
+    if (file.librarySongId && file.tabId) {
+        import('../libraryStore.js').then((store) => {
+            if (typeof store.updateTabOptionOnSong === 'function') {
+                store.updateTabOptionOnSong(file.librarySongId, file.tabId, { preferredStringCount: file.preferredStringCount || {}, [`preferredStringCount_${instrumentMode}`]: null });
+            }
+        }).catch(() => {});
+    }
 }
 
 /**

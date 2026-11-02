@@ -1,7 +1,10 @@
 // tabAdapter.js
 // Re-fingers a tab written for one tuning so it can be played on another instrument tuning
-// (optionally with a capo) while every note keeps its sounding pitch. Opt-in per tab.
-import { KNOWN_TUNINGS, getActiveInstrumentTracks, isTrackPercussion, getTabStorageId, getInstrumentMode } from './tuningUtils.js';
+// (optionally with a capo) while every note keeps its sounding pitch.
+// Three layers, strongest first: a temporary choice for the open song (the Guitar panel; resets when the song closes),
+// a fit you saved for this song on purpose ("Save for this song"), and your usual guitar (Settings, Defaults).
+import { KNOWN_TUNINGS, getActiveInstrumentTracks, isTrackPercussion, getInstrumentMode } from './tuningUtils.js';
+import { getOverride, setOverride, getTabStorageId } from './sessionOverrides.js';
 
 const MAX_FRET = 24;
 const MAX_CAPO = 9;
@@ -17,11 +20,6 @@ export function getAdaptTuningOptions(instrumentMode = getInstrumentMode()) {
 
 export function findAdaptTuning(shortName) {
     return KNOWN_TUNINGS.find(t => t.shortName === shortName) || null;
-}
-
-function storageKey(file) {
-    const id = getTabStorageId(file);
-    return id ? `gp_tab_adapt_${String(id).toLowerCase().replace(/[^a-z0-9_-]/g, '_')}` : null;
 }
 
 /** Last tuning/method the user picked; used as the starting point when opting a new tab in. */
@@ -42,30 +40,79 @@ export function setMyInstrument({ tuningName, method, capo }) {
     }
 }
 
-/** Per-tab adaptation preference, or null when the tab has not opted in. */
-export function getTabAdaptPref(file) {
-    const key = storageKey(file);
-    if (!key) return null;
+const USUAL_GUITAR_KEY = 'majestictab_usual_guitar';
+
+/** Your usual guitar for new songs, or null when songs open as written. */
+export function getUsualGuitar() {
     try {
-        const raw = localStorage.getItem(key);
+        const raw = localStorage.getItem(USUAL_GUITAR_KEY);
         const pref = raw ? JSON.parse(raw) : null;
         if (pref?.enabled && findAdaptTuning(pref.tuningName)) return pref;
     } catch { /* fall through */ }
     return null;
 }
 
-export function setTabAdaptPref(file, pref) {
-    const key = storageKey(file);
+/** Pass null to open every song as written. */
+export function setUsualGuitar(pref) {
+    try {
+        if (!pref || !pref.enabled) localStorage.removeItem(USUAL_GUITAR_KEY);
+        else localStorage.setItem(USUAL_GUITAR_KEY, JSON.stringify({ enabled: true, tuningName: pref.tuningName, method: pref.method, capo: pref.capo ?? 'auto' }));
+    } catch (e) {
+        console.warn('Could not save your usual guitar:', e);
+    }
+    try { document.dispatchEvent(new CustomEvent('guitar:overrides-changed')); } catch (_) { /* no DOM */ }
+}
+
+function songKey(file) {
+    const id = getTabStorageId(file);
+    return id ? `gp_tab_adapt_${String(id).toLowerCase().replace(/[^a-z0-9_-]/g, '_')}` : null;
+}
+
+/** The fit saved for this song on purpose: undefined (nothing saved), null (saved "as written") or a pref. */
+export function getSongGuitar(file) {
+    const key = songKey(file);
+    if (!key) return undefined;
+    try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return undefined;
+        const pref = JSON.parse(raw);
+        if (!pref?.enabled) return null;
+        return findAdaptTuning(pref.tuningName) ? pref : undefined;
+    } catch { return undefined; }
+}
+
+/** Pass undefined to forget it, null to save "as written", or a pref. */
+export function setSongGuitar(file, pref) {
+    const key = songKey(file);
     if (!key) return;
     try {
-        if (!pref || !pref.enabled) {
-            localStorage.removeItem(key);
-        } else {
-            localStorage.setItem(key, JSON.stringify(pref));
-        }
+        if (pref === undefined) localStorage.removeItem(key);
+        else localStorage.setItem(key, JSON.stringify(pref && pref.enabled ? pref : { enabled: false }));
     } catch (e) {
-        console.warn('Could not save tab adaptation preference:', e);
+        console.warn('Could not save the guitar fit for this song:', e);
     }
+}
+
+/**
+ * How this tab is fitted to the guitar in your hands: the temporary choice for the open song (null means "as written"),
+ * else the fit saved for this song, else your usual guitar, else null.
+ */
+export function getTabAdaptPref(file) {
+    const temporary = getOverride(file, 'adapt');
+    if (temporary !== undefined) return temporary && temporary.enabled && findAdaptTuning(temporary.tuningName) ? temporary : null;
+    const saved = getSongGuitar(file);
+    if (saved !== undefined) return saved;
+    return getUsualGuitar();
+}
+
+/** Temporary only: never written to storage. Pass null for "as written". */
+export function setTabAdaptPref(file, pref) {
+    setOverride(file, 'adapt', pref && pref.enabled ? pref : null);
+}
+
+/** True when the open song differs from your usual guitar because of a temporary choice. */
+export function hasTemporaryAdapt(file) {
+    return getOverride(file, 'adapt') !== undefined;
 }
 
 function forEachNote(staff, fn) {

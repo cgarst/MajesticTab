@@ -116,33 +116,28 @@
         </button>
       </div>
 
-      <div id="pinnedToolPill" class="hud-pill-group" role="group" aria-label="Pinned tool" style="display:none;">
-        <button class="btn btn-sm" id="pinnedToolBtn" type="button"><span id="pinnedToolIcon" class="pinned-tool-icon" aria-hidden="true"></span></button>
+      <div id="viewPill" class="hud-pill-group" role="group" aria-label="View">
+        <button class="btn btn-sm" id="viewToggleBtn" type="button" title="View: layout, size, paper and notation" aria-haspopup="dialog" aria-expanded="false" aria-controls="viewMenu">
+          <span class="bar-btn-label">View</span>
+        </button>
+      </div>
+
+      <div id="songPill" class="hud-pill-group" role="group" aria-label="Song">
+        <button class="btn btn-sm" id="songToggleBtn" type="button" title="Song: tracks, recording, save and share" aria-haspopup="dialog" aria-expanded="false" aria-controls="scoreOptionsDropdownPanel">
+          <span class="bar-btn-label">Song</span>
+        </button>
+      </div>
+
+      <div id="guitarPill" class="hud-pill-group" role="group" aria-label="Guitar">
+        <button class="btn btn-sm" id="guitarToggleBtn" type="button" title="Guitar: strings, tuning and capo for the guitar in your hands" aria-haspopup="dialog" aria-expanded="false" aria-controls="guitarMenu">
+          <span class="bar-btn-label" id="guitarBtnLabel">Guitar</span>
+        </button>
       </div>
 
       <div id="toolsPill" class="hud-pill-group" role="group" aria-label="Tools">
         <button class="btn btn-sm" id="toolsToggleBtn" type="button" title="Tools" aria-haspopup="menu" aria-expanded="false" aria-controls="toolsMenu">
-          <i class="bi-grid-3x3-gap"></i>
-          <span class="tools-btn-label ms-1">Tools</span>
-          <i class="bi-chevron-down tools-btn-chevron"></i>
+          <span class="bar-btn-label">Tools</span>
           <span class="tools-status-dot" id="toolsStatusDot" aria-hidden="true"></span>
-        </button>
-      </div>
-
-      <div id="viewPill" class="hud-pill-group" role="group" aria-label="View">
-        <button class="btn btn-sm" id="viewToggleBtn" type="button" title="View: size, paper and pages" aria-haspopup="dialog" aria-expanded="false" aria-controls="viewMenu">
-          <svg class="i-aa" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18l4.5-12L12 18M4.6 14h5.8M14 18l3-8 3 8M15.1 15.5h3.8"/></svg><span class="visually-hidden">View</span>
-        </button>
-      </div>
-
-      <div id="practicePill" class="hud-pill-group" role="group" aria-label="Practice">
-        <button class="btn btn-sm" id="practiceToggleBtn" type="button" title="Practice: sound, speed, sync" aria-label="Practice" aria-haspopup="dialog">
-          <i class="bi-sliders2-vertical"></i>
-        </button>
-      </div>
-      <div id="morePill" class="hud-pill-group" role="group" aria-label="More">
-        <button class="btn btn-sm" id="moreToggleBtn" type="button" title="More" aria-label="More" aria-haspopup="menu" aria-expanded="false" aria-controls="moreMenu">
-          <i class="bi-three-dots"></i>
         </button>
       </div>
 
@@ -157,7 +152,6 @@
     <!-- Navigation Controls -->
     <div id="navButtons" style="display:none;">
       <button class="btn btn-sm" id="pdfBookmarksBtn" title="Bookmarks & Table of Contents" style="display:none;"><i class="bi-bookmark"></i></button>
-      <button class="btn btn-sm nav-first-page-btn" id="firstPage" title="First Page"><i class="bi-chevron-double-left"></i></button>
       <button class="btn btn-sm" id="prevPage" title="Previous Page"><i class="bi-chevron-left"></i></button>
       <span id="pageIndicator"></span>
       <button class="btn btn-sm" id="nextPage" title="Next Page"><i class="bi-chevron-right"></i></button>
@@ -165,7 +159,8 @@
   </div>
 </nav>
 
-<div id="moreMenu" class="tools-menu more-menu" role="menu" aria-label="More" style="display:none;"></div>
+<!-- Guitar: what is in your hands right now (temporary; not saved). Built by utils/guitarMenu.js -->
+<div id="guitarMenu" class="tools-menu guitar-menu" role="dialog" aria-label="Guitar" style="display:none;"></div>
 
 <!-- View menu: how the score is shown while playing (size, paper, pages). Hosts #readerViewOptions, moved here by utils/readerViewMenu.js so its controls keep their ids. -->
 <div id="viewMenu" class="tools-menu view-menu" role="dialog" aria-label="View" style="display:none;"></div>
@@ -178,7 +173,6 @@
       <span class="tools-item-text"><span>Reference library</span><small>Chords, scales, circle of fifths</small></span>
       <kbd>R</kbd>
     </button>
-    <button class="tools-pin" type="button" data-pin-tool="reference" aria-pressed="false" aria-label="Pin Reference library to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
   </div>
 
   <div class="tools-row" id="fretboardPill" style="display:none;">
@@ -187,7 +181,6 @@
       <span class="tools-item-text"><span>Fretboard</span><small>Show notes on the neck</small></span>
       <kbd>F</kbd>
     </button>
-    <button class="tools-pin" type="button" data-pin-tool="fretboard" aria-pressed="false" aria-label="Pin Fretboard to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
   </div>
   <div class="tools-row" id="tunerPill">
     <button class="tools-item" id="tunerToggleBtn" type="button" role="menuitem">
@@ -197,7 +190,6 @@
       <span class="tools-item-text"><span>Tuner</span><small>Tune with the microphone</small></span>
       <kbd>T</kbd>
     </button>
-    <button class="tools-pin" type="button" data-pin-tool="tuner" aria-pressed="false" aria-label="Pin Tuner to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
   </div>
 
   <div class="tools-row" id="jamPill" style="display:none;">
@@ -205,32 +197,8 @@
       <i class="bi-people-fill"></i>
       <span class="tools-item-text"><span>Jam mode</span><small id="jamStatusLabel">Host or join on your network</small></span>
     </button>
-    <button class="tools-pin" type="button" data-pin-tool="jam" aria-pressed="false" aria-label="Pin Jam mode to the bar" title="Pin to the bar"><i class="bi-pin-angle"></i></button>
   </div>
 
-  <div class="tools-row" id="controllerPill" style="display:none;">
-    <button class="tools-item" id="controllerHelpBtn" type="button" role="menuitem" title="Game Controller Connected (Click for Controls Guide)">
-      <i class="bi-controller" id="controllerStatusIcon"></i>
-      <span class="tools-item-text"><span>Gamepad</span><small id="controllerNameBadge">Gamepad</small></span>
-    </button>
-  </div>
-
-  <div class="tools-menu-divider" role="separator"></div>
-  <div class="tools-row" id="dockToggleRow" style="display: none;">
-    <button class="tools-item" id="dockToggleBtn" type="button" role="menuitemcheckbox" aria-checked="true">
-      <i class="bi-play-circle"></i>
-      <span class="tools-item-text"><span>Playback dock</span><small>Floating play, rewind and audio sources</small></span>
-      <span class="tools-switch" aria-hidden="true"></span>
-    </button>
-  </div>
-
-  <div class="tools-row tools-collapsed-row" id="toolsFullscreenRow">
-    <button class="tools-item" id="toolsFullscreenItem" type="button" role="menuitem"><i class="bi-arrows-fullscreen"></i><span class="tools-item-text"><span>Fullscreen</span></span></button>
-  </div>
-  <div class="tools-row tools-collapsed-row" id="toolsBookmarksRow">
-    <button class="tools-item" id="toolsBookmarksItem" type="button" role="menuitem"><i class="bi-bookmark"></i><span class="tools-item-text"><span>Bookmarks and outline</span></span></button>
-  </div>
-  <div class="tools-menu-hint">Pin one tool to keep it in the bar.</div>
 </div>
 
 <!-- Native Tab Downloader Top Bar (Split-Webview Header) -->
@@ -309,8 +277,7 @@
 <div id="scoreOptionsDropdownPanel" class="synth-panel score-options-panel" style="display: none;">
   <div class="synth-panel-header">
     <div class="d-flex align-items-center text-truncate me-2">
-      <i class="bi-layers-half text-info me-2 fs-6"></i>
-      <span class="synth-panel-title text-truncate" id="scoreOptionsPanelTitle">This song</span>
+      <span class="synth-panel-title text-truncate" id="scoreOptionsPanelTitle">Song</span>
     </div>
     <button class="brand-btn p-1 px-2 text-muted" id="scoreOptionsPanelCloseBtn" title="Close">
       <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
@@ -402,9 +369,9 @@
       </button>
     </div>
 
-    <!-- Export Actions -->
-    <details class="settings-advanced-details pt-2 border-top border-secondary-subtle" id="scoreOptionsMoreDetails">
-      <summary class="small text-white-50 py-1 d-flex align-items-center justify-content-between" style="cursor: pointer; user-select: none;"><span>More</span><i class="bi-chevron-down ms-1" style="font-size: 0.75rem;"></i></summary>
+    <!-- Save and share -->
+    <div class="score-options-group" id="scoreOptionsSaveGroup">
+      <div class="score-options-group-title">Save and share</div>
     <div class="d-flex flex-column gap-2 pt-2" id="scoreOptionsExportSection">
       <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="exportPDFBtn" type="button" style="display: none;">
         <i class="bi-file-earmark-pdf text-danger"></i> Export as PDF
@@ -424,7 +391,7 @@
         <i class="bi-download text-info"></i> Export Source Tab
       </button>
     </div>
-    </details>
+    </div>
   </div>
 </div>
 

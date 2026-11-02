@@ -7,8 +7,8 @@
 const $ = (id) => document.getElementById(id);
 
 export function initReaderViewMenu() {
-    initMoreMenu();
-    initPracticeButton();
+    initSongButton();
+    initPracticePanels();
     const toggleBtn = $('viewToggleBtn');
     const menu = $('viewMenu');
     const options = $('readerViewOptions');
@@ -52,50 +52,31 @@ export function initReaderViewMenu() {
 }
 
 
-// ---- More: file verbs (save, setlist, export). Settings lives in the library's navigation. The buttons are the originals, moved here,
-// so their handlers and ids keep working.
-function initMoreMenu() {
-    const toggle = $('moreToggleBtn');
-    const menu = $('moreMenu');
-    if (!toggle || !menu) return;
-    const section = $('scoreOptionsExportSection');
-    const details = $('scoreOptionsMoreDetails');
-    if (section) {
-        menu.appendChild(section);
-        section.classList.remove('pt-2');
-        section.classList.add('more-menu-list');
-    }
-    details?.remove();
-    const isOpen = () => menu.style.display !== 'none';
-    function place() {
-        const rect = toggle.getBoundingClientRect();
-        menu.style.top = `${Math.round(rect.bottom + 8)}px`;
-        menu.style.right = '12px';
-    }
-    function open() { place(); menu.style.display = ''; toggle.setAttribute('aria-expanded', 'true'); }
-    function close() { if (!isOpen()) return; menu.style.display = 'none'; toggle.setAttribute('aria-expanded', 'false'); }
-    toggle.addEventListener('click', (e) => { e.stopPropagation(); if (isOpen()) close(); else open(); });
-    document.addEventListener('pointerdown', (e) => { if (isOpen() && !menu.contains(e.target) && !toggle.contains(e.target)) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) { close(); toggle.focus(); } });
-    menu.addEventListener('click', (e) => { if (e.target.closest('button') && !e.target.closest('#exportProgressContainer')) setTimeout(close, 0); });
-    window.addEventListener('resize', () => { if (isOpen()) place(); });
-}
-
-// ---- Practice: opens the panel for the sound that is active (recording if it was last used, else the synth)
-function initPracticeButton() {
-    const btn = $('practiceToggleBtn');
-    if (!btn) return;
-    initPracticePanels();
+// ---- Song: the labelled button opens the Song panel (tracks, recording, save and share). The panel and its
+// open and close logic are the original "This song" panel in gpPlayer.js; this button proxies the (now plain) title.
+function initSongButton() {
+    const btn = $('songToggleBtn');
+    const title = $('topBarSongTitleBtn');
+    if (!btn || !title) return;
+    // The title is a label now; its old button role stays for code that clicks it programmatically
+    title.tabIndex = -1;
+    title.setAttribute('aria-hidden', 'true');
     btn.addEventListener('pointerdown', (e) => e.stopPropagation());
     btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const yt = $('ytToggleBtn');
-        const synth = $('synthToggleBtn');
-        const useRecording = yt && yt.style.display !== 'none' && (yt.classList.contains('active-audio-mode') || yt.classList.contains('active'));
-        (useRecording ? yt : (synth && synth.style.display !== 'none' ? synth : yt))?.click();
+        if (title.classList.contains('disabled')) return;
+        title.click();
     });
+    const sync = () => {
+        const open = title.getAttribute('aria-expanded') === 'true';
+        const off = title.classList.contains('disabled') || title.getAttribute('aria-disabled') === 'true';
+        btn.classList.toggle('active', open);
+        btn.setAttribute('aria-expanded', String(open));
+        btn.disabled = off;
+    };
+    new MutationObserver(sync).observe(title, { attributes: true, attributeFilter: ['class', 'aria-expanded', 'aria-disabled'] });
+    sync();
 }
-
 
 // The View menu reads: Layout, pages shown in landscape, page turn, Size, Paper.
 // The four original groups keep their controls and ids; this only reorders and relabels them.
@@ -156,7 +137,18 @@ function arrangeViewOptions(root) {
     document.addEventListener('click', () => setTimeout(syncLayout, 0), true);
     syncLayout();
 
-    const order = [layout, landscape, advance, size, paper].filter(Boolean);
+    // Notation: tab only, or tab with the standard staff. A temporary override of the Settings default.
+    const notation = $('scoreOptionsNotationStyleSection');
+    if (notation) {
+        const nl = notation.querySelector('label.form-label');
+        if (nl) nl.textContent = 'Notation';
+        notation.querySelectorAll('.btn-check + label i').forEach((i) => i.remove());
+        notation.querySelectorAll('.btn-check + label').forEach((l) => {
+            l.textContent = l.textContent.trim().replace('Tab Only', 'Tab only').replace('Tab + Standard', 'Tab and standard');
+        });
+    }
+
+    const order = [layout, notation, landscape, advance, size, paper].filter(Boolean);
     root.innerHTML = '';
     order.forEach((el) => root.appendChild(el));
 }

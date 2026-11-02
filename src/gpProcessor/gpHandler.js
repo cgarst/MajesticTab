@@ -20,6 +20,8 @@ import {
     getTabStringCountPreference,
     setTabStringCountPreference,
     getEffectiveGpStringCount,
+    getBaselineGpStringCount,
+    clearTabStringCountPreference,
     getScoreMaxStringsForMode,
     getInstrumentMode,
     formatTuningFromMidi,
@@ -32,10 +34,14 @@ import {
     setTabAdaptPref,
     getMyInstrument,
     setMyInstrument,
+    getUsualGuitar,
+    hasTemporaryAdapt,
+    setSongGuitar,
     getAdaptTuningOptions,
     findAdaptTuning
 } from '../utils/tabAdapter.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
+import { setOverride, setNotationOverride } from '../utils/sessionOverrides.js';
 import { applyTabTrackColors, isTabTrackColorsEnabled, setTabTrackColorsEnabled, TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
 
 const PAGE_PADDING = 6;
@@ -809,7 +815,9 @@ export function populateGpTrackSelectionUI(api) {
  * Switch Guitar Pro notation mode (Tab Only vs Tab + Standard)
  */
 export function applyGpNotationMode(mode) {
-    const safeMode = setGpNotationMode(mode);
+    // Temporary: the Settings default is untouched, and the choice resets when the song closes
+    const safeMode = mode === 'scoreTab' ? 'scoreTab' : 'tab';
+    setNotationOverride(safeMode);
     const api = gpState.canvases[0]?.api;
     const container = gpState.canvases[0]?.container;
     const output = document.getElementById('output');
@@ -874,14 +882,16 @@ export function syncGpNotationRadios(mode = getGpNotationMode()) {
 
 /**
  * Switch Guitar Pro tab string count view (native, 7, 8 for guitar; native, 5, 6 for bass).
- * Persists the selection specifically for this tab.
+ * Temporary: holds for the open song only (see sessionOverrides.js).
  */
-export function applyGpStringCount(targetCount) {
+export function applyGpStringCount(targetCount, { remember = true } = {}) {
     const instrumentMode = getInstrumentMode();
     const safeCount = (targetCount === '7' || targetCount === '8' || targetCount === '5' || targetCount === '6') ? targetCount : 'native';
 
-    if (gpState.currentFile) {
-        setTabStringCountPreference(gpState.currentFile, safeCount, instrumentMode);
+    if (remember && gpState.currentFile) {
+        // Temporary: the Settings default is untouched, and the choice resets when the song closes.
+        // Choosing the default again is the same as no override.
+        setOverride(gpState.currentFile, 'strings', safeCount === getBaselineGpStringCount(gpState.currentFile, instrumentMode) ? undefined : { mode: instrumentMode, value: safeCount });
     }
 
     const api = gpState.canvases[0]?.api;
@@ -1006,15 +1016,22 @@ export function syncGpStringCountUI(score) {
  * Pass null to restore the tab as written.
  */
 export function applyGpTabAdaptation(pref) {
+    if (!gpState.canvases[0]?.api?.score) return;
+    setTabAdaptPref(gpState.currentFile, pref);
+    if (pref?.enabled) {
+        setMyInstrument(pref); // starting point for the picker next time; the song itself is not saved
+    }
+    refitToGuitar(pref);
+}
+
+/**
+ * Re-fits the open tab to the given adaptation (null = as written) and re-renders. Saves nothing.
+ */
+export function refitToGuitar(pref) {
     const api = gpState.canvases[0]?.api;
     const score = api?.score;
     if (!score) return;
     const instrumentMode = getInstrumentMode();
-
-    setTabAdaptPref(gpState.currentFile, pref);
-    if (pref?.enabled) {
-        setMyInstrument(pref);
-    }
 
     // String-count padding sits on top of the adapted layout, so undo it first and re-apply after
     applyScoreStringCount(score, 'native', instrumentMode);
@@ -1034,9 +1051,28 @@ export function applyGpTabAdaptation(pref) {
 
     score._adaptSummary = applyScoreAdaptation(score, pref, instrumentMode);
     syncGpAdaptUI(score);
-    applyGpStringCount(getEffectiveGpStringCount(gpState.currentFile, instrumentMode));
+    applyGpStringCount(getEffectiveGpStringCount(gpState.currentFile, instrumentMode), { remember: false });
     // Transposing retunes the strings, so the synth needs its MIDI rebuilt to follow the new pitch
     if (typeof api.loadMidiForScore === 'function') api.loadMidiForScore();
+    document.dispatchEvent(new CustomEvent('guitar:overrides-changed'));
+}
+
+/** Drops the fit saved for this song, so it opens on your usual guitar again. */
+export function forgetSavedGuitar() {
+    const file = gpState.currentFile;
+    if (!file || !gpState.canvases[0]?.api?.score) return;
+    setSongGuitar(file, undefined);
+    clearTabStringCountPreference(file, getInstrumentMode());
+    resetGuitarFit();
+}
+
+/** Drops the temporary strings and tuning choices for the open song (back to its saved fit or your usual guitar). */
+export function resetGuitarFit() {
+    const file = gpState.currentFile;
+    if (!file || !gpState.canvases[0]?.api?.score) return;
+    setOverride(file, 'strings', undefined);
+    setOverride(file, 'adapt', undefined);
+    refitToGuitar(getTabAdaptPref(file));
 }
 
 function describeAdaptation(summary, pref) {
@@ -1069,7 +1105,7 @@ export function syncGpAdaptUI(score) {
 
     const instrumentMode = getInstrumentMode();
     const pref = getTabAdaptPref(gpState.currentFile);
-    const mine = pref || getMyInstrument();
+    const mine = pref || getUsualGuitar() || getMyInstrument();
     const enabled = !!pref;
 
     const toggle = document.getElementById('adaptEnableSwitch');
@@ -1081,7 +1117,7 @@ export function syncGpAdaptUI(score) {
 
     toggle.checked = enabled;
     controls.style.display = enabled ? '' : 'none';
-    badge.style.display = enabled ? '' : 'none';
+    if (badge) badge.style.display = enabled ? '' : 'none';
     select.innerHTML = getAdaptTuningOptions(instrumentMode)
         .map(t => `<option value="${t.shortName}" ${t.shortName === mine.tuningName ? 'selected' : ''}>${t.name}</option>`)
         .join('');

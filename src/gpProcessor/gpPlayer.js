@@ -1,5 +1,6 @@
 // gpPlayer.js
 // In-app artificial instrument (SoundFont synthesizer) player for Guitar Pro files
+import { clearOverrides } from '../utils/sessionOverrides.js';
 import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
 import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
@@ -2018,6 +2019,7 @@ export function showScoreOptions(fileType = 'gp') {
  */
 export function hideScoreOptions() {
     scoreOptionsState.isAvailable = false;
+    clearOverrides();
     toggleScoreOptionsPanel(false);
     const adaptSection = document.getElementById('scoreOptionsAdaptSection');
     if (adaptSection) adaptSection.style.display = 'none';
@@ -2064,7 +2066,7 @@ export function hideScoreOptions() {
 
 export function updateScoreOptionsPanelPosition() {
     const panel = document.getElementById('scoreOptionsDropdownPanel');
-    const toggleBtn = document.getElementById('topBarSongTitleBtn');
+    const toggleBtn = document.getElementById('songToggleBtn') || document.getElementById('topBarSongTitleBtn');
     if (!panel || !toggleBtn || !scoreOptionsState.isOpen) return;
 
     const rect = toggleBtn.getBoundingClientRect();
