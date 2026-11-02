@@ -7688,3 +7688,18 @@ body {
 @media (min-width: 577px) { body.library-view-active .lib-view-switch-row { display: none; } }
 /* View is a reader menu */
 body.library-view-active #viewPill { display: none; }
+
+/* --- Sound switch (phase 6): Synth or Recording, one choice, named in words, one active colour --- */
+#audioSourcePill .audio-src-label { margin-left: 0.4rem; font-weight: 600; font-size: 0.85em; }
+#synthToggleBtn.active, #synthToggleBtn.active-audio-mode,
+#ytToggleBtn.active, #ytToggleBtn.active-audio-mode,
+#ytToggleBtn.btn-source-local.active, #ytToggleBtn.btn-source-local.active-audio-mode {
+  color: #ffffff !important;
+  background: var(--accent-primary) !important;
+  box-shadow: none !important;
+}
+#fretboardToggleBtn.active, #tunerToggleBtn.active { background: var(--accent-primary) !important; box-shadow: none !important; }
+.mobile-dock-btn.active-audio-mode { background: var(--accent-primary); color: #fff; }
+#mobileSynthToggleBtn, #mobileYtToggleBtn { width: auto; padding: 0 0.85rem; border-radius: 9999px; gap: 0.4rem; }
+#mobilePlaybackDock .audio-src-label { font-size: 0.8rem; font-weight: 600; }
+@media (max-width: 359px) { #mobilePlaybackDock .audio-src-label { display: none; } #mobileSynthToggleBtn, #mobileYtToggleBtn { width: 36px; padding: 0; } }
