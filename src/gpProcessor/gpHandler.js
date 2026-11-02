@@ -195,7 +195,9 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
                 coverUrl: file.coverUrl || null,
                 tuning: primaryTuning,
                 stringCount: stringCount,
-                tunings
+                tunings,
+                totalBars: api.score.masterBars?.length || null,
+                lastBar: 1
             }).catch(() => {});
 
             updateLibrarySongFromScore({

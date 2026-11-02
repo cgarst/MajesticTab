@@ -27,6 +27,7 @@ import { pauseYouTube } from './youtubePlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
+import { toggleToolsMenu } from './utils/toolsMenu.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -726,6 +727,27 @@ async function renderViewContent(content) {
     }
 }
 
+function renderMiniBarRulerHtml(currentBar, totalBars) {
+    const total = Math.max(1, Number(totalBars) || 32);
+    const cur = Math.max(1, Math.min(Number(currentBar) || 1, total));
+    const ratio = Math.max(0, Math.min(1, (cur - 0.5) / total));
+    const pct = (ratio * 100).toFixed(1);
+    const W = 1000;
+    const H = 28;
+    let ticks = '';
+    for (let i = 0; i < total; i++) {
+        const x = (((i + 0.5) / total) * W).toFixed(1);
+        const maj = i === 0 || (i + 1) % 10 === 0;
+        ticks += `<line x1="${x}" x2="${x}" y1="${maj ? 10 : 17}" y2="28"/>`;
+    }
+    return `
+    <div class="ruler mini" data-ruler aria-hidden="true">
+      <div class="fill" style="transform: scaleX(${ratio});"></div>
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${ticks}</svg>
+      <div class="head" style="transform: translate3d(${pct}%, 0, 0);"></div>
+    </div>`;
+}
+
 // // -----------------------------------------------------------------------------
 // 1. LIBRARY BROWSER VIEW (Collection > Artist > Album > Song / Tunings)
 // -----------------------------------------------------------------------------
@@ -833,7 +855,7 @@ async function renderLibraryBrowseView(container) {
                 </button>
                 <div class="library-breadcrumbs-trail d-flex align-items-center min-w-0">
                   <button class="theme-breadcrumb-btn flex-shrink-0" id="bcTuningRoot">
-                    <i class="bi-music-note"></i> <span>All Tunings</span>
+                    <span>All Tunings</span>
                   </button>
                   <i class="bi-chevron-right breadcrumb-separator flex-shrink-0"></i>
                   <span class="theme-breadcrumb-btn active text-truncate" style="max-width: 220px;">${escapeHtml(currentGroup.name)}</span>
@@ -894,11 +916,9 @@ async function renderLibraryBrowseView(container) {
                 <div class="library-tunings-container d-flex flex-column gap-4" id="libTuningsGrid">
                   ${sortedSections.map(sec => `
                     <div class="library-tuning-section" data-tuning-section="${escapeHtml(sec.id)}">
-                      <div class="d-flex align-items-center justify-content-between mb-2">
-                        <div class="small fw-semibold text-white d-flex align-items-center gap-2">
-                          <i class="bi-music-note-list text-info"></i> ${escapeHtml(sec.title)}
-                          <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${sec.groups.length} ${sec.groups.length === 1 ? 'Tuning' : 'Tunings'}</span>
-                        </div>
+                      <div class="d-flex align-items-center justify-content-between mb-2 px-1">
+                        <span class="small fw-semibold text-muted">${escapeHtml(sec.title)}</span>
+                        <span class="small text-muted tnum">${sec.groups.length}</span>
                       </div>
                       <div class="library-tunings-grid">
                         ${sec.groups.map(group => {
@@ -996,13 +1016,20 @@ async function renderLibraryBrowseView(container) {
                 subEntry.songsCount += alb.songs.length;
                 subEntry.songs.push(...alb.songs);
             }
-            const currentSubfolders = Array.from(subfolderMap.values());
+            const currentSubfolders = isCustomArtist ? Array.from(subfolderMap.values()) : [];
 
             // Find direct songs at currentPath
             let currentSongs = [];
             let matchingAlbum = null;
             if (currentPath === '') {
-                currentSongs = selectedArtist.songs || [];
+                if (!isCustomArtist) {
+                    currentSongs = [
+                        ...(selectedArtist.songs || []),
+                        ...selectedArtist.albums.flatMap(a => (a.songs || []).map(s => ({ ...s, album: s.album || a.title })))
+                    ];
+                } else {
+                    currentSongs = selectedArtist.songs || [];
+                }
             } else {
                 matchingAlbum = selectedArtist.albums.find(a => (a.folderPath || a.title) === currentPath) || null;
                 if (matchingAlbum) {
@@ -1220,7 +1247,7 @@ async function renderLibraryBrowseView(container) {
                     songsHtml = `
                     <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
                       ${currentSubfolders.length > 0 ? `<div class="small text-white-50 fw-semibold mb-1"><i class="bi-music-note me-1 text-info"></i>Songs:</div>` : ''}
-                      ${renderAlbumSongsList(currentSongs, { albumTabs: folderAlbumTabs })}
+                      ${renderAlbumSongsList(currentSongs, { albumTabs: folderAlbumTabs, showAlbum: !isCustomArtist, showTrackNumber: Boolean(isCustomArtist) })}
                     </div>
                     `;
                 }
@@ -1274,14 +1301,20 @@ async function renderLibraryBrowseView(container) {
                 const [last] = await getRecents(1);
                 if (last) {
                     const name = last.songTitle || last.name || 'Untitled';
+                    const lastBar = Number(last.lastBar) || 1;
+                    const totalBars = Number(last.totalBars) || 32;
+                    const subParts = [last.artist, last.album].filter(Boolean);
+                    const subText = subParts.length > 0 ? `${subParts.join(', ')}. ` : '';
+                    const rulerHtml = renderMiniBarRulerHtml(lastBar, totalBars);
                     resumeHtml = `<div class="resume-card" id="libResumeCard">
                       <img class="resume-cover" alt="" src="${getPlaceholderCoverSvg(last.artist || name)}">
                       <div class="resume-meta">
                         <div class="resume-kicker">Pick up where you left off</div>
                         <h2 class="resume-title">${escapeHtml(name)}</h2>
-                        <div class="resume-sub">${escapeHtml([last.artist, last.album].filter(Boolean).join(', '))}</div>
+                        <div class="resume-sub tnum">${escapeHtml(subText)}Bar <span data-bar>${lastBar}</span> of ${totalBars}</div>
                       </div>
                       <button type="button" class="btn btn-theme-primary resume-btn" id="libResumeBtn"><i class="bi-play"></i> Resume</button>
+                      ${rulerHtml}
                     </div>`;
                 }
             } catch (_) { resumeHtml = ''; }
@@ -1300,7 +1333,12 @@ async function renderLibraryBrowseView(container) {
 
             const songsPaneHtml = `
             <section class="pane songs" aria-label="Songs">
-              ${breadcrumbHtml}
+              <h3 class="pane-head">
+                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Artists</button>
+                <span class="text-white fw-semibold" style="flex:1;">${escapeHtml(selectedArtist.name)}</span>
+                <span class="tnum">${currentSongs.length} ${currentSongs.length === 1 ? 'song' : 'songs'}</span>
+              </h3>
+              ${isCustomArtist ? breadcrumbHtml : ''}
               <div class="pane-scroll" id="libArtistDetailScroll">
                 ${detailBodyHtml}
               </div>
@@ -1336,15 +1374,17 @@ async function renderLibraryBrowseView(container) {
     });
 
     // In-view Back button click
-    container.querySelector('#libBrowseBackBtn')?.addEventListener('click', () => {
-        if (selectedFolderPath.length > 0 || selectedAlbum) {
-            handleBack();
-        } else {
-            activeLibraryPane = 'list';
-            const panes = container.querySelector('.panes');
-            if (panes) panes.dataset.pane = 'list';
-            handleBack();
-        }
+    container.querySelectorAll('#libBrowseBackBtn, [data-act="paneback"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (selectedFolderPath.length > 0 || selectedAlbum) {
+                handleBack();
+            } else {
+                activeLibraryPane = 'list';
+                const panes = container.querySelector('.panes');
+                if (panes) panes.dataset.pane = 'list';
+                handleBack();
+            }
+        });
     });
 
     // Drop a file on the custom music space (the whole library pane, or the Custom Music card) to open Add Custom Music with it attached
@@ -1667,14 +1707,21 @@ function syncLibraryBottomNav() {
         nav.className = 'library-bottom-nav';
         nav.setAttribute('aria-label', 'Library');
         // Phones: bottom tab bar. Wide windows: left rail (CSS). Settings sits last; Add music stays in each list's toolbar.
-        const PICK = '<svg class="rail-pick" viewBox="105 97 303 316" aria-hidden="true"><path fill="var(--action)" d="M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z"/><text x="256" y="320" text-anchor="middle" font-family="Barlow Condensed,Arial Narrow,sans-serif" font-weight="700" font-size="190" fill="#fff">M</text></svg>';
+        const PICK_D = "M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z";
+        const LETTERS_D = "M232.00,343.05L232.00,330.10L237.25,329.80L242.50,329.50L242.77,306.25L243.04,283.00L228.27,283.00L213.50,283.00L213.84,289.00L214.18,295.00L218.09,295.00L222.00,295.00L222.00,307.50L222.00,320.00L198.00,320.00L174.00,320.00L174.00,307.50L174.00,295.00L178.00,295.00L182.00,295.00L182.00,237.50L182.00,180.00L175.00,180.00L168.00,180.00L168.00,163.98L168.00,147.96L191.10,148.23L214.20,148.50L232.67,178.50C242.83,195.00 252.24,210.64 253.59,213.25C254.93,215.86 256.20,218.00 256.41,218.00C256.61,218.00 266.17,202.26 277.64,183.03L298.50,148.05L321.25,148.03L344.00,148.00L344.00,164.00L344.00,180.00L337.00,180.00L330.00,180.00L330.00,237.50L330.00,295.00L334.50,295.00L339.00,295.00L339.00,307.50L339.00,320.00L314.50,320.00L290.00,320.00L290.00,307.50L290.00,295.00L294.50,295.00L299.00,295.00L299.00,288.75L299.00,282.50L284.50,282.80L270.00,283.10L270.00,306.55L270.00,330.00L275.50,330.00L281.00,330.00L281.00,343.00L281.00,356.00L256.50,356.00L232.00,356.00L232.00,343.05ZM239.24,251.75C238.16,249.96 232.42,240.40 226.49,230.50C220.55,220.60 215.31,212.07 214.85,211.55C214.38,211.03 214.00,220.57 214.00,232.80L214.00,255.00L227.60,255.00L241.20,255.00L239.24,251.75ZM299.00,232.27L299.00,209.55L291.04,223.30C286.67,230.87 280.59,241.10 277.54,246.03L271.99,255.00L285.49,255.00L299.00,255.00L299.00,232.27Z";
+        const PICK = `<svg class="rail-pick" viewBox="105 97 303 316" aria-hidden="true"><path fill="var(--action)" d="${PICK_D}"/><path fill="var(--on-action)" d="${LETTERS_D}"/></svg>`;
         nav.innerHTML = `<div class="rail-brand">${PICK}<span class="rail-wordmark">Majestic<b>Tab</b></span></div>${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tunings)}${tabHtml(recents)}
           <button type="button" class="library-nav-tab library-nav-tools" id="libraryNavToolsBtn" title="Tools" aria-haspopup="menu"><i class="bi-grid-3x3-gap"></i><span>Tools</span></button>
           <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
             const tab = e.target.closest('[data-lib-tab]');
             if (tab) return goLibraryTab(tab.dataset.libTab);
-            if (e.target.closest('#libraryNavToolsBtn')) { e.stopPropagation(); document.getElementById('toolsToggleBtn')?.click(); return; }
+            if (e.target.closest('#libraryNavToolsBtn')) {
+                e.stopPropagation();
+                const btn = e.target.closest('#libraryNavToolsBtn');
+                toggleToolsMenu(btn);
+                return;
+            }
             if (e.target.closest('#libraryNavSettingsBtn')) {
                 const panel = document.getElementById('fileMenu');
                 if (panel && window.bootstrap?.Offcanvas) {
@@ -2182,6 +2229,10 @@ function renderSongRow(song, options = {}) {
             ${options.showArtistAlbum ? `
               <div class="small text-muted text-truncate mt-1" title="${escapeHtml(song.artist || '')} • ${escapeHtml(song.album || '')}">
                 ${escapeHtml(song.artist || 'Unknown Artist')}${song.album ? ` • ${escapeHtml(song.album)}` : ''}
+              </div>
+            ` : (options.showAlbum && song.album) ? `
+              <div class="small text-muted text-truncate mt-1" title="${escapeHtml(song.album)}">
+                ${escapeHtml(song.album)}
               </div>
             ` : ''}
             ${(tunings.length > 0 || hasTabs || durationText) ? `
@@ -4317,7 +4368,7 @@ async function renderRecentsView(container) {
                 <img loading="lazy" decoding="async" src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="${escapeHtml(r.songTitle || r.name)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
                 <div class="min-w-0 flex-grow-1">
                   <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(r.songTitle || r.name)}">${escapeHtml(r.songTitle || r.name)}</h6>
-                  <div class="small text-muted text-truncate" title="${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}">${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}</div>
+                  <div class="small text-muted text-truncate" title="${escapeHtml(r.artist || 'Unknown Artist')} ${r.album ? `• ${escapeHtml(r.album)}` : ''}">${escapeHtml(r.artist || 'Unknown Artist')}${r.album ? ` • ${escapeHtml(r.album)}` : ''}${r.lastBar && r.totalBars ? ` <span class="tnum">• Bar ${r.lastBar} of ${r.totalBars}</span>` : ''}</div>
                   ${tabLabel ? `
                     <div class="small text-white-50 text-truncate mt-1 d-flex align-items-center gap-1" style="font-size: 0.72rem;">
                       <i class="bi-${isPdf ? 'file-earmark-pdf text-warning' : 'file-earmark-music text-info'}"></i>

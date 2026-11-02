@@ -40,6 +40,22 @@ function isShown(el) {
     return Boolean(el) && el.style.display !== 'none';
 }
 
+let _openMenu = null;
+let _closeMenu = null;
+let _toggleMenu = null;
+
+export function toggleToolsMenu(triggerEl) {
+    if (_toggleMenu) _toggleMenu(triggerEl);
+}
+
+export function openToolsMenu(triggerEl) {
+    if (_openMenu) _openMenu(triggerEl);
+}
+
+export function closeToolsMenu() {
+    if (_closeMenu) _closeMenu();
+}
+
 export function initToolsMenu() {
     const toggleBtn = $('toolsToggleBtn');
     const menu = $('toolsMenu');
@@ -47,6 +63,7 @@ export function initToolsMenu() {
 
     let pinned = readStorage(PIN_KEY);
     if (!PINNABLE[pinned]) pinned = null;
+    let activeTriggerBtn = null;
 
     // ---- Open / close ------------------------------------------------------
 
@@ -71,42 +88,88 @@ export function initToolsMenu() {
         flush();
     }
 
-    function placeMenu() {
-        const rect = toggleBtn.getBoundingClientRect();
+    function placeMenu(trigger = activeTriggerBtn || toggleBtn) {
+        if (!trigger) return;
+        let rect = trigger.getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) {
+            const fallback = $('libraryNavToolsBtn');
+            if (fallback && fallback.getBoundingClientRect().width > 0) {
+                trigger = fallback;
+                activeTriggerBtn = fallback;
+                rect = trigger.getBoundingClientRect();
+            }
+        }
+        if (trigger.id === 'libraryNavToolsBtn' || trigger.closest?.('#libraryBottomNav')) {
+            const isRail = rect.left < 100 && rect.width < 250;
+            if (isRail) {
+                menu.style.left = `${Math.round(rect.right + 10)}px`;
+                menu.style.right = 'auto';
+                menu.style.bottom = `${Math.max(12, Math.round(window.innerHeight - rect.bottom))}px`;
+                menu.style.top = 'auto';
+            } else {
+                menu.style.left = `${Math.max(8, Math.round(rect.left))}px`;
+                menu.style.right = 'auto';
+                menu.style.bottom = `${Math.round(window.innerHeight - rect.top + 8)}px`;
+                menu.style.top = 'auto';
+            }
+            return;
+        }
+        menu.style.left = 'auto';
+        menu.style.bottom = 'auto';
         menu.style.top = `${Math.round(rect.bottom + 8)}px`;
         menu.style.right = `${Math.max(8, Math.round(window.innerWidth - rect.right))}px`;
     }
 
-    function openMenu() {
+    function openMenu(trigger = toggleBtn) {
+        activeTriggerBtn = trigger;
         syncAvailability();
         syncReferenceActive();
         menu.style.display = 'block';
         updateDividers();
-        placeMenu();
-        toggleBtn.setAttribute('aria-expanded', 'true');
-        toggleBtn.classList.add('active');
+        placeMenu(trigger);
+        trigger?.setAttribute('aria-expanded', 'true');
+        trigger?.classList.add('active');
+        if (trigger !== toggleBtn) {
+            toggleBtn?.setAttribute('aria-expanded', 'true');
+        }
     }
 
     function closeMenu() {
         if (!isOpen()) return;
         menu.style.display = 'none';
-        toggleBtn.setAttribute('aria-expanded', 'false');
-        toggleBtn.classList.remove('active');
+        activeTriggerBtn?.setAttribute('aria-expanded', 'false');
+        activeTriggerBtn?.classList.remove('active');
+        toggleBtn?.setAttribute('aria-expanded', 'false');
+        toggleBtn?.classList.remove('active');
+        activeTriggerBtn = null;
     }
+
+    function toggleMenu(trigger = toggleBtn) {
+        if (isOpen()) closeMenu();
+        else openMenu(trigger);
+    }
+
+    _openMenu = openMenu;
+    _closeMenu = closeMenu;
+    _toggleMenu = toggleMenu;
 
     toggleBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (isOpen()) closeMenu();
-        else openMenu();
+        toggleMenu(toggleBtn);
     });
 
     document.addEventListener('pointerdown', (e) => {
-        if (isOpen() && !menu.contains(e.target) && !toggleBtn.contains(e.target)) closeMenu();
+        if (!isOpen()) return;
+        if (menu.contains(e.target)) return;
+        if (toggleBtn?.contains(e.target)) return;
+        if (activeTriggerBtn?.contains(e.target)) return;
+        if (e.target.closest('#libraryNavToolsBtn')) return;
+        closeMenu();
     });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && isOpen()) {
             closeMenu();
-            toggleBtn.focus();
+            (activeTriggerBtn || toggleBtn)?.focus();
         }
     });
     window.addEventListener('resize', () => {

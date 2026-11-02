@@ -352,10 +352,11 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 body:not(.library-view-active) .mobile-playback-dock.has-audio-sources {
   display: block !important;
   position: relative; left: auto; right: auto; bottom: auto; transform: none;
-  flex: none; width: 100%; z-index: 900;
+  flex: none; width: 100%; z-index: 1045;
   background: var(--s1);
 }
 .mobile-playback-dock.hud-hidden:not(.hud-transient) { display: none !important; }
+.fretboard-dock { bottom: var(--dock-h, 0px) !important; }
 body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .mobile-playback-dock-inner {
   display: grid; grid-template-columns: auto minmax(120px, 1fr) auto auto auto; gap: 8px 16px; align-items: center;
@@ -766,6 +767,10 @@ body.practice-open #output { padding-right: 376px !important; }
 .resume-title { font: 700 36px/1.02 var(--font-display); margin: 2px 0 4px; letter-spacing: -.01em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
 .resume-sub { font-size: 13px; color: var(--ink2); }
 .resume-btn { min-height: 44px; padding: 0 20px; font-size: 15px; }
+.resume-card .ruler { grid-column: 1 / -1; margin-top: 14px; }
+.ruler.mini { height: 28px; }
+.ruler.mini svg { height: 28px; }
+.ruler line { stroke: var(--ink2); stroke-opacity: .6; stroke-width: 1; vector-effect: non-scaling-stroke; }
 @media (max-width: 640px) { .resume-card { grid-template-columns: auto 1fr; margin: 4px 16px 12px; } .resume-btn { grid-column: 1 / -1; } .resume-title { font-size: 30px; } }
 
 /* Library header: search and the primary action share one row */

@@ -1165,6 +1165,33 @@ export async function getRecents(limit = MAX_RECENTS_LIMIT) {
 }
 
 /**
+ * Update the last playback position (lastBar, totalBars) on the newest recent tab
+ */
+export async function updateRecentPosition(lastBar, totalBars) {
+    if (!lastBar && !totalBars) return;
+    try {
+        const db = await getDB();
+        return new Promise((resolve) => {
+            const tx = db.transaction(STORE_RECENTS, 'readwrite');
+            const store = tx.objectStore(STORE_RECENTS);
+            const index = store.index('openedAt');
+            const req = index.openCursor(null, 'prev');
+            req.onsuccess = (e) => {
+                const cursor = e.target.result;
+                if (cursor) {
+                    const item = cursor.value;
+                    if (lastBar) item.lastBar = lastBar;
+                    if (totalBars) item.totalBars = totalBars;
+                    cursor.update(item);
+                }
+                resolve();
+            };
+            req.onerror = () => resolve();
+        });
+    } catch (_) {}
+}
+
+/**
  * Clear all recents
  */
 export async function clearRecents() {
