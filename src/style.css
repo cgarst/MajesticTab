@@ -7512,3 +7512,101 @@ html.jam-web-guest #setlistNav {
   border-color: var(--accent-secondary);
   box-shadow: 0 0 10px var(--accent-glow);
 }
+
+/* ==========================================================================
+   DESIGN 1 — FLAT FINISHES, QUIET CHROME (the app recedes, the score leads)
+   One tone step between surfaces, flat hues, no gradients, glass, glow or
+   resting shadows (they are the costliest on low-end Android GPUs).
+   Tokens first, then the few places that bypass tokens.
+   ========================================================================== */
+@font-face { font-family: 'Barlow Condensed'; font-weight: 500; font-display: swap; src: url('fonts/barlow-condensed-latin-500-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; font-display: swap; src: url('fonts/barlow-condensed-latin-600-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Barlow Condensed'; font-weight: 700; font-display: swap; src: url('fonts/barlow-condensed-latin-700-normal.woff2') format('woff2'); }
+
+:root, [data-theme] {
+  /* Four-step ground ladder: body, elevated, card, hover (existing tokens). Cards become opaque. */
+  --bg-card: var(--bg-card-solid);
+  --bg-ambient-1: transparent;
+  --bg-ambient-2: transparent;
+  /* Flat action colour (the original primary). A same-colour gradient keeps `background-image` uses valid. */
+  --accent-gradient: linear-gradient(var(--accent-primary), var(--accent-primary));
+  --accent-gradient-hover: linear-gradient(var(--accent-secondary), var(--accent-secondary));
+  --accent-glow: transparent;
+  --font-display: 'Barlow Condensed', 'Arial Narrow', system-ui, sans-serif;
+  /* Motion tokens (exits faster than entries) */
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 350ms;
+  --dur-slower: 400ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --r-control: 8px;
+  --r-card: 12px;
+}
+
+/* Platform corner radius: tighter on desktop, rounder on iOS */
+.tauri-ios, .tauri-macos { --r-control: 10px; --r-card: 14px; }
+.tauri-windows, .tauri-linux { --r-control: 4px; --r-card: 8px; }
+
+body {
+  background-image: none;
+  background-attachment: scroll;
+}
+
+/* No glass anywhere; scrims keep their dimming but lose the blur */
+*, *::before, *::after {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+#topBar {
+  background: var(--bg-elevated) !important;
+  box-shadow: none;
+  border-bottom: 1px solid var(--border-subtle);
+}
+#topBar.hud-hidden.hud-transient { box-shadow: none; }
+
+/* Buttons: flat fill, tone-step hover, no glow or lift */
+.btn-theme-primary,
+.btn-theme-primary:hover:not(:disabled) {
+  background: var(--accent-primary) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none;
+  transform: none;
+}
+.btn-theme-primary:hover:not(:disabled) { filter: brightness(1.12); }
+.btn-theme-outline:hover:not(:disabled) { box-shadow: none; }
+.btn-theme-primary,
+.btn-theme-outline,
+.btn-theme-danger,
+.btn-theme-success,
+.theme-control-btn,
+.btn-theme-icon {
+  transition: background-color var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out), filter var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+.btn-theme-primary:active:not(:disabled),
+.btn-theme-outline:active:not(:disabled),
+.theme-control-btn:active:not(:disabled),
+.btn-theme-icon:active:not(:disabled) { transform: scale(0.97); }
+
+/* Display face: song titles and big numerals only, like pedal and amp labels */
+.brand-title,
+.breadcrumb-song-title,
+.theme-modal-title,
+.offcanvas-title {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.breadcrumb-song-title { font-size: 1.3em; font-weight: 600; letter-spacing: 0.02em; }
+
+/* Modals and panels: opaque cards, scale-in, faster out */
+.theme-modal-card { box-shadow: none; border: 1px solid var(--border-subtle); border-radius: var(--r-card); }
+.offcanvas { box-shadow: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-theme-primary:active:not(:disabled),
+  .btn-theme-outline:active:not(:disabled),
+  .theme-control-btn:active:not(:disabled),
+  .btn-theme-icon:active:not(:disabled) { transform: none; }
+}
