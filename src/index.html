@@ -119,6 +119,14 @@
         <button class="btn btn-sm" id="pinnedToolBtn" type="button"><span id="pinnedToolIcon" class="pinned-tool-icon" aria-hidden="true"></span></button>
       </div>
 
+      <div id="viewPill" class="hud-pill-group" role="group" aria-label="View">
+        <button class="btn btn-sm" id="viewToggleBtn" type="button" title="View: size, paper and pages" aria-haspopup="dialog" aria-expanded="false" aria-controls="viewMenu">
+          <i class="bi-aspect-ratio"></i>
+          <span class="tools-btn-label ms-1">View</span>
+          <i class="bi-chevron-down tools-btn-chevron"></i>
+        </button>
+      </div>
+
       <div id="toolsPill" class="hud-pill-group" role="group" aria-label="Tools">
         <button class="btn btn-sm" id="toolsToggleBtn" type="button" title="Tools" aria-haspopup="menu" aria-expanded="false" aria-controls="toolsMenu">
           <i class="bi-grid-3x3-gap"></i>
@@ -146,6 +154,9 @@
     </div>
   </div>
 </nav>
+
+<!-- View menu: how the score is shown while playing (size, paper, pages). Hosts #readerViewOptions, moved here by utils/readerViewMenu.js so its controls keep their ids. -->
+<div id="viewMenu" class="tools-menu view-menu" role="dialog" aria-label="View" style="display:none;"></div>
 
 <!-- Tools menu (opened from #toolsToggleBtn; rows keep their original ids so existing handlers still bind) -->
 <div id="toolsMenu" class="tools-menu" role="menu" aria-label="Tools" style="display:none;">
