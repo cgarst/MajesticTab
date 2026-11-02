@@ -19,6 +19,7 @@ import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtil
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
 import { initAudioSyncUi } from './audioSync/audioSyncUi.js';
 import { initAudioFilePlayer, updateSongForAudioFile } from './audioSync/audioFilePlayer.js';
+import { initRealAudioController, updateSongForRealAudio } from './audioSync/realAudioController.js';
 import { restoreDebugBackup } from './debugRestore.js';
 import { initSoundFontPanel } from './gpProcessor/soundFontPanel.js';
 import { initMixerPanel, wireModal, closeModal } from './gpProcessor/mixerPanel.js';
@@ -1149,6 +1150,7 @@ async function initApp() {
     initYouTubePlayer();
     initAudioSyncUi();
     initAudioFilePlayer();
+    initRealAudioController();
     initSynthPlayer();
     initSoundFontPanel();
     initMixerPanel();
@@ -1532,6 +1534,7 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
     // Update YouTube player metadata with filename
     updateSongForYouTube({ filename: file.name });
     updateSongForAudioFile();
+    updateSongForRealAudio();
     
     if (!file.jamTransient) {
         recordFileToRecents(file);

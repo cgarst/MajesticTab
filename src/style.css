@@ -835,6 +835,11 @@ body {
   background: rgba(239, 68, 68, 0.15);
 }
 
+#ytToggleBtn.btn-source-local:hover:not(:disabled) {
+  color: #0ea5e9;
+  background: rgba(14, 165, 233, 0.15);
+}
+
 #globalAudioControls .btn:disabled,
 #audioSourcePill .btn:disabled {
   opacity: 0.35;
@@ -853,6 +858,13 @@ body {
   color: #ef4444 !important;
   background: rgba(239, 68, 68, 0.22) !important;
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.45) !important;
+}
+
+#ytToggleBtn.btn-source-local.active,
+#ytToggleBtn.btn-source-local.active-audio-mode {
+  color: #0ea5e9 !important;
+  background: rgba(14, 165, 233, 0.22) !important;
+  box-shadow: 0 0 10px rgba(14, 165, 233, 0.45) !important;
 }
 
 #fretboardToggleBtn.active,

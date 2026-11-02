@@ -100,11 +100,8 @@
       <button class="btn btn-sm" id="synthToggleBtn" title="MIDI Synth Playback & Controls" style="display:none;">
         <i class="bi-soundwave"></i>
       </button>
-      <button class="btn btn-sm" id="ytToggleBtn" title="YouTube Audio & Controls" style="display:none;">
+      <button class="btn btn-sm" id="ytToggleBtn" title="Real Audio & Controls" style="display:none;">
         <i class="bi-youtube"></i>
-      </button>
-      <button class="btn btn-sm" id="audioFileToggleBtn" title="Audio File & Controls" style="display:none;">
-        <i class="bi-file-earmark-music"></i>
       </button>
     </div>
 
@@ -562,14 +559,14 @@
   </div>
 </div>
 
-<!-- Collapsible YouTube Panel -->
+<!-- Collapsible Real Audio Panel (Consolidated YouTube & Local Audio) -->
 <div id="ytDropdownPanel" class="yt-panel" style="display: none;">
   <div class="yt-panel-header">
     <div class="d-flex align-items-center text-truncate me-2">
-      <div class="yt-header-badge me-2">
-        <i class="bi-youtube"></i>
+      <div class="yt-header-badge me-2" id="realAudioHeaderBadge">
+        <i class="bi-youtube text-danger" id="realAudioBadgeIcon"></i>
       </div>
-      <span class="yt-panel-title text-truncate" id="ytPanelTitle">YouTube Audio</span>
+      <span class="yt-panel-title text-truncate" id="realAudioPanelTitle">Real Audio · YouTube</span>
     </div>
     <div class="d-flex align-items-center gap-1">
       <button class="brand-btn p-1 px-2 text-muted" id="ytPanelCloseBtn" title="Close">
@@ -578,7 +575,8 @@
     </div>
   </div>
   <div class="yt-panel-body">
-    <div class="yt-mode-selector mb-3" role="group" aria-label="Track Mode">
+    <!-- Slot Selector: Original Song vs Backing Track -->
+    <div class="yt-mode-selector mb-2" role="group" aria-label="Track Mode">
       <input type="radio" class="btn-check" name="ytTrackMode" id="ytTrackOriginal" value="original" autocomplete="off" checked>
       <label class="yt-mode-btn" for="ytTrackOriginal">
         <i class="bi-music-note me-1"></i> Original Song
@@ -588,58 +586,116 @@
         <i class="bi-disc me-1"></i> Backing Track
       </label>
     </div>
-    <div class="yt-query-bar mb-3">
-      <div class="input-group input-group-sm yt-query-group">
-        <span class="input-group-text yt-query-addon" title="Search query"><i class="bi-search"></i></span>
-        <input type="text" id="ytSearchQueryInput" class="form-control yt-query-input" placeholder="YouTube search query..." autocomplete="off" spellcheck="false" title="Override YouTube search query">
-        <button class="btn btn-theme-primary yt-query-btn" id="ytRedoSearchBtn" type="button" title="Redo search with this query"><i class="bi-arrow-repeat me-1"></i>Search</button>
-        <button class="btn btn-theme-outline yt-query-reset-btn" id="ytResetQueryBtn" type="button" title="Reset to default song query" style="display: none;"><i class="bi-x-lg"></i></button>
-      </div>
-    </div>
-    <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-3">
-      <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe>
-      
-      <!-- Loading Indicator with Cancel Button -->
-      <div id="ytLoadingIndicator" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
-        <div class="spinner-border text-info mb-2" role="status" style="width: 1.85rem; height: 1.85rem; border-width: 0.18em;">
-          <span class="visually-hidden">Searching YouTube...</span>
-        </div>
-        <div class="small fw-bold text-white mb-1">Searching YouTube...</div>
-        <div class="text-muted text-truncate px-3 mb-2" id="ytLoadingQueryText" style="font-size: 0.72rem; max-width: 100%;"></div>
-        <button type="button" class="btn btn-sm btn-theme-outline py-0 px-2 mt-1" id="ytCancelSearchBtn" style="font-size: 0.75rem;">
-          <i class="bi-x-circle me-1"></i> Cancel Search
+
+    <!-- Source Selector: YouTube vs Local Audio -->
+    <div class="d-flex align-items-center justify-content-between mb-2 p-1 px-2 rounded" style="background: var(--bg-card-solid); border: 1px solid var(--border-subtle);">
+      <span class="small text-white-50">Source</span>
+      <div class="hud-pill-group" role="group" aria-label="Audio Source" id="realAudioSourcePills">
+        <button type="button" class="btn btn-sm active" id="realAudioSourceYt" data-source="youtube" title="Stream audio from YouTube">
+          <i class="bi-youtube me-1"></i> YouTube
+        </button>
+        <button type="button" class="btn btn-sm" id="realAudioSourceLocal" data-source="local" title="Play local recording from this device">
+          <i class="bi-file-earmark-music me-1"></i> Local Audio
         </button>
       </div>
+    </div>
 
-      <!-- Manual Search / Fallback Prompt -->
-      <div id="ytPlaceholderPrompt" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
-        <div class="yt-prompt-icon mb-2">
-          <i class="bi-youtube"></i>
-        </div>
-        <div class="small fw-semibold text-white mb-1" id="ytPromptTitle">Find Video on YouTube</div>
-        <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link below</div>
-        <div class="d-flex flex-wrap gap-2 justify-content-center mb-1">
-          <a class="btn btn-sm btn-theme-danger px-3 py-1" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem;">
-            <i class="bi-search me-1"></i> Search on YouTube <i class="bi-box-arrow-up-right ms-1"></i>
-          </a>
-        </div>
+    <!-- Shared Playback Speed -->
+    <div class="d-flex align-items-center justify-content-between mb-3 px-1">
+      <span class="small text-white-50"><i class="bi-speedometer2 me-1"></i>Speed</span>
+      <div class="hud-pill-group" role="group" aria-label="Playback speed" id="realAudioRates">
+        <button type="button" class="btn btn-sm" data-rate="0.5">0.5x</button>
+        <button type="button" class="btn btn-sm" data-rate="0.75">0.75x</button>
+        <button type="button" class="btn btn-sm active" data-rate="1">1x</button>
+        <button type="button" class="btn btn-sm" data-rate="1.25">1.25x</button>
       </div>
     </div>
-    <div id="ytSyncRow" class="mb-3" hidden>
-      <div class="d-flex align-items-center justify-content-between gap-2">
-        <div class="form-check form-switch mb-0">
-          <input class="form-check-input theme-switch" type="checkbox" id="ytSyncFollow">
-          <label class="form-check-label small text-white" for="ytSyncFollow" title="Move the tab cursor with this video using its sync points">Follow recording</label>
+
+    <!-- YouTube Sub-View -->
+    <div id="realAudioYtSection">
+      <div class="yt-query-bar mb-3">
+        <div class="input-group input-group-sm yt-query-group">
+          <span class="input-group-text yt-query-addon" title="Search query"><i class="bi-search"></i></span>
+          <input type="text" id="ytSearchQueryInput" class="form-control yt-query-input" placeholder="YouTube search query..." autocomplete="off" spellcheck="false" title="Override YouTube search query">
+          <button class="btn btn-theme-primary yt-query-btn" id="ytRedoSearchBtn" type="button" title="Redo search with this query"><i class="bi-arrow-repeat me-1"></i>Search</button>
+          <button class="btn btn-theme-outline yt-query-reset-btn" id="ytResetQueryBtn" type="button" title="Reset to default song query" style="display: none;"><i class="bi-x-lg"></i></button>
         </div>
-        <span class="text-muted text-truncate" id="ytSyncInfo" style="font-size: 0.72rem;"></span>
-        <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="ytSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
       </div>
-      <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="ytSyncTapBtn" title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
+      <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-3">
+        <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        
+        <!-- Loading Indicator with Cancel Button -->
+        <div id="ytLoadingIndicator" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
+          <div class="spinner-border text-info mb-2" role="status" style="width: 1.85rem; height: 1.85rem; border-width: 0.18em;">
+            <span class="visually-hidden">Searching YouTube...</span>
+          </div>
+          <div class="small fw-bold text-white mb-1">Searching YouTube...</div>
+          <div class="text-muted text-truncate px-3 mb-2" id="ytLoadingQueryText" style="font-size: 0.72rem; max-width: 100%;"></div>
+          <button type="button" class="btn btn-sm btn-theme-outline py-0 px-2 mt-1" id="ytCancelSearchBtn" style="font-size: 0.75rem;">
+            <i class="bi-x-circle me-1"></i> Cancel Search
+          </button>
+        </div>
+
+        <!-- Manual Search / Fallback Prompt -->
+        <div id="ytPlaceholderPrompt" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
+          <div class="yt-prompt-icon mb-2">
+            <i class="bi-youtube"></i>
+          </div>
+          <div class="small fw-semibold text-white mb-1" id="ytPromptTitle">Find Video on YouTube</div>
+          <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link below</div>
+          <div class="d-flex flex-wrap gap-2 justify-content-center mb-1">
+            <a class="btn btn-sm btn-theme-danger px-3 py-1" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer" style="font-size: 0.78rem;">
+              <i class="bi-search me-1"></i> Search on YouTube <i class="bi-box-arrow-up-right ms-1"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+      <div id="ytSyncRow" class="mb-3" hidden>
+        <div class="d-flex align-items-center justify-content-between gap-2">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input theme-switch" type="checkbox" id="ytSyncFollow">
+            <label class="form-check-label small text-white" for="ytSyncFollow" title="Move the tab cursor with this video using its sync points">Follow recording</label>
+          </div>
+          <span class="text-muted text-truncate" id="ytSyncInfo" style="font-size: 0.72rem;"></span>
+          <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="ytSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
+        </div>
+        <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="ytSyncTapBtn" title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
+      </div>
+      <div class="input-group input-group-sm yt-search-group">
+        <input type="text" id="ytSearchInput" class="form-control" placeholder="Paste YouTube link or video ID...">
+        <button class="btn yt-play-btn" id="ytSearchBtn" type="button" title="Load Video"><i class="bi-play-fill"></i> Play</button>
+        <a class="btn yt-ext-btn" id="ytExternalLink" href="#" target="_blank" title="Open search in YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right"></i></a>
+      </div>
     </div>
-    <div class="input-group input-group-sm yt-search-group">
-      <input type="text" id="ytSearchInput" class="form-control" placeholder="Paste YouTube link or video ID...">
-      <button class="btn yt-play-btn" id="ytSearchBtn" type="button" title="Load Video"><i class="bi-play-fill"></i> Play</button>
-      <a class="btn yt-ext-btn" id="ytExternalLink" href="#" target="_blank" title="Open search in YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right"></i></a>
+
+    <!-- Local Audio Sub-View -->
+    <div id="realAudioLocalSection" hidden>
+      <div class="small text-white-50 mb-2" id="afHint">Choose a recording of this song, such as a studio track or your own take. The file stays on this device.</div>
+      <div id="afFileList" class="d-flex flex-column gap-2 mb-2"></div>
+      <div class="small text-white-50 mb-2" id="afJamNote" hidden><i class="bi-people me-1"></i>In a Jam session, guests do not hear this file. They follow the host's video or the synth.</div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+        <button type="button" class="btn btn-sm btn-theme-primary" id="afChooseBtn">Choose Audio File</button>
+        <input type="file" id="afFileInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" hidden>
+        <span class="small text-white-50 text-truncate" id="afStatus" role="status"></span>
+      </div>
+      <div id="afPlayer" hidden>
+        <canvas id="afWave" class="af-wave mb-2" height="72" aria-label="Waveform. Click to seek."></canvas>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <button type="button" class="btn btn-sm btn-theme-icon" id="afPlayBtn" title="Play / Pause" aria-label="Play / Pause"><i class="bi-play-fill" id="afPlayIcon"></i></button>
+          <span class="small text-white-50 af-time" id="afTime">0:00 / 0:00</span>
+        </div>
+        <div id="afSyncRow" class="mb-1" hidden>
+          <div class="d-flex align-items-center justify-content-between gap-2">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input theme-switch" type="checkbox" id="afSyncFollow">
+              <label class="form-check-label small text-white" for="afSyncFollow" title="Move the tab cursor with this recording using its sync points">Follow recording</label>
+            </div>
+            <span class="text-muted text-truncate" id="afSyncInfo" style="font-size: 0.72rem;"></span>
+            <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="afSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
+          </div>
+          <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="afSyncTapBtn" title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -1178,54 +1234,7 @@
   <div id="smTimeline" class="sync-tl-host mt-2" hidden></div>
 </div>
 
-<div id="audioFileDropdownPanel" class="yt-panel" style="display: none;">
-  <div class="yt-panel-header">
-    <div class="d-flex align-items-center text-truncate me-2">
-      <div class="yt-header-badge me-2">
-        <i class="bi-file-earmark-music"></i>
-      </div>
-      <span class="yt-panel-title text-truncate" id="afPanelTitle">Audio File</span>
-    </div>
-    <div class="d-flex align-items-center gap-1">
-      <button class="brand-btn p-1 px-2 text-muted" id="afPanelCloseBtn" title="Close">
-        <i class="bi-x-lg" style="font-size: 0.75rem;"></i>
-      </button>
-    </div>
-  </div>
-  <div class="yt-panel-body">
-    <div class="small text-white-50 mb-2" id="afHint">Choose a recording of this song, such as a studio track or your own take. The file stays on this device.</div>
-    <div id="afFileList" class="d-flex flex-column gap-2 mb-2"></div>
-    <div class="small text-white-50 mb-2" id="afJamNote" hidden><i class="bi-people me-1"></i>In a Jam session, guests do not hear this file. They follow the host's video or the synth.</div>
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
-      <button type="button" class="btn btn-sm btn-theme-primary" id="afChooseBtn">Choose Audio File</button>
-      <input type="file" id="afFileInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" hidden>
-      <span class="small text-white-50 text-truncate" id="afStatus" role="status"></span>
-    </div>
-    <div id="afPlayer" hidden>
-      <canvas id="afWave" class="af-wave mb-2" height="72" aria-label="Waveform. Click to seek."></canvas>
-      <div class="d-flex align-items-center gap-2 mb-2">
-        <button type="button" class="btn btn-sm btn-theme-icon" id="afPlayBtn" title="Play / Pause" aria-label="Play / Pause"><i class="bi-play-fill" id="afPlayIcon"></i></button>
-        <span class="small text-white-50 af-time" id="afTime">0:00 / 0:00</span>
-        <div class="hud-pill-group ms-auto" role="group" aria-label="Playback speed" id="afRates">
-          <button type="button" class="btn btn-sm" data-af-rate="0.5">0.5x</button>
-          <button type="button" class="btn btn-sm" data-af-rate="0.75">0.75x</button>
-          <button type="button" class="btn btn-sm active" data-af-rate="1">1x</button>
-        </div>
-      </div>
-      <div id="afSyncRow" class="mb-1" hidden>
-        <div class="d-flex align-items-center justify-content-between gap-2">
-          <div class="form-check form-switch mb-0">
-            <input class="form-check-input theme-switch" type="checkbox" id="afSyncFollow">
-            <label class="form-check-label small text-white" for="afSyncFollow" title="Move the tab cursor with this recording using its sync points">Follow recording</label>
-          </div>
-          <span class="text-muted text-truncate" id="afSyncInfo" style="font-size: 0.72rem;"></span>
-          <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="afSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
-        </div>
-        <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="afSyncTapBtn" title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
-      </div>
-    </div>
-  </div>
-</div>
+
 
 <div id="syncEditorModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="syncEditorModalTitle" aria-hidden="true" style="display:none;">
   <section class="theme-modal-card synth-modal-card sync-editor-card">
@@ -1953,11 +1962,8 @@
     <button type="button" class="btn mobile-dock-btn" id="mobileSynthToggleBtn" title="MIDI Synth Audio & Controls" aria-label="MIDI Synth Controls" style="display: none;">
       <i class="bi-soundwave"></i>
     </button>
-    <button type="button" class="btn mobile-dock-btn" id="mobileYtToggleBtn" title="YouTube Audio & Controls" aria-label="YouTube Audio Controls" style="display: none;">
+    <button type="button" class="btn mobile-dock-btn" id="mobileYtToggleBtn" title="Real Audio & Controls" aria-label="Real Audio Controls" style="display: none;">
       <i class="bi-youtube"></i>
-    </button>
-    <button type="button" class="btn mobile-dock-btn" id="mobileAudioFileToggleBtn" title="Audio File & Controls" aria-label="Audio File Controls" style="display: none;">
-      <i class="bi-file-earmark-music"></i>
     </button>
   </div>
 </aside>

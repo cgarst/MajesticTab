@@ -5,7 +5,7 @@ import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigation
 
 let activeSearchController = null;
 
-let playerState = {
+export let playerState = {
     isOpen: false,
     trackMode: 'original', // Default to 'original' (left button)
     artist: '',
@@ -1205,9 +1205,15 @@ export const jamYouTubeControl = {
         }
     },
     setRate(rate) {
-        const iframe = document.getElementById('ytIframe');
-        if (iframe?.dataset.loaded === 'true' && Number.isFinite(rate)) {
-            sendYouTubeMessage(iframe, { event: 'command', func: 'setPlaybackRate', args: [rate] });
-        }
+        setYouTubePlaybackRate(rate);
     }
 };
+
+export function setYouTubePlaybackRate(rate) {
+    if (!Number.isFinite(rate)) return;
+    playerState.playbackRate = rate;
+    const iframe = document.getElementById('ytIframe');
+    if (iframe?.dataset.loaded === 'true') {
+        sendYouTubeMessage(iframe, { event: 'command', func: 'setPlaybackRate', args: [rate] });
+    }
+}

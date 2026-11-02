@@ -20,10 +20,12 @@ import { mountSyncRow } from './audioSyncUi.js';
 import { formatTime } from './syncEdit.js';
 
 const LAST_FILE_KEY = (songKey) => `audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`;
+const SLOT_FILE_KEY = (songKey, slot) => `audio_file_${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;
 const LENGTH_TOLERANCE_MS = 1500;
 
 const state = {
     isOpen: false,
+    currentSlot: 'original', // 'original' | 'backing'
     files: [],          // stored files for this song (metadata)
     missing: [],        // local recordings the song has sync points for whose file is not on this device
     currentId: null,
@@ -128,9 +130,15 @@ async function refreshFiles() {
         .filter(r => r.media.kind === 'local' && !stored.has(r.media.audioId))
         .map(r => r.media);
     if (!state.currentId || !stored.has(state.currentId)) {
-        let last = null;
-        try { last = localStorage.getItem(LAST_FILE_KEY(songKey)); } catch { /* optional */ }
-        const next = state.files.find(f => f.id === last) || state.files[0] || null;
+        let slotFileId = null;
+        const slot = state.currentSlot || 'original';
+        try {
+            slotFileId = localStorage.getItem(SLOT_FILE_KEY(songKey, slot));
+            if (!slotFileId && slot === 'original') {
+                slotFileId = localStorage.getItem(LAST_FILE_KEY(songKey));
+            }
+        } catch { /* optional */ }
+        const next = state.files.find(f => f.id === slotFileId) || (slot === 'original' ? state.files[0] : null) || null;
         if (state.currentId !== (next?.id ?? null)) destroySource();
         state.currentId = next?.id ?? null;
     }
@@ -213,6 +221,12 @@ function ensureSource() {
 }
 
 async function selectFile(id) {
+    const songKey = getSongKey();
+    const slot = state.currentSlot || 'original';
+    try {
+        localStorage.setItem(SLOT_FILE_KEY(songKey, slot), id);
+        if (slot === 'original') localStorage.setItem(LAST_FILE_KEY(songKey), id);
+    } catch { /* optional */ }
     if (id === state.currentId && state.source) return;
     destroySource();
     state.currentId = id;
@@ -272,6 +286,11 @@ async function addFile(file, { relink = null } = {}) {
 
 async function finishAdd(meta) {
     if (!state.songFinal) state.pendingAdds.push({ id: meta.id, key: getSongKey() });
+    const slot = state.currentSlot || 'original';
+    try {
+        localStorage.setItem(SLOT_FILE_KEY(getSongKey(), slot), meta.id);
+        if (slot === 'original') localStorage.setItem(LAST_FILE_KEY(getSongKey()), meta.id);
+    } catch { /* optional */ }
     destroySource();
     state.currentId = meta.id;
     await refreshFiles();
@@ -293,8 +312,13 @@ async function toggleExcluded(file) {
 
 async function removeFile(id) {
     if (!confirm('Remove this audio file from this device? Its sync points are kept.')) return;
+    const songKey = getSongKey();
+    try {
+        if (localStorage.getItem(SLOT_FILE_KEY(songKey, 'original')) === id) localStorage.removeItem(SLOT_FILE_KEY(songKey, 'original'));
+        if (localStorage.getItem(SLOT_FILE_KEY(songKey, 'backing')) === id) localStorage.removeItem(SLOT_FILE_KEY(songKey, 'backing'));
+    } catch { /* optional */ }
     if (id === state.currentId) destroySource();
-    await unlinkAudioFile(id, getSongKey());
+    await unlinkAudioFile(id, songKey);
     if (state.currentId === id) state.currentId = null;
     await refreshFiles();
 }
@@ -362,13 +386,12 @@ function render() {
         }));
     }
     list.replaceChildren(...rows);
-    $('afHint').hidden = rows.length > 0;
+    if ($('afHint')) $('afHint').hidden = rows.length > 0;
     const loaded = Boolean(state.source);
-    $('afPlayer').hidden = !loaded;
-    $('afPanelTitle').textContent = state.meta?.name || 'Audio File';
+    if ($('afPlayer')) $('afPlayer').hidden = !loaded;
+    if ($('afPanelTitle')) $('afPanelTitle').textContent = state.meta?.name || 'Audio File';
     if (loaded) {
         updatePlayIcon();
-        updateRateButtons();
         drawWave();
     }
 }
@@ -436,56 +459,42 @@ function startRelink(media) {
     $('afFileInput').click();
 }
 
-// --- Panel ---------------------------------------------------------------------------------------------------------
+// --- Panel & Exports -----------------------------------------------------------------------------------------------
 
-function positionPanel() {
-    const panel = $('audioFileDropdownPanel');
-    const toggleBtn = $('audioFileToggleBtn');
-    if (!panel || !state.isOpen) return;
-    const mobileDock = $('mobilePlaybackDock');
-    const mobileActive = window.innerWidth <= 576 || (mobileDock && getComputedStyle(mobileDock).display !== 'none');
-    if (mobileActive && mobileDock) {
-        panel.classList.add('popup-from-bottom');
-        const dockRect = mobileDock.getBoundingClientRect();
-        const bottomOffset = dockRect.top > 0 ? Math.max(12, Math.round(window.innerHeight - dockRect.top + 8)) : 76;
-        Object.assign(panel.style, { position: 'fixed', top: 'auto', bottom: `${bottomOffset}px`, left: '50%', transform: 'translateX(-50%)' });
-        return;
+export function setAudioFileSlot(slot) {
+    if (slot !== 'original' && slot !== 'backing') return;
+    state.currentSlot = slot;
+    const songKey = getSongKey();
+    let slotFileId = null;
+    try {
+        slotFileId = localStorage.getItem(SLOT_FILE_KEY(songKey, slot));
+        if (!slotFileId && slot === 'original') {
+            slotFileId = localStorage.getItem(LAST_FILE_KEY(songKey));
+        }
+    } catch { /* optional */ }
+
+    const targetId = (slotFileId && state.files.some(f => f.id === slotFileId)) ? slotFileId : null;
+    if (state.currentId !== targetId) {
+        destroySource();
+        state.currentId = targetId;
+        if (targetId) ensureSource();
     }
-    panel.classList.remove('popup-from-bottom');
-    panel.style.bottom = 'auto';
-    if (!toggleBtn) return;
-    const rect = toggleBtn.getBoundingClientRect();
-    const half = Math.min(190, (window.innerWidth - 24) / 2);
-    const centerX = rect.left + rect.width / 2;
-    Object.assign(panel.style, {
-        position: 'fixed',
-        top: `${rect.bottom + 8}px`,
-        left: `${Math.max(half + 12, Math.min(window.innerWidth - half - 12, centerX))}px`,
-        transform: 'translateX(-50%)'
-    });
+    render();
+}
+
+export function setAudioFileRate(rate) {
+    if (!Number.isFinite(rate)) return;
+    state.rate = rate;
+    state.source?.setRate(rate);
+}
+
+export function renderAudioFile() {
+    render();
+    if (state.currentId && !state.source) ensureSource();
 }
 
 export function toggleAudioFilePanel(force = null) {
-    const panel = $('audioFileDropdownPanel');
-    if (!panel) return;
-    const open = force !== null ? force : !state.isOpen;
-    state.isOpen = open;
-    $('audioFileToggleBtn')?.classList.toggle('active', open);
-    $('mobileAudioFileToggleBtn')?.classList.toggle('active', open);
-    if (open) {
-        toggleYouTubePanel(false);
-        toggleSynthPanel(false);
-        toggleScoreOptionsPanel(false);
-        setActiveAudioMode('audio');
-        positionPanel();
-        panel.style.display = 'block';
-        render();
-        ensureSource();
-        if (state.source?.isPlaying()) startUiLoop();
-    } else {
-        panel.style.display = 'none';
-        panel.classList.remove('popup-from-bottom');
-    }
+    toggleYouTubePanel(force);
 }
 
 /**
@@ -509,19 +518,15 @@ export async function updateSongForAudioFile({ final = false } = {}) {
     state.missing = [];
     state.currentId = null;
     setStatus('');
-    const btn = $('audioFileToggleBtn');
-    if (btn) btn.style.display = 'inline-flex';
-    refreshFiles();
+    await refreshFiles();
     updateGlobalAudioControls();
 }
 
 export function initAudioFilePlayer() {
-    const panel = $('audioFileDropdownPanel');
-    if (!panel) return;
+    const section = $('realAudioLocalSection');
+    if (!section) return;
     const input = $('afFileInput');
 
-    $('audioFileToggleBtn')?.addEventListener('click', () => toggleAudioFilePanel());
-    $('afPanelCloseBtn')?.addEventListener('click', () => toggleAudioFilePanel(false));
     $('afChooseBtn')?.addEventListener('click', () => { state.relinkTarget = null; input.click(); });
     input?.addEventListener('change', () => {
         const file = input.files?.[0];
@@ -531,11 +536,6 @@ export function initAudioFilePlayer() {
         if (file) addFile(file, { relink });
     });
     $('afPlayBtn')?.addEventListener('click', () => playPauseAudioFile());
-    document.querySelectorAll('#afRates [data-af-rate]').forEach((b) => b.addEventListener('click', () => {
-        state.rate = Number(b.dataset.afRate);
-        state.source?.setRate(state.rate);
-        updateRateButtons();
-    }));
 
     const wave = $('afWave');
     const seekFromEvent = (e) => {
@@ -551,10 +551,7 @@ export function initAudioFilePlayer() {
     // Another audio mode starting stops this one; another panel opening closes this one
     onYouTubeEvent((e) => { if (e.type === 'state' && e.playing) pauseAudioFile(); });
     onTransportEvent((e) => { if (e.type === 'state' && e.playing) pauseAudioFile(); });
-    for (const id of ['ytToggleBtn', 'synthToggleBtn', 'mobileYtToggleBtn', 'mobileSynthToggleBtn']) {
-        $(id)?.addEventListener('click', () => { if (state.isOpen) toggleAudioFilePanel(false); });
-    }
-    window.addEventListener('resize', () => { positionPanel(); drawWave(); });
+    window.addEventListener('resize', () => { drawWave(); });
     // A restore or sync can bring files in
     window.addEventListener(AUDIO_FILES_CHANGED_EVENT, () => refreshFiles());
     // A host is told that guests cannot hear a local file
@@ -566,7 +563,7 @@ export function initAudioFilePlayer() {
         prefix: 'af',
         getSource: () => state.source,
         getMedia: () => (state.meta ? mediaOf(state.meta) : null),
-        prepareSync: () => toggleAudioFilePanel(false),
+        prepareSync: () => toggleYouTubePanel(false),
         getPeaks: () => state.peaks,
         getAudioData: async () => (state.currentId ? (await getAudioFile(state.currentId))?.data || null : null),
         subscribe: (cb) => syncListeners.add(cb)

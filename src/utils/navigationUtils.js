@@ -8,6 +8,9 @@ import { gamepadManager } from './gamepadManager.js';
 import { stepSetlist } from '../setlistPlayer.js';
 import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel } from '../youtubePlayer.js';
 import { playPauseAudioFile, isAudioFileAvailable, isAudioFilePlaying, rewindAudioFile10Seconds } from '../audioSync/audioFilePlayer.js';
+import {
+    isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds
+} from '../audioSync/realAudioController.js';
 
 // Navigation action constants
 export const NavigationAction = {
@@ -1037,13 +1040,11 @@ export function updateGlobalAudioControls() {
     const playPauseIcon = document.getElementById('globalPlayPauseIcon');
 
     const synthBtn = document.getElementById('synthToggleBtn');
-    const ytBtn = document.getElementById('ytToggleBtn');
-    const afBtn = document.getElementById('audioFileToggleBtn');
+    const realAudioBtn = document.getElementById('ytToggleBtn');
 
     const isSynthVisible = Boolean(synthBtn && synthBtn.style.display !== 'none');
-    const isYtVisible = Boolean(ytBtn && ytBtn.style.display !== 'none');
-    const isAfVisible = Boolean(afBtn && afBtn.style.display !== 'none');
-    const anySource = isSynthVisible || isYtVisible || isAfVisible;
+    const isRealAudioVisible = Boolean(realAudioBtn && realAudioBtn.style.display !== 'none');
+    const anySource = isSynthVisible || isRealAudioVisible;
 
     if (sourcePill) {
         sourcePill.style.display = anySource ? 'inline-flex' : 'none';
@@ -1061,14 +1062,14 @@ export function updateGlobalAudioControls() {
     }
 
     const synthPlayable = isSynthAvailable();
-    const ytPlayable = isYouTubeAvailable();
-    const canPlay = synthPlayable || ytPlayable || isAudioFileAvailable();
+    const realAudioPlayable = isRealAudioAvailable();
+    const canPlay = synthPlayable || realAudioPlayable;
 
     if (rewindBtn) {
         rewindBtn.disabled = !canPlay;
     }
 
-    const isPlaying = isSynthPlaying() || isYouTubePlaying() || isAudioFilePlaying();
+    const isPlaying = isSynthPlaying() || isRealAudioPlaying();
 
     if (playPauseBtn) {
         playPauseBtn.disabled = !canPlay;
@@ -1084,8 +1085,7 @@ export function updateGlobalAudioControls() {
     const mobilePlayPauseBtn = document.getElementById('mobilePlayPauseBtn');
     const mobilePlayPauseIcon = document.getElementById('mobilePlayPauseIcon');
     const mobileSynthBtn = document.getElementById('mobileSynthToggleBtn');
-    const mobileYtBtn = document.getElementById('mobileYtToggleBtn');
-    const mobileAfBtn = document.getElementById('mobileAudioFileToggleBtn');
+    const mobileRealAudioBtn = document.getElementById('mobileYtToggleBtn');
     const mobileDivider = document.getElementById('mobileAudioSourceDivider');
 
     if (mobileDock) {
@@ -1105,13 +1105,9 @@ export function updateGlobalAudioControls() {
         mobileSynthBtn.style.display = isSynthVisible ? 'inline-flex' : 'none';
         mobileSynthBtn.classList.toggle('active-audio-mode', Boolean(synthBtn?.classList.contains('active-audio-mode')));
     }
-    if (mobileYtBtn) {
-        mobileYtBtn.style.display = isYtVisible ? 'inline-flex' : 'none';
-        mobileYtBtn.classList.toggle('active-audio-mode', Boolean(ytBtn?.classList.contains('active-audio-mode')));
-    }
-    if (mobileAfBtn) {
-        mobileAfBtn.style.display = isAfVisible ? 'inline-flex' : 'none';
-        mobileAfBtn.classList.toggle('active-audio-mode', Boolean(afBtn?.classList.contains('active-audio-mode')));
+    if (mobileRealAudioBtn) {
+        mobileRealAudioBtn.style.display = isRealAudioVisible ? 'inline-flex' : 'none';
+        mobileRealAudioBtn.classList.toggle('active-audio-mode', Boolean(realAudioBtn?.classList.contains('active-audio-mode')));
     }
     if (mobileDivider) {
         mobileDivider.style.display = anySource ? 'block' : 'none';
@@ -1128,24 +1124,15 @@ export function handleGlobalRewind10Seconds() {
         rewindSynth10Seconds();
         return;
     }
-    if (isYouTubePlaying()) {
-        rewindYouTube10Seconds();
+    if (isRealAudioPlaying()) {
+        rewindRealAudio10Seconds();
         return;
     }
-    if (isAudioFilePlaying()) {
-        rewindAudioFile10Seconds();
-        return;
-    }
-    const ytActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
+    const realAudioActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
     const synthActive = document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode');
-    const afActive = document.getElementById('audioFileToggleBtn')?.classList.contains('active-audio-mode');
 
-    if (afActive && isAudioFileAvailable()) {
-        rewindAudioFile10Seconds();
-        return;
-    }
-    if (ytActive && isYouTubeAvailable()) {
-        rewindYouTube10Seconds();
+    if (realAudioActive && isRealAudioAvailable()) {
+        rewindRealAudio10Seconds();
         return;
     }
     if (synthActive && isSynthAvailable()) {
@@ -1156,12 +1143,8 @@ export function handleGlobalRewind10Seconds() {
         rewindSynth10Seconds();
         return;
     }
-    if (isYouTubeAvailable()) {
-        rewindYouTube10Seconds();
-        return;
-    }
-    if (isAudioFileAvailable()) {
-        rewindAudioFile10Seconds();
+    if (isRealAudioAvailable()) {
+        rewindRealAudio10Seconds();
         return;
     }
 }
@@ -1170,31 +1153,20 @@ export function handleGlobalRewind10Seconds() {
  * Handle Play / Pause for whichever audio player is active/playing or available
  */
 export function handleGlobalPlayPause() {
-    // 1. If either player is actively playing, pause it
     if (isSynthPlaying()) {
         playPauseSynth();
         return;
     }
-    if (isYouTubePlaying()) {
-        playPauseYouTube();
-        return;
-    }
-    if (isAudioFilePlaying()) {
-        playPauseAudioFile();
+    if (isRealAudioPlaying()) {
+        playPauseRealAudio();
         return;
     }
 
-    // 2. If none is playing, start whichever mode is highlighted/active or available
-    const ytActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
+    const realAudioActive = document.getElementById('ytToggleBtn')?.classList.contains('active-audio-mode');
     const synthActive = document.getElementById('synthToggleBtn')?.classList.contains('active-audio-mode');
-    const afActive = document.getElementById('audioFileToggleBtn')?.classList.contains('active-audio-mode');
 
-    if (afActive && isAudioFileAvailable()) {
-        playPauseAudioFile();
-        return;
-    }
-    if (ytActive && isYouTubeAvailable()) {
-        playPauseYouTube();
+    if (realAudioActive && isRealAudioAvailable()) {
+        playPauseRealAudio();
         return;
     }
     if (synthActive && isSynthAvailable()) {
@@ -1205,12 +1177,8 @@ export function handleGlobalPlayPause() {
         playPauseSynth();
         return;
     }
-    if (isYouTubeAvailable()) {
-        playPauseYouTube();
-        return;
-    }
-    if (isAudioFileAvailable()) {
-        playPauseAudioFile();
+    if (isRealAudioAvailable()) {
+        playPauseRealAudio();
         return;
     }
 }
@@ -1224,8 +1192,7 @@ export function setupGlobalAudioControls() {
     const mobileRewindBtn = document.getElementById('mobileRewindBtn');
     const mobilePlayPauseBtn = document.getElementById('mobilePlayPauseBtn');
     const mobileSynthBtn = document.getElementById('mobileSynthToggleBtn');
-    const mobileYtBtn = document.getElementById('mobileYtToggleBtn');
-    const mobileAfBtn = document.getElementById('mobileAudioFileToggleBtn');
+    const mobileRealAudioBtn = document.getElementById('mobileYtToggleBtn');
 
     rewindBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1252,14 +1219,9 @@ export function setupGlobalAudioControls() {
         document.getElementById('synthToggleBtn')?.click();
     });
 
-    mobileYtBtn?.addEventListener('click', (e) => {
+    mobileRealAudioBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         document.getElementById('ytToggleBtn')?.click();
-    });
-
-    mobileAfBtn?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        document.getElementById('audioFileToggleBtn')?.click();
     });
 
     updateGlobalAudioControls();
@@ -1268,16 +1230,13 @@ export function setupGlobalAudioControls() {
 export const setupGlobalRewindButton = setupGlobalAudioControls;
 
 /**
- * Highlight the active audio mode toggle button (Instrument, YouTube or audio file)
- * @param {'synth'|'youtube'|'audio'|null} mode
+ * Highlight the active audio mode toggle button (Synth or Real Audio)
+ * @param {'synth'|'youtube'|'audio'|'real'|null} mode
  */
 export function setActiveAudioMode(mode) {
-    const buttons = {
-        synth: ['synthToggleBtn', 'mobileSynthToggleBtn'],
-        youtube: ['ytToggleBtn', 'mobileYtToggleBtn'],
-        audio: ['audioFileToggleBtn', 'mobileAudioFileToggleBtn']
-    };
-    for (const [name, ids] of Object.entries(buttons)) {
-        for (const id of ids) document.getElementById(id)?.classList.toggle('active-audio-mode', name === mode);
-    }
+    const isReal = mode === 'youtube' || mode === 'audio' || mode === 'real';
+    document.getElementById('synthToggleBtn')?.classList.toggle('active-audio-mode', mode === 'synth');
+    document.getElementById('mobileSynthToggleBtn')?.classList.toggle('active-audio-mode', mode === 'synth');
+    document.getElementById('ytToggleBtn')?.classList.toggle('active-audio-mode', isReal);
+    document.getElementById('mobileYtToggleBtn')?.classList.toggle('active-audio-mode', isReal);
 }
