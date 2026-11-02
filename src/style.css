@@ -4562,48 +4562,6 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   min-width: 0;
 }
 
-.tab-option-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.2rem 0.6rem;
-  border-radius: 9999px;
-  background: var(--bg-card-solid);
-  border: 1px solid var(--border-subtle);
-  font-size: 0.72rem;
-  color: var(--text-primary);
-  cursor: pointer;
-  user-select: none;
-  transition: all 0.15s ease;
-  max-width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.tab-option-chip .tab-option-name,
-.tab-option-chip .text-truncate {
-  max-width: 220px;
-  min-width: 0;
-  flex-shrink: 1;
-  display: inline-block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  .tab-option-chip:hover {
-    background: var(--bg-card-hover);
-    border-color: var(--accent-primary);
-    color: #ffffff;
-    box-shadow: 0 0 8px var(--accent-glow);
-  }
-
-  .tab-option-chip .remove-tab-chip-btn:hover {
-    color: #ef4444 !important;
-  }
-}
-
 /* Themed Dropdown Menus */
 .theme-dropdown-menu {
   background: var(--bg-modal) !important;
@@ -5333,13 +5291,6 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   border-color: rgba(16, 185, 129, 0.4);
 }
 
-/* Default Tab Option Chip */
-.tab-option-chip.tab-option-chip-default {
-  border-color: var(--accent-primary) !important;
-  background: var(--bg-card-hover) !important;
-  box-shadow: 0 0 6px var(--accent-glow);
-}
-
 .set-default-tab-btn,
 .set-default-album-tab-btn {
   line-height: 1;
@@ -5678,8 +5629,8 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   border-color: var(--accent-primary) !important;
 }
 
-.library-page-view .tab-option-chip:focus-visible,
-.library-page-view .tab-option-chip.nav-focused,
+.library-page-view .tab-row:focus-visible,
+.library-page-view .tab-row.nav-focused,
 .library-page-view button:focus-visible,
 .library-page-view button.nav-focused,
 .library-page-view a:focus-visible,

@@ -1120,7 +1120,7 @@ class GamepadManager {
             '.library-row-card[data-row-action]',
             '.library-pinned-card',
             '.library-track-row:not(.is-filtered-out)',
-            '.tab-option-chip',
+            '.tab-row',
             '.open-file-dropzone',
             '.open-file-provider-item',
             '.theme-card',
@@ -1143,18 +1143,18 @@ class GamepadManager {
         return raw.filter(el => {
             if (el === currentActive) return true;
 
-            // Inside a .tab-option-chip, keep focus on the chip itself rather than its inner star icon
-            const parentChip = el.closest?.('.tab-option-chip');
+            // Inside a .tab-row, keep focus on the chip itself rather than its inner star icon
+            const parentChip = el.closest?.('.tab-row');
             if (parentChip && parentChip !== el) {
                 return false;
             }
 
-            // A .tab-option-chip inside a .library-song-row is only needed as a separate focus stop
+            // A .tab-row inside a .library-song-row is only needed as a separate focus stop
             // when the song row has multiple tab options (with a single tab, activating the row plays it).
-            if (el.classList?.contains('tab-option-chip')) {
+            if (el.classList?.contains('tab-row')) {
                 const parentSongRow = el.closest?.('.library-song-row');
                 if (parentSongRow) {
-                    const chips = parentSongRow.querySelectorAll('.tab-option-chip');
+                    const chips = parentSongRow.querySelectorAll('.tab-row');
                     if (chips.length <= 1) return false;
                 }
                 return true;
@@ -1208,11 +1208,11 @@ class GamepadManager {
         }
 
         const activeParentRow = currentActive.closest?.(COMPOSITE_ROW_SELECTOR);
-        const isChildOfRow = Boolean(activeParentRow && activeParentRow !== currentActive && !currentActive.classList?.contains('tab-option-chip'));
+        const isChildOfRow = Boolean(activeParentRow && activeParentRow !== currentActive && !currentActive.classList?.contains('tab-row'));
 
         // Stepping Right from a full-width row (e.g. .library-song-row, .library-row-card) enters its secondary action buttons
         if (direction === 'right' && currentActive.matches?.('.library-song-row, .library-row-card')) {
-            const innerButtons = focusable.filter(el => el !== currentActive && currentActive.contains(el) && !el.classList?.contains('tab-option-chip'));
+            const innerButtons = focusable.filter(el => el !== currentActive && currentActive.contains(el) && !el.classList?.contains('tab-row'));
             if (innerButtons.length > 0) {
                 innerButtons.sort((a, b) => this.getFocusRect(a).left - this.getFocusRect(b).left);
                 this.setNavFocus(innerButtons[0]);
@@ -1224,7 +1224,7 @@ class GamepadManager {
         if (direction === 'left' && isChildOfRow) {
             const curRect = this.getFocusRect(currentActive);
             const siblingsLeft = focusable
-                .filter(el => el !== currentActive && el !== activeParentRow && activeParentRow.contains(el) && !el.classList?.contains('tab-option-chip'))
+                .filter(el => el !== currentActive && el !== activeParentRow && activeParentRow.contains(el) && !el.classList?.contains('tab-row'))
                 .filter(el => this.getFocusRect(el).right <= curRect.left + 4)
                 .sort((a, b) => this.getFocusRect(b).left - this.getFocusRect(a).left);
             if (siblingsLeft.length > 0) {
@@ -1252,7 +1252,7 @@ class GamepadManager {
                 continue;
             }
             // Do not navigate from a parent card/row into its own inner buttons unless handled above
-            if ((direction === 'left' || direction === 'right') && !isChildOfRow && referenceEl.contains?.(cand) && !cand.classList?.contains('tab-option-chip')) {
+            if ((direction === 'left' || direction === 'right') && !isChildOfRow && referenceEl.contains?.(cand) && !cand.classList?.contains('tab-row')) {
                 continue;
             }
 
@@ -1321,7 +1321,7 @@ class GamepadManager {
         // If pressing Right on a card (e.g. .library-pinned-card, .tuning-card) with no card to its right,
         // allow stepping into its secondary action button if it has one
         if (!bestElement && direction === 'right' && !isChildOfRow) {
-            const innerButtons = focusable.filter(el => el !== currentActive && currentActive.contains(el) && !el.classList?.contains('tab-option-chip'));
+            const innerButtons = focusable.filter(el => el !== currentActive && currentActive.contains(el) && !el.classList?.contains('tab-row'));
             if (innerButtons.length > 0) {
                 innerButtons.sort((a, b) => this.getFocusRect(a).left - this.getFocusRect(b).left);
                 bestElement = innerButtons[0];

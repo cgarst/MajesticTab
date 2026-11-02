@@ -377,7 +377,7 @@ let libraryTouchBlurInitialized = false;
 function blurActiveLibraryElement(page, onlyNonInputs = false) {
     const active = document.activeElement;
     if (!active || typeof active.blur !== 'function') return;
-    if (page && (page.contains(active) || active.closest?.('.library-card, .library-row-card, .library-song-row, .library-track-row, .library-pinned-card, .tab-option-chip, .library-page-view'))) {
+    if (page && (page.contains(active) || active.closest?.('.library-card, .library-row-card, .library-song-row, .library-track-row, .library-pinned-card, .tab-row, .library-page-view'))) {
         if (onlyNonInputs) {
             const isInput = active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT';
             if (isInput) return;
@@ -1196,7 +1196,7 @@ async function renderLibraryBrowseView(container) {
                               ${alb.year ? `<span>${alb.year}</span><span class="sep">·</span>` : ''}
                               <span>${alb.songs.length} ${alb.songs.length === 1 ? 'track' : 'tracks'}</span>
                               ${albumDurationText ? `<span class="sep">·</span><span>${albumDurationText}</span>` : ''}
-                              ${hasAlbumTabs ? `<span class="chip sec ms-1" title="${albTabs.length} album tab book(s)"><i class="bi-journal-bookmark text-info me-1"></i>Book</span>` : ''}
+                              ${albTabs.map(t => `<span class="sep">·</span><button type="button" class="play-album-tab-chip-btn album-book-link" data-album-title="${escapeHtml(alb.title)}" data-tab-id="${t.id}" title="Open book: ${escapeHtml(t.name)}">Open book</button>`).join('')}
                             </div>
                           </div>
                         </div>
@@ -1298,11 +1298,11 @@ async function renderLibraryBrowseView(container) {
                     <div class="library-book-pdf-bar d-flex flex-wrap align-items-center gap-2 mb-3">
                       <span class="book-row-label">Books</span>
                       ${bookPdfs.map(t => `
-                        <div class="tab-option-chip play-album-tab-chip-btn book-link" data-tab-id="${t.id}" role="button" tabindex="0" title="Open book: ${escapeHtml(t.name)}">
-                          <span class="tab-option-name text-truncate">${escapeHtml(String(t.name).replace(/\.pdf$/i, ''))}</span>
-                          ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" aria-label="Remove ${escapeHtml(t.name)}" title="Remove book"><i class="bi-x"></i></button>` : ''}
-                        </div>
-                      `).join('')}
+                         <span class="book-item d-inline-flex align-items-center">
+                           <button type="button" class="play-album-tab-chip-btn album-book-link text-truncate" data-tab-id="${t.id}" title="Open book: ${escapeHtml(t.name)}">${escapeHtml(String(t.name).replace(/\.pdf$/i, ''))}</button>
+                           ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" aria-label="Remove ${escapeHtml(t.name)}" title="Remove book"><i class="bi-x"></i></button>` : ''}
+                         </span>
+                       `).join('')}
                       <div class="dropdown flex-shrink-0">
                         <button class="btn btn-sm btn-theme-outline dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach a whole-book PDF to this folder">Add book</button>
                         <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
@@ -2415,7 +2415,7 @@ function renderSongRow(song, options = {}) {
           const tuningLabel = (t.tuning && isTuningMatchingInstrument(t.tuning)) ? (getTuningInfo(t.tuning)?.displayName || t.tuning) : '';
           const meta = [(t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '', tuningLabel].filter(Boolean).join(' \u00b7 ');
           return `
-          <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-tab-chip-btn" role="listitem" data-song-id="${song.id}" data-tab-id="${t.id}" tabindex="0" title="Load ${escapeHtml(t.name)}">
+          <div class="tab-row ${isDefault ? 'tab-row-default' : ''} play-tab-chip-btn" role="listitem" data-song-id="${song.id}" data-tab-id="${t.id}" tabindex="0" title="Load ${escapeHtml(t.name)}">
             <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
             ${meta ? `<span class="tab-option-meta">${escapeHtml(meta)}</span>` : ''}
             <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'is-default' : ''}" data-song-id="${song.id}" data-tab-id="${t.id}" ${isDefault ? 'aria-pressed="true"' : ''} title="${isDefault ? 'This tab opens by default' : 'Open this tab by default'}">${isDefault ? 'Default' : 'Make default'}</button>
@@ -2857,7 +2857,7 @@ function setupSongRowActions(container) {
         btn.addEventListener('click', async (e) => {
             if (e.target.closest('.remove-album-tab-chip-btn') || e.target.closest('.set-default-album-tab-btn')) return;
             e.stopPropagation();
-            const folderTitle = getBookFolderTitle();
+            const folderTitle = btn.dataset.albumTitle || getBookFolderTitle();
             if (!selectedArtist || !folderTitle) return;
             const tabId = btn.dataset.tabId;
             const albumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, folderTitle);
@@ -2866,7 +2866,7 @@ function setupSongRowActions(container) {
                 const albumSongId = `album_tab_${activeCollectionId}_${selectedArtist.name}_${folderTitle}`.replace(/[^a-zA-Z0-9_-]/g, '_');
                 await loadSongTab({
                     id: albumSongId,
-                    title: selectedAlbum ? selectedAlbum.title : (tab.name || folderTitle),
+                    title: selectedAlbum ? selectedAlbum.title : (btn.dataset.albumTitle || tab.name || folderTitle),
                     artist: selectedArtist.name,
                     album: folderTitle,
                     coverUrl: selectedAlbum?.coverUrl
@@ -2984,7 +2984,7 @@ function setupSongRowActions(container) {
 
         // Click row's empty space (outside actions) to play default tab
         row.addEventListener('click', async (e) => {
-            if (e.target.closest('button, .tab-option-chip, .dropdown, a, input')) return;
+            if (e.target.closest('button, .tab-row, .dropdown, a, input')) return;
             const song = await getSongById(songId);
             if (song && song.tabOptions?.length > 0) {
                 const targetTab = (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song.tabOptions[0];

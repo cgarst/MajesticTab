@@ -1537,11 +1537,8 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .library-sticky-breadcrumbs { background: transparent !important; border: 0 !important; box-shadow: none !important; padding-inline: 20px !important; }
 .library-book-pdf-bar { background: transparent !important; border: 0 !important; padding: 4px 20px !important; margin-bottom: 4px; }
 .book-row-label { color: var(--ink2); font-size: 13px; }
-.library-book-pdf-bar .book-link, .library-book-pdf-bar .tab-option-chip {
-  background: transparent !important; border: 0 !important; border-radius: 0 !important; padding: 0 !important; min-height: 36px; display: inline-flex; align-items: center;
-  color: var(--ink); font-weight: 600; font-size: 14px;
-}
-.library-book-pdf-bar .book-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.library-book-pdf-bar .book-item { min-height: 36px; max-width: 100%; }
+.library-book-pdf-bar .album-book-link { font-size: 14px; max-width: 220px; min-height: 36px; }
 .library-book-pdf-bar .btn-theme-outline, .pane-head .toggle-album-edit-btn {
   background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ink2) !important; font-weight: 500; font-size: 14px;
 }
@@ -1646,21 +1643,22 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 /* A song with several tabs: its tabs are plain lines under the title, not capsules */
 .library-song-rowwrap .tab-options-container { padding: 0 16px 8px 64px; background: transparent; border: 0; }
 .library-song-rowwrap .tab-options-chips { display: flex; flex-direction: column; gap: 0; }
-.library-song-rowwrap .tab-option-chip {
+.library-song-rowwrap .tab-row {
+  user-select: none; max-width: 100%; min-width: 0; box-sizing: border-box; transition: background var(--dur-fast) var(--ease-out);
   display: flex; align-items: center; gap: 14px; min-height: 40px; padding: 0 12px; border: 0 !important; border-radius: var(--r-control, 8px) !important;
   background: transparent !important; box-shadow: none !important; color: var(--ink); font-size: 14px; position: relative; cursor: pointer;
 }
-@media (hover: hover) { .library-song-rowwrap .tab-option-chip:hover { background: var(--s2) !important; } }
-.library-song-rowwrap .tab-option-chip .tab-option-name { flex: 0 1 auto; min-width: 0; font-weight: 500; }
-.library-song-rowwrap .tab-option-chip .tab-option-meta { color: var(--ink2); font-size: 13px; flex: none; }
-.library-song-rowwrap .tab-option-chip .set-default-tab-btn { margin-left: auto; font-size: 13px; color: var(--ink2) !important; text-decoration: none; min-height: 32px; padding: 0 8px !important; }
-.library-song-rowwrap .tab-option-chip .set-default-tab-btn.is-default { color: var(--ink) !important; font-weight: 600; cursor: default; }
-.library-song-rowwrap .tab-option-chip-default::before { content: ""; position: absolute; left: 2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
-.library-song-rowwrap .tab-option-chip .edit-tab-chip-btn, .library-song-rowwrap .tab-option-chip .remove-tab-chip-btn { min-width: 32px; min-height: 32px; }
+@media (hover: hover) { .library-song-rowwrap .tab-row:hover { background: var(--s2) !important; } }
+.library-song-rowwrap .tab-row .tab-option-name { flex: 0 1 auto; min-width: 0; font-weight: 500; }
+.library-song-rowwrap .tab-row .tab-option-meta { color: var(--ink2); font-size: 13px; flex: none; }
+.library-song-rowwrap .tab-row .set-default-tab-btn { margin-left: auto; font-size: 13px; color: var(--ink2) !important; text-decoration: none; min-height: 32px; padding: 0 8px !important; }
+.library-song-rowwrap .tab-row .set-default-tab-btn.is-default { color: var(--ink) !important; font-weight: 600; cursor: default; }
+.library-song-rowwrap .tab-row-default::before { content: ""; position: absolute; left: 2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
+.library-song-rowwrap .tab-row .edit-tab-chip-btn, .library-song-rowwrap .tab-row .remove-tab-chip-btn { min-width: 32px; min-height: 32px; }
 @media (max-width: 576px) { .library-song-rowwrap .tab-options-container { padding-left: 16px; } }
-.library-song-rowwrap .tab-option-chip .set-default-tab-btn { white-space: nowrap; flex: none; }
-.library-song-rowwrap .tab-option-chip .tab-option-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 576px) { .library-song-rowwrap .tab-option-chip { gap: 10px; } .library-song-rowwrap .tab-option-chip .tab-option-meta { display: none; } }
+.library-song-rowwrap .tab-row .set-default-tab-btn { white-space: nowrap; flex: none; }
+.library-song-rowwrap .tab-row .tab-option-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 576px) { .library-song-rowwrap .tab-row { gap: 10px; } .library-song-rowwrap .tab-row .tab-option-meta { display: none; } }
 
 /* ---------- Per-track mix, under each track in Song: Mix opens mute, solo, level and pan ---------- */
 .gp-track-item { display: block; }
@@ -1934,3 +1932,9 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 @media (max-width: 576px) {
   body.library-view-active #brandSection:not(.has-return-song) .brand-pick { display: block; margin-right: 8px; }
 }
+
+/* Book PDFs are plain text links: in the album header and the Custom Music books row */
+.album-book-link { background: transparent; border: 0; padding: 0; font: inherit; color: var(--ink); font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; min-height: 24px; }
+@media (hover: hover) { .album-book-link:hover { text-decoration: underline; text-underline-offset: 3px; } }
+.album-book-link:focus-visible { outline: 2px solid var(--ink2); outline-offset: 2px; }
+@media (pointer: coarse) { .album-book-link { min-height: 44px; } }
