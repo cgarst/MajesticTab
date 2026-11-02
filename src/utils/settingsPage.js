@@ -289,8 +289,9 @@ export function initSettingsPage() {
 
     // Controls
     const ctl = [];
+    let convertersRow = null;
     if (keysBtn) { keysBtn.classList.remove('w-50', 'py-2'); keysBtn.classList.add('btn-sm'); ctl.push(row('Keys, pedals and gamepad', 'See and test what each key, foot pedal or button does.', keysBtn)); }
-    if (convertersBtn) { convertersBtn.classList.remove('w-50', 'py-2'); convertersBtn.classList.add('btn-sm'); ctl.push(row('File converters', 'Extensions that open other tab formats and import from websites.', convertersBtn)); }
+    if (convertersBtn) { convertersBtn.classList.remove('w-50', 'py-2'); convertersBtn.classList.add('btn-sm'); convertersBtn.textContent = 'Manage'; convertersRow = row('File converters', 'Extensions that open other tab formats and import from websites.', convertersBtn); }
     if (ctl.length) panes.controls.appendChild(group('Input', ...ctl));
 
     // Sound
@@ -329,6 +330,7 @@ export function initSettingsPage() {
         return g;
     };
     if (lib.length) panes.library.appendChild(group('Sync', ...lib));
+    if (convertersRow) panes.library.appendChild(group('Open other formats', convertersRow));
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save everything to a file, a folder or your cloud.', 'Open'),
             taskRow('restore', 'Restore from a backup', 'Bring a backup or snapshot back.', 'Open')]));
