@@ -366,6 +366,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .dock-ruler { min-width: 0; }
 .dock-time { font: 500 13px system-ui, sans-serif; color: var(--ink2); white-space: nowrap; min-width: 112px; text-align: right; }
 .dock-time b { font: 700 22px/1 var(--font-display); color: var(--ink); }
+.dock-section { font: 700 17px/1 var(--font-display); color: var(--ink); letter-spacing: -0.01em; }
 .dock-bpm { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; padding: 0 8px; font-size: 12px; color: var(--ink2); }
 .dock-bpm b { font: 700 26px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
 .dock-tools { display: flex; align-items: center; gap: 4px; }
@@ -590,6 +591,83 @@ body.practice-open #output { padding-right: 376px !important; }
 .chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; background: var(--s2); color: var(--ink2); font-size: 12px; font-weight: 500; white-space: nowrap; flex: none; }
 .chip.ok { background: color-mix(in srgb, var(--hue) 22%, var(--s2)); color: var(--ink); }
 .chip.warn { background: color-mix(in srgb, #f59e0b 24%, var(--s2)); color: #fbbf24; }
+.chip.hot { background: color-mix(in srgb, #f59e0b 22%, var(--s2)); color: #fbbf24; }
+
+/* Setlists & flat library rows */
+.setrow .num {
+  width: 28px;
+  text-align: center;
+  font: 600 15px system-ui, sans-serif;
+  color: var(--ink2);
+  flex: none;
+}
+.setrow.clickable:hover {
+  background: var(--s2);
+}
+.rowwrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.05));
+}
+.rowwrap:last-child {
+  border-bottom: none;
+}
+.rowwrap .row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 8px 16px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  transition: background-color var(--dur-fast, 150ms) var(--ease-out, ease);
+}
+.rowwrap .row .t {
+  min-width: 0;
+  flex: 1;
+}
+.rowwrap .row .t b {
+  display: block;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rowwrap .row .t span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--ink2);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+.rowwrap .row .end {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--ink2);
+  font-size: 13px;
+  flex: none;
+}
+.rowwrap .row .mono {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--r, 8px);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  background: var(--s2);
+  color: var(--ink);
+  flex: none;
+}
 
 .syncc { background: var(--s1); border-radius: var(--r-lg); padding: 14px; display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
 .syncc .hd { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -1016,6 +1094,12 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 /* Adjust points modal: waveform hero & point controls */
 .sync-editor-card {
   max-width: min(780px, calc(100vw - 24px)) !important;
+}
+#syncEditorInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 #syncEditorTimeline {
   margin-top: 8px;

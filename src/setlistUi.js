@@ -25,7 +25,17 @@ function escapeHtml(str) {
 }
 
 function countLabel(n) {
-    return `${n} ${n === 1 ? 'tab' : 'tabs'}`;
+    return `${n} ${n === 1 ? 'song' : 'songs'}`;
+}
+
+function formatTrackDuration(duration) {
+    if (!duration || duration <= 0) return '';
+    let totalSecs = Number(duration);
+    if (isNaN(totalSecs) || totalSecs <= 0) return '';
+    if (totalSecs > 10000) totalSecs = Math.round(totalSecs / 1000);
+    const mins = Math.floor(totalSecs / 60);
+    const secs = Math.floor(totalSecs % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
 }
 
 /** Two-click delete: first click arms the button, a second click within 4s confirms. */
@@ -62,21 +72,30 @@ async function renderSetlistList(container, onBack) {
 
     container.innerHTML = `
     <div class="library-page-container setlists-view">
-      ${libraryHeaderHtml({
-          activeTab: 'setlists', searchId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn',
-          placeholder: 'Search setlists...', searchLabel: 'Search setlists', searchDisabled: setlists.length === 0
-      })}
-
-      ${setlists.length > 0 ? libraryListToolbarHtml({
-          count: `${setlists.length} ${setlists.length === 1 ? 'setlist' : 'setlists'}`,
-          actionsHtml: `
-            <button class="btn btn-sm btn-theme-primary p-1 px-3 d-flex align-items-center gap-1" id="newSetlistBtn" title="Create a new setlist">
-              <i class="bi-plus-lg"></i> <span>New Setlist</span>
-            </button>
-            <button class="btn btn-sm ${isEditMode ? 'btn-theme-primary' : 'btn-theme-outline'} p-1 px-3 d-flex align-items-center gap-1" id="toggleSetlistsEditBtn" title="${isEditMode ? 'Done editing' : 'Edit setlists'}">
+      <div class="title-row mb-3">
+        <div>
+          <h2>Setlists</h2>
+          <p class="tnum">${setlists.length} ${setlists.length === 1 ? 'setlist' : 'setlists'} to play</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-1" id="newSetlistBtn" title="Create a new setlist">
+            <i class="bi-plus-lg"></i> <span>New Setlist</span>
+          </button>
+          ${setlists.length > 0 ? `
+            <button class="btn btn-sm ${isEditMode ? 'btn-theme-primary' : 'btn-theme-outline'} d-flex align-items-center gap-1" id="toggleSetlistsEditBtn" title="${isEditMode ? 'Done editing' : 'Edit setlists'}">
               <i class="bi-${isEditMode ? 'check-lg' : 'pencil'}"></i> <span>${isEditMode ? 'Done' : 'Edit'}</span>
-            </button>`
-      }) : ''}
+            </button>
+          ` : ''}
+        </div>
+      </div>
+
+      ${setlists.length > 0 ? `
+        <div class="library-search-bar mb-3">
+          <i class="bi-search search-icon"></i>
+          <input type="text" class="search-input" id="setlistsFilterInput" placeholder="Search setlists..." aria-label="Search setlists">
+          <button class="btn btn-sm search-clear-btn" id="setlistsFilterClearBtn" style="display:none;" aria-label="Clear search"><i class="bi-x-lg"></i></button>
+        </div>
+      ` : ''}
 
       ${setlists.length === 0 ? `
         ${libraryEmptyStateHtml({
@@ -86,22 +105,23 @@ async function renderSetlistList(container, onBack) {
           actionsHtml: `<button class="btn btn-sm btn-theme-primary px-4" id="newSetlistBtn"><i class="bi-plus-lg me-1"></i> New Setlist</button>`
         })}
       ` : `
-        <div class="d-flex flex-column gap-2" id="setlistsList">
+        <div class="scroll" style="margin-top: 8px;" id="setlistsList">
           ${setlists.map(sl => `
-            <div class="library-row-card library-row-clickable d-flex align-items-center justify-content-between gap-3" data-setlist-id="${escapeHtml(sl.id)}" role="button" tabindex="0">
-              <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-                <i class="bi-collection-play text-info fs-4 flex-shrink-0"></i>
-                <div class="min-w-0">
-                  <h6 class="mb-1 fw-bold text-white text-truncate">${escapeHtml(sl.name)}</h6>
-                  <div class="small text-muted">${countLabel(sl.items.length)}</div>
-                </div>
-              </div>
-              <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
-                ${isEditMode ? `
+            <div class="rowwrap">
+              <button class="row setrow" data-setlist-id="${escapeHtml(sl.id)}">
+                <span class="mono"><i class="bi-collection-play"></i></span>
+                <span class="t">
+                  <b>${escapeHtml(sl.name)}</b>
+                  <span class="tnum">${countLabel(sl.items.length)}</span>
+                </span>
+                ${isEditMode ? '' : '<span class="end"><i class="bi-chevron-right text-white-50"></i></span>'}
+              </button>
+              ${isEditMode ? `
+                <div class="d-flex align-items-center gap-2 position-absolute end-0 me-3">
                   <button class="btn btn-sm theme-control-btn p-1 px-2 rename-setlist-btn" data-setlist-id="${escapeHtml(sl.id)}" title="Rename setlist"><i class="bi-pencil"></i></button>
                   <button class="btn btn-sm btn-theme-danger p-1 px-2 delete-setlist-btn" data-setlist-id="${escapeHtml(sl.id)}" title="Delete setlist">${trashHtml}</button>
-                ` : `<i class="bi-chevron-right text-white-50"></i>`}
-              </div>
+                </div>
+              ` : ''}
             </div>
           `).join('')}
         </div>
@@ -110,7 +130,7 @@ async function renderSetlistList(container, onBack) {
 
     const rerender = () => renderSetlistList(container, onBack);
 
-    bindListFilter(container, { inputId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn', rowSelector: '#setlistsList .library-row-card' });
+    bindListFilter(container, { inputId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn', rowSelector: '#setlistsList .rowwrap' });
 
     container.querySelector('#toggleSetlistsEditBtn')?.addEventListener('click', () => {
         isEditMode = !isEditMode;
@@ -138,13 +158,13 @@ async function renderSetlistList(container, onBack) {
         });
     });
 
-    container.querySelectorAll('#setlistsList .library-row-card').forEach(row => {
+    container.querySelectorAll('#setlistsList .rowwrap .setrow').forEach(row => {
         const open = async () => {
             if (isEditMode) return;
             selectedSetlistId = row.dataset.setlistId;
             await renderSetlistDetail(container, onBack);
         };
-        row.addEventListener('click', (e) => { if (!e.target.closest('button')) open(); });
+        row.addEventListener('click', (e) => { if (!e.target.closest('button.rename-setlist-btn, button.delete-setlist-btn')) open(); });
         row.addEventListener('keydown', (e) => {
             if (e.target === row && (e.key === 'Enter' || e.key === ' ')) {
                 e.preventDefault();
@@ -165,26 +185,41 @@ async function renderSetlistDetail(container, onBack) {
     const songs = await Promise.all(setlist.items.map(i => getSongById(i.songId)));
     const rerender = () => renderSetlistDetail(container, onBack);
 
+    let totSec = 0;
+    const tuningsList = [];
+    songs.forEach(s => {
+        if (s?.length && Number(s.length) > 0) {
+            let sec = Number(s.length);
+            if (sec > 10000) sec = Math.round(sec / 1000);
+            totSec += sec;
+        }
+        const t = s?.tunings?.[0] || s?.tuning || (s?.tabOptions?.[0]?.tuning) || 'Standard';
+        if (t) tuningsList.push(t);
+    });
+    const tuningChanges = Math.max(0, new Set(tuningsList).size - 1);
+    const fmtTot = formatTrackDuration(totSec);
+
     container.innerHTML = `
     <div class="library-page-container setlists-view">
-      <div class="library-body-header d-flex align-items-center justify-content-between mb-3">
-        <div class="d-flex align-items-center gap-3 min-w-0">
-          <button class="btn btn-sm btn-theme-outline lib-open-file-btn flex-shrink-0" id="setlistsBackBtn" title="Back to all setlists">
-            <i class="bi-chevron-left"></i> <span>Setlists</span>
-          </button>
-          <span class="small fw-semibold text-white text-truncate"><i class="bi-collection-play me-2 text-info"></i>${escapeHtml(setlist.name)}</span>
-          <span class="badge badge-theme-secondary py-1 px-2 flex-shrink-0" style="font-size: 0.72rem;">${countLabel(setlist.items.length)}</span>
+      <div class="title-row mb-3">
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <button class="btn btn-sm btn-theme-outline setback" id="setlistsBackBtn" title="Back to all setlists">
+              <i class="bi-chevron-left"></i> Setlists
+            </button>
+          </div>
+          <h2>${escapeHtml(setlist.name)}</h2>
+          <p class="tnum">${setlist.items.length} ${setlist.items.length === 1 ? 'song' : 'songs'}${fmtTot ? `, ${fmtTot} total` : ''}${tuningsList.length > 0 ? `, tuning changes: ${tuningChanges}` : ''}</p>
         </div>
-        <div class="d-flex align-items-center gap-2 flex-shrink-0">
-          ${isEditMode ? `
-            <button class="btn btn-sm theme-control-btn p-1 px-3 d-flex align-items-center gap-1" id="renameSetlistBtn" title="Rename setlist">
-              <i class="bi-pencil"></i> <span>Rename</span>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          ${setlist.items.length > 0 && !isEditMode ? `
+            <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-2" id="playSetlistBtn" title="Start set from the first song">
+              <i class="bi-play-fill fs-5"></i> <span>Start set</span>
             </button>
-          ` : (setlist.items.length > 0 ? `
-            <button class="btn btn-sm btn-theme-primary p-1 px-3 d-flex align-items-center gap-1" id="playSetlistBtn" title="Play setlist from the first tab">
-              <i class="bi-play-fill"></i> <span>Play</span>
-            </button>
-          ` : '')}
+          ` : ''}
+          <button class="btn btn-sm theme-control-btn p-1 px-3 d-flex align-items-center gap-1" id="renameSetlistBtn" title="Rename setlist">
+            <i class="bi-pencil"></i> <span>Rename</span>
+          </button>
           <button class="btn btn-sm ${isEditMode ? 'btn-theme-primary' : 'btn-theme-outline'} p-1 px-3 d-flex align-items-center gap-1" id="toggleSetlistEditBtn" title="${isEditMode ? 'Done editing' : 'Edit setlist'}">
             <i class="bi-${isEditMode ? 'check-lg' : 'pencil'}"></i> <span>${isEditMode ? 'Done' : 'Edit'}</span>
           </button>
@@ -192,38 +227,45 @@ async function renderSetlistDetail(container, onBack) {
       </div>
 
       ${(isEditMode || keepAddSongsOpen || setlist.items.length === 0) ? `
-        <div class="setlist-add-songs mb-3">
+        <div class="setlist-add-songs mb-3 p-3 rounded-2" style="background:var(--s1);border:1px solid var(--border-subtle);">
           <div class="small fw-semibold text-white-50 mb-2">${setlist.items.length === 0 ? 'This setlist is empty. Search your library to add songs.' : 'Add songs'}</div>
           <div class="library-search-bar mb-2">
             <i class="bi-search search-icon"></i>
             <input type="text" class="search-input" id="setlistSongSearch" placeholder="Search songs with tabs..." value="${escapeHtml(songSearchQuery)}" autocomplete="off" spellcheck="false" aria-label="Search songs to add">
           </div>
-          <div class="d-flex flex-column gap-2" id="setlistSongResults"></div>
+          <div class="d-flex flex-column gap-1" id="setlistSongResults"></div>
         </div>
       ` : ''}
+
       ${setlist.items.length === 0 ? '' : `
-        <div class="d-flex flex-column gap-2" id="setlistItems">
+        <div class="scroll" style="margin-top: 8px;" id="setlistItems">
           ${setlist.items.map((item, idx) => {
               const song = songs[idx];
               const tab = song?.tabOptions?.find(t => t.id === item.tabId);
-              const cover = song?.coverUrl || getPlaceholderCoverSvg(song?.title || 'Missing');
+              const tuning = tab?.tuning || song?.tunings?.[0] || song?.tuning || '';
+              const dur = formatTrackDuration(song?.length);
+              const isStandard = tuning === 'Standard' || tuning === 'E Standard' || !tuning;
               return `
-              <div class="library-row-card d-flex align-items-center justify-content-between gap-3 ${isEditMode ? '' : 'library-row-clickable'}" data-item-id="${escapeHtml(item.id)}" data-index="${idx}" role="button" tabindex="0">
-                <div class="d-flex align-items-center gap-3 min-w-0 flex-grow-1">
-                  <span class="badge-track-num flex-shrink-0">${idx + 1}</span>
-                  <img loading="lazy" decoding="async" src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 44px; height: 44px;" alt="" draggable="false">
-                  <div class="min-w-0 flex-grow-1">
-                    <h6 class="mb-1 fw-bold text-white text-truncate">${escapeHtml(song?.title || 'Song removed from library')}</h6>
-                    <div class="small text-muted text-truncate">${escapeHtml(song?.artist || '')}${tab ? ` • ${escapeHtml(tab.name)}` : ''}</div>
-                  </div>
-                </div>
-                <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
-                  ${isEditMode ? `
+              <div class="rowwrap">
+                <button class="row setrow ${isEditMode ? '' : 'clickable'}" data-index="${idx}" ${isEditMode ? 'style="cursor:default;"' : ''}>
+                  <span class="num tnum">${idx + 1}</span>
+                  <span class="t">
+                    <b>${escapeHtml(song?.title || 'Song removed from library')}</b>
+                    <span>
+                      ${escapeHtml(song?.artist || '')}
+                      ${tuning ? `<span class="chip ${isStandard ? '' : 'hot'}">${escapeHtml(tuning)}</span>` : ''}
+                      ${tab ? `<span class="text-white-50 ms-1 small">(${escapeHtml(tab.name)})</span>` : ''}
+                    </span>
+                  </span>
+                  ${dur ? `<span class="end tnum">${dur}</span>` : ''}
+                </button>
+                ${isEditMode ? `
+                  <div class="d-flex align-items-center gap-1 position-absolute end-0 me-3">
                     <button class="btn btn-sm btn-theme-icon p-1 px-2 move-item-btn" data-item-id="${escapeHtml(item.id)}" data-delta="-1" title="Move up" ${idx === 0 ? 'disabled' : ''}><i class="bi-arrow-up"></i></button>
                     <button class="btn btn-sm btn-theme-icon p-1 px-2 move-item-btn" data-item-id="${escapeHtml(item.id)}" data-delta="1" title="Move down" ${idx === setlist.items.length - 1 ? 'disabled' : ''}><i class="bi-arrow-down"></i></button>
                     <button class="btn btn-sm btn-theme-danger p-1 px-2 remove-item-btn" data-item-id="${escapeHtml(item.id)}" title="Remove from setlist"><i class="bi-x-lg"></i></button>
-                  ` : `<i class="bi-play-fill text-white-50"></i>`}
-                </div>
+                  </div>
+                ` : ''}
               </div>`;
           }).join('')}
         </div>
@@ -258,7 +300,7 @@ async function renderSetlistDetail(container, onBack) {
         });
     });
     if (!isEditMode) {
-        container.querySelectorAll('#setlistItems .library-row-card').forEach(row => {
+        container.querySelectorAll('#setlistItems .rowwrap .setrow.clickable').forEach(row => {
             row.addEventListener('click', () => playSetlist(setlist.id, Number(row.dataset.index)));
         });
     }
@@ -289,18 +331,20 @@ async function renderSetlistDetail(container, onBack) {
             resultsEl.innerHTML = picks.length === 0
                 ? `<div class="small text-muted py-2">${allSongs.length === 0 ? 'No songs with tabs in your library yet.' : (q ? 'No matching songs.' : 'Nothing opened recently. Type to search your library.')}</div>`
                 : (q ? '' : '<div class="small text-white-50"><i class="bi-clock-history me-1"></i>Recently opened</div>') + picks.map(({ song, tabId }) => `
-                  <div class="library-row-card d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0" data-row-action=".setlist-search-add-btn" style="cursor:pointer;">
-                    <div class="min-w-0">
-                      <div class="fw-semibold text-white text-truncate">${escapeHtml(song.title)}</div>
-                      <div class="small text-muted text-truncate">${escapeHtml(song.artist || '')}${song.album ? ` • ${escapeHtml(song.album)}` : ''}</div>
+                  <div class="rowwrap" style="cursor:pointer;" data-row-action=".setlist-search-add-btn">
+                    <div class="row setrow" style="padding-right:72px;">
+                      <span class="t">
+                        <b>${escapeHtml(song.title)}</b>
+                        <span>${escapeHtml(song.artist || '')}${song.album ? ` • ${escapeHtml(song.album)}` : ''}</span>
+                      </span>
                     </div>
-                    <button class="btn btn-sm btn-theme-outline py-1 px-3 flex-shrink-0 ms-2 setlist-search-add-btn" data-song-id="${escapeHtml(song.id)}" data-tab-id="${escapeHtml(tabId || '')}"><i class="bi-plus-lg me-1"></i>Add</button>
+                    <button class="btn btn-sm btn-theme-outline py-1 px-3 flex-shrink-0 position-absolute end-0 me-2 setlist-search-add-btn" data-song-id="${escapeHtml(song.id)}" data-tab-id="${escapeHtml(tabId || '')}"><i class="bi-plus-lg me-1"></i>Add</button>
                   </div>`).join('');
         };
         renderResults();
         searchInput.addEventListener('input', renderResults);
         resultsEl.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.setlist-search-add-btn') || e.target.closest('.library-row-card[data-row-action]')?.querySelector('.setlist-search-add-btn');
+            const btn = e.target.closest('.setlist-search-add-btn') || e.target.closest('.rowwrap[data-row-action]')?.querySelector('.setlist-search-add-btn');
             if (!btn) return;
             const song = allSongs.find(x => x.id === btn.dataset.songId);
             const tab = song.tabOptions.find(t => t.id === btn.dataset.tabId)

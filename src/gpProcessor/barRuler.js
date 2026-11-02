@@ -150,6 +150,19 @@ export function initBarRuler() {
         ruler.setAttribute('aria-valuenow', String(current.bar));
         const part = partAtBar(parts, current.bar);
         ruler.setAttribute('aria-valuetext', part ? `${part.name}, bar ${current.bar} of ${total}` : `Bar ${current.bar} of ${total}`);
+        const secEl = $('dockSection');
+        const prefixEl = $('dockBarPrefix');
+        if (secEl) {
+            if (part && part.name && part.name !== 'Start') {
+                secEl.textContent = `${part.name}, `;
+                secEl.style.display = 'inline';
+                if (prefixEl) prefixEl.textContent = 'bar ';
+            } else {
+                secEl.textContent = '';
+                secEl.style.display = 'none';
+                if (prefixEl) prefixEl.textContent = 'Bar ';
+            }
+        }
         const barEl = $('dockBar');
         if (barEl && barEl.textContent !== String(current.bar)) barEl.textContent = String(current.bar);
         const loopBtn = $('dockLoopBtn');
@@ -335,6 +348,10 @@ export function initBarRuler() {
             $('dockClock').textContent = '0:00 / 0:00';
         } else if (e.type === 'detached') {
             model = null;
+            const secEl = $('dockSection');
+            if (secEl) { secEl.textContent = ''; secEl.style.display = 'none'; }
+            const prefixEl = $('dockBarPrefix');
+            if (prefixEl) prefixEl.textContent = 'Bar ';
             render();
         } else if (e.type === 'position') {
             if (!model) return;

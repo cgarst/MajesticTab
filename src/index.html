@@ -216,7 +216,7 @@
   </div>
 
   <div class="tools-menu-divider" role="separator"></div>
-  <div class="tools-row" id="dockToggleRow">
+  <div class="tools-row" id="dockToggleRow" style="display: none;">
     <button class="tools-item" id="dockToggleBtn" type="button" role="menuitemcheckbox" aria-checked="true">
       <i class="bi-play-circle"></i>
       <span class="tools-item-text"><span>Playback dock</span><small>Floating play, rewind and audio sources</small></span>
@@ -2091,7 +2091,7 @@
       </button>
     </div>
     <div class="dock-ruler" id="dockRulerSlot"></div>
-    <div class="dock-time" id="dockTime" aria-live="off">Bar <b id="dockBar">1</b><span class="dock-clock"> &middot; <span id="dockClock">0:00 / 0:00</span></span></div>
+    <div class="dock-time" id="dockTime" aria-live="off"><span class="dock-section" id="dockSection" style="display:none;"></span><span id="dockBarPrefix">Bar </span><b id="dockBar">1</b><span class="dock-clock"> &middot; <span id="dockClock">0:00 / 0:00</span></span></div>
     <div class="dock-bpm" id="dockBpmBox" title="Tempo"><b id="dockBpm">&ndash;</b><span>bpm</span></div>
     <div class="dock-tools">
       <div class="dock-src" role="group" aria-label="Sound">

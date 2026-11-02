@@ -215,12 +215,17 @@ export function initAudioSyncEditor() {
         timeline.refresh();
         updateUndoButtons();
         $('syncEmpty').hidden = points.length > 0;
-        const issues = Object.values(info.flags).filter(f => f !== 'tempo').length;
-        const warnings = Object.values(info.flags).filter(f => f === 'tempo').length;
-        const parts = [`${points.length} point${points.length === 1 ? '' : 's'}`];
-        if (issues) parts.push(`${issues} to fix`);
-        if (warnings) parts.push(`${warnings} with an unusual tempo`);
-        $('syncEditorInfo').textContent = parts.join(' · ');
+        const totalBars = ctx?.timeline?.bars?.length || 0;
+        const syncedBars = new Set(points.map(p => p.barIndex)).size;
+        const flagged = Object.keys(info.flags).length;
+        let infoHtml = `<span class="tnum">${points.length} point${points.length === 1 ? '' : 's'}, ${syncedBars} of ${totalBars} bars synced.</span>`;
+        if (flagged > 0) {
+            infoHtml += ` <span class="chip warn">${flagged} to check</span>`;
+        }
+        if (totalBars > syncedBars && points.length > 0) {
+            infoHtml += ` <span class="chip">${totalBars - syncedBars} bars not synced</span>`;
+        }
+        $('syncEditorInfo').innerHTML = infoHtml;
     }
 
     /** Seek the recording, and the cursor with it when the score can place the time. */
