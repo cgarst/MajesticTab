@@ -35,6 +35,7 @@ let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let activeLibraryPane = 'list'; // 'list' | 'songs'
 let selectedArtist = null;
 let selectedAlbum = null;
+let selectedAlbumFilter = 'all';
 // File dropped on a custom folder, consumed by the Add Custom Music form: { file, folderPath }
 let pendingCustomDrop = null;
 let selectedFolderPath = []; // Array of folder path segments e.g. ['Exercises', 'Technique']
@@ -107,6 +108,7 @@ export function captureCurrentLibraryState() {
         activeLibraryPane,
         selectedArtist,
         selectedAlbum,
+        selectedAlbumFilter,
         selectedFolderPath: [...selectedFolderPath],
         selectedTuning,
         isAlbumEditMode,
@@ -145,6 +147,7 @@ export async function restoreLibraryState(state) {
     libraryBrowseMode = state.libraryBrowseMode || 'artists';
     selectedArtist = state.selectedArtist || null;
     selectedAlbum = state.selectedAlbum || null;
+    selectedAlbumFilter = state.selectedAlbumFilter || 'all';
     selectedFolderPath = state.selectedFolderPath ? [...state.selectedFolderPath] : [];
     selectedTuning = state.selectedTuning || null;
     isAlbumEditMode = false;
@@ -184,6 +187,7 @@ export async function handleBack() {
                 libraryBrowseMode = prev.libraryBrowseMode || 'artists';
                 selectedArtist = prev.selectedArtist || null;
                 selectedAlbum = prev.selectedAlbum || null;
+                selectedAlbumFilter = prev.selectedAlbumFilter || 'all';
                 selectedFolderPath = prev.selectedFolderPath || [];
                 selectedTuning = prev.selectedTuning || null;
                 isAlbumEditMode = false;
@@ -249,6 +253,7 @@ export async function handleBack() {
                 activeLibraryPane = prev.activeLibraryPane || 'list';
                 selectedArtist = prev.selectedArtist || null;
                 selectedAlbum = prev.selectedAlbum || null;
+                selectedAlbumFilter = prev.selectedAlbumFilter || 'all';
                 selectedFolderPath = prev.selectedFolderPath || [];
                 selectedTuning = prev.selectedTuning || null;
                 isAlbumEditMode = false;
@@ -301,6 +306,7 @@ export async function handleBack() {
                 activeView = prev.view || 'library';
                 selectedArtist = prev.selectedArtist || null;
                 selectedAlbum = prev.selectedAlbum || null;
+                selectedAlbumFilter = prev.selectedAlbumFilter || 'all';
                 selectedFolderPath = prev.selectedFolderPath || [];
                 selectedTuning = prev.selectedTuning || null;
                 searchSubView = prev.searchSubView || null;
@@ -1100,99 +1106,159 @@ async function renderLibraryBrowseView(container) {
             </div>
             `;
 
+            let shelfHtml = '';
             let detailBodyHtml = '';
-            if (isStandardAlbumView && matchingAlbum) {
-                // Standard Album View
-                const album = matchingAlbum;
-                const cover = album.coverUrl || getPlaceholderCoverSvg(album.title);
-                const totalDurationSecs = album.songs.reduce((acc, s) => acc + (typeof s.length === 'number' ? s.length : 0), 0);
-                const albumDurationText = totalDurationSecs > 0 ? formatTrackDuration(totalDurationSecs) : '';
 
-                const albumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, album.title);
-                const hasAlbumTabs = albumTabs.length > 0;
-                const defaultAlbumTabId = album.defaultTabId || (albumTabs[0]?.id || null);
+            if (!isCustomArtist) {
+                const totalArtistSongs = (selectedArtist.songs?.length || 0) + selectedArtist.albums.reduce((acc, a) => acc + (a.songs?.length || 0), 0);
 
-                detailBodyHtml = `
-                <div class="album-detail-view">
-                  <div class="library-album-banner d-flex flex-column gap-3 mb-3">
-                    <div class="album-banner-header d-flex flex-column flex-sm-row align-items-start align-items-sm-center justify-content-between gap-3 min-w-0">
-                      <div class="d-flex align-items-center gap-3 min-w-0 w-100 flex-grow-1">
-                        <img loading="lazy" decoding="async" src="${cover}" class="album-cover-banner flex-shrink-0" alt="${escapeHtml(album.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(album.title)}'">
-                        <div class="min-w-0 flex-grow-1">
-                          <span class="badge badge-theme-primary mb-1" style="font-size:0.68rem;">Album</span>
-                          <h5 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(album.title)}">${escapeHtml(album.title)}</h5>
-                          <div class="small text-muted text-truncate" title="${escapeHtml(selectedArtist.name)}">
-                            ${escapeHtml(selectedArtist.name)} ${album.year ? `• ${album.year}` : ''} • ${album.songs.length} ${album.songs.length === 1 ? 'Track' : 'Tracks'} ${albumDurationText ? `• ${albumDurationText}` : ''}
+                // Fetch album tabs for all albums concurrently
+                const albumTabsMap = new Map();
+                if (selectedArtist.albums.length > 0) {
+                    const tabsResults = await Promise.all(
+                        selectedArtist.albums.map(a => getAlbumTabOptions(activeCollectionId, selectedArtist.name, a.title).catch(() => []))
+                    );
+                    selectedArtist.albums.forEach((a, i) => {
+                        albumTabsMap.set(a.title, tabsResults[i] || []);
+                    });
+                }
+
+                // If selectedAlbumFilter is set to an album that doesn't exist, reset to 'all'
+                if (selectedAlbumFilter !== 'all' && selectedAlbumFilter !== 'other' && !selectedArtist.albums.some(a => a.title === selectedAlbumFilter)) {
+                    selectedAlbumFilter = 'all';
+                }
+
+                // Build Discography Shelf if there are albums
+                if (selectedArtist.albums.length > 0) {
+                    shelfHtml = `
+                    <div class="discography-shelf" role="tablist" aria-label="Discography filter">
+                      <button type="button" class="shelf-item ${selectedAlbumFilter === 'all' ? 'active' : ''}" data-album-filter="all" role="tab" aria-selected="${selectedAlbumFilter === 'all'}">
+                        <div class="shelf-cover shelf-cover-all">
+                          <i class="bi-collection-play"></i>
+                        </div>
+                        <div class="shelf-meta">
+                          <div class="shelf-title">All Albums</div>
+                          <div class="shelf-sub tnum">${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'album' : 'albums'} · ${totalArtistSongs} ${totalArtistSongs === 1 ? 'track' : 'tracks'}</div>
+                        </div>
+                      </button>
+                      ${selectedArtist.albums.map(alb => {
+                        const coverSrc = alb.coverUrl || getPlaceholderCoverSvg(alb.title);
+                        const isSel = selectedAlbumFilter === alb.title;
+                        return `
+                        <button type="button" class="shelf-item ${isSel ? 'active' : ''}" data-album-filter="${escapeHtml(alb.title)}" role="tab" aria-selected="${isSel}">
+                          <img src="${coverSrc}" class="shelf-cover" alt="" loading="lazy" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(alb.title)}'">
+                          <div class="shelf-meta">
+                            <div class="shelf-title" title="${escapeHtml(alb.title)}">${escapeHtml(alb.title)}</div>
+                            <div class="shelf-sub tnum">${alb.year ? `${alb.year} · ` : ''}${alb.songs.length} ${alb.songs.length === 1 ? 'track' : 'tracks'}</div>
                           </div>
+                        </button>
+                        `;
+                      }).join('')}
+                    </div>
+                    `;
+                }
+
+                const albumsToRender = selectedAlbumFilter === 'all'
+                    ? selectedArtist.albums
+                    : (selectedAlbumFilter === 'other' ? [] : selectedArtist.albums.filter(a => a.title === selectedAlbumFilter));
+
+                const albumBlocksHtml = albumsToRender.map(alb => {
+                    const coverSrc = alb.coverUrl || getPlaceholderCoverSvg(alb.title);
+                    const totalSecs = (alb.songs || []).reduce((acc, s) => acc + (typeof s.length === 'number' ? s.length : 0), 0);
+                    const albumDurationText = totalSecs > 0 ? formatTrackDuration(totalSecs) : '';
+                    const albTabs = albumTabsMap.get(alb.title) || [];
+                    const hasAlbumTabs = albTabs.length > 0;
+
+                    return `
+                    <div class="album-block" data-album-name="${escapeHtml(alb.title)}">
+                      <div class="album-header d-flex align-items-center justify-content-between gap-3">
+                        <div class="d-flex align-items-center gap-3 min-w-0">
+                          <img src="${coverSrc}" class="album-header-cover flex-shrink-0" alt="" loading="lazy" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(alb.title)}'">
+                          <div class="min-w-0">
+                            <h4 class="album-header-title text-truncate" title="${escapeHtml(alb.title)}">${escapeHtml(alb.title)}</h4>
+                            <div class="album-header-sub tnum">
+                              ${alb.year ? `<span>${alb.year}</span><span class="sep">·</span>` : ''}
+                              <span>${alb.songs.length} ${alb.songs.length === 1 ? 'track' : 'tracks'}</span>
+                              ${albumDurationText ? `<span class="sep">·</span><span>${albumDurationText}</span>` : ''}
+                              ${hasAlbumTabs ? `<span class="chip sec ms-1" title="${albTabs.length} album tab book(s)"><i class="bi-journal-bookmark text-info me-1"></i>Book</span>` : ''}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="album-header-actions d-flex align-items-center gap-2 flex-shrink-0">
+                          <button type="button" class="btn btn-sm btn-theme-outline explore-album-tracklist-btn py-1 px-2 d-none d-sm-inline-flex align-items-center gap-1" data-album-title="${escapeHtml(alb.title)}" title="Explore complete album tracklist on MusicBrainz">
+                            <i class="bi-music-note-list text-info"></i> <span class="d-none d-md-inline">Explore</span>
+                          </button>
+                          <div class="dropdown">
+                            <button class="btn btn-sm btn-theme-outline py-1 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach tab or book to album">
+                              <i class="bi-journal-album"></i> <span class="d-none d-sm-inline">+ Album Tab</span>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
+                              ${window.__TAURI__ ? `<li><button class="dropdown-item small import-album-tab-btn" data-album-title="${escapeHtml(alb.title)}" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
+                              <li><button class="dropdown-item small import-album-tab-btn" data-album-title="${escapeHtml(alb.title)}" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
+                              <!-- @googleDrive:begin -->
+                              <li><button class="dropdown-item small import-album-tab-btn" data-album-title="${escapeHtml(alb.title)}" data-provider-id="google-drive"><i class="icon-gdrive me-2"></i> Google Drive</button></li>
+                              <!-- @googleDrive:end -->
+                              ${isAlbumEditMode ? `
+                                <li><hr class="dropdown-divider"></li>
+                                <li><button class="dropdown-item small text-danger delete-album-btn" data-album-title="${escapeHtml(alb.title)}"><i class="bi-trash me-2"></i> Delete Album</button></li>
+                              ` : ''}
+                            </ul>
+                          </div>
+                          ${isAlbumEditMode ? `
+                            <button type="button" class="btn btn-sm btn-theme-danger p-1 px-2 delete-album-btn" data-album-title="${escapeHtml(alb.title)}" title="Delete album from library">
+                              <i class="bi-trash"></i>
+                            </button>
+                          ` : ''}
                         </div>
                       </div>
 
-                      <div class="album-banner-actions d-flex align-items-center gap-2 flex-wrap flex-shrink-0">
-                        ${!isCustomArtist ? `
-                          <button class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 d-flex align-items-center gap-1" id="exploreLibAlbumTracklistBtn" title="Fetch complete album tracklist from MusicBrainz to view all tracks and add missing songs">
-                            <i class="bi-music-note-list text-info"></i> <span class="d-none d-sm-inline">Explore Tracklist</span><span class="d-inline d-sm-none">Tracks</span>
-                          </button>
-                        ` : ''}
-
-                        <div class="dropdown">
-                          <button class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach full album tab book or document">
-                            <i class="bi-journal-album"></i> <span>+ Album Tab</span>
-                          </button>
-                          <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
-                            ${window.__TAURI__ ? `<li><button class="dropdown-item small import-album-tab-btn" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
-                            <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
-                            <!-- @googleDrive:begin -->
-                            <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="icon-gdrive me-2"></i> Google Drive</button></li>
-                            <!-- @googleDrive:end -->
-                          </ul>
-                        </div>
-
-                        ${isAlbumEditMode ? `
-                          <button class="btn btn-sm btn-theme-danger d-flex align-items-center gap-2 delete-album-btn" id="deleteAlbumBtn" title="Delete entire album and songs from library">
-                            <i class="bi-trash"></i> <span class="d-none d-sm-inline">Delete Album</span>
-                          </button>
-                          <button class="btn btn-sm btn-theme-primary d-flex align-items-center gap-2 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Done editing">
-                            <i class="bi-check-lg"></i> <span class="d-none d-sm-inline">Done</span>
-                          </button>
-                        ` : `
-                          <button class="btn btn-sm btn-theme-outline d-flex align-items-center gap-2 toggle-album-edit-btn" id="toggleAlbumEditBtn" title="Edit album tracks">
-                            <i class="bi-pencil"></i> <span class="d-none d-sm-inline">Edit</span>
-                          </button>
-                        `}
+                      <div class="album-block-tracks library-songs-list">
+                        ${renderAlbumSongsList(alb.songs, { albumTabs: albTabs })}
                       </div>
                     </div>
+                    `;
+                }).join('');
 
-                    ${hasAlbumTabs ? `
-                      <div class="album-tabs-container pt-2 border-top border-secondary-subtle d-flex align-items-start gap-2">
-                        <span class="small text-muted fw-semibold me-1 tab-options-label" style="font-size: 0.72rem;"><i class="bi-journal-bookmark me-1 text-info"></i>Album Tabs:</span>
-                        <div class="tab-options-chips d-flex flex-wrap align-items-center gap-2">
-                        ${albumTabs.map((t, idx) => {
-                          const isDefault = (t.id === defaultAlbumTabId) || (!defaultAlbumTabId && idx === 0);
-                          return `
-                          <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-album-tab-chip-btn" data-tab-id="${t.id}" role="button" tabindex="0" title="Open Album Tab: ${escapeHtml(t.name)}">
-                            <button class="btn btn-link p-0 set-default-album-tab-btn ${isDefault ? 'text-warning' : 'text-muted'} me-1" data-tab-id="${t.id}" title="${isDefault ? 'Default Album Tab' : 'Set as default album tab'}">
-                              <i class="bi-star${isDefault ? '-fill' : ''}"></i>
-                            </button>
-                            <i class="bi-file-earmark-music text-info me-1"></i>
-                            <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
-                            ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
-                              const info = getTuningInfo(t.tuning);
-                              const label = info?.displayName || t.tuning;
-                              return `<span class="badge badge-tuning py-0 px-2" style="font-size:0.62rem;" title="${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</span>`;
-                            })() : ''}
-                            ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-album-tab-chip-btn ms-1" data-tab-id="${t.id}" title="Remove album tab"><i class="bi-x"></i></button>` : ''}
+                let looseSongsBlockHtml = '';
+                if ((selectedAlbumFilter === 'all' || selectedAlbumFilter === 'other') && selectedArtist.songs && selectedArtist.songs.length > 0) {
+                    looseSongsBlockHtml = `
+                    <div class="album-block" data-album-name="other">
+                      <div class="album-header d-flex align-items-center justify-content-between gap-3">
+                        <div class="d-flex align-items-center gap-3 min-w-0">
+                          <div class="album-header-cover album-header-cover-icon flex-shrink-0">
+                            <i class="bi-music-note-beamed"></i>
                           </div>
-                          `;
-                        }).join('')}
+                          <div class="min-w-0">
+                            <h4 class="album-header-title text-truncate">Other Tracks</h4>
+                            <div class="album-header-sub tnum">
+                              <span>${selectedArtist.songs.length} ${selectedArtist.songs.length === 1 ? 'track' : 'tracks'}</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    ` : ''}
-                  </div>
+                      <div class="album-block-tracks library-songs-list">
+                        ${renderAlbumSongsList(selectedArtist.songs, { showAlbum: true })}
+                      </div>
+                    </div>
+                    `;
+                }
 
-                  <!-- Songs List -->
-                  <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
-                    ${renderAlbumSongsList(album.songs, { albumTabs })}
-                  </div>
+                let emptyHtml = '';
+                if (selectedArtist.albums.length === 0 && (!selectedArtist.songs || selectedArtist.songs.length === 0)) {
+                    emptyHtml = `
+                    <div class="text-center py-5 text-muted">
+                      <i class="bi-folder2-open fs-2 mb-2 d-block text-white-50"></i>
+                      <div>No songs in this artist.</div>
+                    </div>
+                    `;
+                }
+
+                detailBodyHtml = `
+                <div class="artist-detail-view">
+                  ${albumBlocksHtml}
+                  ${looseSongsBlockHtml}
+                  ${emptyHtml}
                 </div>
                 `;
             } else {
@@ -1331,14 +1397,19 @@ async function renderLibraryBrowseView(container) {
             </section>
             `;
 
+            const totalSongsForPane = isCustomArtist
+                ? (currentSongs.length + currentSubfolders.reduce((acc, f) => acc + f.songsCount, 0))
+                : ((selectedArtist.songs?.length || 0) + selectedArtist.albums.reduce((acc, a) => acc + (a.songs?.length || 0), 0));
+
             const songsPaneHtml = `
             <section class="pane songs" aria-label="Songs">
               <h3 class="pane-head">
                 <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Artists</button>
                 <span class="text-white fw-semibold" style="flex:1;">${escapeHtml(selectedArtist.name)}</span>
-                <span class="tnum">${currentSongs.length} ${currentSongs.length === 1 ? 'song' : 'songs'}</span>
+                <span class="tnum">${totalSongsForPane} ${totalSongsForPane === 1 ? 'song' : 'songs'}${!isCustomArtist && selectedArtist.albums.length > 0 ? ` · ${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'album' : 'albums'}` : ''}</span>
               </h3>
               ${isCustomArtist ? breadcrumbHtml : ''}
+              ${shelfHtml}
               <div class="pane-scroll" id="libArtistDetailScroll">
                 ${detailBodyHtml}
               </div>
@@ -1420,6 +1491,7 @@ async function renderLibraryBrowseView(container) {
     container.querySelector('#bcRoot')?.addEventListener('click', () => {
         pushLibraryNavigationState();
         selectedAlbum = null;
+        selectedAlbumFilter = 'all';
         selectedFolderPath = [];
         isAlbumEditMode = false;
         activeLibraryPane = 'list';
@@ -1428,6 +1500,7 @@ async function renderLibraryBrowseView(container) {
     container.querySelector('#bcArtist')?.addEventListener('click', () => {
         pushLibraryNavigationState();
         selectedAlbum = null;
+        selectedAlbumFilter = 'all';
         selectedFolderPath = [];
         isAlbumEditMode = false;
         renderLibraryBrowseView(container);
@@ -1439,6 +1512,7 @@ async function renderLibraryBrowseView(container) {
                 pushLibraryNavigationState();
                 selectedFolderPath = selectedFolderPath.slice(0, idx + 1);
                 selectedAlbum = selectedArtist?.albums?.find(a => (a.folderPath || a.title) === selectedFolderPath.join('/')) || null;
+                selectedAlbumFilter = selectedAlbum ? selectedAlbum.title : 'all';
                 isAlbumEditMode = false;
                 renderLibraryBrowseView(container);
             }
@@ -1459,9 +1533,24 @@ async function renderLibraryBrowseView(container) {
             const artistName = card.dataset.artistName;
             selectedArtist = artists.find(a => a.name === artistName);
             selectedAlbum = null;
+            selectedAlbumFilter = 'all';
             selectedFolderPath = [];
             isAlbumEditMode = false;
             activeLibraryPane = 'songs';
+            renderLibraryBrowseView(container);
+        });
+    });
+
+    // Discography shelf clicks
+    container.querySelectorAll('.discography-shelf [data-album-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const filterVal = btn.dataset.albumFilter;
+            selectedAlbumFilter = filterVal;
+            if (filterVal !== 'all' && filterVal !== 'other') {
+                selectedAlbum = selectedArtist?.albums?.find(a => a.title === filterVal) || null;
+            } else {
+                selectedAlbum = null;
+            }
             renderLibraryBrowseView(container);
         });
     });
@@ -2200,6 +2289,7 @@ function renderPinnedSongTile(song) {
 // Folder title that keys book PDFs; the Custom Music root has no album, so it uses a sentinel the hierarchy treats as root
 function getBookFolderTitle() {
     if (selectedAlbum) return selectedAlbum.title;
+    if (selectedAlbumFilter && selectedAlbumFilter !== 'all' && selectedAlbumFilter !== 'other') return selectedAlbumFilter;
     if (selectedArtist?.isCustom && selectedFolderPath.length === 0) return 'Custom Music';
     return null;
 }
@@ -2215,65 +2305,97 @@ function renderSongRow(song, options = {}) {
     const albumPdfTabs = (options.albumTabs || []).filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
     const showTrackNumber = options.showTrackNumber !== undefined ? options.showTrackNumber : !options.showArtistAlbum;
 
-    return `
-    <div class="library-song-row d-flex flex-column gap-2 position-relative ${isPinned ? 'library-song-row-pinned' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
-      <div class="d-flex align-items-center justify-content-between gap-2 gap-sm-3">
-        <div class="d-flex align-items-center gap-2 gap-sm-3 min-w-0 flex-grow-1">
-          ${showTrackNumber ? `<span class="badge-track-num flex-shrink-0">${song.trackNumber || '•'}</span>` : ''}
-          <div class="min-w-0 flex-grow-1">
-            <div class="d-flex align-items-center gap-2 min-w-0 flex-wrap">
-              <span class="library-song-title fw-semibold text-white" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</span>
-              ${isPinned ? `<span class="badge badge-theme-warning py-0 px-2" style="font-size:0.62rem;"><i class="bi-pin-angle-fill me-1"></i>Pinned</span>` : ''}
-              ${durationText ? `<span class="badge badge-theme-secondary py-1 px-2 text-muted font-monospace d-none d-sm-inline-block" style="font-size:0.68rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
-            </div>
-            ${options.showArtistAlbum ? `
-              <div class="small text-muted text-truncate mt-1" title="${escapeHtml(song.artist || '')} • ${escapeHtml(song.album || '')}">
-                ${escapeHtml(song.artist || 'Unknown Artist')}${song.album ? ` • ${escapeHtml(song.album)}` : ''}
-              </div>
-            ` : (options.showAlbum && song.album) ? `
-              <div class="small text-muted text-truncate mt-1" title="${escapeHtml(song.album)}">
-                ${escapeHtml(song.album)}
-              </div>
-            ` : ''}
-            ${(tunings.length > 0 || hasTabs || durationText) ? `
-              <div class="d-flex align-items-center gap-2 flex-wrap mt-2">
-                ${durationText ? `<span class="badge badge-theme-secondary py-0 px-1 text-muted font-monospace d-inline-block d-sm-none" style="font-size:0.65rem;" title="Duration: ${durationText}">${durationText}</span>` : ''}
-                ${tunings.map(t => {
-                  const info = getTuningInfo(t);
-                  const label = info?.displayName || t;
-                  return `<span class="badge badge-tuning" title="${escapeHtml(info?.displayName || t)}">${escapeHtml(label)}</span>`;
-                }).join('')}
-                ${hasTabs ? `<span class="badge badge-has-tabs"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} ${tabOptions.length === 1 ? 'tab' : 'tabs'}</span>` : ''}
-              </div>
-            ` : ''}
-          </div>
-        </div>
+    let trackNumStr = '•';
+    if (showTrackNumber) {
+        if (typeof song.trackNumber === 'number' || (typeof song.trackNumber === 'string' && /^\d+$/.test(song.trackNumber.trim()))) {
+            const num = parseInt(song.trackNumber, 10);
+            trackNumStr = num < 10 ? `0${num}` : `${num}`;
+        } else if (song.trackNumber) {
+            trackNumStr = song.trackNumber;
+        }
+    }
 
-        <!-- Action Buttons -->
-        <div class="d-flex align-items-center gap-1 gap-sm-2 flex-shrink-0 ms-1 ms-sm-2">
-          ${hasTabs ? `
-            <button class="btn btn-sm btn-theme-icon p-1 px-2 text-muted add-to-setlist-btn" data-song-id="${song.id}" title="Add to setlist">
-              <i class="bi-collection-play"></i>
+    const tuningChipsHtml = tunings.map(t => {
+        const info = getTuningInfo(t);
+        const label = info?.displayName || t;
+        const isStandard = label.toLowerCase().includes('standard');
+        return `<span class="chip ${isStandard ? '' : 'hot'}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
+    }).join('');
+
+    const pdfTab = tabOptions.find(t => t.startPage && t.endPage);
+    const pdfChipHtml = pdfTab ? `<span class="chip sec" title="PDF Pages ${pdfTab.startPage}–${pdfTab.endPage}"><i class="bi-file-earmark-pdf me-1 text-warning"></i>pp. ${pdfTab.startPage}–${pdfTab.endPage}</span>` : '';
+
+    const multiTabsChipHtml = tabOptions.length > 1
+        ? `<span class="chip sec" title="${tabOptions.length} tab versions attached"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} tabs</span>`
+        : (!hasTabs ? `<span class="chip text-muted" style="opacity: 0.6;"><i class="bi-plus-circle me-1"></i>No tab</span>` : '');
+
+    const isSynced = Boolean(song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
+    const syncDotHtml = isSynced ? `<span class="sync-dot" title="Synced audio available"></span>` : '';
+
+    const tabOptionsListHtml = tabOptions.length > 1 ? `
+      <div class="tab-options-container">
+        <span class="small text-muted fw-semibold me-1 tab-options-label" style="font-size: 0.72rem;">Tabs:</span>
+        <div class="tab-options-chips d-flex flex-wrap align-items-center gap-2">
+        ${tabOptions.map((t, idx) => {
+          const isDefault = (t.id === defaultTabId) || (!defaultTabId && idx === 0);
+          const isPdfRange = Boolean(t.isAlbumRange || t.startPage);
+          const iconClass = isPdfRange ? 'bi-file-earmark-pdf text-warning' : 'bi-file-earmark-music text-info';
+          return `
+          <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" role="button" tabindex="0" title="Load ${escapeHtml(t.name)}">
+            <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'text-warning' : 'text-muted'} me-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="${isDefault ? 'Default Tab' : 'Set as default tab'}">
+              <i class="bi-star${isDefault ? '-fill' : ''}"></i>
             </button>
-          ` : ''}
+            <i class="${iconClass} me-1" style="font-size: 0.78rem;"></i>
+            <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
+            ${(t.startPage && t.endPage) ? `<span class="badge badge-theme-warning py-0 px-1 ms-1" style="font-size:0.6rem;">pp. ${t.startPage}-${t.endPage}</span>` : ''}
+            ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
+              const info = getTuningInfo(t.tuning);
+              const label = info?.displayName || t.tuning;
+              return `<span class="badge badge-theme-secondary py-0 px-2 ms-1" style="font-size:0.62rem;" title="${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</span>`;
+            })() : ''}
+            ${isPdfRange && isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
+            ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>` : ''}
+          </div>
+          `;
+        }).join('')}
+        </div>
+      </div>
+    ` : '';
 
-          <!-- Pin Song Button -->
-          <button class="btn btn-sm btn-theme-icon p-1 px-2 pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song from collection' : 'Pin song to collection'}">
+    return `
+    <div class="rowwrap library-song-rowwrap ${isPinned ? 'library-song-row-pinned' : ''}">
+      <div class="song-row-container">
+        <div class="song-row library-song-row" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
+          <span class="num tnum">${trackNumStr}</span>
+          <span class="t">
+            <b>${escapeHtml(song.title)}</b>
+            <span class="sub">
+              ${options.showArtistAlbum ? `<span class="album-label text-truncate">${escapeHtml(song.artist || '')}${song.album ? ` • ${escapeHtml(song.album)}` : ''}</span>` : (options.showAlbum && song.album ? `<span class="album-label text-truncate">${escapeHtml(song.album)}</span>` : '')}
+              ${tuningChipsHtml}
+              ${pdfChipHtml}
+              ${multiTabsChipHtml}
+              ${syncDotHtml}
+            </span>
+          </span>
+          ${durationText ? `<span class="end tnum">${durationText}</span>` : ''}
+          ${hasTabs ? `<button type="button" class="play-default-tab-btn visually-hidden" data-song-id="${song.id}" aria-label="Play ${escapeHtml(song.title)}"></button>` : ''}
+        </div>
+        <div class="song-actions">
+          <button type="button" class="btn btn-sm btn-theme-icon pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song from collection' : 'Pin song to collection'}">
             <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
           </button>
-
-          ${hasTabs ? `
-            <button class="btn btn-sm btn-theme-primary py-1 px-2 px-sm-3 d-flex align-items-center gap-1 play-default-tab-btn" data-song-id="${song.id}" title="Play Default Tab">
-              <i class="bi-play-fill"></i> <span class="d-none d-sm-inline">Play</span>
-            </button>
-          ` : ''}
-
-          <!-- Import / Download Tab Dropdown -->
           <div class="dropdown">
-            <button class="btn btn-sm btn-theme-outline py-1 px-2 px-sm-3 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
-              <i class="bi-plus-lg"></i> <span class="d-none d-sm-inline">Tab</span>
-            </button>
+            ${!hasTabs ? `
+              <button class="btn btn-sm btn-theme-outline py-0 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
+                <i class="bi-plus-lg"></i> <span class="d-none d-sm-inline">Tab</span>
+              </button>
+            ` : `
+              <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Song options">
+                <i class="bi-three-dots"></i>
+              </button>
+            `}
             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
+              ${hasTabs ? `<li><button class="dropdown-item small add-to-setlist-btn" data-song-id="${song.id}"><i class="bi-collection-play me-2 text-info"></i> Add to Setlist</button></li>` : ''}
               ${albumPdfTabs.length > 0 ? (() => {
                 const existingPdfTab = tabOptions.find(t => t.isAlbumRange || t.startPage);
                 if (existingPdfTab) {
@@ -2288,48 +2410,20 @@ function renderSongRow(song, options = {}) {
               <!-- @googleDrive:begin -->
               <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="google-drive"><i class="icon-gdrive me-2"></i> Google Drive</button></li>
               <!-- @googleDrive:end -->
+              ${isAlbumEditMode ? `
+                <li><hr class="dropdown-divider"></li>
+                <li><button class="dropdown-item small text-danger delete-song-btn" data-song-id="${song.id}"><i class="bi-trash me-2"></i> Remove from Library</button></li>
+              ` : ''}
             </ul>
           </div>
-
-          <!-- Song options (Delete) - only visible in Edit Mode -->
           ${isAlbumEditMode ? `
-            <button class="btn btn-sm btn-theme-danger p-1 px-2 delete-song-btn ms-1" data-song-id="${song.id}" title="Remove song from library">
+            <button type="button" class="btn btn-sm btn-theme-danger p-1 px-2 delete-song-btn ms-1" data-song-id="${song.id}" title="Remove song from library">
               <i class="bi-trash"></i>
             </button>
           ` : ''}
         </div>
       </div>
-
-      <!-- Multiple Tab Options List (if has tabs) -->
-      ${hasTabs ? `
-        <div class="tab-options-container pt-2 mt-1 border-top border-secondary-subtle d-flex align-items-start gap-2">
-          <span class="small text-muted fw-semibold me-1 tab-options-label" style="font-size: 0.72rem;">Tabs:</span>
-          <div class="tab-options-chips d-flex flex-wrap align-items-center gap-2">
-          ${tabOptions.map((t, idx) => {
-            const isDefault = (t.id === defaultTabId) || (!defaultTabId && idx === 0);
-            const isPdfRange = Boolean(t.isAlbumRange || t.startPage);
-            const iconClass = isPdfRange ? 'bi-file-earmark-pdf text-warning' : 'bi-file-earmark-music text-info';
-            return `
-            <div class="tab-option-chip ${isDefault ? 'tab-option-chip-default' : ''} play-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" role="button" tabindex="0" title="Load ${escapeHtml(t.name)}">
-              <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'text-warning' : 'text-muted'} me-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="${isDefault ? 'Default Tab' : 'Set as default tab'}">
-                <i class="bi-star${isDefault ? '-fill' : ''}"></i>
-              </button>
-              <i class="${iconClass} me-1" style="font-size: 0.78rem;"></i>
-              <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
-              ${(t.startPage && t.endPage) ? `<span class="badge badge-theme-warning py-0 px-1 ms-1" style="font-size:0.6rem;">pp. ${t.startPage}-${t.endPage}</span>` : ''}
-              ${(t.tuning && isTuningMatchingInstrument(t.tuning)) ? (() => {
-                const info = getTuningInfo(t.tuning);
-                const label = info?.displayName || t.tuning;
-                return `<span class="badge badge-theme-secondary py-0 px-2 ms-1" style="font-size:0.62rem;" title="${escapeHtml(info?.displayName || t.tuning)}">${escapeHtml(label)}</span>`;
-              })() : ''}
-              ${isPdfRange && isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
-              ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-tab-chip-btn ms-1" data-song-id="${song.id}" data-tab-id="${t.id}" title="Remove tab"><i class="bi-x"></i></button>` : ''}
-            </div>
-            `;
-          }).join('')}
-          </div>
-        </div>
-      ` : ''}
+      ${tabOptionsListHtml}
     </div>
     `;
 }
@@ -2397,27 +2491,33 @@ function setupSongRowActions(container) {
     });
 
     // Delete Entire Album
-    const deleteAlbumBtn = container.querySelector('#deleteAlbumBtn');
-    deleteAlbumBtn?.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!selectedArtist || !selectedAlbum) return;
+    container.querySelectorAll('.delete-album-btn, #deleteAlbumBtn').forEach(deleteAlbumBtn => {
+        deleteAlbumBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const albumTitle = deleteAlbumBtn.dataset.albumTitle || selectedAlbum?.title;
+            if (!selectedArtist || !albumTitle) return;
+            const targetAlb = selectedArtist.albums?.find(a => a.title === albumTitle) || selectedAlbum;
+            if (!targetAlb) return;
 
-        if (deleteAlbumBtn.dataset.confirming === 'true') {
-            const songIds = (selectedAlbum.songs || []).map(s => s.id);
-            await deleteAlbumFromLibrary(selectedArtist.name, selectedAlbum.title, activeCollectionId, songIds);
-            selectedAlbum = null;
-            isAlbumEditMode = false;
-            await renderView();
-        } else {
-            deleteAlbumBtn.dataset.confirming = 'true';
-            deleteAlbumBtn.innerHTML = '<i class="bi-exclamation-triangle-fill me-1"></i> <span class="d-none d-sm-inline">Confirm Delete Album?</span><span class="d-inline d-sm-none">Confirm?</span>';
-            setTimeout(() => {
-                if (deleteAlbumBtn.dataset.confirming === 'true') {
-                    deleteAlbumBtn.dataset.confirming = 'false';
-                    deleteAlbumBtn.innerHTML = '<i class="bi-trash"></i> <span class="d-none d-sm-inline">Delete Album</span>';
-                }
-            }, 4000);
-        }
+            if (deleteAlbumBtn.dataset.confirming === 'true') {
+                const songIds = (targetAlb.songs || []).map(s => s.id);
+                await deleteAlbumFromLibrary(selectedArtist.name, targetAlb.title, activeCollectionId, songIds);
+                if (selectedAlbum?.title === albumTitle) selectedAlbum = null;
+                if (selectedAlbumFilter === albumTitle) selectedAlbumFilter = 'all';
+                isAlbumEditMode = false;
+                await renderView();
+            } else {
+                deleteAlbumBtn.dataset.confirming = 'true';
+                const origHtml = deleteAlbumBtn.innerHTML;
+                deleteAlbumBtn.innerHTML = '<i class="bi-exclamation-triangle-fill me-1"></i> <span class="d-none d-sm-inline">Confirm Delete Album?</span><span class="d-inline d-sm-none">Confirm?</span>';
+                setTimeout(() => {
+                    if (deleteAlbumBtn.dataset.confirming === 'true') {
+                        deleteAlbumBtn.dataset.confirming = 'false';
+                        deleteAlbumBtn.innerHTML = origHtml;
+                    }
+                }, 4000);
+            }
+        });
     });
 
     // Add song's default tab to a setlist
@@ -2619,56 +2719,60 @@ function setupSongRowActions(container) {
     });
 
     // Explore Tracklist from Library Album Detail View
-    const exploreLibBtn = container.querySelector('#exploreLibAlbumTracklistBtn');
-    exploreLibBtn?.addEventListener('click', async () => {
-        if (!selectedArtist || !selectedAlbum) return;
-        const origHtml = exploreLibBtn.innerHTML;
-        exploreLibBtn.disabled = true;
-        exploreLibBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Looking up...';
+    container.querySelectorAll('.explore-album-tracklist-btn, #exploreLibAlbumTracklistBtn').forEach(exploreLibBtn => {
+        exploreLibBtn.addEventListener('click', async () => {
+            const albumTitle = exploreLibBtn.dataset.albumTitle || selectedAlbum?.title;
+            const targetAlb = selectedArtist?.albums?.find(a => a.title === albumTitle) || selectedAlbum;
+            if (!selectedArtist || !targetAlb) return;
+            const origHtml = exploreLibBtn.innerHTML;
+            exploreLibBtn.disabled = true;
+            exploreLibBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Looking up...';
 
-        try {
-            let releaseGroupMbid = selectedAlbum.albumMbid || selectedAlbum.songs?.find(s => s.albumMbid)?.albumMbid;
-            if (!releaseGroupMbid) {
-                const q = `${selectedArtist.name} ${selectedAlbum.title}`;
-                const results = await searchMusicBrainz(q, 'album');
-                const match = results.find(r => (r.title || '').toLowerCase() === selectedAlbum.title.toLowerCase()) || results[0];
-                if (match) {
-                    releaseGroupMbid = match.id;
+            try {
+                let releaseGroupMbid = targetAlb.albumMbid || targetAlb.songs?.find(s => s.albumMbid)?.albumMbid;
+                if (!releaseGroupMbid) {
+                    const q = `${selectedArtist.name} ${targetAlb.title}`;
+                    const results = await searchMusicBrainz(q, 'album');
+                    const match = results.find(r => (r.title || '').toLowerCase() === targetAlb.title.toLowerCase()) || results[0];
+                    if (match) {
+                        releaseGroupMbid = match.id;
+                    }
                 }
-            }
 
-            if (!releaseGroupMbid) {
-                showToast(`Could not find "${selectedAlbum.title}" on MusicBrainz.`, 'warning');
+                if (!releaseGroupMbid) {
+                    showToast(`Could not find "${targetAlb.title}" on MusicBrainz.`, 'warning');
+                    exploreLibBtn.innerHTML = origHtml;
+                    exploreLibBtn.disabled = false;
+                    return;
+                }
+
+                // Save library view state to viewHistory
+                viewHistory.push({
+                    view: 'library',
+                    libraryBrowseMode,
+                    selectedArtist,
+                    selectedAlbum: targetAlb,
+                    selectedAlbumFilter,
+                    selectedFolderPath: [...selectedFolderPath],
+                    selectedTuning
+                });
+
+                searchSubView = { type: 'tracks', releaseGroupMbid, fromView: 'library' };
+                const content = document.getElementById('libraryModalContent') || container;
+                await exploreAlbumTracklist(releaseGroupMbid, content, false);
+            } catch (err) {
+                console.error('Failed to explore album tracklist:', err);
+                showToast(`Failed to load tracklist: ${err.message}`, 'error');
                 exploreLibBtn.innerHTML = origHtml;
                 exploreLibBtn.disabled = false;
-                return;
             }
-
-            // Save library view state to viewHistory
-            viewHistory.push({
-                view: 'library',
-                libraryBrowseMode,
-                selectedArtist,
-                selectedAlbum,
-                selectedFolderPath: [...selectedFolderPath],
-                selectedTuning
-            });
-
-            searchSubView = { type: 'tracks', releaseGroupMbid, fromView: 'library' };
-            const content = document.getElementById('libraryModalContent') || container;
-            await exploreAlbumTracklist(releaseGroupMbid, content, false);
-        } catch (err) {
-            console.error('Failed to explore album tracklist:', err);
-            showToast(`Failed to load tracklist: ${err.message}`, 'error');
-            exploreLibBtn.innerHTML = origHtml;
-            exploreLibBtn.disabled = false;
-        }
+        });
     });
 
     // Album Tabs Actions
     container.querySelectorAll('.import-album-tab-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
-            const folderTitle = getBookFolderTitle();
+            const folderTitle = btn.dataset.albumTitle || getBookFolderTitle();
             if (!selectedArtist || !folderTitle) return;
             openFromProvider(btn.dataset.providerId, {
                 isAlbumTab: true,
