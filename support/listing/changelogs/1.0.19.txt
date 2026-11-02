@@ -1,0 +1,5 @@
+- Chord library: 7- and 8-string voicings, capo option, tuning options, sharp and flat roots, finger bars, and many corrected voicings
+- Scales and modes fretboard supports 6, 7 and 8 strings
+- Tunings page gets an artist filter
+- Library scroll position is restored when going back or forward
+- Tab downloader sources sync edits and deletions; PDF and source tab exports ask where to save on desktop
