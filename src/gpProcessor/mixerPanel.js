@@ -1,6 +1,7 @@
 // mixerPanel.js
 // Synth panel entry points for the SoundFonts and Mixer modals, plus the per-track mixer UI.
 import { getMixerTracks, setTrackMixer, resetMixer, onMixerChange, toggleSynthPanel } from './gpPlayer.js';
+import { toggleYouTubePanel } from '../youtubePlayer.js';
 
 const PAN_LABELS = (pan) => (pan === 8 ? 'C' : pan < 8 ? `L${(8 - pan) * 100 / 8 | 0}` : `R${(pan - 8) * 100 / 8 | 0}`);
 
@@ -8,6 +9,7 @@ export function openModal(id) {
     const modal = document.getElementById(id);
     if (!modal) return;
     toggleSynthPanel(false);
+    toggleYouTubePanel(false);
     modal.classList.add('show');
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');

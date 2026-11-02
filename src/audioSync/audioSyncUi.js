@@ -98,7 +98,10 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
     editBtn?.addEventListener('click', () => {
         const media = getMedia();
         const source = getSource();
-        if (media && source && !isTvMode() && !guestOnVideo(media)) editor.open({ source, media, peaks: getPeaks?.() || null });
+        if (media && source && !isTvMode() && !guestOnVideo(media)) {
+            toggleYouTubePanel(false);
+            editor.open({ source, media, peaks: getPeaks?.() || null });
+        }
     });
     $tap(prefix)?.addEventListener('click', () => {
         const media = getMedia();
