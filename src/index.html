@@ -120,20 +120,29 @@
         <button class="btn btn-sm" id="pinnedToolBtn" type="button"><span id="pinnedToolIcon" class="pinned-tool-icon" aria-hidden="true"></span></button>
       </div>
 
-      <div id="viewPill" class="hud-pill-group" role="group" aria-label="View">
-        <button class="btn btn-sm" id="viewToggleBtn" type="button" title="View: size, paper and pages" aria-haspopup="dialog" aria-expanded="false" aria-controls="viewMenu">
-          <i class="bi-aspect-ratio"></i>
-          <span class="tools-btn-label ms-1">View</span>
-          <i class="bi-chevron-down tools-btn-chevron"></i>
-        </button>
-      </div>
-
       <div id="toolsPill" class="hud-pill-group" role="group" aria-label="Tools">
         <button class="btn btn-sm" id="toolsToggleBtn" type="button" title="Tools" aria-haspopup="menu" aria-expanded="false" aria-controls="toolsMenu">
           <i class="bi-grid-3x3-gap"></i>
           <span class="tools-btn-label ms-1">Tools</span>
           <i class="bi-chevron-down tools-btn-chevron"></i>
           <span class="tools-status-dot" id="toolsStatusDot" aria-hidden="true"></span>
+        </button>
+      </div>
+
+      <div id="viewPill" class="hud-pill-group" role="group" aria-label="View">
+        <button class="btn btn-sm" id="viewToggleBtn" type="button" title="View: size, paper and pages" aria-haspopup="dialog" aria-expanded="false" aria-controls="viewMenu">
+          <svg class="i-aa" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 18l4.5-12L12 18M4.6 14h5.8M14 18l3-8 3 8M15.1 15.5h3.8"/></svg><span class="visually-hidden">View</span>
+        </button>
+      </div>
+
+      <div id="practicePill" class="hud-pill-group" role="group" aria-label="Practice">
+        <button class="btn btn-sm" id="practiceToggleBtn" type="button" title="Practice: sound, speed, sync" aria-label="Practice" aria-haspopup="dialog">
+          <i class="bi-sliders2-vertical"></i>
+        </button>
+      </div>
+      <div id="morePill" class="hud-pill-group" role="group" aria-label="More">
+        <button class="btn btn-sm" id="moreToggleBtn" type="button" title="More" aria-label="More" aria-haspopup="menu" aria-expanded="false" aria-controls="moreMenu">
+          <i class="bi-three-dots"></i>
         </button>
       </div>
 
@@ -155,6 +164,8 @@
     </div>
   </div>
 </nav>
+
+<div id="moreMenu" class="tools-menu more-menu" role="menu" aria-label="More" style="display:none;"></div>
 
 <!-- View menu: how the score is shown while playing (size, paper, pages). Hosts #readerViewOptions, moved here by utils/readerViewMenu.js so its controls keep their ids. -->
 <div id="viewMenu" class="tools-menu view-menu" role="dialog" aria-label="View" style="display:none;"></div>
@@ -1973,21 +1984,32 @@
 </aside>
 
 <!-- Mobile Floating Playback Mini Dock (Phone viewports <= 576px) -->
-<aside id="mobilePlaybackDock" class="mobile-playback-dock" role="toolbar" aria-label="Mobile Playback Controls" style="display: none;">
+<aside id="mobilePlaybackDock" class="mobile-playback-dock" role="toolbar" aria-label="Playback controls" style="display: none;">
   <div class="mobile-playback-dock-inner">
-    <button type="button" class="btn mobile-dock-btn" id="mobileRewindBtn" title="Back 10 Seconds" aria-label="Back 10 Seconds" disabled>
-      <i class="bi-arrow-counterclockwise"></i>
-    </button>
-    <button type="button" class="btn mobile-dock-play-btn" id="mobilePlayPauseBtn" title="Play / Pause" aria-label="Play / Pause" disabled>
-      <i class="bi-play-fill" id="mobilePlayPauseIcon"></i>
-    </button>
-    <div class="mobile-dock-divider" id="mobileAudioSourceDivider" style="display: none;"></div>
-    <button type="button" class="btn mobile-dock-btn" id="mobileSynthToggleBtn" title="MIDI Synth Audio & Controls" aria-label="MIDI Synth Controls" style="display: none;">
-      <i class="bi-soundwave"></i><span class="audio-src-label">Synth</span>
-    </button>
-    <button type="button" class="btn mobile-dock-btn" id="mobileYtToggleBtn" title="Real Audio & Controls" aria-label="Real Audio Controls" style="display: none;">
-      <i class="bi-youtube"></i><span class="audio-src-label">Recording</span>
-    </button>
+    <div class="dock-tr">
+      <button type="button" class="btn mobile-dock-btn" id="mobileRewindBtn" title="Back 10 Seconds" aria-label="Back 10 Seconds" disabled>
+        <i class="bi-arrow-counterclockwise"></i>
+      </button>
+      <button type="button" class="btn mobile-dock-play-btn" id="mobilePlayPauseBtn" title="Play / Pause" aria-label="Play / Pause" disabled>
+        <svg class="pk" viewBox="105 97 303 316" aria-hidden="true"><path d="M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z"/></svg><i class="bi-play-fill" id="mobilePlayPauseIcon"></i>
+      </button>
+    </div>
+    <div class="dock-ruler" id="dockRulerSlot"></div>
+    <div class="dock-time" id="dockTime" aria-live="off">Bar <b id="dockBar">1</b><span class="dock-clock"> &middot; <span id="dockClock">0:00 / 0:00</span></span></div>
+    <div class="dock-bpm" id="dockBpmBox" title="Tempo"><b id="dockBpm">&ndash;</b><span>bpm</span></div>
+    <div class="dock-tools">
+      <div class="dock-src" role="group" aria-label="Sound">
+        <div class="mobile-dock-divider" id="mobileAudioSourceDivider" style="display: none;"></div>
+        <button type="button" class="btn mobile-dock-btn" id="mobileSynthToggleBtn" title="MIDI Synth Audio & Controls" aria-label="MIDI Synth Controls" style="display: none;">
+          <i class="bi-soundwave"></i><span class="audio-src-label">Synth</span>
+        </button>
+        <button type="button" class="btn mobile-dock-btn" id="mobileYtToggleBtn" title="Real Audio & Controls" aria-label="Real Audio Controls" style="display: none;">
+          <i class="bi-youtube"></i><span class="audio-src-label">Recording</span>
+        </button>
+      </div>
+      <button type="button" class="btn mobile-dock-btn dock-icon-btn" id="dockLoopBtn" title="Loop the current part" aria-label="Loop the current part" aria-pressed="false"><i class="bi-repeat"></i></button>
+      <button type="button" class="btn mobile-dock-btn dock-icon-btn" id="dockMetroBtn" title="Metronome" aria-label="Metronome" aria-pressed="false"><i class="bi-stopwatch"></i></button>
+    </div>
   </div>
 </aside>
 

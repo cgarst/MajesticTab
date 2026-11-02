@@ -192,107 +192,6 @@ body.library-view-active #viewPill { display: none; }
 #mobilePlaybackDock .audio-src-label { font-size: 0.8rem; font-weight: 600; }
 @media (max-width: 359px) { #mobilePlaybackDock .audio-src-label { display: none; } #mobileSynthToggleBtn, #mobileYtToggleBtn { width: 36px; padding: 0; } }
 
-/* --- Bar ruler (phase 7): the transport you can see. Flat bands, one tone step apart. --- */
-.bar-ruler {
-  position: relative;
-  z-index: 900;
-  flex: 0 0 auto;
-  background: var(--bg-elevated);
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 0.4rem max(env(safe-area-inset-right), 1rem) 0.4rem max(env(safe-area-inset-left), 1rem);
-}
-.bar-ruler[hidden], .bar-ruler.is-in-library { display: none; }
-.bar-ruler-main { display: flex; align-items: center; gap: 0.75rem; }
-.bar-ruler-track {
-  position: relative;
-  flex: 1 1 auto;
-  min-width: 0;
-  height: 34px;
-  cursor: pointer;
-  touch-action: none;
-  border-radius: var(--r-control);
-  overflow: hidden;
-  background: var(--bg-card-solid);
-}
-.bar-ruler-track:focus-visible { outline: 2px solid var(--accent-primary); outline-offset: 2px; }
-.bar-ruler-parts { position: absolute; inset: 0; display: flex; }
-.bar-ruler-part {
-  flex-basis: 0;
-  min-width: 0;
-  padding: 0 0.4rem;
-  border: 0;
-  border-radius: 0;
-  text-align: left;
-  color: var(--text-muted);
-  font-size: 0.78rem;
-  font-weight: 600;
-  line-height: 20px;
-  height: 20px;
-  background: var(--bg-card-solid);
-  overflow: hidden;
-  white-space: nowrap;
-  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-.bar-ruler-part.tone-1 { background: var(--bg-card-hover); }
-.bar-ruler-part.is-current { background: var(--accent-primary); color: #fff; }
-.bar-ruler-ticks { position: absolute; left: 0; right: 0; bottom: 0; height: 14px; pointer-events: none; }
-.bar-ruler-track:not(.has-parts) .bar-ruler-ticks { height: 100%; display: flex; align-items: center; }
-.bar-ruler-tick {
-  position: absolute;
-  bottom: 0;
-  padding-left: 3px;
-  font-size: 0.66rem;
-  line-height: 14px;
-  color: var(--text-dim);
-  font-variant-numeric: tabular-nums;
-}
-.bar-ruler-track:not(.has-parts) .bar-ruler-tick { bottom: auto; font-size: 0.72rem; }
-.bar-ruler-loop {
-  position: absolute; top: 0; bottom: 0;
-  background: color-mix(in srgb, var(--accent-secondary) 28%, transparent);
-  border-left: 3px solid var(--accent-secondary);
-  border-right: 3px solid var(--accent-secondary);
-  pointer-events: none;
-}
-/* The pick is the playhead: a line with a flat triangle head. Moves by transform only. */
-.bar-ruler-head {
-  position: absolute; top: 0; bottom: 0; left: 0; width: 2px;
-  background: var(--accent-secondary);
-  pointer-events: none;
-  will-change: transform;
-}
-.bar-ruler-head::before {
-  content: ''; position: absolute; top: 0; left: -4px;
-  border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 7px solid var(--accent-secondary);
-}
-.bar-ruler-side { display: flex; align-items: center; gap: 0.5rem; flex: 0 0 auto; }
-.bar-ruler-readout { font-size: 0.82rem; color: var(--text-muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
-.bar-ruler-loop-btn.active { background: var(--accent-primary) !important; color: #fff !important; }
-.bar-ruler-info { margin-top: 0.4rem; padding: 0.5rem 0.75rem; background: var(--bg-card-solid); border-radius: var(--r-control); max-height: 30vh; overflow: auto; }
-.bar-ruler-marks { list-style: none; margin: 0; padding: 0; font-size: 0.82rem; }
-.bar-ruler-mark-bar { display: inline-block; min-width: 4.5rem; color: var(--text-dim); font-variant-numeric: tabular-nums; }
-@media (max-width: 576px) {
-  .bar-ruler-main { flex-wrap: wrap; gap: 0.35rem; }
-  .bar-ruler-track { flex-basis: 100%; }
-  .bar-ruler-side { flex-basis: 100%; justify-content: space-between; }
-}
-@media (prefers-reduced-motion: reduce) { .bar-ruler-part { transition: none; } }
-.bar-ruler-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.bar-ruler-col .bar-ruler-track { flex: none; }
-@media (max-width: 576px) { .bar-ruler-col { flex-basis: 100%; } }
-/* Sync coverage lane */
-.bar-ruler-sync { position: relative; height: 6px; }
-.bar-ruler-sync[hidden] { display: none; }
-.bar-ruler-sync-base { position: absolute; inset: 2px 0; background: var(--accent-secondary); border-radius: 1px; }
-.bar-ruler-sync-gap {
-  position: absolute; top: 0; bottom: 0;
-  background: var(--bg-elevated);
-  background-image: repeating-linear-gradient(90deg, var(--text-dim) 0 4px, transparent 4px 8px);
-  background-size: 100% 2px; background-repeat: no-repeat; background-position: 0 2px;
-}
-.bar-ruler-sync-point { position: absolute; top: 0; width: 2px; height: 6px; margin-left: -1px; background: var(--text-primary); }
-.bar-ruler-sync-point.is-flagged { background: #f59e0b; }
-
 /* --- Toast (phase 8): rises from below, slower in than out, with an optional action such as Undo --- */
 .theme-toast { box-shadow: none; border-color: var(--border-prominent); transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out); }
 .theme-toast-hiding { transition-duration: var(--dur-base); }
@@ -354,3 +253,226 @@ body.settings-as-page #fileMenu {
 @media (max-width: 576px) {
   body.settings-as-page #fileMenu { padding-bottom: calc(env(safe-area-inset-bottom) + 4.5rem); }
 }
+
+
+/* ==========================================================================
+   Phase 9: rebuild toward the mockup. Tokens first (the mockup's names, mapped onto the finish tokens),
+   then shared controls, then the reader chrome.
+   ========================================================================== */
+:root, [data-theme] {
+  --ground: var(--bg-body);
+  --s1: var(--bg-elevated);
+  --s2: var(--bg-card-solid);
+  --s3: var(--bg-card-hover);
+  --ink: var(--text-primary);
+  --ink2: var(--text-muted);
+  --action: var(--accent-primary);
+  --hue: var(--accent-secondary);
+  --line: var(--border-subtle);
+  --r: var(--r-control);
+  --r-sm: 6px;
+  --r-lg: var(--r-card);
+}
+.tauri-macos, .tauri-ios { --r-control: 10px; --r-card: 12px; }
+.tauri-windows { --r-control: 6px; --r-card: 8px; }
+.tauri-linux { --r-control: 8px; --r-card: 12px; }
+.tauri-ios { --r-control: 12px; }
+html, body { background: var(--ground) !important; }
+body { font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+
+/* Buttons: tone steps, not borders. Primary is the action colour, secondary is one step up, ghost is bare. */
+.btn-theme-primary, .btn-theme-primary:hover:not(:disabled) {
+  background: var(--action) !important; color: var(--on-action, #fff) !important; border: 0 !important;
+  border-radius: var(--r) !important; font-weight: 600;
+}
+.btn-theme-outline, .theme-control-btn {
+  background: var(--s3) !important; color: var(--ink) !important; border: 0 !important;
+  border-radius: var(--r) !important; font-weight: 600;
+}
+.btn-theme-outline:hover:not(:disabled), .theme-control-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--s3) 80%, var(--ink)) !important; color: var(--ink) !important;
+}
+.btn-theme-icon, .brand-btn { border: 0 !important; background: transparent !important; color: var(--ink2) !important; border-radius: var(--r) !important; box-shadow: none !important; }
+.btn-theme-icon:hover:not(:disabled), .brand-btn:hover { background: var(--s2) !important; color: var(--ink) !important; }
+.btn-theme-danger { background: color-mix(in srgb, var(--danger, #f87171) 18%, var(--s2)) !important; color: var(--danger, #f87171) !important; border: 0 !important; border-radius: var(--r) !important; }
+.btn-theme-success { background: color-mix(in srgb, var(--hue) 22%, var(--s2)) !important; color: var(--ink) !important; border: 0 !important; border-radius: var(--r) !important; }
+
+/* Segmented control: a recessed track and one raised pill (the mockup's .seg) */
+.hud-pill-group {
+  background: var(--s2) !important; border: 0 !important; border-radius: var(--r) !important; padding: 3px !important; gap: 0 !important; box-shadow: none !important;
+}
+.hud-pill-group .btn, .hud-pill-group .btn-check + .btn, #topBar .hud-pill-group .btn {
+  background: transparent !important; border: 0 !important; color: var(--ink2) !important; border-radius: calc(var(--r) - 3px) !important;
+  min-height: 30px; padding: 6px 12px; font-size: 13px; font-weight: 500; box-shadow: none !important;
+  transition: color var(--dur-fast) ease-in-out, background-color var(--dur-fast) var(--ease-out);
+}
+.hud-pill-group .btn.active, .hud-pill-group .btn-check:checked + .btn, #topBar .hud-pill-group .btn.active,
+#topBar .hud-pill-group .btn-check:checked + .btn {
+  background: var(--s3) !important; color: var(--ink) !important; box-shadow: none !important;
+}
+@media (hover: hover) { .hud-pill-group .btn:hover:not(.active) { color: var(--ink) !important; background: transparent !important; } }
+
+/* ---------- Reader top bar: back, title, Page/Scroll, then bare icons ---------- */
+#topBar {
+  background: var(--ground) !important; border: 0 !important; min-height: 52px; padding-top: 6px; padding-bottom: 6px;
+}
+body:not(.library-view-active) #menuToggleBtn,
+body:not(.library-view-active) #brand-text { display: none !important; }
+body:not(.library-view-active) #songBreadcrumb { gap: 2px; }
+body:not(.library-view-active) .breadcrumb-divider { display: none; }
+.breadcrumb-back-btn { width: 36px; height: 36px; padding: 0 !important; border-radius: var(--r) !important; }
+.breadcrumb-back-btn span { display: none; }
+.breadcrumb-back-btn i { margin: 0 !important; font-size: 1.15rem; }
+.top-bar-song-btn {
+  background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: var(--r) !important; height: 40px; padding: 0 10px;
+}
+.top-bar-song-btn:hover, .top-bar-song-btn.active { background: var(--s2) !important; }
+.top-bar-song-btn .song-title-glyph { display: none !important; }
+.top-bar-song-btn .breadcrumb-song-title {
+  font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.005em; line-height: 1.1;
+}
+.tools-btn-label { font-weight: 500; }
+/* Right cluster: no pill containers, just ghost buttons */
+#topFlexZone .hud-pill-group, #fullscreenPill, #navButtons { background: transparent !important; padding: 0 !important; }
+#topFlexZone .btn, #fullscreenPill .btn, #navButtons .btn, #globalAudioControls .btn {
+  background: transparent !important; border: 0 !important; color: var(--ink2) !important; border-radius: var(--r) !important; min-height: 36px;
+}
+#topFlexZone .btn:hover, #fullscreenPill .btn:hover, #navButtons .btn:hover { background: var(--s2) !important; color: var(--ink) !important; }
+#navButtons { display: inline-flex; gap: 0; }
+#pageIndicator { color: var(--ink2); font-size: 13px; font-variant-numeric: tabular-nums; min-width: 2.5ch; text-align: center; }
+
+/* ---------- The paper: a light card floating on the ground, bright and quiet ---------- */
+#mainContent { background: var(--ground); }
+#output { background: var(--ground); padding: 12px 16px 16px !important; }
+#output .alphaTabContainer {
+  margin: 0 auto; border-radius: 3px; overflow: hidden;
+}
+
+
+/* ==========================================================================
+   Bottom transport (the mockup's dock): pick play button, bar ruler, bar and time, tempo, sound, loop, metronome
+   ========================================================================== */
+.mobile-playback-dock { display: none !important; }
+body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources,
+body:not(.library-view-active) .mobile-playback-dock.has-audio-sources {
+  display: block !important;
+  position: relative; left: auto; right: auto; bottom: auto; transform: none;
+  flex: none; width: 100%; z-index: 900;
+  background: var(--s1);
+}
+.mobile-playback-dock.hud-hidden:not(.hud-transient) { display: none !important; }
+body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
+.mobile-playback-dock-inner {
+  display: grid; grid-template-columns: auto minmax(120px, 1fr) auto auto auto; gap: 8px 16px; align-items: center;
+  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  background: transparent; border: 0; border-radius: 0; box-shadow: none; width: 100%;
+}
+.dock-tr { display: flex; align-items: center; gap: 6px; }
+.dock-ruler { min-width: 0; }
+.dock-time { font: 500 13px system-ui, sans-serif; color: var(--ink2); white-space: nowrap; min-width: 112px; text-align: right; }
+.dock-time b { font: 700 22px/1 var(--font-display); color: var(--ink); }
+.dock-bpm { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; padding: 0 8px; font-size: 12px; color: var(--ink2); }
+.dock-bpm b { font: 700 26px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+.dock-tools { display: flex; align-items: center; gap: 4px; }
+.dock-src { display: inline-flex; align-items: center; background: var(--s2); border-radius: var(--r); padding: 3px; }
+.dock-src .mobile-dock-divider { display: none !important; }
+.mobile-dock-btn, .dock-icon-btn {
+  width: 36px; height: 36px; min-width: 36px; padding: 0; border: 0 !important; background: transparent !important; color: var(--ink2) !important;
+  border-radius: var(--r) !important; box-shadow: none !important; display: inline-flex; align-items: center; justify-content: center;
+}
+.mobile-dock-btn:hover { background: var(--s2) !important; color: var(--ink) !important; }
+.mobile-dock-btn.active-audio-mode { background: transparent !important; color: var(--hue) !important; }
+.dock-src .mobile-dock-btn { width: auto; padding: 0 10px; border-radius: calc(var(--r) - 3px) !important; gap: 6px; height: 32px; font-size: 13px; font-weight: 500; }
+.dock-src .mobile-dock-btn:hover { background: transparent !important; color: var(--ink) !important; }
+.dock-src .mobile-dock-btn.active-audio-mode, #mobileSynthToggleBtn.active-audio-mode, #mobileYtToggleBtn.active-audio-mode {
+  background: var(--s3) !important; color: var(--ink) !important;
+}
+/* The play button is the brand's pick */
+.mobile-dock-play-btn {
+  position: relative; width: 52px; height: 56px; min-width: 52px; padding: 0 !important; border: 0 !important; background: transparent !important;
+  display: grid; place-items: center; transition: transform var(--dur-fast) cubic-bezier(.34,1.36,.64,1); box-shadow: none !important;
+}
+.mobile-dock-play-btn:active { transform: scale(.92); }
+.mobile-dock-play-btn svg.pk { position: absolute; inset: 0; width: 100%; height: 100%; fill: var(--action); }
+.mobile-dock-play-btn i { position: relative; margin-top: -4px; font-size: 1.5rem; color: var(--on-action, #fff); line-height: 1; }
+.mobile-dock-play-btn:disabled { opacity: .5; }
+.dock-marks { position: absolute; left: 14px; bottom: calc(100% + 6px); max-width: min(420px, calc(100% - 28px)); max-height: 40vh; overflow: auto; background: var(--s2); border-radius: var(--r-lg); padding: 10px 14px; z-index: 5; }
+.dock-marks[hidden] { display: none; }
+
+/* ---------- ruler ---------- */
+.ruler { position: relative; height: 44px; touch-action: none; cursor: pointer; border-radius: var(--r-sm); background: var(--s2); overflow: hidden; }
+.ruler[hidden] { display: none; }
+.ruler[data-lane="1"] { height: 54px; }
+.ruler:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+.ruler .fill { position: absolute; inset: 0; background: var(--s3); transform-origin: 0 50%; transform: scaleX(0); will-change: transform; }
+.ruler .loop { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--hue) 22%, transparent); border-inline: 2px solid var(--hue); display: none; }
+.ruler[data-loop="1"] .loop { display: block; }
+.ruler svg { position: absolute; left: 0; top: 0; width: 100%; height: 44px; }
+.ruler svg path { stroke: var(--ink2); stroke-opacity: .6; stroke-width: 1; fill: none; vector-effect: non-scaling-stroke; }
+.ruler-labels { position: absolute; inset: 0 0 auto 0; height: 44px; pointer-events: none; }
+.ruler-labels em { position: absolute; top: 18px; transform: translateX(4px); font: 500 10px system-ui, sans-serif; color: var(--ink2); font-style: normal; font-variant-numeric: tabular-nums; }
+.ruler-labels .mk { position: absolute; top: 2px; transform: translateX(4px); font: 600 10px system-ui, sans-serif; color: var(--ink); white-space: nowrap; }
+.ruler .head { position: absolute; top: 0; bottom: 0; left: 0; width: 0; will-change: transform; pointer-events: none; }
+.ruler .head::before { content: ''; position: absolute; left: -1px; top: 0; bottom: 0; width: 3px; background: var(--hue); }
+.ruler .head::after { content: ''; position: absolute; left: -7px; top: -1px; width: 15px; height: 14px; background: var(--hue); clip-path: polygon(0 0, 100% 0, 50% 100%); }
+.ruler-lane { position: absolute; left: 0; right: 0; bottom: 0; height: 10px; background: var(--s1); }
+.ruler-lane[hidden] { display: none; }
+.lane-base { position: absolute; inset: 3px 0; background: color-mix(in srgb, var(--hue) 60%, var(--s2)); }
+.lane-gap { position: absolute; top: 0; bottom: 0; background: var(--s1); border: 1px dashed color-mix(in srgb, var(--ink2) 70%, transparent); }
+.lane-point { position: absolute; top: 1px; bottom: 1px; width: 2px; margin-left: -1px; background: var(--hue); }
+.lane-point.is-flagged { background: var(--warn, #e9b44c); }
+
+/* ---------- More menu and popovers share the mockup's popover look ---------- */
+.tools-menu, .view-menu, .more-menu, .score-options-panel, .synth-panel, .yt-panel, .pdf-bookmarks-panel {
+  background: var(--s2) !important; border: 0 !important; border-radius: var(--r-lg) !important; box-shadow: none !important;
+}
+.more-menu { width: 280px; padding: 6px; }
+.more-menu-list { display: flex; flex-direction: column; gap: 2px; }
+.more-menu .btn, .more-menu-settings {
+  display: flex !important; align-items: center; justify-content: flex-start !important; gap: 12px; width: 100%; min-height: 48px;
+  padding: 8px 12px !important; background: transparent !important; text-align: left; font-weight: 500 !important; font-size: 15px;
+}
+.more-menu .btn:hover { background: var(--s3) !important; }
+.more-menu .btn i { font-size: 1.1rem; width: 1.4rem; text-align: center; color: var(--ink2) !important; }
+
+/* Phone: the transport stacks with the ruler on top */
+@media (max-width: 640px) {
+  .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto; grid-template-areas: "r r r" "a b c"; gap: 8px; }
+  .dock-ruler { grid-area: r; }
+  .dock-tr { grid-area: a; }
+  .dock-time { grid-area: b; min-width: 0; text-align: left; }
+  .dock-clock { display: none; }
+  .dock-bpm { display: none; }
+  .dock-tools { grid-area: c; }
+  .dock-src .audio-src-label { display: none; }
+  .dock-src .mobile-dock-btn { padding: 0 11px; }
+  #dockMetroBtn { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .mobile-dock-play-btn { transition: none; } }
+
+/* page navigation keeps its buttons but loses the pill outline */
+#navButtons, #navButtons.hud-pill-group, #fullscreenPill, #practicePill, #morePill, #viewPill, #toolsPill {
+  border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important;
+}
+#topBar .btn svg.i-aa { display: block; }
+
+/* ---------- View menu (mockup): label over a full-width segmented control, big size value ---------- */
+#viewMenu { width: min(360px, calc(100vw - 24px)); padding: 12px 14px 8px !important; }
+#viewMenu::before { content: 'View'; display: block; font: 600 17px system-ui, sans-serif; padding: 4px 2px 10px; color: var(--ink); }
+#readerViewOptions { gap: 16px !important; }
+#viewMenu .form-label { font-size: 13px; color: var(--ink2) !important; margin-bottom: 8px !important; }
+#viewMenu .hud-pill-group { width: 100%; display: flex; }
+#viewMenu .hud-pill-group .btn { flex: 1; text-align: center; justify-content: center; padding-inline: 4px; }
+#viewMenu .hud-pill-group i { display: none; }
+#viewMenu .view-size-label { display: flex; justify-content: space-between; align-items: baseline; }
+#viewMenu #gpSheetScaleValue { font: 600 22px/1 system-ui, sans-serif; color: var(--ink) !important; }
+#viewMenu .view-more-settings { width: 100%; margin-top: 4px; color: var(--ink2); background: transparent; border: 0; min-height: 44px; font-weight: 500; }
+#viewMenu .view-more-settings:hover { color: var(--ink); background: var(--s3); }
+#viewMenu input[type=range], .form-range { accent-color: var(--hue); }
+#gpSheetScaleMinus, #gpSheetScalePlus { width: 36px; height: 36px; padding: 0 !important; }
+#viewMenu .view-size-label { display: flex !important; }
+.form-range::-webkit-slider-runnable-track { background: var(--s3); height: 6px; border-radius: 3px; }
+.form-range::-moz-range-track { background: var(--s3); height: 6px; border-radius: 3px; }
+.form-range::-webkit-slider-thumb { background: var(--hue); border: 0; width: 18px; height: 18px; margin-top: -6px; box-shadow: none; }
+.form-range::-moz-range-thumb { background: var(--hue); border: 0; width: 18px; height: 18px; box-shadow: none; }
+.form-range:focus { box-shadow: none; }
