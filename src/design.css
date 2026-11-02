@@ -529,3 +529,47 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 #synthTrackVisibilitySection .form-check.form-switch { display: flex !important; flex-direction: row-reverse; justify-content: space-between; align-items: center; width: 100%; padding: 0 !important; min-height: 44px; }
 #synthTrackVisibilitySection .form-check.form-switch .form-check-label { font-size: 15px !important; color: var(--ink) !important; }
 #scoreOptionsAdaptSection .form-check.form-switch { flex-direction: row-reverse; }
+
+/* ==========================================================================
+   Practice panel: the Synth and Recording panels as one right-hand panel beside the score
+   ========================================================================== */
+#synthDropdownPanel, #ytDropdownPanel {
+  position: fixed !important; top: var(--topbar-h, 52px) !important; right: 0 !important; left: auto !important; bottom: var(--dock-h, 96px) !important;
+  width: 360px !important; max-width: 100% !important; height: auto !important; max-height: none !important; transform: none !important;
+  border-radius: var(--r-lg) 0 0 var(--r-lg) !important; z-index: 1030; overflow-y: auto; overflow-x: hidden;
+  background: var(--s2) !important; animation: practiceIn var(--dur-slow) var(--ease-out);
+}
+@keyframes practiceIn { from { opacity: 0; transform: translate3d(24px, 0, 0); } to { opacity: 1; transform: none; } }
+body.practice-open #output { padding-right: 376px !important; }
+@media (max-width: 900px) {
+  #synthDropdownPanel, #ytDropdownPanel { top: auto !important; left: 0 !important; width: auto !important; max-height: 86% !important; height: auto !important;
+    border-radius: var(--r-lg) var(--r-lg) 0 0 !important; animation: sheetIn var(--dur-slow) var(--ease-out); }
+  body.practice-open #output { padding-right: 16px !important; }
+}
+@keyframes sheetIn { from { transform: translate3d(0, 40px, 0); opacity: 0; } to { transform: none; opacity: 1; } }
+#synthDropdownPanel .synth-panel-header, #ytDropdownPanel .yt-panel-header {
+  background: transparent !important; border: 0 !important; padding: 14px 16px 6px; position: sticky; top: 0; z-index: 2;
+}
+#synthDropdownPanel .synth-panel-header > div:first-child > i, #ytDropdownPanel .yt-header-badge { display: none !important; }
+#synthPanelTitle, #realAudioPanelTitle { font-size: 0 !important; }
+#synthPanelTitle::before, #realAudioPanelTitle::before { content: 'Practice'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
+#synthDropdownPanel .synth-panel-body, #ytDropdownPanel .yt-panel-body { padding: 4px 16px 18px; }
+.practice-seg { width: 100%; display: flex; margin-bottom: 16px; }
+.practice-seg .btn { flex: 1; justify-content: center; }
+#synthDropdownPanel .form-label, #ytDropdownPanel .form-label { color: var(--ink2) !important; font-weight: 400 !important; font-size: 13px; }
+.theme-value-badge { background: transparent !important; border: 0 !important; color: var(--ink) !important; font: 600 15px system-ui, sans-serif; padding: 0 4px !important; }
+/* Speed buttons read as one segmented control */
+.btn-group[role="group"] { background: var(--s1); border-radius: var(--r); padding: 3px; gap: 0; }
+.btn-group[role="group"] > .btn { background: transparent !important; color: var(--ink2) !important; border: 0 !important; border-radius: calc(var(--r) - 3px) !important; flex: 1; font-weight: 500; min-height: 32px; }
+.btn-group[role="group"] > .btn.active { background: var(--s3) !important; color: var(--ink) !important; }
+#synthDropdownPanel input[type=range], #ytDropdownPanel input[type=range] { accent-color: var(--hue); width: 100%; }
+#synthDropdownPanel .form-control, #ytDropdownPanel .form-control, #synthDropdownPanel .form-select, #ytDropdownPanel .form-select {
+  background: var(--s3) !important; border: 0 !important; border-radius: var(--r) !important; color: var(--ink) !important; min-height: 36px;
+}
+#ytDropdownPanel .yt-mode-selector { background: transparent; }
+#ytDropdownPanel .yt-mode-btn, .yt-mode-btn {
+  background: var(--s1) !important; border: 0 !important; border-radius: var(--r) !important; color: var(--ink) !important; min-height: 52px;
+}
+.btn-check:checked + .yt-mode-btn { background: var(--s3) !important; }
+#ytDropdownPanel #ytPlayerWrapper { border-radius: var(--r); overflow: hidden; }
+#synthDropdownPanel .btn-group > .btn.active, #ytDropdownPanel .btn-group > .btn.active, #realAudioRates .btn.active { background: var(--s3) !important; color: var(--ink) !important; }

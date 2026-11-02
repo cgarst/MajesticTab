@@ -92,7 +92,10 @@ function initMoreMenu() {
 function initPracticeButton() {
     const btn = $('practiceToggleBtn');
     if (!btn) return;
-    btn.addEventListener('click', () => {
+    initPracticePanels();
+    btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
         const yt = $('ytToggleBtn');
         const synth = $('synthToggleBtn');
         const useRecording = yt && yt.style.display !== 'none' && (yt.classList.contains('active-audio-mode') || yt.classList.contains('active'));
@@ -169,4 +172,47 @@ function arrangeViewOptions(root) {
     const order = [layout, landscape, advance, size, paper, more].filter(Boolean);
     root.innerHTML = '';
     order.forEach((el) => root.appendChild(el));
+}
+
+
+// The Synth and Recording panels share one chrome: a right-hand "Practice" panel beside the score with a
+// Synth | Recording switch on top. Their controls and handlers are unchanged; this adds the switch, keeps the
+// score clear of the panel, and tracks the dock height so the panel stops above it.
+function initPracticePanels() {
+    const panels = [
+        { id: 'synthDropdownPanel', which: 'synth' },
+        { id: 'ytDropdownPanel', which: 'recording' }
+    ];
+    const toggles = { synth: $('synthToggleBtn'), recording: $('ytToggleBtn') };
+    for (const { id, which } of panels) {
+        const panel = $(id);
+        const body = panel?.querySelector('.synth-panel-body, .yt-panel-body');
+        if (!panel || !body) continue;
+        const seg = document.createElement('div');
+        seg.className = 'hud-pill-group practice-seg';
+        seg.setAttribute('role', 'group');
+        seg.setAttribute('aria-label', 'Sound');
+        seg.innerHTML = `<button type="button" class="btn btn-sm${which === 'synth' ? ' active' : ''}" data-which="synth">Synth</button>`
+            + `<button type="button" class="btn btn-sm${which === 'recording' ? ' active' : ''}" data-which="recording">Recording</button>`;
+        seg.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const b = e.target.closest('[data-which]');
+            if (!b || b.dataset.which === which) return;
+            toggles[b.dataset.which]?.click();
+        });
+        body.insertBefore(seg, body.firstChild);
+        new MutationObserver(updateOpen).observe(panel, { attributes: true, attributeFilter: ['style', 'class'] });
+    }
+    function updateOpen() {
+        const open = panels.some(({ id }) => { const el = $(id); return el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none'; });
+        document.body.classList.toggle('practice-open', open);
+    }
+    const dock = $('mobilePlaybackDock');
+    if (dock && 'ResizeObserver' in window) {
+        new ResizeObserver(() => document.documentElement.style.setProperty('--dock-h', `${dock.offsetHeight}px`)).observe(dock);
+    }
+    const bar = $('topBar');
+    if (bar && 'ResizeObserver' in window) {
+        new ResizeObserver(() => document.documentElement.style.setProperty('--topbar-h', `${bar.offsetHeight}px`)).observe(bar);
+    }
 }
