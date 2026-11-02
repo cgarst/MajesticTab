@@ -1408,3 +1408,13 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 @media (pointer: coarse), (max-width: 576px) { .recent-row-actions .btn { min-width: 44px; min-height: 44px; } }
 .library-page-container > #recentsList { grid-column: 1 / -1; margin: 8px -20px 0; }
 @media (max-width: 576px) { .library-page-container > #recentsList { margin-inline: -16px; } }
+
+/* ---------- Phone reader: the song title is the first thing in the bar ----------
+   The Page/Scroll switch is in View, so its slot goes to the title (which opens This song). */
+@media (max-width: 576px) {
+  body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { display: block !important; max-width: none; font-size: 20px; }
+  body:not(.library-view-active) .top-bar-song-btn { min-width: 0; max-width: 100%; }
+  body:not(.library-view-active) #centerSection { display: none !important; }
+  body:not(.library-view-active) #topBar { grid-template-columns: minmax(0, 1fr) auto !important; }
+  body:not(.library-view-active) #pageIndicator { display: none; }
+}
