@@ -1028,8 +1028,8 @@ class GamepadManager {
         if (songTitleBtn) {
             songTitleBtn.click();
         } else {
-            // Open main offcanvas drawer
-            document.getElementById('menuToggleBtn')?.click();
+            // Settings is a page in the library navigation
+            document.getElementById('libraryNavSettingsBtn')?.click();
         }
     }
 

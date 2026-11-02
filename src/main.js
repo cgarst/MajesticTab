@@ -751,13 +751,11 @@ function setupMenuEdgeSwipeGesture() {
             return;
         }
 
-        // When library page is open, only allow edge swipe to open settings if at root level (cannot go back)
+        // Over the library there is nothing to swipe to; the swipe only returns from an open tab
         const libPage = document.getElementById('libraryPage');
         if (libPage && libPage.style.display !== 'none') {
-            if (typeof window.__majesticLibraryCanGoBack === 'function' && window.__majesticLibraryCanGoBack()) {
-                isTrackingOpen = false;
-                return;
-            }
+            isTrackingOpen = false;
+            return;
         }
 
         // Avoid triggering when interacting with form controls or buttons near edge
@@ -799,17 +797,8 @@ function setupMenuEdgeSwipeGesture() {
                     } else if (typeof handleGlobalBack === 'function') {
                         handleGlobalBack();
                     }
-                } else {
-                    // At root level of library, swiping from left edge opens settings menu
-                    const fileMenu = document.getElementById('fileMenu');
-                    if (fileMenu) {
-                        if (window.bootstrap?.Offcanvas) {
-                            window.bootstrap.Offcanvas.getOrCreateInstance(fileMenu).show();
-                        } else {
-                            document.getElementById('menuToggleBtn')?.click();
-                        }
-                    }
                 }
+                // In the library the edge swipe does nothing: Settings is a page in the navigation, not a drawer
                 isTrackingOpen = false;
             }
         } else if (isTrackingClose) {

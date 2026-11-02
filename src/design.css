@@ -1522,3 +1522,6 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 /* Pinned songs list: ordinary rows, no accent bar, no bullet where there is no track number */
 .library-song-rowwrap.library-song-row-pinned { border-left: 0 !important; box-shadow: none !important; }
 .library-song-rowwrap, #libSongsList { min-width: 0; max-width: 100%; }
+
+/* Settings is a page in the navigation; the hamburger drawer is gone */
+#menuToggleBtn { display: none !important; }
