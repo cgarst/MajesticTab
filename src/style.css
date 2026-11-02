@@ -7643,3 +7643,48 @@ body {
   .theme-control-btn:active:not(:disabled),
   .btn-theme-icon:active:not(:disabled) { transform: none; }
 }
+
+/* --- Shell (phase 5): one nav, two shapes. Bottom tab bar on phones, left rail on wide windows. --- */
+:root { --rail-w: 76px; --topbar-h: 57px; }
+@media (min-width: 577px) {
+  body.library-view-active .library-bottom-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.25rem;
+    position: fixed;
+    top: var(--topbar-h);
+    bottom: 0;
+    left: 0;
+    width: var(--rail-w);
+    z-index: 1040;
+    padding: 0.75rem 0.5rem;
+    background: var(--bg-elevated);
+    border-right: 1px solid var(--border-subtle);
+    box-shadow: none;
+  }
+  body.library-view-active .library-bottom-nav .library-nav-settings { margin-top: auto; }
+  body.library-view-active #libraryPage { padding-left: var(--rail-w); }
+  .library-bottom-nav .library-nav-tab { border-radius: var(--r-control); min-height: 56px; }
+  .library-bottom-nav .library-nav-tab:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+}
+/* Active item: a flat dot in the second hue, no glow */
+.library-bottom-nav .library-nav-tab { position: relative; }
+.library-bottom-nav .library-nav-tab.active::before {
+  content: ''; position: absolute; top: 4px; left: 50%; width: 4px; height: 4px; margin-left: -2px;
+  border-radius: 50%; background: var(--accent-secondary);
+}
+@media (max-width: 576px) {
+  body.library-view-active .library-bottom-nav {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    background: var(--bg-elevated);
+    box-shadow: none;
+  }
+}
+.library-nav-tab { transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.library-nav-tab:active { transform: scale(0.96); }
+@media (prefers-reduced-motion: reduce) { .library-nav-tab:active { transform: none; } }
+/* The rail replaces the in-page view switcher */
+@media (min-width: 577px) { body.library-view-active .lib-view-switch-row { display: none; } }
+/* View is a reader menu */
+body.library-view-active #viewPill { display: none; }

@@ -1584,19 +1584,21 @@ function syncLibraryBottomNav() {
         nav.id = 'libraryBottomNav';
         nav.className = 'library-bottom-nav';
         nav.setAttribute('aria-label', 'Library');
-        nav.innerHTML = `${tabHtml(lib)}${tabHtml(setlists)}
-          <button type="button" class="library-nav-add" id="libraryNavAddBtn" aria-label="Add music" title="Add music"><span class="library-nav-add-circle"><i class="bi-plus-lg"></i></span><span>Add</span></button>
-          ${tabHtml(tunings)}${tabHtml(recents)}`;
+        // Phones: bottom tab bar. Wide windows: left rail (CSS). Settings sits last; Add music stays in each list's toolbar.
+        nav.innerHTML = `${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tunings)}${tabHtml(recents)}
+          <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
             const tab = e.target.closest('[data-lib-tab]');
             if (tab) return goLibraryTab(tab.dataset.libTab);
-            if (e.target.closest('#libraryNavAddBtn')) switchView('search');
+            if (e.target.closest('#libraryNavSettingsBtn')) {
+                const panel = document.getElementById('fileMenu');
+                if (panel && window.bootstrap?.Offcanvas) window.bootstrap.Offcanvas.getOrCreateInstance(panel).toggle();
+            }
         });
         document.body.appendChild(nav);
     }
     const active = getActiveLibraryTab();
     nav.querySelectorAll('[data-lib-tab]').forEach(b => b.classList.toggle('active', b.dataset.libTab === active));
-    nav.querySelector('#libraryNavAddBtn')?.classList.toggle('active', activeView === 'search');
 }
 
 function bindLibraryToolbarEvents(container) {
