@@ -95,6 +95,17 @@ function remoteItems(manifest) {
  *   unchanged: number, bytesUp: number, bytesDown: number, needsPush: boolean
  * }>}
  */
+// The downloader's source list is written on first use, so "fill gaps" would never bring in sources
+// added on another device. It merges by id instead: each side keeps its own entries and gains the other's.
+const TAB_SOURCES_KEY = 'majestictab_tab_sources';
+
+function readSourceList(value) {
+    if (typeof value === 'string') {
+        try { value = JSON.parse(value); } catch { return []; }
+    }
+    return Array.isArray(value) ? value.filter(s => s && s.id) : [];
+}
+
 function sameValue(a, b) {
     return JSON.stringify(a) === JSON.stringify(b);
 }
@@ -127,6 +138,10 @@ function compareOther(manifest, localLibrary) {
     const gain = [], lose = [], differ = [];
     for (const key of new Set([...Object.keys(mineSettings), ...Object.keys(theirSettings)])) {
         if (key === 'ytCache' || key === 'gpTabStrings') continue;
+        if (key === TAB_SOURCES_KEY) {
+            sides('tab source', readSourceList(mineSettings[key]), readSourceList(theirSettings[key]), x => x.id);
+            continue;
+        }
         const has = key in mineSettings;
         const there = key in theirSettings;
         if (there && !has) gain.push(key);
@@ -239,6 +254,13 @@ function fillMissingPreferences(manifest) {
     for (const [key, val] of Object.entries(manifest.settings || {})) {
         // ytCache and gpTabStrings are per-key maps that the restore code already fills without overwriting
         if (key === 'ytCache' || key === 'gpTabStrings' || localStorage.getItem(key) === null) settings[key] = val;
+    }
+    const theirSources = readSourceList(manifest.settings?.[TAB_SOURCES_KEY]);
+    if (theirSources.length && localStorage.getItem(TAB_SOURCES_KEY) !== null) {
+        const mine = readSourceList(localStorage.getItem(TAB_SOURCES_KEY));
+        const known = new Set(mine.map(x => x.id));
+        const added = theirSources.filter(x => !known.has(x.id));
+        if (added.length) settings[TAB_SOURCES_KEY] = [...mine, ...added];
     }
     applyRestoredSettings(settings, { wipe: false });
     const known = new Set(collectExtensions().map(e => e.id));
