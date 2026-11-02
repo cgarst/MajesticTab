@@ -463,6 +463,8 @@ function setupLibraryTouchListeners(page) {
 export async function openLibraryModal(initialView = 'library') {
     // Web Jam guests only follow the host's tab
     if (document.documentElement.classList.contains('jam-web-guest')) return;
+    // Leaving a tab keeps where you were in it, for Resume
+    import('./gpProcessor/gpPlayer.js').then((m) => m.savePlaybackPosition(true)).catch(() => {});
     // Going back to the library stops whatever song is playing
     pauseSynthPlayer();
     pauseYouTube();
@@ -1454,11 +1456,16 @@ async function renderLibraryBrowseView(container) {
 
     bindLibraryToolbarEvents(container);
 
-    // Resume opens the newest recent: go to Recents, then press its Open button once it has rendered
+    // Resume opens the newest recent directly
     container.querySelector('#libResumeBtn')?.addEventListener('click', async () => {
-        await goLibraryTab('recents');
-        const open = document.querySelector('#libraryPage .open-recent-btn');
-        open?.click();
+        const [latest] = await getRecents(1);
+        if (!latest) return;
+        // Straight into the tab, then to the bar it was left at
+        await openRecentItem(latest);
+        if (latest.lastBar > 1) {
+            const { seekToBarWhenReady } = await import('./gpProcessor/gpPlayer.js');
+            seekToBarWhenReady(latest.lastBar);
+        }
     });
 
     // In-view Back button click
@@ -4466,6 +4473,48 @@ function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistNa
 // -----------------------------------------------------------------------------
 // 3. RECENTS VIEW (Enriched with Library & Metadata, Edit Mode & Individual Delete)
 // -----------------------------------------------------------------------------
+/** Opens a recent item's tab: its library song and tab first, then the stored file. */
+export async function openRecentItem(r) {
+
+        // 1. If associated with a library song, load that specific tab
+        if (r.librarySongId) {
+            const song = await getSongById(r.librarySongId);
+            if (song && Array.isArray(song.tabOptions) && song.tabOptions.length > 0) {
+                const specificTab = (r.tabId && song.tabOptions.find(t => t.id === r.tabId))
+                    || (r.fileStoreId && song.tabOptions.find(t => t.fileStoreId === r.fileStoreId))
+                    || (r.name && song.tabOptions.find(t => t.name === r.name || t.relativePath === r.name))
+                    || (r.fileName && song.tabOptions.find(t => t.name === r.fileName || t.relativePath === r.fileName))
+                    || (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId))
+                    || song.tabOptions[0];
+                if (specificTab) {
+                    await loadSongTab(song, specificTab);
+                    return;
+                }
+            }
+        }
+
+        // 2. Direct fileStoreId loading
+        if (r.fileStoreId) {
+            const stored = await getStoredFile(r.fileStoreId);
+            if (stored?.file) {
+                stored.file.songTitle = r.songTitle || r.name;
+                stored.file.librarySongTitle = r.songTitle || r.name;
+                stored.file.artist = r.artist || '';
+                stored.file.album = r.album || '';
+                stored.file.startPage = r.startPage || null;
+                stored.file.endPage = r.endPage || null;
+                stored.file.tabId = r.tabId || null;
+                stored.file.tabName = r.tabName || r.name;
+                stored.file.fileStoreId = r.fileStoreId;
+                stored.file.preferredStringCount = r.preferredStringCount || null;
+                closeLibraryModal();
+                await loadFile(stored.file);
+                return;
+            }
+        }
+        showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
+}
+
 async function renderRecentsView(container) {
     const recents = await getRecents(15);
 
@@ -4600,47 +4649,7 @@ async function renderRecentsView(container) {
     });
 
     container.querySelectorAll('.open-recent-row[role="button"]').forEach(btn => {
-        const openRecent = async () => {
-            const r = JSON.parse(btn.dataset.recent);
-
-            // 1. If associated with a library song, load that specific tab
-            if (r.librarySongId) {
-                const song = await getSongById(r.librarySongId);
-                if (song && Array.isArray(song.tabOptions) && song.tabOptions.length > 0) {
-                    const specificTab = (r.tabId && song.tabOptions.find(t => t.id === r.tabId))
-                        || (r.fileStoreId && song.tabOptions.find(t => t.fileStoreId === r.fileStoreId))
-                        || (r.name && song.tabOptions.find(t => t.name === r.name || t.relativePath === r.name))
-                        || (r.fileName && song.tabOptions.find(t => t.name === r.fileName || t.relativePath === r.fileName))
-                        || (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId))
-                        || song.tabOptions[0];
-                    if (specificTab) {
-                        await loadSongTab(song, specificTab);
-                        return;
-                    }
-                }
-            }
-
-            // 2. Direct fileStoreId loading
-            if (r.fileStoreId) {
-                const stored = await getStoredFile(r.fileStoreId);
-                if (stored?.file) {
-                    stored.file.songTitle = r.songTitle || r.name;
-                    stored.file.librarySongTitle = r.songTitle || r.name;
-                    stored.file.artist = r.artist || '';
-                    stored.file.album = r.album || '';
-                    stored.file.startPage = r.startPage || null;
-                    stored.file.endPage = r.endPage || null;
-                    stored.file.tabId = r.tabId || null;
-                    stored.file.tabName = r.tabName || r.name;
-                    stored.file.fileStoreId = r.fileStoreId;
-                    stored.file.preferredStringCount = r.preferredStringCount || null;
-                    closeLibraryModal();
-                    await loadFile(stored.file);
-                    return;
-                }
-            }
-            showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
-        };
+        const openRecent = () => openRecentItem(JSON.parse(btn.dataset.recent));
         // The whole row opens the tab; the setlist button inside it does not
         btn.addEventListener('click', (e) => {
             if (e.target.closest('button, a')) return;

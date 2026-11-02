@@ -656,6 +656,52 @@ export function updateSynthUI() {
 
 const playedBeatState = { beat: null, shownBeat: null };
 
+// ---- Where the player is in the tab, kept on the newest recent so the library can resume there ----
+let savedPositionBar = 0;
+let lastPositionSaveAt = 0;
+
+let noted = { bar: 0, total: 0 };
+
+/** The ruler reports the bar the cursor is in (every position event, seeks included). */
+export function notePlaybackBar(bar, total) {
+    noted = { bar, total };
+    savePlaybackPosition();
+}
+
+/** Saves the noted bar on the newest recent. Throttled unless `force`, which leaving the tab uses. */
+export function savePlaybackPosition(force = false) {
+    const { bar, total } = noted;
+    if (!bar || !total) return;
+    const now = Date.now();
+    if (!force && (bar === savedPositionBar || now - lastPositionSaveAt < 2000)) return;
+    if (force && bar === savedPositionBar) return;
+    savedPositionBar = bar;
+    lastPositionSaveAt = now;
+    import('../libraryStore.js').then((m) => m.updateRecentPosition(bar, total)).catch(() => {});
+}
+
+/** Moves the cursor to a bar once the score has loaded (a resume opens the tab first, then calls this). */
+export function seekToBarWhenReady(bar, timeoutMs = 25000) {
+    const started = Date.now();
+    const timer = setInterval(() => {
+        const { api, score } = getPlayerContext();
+        const mb = score?.masterBars?.[bar - 1];
+        const lookup = api && getMidiTickLookup(api);
+        if (api && mb && lookup && api.isReadyForPlayback !== false) {
+            clearInterval(timer);
+            let tick = mb.start;
+            try {
+                const t = lookup.getMasterBarStart?.(mb);
+                if (typeof t === 'number' && !Number.isNaN(t)) tick = t;
+            } catch (_) { /* notation tick */ }
+            api.tickPosition = tick;
+        } else if (Date.now() - started > timeoutMs) {
+            clearInterval(timer);
+        }
+    }, 400);
+}
+
+
 export const READER_CURSOR_WIDTH = 20;
 
 /**

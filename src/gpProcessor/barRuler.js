@@ -5,7 +5,7 @@
 // which bars follow a synced recording. Drag to seek; the dock's loop button loops the current part.
 // It never draws notation; AlphaTab owns that.
 
-import { onTransportEvent, getPlayerContext, getMidiTickLookup, synthPlayerState, applyLoopSettings, updateSynthUI, toggleMetronome } from './gpPlayer.js';
+import { notePlaybackBar, onTransportEvent, getPlayerContext, getMidiTickLookup, synthPlayerState, applyLoopSettings, updateSynthUI, toggleMetronome } from './gpPlayer.js';
 import { deriveSections, partAtBar, DEFAULT_MIN_BARS } from './songSections.js';
 import { buildScoreTimeline, playedBarsFromLookup, tickToPosition, tickToScoreMs, tempoAtScoreMs } from '../audioSync/scorePositions.js';
 import { buildTimelineModel } from '../audioSync/timelineModel.js';
@@ -357,7 +357,7 @@ export function initBarRuler() {
             if (!model) return;
             ensureTimeline();
             const at = model.timeline ? tickToPosition(model.timeline, e.tick) : null;
-            if (at) current = { bar: at.barIndex + 1, pos: at.pos };
+            if (at) { current = { bar: at.barIndex + 1, pos: at.pos }; notePlaybackBar(current.bar, model.total); }
             updateHead();
             const clock = $('dockClock');
             if (clock) clock.textContent = `${formatClock(e.timeMs)} / ${formatClock(e.endMs)}`;
