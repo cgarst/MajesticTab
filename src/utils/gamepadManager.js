@@ -1091,8 +1091,8 @@ class GamepadManager {
             return modalCard || topModal;
         }
 
-        // 4. If a top-bar popup panel (SoundFont, Notation Options, YouTube, Tools) is open
-        for (const panelId of ['synthDropdownPanel', 'scoreOptionsDropdownPanel', 'ytDropdownPanel', 'toolsMenu']) {
+        // 4. If a top-bar popup panel (View, Practice, Guitar, Song, Recording, Tools) is open
+        for (const panelId of ['viewMenu', 'practiceMenu', 'guitarMenu', 'synthDropdownPanel', 'scoreOptionsDropdownPanel', 'ytDropdownPanel', 'toolsMenu']) {
             const panel = document.getElementById(panelId);
             if (panel && panel.style.display !== 'none' && this.isElementVisible(panel)) {
                 return panel;
