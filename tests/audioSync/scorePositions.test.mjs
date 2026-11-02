@@ -2,7 +2,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    buildScoreTimeline, positionToScoreMs, scoreMsToPosition, scoreMsToTick, playedBarsFromLookup, tempoAtScoreMs, tickToPosition
+    buildScoreTimeline, positionToScoreMs, scoreMsToPosition, scoreMsToTick, playedBarsFromLookup, tempoAtScoreMs, tickToPosition, tickToScoreMs
 } from '../../src/audioSync/scorePositions.js';
 import { createYouTubeSource } from '../../src/audioSync/mediaSource.js';
 
@@ -63,6 +63,24 @@ test('tempo and position lookups', () => {
     const rep = buildScoreTimeline(played);
     assert.deepEqual(tickToPosition(rep, 3 * 3840 + 960), { barIndex: 1, occurrence: 1, pos: 0.25 });
     assert.equal(tickToPosition(buildScoreTimeline([]), 0), null);
+});
+
+test('a tick maps back to score time, the inverse of scoreMsToTick', () => {
+    const tl = buildScoreTimeline([
+        bar(0, 0, [{ tick: 0, tempo: 120 }]),
+        bar(1, 1, [{ tick: 3840, tempo: 60 }, { tick: 5760, tempo: 90 }])
+    ]);
+    assert.equal(tickToScoreMs(tl, 0), 0);
+    assert.equal(tickToScoreMs(tl, 1920), 1000);
+    assert.equal(tickToScoreMs(tl, 3840), 2000);
+    assert.equal(tickToScoreMs(tl, 3840 + 1920), 4000);            // half of the 60 bpm part of bar 1
+    assert.equal(tickToScoreMs(tl, 5760 + 960), 4000 + 60000 / (90 * 960) * 960);   // a beat into the 90 bpm part
+    for (const ms of [0, 750, 2000, 3500, 4999]) assert.ok(Math.abs(tickToScoreMs(tl, scoreMsToTick(tl, ms)) - ms) < 2);
+    assert.equal(tickToScoreMs(tl, 1e9), tl.totalMs);
+    assert.equal(tickToScoreMs(buildScoreTimeline([]), 10), 0);
+    // in a repeat, the second pass is later in score time
+    const rep = buildScoreTimeline(played);
+    assert.equal(tickToScoreMs(rep, 3 * 3840), 6000);
 });
 
 test('playedBarsFromLookup reads AlphaTab lookup entries', () => {

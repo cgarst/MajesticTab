@@ -663,6 +663,14 @@ export function getPlaybackTickForBeat(beat, api) {
     return masterBarStart + (beat.playbackStart ?? 0);
 }
 
+// Called with the playback tick whenever the user puts the cursor somewhere (a click on the score), after the
+// cursor has moved. Audio sync uses it to move the recording to match.
+const userSeekListeners = new Set();
+export function onUserSeekTick(cb) {
+    userSeekListeners.add(cb);
+    return () => userSeekListeners.delete(cb);
+}
+
 // While set, a click on a beat goes to `fn(beat, event)` instead of moving the cursor (tap mode for audio sync)
 let scoreClickOverride = null;
 export function setScoreClickOverride(fn) {
@@ -836,6 +844,7 @@ export function applyCursorPositionFromBeat(beat) {
     // Set playback position
     currentApi.tickPosition = beatTick;
     synthPlayerState.currentTime = currentApi.timePosition || 0;
+    userSeekListeners.forEach((cb) => { try { cb(beatTick); } catch (e) { console.error('[Synth Player] seek listener error:', e); } });
 
     // Enable visual cursor display
     document.body.classList.add('synth-playback-started');

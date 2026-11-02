@@ -3,8 +3,9 @@
 // position (`{ id, barIndex, occurrence, pos, timeMs }`); `scoreMs` is derived from the score's MIDI tick lookup
 // whenever the score or the points change.
 
-import { getMidiTickLookup, getAudioLatencyMs, synthPlayerState } from '../gpProcessor/gpPlayer.js';
-import { buildScoreTimeline, playedBarsFromLookup } from './scorePositions.js';
+import { getMidiTickLookup, getAudioLatencyMs, synthPlayerState, onUserSeekTick } from '../gpProcessor/gpPlayer.js';
+import { buildScoreTimeline, playedBarsFromLookup, tickToScoreMs } from './scorePositions.js';
+import { scoreToMedia } from './syncMap.js';
 import { resolvePoints } from './pointCheck.js';
 import { createFollower } from './follower.js';
 import { hasOrderProblems, validatePoints } from './syncMap.js';
@@ -76,6 +77,16 @@ export function startAudioSync({ source, points: storedPoints }) {
         snapToBeat: (tick) => snapTo(starts, tick),
         getLatencyMs: getAudioLatencyMs
     });
+    // The recording is the clock, so putting the cursor somewhere means moving the recording there too: otherwise
+    // the next play carries on from where it was and the cursor jumps back to match it.
+    const seekRecordingToTick = (tick) => {
+        // Land a hair inside the beat, so mapping back (which rounds) cannot fall on the beat before it
+        const mediaMs = scoreToMedia(resolved, tickToScoreMs(timeline, tick)) + 1;
+        source.seek(Math.max(0, mediaMs));
+        follower.refresh();
+    };
+    const stopListeningForSeeks = onUserSeekTick(seekRecordingToTick);
+
     active = {
         source,
         setPoints(next) {
@@ -86,6 +97,7 @@ export function startAudioSync({ source, points: storedPoints }) {
         problems: () => validatePoints(resolved),
         usable: () => !hasOrderProblems(resolved),
         stop() {
+            stopListeningForSeeks();
             follower.stop();
             // The cursor layer is only wanted while something drives it; the synth keeps it once it has played
             if (!synthPlayerState.hasPlayed) document.body.classList.remove('synth-playback-started');

@@ -103,6 +103,18 @@ export function scoreMsToPosition(timeline, scoreMs) {
     };
 }
 
+/** `scoreMs` of a MIDI playback tick (repeats expanded): the inverse of `scoreMsToTick`. */
+export function tickToScoreMs(timeline, tick) {
+    const { bars } = timeline;
+    if (!bars.length) return 0;
+    let bar = bars[0];
+    for (const b of bars) {
+        if (b.startTick <= tick) bar = b;
+    }
+    if (tick >= bars[bars.length - 1].endTick) return bars[bars.length - 1].endMs;
+    return tickToMsInBar(bar, Math.max(tick, bars[0].startTick));
+}
+
 /** MIDI playback tick (repeats expanded) for a `scoreMs`, for setting `api.tickPosition`. */
 export function scoreMsToTick(timeline, scoreMs) {
     const { bars } = timeline;
