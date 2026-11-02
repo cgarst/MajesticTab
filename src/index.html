@@ -752,12 +752,25 @@
     </button>
 
 
-    <!-- Section 1: Appearance and Display -->
-    <div class="settings-card">
-      <div class="settings-header-label">
-        <i class="bi-palette-fill text-info"></i> Appearance and display
+    <!-- Settings are the things you set once. Reader options (size, paper, pages) live in the reader's View menu. -->
+    <div class="settings-card" id="settingsPlayer">
+      <div class="settings-header-label"><i class="bi-person-badge text-info"></i> Player</div>
+      <!-- Instrument Mode Toggle (Guitar vs Bass) -->
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Instrument mode:</label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeGuitar" value="guitar" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="instrumentModeGuitar"><i class="bi-music-note me-1"></i> Guitar</label>
+
+          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeBass" value="bass" autocomplete="off">
+          <label class="btn btn-sm w-50" for="instrumentModeBass"><i class="bi-soundwave me-1"></i> Bass</label>
+        </div>
       </div>
-      
+
+    </div>
+
+    <div class="settings-card" id="settingsAppearance">
+      <div class="settings-header-label"><i class="bi-palette-fill text-info"></i> Appearance</div>
       <!-- Colorway Finish Row -->
       <div class="d-flex align-items-center justify-content-between p-2 rounded-2" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
         <div class="d-flex align-items-center gap-2">
@@ -769,9 +782,14 @@
         </button>
       </div>
 
+    </div>
+
+    <div class="settings-card" id="settingsReading">
+      <div class="settings-header-label"><i class="bi-layout-text-window-reverse text-warning"></i> Reading</div>
+      <div id="readerViewOptions" class="d-flex flex-column gap-3">
       <!-- Tab Mode (Auto / Light / Dark / Theme) -->
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Tab mode:</label>
+        <label class="form-label d-block mb-1 small text-white-50">Paper:</label>
         <div class="hud-pill-group sheet-mode-group w-100">
           <input type="radio" class="btn-check" name="sheetModeRadio" id="drawerSheetModeAuto" value="auto" autocomplete="off">
           <label class="btn btn-sm" for="drawerSheetModeAuto"><i class="bi-circle-half me-1"></i> Auto</label>
@@ -789,7 +807,7 @@
 
       <!-- Tab Size Slider (Placed prominently with display controls) -->
       <div>
-        <label class="form-label d-block mb-1 small text-white-50" for="gpSheetScale">Tab size:</label>
+        <label class="form-label d-block mb-1 small text-white-50" for="gpSheetScale">Size:</label>
         <div class="d-flex align-items-center gap-2">
           <button type="button" class="btn btn-sm theme-control-btn px-2 py-1" id="gpSheetScaleMinus" aria-label="Decrease Guitar Pro tab size">−</button>
           <div class="gp-scale-slider flex-grow-1">
@@ -803,17 +821,60 @@
           <span class="small text-white-50">150%</span>
         </div>
       </div>
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Landscape in Page Mode:
+          <button type="button" class="btn btn-link p-0 ms-1 align-baseline text-white-50" data-bs-toggle="tooltip" data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="Controls how landscape screens display pages in Page Mode: 2 Pages fits vertical height and creates two pages side-by-side; 1 Page scales a single page to match both horizontal and vertical space." aria-label="About landscape in page mode"><i class="bi-info-circle"></i></button>
+        </label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="landscapePageLayoutRadio" id="landscapeLayoutDual" value="dual" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="landscapeLayoutDual"><i class="bi-layout-split me-1"></i> 2 Pages</label>
+
+          <input type="radio" class="btn-check" name="landscapePageLayoutRadio" id="landscapeLayoutSingle" value="single" autocomplete="off">
+          <label class="btn btn-sm w-50" for="landscapeLayoutSingle"><i class="bi-square me-1"></i> 1 Page</label>
+        </div>
+      </div>
+
+      <div>
+        <label class="form-label d-block mb-1 small text-white-50">Dual-Page Advance:
+          <button type="button" class="btn btn-link p-0 ms-1 align-baseline text-white-50" data-bs-toggle="tooltip" data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="When two pages are shown side by side, controls how many pages the next/previous buttons turn: 1 page overlaps the previous spread, 2 pages shows a fresh spread." aria-label="About dual-page advance"><i class="bi-info-circle"></i></button>
+        </label>
+        <div class="hud-pill-group w-100">
+          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance1" value="1" autocomplete="off">
+          <label class="btn btn-sm w-50" for="pageAdvance1">1 Page</label>
+
+          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
+          <label class="btn btn-sm w-50" for="pageAdvance2">2 Pages</label>
+        </div>
+      </div>
+
+      </div>
+      <button class="btn theme-control-btn w-100 d-flex align-items-center justify-content-center gap-2 py-2" id="defaultsModalBtn" type="button">
+        <i class="bi-sliders2 text-info"></i> Defaults...
+      </button>
+
     </div>
 
-    <!-- Section 2: Backup (plus Updates when the build can self-update) -->
+    <div class="settings-card" id="settingsControls">
+      <div class="settings-header-label"><i class="bi-keyboard text-info"></i> Controls</div>
+      <div class="d-flex gap-2" id="secondaryUtilities">
+        <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openControllerHelpMenuBtn" type="button">
+          <i class="bi-keyboard text-info"></i> Keys and pedals
+        </button>
+        <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openExtensions" type="button">
+          <i class="bi-puzzle text-info"></i> File Converters
+        </button>
+      </div>
+    </div>
+
+    <!-- Library and backup (plus Updates when the build can self-update) -->
     <div class="settings-card" id="updatesBackupCard">
       <div class="settings-header-label">
-        <i class="bi-cloud-arrow-down-fill text-primary"></i> <span id="updatesBackupTitle">Backup</span>
+        <i class="bi-cloud-arrow-down-fill text-primary"></i> <span id="updatesBackupTitle">Library and backup</span>
       </div>
 
       <!-- Backup and Restore Actions -->
       <div>
-        <label class="form-label d-block mb-1 small text-white-50">Library sync and backup:</label>
+        
         <button class="btn btn-theme-primary w-100 d-flex align-items-center justify-content-center gap-2 py-2 mb-1" id="syncDataBtn" type="button">
           <i class="bi-arrow-repeat"></i>
           <span>Sync</span>
@@ -875,66 +936,6 @@
           </button>
         </div>
       </details>
-    </div>
-
-    <!-- Section 3: Notation and Reading -->
-    <div class="settings-card">
-      <div class="settings-header-label">
-        <i class="bi-layout-text-window-reverse text-warning"></i> Notation and reading
-      </div>
-      
-      <!-- Instrument Mode Toggle (Guitar vs Bass) -->
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Instrument mode:</label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeGuitar" value="guitar" autocomplete="off" checked>
-          <label class="btn btn-sm w-50" for="instrumentModeGuitar"><i class="bi-music-note me-1"></i> Guitar</label>
-
-          <input type="radio" class="btn-check" name="instrumentModeRadio" id="instrumentModeBass" value="bass" autocomplete="off">
-          <label class="btn btn-sm w-50" for="instrumentModeBass"><i class="bi-soundwave me-1"></i> Bass</label>
-        </div>
-      </div>
-
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Landscape in Page Mode:
-          <button type="button" class="btn btn-link p-0 ms-1 align-baseline text-white-50" data-bs-toggle="tooltip" data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="Controls how landscape screens display pages in Page Mode: 2 Pages fits vertical height and creates two pages side-by-side; 1 Page scales a single page to match both horizontal and vertical space." aria-label="About landscape in page mode"><i class="bi-info-circle"></i></button>
-        </label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="landscapePageLayoutRadio" id="landscapeLayoutDual" value="dual" autocomplete="off" checked>
-          <label class="btn btn-sm w-50" for="landscapeLayoutDual"><i class="bi-layout-split me-1"></i> 2 Pages</label>
-
-          <input type="radio" class="btn-check" name="landscapePageLayoutRadio" id="landscapeLayoutSingle" value="single" autocomplete="off">
-          <label class="btn btn-sm w-50" for="landscapeLayoutSingle"><i class="bi-square me-1"></i> 1 Page</label>
-        </div>
-      </div>
-
-      <div>
-        <label class="form-label d-block mb-1 small text-white-50">Dual-Page Advance:
-          <button type="button" class="btn btn-link p-0 ms-1 align-baseline text-white-50" data-bs-toggle="tooltip" data-bs-trigger="hover focus" data-bs-placement="top" data-bs-title="When two pages are shown side by side, controls how many pages the next/previous buttons turn: 1 page overlaps the previous spread, 2 pages shows a fresh spread." aria-label="About dual-page advance"><i class="bi-info-circle"></i></button>
-        </label>
-        <div class="hud-pill-group w-100">
-          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance1" value="1" autocomplete="off">
-          <label class="btn btn-sm w-50" for="pageAdvance1">1 Page</label>
-
-          <input type="radio" class="btn-check" name="pageAdvanceRadio" id="pageAdvance2" value="2" autocomplete="off" checked>
-          <label class="btn btn-sm w-50" for="pageAdvance2">2 Pages</label>
-        </div>
-      </div>
-
-      <button class="btn theme-control-btn w-100 d-flex align-items-center justify-content-center gap-2 py-2" id="defaultsModalBtn" type="button">
-        <i class="bi-sliders2 text-info"></i> Defaults...
-      </button>
-
-    </div>
-
-    <!-- Secondary Utilities -->
-    <div class="d-flex gap-2" id="secondaryUtilities">
-      <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openControllerHelpMenuBtn" type="button">
-        <i class="bi-keyboard text-info"></i> Controls
-      </button>
-      <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openExtensions" type="button">
-        <i class="bi-puzzle text-info"></i> File Converters
-      </button>
     </div>
 
     <div class="mt-auto pt-2 d-flex flex-column gap-2">
