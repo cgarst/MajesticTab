@@ -7206,7 +7206,12 @@ html.jam-web-guest #setlistNav {
 }
 @media (max-width: 640px) {
   .sync-row {
-    grid-template-columns: 2.8rem 2.6rem 3rem minmax(0, 1fr) 4.4rem;
+    grid-template-columns: 2.4rem 2.2rem 2.6rem minmax(4.4rem, 1fr) 3.9rem;
+    gap: 0.3rem;
+    padding: 0.3rem;
+  }
+  .sync-row .form-control {
+    padding: 0.15rem 0.25rem;
   }
   .sync-col-extra {
     display: none;
@@ -7353,4 +7358,51 @@ html.jam-web-guest #setlistNav {
   .sync-mode-bar {
     top: 52px;
   }
+}
+
+/* Sync timeline */
+.sync-tl-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.sync-tl-status {
+  margin-left: auto;
+  white-space: nowrap;
+}
+.sync-tl-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-card-solid);
+}
+.sync-tl-stack {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+  line-height: 0;
+}
+.sync-tl-canvas,
+.sync-tl-head {
+  background: transparent !important;
+  max-width: none !important;
+}
+.sync-tl-canvas {
+  display: block;
+}
+.sync-tl-head {
+  position: absolute;
+  inset: 0;
+  touch-action: pan-x;
+  cursor: pointer;
+}
+.sync-tl-host {
+  margin-bottom: 0.75rem;
+}
+.sync-row.is-selected {
+  border-color: var(--accent-border-alpha);
+  background: var(--accent-primary-alpha);
 }

@@ -15,8 +15,10 @@ import { chooseTap } from './tapRules.js';
 import { loadRecord, saveRecord } from './syncStore.js';
 import { makeId, formatTime } from './syncEdit.js';
 import { SYNC_CHANGED_EVENT } from './audioSyncEditor.js';
+import { createSyncTimeline } from './syncTimeline.js';
 
 const OFFSET_KEY = 'audio_sync_tap_offset';
+const TIMELINE_KEY = 'audio_sync_timeline';
 const YOUTUBE_DEFAULT_RATE = 0.75;
 const HISTORY_LIMIT = 100;
 const SCROLL_IDLE_MS = 600;
@@ -34,6 +36,14 @@ function readOffset() {
         const n = Number(localStorage.getItem(OFFSET_KEY));
         return Number.isFinite(n) ? Math.min(500, Math.max(0, n)) : 0;
     } catch { return 0; }
+}
+
+function readTimelinePref() {
+    try {
+        const v = localStorage.getItem(TIMELINE_KEY);
+        // Closed by default on a phone, where the toolbar already takes a lot of the screen
+        return v === null ? window.innerHeight >= 760 && window.innerWidth >= 700 : v === '1';
+    } catch { return false; }
 }
 
 function writeOffset(ms) {
@@ -65,8 +75,9 @@ async function ensureScrollView() {
  * @param {object} opts
  * @param {object} opts.source MediaSource
  * @param {object} opts.media the media descriptor the points are stored under
+ * @param {Uint8Array|null} [opts.peaks] the waveform, for a local file
  */
-export async function enterSyncMode({ source, media }) {
+export async function enterSyncMode({ source, media, peaks = null }) {
     if (session) return;
     if (!getScoreContext()) {
         showToast('Open a tab first', 'info', 2000);
@@ -95,7 +106,7 @@ export async function enterSyncMode({ source, media }) {
 
     const songKey = getSongKey();
     const s = session = {
-        source, media, ctx, map, container, output, overlay, songKey, wasPage,
+        source, media, peaks, ctx, map, container, output, overlay, songKey, wasPage,
         prevRate: source.getRate?.() ?? 1,
         points: loadRecord(songKey, media)?.points || [],
         undo: [], redo: [],
@@ -105,8 +116,22 @@ export async function enterSyncMode({ source, media }) {
         target: null,
         lastUserScrollAt: 0,
         lastTapId: null,
+        selectedId: null,
+        timelineOpen: readTimelinePref(),
+        timeline: null,
         cleanup: []
     };
+    s.timeline = createSyncTimeline({
+        host: $('smTimeline'),
+        getData: () => ({
+            timeline: s.ctx.timeline, points: s.points, source: s.source, peaks: s.peaks,
+            durationMs: s.source.durationMs ?? null, selectedId: s.selectedId
+        }),
+        onChangePoints: (next) => { commit(next); retarget(); },
+        onSeek: ({ mediaMs }) => s.source.seek(mediaMs),
+        onSelect: (id) => { s.selectedId = id; }
+    });
+    s.cleanup.push(() => s.timeline.destroy());
 
     // One audio source at a time, and the cursor must not be moved by the points being edited
     pauseSynthPlayer();
@@ -120,6 +145,17 @@ export async function enterSyncMode({ source, media }) {
     s.target = firstUnsyncedTarget(map, s.points);
     document.body.classList.add('sync-mode');
     $('syncModeBar').hidden = false;
+    // The toolbar floats over the top of the score: pad the score by its height so every system can be scrolled clear of it
+    s.prevPadding = output.style.paddingTop;
+    const padForBar = () => {
+        const need = $('syncModeBar').getBoundingClientRect().bottom - output.getBoundingClientRect().top + 8;
+        output.style.paddingTop = `${Math.max(0, Math.round(need))}px`;
+    };
+    const barObserver = new ResizeObserver(padForBar);
+    barObserver.observe($('syncModeBar'));
+    s.cleanup.push(() => { barObserver.disconnect(); output.style.paddingTop = s.prevPadding; });
+    padForBar();
+    showTimeline(s.timelineOpen);
     renderOverlay();
     updateToolbar();
     scrollToTarget(true);
@@ -199,11 +235,21 @@ function commit(next) {
     setPoints(next);
 }
 
+function showTimeline(open) {
+    const s = session;
+    s.timelineOpen = open;
+    $('smTimeline').hidden = !open;
+    $('smTimelineBtn').classList.toggle('active', open);
+    try { localStorage.setItem(TIMELINE_KEY, open ? '1' : '0'); } catch { /* per-viewer convenience only */ }
+    if (open) s.timeline.refresh();
+}
+
 function setPoints(next) {
     const s = session;
     s.points = next;
     saveRecord(s.songKey, s.media, s.points);
     window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+    if (s.timelineOpen) s.timeline.refresh();
 }
 
 /** After undo or redo, aim at the beat after the latest point in the recording. */
@@ -316,19 +362,20 @@ function flash(beat, message) {
     showToast(message, 'info', 2200);
 }
 
-/** Scroll so the target beat sits in the upper half of the view, unless the user is scrolling by hand. */
+/** Scroll so the target beat sits clear below the toolbar, unless the user is scrolling by hand. */
 function scrollToTarget(force) {
     const s = session;
     const rect = s?.target && beatRect(s.target);
     if (!rect) return;
     if (!force && performance.now() - s.lastUserScrollAt < SCROLL_IDLE_MS) return;
     const viewH = s.output.clientHeight;
+    const barBottom = Math.max(0, $('syncModeBar').getBoundingClientRect().bottom - s.output.getBoundingClientRect().top);
     const containerTop = s.container.getBoundingClientRect().top - s.output.getBoundingClientRect().top + s.output.scrollTop;
     const beatTop = containerTop + rect.y;
-    const visibleTop = s.output.scrollTop + viewH * 0.12;
-    const visibleBottom = s.output.scrollTop + viewH * 0.6;
+    const visibleTop = s.output.scrollTop + barBottom + 8;
+    const visibleBottom = s.output.scrollTop + viewH * 0.8;
     if (!force && beatTop >= visibleTop && beatTop + rect.h <= visibleBottom) return;
-    s.output.scrollTo({ top: Math.max(0, beatTop - viewH * 0.3), behavior: force ? 'auto' : 'smooth' });
+    s.output.scrollTo({ top: Math.max(0, beatTop - barBottom - 40), behavior: force ? 'auto' : 'smooth' });
 }
 
 // --- Toolbar -------------------------------------------------------------------------------------------------------
@@ -345,6 +392,7 @@ function wireToolbar(s) {
     on('smUndoBtn', undo);
     on('smRedoBtn', redo);
     on('smDoneBtn', exitSyncMode);
+    on('smTimelineBtn', () => showTimeline(!s.timelineOpen));
     document.querySelectorAll('#smRates [data-sm-rate]').forEach((b) => {
         const handler = () => { s.source.setRate(Number(b.dataset.smRate)); updateToolbar(); };
         b.addEventListener('click', handler);
@@ -416,6 +464,7 @@ function updateToolbar() {
     document.querySelectorAll('#smGranularity [data-sm-granularity]').forEach((b) => b.classList.toggle('active', b.dataset.smGranularity === s.granularity));
     $('smUndoBtn').disabled = !s.undo.length;
     $('smRedoBtn').disabled = !s.redo.length;
+    if (s.timelineOpen) s.timeline.wake();
     $('smCount').textContent = `${s.points.length} point${s.points.length === 1 ? '' : 's'} · ${formatTime(s.source.getTimeMs())}`;
     let hint;
     if (s.source.isBuffering?.()) hint = 'Waiting for the recording...';

@@ -106,12 +106,16 @@ function destroySource() {
 
 async function refreshFiles() {
     const songKey = getSongKey();
+    let files;
     try {
-        state.files = await listAudioFilesForSong(songKey);
+        files = await listAudioFilesForSong(songKey);
     } catch (e) {
         console.warn('[Audio File] could not list files:', e);
-        state.files = [];
+        files = [];
     }
+    // A song's identity changes once its score has been read; drop a listing made for the earlier one
+    if (songKey !== getSongKey()) return;
+    state.files = files;
     const stored = new Set(state.files.map(f => f.id));
     state.missing = listRecords(songKey)
         .filter(r => r.media.kind === 'local' && !stored.has(r.media.audioId))
@@ -125,6 +129,8 @@ async function refreshFiles() {
     }
     render();
     updateGlobalAudioControls();
+    // The panel can be open before the list arrives (right after the song loads): load the selection then
+    if (state.isOpen && state.currentId && !state.source) ensureSource();
 }
 
 /** Loads the selected file from storage into a playable source. Resolves true when a source is ready. */
@@ -505,6 +511,7 @@ export function initAudioFilePlayer() {
         getSource: () => state.source,
         getMedia: () => (state.meta ? mediaOf(state.meta) : null),
         prepareSync: () => toggleAudioFilePanel(false),
+        getPeaks: () => state.peaks,
         subscribe: (cb) => syncListeners.add(cb)
     });
 }

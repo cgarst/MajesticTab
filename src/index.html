@@ -1156,8 +1156,10 @@
     <button type="button" class="btn btn-sm btn-theme-outline" id="smUndoBtn" title="Undo (Ctrl+Z)">Undo</button>
     <button type="button" class="btn btn-sm btn-theme-outline" id="smRedoBtn" title="Redo (Ctrl+Shift+Z)">Redo</button>
     <span class="small text-white-50 sync-mode-count" id="smCount"></span>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smTimelineBtn" title="Show or hide the timeline of all the points">Timeline</button>
     <button type="button" class="btn btn-sm btn-theme-primary" id="smDoneBtn">Done</button>
   </div>
+  <div id="smTimeline" class="sync-tl-host mt-2" hidden></div>
 </div>
 
 <div id="audioFileDropdownPanel" class="yt-panel" style="display: none;">
@@ -1252,6 +1254,7 @@
         <span class="text-white-50">ms</span>
         <button type="button" class="btn btn-sm btn-theme-outline" id="syncShiftBtn">Shift</button>
       </div>
+      <div id="syncEditorTimeline" class="sync-tl-host"></div>
       <div class="sync-row sync-row-head small text-white-50" aria-hidden="true">
         <span>Bar</span><span>Pass</span><span>Pos</span><span>Time</span><span class="sync-col-extra">Tempo</span><span class="sync-col-extra">Source</span><span></span>
       </div>

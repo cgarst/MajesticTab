@@ -35,10 +35,11 @@ const $tap = (prefix) => document.getElementById(`${prefix}SyncTapBtn`);
  * @param {() => object|null} opts.getMedia the recording's media descriptor, or null when no recording is chosen
  * @param {(cb:(kind:string)=>void) => void} opts.subscribe calls `cb('idle' | 'play' | 'stop')` when the recording
  *   changes: 'play' when it starts playing (it may take the cursor over), 'stop' when it pauses, 'idle' otherwise
+ * @param {() => (Uint8Array|null)} [opts.getPeaks] the waveform, for a local file
  * @param {() => void} [opts.prepareSync] called before tap mode starts, to get this recording's panel out of the way
  * @returns {{ refresh: Function }}
  */
-export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSync }) {
+export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSync, getPeaks }) {
     const row = document.getElementById(`${prefix}SyncRow`);
     const toggle = document.getElementById(`${prefix}SyncFollow`);
     const info = document.getElementById(`${prefix}SyncInfo`);
@@ -84,14 +85,14 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
     editBtn?.addEventListener('click', () => {
         const media = getMedia();
         const source = getSource();
-        if (media && source) editor.open({ source, media });
+        if (media && source) editor.open({ source, media, peaks: getPeaks?.() || null });
     });
     $tap(prefix)?.addEventListener('click', () => {
         const media = getMedia();
         const source = getSource();
         if (!media || !source) return;
         prepareSync?.();
-        enterSyncMode({ source, media });
+        enterSyncMode({ source, media, peaks: getPeaks?.() || null });
     });
     window.addEventListener(SYNC_CHANGED_EVENT, () => refresh('idle'));
     subscribe(refresh);

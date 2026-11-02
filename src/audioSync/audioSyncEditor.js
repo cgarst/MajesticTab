@@ -8,6 +8,7 @@ import { openModal, closeModal } from '../gpProcessor/mixerPanel.js';
 import { loadRecord, saveRecord } from './syncStore.js';
 import { getScoreContext } from './audioSyncController.js';
 import { pointProblems } from './pointCheck.js';
+import { createSyncTimeline } from './syncTimeline.js';
 import { tickToPosition, scoreMsToTick, positionToScoreMs } from './scorePositions.js';
 import {
     addPoint, updatePoint, removePoints, shiftAfter, formatTime, parseTime,
@@ -23,8 +24,8 @@ const PROBLEM_TEXT = {
 };
 
 /**
- * One editor serves every recording: `open({ source, media })` edits the points of that MediaSource and its media
- * descriptor (`{ kind: 'youtube', videoId }` or a local file's).
+ * One editor serves every recording: `open({ source, media, peaks })` edits the points of that MediaSource and its
+ * media descriptor (`{ kind: 'youtube', videoId }` or a local file's); `peaks` is the waveform, for a local file.
  */
 export function initAudioSyncEditor() {
     const $ = (id) => document.getElementById(id);
@@ -33,7 +34,10 @@ export function initAudioSyncEditor() {
 
     const rowsEl = $('syncRows');
     let points = [];
-    let current = null; // { source, media } of the open editor
+    let current = null; // { source, media, peaks } of the open editor
+    let scoreCtx = null; // the score's timeline, read once per render
+    let selectedId = null;
+    let offSource = null;
 
     const media = () => current.media;
     const source = { getTimeMs: () => current.source.getTimeMs(), seek: (ms) => current.source.seek(ms) };
@@ -63,6 +67,7 @@ export function initAudioSyncEditor() {
     function buildRow(p, info) {
         const row = document.createElement('div');
         row.className = 'sync-row';
+        row.dataset.id = p.id;
         const flag = info.flags[p.id];
         if (flag) row.classList.add('has-problem');
 
@@ -123,10 +128,33 @@ export function initAudioSyncEditor() {
         return row;
     }
 
+    const timeline = createSyncTimeline({
+        host: $('syncEditorTimeline'),
+        getData: () => (scoreCtx && current ? {
+            timeline: scoreCtx.timeline, points, source: current.source, peaks: current.peaks || null,
+            durationMs: current.source.durationMs ?? null, selectedId
+        } : null),
+        onChangePoints: (next) => persist(next),
+        onSeek: ({ mediaMs, scoreMs }) => seekTo(mediaMs, scoreMs),
+        onSelect: (id) => selectRow(id)
+    });
+
+    function selectRow(id) {
+        selectedId = id;
+        for (const row of rowsEl.children) {
+            const on = row.dataset.id === id;
+            row.classList.toggle('is-selected', on);
+            if (on) row.scrollIntoView({ block: 'nearest' });
+        }
+    }
+
     function render() {
-        const ctx = getScoreContext();
+        const ctx = scoreCtx = getScoreContext();
         const info = ctx ? pointProblems(ctx.timeline, points) : { flags: {}, tempos: {} };
         rowsEl.replaceChildren(...points.map(p => buildRow(p, info)));
+        if (selectedId && !points.some(p => p.id === selectedId)) selectedId = null;
+        selectRow(selectedId);
+        timeline.refresh();
         $('syncEmpty').hidden = points.length > 0;
         const issues = Object.values(info.flags).filter(f => f !== 'tempo').length;
         const warnings = Object.values(info.flags).filter(f => f === 'tempo').length;
@@ -136,11 +164,17 @@ export function initAudioSyncEditor() {
         $('syncEditorInfo').textContent = parts.join(' · ');
     }
 
-    function jumpTo(p) {
-        source.seek(p.timeMs);
-        const ctx = getScoreContext();
-        const scoreMs = ctx && positionToScoreMs(ctx.timeline, p);
+    /** Seek the recording, and the cursor with it when the score can place the time. */
+    function seekTo(mediaMs, scoreMs) {
+        source.seek(mediaMs);
+        const ctx = scoreCtx || getScoreContext();
         if (ctx && scoreMs !== null) ctx.api.tickPosition = scoreMsToTick(ctx.timeline, scoreMs);
+    }
+
+    function jumpTo(p) {
+        selectRow(p.id);
+        const ctx = scoreCtx || getScoreContext();
+        seekTo(p.timeMs, ctx ? positionToScoreMs(ctx.timeline, p) : null);
     }
 
     function addAtCursor() {
@@ -210,7 +244,10 @@ export function initAudioSyncEditor() {
     return {
         open(ctx) {
             current = ctx;
+            selectedId = null;
             points = loadRecord(songKey(), media())?.points || [];
+            offSource?.();
+            offSource = ctx.source.on(() => timeline.wake());
             $('syncImportPanel').hidden = true;
             openModal('syncEditorModal');
             render();

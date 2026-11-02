@@ -4,6 +4,7 @@ import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator, updateScrollIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
+import { updateSongForAudioFile } from '../audioSync/audioFilePlayer.js';
 import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions, reapplyJamTrackView, warmUpAfterLoad } from './gpPlayer.js';
 import { waitForMainThreadIdle } from '../utils/mainThreadIdle.js';
 import { showLoadingCard, setLoadingProgress, setLoadingIdentity, hideLoadingCard } from '../utils/loadingCard.js';
@@ -164,6 +165,8 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
                 scoreTitle: api.score.title,
                 scoreArtist: api.score.artist
             });
+            // The song's identity is now the score's artist and title, so list that song's audio files
+            updateSongForAudioFile();
 
             const scoreMeta = extractScoreMetadata(api.score);
             const tunings = scoreMeta.tunings || [];
