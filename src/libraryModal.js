@@ -6,7 +6,7 @@ import {
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
     deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, setDefaultTabOption,
     togglePinSong, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
-    mapOpenFileToSong, getRecents, clearRecents, deleteRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
+    mapOpenFileToSong, getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
 } from './libraryStore.js';
 import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
@@ -4272,8 +4272,12 @@ async function renderRecentsView(container) {
         btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const id = btn.dataset.recentId;
+            const removed = await getRecentItem(id);
             await deleteRecentItem(id);
-            showToast('Removed item from recents', 'info');
+            showToast('Removed item from recents', 'info', 6000, null, removed ? {
+                label: 'Undo',
+                onClick: async () => { await restoreRecentItem(removed); await renderRecentsView(container); }
+            } : null);
             await renderRecentsView(container);
         });
     });

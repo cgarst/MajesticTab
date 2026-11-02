@@ -1192,6 +1192,27 @@ export async function deleteRecentItem(id) {
     });
 }
 
+/** One recents record by id, or null. Used to offer Undo after removing it. */
+export async function getRecentItem(id) {
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const req = db.transaction(STORE_RECENTS, 'readonly').objectStore(STORE_RECENTS).get(id);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+    });
+}
+
+/** Put a removed recents record back (the Undo for deleteRecentItem). */
+export async function restoreRecentItem(record) {
+    if (!record) return false;
+    const db = await getDB();
+    return new Promise((resolve, reject) => {
+        const req = db.transaction(STORE_RECENTS, 'readwrite').objectStore(STORE_RECENTS).put(record);
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => reject(req.error);
+    });
+}
+
 /**
  * Get all library songs
  */

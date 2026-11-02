@@ -21,8 +21,10 @@ function ensureToastContainer() {
  * @param {string} message - Notification text
  * @param {'info'|'success'|'warning'|'error'} [type='info'] - Toast style
  * @param {number} [duration=3500] - Duration in ms before auto-dismiss
+ * @param {string|null} [id] - Reuse a toast with the same id
+ * @param {{label: string, onClick: Function}|null} [action] - Optional button, such as Undo; it dismisses the toast
  */
-export function showToast(message, type = 'info', duration = 3500, id = null) {
+export function showToast(message, type = 'info', duration = 3500, id = null, action = null) {
     if (typeof document === 'undefined' || !message) return;
 
     const container = ensureToastContainer();
@@ -57,6 +59,7 @@ export function showToast(message, type = 'info', duration = 3500, id = null) {
     toast.innerHTML = `
         <i class="bi ${iconClass} theme-toast-icon"></i>
         <div class="theme-toast-message">${escapeHtml(message)}</div>
+        ${action?.label ? `<button type="button" class="theme-toast-action">${escapeHtml(action.label)}</button>` : ''}
         <button type="button" class="theme-toast-close" aria-label="Dismiss">&times;</button>
     `;
 
@@ -72,6 +75,10 @@ export function showToast(message, type = 'info', duration = 3500, id = null) {
     };
 
     closeBtn?.addEventListener('click', dismiss);
+    toast.querySelector('.theme-toast-action')?.addEventListener('click', () => {
+        dismiss();
+        try { action.onClick?.(); } catch (e) { console.error('[Toast] action failed:', e); }
+    });
 
     container.appendChild(toast);
 

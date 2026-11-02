@@ -7804,3 +7804,33 @@ body.library-view-active #viewPill { display: none; }
 }
 .bar-ruler-sync-point { position: absolute; top: 0; width: 2px; height: 6px; margin-left: -1px; background: var(--text-primary); }
 .bar-ruler-sync-point.is-flagged { background: #f59e0b; }
+
+/* --- Toast (phase 8): rises from below, slower in than out, with an optional action such as Undo --- */
+.theme-toast { box-shadow: none; border-color: var(--border-prominent); transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out); }
+.theme-toast-hiding { transition-duration: var(--dur-base); }
+.theme-toast-action {
+  flex-shrink: 0;
+  background: transparent;
+  border: 0;
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--r-control);
+  color: var(--accent-text);
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.theme-toast-action:hover { background: var(--accent-primary-alpha); }
+.theme-toast-action:active { transform: scale(0.96); }
+
+/* --- Screens slide in sideways: forward from the right, so the library to reader move reads as depth --- */
+@keyframes screenInRight { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes screenInLeft { from { opacity: 0; transform: translateX(-24px); } to { opacity: 1; transform: translateX(0); } }
+#libraryPage { animation: screenInLeft var(--dur-base) var(--ease-out); }
+#barRuler:not([hidden]) { animation: screenInRight var(--dur-base) var(--ease-out); }
+
+/* Modal close: anything that adds .is-closing before hiding gets the faster exit */
+@media (prefers-reduced-motion: reduce) {
+  .theme-toast, .theme-toast-hiding { transition: none; }
+  #libraryPage, #barRuler { animation: none !important; }
+}
