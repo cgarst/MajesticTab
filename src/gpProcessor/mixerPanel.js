@@ -2,6 +2,7 @@
 // Synth panel entry points for the SoundFonts and Mixer modals, plus the per-track mixer UI.
 import { getMixerTracks, setTrackMixer, resetMixer, onMixerChange, toggleSynthPanel } from './gpPlayer.js';
 import { toggleYouTubePanel } from '../youtubePlayer.js';
+import { TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
 
 const PAN_LABELS = (pan) => (pan === 8 ? 'C' : pan < 8 ? `L${(8 - pan) * 100 / 8 | 0}` : `R${(pan - 8) * 100 / 8 | 0}`);
 
@@ -52,6 +53,7 @@ function buildRow(t) {
     const row = document.createElement('div');
     row.className = 'mixer-row';
     row.dataset.index = t.index;
+    row.style.setProperty('--track-color', TRACK_PALETTE[getTrackColorIndexFor(t.index)] || 'var(--ink2)');
 
     const name = document.createElement('div');
     name.className = 'mixer-name text-truncate small';
@@ -90,10 +92,16 @@ function buildRow(t) {
 
     const volWrap = document.createElement('div');
     volWrap.className = 'mixer-slider';
-    volWrap.append(vol, volBadge);
+    const volLabel = document.createElement('span');
+    volLabel.className = 'mixer-slider-label';
+    volLabel.textContent = 'Volume';
+    volWrap.append(volLabel, vol, volBadge);
     const panWrap = document.createElement('div');
     panWrap.className = 'mixer-slider';
-    panWrap.append(pan, panBadge);
+    const panLabel = document.createElement('span');
+    panLabel.className = 'mixer-slider-label';
+    panLabel.textContent = 'Pan';
+    panWrap.append(panLabel, pan, panBadge);
 
     row.append(name, mute, solo, volWrap, panWrap);
     return row;
