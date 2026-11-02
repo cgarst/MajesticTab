@@ -143,7 +143,15 @@ function workerMain() {
             } else if (op === 'lib') {
                 // A library an importer asked for (`libs`), loaded once into this worker's global scope.
                 if (!loadedLibs.has(data.name)) {
-                    new Function(data.source).call(self);
+                    // In a worker scope alphaTab registers its own render/synth worker `message` listeners, which throw on
+                    // our messages (`data.cmd` is undefined). Importers only use its model and exporter, so drop them.
+                    const addListener = self.addEventListener;
+                    self.addEventListener = (type, ...rest) => (type === 'message' ? undefined : addListener.call(self, type, ...rest));
+                    try {
+                        new Function(data.source).call(self);
+                    } finally {
+                        self.addEventListener = addListener;
+                    }
                     loadedLibs.add(data.name);
                 }
                 result = true;

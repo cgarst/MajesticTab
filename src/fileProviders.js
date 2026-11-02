@@ -378,7 +378,10 @@ async function openTabFromUrl(text, options = {}) {
         const { attachSyncSets } = await import('./urlImport/attachSync.js');
         const { saved, skipped } = await attachSyncSets(sync);
         if (saved.length) showToast(`Added sync points for ${saved.length === 1 ? saved[0] : `${saved.length} videos`}`, 'success');
-        if (skipped.length) showToast(`Sync points not added: ${skipped.join('; ')}`, 'warning', 6000);
+        if (skipped.length) {
+            const more = skipped.length > 1 ? ` (and ${skipped.length - 1} more)` : '';
+            showToast(`Sync points not added: ${skipped[0]}${more}`, 'warning', 6000);
+        }
     } catch (error) {
         if (error?.message !== 'Cancelled.') showToast(error?.message || 'Could not open that address.', 'error');
     }
