@@ -63,6 +63,56 @@ function proxySwitch(sourceId) {
     return wrap;
 }
 
+
+// ---- Neck preferences: one place for the fretboard dock and the reference library's chord diagrams ----
+const LH_KEY = 'majestictab_fretboard_left_handed';
+const FLIP_KEY = 'majestictab_fretboard_flip_strings';
+
+function readFlag(key) {
+    try { return localStorage.getItem(key) === 'true'; } catch (_) { return false; }
+}
+
+async function applyNeckFlag(kind, value) {
+    try {
+        const { fretboardController } = await import('../fretboard/fretboardController.js');
+        if (kind === 'lh') fretboardController.setLeftHanded(value); else fretboardController.setFlipped(value);
+    } catch (_) { /* the fretboard may not be loaded; the stored value is read the next time it opens */ }
+    try {
+        const ref = await import('../referenceLibrary.js');
+        if (kind === 'lh') ref.setIsLeftHanded(value); else ref.setIsFlipped(value);
+    } catch (_) {}
+}
+
+function makeLeftHandedRow() {
+    const sw = el('input', 'form-check-input theme-switch');
+    sw.type = 'checkbox';
+    sw.checked = readFlag(LH_KEY);
+    sw.setAttribute('aria-label', 'Left-handed neck');
+    sw.addEventListener('change', () => applyNeckFlag('lh', sw.checked));
+    const wrap = el('div', 'form-check form-switch mb-0');
+    wrap.appendChild(sw);
+    return row('Left-handed neck', 'Mirror the fretboard and the chord diagrams.', wrap);
+}
+
+function makeStringOrderRow() {
+    let flipped = readFlag(FLIP_KEY);
+    const seg = el('div', 'hud-pill-group');
+    seg.setAttribute('role', 'radiogroup');
+    seg.setAttribute('aria-label', 'String order');
+    [['High string on top', false], ['Low string on top', true]].forEach(([label, val]) => {
+        const b = el('button', 'btn btn-sm' + (val === flipped ? ' active' : ''));
+        b.type = 'button';
+        b.textContent = label;
+        b.addEventListener('click', () => {
+            flipped = val;
+            seg.querySelectorAll('button').forEach((x) => x.classList.toggle('active', x === b));
+            applyNeckFlag('flip', val);
+        });
+        seg.appendChild(b);
+    });
+    return row('String order', 'Tab view puts the high string on top; player view puts the low string on top.', seg);
+}
+
 function proxyButton(label, targetId, className = 'btn btn-sm btn-theme-outline') {
     const b = el('button', className);
     b.type = 'button';
@@ -133,6 +183,7 @@ export function initSettingsPage() {
         panes.player.appendChild(group('Who is playing',
             row('I play', 'Guitar or bass. Sets the instrument the app assumes.', instrumentGroup)));
     }
+    panes.player.appendChild(group('Your neck', makeLeftHandedRow(), makeStringOrderRow()));
 
     // Appearance
     if (finishChange) {

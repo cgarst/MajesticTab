@@ -1268,14 +1268,6 @@ function renderChordsSection() {
                         <i class="bi bi-distribute-vertical"></i>
                         <span class="d-none d-sm-inline ms-1 small">Prefer Barre Chords</span>
                     </button>
-                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-flip-btn ${isFlipped ? 'active' : ''}" id="refChordFlipBtn" title="Invert Strings (Tab / Player View)" aria-label="Invert Strings">
-                        <i class="bi bi-arrow-down-up"></i>
-                        <span class="d-none d-sm-inline ms-1 small">Invert</span>
-                    </button>
-                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-lh-btn ${isLeftHanded ? 'active' : ''}" id="refChordLhBtn" title="Toggle Left-Handed Neck" aria-label="Toggle Left-Handed Neck">
-                        <i class="bi bi-arrow-left-right"></i>
-                        <span class="d-none d-sm-inline ms-1 small">Left Handed</span>
-                    </button>
                 </div>
             </div>
 
@@ -1361,16 +1353,6 @@ function renderScalesSection() {
                 <div>
                     <h3 class="ref-section-title mb-1">Interactive scale and mode fretboard</h3>
                     <p class="ref-section-subtitle mb-0">Explore scales and modal intervals across the full fretboard.</p>
-                </div>
-                <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-flip-btn ${isFlipped ? 'active' : ''}" id="refScaleFlipBtn" title="Invert Strings (Tab / Player View)" aria-label="Invert Strings">
-                        <i class="bi bi-arrow-down-up"></i>
-                        <span class="d-none d-sm-inline ms-1 small">Invert</span>
-                    </button>
-                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ref-fretboard-lh-btn ${isLeftHanded ? 'active' : ''}" id="refScaleLhBtn" title="Toggle Left-Handed Neck" aria-label="Toggle Left-Handed Neck">
-                        <i class="bi bi-arrow-left-right"></i>
-                        <span class="d-none d-sm-inline ms-1 small">Left Handed</span>
-                    </button>
                 </div>
             </div>
             <div class="d-flex flex-wrap align-items-end gap-2 pt-2 border-top border-secondary-subtle">
