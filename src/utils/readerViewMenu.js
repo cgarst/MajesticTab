@@ -52,7 +52,7 @@ export function initReaderViewMenu() {
 }
 
 
-// ---- More: file verbs (save, setlist, export) and a way to Settings. The buttons are the originals, moved here,
+// ---- More: file verbs (save, setlist, export). Settings lives in the library's navigation. The buttons are the originals, moved here,
 // so their handlers and ids keep working.
 function initMoreMenu() {
     const toggle = $('moreToggleBtn');
@@ -66,14 +66,6 @@ function initMoreMenu() {
         section.classList.add('more-menu-list');
     }
     details?.remove();
-    const settings = document.createElement('button');
-    settings.type = 'button';
-    settings.className = 'btn btn-theme-outline more-menu-settings';
-    settings.id = 'moreSettingsBtn';
-    settings.innerHTML = '<i class="bi-gear text-info"></i> Settings';
-    settings.addEventListener('click', () => { close(); $('menuToggleBtn')?.click(); });
-    (section || menu).appendChild(settings);
-
     const isOpen = () => menu.style.display !== 'none';
     function place() {
         const rect = toggle.getBoundingClientRect();
@@ -105,7 +97,7 @@ function initPracticeButton() {
 }
 
 
-// The View menu reads: Layout, pages shown in landscape, page turn, Size, Paper, then a way to Settings.
+// The View menu reads: Layout, pages shown in landscape, page turn, Size, Paper.
 // The four original groups keep their controls and ids; this only reorders and relabels them.
 function arrangeViewOptions(root) {
     const groups = Array.from(root.children).filter((el) => el.tagName === 'DIV');
@@ -164,13 +156,7 @@ function arrangeViewOptions(root) {
     document.addEventListener('click', () => setTimeout(syncLayout, 0), true);
     syncLayout();
 
-    const more = document.createElement('button');
-    more.type = 'button';
-    more.className = 'btn view-more-settings';
-    more.textContent = 'More in Settings';
-    more.addEventListener('click', () => { $('menuToggleBtn')?.click(); });
-
-    const order = [layout, landscape, advance, size, paper, more].filter(Boolean);
+    const order = [layout, landscape, advance, size, paper].filter(Boolean);
     root.innerHTML = '';
     order.forEach((el) => root.appendChild(el));
 }

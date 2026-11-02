@@ -1492,3 +1492,4 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .provider-mini-icon { background: var(--s3); border: 0; }
 #restoreInspectionCard .restore-mode-card { background: var(--s1) !important; }
 #restoreInspectionCard .restore-mode-card:has(input:checked) { background: var(--s3) !important; }
+#viewMenu { padding-bottom: 12px; }
