@@ -1704,3 +1704,10 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .loading-card-track { height: 4px; border: 0 !important; border-radius: 2px; background: var(--s3) !important; box-sizing: border-box; }
 .loading-card-fill { background: var(--hue) !important; border-radius: 2px; }
 @media (prefers-reduced-motion: reduce) { .loading-card-panel, .loading-card, .loading-card-fill { transition: none !important; } }
+
+/* Settings page: full width on phones (the drawer's 90vw cap no longer applies) and no close X, since the navigation closes it */
+body.settings-as-page #fileMenu { max-width: 100vw !important; }
+body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
+@media (max-width: 576px) { body.settings-as-page #fileMenu { left: 0 !important; width: 100vw !important; } }
+.backup-summary-box { background: var(--s2) !important; border: 0 !important; box-shadow: none !important; }
+.backup-summary-box i { display: none; }
