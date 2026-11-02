@@ -197,12 +197,32 @@ export function initSettingsPage() {
         panes.appearance.appendChild(group('Finish', row('Guitar finish', 'Nine finishes, each a flat colour ground and two hues.', sc, finishChange)));
     }
 
-    // Reading
+    // Reading: how a new tab opens. The defaults modal's own rows live here now, so there is no second Settings
     if (defaultsBtn) {
-        defaultsBtn.classList.remove('w-100', 'py-2');
-        defaultsBtn.classList.add('btn-sm');
-        panes.reading.appendChild(group('New tabs',
-            row('Defaults', 'How a tab opens the first time: layout, strings and notation.', defaultsBtn)));
+        const defaultsModal = $('defaultsModal');
+        const defaultRows = (title, sectionIndex, helps) => {
+            const sec = defaultsModal?.querySelectorAll('.defaults-section')[sectionIndex];
+            if (!sec) return null;
+            const rows = [...sec.querySelectorAll('.defaults-row')].map((r, i) => {
+                const label = r.querySelector('.defaults-row-label')?.textContent.trim() || '';
+                const pills = r.querySelector('.defaults-pills');
+                pills?.querySelectorAll('i').forEach((ic) => ic.remove());
+                return row(label, helps[i] || '', pills);
+            });
+            return group(title, ...rows);
+        };
+        const viewGroup = defaultRows('A new tab opens as', 0, ['', '', '']);
+        const stringGroup = defaultRows('Tab strings', 1, ['Show 6 strings, or 7 or 8 for extended range guitars. "From file" keeps what the tab was saved with.', 'Show 4 strings, or 5 or 6 for extended range basses.']);
+        if (viewGroup) panes.reading.appendChild(viewGroup);
+        if (stringGroup) panes.reading.appendChild(stringGroup);
+        const resetBtn = $('defaultsResetBtn');
+        if (resetBtn) {
+            resetBtn.className = 'btn btn-sm btn-theme-outline';
+            resetBtn.textContent = 'Reset';
+            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Scroll for score and text, Page for PDF, and strings from the file.', resetBtn)));
+        }
+        defaultsBtn.remove();
+        defaultsModal?.remove();
         panes.reading.appendChild(note('Size, paper and pages shown are in the reader’s View menu, next to the score.'));
 
         const makeMinBarsSelector = () => {
