@@ -5033,6 +5033,14 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   margin-top: 0.15rem;
 }
 
+.open-file-web-search {
+  margin-top: 1.5rem;
+}
+
+.open-file-web-search + .open-file-section-label {
+  margin-top: 1.25rem;
+}
+
 .open-file-section-label {
   margin: 1.5rem 0 0.6rem;
   padding: 0 0.25rem;

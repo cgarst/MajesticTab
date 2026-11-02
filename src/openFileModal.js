@@ -17,7 +17,10 @@ function escapeHtml(str) {
  */
 export function renderOpenFileView(container, { onBack, onAddToLibrary }) {
     // The local device is covered by the drop zone above
-    const providers = getFileProviders().filter(p => p.id !== 'local');
+    const allProviders = getFileProviders();
+    const providers = allProviders.filter(p => p.id !== 'local' && p.id !== 'tab-downloader');
+    // The web search provider (native apps only) is a search bar rather than a card
+    const hasWebSearch = allProviders.some(p => p.id === 'tab-downloader');
 
     container.innerHTML = `
     <div class="library-page-container open-file-view">
@@ -36,6 +39,15 @@ export function renderOpenFileView(container, { onBack, onAddToLibrary }) {
           <i class="bi-folder2-open me-1"></i> Browse Files
         </button>
       </div>
+
+      ${hasWebSearch ? `
+      <form class="library-search-box library-search-form open-file-web-search" id="openFileWebSearchForm">
+        <div class="library-search-bar">
+          <i class="bi-search search-icon"></i>
+          <input type="text" class="search-input" id="openFileWebSearchInput" placeholder="Search the web for a tab..." autocomplete="off" spellcheck="false" aria-label="Search the web for a tab">
+        </div>
+        <button type="submit" class="btn btn-theme-primary btn-sm px-3 flex-shrink-0">Search</button>
+      </form>` : ''}
 
       <div class="open-file-section-label">Or open from</div>
       <div class="open-file-provider-grid" id="openFileProvidersList">
@@ -93,6 +105,13 @@ export function renderOpenFileView(container, { onBack, onAddToLibrary }) {
         dropzone.classList.remove('is-dragover');
         const file = e.dataTransfer?.files?.[0];
         if (file) openLocalFile(file);
+    });
+
+    // Web search: opens the tab downloader on the typed query (blank opens its start page)
+    container.querySelector('#openFileWebSearchForm')?.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const query = container.querySelector('#openFileWebSearchInput').value.trim();
+        openFromProvider('tab-downloader', query ? { query } : {});
     });
 
     // Providers
