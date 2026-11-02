@@ -705,12 +705,30 @@ function watchUserScroll(output) {
     }, { passive: true });
 }
 
+// True while a recording (YouTube or an audio file) is what plays and moves the cursor, so the view follows it as it
+// follows the synth (audio sync sets it)
+let externalPlayback = false;
+export function setExternalPlayback(on) {
+    externalPlayback = Boolean(on);
+}
+const playbackActive = () => synthPlayerState.isPlaying || externalPlayback;
+
+/**
+ * When playback starts the view goes to the cursor, even if the user scrolled away while paused (as the synth does).
+ * `barIndex` is the bar the cursor is in, when the caller knows it.
+ */
+export function reanchorPlaybackScroll(tick, barIndex = null) {
+    userScrollingUntil = 0;
+    userScrollHeld = false;
+    updateContinuousPlaybackScroll(tick, true, null, barIndex);
+}
+
 /**
  * Handle auto-scrolling with quick snap and read-ahead in Continuous Mode
  * Adjusts scrolling to consider the virtual fretboard dock so that current stave group is entirely visible
  */
-export function updateContinuousPlaybackScroll(currentTick, force = false, targetBeat = null) {
-    if (!currentApi || !currentScore || (!synthPlayerState.isPlaying && !force)) return;
+export function updateContinuousPlaybackScroll(currentTick, force = false, targetBeat = null, barIndexHint = null) {
+    if (!currentApi || !currentScore || (!playbackActive() && !force)) return;
 
     const pageModeRadio = document.getElementById('pageModeRadio');
     const isPageMode = pageModeRadio ? pageModeRadio.checked : false;
@@ -742,7 +760,7 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     let sysH = 140;
 
     if (boundsLookup?.staffSystems?.length && currentScore?.masterBars?.length) {
-        let activeMasterBarIndex = targetBeat?.voice?.bar?.masterBar?.index ?? -1;
+        let activeMasterBarIndex = barIndexHint ?? targetBeat?.voice?.bar?.masterBar?.index ?? -1;
         if (activeMasterBarIndex === -1) {
             const lookup = getMidiTickLookup(currentApi);
             if (lookup && typeof lookup.eg === 'function') {
@@ -804,7 +822,7 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     // 3. Occlusion and read-ahead checks
     const isAboveTop = visualTop < 0 || (hasValidCursor && cursorVisualTop < 0);
     const isHidingBehindFretboard = isFretboardOpen && (Math.max(visualBottom, cursorVisualBottom) > (visibleViewportHeight - 16));
-    const isBelowThreshold = synthPlayerState.isPlaying && (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60)));
+    const isBelowThreshold = playbackActive() && (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60)));
 
     if (isAboveTop || isHidingBehindFretboard || isBelowThreshold) {
         const maxScroll = output.scrollHeight - output.clientHeight;

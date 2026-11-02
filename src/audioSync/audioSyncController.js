@@ -3,7 +3,10 @@
 // position (`{ id, barIndex, occurrence, pos, timeMs }`); `scoreMs` is derived from the score's MIDI tick lookup
 // whenever the score or the points change.
 
-import { getMidiTickLookup, getAudioLatencyMs, synthPlayerState, onUserSeekTick } from '../gpProcessor/gpPlayer.js';
+import {
+    getMidiTickLookup, getAudioLatencyMs, synthPlayerState, onUserSeekTick, setExternalPlayback, updateContinuousPlaybackScroll,
+    reanchorPlaybackScroll
+} from '../gpProcessor/gpPlayer.js';
 import { buildScoreTimeline, playedBarsFromLookup, tickToScoreMs, scoreMsToTick } from './scorePositions.js';
 import { scoreToMedia, mediaToScore } from './syncMap.js';
 import { buildBeatMap } from './beatMap.js';
@@ -54,13 +57,14 @@ export function startAudioSync({ source, points: storedPoints }) {
     // The cursor is where the recording is between two beats, and runs on to the next beat in the time that is left
     // (as the synth's cursor does), so a bar of rests is a smooth sweep instead of a stop and a jump.
     let glideTimer = 0;
-    function glideNow() {
+    function glideNow({ reanchor = false } = {}) {
         clearTimeout(glideTimer);
         if (source.isBuffering?.()) return;
         const playing = source.isPlaying();
         const heard = source.getTimeMs() - getAudioLatencyMs();
         const scoreMs = mediaToScore(resolved, heard);
-        const located = glide.locate(scoreMsToTick(timeline, scoreMs));
+        const tick = scoreMsToTick(timeline, scoreMs);
+        const located = glide.locate(tick);
         if (!located) return;
         let fraction = 0;
         let duration = 0;
@@ -72,6 +76,11 @@ export function startAudioSync({ source, points: storedPoints }) {
         }
         // Paused, the cursor stands exactly where the recording is, between the beats, and does not move
         glide.run(located, fraction, playing ? duration : 0);
+        // The view follows the cursor down the page as it does for the synth. Tap mode has its own toolbar and scrolling.
+        if (playing && !document.body.classList.contains('sync-mode')) {
+            if (reanchor) reanchorPlaybackScroll(tick, located.barIndex);
+            else updateContinuousPlaybackScroll(tick, false, null, located.barIndex);
+        }
         // On reaching that beat, start the next leg: the beats that are drawn are not all in the tick lookup, so the
         // follower's own ticks can stay put for a whole bar. Each leg is worked out from the clock again.
         if (playing && located.next) glideTimer = setTimeout(glideNow, Math.max(30, duration + 5));
@@ -109,9 +118,12 @@ export function startAudioSync({ source, points: storedPoints }) {
     const stopListeningToSource = source.on?.((e) => {
         if (e.type === 'rate') glideNow();
         else if (e.type === 'state' || e.type === 'buffering') {
-            if (source.isPlaying() && !source.isBuffering?.()) glideNow(); else { clearTimeout(glideTimer); glide.freeze(); }
+            const running = source.isPlaying() && !source.isBuffering?.();
+            setExternalPlayback(source.isPlaying());
+            if (running) glideNow({ reanchor: e.type === 'state' }); else { clearTimeout(glideTimer); glide.freeze(); }
         }
     });
+    setExternalPlayback(source.isPlaying());
 
     active = {
         source,
@@ -125,6 +137,7 @@ export function startAudioSync({ source, points: storedPoints }) {
         stop() {
             stopListeningForSeeks();
             stopListeningToSource?.();
+            setExternalPlayback(false);
             clearTimeout(glideTimer);
             glide.freeze();
             glide.destroy();

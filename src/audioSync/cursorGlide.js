@@ -44,7 +44,7 @@ export function createCursorGlide(api, map) {
          * The beat drawn at `tick` (the last one starting at or before it) and the one drawn after it, which may be
          * the first of the next bar played. The cursor moves between the beats that are drawn, which are not all the
          * beats in the tick lookup: tracks that are not shown have their own.
-         * @returns {{ from: object, fromTick: number, next: {bounds: object, tick: number}|null }|null}
+         * @returns {{ from: object, fromTick: number, barIndex: number, next: {bounds: object, tick: number}|null }|null}
          */
         locate(tick) {
             let barEntry = -1;
@@ -63,7 +63,7 @@ export function createCursorGlide(api, map) {
                 const firstOfNext = following && beatsOf(following.barIndex)?.[0];
                 if (firstOfNext) next = { bounds: firstOfNext.bounds, tick: following.startTick + firstOfNext.rel };
             }
-            return { from: beats[at].bounds, fromTick: bar.startTick + beats[at].rel, next };
+            return { from: beats[at].bounds, fromTick: bar.startTick + beats[at].rel, barIndex: bar.barIndex, next };
         },
         /**
          * Puts the cursor `fraction` (0 to 1) of the way from the located beat to the next and glides it to the next
