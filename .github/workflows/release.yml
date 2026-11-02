@@ -74,9 +74,10 @@ jobs:
       - name: Upload to Google Play
         env:
           PLAY_SERVICE_ACCOUNT_JSON: ${{ runner.temp }}/play-sa.json
-          # Set the PLAY_TRACK repo variable to production once the listing is live.
+          # The release is uploaded to PLAY_TRACK, then copied to PLAY_PROMOTE_TO (closed testing "alpha" by default). Set the PLAY_PROMOTE_TO repo variable to production once the listing is live.
           PLAY_TRACK: ${{ vars.PLAY_TRACK || 'internal' }}
-          PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'draft' }}
+          PLAY_PROMOTE_TO: ${{ vars.PLAY_PROMOTE_TO || 'alpha' }}
+          PLAY_RELEASE_STATUS: ${{ vars.PLAY_RELEASE_STATUS || 'completed' }}
         run: |
           bundle exec fastlane android release aab:'store-play/*.aab' symbols:'store-play/*-symbols.zip' release_name:"$GITHUB_REF_NAME"
 

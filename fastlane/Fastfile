@@ -26,14 +26,30 @@ platform :android do
     root = File.expand_path("..", FastlaneCore::FastlaneFolder.path)
     aab = Dir[File.expand_path(options[:aab] || "dist/*.aab", root)].first or UI.user_error!("No AAB found; build the play channel first")
     symbols = Dir[File.expand_path(options[:symbols] || "dist/*-symbols.zip", root)].first
+    status = ENV["PLAY_RELEASE_STATUS"] || "completed"
+    # Upload to internal testing, then copy that release to the closed track ("alpha" is
+    # Closed testing - Alpha). Set PLAY_PROMOTE_TO=production once the listing is live.
     upload_to_play_store(
       aab: aab,
       mapping_paths: symbols ? [symbols] : nil,
       track: ENV["PLAY_TRACK"] || "internal",
-      # A draft is required until the app's first release is published from Play Console.
-      release_status: ENV["PLAY_RELEASE_STATUS"] || "draft",
+      release_status: status,
       version_name: options[:release_name],
       skip_upload_apk: true
+    )
+    promote_to = ENV["PLAY_PROMOTE_TO"] || "alpha"
+    next if promote_to.empty?
+    upload_to_play_store(
+      track: ENV["PLAY_TRACK"] || "internal",
+      track_promote_to: promote_to,
+      release_status: status,
+      version_name: options[:release_name],
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
     )
   end
 end
