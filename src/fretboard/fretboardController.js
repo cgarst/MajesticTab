@@ -427,6 +427,28 @@ class FretboardController {
         const legendContainer = document.getElementById('fretboardTracksLegend');
         if (!legendContainer) return;
 
+        // A score with several tracks: a strip of names, each with its colour bar, that also shows and hides the track
+        const trackBoxes = Array.from(document.querySelectorAll('#synthTrackList .gp-track-checkbox'));
+        if (trackBoxes.length > 1) {
+            const esc = (v) => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+            legendContainer.style.display = 'flex';
+            legendContainer.innerHTML = `<div class="fretboard-track-strip" role="group" aria-label="Tracks on the fretboard">${trackBoxes.map((cb) => {
+                const idx = parseInt(cb.dataset.trackIndex, 10);
+                const name = cb.closest('.gp-track-row')?.querySelector('label')?.textContent.trim() || `Track ${idx + 1}`;
+                const color = TRACK_PALETTE[getTrackColorIndexFor(idx)];
+                return `<button type="button" class="fb-track" data-track-index="${idx}" aria-pressed="${cb.checked}" style="--track-color: ${color};" title="${cb.checked ? 'Hide' : 'Show'} ${esc(name)}"><span class="fb-track-name">${esc(name)}</span></button>`;
+            }).join('')}</div>`;
+            legendContainer.querySelectorAll('.fb-track').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const box = document.getElementById(`synth_track_${btn.dataset.trackIndex}`);
+                    box?.click();
+                    // the track selection re-renders the dock; refresh the strip once it has settled
+                    setTimeout(() => this.updateTrackLegend(), 60);
+                });
+            });
+            return;
+        }
+
         if (this.visibleTracks.length <= 1) {
             const track = this.visibleTracks[0];
             const name = track?.name || 'Guitar';

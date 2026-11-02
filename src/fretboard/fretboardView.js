@@ -9,6 +9,9 @@ const SINGLE_INLAY_FRETS = [3, 5, 7, 9, 15, 17, 19, 21];
 const DOUBLE_INLAY_FRETS = [12, 24];
 const FRET_NUMBERS = [1, 3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
 
+// Outline of the brand guitar pick (the logo shape), in its own 303 x 316 coordinate space
+const PLECTRUM_PATH = 'M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z';
+
 export class FretboardView {
     /**
      * @param {HTMLElement} container
@@ -411,7 +414,14 @@ export class FretboardView {
             // Plectrum shape pointing into string
             const pick = document.createElementNS('http://www.w3.org/2000/svg', 'path');
             pick.setAttribute('class', 'pick-strike-shape');
-            pick.setAttribute('d', 'M -4 -7 L 4 -7 L 0 5 Z');
+            // The same pick as the logo, scaled to about 17 units wide, tip toward the string
+            pick.setAttribute('d', PLECTRUM_PATH);
+            pick.setAttribute('transform', 'translate(0 -1) scale(0.056) translate(-256 -255)');
+
+            // A soft edge line along the top, the way a moulded pick catches the light
+            const shine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            shine.setAttribute('class', 'pick-strike-shine');
+            shine.setAttribute('d', 'M -5.2 -6.8 Q 0 -9.4 5.2 -6.8');
 
             // Pluck acoustic ripple wave arcs radiating towards the neck
             const wave1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -426,6 +436,7 @@ export class FretboardView {
 
             inner.appendChild(glow);
             inner.appendChild(pick);
+            inner.appendChild(shine);
             inner.appendChild(wave1);
             inner.appendChild(wave2);
             g.appendChild(inner);

@@ -1607,3 +1607,28 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .ref-filter-group .btn.btn-theme-primary, .ref-filter-group .btn.active { background: var(--s3) !important; color: var(--ink) !important; font-weight: 600; }
 .fretboard-close-btn i, #tunerModal .theme-modal-close-btn i, #referenceModal .theme-modal-close-btn i { display: inline-block !important; }
 .fretboard-panel .btn:not(.fretboard-close-btn), #fretboardDock .btn:not(.fretboard-close-btn) { background: transparent !important; border: 0 !important; color: var(--ink2) !important; }
+
+/* ---------- Fretboard track strip: names with a colour bar; it also shows and hides each track ---------- */
+.fretboard-tracks-legend { min-width: 0; max-width: 100%; }
+.fretboard-track-strip { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; max-width: 100%; }
+.fretboard-track-strip::-webkit-scrollbar { display: none; }
+.fb-track {
+  display: inline-flex; align-items: center; gap: 8px; flex: none; min-height: 36px; padding: 0 10px; border-radius: var(--r-control, 8px);
+  color: var(--ink); font-size: 14px; font-weight: 500; background: transparent; border: 0; transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.fb-track::before { content: ""; width: 3px; height: 16px; border-radius: 1px; background: var(--track-color); flex: none; transition: opacity var(--dur-fast) var(--ease-out); }
+.fb-track[aria-pressed="false"] { color: var(--ink2); }
+.fb-track[aria-pressed="false"]::before { opacity: .3; }
+@media (hover: hover) { .fb-track:hover { background: var(--s2); } }
+@media (pointer: coarse) { .fb-track { min-height: 44px; } }
+.fretboard-track-colors-btn { display: none; }
+.fretboard-tracks-legend { flex: 1 1 auto; }
+/* With a track strip the names take the room; the tuning is in This song and in each track's tooltip */
+.fretboard-tracks-legend:has(.fretboard-track-strip) ~ .fretboard-tuning-badge { display: none; }
+
+/* Fretboard dock: tracks on the left take all the room, Notes/Frets and close sit together on the right */
+.fretboard-tracks-legend { max-width: none !important; }
+.fretboard-dock-header { gap: 12px; }
+.fretboard-dock-left { flex: 1 1 0 !important; min-width: 0; }
+.fretboard-dock-center { order: 2; flex: none !important; }
+.fretboard-dock-right { order: 3; flex: none !important; }

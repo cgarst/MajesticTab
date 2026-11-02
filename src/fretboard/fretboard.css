@@ -389,14 +389,20 @@ body.library-view-active .fretboard-dock {
 }
 
 .pick-strike-shape {
-  stroke: #ffffff;
-  stroke-width: 1;
-  filter: drop-shadow(0 0 5px var(--accent-glow));
+  stroke: rgba(0, 0, 0, 0.35);
+  stroke-width: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.pick-strike-shine {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 0.9;
+  stroke-linecap: round;
 }
 
 .pick-strike-glow {
-  opacity: 0.6;
-  filter: blur(2px);
+  display: none;
 }
 
 .pick-strike-wave {
