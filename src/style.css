@@ -7789,3 +7789,18 @@ body.library-view-active #viewPill { display: none; }
   .bar-ruler-side { flex-basis: 100%; justify-content: space-between; }
 }
 @media (prefers-reduced-motion: reduce) { .bar-ruler-part { transition: none; } }
+.bar-ruler-col { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.bar-ruler-col .bar-ruler-track { flex: none; }
+@media (max-width: 576px) { .bar-ruler-col { flex-basis: 100%; } }
+/* Sync coverage lane */
+.bar-ruler-sync { position: relative; height: 6px; }
+.bar-ruler-sync[hidden] { display: none; }
+.bar-ruler-sync-base { position: absolute; inset: 2px 0; background: var(--accent-secondary); border-radius: 1px; }
+.bar-ruler-sync-gap {
+  position: absolute; top: 0; bottom: 0;
+  background: var(--bg-elevated);
+  background-image: repeating-linear-gradient(90deg, var(--text-dim) 0 4px, transparent 4px 8px);
+  background-size: 100% 2px; background-repeat: no-repeat; background-position: 0 2px;
+}
+.bar-ruler-sync-point { position: absolute; top: 0; width: 2px; height: 6px; margin-left: -1px; background: var(--text-primary); }
+.bar-ruler-sync-point.is-flagged { background: #f59e0b; }

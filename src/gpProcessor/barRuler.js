@@ -7,6 +7,9 @@
 import { onTransportEvent, getPlayerContext, getMidiTickLookup, synthPlayerState, applyLoopSettings, updateSynthUI } from './gpPlayer.js';
 import { deriveSections, partAtBar, DEFAULT_MIN_BARS } from './songSections.js';
 import { buildScoreTimeline, playedBarsFromLookup, tickToPosition } from '../audioSync/scorePositions.js';
+import { buildTimelineModel } from '../audioSync/timelineModel.js';
+import { listRecords, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
+import { getSongKey } from '../youtubePlayer.js';
 
 const MIN_BARS_KEY = 'majestictab.sectionMinBars';
 
@@ -25,12 +28,15 @@ export function initBarRuler() {
     bar.hidden = true;
     bar.innerHTML = `
       <div class="bar-ruler-main">
+        <div class="bar-ruler-col">
         <div class="bar-ruler-track" id="barRulerTrack" role="slider" tabindex="0" aria-label="Song position"
              aria-valuemin="1" aria-valuenow="1" aria-valuemax="1">
           <div class="bar-ruler-parts" id="barRulerParts"></div>
           <div class="bar-ruler-ticks" id="barRulerTicks"></div>
           <div class="bar-ruler-loop" id="barRulerLoop" hidden></div>
           <div class="bar-ruler-head" id="barRulerHead"></div>
+        </div>
+        <div class="bar-ruler-sync" id="barRulerSync" hidden aria-label="Recording sync coverage"></div>
         </div>
         <div class="bar-ruler-side">
           <span class="bar-ruler-readout" id="barRulerReadout" aria-live="off"></span>
@@ -106,10 +112,56 @@ export function initBarRuler() {
         fitLabels();
         updateLoop();
         updateHead();
+        renderSyncLane();
         const info = $('barRulerInfoBtn');
         info.hidden = !model.marks.length;
         $('barRulerLoopBtn').hidden = !parts.length;
     }
+
+
+    // Sync coverage under the ruler: solid where bars follow the recording, dashed where they do not, a notch per
+    // point, amber for a point that looks wrong. Read from the song's newest sync record; hidden when it has none.
+    function renderSyncLane() {
+        const lane = $('barRulerSync');
+        lane.innerHTML = '';
+        lane.hidden = true;
+        if (!model) return;
+        let record = null;
+        try { record = listRecords(getSongKey() || '')[0] || null; } catch (_) { record = null; }
+        ensureTimeline();
+        if (!record || !model.timeline) return;
+        const bars = model.timeline.bars;
+        const toMaster = (f) => {
+            const i = Math.min(bars.length - 1, Math.max(0, Math.floor(f)));
+            return Math.min(1, (bars[i].barIndex + (f - i)) / model.total);
+        };
+        const view = buildTimelineModel({ timeline: model.timeline, points: record.points, axis: 'bars' });
+        const total = view.totalBars || bars.length;
+        const base = document.createElement('div');
+        base.className = 'bar-ruler-sync-base';
+        lane.appendChild(base);
+        for (const g of view.gaps) {
+            const el = document.createElement('div');
+            el.className = 'bar-ruler-sync-gap';
+            const x0 = toMaster(g.x0 * total);
+            const x1 = g.x1 >= 1 ? 1 : toMaster(g.x1 * total);
+            el.style.left = `${x0 * 100}%`;
+            el.style.width = `${Math.max(0, x1 - x0) * 100}%`;
+            lane.appendChild(el);
+        }
+        for (const m of view.markers) {
+            const el = document.createElement('div');
+            el.className = `bar-ruler-sync-point${m.flag ? ' is-flagged' : ''}`;
+            el.style.left = `${toMaster(m.barFraction) * 100}%`;
+            lane.appendChild(el);
+        }
+        const flagged = view.markers.filter((m) => m.flag).length;
+        lane.title = `Recording synced: ${view.markers.length} point${view.markers.length === 1 ? '' : 's'}`
+            + (view.gaps.length ? `, ${view.gaps.length} unsynced stretch${view.gaps.length === 1 ? '' : 'es'}` : '')
+            + (flagged ? `, ${flagged} to check` : '');
+        lane.hidden = false;
+    }
+    window.addEventListener(SYNC_CHANGED_EVENT, () => { if (model) renderSyncLane(); });
 
     // Full name when the block is wide enough, else the short one, else nothing
     function fitLabels() {
