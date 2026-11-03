@@ -191,15 +191,15 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
     s.target = s.mode === 'step' ? startTarget(map, s.points) : null;
     document.body.classList.add('sync-mode');
     $('syncModeBar').hidden = false;
-    // The toolbar floats over the top of the score: pad the score by its height so every system can be scrolled clear of it
-    s.prevPadding = output.style.paddingTop;
+    // The toolbar docks over the bottom of the score: pad the score by the overlap so every system can be scrolled clear of it
+    s.prevPadding = output.style.paddingBottom;
     const padForBar = () => {
-        const need = $('syncModeBar').getBoundingClientRect().bottom - output.getBoundingClientRect().top + 8;
-        output.style.paddingTop = `${Math.max(0, Math.round(need))}px`;
+        const need = output.getBoundingClientRect().bottom - $('syncModeBar').getBoundingClientRect().top + 8;
+        output.style.paddingBottom = `${Math.max(0, Math.round(need))}px`;
     };
     const barObserver = new ResizeObserver(padForBar);
     barObserver.observe($('syncModeBar'));
-    s.cleanup.push(() => { barObserver.disconnect(); output.style.paddingTop = s.prevPadding; });
+    s.cleanup.push(() => { barObserver.disconnect(); output.style.paddingBottom = s.prevPadding; });
     padForBar();
     showTimeline(s.timelineOpen);
     applyFollower();
@@ -730,20 +730,20 @@ function flash(beat, message) {
     showToast(message, 'info', 2200);
 }
 
-/** Scroll so the target beat sits clear below the toolbar, unless the user is scrolling by hand. */
+/** Scroll so the target beat sits clear above the bottom toolbar, unless the user is scrolling by hand. */
 function scrollToTarget(force) {
     const s = session;
     const rect = s?.target && beatRect(s.target);
     if (!rect) return;
     if (!force && performance.now() - s.lastUserScrollAt < SCROLL_IDLE_MS) return;
     const viewH = s.output.clientHeight;
-    const barBottom = Math.max(0, $('syncModeBar').getBoundingClientRect().bottom - s.output.getBoundingClientRect().top);
+    const barH = Math.max(0, s.output.getBoundingClientRect().bottom - $('syncModeBar').getBoundingClientRect().top);
     const containerTop = s.container.getBoundingClientRect().top - s.output.getBoundingClientRect().top + s.output.scrollTop;
     const beatTop = containerTop + rect.y;
-    const visibleTop = s.output.scrollTop + barBottom + 8;
-    const visibleBottom = s.output.scrollTop + viewH * 0.8;
+    const visibleTop = s.output.scrollTop + 8;
+    const visibleBottom = s.output.scrollTop + Math.min(viewH * 0.8, viewH - barH - 8);
     if (!force && beatTop >= visibleTop && beatTop + rect.h <= visibleBottom) return;
-    s.output.scrollTo({ top: Math.max(0, beatTop - barBottom - 40), behavior: force ? 'auto' : 'smooth' });
+    s.output.scrollTo({ top: Math.max(0, beatTop - 40), behavior: force ? 'auto' : 'smooth' });
 }
 
 // --- Toolbar -------------------------------------------------------------------------------------------------------
