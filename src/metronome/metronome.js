@@ -16,6 +16,8 @@ const SCHEDULE_AHEAD_S = 0.12;
 const MIN_BEATS = 2;
 const MAX_BEATS = 19;
 const UNITS = [1, 2, 4, 8, 16]; // note value of one beat
+const MAX_REPEAT = 8;
+const MAX_PARTS = 8;
 
 const $ = (id) => document.getElementById(id);
 const clampBpm = (n) => Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(n)));
@@ -42,8 +44,14 @@ class TempoTapper {
 class MetronomeController {
     constructor() {
         this.bpm = 120;
-        this.beats = 4;
-        this.unit = 4;
+        // The bars to cycle through: each part is a time signature played `repeat` times (6/8 x2, then 7/8)
+        this.pattern = [{ beats: 4, unit: 4, repeat: 1 }];
+        this.bars = [];
+        this.barIndex = 0;
+        this.beatInBar = 0;
+        this.beatCount = 0;
+        this.shownBeats = 0;
+        this.shownPart = -1;
         this.muted = false;
         this.blink = true;
         this.playing = false;
@@ -52,7 +60,6 @@ class MetronomeController {
         this.ctx = null;
         this.timer = null;
         this.nextTime = 0;
-        this.beatIndex = 0;
         this.visualQueue = [];
         this.raf = null;
         this.bpmBuffer = '';
@@ -64,8 +71,13 @@ class MetronomeController {
         try {
             const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
             if (Number.isFinite(s.bpm)) this.bpm = clampBpm(s.bpm);
-            if (Number.isInteger(s.beats) && s.beats >= MIN_BEATS && s.beats <= MAX_BEATS) this.beats = s.beats;
-            if (UNITS.includes(s.unit)) this.unit = s.unit;
+            const valid = (x) => x && Number.isInteger(x.beats) && x.beats >= MIN_BEATS && x.beats <= MAX_BEATS && UNITS.includes(x.unit)
+                && Number.isInteger(x.repeat) && x.repeat >= 1 && x.repeat <= MAX_REPEAT;
+            if (Array.isArray(s.pattern) && s.pattern.length && s.pattern.length <= MAX_PARTS && s.pattern.every(valid)) {
+                this.pattern = s.pattern.map(({ beats, unit, repeat }) => ({ beats, unit, repeat }));
+            } else if (valid({ ...s, repeat: 1 })) {
+                this.pattern = [{ beats: s.beats, unit: s.unit, repeat: 1 }]; // saved before patterns existed
+            }
             if (typeof s.muted === 'boolean') this.muted = s.muted;
             if (typeof s.blink === 'boolean') this.blink = s.blink;
         } catch (_) { /* storage can be blocked or hold bad data; the defaults stand */ }
@@ -73,12 +85,17 @@ class MetronomeController {
 
     saveState() {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ bpm: this.bpm, beats: this.beats, unit: this.unit, muted: this.muted, blink: this.blink }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ bpm: this.bpm, pattern: this.pattern, muted: this.muted, blink: this.blink }));
         } catch (_) { /* the setting just won't persist */ }
     }
 
     /** Seconds per beat: a beat is one note of the signature's unit, with the BPM counting quarter notes. */
-    get beatSeconds() { return (60 / this.bpm) * (4 / this.unit); }
+    beatSecondsFor(unit) { return (60 / this.bpm) * (4 / unit); }
+
+    /** The pattern laid out bar by bar: [6/8 x2, 7/8] becomes 6/8, 6/8, 7/8. `part` is the pattern row each bar came from. */
+    expandBars() {
+        return this.pattern.flatMap((p, part) => Array.from({ length: p.repeat }, () => ({ beats: p.beats, unit: p.unit, part })));
+    }
 
     isOpen() {
         const m = $('metronomeModal');
@@ -96,8 +113,13 @@ class MetronomeController {
 
         $('metroPlayBtn')?.addEventListener('click', () => this.toggle());
         $('metroTapBtn')?.addEventListener('click', () => this.tap());
-        $('metroBeatsSelect')?.addEventListener('change', (e) => this.setBeats(Number(e.target.value)));
-        $('metroUnitSelect')?.addEventListener('change', (e) => this.setUnit(Number(e.target.value)));
+        $('metroPattern')?.addEventListener('change', (e) => this.onPatternChange(e));
+        $('metroPattern')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-remove]');
+            if (btn) this.removePart(Number(btn.dataset.remove));
+        });
+        $('metroAddPart')?.addEventListener('click', () => this.addPart());
+        $('metroResetPart')?.addEventListener('click', () => this.resetPattern());
         $('metroBpmDown')?.addEventListener('click', () => this.setBpm(this.bpm - 1));
         $('metroBpmUp')?.addEventListener('click', () => this.setBpm(this.bpm + 1));
         $('metroBpmRange')?.addEventListener('input', (e) => this.setBpm(Number(e.target.value)));
@@ -105,6 +127,7 @@ class MetronomeController {
         $('metroBlinkSwitch')?.addEventListener('change', (e) => { this.blink = e.target.checked; this.saveState(); this.render(); });
 
         document.addEventListener('keydown', (e) => this.onKey(e));
+        this.renderPattern();
         this.render();
     }
 
@@ -146,19 +169,42 @@ class MetronomeController {
         this.render();
     }
 
-    /** Beats per bar and the note that gets the beat are set on their own; either one restarts the bar. */
-    setBeats(value) {
-        if (Number.isFinite(value)) this.beats = Math.min(MAX_BEATS, Math.max(MIN_BEATS, Math.round(value)));
-        this.signatureChanged();
+    /** Each part's beats per bar, note value and repeat count are set on their own; any change restarts the pattern. */
+    onPatternChange(e) {
+        const sel = e.target.closest('select[data-field]');
+        if (!sel) return;
+        const part = this.pattern[Number(sel.dataset.part)];
+        const value = Number(sel.value);
+        if (!part || !Number.isFinite(value)) return;
+        if (sel.dataset.field === 'beats') part.beats = Math.min(MAX_BEATS, Math.max(MIN_BEATS, Math.round(value)));
+        else if (sel.dataset.field === 'unit' && UNITS.includes(value)) part.unit = value;
+        else if (sel.dataset.field === 'repeat') part.repeat = Math.min(MAX_REPEAT, Math.max(1, Math.round(value)));
+        this.patternChanged();
     }
 
-    setUnit(value) {
-        if (UNITS.includes(value)) this.unit = value;
-        this.signatureChanged();
+    addPart() {
+        if (this.pattern.length >= MAX_PARTS) return;
+        const last = this.pattern[this.pattern.length - 1];
+        this.pattern.push({ beats: last.beats, unit: last.unit, repeat: 1 });
+        this.renderPattern();
+        this.patternChanged();
     }
 
-    signatureChanged() {
-        this.beatIndex = 0;
+    /** Back to a single 4/4 bar, played once. The tempo is left as it is. */
+    resetPattern() {
+        this.pattern = [{ beats: 4, unit: 4, repeat: 1 }];
+        this.renderPattern();
+        this.patternChanged();
+    }
+
+    removePart(i) {
+        if (this.pattern.length <= 1 || !this.pattern[i]) return;
+        this.pattern.splice(i, 1);
+        this.renderPattern();
+        this.patternChanged();
+    }
+
+    patternChanged() {
         this.saveState();
         this.render();
         if (this.playing) this.restart();
@@ -223,7 +269,10 @@ class MetronomeController {
         try { resumeTrackedAudioContexts(); } catch (_) { /* optional */ }
         this.ctx.resume?.();
         this.playing = true;
-        this.beatIndex = 0;
+        this.bars = this.expandBars();
+        this.barIndex = 0;
+        this.beatInBar = 0;
+        this.beatCount = 0;
         this.visualQueue = [];
         this.nextTime = this.ctx.currentTime + 0.06;
         this.timer = setInterval(() => this.schedule(), LOOKAHEAD_MS);
@@ -250,11 +299,17 @@ class MetronomeController {
     schedule() {
         if (!this.ctx) return;
         while (this.nextTime < this.ctx.currentTime + SCHEDULE_AHEAD_S) {
-            const accent = this.beatIndex % this.beats === 0;
-            if (!this.muted) this.click(this.nextTime, accent);
-            this.visualQueue.push({ time: this.nextTime, index: this.beatIndex % this.beats, seconds: this.beatSeconds });
-            this.nextTime += this.beatSeconds;
-            this.beatIndex++;
+            const bar = this.bars[this.barIndex];
+            const seconds = this.beatSecondsFor(bar.unit);
+            if (!this.muted) this.click(this.nextTime, this.beatInBar === 0);
+            this.visualQueue.push({ time: this.nextTime, index: this.beatInBar, beats: bar.beats, part: bar.part, n: this.beatCount, seconds });
+            this.nextTime += seconds;
+            this.beatCount++;
+            this.beatInBar++;
+            if (this.beatInBar >= bar.beats) {
+                this.beatInBar = 0;
+                this.barIndex = (this.barIndex + 1) % this.bars.length;
+            }
         }
     }
 
@@ -287,13 +342,16 @@ class MetronomeController {
         if (arm && this.current) {
             // One beat swings the arm across; the next swings it back
             const phase = Math.min(1, Math.max(0, (now - this.current.time) / this.current.seconds));
-            const forward = (this.current.index % 2 === 0);
+            const forward = (this.current.n % 2 === 0); // the arm keeps alternating across bars, whatever their length
             const p = forward ? phase : 1 - phase;
             const eased = 0.5 - Math.cos(p * Math.PI) / 2;
             arm.style.transform = `rotate(${(eased * 2 - 1) * 0.4}rad)`;
         }
-        const dots = document.querySelectorAll('#metroBeats .metro-beat');
-        dots.forEach((d, i) => d.classList.toggle('is-current', this.current ? i === this.current.index : false));
+        if (this.current) {
+            this.renderDots(this.current.beats);
+            this.markPart(this.current.part);
+            document.querySelectorAll('#metroBeats .metro-beat').forEach((d, i) => d.classList.toggle('is-current', i === this.current.index));
+        }
         const mark = $('metroMark');
         if (mark && this.blink && this.current) {
             const since = now - this.current.time;
@@ -302,16 +360,53 @@ class MetronomeController {
         this.raf = requestAnimationFrame(() => this.frame());
     }
 
+    /** One dot per beat of the bar that is sounding; the first (the downbeat) is a tone darker. */
+    renderDots(count) {
+        const beats = $('metroBeats');
+        if (!beats || this.shownBeats === count) return;
+        this.shownBeats = count;
+        beats.innerHTML = Array.from({ length: count }, (_, i) =>
+            `<span class="metro-beat${i === 0 ? ' is-downbeat' : ''}" aria-hidden="true"></span>`).join('');
+    }
+
+    /** Take one tone step on the pattern row that is playing. */
+    markPart(part) {
+        if (this.shownPart === part) return;
+        this.shownPart = part;
+        document.querySelectorAll('#metroPattern .metro-row').forEach((row) =>
+            row.classList.toggle('is-current', Number(row.dataset.part) === part));
+    }
+
+    renderPattern() {
+        const host = $('metroPattern');
+        if (!host) return;
+        const options = (values, current) => values.map((v) => `<option value="${v}"${v === current ? ' selected' : ''}>${v}</option>`).join('');
+        const beatValues = Array.from({ length: MAX_BEATS - MIN_BEATS + 1 }, (_, i) => MIN_BEATS + i);
+        const repeatValues = Array.from({ length: MAX_REPEAT }, (_, i) => i + 1);
+        host.innerHTML = this.pattern.map((p, i) => {
+            const n = this.pattern.length > 1 ? `Part ${i + 1} ` : '';
+            return `<div class="metro-row" data-part="${i}">
+                <select class="form-select metro-field" data-field="beats" data-part="${i}" aria-label="${n}beats per bar">${options(beatValues, p.beats)}</select>
+                <span class="metro-sig-slash" aria-hidden="true">/</span>
+                <select class="form-select metro-field" data-field="unit" data-part="${i}" aria-label="${n}note value of one beat">${options(UNITS, p.unit)}</select>
+                <span class="metro-times" aria-hidden="true">&times;</span>
+                <select class="form-select metro-field" data-field="repeat" data-part="${i}" aria-label="${n}number of bars">${options(repeatValues, p.repeat)}</select>
+                ${this.pattern.length > 1 ? `<button type="button" class="btn btn-sm metro-ghost" data-remove="${i}" aria-label="Remove part ${i + 1}">Remove</button>` : ''}
+            </div>`;
+        }).join('');
+        $('metroAddPart')?.toggleAttribute('hidden', this.pattern.length >= MAX_PARTS);
+        this.shownPart = -1;
+    }
+
     render() {
         const bpmEl = $('metroBpm');
         if (!bpmEl) return;
         bpmEl.textContent = String(this.bpm);
         const range = $('metroBpmRange');
         if (range) range.value = String(this.bpm);
-        const beatsSelect = $('metroBeatsSelect');
-        if (beatsSelect) beatsSelect.value = String(this.beats);
-        const unitSelect = $('metroUnitSelect');
-        if (unitSelect) unitSelect.value = String(this.unit);
+        const isDefault = this.pattern.length === 1 && this.pattern[0].beats === 4 && this.pattern[0].unit === 4 && this.pattern[0].repeat === 1;
+        const reset = $('metroResetPart');
+        if (reset) reset.disabled = isDefault;
         const play = $('metroPlayBtn');
         if (play) {
             play.textContent = this.playing ? 'Stop' : 'Start';
@@ -323,12 +418,9 @@ class MetronomeController {
         if (blink) blink.checked = this.blink;
         const mark = $('metroMark');
         if (mark) { mark.hidden = !this.blink; if (!this.playing) mark.classList.remove('is-lit'); }
-        const beats = $('metroBeats');
-        if (beats && beats.children.length !== this.beats) {
-            beats.innerHTML = Array.from({ length: this.beats }, (_, i) =>
-                `<span class="metro-beat${i === 0 ? ' is-downbeat' : ''}" aria-hidden="true"></span>`).join('');
-        }
         if (!this.playing) {
+            this.renderDots(this.pattern[0].beats);
+            this.markPart(-1);
             document.querySelectorAll('#metroBeats .metro-beat').forEach((d) => d.classList.remove('is-current'));
             const arm = $('metroArm');
             if (arm) arm.style.transform = '';
