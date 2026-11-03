@@ -25,7 +25,7 @@ async function request(url, accept) {
 
 // Browsers undo Content-Encoding themselves, but the native HTTP client can hand back the gzip bytes of a server that
 // sends them anyway even when not asked, so a body that starts with the gzip magic is unpacked.
-const fetchText = async url => {
+export const fetchText = async url => {
     const res = await request(url, 'application/json, text/html, text/plain, */*');
     let bytes = new Uint8Array(await res.arrayBuffer());
     if (bytes[0] === 0x1f && bytes[1] === 0x8b && typeof DecompressionStream === 'function') {

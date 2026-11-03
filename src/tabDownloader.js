@@ -8,6 +8,13 @@ import { detectFileMetadata } from './utils/tuningUtils.js';
 import { closeLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
 import { hasFeature } from './channel.js';
+import {
+    isWsaTabUrl,
+    getDownloaderUrlFromMatchedUrl,
+    unwrapGoogleUrl,
+    buildPrefillUserscript,
+    attachSyncForMatchedUrl
+} from './utils/downloaderIntercept.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 const SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
@@ -48,6 +55,9 @@ let currentSearchQuery = '';
 let pendingSourceId = null;
 // Real address of the page in the downloader webview (the bar text can read "Loading...")
 let currentDownloaderUrl = '';
+// Hidden ephemeral source spawned only when a matched endpoint link is clicked
+let activeEphemeralSource = null;
+let pendingMatchedTabUrl = null;
 let pendingSourceTimer = null;
 let loadingBarTimer = null;
 
@@ -232,11 +242,14 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     const targetSong = activeTargetSong;
     const targetAlbum = activeTargetAlbum;
     const onFileSelectedCb = activeDownloaderOnFileSelected;
+    const matchedUrl = pendingMatchedTabUrl;
 
     // Reset targets once consumed
     activeTargetSong = null;
     activeTargetAlbum = null;
     activeDownloaderOnFileSelected = null;
+    pendingMatchedTabUrl = null;
+    activeEphemeralSource = null;
 
     // Close / hide downloader
     closeTabDownloaderModal();
@@ -303,6 +316,10 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     // Load file directly into player viewer
     closeLibraryModal(true);
     await loadFile(file);
+
+    if (matchedUrl) {
+        attachSyncForMatchedUrl(matchedUrl, { showToast });
+    }
 }
 
 // Global hook for direct evaluation from Kotlin or Rust
@@ -659,7 +676,15 @@ export function renderDownloaderTabs() {
     const container = document.getElementById('downloaderTabsRow');
     if (!container) return;
 
-    const sources = getSources();
+    const sources = [...getSources()];
+    if (activeEphemeralSource) {
+        sources.push({
+            id: activeEphemeralSource.id,
+            name: activeEphemeralSource.name,
+            defaultUrl: activeEphemeralSource.url,
+            urlTemplate: activeEphemeralSource.url
+        });
+    }
     let html = sources.map(s => `
         <button type="button" class="downloader-source-tab-btn ${s.id === activeSourceId ? 'active' : ''}" data-source-id="${s.id}" title="${s.name}">
             <i class="bi-globe"></i>
@@ -698,10 +723,17 @@ export function switchActiveSource(src) {
 
     showLoadingInUrlBar(src.name);
 
-    const query = formatSearchQueryForSource(src, activeArtistName, activeSongName) || currentSearchQuery;
-    const nextUrl = buildSearchUrl(src, query);
+    let nextUrl;
+    let userscript;
+    if (src.id === 'downloader' && activeEphemeralSource) {
+        nextUrl = activeEphemeralSource.url;
+        userscript = buildPrefillUserscript(activeEphemeralSource.targetUrl);
+    } else {
+        const query = formatSearchQueryForSource(src, activeArtistName, activeSongName) || currentSearchQuery;
+        nextUrl = buildSearchUrl(src, query);
+        userscript = src.userscriptEnabled ? (src.userscript || src.defaultUserscript || null) : null;
+    }
     currentDownloaderUrl = nextUrl;
-    const userscript = src.userscriptEnabled ? (src.userscript || src.defaultUserscript || null) : null;
 
     if (window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl, userscript }).catch(err => {
@@ -728,7 +760,14 @@ export function highlightSourceTabForUrl(url) {
         const u = new URL(url);
         const host = u.hostname.toLowerCase();
         let matchedId = null;
-        const sources = getSources();
+        const sources = [...getSources()];
+        if (activeEphemeralSource) {
+            sources.push({
+                id: activeEphemeralSource.id,
+                defaultUrl: activeEphemeralSource.url,
+                urlTemplate: activeEphemeralSource.url
+            });
+        }
         for (const s of sources) {
             try {
                 const su = new URL(s.defaultUrl || s.urlTemplate);
@@ -832,11 +871,40 @@ export function hideTabDownloaderBar() {
 }
 
 /**
+ * Intercepts links to the score endpoint, constructs the dynamic downloader URL,
+ * creates the ephemeral Downloader tab, and navigates with the prefill userscript.
+ * @param {string} url
+ * @returns {boolean} true if intercepted
+ */
+export function handleWsaUrlIntercept(url) {
+    const cleanUrl = unwrapGoogleUrl(url);
+    if (pendingMatchedTabUrl === cleanUrl && activeSourceId === 'downloader') {
+        return true;
+    }
+    const downloaderUrl = getDownloaderUrlFromMatchedUrl(cleanUrl);
+    if (!downloaderUrl) return false;
+
+    pendingMatchedTabUrl = cleanUrl;
+    activeEphemeralSource = {
+        id: 'downloader',
+        name: 'Downloader',
+        url: downloaderUrl,
+        targetUrl: cleanUrl
+    };
+    renderDownloaderTabs();
+    switchActiveSource(activeEphemeralSource);
+    return true;
+}
+
+/**
  * Show a downloader page address in the URL bar and highlight its source tab
  * @param {string} rawUrl
  */
 function applyDownloaderUrl(rawUrl) {
     const url = stripAdFragment(rawUrl || '');
+    if (url && isWsaTabUrl(url)) {
+        if (handleWsaUrlIntercept(url)) return;
+    }
     const urlText = document.getElementById('downloaderUrlText');
     const urlGroup = document.getElementById('downloaderUrlGroup');
     if (highlightSourceTabForUrl(url) === false) return;
@@ -958,6 +1026,8 @@ let debugToolsEnabled = null;
  */
 export async function openTabDownloader(options = {}) {
     lastImportCheckedUrl = '';
+    activeEphemeralSource = null;
+    pendingMatchedTabUrl = null;
     if (!isNative()) return;
 
     activeDownloaderOnFileSelected = options.onFileSelected || null;
@@ -1067,6 +1137,8 @@ export function closeTabDownloaderModal(invokeNative = true) {
     activeDownloaderOnFileSelected = null;
     activeTargetSong = null;
     activeTargetAlbum = null;
+    activeEphemeralSource = null;
+    pendingMatchedTabUrl = null;
 
     try { window.MajesticDownloaderNative?.close?.(); } catch {}
     stopUrlPolling();
@@ -1075,5 +1147,13 @@ export function closeTabDownloaderModal(invokeNative = true) {
     if (invokeNative && window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke('tab_downloader_hide').catch(() => {});
     }
+}
+
+export function getActiveEphemeralSource() {
+    return activeEphemeralSource;
+}
+
+export function getPendingMatchedTabUrl() {
+    return pendingMatchedTabUrl;
 }
 

@@ -68,10 +68,16 @@ const formats = [
             try { data = JSON.parse(text); } catch { return null; }
             const found = findBarTimes(data);
             if (!found.length) return null;
-            return found.map((f, i) => ({
-                label: [`${i + 1}. ${f.values.length} bars`, describe(f.owner) || f.path || null].filter(Boolean).join(' · '),
-                barTimesMs: timesToMs(f.values)
-            }));
+            return found.map((f, i) => {
+                const videoId = typeof f.owner?.videoId === 'string' ? f.owner.videoId
+                    : (typeof f.owner?.video_id === 'string' ? f.owner.video_id : undefined);
+                const out = {
+                    label: [`${i + 1}. ${f.values.length} bars`, describe(f.owner) || f.path || null].filter(Boolean).join(' · '),
+                    barTimesMs: timesToMs(f.values)
+                };
+                if (videoId) out.videoId = videoId;
+                return out;
+            });
         }
     }
 ];
