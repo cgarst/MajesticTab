@@ -23,6 +23,7 @@ const providers = new Map();
  * @property {string} id - Unique identifier
  * @property {string} name - Display name
  * @property {string} [icon] - Bootstrap icon class
+ * @property {string} [saveDescription] - Shown instead of `description` where the provider is picked as a save target (Backup)
  * @property {function(Object=): Promise<File|void>} open - Handles user interaction and importing
  */
 
@@ -81,7 +82,7 @@ export function getSaveProviders() {
 
 const SYNC_TARGET_KEY = 'majestictab_sync_target';
 
-/** Where the user keeps their library: 'google-drive', 'icloud', 's3', 'folder', or null until they choose. Shared by Sync and Backup. */
+/** Where the user keeps their library: 'google-drive', 'icloud', 's3', 'webdav', 'folder', or null until they choose. Shared by Sync and Backup. */
 export function getPreferredStorage() {
     try {
         const target = localStorage.getItem(SYNC_TARGET_KEY);
@@ -325,6 +326,7 @@ export const S3FileProvider = {
     icon: 'bi-hdd-network',
     iconColorClass: 'text-warning',
     description: 'Open tab files from Amazon S3, Cloudflare R2, Backblaze B2, MinIO or any S3-compatible bucket',
+    saveDescription: 'Save backups to Amazon S3, Cloudflare R2, Backblaze B2, MinIO or any S3 bucket',
     badge: 'Cloud',
     actionLabel: 'Open from Bucket',
     async open(options = {}) {
@@ -337,6 +339,31 @@ export const S3FileProvider = {
         if (!config) throw new Error('Connect an S3 bucket first (Sync or Open File > S3 Bucket).');
         await s3Put(config, `${s3BasePrefix(config)}${filename}`, await fileBlob.arrayBuffer());
         return { success: true, name: filename, providerId: 's3' };
+    }
+};
+
+// --- Built-in Provider: WebDAV ---
+// Talks to the server directly with the user's own login (see webdavClient.js).
+export const WebDavFileProvider = {
+    id: 'webdav',
+    name: 'WebDAV',
+    icon: 'bi-hdd-rack',
+    iconColorClass: 'text-info',
+    description: 'Open tab files from Nextcloud, ownCloud, Synology or any WebDAV server',
+    saveDescription: 'Save backups to Nextcloud, ownCloud, Synology or any WebDAV server',
+    badge: 'Cloud',
+    actionLabel: 'Open from WebDAV',
+    async open(options = {}) {
+        const { openWebDavBrowser } = await import('./webdavUi.js');
+        openWebDavBrowser((file) => handlePickedFile(file, options));
+    },
+    async save(fileBlob, filename = 'MajesticTab-backup.mtbackup') {
+        const { getWebDavConfig, davPut, davEnsureDir } = await import('./webdavClient.js');
+        const config = getWebDavConfig();
+        if (!config) throw new Error('Connect a WebDAV server first (Sync or Open File > WebDAV).');
+        await davEnsureDir(config, '');
+        await davPut(config, filename, await fileBlob.arrayBuffer());
+        return { success: true, name: filename, providerId: 'webdav' };
     }
 };
 
@@ -407,6 +434,7 @@ registerFileProvider(LocalFileProvider);
 registerFileProvider(GoogleDriveFileProvider);
 // @googleDrive:end
 registerFileProvider(S3FileProvider);
+registerFileProvider(WebDavFileProvider);
 registerFileProvider(UrlFileProvider);
 
 if (isIcloudDriveSupported()) {

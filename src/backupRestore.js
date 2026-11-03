@@ -1560,7 +1560,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                     </div>
                     <div class="min-w-0">
                       <div class="fw-bold text-white small leading-tight">${escapeHtml(p.name)}</div>
-                      <div class="text-muted text-truncate" style="font-size: 0.73rem;">${escapeHtml(p.description || '')}</div>
+                      <div class="text-muted text-truncate" style="font-size: 0.73rem;">${escapeHtml(p.saveDescription || p.description || '')}</div>
                     </div>
                   </div>
                 </label>
@@ -1576,7 +1576,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <input class="form-check-input theme-radio m-0" type="radio" name="backupFormat" value="incremental">
                 <div class="min-w-0">
                   <div class="fw-bold text-white small leading-tight">Incremental snapshots</div>
-                  <div class="text-muted" style="font-size: 0.73rem;">Saves only new or changed tabs. Each backup is a restorable snapshot. Works with Google Drive, an S3 bucket or a local folder.</div>
+                  <div class="text-muted" style="font-size: 0.73rem;">Saves only new or changed tabs. Each backup is a restorable snapshot. Works with Google Drive, an S3 bucket, a WebDAV server or a local folder.</div>
                   <div class="text-warning" id="backupIncrementalHint" style="font-size: 0.73rem; display: none;"></div>
                 </div>
               </label>
@@ -1620,7 +1620,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <input type="file" id="restoreFileInput" accept=".mtbackup" class="d-none">
             <i class="bi-file-earmark-arrow-up text-info fs-1 mb-2 d-block"></i>
             <div class="fw-bold text-white small mb-1">Restore from a snapshot or a backup file</div>
-            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive, an S3 bucket or a backup folder, or open a single .mtbackup file (you can also drop one here)</div>
+            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive, an S3 bucket, a WebDAV server or a backup folder, or open a single .mtbackup file (you can also drop one here)</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreBrowseBtn">
                 <i class="bi-file-earmark-zip text-primary"></i> <span>From File…</span>
@@ -1633,6 +1633,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               </button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreS3Btn">
                 <i class="bi-hdd-network text-warning"></i> <span>From S3 Bucket</span>
+              </button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreWebDavBtn">
+                <i class="bi-hdd-rack text-info"></i> <span>From WebDAV</span>
               </button>
               <!-- @googleDrive:begin -->
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
@@ -1866,6 +1869,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="google-drive"><i class="icon-gdrive"></i> Scan Google Drive</button>
               <!-- @googleDrive:end -->
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="s3"><i class="bi-hdd-network text-warning"></i> Scan S3 Bucket</button>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="webdav"><i class="bi-hdd-rack text-info"></i> Scan WebDAV</button>
               <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-2" data-snapshot-orphan-scan="local"><i class="bi-folder2-open text-primary"></i> Scan Backup Folder</button>
             </div>
             <div id="snapshotOrphansList"></div>
@@ -2192,7 +2196,7 @@ function attachModalHandlers(modal, options = {}) {
             const target = await resolveIncrementalTarget({ interactive: true, provider });
             if (target.status !== 'ready') {
                 snapOrphansList.innerHTML = '';
-                return setSnapStatus('text-white-50', `<i class="bi-info-circle me-1"></i> ${target.status === 'needs-auth' ? 'Connect Google Drive from the Create Backup tab first.' : target.status === 'needs-s3' ? 'Connect an S3 bucket from the Create Backup tab first.' : 'Choose a backup folder and allow access to scan it.'}`);
+                return setSnapStatus('text-white-50', `<i class="bi-info-circle me-1"></i> ${target.status === 'needs-auth' ? 'Connect Google Drive from the Create Backup tab first.' : target.status === 'needs-s3' ? 'Connect an S3 bucket from the Create Backup tab first.' : target.status === 'needs-webdav' ? 'Connect a WebDAV server from the Create Backup tab first.' : 'Choose a backup folder and allow access to scan it.'}`);
             }
             const { findUnusedBlobs } = await import('./incrementalBackup.js');
             snapOrphanScope = getSnapScope();
@@ -2282,6 +2286,11 @@ function attachModalHandlers(modal, options = {}) {
             const backend = createS3Backend();
             return backend ? { status: 'ready', backend } : { status: 'needs-s3' };
         }
+        if (provider === 'webdav') {
+            const { createWebDavBackend } = await import('./webdavBackup.js');
+            const backend = createWebDavBackend();
+            return backend ? { status: 'ready', backend } : { status: 'needs-webdav' };
+        }
         const folders = await import('./folderBackup.js');
         if (provider === 'icloud-drive') {
             const handle = await folders.getIcloudBackupFolder();
@@ -2340,7 +2349,8 @@ function attachModalHandlers(modal, options = {}) {
         const isDrive = getBackupProviderId() === 'google-drive';
         const isIcloud = getBackupProviderId() === 'icloud-drive';
         const isS3 = getBackupProviderId() === 's3';
-        const where = isDrive ? 'Google Drive' : isIcloud ? 'iCloud Drive' : isS3 ? 'your S3 bucket' : 'the backup folder';
+        const isWebDav = getBackupProviderId() === 'webdav';
+        const where = isDrive ? 'Google Drive' : isIcloud ? 'iCloud Drive' : isS3 ? 'your S3 bucket' : isWebDav ? 'your WebDAV server' : 'the backup folder';
         const note = (html) => { if (request === previewRequest) backupIncrementalPreview.innerHTML = html; };
         const actionBtn = (action, icon, label) => `<button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="${action}"><i class="${icon}"></i> <span>${label}</span></button>`;
 
@@ -2358,6 +2368,10 @@ function attachModalHandlers(modal, options = {}) {
             if (target.status === 'needs-s3') {
                 const { s3ConfigFormHtml } = await import('./s3Ui.js');
                 return note(`<div class="small text-white-50 mb-2"><i class="bi-info-circle me-1"></i> Connect an S3 bucket to keep your backups there.</div>${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div>${actionBtn('save-s3', 'bi-plug', 'Save and Connect')}`);
+            }
+            if (target.status === 'needs-webdav') {
+                const { webdavConfigFormHtml } = await import('./webdavUi.js');
+                return note(`<div class="small text-white-50 mb-2"><i class="bi-info-circle me-1"></i> Connect a WebDAV server to keep your backups there.</div>${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div>${actionBtn('save-webdav', 'bi-plug', 'Save and Connect')}`);
             }
             if (target.status === 'needs-folder') {
                 return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Choose a folder on this device to keep your backups in.</div>${actionBtn('choose-folder', 'bi-folder2-open text-primary', 'Choose Folder')}`);
@@ -2385,7 +2399,7 @@ function attachModalHandlers(modal, options = {}) {
                         <div class="small fw-semibold text-white">${head}</div>
                         <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(target.backend.location)}"><i class="bi-folder2 me-1"></i>${escapeHtml(target.backend.location)}</div>
                     </div>
-                    ${isDrive || isIcloud ? '' : isS3 ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-s3">Bucket Settings</button>' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
+                    ${isDrive || isIcloud ? '' : isS3 ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-s3">Bucket Settings</button>' : isWebDav ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-webdav">Server settings</button>' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
                 </div>
                 <div class="row g-2">
                     ${stat(p.added, 'New tabs', 'text-success')}
@@ -2419,7 +2433,25 @@ function attachModalHandlers(modal, options = {}) {
                 backupIncrementalPreview.innerHTML = `${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="save-s3"><i class="bi-plug"></i> <span>Save and Connect</span></button>`;
                 return;
             }
-            if (action === 'save-s3') {
+            if (action === 'edit-webdav') {
+                const { webdavConfigFormHtml } = await import('./webdavUi.js');
+                backupIncrementalPreview.innerHTML = `${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="save-webdav"><i class="bi-plug"></i> <span>Save and Connect</span></button>`;
+                return;
+            }
+            if (action === 'save-webdav') {
+                const btn = e.target.closest('[data-backup-action]');
+                const errorEl = backupIncrementalPreview.querySelector('#backupWebDavError');
+                if (errorEl) errorEl.style.display = 'none';
+                btn.disabled = true;
+                try {
+                    const { saveWebDavConfigFromForm } = await import('./webdavUi.js');
+                    await saveWebDavConfigFromForm(backupIncrementalPreview);
+                } catch (err) {
+                    btn.disabled = false;
+                    if (errorEl) { errorEl.textContent = err.message; errorEl.style.display = 'block'; }
+                    return;
+                }
+            } else if (action === 'save-s3') {
                 const btn = e.target.closest('[data-backup-action]');
                 const errorEl = backupIncrementalPreview.querySelector('#backupS3Error');
                 if (errorEl) errorEl.style.display = 'none';
@@ -2450,14 +2482,14 @@ function attachModalHandlers(modal, options = {}) {
     // keep the format and destination consistent
     const syncBackupFormat = ({ providerChanged = false, refresh = true } = {}) => {
         const providerId = getBackupProviderId();
-        const canIncrement = providerId === 'google-drive' || providerId === 'icloud-drive' || providerId === 's3' || (providerId === 'local' && isFolderBackupSupported());
+        const canIncrement = providerId === 'google-drive' || providerId === 'icloud-drive' || providerId === 's3' || providerId === 'webdav' || (providerId === 'local' && isFolderBackupSupported());
         if (incrementalRadio) incrementalRadio.disabled = !canIncrement;
         const hint = modal.querySelector('#backupIncrementalHint');
         if (hint) {
             hint.style.display = canIncrement ? 'none' : 'block';
             hint.textContent = providerId === 'local'
                 ? 'Local folders need the desktop app, or Chrome or Edge on a computer. Use Google Drive instead, or save a single file.'
-                : 'Choose Google Drive, iCloud Drive, S3 Bucket or Local Device to use incremental snapshots.';
+                : 'Choose Google Drive, iCloud Drive, S3 Bucket, WebDAV or Local Device to use incremental snapshots.';
         }
         if (incrementalOption) incrementalOption.style.opacity = canIncrement ? '' : '0.5';
         if (providerChanged && canIncrement) incrementalRadio.checked = true;
@@ -2509,6 +2541,7 @@ function attachModalHandlers(modal, options = {}) {
                 // @googleDrive:end
                 if (target.status === 'needs-icloud') throw new Error('iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud.');
                 if (target.status === 'needs-s3') throw new Error('Connect your S3 bucket first.');
+                if (target.status === 'needs-webdav') throw new Error('Connect your WebDAV server first.');
                 if (target.status !== 'ready') throw new Error('Choose a backup folder and allow access to it first.');
                 const { createIncrementalBackup } = await import('./incrementalBackup.js');
                 const result = await createIncrementalBackup(target.backend, {
@@ -2756,8 +2789,50 @@ function attachModalHandlers(modal, options = {}) {
         }
     };
 
+    // Lists snapshots in the connected WebDAV server
+    const loadWebDavBackups = async () => {
+        try {
+            const { createWebDavBackend } = await import('./webdavBackup.js');
+            const backend = createWebDavBackend();
+            if (!backend) {
+                showToast('Connect an WebDAV server first, from the Create Backup tab or Sync.', 'warning');
+                return;
+            }
+            activeSource = { type: 'webdav', backend };
+            restoreChangeLocationBtn?.classList.add('d-none');
+            restoreDrivePickBtn?.classList.add('d-none');
+            if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'block';
+            if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
+            if (restoreDriveError) restoreDriveError.style.display = 'none';
+            if (restoreDriveList) restoreDriveList.innerHTML = '';
+            if (restoreSourceIcon) restoreSourceIcon.className = 'bi-hdd-rack text-info';
+            if (restoreSourceTitle) restoreSourceTitle.textContent = 'WebDAV:';
+            if (restoreSourceLocation) restoreSourceLocation.textContent = backend.location;
+            if (restoreDriveEmptyText) restoreDriveEmptyText.textContent = 'No snapshots found on this server.';
+
+            const { listIncrementalBackups } = await import('./incrementalBackup.js');
+            const backups = (await listIncrementalBackups(backend))
+                .map(b => ({ ...b, incremental: true, modifiedTime: b.exportedAt }));
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
+            if (!backups.length) {
+                if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'block';
+                return;
+            }
+            renderDriveBackupsList(backups);
+        } catch (err) {
+            console.error('Failed to read WebDAV backups:', err);
+            if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
+            if (restoreDriveError) {
+                restoreDriveError.style.display = 'block';
+                restoreDriveError.textContent = `Could not read the server: ${err.message}`;
+            }
+        }
+    };
+
     restoreFolderBtn?.addEventListener('click', () => loadFolderBackups());
     modal.querySelector('#restoreS3Btn')?.addEventListener('click', loadS3Backups);
+    modal.querySelector('#restoreWebDavBtn')?.addEventListener('click', loadWebDavBackups);
     restoreIcloudBtn?.addEventListener('click', () => loadFolderBackups({ icloud: true }));
     restoreChangeLocationBtn?.addEventListener('click', async () => {
         if (activeSource.type === 'folder') loadFolderBackups({ pickNew: true });
@@ -2826,7 +2901,7 @@ function attachModalHandlers(modal, options = {}) {
                         bundle.name = `Snapshot · ${dateStr}`;
                         bundle.size = bundle.summary?.totalTabsSize || 0;
                         clearTaskStatus(dlProgress);
-                        await handleSelectedBackupFile(bundle, activeSource.type === 'folder' ? 'Backup Folder' : activeSource.type === 'icloud' ? 'iCloud Drive' : activeSource.type === 's3' ? 'S3 Bucket' : 'Google Drive');
+                        await handleSelectedBackupFile(bundle, activeSource.type === 'folder' ? 'Backup Folder' : activeSource.type === 'icloud' ? 'iCloud Drive' : activeSource.type === 's3' ? 'S3 Bucket' : activeSource.type === 'webdav' ? 'WebDAV' : 'Google Drive');
                         return;
                     }
                     // @googleDrive:begin
