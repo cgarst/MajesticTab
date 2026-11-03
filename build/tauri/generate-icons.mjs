@@ -21,8 +21,8 @@ const PLATFORMS = {
   windows: { box: 940 },
   // Linux/freedesktop: transparent, slight padding so it sits well beside other hicolor icons.
   linux: { box: 900 },
-  // macOS: the rounded square fills the whole 1024 canvas; art ~65% of it.
-  macos: { box: 668, tile: { inset: 0, radius: 229 } },
+  // macOS: the rounded square fills the whole 1024 canvas, like Safari (a layered icon the system draws full-bleed); art ~70% of it.
+  macos: { box: 720, tile: { inset: 0, radius: 229 } },
   // iOS: opaque full-bleed square (the OS applies the mask); art kept inside the grid.
   ios: { box: 668, tile: { inset: 0, radius: 0 } },
   // Android adaptive foreground: art stays inside the 66/108 safe zone; the background layer is a solid color.
