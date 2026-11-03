@@ -837,7 +837,8 @@ async function renderLibraryBrowseView(container) {
     let bodyHtml = '';
     let toolbarHtml = '';
     const openFileBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action" id="libOpenFileBtn" title="Open a tab file from this device, Google Drive or the web">Open file</button>`;
-    const addMusicBtnHtml = openFileBtnHtml + `<button type="button" class="btn btn-sm btn-theme-primary p-1 px-3 d-flex align-items-center gap-1" id="libAddMusicBtn" title="Search catalog or add custom music"><i class="bi-plus-lg"></i> <span>Add Music</span></button>`;
+    const syncBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action" id="libSyncBtn" title="Sync your library with your backup location">Sync</button>`;
+    const addMusicBtnHtml = openFileBtnHtml + syncBtnHtml + `<button type="button" class="btn btn-sm btn-theme-primary p-1 px-3 d-flex align-items-center gap-1" id="libAddMusicBtn" title="Search catalog or add custom music"><i class="bi-plus-lg"></i> <span>Add Music</span></button>`;
 
     // ==========================================
     // A. TUNINGS BROWSE MODE
@@ -2004,6 +2005,7 @@ function bindLibraryToolbarEvents(container) {
     });
 
     container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
+    container.querySelector('#libSyncBtn')?.addEventListener('click', () => import('./syncUi.js').then(m => m.openSyncModal()));
 
     container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
         searchType = 'artist';

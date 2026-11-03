@@ -102,6 +102,9 @@ body {
 .theme-modal-backdrop { animation: scrimIn var(--dur-base) var(--ease-out); }
 .theme-modal-backdrop.is-closing { animation: scrimOut var(--dur-fast) ease-in forwards; }
 .theme-modal-backdrop.is-closing .theme-modal-card { animation: modalScaleDown var(--dur-fast) ease-in forwards; }
+/* Desktop shells: the scrim dims the whole window, title bar included. The card stays clear of the traffic lights / caption buttons through padding, and the Windows buttons float above the scrim. */
+.tauri-macos .theme-modal-backdrop, .tauri-windows .theme-modal-backdrop { top: 0; height: 100vh; padding: calc(50px + 0.75rem) 1rem 1rem; }
+.tauri-windows #winControls { z-index: 2001; }
 @keyframes scrimOut { to { opacity: 0; } }
 @keyframes modalScaleDown { to { opacity: 0; transform: scale(0.97); } }
 
