@@ -2025,7 +2025,7 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   }
   body:not(.library-view-active).chrome-hidden #topFlexZone { transform: translateY(100%); }
   /* Scrolling down clears all of the chrome: top bar, transport and the bottom row */
-  body:not(.library-view-active) #topBar { transition: margin-top var(--dur-base) var(--ease-out); }
+  body:not(.library-view-active) #topBar { transition: margin-top var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
   /* No transform on the bar: #topFlexZone (the bottom row) is position:fixed inside it, and a transform would make the bar its containing block and carry the row to the top of the screen */
   /* The reader's body does not scroll (the score does), so the bar needs no sticky pin, and a pinned bar could not leave */
   body:not(.library-view-active) #topBar { position: relative; }
@@ -2352,12 +2352,13 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 #viewMenu .view-window-hint { color: var(--ink2); font-size: 11px; line-height: 1; }
 @media (hover: none) { #viewMenu .view-window-hint { display: none; } }
 
-/* Zen mode: leaving is quicker than arriving; the dock fades out before its space is given back */
+/* Zen mode: leaving is quicker than arriving. The dock fades (hud-leaving) at the same moment and for the same time as the top bar, then hud-hidden takes it out of the layout; WebViews without display transitions would otherwise drop it at once */
 #topBar { transition: transform var(--dur-base) var(--ease-out), margin-top var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
 #topBar.hud-hidden:not(.hud-transient) { transition-duration: var(--dur-fast); }
 body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources {
   transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out), display var(--dur-base) allow-discrete;
 }
+body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources.hud-leaving:not(.hud-transient),
 body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources.hud-hidden:not(.hud-transient) {
   opacity: 0; transform: translateY(16px); transition-duration: var(--dur-fast);
 }

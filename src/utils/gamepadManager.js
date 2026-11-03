@@ -709,7 +709,7 @@ class GamepadManager {
     // --- Action Implementations ---
 
     /**
-     * Toggle Top Bar HUD visibility (Zen Mode for score reading)
+     * Toggle top and bottom bar visibility (Zen Mode for score reading)
      */
     toggleTopBar(forceState = null) {
         if (!this.topBar) {
@@ -724,17 +724,27 @@ class GamepadManager {
         if (this.isHudHidden) {
             this.topBar.classList.add('hud-hidden');
             this.topBar.classList.remove('hud-transient');
-            mobileDock?.classList.add('hud-hidden');
             mobileDock?.classList.remove('hud-transient');
-            showToast('Top Bar Hidden (Zen Mode) — Press Z or (Y) to restore', 'info', 2000);
+            if (mobileDock) {
+                // Fade it with the top bar first, then take it out of the layout when that finishes
+                clearTimeout(this.hudDockTimeout);
+                const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                mobileDock.classList.add(instant ? 'hud-hidden' : 'hud-leaving');
+                if (!instant) this.hudDockTimeout = setTimeout(() => {
+                    if (this.isHudHidden) mobileDock.classList.add('hud-hidden');
+                    mobileDock.classList.remove('hud-leaving');
+                }, 150);
+            }
+            showToast('Bars hidden (Zen mode) — Press Z or (Y) to restore', 'info', 2000);
         } else {
             this.topBar.classList.remove('hud-hidden', 'hud-transient');
-            mobileDock?.classList.remove('hud-hidden', 'hud-transient');
+            clearTimeout(this.hudDockTimeout);
+            mobileDock?.classList.remove('hud-hidden', 'hud-leaving', 'hud-transient');
             if (this.hudTransientTimeout) {
                 clearTimeout(this.hudTransientTimeout);
                 this.hudTransientTimeout = null;
             }
-            showToast('Top Bar Restored', 'info', 1500);
+            showToast('Bars restored', 'info', 1500);
         }
 
         // Dispatch window resize event so AlphaTab and sheet layouts recalculate to full viewport height

@@ -160,7 +160,7 @@ function arrangeViewOptions(root) {
     // Window: fullscreen (hidden by main.js where the platform has its own) and zen mode
     const windowRows = [$('screenRow')].filter(Boolean);
     const zenLabel = $('zenLabel');
-    const syncZenLabel = () => { if (zenLabel) zenLabel.textContent = gamepadManager.isHudHidden ? 'Show top bar' : 'Zen mode'; };
+    const syncZenLabel = () => { if (zenLabel) zenLabel.textContent = gamepadManager.isHudHidden ? 'Show bars' : 'Zen mode'; };
     $('viewToggleBtn')?.addEventListener('click', syncZenLabel, true);
     $('zenToggleBtn')?.addEventListener('click', () => {
         $('viewToggleBtn')?.click();

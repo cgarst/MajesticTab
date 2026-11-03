@@ -287,7 +287,7 @@ export function setupKeyboardNavigation(getConfig) {
             return;
         }
 
-        // Z key toggles zen mode (hides the top bar)
+        // Z key toggles zen mode (hides the top and bottom bars)
         if ((e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat && !document.body.classList.contains('modal-open')) {
             e.preventDefault();
             gamepadManager.toggleTopBar();
