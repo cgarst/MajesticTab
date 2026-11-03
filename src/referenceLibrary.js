@@ -583,69 +583,40 @@ export const chordData = [
  * Generate Circle of Fifths SVG
  */
 function buildCircleOfFifthsSvg(selectedIndex) {
+    // Flat: wedges are tone steps separated by the ground showing through, the chosen key is one step up
+    // and carries the inlay dot. No outlines, glow or gradient.
     const size = 420;
     const center = size / 2;
-    const outerRadius = 196;
-    const midRadius = 136;
+    const outerRadius = 200;
+    const midRadius = 138;
     const innerRadius = 78;
+    const angleStep = (2 * Math.PI) / 12;
 
-    let svg = `<svg viewBox="0 0 ${size} ${size}" class="ref-circle-svg" aria-label="Circle of Fifths Interactive Chart">`;
-    svg += `<defs>
-        <radialGradient id="refCircleGlow" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stop-color="var(--bg-card-solid)" stop-opacity="0.9"/>
-            <stop offset="100%" stop-color="var(--bg-elevated)" stop-opacity="1"/>
-        </radialGradient>
-    </defs>`;
-
-    // Background circle
-    svg += `<circle cx="${center}" cy="${center}" r="${outerRadius + 6}" fill="var(--bg-card-solid)" stroke="var(--border-subtle)" stroke-width="1.5" />`;
+    let svg = `<svg viewBox="0 0 ${size} ${size}" class="ref-circle-svg" role="group" aria-label="Circle of fifths">`;
 
     circleData.forEach((item, index) => {
         const isSelected = index === selectedIndex;
-        const angleStep = (2 * Math.PI) / 12;
         const startAngle = (index * angleStep) - (Math.PI / 2) - (angleStep / 2);
         const endAngle = startAngle + angleStep;
-
-        const x1Outer = center + outerRadius * Math.cos(startAngle);
-        const y1Outer = center + outerRadius * Math.sin(startAngle);
-        const x2Outer = center + outerRadius * Math.cos(endAngle);
-        const y2Outer = center + outerRadius * Math.sin(endAngle);
-
         const midAngle = startAngle + (angleStep / 2);
-        const textMajorX = center + ((outerRadius + midRadius) / 2) * Math.cos(midAngle);
-        const textMajorY = center + ((outerRadius + midRadius) / 2) * Math.sin(midAngle) + 6;
-        const textMinorX = center + ((midRadius + innerRadius) / 2) * Math.cos(midAngle);
-        const textMinorY = center + ((midRadius + innerRadius) / 2) * Math.sin(midAngle) + 5;
+        const pt = (r, a) => [center + r * Math.cos(a), center + r * Math.sin(a)];
+        const [x1, y1] = pt(outerRadius, startAngle);
+        const [x2, y2] = pt(outerRadius, endAngle);
+        const [tx, ty] = pt((outerRadius + midRadius) / 2, midAngle);
+        const [mx, my] = pt((midRadius + innerRadius) / 2, midAngle);
+        const [dx, dy] = pt(outerRadius - 12, midAngle);
 
-        const fill = isSelected ? 'var(--accent-primary-alpha)' : 'transparent';
-        const stroke = isSelected ? 'var(--accent-primary)' : 'var(--border-subtle)';
-        const strokeWidth = isSelected ? '2.5' : '1';
-        const majorColor = isSelected ? 'var(--text-primary)' : 'var(--text-primary)';
-        const minorColor = isSelected ? 'var(--accent-text)' : 'var(--text-muted)';
-        const weight = isSelected ? 'bold' : '600';
-
-        svg += `<path d="M ${center} ${center} L ${x1Outer} ${y1Outer} A ${outerRadius} ${outerRadius} 0 0 1 ${x2Outer} ${y2Outer} Z" 
-                    fill="${fill}" 
-                    stroke="${stroke}" 
-                    stroke-width="${strokeWidth}" 
-                    class="ref-circle-slice ${isSelected ? 'active' : ''}" 
-                    data-circle-idx="${index}" 
-                    role="button" 
-                    tabindex="0"
-                    aria-label="${item.major} Major / ${item.minor}" />`;
-
-        svg += `<text x="${textMajorX}" y="${textMajorY}" fill="${majorColor}" font-size="16" font-weight="${weight}" text-anchor="middle" pointer-events="none">${item.major}</text>`;
-        svg += `<text x="${textMinorX}" y="${textMinorY}" fill="${minorColor}" font-size="12" font-weight="600" text-anchor="middle" pointer-events="none">${item.minor}</text>`;
+        svg += `<path d="M ${center} ${center} L ${x1} ${y1} A ${outerRadius} ${outerRadius} 0 0 1 ${x2} ${y2} Z"
+                    class="ref-circle-slice ${isSelected ? 'active' : ''}" data-circle-idx="${index}"
+                    role="button" tabindex="0" aria-pressed="${isSelected}" aria-label="${item.major} major, relative minor ${item.minor}" />`;
+        svg += `<text x="${tx}" y="${ty + 6}" fill="var(--ink)" font-size="17" font-weight="${isSelected ? 700 : 600}" text-anchor="middle" pointer-events="none">${item.major}</text>`;
+        svg += `<text x="${mx}" y="${my + 5}" fill="${isSelected ? 'var(--ink)' : 'var(--ink2)'}" font-size="12.5" font-weight="600" text-anchor="middle" pointer-events="none">${item.minor}</text>`;
+        if (isSelected) svg += `<circle cx="${dx}" cy="${dy}" r="3.5" fill="var(--hue)" pointer-events="none" />`;
     });
 
-    // Outer dividing ring between Major and Minor
-    svg += `<circle cx="${center}" cy="${center}" r="${midRadius}" fill="none" stroke="var(--border-subtle)" stroke-width="1.2" pointer-events="none" />`;
-
-    // Inner center hub
-    svg += `<circle cx="${center}" cy="${center}" r="${innerRadius}" fill="url(#refCircleGlow)" stroke="var(--border-prominent)" stroke-width="2" pointer-events="none" />`;
-    const sel = circleData[selectedIndex];
-    svg += `<text x="${center}" y="${center - 7}" fill="var(--text-primary)" font-size="16" font-weight="bold" text-anchor="middle" pointer-events="none">${sel.major}</text>`;
-    svg += `<text x="${center}" y="${center + 14}" fill="var(--accent-text)" font-size="11" font-weight="600" text-anchor="middle" pointer-events="none">${sel.minor}</text>`;
+    // The ground shows through as the seam between the major and minor rings and as the hub
+    svg += `<circle cx="${center}" cy="${center}" r="${midRadius}" fill="none" stroke="var(--ground)" stroke-width="3" pointer-events="none" />`;
+    svg += `<circle cx="${center}" cy="${center}" r="${innerRadius}" fill="var(--ground)" pointer-events="none" />`;
 
     svg += `</svg>`;
     return svg;
@@ -742,7 +713,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         const rows = bar.strings.map(i => isFlipped ? i : (lastString - i));
         const y1 = startY + Math.min(...rows) * stringGap;
         const y2 = startY + Math.max(...rows) * stringGap;
-        return `<rect class="ref-chord-barre" x="${fretX(relativeFret) - 4.5}" y="${y1 - 4.5}" width="9" height="${y2 - y1 + 9}" rx="4.5" fill="var(--accent-primary)" fill-opacity="0.3" stroke="var(--accent-primary)" stroke-opacity="0.55" stroke-width="1.2" />`;
+        return `<rect class="ref-chord-barre" x="${fretX(relativeFret) - 4.5}" y="${y1 - 4.5}" width="9" height="${y2 - y1 + 9}" rx="4.5" fill="var(--ink)" fill-opacity="0.22" />`;
     }).join('');
 
     let svg = `<svg viewBox="0 0 ${width} ${height}" class="ref-chord-diagram-svg" style="aspect-ratio: ${width} / ${height}" aria-hidden="true">`;
@@ -751,7 +722,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         const startX = 30; // Nut x position
 
         // Nut (vertical line)
-        svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? (capoOn ? 'var(--accent-primary)' : 'var(--text-primary)') : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? (capoOn ? 5 : 3.5) : 1.8}" stroke-linecap="round"/>`;
+        svg += `<line x1="${startX}" y1="${startY}" x2="${startX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? (capoOn ? 'var(--ink)' : 'var(--ink)') : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? (capoOn ? 5 : 3.5) : 1.8}" stroke-linecap="round"/>`;
 
         // Fret wire lines (vertical)
         for (let f = 1; f <= numFrets; f++) {
@@ -763,21 +734,23 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         for (let s = 0; s < numStrings; s++) {
             const y = startY + s * stringGap;
             const gauge = isFlipped ? 1 + ((lastString - s) * 0.22) : 1 + (s * 0.22);
-            // String line
-            svg += `<line x1="${startX}" y1="${y}" x2="${startX + boardWidth}" y2="${y}" stroke="var(--border-subtle)" stroke-width="${gauge}" stroke-linecap="round"/>`;
-
-            // String name label at far left
-            svg += `<text x="8" y="${y + 3}" fill="var(--text-dim)" font-size="8" font-weight="bold" text-anchor="middle">${stringNames[s]}</text>`;
-
             // Corresponding original string in frets array:
             // Standard Tab: s=0 is High e (frets[5]), s=5 is Low E (frets[0])
             // Inverted Player: s=0 is Low E (frets[0]), s=5 is High e (frets[5])
             const origStringIndex = isFlipped ? s : (lastString - s);
             const f = frets[origStringIndex] || 'x';
+            // A muted string is not played: its line and name fade back
+            const fade = f.toLowerCase() === 'x' ? ' opacity="0.3"' : '';
+
+            // String line
+            svg += `<line x1="${startX}" y1="${y}" x2="${startX + boardWidth}" y2="${y}" stroke="var(--border-subtle)" stroke-width="${gauge}" stroke-linecap="round"${fade}/>`;
+
+            // String name label at far left
+            svg += `<text x="8" y="${y + 3}" fill="var(--text-dim)" font-size="8" font-weight="bold" text-anchor="middle"${fade}>${stringNames[s]}</text>`;
 
             // Indicator at x=20 (between string letter and nut)
             if (f.toLowerCase() === 'x') {
-                svg += `<text x="20" y="${y + 3.5}" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle">×</text>`;
+                svg += `<text x="20" y="${y + 3.5}" fill="var(--ink2)" font-size="10" font-weight="bold" text-anchor="middle">×</text>`;
             } else if (f === '0') {
                 svg += `<circle cx="20" cy="${y}" r="3" fill="none" stroke="var(--text-muted)" stroke-width="1.3" />`;
             }
@@ -795,7 +768,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
                     if (relativeFret >= 1 && relativeFret <= numFrets) {
                         const x = startX + (relativeFret - 0.5) * fretGap;
                         const y = startY + s * stringGap;
-                        svg += `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--accent-primary)" stroke="var(--text-primary)" stroke-width="1.2" />`;
+                        svg += `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--ink)" />`;
                     }
                 }
             }
@@ -810,14 +783,14 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
 
         // Base fret badge above fret 1 if shifted
         if (baseFret > 1) {
-            svg += `<text x="${startX + (0.5 * fretGap)}" y="8" fill="var(--accent-text)" font-size="8.5" font-weight="bold" text-anchor="middle">${baseFret}fr</text>`;
+            svg += `<text x="${startX + (0.5 * fretGap)}" y="8" fill="var(--ink2)" font-size="8.5" font-weight="bold" text-anchor="middle">${baseFret}fr</text>`;
         }
     } else {
         // Left-handed: Nut on right, frets extending to the left
         const nutX = width - 30; // board extends from 12 to nutX
 
         // Nut (vertical line)
-        svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? (capoOn ? 'var(--accent-primary)' : 'var(--text-primary)') : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? (capoOn ? 5 : 3.5) : 1.8}" stroke-linecap="round"/>`;
+        svg += `<line x1="${nutX}" y1="${startY}" x2="${nutX}" y2="${startY + lastString * stringGap}" stroke="${baseFret === 1 ? (capoOn ? 'var(--ink)' : 'var(--ink)') : 'var(--border-prominent)'}" stroke-width="${baseFret === 1 ? (capoOn ? 5 : 3.5) : 1.8}" stroke-linecap="round"/>`;
 
         // Fret wire lines (vertical)
         for (let f = 1; f <= numFrets; f++) {
@@ -829,19 +802,21 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
         for (let s = 0; s < numStrings; s++) {
             const y = startY + s * stringGap;
             const gauge = isFlipped ? 1 + ((lastString - s) * 0.22) : 1 + (s * 0.22);
-            // String line
-            svg += `<line x1="12" y1="${y}" x2="${nutX}" y2="${y}" stroke="var(--border-subtle)" stroke-width="${gauge}" stroke-linecap="round"/>`;
-
-            // String name label at far right
-            svg += `<text x="${nutX + 22}" y="${y + 3}" fill="var(--text-dim)" font-size="8" font-weight="bold" text-anchor="middle">${stringNames[s]}</text>`;
-
             // Corresponding original string in frets array
             const origStringIndex = isFlipped ? s : (lastString - s);
             const f = frets[origStringIndex] || 'x';
+            // A muted string is not played: its line and name fade back
+            const fade = f.toLowerCase() === 'x' ? ' opacity="0.3"' : '';
+
+            // String line
+            svg += `<line x1="12" y1="${y}" x2="${nutX}" y2="${y}" stroke="var(--border-subtle)" stroke-width="${gauge}" stroke-linecap="round"${fade}/>`;
+
+            // String name label at far right
+            svg += `<text x="${nutX + 22}" y="${y + 3}" fill="var(--text-dim)" font-size="8" font-weight="bold" text-anchor="middle"${fade}>${stringNames[s]}</text>`;
 
             // Indicator at nutX + 10 (between nut and string letter)
             if (f.toLowerCase() === 'x') {
-                svg += `<text x="${nutX + 10}" y="${y + 3.5}" fill="#ef4444" font-size="10" font-weight="bold" text-anchor="middle">×</text>`;
+                svg += `<text x="${nutX + 10}" y="${y + 3.5}" fill="var(--ink2)" font-size="10" font-weight="bold" text-anchor="middle">×</text>`;
             } else if (f === '0') {
                 svg += `<circle cx="${nutX + 10}" cy="${y}" r="3" fill="none" stroke="var(--text-muted)" stroke-width="1.3" />`;
             }
@@ -859,7 +834,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
                     if (relativeFret >= 1 && relativeFret <= numFrets) {
                         const x = nutX - (relativeFret - 0.5) * fretGap;
                         const y = startY + s * stringGap;
-                        svg += `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--accent-primary)" stroke="var(--text-primary)" stroke-width="1.2" />`;
+                        svg += `<circle cx="${x}" cy="${y}" r="4.5" fill="var(--ink)" />`;
                     }
                 }
             }
@@ -874,7 +849,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
 
         // Base fret badge above fret 1 if shifted
         if (baseFret > 1) {
-            svg += `<text x="${nutX - (0.5 * fretGap)}" y="8" fill="var(--accent-text)" font-size="8.5" font-weight="bold" text-anchor="middle">${baseFret}fr</text>`;
+            svg += `<text x="${nutX - (0.5 * fretGap)}" y="8" fill="var(--ink2)" font-size="8.5" font-weight="bold" text-anchor="middle">${baseFret}fr</text>`;
         }
     }
 
@@ -916,7 +891,7 @@ function buildFretboardSvg(scaleKey, rootNote) {
         const startX = 66; // Nut x position
 
         // Fretboard body
-        svg += `<rect x="${startX}" y="${startY}" width="${boardWidth}" height="${boardHeight}" fill="var(--bg-elevated)" rx="4" stroke="var(--border-subtle)" stroke-width="1" />`;
+        svg += `<rect x="${startX}" y="${startY}" width="${boardWidth}" height="${boardHeight}" fill="var(--ref-rest)" rx="4" />`;
 
         // Position inlay dots
         [3, 5, 7, 9, 12, 15].forEach(f => {
@@ -955,13 +930,12 @@ function buildFretboardSvg(scaleKey, rootNote) {
                 if (matched) {
                     const x = f === 0 ? startX - 20 : startX + (f * fretWidth) - (fretWidth / 2);
                     const isRoot = matched.lbl === 'R';
-                    const circleFill = isRoot ? 'var(--accent-primary)' : 'var(--accent-secondary)';
-                    const strokeColor = isRoot ? '#ffffff' : 'var(--bg-elevated)';
-                    const noteName = noteNames[notePitch];
+                    const circleFill = isRoot ? 'var(--ink)' : 'var(--ink2)';
+                                        const noteName = noteNames[notePitch];
 
                     svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note" data-note="${noteName}">
-                        <circle cx="0" cy="0" r="11" fill="${circleFill}" stroke="${strokeColor}" stroke-width="1.6" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.4))"/>
-                        <text x="0" y="3.5" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
+                        <circle cx="0" cy="0" r="${isRoot ? 13 : 10.5}" fill="${circleFill}"/>
+                        <text x="0" y="3.5" fill="var(--ground)" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
                     </g>`;
                 }
             }
@@ -972,7 +946,7 @@ function buildFretboardSvg(scaleKey, rootNote) {
         const nutX = boardStartX + boardWidth; // 870
 
         // Fretboard body
-        svg += `<rect x="${boardStartX}" y="${startY}" width="${boardWidth}" height="${boardHeight}" fill="var(--bg-elevated)" rx="4" stroke="var(--border-subtle)" stroke-width="1" />`;
+        svg += `<rect x="${boardStartX}" y="${startY}" width="${boardWidth}" height="${boardHeight}" fill="var(--ref-rest)" rx="4" />`;
 
         // Position inlay dots
         [3, 5, 7, 9, 12, 15].forEach(f => {
@@ -1011,13 +985,12 @@ function buildFretboardSvg(scaleKey, rootNote) {
                 if (matched) {
                     const x = f === 0 ? nutX + 20 : nutX - (f * fretWidth) + (fretWidth / 2);
                     const isRoot = matched.lbl === 'R';
-                    const circleFill = isRoot ? 'var(--accent-primary)' : 'var(--accent-secondary)';
-                    const strokeColor = isRoot ? '#ffffff' : 'var(--bg-elevated)';
-                    const noteName = noteNames[notePitch];
+                    const circleFill = isRoot ? 'var(--ink)' : 'var(--ink2)';
+                                        const noteName = noteNames[notePitch];
 
                     svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note" data-note="${noteName}">
-                        <circle cx="0" cy="0" r="11" fill="${circleFill}" stroke="${strokeColor}" stroke-width="1.6" filter="drop-shadow(0 2px 4px rgba(0,0,0,0.4))"/>
-                        <text x="0" y="3.5" fill="#ffffff" font-size="9.5" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
+                        <circle cx="0" cy="0" r="${isRoot ? 13 : 10.5}" fill="${circleFill}"/>
+                        <text x="0" y="3.5" fill="var(--ground)" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
                     </g>`;
                 }
             }
@@ -1036,57 +1009,32 @@ function buildFretboardSvg(scaleKey, rootNote) {
  * Render the selected key's info panel (key signature + diatonic chords).
  * Major-key chords link to the Chord Library.
  */
+let circleKeyMode = 'major'; // which key's diatonic chords the circle panel lists
+
 function renderCircleInfoPanel() {
     const data = circleData[selectedCircleIndex];
-
-    const majorChordsHtml = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'].map((deg, i) => `
-        <button type="button" class="ref-chord-deg-card ref-chord-link" data-chord="${data.majorChords[i]}" title="Show ${data.majorChords[i]} in the Chord Library">
+    const isMinor = circleKeyMode === 'minor';
+    const degrees = isMinor ? ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'] : ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
+    const chords = isMinor ? data.minorChords : data.majorChords;
+    const chordsHtml = degrees.map((deg, i) => `
+        <button type="button" class="ref-chord-deg-card ref-chord-link" data-chord="${chords[i]}" title="Show ${chords[i]} in the chord library">
             <span class="ref-deg-label">${deg}</span>
-            <span class="ref-deg-chord">${data.majorChords[i]}</span>
+            <span class="ref-deg-chord">${chords[i]}</span>
         </button>
     `).join('');
-
-    const minorChordsHtml = ['i', 'ii°', 'III', 'iv', 'v', 'VI', 'VII'].map((deg, i) => `
-        <button type="button" class="ref-chord-deg-card ref-chord-link" data-chord="${data.minorChords[i]}" title="Show ${data.minorChords[i]} in the Chord Library">
-            <span class="ref-deg-label">${deg}</span>
-            <span class="ref-deg-chord">${data.minorChords[i]}</span>
-        </button>
-    `).join('');
+    const seg = (mode, label) => `<button type="button" class="ref-chip ref-circle-mode-btn" data-mode="${mode}" aria-pressed="${circleKeyMode === mode}">${label}</button>`;
 
     return `
-        <div class="ref-key-badge-container mb-3">
-            <span class="ref-eyebrow">Selected key info</span>
-            <h4 class="ref-key-headline">${data.major} Major / ${data.minor}</h4>
+        <h3 class="ref-key-headline">${data.major} major</h3>
+        <dl class="ref-kv">
+            <div><dt>Key signature</dt><dd>${data.accidentals}</dd></div>
+            <div><dt>Relative minor</dt><dd>${data.minor}</dd></div>
+        </dl>
+        <div class="ref-subhead-row">
+            <span class="ref-card-subhead" id="refDegLabel">Chords in the key of</span>
+            <div class="ref-chip-row" role="group" aria-labelledby="refDegLabel">${seg('major', data.major + ' major')}${seg('minor', data.minor + ' minor')}</div>
         </div>
-
-        <div class="row g-2 mb-3">
-            <div class="col-6">
-                <div class="ref-stat-card">
-                    <span class="ref-stat-label">Key signature</span>
-                    <span class="ref-stat-value text-truncate" title="${data.accidentals}">${data.accidentals}</span>
-                </div>
-            </div>
-            <div class="col-6">
-                <div class="ref-stat-card">
-                    <span class="ref-stat-label">Relative minor</span>
-                    <span class="ref-stat-value text-accent">${data.minor}</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="mb-3">
-            <span class="ref-card-subhead d-block mb-2">Diatonic chords (major key)</span>
-            <div class="ref-deg-grid">
-                ${majorChordsHtml}
-            </div>
-        </div>
-
-        <div>
-            <span class="ref-card-subhead d-block mb-2">Diatonic chords (minor key)</span>
-            <div class="ref-deg-grid">
-                ${minorChordsHtml}
-            </div>
-        </div>
+        <div class="ref-deg-grid">${chordsHtml}</div>
     `;
 }
 
@@ -1095,19 +1043,12 @@ function renderCircleInfoPanel() {
  */
 function renderCircleSection() {
     return `
-    <div class="ref-circle-container">
-        <!-- SVG Circle (Left / Top) -->
+    <div class="ref-circle-container" role="tabpanel">
         <div class="ref-circle-left">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-                <h3 class="ref-section-title mb-0">Circle of fourths and fifths</h3>
-            </div>
-            <p class="ref-section-subtitle mb-3">Click any key segment to view relative minors, key signatures, and diatonic chords.</p>
             <div class="ref-circle-svg-wrapper" id="refCircleSvgContainer">
                 ${buildCircleOfFifthsSvg(selectedCircleIndex)}
             </div>
         </div>
-
-        <!-- Key Details Panel (Right / Bottom) -->
         <div class="ref-circle-right" id="refCircleInfoPanel">
             ${renderCircleInfoPanel()}
         </div>
@@ -1141,7 +1082,7 @@ function getStringLabelsHighToLow() {
 function buildTuningButtonsHtml() {
     const current = getTuningOffset();
     return tuningSpecs[stringCount].offsets.map(offset => `
-            <button type="button" class="btn btn-sm ${current === offset ? 'btn-theme-primary' : 'btn-theme-outline'} ref-tuning-btn" data-offset="${offset}" title="${offset === 0 ? 'Standard tuning' : `Standard tuning, ${offset} semitone${offset === 1 ? '' : 's'} down`}">
+            <button type="button" class="ref-chip ref-tuning-btn" aria-pressed="${current === offset}" data-offset="${offset}" title="${offset === 0 ? 'Standard tuning' : `Standard tuning, ${offset} semitone${offset === 1 ? '' : 's'} down`}">
                 ${getOpenStringNames(offset)[0]}
             </button>
         `).join('');
@@ -1149,7 +1090,7 @@ function buildTuningButtonsHtml() {
 
 function buildCapoButtonsHtml() {
     return capoFrets.map(fret => `
-            <button type="button" class="btn btn-sm ${capo === fret ? 'btn-theme-primary' : 'btn-theme-outline'} ref-capo-btn" data-capo="${fret}" title="${fret === 0 ? 'No capo' : `Capo on fret ${fret}`}">
+            <button type="button" class="ref-chip ref-capo-btn" aria-pressed="${capo === fret}" data-capo="${fret}" title="${fret === 0 ? 'No capo' : `Capo on fret ${fret}`}">
                 ${fret === 0 ? 'None' : fret}
             </button>
         `).join('');
@@ -1157,7 +1098,7 @@ function buildCapoButtonsHtml() {
 
 function buildStringCountButtonsHtml() {
     return [6, 7, 8].map(n => `
-            <button type="button" class="btn btn-sm ${stringCount === n ? 'btn-theme-primary' : 'btn-theme-outline'} ref-strings-btn" data-strings="${n}">
+            <button type="button" class="ref-chip ref-strings-btn" aria-pressed="${stringCount === n}" data-strings="${n}">
                 ${n}
             </button>
         `).join('');
@@ -1192,8 +1133,6 @@ function getActiveChordData() {
  * Render Chord Reference Library Section
  */
 function renderChordsSection() {
-    const isFlipped = getIsFlipped();
-    const isLeftHanded = getIsLeftHanded();
     const filters = ['all', 'Major', 'Dominant', 'Minor', 'Dim/Aug', 'Suspended'];
     const rootFilters = ['all', ...chordRootFilters];
 
@@ -1213,108 +1152,50 @@ function renderChordsSection() {
         return matchesCategory && matchesRoot;
     });
 
-    const filterButtonsHtml = filters.map(f => {
-        const isActive = selectedChordFilter === f;
-        const label = f === 'all' ? 'All' : (f === 'Dim/Aug' ? 'Dim / Aug' : f);
-        return `
-            <button type="button" class="btn btn-sm ${isActive ? 'btn-theme-primary' : 'btn-theme-outline'} ref-chord-filter-btn" data-filter="${f}">
-                ${label}
-            </button>
-        `;
-    }).join('');
+    const chip = (cls, attrs, on, label, title = '') =>
+        `<button type="button" class="ref-chip ${cls}" ${attrs} aria-pressed="${on}"${title ? ` title="${title}"` : ''}>${label}</button>`;
 
-    const rootButtonsHtml = rootFilters.map(r => {
-        const isActive = selectedRootFilter === r;
-        const label = r === 'all' ? 'All' : r;
-        return `
-            <button type="button" class="btn btn-sm ${isActive ? 'btn-theme-primary' : 'btn-theme-outline'} ref-chord-root-btn" data-root="${r}">
-                ${label}
-            </button>
-        `;
-    }).join('');
+    const rootButtonsHtml = rootFilters.map(r =>
+        chip('ref-key ref-chord-root-btn', `data-root="${r}"`, selectedRootFilter === r, r === 'all' ? 'All' : r)).join('');
+    const filterButtonsHtml = filters.map(f =>
+        chip('ref-chord-filter-btn', `data-filter="${f}"`, selectedChordFilter === f, f === 'Dim/Aug' ? 'Dim / Aug' : (f === 'all' ? 'All' : f))).join('');
 
-    const stringCountButtonsHtml = buildStringCountButtonsHtml();
+    const group = (label, html) => `<div class="ref-field"><span class="ref-filter-group-label">${label}</span><div class="ref-chip-row">${html}</div></div>`;
 
     const chordCardsHtml = filteredChords.length > 0 ? filteredChords.map(chord => `
         <div class="col">
             <div class="ref-chord-card">
                 <div class="ref-chord-card-header">
                     <span class="ref-chord-name">${chord.name}</span>
-                    <span class="ref-chord-cat">${chord.cat}${chord.shapeOf ? ` • ${chord.shapeOf} shape` : ''}</span>
+                    <span class="ref-chord-cat">${chord.cat}${chord.shapeOf ? ` · ${chord.shapeOf} shape` : ''}</span>
                 </div>
                 <div class="ref-chord-svg-container">
                     ${buildChordDiagramSvg(chord)}
                 </div>
-                <span class="ref-chord-frets font-monospace">${chord.frets}</span>
+                <span class="ref-chord-frets">${chord.frets}</span>
             </div>
         </div>
     `).join('') : `
-        <div class="col-12 py-5 text-center text-muted">
-            <i class="bi bi-music-note-beamed fs-2 d-block mb-2 opacity-50"></i>
-            <p class="mb-0">No chords found matching the selected filters.</p>
-        </div>
+        <div class="col-12 ref-empty">No chords match these filters.</div>
     `;
 
     return `
-    <div class="ref-section-box">
-        <div class="d-flex flex-column gap-3 mb-3">
-            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
-                <div>
-                    <h3 class="ref-section-title mb-1">Chord reference library</h3>
-                    <p class="ref-section-subtitle mb-0">Essential guitar chord voicings with fretboard positions and fingerings (${filteredChords.length} chords shown).</p>
-                </div>
-                <div class="d-flex align-items-center gap-1 flex-shrink-0">
-                    <button type="button" class="btn btn-sm theme-control-btn ref-control-btn ${preferBarreChords ? 'active' : ''}" id="refChordBarreBtn" title="Prefer Barre Chords" aria-label="Prefer Barre Chords" aria-pressed="${preferBarreChords}">
-                        <i class="bi bi-distribute-vertical"></i>
-                        <span class="d-none d-sm-inline ms-1 small">Prefer Barre Chords</span>
-                    </button>
-                </div>
-            </div>
-
-            <div class="d-flex flex-column gap-2 pt-2 border-top border-secondary-subtle">
-                <!-- Root Note Filter -->
-                <div class="ref-filter-group">
-                    <span class="ref-filter-group-label">Root note:</span>
-                    <div class="d-flex flex-wrap gap-1 ref-chord-root-filters">
-                        ${rootButtonsHtml}
-                    </div>
-                </div>
-
-                <!-- Family / Category Filter -->
-                <div class="ref-filter-group">
-                    <span class="ref-filter-group-label">Family:</span>
-                    <div class="d-flex flex-wrap gap-1 ref-chord-filters">
-                        ${filterButtonsHtml}
-                    </div>
-                </div>
-
-                <!-- String Count -->
-                <div class="ref-filter-group">
-                    <span class="ref-filter-group-label">Strings:</span>
-                    <div class="d-flex flex-wrap gap-1 ref-string-filters">
-                        ${stringCountButtonsHtml}
-                    </div>
-                </div>
-
-                <!-- Tuning -->
-                <div class="ref-filter-group">
-                    <span class="ref-filter-group-label">Tuning:</span>
-                    <div class="d-flex flex-wrap gap-1 ref-tuning-filters">
-                        ${buildTuningButtonsHtml()}
-                    </div>
-                </div>
-
-                <!-- Capo -->
-                <div class="ref-filter-group">
-                    <span class="ref-filter-group-label">Capo:</span>
-                    <div class="d-flex flex-wrap gap-1 ref-capo-filters">
-                        ${buildCapoButtonsHtml()}
-                    </div>
-                </div>
-            </div>
+    <div class="ref-section-box" role="tabpanel">
+        <div class="ref-chip-row ref-root-row" role="group" aria-label="Root note">${rootButtonsHtml}</div>
+        <div class="ref-filter-row">
+            ${group('Family', filterButtonsHtml)}
+            ${group('Strings', buildStringCountButtonsHtml())}
+            ${group('Tuning', buildTuningButtonsHtml())}
+            ${group('Capo', buildCapoButtonsHtml())}
         </div>
-
-        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-xl-5 g-3" id="refChordGrid">
+        <div class="ref-result-row">
+            <span class="ref-count">${filteredChords.length} chords</span>
+            <label class="ref-switch" for="refChordBarreBtn">
+                <span>Prefer barre chords</span>
+                <input type="checkbox" role="switch" class="form-check-input theme-switch" id="refChordBarreBtn" ${preferBarreChords ? 'checked' : ''}>
+            </label>
+        </div>
+        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-xl-5 g-2" id="refChordGrid">
             ${chordCardsHtml}
         </div>
     </div>
@@ -1325,18 +1206,13 @@ function renderChordsSection() {
  * Render Scales and Modes Section
  */
 function renderScalesSection() {
-    const isFlipped = getIsFlipped();
-    const isLeftHanded = getIsLeftHanded();
     const currentScale = scaleDefinitions[selectedScaleKey] || scaleDefinitions.majorPentatonic;
     const rootName = noteNames[selectedRootNote];
-    const stringLabels = getStringLabelsHighToLow();
-    const tuningLabel = getTuningOffset() === 0 ? 'standard tuning' : `${getOpenStringNames()[0]} standard tuning`;
 
-    // Compute active notes in scale
     const activeNoteNames = currentScale.intervals.map(item => {
         const noteIndex = (item.int + selectedRootNote) % 12;
         return noteNames[noteIndex];
-    }).join(' • ');
+    }).join(' · ');
 
     const scaleOptions = Object.keys(scaleDefinitions).map(k => `
         <option value="${k}" ${k === selectedScaleKey ? 'selected' : ''}>${scaleDefinitions[k].name}</option>
@@ -1347,79 +1223,53 @@ function renderScalesSection() {
     `).join('');
 
     return `
-    <div class="ref-section-box">
-        <div class="d-flex flex-column gap-3 mb-3">
-            <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2">
-                <div>
-                    <h3 class="ref-section-title mb-1">Interactive scale and mode fretboard</h3>
-                    <p class="ref-section-subtitle mb-0">Explore scales and modal intervals across the full fretboard.</p>
-                </div>
+    <div class="ref-section-box" role="tabpanel">
+        <div class="ref-filter-row">
+            <div class="ref-field">
+                <label class="ref-filter-group-label" for="refScaleSelect">Scale or mode</label>
+                <select id="refScaleSelect" class="form-select theme-select ref-select">${scaleOptions}</select>
             </div>
-            <div class="d-flex flex-wrap align-items-end gap-2 pt-2 border-top border-secondary-subtle">
-                <div class="flex-grow-1 flex-md-grow-0">
-                    <label class="ref-select-label" for="refScaleSelect">Scale / Mode</label>
-                    <select id="refScaleSelect" class="form-select form-select-sm theme-select">
-                        ${scaleOptions}
-                    </select>
-                </div>
-                <div>
-                    <label class="ref-select-label" for="refRootSelect">Root (R)</label>
-                    <select id="refRootSelect" class="form-select form-select-sm theme-select">
-                        ${rootOptions}
-                    </select>
-                </div>
-                <div>
-                    <span class="ref-select-label d-block">Strings</span>
-                    <div class="d-flex gap-1 ref-string-filters">
-                        ${buildStringCountButtonsHtml()}
-                    </div>
-                </div>
-                <div>
-                    <span class="ref-select-label d-block">Tuning</span>
-                    <div class="d-flex flex-wrap gap-1 ref-tuning-filters">
-                        ${buildTuningButtonsHtml()}
-                    </div>
-                </div>
+            <div class="ref-field">
+                <label class="ref-filter-group-label" for="refRootSelect">Root</label>
+                <select id="refRootSelect" class="form-select theme-select ref-select">${rootOptions}</select>
+            </div>
+            <div class="ref-field">
+                <span class="ref-filter-group-label">Strings</span>
+                <div class="ref-chip-row">${buildStringCountButtonsHtml()}</div>
+            </div>
+            <div class="ref-field">
+                <span class="ref-filter-group-label">Tuning</span>
+                <div class="ref-chip-row">${buildTuningButtonsHtml()}</div>
             </div>
         </div>
 
-        <!-- Formula & Notes Banner -->
-        <div class="ref-scale-banner mb-3 d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 p-2 px-3 rounded">
-            <div>
-                <span class="ref-eyebrow d-block mb-1">Scale formula</span>
-                <span class="ref-scale-formula font-monospace text-accent">${currentScale.formula}</span>
-            </div>
-            <div class="text-sm-end">
-                <span class="ref-eyebrow d-block mb-1">${rootName} ${currentScale.name} notes</span>
-                <span class="ref-scale-notes fw-semibold text-white">${activeNoteNames}</span>
-            </div>
-        </div>
+        <dl class="ref-kv ref-scale-facts">
+            <div><dt>${rootName} ${currentScale.name}</dt><dd class="ref-scale-notes">${activeNoteNames}</dd></div>
+            <div><dt>Formula</dt><dd class="ref-scale-formula">${currentScale.formula}</dd></div>
+        </dl>
 
-        <!-- Fretboard Visualizer with Horizontal Scroll -->
         <div class="ref-fretboard-scroll-container">
             <div class="ref-fretboard-wrapper" id="refFretboardContainer">
                 ${buildFretboardSvg(selectedScaleKey, selectedRootNote)}
             </div>
-        </div>
-
-        <div class="d-flex align-items-center justify-content-between mt-2 pt-2 border-top border-secondary-subtle">
-            <div class="d-flex align-items-center gap-3 small text-muted">
-                <span class="d-flex align-items-center gap-2"><span class="ref-legend-dot ref-root-dot"></span> Root (R)</span>
-                <span class="d-flex align-items-center gap-2"><span class="ref-legend-dot ref-interval-dot"></span> Scale Interval</span>
-            </div>
-            <span class="small text-muted d-none d-sm-inline">15 frets • ${stringCount}-string ${tuningLabel} (${(isFlipped ? [...stringLabels].reverse() : stringLabels).join(' ')})</span>
         </div>
     </div>
     `;
 }
 
 // -----------------------------------------------------------------------------
-// Main View Export
-// -----------------------------------------------------------------------------
 
 // --- Reference modal: opens over any view (song, library, tuner closed) ---------------------------
 
 const REFERENCE_TABS = ['circle', 'chords', 'scales'];
+const REFERENCE_TITLES = { chords: 'Chord library', scales: 'Scales', circle: 'Circle of fifths' };
+const REFERENCE_SUBTITLES = { chords: 'Voicings for any tuning and capo', scales: 'Scales and modes on the neck', circle: 'Keys and their chords' };
+
+/** Tell the URL router and the Tools page which tool is showing. */
+function notifyReferenceTab() {
+    refTabChangeListener?.(activeTab);
+    document.dispatchEvent(new CustomEvent('reference-tab', { detail: activeTab }));
+}
 let referenceModalEl = null;
 
 function ensureReferenceModal() {
@@ -1438,8 +1288,8 @@ function ensureReferenceModal() {
           <div class="theme-modal-title-group">
             <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;"><i class="bi-journal-bookmark fs-5"></i></div>
             <div class="theme-modal-titles">
-              <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="referenceModalTitle">Reference library</h2>
-              <div class="small text-white-50">Chords, scales and circle of fifths</div>
+              <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="referenceModalTitle">Chord library</h2>
+              <div class="small text-white-50" id="referenceModalSubtitle">Voicings for any tuning and capo</div>
             </div>
           </div>
           <div class="theme-modal-actions">
@@ -1466,19 +1316,25 @@ export function isReferenceOpen() {
     return Boolean(referenceModalEl) && referenceModalEl.style.display !== 'none';
 }
 
+function syncToolsMenuActive() {
+    const open = isReferenceOpen();
+    document.querySelectorAll('.tools-ref-item').forEach((el) => el.classList.toggle('active', open && el.dataset.refTab === activeTab));
+}
+
 export function openReferenceModal(tab = null) {
     const modal = ensureReferenceModal();
+    const previousTab = activeTab;
     if (REFERENCE_TABS.includes(tab)) activeTab = tab;
     const wasOpen = isReferenceOpen();
     renderReferenceLibraryView(modal.querySelector('#referenceModalBody'));
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('modal-open');
-    document.getElementById('toolsReferenceItem')?.classList.add('active');
+    syncToolsMenuActive();
     if (!wasOpen) {
         modal.querySelector('#referenceModalCloseBtn')?.focus();
-        refTabChangeListener?.(activeTab);
     }
+    if (!wasOpen || activeTab !== previousTab) notifyReferenceTab();
 }
 
 export function closeReferenceModal() {
@@ -1486,7 +1342,7 @@ export function closeReferenceModal() {
     referenceModalEl.style.display = 'none';
     referenceModalEl.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('modal-open');
-    document.getElementById('toolsReferenceItem')?.classList.remove('active');
+    syncToolsMenuActive();
     // Put the address bar back to whatever sits behind the modal
     import('./utils/urlRouter.js').then(({ updateUrl, clearUrl }) => {
         const libPage = document.getElementById('libraryPage');
@@ -1508,21 +1364,11 @@ export function renderReferenceLibraryView(container) {
         activeTab = 'chords';
     }
 
-    // Sub-navigation pills
-    const tabs = [
-        { id: 'chords', label: 'Chord Library', icon: 'bi-grid-3x2-gap' },
-        { id: 'scales', label: 'Scales and Modes', icon: 'bi-soundwave' },
-        { id: 'circle', label: 'Circle of Fifths', icon: 'bi-circle-half' }
-    ];
-
-    const navPillsHtml = tabs.map(t => {
-        const isActive = activeTab === t.id;
-        return `
-            <button type="button" class="btn btn-sm ${isActive ? 'btn-theme-primary active' : 'btn-theme-outline'} ref-tab-btn" data-tab="${t.id}">
-                <i class="${t.icon} me-2"></i><span>${t.label}</span>
-            </button>
-        `;
-    }).join('');
+    // One screen, three tools: the dialog's title names the tool that is open
+    const titleEl = document.getElementById('referenceModalTitle');
+    if (titleEl) titleEl.textContent = REFERENCE_TITLES[activeTab];
+    const subEl = document.getElementById('referenceModalSubtitle');
+    if (subEl) subEl.textContent = REFERENCE_SUBTITLES[activeTab];
 
     let tabContentHtml = '';
     if (activeTab === 'circle') tabContentHtml = renderCircleSection();
@@ -1530,15 +1376,7 @@ export function renderReferenceLibraryView(container) {
     else if (activeTab === 'scales') tabContentHtml = renderScalesSection();
 
     container.innerHTML = `
-    <div class="library-page-container ref-page-container">
-        <!-- Sub-Navigation Toolbar -->
-        <div class="library-body-header ref-header-bar mb-3">
-            <div class="d-flex align-items-center gap-2 overflow-x-auto ref-subnav-scroll flex-nowrap w-100 py-1">
-                ${navPillsHtml}
-            </div>
-        </div>
-
-        <!-- Main Tool Content -->
+    <div class="ref-page-container">
         <div id="refTabContentContainer">
             ${tabContentHtml}
         </div>
@@ -1552,18 +1390,6 @@ export function renderReferenceLibraryView(container) {
  * Attach Event Listeners
  */
 function attachReferenceEventListeners(container) {
-    // 1. Tab buttons
-    container.querySelectorAll('.ref-tab-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const targetTab = btn.getAttribute('data-tab');
-            if (targetTab && targetTab !== activeTab) {
-                activeTab = targetTab;
-                renderReferenceLibraryView(container);
-                refTabChangeListener?.(activeTab);
-            }
-        });
-    });
-
     // 2. Circle of Fifths slices
     attachCircleSliceListeners();
     attachCircleChordLinks(container);
@@ -1583,10 +1409,10 @@ function attachReferenceEventListeners(container) {
         });
     });
 
-    const barreBtn = [...container.querySelectorAll('#refChordBarreBtn')].find(b => !b.closest('#refCircleInfoPanel'));
+    const barreBtn = container.querySelector('#refChordBarreBtn');
     if (barreBtn) {
-        barreBtn.addEventListener('click', () => {
-            preferBarreChords = !preferBarreChords;
+        barreBtn.addEventListener('change', () => {
+            preferBarreChords = barreBtn.checked;
             try { localStorage.setItem('majestictab_prefer_barre_chords', String(preferBarreChords)); } catch (_) {}
             const contentContainer = document.getElementById('refTabContentContainer');
             if (contentContainer) {
@@ -1715,12 +1541,17 @@ function attachCircleSliceListeners() {
     const svgContainer = document.getElementById('refCircleSvgContainer');
     if (!svgContainer) return;
     svgContainer.querySelectorAll('.ref-circle-slice').forEach(slice => {
-        slice.addEventListener('click', () => {
+        const choose = () => {
             const idx = parseInt(slice.getAttribute('data-circle-idx'));
             if (!isNaN(idx)) {
                 selectedCircleIndex = idx;
                 refreshCircleSection();
+                document.querySelector(`.ref-circle-slice[data-circle-idx="${idx}"]`)?.focus();
             }
+        };
+        slice.addEventListener('click', choose);
+        slice.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(); }
         });
     });
 }
@@ -1738,6 +1569,12 @@ function refreshCircleSection() {
 function attachCircleChordLinks(container) {
     const infoPanel = document.getElementById('refCircleInfoPanel');
     if (!infoPanel || !container) return;
+    infoPanel.querySelectorAll('.ref-circle-mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            circleKeyMode = btn.dataset.mode === 'minor' ? 'minor' : 'major';
+            refreshCircleSection();
+        });
+    });
     infoPanel.querySelectorAll('.ref-chord-link').forEach(btn => {
         btn.addEventListener('click', () => {
             const symbol = btn.getAttribute('data-chord');
@@ -1748,7 +1585,7 @@ function attachCircleChordLinks(container) {
             selectedChordFilter = isDim ? 'Dim/Aug' : isMinor ? 'Minor' : 'Major';
             activeTab = 'chords';
             renderReferenceLibraryView(container);
-            refTabChangeListener?.(activeTab);
+            notifyReferenceTab();
         });
     });
 }

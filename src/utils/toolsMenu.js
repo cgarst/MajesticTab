@@ -1,5 +1,5 @@
 // toolsMenu.js
-// The "Tools" menu: Reference library, Fretboard, Tuner and Jam. The rows keep their original
+// The "Tools" menu: Chord library, Scales, Circle of fifths, Fretboard, Tuner and Jam. The rows keep their original
 // element ids, so the modules that bind to them work unchanged. This file adds:
 //   - open / close / placement of the menu
 //   - a live Jam session pill and a status dot on the Tools button
@@ -136,18 +136,16 @@ export function initToolsMenu() {
 
     // ---- Reference library -------------------------------------------------
 
-    async function syncReferenceActive() {
-        const ref = await import('../referenceLibrary.js');
-        $('toolsReferenceItem')?.classList.toggle('active', ref.isReferenceOpen());
-    }
-
-    // Opens as a modal over whatever is on screen: a song, the library, or the start screen
-    $('toolsReferenceItem')?.addEventListener('click', async () => {
-        const ref = await import('../referenceLibrary.js');
-        ref.openReferenceModal();
+    // Chords, Scales and Circle of fifths are three tools that share one screen. Each opens as a modal over
+    // whatever is on screen: a song, the library, or the start screen.
+    menu.querySelectorAll('.tools-ref-item').forEach((item) => {
+        item.addEventListener('click', async () => {
+            const ref = await import('../referenceLibrary.js');
+            ref.openReferenceModal(item.dataset.refTab);
+        });
     });
 
-    // ---- Keyboard shortcuts (R: Reference library, T: Tuner) ---------------
+    // ---- Keyboard shortcuts (R: Chord library, T: Tuner) ---------------
 
     const isTypingTarget = (el) => Boolean(el) && (
         (el.tagName === 'INPUT' && !['radio', 'checkbox', 'button', 'submit', 'range'].includes(el.type)) ||

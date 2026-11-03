@@ -1570,43 +1570,132 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .search-mb-view .search-results-container { text-align: left; }
 
 /* ---------- Reference library, Fretboard dock, Tuner: tools in the same flat language ---------- */
-.ref-filter-group-label, .ref-select-label, .tuner-strings-label, .tuner-status-readout, .ref-eyebrow {
-  text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; font-weight: 400 !important; color: var(--ink2) !important;
+/* Reference library: one frame for all three tabs, flat rows and tone steps, no outlines */
+/* Tone steps for this tool, made from ink over the ground so they climb in every finish (in Snow White --s2 is the ground itself) */
+.ref-page-container, .ref-section-box, .ref-circle-container { --ref-rest: color-mix(in srgb, var(--ink) 6%, var(--ground)); --ref-on: color-mix(in srgb, var(--ink) 13%, var(--ground)); }
+.ref-page-container { display: block !important; padding: 0 0 32px !important; max-width: 1180px; }
+.ref-chip:focus-visible, .ref-chord-link:focus-visible, .ref-switch input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (pointer: coarse) { .ref-chip { min-height: 44px; } }
+
+.ref-section-box, .ref-circle-container, .ref-circle-right, .ref-scale-banner, .ref-stat-card {
+  background: transparent !important; border: 0 !important; box-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; padding: 0 !important; border-radius: 0 !important;
 }
-.ref-chord-card, .ref-section-box, .ref-scale-banner, .ref-stat-card, .ref-chord-deg-card {
-  background: var(--s2) !important; border: 0 !important; box-shadow: none !important; transform: none !important;
+.ref-filter-group-label, .ref-select-label, .ref-card-subhead, .ref-kv dt {
+  text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; font-weight: 400 !important; color: var(--ink2) !important; margin: 0 !important;
 }
-@media (hover: hover) { .ref-chord-card:hover { background: var(--s3) !important; box-shadow: none !important; transform: none !important; } }
-.ref-header-bar { border-bottom: 0 !important; }
-.ref-header-bar + hr, #referenceModal hr, .ref-section-box hr { display: none; }
-.ref-control-btn { background: var(--s2) !important; border: 0 !important; color: var(--ink2) !important; box-shadow: none !important; }
-.ref-control-btn i, .ref-control-btn svg { display: none !important; }
-.ref-control-btn.active { background: var(--s3) !important; color: var(--ink) !important; font-weight: 600; box-shadow: none !important; }
-.ref-chord-name, .ref-chord-card [class*="fingering"], .ref-chord-card code, .ref-chord-card .font-monospace { font-family: inherit !important; }
-.ref-chord-card [class*="frets"], .ref-chord-card [class*="fingers"] { font-family: inherit !important; font-variant-numeric: tabular-nums; }
-/* Selected filter chips: one tone step and the ink, not a saturated fill */
-.ref-filter-group .btn.active, .ref-filter-group .btn-theme-primary { background: var(--s3) !important; color: var(--ink) !important; font-weight: 600; }
-.ref-filter-group .btn { background: transparent !important; border: 0 !important; color: var(--ink2) !important; box-shadow: none !important; }
-.ref-filter-group .btn:hover { background: var(--s2) !important; }
+.ref-chip-row { display: flex; flex-wrap: wrap; gap: 2px; }
+.ref-chip {
+  min-height: 36px; min-width: 36px; padding: 0 12px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink2);
+  font: 500 14px/1 inherit; font-family: inherit; font-variant-numeric: tabular-nums;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.ref-chip[aria-pressed="true"] { background: var(--ref-on); color: var(--ink); font-weight: 600; }
+@media (hover: hover) { .ref-chip:hover { background: var(--ref-rest); color: var(--ink); } .ref-chip[aria-pressed="true"]:hover { background: var(--ref-on); } }
+/* Root keys are real key caps */
+.ref-root-row { gap: 4px; margin-bottom: 16px; }
+.ref-key { min-width: 44px; background: var(--ref-rest); color: var(--ink); }
+.ref-key[aria-pressed="true"] { background: var(--ref-on); }
+.ref-root-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.ref-root-row::-webkit-scrollbar { display: none; }
+.ref-root-row .ref-key { flex: none; }
+.ref-filter-row { display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: flex-end; margin-bottom: 20px; }
+.ref-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ref-page-container .ref-select.form-select {
+  min-height: 36px; padding: 0 36px 0 12px !important; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--ref-rest) !important; color: var(--ink) !important; font-size: 14px; box-shadow: none !important;
+}
+.ref-result-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.ref-count { font-size: 13px; color: var(--ink2); }
+.ref-switch { display: inline-flex; align-items: center; gap: 12px; min-height: 36px; font-size: 14px; color: var(--ink); cursor: pointer; }
+.ref-switch input { margin: 0; }
+.ref-empty { padding: 48px 0; color: var(--ink2); font-size: 14px; }
+
+/* Chord cards: a tone step, no outline; ink dots on the diagram */
+.ref-chord-card { background: var(--ref-rest) !important; border: 0 !important; box-shadow: none !important; transform: none !important; border-radius: var(--r-card) !important; padding: 16px 8px 12px !important; }
+@media (hover: hover) { .ref-chord-card:hover { background: var(--ref-on) !important; box-shadow: none !important; transform: none !important; } }
+.ref-chord-name { font-size: 16px !important; }
+.ref-chord-cat { font-size: 13px !important; color: var(--ink2) !important; }
+.ref-chord-diagram-svg { max-width: 176px !important; }
+.ref-chord-frets { font-family: inherit !important; font-size: 13px !important; color: var(--ink2) !important; letter-spacing: .12em; font-variant-numeric: tabular-nums; }
+.ref-chord-card [class*="fingering"], .ref-chord-card code { font-family: inherit !important; }
+
+/* Key-value rows */
+.ref-kv { margin: 0 0 20px; }
+.ref-kv > div { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; min-height: 44px; padding: 8px 12px; border-radius: var(--r-control); background: var(--ref-rest); margin-bottom: 2px; }
+.ref-kv dd { margin: 0; font-size: 15px; font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; text-align: right; }
+.ref-scale-facts .ref-scale-formula, .ref-scale-facts .ref-scale-notes { font-family: inherit !important; color: var(--ink) !important; font-weight: 600; }
+.ref-fretboard-scroll-container { background: transparent !important; padding: 8px 0 0 !important; }
+.ref-fretboard-svg .ref-fret-note { filter: none; }
+
+/* Circle of fifths: flat wedges, the chosen key one tone step up with the inlay dot */
+.ref-circle-container { display: grid !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; gap: 48px !important; align-items: center !important; }
+.ref-circle-svg-wrapper { max-width: 460px !important; }
+.ref-circle-svg { filter: none !important; border-radius: 0 !important; }
+.ref-circle-slice { fill: var(--ref-rest); stroke: var(--ground); stroke-width: 2; transition: fill var(--dur-fast) var(--ease-out); filter: none !important; opacity: 1 !important; }
+.ref-circle-slice.active { fill: var(--ref-on); }
+@media (hover: hover) and (pointer: fine) { .ref-circle-slice:hover { fill: var(--ref-on); opacity: 1; } }
+.ref-circle-slice:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.ref-key-headline { font: 700 44px/1.02 var(--font-display) !important; letter-spacing: -.01em !important; margin: 0 0 16px !important; color: var(--ink) !important; }
+.ref-subhead-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 24px 0 8px; }
+.ref-deg-grid { gap: 2px !important; }
+.ref-chord-deg-card { background: var(--ref-rest) !important; border: 0 !important; box-shadow: none !important; border-radius: var(--r-control) !important; min-height: 56px; padding: 8px 4px !important; }
+@media (hover: hover) { .ref-chord-deg-card:hover { background: var(--ref-on) !important; } }
+.ref-deg-label { font-size: 13px !important; color: var(--ink2) !important; }
+.ref-deg-chord { font-size: 15px !important; }
+@media (max-width: 899px) { .ref-circle-container { grid-template-columns: minmax(0, 1fr) !important; gap: 24px !important; } .ref-key-headline { font-size: 36px !important; } }
+@media (max-width: 576px) { .ref-filter-row .ref-chip-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -16px; padding-inline: 16px; } .ref-filter-row .ref-chip-row::-webkit-scrollbar { display: none; } .ref-filter-row .ref-chip { flex: none; } .ref-filter-row { gap: 8px; } .ref-deg-grid { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; } .ref-filter-row { gap: 12px 20px; } }
+@media (prefers-reduced-motion: reduce) { .ref-chip, .ref-circle-slice { transition: none; } }
 
 /* Fretboard dock */
 .fretboard-tuning-badge, .fretboard-track-badge { background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ink2) !important; border-radius: 0 !important; }
 #fretboardDock .btn i, .fretboard-panel .btn i, [id^="fretboard"] .btn-theme-outline i { display: none; }
 .fretboard-playhead, [class*="fretboard"] [class*="playhead"], [class*="fretboard"] [class*="cursor-glow"] { box-shadow: none !important; filter: none !important; }
 
-/* Tuner */
-.tuner-modal-body, .tuner-display-card, .tuner-instrument-banner, .tuner-inst-chip, .tuner-string-btn {
-  box-shadow: none !important;
+/* Tuner: the reference tools' flat language. Tone steps, no outlines or glow, the one hue on the needle (the playhead), words for status */
+.tuner-modal-body { --ref-rest: color-mix(in srgb, var(--ink) 6%, var(--ground)); --ref-on: color-mix(in srgb, var(--ink) 13%, var(--ground)); }
+.tuner-modal-card { backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
+.tuner-modal-body, .tuner-display-card, .tuner-instrument-banner, .tuner-string-btn { box-shadow: none !important; }
+.tuner-instrument-grid, .tuner-selector-row .ref-chip-row { gap: 2px; }
+.tuner-inst-icon-wrap, #tunerModal .btn i { display: none !important; }
+.tuner-selector-row { align-items: center; gap: 8px 24px; }
+.tuner-selector-label, .tuner-calib-group label { text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; font-weight: 400 !important; color: var(--ink2) !important; }
+.tuner-modal-body select.tuner-other-select.form-select, .tuner-calib-select {
+  min-height: 36px; padding: 0 36px 0 12px !important; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--ref-rest) !important; color: var(--ink) !important; font-size: 14px !important; box-shadow: none !important;
 }
-.tuner-display-card, .tuner-instrument-banner { background: var(--s1) !important; border: 0 !important; }
-.tuner-inst-chip { background: var(--s2) !important; border: 0 !important; }
-.tuner-inst-chip.active, .tuner-inst-chip.is-track-chip.active { background: var(--s3) !important; color: var(--ink) !important; border: 0 !important; }
-.tuner-inst-icon-wrap, .tuner-inst-chip i, #tunerModal .btn i { display: none !important; }
-.tuner-string-btn { background: var(--s2) !important; border: 0 !important; }
-.tuner-freq-readout, .tuner-cents-readout, .tuner-string-hz { font-family: inherit !important; }
-.tuner-status-in-tune, .tuner-status-almost, .tuner-status-off { text-shadow: none !important; }
-.tuner-active-note { color: var(--ink2); font-size: 13px; }
-.ref-filter-group .btn.btn-theme-primary, .ref-filter-group .btn.active { background: var(--s3) !important; color: var(--ink) !important; font-weight: 600; }
+.tuner-modal-body select.tuner-other-select.active { background-color: var(--ref-on) !important; background-image: none !important; color: var(--ink) !important; font-weight: 600; }
+.tuner-calib-select { padding-right: 12px !important; }
+@media (hover: hover) { .tuner-modal-body select.tuner-other-select.form-select:hover { background-color: var(--ref-on) !important; border-color: transparent !important; color: var(--ink) !important; } }
+.tuner-calib-group { display: inline-flex; align-items: center; gap: 8px; border: 0 !important; background: transparent !important; padding: 0 !important; color: var(--ink2) !important; }
+.tuner-instrument-banner { background: transparent !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important; }
+.tuner-banner-title { font-size: 18px; flex-wrap: wrap; }
+.tuner-banner-subtitle, .tuner-active-note, .tuner-chromatic-note { font-size: 13px; color: var(--ink2); margin-bottom: 12px; }
+.tuner-active-note { margin: 0; font-weight: 400; }
+.tuner-string-btn { background: var(--ref-rest) !important; border: 0 !important; border-radius: var(--r-control) !important; min-height: 56px; }
+.tuner-string-btn.active, .tuner-string-btn:hover { background: var(--ref-on) !important; }
+.tuner-string-note { font-size: 16px; font-weight: 700; color: var(--ink); }
+.tuner-string-hz { font-size: 12px; color: var(--ink2); font-family: inherit !important; font-variant-numeric: tabular-nums; }
+.tuner-string-btn:focus-visible, .tuner-mic-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.tuner-display-card { background: var(--ref-rest) !important; border: 0 !important; border-radius: var(--r-card) !important; padding: 24px 16px !important; }
+.tuner-cents-meter { background: var(--ref-on); border: 0; height: 12px; border-radius: 6px; }
+.tuner-green-zone { background: color-mix(in srgb, var(--ink) 28%, var(--ref-on)); }
+.tuner-center-target { background: var(--ink); box-shadow: none; }
+.tuner-needle { background: var(--hue) !important; box-shadow: none !important; width: 6px; border-radius: 3px; transition: left var(--dur-fast) var(--ease-out); }
+.tuner-tick { background: color-mix(in srgb, var(--ink) 25%, transparent); }
+.tuner-tick.is-major { background: color-mix(in srgb, var(--ink) 40%, transparent); }
+.tuner-big-note { font-family: var(--font-display) !important; font-weight: 700; font-size: 6rem; letter-spacing: -.01em; text-shadow: none; transition: color var(--dur-fast) var(--ease-out); }
+.tuner-big-note.is-in-tune { color: var(--hue); }
+.tuner-big-note.is-idle { color: var(--ink2); opacity: .5; }
+.tuner-big-octave { font-family: var(--font-display) !important; font-weight: 700; font-size: 2rem; color: var(--ink2); }
+.tuner-freq-readout, .tuner-cents-readout { font-family: inherit !important; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--ink2); }
+.tuner-status-readout { text-transform: none !important; letter-spacing: 0 !important; font-size: 15px !important; font-weight: 600; }
+.tuner-status-in-tune { color: var(--ink) !important; font-weight: 700; text-shadow: none !important; }
+.tuner-status-almost, .tuner-status-off { color: var(--ink2) !important; text-shadow: none !important; }
+.tuner-vol-bar { background: color-mix(in srgb, var(--ink) 14%, transparent); }
+.tuner-vol-bar.is-active { background: var(--ink); box-shadow: none; }
+.tuner-mic-btn { min-height: 44px; padding: 0 28px; border-radius: var(--r-control) !important; letter-spacing: 0 !important; font-size: 15px; font-weight: 600; box-shadow: none !important; }
+.tuner-mic-btn.is-listening { background: var(--ref-on) !important; background-image: none !important; color: var(--ink) !important; border-color: transparent !important; box-shadow: none !important; }
+@media (max-width: 576px) { .tuner-big-note { font-size: 4.5rem; } .tuner-big-octave { font-size: 1.6rem; } }
+@media (prefers-reduced-motion: reduce) { .tuner-needle, .tuner-big-note { transition: none; } }
 .fretboard-close-btn i, #tunerModal .theme-modal-close-btn i, #referenceModal .theme-modal-close-btn i { display: inline-block !important; }
 .fretboard-panel .btn:not(.fretboard-close-btn), #fretboardDock .btn:not(.fretboard-close-btn) { background: transparent !important; border: 0 !important; color: var(--ink2) !important; }
 

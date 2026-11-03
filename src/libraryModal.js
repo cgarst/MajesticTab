@@ -4684,11 +4684,13 @@ export async function openRecentItem(r) {
         showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
 }
 
-// Tools page: laid out like Settings. Tuner, Reference library and Jam render in the page. The fretboard belongs to the open tab, so it lives only in the reader's Tools menu.
+// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner and Jam render in the page. The fretboard belongs to the open tab, so it lives only in the reader's Tools menu.
 function renderToolsView(container) {
     const $ = (id) => document.getElementById(id);
     const tools = [
-        { id: 'reference', title: 'Reference library' },
+        { id: 'chords', title: 'Chord library' },
+        { id: 'scales', title: 'Scales' },
+        { id: 'circle', title: 'Circle of fifths' },
         { id: 'tuner', title: 'Tuner' }
     ];
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', title: 'Jam' });

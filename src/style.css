@@ -5724,32 +5724,6 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
   padding-bottom: 2rem;
 }
 
-.ref-header-bar {
-  display: flex !important;
-  align-items: center;
-  justify-content: flex-start;
-  overflow: hidden;
-  padding: 0.5rem 0.75rem !important;
-}
-
-.ref-subnav-scroll {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-.ref-subnav-scroll::-webkit-scrollbar {
-  display: none;
-}
-
-.ref-tab-btn {
-  white-space: nowrap;
-  flex-shrink: 0;
-  border-radius: 9999px !important;
-  font-size: 0.8rem !important;
-  padding: 0.35rem 0.85rem !important;
-  display: inline-flex;
-  align-items: center;
-}
-
 .ref-section-box {
   background: var(--bg-card);
   backdrop-filter: blur(16px);

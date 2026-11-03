@@ -818,16 +818,10 @@ class PitchCraftTunerController {
 
         if (isListening) {
             btn.classList.add('is-listening');
-            btn.innerHTML = `
-                <i class="bi-stop-fill"></i>
-                <span>Stop Tuner</span>
-            `;
+            btn.textContent = 'Stop tuner';
         } else {
             btn.classList.remove('is-listening');
-            btn.innerHTML = `
-                <i class="bi-mic-fill"></i>
-                <span>Start Tuner</span>
-            `;
+            btn.textContent = 'Start tuner';
         }
     }
 
@@ -864,24 +858,21 @@ class PitchCraftTunerController {
         const absCents = Math.abs(noteInfo.cents);
         let statusText = '';
         let statusClass = '';
-        let needleColor = '';
 
         if (absCents <= 5) {
-            statusText = 'In Tune!';
+            statusText = 'In tune';
             statusClass = 'tuner-status-in-tune';
-            needleColor = '#22c55e';
         } else if (absCents <= 15) {
-            statusText = noteInfo.cents > 0 ? 'Slightly Sharp' : 'Slightly Flat';
+            statusText = noteInfo.cents > 0 ? 'Slightly sharp' : 'Slightly flat';
             statusClass = 'tuner-status-almost';
-            needleColor = '#eab308';
         } else {
-            statusText = noteInfo.cents > 0 ? 'Too Sharp' : 'Too Flat';
+            statusText = noteInfo.cents > 0 ? 'Too sharp' : 'Too flat';
             statusClass = 'tuner-status-off';
-            needleColor = '#ef4444';
         }
 
-        needle.style.background = needleColor;
-        needle.style.boxShadow = `0 0 10px ${needleColor}`;
+        // The needle is the playhead: it keeps the one hue. In tune is said in words and on the big note.
+        noteEl.classList.toggle('is-in-tune', statusClass === 'tuner-status-in-tune');
+        noteEl.classList.remove('is-idle');
 
         if (statusEl) {
             statusEl.textContent = statusText;
@@ -903,14 +894,12 @@ class PitchCraftTunerController {
 
         if (needle) {
             needle.style.left = '50%';
-            needle.style.background = 'var(--accent-primary, #6366f1)';
-            needle.style.boxShadow = '0 0 10px var(--accent-primary, #6366f1)';
         }
-        if (noteEl) noteEl.textContent = '—';
+        if (noteEl) { noteEl.textContent = '—'; noteEl.classList.remove('is-in-tune'); noteEl.classList.add('is-idle'); }
         if (octaveEl) octaveEl.textContent = '';
         if (freqEl) freqEl.textContent = 'Play a note';
         if (statusEl) {
-            statusEl.textContent = 'Waiting for audio...';
+            statusEl.textContent = 'Waiting for audio';
             statusEl.className = 'tuner-status-readout';
         }
         if (centsEl) centsEl.textContent = '';
@@ -927,10 +916,7 @@ class PitchCraftTunerController {
             const isActive = item.id === inst.id;
             const isTrack = Boolean(item.isTrackTuning);
             return `
-            <button type="button" class="tuner-inst-chip ${isActive ? 'active' : ''} ${isTrack ? 'is-track-chip' : ''}" data-tuner-inst="${item.id}" title="${item.description}">
-              <span class="tuner-inst-icon-wrap">${getInstrumentSvg(item.type, isActive ? '#fff' : item.color, 18)}</span>
-              <span>${item.name}</span>
-            </button>
+            <button type="button" class="ref-chip tuner-inst-chip ${isActive ? 'active' : ''} ${isTrack ? 'is-track-chip' : ''}" data-tuner-inst="${item.id}" aria-pressed="${isActive}" title="${item.description}">${item.name}</button>
             `;
         };
         const trackChipsHtml = this.trackInstruments.map(renderChip).join('');
@@ -939,7 +925,7 @@ class PitchCraftTunerController {
         const libraryOptionsHtml = libraryItems.map(t =>
             `<option value="${t.id}" ${t.id === inst.id ? 'selected' : ''}>${t.name}</option>`).join('');
         const countPillHtml = STRING_COUNTS_BY_MODE[this.mode].map(n => `
-            <button type="button" class="btn ${n === this.stringCount ? 'active' : ''}" data-tuner-string-count="${n}" aria-pressed="${n === this.stringCount}">${n}</button>
+            <button type="button" class="ref-chip ${n === this.stringCount ? 'active' : ''}" data-tuner-string-count="${n}" aria-pressed="${n === this.stringCount}">${n}</button>
         `).join('');
 
         // 2. String buttons for reference tone playback
@@ -954,7 +940,7 @@ class PitchCraftTunerController {
                 </button>
                 `;
             }).join('')
-            : '<span class="small text-muted">Chromatic mode detects all notes across any pitch range.</span>';
+            : '<span class="tuner-chromatic-note">Chromatic mode detects every note in any pitch range.</span>';
 
         container.innerHTML = `
           <div class="tuner-controls-col">
@@ -963,9 +949,9 @@ class PitchCraftTunerController {
           <div class="tuner-selector-row">
             <div class="d-flex align-items-center gap-2">
               <span class="tuner-selector-label">Strings</span>
-              <div class="hud-pill-group" role="group" aria-label="Number of strings">${countPillHtml}</div>
+              <div class="ref-chip-row" role="group" aria-label="Number of strings">${countPillHtml}</div>
             </div>
-            <select class="form-select form-select-sm tuner-other-select ${libraryActive ? 'active' : ''}" id="tunerLibrarySelect" aria-label="Library tunings">
+            <select class="form-select tuner-other-select ${libraryActive ? 'active' : ''}" id="tunerLibrarySelect" aria-label="Library tunings">
               <option value="" ${libraryActive ? '' : 'selected'}>Library tunings</option>
               ${libraryOptionsHtml}
             </select>
@@ -976,9 +962,9 @@ class PitchCraftTunerController {
             <div class="tuner-banner-meta">
               <div class="tuner-banner-title">
                 ${inst.name}
-                ${inst.isTrackTuning ? '<span class="tuner-active-note small ms-1">Active track</span>' : ''}
+                ${inst.isTrackTuning ? '<span class="tuner-active-note">Active track</span>' : ''}
               </div>
-              <div class="tuner-banner-subtitle">${inst.description}</div>
+              <div class="tuner-banner-subtitle">${String(inst.description).replace(/\s*\([^)]*\)\s*$/, '')}</div>
               <div class="tuner-strings-row" style="--n: ${inst.tuning ? inst.tuning.length : 0};">
                 ${stringsHtml}
               </div>
@@ -1017,7 +1003,7 @@ class PitchCraftTunerController {
 
             <!-- Pitch Readout -->
             <div class="tuner-pitch-display">
-              <span class="tuner-big-note" id="tunerBigNote">—</span>
+              <span class="tuner-big-note is-idle" id="tunerBigNote">—</span>
               <span class="tuner-big-octave" id="tunerBigOctave"></span>
             </div>
 
@@ -1032,10 +1018,7 @@ class PitchCraftTunerController {
 
             <!-- Start / Stop Listening Button -->
             <div class="tuner-action-row">
-              <button type="button" class="btn btn-theme-primary tuner-mic-btn" id="tunerMicBtn">
-                <i class="bi-mic-fill"></i>
-                <span>Start Tuner</span>
-              </button>
+              <button type="button" class="btn btn-theme-primary tuner-mic-btn" id="tunerMicBtn">Start tuner</button>
             </div>
           </div>
         `;
