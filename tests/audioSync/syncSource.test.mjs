@@ -52,3 +52,24 @@ test('loadFromUrl uses a found converter, and reads the text it returns', async 
     // with no converter the address itself is read, which here is not data
     await assert.rejects(loadFromUrl(page, serving({ [page]: '<html></html>' }), { findSource: async () => null }), /web page/);
 });
+
+test('song pages under /a/wsa/ resolve the latest revision, then read the point lists', async () => {
+    const seen = [];
+    const list = JSON.stringify([{ videoId: 'abc', points: [0, 2, 4] }]);
+    const fetchText = serving({
+        'https://example.org/api/meta/436828/revisions': JSON.stringify([{ revisionId: 77 }]),
+        'https://example.org/api/video-points/436828/77/list': list,
+        'https://example.org/api/video-points/436828/5/list': list
+    }, seen);
+    const sets = await loadFromUrl('https://example.org/a/wsa/some-song-tab-s436828', fetchText);
+    assert.equal(sets.length, 1);
+    assert.equal(seen.length, 2);
+    await loadFromUrl('https://example.org/a/wsa/some-song-tab-s436828/r3...r5', fetchText);
+    assert.match(seen.at(-1), /\/436828\/5\/list$/);
+});
+
+test('other paths are not treated as song pages', async () => {
+    const seen = [];
+    await loadFromUrl('https://example.org/other/some-song-s436828', serving({ 'https://example.org/other/some-song-s436828': '[]' }, seen)).catch(() => {});
+    assert.deepEqual(seen, ['https://example.org/other/some-song-s436828']);
+});
