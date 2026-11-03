@@ -76,6 +76,27 @@ export function applySavedGpDisplayScale() {
     return setGpDisplayScale(getGpDisplayScalePercent());
 }
 
+// Note density: AlphaTab's display.stretchForce (1 is its default). Lower packs more bars on a row, higher spreads them.
+export const GP_DENSITY_STEPS = { ultra: 0.3, tight: 0.6, normal: 1, roomy: 1.5 };
+export let GP_STRETCH_FORCE = GP_DENSITY_STEPS.normal;
+
+export function getGpDensity() {
+    let raw = null;
+    try { raw = typeof localStorage !== 'undefined' ? localStorage.getItem('gpNoteDensity') : null; } catch { /* storage blocked */ }
+    return Object.hasOwn(GP_DENSITY_STEPS, raw) ? raw : 'normal';
+}
+
+export function setGpDensity(density) {
+    const safe = Object.hasOwn(GP_DENSITY_STEPS, density) ? density : 'normal';
+    GP_STRETCH_FORCE = GP_DENSITY_STEPS[safe];
+    try { localStorage.setItem('gpNoteDensity', safe); } catch { /* storage blocked */ }
+    return safe;
+}
+
+export function applySavedGpDensity() {
+    return setGpDensity(getGpDensity());
+}
+
 export const DEFAULT_GP_NOTATION_MODE = 'tab';
 
 /** The notation for the open song: the temporary choice from View if there is one, otherwise the Settings default. */
@@ -263,7 +284,7 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
                     enableElementHighlighting: true,
                     scrollMode: alphaTab.ScrollMode.Off
                 },
-                display: { staveProfile: getGpStaveProfile(), layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE },
+                display: { staveProfile: getGpStaveProfile(), layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE, stretchForce: GP_STRETCH_FORCE },
                 notation: {
                     rhythmMode: alphaTab.TabRhythmMode.ShowWithBars,
                     elements: {

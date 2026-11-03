@@ -56,6 +56,7 @@ const EXCLUDED_SETTINGS_KEYS = [
     'majestictab_theme',
     'majestictab_sheet_mode',
     'gpSheetScale',
+    'gpNoteDensity',
     'theme',
     'majestictab_theme_sheet',
     'pageAdvancePages',

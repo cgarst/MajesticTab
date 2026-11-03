@@ -9,7 +9,7 @@ import { setupSaveToLibraryButton } from './saveToLibrary.js';
 import { setupAddToSetlistButton } from './setlistUi.js';
 import { setupSetlistNav, refreshSetlistNav } from './setlistPlayer.js';
 import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios, applyGpStringCount, syncGpStringCountRadios, syncGpStringCountUI } from './gpProcessor/gpHandler.js';
-import { setGpDisplayScale, applySavedGpDisplayScale, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
+import { setGpDisplayScale, applySavedGpDisplayScale, setGpDensity, applySavedGpDensity, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { initPageStrip } from './utils/pageStrip.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
@@ -304,6 +304,18 @@ export async function applyGpSheetScale(nextValue) {
     return scaledValue;
 }
 
+export async function applyGpDensity(density) {
+    const safe = setGpDensity(density);
+    const radio = document.getElementById(`gpDensity${safe[0].toUpperCase()}${safe.slice(1)}`);
+    if (radio) radio.checked = true;
+    if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
+        if (!applyGpDisplayScale(output, pageModeRadio?.checked, continuousModeRadio)) {
+            await loadFile(currentFile, { hideMenu: false, keepMode: true });
+        }
+    }
+    return safe;
+}
+
 // --- PINCH TO ZOOM TAB SIZE ---
 function setupPinchToZoom() {
     const container = document.getElementById('mainContent') || document.body;
@@ -447,6 +459,13 @@ function setupSettings() {
     const gpSheetScalePlus = document.getElementById('gpSheetScalePlus');
     const savedGpSheetScale = applySavedGpDisplayScale();
     syncGpSheetScale(savedGpSheetScale);
+
+    const savedDensity = applySavedGpDensity();
+    const savedDensityRadio = document.getElementById(`gpDensity${savedDensity[0].toUpperCase()}${savedDensity.slice(1)}`);
+    if (savedDensityRadio) savedDensityRadio.checked = true;
+    document.querySelectorAll('input[name="gpDensityRadio"]').forEach((r) => {
+        r.addEventListener('change', () => { if (r.checked) applyGpDensity(r.value); });
+    });
 
     gpSheetScaleInput?.addEventListener('input', () => {
         syncGpSheetScale(gpSheetScaleInput.value);

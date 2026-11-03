@@ -1,4 +1,4 @@
-import { loadGuitarPro, GP_DISPLAY_SCALE, getGuitarTracks, getActiveInstrumentTracks, getGpNotationMode, setGpNotationMode, getGpStaveProfile, saveHiddenTracks } from './gpProcessor.js';
+import { loadGuitarPro, GP_DISPLAY_SCALE, GP_STRETCH_FORCE, getGuitarTracks, getActiveInstrumentTracks, getGpNotationMode, setGpNotationMode, getGpStaveProfile, saveHiddenTracks } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
 import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
@@ -262,6 +262,7 @@ export function applyGpDisplayScale(output, pageModeChecked, continuousModeRadio
     const oldIndex = gpState.currentPageIndex;
     const oldCount = gpState.pages.length;
     api.settings.display.scale = GP_DISPLAY_SCALE;
+    api.settings.display.stretchForce = GP_STRETCH_FORCE;
     api.updateSettings();
 
     if (!pageModeChecked) {
