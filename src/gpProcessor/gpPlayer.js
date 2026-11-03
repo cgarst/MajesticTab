@@ -934,7 +934,6 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
  * the bar's system is in view, the way following playback does.
  */
 export function followSeekToBar(tick, barIndex) {
-    document.body.classList.add('synth-playback-started');
     requestAnimationFrame(() => updateContinuousPlaybackScroll(tick, true, null, barIndex, true));
 }
 
@@ -962,8 +961,6 @@ export function applyCursorPositionFromBeat(beat) {
     synthPlayerState.currentTime = currentApi.timePosition || 0;
     userSeekListeners.forEach((cb) => { try { cb(beatTick); } catch (e) { console.error('[Synth Player] seek listener error:', e); } });
 
-    // Enable visual cursor display
-    document.body.classList.add('synth-playback-started');
 
     // Position custom line reader cursor
     const boundsLookup = currentApi.renderer?.boundsLookup;
@@ -1347,7 +1344,6 @@ function applyPlayerState(api, state) {
     if (state !== 1) flushDeferredVisuals();
     if (state === 1) {
         synthPlayerState.hasPlayed = true;
-        document.body.classList.add('synth-playback-started');
         pauseYouTube();
         setActiveAudioMode('synth');
         enableIOSAudioPlayback();
@@ -1437,7 +1433,6 @@ export function attachAlphaTabApi(api) {
     synthPlayerState.endTime = 0;
     synthPlayerState.isReady = false;
     synthPlayerState.soundFontLoaded = false;
-    document.body.classList.remove('synth-playback-started');
 
     // Update song title in panel
     const titleEl = document.getElementById('synthPanelTitle');
@@ -1591,7 +1586,6 @@ export function clearSynthHighlights() {
     synthPlayerState.hasPlayed = false;
     playedBeatState.beat = null;
     playedBeatState.shownBeat = null;
-    document.body.classList.remove('synth-playback-started');
     document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
     if (currentApi?.customCursorHandler?.reset) {
         currentApi.customCursorHandler.reset();

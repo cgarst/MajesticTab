@@ -181,7 +181,7 @@ Fixtures: `Duo No 2 In G Major.gp5`, `Haken - 1985.gp5` and `nightterror.gp5` (l
 - `renderer.boundsLookup.staffSystems[].findBarAtPos(x)` returns a master-bar bounds object. Its per-track bars are in `.bars` (each with `.beats`), not `.beats`. `masterBar.findBeatAtPos(x)` returns a model beat.
 - `boundsLookup.getBeatAtPos(x, y)` returns null in gaps, margins and headers; fall back to the nearest system, then the vertically closest track bar, then the nearest beat by x.
 - `boundsLookup.findBeat(beat)` only resolves beats for tracks currently rendered.
-- The `.at-cursors` layer and `.gp-reader-cursor` are hidden by CSS until `body.synth-playback-started` is set.
+- The `.at-cursors` layer and `.gp-reader-cursor` show from load, as in AlphaTab, with the cursor at the start of the score.
 - Public AlphaTab fields are minified (`Qw`, `vy`, `Ny`); avoid depending on them, and if unavoidable, route through a single helper such as `getMidiTickLookup()`.
 
 ### Local Store Builds

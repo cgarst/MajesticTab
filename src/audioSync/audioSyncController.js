@@ -148,7 +148,6 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
         source,
         timeline,
         getPoints: () => resolved,
-        // AlphaTab places its own cursor when the tick is set, but the cursor layer stays hidden until this class is set
         setTick: (tick) => {
             // AlphaTab drops the cursor on the beat when the tick is set; glide from where it is once that is done
             const handler = api.customCursorHandler;
@@ -158,7 +157,6 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
                 handler.afterNextPlace = go;
             }
             api.tickPosition = tick;
-            document.body.classList.add('synth-playback-started');
         },
         snapToBeat: (tick) => snapTo(starts, tick),
         getLatencyMs: getAudioLatencyMs
@@ -205,8 +203,6 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
             glide.destroy();
             follower.stop();
             stopFretLoop();
-            // The cursor layer is only wanted while something drives it; the synth keeps it once it has played
-            if (!synthPlayerState.hasPlayed) document.body.classList.remove('synth-playback-started');
             if (active === this) active = null;
         }
     };
