@@ -69,6 +69,8 @@ async function loadKeychainRefreshToken() {
     return refreshToken;
 }
 
+const ANDROID_SILENT_AUTH_TIMEOUT_MS = 15000;
+
 let refreshPromise = null;
 
 /**
@@ -94,8 +96,22 @@ export async function ensureFreshToken() {
 
 async function refreshAccessToken(refreshToken) {
     if (isMobilePlatform() && !isIOSDevice()) {
-        const authData = await window.__TAURI__.core.invoke('plugin:google-auth|authorize');
-        return storeGoogleAuth(authData.accessToken, authData.expiresIn);
+        // The silent authorization normally returns in well under a second. If Google Play services
+        // never answers, give up so the caller falls back to the interactive sign-in instead of
+        // leaving the UI on "Signing in..." forever.
+        let timer;
+        const timeout = new Promise((_, reject) => {
+            timer = setTimeout(() => reject(new Error('Google authorization timed out.')), ANDROID_SILENT_AUTH_TIMEOUT_MS);
+        });
+        try {
+            const authData = await Promise.race([
+                window.__TAURI__.core.invoke('plugin:google-auth|authorize'),
+                timeout
+            ]);
+            return storeGoogleAuth(authData.accessToken, authData.expiresIn);
+        } finally {
+            clearTimeout(timer);
+        }
     }
 
     const params = { refresh_token: refreshToken, grant_type: 'refresh_token' };
