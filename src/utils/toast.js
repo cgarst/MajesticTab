@@ -10,6 +10,7 @@ function ensureToastContainer() {
             toastContainer = document.createElement('div');
             toastContainer.id = 'themeToastContainer';
             toastContainer.className = 'theme-toast-container';
+            toastContainer.setAttribute('aria-live', 'polite');
             document.body.appendChild(toastContainer);
         }
     }
@@ -51,13 +52,10 @@ export function showToast(message, type = 'info', duration = 3500, id = null, ac
     toast.className = `theme-toast theme-toast-${type}`;
     if (id) toast.dataset.toastId = id;
 
-    let iconClass = 'bi-info-circle-fill text-info';
-    if (type === 'success') iconClass = 'bi-check-circle-fill text-success';
-    else if (type === 'warning') iconClass = 'bi-exclamation-triangle-fill text-warning';
-    else if (type === 'error') iconClass = 'bi-x-circle-fill text-danger';
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
 
     toast.innerHTML = `
-        <i class="bi ${iconClass} theme-toast-icon"></i>
+        <span class="theme-toast-dot" aria-hidden="true"></span>
         <div class="theme-toast-message">${escapeHtml(message)}</div>
         ${action?.label ? `<button type="button" class="theme-toast-action">${escapeHtml(action.label)}</button>` : ''}
         <button type="button" class="theme-toast-close" aria-label="Dismiss">&times;</button>
