@@ -672,7 +672,7 @@ body.practice-open #output { padding-right: 416px !important; }
 .covbar .lane-base { position: absolute; left: 0; right: 0; top: 0; bottom: 0; background: color-mix(in srgb, var(--hue) 55%, var(--s2)); }
 .covbar .lane-gap { position: absolute; top: 0; bottom: 0; background: var(--s2); background-image: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255, 255, 255, 0.08) 2px, rgba(255, 255, 255, 0.08) 4px); }
 .covbar .lane-point { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); }
-.covbar .lane-point.is-flagged { background: #f59e0b; }
+.covbar .lane-point.is-flagged { background: var(--warn, #e9b44c); }
 .syncc .warnl { color: var(--ink) !important; display: flex; align-items: center; gap: 8px; }
 
 /* ==========================================================================
@@ -680,8 +680,8 @@ body.practice-open #output { padding-right: 416px !important; }
    ========================================================================== */
 @media (min-width: 577px) {
   /* No top bar over the library on the web: the rail carries the brand, Tools and Settings. Desktop apps keep a quiet drag strip. */
-  body.library-view-active:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) #topBar { display: none; }
-  body.library-view-active:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) .library-bottom-nav { top: 0; }
+  html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.library-view-active #topBar { display: none; }
+  html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.library-view-active .library-bottom-nav { top: 0; }
   body.library-view-active .library-bottom-nav {
     width: 76px; padding: 14px 8px; gap: 2px; background: var(--ground) !important; border: 0 !important;
   }
@@ -705,7 +705,6 @@ body.practice-open #output { padding-right: 416px !important; }
   .library-bottom-nav .library-nav-tab { flex-direction: row; justify-content: flex-start; gap: 12px; font-size: 14px; padding: 0 12px; }
   .library-bottom-nav .library-nav-tab.active::before { left: -2px; }
 }
-.tauri-macos.library-view-active .library-bottom-nav, body.tauri-macos.library-view-active .library-bottom-nav { padding-top: 52px; }
 
 /* Content */
 .library-page-view { background: var(--s1) !important; }
@@ -801,9 +800,9 @@ body.settings-as-page #fileMenu {
   z-index: 1030; transform: none;
 }
 body.settings-as-page.library-view-active #fileMenu { top: 0; height: 100%; }
-body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) #fileMenu { top: 0; }
+html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-page.library-view-active #fileMenu { top: 0; }
 /* Desktop shells keep the bar (drag strip and window controls) above Settings */
-body.settings-as-page.library-view-active.tauri-macos #fileMenu, body.settings-as-page.library-view-active.tauri-windows #fileMenu { top: var(--bar-h, 52px); height: calc(100% - var(--bar-h, 52px)); }
+.tauri-macos body.settings-as-page.library-view-active #fileMenu, .tauri-windows body.settings-as-page.library-view-active #fileMenu { top: var(--bar-h, 52px); height: calc(100% - var(--bar-h, 52px)); }
 @media (min-width: 577px) {
   body.settings-as-page.library-view-active #fileMenu { left: 76px; width: calc(100vw - 76px) !important; }
 }
@@ -927,9 +926,11 @@ body.settings-as-page.library-view-active.tauri-macos #fileMenu, body.settings-a
 .tauri-macos #topBar, .tauri-windows #topBar { min-height: var(--bar-h); }
 .tauri-macos, body.tauri-macos {
   --wc-l: 78px;
+  --topbar-h: var(--bar-h);
 }
 .tauri-windows, body.tauri-windows {
   --wc-r: 138px;
+  --topbar-h: var(--bar-h);
 }
 .tauri-linux, body.tauri-linux {
   --wc-r: 56px;
@@ -1985,6 +1986,8 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 
 /* Phones: the library has no reader controls (the reader's five words and page buttons belong to a song) */
 @media (max-width: 640px) { body.library-view-active #topFlexZone { display: none !important; } }
+/* View, Practice, Tracks, Guitar and Tools belong to an open song, at every width. The library reaches Tools from the rail. */
+body.library-view-active #viewPill, body.library-view-active #practicePill, body.library-view-active #tracksPill, body.library-view-active #guitarPill, body.library-view-active #toolsPill { display: none !important; }
 /* The way back to the open song: its name in plain ink, icons in grey (colour is for the primary action, playhead and dot) */
 #libraryReturnToSongBtn i { color: var(--ink2) !important; }
 @media (max-width: 640px) {
@@ -2192,3 +2195,52 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 @media (pointer: coarse) { .track-mix-toggles .mixer-toggle { min-width: 44px; width: 44px; height: 44px; } }
 @media (max-width: 640px) { .track-mix-sliders { grid-template-columns: 1fr; gap: 8px; } }
 .track-mix .gp-track-dot { box-shadow: none !important; }
+
+/* Desktop shells: the library has no top bar of its own. The rail carries the brand and Settings, so the bar
+   shows nothing there but the way back to an open song. It stays as the drag strip and window-control clearance. */
+.tauri-macos body.library-view-active #brandSection .brand-pick,
+.tauri-macos body.library-view-active #brand-text,
+.tauri-macos body.library-view-active #menuToggleBtn,
+.tauri-windows body.library-view-active #brandSection .brand-pick,
+.tauri-windows body.library-view-active #brand-text,
+.tauri-windows body.library-view-active #menuToggleBtn { display: none !important; }
+
+/* ==========================================================================
+   Recording panel: flat rows, plain-text status, one filled action (Tap to sync)
+   ========================================================================== */
+#ytDropdownPanel .rec-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+#ytDropdownPanel .rec-label { font-size: 13px; color: var(--ink2); }
+#ytDropdownPanel .rec-text-btn {
+  background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ink2) !important;
+  font: 500 13px system-ui, sans-serif; padding: 6px 12px; min-height: 32px; border-radius: var(--r) !important; white-space: nowrap;
+}
+#ytDropdownPanel .rec-text-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+#ytDropdownPanel .rec-text-btn:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+/* The sync controls stay in the DOM (the sync card drives them); the card is the only place they show */
+#ytDropdownPanel .rec-sync-proxy { display: none !important; }
+/* Status is plain grey text, not a pill */
+#ytDropdownPanel .slot .chip, #ytDropdownPanel .slot .chip.ok, #ytDropdownPanel .slot .chip.warn {
+  height: auto; padding: 0; border-radius: 0; background: transparent; color: var(--ink2); font-size: 12px; font-weight: 400;
+}
+#ytDropdownPanel .slot .chip.ok { color: var(--ink); }
+/* Text follows the finish instead of forced white */
+#ytDropdownPanel .text-white-50, #ytDropdownPanel .text-muted { color: var(--ink2) !important; }
+#ytDropdownPanel .text-white { color: var(--ink) !important; }
+#ytDropdownPanel .spinner-border { color: var(--ink2); }
+/* Joined inputs become a row of separate tone-step controls */
+#ytDropdownPanel .input-group { display: flex; flex-wrap: nowrap; gap: 6px; align-items: stretch; }
+#ytDropdownPanel .input-group > .form-control { flex: 1; min-width: 0; }
+#ytDropdownPanel .input-group > .btn { border: 0 !important; margin: 0 !important; border-radius: var(--r) !important; display: inline-flex; align-items: center; }
+/* No outlines on the video, its states, the waveform or the file rows */
+#ytDropdownPanel #ytPlayerWrapper { border: 0 !important; background: var(--s1) !important; }
+#ytDropdownPanel .yt-state-card { background: var(--s1) !important; border: 0 !important; }
+#ytDropdownPanel .af-wave { border: 0 !important; background: var(--s1) !important; border-radius: var(--r); }
+#ytDropdownPanel .af-file-row { border: 0 !important; background: var(--s1) !important; }
+#ytDropdownPanel .af-file-row.is-selected { background: var(--s3) !important; }
+@media (pointer: coarse) { #ytDropdownPanel .btn { min-height: 44px; } }
+@media (min-width: 577px) {
+  .tauri-macos body.library-view-active #topBar, .tauri-windows body.library-view-active #topBar { background: transparent !important; z-index: 1050; }
+  .tauri-macos body.library-view-active, .tauri-windows body.library-view-active { background: var(--s1) !important; }
+  .tauri-macos body.library-view-active .library-bottom-nav, .tauri-windows body.library-view-active .library-bottom-nav { top: 0; padding-top: calc(var(--bar-h) + 16px); }
+}
+#ytDropdownPanel [hidden] { display: none !important; }

@@ -230,7 +230,7 @@ export function updateRecordingSlotsAndSyncCard() {
         if (barCount) barCount.innerHTML = `<b>0 of ${totalBars} bars synced.</b>`;
         if (warnLine) warnLine.style.display = 'none';
         if (tapBtn) {
-            tapBtn.innerHTML = '<i class="bi-play-fill me-1"></i>Tap to sync';
+            tapBtn.textContent = 'Tap to sync';
             tapBtn.className = 'btn btn-theme-primary';
         }
         return;
@@ -285,7 +285,7 @@ export function updateRecordingSlotsAndSyncCard() {
     }
 
     if (tapBtn) {
-        tapBtn.innerHTML = `<i class="bi-play-fill me-1"></i>${isFull ? 'Re-sync' : 'Tap to sync'}`;
+        tapBtn.textContent = isFull ? 'Re-sync' : 'Tap to sync';
         tapBtn.className = isFull ? 'btn btn-theme-outline' : 'btn btn-theme-primary';
     }
 }
