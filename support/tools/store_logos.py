@@ -5,28 +5,41 @@ Store tiles are shown at thumbnail size (~150-300px), so the art is built for th
 a large pick mark, a wordmark spanning most of the width, and no tagline (it was
 unreadable when scaled down).
 
-Requires: pip install resvg-py pillow
+Requires: pip install resvg-py pillow fonttools brotli
 """
 import io
+import tempfile
 from pathlib import Path
 
 import resvg_py
+from fontTools.ttLib import TTFont
 from PIL import Image, ImageDraw, ImageFont
 
 ROOT = Path(__file__).resolve().parent.parent.parent
 SOURCE = ROOT / "support" / "branding" / "icon_v3.svg"
 OUT = ROOT / "support" / "store" / "msstore" / "logos"
 PLAY_OUT = ROOT / "fastlane" / "metadata" / "android" / "en-US" / "images"
-FONT = "/System/Library/Fonts/Helvetica.ttc"  # index 1 = Bold
+# The wordmark uses the landing page header font (.brand in docs/site.css: Barlow Condensed 600).
+FONT_WOFF2 = ROOT / "docs" / "fonts" / "barlow-condensed-latin-600-normal.woff2"
 TOP, BOTTOM = (0xFF, 0xFF, 0xFF), (0xFF, 0xFF, 0xFF)  # flat white ground, like the app icon's tile
 INK = (0x11, 0x17, 0x24)  # the pick's body color
-TAB_COLOR = (0x2F, 0x40, 0x66)  # the pick's rim (Slate Blue)
+TAB_COLOR = (0x2F, 0x40, 0x66)  # the pick's rim (Slate Blue); the landing page colors "Tab" with --action instead, since its ground is dark
 
 # name -> (w, h, mark width fraction, wordmark width fraction, content block center y fraction)
 SIZES = {
     "box-art-1080x1080.png": (1080, 1080, 0.58, 0.86, 0.50),
     "poster-art-720x1080.png": (720, 1080, 0.88, 0.92, 0.50),
 }
+
+
+def font_path():
+    """PIL cannot read woff2, so convert the site's font to a temporary TTF once."""
+    out = Path(tempfile.gettempdir()) / "majestictab-barlow-condensed-600.ttf"
+    if not out.exists():
+        f = TTFont(str(FONT_WOFF2))
+        f.flavor = None
+        f.save(str(out))
+    return str(out)
 
 
 def background(w, h):
@@ -44,11 +57,11 @@ def mark(width):
 
 def wordmark(width):
     size = 100
-    font = ImageFont.truetype(FONT, size, index=1)
+    font = ImageFont.truetype(font_path(), size)
     a, b = "Majestic", "Tab"
     wa, wb = font.getlength(a), font.getlength(b)
     size = int(size * width / (wa + wb))
-    font = ImageFont.truetype(FONT, size, index=1)
+    font = ImageFont.truetype(font_path(), size)
     wa, wb = font.getlength(a), font.getlength(b)
     asc, desc = font.getmetrics()
     img = Image.new("RGBA", (round(wa + wb) + 4, asc + desc), (0, 0, 0, 0))
