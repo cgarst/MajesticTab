@@ -409,6 +409,11 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .mobile-dock-play-btn:disabled { opacity: .5; }
 .dock-marks { position: absolute; left: 14px; bottom: calc(100% + 6px); max-width: min(420px, calc(100% - 28px)); max-height: 40vh; overflow: auto; background: var(--s2); border-radius: var(--r-lg); padding: 10px 14px; z-index: 5; }
 .dock-marks[hidden] { display: none; }
+.dock-marks .mhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.dock-marks-close { flex-shrink: 0; display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink2); cursor: pointer; }
+.dock-marks-close:hover { background: var(--s3); color: var(--ink); }
+.dock-marks-close:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+@media (pointer: coarse) { .dock-marks-close { width: 44px; height: 44px; } }
 
 /* ---------- ruler ---------- */
 .ruler { position: relative; height: 44px; touch-action: none; cursor: pointer; border-radius: var(--r-sm); background: var(--s2); overflow: visible; }
@@ -2320,3 +2325,39 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 
 /* Master volume slider while iOS-controlled audio (YouTube, audio file) is active */
 #synthVolumeSlider:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ==========================================================================
+   Metronome tool. Flat rows on the ground ladder; colour only on the primary action and on the
+   beat that is sounding (the playhead). Based on The Minimal Metronome by Zane Helton (MIT).
+   ========================================================================== */
+.metronome-modal-card { max-width: 480px; width: 95%; max-height: 90dvh; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
+.metronome-body { display: flex; flex-direction: column; gap: 20px; padding: 20px; overflow-y: auto; overscroll-behavior: contain; --metro-rest: color-mix(in srgb, var(--ink) 6%, var(--ground)); --metro-on: color-mix(in srgb, var(--ink) 13%, var(--ground)); }
+.metro-stage { position: relative; height: 140px; border-radius: var(--r-card); background: var(--metro-rest); overflow: hidden; }
+.metro-arm { position: absolute; left: calc(50% - 2px); top: 28px; bottom: 0; width: 4px; border-radius: 2px; background: var(--ink2); transform-origin: 50% 100%; transform: rotate(0); will-change: transform; }
+.metro-mark { position: absolute; left: calc(50% - 6px); top: 10px; width: 12px; height: 12px; border-radius: 50%; background: var(--hue); opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
+.metro-mark.is-lit { opacity: 1; transition: none; }
+.metro-readout { display: flex; align-items: center; justify-content: center; gap: 24px; }
+.metro-tempo { display: flex; align-items: baseline; gap: 8px; min-width: 150px; justify-content: center; }
+.metro-bpm { font-family: var(--font-display); font-weight: 700; font-size: 5rem; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink); }
+.metro-unit { font-size: 14px; color: var(--ink2); }
+.metro-step { width: 44px; height: 44px; border: 0; border-radius: var(--r-control); background: var(--metro-rest); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; transition: transform var(--dur-fast) var(--ease-out); }
+.metro-step:active { transform: translateY(1px); }
+.tauri-ios .metro-step:active { transform: scale(.96); }
+@media (hover: hover) { .metro-step:hover, .metro-ghost:hover { background: var(--metro-on) !important; } }
+.metro-range { width: 100%; accent-color: var(--ink2); min-height: 24px; }
+.metro-beats { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; min-height: 14px; }
+.metro-beat { width: 12px; height: 12px; border-radius: 50%; background: var(--metro-on); transition: background-color var(--dur-fast) var(--ease-out); }
+.metro-beat.is-downbeat { background: color-mix(in srgb, var(--ink) 28%, var(--ground)); }
+.metro-beat.is-current { background: var(--hue); }
+.metro-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
+.metro-play { min-height: 44px; min-width: 120px; padding: 0 28px; border-radius: var(--r-control) !important; font-size: 15px; font-weight: 600; }
+.metro-ghost { min-height: 44px; padding: 0 16px; border: 0 !important; border-radius: var(--r-control) !important; background: transparent !important; color: var(--ink2) !important; font-size: 14px; box-shadow: none !important; }
+.metro-options { display: flex; flex-direction: column; gap: 2px; }
+.metro-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 8px 12px; border-radius: var(--r-control); cursor: pointer; color: var(--ink); font-size: 15px; }
+.metro-option small { display: block; font-size: 12px; color: var(--ink2); }
+@media (hover: hover) { .metro-option:hover { background: var(--metro-rest); } }
+.metro-help { font-size: 12px; color: var(--ink2); }
+.metro-play:focus-visible, .metro-ghost:focus-visible, .metro-step:focus-visible, .metro-range:focus-visible, .metro-option:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
+#metronomeModal .theme-modal-close-btn i { display: inline-block !important; }
+.theme-modal-backdrop.tool-embedded .metronome-modal-card { max-width: 520px; }
+@media (prefers-reduced-motion: reduce) { .metro-mark, .metro-beat, .metro-step { transition: none; } }

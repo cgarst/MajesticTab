@@ -328,11 +328,16 @@ export function initBarRuler() {
             }
             const open = marksPanel.hidden;
             if (open && model) {
-                marksPanel.innerHTML = `<div class="mhead">What the file contains</div><ul class="bar-ruler-marks">${model.marks.map((m) =>
+                marksPanel.innerHTML = `<div class="mhead"><span>What the file contains</span><button type="button" class="dock-marks-close" aria-label="Close"><i class="bi-x-lg"></i></button></div><ul class="bar-ruler-marks">${model.marks.map((m) =>
                     `<li><span class="bar-ruler-mark-bar">Bar ${m.bar}</span> ${escapeHtml(m.raw || '(blank)')}</li>`).join('')}</ul>`;
             }
             marksPanel.hidden = !open;
             btn.setAttribute('aria-expanded', String(open));
+            marksPanel.querySelector('.dock-marks-close')?.addEventListener('click', () => {
+                marksPanel.hidden = true;
+                btn.setAttribute('aria-expanded', 'false');
+                btn.focus();
+            });
         });
     }
     ensureInfoButton();
