@@ -56,9 +56,16 @@ global.localStorage = {
 const {
     DEFAULT_SOURCES,
     getSources,
+    saveSources,
     resetToDefaultSources,
     buildSearchUrl,
-    formatSearchQueryForSource
+    formatSearchQueryForSource,
+    isAdblockEnabled,
+    setAdblockEnabled,
+    getAdblockStatus,
+    ADBLOCK_ENABLED_KEY,
+    ADBLOCK_HOSTS_KEY,
+    ADBLOCK_UPDATED_KEY
 } = await import('../src/tabDownloader.js');
 
 test('DEFAULT_SOURCES has DuckDuckGo first and Google second', () => {
@@ -154,4 +161,49 @@ test('getSources upgrades existing user sources by moving DuckDuckGo first', () 
     stored.unshift(...stored.splice(1, 1));
     localStorage.setItem('majestictab_tab_sources', JSON.stringify(stored));
     assert.equal(getSources()[0].id, 'google');
+});
+
+test('adblock starts disabled and handles enabling with mocked fetch and caching', async () => {
+    localStorage.clear();
+    assert.equal(isAdblockEnabled(), false);
+    const initialStatus = getAdblockStatus();
+    assert.equal(initialStatus.enabled, false);
+    assert.equal(initialStatus.count, 0);
+
+    // Mock fetch for Peter Lowe list
+    const sampleList = [
+        '# Peter Lowe list header',
+        '! Some comment',
+        'doubleclick.net',
+        '  ',
+        'googlesyndication.com',
+        'taboola.com',
+        '# another comment'
+    ].join('\n');
+
+    global.fetch = async (url) => {
+        return {
+            ok: true,
+            status: 200,
+            text: async () => sampleList
+        };
+    };
+
+    // Enable adblock
+    const res = await setAdblockEnabled(true);
+    assert.equal(res.enabled, true);
+    assert.equal(res.count, 3);
+    assert.equal(isAdblockEnabled(), true);
+
+    const storedHosts = JSON.parse(localStorage.getItem(ADBLOCK_HOSTS_KEY));
+    assert.deepEqual(storedHosts, ['doubleclick.net', 'googlesyndication.com', 'taboola.com']);
+    assert.equal(Number(localStorage.getItem(ADBLOCK_UPDATED_KEY)) > 0, true);
+
+    // Disable adblock
+    const resOff = await setAdblockEnabled(false);
+    assert.equal(resOff.enabled, false);
+    assert.equal(isAdblockEnabled(), false);
+
+    // Cached hosts remain in storage for fast re-enabling
+    assert.equal(JSON.parse(localStorage.getItem(ADBLOCK_HOSTS_KEY)).length, 3);
 });

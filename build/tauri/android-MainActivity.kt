@@ -8,12 +8,16 @@ import android.view.View
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
 import android.webkit.URLUtil
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import java.io.ByteArrayInputStream
 
 class MainActivity : TauriActivity() {
   companion object {
@@ -29,6 +33,19 @@ class MainActivity : TauriActivity() {
   private var downloaderTopInsetPx = 0
   private var webViewsConfigured = 0
   private var multicastLock: WifiManager.MulticastLock? = null
+  private val blockedHosts = java.util.Collections.synchronizedSet(HashSet<String>())
+
+  private fun isHostBlocked(host: String): Boolean {
+    if (blockedHosts.isEmpty()) return false
+    var cur = host
+    while (cur.isNotEmpty()) {
+      if (blockedHosts.contains(cur)) return true
+      val idx = cur.indexOf('.')
+      if (idx == -1) break
+      cur = cur.substring(idx + 1)
+    }
+    return false
+  }
 
   override fun onCreate(savedInstanceState: Bundle?) {
     instance = this
@@ -151,6 +168,22 @@ class MainActivity : TauriActivity() {
       displayZoomControls = false
     }
     if (!isAppWebView) {
+      webView.webViewClient = object : WebViewClient() {
+        override fun shouldInterceptRequest(
+          view: WebView?,
+          request: WebResourceRequest?
+        ): WebResourceResponse? {
+          val host = request?.url?.host?.lowercase() ?: return null
+          if (isHostBlocked(host)) {
+            return WebResourceResponse(
+              "text/plain",
+              "UTF-8",
+              ByteArrayInputStream(ByteArray(0))
+            )
+          }
+          return super.shouldInterceptRequest(view, request)
+        }
+      }
       addDownloaderBridges(webView)
       return
     }
@@ -301,6 +334,24 @@ class MainActivity : TauriActivity() {
         }
         done.await(500, java.util.concurrent.TimeUnit.MILLISECONDS)
         return url
+      }
+
+      @JavascriptInterface
+      fun setBlockedHosts(jsonArrayStr: String) {
+        try {
+          val arr = org.json.JSONArray(jsonArrayStr)
+          val set = HashSet<String>(arr.length())
+          for (i in 0 until arr.length()) {
+            val host = arr.getString(i).trim().lowercase()
+            if (host.isNotEmpty()) {
+              set.add(host)
+            }
+          }
+          blockedHosts.clear()
+          blockedHosts.addAll(set)
+        } catch (e: Exception) {
+          android.util.Log.e("MajesticTab", "Failed to parse blocked hosts", e)
+        }
       }
     }, "MajesticDownloaderNative")
   }

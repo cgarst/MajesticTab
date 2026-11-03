@@ -17,11 +17,17 @@ import {
     VIEWPORT_OPTIMIZER_USERSCRIPT
 } from './utils/downloaderIntercept.js';
 
-const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
-const SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
-const DUCKDUCKGO_FIRST_KEY = 'majestictab_tab_sources_duckduckgo_first';
+export const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
+export const SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
+export const DUCKDUCKGO_FIRST_KEY = 'majestictab_tab_sources_duckduckgo_first';
+
+export const ADBLOCK_ENABLED_KEY = 'majestictab_downloader_adblock_enabled';
+export const ADBLOCK_HOSTS_KEY = 'majestictab_downloader_adblock_hosts';
+export const ADBLOCK_UPDATED_KEY = 'majestictab_downloader_adblock_updated';
+export const DEFAULT_ADBLOCK_SOURCE_URL = 'https://pgl.yoyo.org/adservers/serverlist.php?hostformat=plain&showintro=0&mimetype=plaintext';
+
 export function isNative() {
-    return typeof window !== 'undefined' && Boolean(window.__TAURI__);
+    return typeof window !== 'undefined' && (Boolean(window.__TAURI__) || Boolean(window.MajesticDownloaderNative));
 }
 
 export function isDesktopNative() {
@@ -433,89 +439,49 @@ export function initTabDownloaderDomEvents() {
         }
     });
 
-    // Settings button
-    document.getElementById('downloaderSettingsBtn')?.addEventListener('click', () => {
-        openDownloaderSettings();
-    });
+    // Adblock button
+    const adblockBtn = document.getElementById('downloaderAdblockBtn');
+    if (adblockBtn) {
+        syncDownloaderAdblockButton();
+        adblockBtn.addEventListener('click', async () => {
+            const next = !isAdblockEnabled();
+            const status = getAdblockStatus();
+            if (next && status.count === 0) {
+                showToast('Enabling adblock (downloading community list)...', 3000);
+            }
+            try {
+                const res = await setAdblockEnabled(next);
+                if (res.enabled) {
+                    showToast(`Adblock active (${res.count.toLocaleString()} domains)`, 2500);
+                } else {
+                    showToast('Adblock disabled', 2500);
+                }
+            } catch (err) {
+                showToast('Failed to update adblock rules', 3000);
+            }
+        });
+    }
+
+    // Initialize native adblock rules if enabled
+    if (isAdblockEnabled()) {
+        try {
+            const cached = JSON.parse(localStorage.getItem(ADBLOCK_HOSTS_KEY) || '[]');
+            if (cached.length) {
+                dispatchNativeAdblock(cached, true);
+            } else {
+                setAdblockEnabled(true).catch(() => {});
+            }
+        } catch {}
+    }
 
     // Close button
     document.getElementById('downloaderCloseBtn')?.addEventListener('click', () => {
         closeTabDownloaderModal(true);
     });
 
-    // Settings modal events
-    document.getElementById('downloaderCfgCloseBtn')?.addEventListener('click', closeDownloaderSettings);
-    document.getElementById('downloaderCfgCancelBtn')?.addEventListener('click', closeDownloaderSettings);
-    document.getElementById('downloaderCfgSaveBtn')?.addEventListener('click', saveAndCloseSettings);
-
-    const cfgBackdrop = document.getElementById('downloaderSettingsModal');
-    if (cfgBackdrop) {
-        cfgBackdrop.addEventListener('click', (e) => {
-            if (e.target === cfgBackdrop) {
-                closeDownloaderSettings();
-            }
-        });
-    }
-
-    document.getElementById('downloaderCfgNewBtn')?.addEventListener('click', () => {
-        saveCurrentFormValues();
-        const newId = 'source_' + Date.now();
-        const newSrc = {
-            id: newId,
-            name: 'Custom Source',
-            urlTemplate: DEFAULT_SOURCES[0].urlTemplate,
-            defaultUrl: '',
-            queryFormat: 'artist_song',
-            userscriptEnabled: false,
-            userscript: '',
-            defaultUserscript: '',
-            isSeed: false
-        };
-        localEditingSources.push(newSrc);
-        currentEditingSourceId = newId;
-        renderSettingsPills();
-        populateSettingsForm(newId);
-    });
-
-    document.getElementById('downloaderCfgDeleteBtn')?.addEventListener('click', () => {
-        const src = localEditingSources.find(s => s.id === currentEditingSourceId);
-        if (!src || src.isSeed) return;
-        localEditingSources = localEditingSources.filter(s => s.id !== currentEditingSourceId);
-        currentEditingSourceId = localEditingSources[0]?.id || null;
-        renderSettingsPills();
-        if (currentEditingSourceId) {
-            populateSettingsForm(currentEditingSourceId);
-        }
-    });
-
-    document.getElementById('downloaderCfgResetUrlBtn')?.addEventListener('click', () => {
-        const src = localEditingSources.find(s => s.id === currentEditingSourceId);
-        if (src && src.defaultUrl) {
-            const inp = document.getElementById('downloaderCfgUrl');
-            if (inp) inp.value = src.defaultUrl;
-        }
-    });
-
-    document.getElementById('downloaderCfgResetScriptBtn')?.addEventListener('click', () => {
-        const src = localEditingSources.find(s => s.id === currentEditingSourceId);
-        if (src && src.defaultUserscript) {
-            const txt = document.getElementById('downloaderCfgUserscriptCode');
-            const chk = document.getElementById('downloaderCfgUserscriptEnabled');
-            if (txt) txt.value = src.defaultUserscript;
-            if (chk) chk.checked = true;
-        }
-    });
-
     // Keyboard shortcut Escape
     window.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            const settingsModal = document.getElementById('downloaderSettingsModal');
-            if (settingsModal && settingsModal.style.display !== 'none') {
-                closeDownloaderSettings();
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
             const bar = document.getElementById('tabDownloaderBar');
             if (bar && bar.style.display !== 'none') {
                 closeTabDownloaderModal(true);
@@ -526,15 +492,105 @@ export function initTabDownloaderDomEvents() {
     });
 }
 
-/**
- * Native views draw above HTML, so the content webview has to be hidden while the settings modal is open.
- * @param {boolean} visible
- */
-function setDownloaderContentVisible(visible) {
-    if (window.__TAURI__?.core?.invoke) {
-        window.__TAURI__.core.invoke('tab_downloader_set_visible', { visible }).catch(() => {});
+export function isAdblockEnabled() {
+    try {
+        return localStorage.getItem(ADBLOCK_ENABLED_KEY) === 'true';
+    } catch {
+        return false;
     }
-    try { window.MajesticDownloaderNative?.setVisible?.(visible); } catch {}
+}
+
+export function getAdblockStatus() {
+    let hostsCount = 0;
+    try {
+        const raw = localStorage.getItem(ADBLOCK_HOSTS_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            hostsCount = Array.isArray(parsed) ? parsed.length : 0;
+        }
+    } catch {}
+    const lastUpdated = Number(localStorage.getItem(ADBLOCK_UPDATED_KEY) || 0);
+    return {
+        enabled: isAdblockEnabled(),
+        count: hostsCount,
+        lastUpdated
+    };
+}
+
+export async function setAdblockEnabled(enabled, forceRefresh = false) {
+    try {
+        localStorage.setItem(ADBLOCK_ENABLED_KEY, enabled ? 'true' : 'false');
+    } catch {}
+
+    if (!enabled) {
+        await dispatchNativeAdblock([], false);
+        syncDownloaderAdblockButton();
+        return { enabled: false, count: 0, lastUpdated: 0 };
+    }
+
+    let hosts = [];
+    try {
+        hosts = JSON.parse(localStorage.getItem(ADBLOCK_HOSTS_KEY) || '[]');
+    } catch {}
+
+    let lastUpdated = Number(localStorage.getItem(ADBLOCK_UPDATED_KEY) || 0);
+    const isStale = (Date.now() - lastUpdated) > (7 * 24 * 60 * 60 * 1000);
+
+    if (!hosts.length || isStale || forceRefresh) {
+        try {
+            const res = await fetch(DEFAULT_ADBLOCK_SOURCE_URL);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const text = await res.text();
+            hosts = text.split('\n')
+                .map(line => line.trim().toLowerCase())
+                .filter(line => line && !line.startsWith('#') && !line.startsWith('!') && !line.startsWith('//'));
+
+            lastUpdated = Date.now();
+            try {
+                localStorage.setItem(ADBLOCK_HOSTS_KEY, JSON.stringify(hosts));
+                localStorage.setItem(ADBLOCK_UPDATED_KEY, String(lastUpdated));
+            } catch {}
+        } catch (err) {
+            console.warn('[Tab Downloader] Failed to fetch adblock list:', err);
+        }
+    }
+
+    await dispatchNativeAdblock(hosts, true);
+    syncDownloaderAdblockButton();
+    return { enabled: true, count: hosts.length, lastUpdated };
+}
+
+export async function dispatchNativeAdblock(hosts, enabled) {
+    if (window.MajesticDownloaderNative?.setBlockedHosts) {
+        try {
+            window.MajesticDownloaderNative.setBlockedHosts(enabled ? JSON.stringify(hosts) : '[]');
+        } catch (e) {
+            console.warn('[Tab Downloader] Android setBlockedHosts bridge failed:', e);
+        }
+    }
+    if (window.__TAURI__?.core?.invoke) {
+        try {
+            await window.__TAURI__.core.invoke('tab_downloader_set_adblock_rules', {
+                enabled,
+                hosts: enabled ? hosts : []
+            });
+        } catch (e) {
+            console.warn('[Tab Downloader] Tauri tab_downloader_set_adblock_rules failed:', e);
+        }
+    }
+}
+
+export function syncDownloaderAdblockButton() {
+    const btn = document.getElementById('downloaderAdblockBtn');
+    if (!btn) return;
+    const enabled = isAdblockEnabled();
+    btn.setAttribute('aria-pressed', String(enabled));
+    btn.classList.toggle('active', enabled);
+    btn.title = enabled ? 'Adblock active (click to turn off)' : 'Block ads and trackers';
+    const icon = btn.querySelector('i');
+    if (icon) {
+        icon.className = enabled ? 'bi-shield-check' : 'bi-shield';
+    }
 }
 
 /**
@@ -549,126 +605,11 @@ function syncDownloaderTopOffset(cssHeight) {
 }
 
 /**
- * Open the Configure Tab Sources modal
- * @param {string} [targetSourceId]
- */
-export function openDownloaderSettings(targetSourceId = null) {
-    setDownloaderContentVisible(false);
-    localEditingSources = JSON.parse(JSON.stringify(getSources()));
-    currentEditingSourceId = targetSourceId || activeSourceId || localEditingSources[0]?.id;
-    renderSettingsPills();
-    if (currentEditingSourceId) {
-        populateSettingsForm(currentEditingSourceId);
-    }
-    // Store builds ship no userscripts, so the editor is hidden there.
-    const showScripts = hasFeature('userscripts');
-    const subtitle = document.getElementById('downloaderCfgSubtitle');
-    if (subtitle) subtitle.textContent = showScripts ? 'Manage search providers and custom userscripts' : 'Manage search providers';
-    const modal = document.getElementById('downloaderSettingsModal');
-    if (modal) modal.style.display = 'flex';
-}
-
-/**
- * Close the Configure Tab Sources modal
- */
-export function closeDownloaderSettings() {
-    const modal = document.getElementById('downloaderSettingsModal');
-    if (modal) modal.style.display = 'none';
-    const bar = document.getElementById('tabDownloaderBar');
-    if (bar && bar.style.display !== 'none') {
-        setDownloaderContentVisible(true);
-    }
-}
-
-function renderSettingsPills() {
-    const container = document.getElementById('downloaderCfgSourcePills');
-    if (!container) return;
-    container.innerHTML = localEditingSources.map(s => `
-        <button type="button" class="downloader-cfg-pill ${s.id === currentEditingSourceId ? 'active' : ''}" data-source-id="${s.id}">
-            ${s.name}
-        </button>
-    `).join('');
-
-    container.querySelectorAll('.downloader-cfg-pill').forEach(btn => {
-        btn.addEventListener('click', () => {
-            saveCurrentFormValues();
-            currentEditingSourceId = btn.dataset.sourceId;
-            renderSettingsPills();
-            populateSettingsForm(currentEditingSourceId);
-        });
-    });
-}
-
-function populateSettingsForm(sourceId) {
-    const src = localEditingSources.find(s => s.id === sourceId);
-    if (!src) return;
-
-    const nameInp = document.getElementById('downloaderCfgName');
-    const urlInp = document.getElementById('downloaderCfgUrl');
-    const querySel = document.getElementById('downloaderCfgQueryFormat');
-    const scriptChk = document.getElementById('downloaderCfgUserscriptEnabled');
-    const scriptTxt = document.getElementById('downloaderCfgUserscriptCode');
-    const desktopChk = document.getElementById('downloaderCfgForceDesktop');
-    const deleteBtn = document.getElementById('downloaderCfgDeleteBtn');
-
-    if (nameInp) nameInp.value = src.name || '';
-    if (urlInp) urlInp.value = src.urlTemplate || '';
-    if (querySel) querySel.value = src.queryFormat || 'artist_song';
-    if (scriptChk) scriptChk.checked = Boolean(src.userscriptEnabled);
-    if (scriptTxt) scriptTxt.value = src.userscript || '';
-    if (desktopChk) {
-        desktopChk.checked = Boolean(src.forceDesktop);
-        // Desktop builds always present a desktop user agent; the option only applies on mobile.
-        document.getElementById('downloaderCfgForceDesktopRow')?.classList.toggle('d-none', isDesktopNative());
-    }
-    // Built-in sources keep their name and URL template fixed.
-    // Nothing is injected on Google's pages (bot detection reads it as automation), so Google has no userscript.
-    // Store builds ship no userscripts at all.
-    document.getElementById('downloaderCfgUserscriptRow')?.classList.toggle('d-none', !hasFeature('userscripts') || src.id === 'google' || src.id === 'duckduckgo');
-    if (nameInp) nameInp.disabled = Boolean(src.isSeed);
-    if (urlInp) urlInp.disabled = Boolean(src.isSeed);
-    document.getElementById('downloaderCfgResetUrlBtn')?.classList.toggle('d-none', Boolean(src.isSeed));
-    if (deleteBtn) {
-        deleteBtn.disabled = Boolean(src.isSeed);
-        deleteBtn.style.opacity = src.isSeed ? '0.5' : '1';
-        deleteBtn.style.cursor = src.isSeed ? 'not-allowed' : 'pointer';
-    }
-}
-
-function saveCurrentFormValues() {
-    const src = localEditingSources.find(s => s.id === currentEditingSourceId);
-    if (!src) return;
-
-    const nameInp = document.getElementById('downloaderCfgName');
-    const urlInp = document.getElementById('downloaderCfgUrl');
-    const querySel = document.getElementById('downloaderCfgQueryFormat');
-    const scriptChk = document.getElementById('downloaderCfgUserscriptEnabled');
-    const scriptTxt = document.getElementById('downloaderCfgUserscriptCode');
-    const desktopChk = document.getElementById('downloaderCfgForceDesktop');
-
-    if (nameInp && !src.isSeed) src.name = nameInp.value.trim() || src.name;
-    if (urlInp && !src.isSeed) {
-        let uVal = urlInp.value.trim() || src.urlTemplate;
-        if (uVal && !/^https?:\/\//i.test(uVal)) {
-            uVal = 'https://' + uVal;
-        }
-        src.urlTemplate = uVal;
-        if (!src.defaultUrl) {
-            src.defaultUrl = src.urlTemplate;
-        }
-    }
-    if (querySel) src.queryFormat = querySel.value;
-    if (scriptChk && src.id !== 'google' && src.id !== 'duckduckgo') src.userscriptEnabled = scriptChk.checked;
-    if (scriptTxt && src.id !== 'google' && src.id !== 'duckduckgo') src.userscript = scriptTxt.value;
-    if (desktopChk) src.forceDesktop = desktopChk.checked;
-}
-
-/**
  * Mark the sources this save edited or added with updatedAt, and record the deleted ones with the
  * time, so sync can tell a newer edit or a deletion from a stale copy on another device.
  * @param {object[]} edited
  */
-function stampSourceChanges(edited) {
+export function stampSourceChanges(edited) {
     const now = Date.now();
     const before = new Map(getSources().map(s => [s.id, s]));
     let tombs = {};
@@ -685,14 +626,6 @@ function stampSourceChanges(edited) {
         if (!kept.has(id) && !old.isSeed) tombs[id] = now;
     }
     try { localStorage.setItem(SOURCES_DELETED_KEY, JSON.stringify(tombs)); } catch {}
-}
-
-function saveAndCloseSettings() {
-    saveCurrentFormValues();
-    stampSourceChanges(localEditingSources);
-    saveSources(localEditingSources);
-    renderDownloaderTabs();
-    closeDownloaderSettings();
 }
 
 /**
@@ -892,8 +825,6 @@ export function hideTabDownloaderBar() {
     const bar = document.getElementById('tabDownloaderBar');
     if (bar) bar.style.display = 'none';
 
-    closeDownloaderSettings();
-
     const topBar = document.getElementById('topBar');
     if (topBar) topBar.style.display = '';
 }
@@ -1089,13 +1020,16 @@ export async function openTabDownloader(options = {}) {
     const isDebugToolsEnabled = debugToolsEnabled;
 
     const sources = getSources();
-    const activeSource = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
+    const activeSource = (options.targetSourceId && sources.find(s => s.id === options.targetSourceId)) || sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
     activeSourceId = activeSource.id;
 
     // Build search query based on active source's query format
     let query = options.query || '';
     if (!query) {
         query = formatSearchQueryForSource(activeSource, activeArtistName, activeSongName);
+    }
+    if (!query) {
+        query = 'Carulli Duo No 2 In G Major';
     }
     currentSearchQuery = query;
 

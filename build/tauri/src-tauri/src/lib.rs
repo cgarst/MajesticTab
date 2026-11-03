@@ -311,6 +311,7 @@ async fn open_tab_downloader(
         tab_downloader_native::configure_ios_webview(&window, 13.0, 15.0, 21.0);
         let _ = window.hide();
         tab_downloader_native::ios_place_downloader(&app, top_offset, true);
+        tab_downloader_native::attach_cached_adblock_if_enabled(&app);
         if let Some(main_win) = app.get_webview_window("main") {
             let _ = main_win.set_focus();
         }
@@ -644,6 +645,7 @@ pub fn run() {
         tab_downloader_native::tab_downloader_set_visible,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
+        tab_downloader_native::tab_downloader_set_adblock_rules,
         #[cfg(feature = "debug-tools")]
         debug_bridge::debug_bridge_result,
         #[cfg(feature = "debug-tools")]
@@ -690,6 +692,7 @@ pub fn run() {
         tab_downloader_native::tab_downloader_set_visible,
         tab_downloader_native::tab_downloader_open_devtools,
         tab_downloader_native::tab_downloader_is_debug_tools_enabled,
+        tab_downloader_native::tab_downloader_set_adblock_rules,
         #[cfg(feature = "debug-tools")]
         debug_bridge::debug_bridge_result,
         #[cfg(feature = "debug-tools")]

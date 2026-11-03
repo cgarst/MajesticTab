@@ -2588,6 +2588,21 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 
 /* The in-app downloader's top bar sits above the library rail and tab bar */
 .tab-downloader-bar { z-index: 1060; }
+#downloaderAdblockBtn { color: var(--ink2); transition: color var(--dur-fast), background-color var(--dur-fast); }
+#downloaderAdblockBtn:hover { color: var(--ink); background: var(--s2); }
+#downloaderAdblockBtn.active { color: var(--ink); background: var(--s1); }
+
+.srow-editor-slot {
+  background: var(--s2);
+  padding: 14px 16px;
+  border-radius: var(--r-control);
+  margin-top: -2px;
+  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.srow-editor-slot[hidden] { display: none !important; }
 
 /* The hint is a dismissible notice: one tone step above the bar, no divider */
 .downloader-hint-banner { background: var(--s3); border-top: 0; color: var(--ink); }

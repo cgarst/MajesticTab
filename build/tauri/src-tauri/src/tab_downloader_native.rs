@@ -4,6 +4,15 @@ use tauri::{App, AppHandle, Emitter, Manager, State, Wry};
 #[cfg(target_os = "macos")]
 use objc2_web_kit::WKWebView;
 
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use objc2::msg_send;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use objc2::runtime::{AnyClass, AnyObject};
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use objc2_foundation::NSString;
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+use block2::RcBlock;
+
 use crate::DownloadedTabPayload;
 
 pub const DOWNLOADER_LABEL: &str = "tab-downloader";
@@ -84,6 +93,25 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     if (/(^|\.)google\.[a-z.]+$/i.test(location.hostname)) return;
     if (window.__majesticDownloaderShimInitialized) return;
     window.__majesticDownloaderShimInitialized = true;
+
+    // 0. Stub common ad globals to defuse missing ad scripts
+    window.adsbygoogle = window.adsbygoogle || [];
+    window.ga = window.ga || function() {};
+    window.__cmp = window.__cmp || function() {};
+
+    // 0b. Inject cosmetic ad hiding styles
+    try {
+        const id = 'majestic-adblock-cosmetic';
+        if (!document.getElementById(id)) {
+            const parent = document.head || document.documentElement;
+            if (parent) {
+                const style = document.createElement('style');
+                style.id = id;
+                style.textContent = '.adsbygoogle, [id^="google_ads"], [id*="taboola"], [class*="ad-container"], [class*="banner-ad"], [class*="advertisement"], .is_sticky_player, [class*="sticky_player"], [class*="BottomControls-fixed"], #pro-player-scroll-container { display: none !important; height: 0 !important; min-height: 0 !important; max-height: 0 !important; visibility: hidden !important; pointer-events: none !important; }';
+                parent.appendChild(style);
+            }
+        }
+    } catch (_) {}
 
     // 1. Force window.open to redirect in the single active webview
     const origOpen = window.open;
@@ -503,6 +531,36 @@ pub struct TabDownloaderState {
     pub is_visible: Mutex<bool>,
     pub top_offset: Mutex<f64>,
     pub download_chunks: Mutex<std::collections::HashMap<String, DownloadChunkState>>,
+    pub blocked_hosts: std::sync::Arc<Mutex<std::collections::HashSet<String>>>,
+    pub adblock_enabled: std::sync::Arc<Mutex<bool>>,
+}
+
+impl TabDownloaderState {
+    pub fn is_host_blocked(&self, host: &str) -> bool {
+        let enabled = self.adblock_enabled.lock().map(|g| *g).unwrap_or(false);
+        if !enabled {
+            return false;
+        }
+        let hosts = match self.blocked_hosts.lock() {
+            Ok(h) => h,
+            Err(_) => return false,
+        };
+        if hosts.is_empty() {
+            return false;
+        }
+        let lower = host.to_lowercase();
+        let mut cur = lower.as_str();
+        while !cur.is_empty() {
+            if hosts.contains(cur) {
+                return true;
+            }
+            match cur.find('.') {
+                Some(idx) => cur = &cur[idx + 1..],
+                None => break,
+            }
+        }
+        false
+    }
 }
 
 pub fn wrap_userscript(raw_js: &str, config: Option<&TabDownloaderConfig>) -> String {
@@ -768,6 +826,13 @@ pub fn hide_downloader(app_handle: &AppHandle) {
 pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
     let url_str = url.as_str();
     eprintln!("[Tab Downloader] Navigation requested: {}", url_str);
+
+    if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+        if state.is_host_blocked(url.host_str().unwrap_or("")) {
+            eprintln!("[Tab Downloader AdBlock] Blocked navigation to: {}", url_str);
+            return false;
+        }
+    }
 
     // 1. Console log forwarding scheme: majestictab://log?msg=...
     if url.scheme() == "majestictab" && (url.host_str() == Some("log") || url_str.starts_with("majestictab://log")) {
@@ -1092,6 +1157,9 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
         }
     })?;
 
+    #[cfg(target_os = "macos")]
+    attach_cached_adblock_if_enabled(app.handle());
+
     downloader.hide()?;
     Ok(())
 }
@@ -1352,6 +1420,206 @@ pub fn tab_downloader_is_debug_tools_enabled() -> bool {
     }
 }
 
+pub fn regex_escape_domain(domain: &str) -> String {
+    let mut escaped = String::with_capacity(domain.len() * 2);
+    for ch in domain.chars() {
+        match ch {
+            '.' | '-' | '[' | ']' | '(' | ')' | '{' | '}' | '*' | '+' | '?' | '^' | '$' | '|' => {
+                escaped.push('\\');
+                escaped.push(ch);
+            }
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
+}
+
+pub fn generate_webkit_rules_json(hosts: &[String]) -> String {
+    let mut rules = Vec::new();
+    let chunk_size = 50;
+    for chunk in hosts.chunks(chunk_size) {
+        let pattern_parts: Vec<String> = chunk
+            .iter()
+            .map(|d| {
+                let lower = d.trim().to_lowercase();
+                regex_escape_domain(&lower)
+            })
+            .filter(|s| !s.is_empty())
+            .collect();
+        if pattern_parts.is_empty() {
+            continue;
+        }
+        let joined = pattern_parts.join("|");
+        let url_filter = format!(r#"^https?://([^/]+\.)?({})(:\d+)?(/.*)?$"#, joined);
+        rules.push(serde_json::json!({
+            "trigger": {
+                "url-filter": url_filter,
+                "url-filter-is-case-sensitive": false
+            },
+            "action": {
+                "type": "block"
+            }
+        }));
+    }
+    serde_json::to_string(&rules).unwrap_or_else(|_| "[]".to_string())
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub fn apply_webkit_adblock_rules(app: &AppHandle, enabled: bool, hosts: &[String]) {
+    let store_cls = match AnyClass::get(c"WKContentRuleListStore") {
+        Some(cls) => cls,
+        None => return,
+    };
+    let store: *mut AnyObject = unsafe { msg_send![store_cls, defaultStore] };
+    if store.is_null() {
+        return;
+    }
+
+    let identifier = NSString::from_str("MajesticTabAdBlock");
+
+    if !enabled || hosts.is_empty() {
+        let detach = |platform: tauri::webview::PlatformWebview| unsafe {
+            let webview = platform.inner().cast::<AnyObject>();
+            let config: *mut AnyObject = msg_send![webview, configuration];
+            if !config.is_null() {
+                let ucc: *mut AnyObject = msg_send![config, userContentController];
+                if !ucc.is_null() {
+                    let _: () = msg_send![ucc, removeAllContentRuleLists];
+                }
+            }
+        };
+        if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
+            let _ = w.with_webview(detach);
+        }
+        if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+            let _ = w.with_webview(detach);
+        }
+        return;
+    }
+
+    let rules_json = generate_webkit_rules_json(hosts);
+    let ns_rules = NSString::from_str(&rules_json);
+
+    let app_clone = app.clone();
+    let handler = RcBlock::new(move |rule_list: *mut AnyObject, error: *mut AnyObject| {
+        if !error.is_null() || rule_list.is_null() {
+            eprintln!("[Tab Downloader AdBlock] Error compiling WKContentRuleList");
+            return;
+        }
+        let list_addr = rule_list as usize;
+        let attach = move |platform: tauri::webview::PlatformWebview| unsafe {
+            let webview = platform.inner().cast::<AnyObject>();
+            let config: *mut AnyObject = msg_send![webview, configuration];
+            if !config.is_null() {
+                let ucc: *mut AnyObject = msg_send![config, userContentController];
+                if !ucc.is_null() {
+                    let list = list_addr as *mut AnyObject;
+                    let _: () = msg_send![ucc, removeAllContentRuleLists];
+                    let _: () = msg_send![ucc, addContentRuleList: list];
+                }
+            }
+        };
+        if let Some(w) = app_clone.get_webview(DOWNLOADER_LABEL) {
+            let _ = w.with_webview(attach);
+        } else if let Some(w) = app_clone.get_webview_window(DOWNLOADER_LABEL) {
+            let _ = w.with_webview(attach);
+        }
+    });
+
+    unsafe {
+        let _: () = msg_send![
+            store,
+            compileContentRuleListForIdentifier: &*identifier,
+            encodedContentRuleList: &*ns_rules,
+            completionHandler: &*handler
+        ];
+    }
+}
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+pub fn attach_cached_adblock_if_enabled(app: &AppHandle) {
+    if let Some(state) = app.try_state::<TabDownloaderState>() {
+        if !state.adblock_enabled.lock().map(|g| *g).unwrap_or(false) {
+            return;
+        }
+    } else {
+        return;
+    }
+
+    let store_cls = match AnyClass::get(c"WKContentRuleListStore") {
+        Some(cls) => cls,
+        None => return,
+    };
+    let store: *mut AnyObject = unsafe { msg_send![store_cls, defaultStore] };
+    if store.is_null() {
+        return;
+    }
+
+    let identifier = NSString::from_str("MajesticTabAdBlock");
+    let app_clone = app.clone();
+    let handler = RcBlock::new(move |rule_list: *mut AnyObject, error: *mut AnyObject| {
+        if !error.is_null() || rule_list.is_null() {
+            return;
+        }
+        let list_addr = rule_list as usize;
+        let attach = move |platform: tauri::webview::PlatformWebview| unsafe {
+            let webview = platform.inner().cast::<AnyObject>();
+            let config: *mut AnyObject = msg_send![webview, configuration];
+            if !config.is_null() {
+                let ucc: *mut AnyObject = msg_send![config, userContentController];
+                if !ucc.is_null() {
+                    let list = list_addr as *mut AnyObject;
+                    let _: () = msg_send![ucc, removeAllContentRuleLists];
+                    let _: () = msg_send![ucc, addContentRuleList: list];
+                }
+            }
+        };
+        if let Some(w) = app_clone.get_webview(DOWNLOADER_LABEL) {
+            let _ = w.with_webview(attach);
+        } else if let Some(w) = app_clone.get_webview_window(DOWNLOADER_LABEL) {
+            let _ = w.with_webview(attach);
+        }
+    });
+
+    unsafe {
+        let _: () = msg_send![
+            store,
+            lookUpContentRuleListForIdentifier: &*identifier,
+            completionHandler: &*handler
+        ];
+    }
+}
+
+#[tauri::command]
+pub fn tab_downloader_set_adblock_rules(
+    app: AppHandle,
+    state: State<'_, TabDownloaderState>,
+    enabled: bool,
+    hosts: Vec<String>,
+) -> Result<(), String> {
+    if let Ok(mut g) = state.adblock_enabled.lock() {
+        *g = enabled;
+    }
+    if let Ok(mut g) = state.blocked_hosts.lock() {
+        g.clear();
+        if enabled {
+            for h in hosts.iter() {
+                let trimmed = h.trim().to_lowercase();
+                if !trimmed.is_empty() {
+                    g.insert(trimmed);
+                }
+            }
+        }
+    }
+
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    {
+        apply_webkit_adblock_rules(&app, enabled, &hosts);
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1422,6 +1690,47 @@ mod tests {
         // Extension check
         let ext = identify_tab_extension(&decoded, &entry.name);
         assert_eq!(ext, Some("gp5"));
+    }
+
+    #[test]
+    fn test_adblock_host_matching() {
+        let state = TabDownloaderState::default();
+        if let Ok(mut g) = state.blocked_hosts.lock() {
+            g.insert("doubleclick.net".to_string());
+            g.insert("ads.example.com".to_string());
+        }
+
+        // When adblock is disabled, nothing should match
+        assert!(!state.is_host_blocked("doubleclick.net"));
+
+        // When enabled
+        if let Ok(mut g) = state.adblock_enabled.lock() {
+            *g = true;
+        }
+        assert!(state.is_host_blocked("doubleclick.net"));
+        assert!(state.is_host_blocked("ad.doubleclick.net"));
+        assert!(state.is_host_blocked("sub.ad.doubleclick.net"));
+        assert!(state.is_host_blocked("ads.example.com"));
+        assert!(!state.is_host_blocked("example.com"));
+        assert!(!state.is_host_blocked("google.com"));
+        assert!(!state.is_host_blocked("ultimate-guitar.com"));
+    }
+
+    #[test]
+    fn test_webkit_rules_generation() {
+        let hosts = vec![
+            "doubleclick.net".to_string(),
+            "adservice.google.com".to_string(),
+        ];
+        let json = generate_webkit_rules_json(&hosts);
+        let parsed: serde_json::Value = serde_json::from_str(&json).expect("Valid JSON");
+        assert!(parsed.is_array());
+        let arr = parsed.as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0]["action"]["type"], "block");
+        let filter = arr[0]["trigger"]["url-filter"].as_str().unwrap();
+        assert!(filter.contains(r#"doubleclick\.net"#));
+        assert!(filter.contains(r#"adservice\.google\.com"#));
     }
 }
 

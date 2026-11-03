@@ -8,6 +8,8 @@
 import { getDefaultGpNotationMode, setGpNotationMode } from '../gpProcessor/gpProcessor.js';
 import { brandMarkSvg } from '../brandMark.js';
 import { canQuitApp } from './quitApp.js';
+import { isNative } from '../tabDownloader.js';
+import { initWebSearchSettings } from './webSearchSettings.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -17,6 +19,7 @@ const SECTIONS = [
     { id: 'reading', label: 'Reading', icon: 'bi-book' },
     { id: 'controls', label: 'Controls', icon: 'bi-controller' },
     { id: 'converters', label: 'File converters', icon: 'bi-puzzle' },
+    { id: 'websearch', label: 'Web search', icon: 'bi-globe2', nativeOnly: true },
     { id: 'sound', label: 'Sound', icon: 'bi-soundwave' },
     { id: 'library', label: 'Library and backup', icon: 'bi-collection' },
     { id: 'updates', label: 'Updates', icon: 'bi-arrow-repeat' },
@@ -176,6 +179,7 @@ export function initSettingsPage() {
     page.appendChild(back);
     const panes = {};
     SECTIONS.forEach((s) => {
+        if (s.nativeOnly && !isNative()) return;
         const b = el('button', '', `<i class="${s.icon}" aria-hidden="true"></i><span>${s.label}</span><i class="bi-chevron-right chev" aria-hidden="true"></i>`);
         b.type = 'button';
         b.dataset.section = s.id;
@@ -279,6 +283,11 @@ export function initSettingsPage() {
         g.appendChild(el('p', 'snote', 'Sandboxed extensions that open other tab formats and import from websites.'));
         g.appendChild(convertersView);
         panes.converters.appendChild(g);
+    }
+
+    // Web search: adblocking and tab search providers (native clients only)
+    if (panes.websearch) {
+        initWebSearchSettings(panes.websearch);
     }
 
     // Sound
