@@ -609,8 +609,8 @@ export class FretboardView {
 
     /**
      * One pick per part, each in its own vertical lane so picks sounding together never share a line. Lanes follow the
-     * parts' colour order, which keeps a part in the same lane from beat to beat. String 1 is the top (highest) string
-     * and the largest number the lowest. When the part plays directly connected strings (no gap) the pick starts on the
+     * parts' colour order, which keeps a part in the same lane from beat to beat. String 1 is the lowest string
+     * and the largest number the top one. When the part plays directly connected strings (no gap) the pick starts on the
      * lowest one and sweeps up to the top one, joined by a solid bar with a bead on every string it passes. When there
      * is any gap the pick is not a strum: the pick only touches the lowest string and the higher strings are plucked, shown by a dotted line and hollow beads.
      * @param {Map<number, {strings: Set<number>, trackColor: string, trackGrad: string}>} partPicks
@@ -625,8 +625,9 @@ export class FretboardView {
         [...partPicks.entries()].sort((a, b) => a[0] - b[0]).forEach(([, part]) => {
             const strings = [...part.strings].filter(n => n >= 1 && n <= this.stringCount).sort((a, b) => a - b);
             if (strings.length === 0) return;
-            const top = strings[0];
-            const lowest = strings[strings.length - 1];
+            // String 1 is the lowest string (bottom line in tab view), the highest number the top one
+            const lowest = strings[0];
+            const top = strings[strings.length - 1];
             const connected = strings.every((n, i) => i === 0 || n === strings[i - 1] + 1);
             const pick = this.getPartPick(lane);
             const x = this.pickX + lane * laneStep;
