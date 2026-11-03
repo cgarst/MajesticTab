@@ -6,7 +6,8 @@ import {
     unwrapRedirectUrl,
     isWsaTabUrl,
     getDownloaderUrlFromMatchedUrl,
-    buildPrefillUserscript
+    buildPrefillUserscript,
+    VIEWPORT_OPTIMIZER_USERSCRIPT
 } from '../src/utils/downloaderIntercept.js';
 
 test('unwrapRedirectUrl unwraps redirects across search engines and proxies', () => {
@@ -66,6 +67,13 @@ test('getDownloaderUrlFromMatchedUrl dynamically derives downloader destination'
         getDownloaderUrlFromMatchedUrl(googleRedirect),
         'https://www.brandname-downloader.com/'
     );
+});
+
+test('VIEWPORT_OPTIMIZER_USERSCRIPT contains generic overlay suppressor without proprietary names', () => {
+    assert.ok(typeof VIEWPORT_OPTIMIZER_USERSCRIPT === 'string' && VIEWPORT_OPTIMIZER_USERSCRIPT.length > 50);
+    assert.ok(VIEWPORT_OPTIMIZER_USERSCRIPT.includes('is_sticky_player'));
+    assert.ok(VIEWPORT_OPTIMIZER_USERSCRIPT.includes('pro-player-scroll-container'));
+    assert.ok(!/ultimate[-_]?guitar/i.test(VIEWPORT_OPTIMIZER_USERSCRIPT));
 });
 
 test('buildPrefillUserscript produces prefill script without auto-submitting', () => {

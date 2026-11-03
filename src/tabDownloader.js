@@ -13,7 +13,8 @@ import {
     getDownloaderUrlFromMatchedUrl,
     unwrapGoogleUrl,
     buildPrefillUserscript,
-    attachSyncForMatchedUrl
+    attachSyncForMatchedUrl,
+    VIEWPORT_OPTIMIZER_USERSCRIPT
 } from './utils/downloaderIntercept.js';
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
@@ -760,8 +761,10 @@ export function switchActiveSource(src) {
     }
     currentDownloaderUrl = nextUrl;
 
+    const effectiveUserscript = [userscript, VIEWPORT_OPTIMIZER_USERSCRIPT].filter(Boolean).join('\n;\n');
+
     if (window.__TAURI__?.core?.invoke) {
-        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl, userscript }).catch(err => {
+        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl, userscript: effectiveUserscript }).catch(err => {
             console.error('[Tab Downloader] Failed to navigate to source:', err);
         });
     }
@@ -1132,13 +1135,14 @@ export async function openTabDownloader(options = {}) {
         }))
     };
     const targetScript = activeSource.userscriptEnabled ? (activeSource.userscript || '') : '';
+    const initialUserscript = [targetScript, VIEWPORT_OPTIMIZER_USERSCRIPT].filter(Boolean).join('\n;\n');
     // Android shows its site view natively; the shell's own eval of this can stall after a close
     try { window.MajesticDownloaderNative?.show?.(); } catch {}
     startUrlPolling();
     try {
         await window.__TAURI__.core.invoke('open_tab_downloader', {
             url: targetUrl,
-            userscript: targetScript || null,
+            userscript: initialUserscript || null,
             config,
             topOffset: barHeight
         });

@@ -68,6 +68,57 @@ export function getDownloaderUrlFromMatchedUrl(targetUrl) {
     }
 }
 
+export const VIEWPORT_OPTIMIZER_USERSCRIPT = `(function() {
+    if (window !== window.top) return;
+
+    const CLEANUP_STYLE_ID = 'mt-view-optimizer-style';
+    const OVERLAY_SELECTOR = '.is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], #pro-player-scroll-container, [id*="pro-player"], [class*="BottomControls-fixed"], [class*="styles-containerWrapper"]';
+
+    function ensureStyle() {
+        if (!document.getElementById(CLEANUP_STYLE_ID)) {
+            const parent = document.head || document.body || document.documentElement;
+            if (parent) {
+                const style = document.createElement('style');
+                style.id = CLEANUP_STYLE_ID;
+                style.textContent = OVERLAY_SELECTOR + ' { display: none !important; }';
+                parent.appendChild(style);
+            }
+        }
+    }
+
+    function runCleanup() {
+        ensureStyle();
+
+        const overlayNodes = document.querySelectorAll(OVERLAY_SELECTOR);
+        if (overlayNodes.length > 0) {
+            overlayNodes.forEach(node => {
+                try {
+                    const box = node.closest('.is_sticky_player') || node.closest('[class*="sticky_player"]') || node;
+                    box.remove();
+                } catch (_) {}
+            });
+        }
+    }
+
+    ensureStyle();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', runCleanup);
+    } else {
+        runCleanup();
+    }
+    window.addEventListener('load', runCleanup);
+
+    setInterval(runCleanup, 300);
+
+    try {
+        const observer = new MutationObserver(() => runCleanup());
+        const root = document.documentElement || document.body;
+        if (root) {
+            observer.observe(root, { childList: true, subtree: true });
+        }
+    } catch (_) {}
+})();`;
+
 /**
  * Generates an in-page userscript that populates the input field with targetUrl
  * without triggering submission or clicking any download buttons.
