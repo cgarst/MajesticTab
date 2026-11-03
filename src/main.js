@@ -1794,7 +1794,7 @@ export function getPdfPages() {
         btn.setAttribute("aria-pressed", fs ? "true" : "false");
         btn.classList.toggle("is-on", fs);
         const fsHint = document.getElementById("fullscreenHint");
-        if (fsHint && /Mac/i.test(navigator.platform)) fsHint.hidden = true;
+        if (fsHint && /Mac/i.test(navigator.platform)) fsHint.textContent = "Command+Control+F";
         if (lastFsState && !fs && wasMaximizedBeforeFullscreen && appWindow?.maximize) {
             wasMaximizedBeforeFullscreen = false;
             try { await appWindow.maximize(); } catch {}

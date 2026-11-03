@@ -1,5 +1,6 @@
 // gpPlayer.js
 // In-app artificial instrument (SoundFont synthesizer) player for Guitar Pro files
+import { setMasterVolume } from '../utils/masterVolume.js';
 import { clearOverrides } from '../utils/sessionOverrides.js';
 import { showPanel, hidePanel, placePanel } from '../utils/readerPanels.js';
 import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
@@ -2444,9 +2445,7 @@ export function initSynthPlayer() {
         if (volumeBadge) {
             volumeBadge.textContent = `${Math.round(vol * 100)}%`;
         }
-        try {
-            localStorage.setItem(STORAGE_KEY_SYNTH_VOLUME, String(vol));
-        } catch (_) {}
+        setMasterVolume(vol); // also drives YouTube and local audio files, and saves the level
     });
 
     // Allow user to click to position cursor before or during playback in scroll mode

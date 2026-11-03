@@ -4,6 +4,8 @@
 // to a few ms where the platform updates it every frame; where it updates in coarse steps the clock is carried
 // forward from the last change (at most 100 ms) so the cursor doesn't stutter.
 
+import { getMasterVolume, onMasterVolume } from '../utils/masterVolume.js';
+
 const MAX_EXTRAPOLATE_MS = 100;
 const BACKWARD_SLACK_MS = 80;
 
@@ -19,6 +21,8 @@ export function createLocalAudioSource(file) {
         if (prop in audio) audio[prop] = true;
     }
     audio.src = url;
+    audio.volume = getMasterVolume();
+    const offVolume = onMasterVolume((v) => { audio.volume = v; });
 
     const listeners = new Set();
     const emit = (type, detail = {}) => listeners.forEach((cb) => {
@@ -98,6 +102,7 @@ export function createLocalAudioSource(file) {
             audio.load();
             URL.revokeObjectURL(url);
             listeners.clear();
+            offVolume();
         }
     };
 }

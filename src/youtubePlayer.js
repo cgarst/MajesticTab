@@ -2,6 +2,7 @@
 // Collapsible YouTube / Backing Track player integrated into top bar
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel } from './gpProcessor/gpPlayer.js';
 import { showPanel, hidePanel } from './utils/readerPanels.js';
+import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
 import { songHasSyncPoints } from './audioSync/syncStore.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 
@@ -93,6 +94,13 @@ function sendYouTubeMessage(iframe, message) {
     }
     iframe?.contentWindow?.postMessage(JSON.stringify(message), '*');
 }
+
+function applyYouTubeVolume() {
+    const iframe = document.getElementById('ytIframe');
+    if (iframe?.dataset.loaded !== 'true') return;
+    sendYouTubeMessage(iframe, { event: 'command', func: 'setVolume', args: [Math.round(getMasterVolume() * 100)] });
+}
+onMasterVolume(applyYouTubeVolume);
 
 function syncNativeMacPlayerBounds(autoplay = false) {
     if (!isNativeOverlayPlayer()) return;
@@ -991,6 +999,8 @@ export function initYouTubePlayer() {
 
             // YouTube iframe API sends infoDelivery messages with currentTime & playerState
             if (data.event === 'infoDelivery' && data.info) {
+                // The player resets to full volume on each load; push the master level when it differs
+                if (typeof data.info.volume === 'number' && Math.abs(data.info.volume - getMasterVolume() * 100) > 1) applyYouTubeVolume();
                 if (typeof data.info.currentTime === 'number') {
                     playerState.currentTime = data.info.currentTime;
                     // currentTimeLastUpdated_ is the wall clock (s) at which currentTime was sampled.
