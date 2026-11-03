@@ -462,6 +462,38 @@ export function layoutGPPages(container, pageHeight, pageWidth = null) {
 /**
  * Render in page mode
  */
+/**
+ * AlphaTab draws the title, subtitle and artist lines at a fixed font size and does not wrap them, so a long title is
+ * cut off at the page edge when the page is narrow (a TV, a phone, a high sheet zoom). Shrink any text line that runs
+ * past its page, keeping its anchor point, so the whole title is always readable. The staves are not touched.
+ */
+function fitScoreTextToPages(root) {
+    const margin = 8;
+    root.querySelectorAll('.gp-page-wrapper svg').forEach((svg) => {
+        const box = svg.viewBox && svg.viewBox.baseVal;
+        const width = box && box.width > 0 ? box.width : svg.width.baseVal.value;
+        if (!(width > 0)) return;
+        svg.querySelectorAll('text').forEach((text) => {
+            if (text.dataset.fitted) return;
+            let bbox;
+            try { bbox = text.getBBox(); } catch { return; }
+            if (!bbox.width) return;
+            const left = Math.max(0, bbox.x);
+            const room = width - margin - left;
+            if (bbox.x + bbox.width <= width - margin || room <= 0) return;
+            const factor = room / bbox.width;
+            const x = Number.parseFloat(text.getAttribute('x')) || bbox.x;
+            const y = Number.parseFloat(text.getAttribute('y')) || (bbox.y + bbox.height);
+            const anchor = text.getAttribute('text-anchor') || getComputedStyle(text).textAnchor;
+            // Scale about the anchor edge so the text still starts (or centres) where AlphaTab put it.
+            const pivotX = anchor === 'middle' ? x : (anchor === 'end' ? x : Math.max(x, left));
+            const existing = text.getAttribute('transform');
+            text.setAttribute('transform', `${existing ? existing + ' ' : ''}translate(${pivotX} ${y}) scale(${factor.toFixed(4)}) translate(${-pivotX} ${-y})`);
+            text.dataset.fitted = '1';
+        });
+    });
+}
+
 function renderGPPageMode(output) {
     clearOutput(output);
     const pagesPerView = getPagesPerView(true); // true = Guitar Pro mode
@@ -579,7 +611,8 @@ function renderGPPageMode(output) {
 
         containerWrapper.appendChild(wrapper);
     }
-        output.appendChild(containerWrapper);
+    output.appendChild(containerWrapper);
+    fitScoreTextToPages(containerWrapper);
     updatePageIndicator(
         document.getElementById('pageIndicator'), 
         gpState.currentPageIndex,
