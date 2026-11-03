@@ -126,8 +126,30 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     }
 
     // 3. Helper to send client-side captured binary data (e.g. blobs/data URLs) to MajesticTab shell
+    // Only real tab files go to intake. Pages build blobs or fetch endpoints for previews and validation while
+    // the user is still typing, and an error page or JSON reply must not open the import flow.
+    function looksLikeTabFile(filename, base64Data) {
+        let head = '';
+        try { head = atob(base64Data.slice(0, 48)); } catch (_) { return false; }
+        if (head.indexOf('FICHIER GUITAR PRO') >= 0 && head.indexOf('FICHIER GUITAR PRO') <= 1) return true;
+        if (head.startsWith('BCFB') || head.startsWith('BCFZ') || head.startsWith('%PDF') || head.startsWith('MThd')) return true;
+        if (head.startsWith('PK\x03\x04')) return true;
+        return /\.(txt|cap)$/i.test(filename || '') && !/^\s*[<{]/.test(head);
+    }
+
     function triggerMajesticDownload(filename, base64Data) {
         if (!base64Data) return;
+        if (!looksLikeTabFile(filename, base64Data)) {
+            let peek = '';
+            try {
+                const raw = atob(base64Data.slice(0, 48));
+                peek = Array.from(raw.slice(0, 16)).map(c => c.charCodeAt(0).toString(16).padStart(2, '0')).join(' ') + ' | ' + raw.slice(0, 40).replace(/[^\x20-\x7e]/g, '.');
+            } catch (_) { peek = 'undecodable base64: ' + String(base64Data).slice(0, 40); }
+            let body = '';
+            try { body = atob(base64Data).slice(0, 700); } catch (_) {}
+            console.warn('[MajesticTab] Ignoring a download that is not a tab file:', filename, base64Data.length + ' b64 chars', peek, body, new Error().stack);
+            return;
+        }
         try {
             if (window.MajesticDownloaderNative && typeof window.MajesticDownloaderNative.onTabDownloaded === 'function') {
                 window.MajesticDownloaderNative.onTabDownloaded(filename || 'downloaded.gp', base64Data);
@@ -183,11 +205,14 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         if (!form) return false;
         const action = (form.action || form.getAttribute('action') || '').toLowerCase();
         if (!action.includes('download')) return false;
+        // A submission handed back to the page (see below) must not be intercepted a second time.
+        if (form.__majesticSkipUntil && Date.now() < form.__majesticSkipUntil) return false;
 
         if (e) {
             e.preventDefault();
             e.stopPropagation();
         }
+        const submitter = e && (e.submitter || (e.target && e.target.closest ? e.target.closest('button, input[type="submit"]') : null));
 
         try {
             const formData = new FormData(form);
@@ -217,6 +242,14 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 filename = heading ? (heading.replace(/[/\\?%*:|"<>]/g, '_') + '.gp') : 'downloaded.gp';
             }
 
+            if (!looksLikeTabFile(filename, b64)) {
+                // Not the file: a lookup or status reply for the site's own script. Give the submission back to the
+                // page so it runs its own flow (and offers its real file through a blob or link).
+                form.__majesticSkipUntil = Date.now() + 3000;
+                try { form.requestSubmit(submitter && submitter.form === form ? submitter : undefined); }
+                catch (_) { try { form.requestSubmit(); } catch (__) {} }
+                return false;
+            }
             triggerMajesticDownload(filename, b64);
             return true;
         } catch (err) {
@@ -278,6 +311,10 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
             if (buf.byteLength < 20) throw new Error('Empty response');
 
             const b64 = arrayBufferToBase64(buf);
+            if (!looksLikeTabFile(a.getAttribute('download') || a.download || (new URL(a.href, location.href)).pathname.split('/').pop(), b64)) {
+                window.location.href = a.href;
+                return true;
+            }
             let filename = a.getAttribute('download') || a.download || '';
             if (!filename) {
                 const match = /filename\*?=['"]?(?:UTF-\d['"]*)?([^;\r\n"']*)['"]?/i.exec(disp);
