@@ -199,6 +199,7 @@ Converters don't travel over Jam. If the host has a converter that converts a fi
 
 - [AlphaTab](https://github.com/CoderLine/alphaTab) for Guitar Pro rendering and playback support
 - [PitchCraft](https://github.com/indjoov/pitchcraft) for chromatic tuner and pitch detection implementation
+- [The Minimal Metronome](https://github.com/ZaneH/metronome) by Zane Helton for the metronome's tempo tapper, time signatures, swing-arm display and keyboard controls
 - [PDF.js](https://mozilla.github.io/pdf.js/) for PDF rendering
 - [Bootstrap](https://getbootstrap.com/) for UI components
 - [jsPDF](https://github.com/parallax/jsPDF) for export functionality

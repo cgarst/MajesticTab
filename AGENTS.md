@@ -111,6 +111,16 @@ Website, store listing, and branding material live in `docs/` and `support/`:
 
 Runtime app icons are in `src/icons/` (referenced as `icons/...` from `src/`).
 
+## Attribution
+
+When code, data or design is ported or adapted from another project (not merely used as a dependency you didn't modify), credit it in all three places in the same change:
+
+- **Source header:** a comment at the top of the ported file naming the project, author, URL and license, and saying what was taken and what was left out.
+- **README:** a line in the Acknowledgments section of `README.md`, with a link and what it was used for.
+- **About page:** a line in the "Third-party software" list of the About and licenses modal in `src/index.html` (`#aboutModal`), with a link and the license.
+
+Check the upstream license first. Only port code whose license allows it, and keep its copyright notice where the license requires it.
+
 ## Repository Content Rules
 
 - **Never commit tabs to the repo:** Agents must not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) or tab PDFs anywhere in the repository. These are copyrighted. The only exception is the `Duo No 2 In G Major.gp5` fixture in `tests/`. Use local, untracked copies for ad-hoc testing and keep them out of commits.

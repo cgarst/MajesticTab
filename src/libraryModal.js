@@ -1772,7 +1772,7 @@ async function renderLibraryBrowseView(container) {
 const LIBRARY_TABS = [
     { id: 'library', label: 'Library', title: 'Browse your tab library', icon: 'bi-music-note-list' },
     { id: 'setlists', label: 'Setlists', title: 'Build and play setlists of tabs', icon: 'bi-collection-play' },
-    { id: 'tools', label: 'Tools', title: 'Tuner, reference library and Jam', icon: 'bi-grid-3x3-gap' },
+    { id: 'tools', label: 'Tools', title: 'Tuner, metronome, reference library and Jam', icon: 'bi-grid-3x3-gap' },
     { id: 'tunings', label: 'Tunings', title: 'Browse songs by guitar and bass tuning', icon: 'bi-sliders' }
 ];
 
@@ -4681,14 +4681,15 @@ export async function openRecentItem(r) {
         showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
 }
 
-// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner and Jam render in the page. The fretboard belongs to the open tab, so it lives only in the reader's Tools menu.
+// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome and Jam render in the page. The fretboard belongs to the open tab, so it lives only in the reader's Tools menu.
 function renderToolsView(container) {
     const $ = (id) => document.getElementById(id);
     const tools = [
         { id: 'chords', title: 'Chord library' },
         { id: 'scales', title: 'Scales' },
         { id: 'circle', title: 'Circle of fifths' },
-        { id: 'tuner', title: 'Tuner' }
+        { id: 'tuner', title: 'Tuner' },
+        { id: 'metronome', title: 'Metronome' }
     ];
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', title: 'Jam' });
     renderToolsPage(container, { tools, escapeHtml });

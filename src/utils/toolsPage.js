@@ -1,6 +1,6 @@
 // toolsPage.js
 // The Tools destination, laid out like the Settings page: a title, a list of tools, and the chosen
-// tool rendered in place beside it (below the list on phones). The Chord library, Scales, Circle of fifths, Tuner and Jam
+// tool rendered in place beside it (below the list on phones). The Chord library, Scales, Circle of fifths, Tuner, Metronome and Jam
 // keep their own screens; they are moved into the page instead of opening over it.
 
 const $ = (id) => document.getElementById(id);
@@ -15,6 +15,7 @@ function hostOf(id) {
     return {
         reference: () => $('referenceModal'),
         tuner: () => $('tunerModal'),
+        metronome: () => $('metronomeModal'),
         jam: () => $('jamModal')
     }[id]?.() || null;
 }
@@ -27,6 +28,7 @@ export async function releaseEmbeddedTools() {
     try {
         if (REFERENCE_TOOLS.includes(id)) (await import('../referenceLibrary.js')).closeReferenceModal();
         else if (id === 'tuner') (await import('../tuner/tuner.js')).closeTunerModal();
+        else if (id === 'metronome') (await import('../metronome/metronome.js')).closeMetronomeModal();
         else if (id === 'jam' && el.style.display === 'flex') $('jamToggleBtn')?.click();
     } catch { /* the tool is already gone */ }
     el.classList.remove('tool-embedded');
@@ -38,6 +40,7 @@ async function openTool(id, pane) {
     await releaseEmbeddedTools();
     if (REFERENCE_TOOLS.includes(id)) (await import('../referenceLibrary.js')).openReferenceModal(id);
     else if (id === 'tuner') $('tunerToggleBtn')?.click();
+    else if (id === 'metronome') $('metronomeToggleBtn')?.click();
     else if (id === 'jam') { if ($('jamModal')?.style.display !== 'flex') $('jamToggleBtn')?.click(); }
     const el = hostOf(id);
     if (!el) return;

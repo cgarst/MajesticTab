@@ -219,6 +219,13 @@
     </button>
   </div>
 
+  <div class="tools-row" id="metronomePill">
+    <button class="tools-item" id="metronomeToggleBtn" type="button" role="menuitem">
+      <i class="bi-stopwatch"></i>
+      <span class="tools-item-text"><span>Metronome</span><small>Keep time at any tempo</small></span>
+    </button>
+  </div>
+
   <div class="tools-row" id="jamPill" style="display:none;">
     <button class="tools-item" id="jamToggleBtn" type="button" role="menuitem" title="Jam mode (play together)">
       <i class="bi-people-fill"></i>
@@ -1179,6 +1186,7 @@
           <li><a href="https://github.com/101arrowz/fflate" target="_blank" rel="noopener noreferrer">fflate</a> (MIT License)</li>
           <li><a href="https://github.com/pdf-lib/pdf-lib" target="_blank" rel="noopener noreferrer">pdf-lib</a> (MIT License)</li>
           <li><a href="https://github.com/indjoov/pitchcraft" target="_blank" rel="noopener noreferrer">PitchCraft</a> (MIT License)</li>
+          <li><a href="https://github.com/ZaneH/metronome" target="_blank" rel="noopener noreferrer">The Minimal Metronome</a> by Zane Helton (MIT License)</li>
           <li><a href="https://github.com/kazuhikoarase/qrcode-generator" target="_blank" rel="noopener noreferrer">qrcode-generator</a> (MIT License)</li>
           <li><a href="https://github.com/steinbergmedia/bravura" target="_blank" rel="noopener noreferrer">Bravura</a> music font by Steinberg (SIL Open Font License 1.1)</li>
           <li>Sonivox EAS SoundFont, copyright Sonic Network Inc. (Apache License 2.0)</li>
@@ -1909,6 +1917,45 @@
 
     <div class="theme-modal-body tuner-modal-body" id="tunerModalBody">
       <!-- Dynamically populated by tuner.js -->
+    </div>
+  </section>
+</div>
+
+<!-- Metronome Modal (based on The Minimal Metronome by Zane Helton, MIT License) -->
+<div id="metronomeModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="metronomeModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card metronome-modal-card">
+    <header class="theme-modal-header d-flex align-items-center justify-content-between">
+      <div class="theme-modal-titles">
+        <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="metronomeModalTitle">Metronome</h2>
+      </div>
+      <div class="theme-modal-actions d-flex align-items-center gap-2">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="metronomeModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body metronome-body">
+      <div class="metro-stage" aria-hidden="true">
+        <span class="metro-mark" id="metroMark"></span>
+        <span class="metro-arm" id="metroArm"></span>
+      </div>
+      <div class="metro-readout">
+        <button type="button" class="metro-step" id="metroBpmDown" aria-label="Slower by 1 BPM">&minus;</button>
+        <div class="metro-tempo" role="status" aria-live="off"><span class="metro-bpm" id="metroBpm">120</span><span class="metro-unit">BPM</span></div>
+        <button type="button" class="metro-step" id="metroBpmUp" aria-label="Faster by 1 BPM">+</button>
+      </div>
+      <input type="range" class="metro-range" id="metroBpmRange" min="30" max="300" step="1" value="120" aria-label="Tempo in beats per minute">
+      <div class="metro-beats" id="metroBeats"></div>
+      <div class="metro-actions">
+        <button type="button" class="btn btn-sm btn-theme-primary metro-play" id="metroPlayBtn" aria-pressed="false">Start</button>
+        <button type="button" class="btn btn-sm metro-ghost" id="metroTapBtn" title="Tap the beat to set the tempo (T)">Tap tempo</button>
+        <button type="button" class="btn btn-sm metro-ghost" id="metroSigBtn" title="Time signature: press to change" aria-label="Time signature">4/4</button>
+      </div>
+      <div class="metro-options">
+        <label class="metro-option" for="metroMuteSwitch"><span>Mute the click<small>Keep the display, silence the sound (M)</small></span><input class="form-check-input theme-switch" type="checkbox" role="switch" id="metroMuteSwitch"></label>
+        <label class="metro-option" for="metroBlinkSwitch"><span>Blink on the beat<small>Flash the dot above the arm</small></span><input class="form-check-input theme-switch" type="checkbox" role="switch" id="metroBlinkSwitch" checked></label>
+      </div>
+      <div class="metro-help">Space starts and stops. T taps the tempo. Type digits or use the arrow keys to change it (Shift for steps of 10).</div>
     </div>
   </section>
 </div>

@@ -5,6 +5,7 @@
 // - #recents
 // - #setlists, #openfile, #search (add music)
 // - #tuner
+// - #metronome
 // - #reference
 // - #reference/circle
 // - #reference/chords
@@ -14,6 +15,7 @@
 
 import { openLibraryModal, closeLibraryModal, isLibraryOpen, getActiveLibraryView, switchLibraryView, goLibraryTab } from '../libraryModal.js';
 import { openTunerModal, closeTunerModal } from '../tuner/tuner.js';
+import { openMetronomeModal, closeMetronomeModal } from '../metronome/metronome.js';
 import { getActiveReferenceTab, setReferenceTabChangeListener, openReferenceModal, closeReferenceModal, isReferenceOpen } from '../referenceLibrary.js';
 
 let isSyncingUrl = false;
@@ -49,7 +51,7 @@ export function updateUrl(main, sub = null, replace = false) {
     if (main === 'reference') {
         const activeSub = sub || getActiveReferenceTab() || 'chords';
         targetHash = `#reference/${activeSub}`;
-    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'setlists' || main === 'tools' || main === 'openfile' || main === 'search' || main === 'tunings') {
+    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'metronome' || main === 'setlists' || main === 'tools' || main === 'openfile' || main === 'search' || main === 'tunings') {
         targetHash = `#${main}`;
     } else if (!main) {
         targetHash = '';
@@ -86,12 +88,20 @@ export async function navigateToUrlRoute(route, isInitial = false) {
     isSyncingUrl = true;
     try {
         if (route.main === 'tuner') {
+            closeMetronomeModal();
             openTunerModal();
+            return true;
+        }
+
+        if (route.main === 'metronome') {
+            closeTunerModal();
+            openMetronomeModal();
             return true;
         }
 
         if (route.main === 'reference') {
             closeTunerModal();
+            closeMetronomeModal();
             const targetRefTab = (route.sub && ['circle', 'chords', 'scales', 'tone'].includes(route.sub)) ? route.sub : 'chords';
             openReferenceModal(targetRefTab);
             return true;
@@ -101,6 +111,7 @@ export async function navigateToUrlRoute(route, isInitial = false) {
         if (libraryViews[route.main]) {
             const view = libraryViews[route.main];
             closeTunerModal();
+            closeMetronomeModal();
             closeReferenceModal();
             if (isLibraryOpen()) {
                 if (view === 'tunings' || view === 'library') await goLibraryTab(view);
@@ -140,6 +151,7 @@ export function initUrlRouter() {
             if (tunerModal && tunerModal.style.display !== 'none') {
                 closeTunerModal();
             }
+            closeMetronomeModal();
             closeReferenceModal();
         }
     };

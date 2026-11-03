@@ -48,6 +48,7 @@ import { canQuitApp } from './utils/quitApp.js';
 import { isTvMode } from './tvMode.js';
 import { initFretboard } from './fretboard/fretboardController.js';
 import { initTuner } from './tuner/tuner.js';
+import { initMetronome } from './metronome/metronome.js';
 import { initToolsMenu } from './utils/toolsMenu.js';
 import { initReaderViewMenu } from './utils/readerViewMenu.js';
 import { initGuitarMenu } from './utils/guitarMenu.js';
@@ -1105,6 +1106,7 @@ async function initApp() {
     initPdfBookmarksUI();
     initFretboard();
     initTuner();
+    initMetronome();
     initUrlRouter();
     setupGlobalRewindButton();
     initTauriDownloadListener();
