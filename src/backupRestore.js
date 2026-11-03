@@ -1294,7 +1294,7 @@ function setTaskOpenState(openTab) {
         slot.hidden = !open;
         slot.previousElementSibling?.querySelector('button[aria-expanded]')?.setAttribute('aria-expanded', String(open));
         const btn = slot.previousElementSibling?.querySelector('button[aria-expanded]');
-        if (btn) btn.textContent = open ? 'Close' : 'Open';
+        if (btn) btn.textContent = open ? 'Close' : (btn.dataset.label || 'Open');
     });
 }
 
@@ -1303,9 +1303,10 @@ async function mountBackupInSettings(host, tab, options) {
     modal.classList.add('is-embedded');
     modal.style.display = 'block';
     setTaskOpenState(tab);
+    // Open at once; the screen's counts take a moment to read, so say so instead of showing an empty row
+    modal.innerHTML = `<div class="task-status">${waitingHtml('Loading…')}</div>`;
     host.appendChild(modal);
     await renderModal(modal, tab, options);
-    host.scrollIntoView?.({ block: 'nearest' });
 }
 
 /** Collapses the open data task in Settings and puts the modal element back out of the way. */
@@ -1363,6 +1364,58 @@ export function closeBackupModal() {
 /** One count tile of the backup/restore change summaries. */
 function changeStatHtml(n, label, cls) {
     return `<div class="col-6 col-md-3"><div class="p-2 rounded-2 backup-stat-card"><div class="fw-bold fs-6 ${n ? cls : 'text-white-50'}">${n}</div><div class="text-white-50" style="font-size:0.72rem;">${label}</div></div></div>`;
+}
+
+/** The flat progress component with no known amount, for places that fill in later by innerHTML. */
+function waitingHtml(label) {
+    const text = escapeHtml(label);
+    return `<div class="task-progress"><div class="task-progress-text"><span class="task-progress-label">${text}</span></div>`
+        + `<div class="task-progress-track is-indeterminate" role="progressbar" aria-label="${text}"><div class="task-progress-fill"></div></div></div>`;
+}
+
+/**
+ * Flat progress inside a status element (styled by .task-progress in design.css). `value` is 0 to 100, or null
+ * while the amount is unknown, which shows a moving segment instead of a fill. The element is the one place a
+ * task reports on itself, so a result replaces the progress where it was.
+ */
+function showTaskProgress(el, { label, detail = '', value = null }) {
+    if (!el) return;
+    if (!el.querySelector(':scope > .task-progress')) {
+        el.innerHTML = '<div class="task-progress"><div class="task-progress-text"><span class="task-progress-label"></span><span class="task-progress-detail"></span></div>'
+            + '<div class="task-progress-track" role="progressbar" aria-valuemin="0" aria-valuemax="100"><div class="task-progress-fill"></div></div></div>';
+    }
+    el.style.display = 'block';
+    el.className = 'task-status';
+    el.setAttribute('role', 'status');
+    const box = el.querySelector('.task-progress');
+    const track = box.querySelector('.task-progress-track');
+    box.querySelector('.task-progress-label').textContent = label;
+    box.querySelector('.task-progress-detail').textContent = detail;
+    const known = typeof value === 'number';
+    const pct = known ? Math.max(0, Math.min(100, value)) : 0;
+    track.classList.toggle('is-indeterminate', !known);
+    track.setAttribute('aria-label', label);
+    if (known) track.setAttribute('aria-valuenow', String(Math.round(pct)));
+    else track.removeAttribute('aria-valuenow');
+    box.querySelector('.task-progress-fill').style.transform = known ? `scaleX(${pct / 100})` : '';
+}
+
+/** A finished task's outcome, in the same place the progress was. kind: 'done' | 'warn' | 'error'. */
+function showTaskResult(el, kind, content, { html = false } = {}) {
+    if (!el) return;
+    el.style.display = 'block';
+    el.className = `task-status task-status-${kind}`;
+    el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    if (html) el.innerHTML = content;
+    else el.textContent = content;
+}
+
+/** Hides a status element and clears what it showed. */
+function clearTaskStatus(el) {
+    if (!el) return;
+    el.style.display = 'none';
+    el.className = 'task-status';
+    el.textContent = '';
 }
 
 /**
@@ -1536,24 +1589,13 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <!-- Audio files: whether they go with the backup -->
           <div class="backup-summary-box p-3 rounded-3 mb-3" id="backupAudioBox" style="display:none;" aria-live="polite"></div>
 
-          <!-- Backup Progress Bar -->
-          <div id="backupProgressContainer" class="p-2 rounded-2 mb-2" style="display:none; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
-            <div class="d-flex justify-content-between text-white small mb-1" style="font-size: 0.75rem;">
-              <span id="backupProgressText">Preparing backup...</span>
-              <span id="backupProgressPercent" class="fw-bold text-info">0%</span>
-            </div>
-            <div class="progress" style="height: 6px; background: rgba(255,255,255,0.1);">
-              <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="backupProgressBar" role="progressbar" style="width: 0%;"></div>
-            </div>
-          </div>
-
           <!-- Status / Action -->
           <div id="backupStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
 
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="backupCancelBtn">Cancel</button>
             <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="backupExecuteBtn">
-              <i class="bi-cloud-arrow-up"></i> Create &amp; Save Backup
+              Create and save backup
             </button>
           </div>
         </div>
@@ -1605,9 +1647,8 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0 d-none" id="restoreDrivePickBtn" style="font-size: 0.72rem;">Pick a different file…</button>
                 <!-- @googleDrive:end -->
               </div>
-              <div id="restoreDriveLoading" class="py-3 text-center text-white-50 small" style="display: none;">
-                <span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>
-                <span>Looking for backups...</span>
+              <div id="restoreDriveLoading" class="py-3" style="display: none;">
+                <div class="task-progress"><div class="task-progress-text"><span class="task-progress-label">Looking for backups…</span></div><div class="task-progress-track is-indeterminate" role="progressbar" aria-label="Looking for backups"><div class="task-progress-fill"></div></div></div>
               </div>
               <div id="restoreDriveEmpty" class="py-3 text-center text-white-50 small" style="display: none;">
                 <i class="bi-archive text-secondary fs-4 d-block mb-1"></i>
@@ -1616,17 +1657,8 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div id="restoreDriveError" class="py-2 text-danger small" style="display: none;"></div>
               <div id="restoreDriveList" class="d-flex flex-column gap-2" style="max-height: 220px; overflow-y: auto;"></div>
 
-              <!-- Download Progress -->
-              <div id="restoreDriveDownloadProgress" class="mt-2 p-2 rounded-2" style="display:none; background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
-                <div class="d-flex justify-content-between text-white small mb-1" style="font-size: 0.75rem;">
-                  <span id="restoreDriveProgressName" class="text-truncate me-2">Downloading backup from Google Drive...</span>
-                  <span id="restoreDriveProgressPercent" class="fw-bold text-info flex-shrink-0">0%</span>
-                </div>
-                <div class="progress" style="height: 6px; background: rgba(255,255,255,0.1);">
-                  <div class="progress-bar progress-bar-striped progress-bar-animated bg-info" id="restoreDriveProgressBar" role="progressbar" style="width: 0%;"></div>
-                </div>
-                <div class="text-white-50 small mt-1" id="restoreDriveProgressBytes" style="font-size: 0.7rem;">0 KB / 0 KB</div>
-              </div>
+              <!-- Download progress -->
+              <div id="restoreDriveDownloadProgress" class="task-status mt-2" style="display:none;" role="status"></div>
             </div>
           </div>
 
@@ -1713,7 +1745,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreCancelBtn">Cancel</button>
             <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="restoreExecuteBtn" disabled>
-              <i class="bi-cloud-arrow-down"></i> Restore Backup
+              Restore backup
             </button>
           </div>
         </div>
@@ -1769,31 +1801,13 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             </div>
           </div>
 
-          <!-- Live Progress Box (Hidden until running) -->
-          <div id="reloadProgressContainer" class="p-3 rounded-3 mb-3" style="display:none; background: var(--bg-card); border: 1px solid var(--border-prominent);">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <span class="small fw-semibold text-white d-flex align-items-center gap-2 min-w-0 me-2" id="reloadCurrentActionLabel">
-                <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></span>
-                <span class="text-truncate">Connecting to MusicBrainz &amp; analyzing tab files...</span>
-              </span>
-              <span class="small text-white-50 font-monospace flex-shrink-0" id="reloadPercentLabel">0%</span>
-            </div>
-            <div class="progress mb-2" style="height: 6px; background: rgba(255,255,255,0.1);">
-              <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="reloadProgressBar" role="progressbar" style="width: 0%;"></div>
-            </div>
-            <div class="d-flex justify-content-between text-white-50 small" style="font-size: 0.72rem;">
-              <span id="reloadItemsCountLabel">0 / 0</span>
-              <span id="reloadStatsLiveLabel">Durations: 0 • Artwork: 0 • Tunings: 0</span>
-            </div>
-          </div>
-
           <!-- Status / Results Alert -->
           <div id="reloadStatusAlert" class="small mb-2" style="display:none;" role="status"></div>
 
           <div class="d-flex justify-content-end gap-2 pt-1">
-            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="reloadCancelBtn">${activeReloadState.running ? 'Stop / Cancel' : 'Cancel'}</button>
+            <button type="button" class="btn btn-sm btn-theme-outline px-3" id="reloadCancelBtn">${activeReloadState.running ? 'Stop' : 'Cancel'}</button>
             <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="reloadExecuteBtn" ${(activeReloadState.running || !libraryData.songs || libraryData.songs.length === 0) ? 'disabled' : ''}>
-              ${activeReloadState.running ? '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Reloading...' : '<i class="bi-arrow-repeat"></i> Reload Library Metadata'}
+              ${activeReloadState.running ? 'Reloading…' : 'Reload metadata'}
             </button>
           </div>
         </div>
@@ -1813,7 +1827,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="orphansCancelBtn">Close</button>
             <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="orphansDeleteBtn" disabled>
-              <i class="bi-trash3"></i> Delete selected
+              Delete selected
             </button>
           </div>
 
@@ -1845,7 +1859,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             <div id="snapshotOrphansStatus" class="small mt-2" style="display:none;" role="status"></div>
             <div class="d-flex justify-content-end pt-2">
               <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="snapshotOrphansDeleteBtn" disabled>
-                <i class="bi-trash3"></i> Delete selected
+                Delete selected
               </button>
             </div>
           </div>
@@ -1856,7 +1870,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <!-- Cache Summary Overview -->
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
-              <i class="bi-brush text-warning"></i> Temporary Cached Data
+              Temporary cached data
             </div>
             <div class="text-white-50 small mb-3" style="font-size: 0.78rem; line-height: 1.45;">
               Clearing cached data frees local storage without affecting your stored tab files, songs, collections, playlists, or settings.
@@ -1865,25 +1879,25 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6"><i class="bi-image text-info"></i></div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Album Art Cache</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Album art</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6"><i class="bi-disc text-primary"></i></div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">MusicBrainz Cache</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">MusicBrainz</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6"><i class="bi-youtube text-danger"></i></div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">YouTube Video Cache</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">YouTube video</div>
                 </div>
               </div>
               <div class="col-6 col-md-3">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6"><i class="bi-cloud-download text-success"></i></div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Search Query Cache</div>
+                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Search queries</div>
                 </div>
               </div>
             </div>
@@ -1895,7 +1909,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="cacheCancelBtn">Cancel</button>
             <button type="button" class="btn btn-sm btn-theme-primary px-4 d-flex align-items-center gap-2" id="cacheExecuteBtn">
-              <i class="bi-brush"></i> Clear Cache
+              Clear cache
             </button>
           </div>
         </div>
@@ -1965,7 +1979,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="d-flex justify-content-end gap-2 pt-1">
             <button type="button" class="btn btn-sm btn-theme-outline px-3" id="deleteCancelBtn">Cancel</button>
             <button type="button" class="btn btn-sm btn-theme-danger px-4 d-flex align-items-center gap-2" id="deleteExecuteBtn" disabled>
-              <i class="bi-trash3-fill"></i> Delete All Data
+              Delete all data
             </button>
           </div>
         </div>
@@ -2042,7 +2056,7 @@ function attachModalHandlers(modal, options = {}) {
     const updateOrphansDeleteBtn = () => {
         const n = orphansList.querySelectorAll('.orphan-check:checked').length;
         orphansDeleteBtn.disabled = n === 0;
-        orphansDeleteBtn.innerHTML = `<i class="bi-trash3"></i> Delete selected${n ? ` (${n})` : ''}`;
+        orphansDeleteBtn.textContent = `Delete selected${n ? ` · ${n}` : ''}`;
     };
     const renderOrphans = async () => {
         let orphans = [];
@@ -2086,18 +2100,14 @@ function attachModalHandlers(modal, options = {}) {
         const ids = [...orphansList.querySelectorAll('.orphan-check:checked')].map(cb => cb.dataset.id);
         if (ids.length === 0) return;
         orphansDeleteBtn.disabled = true;
-        orphansDeleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Deleting...';
+        orphansDeleteBtn.textContent = 'Deleting…';
+        showTaskProgress(orphansStatusAlert, { label: 'Deleting orphaned files…', detail: `${ids.length} selected` });
         try {
             await deleteOrphanedStoredFiles(ids);
-            orphansStatusAlert.style.display = 'block';
-            orphansStatusAlert.className = 'small mb-2 text-success fw-semibold';
-            orphansStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> Removed ${ids.length} orphaned ${ids.length === 1 ? 'file' : 'files'}.`;
-            showToast('Orphaned files removed', 'success');
+            showTaskResult(orphansStatusAlert, 'done', `Removed ${ids.length} orphaned ${ids.length === 1 ? 'file' : 'files'}`);
         } catch (err) {
             console.error('Failed to delete orphaned files:', err);
-            orphansStatusAlert.style.display = 'block';
-            orphansStatusAlert.className = 'small mb-2 text-danger fw-semibold';
-            orphansStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed: ${escapeHtml(err.message)}`;
+            showTaskResult(orphansStatusAlert, 'error', `Could not delete the files. ${err.message}`);
         }
         await renderOrphans();
     });
@@ -2112,14 +2122,15 @@ function attachModalHandlers(modal, options = {}) {
     let snapOrphanScope = 'all';
     const getSnapScope = () => modal.querySelector('input[name="snapshotOrphanScope"]:checked')?.value || 'all';
     const setSnapStatus = (cls, html) => {
-        snapOrphansStatus.style.display = html ? 'block' : 'none';
-        snapOrphansStatus.className = `small mt-2 ${cls}`;
-        snapOrphansStatus.innerHTML = html;
+        if (!html) return clearTaskStatus(snapOrphansStatus);
+        const kind = cls.includes('danger') ? 'error' : cls.includes('success') ? 'done' : 'info';
+        // Messages are built from our own strings and escaped values; icons are not part of the design
+        showTaskResult(snapOrphansStatus, kind, html.replace(/<i class="[^"]*"><\/i>\s*/g, ''), { html: true });
     };
     const updateSnapOrphansDeleteBtn = () => {
         const n = snapOrphansList.querySelectorAll('.snapshot-orphan-check:checked').length;
         snapOrphansDeleteBtn.disabled = n === 0;
-        snapOrphansDeleteBtn.innerHTML = `<i class="bi-trash3"></i> Delete selected${n ? ` (${n})` : ''}`;
+        snapOrphansDeleteBtn.textContent = `Delete selected${n ? ` · ${n}` : ''}`;
     };
     const renderSnapOrphans = (found) => {
         snapOrphanFiles = found.unused;
@@ -2159,7 +2170,8 @@ function attachModalHandlers(modal, options = {}) {
     modal.querySelectorAll('[data-snapshot-orphan-scan]').forEach(btn => btn.addEventListener('click', async () => {
         const provider = btn.dataset.snapshotOrphanScan;
         setSnapStatus('', '');
-        snapOrphansList.innerHTML = '<div class="small text-white-50"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Scanning snapshots...</div>';
+        snapOrphansList.innerHTML = '';
+        showTaskProgress(snapOrphansStatus, { label: 'Scanning snapshots…' });
         snapOrphanBackend = null;
         snapOrphanFiles = [];
         updateSnapOrphansDeleteBtn();
@@ -2174,9 +2186,10 @@ function attachModalHandlers(modal, options = {}) {
             const found = await findUnusedBlobs(target.backend, { scope: snapOrphanScope });
             snapOrphanBackend = target.backend;
             if (!found.snapshotCount) {
-                snapOrphansList.innerHTML = '<div class="text-white-50 small">No incremental snapshots found there.</div>';
-                return;
+                snapOrphansList.innerHTML = '';
+                return setSnapStatus('text-white-50', 'No incremental snapshots found there.');
             }
+            setSnapStatus('', '');
             renderSnapOrphans(found);
         } catch (err) {
             console.error('Snapshot orphan scan failed:', err);
@@ -2189,12 +2202,12 @@ function attachModalHandlers(modal, options = {}) {
         const chosen = snapOrphanFiles.filter(f => names.has(f.name));
         if (!chosen.length || !snapOrphanBackend) return;
         snapOrphansDeleteBtn.disabled = true;
-        snapOrphansDeleteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Deleting...';
+        snapOrphansDeleteBtn.textContent = 'Deleting…';
+        showTaskProgress(snapOrphansStatus, { label: 'Deleting backup files…', detail: `${chosen.length} selected` });
         try {
             const { deleteBlobs, findUnusedBlobs } = await import('./incrementalBackup.js');
             await deleteBlobs(snapOrphanBackend, chosen);
             setSnapStatus('text-success fw-semibold', `<i class="bi-check-circle-fill me-1"></i> Removed ${chosen.length} ${chosen.length === 1 ? 'file' : 'files'} from incremental backups.`);
-            showToast('Backup files removed', 'success');
             renderSnapOrphans(await findUnusedBlobs(snapOrphanBackend, { scope: snapOrphanScope }));
         } catch (err) {
             console.error('Failed to delete snapshot orphans:', err);
@@ -2209,29 +2222,21 @@ function attachModalHandlers(modal, options = {}) {
     const cacheStatusAlert = modal.querySelector('#cacheStatusAlert');
     cacheExecuteBtn?.addEventListener('click', async () => {
         cacheExecuteBtn.disabled = true;
-        cacheExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Clearing Cache...';
+        cacheExecuteBtn.textContent = 'Clearing…';
+        showTaskProgress(cacheStatusAlert, { label: 'Clearing cached data…' });
         try {
             const count = await clearAppCache();
-            if (cacheStatusAlert) {
-                cacheStatusAlert.style.display = 'block';
-                cacheStatusAlert.className = 'small mb-2 text-success fw-semibold';
-                cacheStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> Cache cleared successfully! Removed ${count} cached items.`;
-            }
-            cacheExecuteBtn.innerHTML = '<i class="bi-check2"></i> Cleared';
-            showToast('Application cache cleared', 'success');
+            showTaskResult(cacheStatusAlert, 'done', `Cache cleared · ${count} cached ${count === 1 ? 'item' : 'items'} removed`);
+            cacheExecuteBtn.textContent = 'Cleared';
             setTimeout(() => {
                 cacheExecuteBtn.disabled = false;
-                cacheExecuteBtn.innerHTML = '<i class="bi-brush"></i> Clear Cache';
+                cacheExecuteBtn.textContent = 'Clear cache';
             }, 3000);
         } catch (err) {
             console.error('Failed to clear cache:', err);
-            if (cacheStatusAlert) {
-                cacheStatusAlert.style.display = 'block';
-                cacheStatusAlert.className = 'small mb-2 text-danger fw-semibold';
-                cacheStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to clear cache: ${escapeHtml(err.message)}`;
-            }
+            showTaskResult(cacheStatusAlert, 'error', `Could not clear the cache. ${err.message}`);
             cacheExecuteBtn.disabled = false;
-            cacheExecuteBtn.innerHTML = '<i class="bi-brush"></i> Try Again';
+            cacheExecuteBtn.textContent = 'Try again';
         }
     });
 
@@ -2326,7 +2331,7 @@ function attachModalHandlers(modal, options = {}) {
         const note = (html) => { if (request === previewRequest) backupIncrementalPreview.innerHTML = html; };
         const actionBtn = (action, icon, label) => `<button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="${action}"><i class="${icon}"></i> <span>${label}</span></button>`;
 
-        note('<div class="small text-white-50"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Checking for existing backups...</div>');
+        note(waitingHtml('Checking for existing backups…'));
         try {
             const target = await resolveIncrementalTarget();
             // @googleDrive:begin
@@ -2447,9 +2452,7 @@ function attachModalHandlers(modal, options = {}) {
         const incremental = getBackupFormat() === 'incremental';
         if (backupFilenameGroup) backupFilenameGroup.style.display = incremental ? 'none' : 'block';
         if (backupIncrementalPreview) backupIncrementalPreview.style.display = incremental ? 'block' : 'none';
-        if (backupExecuteBtn) backupExecuteBtn.innerHTML = incremental
-            ? '<i class="bi-cloud-arrow-up"></i> Back Up Changes'
-            : '<i class="bi-cloud-arrow-up"></i> Create &amp; Save Backup';
+        if (backupExecuteBtn) backupExecuteBtn.textContent = incremental ? 'Back up changes' : 'Create and save backup';
         if (incremental && refresh) renderIncrementalPreview();
         renderAudioBox();
     };
@@ -2472,22 +2475,9 @@ function attachModalHandlers(modal, options = {}) {
             filename += '.mtbackup';
         }
 
-        const backupProgressContainer = modal.querySelector('#backupProgressContainer');
-        const backupProgressBar = modal.querySelector('#backupProgressBar');
-        const backupProgressText = modal.querySelector('#backupProgressText');
-        const backupProgressPercent = modal.querySelector('#backupProgressPercent');
-
         backupExecuteBtn.disabled = true;
-        backupExecuteBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> ${incremental ? 'Backing Up...' : 'Creating Backup...'}`;
-        backupStatusAlert.style.display = 'block';
-        backupStatusAlert.className = 'small mb-2 text-info';
-        backupStatusAlert.textContent = incremental ? 'Comparing with existing backups...' : 'Packaging settings, file converters, and stored tabs...';
-        if (backupProgressContainer) {
-            backupProgressContainer.style.display = 'block';
-            if (backupProgressBar) backupProgressBar.style.width = '0%';
-            if (backupProgressPercent) backupProgressPercent.textContent = '0%';
-            if (backupProgressText) backupProgressText.textContent = 'Packaging settings and tabs...';
-        }
+        backupExecuteBtn.textContent = incremental ? 'Backing up…' : 'Creating backup…';
+        showTaskProgress(backupStatusAlert, { label: incremental ? 'Comparing with existing backups…' : 'Packaging settings and tabs…' });
 
         try {
             const providerLabel = selectedProviderEl?.closest('label')?.querySelector('.leading-tight')?.textContent || providerId;
@@ -2511,15 +2501,12 @@ function attachModalHandlers(modal, options = {}) {
                 const result = await createIncrementalBackup(target.backend, {
                     onProgress: ({ phase, current, total, bytesSent, uploaded = 0, reused = 0, name }) => {
                         const pct = phase === 'manifest' ? 99 : total > 0 ? Math.min(98, Math.round((current / total) * 98)) : 0;
-                        const text = phase === 'scan'
-                            ? 'Checking what is already backed up...'
-                            : phase === 'manifest'
-                                ? 'Writing backup manifest...'
-                                : `Checked ${current} of ${total}: ${uploaded} saved (${formatBytes(bytesSent)}), ${reused} already backed up${name ? ` - ${name}` : ''}`;
-                        if (backupProgressBar) backupProgressBar.style.width = `${pct}%`;
-                        if (backupProgressPercent) backupProgressPercent.textContent = `${pct}%`;
-                        if (backupProgressText) backupProgressText.textContent = text;
-                        backupStatusAlert.textContent = text;
+                        const known = phase !== 'scan' && total > 0;
+                        showTaskProgress(backupStatusAlert, {
+                            label: phase === 'scan' ? 'Checking what is already backed up…' : phase === 'manifest' ? 'Writing the backup manifest…' : 'Backing up…',
+                            detail: known && phase !== 'manifest' ? `${current} of ${total} checked · ${uploaded} saved (${formatBytes(bytesSent)}) · ${reused} already backed up` : '',
+                            value: known ? pct : null
+                        });
                     }
                 });
                 savedBytes = result.bytesSent;
@@ -2531,41 +2518,27 @@ function attachModalHandlers(modal, options = {}) {
                 const blob = await createBackupBlob((current, total) => {
                     if (total > 0) {
                         const pct = Math.round((current / total) * 40); // 0-40% packaging
-                        if (backupProgressBar) backupProgressBar.style.width = `${pct}%`;
-                        if (backupProgressPercent) backupProgressPercent.textContent = `${pct}%`;
-                        if (backupProgressText) backupProgressText.textContent = `Packaging tab ${current} of ${total}...`;
-                        backupStatusAlert.textContent = `Packaging tab ${current} of ${total}...`;
+                        showTaskProgress(backupStatusAlert, { label: 'Packaging tabs…', detail: `${current} of ${total}`, value: pct });
                     }
                 });
                 savedBytes = blob.size;
 
-                backupStatusAlert.textContent = `Saving to ${providerLabel}...`;
-                if (backupProgressBar) backupProgressBar.style.width = '40%';
-                if (backupProgressPercent) backupProgressPercent.textContent = '40%';
-                if (backupProgressText) backupProgressText.textContent = `Saving to ${providerLabel}...`;
+                showTaskProgress(backupStatusAlert, { label: `Saving to ${providerLabel}…`, detail: formatBytes(savedBytes) });
 
                 await saveToProvider(providerId, blob, filename);
             }
 
-            if (backupProgressBar) backupProgressBar.style.width = '100%';
-            if (backupProgressPercent) backupProgressPercent.textContent = '100%';
-            if (backupProgressText) backupProgressText.textContent = 'Backup completed successfully!';
-
-            backupStatusAlert.className = 'small mb-2 text-success fw-semibold';
-            backupStatusAlert.innerHTML = `<i class="bi-check-circle-fill me-1"></i> ${escapeHtml(successMessage || `Backup saved successfully! (${formatBytes(savedBytes)})`)}`;
-            backupExecuteBtn.innerHTML = '<i class="bi-check2"></i> Saved';
+            showTaskResult(backupStatusAlert, 'done', successMessage || `Backup saved (${formatBytes(savedBytes)})`);
+            backupExecuteBtn.textContent = 'Saved';
             setTimeout(() => {
                 backupExecuteBtn.disabled = false;
                 syncBackupFormat();
-                if (backupProgressContainer) backupProgressContainer.style.display = 'none';
             }, 3000);
         } catch (err) {
             console.error('Backup creation failed:', err);
-            if (backupProgressContainer) backupProgressContainer.style.display = 'none';
-            backupStatusAlert.className = 'small mb-2 text-danger fw-semibold';
-            backupStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to save backup: ${escapeHtml(err.message)}`;
+            showTaskResult(backupStatusAlert, 'error', `Could not save the backup. ${err.message}`);
             backupExecuteBtn.disabled = false;
-            backupExecuteBtn.innerHTML = '<i class="bi-cloud-arrow-up"></i> Try Again';
+            backupExecuteBtn.textContent = 'Try again';
         }
     });
 
@@ -2826,22 +2799,11 @@ function attachModalHandlers(modal, options = {}) {
                 const btn = item.querySelector('.select-drive-backup-btn');
                 if (btn) {
                     btn.disabled = true;
-                    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span> <span class="ms-1">Loading...</span>';
+                    btn.textContent = 'Loading…';
                 }
 
-                const dlProgressContainer = modal.querySelector('#restoreDriveDownloadProgress');
-                const dlProgressBar = modal.querySelector('#restoreDriveProgressBar');
-                const dlProgressPercent = modal.querySelector('#restoreDriveProgressPercent');
-                const dlProgressName = modal.querySelector('#restoreDriveProgressName');
-                const dlProgressBytes = modal.querySelector('#restoreDriveProgressBytes');
-
-                if (dlProgressContainer) {
-                    dlProgressContainer.style.display = 'block';
-                    if (dlProgressName) dlProgressName.textContent = `Downloading ${b.name}...`;
-                    if (dlProgressBar) dlProgressBar.style.width = '0%';
-                    if (dlProgressPercent) dlProgressPercent.textContent = '0%';
-                    if (dlProgressBytes) dlProgressBytes.textContent = `0 B / ${formatBytes(b.size || 0)}`;
-                }
+                const dlProgress = modal.querySelector('#restoreDriveDownloadProgress');
+                showTaskProgress(dlProgress, { label: `Downloading ${b.name}…`, detail: `0 B of ${formatBytes(b.size || 0)}`, value: 0 });
 
                 try {
                     if (b.incremental) {
@@ -2850,23 +2812,21 @@ function attachModalHandlers(modal, options = {}) {
                         const bundle = await loadIncrementalBundle(activeSource.backend, b);
                         bundle.name = `Snapshot · ${dateStr}`;
                         bundle.size = bundle.summary?.totalTabsSize || 0;
-                        if (dlProgressContainer) dlProgressContainer.style.display = 'none';
+                        clearTaskStatus(dlProgress);
                         await handleSelectedBackupFile(bundle, activeSource.type === 'folder' ? 'Backup Folder' : activeSource.type === 'icloud' ? 'iCloud Drive' : activeSource.type === 's3' ? 'S3 Bucket' : 'Google Drive');
                         return;
                     }
                     // @googleDrive:begin
                     const { downloadDriveBackupFile } = await import('./googleDrive.js');
                     const fileObj = await downloadDriveBackupFile(b.id, b.name, ({ loaded, total, percent }) => {
-                        if (dlProgressBar) dlProgressBar.style.width = `${percent}%`;
-                        if (dlProgressPercent) dlProgressPercent.textContent = `${percent}%`;
-                        if (dlProgressBytes) dlProgressBytes.textContent = `${formatBytes(loaded)} / ${formatBytes(total || b.size || loaded)}`;
-                        if (btn) btn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> <span class="ms-1">${percent}%</span>`;
+                        showTaskProgress(dlProgress, { label: `Downloading ${b.name}…`, detail: `${formatBytes(loaded)} of ${formatBytes(total || b.size || loaded)}`, value: percent });
+                        if (btn) btn.textContent = `${percent}%`;
                     });
-                    if (dlProgressContainer) dlProgressContainer.style.display = 'none';
+                    clearTaskStatus(dlProgress);
                     await handleSelectedBackupFile(fileObj, 'Google Drive');
                     // @googleDrive:end
                 } catch (dlErr) {
-                    if (dlProgressContainer) dlProgressContainer.style.display = 'none';
+                    clearTaskStatus(dlProgress);
                     console.error('Failed to download Drive backup:', dlErr);
                     if (restoreDriveError) {
                         restoreDriveError.style.display = 'block';
@@ -3053,7 +3013,7 @@ function attachModalHandlers(modal, options = {}) {
 
         try {
             if (!restorePreviewData || restorePreviewData.bundle !== bundle) {
-                restoreIncrementalPreview.innerHTML = '<div class="small text-white-50"><span class="spinner-border spinner-border-sm me-2" role="status"></span>Comparing with this device...</div>';
+                restoreIncrementalPreview.innerHTML = waitingHtml('Comparing with this device…');
                 const { previewIncrementalRestore } = await import('./incrementalBackup.js');
                 restorePreviewData = { bundle, summary: await previewIncrementalRestore(bundle) };
                 if (currentBackupFile !== bundle) return;
@@ -3095,14 +3055,7 @@ function attachModalHandlers(modal, options = {}) {
                 return;
             }
 
-            restoreStatusAlert.style.display = 'block';
-            restoreStatusAlert.className = 'small mb-2 text-info text-center';
-            restoreStatusAlert.innerHTML = `
-                <div class="d-flex align-items-center justify-content-center gap-2 py-2">
-                    <span class="spinner-border spinner-border-sm" role="status"></span>
-                    <span>Reading and verifying backup (${formatBytes(file.size)})...</span>
-                </div>
-            `;
+            showTaskProgress(restoreStatusAlert, { label: 'Reading and verifying the backup…', detail: formatBytes(file.size) });
             restoreInspectionCard.style.display = 'none';
             restoreExecuteBtn.disabled = true;
 
@@ -3192,17 +3145,14 @@ function attachModalHandlers(modal, options = {}) {
         const mode = selectedModeEl?.value || 'merge';
 
         if (mode === 'wipe' && !wipeConfirmCheckbox.checked) {
-            restoreStatusAlert.style.display = 'block';
-            restoreStatusAlert.className = 'small mb-2 text-warning fw-semibold';
-            restoreStatusAlert.textContent = 'Please confirm by checking the box before wiping and replacing.';
+            showTaskResult(restoreStatusAlert, 'warn', 'Tick the box to confirm before wiping and replacing.');
             return;
         }
 
         restoreExecuteBtn.disabled = true;
-        restoreExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Restoring Data...';
-        restoreStatusAlert.style.display = 'block';
-        restoreStatusAlert.className = 'small mb-2 text-info';
-        restoreStatusAlert.textContent = mode === 'wipe' ? 'Wiping and restoring fresh from backup...' : 'Merging missing tabs and settings...';
+        restoreExecuteBtn.textContent = 'Restoring…';
+        const restoreLabel = mode === 'wipe' ? 'Wiping and restoring from the backup…' : 'Merging missing tabs and settings…';
+        showTaskProgress(restoreStatusAlert, { label: restoreLabel });
 
         try {
             const results = await restoreBackup(currentBackupFile || currentParsedBackup, {
@@ -3210,14 +3160,13 @@ function attachModalHandlers(modal, options = {}) {
                 restoreAudio: restoreAudioChoice,
                 onProgress: (current, total) => {
                     if (total > 0) {
-                        restoreStatusAlert.textContent = `Restoring tab ${current} of ${total}...`;
+                        showTaskProgress(restoreStatusAlert, { label: 'Restoring tabs…', detail: `${current} of ${total}`, value: (current / total) * 100 });
                     }
                 }
             });
 
             currentParsedBackup = null;
 
-            restoreStatusAlert.className = 'small mb-2 text-success fw-semibold';
             const details = [];
             if (results.filesImported > 0) details.push(`${results.filesImported} tabs imported`);
             if (results.soundFontsImported > 0) details.push(`${results.soundFontsImported} SoundFonts imported`);
@@ -3228,14 +3177,10 @@ function attachModalHandlers(modal, options = {}) {
             if (results.extensionsImported > 0) details.push(`${results.extensionsImported} file converters updated`);
             if (results.settingsApplied > 0) details.push('preferences restored');
 
-            const summaryStr = details.length > 0 ? details.join(', ') : 'All data up to date';
-            restoreStatusAlert.innerHTML = `
-              <div class="d-flex align-items-center gap-2 mb-1">
-                <i class="bi-check-circle-fill text-success fs-6"></i>
-                <strong>Restore Complete! (${mode === 'wipe' ? 'Wipe & Replace' : 'Merged'})</strong>
-              </div>
-              <div class="text-white-50 small">${escapeHtml(summaryStr)}.</div>
-            `;
+            const summaryStr = details.length > 0 ? details.join(' · ') : 'Everything was already up to date';
+            showTaskResult(restoreStatusAlert, 'done',
+                `<strong>${mode === 'wipe' ? 'Restored, replacing what was here' : 'Restored and merged'}</strong><span class="task-status-detail">${escapeHtml(summaryStr)}</span>`,
+                { html: true });
 
             // Auto-refresh Tab Library UI
             try {
@@ -3245,17 +3190,16 @@ function attachModalHandlers(modal, options = {}) {
                 console.warn('Could not refresh library view:', e);
             }
 
-            restoreExecuteBtn.innerHTML = '<i class="bi-check2"></i> Restored';
+            restoreExecuteBtn.textContent = 'Restored';
             setTimeout(() => {
                 restoreExecuteBtn.disabled = false;
-                restoreExecuteBtn.innerHTML = '<i class="bi-cloud-arrow-down"></i> Restore Backup';
+                restoreExecuteBtn.textContent = 'Restore backup';
             }, 3000);
         } catch (err) {
             console.error('Restore failed:', err);
-            restoreStatusAlert.className = 'small mb-2 text-danger fw-semibold';
-            restoreStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to restore backup: ${escapeHtml(err.message)}`;
+            showTaskResult(restoreStatusAlert, 'error', `Could not restore the backup. ${err.message}`);
             restoreExecuteBtn.disabled = false;
-            restoreExecuteBtn.innerHTML = '<i class="bi-cloud-arrow-down"></i> Try Again';
+            restoreExecuteBtn.textContent = 'Try again';
         }
     });
 
@@ -3274,17 +3218,14 @@ function attachModalHandlers(modal, options = {}) {
         if (!deleteAllConfirmCheckbox?.checked) return;
 
         deleteExecuteBtn.disabled = true;
-        deleteExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Deleting All Data...';
-        deleteStatusAlert.style.display = 'block';
-        deleteStatusAlert.className = 'small mb-2 text-info';
-        deleteStatusAlert.textContent = 'Clearing stored tabs, library, file converters, and settings...';
+        deleteExecuteBtn.textContent = 'Deleting…';
+        showTaskProgress(deleteStatusAlert, { label: 'Clearing tabs, library, file converters and settings…' });
 
         try {
             await deleteAllAppData();
 
-            deleteStatusAlert.className = 'small mb-2 text-success fw-semibold';
-            deleteStatusAlert.innerHTML = '<i class="bi-check-circle-fill me-1"></i> All application data and settings deleted successfully.';
-            deleteExecuteBtn.innerHTML = '<i class="bi-check2"></i> Deleted';
+            showTaskResult(deleteStatusAlert, 'done', 'All data and settings were deleted');
+            deleteExecuteBtn.textContent = 'Deleted';
 
             // Refresh live stat numbers to 0
             const statTabs = modal.querySelector('#deleteStatTabs');
@@ -3300,56 +3241,35 @@ function attachModalHandlers(modal, options = {}) {
             }, 1200);
         } catch (err) {
             console.error('Delete all data failed:', err);
-            deleteStatusAlert.className = 'small mb-2 text-danger fw-semibold';
-            deleteStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to delete data: ${escapeHtml(err.message)}`;
+            showTaskResult(deleteStatusAlert, 'error', `Could not delete the data. ${err.message}`);
             deleteExecuteBtn.disabled = false;
-            deleteExecuteBtn.innerHTML = '<i class="bi-trash3-fill"></i> Delete All Data';
+            deleteExecuteBtn.textContent = 'Delete all data';
         }
     });
 
     // --- RELOAD METADATA ACTION ---
     const reloadExecuteBtn = modal.querySelector('#reloadExecuteBtn');
     const reloadCancelBtn = modal.querySelector('#reloadCancelBtn');
-    const reloadProgressContainer = modal.querySelector('#reloadProgressContainer');
-    const reloadProgressBar = modal.querySelector('#reloadProgressBar');
-    const reloadPercentLabel = modal.querySelector('#reloadPercentLabel');
-    const reloadCurrentActionLabel = modal.querySelector('#reloadCurrentActionLabel');
-    const reloadItemsCountLabel = modal.querySelector('#reloadItemsCountLabel');
-    const reloadStatsLiveLabel = modal.querySelector('#reloadStatsLiveLabel');
     const reloadStatusAlert = modal.querySelector('#reloadStatusAlert');
 
     const updateReloadProgressUI = (progress) => {
         if (!progress) return;
-        const { current = 0, total = 0, percent = 0, phase = '', name = '', stats: curStats = {} } = progress;
-        if (reloadPercentLabel) reloadPercentLabel.textContent = `${percent}%`;
-        if (reloadProgressBar) reloadProgressBar.style.width = `${percent}%`;
-        if (reloadCurrentActionLabel) {
-            reloadCurrentActionLabel.innerHTML = `
-              <span class="spinner-border spinner-border-sm text-primary flex-shrink-0" role="status"></span>
-              <span class="text-truncate">${escapeHtml(name || 'Fetching metadata...')}</span>
-            `;
-        }
-        if (reloadItemsCountLabel) {
-            const phaseLabel = phase === 'album' ? 'album' : (phase === 'tuning' ? 'tab file' : 'song');
-            reloadItemsCountLabel.textContent = `Processed ${current} of ${total} (${phaseLabel})`;
-        }
-        if (reloadStatsLiveLabel) {
-            reloadStatsLiveLabel.textContent = `Durations: ${curStats.addedDurations || 0} • Artwork: ${curStats.addedCovers || 0} • Tunings: ${curStats.updatedTunings || 0}`;
-        }
+        const { current = 0, total = 0, percent = 0, phase = '', name = '' } = progress;
+        const unit = phase === 'album' ? 'albums' : (phase === 'tuning' ? 'tab files' : 'songs');
+        showTaskProgress(reloadStatusAlert, {
+            label: phase === 'start' ? 'Connecting to MusicBrainz and reading tab files…' : 'Refreshing library metadata…',
+            detail: total > 0 ? `${current} of ${total} ${unit}${name ? ` · ${name}` : ''}` : '',
+            value: total > 0 ? percent : null
+        });
     };
 
     // Check if reload is already running when opening/rendering modal
     if (activeReloadState.running) {
         if (reloadExecuteBtn) {
             reloadExecuteBtn.disabled = true;
-            reloadExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Reloading...';
+            reloadExecuteBtn.textContent = 'Reloading…';
         }
-        if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop / Cancel';
-        if (reloadProgressContainer) reloadProgressContainer.style.display = 'block';
-        if (reloadStatusAlert) {
-            reloadStatusAlert.style.display = 'none';
-            reloadStatusAlert.innerHTML = '';
-        }
+        if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop';
         updateReloadProgressUI(activeReloadState.progress);
     }
 
@@ -3359,33 +3279,22 @@ function attachModalHandlers(modal, options = {}) {
     activeReloadState.listeners.add(progressListener);
 
     const completionListener = async ({ stats, error, aborted }) => {
-        if (reloadProgressContainer) reloadProgressContainer.style.display = 'none';
         if (reloadCancelBtn) reloadCancelBtn.textContent = 'Cancel';
 
         if (aborted) {
-            if (reloadStatusAlert) {
-                reloadStatusAlert.style.display = 'block';
-                reloadStatusAlert.className = 'small mb-2 text-warning fw-semibold';
-                reloadStatusAlert.innerHTML = '<i class="bi-exclamation-triangle-fill me-1"></i> Metadata reload was cancelled by user.';
-            }
+            showTaskResult(reloadStatusAlert, 'warn', 'Stopped. Nothing more was changed');
             if (reloadExecuteBtn) {
                 reloadExecuteBtn.disabled = false;
-                reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Reload Library Metadata';
+                reloadExecuteBtn.textContent = 'Reload metadata';
             }
         } else if (error) {
-            if (reloadStatusAlert) {
-                reloadStatusAlert.style.display = 'block';
-                reloadStatusAlert.className = 'small mb-2 text-danger fw-semibold';
-                reloadStatusAlert.innerHTML = `<i class="bi-exclamation-triangle-fill me-1"></i> Failed to reload metadata: ${escapeHtml(error.message)}`;
-            }
+            showTaskResult(reloadStatusAlert, 'error', `Could not reload metadata. ${error.message}`);
             if (reloadExecuteBtn) {
                 reloadExecuteBtn.disabled = false;
-                reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Try Again';
+                reloadExecuteBtn.textContent = 'Try again';
             }
         } else if (stats) {
             if (reloadStatusAlert) {
-                reloadStatusAlert.style.display = 'block';
-                reloadStatusAlert.className = 'small mb-2 text-success fw-semibold';
                 const details = [];
                 if (stats.updatedAlbums > 0) details.push(`${stats.updatedAlbums} albums refreshed`);
                 if (stats.updatedSongs > 0) details.push(`${stats.updatedSongs} songs updated`);
@@ -3394,15 +3303,11 @@ function attachModalHandlers(modal, options = {}) {
                 if (stats.updatedTunings > 0) details.push(`${stats.updatedTunings} song tunings detected from tab files`);
                 if (stats.addedDurations > 0) details.push(`${stats.addedDurations} track durations added`);
                 if (stats.addedCovers > 0) details.push(`${stats.addedCovers} album covers added`);
-                const summaryText = details.length > 0 ? details.join(', ') : 'All tracks and tab tunings are up to date';
+                const summaryText = details.length > 0 ? details.join(' · ') : 'Everything was already up to date';
 
-                reloadStatusAlert.innerHTML = `
-                  <div class="d-flex align-items-center gap-2 mb-1">
-                    <i class="bi-check-circle-fill text-success fs-6"></i>
-                    <strong>Metadata Reload Complete!</strong>
-                  </div>
-                  <div class="text-white-50 small">${escapeHtml(summaryText)}.</div>
-                `;
+                showTaskResult(reloadStatusAlert, 'done',
+                    `<strong>Metadata reloaded</strong><span class="task-status-detail">${escapeHtml(summaryText)}</span>`,
+                    { html: true });
             }
 
             try {
@@ -3414,20 +3319,20 @@ function attachModalHandlers(modal, options = {}) {
                 const statMissingCov = modal.querySelector('#reloadStatMissingCovers');
                 if (statMissingDur) {
                     statMissingDur.textContent = updatedMissingDur;
-                    statMissingDur.className = `text-white fw-bold fs-6 ${updatedMissingDur > 0 ? 'text-warning' : 'text-success'}`;
+                    statMissingDur.className = 'text-white fw-bold fs-6';
                 }
                 if (statMissingCov) {
                     statMissingCov.textContent = updatedMissingCov;
-                    statMissingCov.className = `text-white fw-bold fs-6 ${updatedMissingCov > 0 ? 'text-warning' : 'text-success'}`;
+                    statMissingCov.className = 'text-white fw-bold fs-6';
                 }
             } catch {}
 
             if (reloadExecuteBtn) {
-                reloadExecuteBtn.innerHTML = '<i class="bi-check2"></i> Finished';
+                reloadExecuteBtn.textContent = 'Finished';
                 setTimeout(() => {
                     if (reloadExecuteBtn) {
                         reloadExecuteBtn.disabled = false;
-                        reloadExecuteBtn.innerHTML = '<i class="bi-arrow-repeat"></i> Reload Library Metadata';
+                        reloadExecuteBtn.textContent = 'Reload metadata';
                     }
                 }, 3000);
             }
@@ -3454,19 +3359,13 @@ function attachModalHandlers(modal, options = {}) {
             total: 0,
             percent: 0,
             phase: 'start',
-            name: 'Connecting to MusicBrainz & analyzing tab files...',
+            name: '',
             stats: { addedDurations: 0, addedCovers: 0, updatedTunings: 0 }
         };
 
         reloadExecuteBtn.disabled = true;
-        reloadExecuteBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span> Reloading...';
-        if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop / Cancel';
-
-        if (reloadProgressContainer) reloadProgressContainer.style.display = 'block';
-        if (reloadStatusAlert) {
-            reloadStatusAlert.style.display = 'none';
-            reloadStatusAlert.innerHTML = '';
-        }
+        reloadExecuteBtn.textContent = 'Reloading…';
+        if (reloadCancelBtn) reloadCancelBtn.textContent = 'Stop';
         updateReloadProgressUI(activeReloadState.progress);
 
         try {

@@ -128,7 +128,7 @@ export async function saveStoredFile(file, providerId = 'local', metadata = {}) 
     };
 
     return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const tx = storedFilesWriteTx(db);
         const store = tx.objectStore(STORE_NAME);
         const req = store.put(record);
 
@@ -144,7 +144,7 @@ export async function saveStoredFile(file, providerId = 'local', metadata = {}) 
 export async function putStoredFileRecord(record) {
     const db = await getDB();
     return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const tx = storedFilesWriteTx(db);
         const req = tx.objectStore(STORE_NAME).put(record);
         req.onsuccess = () => resolve(record);
         req.onerror = () => reject(req.error);
@@ -196,18 +196,60 @@ export async function getStoredFileRecord(id) {
     });
 }
 
+let storedFilesCache = null;
+let storedFilesCacheVersion = 0;
+
+/** A readwrite transaction on stored_files that invalidates the metadata cache before and after it. */
+function storedFilesWriteTx(db) {
+    invalidateStoredFilesCache();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.addEventListener('complete', invalidateStoredFilesCache);
+    return tx;
+}
+
+/** Call before any write to the stored_files store so the next read sees it. */
+function invalidateStoredFilesCache() {
+    storedFilesCacheVersion++;
+    storedFilesCache = null;
+}
+
 /**
- * Get all stored file records (without loading large binary data into memory).
+ * A cheap fingerprint of the store (record count and newest save time) read from keys only, so no record is
+ * deserialized. It catches writes from another tab or window that this module could not see.
+ */
+async function storedFilesSignature(db) {
+    const count = await new Promise((resolve, reject) => {
+        const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).count();
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+    });
+    const newest = await new Promise((resolve, reject) => {
+        const req = db.transaction(STORE_NAME, 'readonly').objectStore(STORE_NAME).index('savedAt').openKeyCursor(null, 'prev');
+        req.onsuccess = () => resolve(req.result ? req.result.key : 0);
+        req.onerror = () => reject(req.error);
+    });
+    return `${count}:${newest}`;
+}
+
+/**
+ * Get all stored file records without their binary data.
+ *
+ * A cursor has to deserialize each record, binary included, to hand back its metadata, which costs hundreds of
+ * milliseconds on a library of a few hundred tabs. The metadata is cached and revalidated with a key-only
+ * fingerprint, so repeat calls (the Data screens, sync, backup) are near-instant.
  * @returns {Promise<Array<object>>}
  */
 export async function getAllStoredFiles() {
     const db = await getDB();
-    return new Promise((resolve, reject) => {
+    const signature = await storedFilesSignature(db);
+    if (storedFilesCache && storedFilesCache.signature === signature && storedFilesCache.version === storedFilesCacheVersion) {
+        return storedFilesCache.items.map((m) => ({ ...m }));
+    }
+    const version = storedFilesCacheVersion;
+    const items = await new Promise((resolve, reject) => {
         const tx = db.transaction(STORE_NAME, 'readonly');
-        const store = tx.objectStore(STORE_NAME);
-        const req = store.openCursor();
+        const req = tx.objectStore(STORE_NAME).openCursor();
         const results = [];
-
         req.onsuccess = (e) => {
             const cursor = e.target.result;
             if (cursor) {
@@ -220,6 +262,14 @@ export async function getAllStoredFiles() {
         };
         req.onerror = () => reject(req.error);
     });
+    // Only keep it if nothing wrote while we were reading
+    if (version === storedFilesCacheVersion) storedFilesCache = { signature, version, items };
+    return items.map((m) => ({ ...m }));
+}
+
+/** Read the metadata ahead of time, off the critical path, so the first Data screen opens at once. */
+export function prewarmStoredFiles() {
+    return getAllStoredFiles().catch(() => {});
 }
 
 /**
@@ -229,7 +279,7 @@ export async function getAllStoredFiles() {
 export async function deleteStoredFile(id) {
     const db = await getDB();
     return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const tx = storedFilesWriteTx(db);
         const store = tx.objectStore(STORE_NAME);
         const req = store.delete(id);
 
@@ -244,7 +294,7 @@ export async function deleteStoredFile(id) {
 export async function clearAllStoredFiles() {
     const db = await getDB();
     return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const tx = storedFilesWriteTx(db);
         const store = tx.objectStore(STORE_NAME);
         const req = store.clear();
         req.onsuccess = () => resolve(true);
@@ -321,7 +371,7 @@ export async function importFileStore(exportedData) {
         };
 
         await new Promise((resolve, reject) => {
-            const tx = db.transaction(STORE_NAME, 'readwrite');
+            const tx = storedFilesWriteTx(db);
             const store = tx.objectStore(STORE_NAME);
             const req = store.put(record);
             req.onsuccess = () => { count++; resolve(); };

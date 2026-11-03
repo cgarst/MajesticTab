@@ -2427,3 +2427,55 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 #controllerHelpModal .controller-ref-title { border-bottom: 0; }
 #controllerHelpModal .controller-ref-item { border-bottom: 0 !important; }
 #controllerHelpModal .controls-tab-bar { border-bottom: 0; justify-content: flex-start !important; }
+
+/* ---------- Task status and progress (backup, restore, reload, cleanup) ----------
+   One flat component for "this is happening" and "this happened", in the place the task reports on itself.
+   Tone step behind it, one hue for the fill, transform-only motion, no spinners, no outlines. */
+.task-status { margin: 8px 0 4px; padding: 12px 14px; background: var(--s2); border-radius: var(--r-card); color: var(--ink); font-size: 14px; line-height: 1.4; }
+.task-status:empty { display: none !important; }
+.task-status strong { display: block; font-weight: 600; }
+.task-status-detail { display: block; margin-top: 2px; color: var(--ink2); }
+.task-status-error { color: var(--danger); }
+.task-status-error .task-status-detail { color: var(--ink2); }
+.task-status-info { color: var(--ink2); }
+.task-progress { display: grid; gap: 10px; }
+.task-progress-text { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.task-progress-label { flex: 0 0 auto; color: var(--ink); font-weight: 600; }
+.task-progress-detail { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink2); }
+.task-progress-detail:not(:empty)::before { content: "\00B7"; margin-right: 8px; }
+.task-progress-track { position: relative; height: 4px; overflow: hidden; border-radius: 2px; background: var(--s3); }
+.task-progress-fill { position: absolute; inset: 0; border-radius: 2px; background: var(--hue); transform: scaleX(0); transform-origin: left center; transition: transform var(--dur-base) var(--ease-out); }
+.task-progress-track.is-indeterminate .task-progress-fill { right: auto; width: 30%; transform: translateX(-100%); transition: none; animation: task-progress-slide 1.4s linear infinite; }
+@keyframes task-progress-slide { to { transform: translateX(333%); } }
+@media (prefers-reduced-motion: reduce) {
+  .task-progress-fill { transition: none; }
+  .task-progress-track.is-indeterminate .task-progress-fill { animation: none; transform: none; width: 30%; }
+}
+/* Counts and states inside the data screens are ink, not signal colours */
+.data-task-slot .text-info, .data-task-slot .text-primary, .data-task-slot .text-warning { color: var(--ink) !important; }
+.data-task-slot #restoreDriveLoading { text-align: left !important; }
+
+/* Data rows in Settings: a verb on the right, the whole row is the target, one tone step while open */
+.srow-task { position: relative; }
+.srow-task:hover { background: var(--s3); }
+.srow-task:has(button[aria-expanded="true"]) { background: var(--s3); }
+.srow-task:has(button:focus-visible) { outline: 2px solid var(--hue); outline-offset: -2px; }
+.srow .srow-hit { position: static; min-width: 64px; text-align: right; }
+.srow .srow-hit::after { content: ""; position: absolute; inset: 0; }
+.srow .srow-hit:focus-visible { outline: none; }
+.srow .srow-hit.is-danger { color: var(--danger) !important; }
+.srow .srow-hit:hover:not(:disabled) { background: transparent; }
+@media (max-width: 899px) { .srow.srow-task { flex-wrap: nowrap; } .srow.srow-task .sc { width: auto; } .srow.srow-task .srow-hit { min-height: 44px; min-width: 56px; } }
+
+/* A data task opens as the rest of its row: same surface, same left edge, no page of its own */
+.srow-task:has(button[aria-expanded="true"]) { padding-bottom: 6px; }
+.data-task-slot { background: var(--s3); padding: 0 14px 12px; }
+.data-task-slot .theme-modal-body, #backupModal.is-embedded .theme-modal-body { padding: 0 !important; }
+.data-task-slot .theme-modal-card > :first-child, .data-task-slot .theme-modal-body > :first-child > :first-child { margin-top: 0 !important; }
+.data-task-slot .backup-summary-box { padding: 4px 0 8px !important; margin-bottom: 4px !important; }
+.data-task-slot .backup-summary-box:last-child, .data-task-slot .theme-modal-body > div > :last-child { margin-bottom: 0 !important; }
+.data-task-slot .d-flex.justify-content-end.pt-1 { padding-top: 8px !important; }
+.data-task-slot .task-status, .data-task-slot .task-status:not(:empty) { background: var(--s2); }
+.data-task-slot .p-3 { padding: 0 !important; }
+.data-task-slot .mb-3 { margin-bottom: 12px !important; }
+.srow-task:has(button[aria-expanded="true"]) + .data-task-slot:not([hidden]) { margin-top: -2px; }

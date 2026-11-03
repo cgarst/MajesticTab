@@ -298,10 +298,17 @@ export function initSettingsPage() {
     }
     // The data tasks are rows like every other setting. Choosing one opens it in place under its row, and only one
     // is open at a time. They are the same screens the old popup had.
-    const taskRow = (tab, title, help, label, danger) => {
-        const btn = el('button', 'btn btn-sm ' + (danger ? 'btn-theme-danger' : 'btn-theme-outline'), label);
+    const taskRow = (tab, title, help, label, danger, name = title) => {
+        // The verb is the visible action; the button stretches over its row so the whole row is the target
+        const btn = el('button', 'btn btn-sm srow-ghost srow-hit' + (danger ? ' is-danger' : ''), label);
         btn.type = 'button';
+        btn.dataset.label = label;
+        btn.setAttribute('aria-label', name);
         btn.setAttribute('aria-expanded', 'false');
+        // The first open reads every stored tab once; start that as soon as the pointer is near
+        const warm = () => import('../fileStore.js').then((m) => m.prewarmStoredFiles()).catch(() => {});
+        btn.addEventListener('pointerenter', warm, { once: true });
+        btn.addEventListener('focus', warm, { once: true });
         const slot = el('div', 'data-task-slot');
         slot.dataset.task = tab;
         slot.hidden = true;
@@ -310,7 +317,9 @@ export function initSettingsPage() {
             if (btn.getAttribute('aria-expanded') === 'true') mod.closeBackupModal();
             else mod.openBackupModal(tab);
         });
-        return [row(title, help, btn), slot];
+        const r = row(title, help, btn);
+        r.classList.add('srow-task');
+        return [r, slot];
     };
     const taskGroup = (title, ...tasks) => {
         const g = group(title, ...tasks.flat());
@@ -318,14 +327,14 @@ export function initSettingsPage() {
     };
     if (lib.length) panes.library.appendChild(group('Sync', ...lib));
     panes.library.appendChild(taskGroup('Back up and restore',
-        ...[taskRow('backup', 'Create a backup', 'Save everything to a file, a folder or your cloud.', 'Open'),
-            taskRow('restore', 'Restore from a backup', 'Bring a backup or snapshot back.', 'Open')]));
+        ...[taskRow('backup', 'Create a backup', 'Save everything to a file, a folder or your cloud.', 'Create'),
+            taskRow('restore', 'Restore from a backup', 'Bring a backup or snapshot back.', 'Restore')]));
     panes.library.appendChild(taskGroup('Upkeep',
-        ...[taskRow('reload', 'Reload library metadata', 'Refresh covers, durations and album details.', 'Open'),
-            taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Open')]));
+        ...[taskRow('reload', 'Reload library metadata', 'Refresh covers, durations and album details.', 'Reload'),
+            taskRow('orphans', 'Orphaned files', 'Find stored tabs that no library song uses.', 'Review', false, 'Review orphaned files')]));
     const danger = taskGroup('Danger zone',
-        ...[taskRow('cache', 'Clear cached data', 'Covers and downloads, kept only to load faster.', 'Open', true),
-            taskRow('delete', 'Delete all data', 'Removes your library, setlists and settings from this device.', 'Open', true)]);
+        ...[taskRow('cache', 'Clear cached data', 'Covers and downloads, kept only to load faster.', 'Clear', true),
+            taskRow('delete', 'Delete all data', 'Removes your library, setlists and settings from this device.', 'Delete', true)]);
     danger.classList.add('danger');
     panes.library.appendChild(danger);
     // keep the originals referenced so their ids stay unique if anything still looks them up
@@ -364,6 +373,8 @@ export function initSettingsPage() {
         Object.entries(panes).forEach(([k, p]) => { p.hidden = k !== id; });
         wrap.dataset.pane = 'page';
         wrap.dataset.section = id;
+        // The data screens count every stored tab; read them while the page is being looked at
+        if (id === 'library') (window.requestIdleCallback || setTimeout)(() => import('../fileStore.js').then((m) => m.prewarmStoredFiles()).catch(() => {}));
         if (focus) page.scrollTop = 0;
     }
     nav.addEventListener('click', (e) => {
