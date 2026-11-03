@@ -605,7 +605,7 @@ export class FretboardView {
 
     clearPickReach() {
         if (this.reachGroup) this.reachGroup.textContent = '';
-        (this.partPickPool || []).forEach((p) => { p.group.style.display = 'none'; });
+        (this.partPickPool || []).forEach((p) => { p.sweep?.cancel(); p.sweep = null; p.group.style.display = 'none'; });
     }
 
     /** A pick marker that belongs to one part, created on first use and then reused. */
@@ -636,14 +636,16 @@ export class FretboardView {
 
     /**
      * One pick per part, each in its own vertical lane so picks sounding together never share a line. Lanes follow the
-     * parts' colour order, which keeps a part in the same lane from beat to beat. The pick sits on the first string
-     * the part plays. Where the part plays the strings directly after the first (a strum) a solid bar joins them; where there is a gap and
+     * parts' colour order, which keeps a part in the same lane from beat to beat. A pick that hits several strings
+     * sweeps from the first string it plays to the last and stays there, at the end of the line drawn for it. Where
+     * the part plays the strings directly after the first (a strum) a solid bar joins them; where there is a gap and
      * more strings still sound (plucked), a dotted line runs on to them. Every other sounding string gets a bead.
      * @param {Map<number, {strings: Set<number>, trackColor: string, trackGrad: string}>} partPicks
      */
     drawPartPicks(partPicks) {
         const svgNS = 'http://www.w3.org/2000/svg';
         const laneStep = 22 * (this.isLeftHanded ? 1 : -1);
+        const reduceMotion = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
         const yOf = (str) => this.stringYs[this.getVisualString(str)];
         let lane = 0;
 
@@ -656,13 +658,24 @@ export class FretboardView {
             const x = this.pickX + lane * laneStep;
             lane++;
 
-            pick.group.setAttribute('transform', `translate(${x}, ${yOf(first)})`);
+            pick.group.setAttribute('transform', `translate(${x}, ${yOf(last)})`);
             pick.group.style.display = '';
             pick.struckToggle = !pick.struckToggle;
             pick.group.setAttribute('class', `fretboard-pick-marker ${pick.struckToggle ? 'is-struck' : 'is-struck-alt'}`);
             pick.pick.style.fill = part.trackGrad;
 
+            pick.sweep?.cancel();
+            pick.sweep = null;
             if (strings.length === 1 || !this.reachGroup) return;
+
+            // The sweep covers the line from the first string to the last, quicker the fewer strings it crosses
+            if (!reduceMotion && pick.group.animate) {
+                const ms = Math.min(220, 40 + 28 * (strings.length - 1));
+                pick.sweep = pick.group.animate(
+                    [{ transform: `translate(${x}px, ${yOf(first)}px)` }, { transform: `translate(${x}px, ${yOf(last)}px)` }],
+                    { duration: ms, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' }
+                );
+            }
 
             // The unbroken run of strings after the first is the strum
             let strumEnd = first;
@@ -681,7 +694,8 @@ export class FretboardView {
             if (strumEnd > first) line(yOf(first), yOf(strumEnd), 'pick-reach-strum');
             if (last > strumEnd) line(yOf(strumEnd), yOf(last), 'pick-reach-pluck');
 
-            strings.slice(1).forEach((str) => {
+            // The pick itself ends on the last string, so the beads mark the strings it passed
+            strings.slice(0, -1).forEach((str) => {
                 const bead = document.createElementNS(svgNS, 'circle');
                 bead.setAttribute('class', str <= strumEnd ? 'pick-reach-bead is-strum' : 'pick-reach-bead is-pluck');
                 bead.setAttribute('cx', x);
