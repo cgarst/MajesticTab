@@ -1981,10 +1981,10 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 
 /* Mockup: a row that runs edge to edge (Library, Setlists, Tunings and Recents) is a rectangle; anything inset from the edge (rail, settings nav, Tools rows) is rounded */
 .library-card, .library-row-card, .library-song-row, .library-track-row, .library-pinned-card,
-.pinned-group-card, .tuning.tuning-card, .setlist-card, .recent-row, .shelf-item {
+.pinned-group-card, .tuning.tuning-card, .setlist-card, .recent-row {
   border-radius: 0 !important;
 }
-.setnav button, .library-bottom-nav .library-nav-tab, .tools-page-row { border-radius: var(--r-control) !important; }
+.setnav button, .library-bottom-nav .library-nav-tab, .tools-page-row, .shelf-item { border-radius: var(--r-control) !important; }
 /* From 1000px the panes run edge to edge like the mockup: no inset, so the square rows meet the rail and the page edge */
 @media (min-width: 1000px) {
   .panes { margin-left: -20px; width: calc(100% + 40px); max-width: none; }
