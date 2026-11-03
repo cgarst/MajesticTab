@@ -2621,11 +2621,12 @@ body > #controllerHelpModal { display: none; }
 .fretboard-capo-bar { stroke: none; filter: none; }
 .fretboard-capo-label { fill: var(--on-action, var(--ink)); }
 .fretboard-note-marker .marker-glow { display: none; }
-.fretboard-note-marker .marker-circle,
+.fretboard-note-marker .marker-circle { stroke: var(--ground); stroke-width: 1; box-shadow: none; }
+/* A two-part dot is told apart by hue alone: no seam, so the note letter never sits on a dark line. The outline ring stays. */
 .fretboard-note-marker .marker-split-left,
-.fretboard-note-marker .marker-split-right { stroke: var(--ground); stroke-width: 1; box-shadow: none; }
-.fretboard-note-marker .marker-split-divider { stroke: var(--ground); stroke-width: 1; }
-.fretboard-note-marker .marker-outline { stroke: var(--ground); stroke-width: 1; }
+.fretboard-note-marker .marker-split-right { stroke: none; box-shadow: none; }
+.fretboard-note-marker .marker-split-divider { display: none !important; }
+.fretboard-note-marker .marker-outline { fill: none; stroke: var(--ground); stroke-width: 1; }
 .fretboard-note-marker .marker-text { fill: black; font-weight: 700; }
 .fretboard-note-marker .marker-dead { stroke: black; }
 .pick-strike-shape { stroke: none; }
