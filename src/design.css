@@ -1970,7 +1970,22 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 [data-theme="Slate Blue"] .pinned-group-card[aria-current="true"]::before,
 [data-theme="Slate Blue"] .tuning-card[aria-current="true"]::before { content: none; }
 
-/* Slate Blue: the rail's ground is close to the card tone, so the open destination takes the hover tone to stay visible */
+/* Slate Blue: the rail sits a step darker than the library ground, as in the other finishes */
 @media (min-width: 577px) {
-  [data-theme="Slate Blue"] .library-bottom-nav .library-nav-tab.active { background: var(--s3); }
+  [data-theme="Slate Blue"] body.library-view-active .library-bottom-nav { background: color-mix(in srgb, var(--s1) 45%, #000) !important; }
+  body[data-theme="Slate Blue"].library-view-active .library-bottom-nav,
+  [data-theme="Slate Blue"].library-view-active .library-bottom-nav { background: color-mix(in srgb, var(--s1) 45%, #000) !important; }
+}
+
+/* Mockup: a row that runs edge to edge (Library, Setlists, Tunings and Recents) is a rectangle; anything inset from the edge (rail, settings nav, Tools rows) is rounded */
+.library-card, .library-row-card, .library-song-row, .library-track-row, .library-pinned-card,
+.pinned-group-card, .tuning.tuning-card, .setlist-card, .recent-row, .shelf-item {
+  border-radius: 0 !important;
+}
+.setnav button, .library-bottom-nav .library-nav-tab, .tools-page-row { border-radius: var(--r-control) !important; }
+/* From 1000px the panes run edge to edge like the mockup: no inset, so the square rows meet the rail and the page edge */
+@media (min-width: 1000px) {
+  .panes { margin-left: -20px; width: calc(100% + 40px); max-width: none; }
+  .pane.list { padding-right: 0; }
+  .pane.songs { padding-left: 0; }
 }
