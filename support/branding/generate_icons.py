@@ -1,4 +1,4 @@
-"""Regenerate the web PNG/ICO icons from icon_v4_mono.svg.
+"""Regenerate the web PNG/ICO icons from icon_v3.svg.
 
 The iOS and maskable icons are opaque full-bleed squares (the OS applies its own mask);
 the rest keep a transparent background.
@@ -13,7 +13,7 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 OUT_DIRS = [HERE.parent.parent / "src" / "icons", HERE.parent.parent / "docs" / "icons"]
-SOURCE = HERE / "icon_v4_mono.svg"
+SOURCE = HERE / "icon_v3.svg"
 
 PNG_SIZES = {
     "android-chrome-192x192.png": 192,
@@ -21,7 +21,7 @@ PNG_SIZES = {
     "favicon-16x16.png": 16,
     "favicon-32x32.png": 32,
 }
-# Flat white ground for the opaque icons (the pick is black): no gradient.
+# Flat white ground for the opaque icons (the pick is Slate Blue ink): no gradient.
 BACKGROUND = ((0xFF, 0xFF, 0xFF), (0xFF, 0xFF, 0xFF))
 # name -> (size, art longest side as a fraction of the canvas)
 OPAQUE_SIZES = {
