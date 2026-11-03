@@ -686,10 +686,6 @@ body.practice-open #output { padding-right: 416px !important; }
     width: 76px; padding: 14px 8px; gap: 2px; background: var(--ground) !important; border: 0 !important;
   }
   body.library-view-active #libraryPage { padding-left: 76px; }
-  .rail-brand { display: flex; align-items: center; justify-content: center; height: 48px; margin-bottom: 10px; gap: 10px; font-weight: 600; font-size: 16px; letter-spacing: -.01em; }
-  .rail-pick { width: 34px; height: 36px; flex: none; }
-  .rail-wordmark { display: none; }
-  .rail-wordmark b { font-weight: 600; color: var(--accent-text); }
   .library-bottom-nav .library-nav-tab { min-height: 48px; border-radius: var(--r) !important; font-size: 11px; font-weight: 500; }
   .library-bottom-nav .library-nav-tab.active { background: var(--s2); color: var(--ink); }
   .library-bottom-nav .library-nav-tab.active i { color: var(--ink); }
@@ -700,8 +696,6 @@ body.practice-open #output { padding-right: 416px !important; }
 @media (min-width: 1000px) {
   body.library-view-active .library-bottom-nav { width: 212px; padding: 16px 12px; }
   body.library-view-active #libraryPage { padding-left: 212px; }
-  .rail-brand { justify-content: flex-start; padding-left: 6px; }
-  .rail-wordmark { display: inline; }
   .library-bottom-nav .library-nav-tab { flex-direction: row; justify-content: flex-start; gap: 12px; font-size: 14px; padding: 0 12px; }
   .library-bottom-nav .library-nav-tab.active::before { left: -2px; }
 }
@@ -802,7 +796,7 @@ body.settings-as-page #fileMenu {
 body.settings-as-page.library-view-active #fileMenu { top: 0; height: 100%; }
 html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-page.library-view-active #fileMenu { top: 0; }
 /* Desktop shells keep the bar (drag strip and window controls) above Settings */
-.tauri-macos body.settings-as-page.library-view-active #fileMenu, .tauri-windows body.settings-as-page.library-view-active #fileMenu { top: var(--bar-h, 52px); height: calc(100% - var(--bar-h, 52px)); }
+.tauri-windows body.settings-as-page.library-view-active #fileMenu { top: var(--bar-h, 52px); height: calc(100% - var(--bar-h, 52px)); }
 @media (min-width: 577px) {
   body.settings-as-page.library-view-active #fileMenu { left: 76px; width: calc(100vw - 76px) !important; }
 }
@@ -851,7 +845,6 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 
 /* Phone: five tabs, no brand or Tools (Tools stays in the top bar) */
 @media (max-width: 576px) {
-  .library-bottom-nav .rail-brand { display: none !important; }
   body.library-view-active .library-bottom-nav { background: var(--s1) !important; }
   .library-bottom-nav .library-nav-tab { font-size: 11px; font-weight: 500; }
   .library-bottom-nav .library-nav-tab.active { background: transparent; color: var(--ink); }
@@ -2241,6 +2234,26 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 @media (min-width: 577px) {
   .tauri-macos body.library-view-active #topBar, .tauri-windows body.library-view-active #topBar { background: transparent !important; z-index: 1050; }
   .tauri-macos body.library-view-active, .tauri-windows body.library-view-active { background: var(--s1) !important; }
-  .tauri-macos body.library-view-active .library-bottom-nav, .tauri-windows body.library-view-active .library-bottom-nav { top: 0; padding-top: calc(var(--bar-h) + 16px); }
+  .tauri-macos body.library-view-active .library-bottom-nav, .tauri-windows body.library-view-active .library-bottom-nav { top: 0; }
+  .tauri-macos body.library-view-active .library-bottom-nav { padding-top: 48px; }
 }
 #ytDropdownPanel [hidden] { display: none !important; }
+
+/* Desktop shells, library: the bar takes no room. It is a thin drag strip over the top edge, and full height only
+   while a song is open (the way back sits in it). Windows keeps its controls clear of the page's first row. */
+@media (min-width: 577px) {
+  .tauri-macos body.library-view-active #topBar, .tauri-windows body.library-view-active #topBar {
+    position: fixed; top: 0; left: 0; right: 0; height: 20px; min-height: 0; padding-top: 0 !important; padding-bottom: 0 !important; overflow: visible;
+  }
+  .tauri-macos body.library-view-active:has(#brandSection.has-return-song) #topBar,
+  .tauri-windows body.library-view-active:has(#brandSection.has-return-song) #topBar { height: var(--bar-h); }
+  .tauri-macos body.library-view-active:has(#brandSection.has-return-song) #libraryPage,
+  .tauri-windows body.library-view-active:has(#brandSection.has-return-song) #libraryPage { padding-top: var(--bar-h); }
+  .tauri-windows body.library-view-active #libraryPage { padding-top: 20px; }
+}
+
+/* About: the one place the pick appears */
+.about-brand { display: flex; align-items: center; gap: 14px; padding: 12px 0 0; margin-bottom: 20px; }
+.about-mark { width: 44px; height: 46px; flex: none; }
+.about-wordmark { font: 700 28px/1 var(--font-display); letter-spacing: -.01em; color: var(--ink); }
+.about-wordmark b { font-weight: 700; color: var(--ink2); }

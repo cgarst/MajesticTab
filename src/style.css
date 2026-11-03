@@ -428,15 +428,7 @@ body {
   display: none !important;
 }
 
-.tauri-macos #topBar {
-  min-height: 50px;
-}
-
-/* Reserve the native window-control inset inside the left column so the grid stays symmetric
-   (#centerSection centered in the window) without leaving a gap on the right */
-.tauri-macos #brandSection {
-  padding-left: 68px;
-}
+/* The window-control insets (--wc-l, --wc-r) and the bar height (--bar-h) live in design.css. */
 
 /* iOS Status Bar clearance in portrait mode */
 @media (orientation: portrait) {
@@ -473,18 +465,8 @@ body {
   position: fixed;
   top: 0;
   right: 0;
-  height: 50px;
+  height: var(--bar-h, 52px);
   z-index: 1001;
-}
-
-.tauri-windows #topBar {
-  min-height: 50px;
-}
-
-/* Reserve the window-control inset inside the right column so the grid stays symmetric
-   (#centerSection centered in the window) without leaving a gap on the left */
-.tauri-windows #rightSection {
-  padding-right: 132px;
 }
 
 .win-ctrl-btn {
@@ -511,7 +493,7 @@ body {
 }
 
 .tauri-windows .settings-page {
-  top: 50px;
+  top: var(--bar-h, 52px);
 }
 
 #topBar::-webkit-scrollbar {
@@ -1747,7 +1729,7 @@ input[type=range]::-webkit-slider-thumb:hover {
 }
 
 .tauri-macos .settings-page {
-  top: 50px;
+  top: var(--bar-h, 52px);
 }
 
 /* Clip the shadow's upward bleed onto the top bar */
@@ -1758,8 +1740,8 @@ input[type=range]::-webkit-slider-thumb:hover {
 
 .tauri-macos .offcanvas-backdrop,
 .tauri-windows .offcanvas-backdrop {
-  top: 50px;
-  height: calc(100% - 50px);
+  top: var(--bar-h, 52px);
+  height: calc(100% - var(--bar-h, 52px));
 }
 
 .offcanvas-header {
@@ -4723,11 +4705,11 @@ body.library-view-active #brandSection:not(.has-return-song) .brand-title {
 }
 
 .tauri-macos .downloader-nav-row {
-  padding-left: 84px;
+  padding-left: calc(12px + var(--wc-l, 0px));
 }
 
 .tauri-windows .downloader-nav-row {
-  padding-right: 148px;
+  padding-right: calc(12px + var(--wc-r, 0px));
 }
 
 .downloader-nav-left {
