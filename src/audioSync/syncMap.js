@@ -94,6 +94,22 @@ export function segmentTempos(points, writtenBpm) {
     return out;
 }
 
+/**
+ * Written time / recording time at score time `scoreMs`: the rate the recording plays the score at there (above 1
+ * means faster than written). Outside the first and last point it carries on at the adjacent segment's rate, and a
+ * single point or a degenerate segment gives 1.
+ */
+export function ratioAtScore(points, scoreMs) {
+    const n = points.length;
+    if (n < 2) return 1;
+    let i = 0;
+    while (i < n - 2 && points[i + 1].scoreMs <= scoreMs) i++;
+    const a = points[i];
+    const b = points[i + 1];
+    const ratio = (b.scoreMs - a.scoreMs) / (b.timeMs - a.timeMs);
+    return Number.isFinite(ratio) && ratio > 0 ? ratio : 1;
+}
+
 /** Returns a new sorted list with `point` inserted, replacing any point with the same id. Does not validate. */
 export function withPoint(points, point) {
     return [...points.filter(p => p.id !== point.id), point].sort((a, b) => a.timeMs - b.timeMs);

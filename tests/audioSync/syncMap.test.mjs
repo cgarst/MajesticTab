@@ -69,3 +69,13 @@ test('withPoint keeps order and replaces by id', () => {
     assert.equal(moved.length, 4);
     assert.equal(moved[1].timeMs, 2500);
 });
+
+test('ratioAtScore gives the recording rate at a score time, carrying on past the ends', async () => {
+    const { ratioAtScore } = await import('../../src/audioSync/syncMap.js');
+    const pts = [{ scoreMs: 0, timeMs: 0 }, { scoreMs: 1000, timeMs: 500 }, { scoreMs: 2000, timeMs: 1500 }];
+    assert.equal(ratioAtScore(pts, 500), 2);
+    assert.equal(ratioAtScore(pts, 1500), 1);
+    assert.equal(ratioAtScore(pts, 5000), 1);
+    assert.equal(ratioAtScore(pts.slice(0, 1), 100), 1);
+    assert.equal(ratioAtScore([], 100), 1);
+});
