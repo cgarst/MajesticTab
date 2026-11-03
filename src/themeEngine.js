@@ -1,12 +1,22 @@
 /**
  * MajesticTab Theme Engine
  * Ported from concerts with 8 iconic guitar finish themes.
- * Default theme: 'Mystic Dream'
+ * Default theme: 'Slate Blue'
  * Sheet appearance: Auto / Light / Dark / Guitar Finish (all in one row)
  */
 
 
 export const THEMES = [
+  {
+    id: 'Slate Blue',
+    name: 'Slate Blue',
+    subtitle: 'Charcoal Flame Top, Slate and Copper',
+    gradient: 'linear-gradient(135deg, #8db4f2, #1e2636)',
+    bg: '#1e2636',
+    accent: '#8db4f2',
+    secondary: '#f0a850',
+    colorway: ['#8db4f2', '#f0a850', '#8fb0e8', '#b0bfda', '#d98f3a', '#6f93cf']
+  },
   {
     id: 'Mystic Dream',
     name: 'Mystic Dream',
@@ -36,16 +46,6 @@ export const THEMES = [
     accent: '#06b6d4',
     secondary: '#0284c7',
     colorway: ['#06b6d4', '#0284c7', '#14b8a6', '#22d3ee', '#38bdf8', '#10b981']
-  },
-  {
-    id: 'Slate Blue',
-    name: 'Slate Blue',
-    subtitle: 'Charcoal Flame Top, Slate and Copper',
-    gradient: 'linear-gradient(135deg, #8db4f2, #1e2636)',
-    bg: '#1e2636',
-    accent: '#8db4f2',
-    secondary: '#f0a850',
-    colorway: ['#8db4f2', '#f0a850', '#8fb0e8', '#b0bfda', '#d98f3a', '#6f93cf']
   },
   {
     id: 'Dark Side',
@@ -102,7 +102,7 @@ export const THEMES = [
 const STORAGE_THEME_KEY = 'majestictab_theme';
 const STORAGE_SHEET_MODE_KEY = 'majestictab_sheet_mode';
 
-const DEFAULT_THEME_ID = 'Mystic Dream';
+const DEFAULT_THEME_ID = 'Slate Blue';
 
 /** The saved theme, or the default. */
 export function getCurrentTheme() {
