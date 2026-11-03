@@ -519,7 +519,6 @@ export function openDownloaderSettings(targetSourceId = null) {
     }
     // Store builds ship no userscripts, so the editor is hidden there.
     const showScripts = hasFeature('userscripts');
-    document.getElementById('downloaderCfgUserscriptRow')?.classList.toggle('d-none', !showScripts);
     const subtitle = document.getElementById('downloaderCfgSubtitle');
     if (subtitle) subtitle.textContent = showScripts ? 'Manage search providers and custom userscripts' : 'Manage search providers';
     const modal = document.getElementById('downloaderSettingsModal');
@@ -580,6 +579,9 @@ function populateSettingsForm(sourceId) {
         document.getElementById('downloaderCfgForceDesktopRow')?.classList.toggle('d-none', isDesktopNative());
     }
     // Built-in sources keep their name and URL template fixed.
+    // Nothing is injected on Google's pages (bot detection reads it as automation), so Google has no userscript.
+    // Store builds ship no userscripts at all.
+    document.getElementById('downloaderCfgUserscriptRow')?.classList.toggle('d-none', !hasFeature('userscripts') || src.id === 'google');
     if (nameInp) nameInp.disabled = Boolean(src.isSeed);
     if (urlInp) urlInp.disabled = Boolean(src.isSeed);
     document.getElementById('downloaderCfgResetUrlBtn')?.classList.toggle('d-none', Boolean(src.isSeed));
@@ -613,8 +615,8 @@ function saveCurrentFormValues() {
         }
     }
     if (querySel) src.queryFormat = querySel.value;
-    if (scriptChk) src.userscriptEnabled = scriptChk.checked;
-    if (scriptTxt) src.userscript = scriptTxt.value;
+    if (scriptChk && src.id !== 'google') src.userscriptEnabled = scriptChk.checked;
+    if (scriptTxt && src.id !== 'google') src.userscript = scriptTxt.value;
     if (desktopChk) src.forceDesktop = desktopChk.checked;
 }
 

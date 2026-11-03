@@ -228,6 +228,7 @@ async fn open_tab_downloader(
     {
         builder = builder.visible(false);
     }
+    #[cfg(any(target_os = "android", target_os = "ios"))]
     if force_desktop {
         builder = builder.user_agent(tab_downloader_native::DESKTOP_USER_AGENT);
     }

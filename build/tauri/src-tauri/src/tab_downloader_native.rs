@@ -2,14 +2,15 @@ use std::sync::Mutex;
 use tauri::{App, AppHandle, Emitter, Manager, State, Wry};
 
 #[cfg(target_os = "macos")]
-use objc2_foundation::NSString;
-#[cfg(target_os = "macos")]
 use objc2_web_kit::WKWebView;
 
 use crate::DownloadedTabPayload;
 
 pub const DOWNLOADER_LABEL: &str = "tab-downloader";
 
+// Only used by the mobile per-source "force desktop site" option. The desktop shells send each
+// engine's real user agent: a spoofed one that disagrees with the engine triggers Google captchas.
+#[cfg(any(target_os = "android", target_os = "ios"))]
 pub const DESKTOP_USER_AGENT: &str =
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36";
 
@@ -72,7 +73,15 @@ impl Default for TabDownloaderConfig {
     }
 }
 
+/// Google's bot detection reads page-level tampering (patched window.open, fetch and click hooks) as automation,
+/// so nothing of ours runs on its pages.
+pub fn is_google_host(host: &str) -> bool {
+    let h = host.to_lowercase();
+    h == "google.com" || h.starts_with("google.") || h.contains(".google.")
+}
+
 pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
+    if (/(^|\.)google\.[a-z.]+$/i.test(location.hostname)) return;
     if (window.__majesticDownloaderShimInitialized) return;
     window.__majesticDownloaderShimInitialized = true;
 
@@ -650,8 +659,14 @@ pub fn schedule_userscript_injection(app_handle: &AppHandle) {
                     }
                 }
                 if let Some(w) = handle.get_webview(DOWNLOADER_LABEL) {
+                    if w.url().ok().and_then(|u| u.host_str().map(is_google_host)).unwrap_or(false) {
+                        break;
+                    }
                     let _ = w.eval(&wrapped);
                 } else if let Some(w) = handle.get_webview_window(DOWNLOADER_LABEL) {
+                    if w.url().ok().and_then(|u| u.host_str().map(is_google_host)).unwrap_or(false) {
+                        break;
+                    }
                     let _ = w.eval(&wrapped);
                 }
             }
@@ -981,7 +996,6 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
         DOWNLOADER_LABEL,
         tauri::WebviewUrl::External(blank_url),
     )
-    .user_agent(DESKTOP_USER_AGENT)
     .initialization_script(CORE_DOWNLOADER_SHIM);
 
     #[cfg(feature = "debug-tools")]
@@ -1076,8 +1090,6 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
             layer.setCornerRadius(8.0);
             layer.setMasksToBounds(true);
         }
-        let ua = NSString::from_str(DESKTOP_USER_AGENT);
-        webview.setCustomUserAgent(Some(&ua));
     })?;
 
     downloader.hide()?;
