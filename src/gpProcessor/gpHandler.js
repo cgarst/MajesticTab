@@ -768,30 +768,18 @@ export function populateGpTrackSelectionUI(api) {
         `;
     };
 
-    // Mixer row: any track, with mute, solo, level and pan under the Mix button
-    const renderMixerRow = (ti) => {
-        const name = trackName(ti);
-        return `
-          <div class="gp-track-item" data-track-index="${ti.index}">
-            <div class="gp-track-row d-flex align-items-center justify-content-between no-switch">
-              <div class="form-check mb-0 d-flex align-items-center gap-2">
-                <span class="track-chip-dot gp-track-dot" title="Track color" style="--track-color: ${TRACK_PALETTE[getTrackColorIndexFor(ti.index)]}"></span>
-                <span class="form-check-label small text-truncate" style="max-width: 190px;" title="${name}">${name}</span>
-              </div>
-              <button type="button" class="btn btn-sm theme-control-btn gp-track-mix-btn" aria-expanded="false" aria-label="Mix ${name}: mute, solo, level, pan" title="Mute, solo, level and pan">Mix</button>
-            </div>
-          </div>
-        `;
-    };
-
     synthList.innerHTML = allTracks.filter(ti => activeIdx.has(ti.index)).map(renderGuitarRow).join('');
     if (mixerList) {
-        mixerList.innerHTML = allTracks.map(renderMixerRow).join('');
+        // Mixer: every track, each with its own strip (mute, solo, level, pan)
         const mixerTracks = getMixerTracks();
-        mixerList.querySelectorAll('.gp-track-item').forEach((item) => {
-            const t = mixerTracks[Number(item.dataset.trackIndex)];
+        mixerList.replaceChildren(...allTracks.map((ti) => {
+            const item = document.createElement('div');
+            item.className = 'gp-track-item mixer-item';
+            item.dataset.trackIndex = String(ti.index);
+            const t = mixerTracks[ti.index];
             if (t) item.append(buildTrackMix(t));
-        });
+            return item;
+        }));
         bindTrackMix(mixerList, document.getElementById('synthMixResetBtn'));
     }
 

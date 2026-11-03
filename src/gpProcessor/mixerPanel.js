@@ -49,7 +49,7 @@ export function wireModal(id, openBtnId, onOpen) {
     });
 }
 
-// ---- Per-track mix (mute, solo, level, pan): lives under each track in Song, Tracks ----
+// ---- Per-track mix (mute, solo, level, pan): one always-visible strip per track in the Synth panel's Mixer ----
 function slider(label, cls, min, max, name) {
     const wrap = document.createElement('div');
     wrap.className = 'mixer-slider';
@@ -71,18 +71,37 @@ export function buildTrackMix(t) {
     const box = document.createElement('div');
     box.className = 'track-mix';
     box.dataset.index = t.index;
+
+    // Top line: the track's colour and name, with Mute and Solo
+    const head = document.createElement('div');
+    head.className = 'track-mix-head';
+    const dot = document.createElement('span');
+    dot.className = 'track-chip-dot gp-track-dot';
+    dot.style.setProperty('--track-color', TRACK_PALETTE[getTrackColorIndexFor(t.index)]);
+    const name = document.createElement('span');
+    name.className = 'track-mix-name';
+    name.textContent = t.name;
+    name.title = t.name;
     const toggles = document.createElement('div');
     toggles.className = 'track-mix-toggles';
-    [['mixer-mute-btn', 'Mute'], ['mixer-solo-btn', 'Solo']].forEach(([cls, label]) => {
+    [['mixer-mute-btn', 'Mute', 'M'], ['mixer-solo-btn', 'Solo', 'S']].forEach(([cls, label, letter]) => {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = `btn btn-sm theme-control-btn mixer-toggle ${cls}`;
-        b.textContent = label;
+        b.textContent = letter;
+        b.title = label;
         b.setAttribute('aria-pressed', 'false');
         b.setAttribute('aria-label', `${label} ${t.name}`);
         toggles.append(b);
     });
-    box.append(toggles, slider('Level', 'mixer-volume', 0, 150, t.name), slider('Pan', 'mixer-pan', 0, 16, t.name));
+    head.append(dot, name, toggles);
+
+    // Second line: level and pan, always visible
+    const sliders = document.createElement('div');
+    sliders.className = 'track-mix-sliders';
+    sliders.append(slider('Level', 'mixer-volume', 0, 150, t.name), slider('Pan', 'mixer-pan', 0, 16, t.name));
+
+    box.append(head, sliders);
     return box;
 }
 
@@ -119,13 +138,6 @@ export function bindTrackMix(list, resetBtn) {
             const t = getMixerTracks()[Number(box.dataset.index)];
             setTrackMixer(t.index, btn.classList.contains('mixer-mute-btn') ? { mute: !t.mute } : { solo: !t.solo });
             return;
-        }
-        const open = e.target.closest('.gp-track-mix-btn');
-        if (open) {
-            const item = open.closest('.gp-track-item');
-            const on = item.classList.toggle('mix-open');
-            open.setAttribute('aria-expanded', String(on));
-            refresh();
         }
     });
     list.addEventListener('input', (e) => {

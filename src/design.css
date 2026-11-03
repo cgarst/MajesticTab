@@ -526,12 +526,12 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
    ========================================================================== */
 #synthDropdownPanel, #ytDropdownPanel {
   position: fixed !important; top: var(--topbar-h, 52px) !important; right: 0 !important; left: auto !important; bottom: var(--dock-h, 96px) !important;
-  width: 360px !important; max-width: 100% !important; height: auto !important; max-height: none !important; transform: none !important;
+  width: 400px !important; max-width: 100% !important; height: auto !important; max-height: none !important; transform: none !important;
   border-radius: var(--r-lg) 0 0 var(--r-lg) !important; z-index: 1030; overflow-y: auto; overflow-x: hidden;
   background: var(--s2) !important; animation: practiceIn var(--dur-slow) var(--ease-out);
 }
 @keyframes practiceIn { from { opacity: 0; transform: translate3d(24px, 0, 0); } to { opacity: 1; transform: none; } }
-body.practice-open #output { padding-right: 376px !important; }
+body.practice-open #output { padding-right: 416px !important; }
 @media (max-width: 900px) {
   #synthDropdownPanel, #ytDropdownPanel { top: auto !important; left: 0 !important; width: auto !important; max-height: 86% !important; height: auto !important;
     border-radius: var(--r-lg) var(--r-lg) 0 0 !important; animation: sheetIn var(--dur-slow) var(--ease-out); }
@@ -539,7 +539,7 @@ body.practice-open #output { padding-right: 376px !important; }
 }
 @keyframes sheetIn { from { transform: translate3d(0, 40px, 0); opacity: 0; } to { transform: none; opacity: 1; } }
 #synthDropdownPanel .synth-panel-header, #ytDropdownPanel .yt-panel-header {
-  background: transparent !important; border: 0 !important; padding: 14px 16px 6px; position: sticky; top: 0; z-index: 2;
+  background: var(--s2) !important; border: 0 !important; padding: 14px 16px 6px; position: sticky; top: 0; z-index: 2;
 }
 #synthDropdownPanel .synth-panel-header > div:first-child > i, #ytDropdownPanel .yt-header-badge { display: none !important; }
 #synthPanelTitle, #realAudioPanelTitle { font-size: 0 !important; }
@@ -802,6 +802,8 @@ body.settings-as-page #fileMenu {
 }
 body.settings-as-page.library-view-active #fileMenu { top: 0; height: 100%; }
 body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) #fileMenu { top: 0; }
+/* Desktop shells keep the bar (drag strip and window controls) above Settings */
+body.settings-as-page.library-view-active.tauri-macos #fileMenu, body.settings-as-page.library-view-active.tauri-windows #fileMenu { top: var(--bar-h, 52px); height: calc(100% - var(--bar-h, 52px)); }
 @media (min-width: 577px) {
   body.settings-as-page.library-view-active #fileMenu { left: 76px; width: calc(100vw - 76px) !important; }
 }
@@ -920,7 +922,9 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 :root {
   --wc-l: 0px;
   --wc-r: 0px;
+  --bar-h: 52px;
 }
+.tauri-macos #topBar, .tauri-windows #topBar { min-height: var(--bar-h); }
 .tauri-macos, body.tauri-macos {
   --wc-l: 78px;
 }
@@ -935,19 +939,13 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
   padding-left: calc(12px + var(--wc-l, 0px)) !important;
   padding-right: calc(12px + var(--wc-r, 0px)) !important;
 }
-.library-search-container, .library-search-bar, .library-top-search-row {
-  padding-right: var(--wc-r, 0px);
-}
-.library-body-header, .title-row {
-  padding-right: calc(16px + var(--wc-r, 0px));
-}
 
 .tauri-windows #winControls {
   display: flex;
   position: absolute;
   top: 0;
   right: 0;
-  height: 50px;
+  height: var(--bar-h);
   z-index: 1001;
 }
 .win-ctrl-btn {
@@ -1742,15 +1740,7 @@ body.settings-as-page.library-view-active:not(.tauri-macos):not(.tauri-windows):
 .gp-track-item { display: block; }
 .gp-track-row { grid-template-columns: 10px minmax(0, 1fr) auto auto auto !important; grid-template-areas: "dot label only mix sw" "dot sub only mix sw" !important; }
 .gp-track-row.no-switch { grid-template-columns: 10px minmax(0, 1fr) auto auto !important; grid-template-areas: "dot label only mix" "dot sub only mix" !important; }
-.gp-track-row .gp-track-mix-btn { grid-area: mix; background: transparent !important; color: var(--ink2) !important; font-weight: 500; border: 0 !important; }
-.gp-track-item.mix-open .gp-track-mix-btn { background: var(--s3) !important; color: var(--ink) !important; }
 .gp-track-item.is-muted .gp-track-row .form-check-label { opacity: .5; }
-.track-mix { display: none; flex-direction: column; gap: 6px; padding: 6px 0 12px 22px; }
-.gp-track-item.mix-open .track-mix { display: flex; }
-.track-mix-toggles { display: flex; gap: 8px; }
-.track-mix .mixer-slider { display: flex; align-items: center; gap: 8px; }
-.track-mix .mixer-slider input[type="range"] { flex: 1; min-width: 0; }
-.mixer-slider-label { width: 52px; flex: none; font-size: 13px; color: var(--ink2); }
 .mixer-toggle { width: auto; min-width: 64px; height: 36px; padding: 0 14px; border: 0 !important; background: var(--s3) !important; color: var(--ink2) !important; box-shadow: none !important; }
 .mixer-toggle.active { background: var(--ink) !important; color: var(--ground) !important; }
 .mixer-slider .theme-value-badge { background: transparent !important; border: 0 !important; color: var(--ink2) !important; min-width: 40px; font-variant-numeric: tabular-nums; }
@@ -1879,9 +1869,9 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 .usual-guitar .form-select { width: auto; min-width: 150px; background-color: var(--s3); border: 0; color: var(--ink); }
 
 /* ---------- Practice panel (top bar) and the dock's volume ---------- */
-/* The old Practice panel is never shown. Its controls live in the Practice menu; what is left stays in the DOM for the
-   Settings rows that click it (SoundFonts, Mixer, Audio latency). */
-#synthDropdownPanel { display: none !important; }
+/* The Synth panel shows the synth's sound options (Hear, SoundFonts, audio latency, the mixer). Its scrubber and speed
+   blocks live in the dock ruler and the Practice menu; they stay in the DOM for the code that reads them. */
+#synthDropdownPanel .synth-panel-body > :has(#synthSeekSlider), #synthDropdownPanel .synth-panel-body > :has(#synthSpeedButtons) { display: none !important; }
 #barRulerInfoBtn { display: none !important; }
 .dock-more { width: 32px !important; min-width: 32px !important; padding: 0 !important; }
 #practiceToggleBtn.has-state .bar-btn-label::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle; }
@@ -1980,10 +1970,10 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 @media (max-width: 640px) and (prefers-reduced-motion: reduce) { body:not(.library-view-active) #topFlexZone { transition: none; } }
 
 /* Song, Tracks: visible keyboard focus and 44px targets on touch */
-.gp-track-mix-btn:focus-visible, .gp-track-only-btn:focus-visible, .mixer-toggle:focus-visible, #synthMixResetBtn:focus-visible, #synthShowAllTracksBtn:focus-visible,
+.gp-track-only-btn:focus-visible, .mixer-toggle:focus-visible, #synthMixResetBtn:focus-visible, #synthShowAllTracksBtn:focus-visible,
 .track-mix input[type="range"]:focus-visible { outline: 2px solid var(--ink) !important; outline-offset: 2px; }
 @media (pointer: coarse) {
-  .gp-track-mix-btn, .gp-track-only-btn, .mixer-toggle { min-height: 44px; }
+  .gp-track-only-btn, .mixer-toggle { min-height: 44px; }
   #synthMixResetBtn, #synthShowAllTracksBtn { min-height: 44px; padding: 0 4px !important; }
   .track-mix input[type="range"] { min-height: 44px; }
 }
@@ -2174,10 +2164,31 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 .tracks-title { font: 600 17px system-ui, sans-serif; color: var(--ink); padding: 4px 2px 10px; }
 #tracksMenu #synthTrackVisibilitySection { margin: 0 !important; }
 
-/* Only and Mix are the same kind of text button */
-.gp-track-row .gp-track-only-btn, .gp-track-row .gp-track-mix-btn {
+/* Only: a text button */
+.gp-track-row .gp-track-only-btn {
   font: 500 13px system-ui, sans-serif !important; letter-spacing: 0; line-height: 1.3; padding: 6px 12px !important; min-height: 32px;
   border: 0 !important; border-radius: var(--r) !important; background: transparent !important; color: var(--ink2) !important;
 }
-.gp-track-row .gp-track-only-btn:hover, .gp-track-row .gp-track-mix-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
-@media (pointer: coarse) { .gp-track-row .gp-track-only-btn, .gp-track-row .gp-track-mix-btn { min-height: 44px; } }
+.gp-track-row .gp-track-only-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+@media (pointer: coarse) { .gp-track-row .gp-track-only-btn { min-height: 44px; } }
+
+
+/* Synth panel mixer: each track is a two-line strip, always visible.
+   Line 1: colour bar, name, Mute and Solo. Line 2: level and pan. */
+#synthMixerList { gap: 14px !important; }
+.track-mix { display: flex; flex-direction: column; gap: 8px; }
+.track-mix-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.track-mix .gp-track-dot { flex: none; width: 10px; height: 24px; border-radius: 3px; background: var(--track-color); border: 0; }
+.track-mix-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.track-mix-toggles { display: flex; gap: 6px; flex: none; }
+.track-mix-toggles .mixer-toggle { min-width: 36px; width: 36px; height: 32px; padding: 0; font: 600 13px system-ui, sans-serif; border-radius: var(--r) !important; }
+.track-mix-sliders { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; padding-left: 22px; }
+.track-mix-sliders .mixer-slider { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.track-mix-sliders .mixer-slider-label { width: auto; font-size: 12px; }
+.track-mix-sliders .theme-value-badge { min-width: 0; font-size: 12px; text-align: right; }
+.track-mix-sliders .mixer-volume-badge { width: 38px; }
+.track-mix-sliders .mixer-pan-badge { width: 26px; }
+.gp-track-item.is-muted .track-mix-name, .gp-track-item.is-muted .track-mix-sliders { opacity: .5; }
+@media (pointer: coarse) { .track-mix-toggles .mixer-toggle { min-width: 44px; width: 44px; height: 44px; } }
+@media (max-width: 640px) { .track-mix-sliders { grid-template-columns: 1fr; gap: 8px; } }
+.track-mix .gp-track-dot { box-shadow: none !important; }
