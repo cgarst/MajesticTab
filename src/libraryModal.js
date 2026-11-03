@@ -37,7 +37,7 @@ let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let activeLibraryPane = 'list'; // 'list' | 'songs'
 let selectedArtist = null;
 // The Pinned songs group at the top of the artist list: true when picked, false when an artist was, null for the default
-let pinnedGroupSelected = null;
+let pinnedGroupSelected = null; // 'recents' when the Recents group is picked
 let selectedAlbum = null;
 // Library search text, kept across the re-renders that picking an artist triggers
 let libraryFilterQuery = '';
@@ -739,7 +739,12 @@ async function renderViewContent(content) {
     } else if (activeView === 'search') {
         renderSearchMusicBrainzView(content);
     } else if (activeView === 'recents') {
-        await renderRecentsView(content);
+        // Recents is a group in the library list now; the old route opens it there
+        activeView = 'library';
+        libraryBrowseMode = 'artists';
+        pinnedGroupSelected = 'recents';
+        activeLibraryPane = 'songs';
+        await renderLibraryBrowseView(content);
     } else if (activeView === 'tools') {
         renderToolsView(content);
     } else if (activeView === 'setlists') {
@@ -1333,6 +1338,18 @@ async function renderLibraryBrowseView(container) {
 
             // Pinned songs are their own group above the artists, and the default one when there are any
             const pinnedActive = pinnedSongs.length > 0 && (pinnedGroupSelected === true || (pinnedGroupSelected === null && !hadSelectedArtist));
+            let recentsList = [];
+            try { recentsList = await getRecents(15); } catch (_) { recentsList = []; }
+            const recentsActive = recentsList.length > 0 && pinnedGroupSelected === 'recents';
+            const recentsGroupHtml = recentsList.length > 0 ? `
+              <button type="button" class="library-card pinned-group-card" id="libRecentsGroupBtn" ${recentsActive ? 'aria-current="true"' : ''}>
+                <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-clock-history"></i></span>
+                <span class="min-w-0 flex-grow-1 text-start">
+                  <span class="d-block fw-bold text-white">Recents</span>
+                  <span class="d-block small text-muted tnum">${recentsList.length} ${recentsList.length === 1 ? 'tab' : 'tabs'}</span>
+                </span>
+                <i class="bi-chevron-right text-muted flex-shrink-0"></i>
+              </button>` : '';
             const pinnedGroupHtml = pinnedSongs.length > 0 ? `
               <button type="button" class="library-card pinned-group-card" id="libPinnedGroupBtn" ${pinnedActive ? 'aria-current="true"' : ''}>
                 <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-pin-angle-fill"></i></span>
@@ -1375,10 +1392,11 @@ async function renderLibraryBrowseView(container) {
             // Custom Music sits with Pinned songs above the artists; it is not one of the artists
             const customGroup = artists.filter(a => a.isCustom);
             const regularArtists = artists.filter(a => !a.isCustom);
-            const artistCardHtml = (artist) => (pinnedActive ? renderArtistCard(artist).replace(' aria-current="true"', '') : renderArtistCard(artist));
+            const artistCardHtml = (artist) => ((pinnedActive || recentsActive) ? renderArtistCard(artist).replace(' aria-current="true"', '') : renderArtistCard(artist));
             const listPaneHtml = `
             <section class="pane list" aria-label="Artists">
               ${pinnedGroupHtml}
+              ${recentsGroupHtml}
               ${customGroup.map(artistCardHtml).join('')}
               <h3 class="pane-head"><span>Artists</span><span class="tnum">${regularArtists.length}</span></h3>
               <div class="pane-scroll">
@@ -1410,7 +1428,26 @@ async function renderLibraryBrowseView(container) {
             </section>
             `;
 
-            const songsPaneHtml = pinnedActive ? pinnedPaneHtml : `
+            const recentsPaneHtml = `
+            <section class="pane songs" aria-label="Recents">
+              <h3 class="pane-head">
+                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
+                <span class="text-white fw-semibold" style="flex:1;">Recents</span>
+                <span class="tnum">${recentsList.length} ${recentsList.length === 1 ? 'tab' : 'tabs'}</span>
+                ${isRecentsEditMode ? `<button class="btn btn-sm btn-theme-danger" id="clearRecentsBtn" title="Clear all recent history">Clear history</button>` : ''}
+                <button class="btn btn-sm btn-theme-outline" id="toggleRecentsEditBtn" title="${isRecentsEditMode ? 'Done editing' : 'Edit recents list'}">${isRecentsEditMode ? 'Done' : 'Edit'}</button>
+              </h3>
+              <div class="pane-scroll" id="libArtistDetailScroll">
+                <div class="artist-detail-view">
+                  <div class="d-flex flex-column gap-2" id="recentsList">
+                    ${recentsList.map(recentRowHtml).join('')}
+                  </div>
+                </div>
+              </div>
+            </section>
+            `;
+
+            const songsPaneHtml = recentsActive ? recentsPaneHtml : pinnedActive ? pinnedPaneHtml : `
             <section class="pane songs" aria-label="Songs">
               <h3 class="pane-head">
                 <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
@@ -1547,6 +1584,15 @@ async function renderLibraryBrowseView(container) {
         activeLibraryPane = 'songs';
         renderLibraryBrowseView(container);
     });
+
+    // Recents group
+    container.querySelector('#libRecentsGroupBtn')?.addEventListener('click', () => {
+        pushLibraryNavigationState();
+        pinnedGroupSelected = 'recents';
+        activeLibraryPane = 'songs';
+        renderLibraryBrowseView(container);
+    });
+    if (container.querySelector('#recentsList')) bindRecentRows(container, () => renderLibraryBrowseView(container));
 
     // Artist card clicks
     container.querySelectorAll('.artist-card').forEach(card => {
@@ -1727,8 +1773,7 @@ const LIBRARY_TABS = [
     { id: 'library', label: 'Library', title: 'Browse your tab library', icon: 'bi-music-note-list' },
     { id: 'setlists', label: 'Setlists', title: 'Build and play setlists of tabs', icon: 'bi-collection-play' },
     { id: 'tools', label: 'Tools', title: 'Tuner, reference library and Jam', icon: 'bi-grid-3x3-gap' },
-    { id: 'tunings', label: 'Tunings', title: 'Browse songs by guitar and bass tuning', icon: 'bi-sliders' },
-    { id: 'recents', label: 'Recents', title: 'Recently opened tabs', icon: 'bi-clock-history' }
+    { id: 'tunings', label: 'Tunings', title: 'Browse songs by guitar and bass tuning', icon: 'bi-sliders' }
 ];
 
 // Desktop view switcher shared by every library page header (phones use the bottom nav instead)
@@ -1896,7 +1941,7 @@ function syncLibraryBottomNav() {
     let nav = document.getElementById('libraryBottomNav');
     if (!nav) {
         const tabHtml = (t) => `<button type="button" class="library-nav-tab" data-lib-tab="${t.id}" title="${t.title}"><i class="${t.icon}"></i><span>${t.label}</span></button>`;
-        const [lib, setlists, tools, tunings, recents] = LIBRARY_TABS;
+        const [lib, setlists, tools, tunings] = LIBRARY_TABS;
         nav = document.createElement('nav');
         nav.id = 'libraryBottomNav';
         nav.className = 'library-bottom-nav';
@@ -1905,7 +1950,7 @@ function syncLibraryBottomNav() {
         const PICK_D = "M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z";
         const LETTERS_D = "M232.00,343.05L232.00,330.10L237.25,329.80L242.50,329.50L242.77,306.25L243.04,283.00L228.27,283.00L213.50,283.00L213.84,289.00L214.18,295.00L218.09,295.00L222.00,295.00L222.00,307.50L222.00,320.00L198.00,320.00L174.00,320.00L174.00,307.50L174.00,295.00L178.00,295.00L182.00,295.00L182.00,237.50L182.00,180.00L175.00,180.00L168.00,180.00L168.00,163.98L168.00,147.96L191.10,148.23L214.20,148.50L232.67,178.50C242.83,195.00 252.24,210.64 253.59,213.25C254.93,215.86 256.20,218.00 256.41,218.00C256.61,218.00 266.17,202.26 277.64,183.03L298.50,148.05L321.25,148.03L344.00,148.00L344.00,164.00L344.00,180.00L337.00,180.00L330.00,180.00L330.00,237.50L330.00,295.00L334.50,295.00L339.00,295.00L339.00,307.50L339.00,320.00L314.50,320.00L290.00,320.00L290.00,307.50L290.00,295.00L294.50,295.00L299.00,295.00L299.00,288.75L299.00,282.50L284.50,282.80L270.00,283.10L270.00,306.55L270.00,330.00L275.50,330.00L281.00,330.00L281.00,343.00L281.00,356.00L256.50,356.00L232.00,356.00L232.00,343.05ZM239.24,251.75C238.16,249.96 232.42,240.40 226.49,230.50C220.55,220.60 215.31,212.07 214.85,211.55C214.38,211.03 214.00,220.57 214.00,232.80L214.00,255.00L227.60,255.00L241.20,255.00L239.24,251.75ZM299.00,232.27L299.00,209.55L291.04,223.30C286.67,230.87 280.59,241.10 277.54,246.03L271.99,255.00L285.49,255.00L299.00,255.00L299.00,232.27Z";
         const PICK = `<svg class="rail-pick" viewBox="105 97 303 316" aria-hidden="true"><path fill="var(--action)" d="${PICK_D}"/><path fill="var(--on-action, #fff)" d="${LETTERS_D}"/></svg>`;
-        nav.innerHTML = `<div class="rail-brand">${PICK}<span class="rail-wordmark">Majestic<b>Tab</b></span></div>${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tunings)}${tabHtml(recents)}${tabHtml(tools)}
+        nav.innerHTML = `<div class="rail-brand">${PICK}<span class="rail-wordmark">Majestic<b>Tab</b></span></div>${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tunings)}${tabHtml(tools)}
           <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
             const tab = e.target.closest('[data-lib-tab]');
@@ -2140,7 +2185,9 @@ function setupLibraryFilter(container, context = {}) {
             const pinnedBtn = rootView.querySelector('#libPinnedGroupBtn');
             const pinnedHit = !query || (context.pinnedSongs || []).some(sg => `${sg.title || ''} ${sg.artist || ''} ${sg.album || ''}`.toLowerCase().includes(query));
             pinnedBtn?.classList.toggle('lib-filter-hidden', !pinnedHit);
-            const pinnedActive = pinnedBtn?.getAttribute('aria-current') === 'true';
+            const recentsBtn = rootView.querySelector('#libRecentsGroupBtn');
+            recentsBtn?.classList.toggle('lib-filter-hidden', Boolean(query) && !'recents recent tabs'.includes(query));
+            const pinnedActive = pinnedBtn?.getAttribute('aria-current') === 'true' || recentsBtn?.getAttribute('aria-current') === 'true';
             const selectedName = context.selectedArtist?.name;
             const selectedCard = [...rootView.querySelectorAll('.artist-card')].find(c => c.dataset.artistName === selectedName);
             // The selected artist dropped out of the list: move to the first one that still matches
@@ -4643,6 +4690,114 @@ function renderToolsView(container) {
     renderToolsPage(container, { tools, escapeHtml });
 }
 
+function recentRowHtml(r) {
+            const cover = r.coverUrl || getPlaceholderCoverSvg(r.songTitle || r.name);
+            const tunings = (Array.isArray(r.tunings) ? r.tunings : []).filter(t => isTuningMatchingInstrument(t));
+            const timeAgo = formatTimeAgo(r.openedAt);
+
+            const tabLabel = r.tabName || r.fileName || ((r.name && r.name !== r.songTitle) ? r.name : '');
+            const isPdf = Boolean((r.fileName || r.name || '').toLowerCase().endsWith('.pdf') || r.startPage);
+
+            // One quiet line: who, where you stopped, what tuning, how long ago. The file name lives in the tooltip.
+            const meta = [
+                [r.artist || 'Unknown artist', r.album].filter(Boolean).join(', '),
+                r.lastBar && r.totalBars ? `bar ${r.lastBar} of ${r.totalBars}` : '',
+                ...tunings.map(t => getTuningInfo(t)?.displayName || t),
+                timeAgo
+            ].filter(Boolean).join(' \u00b7 ');
+            const rowTitle = [tabLabel, isPdf && r.startPage ? `p. ${r.startPage}${r.endPage && r.endPage !== r.startPage ? `-${r.endPage}` : ''}` : ''].filter(Boolean).join(' ');
+
+            return `
+            <div class="library-row-card recent-row d-flex align-items-center gap-3 open-recent-row ${isRecentsEditMode ? '' : 'library-row-clickable'}" data-recent-id="${escapeHtml(r.id)}" data-recent='${escapeHtml(JSON.stringify(r))}' ${isRecentsEditMode ? '' : 'role="button" tabindex="0"'} title="${escapeHtml(rowTitle)}">
+              <img loading="lazy" decoding="async" src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
+              <div class="min-w-0 flex-grow-1">
+                <h6 class="mb-0 fw-bold text-white text-truncate">${escapeHtml(r.songTitle || r.name)}</h6>
+                <div class="small text-truncate tnum">${escapeHtml(meta)}</div>
+              </div>
+              <div class="recent-row-actions d-flex align-items-center flex-shrink-0">
+                ${isRecentsEditMode ? `
+                  <button class="btn btn-sm btn-theme-danger delete-recent-item-btn" data-recent-id="${escapeHtml(r.id)}" aria-label="Remove from recents" title="Remove from recents">
+                    <i class="bi-trash"></i>
+                  </button>
+                ` : `
+                  <button class="btn btn-sm btn-theme-icon add-recent-to-setlist-btn" data-song-id="${escapeHtml(r.librarySongId)}" data-tab-id="${escapeHtml(r.tabId || '')}" data-title="${escapeHtml(r.songTitle || r.name)}" aria-label="Add to setlist" title="Add to setlist">
+                    <i class="bi-collection-play"></i>
+                  </button>
+                `}
+              </div>
+            </div>
+            `;
+}
+
+function bindRecentRows(container, rerender) {
+    container.querySelector('#toggleRecentsEditBtn')?.addEventListener('click', () => {
+        isRecentsEditMode = !isRecentsEditMode;
+        rerender();
+    });
+
+    container.querySelectorAll('.delete-recent-item-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const id = btn.dataset.recentId;
+            const removed = await getRecentItem(id);
+            await deleteRecentItem(id);
+            showToast('Removed item from recents', 'info', 6000, null, removed ? {
+                label: 'Undo',
+                onClick: async () => { await restoreRecentItem(removed); await rerender(); }
+            } : null);
+            await rerender();
+        });
+    });
+
+    const clearBtn = container.querySelector('#clearRecentsBtn');
+    clearBtn?.addEventListener('click', async () => {
+        if (clearBtn.dataset.confirming === 'true') {
+            await clearRecents();
+            isRecentsEditMode = false;
+            showToast('Cleared recent history', 'info');
+            await rerender();
+        } else {
+            clearBtn.dataset.confirming = 'true';
+            clearBtn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> Confirm Clear All?';
+            setTimeout(() => {
+                if (clearBtn.dataset.confirming === 'true') {
+                    clearBtn.dataset.confirming = 'false';
+                    clearBtn.innerHTML = '<i class="bi-trash"></i> <span>Clear History</span>';
+                }
+            }, 4000);
+        }
+    });
+
+    container.querySelectorAll('.add-recent-to-setlist-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const song = await getSongById(btn.dataset.songId);
+            const tabId = (btn.dataset.tabId && song?.tabOptions?.some(t => t.id === btn.dataset.tabId))
+                ? btn.dataset.tabId
+                : ((song?.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song?.tabOptions?.[0])?.id;
+            if (song && tabId) openAddToSetlistModal({ songId: song.id, tabId, title: btn.dataset.title || song.title });
+            else showToast('This song has no tab to add.', 'info');
+        });
+    });
+
+    container.querySelectorAll('.open-recent-row[role="button"]').forEach(btn => {
+        const openRecent = () => openRecentItem(JSON.parse(btn.dataset.recent));
+        // The whole row opens the tab; the setlist button inside it does not
+        btn.addEventListener('click', (e) => {
+            if (e.target.closest('button, a')) return;
+            openRecent();
+        });
+        btn.addEventListener('keydown', (e) => {
+            if (e.target !== btn) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openRecent();
+            }
+        });
+    });
+
+}
+
 async function renderRecentsView(container) {
     const recents = await getRecents(15);
 
@@ -4683,114 +4838,13 @@ async function renderRecentsView(container) {
       })}
 
       <div class="d-flex flex-column gap-2" id="recentsList">
-        ${recents.map(r => {
-            const cover = r.coverUrl || getPlaceholderCoverSvg(r.songTitle || r.name);
-            const tunings = (Array.isArray(r.tunings) ? r.tunings : []).filter(t => isTuningMatchingInstrument(t));
-            const timeAgo = formatTimeAgo(r.openedAt);
-
-            const tabLabel = r.tabName || r.fileName || ((r.name && r.name !== r.songTitle) ? r.name : '');
-            const isPdf = Boolean((r.fileName || r.name || '').toLowerCase().endsWith('.pdf') || r.startPage);
-
-            // One quiet line: who, where you stopped, what tuning, how long ago. The file name lives in the tooltip.
-            const meta = [
-                [r.artist || 'Unknown artist', r.album].filter(Boolean).join(', '),
-                r.lastBar && r.totalBars ? `bar ${r.lastBar} of ${r.totalBars}` : '',
-                ...tunings.map(t => getTuningInfo(t)?.displayName || t),
-                timeAgo
-            ].filter(Boolean).join(' \u00b7 ');
-            const rowTitle = [tabLabel, isPdf && r.startPage ? `p. ${r.startPage}${r.endPage && r.endPage !== r.startPage ? `-${r.endPage}` : ''}` : ''].filter(Boolean).join(' ');
-
-            return `
-            <div class="library-row-card recent-row d-flex align-items-center gap-3 open-recent-row ${isRecentsEditMode ? '' : 'library-row-clickable'}" data-recent-id="${escapeHtml(r.id)}" data-recent='${escapeHtml(JSON.stringify(r))}' ${isRecentsEditMode ? '' : 'role="button" tabindex="0"'} title="${escapeHtml(rowTitle)}">
-              <img loading="lazy" decoding="async" src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
-              <div class="min-w-0 flex-grow-1">
-                <h6 class="mb-0 fw-bold text-white text-truncate">${escapeHtml(r.songTitle || r.name)}</h6>
-                <div class="small text-truncate tnum">${escapeHtml(meta)}</div>
-              </div>
-              <div class="recent-row-actions d-flex align-items-center flex-shrink-0">
-                ${isRecentsEditMode ? `
-                  <button class="btn btn-sm btn-theme-danger delete-recent-item-btn" data-recent-id="${escapeHtml(r.id)}" aria-label="Remove from recents" title="Remove from recents">
-                    <i class="bi-trash"></i>
-                  </button>
-                ` : `
-                  <button class="btn btn-sm btn-theme-icon add-recent-to-setlist-btn" data-song-id="${escapeHtml(r.librarySongId)}" data-tab-id="${escapeHtml(r.tabId || '')}" data-title="${escapeHtml(r.songTitle || r.name)}" aria-label="Add to setlist" title="Add to setlist">
-                    <i class="bi-collection-play"></i>
-                  </button>
-                `}
-              </div>
-            </div>
-            `;
-        }).join('')}
+        ${recents.map(recentRowHtml).join('')}
       </div>
     </div>
     `;
 
     bindListFilter(container, { inputId: 'recentsFilterInput', clearId: 'recentsFilterClearBtn', rowSelector: '#recentsList .library-row-card' });
-    container.querySelector('#toggleRecentsEditBtn')?.addEventListener('click', () => {
-        isRecentsEditMode = !isRecentsEditMode;
-        renderRecentsView(container);
-    });
-
-    container.querySelectorAll('.delete-recent-item-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const id = btn.dataset.recentId;
-            const removed = await getRecentItem(id);
-            await deleteRecentItem(id);
-            showToast('Removed item from recents', 'info', 6000, null, removed ? {
-                label: 'Undo',
-                onClick: async () => { await restoreRecentItem(removed); await renderRecentsView(container); }
-            } : null);
-            await renderRecentsView(container);
-        });
-    });
-
-    const clearBtn = container.querySelector('#clearRecentsBtn');
-    clearBtn?.addEventListener('click', async () => {
-        if (clearBtn.dataset.confirming === 'true') {
-            await clearRecents();
-            isRecentsEditMode = false;
-            showToast('Cleared recent history', 'info');
-            await renderRecentsView(container);
-        } else {
-            clearBtn.dataset.confirming = 'true';
-            clearBtn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> Confirm Clear All?';
-            setTimeout(() => {
-                if (clearBtn.dataset.confirming === 'true') {
-                    clearBtn.dataset.confirming = 'false';
-                    clearBtn.innerHTML = '<i class="bi-trash"></i> <span>Clear History</span>';
-                }
-            }, 4000);
-        }
-    });
-
-    container.querySelectorAll('.add-recent-to-setlist-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const song = await getSongById(btn.dataset.songId);
-            const tabId = (btn.dataset.tabId && song?.tabOptions?.some(t => t.id === btn.dataset.tabId))
-                ? btn.dataset.tabId
-                : ((song?.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song?.tabOptions?.[0])?.id;
-            if (song && tabId) openAddToSetlistModal({ songId: song.id, tabId, title: btn.dataset.title || song.title });
-            else showToast('This song has no tab to add.', 'info');
-        });
-    });
-
-    container.querySelectorAll('.open-recent-row[role="button"]').forEach(btn => {
-        const openRecent = () => openRecentItem(JSON.parse(btn.dataset.recent));
-        // The whole row opens the tab; the setlist button inside it does not
-        btn.addEventListener('click', (e) => {
-            if (e.target.closest('button, a')) return;
-            openRecent();
-        });
-        btn.addEventListener('keydown', (e) => {
-            if (e.target !== btn) return;
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                openRecent();
-            }
-        });
-    });
+    bindRecentRows(container, () => renderRecentsView(container));
 
     hydrateCachedImages(container);
     gamepadManager.onLibraryViewRendered();
