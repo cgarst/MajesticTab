@@ -76,7 +76,6 @@ export function initToolsMenu() {
 
     function openMenu(trigger = toggleBtn) {
         activeTriggerBtn = trigger;
-        syncReferenceActive();
         menu.style.display = 'block';
         updateDividers();
         placeMenu(trigger);

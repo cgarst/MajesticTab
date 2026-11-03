@@ -34,7 +34,7 @@ export function initPracticeMenu() {
 
     // ---- Contents ----
     const head = document.createElement('div');
-    head.innerHTML = '<div class="practice-title">Practice</div><div class="practice-sub">How you work on the song.</div>';
+    head.innerHTML = '<div class="practice-title">Practice</div>';
 
     const speed = document.createElement('div');
     speed.innerHTML = '<div class="practice-speed-head">'

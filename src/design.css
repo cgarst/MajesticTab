@@ -1858,8 +1858,8 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 #guitarToggleBtn.is-adapted .bar-btn-label::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle; }
 
 /* ---------- Guitar panel ---------- */
-.guitar-menu { width: 340px; max-width: calc(100vw - 16px); padding: 14px 16px 12px; position: fixed; z-index: 1085; display: flex; flex-direction: column; gap: 14px; }
-.guitar-menu-title { font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1.1; }
+.guitar-menu { width: 360px; max-width: calc(100vw - 16px); padding: 14px 16px 12px; position: fixed; z-index: 1085; display: flex; flex-direction: column; gap: 14px; }
+.guitar-menu-title { font: 600 17px system-ui, sans-serif; color: var(--ink); }
 .guitar-menu-sub { color: var(--ink2); font-size: 13px; margin-top: 2px; }
 .guitar-menu-written { display: flex; flex-direction: column; gap: 2px; }
 .guitar-menu-label { color: var(--ink2); font-size: 13px; }
@@ -1893,7 +1893,7 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 #practiceToggleBtn.has-state .bar-btn-label::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle; }
 .practice-menu { width: 360px; max-width: calc(100vw - 16px); max-height: calc(100vh - 90px); overflow-y: auto; padding: 14px 16px 14px; position: fixed; z-index: 1085; display: flex; flex-direction: column; gap: 16px; }
 .practice-menu > div { margin: 0 !important; }
-.practice-title { font-family: var(--font-display); font-weight: 700; font-size: 24px; line-height: 1.1; }
+.practice-title { font: 600 17px system-ui, sans-serif; color: var(--ink); }
 .practice-sub { color: var(--ink2); font-size: 13px; margin-top: 2px; }
 .practice-menu .form-label, .practice-label { color: var(--ink2) !important; font-size: 13px; font-weight: 500 !important; }
 .practice-speed-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -1901,13 +1901,26 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 .practice-step { width: 44px; height: 44px; padding: 0 !important; background: var(--s3) !important; border: 0 !important; color: var(--ink) !important; border-radius: var(--r) !important; font-size: 20px; }
 .practice-presets { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
 .practice-preset { background: var(--s3) !important; border: 0 !important; color: var(--ink2) !important; min-height: 44px; font-weight: 600; border-radius: var(--r) !important; }
-.practice-preset.active { background: var(--action) !important; color: var(--on-action, #fff) !important; }
+.practice-preset.active { background: var(--s1) !important; color: var(--ink) !important; }
 .dock-pop { position: fixed; z-index: 1086; width: 300px; max-width: calc(100vw - 16px); background: var(--s2); border-radius: var(--r-lg); padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 10px; opacity: 0; transform: translateY(6px) scale(0.98); transform-origin: bottom center; transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out); }
 .dock-pop[hidden] { display: none; }
 .dock-pop.is-open { opacity: 1; transform: none; }
 .dock-pop > div { margin: 0 !important; }
 .dock-pop-title { font: 600 17px system-ui, sans-serif; color: var(--ink); }
 @media (prefers-reduced-motion: reduce) { .dock-pop { transition: none; transform: none; } }
+
+/* ---------- View, Practice, Song, Guitar, Tools: one set, one look ---------- */
+/* Same width, inner padding, title and section gap; the open one's button takes a tone step */
+#viewMenu, #practiceMenu, #guitarMenu, #scoreOptionsDropdownPanel { width: min(360px, calc(100vw - 24px)); }
+#viewMenu, #practiceMenu, #guitarMenu { padding: 14px 16px 12px !important; }
+#viewMenu::before { padding: 0 0 10px; }
+#viewMenu .form-label, #scoreOptionsDropdownPanel .form-label, #practiceMenu .form-label, #guitarMenu .form-label,
+.practice-label, .guitar-menu-label, .score-options-group-title { color: var(--ink2) !important; font-size: 13px; font-weight: 500 !important; }
+#topFlexZone .btn[aria-expanded="true"], #topFlexZone .btn.active { background: var(--s3) !important; color: var(--ink) !important; }
+@media (max-width: 640px) { #topFlexZone .btn[aria-expanded="true"], #topFlexZone .btn.active { background: var(--s2) !important; } }
+
+#practiceMenu input[type=number], #practiceMenu .form-control { background: var(--s3) !important; color: var(--ink) !important; border: 0 !important; border-radius: var(--r) !important; }
+#practiceMenu .btn:not(.practice-step):not(.practice-preset) { background: var(--s3) !important; color: var(--ink) !important; border: 0 !important; }
 
 /* ---------- Song panel ---------- */
 .score-options-panel .synth-panel-body { display: flex; flex-direction: column; gap: 18px; }
