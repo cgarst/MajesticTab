@@ -18,7 +18,7 @@ import {
 
 const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
 const SOURCES_DELETED_KEY = 'majestictab_tab_sources_deleted';
-const GOOGLE_FIRST_KEY = 'majestictab_tab_sources_google_first';
+const DUCKDUCKGO_FIRST_KEY = 'majestictab_tab_sources_duckduckgo_first';
 export function isNative() {
     return typeof window !== 'undefined' && Boolean(window.__TAURI__);
 }
@@ -32,10 +32,10 @@ const DUCKDUCKGO_HOME_URL = 'https://duckduckgo.com/';
 
 export const DEFAULT_SOURCES = [
     {
-        id: 'google',
-        name: 'Google',
-        urlTemplate: 'https://www.google.com/search?q=$s+guitar+pro+tab',
-        defaultUrl: 'https://www.google.com/search?q=$s+guitar+pro+tab',
+        id: 'duckduckgo',
+        name: 'DuckDuckGo',
+        urlTemplate: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
+        defaultUrl: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
         queryFormat: 'artist_song',
         userscriptEnabled: false,
         userscript: '',
@@ -43,10 +43,10 @@ export const DEFAULT_SOURCES = [
         isSeed: true
     },
     {
-        id: 'duckduckgo',
-        name: 'DuckDuckGo',
-        urlTemplate: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
-        defaultUrl: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
+        id: 'google',
+        name: 'Google',
+        urlTemplate: 'https://www.google.com/search?q=$s+guitar+pro+tab',
+        defaultUrl: 'https://www.google.com/search?q=$s+guitar+pro+tab',
         queryFormat: 'artist_song',
         userscriptEnabled: false,
         userscript: '',
@@ -60,7 +60,7 @@ let activeTargetAlbum = null;
 let activeDownloaderOnFileSelected = null;
 let activeArtistName = '';
 let activeSongName = '';
-let activeSourceId = 'google';
+let activeSourceId = 'duckduckgo';
 let currentSearchQuery = '';
 // Source the user just clicked: the tab bar keeps it selected until its page starts loading,
 // instead of flickering back to the old page's source while the new one loads.
@@ -153,11 +153,11 @@ export function getSources() {
                         changed = true;
                     }
                 }
-                // One-time: put Google first (later user reordering is preserved)
-                if (!localStorage.getItem(GOOGLE_FIRST_KEY)) {
-                    const gi = parsed.findIndex(s => s.id === 'google');
-                    if (gi > 0) parsed.unshift(...parsed.splice(gi, 1));
-                    localStorage.setItem(GOOGLE_FIRST_KEY, '1');
+                // One-time: put DuckDuckGo first, the default source (later user reordering is preserved)
+                if (!localStorage.getItem(DUCKDUCKGO_FIRST_KEY)) {
+                    const di = parsed.findIndex(s => s.id === 'duckduckgo');
+                    if (di > 0) parsed.unshift(...parsed.splice(di, 1));
+                    localStorage.setItem(DUCKDUCKGO_FIRST_KEY, '1');
                     changed = true;
                 }
                 if (changed) {

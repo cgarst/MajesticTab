@@ -61,9 +61,9 @@ const {
     formatSearchQueryForSource
 } = await import('../src/tabDownloader.js');
 
-test('DEFAULT_SOURCES has Google first and DuckDuckGo second', () => {
+test('DEFAULT_SOURCES has DuckDuckGo first and Google second', () => {
     assert.equal(DEFAULT_SOURCES.length, 2);
-    const [google, duckduckgo] = DEFAULT_SOURCES;
+    const [duckduckgo, google] = DEFAULT_SOURCES;
 
     assert.equal(google.id, 'google');
     assert.equal(google.name, 'Google');
@@ -81,7 +81,7 @@ test('DEFAULT_SOURCES has Google first and DuckDuckGo second', () => {
 });
 
 test('buildSearchUrl constructs expected search and home URLs for Google and DuckDuckGo', () => {
-    const [google, duckduckgo] = DEFAULT_SOURCES;
+    const [duckduckgo, google] = DEFAULT_SOURCES;
 
     // Search queries
     assert.equal(
@@ -100,7 +100,7 @@ test('buildSearchUrl constructs expected search and home URLs for Google and Duc
 });
 
 test('formatSearchQueryForSource formats artist and song according to queryFormat', () => {
-    const [google, duckduckgo] = DEFAULT_SOURCES;
+    const [duckduckgo, google] = DEFAULT_SOURCES;
     assert.equal(formatSearchQueryForSource(google, 'Metallica', 'One'), 'Metallica One');
     assert.equal(formatSearchQueryForSource(duckduckgo, 'Metallica', 'One'), 'Metallica One');
     assert.equal(formatSearchQueryForSource({ queryFormat: 'song_only' }, 'Metallica', 'One'), 'One');
@@ -110,12 +110,12 @@ test('resetToDefaultSources writes and returns default sources', () => {
     localStorage.clear();
     const sources = resetToDefaultSources();
     assert.equal(sources.length, 2);
-    assert.equal(sources[0].id, 'google');
-    assert.equal(sources[1].id, 'duckduckgo');
-    assert.equal(sources[1].isSeed, true);
+    assert.equal(sources[0].id, 'duckduckgo');
+    assert.equal(sources[1].id, 'google');
+    assert.equal(sources[0].isSeed, true);
 });
 
-test('getSources upgrades existing user sources by inserting DuckDuckGo after Google', () => {
+test('getSources upgrades existing user sources by moving DuckDuckGo first', () => {
     localStorage.clear();
     // Simulate legacy storage containing only Google and a custom source
     const legacy = [
@@ -138,16 +138,20 @@ test('getSources upgrades existing user sources by inserting DuckDuckGo after Go
         }
     ];
     localStorage.setItem('majestictab_tab_sources', JSON.stringify(legacy));
-    localStorage.setItem('majestictab_tab_sources_google_first', '1');
 
     const upgraded = getSources();
     assert.equal(upgraded.length, 3);
-    assert.equal(upgraded[0].id, 'google');
-    assert.equal(upgraded[1].id, 'duckduckgo');
+    assert.equal(upgraded[0].id, 'duckduckgo');
+    assert.equal(upgraded[1].id, 'google');
     assert.equal(upgraded[2].id, 'custom_source');
 
     // Confirm it was saved to storage
     const stored = JSON.parse(localStorage.getItem('majestictab_tab_sources'));
     assert.equal(stored.length, 3);
-    assert.equal(stored[1].id, 'duckduckgo');
+    assert.equal(stored[0].id, 'duckduckgo');
+
+    // The move happens once: a user who puts Google back on top keeps that order
+    stored.unshift(...stored.splice(1, 1));
+    localStorage.setItem('majestictab_tab_sources', JSON.stringify(stored));
+    assert.equal(getSources()[0].id, 'google');
 });
