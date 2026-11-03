@@ -127,6 +127,14 @@ html:not(.js) .pfig:not(.is-on) { display: none; }
 .step figure { aspect-ratio: 16 / 9; overflow: hidden; border-radius: var(--r); background: var(--s1); }
 .step figure img { width: 100%; height: 100%; object-fit: cover; }
 
+.step-text .names { margin-top: 14px; font-size: 15px; color: var(--ink); }
+.step-text h2 { max-width: 16ch; }
+.shot picture, .shot img { width: 100%; height: auto; }
+.step figure.shot { aspect-ratio: 16 / 10; background: var(--s1); }
+.step figure.shot img { height: 100%; object-fit: cover; object-position: top left; }
+.band .step figure.shot { background: var(--s2); }
+.feat-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 32px; }
+
 /* Facts */
 .facts-row { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 32px 24px; }
 .facts-row dt { font: 600 56px/1 var(--font-display); font-variant-numeric: tabular-nums; }
@@ -174,6 +182,7 @@ html:not(.js) .pfig:not(.is-on) { display: none; }
   .hero .wrap { grid-template-columns: minmax(0, 1fr) 360px; column-gap: 40px; }
   h1 { font-size: 48px; }
   .feat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .feat-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .reader { grid-template-columns: 320px minmax(0, 1fr); column-gap: 32px; }
   .facts-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .dl-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -199,6 +208,9 @@ html:not(.js) .pfig:not(.is-on) { display: none; }
   .pfig picture { display: block; aspect-ratio: 780 / 1318; overflow: hidden; border-radius: var(--r); }
   .pfig picture img { height: 100%; object-fit: cover; object-position: top center; border-radius: 0; }
   .step { grid-template-columns: minmax(0, 1fr); row-gap: 20px; }
+  .step figure.shot { aspect-ratio: auto; max-width: 340px; margin-inline: auto; }
+  .step figure.shot img { height: auto; }
+  .feat-grid.four { grid-template-columns: 1fr; }
   .step:nth-child(even) .step-text { order: 0; }
   .steps { row-gap: 48px; }
   .facts-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -36,14 +36,15 @@ const cdp = (method, params = {}) => new Promise(r => { const i = ++id; pending.
 const ev = async (expression) => (await cdp('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true, userGesture: true })).result?.value;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-async function open({ w, h, theme, dsf = 2, mobile = false }) {
+async function open({ w, h, theme, dsf = 2, mobile = false, url = URL_, lib = false }) {
   await cdp('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: dsf, mobile });
-  await cdp('Page.navigate', { url: URL_ });
+  await cdp('Page.navigate', { url });
   await sleep(1500);
   await ev(`localStorage.setItem('majestictab_theme', ${JSON.stringify(theme)})`);
-  await cdp('Page.navigate', { url: URL_ });
+  await cdp('Page.navigate', { url });
   // wait until the score has finished loading and laying out (loading card gone, pages drawn)
   for (let i = 0; i < 80; i++) {
+    if (lib) { if (await ev(`/Artists/.test(document.body.innerText)`)) break; await sleep(500); continue; }
     if (await ev(`!/Loading score|Laying out|Rendering|Parsing/i.test(document.body.innerText) && document.querySelectorAll('.at-surface svg').length > 10 && !!document.querySelector('#viewToggleBtn')?.offsetParent`)) break;
     await sleep(500);
   }
@@ -73,6 +74,55 @@ for (const [suffix, size] of [['', { w: 1440, h: 900 }], ['-phone', { w: 390, h:
       await click(sel); await sleep(500); // close again
       await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))`); await sleep(300);
     }
+  }
+}
+
+// ---- library: a seeded demo library (invented artists from support/tools/demo_library.json), tunings view
+// and the Recording panel (Original) on the fixture score. Seeding replaces whatever songs the debug profile has.
+async function seedLibrary() {
+  const demo = JSON.parse(readFileSync(join(here, '../demo_library.json'), 'utf8'));
+  return ev(`(async () => {
+    const m = await import('./libraryStore.js');
+    for (const s of await m.getSongsByCollection()) await m.deleteSongFromLibrary(s.id);
+    await m.clearRecents();
+    const d = ${JSON.stringify(demo)}; let i = 0, k = 0;
+    for (const [artist, albums] of Object.entries(d.library)) {
+      let year = 2008;
+      for (const [album, tracks] of Object.entries(albums)) {
+        year += 2; let tn = 1;
+        for (const title of tracks) {
+          const tuning = d.tunings[i++ % d.tunings.length];
+          const song = await m.saveSongToLibrary({ title, artist, album, year, trackNumber: tn++, tunings: [tuning], stringCount: /^7/.test(tuning) ? 7 : 6 });
+          k++; if (k % 4 === 0) continue;
+          const ft = ['gp', 'gp', 'pdf', 'gp', 'txt'][k % 5], ext = { gp: 'gp5', pdf: 'pdf', txt: 'txt' }[ft];
+          await m.addTabOptionToSong(song.id, { name: title + '.' + ext, fileType: ft, tuning, stringCount: song.stringCount, isDefault: true, fileStoreId: 'demo_' + song.id });
+        }
+      }
+    }
+    return k; })()`);
+}
+if (want('library') || want('tunings')) {
+  for (const [suffix, size] of [['', { w: 1440, h: 900 }], ['-phone', { w: 390, h: 844, mobile: true }]]) {
+    await open({ ...size, theme: 'Slate Blue', url: BASE + '/src/', lib: true });
+    if (suffix === '') { console.log('seeded', await seedLibrary(), 'songs'); await cdp('Page.navigate', { url: BASE + '/src/' }); await sleep(2500); }
+    for (let i = 0; i < 40 && !(await ev(`/Artists/.test(document.body.innerText)`)); i++) await sleep(500);
+    await sleep(1200);
+    if (want('library')) await shot(`library${suffix}`);
+    if (want('tunings')) {
+      await ev(`(() => { const b = [...document.querySelectorAll('button,a')].find(e => /^\\s*Tunings\\s*$/.test(e.textContent) && e.offsetParent); b?.click(); })()`);
+      await sleep(1200); await shot(`tunings${suffix}`);
+    }
+  }
+}
+if (want('original')) {
+  for (const [suffix, size] of [['', { w: 1440, h: 900 }], ['-phone', { w: 390, h: 844, mobile: true }]]) {
+    await open({ ...size, theme: 'Slate Blue' });
+    await sleep(4000); // let the score finish laying out so the panel can count its bars
+    await click('#ytToggleBtn'); await sleep(800);
+    await click('#realAudioSourceLocal');
+    for (let i = 0; i < 40 && !(await ev(`/of [1-9]\\d* bars synced/.test(document.body.innerText)`)); i++) await sleep(500);
+    await sleep(800);
+    await shot(`original${suffix}`);
   }
 }
 
