@@ -157,7 +157,7 @@ export async function verifyChannel(id, options = {}) {
       const methods = [...body.matchAll(/@JavascriptInterface\s+fun (\w+)/g)].map((m) => m[1]).sort();
       if (methods.join() !== 'close,onTabDownloaded') errors.push(`downloader bridge exposes [${methods}], expected only close and onTabDownloaded`);
     }
-    if (!/if \(!isAppWebView\) \{\s*addDownloaderBridges\(webView\)\s*return/.test(activity)) {
+    if (!/if \(!isAppWebView\) \{[\s\S]*?addDownloaderBridges\(webView\)\s*return/.test(activity)) {
       errors.push('onWebViewCreate no longer routes non-app webviews to addDownloaderBridges before registering other bridges');
     }
   }

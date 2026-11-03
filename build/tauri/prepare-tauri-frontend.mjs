@@ -92,6 +92,7 @@ const allowedRemoteHosts = new Set([
   'www.google.com',
   'duckduckgo.com',
   'www.duckduckgo.com',
+  'pgl.yoyo.org', // default host list source for tab downloader adblocker
 ]);
 
 async function copyAsset(source, destination) {
