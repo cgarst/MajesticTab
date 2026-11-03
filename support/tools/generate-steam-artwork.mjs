@@ -34,7 +34,7 @@ function composeGridVertical(w = 600, h = 900) {
   const iconX = (w - iconSize) / 2;
   const iconY = 190 * scale;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <rect width="100%" height="100%" fill="#06050a"/>
+    <rect width="100%" height="100%" fill="#ffffff"/>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
     <text x="${w / 2}" y="${575 * scale}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${48 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="#a7f3d0">Tab</tspan></text>
   </svg>`;
@@ -46,7 +46,7 @@ function composeGridHorizontal(w = 920, h = 430) {
   const iconX = 75 * scale;
   const iconY = (h - iconSize) / 2;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <rect width="100%" height="100%" fill="#06050a"/>
+    <rect width="100%" height="100%" fill="#ffffff"/>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
     <text x="${340 * scale}" y="${230 * scale}" font-family="${FONT_FAMILY}" font-size="${64 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="#a7f3d0">Tab</tspan></text>
   </svg>`;
@@ -58,7 +58,7 @@ function composeHero(w = 3840, h = 1240) {
   const iconX = w - iconSize - 220 * scale;
   // No logo here: Steam overlays logo_1280x720.png on the hero; the glow stays where the mark used to sit.
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <rect width="100%" height="100%" fill="#06050a"/>
+    <rect width="100%" height="100%" fill="#ffffff"/>
   </svg>`;
 }
 

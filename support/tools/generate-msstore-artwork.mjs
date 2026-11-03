@@ -30,7 +30,7 @@ const DEFS = () => '';
 function compose({ id, w, h, iconSize, iconY, titleY, titleSize, tagY, tagSize, staffY }) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     
-    <rect width="100%" height="100%" fill="#06050a"/>
+    <rect width="100%" height="100%" fill="#ffffff"/>
     <svg x="${(w - iconSize) / 2}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
     <text x="${w / 2}" y="${titleY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${titleSize}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="#a7f3d0">Tab</tspan></text>
     <text x="${w / 2}" y="${tagY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${tagSize}" font-weight="600" fill="#a4aebf">Guitar tab viewer</text>

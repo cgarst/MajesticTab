@@ -11,8 +11,8 @@ const iconsDir = path.join(scriptDir, 'src-tauri', 'icons');
 const workDir = path.join(scriptDir, 'target', 'icon-build');
 
 const CANVAS = 1024;
-// Flat ground (--ground), no gradient.
-const BACKGROUND = '#06050a';
+// White ground (the pick is Slate Blue ink), no gradient.
+const BACKGROUND = '#ffffff';
 const TILE_GRADIENT = '';
 
 // Art box = longest side of the artwork, in 1024-unit canvas coordinates.
@@ -21,8 +21,8 @@ const PLATFORMS = {
   windows: { box: 940 },
   // Linux/freedesktop: transparent, slight padding so it sits well beside other hicolor icons.
   linux: { box: 900 },
-  // macOS: the rounded square fills the whole 1024 canvas, like Safari (a layered icon the system draws full-bleed); art ~70% of it.
-  macos: { box: 720, tile: { inset: 0, radius: 229 } },
+  // macOS: tile 824px of 1024, the system template; measured in the Dock it matches Safari, Edge and Telegram. Art ~70% of it.
+  macos: { box: 580, tile: { inset: 100, radius: 185 } },
   // iOS: opaque full-bleed square (the OS applies the mask); art kept inside the grid.
   ios: { box: 668, tile: { inset: 0, radius: 0 } },
   // Android adaptive foreground: art stays inside the 66/108 safe zone; the background layer is a solid color.
