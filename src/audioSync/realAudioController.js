@@ -19,7 +19,8 @@ import { updateGlobalAudioControls, setActiveAudioMode } from '../utils/navigati
 import { listRecords, loadRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { buildTimelineModel } from './timelineModel.js';
 import { playedBarsFromLookup, buildScoreTimeline } from './scorePositions.js';
-import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
+import { getMidiTickLookup, synthPlayerState, playClick } from '../gpProcessor/gpPlayer.js';
+import { getAudioSyncSession } from './audioSyncController.js';
 
 const SLOT_SOURCE_KEY = (songKey, slot) => `real_audio_source_${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;
 
@@ -371,7 +372,29 @@ export function isRealAudioPlaying() {
     return isYouTubePlaying() || isAudioFilePlaying();
 }
 
+let countingIn = null;
+
 export function playPauseRealAudio() {
+    if (countingIn) { clearTimeout(countingIn); countingIn = null; return; }
+    // With sync data and the count-in on, a bar of clicks at the recording's tempo comes before it starts
+    if (synthPlayerState.countInEnabled && !isRealAudioPlaying()) {
+        const plan = getAudioSyncSession()?.usable?.() ? getAudioSyncSession().countInPlan?.() : null;
+        if (plan) {
+            let n = 0;
+            const tick = () => {
+                if (n >= plan.beats) { countingIn = null; startRealAudio(); return; }
+                playClick(n === 0);
+                n++;
+                countingIn = setTimeout(tick, plan.intervalMs);
+            };
+            tick();
+            return;
+        }
+    }
+    startRealAudio();
+}
+
+function startRealAudio() {
     if (getRealAudioActiveSource() === 'local') {
         playPauseAudioFile();
     } else {

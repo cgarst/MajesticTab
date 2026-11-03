@@ -5,8 +5,8 @@
 // Defaults) is what every song starts on.
 // The controls are the original ones from the Song panel (ids kept), moved here by this file.
 
-import { getScoreMaxStringsForMode, formatTuningFromMidi, getInstrumentMode, setDefaultGpStringCount, getDefaultGpStringCount, getEffectiveGpStringCount, getTabStringCountPreference, setTabStringCountPreference } from './tuningUtils.js';
-import { getUsualGuitar, setUsualGuitar, getTabAdaptPref, getSongGuitar, setSongGuitar, hasTemporaryAdapt, findAdaptTuning } from './tabAdapter.js';
+import { getScoreMaxStringsForMode, formatTuningFromMidi, getInstrumentMode, getDefaultGpStringCount, getTabStringCountPreference, setTabStringCountPreference } from './tuningUtils.js';
+import { getUsualGuitar, getTabAdaptPref, getSongGuitar, setSongGuitar, hasTemporaryAdapt, findAdaptTuning } from './tabAdapter.js';
 import { getOverride } from './sessionOverrides.js';
 import { showToast } from './toast.js';
 
@@ -82,8 +82,7 @@ export function initGuitarMenu() {
     // ---- Contents ----
     const head = document.createElement('div');
     head.className = 'guitar-menu-head';
-    head.innerHTML = '<div class="guitar-menu-title">Guitar</div>'
-        + '<div class="guitar-menu-sub">What is in your hands right now. Resets when you leave the song, unless you save it for this song.</div>';
+    head.innerHTML = '<div class="guitar-menu-title">Guitar</div>';
     const written = document.createElement('div');
     written.className = 'guitar-menu-written';
     written.innerHTML = '<span class="guitar-menu-label">The tab is written for</span><b id="guitarWrittenFor"></b>';
@@ -92,14 +91,13 @@ export function initGuitarMenu() {
     if (stringsLabel) stringsLabel.textContent = 'Strings shown';
     strings.querySelector('#scoreCurrentStringsBadge')?.remove();
     const adaptLabel = adapt.querySelector('label.form-label');
-    if (adaptLabel) adaptLabel.textContent = 'Fit to my guitar';
+    if (adaptLabel) adaptLabel.textContent = 'Rewrite tab for my guitar';
     adapt.querySelector('#adaptStateBadge')?.remove();
     adapt.querySelector('label[for="adaptCapoSelect"]')?.replaceChildren('Capo fret');
 
     const foot = document.createElement('div');
     foot.className = 'guitar-menu-foot';
     foot.innerHTML = '<button type="button" class="btn btn-sm guitar-menu-action" id="guitarSongBtn">Save for this song</button>'
-        + '<button type="button" class="btn btn-sm guitar-menu-action" id="guitarUsualBtn">Make this my usual guitar</button>'
         + '<button type="button" class="btn btn-sm guitar-menu-action" id="guitarResetBtn">Reset</button>';
 
     menu.replaceChildren(head, written, strings, adapt, foot);
@@ -144,8 +142,6 @@ export function initGuitarMenu() {
         songBtn.textContent = !temporary && saved ? 'Forget for this song' : 'Save for this song';
         songBtn.disabled = !temporary && !saved;
         $('guitarResetBtn').disabled = !temporary;
-        const usualBtn = $('guitarUsualBtn');
-        usualBtn.disabled = !temporary && !saved;
     }
     document.addEventListener('guitar:overrides-changed', refresh);
     new MutationObserver(refresh).observe(strings, { attributes: true, attributeFilter: ['style'] });
@@ -177,21 +173,6 @@ export function initGuitarMenu() {
             handler.forgetSavedGuitar();
             showToast('Forgot the saved fit. This song opens on your usual guitar.', 'info');
         }
-        refresh();
-    });
-
-    // Writes to Settings, never to the song: the next song opens on this guitar
-    $('guitarUsualBtn').addEventListener('click', async () => {
-        const file = window.gpState?.currentFile;
-        if (!file) return;
-        const mode = getInstrumentMode();
-        setUsualGuitar(getTabAdaptPref(file));
-        setDefaultGpStringCount(getEffectiveGpStringCount(file, mode), mode);
-        const { resetGuitarFit, forgetSavedGuitar } = await import('../gpProcessor/gpHandler.js');
-        // This song now follows the usual guitar, so drop its own temporary and saved fits
-        forgetSavedGuitar();
-        resetGuitarFit();
-        showToast('Saved as your usual guitar. New songs open on it.', 'success');
         refresh();
     });
 }

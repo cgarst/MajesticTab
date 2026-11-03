@@ -5,7 +5,7 @@
 
 import {
     getMidiTickLookup, getAudioLatencyMs, synthPlayerState, onUserSeekTick, setExternalPlayback, updateContinuousPlaybackScroll,
-    reanchorPlaybackScroll
+    reanchorPlaybackScroll, playClick
 } from '../gpProcessor/gpPlayer.js';
 import { buildScoreTimeline, playedBarsFromLookup, tickToScoreMs, scoreMsToTick } from './scorePositions.js';
 import { scoreToMedia, mediaToScore } from './syncMap.js';
@@ -88,6 +88,62 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
         if (playing && located.next) glideTimer = setTimeout(glideNow, Math.max(30, duration + 5));
     }
 
+    // Metronome: the clicks are the score's beats, placed in the recording through the sync points, so they follow
+    // the recording's tempo. Scheduled a little ahead on the click audio context so they stay steady.
+    const clicks = [];
+    for (const bar of lookup.masterBars || []) {
+        const mb = bar.masterBar;
+        const num = mb.timeSignatureNumerator || 4;
+        const step = 3840 / (mb.timeSignatureDenominator || 4);
+        for (let k = 0; k < num; k++) {
+            const tick = bar.start + k * step;
+            if (tick < bar.end) clicks.push({ ms: tickToScoreMs(timeline, tick), accent: k === 0 });
+        }
+    }
+    const firstClickAtOrAfter = (scoreMs) => {
+        let lo = 0;
+        let hi = clicks.length;
+        while (lo < hi) {
+            const mid = (lo + hi) >> 1;
+            if (clicks[mid].ms < scoreMs) lo = mid + 1; else hi = mid;
+        }
+        return lo;
+    };
+    const LOOKAHEAD_MS = 120;
+    let nextClick = 0;
+    let lastNow = null;
+    const clickTimer = setInterval(() => {
+        if (!synthPlayerState.metronomeEnabled || !source.isPlaying() || source.isBuffering?.()) { lastNow = null; return; }
+        const rate = source.getRate?.() || 1;
+        const nowMs = source.getTimeMs();
+        if (lastNow === null || nowMs < lastNow || nowMs - lastNow > 400 * rate) {
+            nextClick = firstClickAtOrAfter(mediaToScore(resolved, nowMs));
+        }
+        lastNow = nowMs;
+        while (nextClick < clicks.length) {
+            const at = scoreToMedia(resolved, clicks[nextClick].ms);
+            if (at > nowMs + LOOKAHEAD_MS * rate) break;
+            if (at >= nowMs - 5) playClick(clicks[nextClick].accent, Math.max(0, (at - nowMs) / rate / 1000));
+            nextClick++;
+        }
+    }, 25);
+
+    // A count-in for starting the recording here: one bar of beats at the recording's tempo at this spot.
+    function countInPlan() {
+        const nowMs = source.getTimeMs();
+        const scoreMs = mediaToScore(resolved, nowMs);
+        let i = Math.max(0, firstClickAtOrAfter(scoreMs) - 1);
+        while (i > 0 && !clicks[i].accent) i--;
+        const bar = clicks[i];
+        if (!bar) return null;
+        let beats = 1;
+        while (clicks[i + beats] && !clicks[i + beats].accent) beats++;
+        const startMedia = scoreToMedia(resolved, bar.ms);
+        const endMedia = scoreToMedia(resolved, clicks[i + beats] ? clicks[i + beats].ms : bar.ms + beats * 500);
+        const intervalMs = Math.min(3000, Math.max(150, (endMedia - startMedia) / beats / (source.getRate?.() || 1)));
+        return { beats, intervalMs };
+    }
+
     const follower = createFollower({
         source,
         timeline,
@@ -134,9 +190,11 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
             resolved = resolvePoints(timeline, stored);
             follower.refresh();
         },
+        countInPlan,
         problems: () => validatePoints(resolved),
         usable: () => !hasOrderProblems(resolved),
         stop() {
+            clearInterval(clickTimer);
             stopListeningForSeeks();
             stopListeningToSource?.();
             setExternalPlayback(false);

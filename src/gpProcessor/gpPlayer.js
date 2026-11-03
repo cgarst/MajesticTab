@@ -1882,7 +1882,7 @@ const SYNTH_CLICK_COUNT_IN_VOLUME = 0.0001;
 let clickContext = null;
 let countInPhase = false;
 
-function playClick(accent) {
+export function playClick(accent, delaySec = 0) {
     try {
         if (!clickContext) {
             const Ctx = window.AudioContext || window.webkitAudioContext;
@@ -1892,7 +1892,7 @@ function playClick(accent) {
         }
         const ctx = clickContext;
         if (ctx.state !== 'running') ctx.resume().catch(() => {});
-        const now = ctx.currentTime;
+        const now = ctx.currentTime + Math.max(0, delaySec);
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'square';
