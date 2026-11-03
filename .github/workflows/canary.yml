@@ -56,6 +56,14 @@ jobs:
             "https://github.com/${{ github.repository }}/releases/download/canary" \
             artifacts/latest.json "Canary ${{ needs.check.outputs.build_id }}"
       # The updater reads each signature from latest.json, so the .sig files are not release assets.
+      # SideStore: the stable source lists the canary app at a fixed URL, so the IPA also ships under an unversioned name.
+      - name: Build SideStore canary source
+        run: |
+          app_version=$(node -p "require('./build/tauri/src-tauri/tauri.conf.json').version")
+          ipa="artifacts/MajesticTab-${app_version}-ios.ipa"
+          cp "$ipa" artifacts/MajesticTab-ios.ipa
+          node build/make-sidestore-source.mjs --canary "canary ${{ needs.check.outputs.build_id }}" "$ipa" artifacts/source.json \
+            "https://github.com/${{ github.repository }}/releases/tag/canary" "Latest build from main (${{ needs.check.outputs.build_id }}). May be unstable."
       - name: Drop updater signature files
         run: rm -f artifacts/*.sig
       - name: Replace canary release

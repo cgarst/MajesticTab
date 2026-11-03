@@ -19,6 +19,20 @@
       "tintColor": "9f7aea",
       "size": 30000000,
       "screenshotURLs": []
+    },
+    {
+      "name": "MajesticTab Canary",
+      "bundleIdentifier": "net.zathu.majestictab",
+      "developerName": "MajesticTab",
+      "version": "canary",
+      "versionDate": "2026-10-18T00:00:00Z",
+      "versionDescription": "Latest build from main. May be unstable.",
+      "downloadURL": "https://github.com/cgarst/MajesticTab/releases/download/canary/MajesticTab-ios.ipa",
+      "localizedDescription": "Latest build of MajesticTab from the main branch, updated on every push. For testing; may be unstable.",
+      "iconURL": "https://raw.githubusercontent.com/cgarst/MajesticTab/main/src/icons/apple-touch-icon.png",
+      "tintColor": "9f7aea",
+      "size": 30000000,
+      "screenshotURLs": []
     }
   ],
   "news": []
