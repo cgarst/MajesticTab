@@ -64,6 +64,8 @@ MajesticTab's interface follows the "MajesticTab Reimagined" design: the app rec
 
 ## Typography & Casing Consistency
 
+The website (`docs/`) follows the Reimagined rules above, not the eyebrow and Title Case conventions below: sentence case for headings, labels and actions, and no eyebrows. The rest of this section is older guidance.
+
 To ensure high visual polish, scannability, and consistency across marketing pages and product interfaces, follow these casing and punctuation standards:
 
 - **Section Headlines & Titles (Sentence case):** All major section headlines (e.g., `<h1>`, `<h2>`, hero titles, section value propositions) must use **Sentence case**. Capitalize only the first word and proper nouns/branded names (e.g., *MajesticTab*, *YouTube*, *SoundFont*, *Bluetooth*, *Google Drive*, *PDF*).
@@ -103,11 +105,11 @@ The chord library data is `chordData` in `src/referenceLibrary.js` (6 strings) a
 
 Website, store listing, and branding material live in `docs/` and `support/`:
 
-- `docs/`: the public website (GitHub Pages root: `index.html`, `privacy.html`, `landing.css`, `CNAME`, `img/`, `icons/`), the deploy root for `majestictab.zathu.net`.
+- `docs/`: the public website (GitHub Pages root: `index.html`, `site.css`, `privacy.html`, `CNAME`, `fonts/`, `img/`, `icons/`), the deploy root for `majestictab.zathu.net`.
 - `support/store/`: Microsoft Store screenshots and logos (`msstore/`), Play desktop screenshots (`play/desktop/`, which the Play API can't upload) and Flathub screenshots (`flathub/`). Flathub requires real window captures with native decorations, so `support/tools/flathub_screenshots.mjs` drives the installed release Flatpak on a KDE Wayland machine and captures it with Spectacle (never compose or emulate them); see the script header for how to run it.
 - `support/listing/`: the single source for store listing text on every channel (`short_description.txt`, `full_description.txt`, `changelogs/<version>.txt`). `fastlane/metadata/android/en-US/` holds the Google Play and F-Droid listing images (icon, feature graphic, phone and tablet screenshots) plus symlinks to that text. `msstore_listing.py` reads the same descriptions and release notes. `fastlane android listing` syncs the listing to Play and `fastlane android release` uploads the AAB (`bundle exec`, with `PLAY_SERVICE_ACCOUNT_JSON` set).
 - `support/branding/`: source icon SVGs and `generate_icons.py`, which writes the web PNG/ICO icons to both `src/icons/` and `docs/icons/`.
-- `support/tools/`: generators (`generate_screenshots.py`, `store_screenshots.py`, `store_logos.py`, `generate-steam-artwork.mjs`, `generate-msstore-artwork.mjs`, `flathub_screenshots.mjs`) and `landing/build.sh` (rebuilds `docs/landing.css` after changing classes in `index.html`). `chord-voicings/` holds the chord library's note and playability rules plus its check and repair scripts (see Chord Voicings above).
+- `support/tools/`: generators (`generate_screenshots.py`, `store_screenshots.py`, `store_logos.py`, `generate-steam-artwork.mjs`, `generate-msstore-artwork.mjs`, `flathub_screenshots.mjs`) and `landing/capture.mjs`, which captures the website's pictures from the real app (`docs/img/app/*.webp` and the hero loop `hero.webm`/`hero.mp4`, Slate Blue, `Duo No 2` fixture only; see its header for how to run it, and re-run it before each release so the site matches the app). The website is hand-written (`docs/index.html`, `docs/site.css`), flat and built on the Reimagined rules; there is no CSS build step. `chord-voicings/` holds the chord library's note and playability rules plus its check and repair scripts (see Chord Voicings above).
 
 Runtime app icons are in `src/icons/` (referenced as `icons/...` from `src/`).
 
