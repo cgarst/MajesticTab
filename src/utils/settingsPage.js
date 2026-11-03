@@ -201,7 +201,7 @@ export function initSettingsPage() {
         if (swatch) sc.appendChild(swatch);
         if (themeName) sc.appendChild(themeName);
         finishCurrent?.remove();
-        panes.appearance.appendChild(group('Theme', row('App theme', 'Pick the color ground for the whole app.', sc)));
+        panes.appearance.appendChild(group('Theme', row('App theme', 'Pick the color theme for the whole app.', sc)));
         const g = el('div', 'sgroup');
         g.appendChild(finishGrid);
         panes.appearance.appendChild(g);
