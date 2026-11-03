@@ -2155,6 +2155,13 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 }
 .setnav button, .library-bottom-nav .library-nav-tab, .tools-page-row, .shelf-item { border-radius: var(--r-control) !important; }
 /* From 1000px the panes run edge to edge like the mockup: no inset, so the square rows meet the rail and the page edge */
+/* Single pane (below 1000px): the rows run the full width of the available area, past the page body's side padding (20px, 8px on phones) */
+@media (max-width: 999px) {
+  .panes { margin-left: -20px; width: calc(100% + 40px); max-width: none; }
+}
+@media (max-width: 576px) {
+  .panes { margin-left: -8px; width: calc(100% + 16px); }
+}
 @media (min-width: 1000px) {
   .panes { margin-left: -20px; width: calc(100% + 40px); max-width: none; }
   .pane.list { padding-right: 0; }
