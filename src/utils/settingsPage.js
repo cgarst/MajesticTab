@@ -9,6 +9,7 @@ import { getDefaultGpNotationMode, setGpNotationMode } from '../gpProcessor/gpPr
 import { getUsualGuitar, setUsualGuitar, getAdaptTuningOptions } from './tabAdapter.js';
 import { getInstrumentMode } from './tuningUtils.js';
 import { brandMarkSvg } from '../brandMark.js';
+import { canQuitApp } from './quitApp.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -359,13 +360,13 @@ export function initSettingsPage() {
     if (aboutBtn) { aboutBtn.className = 'btn btn-sm btn-theme-outline'; aboutBtn.innerHTML = 'About MajesticTab'; abt.push(row('About', 'Version, credits and licences.', aboutBtn)); }
     if (privacy) { privacy.className = 'btn btn-sm btn-theme-outline'; privacy.textContent = 'Read'; abt.push(row('Privacy policy', 'What stays on your device.', privacy)); }
     if (support) { support.className = 'btn btn-sm btn-theme-outline'; support.textContent = 'Report'; abt.push(row('Support', 'Report a problem or ask for a feature.', support)); }
-    if (quitBtn) {
+    if (quitBtn && canQuitApp()) {
         // Quitting is not destructive: a plain row at the end of the list, not a coloured button or its own group
         quitBtn.className = 'btn btn-sm btn-theme-outline';
         quitBtn.textContent = 'Quit';
         abt.push(row('Quit', 'Close MajesticTab.', quitBtn));
-        $('fileMenuFooter')?.remove();
     }
+    $('fileMenuFooter')?.remove();
     const brand = el('div', 'about-brand', brandMarkSvg('about-mark') + '<span class="about-wordmark">Majestic<b>Tab</b></span>');
     panes.about.appendChild(brand);
     if (abt.length) panes.about.appendChild(group('', ...abt));

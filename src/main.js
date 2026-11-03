@@ -44,6 +44,7 @@ import { initGamepadManager } from './utils/gamepadManager.js';
 import { initJamMode } from './jam/jamManager.js';
 import { isSteamDeck, applyPlatformDefaults, getDefaultView, getDefaultLandscapePageLayout } from './utils/platformUtils.js';
 import { initIOSAudioUnlock, isIOSDevice } from './utils/iosAudioUnlock.js';
+import { canQuitApp } from './utils/quitApp.js';
 import { isTvMode } from './tvMode.js';
 import { initFretboard } from './fretboard/fretboardController.js';
 import { initTuner } from './tuner/tuner.js';
@@ -672,10 +673,8 @@ function setupSettings() {
     initBackupRestore();
     initSync();
 
-    // Setup Quit App button (Native Linux desktop client only; navigator.platform reports "Linux" on Android too)
-    if (window.__TAURI__ && /Linux/i.test(navigator.platform) && !/Android/i.test(navigator.userAgent)) {
-        const fileMenuFooter = document.getElementById('fileMenuFooter');
-        if (fileMenuFooter) fileMenuFooter.style.display = '';
+    // Quit button in Settings > About: native desktop apps only (Windows, macOS, Linux), never Android, iOS or the web
+    if (canQuitApp()) {
         document.getElementById('menuQuitAppBtn')?.addEventListener('click', async () => {
             try {
                 const appWindow = window.__TAURI__.window?.getCurrentWindow?.();
