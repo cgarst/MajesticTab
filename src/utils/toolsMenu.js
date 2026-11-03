@@ -10,6 +10,8 @@ import { updateGlobalAudioControls } from './navigationUtils.js';
 
 const LEGACY_KEYS = ['majestictab.pinnedTool', 'majestictab.playbackDock'];
 
+import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
+
 const $ = (id) => document.getElementById(id);
 
 function writeStorage(key, value) {
@@ -44,7 +46,7 @@ export function initToolsMenu() {
 
     // ---- Open / close ------------------------------------------------------
 
-    const isOpen = () => menu.style.display !== 'none';
+    const isOpen = () => isShown(menu);
 
     // Dividers only show between two groups that each have a visible row
     function updateDividers() {
@@ -66,17 +68,12 @@ export function initToolsMenu() {
     }
 
     function placeMenu(trigger = activeTriggerBtn || toggleBtn) {
-        if (!trigger) return;
-        const rect = trigger.getBoundingClientRect();
-        menu.style.left = 'auto';
-        menu.style.bottom = 'auto';
-        menu.style.top = `${Math.round(rect.bottom + 8)}px`;
-        menu.style.right = `${Math.max(8, Math.round(window.innerWidth - rect.right))}px`;
+        placePanel(menu, trigger);
     }
 
     function openMenu(trigger = toggleBtn) {
         activeTriggerBtn = trigger;
-        menu.style.display = 'block';
+        showPanel(menu, 'block');
         updateDividers();
         placeMenu(trigger);
         trigger?.setAttribute('aria-expanded', 'true');
@@ -88,7 +85,7 @@ export function initToolsMenu() {
 
     function closeMenu() {
         if (!isOpen()) return;
-        menu.style.display = 'none';
+        hidePanel(menu);
         activeTriggerBtn?.setAttribute('aria-expanded', 'false');
         activeTriggerBtn?.classList.remove('active');
         toggleBtn?.setAttribute('aria-expanded', 'false');

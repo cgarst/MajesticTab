@@ -4,11 +4,12 @@
 // (#readerViewOptions) with their original ids so the modules that bind to them keep working;
 // this file moves that block into the menu and handles open, close and placement.
 
+import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
 const $ = (id) => document.getElementById(id);
 
 export function initReaderViewMenu() {
     initPhoneChrome();
-    initSongButton();
+    initTracksMenu();
     arrangeSongPanel();
     initPracticePanels();
     const toggleBtn = $('viewToggleBtn');
@@ -19,24 +20,20 @@ export function initReaderViewMenu() {
     arrangeViewOptions(options);
     menu.appendChild(options);
 
-    const isOpen = () => menu.style.display !== 'none';
+    const isOpen = () => isShown(menu);
 
-    function place() {
-        const rect = toggleBtn.getBoundingClientRect();
-        menu.style.top = `${Math.round(rect.bottom + 8)}px`;
-        menu.style.right = '12px';
-    }
+    const place = () => placePanel(menu, toggleBtn);
 
     function open() {
+        showPanel(menu);
         place();
-        menu.style.display = '';
         toggleBtn.setAttribute('aria-expanded', 'true');
         window.refreshSlidingPills?.(menu, true);
     }
 
     function close() {
         if (!isOpen()) return;
-        menu.style.display = 'none';
+        hidePanel(menu);
         toggleBtn.setAttribute('aria-expanded', 'false');
     }
 
@@ -54,33 +51,42 @@ export function initReaderViewMenu() {
 }
 
 
-// ---- Song: the labelled button opens the Song panel (tracks, recording, save and share). The panel and its
-// open and close logic are the original "This song" panel in gpPlayer.js; this button proxies the (now plain) title.
-function initSongButton() {
-    const btn = $('songToggleBtn');
-    const title = $('topBarSongTitleBtn');
-    if (!btn || !title) return;
-    // The title is a label now; its old button role stays for code that clicks it programmatically
-    title.tabIndex = -1;
-    title.setAttribute('aria-hidden', 'true');
+// ---- Tracks: the labelled button opens the track list (show, hear, levels, colour). The Song menu (recording, section
+// marks, PDF, save and share) opens from the song's name in the top bar and is the original score options panel.
+function initTracksMenu() {
+    const btn = $('tracksToggleBtn');
+    const menu = $('tracksMenu');
+    const tracks = $('synthTrackVisibilitySection');
+    if (!btn || !menu || !tracks) return;
+
+    const head = document.createElement('div');
+    head.className = 'tracks-title';
+    head.textContent = 'Tracks';
+    const tracksLabel = tracks.querySelector('label.form-label');
+    if (tracksLabel) tracksLabel.textContent = 'Show and hear';
+    menu.replaceChildren(head, tracks);
+
+    const isOpen = () => isShown(menu);
+    const place = () => placePanel(menu, btn);
+    function open() { showPanel(menu); place(); btn.setAttribute('aria-expanded', 'true'); }
+    function close() { if (!isOpen()) return; hidePanel(menu); btn.setAttribute('aria-expanded', 'false'); }
     btn.addEventListener('pointerdown', (e) => e.stopPropagation());
-    btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (title.classList.contains('disabled')) return;
-        title.click();
-    });
+    btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.disabled) return; if (isOpen()) close(); else open(); });
+    document.addEventListener('pointerdown', (e) => { if (isOpen() && !menu.contains(e.target) && !btn.contains(e.target)) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) { close(); btn.focus(); } });
+    window.addEventListener('resize', () => { if (isOpen()) place(); });
+
+    // The track list only exists for Guitar Pro files; the button follows it
     const sync = () => {
-        const open = title.getAttribute('aria-expanded') === 'true';
-        const off = title.classList.contains('disabled') || title.getAttribute('aria-disabled') === 'true';
-        btn.classList.toggle('active', open);
-        btn.setAttribute('aria-expanded', String(open));
-        btn.disabled = off;
+        const available = tracks.style.display !== 'none';
+        btn.disabled = !available;
+        if (!available) close();
     };
-    new MutationObserver(sync).observe(title, { attributes: true, attributeFilter: ['class', 'aria-expanded', 'aria-disabled'] });
+    new MutationObserver(sync).observe(tracks, { attributes: true, attributeFilter: ['style'] });
     sync();
 }
 
-// The View menu reads: Layout, pages shown in landscape, page turn, Size, Paper.
+// The View menu reads: Paper, Layout, Notation, pages shown in landscape, page turn, Size.
 // The four original groups keep their controls and ids; this only reorders and relabels them.
 function arrangeViewOptions(root) {
     const groups = Array.from(root.children).filter((el) => el.tagName === 'DIV');
@@ -150,7 +156,7 @@ function arrangeViewOptions(root) {
         });
     }
 
-    const order = [layout, notation, landscape, advance, size, paper].filter(Boolean);
+    const order = [paper, layout, notation, landscape, advance, size].filter(Boolean);
     root.innerHTML = '';
     order.forEach((el) => root.appendChild(el));
 }
@@ -185,7 +191,7 @@ function initPracticePanels() {
 }
 
 
-// ---- Song panel: tracks (show and hear), recording, section marks, PDF, save and share ----
+// ---- Song menu (opens from the song's name): recording, section marks, PDF, save and share ----
 // Moves the original controls into place (ids kept). Notation went to View and strings and tuning to Guitar.
 function arrangeSongPanel() {
     const body = document.querySelector('#scoreOptionsDropdownPanel .synth-panel-body');
@@ -203,15 +209,13 @@ function arrangeSongPanel() {
         return g;
     };
 
-    const tracksLabel = tracks.querySelector('label.form-label');
-    if (tracksLabel) tracksLabel.textContent = 'Tracks';
-
-    // Hear: Full band, Guitars only, No guitars, sits with the track list it belongs to
+    // Hear: Full band, Guitars only, No guitars. It is a synth sound option, so it opens with the Synth button
     const hear = $('synthTrackModeContainer');
-    if (hear) {
+    const soundRow = $('soundFontModalBtn')?.closest('.mb-3');
+    if (hear && soundRow) {
         const l = hear.querySelector('label.form-label');
         if (l) l.textContent = 'Hear';
-        tracks.appendChild(hear);
+        soundRow.before(hear);
     }
 
     // Recording and sync: the Recording panel opens from here and from the dock's Recording button
@@ -256,7 +260,7 @@ function arrangeSongPanel() {
     parking.hidden = true;
     ['scoreOptionsNotationStyleSection', 'scoreOptionsStringCountSection', 'scoreOptionsAdaptSection'].forEach((id) => { const n = $(id); if (n) parking.appendChild(n); });
     document.body.appendChild(parking);
-    body.replaceChildren(...[tracks, recGroup, marksGroup, pdf, save].filter(Boolean));
+    body.replaceChildren(...[recGroup, marksGroup, pdf, save].filter(Boolean));
 }
 
 
@@ -272,7 +276,7 @@ function initPhoneChrome() {
         const delta = y - last;
         if (Math.abs(delta) < 12) return;
         // never hide it while one of its sheets is open
-        const sheetOpen = ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'scoreOptionsDropdownPanel'].some((id) => {
+        const sheetOpen = ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'tracksMenu', 'scoreOptionsDropdownPanel'].some((id) => {
             const el = $(id); return el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
         });
         document.body.classList.toggle('chrome-hidden', delta > 0 && y > 80 && !sheetOpen);

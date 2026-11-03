@@ -51,7 +51,7 @@ import { initToolsMenu } from './utils/toolsMenu.js';
 import { initReaderViewMenu } from './utils/readerViewMenu.js';
 import { initGuitarMenu } from './utils/guitarMenu.js';
 import { initPracticeMenu } from './utils/practiceMenu.js';
-import { initReaderMenus } from './utils/readerMenus.js';
+import { initReaderPanels } from './utils/readerPanels.js';
 import { initBarRuler } from './gpProcessor/barRuler.js';
 import { initSettingsPage } from './utils/settingsPage.js';
 import { initSlidingPills } from './utils/slidingPill.js';
@@ -1115,7 +1115,7 @@ async function initApp() {
     initReaderViewMenu();
     initGuitarMenu();
     initPracticeMenu();
-    initReaderMenus();
+    initReaderPanels();
     initBarRuler();
     initSettingsPage();
     initSlidingPills();

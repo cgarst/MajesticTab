@@ -177,20 +177,6 @@ body {
 /* View is a reader menu */
 body.library-view-active #viewPill { display: none; }
 
-/* --- Sound switch (phase 6): Synth or Recording, one choice, named in words, one active colour --- */
-#audioSourcePill .audio-src-label { margin-left: 0.4rem; font-weight: 600; font-size: 0.85em; }
-#synthToggleBtn.active, #synthToggleBtn.active-audio-mode,
-#ytToggleBtn.active, #ytToggleBtn.active-audio-mode,
-#ytToggleBtn.btn-source-local.active, #ytToggleBtn.btn-source-local.active-audio-mode {
-  color: #ffffff !important;
-  background: var(--accent-primary) !important;
-  box-shadow: none !important;
-}
-#fretboardToggleBtn.active, #tunerToggleBtn.active { background: var(--accent-primary) !important; box-shadow: none !important; }
-.mobile-dock-btn.active-audio-mode { background: var(--accent-primary); color: #fff; }
-#mobileSynthToggleBtn, #mobileYtToggleBtn { width: auto; padding: 0 0.85rem; border-radius: 9999px; gap: 0.4rem; }
-#mobilePlaybackDock .audio-src-label { font-size: 0.8rem; font-weight: 600; }
-@media (max-width: 359px) { #mobilePlaybackDock .audio-src-label { display: none; } #mobileSynthToggleBtn, #mobileYtToggleBtn { width: 36px; padding: 0; } }
 
 /* --- Toast (phase 8): rises from below, slower in than out, with an optional action such as Undo --- */
 .theme-toast { box-shadow: none; border-color: var(--border-prominent); transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out); }
@@ -328,7 +314,7 @@ body:not(.library-view-active) .breadcrumb-divider { display: none; }
 }
 .tools-btn-label { font-weight: 500; }
 /* Right cluster: no pill containers, just ghost buttons */
-#topFlexZone .hud-pill-group, #fullscreenPill, #navButtons { background: transparent !important; padding: 0 !important; }
+#topFlexZone .hud-pill-group, #topFlexZone .rbar-item, #fullscreenPill, #navButtons { background: transparent !important; padding: 0 !important; }
 #topFlexZone .btn, #fullscreenPill .btn, #navButtons .btn, #globalAudioControls .btn {
   background: transparent !important; border: 0 !important; color: var(--ink2) !important; border-radius: var(--r) !important; min-height: 36px;
 }
@@ -448,7 +434,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 @media (prefers-reduced-motion: reduce) { .mobile-dock-play-btn { transition: none; } }
 
 /* page navigation keeps its buttons but loses the pill outline */
-#navButtons, #navButtons.hud-pill-group, #fullscreenPill, #practicePill, #songPill, #guitarPill, #viewPill, #toolsPill {
+#navButtons, #navButtons.hud-pill-group, #fullscreenPill, .rbar-item {
   border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important;
 }
 #topBar .btn svg.i-aa { display: block; }
@@ -553,7 +539,8 @@ body.practice-open #output { padding-right: 376px !important; }
 }
 #synthDropdownPanel .synth-panel-header > div:first-child > i, #ytDropdownPanel .yt-header-badge { display: none !important; }
 #synthPanelTitle, #realAudioPanelTitle { font-size: 0 !important; }
-#synthPanelTitle::before, #realAudioPanelTitle::before { content: 'Practice'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
+#realAudioPanelTitle::before { content: 'Recording'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
+#synthPanelTitle::before { content: 'Synth'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
 #synthDropdownPanel .synth-panel-body, #ytDropdownPanel .yt-panel-body { padding: 4px 16px 18px; }
 .practice-seg { width: 100%; display: flex; margin-bottom: 16px; }
 .practice-seg .btn { flex: 1; justify-content: center; }
@@ -1846,14 +1833,17 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 .bar-btn-label { font-size: 14px; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
 #topFlexZone .btn, #toolsToggleBtn { padding-inline: 12px !important; }
 #topFlexZone .btn.active, #topFlexZone .btn[aria-expanded="true"] { background: var(--s2) !important; color: var(--ink) !important; }
-#songToggleBtn:disabled, #guitarToggleBtn:disabled { opacity: 0.4; }
+#tracksToggleBtn:disabled, #guitarToggleBtn:disabled { opacity: 0.4; }
 /* The title is a plain label. Its old button role stays for code that clicks it. */
-.top-bar-song-btn { pointer-events: none; cursor: default; }
-.top-bar-song-btn .song-title-chevron { display: none !important; }
+.top-bar-song-btn { cursor: pointer; }
+.top-bar-song-btn.is-static, .top-bar-song-btn.disabled { pointer-events: none; cursor: default; }
+.top-bar-song-btn .song-title-chevron { display: inline-block; font-size: 12px; margin-left: 6px; color: var(--ink2); }
+.top-bar-song-btn.is-static .song-title-chevron, .top-bar-song-btn.disabled .song-title-chevron { display: none !important; }
+.top-bar-song-btn:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
 /* Page buttons: the far right, always in the same spot, large targets for use while performing */
 #navButtons { margin-left: 6px; }
 #navButtons .btn { min-width: 44px; min-height: 44px; font-size: 1.1rem; }
-#pageIndicator { min-width: 4.5ch; font-size: 14px; }
+#pageIndicator { min-width: 4.5ch; font: 500 14px system-ui, sans-serif; font-variant-numeric: tabular-nums; color: var(--ink2); }
 /* Guitar button shows the state when an override is on */
 #guitarToggleBtn.is-adapted .bar-btn-label::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle; }
 
@@ -1963,7 +1953,7 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
     transition: transform var(--dur-base) var(--ease-out);
   }
   body:not(.library-view-active).chrome-hidden #topFlexZone { transform: translateY(100%); }
-  body:not(.library-view-active) #topFlexZone .hud-pill-group { flex: 1 1 0; display: flex; min-width: 0; }
+  body:not(.library-view-active) #topFlexZone .hud-pill-group, body:not(.library-view-active) #topFlexZone .rbar-item { flex: 1 1 0; display: flex; min-width: 0; }
   body:not(.library-view-active) #topFlexZone .btn { flex: 1; min-height: 56px; padding-inline: 2px !important; justify-content: center; border-radius: 0 !important; }
   body:not(.library-view-active) #fullscreenPill, body:not(.library-view-active) #jamLivePill { display: none !important; }
   body:not(.library-view-active) #rightSection { gap: 0; }
@@ -1976,7 +1966,7 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto; }
   .dock-time { min-width: 0; }
   /* Menus and panels become bottom sheets above the dock and the bottom row */
-  #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #ytDropdownPanel {
+  #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel {
     position: fixed !important; left: 0 !important; right: 0 !important; top: auto !important; width: auto !important; max-width: none !important;
     bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--dock-h, 0px)) !important; transform: none !important;
     max-height: calc(100vh - 56px - var(--dock-h, 0px) - 70px) !important; overflow-y: auto; border-radius: var(--r-lg) var(--r-lg) 0 0 !important;
@@ -2121,3 +2111,61 @@ select.form-select, select.theme-select, select.ref-select, select.tuner-calib-s
   padding-right: 32px !important;
 }
 select.form-select[multiple], select.form-select[size]:not([size="1"]) { background-image: none !important; padding-right: 12px !important; }
+
+/* ==========================================================================
+   Reader buttons and panels: one look and one behaviour
+   View, Practice, Song, Guitar, Tools (top bar or bottom row) and the dock's Synth | Recording switch are all .rbtn.
+   Every panel they open is .rpanel (class set by utils/readerPanels.js), with entry and exit driven by showPanel/hidePanel.
+   ========================================================================== */
+.rbtn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding-inline: 12px !important; border: 0 !important;
+  border-radius: var(--r-control, var(--r)) !important; background: transparent !important; color: var(--ink2) !important; box-shadow: none !important;
+  font: 600 14px system-ui, sans-serif; white-space: nowrap;
+  transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.rbtn:hover:not(:disabled) { background: var(--s1) !important; color: var(--ink) !important; }
+.rbtn[aria-expanded="true"], .rbtn.active { background: var(--s2) !important; color: var(--ink) !important; }
+.rbtn:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+.rbtn:disabled { opacity: 0.4; }
+.rbtn .bar-btn-label, .rbtn .audio-src-label { font: inherit; margin: 0; }
+@media (pointer: coarse) { .rbtn { min-height: 44px; } }
+
+/* The Synth | Recording switch: a tray with the selected sound one step up */
+.dock-src .rbtn { min-height: 32px; height: 32px; padding-inline: 10px !important; border-radius: calc(var(--r) - 3px) !important; font-size: 13px; }
+.dock-src .rbtn:hover:not(:disabled) { background: var(--s3) !important; }
+.dock-src .rbtn.active-audio-mode, .dock-src .rbtn.active { background: var(--s3) !important; color: var(--ink) !important; }
+@media (pointer: coarse) { .dock-src .rbtn { min-height: 44px; height: 44px; } }
+
+/* One status dot: a setting is on that you cannot see (the active-item inlay dot, the only colour on these buttons) */
+#guitarToggleBtn.is-adapted .bar-btn-label::after, #practiceToggleBtn.has-state .bar-btn-label::after,
+#toolsToggleBtn.has-pad .bar-btn-label::after, #toolsToggleBtn.has-jam .bar-btn-label::after,
+.dock-src .rbtn.active-audio-mode.active .audio-src-label::after {
+  content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle;
+}
+.tools-status-dot { display: none !important; }
+
+/* Panels: the same entry and a shorter exit. translate and scale are their own properties, so the panels that
+   position themselves with transform keep working. */
+.rpanel { animation: none !important; }
+.rpanel.rp-in { animation: rpIn var(--dur-base) var(--ease-out) both !important; }
+.rpanel.rp-out { animation: rpOut var(--dur-fast) var(--ease-out) both !important; pointer-events: none; }
+#synthDropdownPanel, #ytDropdownPanel { --rp-from: 24px 0; }
+@media (max-width: 900px) { #synthDropdownPanel, #ytDropdownPanel { --rp-from: 0 40px; } }
+@media (max-width: 640px) { .rpanel { --rp-from: 0 40px; } }
+@keyframes rpIn { from { opacity: 0; translate: var(--rp-from, 0 -6px); } to { opacity: 1; translate: 0 0; } }
+@keyframes rpOut { from { opacity: 1; translate: 0 0; } to { opacity: 0; translate: var(--rp-from, 0 -6px); } }
+@media (prefers-reduced-motion: reduce) { .rpanel.rp-in, .rpanel.rp-out { animation: none !important; } .rbtn { transition: none; } }
+
+/* The five top-bar menus are the same width and never taller than the space between the bar and the dock.
+   Placement is one function (placePanel in readerPanels.js): under the button, right edges aligned, clamped to the window. */
+@media (min-width: 641px) {
+  #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel {
+    width: min(360px, calc(100vw - 16px)) !important; max-width: none;
+    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - 24px); overflow-y: auto; overflow-x: hidden;
+  }
+}
+
+/* Tracks menu */
+#tracksMenu { padding: 12px 14px 12px !important; }
+.tracks-title { font: 600 17px system-ui, sans-serif; color: var(--ink); padding: 4px 2px 10px; }
+#tracksMenu #synthTrackVisibilitySection { margin: 0 !important; }

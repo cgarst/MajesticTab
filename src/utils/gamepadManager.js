@@ -1089,7 +1089,7 @@ class GamepadManager {
         }
 
         // 4. If a top-bar popup panel (View, Practice, Guitar, Song, Recording, Tools) is open
-        for (const panelId of ['viewMenu', 'practiceMenu', 'guitarMenu', 'synthDropdownPanel', 'scoreOptionsDropdownPanel', 'ytDropdownPanel', 'toolsMenu']) {
+        for (const panelId of ['viewMenu', 'practiceMenu', 'tracksMenu', 'guitarMenu', 'synthDropdownPanel', 'scoreOptionsDropdownPanel', 'ytDropdownPanel', 'toolsMenu']) {
             const panel = document.getElementById(panelId);
             if (panel && panel.style.display !== 'none' && this.isElementVisible(panel)) {
                 return panel;

@@ -1,6 +1,7 @@
 // gpPlayer.js
 // In-app artificial instrument (SoundFont synthesizer) player for Guitar Pro files
 import { clearOverrides } from '../utils/sessionOverrides.js';
+import { showPanel, hidePanel, placePanel } from '../utils/readerPanels.js';
 import { pauseYouTube, toggleYouTubePanel } from '../youtubePlayer.js';
 import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
@@ -1980,7 +1981,7 @@ export function showScoreOptions(fileType = 'gp') {
         btn.setAttribute('aria-disabled', 'false');
         const songTitleEl = document.getElementById('topBarSongTitle');
         const displayName = songTitleEl?.textContent || '';
-        btn.title = displayName ? `${displayName} - Notation Options` : 'Notation Options';
+        btn.title = displayName ? `${displayName} - Song menu` : 'Song menu';
     }
     if (chevron) {
         chevron.style.display = '';
@@ -2066,7 +2067,7 @@ export function hideScoreOptions() {
 
 export function updateScoreOptionsPanelPosition() {
     const panel = document.getElementById('scoreOptionsDropdownPanel');
-    const toggleBtn = document.getElementById('songToggleBtn') || document.getElementById('topBarSongTitleBtn');
+    const toggleBtn = document.getElementById('topBarSongTitleBtn');
     if (!panel || !toggleBtn || !scoreOptionsState.isOpen) return;
 
     const rect = toggleBtn.getBoundingClientRect();
@@ -2080,15 +2081,8 @@ export function updateScoreOptionsPanelPosition() {
         return;
     }
 
-    panel.style.position = 'fixed';
-    panel.style.top = `${rect.bottom + 8}px`;
-    panel.style.right = 'auto';
     panel.style.width = '';
-    const centerX = rect.left + rect.width / 2;
-    const halfPanelWidth = Math.min(185, (window.innerWidth - 24) / 2);
-    const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
-    panel.style.left = `${clampedLeft}px`;
-    panel.style.transform = 'translateX(-50%)';
+    placePanel(panel, toggleBtn, 8, 'left');
 }
 
 /**
@@ -2119,12 +2113,12 @@ export function toggleScoreOptionsPanel(forceState = null) {
 
         document.dispatchEvent(new CustomEvent('scoreoptions:open'));
         updateScoreOptionsPanelPosition();
-        panel.style.display = 'block';
+        showPanel(panel, 'block');
         toggleBtn?.classList.add('active');
         toggleBtn?.setAttribute('aria-expanded', 'true');
         window.refreshSlidingPills?.(panel, true);
     } else {
-        panel.style.display = 'none';
+        hidePanel(panel);
         toggleBtn?.classList.remove('active');
         toggleBtn?.setAttribute('aria-expanded', 'false');
     }
@@ -2232,11 +2226,11 @@ export function toggleSynthPanel(forceState = null) {
         pauseYouTube();
 
         updateSynthPanelPosition();
-        panel.style.display = 'block';
+        showPanel(panel, 'block');
         toggleBtn?.classList.add('active');
         mobileBtn?.classList.add('active');
     } else {
-        panel.style.display = 'none';
+        hidePanel(panel);
         panel.classList.remove('popup-from-bottom');
         toggleBtn?.classList.remove('active');
         mobileBtn?.classList.remove('active');

@@ -1,6 +1,7 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel } from './gpProcessor/gpPlayer.js';
+import { showPanel, hidePanel } from './utils/readerPanels.js';
 import { songHasSyncPoints } from './audioSync/syncStore.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 
@@ -709,7 +710,7 @@ export function toggleYouTubePanel(forceState = null) {
         clearSynthHighlights();
 
         updateYouTubePanelPosition();
-        panel.style.display = 'block';
+        showPanel(panel, 'block');
         if (chevron) {
             chevron.className = 'bi-chevron-up ms-1';
         }
@@ -723,7 +724,7 @@ export function toggleYouTubePanel(forceState = null) {
             loadCurrentTrack(false);
         }
     } else {
-        panel.style.display = 'none';
+        hidePanel(panel);
         panel.classList.remove('popup-from-bottom');
         if (chevron) {
             chevron.className = 'bi-chevron-down ms-1';

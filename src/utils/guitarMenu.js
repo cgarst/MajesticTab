@@ -10,6 +10,8 @@ import { getUsualGuitar, setUsualGuitar, getTabAdaptPref, getSongGuitar, setSong
 import { getOverride } from './sessionOverrides.js';
 import { showToast } from './toast.js';
 
+import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
+
 const $ = (id) => document.getElementById(id);
 
 function currentScore() {
@@ -103,22 +105,18 @@ export function initGuitarMenu() {
     menu.replaceChildren(head, written, strings, adapt, foot);
 
     // ---- Open, close, placement ----
-    const isOpen = () => menu.style.display !== 'none';
-    function place() {
-        const r = btn.getBoundingClientRect();
-        menu.style.top = `${Math.round(r.bottom + 8)}px`;
-        menu.style.right = `${Math.max(8, Math.round(window.innerWidth - r.right))}px`;
-    }
+    const isOpen = () => isShown(menu);
+    const place = () => placePanel(menu, btn);
     function open() {
         refresh();
+        showPanel(menu);
         place();
-        menu.style.display = '';
         btn.setAttribute('aria-expanded', 'true');
         window.refreshSlidingPills?.(menu, true);
     }
     function close() {
         if (!isOpen()) return;
-        menu.style.display = 'none';
+        hidePanel(menu);
         btn.setAttribute('aria-expanded', 'false');
     }
     btn.addEventListener('pointerdown', (e) => e.stopPropagation());

@@ -58,7 +58,7 @@
         <i class="bi-chevron-left me-1"></i><span>Library</span>
       </button>
       <span class="breadcrumb-divider text-muted opacity-50" data-tauri-drag-region>/</span>
-      <button type="button" class="btn btn-sm top-bar-song-btn" id="topBarSongTitleBtn" title="Notation Options" aria-label="Notation Options" aria-expanded="false">
+      <button type="button" class="btn btn-sm top-bar-song-btn" id="topBarSongTitleBtn" title="Song menu" aria-label="Song menu" aria-haspopup="dialog" aria-controls="scoreOptionsDropdownPanel" aria-expanded="false">
         <i class="bi-music-note-beamed song-title-glyph" aria-hidden="true"></i>
         <span class="breadcrumb-song-title text-truncate fw-semibold" id="topBarSongTitle"></span>
         <i class="bi-chevron-down song-title-chevron" aria-hidden="true"></i>
@@ -100,10 +100,10 @@
 
     <div id="audioSourcePill" class="hud-pill-group" role="group" aria-label="Audio Sources" style="display:none;">
       <button class="btn btn-sm" id="synthToggleBtn" title="MIDI Synth Playback & Controls" style="display:none;">
-        <i class="bi-soundwave"></i><span class="audio-src-label">Synth</span>
+        <span class="audio-src-label">Synth</span>
       </button>
       <button class="btn btn-sm" id="ytToggleBtn" title="Real Audio & Controls" style="display:none;">
-        <i class="bi-youtube"></i><span class="audio-src-label">Recording</span>
+        <span class="audio-src-label">Recording</span>
       </button>
     </div>
 
@@ -117,34 +117,33 @@
         </button>
       </div>
 
-      <div id="viewPill" class="hud-pill-group" role="group" aria-label="View">
-        <button class="btn btn-sm" id="viewToggleBtn" type="button" title="View: layout, size, paper and notation" aria-haspopup="dialog" aria-expanded="false" aria-controls="viewMenu">
+      <div id="viewPill" class="rbar-item" role="group" aria-label="View">
+        <button class="btn btn-sm rbtn" id="viewToggleBtn" type="button" title="View: layout, size, paper and notation" aria-haspopup="dialog" aria-expanded="false" aria-controls="viewMenu">
           <span class="bar-btn-label">View</span>
         </button>
       </div>
 
-      <div id="practicePill" class="hud-pill-group" role="group" aria-label="Practice">
-        <button class="btn btn-sm" id="practiceToggleBtn" type="button" title="Practice: speed, parts, loop and click" aria-haspopup="dialog" aria-expanded="false" aria-controls="practiceMenu">
+      <div id="practicePill" class="rbar-item" role="group" aria-label="Practice">
+        <button class="btn btn-sm rbtn" id="practiceToggleBtn" type="button" title="Practice: speed, parts, loop and click" aria-haspopup="dialog" aria-expanded="false" aria-controls="practiceMenu">
           <span class="bar-btn-label">Practice</span>
         </button>
       </div>
 
-      <div id="songPill" class="hud-pill-group" role="group" aria-label="Song">
-        <button class="btn btn-sm" id="songToggleBtn" type="button" title="Song: tracks, recording, save and share" aria-haspopup="dialog" aria-expanded="false" aria-controls="scoreOptionsDropdownPanel">
-          <span class="bar-btn-label">Song</span>
+      <div id="tracksPill" class="rbar-item" role="group" aria-label="Tracks">
+        <button class="btn btn-sm rbtn" id="tracksToggleBtn" type="button" title="Tracks: which tracks to show and hear, and their levels" aria-haspopup="dialog" aria-expanded="false" aria-controls="tracksMenu">
+          <span class="bar-btn-label">Tracks</span>
         </button>
       </div>
 
-      <div id="guitarPill" class="hud-pill-group" role="group" aria-label="Guitar">
-        <button class="btn btn-sm" id="guitarToggleBtn" type="button" title="Guitar: strings, tuning and capo for the guitar in your hands" aria-haspopup="dialog" aria-expanded="false" aria-controls="guitarMenu">
+      <div id="guitarPill" class="rbar-item" role="group" aria-label="Guitar">
+        <button class="btn btn-sm rbtn" id="guitarToggleBtn" type="button" title="Guitar: strings, tuning and capo for the guitar in your hands" aria-haspopup="dialog" aria-expanded="false" aria-controls="guitarMenu">
           <span class="bar-btn-label" id="guitarBtnLabel">Guitar</span>
         </button>
       </div>
 
-      <div id="toolsPill" class="hud-pill-group" role="group" aria-label="Tools">
-        <button class="btn btn-sm" id="toolsToggleBtn" type="button" title="Tools" aria-haspopup="menu" aria-expanded="false" aria-controls="toolsMenu">
+      <div id="toolsPill" class="rbar-item" role="group" aria-label="Tools">
+        <button class="btn btn-sm rbtn" id="toolsToggleBtn" type="button" title="Tools" aria-haspopup="menu" aria-expanded="false" aria-controls="toolsMenu">
           <span class="bar-btn-label">Tools</span>
-          <span class="tools-status-dot" id="toolsStatusDot" aria-hidden="true"></span>
         </button>
       </div>
 
@@ -170,6 +169,9 @@
 <div id="practiceMenu" class="tools-menu practice-menu" role="dialog" aria-label="Practice" style="display:none;"></div>
 
 <!-- Guitar: what is in your hands right now (temporary; not saved). Built by utils/guitarMenu.js -->
+<!-- Tracks: which tracks to show and hear. Built by utils/readerViewMenu.js -->
+<div id="tracksMenu" class="tools-menu tracks-menu" role="dialog" aria-label="Tracks" style="display:none;"></div>
+
 <div id="guitarMenu" class="tools-menu guitar-menu" role="dialog" aria-label="Guitar" style="display:none;"></div>
 
 <!-- View menu: how the score is shown while playing (size, paper, pages). Hosts #readerViewOptions, moved here by utils/readerViewMenu.js so its controls keep their ids. -->
@@ -1996,10 +1998,10 @@
       </div>
       <div class="dock-src" role="group" aria-label="Sound">
         <div class="mobile-dock-divider" id="mobileAudioSourceDivider" style="display: none;"></div>
-        <button type="button" class="btn mobile-dock-btn" id="mobileSynthToggleBtn" title="Play the tab with the built-in synth" aria-label="Synth" style="display: none;">
+        <button type="button" class="btn mobile-dock-btn rbtn" id="mobileSynthToggleBtn" title="Play the tab with the built-in synth" aria-label="Synth" style="display: none;">
           <span class="audio-src-label">Synth</span>
         </button>
-        <button type="button" class="btn mobile-dock-btn" id="mobileYtToggleBtn" title="Play along with a recording" aria-label="Recording" style="display: none;">
+        <button type="button" class="btn mobile-dock-btn rbtn" id="mobileYtToggleBtn" title="Play along with a recording" aria-label="Recording" style="display: none;">
           <span class="audio-src-label">Recording</span>
         </button>
         <button type="button" class="btn mobile-dock-btn dock-more" id="dockVolumeBtn" aria-haspopup="dialog" aria-expanded="false" aria-label="Volume" title="Volume"><i class="bi-volume-up"></i></button>

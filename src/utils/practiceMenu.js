@@ -4,6 +4,8 @@
 // handlers are untouched); this file moves them here. Speed acts on whichever sound is playing: the synth, or a recording.
 // The dock keeps the transport, the Synth | Recording switch and a Volume popover.
 
+import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
+
 const $ = (id) => document.getElementById(id);
 
 function onRecording() {
@@ -51,15 +53,10 @@ export function initPracticeMenu() {
     menu.replaceChildren(...[head, speed, sections, loopBlock, clickBlock].filter(Boolean));
 
     // ---- Open, close, placement ----
-    const isOpen = () => menu.style.display !== 'none';
-    function place() {
-        const r = btn.getBoundingClientRect();
-        menu.style.top = `${Math.round(r.bottom + 8)}px`;
-        menu.style.right = 'auto';
-        menu.style.left = `${Math.max(8, Math.min(window.innerWidth - menu.offsetWidth - 8, Math.round(r.right - menu.offsetWidth)))}px`;
-    }
+    const isOpen = () => isShown(menu);
+    const place = () => placePanel(menu, btn);
     function open() {
-        menu.style.display = '';
+        showPanel(menu);
         render();
         place();
         btn.setAttribute('aria-expanded', 'true');
@@ -67,7 +64,7 @@ export function initPracticeMenu() {
     }
     function close() {
         if (!isOpen()) return;
-        menu.style.display = 'none';
+        hidePanel(menu);
         btn.setAttribute('aria-expanded', 'false');
     }
     btn.addEventListener('pointerdown', (e) => e.stopPropagation());
