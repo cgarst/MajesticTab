@@ -79,12 +79,9 @@ for (const [suffix, size] of [['', { w: 1440, h: 900 }], ['-phone', { w: 390, h:
     const tag = theme === 'Slate Blue' ? '' : '-snow';
     if (theme === 'Snow White' && !want('snow')) continue;
     await open({ ...size, theme });
-    if (want('reader')) {
-      // the reader picture is the score alone: compact the fretboard for the shot, then bring it back (F) for the panel shots
-      await click('#fretboardCloseBtn'); await sleep(700);
-      await shot(`reader${suffix}${tag}`);
-      await click('#fretboardDockBtn'); await sleep(900);
-    }
+    // every reader picture (the score alone and the five button panels) is shot with the fretboard compacted
+    await click('#fretboardCloseBtn'); await sleep(700);
+    if (want('reader')) await shot(`reader${suffix}${tag}`);
     if (theme !== 'Slate Blue') continue;
     for (const [name, sel] of Object.entries(PANELS)) {
       if (!want(name)) continue;
