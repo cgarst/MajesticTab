@@ -1470,34 +1470,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
         <div id="backupTabContent" style="display: ${activeTab === 'backup' ? 'block' : 'none'};">
           <!-- Bundle Contents Overview -->
           <div class="backup-summary-box p-3 rounded-3 mb-3">
-            <div class="small fw-semibold text-white mb-2 d-flex align-items-center gap-2">
-              <i class="bi-collection text-info"></i> In this backup
-            </div>
-            <div class="row g-2 text-white-50 small">
-              <div class="col-6 col-md-3">
-                <div class="p-2 rounded-2 backup-stat-card">
-                  <div class="text-white fw-bold fs-6">${storedFiles.length}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Stored tabs (${formatBytes(tabsTotalSize)})</div>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="p-2 rounded-2 backup-stat-card">
-                  <div class="text-white fw-bold fs-6">${libraryData.songs?.length || 0}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">Library songs</div>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="p-2 rounded-2 backup-stat-card">
-                  <div class="text-white fw-bold fs-6">${extensions.length}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">File converters</div>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
-                <div class="p-2 rounded-2 backup-stat-card">
-                  <div class="text-white fw-bold fs-6"><i class="bi-check2 text-success"></i></div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">App settings</div>
-                </div>
-              </div>
+            <div class="small fw-semibold text-white mb-2">In this backup</div>
+            <div class="text-white-50 small">
+              <span class="text-white fw-medium">${storedFiles.length}</span> tabs (${formatBytes(tabsTotalSize)}) · <span class="text-white fw-medium">${libraryData.songs?.length || 0}</span> songs · <span class="text-white fw-medium">${extensions.length}</span> file converters · App settings
             </div>
           </div>
 
@@ -1511,11 +1486,8 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center justify-content-between gap-2" style="cursor: pointer;">
                   <div class="d-flex align-items-center gap-3 min-w-0">
                     <input class="form-check-input theme-radio m-0" type="radio" name="backupTargetProvider" value="${escapeHtml(p.id)}" ${p.id === preferredProviderId ? 'checked' : ''}>
-                    <div class="provider-mini-icon">
-                      <i class="${escapeHtml(p.icon || 'bi-folder')} ${escapeHtml(p.iconColorClass || 'text-primary')} fs-5"></i>
-                    </div>
                     <div class="min-w-0">
-                      <div class="fw-bold text-white small leading-tight">${escapeHtml(p.name)}</div>
+                      <div class="fw-semibold text-white small leading-tight">${escapeHtml(p.name)}</div>
                       <div class="text-muted text-truncate" style="font-size: 0.73rem;">${escapeHtml(p.saveDescription || p.description || '')}</div>
                     </div>
                   </div>
@@ -1531,7 +1503,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center gap-3" id="backupFormatIncrementalOption" style="cursor: pointer;">
                 <input class="form-check-input theme-radio m-0" type="radio" name="backupFormat" value="incremental">
                 <div class="min-w-0">
-                  <div class="fw-bold text-white small leading-tight">Incremental snapshots</div>
+                  <div class="fw-semibold text-white small leading-tight">Incremental snapshots</div>
                   <div class="text-muted" style="font-size: 0.73rem;">Saves only new or changed tabs. Each backup is a restorable snapshot. Works with Google Drive, an S3 bucket, a WebDAV server or a local folder.</div>
                   <div class="text-warning" id="backupIncrementalHint" style="font-size: 0.73rem; display: none;"></div>
                 </div>
@@ -1539,7 +1511,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <label class="backup-provider-option p-3 rounded-3 d-flex align-items-center gap-3" id="backupFormatSingleOption" style="cursor: pointer;">
                 <input class="form-check-input theme-radio m-0" type="radio" name="backupFormat" value="single">
                 <div class="min-w-0">
-                  <div class="fw-bold text-white small leading-tight">Single file</div>
+                  <div class="fw-semibold text-white small leading-tight">Single file</div>
                   <div class="text-muted" style="font-size: 0.73rem;">Everything in one portable .mtbackup file.</div>
                 </div>
               </label>
@@ -1548,7 +1520,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
 
           <!-- Single file: filename -->
           <div class="mb-3" id="backupFilenameGroup">
-            <label class="form-label small fw-semibold text-white-50 mb-1" for="backupFilenameInput">Filename:</label>
+            <label class="form-label small fw-semibold text-white-50 mb-1" for="backupFilenameInput">Filename</label>
             <input type="text" class="form-control form-control-sm" id="backupFilenameInput" value="${escapeHtml(defaultFilename)}">
           </div>
 
@@ -1574,37 +1546,36 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <!-- Step 1: File Picker / Dropzone -->
           <div class="backup-dropzone p-4 rounded-3 text-center mb-3" id="restoreDropzone">
             <input type="file" id="restoreFileInput" accept=".mtbackup" class="d-none">
-            <i class="bi-file-earmark-arrow-up text-info fs-1 mb-2 d-block"></i>
-            <div class="fw-bold text-white small mb-1">Restore from a snapshot or a backup file</div>
+            <div class="fw-semibold text-white small mb-1">Restore from a snapshot or a backup file</div>
             <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive, an S3 bucket, a WebDAV server or a backup folder, or open a single .mtbackup file (you can also drop one here)</div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreBrowseBtn">
-                <i class="bi-file-earmark-zip text-primary"></i> <span>From File…</span>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreBrowseBtn">
+                <span>From file…</span>
               </button>
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none align-items-center gap-1" id="restoreFolderBtn">
-                <i class="bi-hdd text-primary"></i> <span>From Local Folder</span>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none" id="restoreFolderBtn">
+                <span>From local folder</span>
               </button>
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none align-items-center gap-1" id="restoreIcloudBtn">
-                <i class="bi-cloud text-info"></i> <span>From iCloud Drive</span>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-none" id="restoreIcloudBtn">
+                <span>From iCloud Drive</span>
               </button>
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreS3Btn">
-                <i class="bi-hdd-network text-warning"></i> <span>From S3 Bucket</span>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreS3Btn">
+                <span>From S3 bucket</span>
               </button>
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreWebDavBtn">
-                <i class="bi-hdd-rack text-info"></i> <span>From WebDAV</span>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreWebDavBtn">
+                <span>From WebDAV</span>
               </button>
               <!-- @googleDrive:begin -->
-              <button type="button" class="btn btn-sm btn-theme-outline px-3 d-inline-flex align-items-center gap-1" id="restoreDriveBtn">
-                <i class="icon-gdrive"></i> <span>From Google Drive</span>
+              <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreDriveBtn">
+                <span>From Google Drive</span>
               </button>
               <!-- @googleDrive:end -->
             </div>
 
             <!-- Inline Google Drive Backup Selector -->
-            <div id="restoreDriveContainer" class="mt-3 pt-3 border-top border-secondary-subtle text-start" style="display: none;">
+            <div id="restoreDriveContainer" class="mt-3 pt-3 text-start" style="display: none;">
               <div class="d-flex align-items-center justify-content-between mb-2">
                 <span class="small fw-semibold text-white d-flex align-items-center gap-1">
-                  <i class="bi-hdd text-primary" id="restoreSourceIcon"></i> <span id="restoreSourceTitle">Backups:</span>
+                  <span id="restoreSourceTitle">Backups</span>
                 </span>
                 <div class="d-flex align-items-center gap-2">
                   <button type="button" class="btn btn-sm btn-link p-0 text-white-50 text-decoration-none" id="restoreDriveCloseBtn" title="Close" aria-label="Close backups">
@@ -1623,7 +1594,6 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <div class="task-progress"><div class="task-progress-text"><span class="task-progress-label">Looking for backups…</span></div><div class="task-progress-track is-indeterminate" role="progressbar" aria-label="Looking for backups"><div class="task-progress-fill"></div></div></div>
               </div>
               <div id="restoreDriveEmpty" class="py-3 text-center text-white-50 small" style="display: none;">
-                <i class="bi-archive text-secondary fs-4 d-block mb-1"></i>
                 <div id="restoreDriveEmptyText">No backups found.</div>
               </div>
               <div id="restoreDriveError" class="py-2 text-danger small" style="display: none;"></div>
@@ -1635,7 +1605,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           </div>
 
           <!-- Step 2: Inspection Card (Hidden until file selected) -->
-          <div id="restoreInspectionCard" class="p-3 rounded-3 mb-3" style="display:none; background: var(--bg-card); border: 1px solid var(--border-prominent);">
+          <div id="restoreInspectionCard" class="p-3 rounded-3 mb-3" style="display:none;">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <div class="d-flex align-items-center gap-2">
                 <span class="small fw-semibold text-white">Valid backup</span>
@@ -1643,28 +1613,11 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               </div>
               <div class="d-flex align-items-center gap-2">
                 <span class="small text-white-50" id="restoreExportedDate" style="font-size: 0.75rem;"></span>
-                <button type="button" class="btn btn-sm btn-link p-0 text-info text-decoration-none" id="restoreChangeFileBtn" style="font-size: 0.75rem;">Change</button>
+                <button type="button" class="btn btn-sm srow-ghost px-2 py-0" id="restoreChangeFileBtn" style="font-size: 0.75rem;">Change</button>
               </div>
             </div>
-            <div class="row g-2 text-white-50 small mb-3">
-              <div class="col-4">
-                <div class="p-2 rounded-2 backup-stat-card text-center">
-                  <div class="text-white fw-bold" id="restoreTabsCount">0</div>
-                  <div style="font-size:0.7rem;">Tabs</div>
-                </div>
-              </div>
-              <div class="col-4">
-                <div class="p-2 rounded-2 backup-stat-card text-center">
-                  <div class="text-white fw-bold" id="restoreSongsCount">0</div>
-                  <div style="font-size:0.7rem;">Songs</div>
-                </div>
-              </div>
-              <div class="col-4">
-                <div class="p-2 rounded-2 backup-stat-card text-center">
-                  <div class="text-white fw-bold" id="restoreExtCount">0</div>
-                  <div style="font-size:0.7rem;">Converters</div>
-                </div>
-              </div>
+            <div class="text-white-50 small mb-3">
+              <span class="text-white fw-medium" id="restoreTabsCount">0</span> tabs · <span class="text-white fw-medium" id="restoreSongsCount">0</span> songs · <span class="text-white fw-medium" id="restoreExtCount">0</span> file converters
             </div>
 
             <!-- Snapshot restore preview (incremental backups only) -->
@@ -1679,11 +1632,11 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <input class="form-check-input theme-radio mt-1" type="radio" name="restoreModeRadio" value="merge" checked>
                 <div class="min-w-0">
                   <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="fw-bold text-white small">Add Missing Items</span>
+                    <span class="fw-semibold text-white small">Add missing items</span>
                     <span class="small text-white-50">Recommended</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
-                    Keeps everything you have and adds any tabs, songs, collections, file converters, and preferences that are missing from the backup.
+                    Keeps everything you have and adds any tabs, songs, collections, file converters, and settings that are missing from the backup.
                   </div>
                 </div>
               </label>
@@ -1693,7 +1646,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                 <input class="form-check-input theme-radio mt-1" type="radio" name="restoreModeRadio" value="wipe">
                 <div class="min-w-0">
                   <div class="d-flex align-items-center gap-2 mb-1">
-                    <span class="fw-bold text-danger-emphasis small">Replace All Data</span>
+                    <span class="fw-semibold text-danger small">Replace all data</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
                     Erases all current local stored tabs, library entries, file converters, settings and audio files (unless you leave audio out above), and replaces them cleanly with this backup.
@@ -1703,9 +1656,9 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
             </div>
 
             <!-- Confirmation notice for wipe -->
-            <div id="wipeConfirmContainer" class="form-check mb-3 p-2 rounded-2 bg-danger bg-opacity-10 border border-danger border-opacity-25" style="display:none;">
+            <div id="wipeConfirmContainer" class="form-check mb-3 p-3 rounded-2" style="display:none; background: color-mix(in srgb, var(--danger, #f87171) 12%, var(--s2));">
               <input class="form-check-input ms-0 me-2" type="checkbox" id="wipeConfirmCheckbox">
-              <label class="form-check-label small text-danger fw-semibold" for="wipeConfirmCheckbox" style="font-size: 0.75rem;">
+              <label class="form-check-label small" for="wipeConfirmCheckbox" style="color: var(--danger, #f87171); font-weight: 600; font-size: 0.75rem;">
                 I understand this will erase my current stored tabs and settings before restoring.
               </label>
             </div>
@@ -1764,7 +1717,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div>
                 <div class="fw-bold text-white small mb-1">Refresh metadata from MusicBrainz and your Guitar Pro files</div>
                 <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
-                  Performs a comprehensive refresh of all library metadata: queries MusicBrainz for canonical <strong>track durations</strong>, official track numbers, release years, and cover artwork, while re-analyzing all stored Guitar Pro tab files to extract accurate guitar &amp; bass tunings and string counts.
+                  Performs a comprehensive refresh of all library metadata: queries MusicBrainz for canonical <strong>track durations</strong>, official track numbers, release years, and cover artwork, while re-analyzing all stored Guitar Pro tab files to extract accurate guitar and bass tunings and string counts.
                 </div>
                 <div class="text-white-50 small mt-2 pt-2 border-top border-secondary border-opacity-25" style="font-size: 0.74rem;">
                   <i class="bi-shield-check text-success me-1"></i> Your attached tabs, custom tab assignments, and collections will remain completely intact.
@@ -2261,44 +2214,44 @@ function attachModalHandlers(modal, options = {}) {
         const isWebDav = getBackupProviderId() === 'webdav';
         const where = isDrive ? 'Google Drive' : isIcloud ? 'iCloud Drive' : isS3 ? 'your S3 bucket' : isWebDav ? 'your WebDAV server' : 'the backup folder';
         const note = (html) => { if (request === previewRequest) backupIncrementalPreview.innerHTML = html; };
-        const actionBtn = (action, icon, label) => `<button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="${action}"><i class="${icon}"></i> <span>${label}</span></button>`;
+        const actionBtn = (action, icon, label) => `<button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2" data-backup-action="${action}"><span>${label}</span></button>`;
 
         note(waitingHtml('Checking for existing backups…'));
         try {
             const target = await resolveIncrementalTarget();
             // @googleDrive:begin
             if (target.status === 'needs-auth') {
-                return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Connect Google Drive to back up there and see what changed since your last backup.</div>${actionBtn('connect', 'icon-gdrive', 'Connect Google Drive')}`);
+                return note(`<div class="small text-white-50">Connect Google Drive to back up there and see what changed since your last backup.</div>${actionBtn('connect', '', 'Connect Google Drive')}`);
             }
             // @googleDrive:end
             if (target.status === 'needs-icloud') {
-                return note(`<div class="small text-white-50"><i class="bi-cloud-slash me-1"></i> iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud, and make sure MajesticTab is allowed to use it.</div>`);
+                return note(`<div class="small text-white-50">iCloud Drive is not available. Turn it on in Settings > Apple Account > iCloud, and make sure MajesticTab is allowed to use it.</div>`);
             }
             if (target.status === 'needs-s3') {
                 const { s3ConfigFormHtml } = await import('./s3Ui.js');
-                return note(`<div class="small text-white-50 mb-2"><i class="bi-info-circle me-1"></i> Connect an S3 bucket to keep your backups there.</div>${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div>${actionBtn('save-s3', 'bi-plug', 'Save and Connect')}`);
+                return note(`<div class="small text-white-50 mb-2">Connect an S3 bucket to keep your backups there.</div>${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div>${actionBtn('save-s3', '', 'Save and connect')}`);
             }
             if (target.status === 'needs-webdav') {
                 const { webdavConfigFormHtml } = await import('./webdavUi.js');
-                return note(`<div class="small text-white-50 mb-2"><i class="bi-info-circle me-1"></i> Connect a WebDAV server to keep your backups there.</div>${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div>${actionBtn('save-webdav', 'bi-plug', 'Save and Connect')}`);
+                return note(`<div class="small text-white-50 mb-2">Connect a WebDAV server to keep your backups there.</div>${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div>${actionBtn('save-webdav', '', 'Save and connect')}`);
             }
             if (target.status === 'needs-folder') {
-                return note(`<div class="small text-white-50"><i class="bi-info-circle me-1"></i> Choose a folder on this device to keep your backups in.</div>${actionBtn('choose-folder', 'bi-folder2-open text-primary', 'Choose Folder')}`);
+                return note(`<div class="small text-white-50">Choose a folder on this device to keep your backups in.</div>${actionBtn('choose-folder', '', 'Choose folder')}`);
             }
             if (target.status === 'needs-permission') {
-                return note(`<div class="small text-white-50"><i class="bi-lock me-1"></i> MajesticTab needs permission to use "${escapeHtml(target.folderName)}" again.</div>${actionBtn('allow-folder', 'bi-unlock text-primary', 'Allow Access')} ${actionBtn('choose-folder', 'bi-folder2-open text-primary', 'Choose Another')}`);
+                return note(`<div class="small text-white-50">MajesticTab needs permission to use "${escapeHtml(target.folderName)}" again.</div>${actionBtn('allow-folder', '', 'Allow access')} ${actionBtn('choose-folder', '', 'Choose another')}`);
             }
 
             const { previewIncrementalBackup } = await import('./incrementalBackup.js');
             const p = await previewIncrementalBackup(target.backend);
             const when = p.latest ? new Date(p.latest.exportedAt).toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
             const head = p.latest
-                ? `<i class="bi-check-circle text-success me-1"></i> Last backup ${escapeHtml(when)} (${p.backupCount} saved)`
-                : `<i class="bi-exclamation-circle text-warning me-1"></i> No backup in ${where} yet. This will be your first.`;
+                ? `Last backup ${escapeHtml(when)} (${p.backupCount} saved)`
+                : `No backup in ${where} yet. This will be your first.`;
             const stat = changeStatHtml;
             const nothing = p.latest && !p.added && !p.modified && !p.removed && !p.audio.added && !p.audio.modified;
             const audioLine = p.audio.count
-                ? `<div class="small text-white-50 mt-1" style="font-size:0.75rem;"><i class="bi-file-earmark-music me-1"></i>${p.audio.added + p.audio.modified
+                ? `<div class="small text-white-50 mt-1" style="font-size:0.75rem;">${p.audio.added + p.audio.modified
                     ? `${plural(p.audio.added + p.audio.modified, 'audio file')} new or changed (${formatBytes(p.audio.bytesToSend)} to send)`
                     : 'No new audio'}${p.audio.unchanged ? `, ${p.audio.unchanged} already backed up` : ''}.</div>`
                 : '';
@@ -2306,9 +2259,9 @@ function attachModalHandlers(modal, options = {}) {
                 <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
                     <div class="min-w-0">
                         <div class="small fw-semibold text-white">${head}</div>
-                        <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(target.backend.location)}"><i class="bi-folder2 me-1"></i>${escapeHtml(target.backend.location)}</div>
+                        <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(target.backend.location)}">${escapeHtml(target.backend.location)}</div>
                     </div>
-                    ${isDrive || isIcloud ? '' : isS3 ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-s3">Bucket Settings</button>' : isWebDav ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-webdav">Server settings</button>' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
+                    ${isDrive || isIcloud ? '' : isS3 ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-s3">Bucket settings</button>' : isWebDav ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-webdav">Server settings</button>' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
                 </div>
                 <div class="row g-2">
                     ${stat(p.added, 'New tabs', 'text-success')}
@@ -2322,7 +2275,7 @@ function attachModalHandlers(modal, options = {}) {
                 </div>
                 ${audioLine}`);
         } catch (err) {
-            note(`<div class="small text-warning"><i class="bi-exclamation-triangle me-1"></i> Could not check ${where}: ${escapeHtml(err.message)}</div>`);
+            note(`<div class="small text-warning">Could not check ${where}: ${escapeHtml(err.message)}</div>`);
         }
     };
 
@@ -2339,12 +2292,12 @@ function attachModalHandlers(modal, options = {}) {
             // @googleDrive:end
             if (action === 'edit-s3') {
                 const { s3ConfigFormHtml } = await import('./s3Ui.js');
-                backupIncrementalPreview.innerHTML = `${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="save-s3"><i class="bi-plug"></i> <span>Save and Connect</span></button>`;
+                backupIncrementalPreview.innerHTML = `${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2" data-backup-action="save-s3"><span>Save and connect</span></button>`;
                 return;
             }
             if (action === 'edit-webdav') {
                 const { webdavConfigFormHtml } = await import('./webdavUi.js');
-                backupIncrementalPreview.innerHTML = `${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2 d-inline-flex align-items-center gap-1" data-backup-action="save-webdav"><i class="bi-plug"></i> <span>Save and Connect</span></button>`;
+                backupIncrementalPreview.innerHTML = `${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2" data-backup-action="save-webdav"><span>Save and connect</span></button>`;
                 return;
             }
             if (action === 'save-webdav') {
@@ -2774,15 +2727,14 @@ function attachModalHandlers(modal, options = {}) {
             item.setAttribute('data-file-name', b.name);
             item.innerHTML = `
                 <div class="d-flex align-items-center gap-2 min-w-0 me-2 text-start">
-                    <i class="bi-archive-fill text-info flex-shrink-0 fs-5"></i>
                     <div class="text-truncate">
                         <div class="fw-semibold text-white small text-truncate" title="${escapeHtml(b.name)}">${escapeHtml(title)}</div>
                         <div class="text-white-50" style="font-size: 0.7rem;">${escapeHtml(subtitle)}</div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
-                    <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 d-inline-flex align-items-center gap-1 select-drive-backup-btn" style="font-size: 0.72rem;">
-                        <i class="bi-download"></i> <span>Select</span>
+                    <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 select-drive-backup-btn" style="font-size: 0.72rem;">
+                        Select
                     </button>
                 </div>
             `;
@@ -2855,7 +2807,7 @@ function attachModalHandlers(modal, options = {}) {
                     });
                     if (btn) {
                         btn.disabled = false;
-                        btn.innerHTML = '<i class="bi-download"></i> <span>Select</span>';
+                        btn.textContent = 'Select';
                     }
                 }
             };
@@ -3096,6 +3048,7 @@ function attachModalHandlers(modal, options = {}) {
                 restoreStatusAlert.style.display = 'none';
                 restoreInspectionCard.style.display = 'block';
                 restoreExecuteBtn.disabled = false;
+                updateRestoreBtnState();
             });
         } catch (err) {
             console.error('Failed to read or verify backup file:', err);
@@ -3110,18 +3063,22 @@ function attachModalHandlers(modal, options = {}) {
     };
     modal._handleSelectedBackupFile = handleSelectedBackupFile;
 
-    // Change File Button
-    modal.querySelector('#restoreChangeFileBtn')?.addEventListener('click', () => {
-        currentBackupFile = null;
-        currentParsedBackup = null;
-        restoreInspectionCard.style.display = 'none';
-        restoreDropzone.style.display = 'block';
-        restoreExecuteBtn.disabled = true;
-        restoreFileInput.value = '';
-    });
-
     // Mode Radio Change (Show wipe confirmation)
     const modeRadios = modal.querySelectorAll('input[name="restoreModeRadio"]');
+    const updateRestoreBtnState = () => {
+        const isWipe = modal.querySelector('input[name="restoreModeRadio"]:checked')?.value === 'wipe';
+        if (restoreExecuteBtn && !restoreExecuteBtn.disabled) {
+            if (isWipe) {
+                restoreExecuteBtn.classList.remove('btn-theme-primary');
+                restoreExecuteBtn.classList.add('btn-theme-danger');
+                restoreExecuteBtn.textContent = 'Erase and restore';
+            } else {
+                restoreExecuteBtn.classList.remove('btn-theme-danger');
+                restoreExecuteBtn.classList.add('btn-theme-primary');
+                restoreExecuteBtn.textContent = 'Restore backup';
+            }
+        }
+    };
     modeRadios.forEach(radio => {
         radio.addEventListener('change', () => {
             if (radio.value === 'wipe') {
@@ -3130,8 +3087,22 @@ function attachModalHandlers(modal, options = {}) {
                 wipeConfirmContainer.style.display = 'none';
                 wipeConfirmCheckbox.checked = false;
             }
+            updateRestoreBtnState();
             renderRestorePreview();
         });
+    });
+
+    // Change File Button
+    modal.querySelector('#restoreChangeFileBtn')?.addEventListener('click', () => {
+        currentBackupFile = null;
+        currentParsedBackup = null;
+        restoreInspectionCard.style.display = 'none';
+        restoreDropzone.style.display = 'block';
+        restoreExecuteBtn.disabled = true;
+        restoreExecuteBtn.classList.remove('btn-theme-danger');
+        restoreExecuteBtn.classList.add('btn-theme-primary');
+        restoreExecuteBtn.textContent = 'Restore backup';
+        restoreFileInput.value = '';
     });
 
     // --- RESTORE ACTION ---
@@ -3172,7 +3143,7 @@ function attachModalHandlers(modal, options = {}) {
             if (results.filesSkipped > 0) details.push(`${results.filesSkipped} existing tabs kept`);
             if (results.songsImported > 0) details.push(`${results.songsImported} library songs added/merged`);
             if (results.extensionsImported > 0) details.push(`${results.extensionsImported} file converters updated`);
-            if (results.settingsApplied > 0) details.push('preferences restored');
+            if (results.settingsApplied > 0) details.push('settings restored');
 
             const summaryStr = details.length > 0 ? details.join(' · ') : 'Everything was already up to date';
             showTaskResult(restoreStatusAlert, 'done',
