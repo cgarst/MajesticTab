@@ -28,6 +28,7 @@ export function isDesktopNative() {
 }
 
 const GOOGLE_HOME_URL = 'https://www.google.com/';
+const DUCKDUCKGO_HOME_URL = 'https://duckduckgo.com/';
 
 export const DEFAULT_SOURCES = [
     {
@@ -35,6 +36,17 @@ export const DEFAULT_SOURCES = [
         name: 'Google',
         urlTemplate: 'https://www.google.com/search?q=$s+guitar+pro+tab',
         defaultUrl: 'https://www.google.com/search?q=$s+guitar+pro+tab',
+        queryFormat: 'artist_song',
+        userscriptEnabled: false,
+        userscript: '',
+        defaultUserscript: '',
+        isSeed: true
+    },
+    {
+        id: 'duckduckgo',
+        name: 'DuckDuckGo',
+        urlTemplate: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
+        defaultUrl: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
         queryFormat: 'artist_song',
         userscriptEnabled: false,
         userscript: '',
@@ -112,16 +124,18 @@ export function getSources() {
                 // storage as undeletable isSeed entries; drop them.
                 const seedIds = new Set(DEFAULT_SOURCES.map(s => s.id));
                 const pruned = parsed.filter(s => !s.isSeed || seedIds.has(s.id));
-                if (pruned.length !== parsed.length) {
+                let changed = pruned.length !== parsed.length;
+                if (changed) {
                     parsed = pruned;
                     saveSources(parsed.length > 0 ? parsed : []);
                 }
                 if (parsed.length === 0) return resetToDefaultSources();
-                for (const seed of DEFAULT_SOURCES) {
+                for (let i = 0; i < DEFAULT_SOURCES.length; i++) {
+                    const seed = DEFAULT_SOURCES[i];
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
                         existing.defaultUserscript = seed.defaultUserscript;
-                        if (!existing.queryFormat || (existing.id === 'google' && existing.queryFormat !== 'artist_song')) {
+                        if (!existing.queryFormat || ((existing.id === 'google' || existing.id === 'duckduckgo') && existing.queryFormat !== 'artist_song')) {
                             existing.queryFormat = seed.queryFormat;
                         }
                         if (existing.id === 'google' && /^https:\/\/www\.google\.com\/search\?q=(SEARCH\+TERM|\$s)\+tab$/.test(existing.urlTemplate || '')) {
@@ -129,7 +143,14 @@ export function getSources() {
                             existing.defaultUrl = seed.defaultUrl;
                         }
                     } else if (!existing) {
-                        parsed.push(JSON.parse(JSON.stringify(seed)));
+                        const prevSeedId = i > 0 ? DEFAULT_SOURCES[i - 1].id : null;
+                        const prevIdx = prevSeedId ? parsed.findIndex(s => s.id === prevSeedId) : -1;
+                        if (prevIdx !== -1) {
+                            parsed.splice(prevIdx + 1, 0, JSON.parse(JSON.stringify(seed)));
+                        } else {
+                            parsed.push(JSON.parse(JSON.stringify(seed)));
+                        }
+                        changed = true;
                     }
                 }
                 // One-time: put Google first (later user reordering is preserved)
@@ -137,6 +158,9 @@ export function getSources() {
                     const gi = parsed.findIndex(s => s.id === 'google');
                     if (gi > 0) parsed.unshift(...parsed.splice(gi, 1));
                     localStorage.setItem(GOOGLE_FIRST_KEY, '1');
+                    changed = true;
+                }
+                if (changed) {
                     saveSources(parsed);
                 }
                 return parsed;
@@ -188,6 +212,7 @@ export function buildSearchUrl(source, query) {
     // If no query/term was provided, return the home/base URL for the provider
     if (!term) {
         if (source.id === 'google') return GOOGLE_HOME_URL;
+        if (source.id === 'duckduckgo') return DUCKDUCKGO_HOME_URL;
         if (source.defaultUrl) {
             return source.defaultUrl.replace(/\$s|SEARCH\+TERM/g, '').replace(/\{search\}/g, '').replace(/[?&]$/, '');
         }
@@ -598,7 +623,7 @@ function populateSettingsForm(sourceId) {
     // Built-in sources keep their name and URL template fixed.
     // Nothing is injected on Google's pages (bot detection reads it as automation), so Google has no userscript.
     // Store builds ship no userscripts at all.
-    document.getElementById('downloaderCfgUserscriptRow')?.classList.toggle('d-none', !hasFeature('userscripts') || src.id === 'google');
+    document.getElementById('downloaderCfgUserscriptRow')?.classList.toggle('d-none', !hasFeature('userscripts') || src.id === 'google' || src.id === 'duckduckgo');
     if (nameInp) nameInp.disabled = Boolean(src.isSeed);
     if (urlInp) urlInp.disabled = Boolean(src.isSeed);
     document.getElementById('downloaderCfgResetUrlBtn')?.classList.toggle('d-none', Boolean(src.isSeed));
@@ -632,8 +657,8 @@ function saveCurrentFormValues() {
         }
     }
     if (querySel) src.queryFormat = querySel.value;
-    if (scriptChk && src.id !== 'google') src.userscriptEnabled = scriptChk.checked;
-    if (scriptTxt && src.id !== 'google') src.userscript = scriptTxt.value;
+    if (scriptChk && src.id !== 'google' && src.id !== 'duckduckgo') src.userscriptEnabled = scriptChk.checked;
+    if (scriptTxt && src.id !== 'google' && src.id !== 'duckduckgo') src.userscript = scriptTxt.value;
     if (desktopChk) src.forceDesktop = desktopChk.checked;
 }
 

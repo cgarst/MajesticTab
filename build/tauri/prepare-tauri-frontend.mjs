@@ -90,6 +90,8 @@ const allowedRemoteHosts = new Set([
   'google.com',
   'majestictab.zathu.net',
   'www.google.com',
+  'duckduckgo.com',
+  'www.duckduckgo.com',
 ]);
 
 async function copyAsset(source, destination) {
