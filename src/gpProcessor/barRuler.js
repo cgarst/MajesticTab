@@ -265,7 +265,12 @@ export function initBarRuler() {
         ruler.setPointerCapture?.(ev.pointerId);
         seekToBar(barFromPointer(ev));
     });
-    ruler.addEventListener('pointermove', (ev) => { if (dragging && model) seekToBar(barFromPointer(ev)); });
+    ruler.addEventListener('pointermove', (ev) => {
+        if (!dragging || !model) return;
+        // One seek per bar crossed, so a drag does not flood the recording with seeks
+        const bar = barFromPointer(ev);
+        if (bar !== current.bar) seekToBar(bar);
+    });
     const stopDrag = () => { dragging = false; };
     ruler.addEventListener('pointerup', stopDrag);
     ruler.addEventListener('pointercancel', stopDrag);

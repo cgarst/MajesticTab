@@ -934,6 +934,8 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
  * the bar's system is in view, the way following playback does.
  */
 export function followSeekToBar(tick, barIndex) {
+    // Audio sync moves the recording to match, whether it is playing or paused
+    userSeekListeners.forEach((cb) => { try { cb(tick); } catch (e) { console.error('[Synth Player] seek listener error:', e); } });
     requestAnimationFrame(() => updateContinuousPlaybackScroll(tick, true, null, barIndex, true));
 }
 
