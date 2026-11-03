@@ -15,8 +15,9 @@ import {
     listAudioForBackup, restoreAudioEntry, isAudioItem, isAudioDownloadEnabled, audioItemFingerprint, audioSyncDecision
 } from './audioSync/audioBackup.js';
 import {
-    collectAllSettings, collectExtensions, applyRestoredSettings, applyRestoredExtensions, applyRestoredPreferences
+    collectAllSettings, collectExtensions, dedupeStoredExtensions, applyRestoredSettings, applyRestoredExtensions, applyRestoredPreferences
 } from './backupRestore.js';
+import { dedupeExtensions, extensionKey } from './extensionDedupe.js';
 import {
     listIncrementalBackups, loadIncrementalBundle, createIncrementalBackup, fileFingerprint, soundFontFingerprint, runPool, itemKey
 } from './incrementalBackup.js';
@@ -194,7 +195,17 @@ function compareOther(manifest, localLibrary) {
     const remoteLib = manifest?.library || {};
     sides('song', localLibrary.songs || [], remoteLib.songs || [], x => x?.id);
     sides('collection', localLibrary.collections || [], remoteLib.collections || [], x => x?.id);
-    sides('extension', collectExtensions(), manifest?.extensions || [], x => x?.id);
+    // Extensions are the same when their code is, since each device gives its own id to the same file
+    const mineExt = dedupeExtensions(collectExtensions());
+    const theirExt = manifest?.extensions || [];
+    const merged = new Set(dedupeExtensions([...mineExt, ...theirExt]).map(x => x?.id));
+    const sourceOf = x => (typeof x?.source === 'string' ? extensionKey(x) : x?.id);
+    sides('extension', mineExt, theirExt, sourceOf);
+    const dupesHere = collectExtensions().length - mineExt.length;
+    const dupesThere = theirExt.filter(x => !merged.has(x?.id)).length;
+    // Exact copies are removed on both sides: the snapshot gets the same list this device ends up with
+    if (dupesHere) out.receive.push({ kind: 'extension', text: `${label('duplicate extension', dupesHere)} removed on this device` });
+    if (dupesThere) out.send.push({ kind: 'extension', text: `${label('duplicate extension', dupesThere)} removed from the snapshot` });
 
     const mineSettings = collectAllSettings();
     const theirSettings = manifest?.settings || {};
@@ -350,6 +361,8 @@ function fillMissingPreferences(manifest) {
     applyRestoredSettings(settings, { wipe: false });
     const known = new Set(collectExtensions().map(e => e.id));
     applyRestoredExtensions((manifest.extensions || []).filter(e => e && !known.has(e.id)), { wipe: false });
+    // The same extension added on two devices has two ids; keep one, the same one on every device
+    dedupeStoredExtensions();
     applyRestoredPreferences();
 }
 

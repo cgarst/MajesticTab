@@ -21,6 +21,8 @@ import {
     getSaveProviders, saveToProvider, openFromProvider, getPreferredStorage
 } from './fileProviders.js';
 import { showToast } from './utils/toast.js';
+import { dedupeExtensions } from './extensionDedupe.js';
+export { dedupeExtensions };
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported } from './icloudDrive.js';
 import { refreshAppearance } from './themeEngine.js';
@@ -172,6 +174,17 @@ export function collectExtensions() {
         console.warn('Could not parse customExtensions:', e);
         return [];
     }
+}
+
+/** Removes exact duplicates from the extensions stored on this device. Returns how many were removed. */
+export function dedupeStoredExtensions() {
+    const stored = collectExtensions();
+    const kept = dedupeExtensions(stored);
+    if (kept.length === stored.length) return 0;
+    localStorage.setItem('customExtensions', JSON.stringify(kept));
+    installExtensionSources(kept.filter(e => e.enabled).map(({ id, source }) => ({ id, source })))
+        .catch(e => console.warn('Could not reload extensions after removing duplicates:', e));
+    return stored.length - kept.length;
 }
 
 /** Yields the backup JSON in pieces: header, one entry per stored tab, then soundfonts. */
@@ -626,7 +639,7 @@ export function applyRestoredExtensions(backupExtensions, { wipe }) {
     if (backupExtensions.length > 0 || wipe) {
         let finalExtensions = [];
         if (wipe) {
-            finalExtensions = backupExtensions.filter(ext => ext && ext.id && ext.source);
+            finalExtensions = dedupeExtensions(backupExtensions.filter(ext => ext && ext.id && ext.source));
             extensionsImported = finalExtensions.length;
         } else {
             const currentExtensions = collectExtensions();
@@ -641,7 +654,7 @@ export function applyRestoredExtensions(backupExtensions, { wipe }) {
                     existingMap.set(ext.id, { ...existingMap.get(ext.id), ...ext });
                 }
             }
-            finalExtensions = Array.from(existingMap.values());
+            finalExtensions = dedupeExtensions(Array.from(existingMap.values()));
         }
 
         localStorage.setItem('customExtensions', JSON.stringify(finalExtensions));
