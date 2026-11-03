@@ -609,10 +609,10 @@ export class FretboardView {
 
     /**
      * One pick per part, each in its own vertical lane so picks sounding together never share a line. Lanes follow the
-     * parts' colour order, which keeps a part in the same lane from beat to beat. A pick that hits several strings
-     * sweeps from the first string it plays to the last and stays there, at the end of the line drawn for it. Where
-     * the part plays the strings directly after the first (a strum) a solid bar joins them; where there is a gap and
-     * more strings still sound (plucked), a dotted line runs on to them. Every other sounding string gets a bead.
+     * parts' colour order, which keeps a part in the same lane from beat to beat. String 1 is the top (highest) string
+     * and the largest number the lowest. When the part plays directly connected strings (no gap) the pick starts on the
+     * lowest one and sweeps up to the top one, joined by a solid bar with a bead on every string it passes. When there
+     * is any gap the pick is not a strum: it only touches the lowest string.
      * @param {Map<number, {strings: Set<number>, trackColor: string, trackGrad: string}>} partPicks
      */
     drawPartPicks(partPicks) {
@@ -625,13 +625,16 @@ export class FretboardView {
         [...partPicks.entries()].sort((a, b) => a[0] - b[0]).forEach(([, part]) => {
             const strings = [...part.strings].filter(n => n >= 1 && n <= this.stringCount).sort((a, b) => a - b);
             if (strings.length === 0) return;
-            const first = strings[0];
-            const last = strings[strings.length - 1];
+            const top = strings[0];
+            const lowest = strings[strings.length - 1];
+            const connected = strings.every((n, i) => i === 0 || n === strings[i - 1] + 1);
             const pick = this.getPartPick(lane);
             const x = this.pickX + lane * laneStep;
             lane++;
 
-            pick.group.setAttribute('transform', `translate(${x}, ${yOf(last)})`);
+            // A strum ends on the top string; anything else touches only the lowest
+            const endString = connected ? top : lowest;
+            pick.group.setAttribute('transform', `translate(${x}, ${yOf(endString)})`);
             pick.group.style.display = '';
             pick.struckToggle = !pick.struckToggle;
             pick.group.setAttribute('class', `fretboard-pick-marker ${pick.struckToggle ? 'is-struck' : 'is-struck-alt'}`);
@@ -639,42 +642,34 @@ export class FretboardView {
 
             pick.sweep?.cancel();
             pick.sweep = null;
-            if (strings.length === 1 || !this.reachGroup) return;
+            if (strings.length === 1 || !connected || !this.reachGroup) return;
 
-            // The sweep covers the line from the first string to the last, quicker the fewer strings it crosses
+            // The sweep runs from the lowest string up to the top one, quicker the fewer strings it crosses
             if (!reduceMotion && pick.group.animate) {
                 const ms = Math.min(220, 40 + 28 * (strings.length - 1));
                 pick.sweep = pick.group.animate(
-                    [{ transform: `translate(${x}px, ${yOf(first)}px)` }, { transform: `translate(${x}px, ${yOf(last)}px)` }],
+                    [{ transform: `translate(${x}px, ${yOf(lowest)}px)` }, { transform: `translate(${x}px, ${yOf(top)}px)` }],
                     { duration: ms, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' }
                 );
             }
 
-            // The unbroken run of strings after the first is the strum
-            let strumEnd = first;
-            for (let i = 1; i < strings.length && strings[i] === strumEnd + 1; i++) strumEnd = strings[i];
+            const l = document.createElementNS(svgNS, 'line');
+            l.setAttribute('class', 'pick-reach-strum');
+            l.setAttribute('x1', x);
+            l.setAttribute('x2', x);
+            l.setAttribute('y1', yOf(top));
+            l.setAttribute('y2', yOf(lowest));
+            l.style.stroke = part.trackColor;
+            this.reachGroup.appendChild(l);
 
-            const line = (y1, y2, cls) => {
-                const l = document.createElementNS(svgNS, 'line');
-                l.setAttribute('class', cls);
-                l.setAttribute('x1', x);
-                l.setAttribute('x2', x);
-                l.setAttribute('y1', y1);
-                l.setAttribute('y2', y2);
-                l.style.stroke = part.trackColor;
-                this.reachGroup.appendChild(l);
-            };
-            if (strumEnd > first) line(yOf(first), yOf(strumEnd), 'pick-reach-strum');
-            if (last > strumEnd) line(yOf(strumEnd), yOf(last), 'pick-reach-pluck');
-
-            // The pick itself ends on the last string, so the beads mark the strings it passed
-            strings.slice(0, -1).forEach((str) => {
+            // The pick ends on the top string, so the beads mark the strings it passed
+            strings.slice(1).forEach((str) => {
                 const bead = document.createElementNS(svgNS, 'circle');
-                bead.setAttribute('class', str <= strumEnd ? 'pick-reach-bead is-strum' : 'pick-reach-bead is-pluck');
+                bead.setAttribute('class', 'pick-reach-bead is-strum');
                 bead.setAttribute('cx', x);
                 bead.setAttribute('cy', yOf(str));
-                bead.setAttribute('r', str <= strumEnd ? '3' : '3.4');
-                bead.style.fill = str <= strumEnd ? part.trackColor : 'none';
+                bead.setAttribute('r', '3');
+                bead.style.fill = part.trackColor;
                 bead.style.stroke = part.trackColor;
                 this.reachGroup.appendChild(bead);
             });
