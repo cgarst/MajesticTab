@@ -999,11 +999,8 @@ class GamepadManager {
 
     handleButtonMenu(isLibOpen, isModalOpen) {
         if (isLibOpen) {
-            // Only return to the currently loaded song if a tab is actually loaded and the return button is visible
-            const returnBtn = document.getElementById('libraryReturnToSongBtn');
-            if (returnBtn && this.isElementVisible(returnBtn)) {
-                returnBtn.click();
-            }
+            // Only return to the currently loaded song if a tab is actually loaded
+            window.returnToOpenSong?.();
             return;
         }
 

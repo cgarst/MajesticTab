@@ -40,13 +40,14 @@ class FretboardController {
 
         // Restore saved preferences
         try {
-            this.isOpen = localStorage.getItem(STORAGE_KEY_OPEN) === 'true';
+            // Open unless the player compacted it: there is no other switch for it
+            this.isOpen = localStorage.getItem(STORAGE_KEY_OPEN) !== 'false';
             const savedMode = localStorage.getItem(STORAGE_KEY_MODE);
             this.displayMode = savedMode === 'frets' ? 'frets' : 'notes';
             this.isLeftHanded = localStorage.getItem(STORAGE_KEY_LH) === 'true';
             this.isFlipped = localStorage.getItem(STORAGE_KEY_FLIP) === 'true';
         } catch (_) {
-            this.isOpen = false;
+            this.isOpen = true;
             this.displayMode = 'notes';
             this.isLeftHanded = false;
             this.isFlipped = false;
@@ -78,16 +79,12 @@ class FretboardController {
     }
 
     bindEvents() {
-        // Top bar toggle button
-        const topBarToggle = document.getElementById('fretboardToggleBtn');
-        topBarToggle?.addEventListener('click', () => {
-            this.toggle();
-        });
-
-        // Dock close button
-        const closeBtn = document.getElementById('fretboardCloseBtn');
-        closeBtn?.addEventListener('click', () => {
+        // Compact button on the fretboard, and the playback dock's button that pops it open again
+        document.getElementById('fretboardCloseBtn')?.addEventListener('click', () => {
             this.toggle(false);
+        });
+        document.getElementById('fretboardDockBtn')?.addEventListener('click', () => {
+            this.toggle(true);
         });
 
         // Display mode pill buttons (Notes | Frets)
@@ -131,7 +128,7 @@ class FretboardController {
     }
 
     /**
-     * Toggle fretboard dock open/closed
+     * Open or compact the fretboard dock
      * @param {boolean} [forceState]
      */
     toggle(forceState) {
@@ -165,13 +162,14 @@ class FretboardController {
     syncUIState() {
         const dock = document.getElementById('fretboardDock');
         this.trackDockHeight(dock);
-        const topBarToggle = document.getElementById('fretboardToggleBtn');
+        // The dock's button only shows while the fretboard is compacted on a song that has one
+        const dockBtn = document.getElementById('fretboardDockBtn');
+        if (dockBtn) dockBtn.style.display = this.isScoreAvailable && !this.isOpen ? '' : 'none';
 
         if (this.isOpen && this.isScoreAvailable) {
             dock?.style.setProperty('display', 'block');
             dock?.classList.remove('is-hidden');
             document.body.classList.add('fretboard-open');
-            topBarToggle?.classList.add('active');
             if (this.lastBeatNotes?.length) {
                 this.view?.updateActiveNotes(this.lastBeatNotes, this.displayMode);
             } else {
@@ -185,7 +183,6 @@ class FretboardController {
                 }
             }, 250);
             document.body.classList.remove('fretboard-open');
-            topBarToggle?.classList.remove('active');
             this.view?.clearActiveNotes();
         }
     }
@@ -288,13 +285,8 @@ class FretboardController {
     setScoreAvailable(isAvailable) {
         this.isScoreAvailable = Boolean(isAvailable);
 
-        const pill = document.getElementById('fretboardPill');
-        if (pill) pill.style.display = this.isScoreAvailable ? '' : 'none';
-
         if (this.isScoreAvailable) {
-            if (this.isOpen) {
-                this.syncUIState();
-            }
+            this.syncUIState();
         } else {
             this.clearActiveNotes();
             this.syncUIState();

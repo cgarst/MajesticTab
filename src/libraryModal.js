@@ -28,6 +28,31 @@ import { pauseYouTube } from './youtubePlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
+
+// The phone's bottom tab bar is fixed over the bottom of the library, and Popper does not know it is there, so a
+// menu opened near the bottom stayed below it. Keep every dropdown clear of the bar: it flips up instead.
+try {
+    const dropdown = window.bootstrap?.Dropdown;
+    if (dropdown) {
+        dropdown.Default.popperConfig = (config) => {
+            const nav = document.getElementById('libraryBottomNav');
+            const rect = nav && nav.offsetParent !== null ? nav.getBoundingClientRect() : null;
+            // A bar along the bottom edge (phone); the rail on wider screens sits at the side and needs nothing
+            const bottom = rect && rect.top > window.innerHeight / 2 ? Math.ceil(window.innerHeight - rect.top) : 0;
+            if (!bottom) return config;
+            const pad = { top: 8, left: 8, right: 8, bottom };
+            return {
+                ...config,
+                modifiers: [
+                    ...(config.modifiers || []),
+                    { name: 'flip', options: { padding: pad } },
+                    { name: 'preventOverflow', options: { padding: pad } }
+                ]
+            };
+        };
+    }
+} catch { /* the menus still work, they may sit under the bar */ }
+
 import { toggleToolsMenu, closeToolsMenu } from './utils/toolsMenu.js';
 import { renderToolsPage, releaseEmbeddedTools } from './utils/toolsPage.js';
 
@@ -75,8 +100,6 @@ let topBarInitialized = false;
 function initLibraryTopBar() {
     if (topBarInitialized) return;
     topBarInitialized = true;
-
-    document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', () => closeLibraryModal(false));
 
     window.addEventListener('libraryDataChanged', () => {
         // The add-music view updates its own buttons; a full re-render would reset it to the start
@@ -500,11 +523,8 @@ export async function openLibraryModal(initialView = 'library') {
     const globalAudio = document.getElementById('globalAudioControls');
     const audioSourcePill = document.getElementById('audioSourcePill');
     const navButtons = document.getElementById('navButtons');
-    const returnBtn = document.getElementById('libraryReturnToSongBtn');
-    const returnName = document.getElementById('libraryReturnSongName');
     const brandText = document.getElementById('brand-text');
     const songBreadcrumb = document.getElementById('songBreadcrumb');
-    const currentOpen = getCurrentFile();
 
     if (modeButtons) modeButtons.style.display = 'none';
     if (globalAudio) globalAudio.style.display = 'none';
@@ -513,7 +533,6 @@ export async function openLibraryModal(initialView = 'library') {
     if (songBreadcrumb) songBreadcrumb.style.display = 'none';
     if (brandText) brandText.style.display = '';
 
-    const brandSection = document.getElementById('brandSection');
     const mobileDock = document.getElementById('mobilePlaybackDock');
     if (mobileDock) mobileDock.style.display = 'none';
     document.body.classList.add('library-view-active');
@@ -523,18 +542,6 @@ export async function openLibraryModal(initialView = 'library') {
         fretboardController?.setScoreAvailable(false);
     } catch (_) {}
 
-    if (returnBtn) {
-        if (currentOpen && (currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name)) {
-            const displayName = currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name.replace(/\.[^/.]+$/, '');
-            returnBtn.style.display = 'inline-flex';
-            if (returnName) returnName.textContent = displayName;
-            returnBtn.title = `Return to score: ${displayName}`;
-            if (brandSection) brandSection.classList.add('has-return-song');
-        } else {
-            returnBtn.style.display = 'none';
-            if (brandSection) brandSection.classList.remove('has-return-song');
-        }
-    }
 
     page.style.display = 'flex';
     await renderLibraryModal();
@@ -560,13 +567,11 @@ export function closeLibraryModal(force = false) {
         // Restore top bar for Song Mode
         const modeButtons = document.getElementById('modeButtons');
         const navButtons = document.getElementById('navButtons');
-        const returnBtn = document.getElementById('libraryReturnToSongBtn');
         const brandText = document.getElementById('brand-text');
         const songBreadcrumb = document.getElementById('songBreadcrumb');
         const songTitleEl = document.getElementById('topBarSongTitle');
 
         if (modeButtons) modeButtons.style.display = currentOpen ? 'flex' : 'none';
-        if (returnBtn) returnBtn.style.display = 'none';
 
         // The library hid the fretboard; coming back to a Guitar Pro song brings it back
         try {
@@ -595,8 +600,6 @@ export function closeLibraryModal(force = false) {
         }
 
         document.body.classList.remove('library-view-active');
-        const brandSection = document.getElementById('brandSection');
-        if (brandSection) brandSection.classList.remove('has-return-song');
 
         if (navButtons && currentOpen) {
             navButtons.style.display = 'flex';
@@ -609,6 +612,12 @@ export function closeLibraryModal(force = false) {
 // Expose closeLibraryModal on window for automation/tests
 if (typeof window !== 'undefined') {
     window.closeLibraryModal = closeLibraryModal;
+    // Back, forward and the gamepad menu button go back to the open song from the library
+    window.returnToOpenSong = () => {
+        if (!getCurrentFile()) return false;
+        closeLibraryModal(false);
+        return true;
+    };
     window.openLibraryModal = openLibraryModal;
 }
 
@@ -661,23 +670,6 @@ export async function renderLibraryModal() {
     const collections = await getCollections();
     const currentCollection = collections.find(c => c.id === activeCollectionId) || collections[0] || { id: DEFAULT_COLLECTION_ID, name: 'My Library' };
     activeCollectionId = currentCollection.id;
-
-    const currentOpen = getCurrentFile();
-    const returnBtn = document.getElementById('libraryReturnToSongBtn');
-    const returnName = document.getElementById('libraryReturnSongName');
-    const brandSection = document.getElementById('brandSection');
-    if (returnBtn) {
-        if (currentOpen && (currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name)) {
-            const displayName = currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name.replace(/\.[^/.]+$/, '');
-            returnBtn.style.display = 'inline-flex';
-            if (returnName) returnName.textContent = displayName;
-            returnBtn.title = `Return to score: ${displayName}`;
-            if (brandSection) brandSection.classList.add('has-return-song');
-        } else {
-            returnBtn.style.display = 'none';
-            if (brandSection) brandSection.classList.remove('has-return-song');
-        }
-    }
 
     updateBackBtnVisibility();
 
@@ -4683,7 +4675,7 @@ export async function openRecentItem(r) {
         showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
 }
 
-// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome and Jam render in the page. The fretboard belongs to the open tab, so it lives only in the reader's Tools menu.
+// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome and Jam render in the page. The fretboard belongs to the open tab and sits above the playback dock.
 function renderToolsView(container) {
     const $ = (id) => document.getElementById(id);
     const tools = [

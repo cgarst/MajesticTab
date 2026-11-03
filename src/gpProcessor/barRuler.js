@@ -11,6 +11,7 @@ import { buildScoreTimeline, playedBarsFromLookup, tickToPosition, tickToScoreMs
 import { buildTimelineModel } from '../audioSync/timelineModel.js';
 import { listRecords, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
 import { getSongKey } from '../youtubePlayer.js';
+import { getAudioSyncSession } from '../audioSync/audioSyncController.js';
 
 const MIN_BARS_KEY = 'majestictab.sectionMinBars';
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -370,8 +371,13 @@ export function initBarRuler() {
             if (clock) clock.textContent = `${formatClock(e.timeMs)} / ${formatClock(e.endMs)}`;
             if (model.timeline) {
                 try {
-                    const bpm = tempoAtScoreMs(model.timeline, tickToScoreMs(model.timeline, e.tick));
-                    if (bpm) $('dockBpm').textContent = String(Math.round(bpm * (synthPlayerState.playbackSpeed || 1)));
+                    const scoreMs = tickToScoreMs(model.timeline, e.tick);
+                    const bpm = tempoAtScoreMs(model.timeline, scoreMs);
+                    // With the original recording playing through sync points, the tempo is how fast the recording
+                    // plays the score here, not the one written in the file.
+                    const session = getAudioSyncSession();
+                    const factor = session ? session.tempoFactorAt(scoreMs) : (synthPlayerState.playbackSpeed || 1);
+                    if (bpm) $('dockBpm').textContent = String(Math.round(bpm * factor));
                 } catch (_) { /* keep the last tempo */ }
             }
         } else if (e.type === 'loop') {

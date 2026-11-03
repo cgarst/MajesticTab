@@ -45,13 +45,6 @@
       Majestic<span class="brand-title-accent">Tab</span>
     </span>
 
-    <!-- Return to Song Button (in Library View when a song is open) -->
-    <button type="button" class="btn btn-sm btn-theme-outline align-items-center gap-2" id="libraryReturnToSongBtn" title="Return to active score" aria-label="Return to the open song" style="display: none;">
-      <i class="bi-music-note-beamed text-info"></i>
-      <span class="library-return-song-name text-truncate" id="libraryReturnSongName" style="max-width:140px;"></span>
-      <i class="bi-arrow-up-right small text-white-50"></i>
-    </button>
-
     <!-- Song Mode Document Breadcrumb -->
     <div id="songBreadcrumb" class="align-items-center gap-2" style="display:none;" data-tauri-drag-region>
       <button class="brand-btn breadcrumb-back-btn" id="topBarBackToLibraryBtn" type="button" title="Back to Tab Library">
@@ -202,13 +195,6 @@
     </button>
   </div>
 
-  <div class="tools-row" id="fretboardPill" style="display:none;">
-    <button class="tools-item" id="fretboardToggleBtn" type="button" role="menuitem">
-      <i class="bi-grid-3x2-gap"></i>
-      <span class="tools-item-text"><span>Fretboard</span><small>Show notes on the neck</small></span>
-      <kbd>F</kbd>
-    </button>
-  </div>
   <div class="tools-row" id="tunerPill">
     <button class="tools-item" id="tunerToggleBtn" type="button" role="menuitem">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -1998,8 +1984,8 @@
     </div>
 
     <div class="fretboard-dock-right">
-      <button type="button" class="btn btn-sm theme-control-btn fretboard-close-btn" id="fretboardCloseBtn" title="Close Fretboard" aria-label="Close Fretboard">
-        <i class="bi-x-lg"></i>
+      <button type="button" class="btn btn-sm theme-control-btn fretboard-close-btn" id="fretboardCloseBtn" title="Compact the fretboard" aria-label="Compact the fretboard">
+        <i class="bi-chevron-down"></i>
       </button>
     </div>
   </div>
@@ -2031,6 +2017,8 @@
         <button type="button" id="dockLoopBtn" aria-pressed="false" tabindex="-1">Loop</button>
         <button type="button" id="dockMetroBtn" aria-pressed="false" tabindex="-1">Click</button>
       </div>
+      <!-- Shown only while the fretboard is compacted: brings it back -->
+      <button type="button" class="btn mobile-dock-btn dock-more" id="fretboardDockBtn" aria-label="Show the fretboard" title="Show the fretboard (F)" style="display: none;"><i class="bi-grid-3x2-gap"></i></button>
       <div class="dock-src" role="group" aria-label="Sound">
         <div class="mobile-dock-divider" id="mobileAudioSourceDivider" style="display: none;"></div>
         <button type="button" class="btn mobile-dock-btn rbtn" id="mobileSynthToggleBtn" title="Play the tab with the built-in synth" aria-label="Synth" style="display: none;">

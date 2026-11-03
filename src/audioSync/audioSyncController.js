@@ -8,7 +8,7 @@ import {
     reanchorPlaybackScroll, playClick
 } from '../gpProcessor/gpPlayer.js';
 import { buildScoreTimeline, playedBarsFromLookup, tickToScoreMs, scoreMsToTick } from './scorePositions.js';
-import { scoreToMedia, mediaToScore } from './syncMap.js';
+import { scoreToMedia, mediaToScore, ratioAtScore } from './syncMap.js';
 import { buildBeatMap } from './beatMap.js';
 import { createCursorGlide } from './cursorGlide.js';
 import { resolvePoints } from './pointCheck.js';
@@ -191,6 +191,8 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
             follower.refresh();
         },
         countInPlan,
+        /** Multiplier on the written tempo at score time `scoreMs`: how fast the recording plays it, at the current rate. */
+        tempoFactorAt: (scoreMs) => ratioAtScore(resolved, scoreMs) * (source.getRate?.() || 1),
         problems: () => validatePoints(resolved),
         usable: () => !hasOrderProblems(resolved),
         stop() {
