@@ -168,6 +168,27 @@ function installOnAndroid(update, button, status) {
     window.AndroidUpdater.install(update.url);
 }
 
+function wireInstallButton(button, update, mode, status) {
+    button.disabled = false;
+    button.textContent = mode === 'native' ? 'Install and Restart' : mode === 'android' ? 'Install' : 'Download';
+    button.onclick = () => {
+        if (mode === 'native') installNatively(update, button, status);
+        else if (mode === 'android') installOnAndroid(update, button, status);
+        else openExternal(update.url);
+    };
+}
+
+/** A manual check answers in the Settings row it was started from: the version and its install button. */
+async function showInlineUpdate(update, status) {
+    const text = document.createElement('span');
+    text.textContent = `Update available: ${update.label}`;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn-sm btn-theme-primary ms-2';
+    status.replaceChildren(text, button);
+    wireInstallButton(button, update, await getInstallMode(), text);
+}
+
 async function showUpdateBanner(update) {
     const banner = document.getElementById('updateBanner');
     const text = document.getElementById('updateBannerText');
@@ -177,13 +198,7 @@ async function showUpdateBanner(update) {
     const button = document.getElementById('updateDownloadBtn');
     const status = document.getElementById('updateStatus');
     const mode = await getInstallMode();
-    button.disabled = false;
-    button.textContent = mode === 'native' ? 'Install and Restart' : mode === 'android' ? 'Install' : 'Download';
-    button.onclick = () => {
-        if (mode === 'native') installNatively(update, button, status);
-        else if (mode === 'android') installOnAndroid(update, button, status);
-        else openExternal(update.url);
-    };
+    wireInstallButton(button, update, mode, status);
     document.getElementById('updateDismissBtn').onclick = () => {
         localStorage.setItem(DISMISSED_KEY, update.label);
         banner.hidden = true;
@@ -197,7 +212,11 @@ async function runCheck(buildInfo, { manual }) {
     try {
         const update = await checkForUpdate(buildInfo);
         localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
-        if (update && (manual || localStorage.getItem(DISMISSED_KEY) !== update.label)) {
+        if (update && manual && status) {
+            // The answer lives in the check row; the banner is only for unprompted notices.
+            if (banner) banner.hidden = true;
+            showInlineUpdate(update, status);
+        } else if (update && localStorage.getItem(DISMISSED_KEY) !== update.label) {
             showUpdateBanner(update);
             if (status) status.textContent = `Update available: ${update.label}`;
         } else {
