@@ -36,7 +36,6 @@ const AUDITION_TAIL_MS = 1000;
 const RETAP_LEAD_MS = 4000;
 const RETAP_TAIL_MS = 1500;
 const NUDGE_MERGE_MS = 1500;
-const YOUTUBE_DEFAULT_RATE = 0.75;
 const HISTORY_LIMIT = 100;
 const SCROLL_IDLE_MS = 600;
 
@@ -185,7 +184,7 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
     setAudioSyncSuspended(true);
     s.mode = initialMode(s.points.length > 0);
     setScoreClickOverride(onBeatClick);
-    source.setRate(source.kind === 'youtube' ? YOUTUBE_DEFAULT_RATE : 1);
+    source.setRate(1);
 
     wireToolbar(s);
     s.target = s.mode === 'step' ? startTarget(map, s.points) : null;
