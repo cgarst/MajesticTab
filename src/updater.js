@@ -170,7 +170,7 @@ function installOnAndroid(update, button, status) {
 
 function wireInstallButton(button, update, mode, status) {
     button.disabled = false;
-    button.textContent = mode === 'native' ? 'Install and Restart' : mode === 'android' ? 'Install' : 'Download';
+    button.textContent = mode === 'native' ? 'Install and restart' : mode === 'android' ? 'Install' : 'Download';
     button.onclick = () => {
         if (mode === 'native') installNatively(update, button, status);
         else if (mode === 'android') installOnAndroid(update, button, status);
@@ -178,15 +178,15 @@ function wireInstallButton(button, update, mode, status) {
     };
 }
 
-/** A manual check answers in the Settings row it was started from: the version and its install button. */
+/** A manual check answers in the Settings row it was started from: the Check button becomes the install action. */
 async function showInlineUpdate(update, status) {
-    const text = document.createElement('span');
-    text.textContent = `Update available: ${update.label}`;
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'btn btn-sm btn-theme-primary ms-2';
-    status.replaceChildren(text, button);
-    wireInstallButton(button, update, await getInstallMode(), text);
+    status.textContent = `Update available: ${update.label}`;
+    const button = document.getElementById('updateCheckBtn');
+    if (!button) return;
+    const mode = await getInstallMode();
+    wireInstallButton(button, update, mode, status);
+    button.dataset.updateReady = '1';
+    button.setAttribute('aria-label', `${button.textContent} ${update.label}`);
 }
 
 async function showUpdateBanner(update) {
@@ -209,6 +209,13 @@ async function runCheck(buildInfo, { manual }) {
     const status = document.getElementById('updateStatus');
     const banner = document.getElementById('updateBanner');
     if (manual && status) status.textContent = 'Checking...';
+    const checkBtn = document.getElementById('updateCheckBtn');
+    if (manual && checkBtn?.dataset.updateReady) {
+        delete checkBtn.dataset.updateReady;
+        checkBtn.onclick = null;
+        checkBtn.textContent = 'Check';
+        checkBtn.setAttribute('aria-label', 'Check for updates');
+    }
     try {
         const update = await checkForUpdate(buildInfo);
         localStorage.setItem(LAST_CHECK_KEY, String(Date.now()));
@@ -268,7 +275,11 @@ export async function initUpdater() {
             runCheck(buildInfo, { manual: true });
         });
     });
-    document.getElementById('updateCheckBtn')?.addEventListener('click', () => runCheck(buildInfo, { manual: true }));
+    document.getElementById('updateCheckBtn')?.addEventListener('click', (e) => {
+        // Once an update is found the same button installs it (see showInlineUpdate).
+        if (e.currentTarget.dataset.updateReady) return;
+        runCheck(buildInfo, { manual: true });
+    });
 
     const last = Number(localStorage.getItem(LAST_CHECK_KEY)) || 0;
     if (getUpdateChannel() !== 'none' && Date.now() - last > CHECK_INTERVAL_MS) {
