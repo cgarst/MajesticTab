@@ -2540,3 +2540,6 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 
 /* The in-app downloader's top bar sits above the library rail and tab bar */
 .tab-downloader-bar { z-index: 1060; }
+
+/* The hint is a dismissible notice: one tone step above the bar, no divider */
+.downloader-hint-banner { background: var(--s3); border-top: 0; color: var(--ink); }
