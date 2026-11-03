@@ -612,7 +612,7 @@ export class FretboardView {
      * parts' colour order, which keeps a part in the same lane from beat to beat. String 1 is the top (highest) string
      * and the largest number the lowest. When the part plays directly connected strings (no gap) the pick starts on the
      * lowest one and sweeps up to the top one, joined by a solid bar with a bead on every string it passes. When there
-     * is any gap the pick is not a strum: it only touches the lowest string.
+     * is any gap the pick is not a strum: the pick only touches the lowest string and the higher strings are plucked, shown by a dotted line and hollow beads.
      * @param {Map<number, {strings: Set<number>, trackColor: string, trackGrad: string}>} partPicks
      */
     drawPartPicks(partPicks) {
@@ -642,10 +642,10 @@ export class FretboardView {
 
             pick.sweep?.cancel();
             pick.sweep = null;
-            if (strings.length === 1 || !connected || !this.reachGroup) return;
+            if (strings.length === 1 || !this.reachGroup) return;
 
             // The sweep runs from the lowest string up to the top one, quicker the fewer strings it crosses
-            if (!reduceMotion && pick.group.animate) {
+            if (connected && !reduceMotion && pick.group.animate) {
                 const ms = Math.min(220, 40 + 28 * (strings.length - 1));
                 pick.sweep = pick.group.animate(
                     [{ transform: `translate(${x}px, ${yOf(lowest)}px)` }, { transform: `translate(${x}px, ${yOf(top)}px)` }],
@@ -653,8 +653,9 @@ export class FretboardView {
                 );
             }
 
+            // Connected: a solid bar the pick travels along. Not connected: a dotted line to the plucked strings, no pick
             const l = document.createElementNS(svgNS, 'line');
-            l.setAttribute('class', 'pick-reach-strum');
+            l.setAttribute('class', connected ? 'pick-reach-strum' : 'pick-reach-pluck');
             l.setAttribute('x1', x);
             l.setAttribute('x2', x);
             l.setAttribute('y1', yOf(top));
@@ -662,14 +663,14 @@ export class FretboardView {
             l.style.stroke = part.trackColor;
             this.reachGroup.appendChild(l);
 
-            // The pick ends on the top string, so the beads mark the strings it passed
-            strings.slice(1).forEach((str) => {
+            // Beads mark the other sounding strings: filled when strummed, hollow when plucked
+            strings.filter(str => str !== endString).forEach((str) => {
                 const bead = document.createElementNS(svgNS, 'circle');
-                bead.setAttribute('class', 'pick-reach-bead is-strum');
+                bead.setAttribute('class', connected ? 'pick-reach-bead is-strum' : 'pick-reach-bead is-pluck');
                 bead.setAttribute('cx', x);
                 bead.setAttribute('cy', yOf(str));
-                bead.setAttribute('r', '3');
-                bead.style.fill = part.trackColor;
+                bead.setAttribute('r', connected ? '3' : '3.4');
+                bead.style.fill = connected ? part.trackColor : 'none';
                 bead.style.stroke = part.trackColor;
                 this.reachGroup.appendChild(bead);
             });
