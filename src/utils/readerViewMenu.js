@@ -191,7 +191,7 @@ function initPracticePanels() {
 }
 
 
-// ---- Song menu (opens from the song's name): recording, section marks, PDF, save and share ----
+// ---- Song menu (opens from the song's name): section marks, PDF, save and share ----
 // Moves the original controls into place (ids kept). Notation went to View and strings and tuning to Guitar.
 function arrangeSongPanel() {
     const body = document.querySelector('#scoreOptionsDropdownPanel .synth-panel-body');
@@ -218,18 +218,10 @@ function arrangeSongPanel() {
         soundRow.before(hear);
     }
 
-    // Recording and sync: the Recording panel opens from here and from the dock's Recording button
-    const recBtn = document.createElement('button');
-    recBtn.type = 'button';
-    recBtn.id = 'songRecordingBtn';
-    recBtn.className = 'btn btn-sm song-row-btn';
-    recBtn.innerHTML = '<span><b>Recording and sync</b><small>Play along with a video or a file, and sync the tab to it</small></span>';
-    recBtn.addEventListener('click', () => {
-        $('scoreOptionsPanelCloseBtn')?.click();
-        $('ytToggleBtn')?.click();
-    });
+    // Recording and sync live with the Recording button in the dock: the embedded-audio sync switch moves into its panel
     const audioSync = $('synthAudioSyncSection');
-    const recGroup = group('scoreOptionsRecordingGroup', 'Recording', recBtn, audioSync);
+    const recBody = document.querySelector('#ytDropdownPanel .yt-panel-body');
+    if (audioSync && recBody) recBody.appendChild(audioSync);
 
     // Section marks: what the ruler's labels were read from (only when the file has marks)
     const marksBtn = document.createElement('button');
@@ -260,7 +252,7 @@ function arrangeSongPanel() {
     parking.hidden = true;
     ['scoreOptionsNotationStyleSection', 'scoreOptionsStringCountSection', 'scoreOptionsAdaptSection'].forEach((id) => { const n = $(id); if (n) parking.appendChild(n); });
     document.body.appendChild(parking);
-    body.replaceChildren(...[recGroup, marksGroup, pdf, save].filter(Boolean));
+    body.replaceChildren(...[marksGroup, pdf, save].filter(Boolean));
 }
 
 

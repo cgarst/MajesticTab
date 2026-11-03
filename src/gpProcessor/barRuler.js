@@ -45,11 +45,13 @@ export function initBarRuler() {
     ruler.setAttribute('aria-label', 'Song position, in bars');
     ruler.setAttribute('aria-valuemin', '1');
     ruler.innerHTML = `
-      <div class="fill" id="rulerFill"></div>
-      <div class="loop" id="rulerLoop"></div>
-      <svg id="rulerTicks" preserveAspectRatio="none" aria-hidden="true"></svg>
-      <div class="ruler-labels" id="rulerLabels" aria-hidden="true"></div>
-      <div class="ruler-lane" id="rulerLane" hidden></div>
+      <div class="ruler-clip">
+        <div class="fill" id="rulerFill"></div>
+        <div class="loop" id="rulerLoop"></div>
+        <svg id="rulerTicks" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="ruler-labels" id="rulerLabels" aria-hidden="true"></div>
+        <div class="ruler-lane" id="rulerLane" hidden></div>
+      </div>
       <div class="head" id="rulerHead"></div>`;
     slot.appendChild(ruler);
 

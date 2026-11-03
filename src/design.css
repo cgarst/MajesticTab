@@ -383,7 +383,11 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .dock-marks[hidden] { display: none; }
 
 /* ---------- ruler ---------- */
-.ruler { position: relative; height: 44px; touch-action: none; cursor: pointer; border-radius: var(--r-sm); background: var(--s2); overflow: hidden; }
+.ruler { position: relative; height: 44px; touch-action: none; cursor: pointer; border-radius: var(--r-sm); background: var(--s2); overflow: visible; }
+/* The playhead sits on top of the ruler and may overhang its ends; everything else is clipped to the rounded shape */
+.ruler-clip { position: absolute; inset: 0; overflow: hidden; border-radius: var(--r-sm); }
+.ruler:not(.mini) .head { z-index: 2; }
+.ruler:not(.mini) .head::after { top: -5px; }
 .ruler[hidden] { display: none; }
 .ruler[data-lane="1"] { height: 54px; }
 .ruler:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
