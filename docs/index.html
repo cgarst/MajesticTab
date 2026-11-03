@@ -63,143 +63,86 @@
 <a class="skip" href="#features">Skip to content</a>
 <div class="playhead" aria-hidden="true"></div>
 
-<header class="hero">
-  <nav class="nav" aria-label="Main">
-    <a href="#features">Features</a>
-    <a class="nav-opt" href="#reader">The reader</a>
-    <a href="#pricing">Pricing</a>
-    <a class="btn" href="#download">Download</a>
-  </nav>
-  <div class="hero-media">
-    <video autoplay muted loop playsinline preload="auto" poster="img/app/hero-poster.webp" width="820" height="1100" aria-label="MajesticTab playing a Guitar Pro tab: the cursor moves through the score while the fretboard lights up each note">
-      <source src="img/app/hero.webm" type="video/webm">
-      <source src="img/app/hero.mp4" type="video/mp4">
-    </video>
-  </div>
-  <div class="hero-main">
-    <div class="hero-lede">
-      <p>Your music stand. Without the mess.</p>
-      <p>Open Guitar Pro, PDF and text tabs in a clean, offline player. No ads, no subscriptions, no bloat.</p>
-    </div>
-    <div class="mark-wrap">
-      <h1 class="mark" aria-label="MajesticTab, a free guitar tab reader and practice app"><span aria-hidden="true">majestic</span><span aria-hidden="true">tab</span></h1>
-      <div class="hero-cta">
-        <a class="btn" href="#download">Get MajesticTab</a>
-        <p>Free<span class="dot">·</span>open source<span class="dot">·</span>works offline<br>iPhone, iPad, Mac, Windows, Android, Linux and Steam Deck</p>
-      </div>
-    </div>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="MajesticTab home"><span class="tile"><img src="icons/mark.svg" width="28" height="29" alt=""></span>MajesticTab</a>
+    <nav class="nav" aria-label="Main">
+      <a href="#features">Features</a>
+      <a href="#reader">The reader</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
+      <a class="btn" href="#download">Download</a>
+    </nav>
   </div>
 </header>
 
-<main>
-<section class="sec feat" id="features" aria-labelledby="feat-h">
-  <div class="g">
-    <h2 id="feat-h" class="rv">Everything in one practice loop</h2>
-    <div class="feat-body">
-      <div class="fcol">
-        <div class="fgroup rv" style="--d:0">
-          <h3>Read</h3>
-          <ul>
-            <li tabindex="0" data-d="Rhythm and lead stack together, so the whole arrangement is in front of you. Drums, bass, keys and vocals stay out of the way.">All guitars at once</li>
-            <li tabindex="0" data-d="Open Guitar Pro (.gp, .gp3 to .gp5, .gpx), PDF and text tabs in the same player.">Guitar Pro, PDF and text tabs</li>
-            <li tabindex="0" data-d="Continuous scroll for learning section by section, or book-like pages: one on a phone, two side by side on a wide screen.">Scroll or page layout</li>
-            <li tabindex="0" data-d="Re-finger a tab for your guitar, with 7 and 8 string support. Every note keeps its pitch.">7 and 8 string tabs</li>
-            <li tabindex="0" data-d="A cursor follows playback so you can find your place at a glance.">Line cursor</li>
-            <li tabindex="0" data-d="Light or dark sheets, plus the sheet in your theme color. Pinch to resize on a touch screen.">Sheet paper and size</li>
-            <li tabindex="0" data-d="MajesticTab remembers which tracks you hid, for each tab file.">Remembers your tracks</li>
-          </ul>
-          <p class="fnote">Every guitar part on one page, in the layout you like.</p>
-        </div>
-        <div class="fgroup rv" style="--d:1">
-          <h3>Hear</h3>
-          <ul>
-            <li tabindex="0" data-d="The built-in synth plays the tab with no internet connection.">Built-in synth</li>
-            <li tabindex="0" data-d="Set the volume of each track, plus a master volume. Press G to switch between the full band and no guitars.">Per-track mixer</li>
-            <li tabindex="0" data-d="Slow the synth down to learn a solo, then speed it up as you improve. Set a loop range to repeat the part you are learning.">Speed and loop</li>
-            <li tabindex="0" data-d="Count-in and a metronome at your tempo.">Metronome and count-in</li>
-            <li tabindex="0" data-d="Select rewind, or press B, to repeat the last few bars.">10-second rewind</li>
-            <li tabindex="0" data-d="Play the original recording or a backing track above the tab. MajesticTab searches for it, and you can edit the search.">YouTube backing tracks</li>
-            <li tabindex="0" data-d="If the sound lags behind the cursor, tap along to measure your device's audio delay and compensate for it.">Latency calibration</li>
-            <li tabindex="0" data-d="Load SF2 or SF3 files and layer them. The files stay on your device and are included in backups.">Your own SoundFonts</li>
-          </ul>
-          <p class="fnote">The synth works offline, and your own recording can lead.</p>
-        </div>
+<main id="top">
+<section class="hero" aria-labelledby="hero-h">
+  <div class="wrap">
+    <div>
+      <h1 id="hero-h">Your music stand. Without the mess.</h1>
+      <p class="lead">Bring all your guitar tabs into a clean, offline player.</p>
+      <p class="sub muted">MajesticTab opens Guitar Pro files, PDFs and text tabs. No ads, no subscriptions and no bloat.</p>
+      <div class="hero-act">
+        <a class="btn" href="#download">Get MajesticTab</a>
+        <a class="text-link" href="#features">See what it does</a>
       </div>
-      <div class="fcol">
-        <div class="fgroup rv" style="--d:1">
-          <h3>See</h3>
-          <ul>
-            <li tabindex="0" data-d="While a Guitar Pro tab plays, the virtual fretboard lights up the notes in the current beat. Press F to show or hide it.">Fretboard follows playback</li>
-            <li tabindex="0" data-d="With more than one track shown, each track's notes use their own color.">A color for each track</li>
-            <li tabindex="0" data-d="Flip the neck for left-handed players.">Left-handed view</li>
-            <li tabindex="0" data-d="The tuning and capo for the tracks you can see, and your own strings, tuning and capo in the Guitar panel.">Tuning and capo</li>
-          </ul>
-          <p class="fnote">Follow each note on the neck.</p>
-        </div>
-        <div class="fgroup rv" style="--d:2">
-          <h3>Play together</h3>
-          <ul>
-            <li tabindex="0" data-d="One person hosts a session in a native MajesticTab app. Everyone else joins from the app on the same network. Playback position and YouTube stay in sync.">Jam on your network</li>
-            <li tabindex="0" data-d="Each host address has a copy button and a QR code, so players can join from a phone.">Join by QR code</li>
-            <li tabindex="0" data-d="Guitar Pro, PDF and text tabs all open for every player.">Any song type</li>
-            <li tabindex="0" data-d="Give each guitarist a track. Play only assigned tracks, or only the backing tracks.">Assign tracks</li>
-            <li tabindex="0" data-d="Mute audio on guests, or mute assigned tracks for people who have no assignment.">Control the audio</li>
-          </ul>
-          <p class="fnote">Everyone on the same song, at the same spot.</p>
-        </div>
-      </div>
-      <div class="fcol">
-        <div class="fgroup rv" style="--d:2">
-          <h3>Library</h3>
-          <ul>
-            <li tabindex="0" data-d="Add the songs or albums you play, then link your tabs to them.">Artists and albums</li>
-            <li tabindex="0" data-d="MajesticTab fetches artist discographies, album covers, release years and track orders.">Music metadata</li>
-            <li tabindex="0" data-d="Group tabs into playlists, live sets, tuning categories such as Drop D, or exercises.">Custom collections</li>
-            <li tabindex="0" data-d="Filter songs by title, artist or album as you type. Reopen the tab you used last.">Search and recents</li>
-            <li tabindex="0" data-d="Build, edit and play through your gig order.">Setlists</li>
-            <li tabindex="0" data-d="Save every PDF in your library in one step.">Bulk PDF export</li>
-            <li tabindex="0" data-d="Export or restore your library, settings and SoundFonts in one .mtbackup file.">One-file backup</li>
-          </ul>
-          <p class="fnote">Your songs, with your tabs linked.</p>
-        </div>
-        <div class="fgroup rv" style="--d:3">
-          <h3>Tools</h3>
-          <ul>
-            <li tabindex="0" data-d="Voicings for any tuning and capo.">Chord library</li>
-            <li tabindex="0" data-d="Scales and modes on the neck.">Scales</li>
-            <li tabindex="0" data-d="Keys and their chords.">Circle of fifths</li>
-            <li tabindex="0" data-d="Tune with the microphone.">Tuner</li>
-            <li tabindex="0" data-d="Connect a foot pedal or gamepad to turn pages without touching the screen.">Pedal and gamepad page turns</li>
-            <li tabindex="0" data-d="Connect your own Google Drive, S3 or iCloud to open scores on any of your devices, keep your library in sync and save full-library backups.">Cloud backup and sync</li>
-          </ul>
-          <p class="fnote">Everything a practice session reaches for.</p>
-        </div>
-      </div>
-      <p class="fdesc" id="fdesc" aria-live="polite"></p>
+      <p class="hero-meta">Free<span class="dot">·</span>open source<span class="dot">·</span>no account<span class="dot">·</span>works offline<br>For iPhone, iPad, Mac, Windows, Android, Linux and Steam Deck.</p>
+    </div>
+    <div class="hero-media">
+      <video autoplay muted loop playsinline preload="auto" poster="img/app/hero-poster.webp" width="820" height="1100" aria-label="MajesticTab playing a Guitar Pro tab: the cursor moves through the score while the fretboard lights up each note">
+        <source src="img/app/hero.webm" type="video/webm">
+        <source src="img/app/hero.mp4" type="video/mp4">
+      </video>
     </div>
   </div>
 </section>
 
-<section class="plate" id="reader" aria-labelledby="reader-h">
-  <div class="plate-in">
-    <div class="plate-fig">
-      <figure class="pfig is-on" data-p="view">
-        <picture><source media="(max-width: 899px)" srcset="img/app/view-phone.webp" width="780" height="1688"><img src="img/app/view.webp" width="2880" height="1800" alt="The View panel in the MajesticTab reader, with layout, notation, size and paper options over a Guitar Pro tab" loading="lazy"></picture>
-      </figure>
-      <figure class="pfig" data-p="practice">
-        <picture><source media="(max-width: 899px)" srcset="img/app/practice-phone.webp" width="780" height="1688"><img src="img/app/practice.webp" width="2880" height="1800" alt="The Practice panel with speed presets, loop bars, a metronome and a count-in" loading="lazy"></picture>
-      </figure>
-      <figure class="pfig" data-p="tracks">
-        <picture><source media="(max-width: 899px)" srcset="img/app/tracks-phone.webp" width="780" height="1688"><img src="img/app/tracks.webp" width="2880" height="1800" alt="The Tracks panel with a toggle for each guitar and a color-by-track switch" loading="lazy"></picture>
-      </figure>
-      <figure class="pfig" data-p="guitar">
-        <picture><source media="(max-width: 899px)" srcset="img/app/guitar-phone.webp" width="780" height="1688"><img src="img/app/guitar.webp" width="2880" height="1800" alt="The Guitar panel with strings, tuning and capo for the guitar in your hands" loading="lazy"></picture>
-      </figure>
-      <figure class="pfig" data-p="tools">
-        <picture><source media="(max-width: 899px)" srcset="img/app/tools-phone.webp" width="780" height="1688"><img src="img/app/tools.webp" width="2880" height="1800" alt="The Tools menu listing the chord library, scales, circle of fifths, fretboard, tuner and metronome" loading="lazy"></picture>
-      </figure>
+<section class="sec" id="features" aria-labelledby="feat-h">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <h2 id="feat-h">Everything in one practice loop</h2>
+      <p class="muted">Read the tab, hear it, see it on the neck, play it with friends and keep your whole library together.</p>
     </div>
-    <div class="plate-side">
+    <div class="feat-grid">
+      <div class="fgroup rv">
+        <h3>Read</h3>
+        <p>Every guitar part sits on the page together, in scroll or book-like pages. Drums, bass, keys and vocals stay out of the way, and MajesticTab remembers your tracks for each file.</p>
+        <p class="names">Guitar Pro, PDF and text tabs<span class="dot">·</span>7 and 8 string tabs<span class="dot">·</span>line cursor<span class="dot">·</span>light or dark sheets</p>
+      </div>
+      <div class="fgroup rv" style="--d:1">
+        <h3>Hear</h3>
+        <p>The built-in synth plays the tab with no internet connection. Slow a solo down, loop the hard bars, or play along with the original recording on YouTube.</p>
+        <p class="names">Per-track mixer<span class="dot">·</span>speed and loop<span class="dot">·</span>metronome and count-in<span class="dot">·</span>your own SoundFonts</p>
+      </div>
+      <div class="fgroup rv" style="--d:2">
+        <h3>See</h3>
+        <p>While a Guitar Pro tab plays, the virtual fretboard lights up the notes in the current beat, with a color for each track. Flip the neck if you play left-handed.</p>
+        <p class="names">Fretboard follows playback<span class="dot">·</span>tuning and capo<span class="dot">·</span>re-finger for your guitar</p>
+      </div>
+      <div class="fgroup rv">
+        <h3>Play together</h3>
+        <p>Host a Jam on your local network. Everyone joins with a QR code and sees the same song at the same spot, with a track assigned to each guitarist.</p>
+        <p class="names">Any song type<span class="dot">·</span>assign tracks<span class="dot">·</span>mute guests</p>
+      </div>
+      <div class="fgroup rv" style="--d:1">
+        <h3>Library</h3>
+        <p>Add the songs and albums you play, then link your tabs to them. MajesticTab fetches artists, covers, release years and track orders, and backs everything up in one file.</p>
+        <p class="names">Setlists<span class="dot">·</span>custom collections<span class="dot">·</span>search and recents<span class="dot">·</span>bulk PDF export</p>
+      </div>
+      <div class="fgroup rv" style="--d:2">
+        <h3>Tools</h3>
+        <p>A chord library for any tuning and capo, scales, the circle of fifths and a tuner are one tap from the score. Turn pages with a foot pedal or gamepad.</p>
+        <p class="names">Chord library<span class="dot">·</span>scales<span class="dot">·</span>tuner<span class="dot">·</span>cloud backup and sync</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="sec band" id="reader" aria-labelledby="reader-h">
+  <div class="wrap">
+    <div class="reader">
+      <h2 id="reader-h" class="rv">One reader, five buttons</h2>
       <div>
         <div class="tabs" role="tablist" aria-label="Reader buttons">
           <button class="tab" role="tab" id="t-view" aria-controls="p-view" aria-selected="true" data-p="view">View</button>
@@ -208,155 +151,171 @@
           <button class="tab" role="tab" id="t-guitar" aria-controls="p-guitar" aria-selected="false" tabindex="-1" data-p="guitar">Guitar</button>
           <button class="tab" role="tab" id="t-tools" aria-controls="p-tools" aria-selected="false" tabindex="-1" data-p="tools">Tools</button>
         </div>
-        <div class="plate-body" style="margin-top:48px">
-          <h2 class="sr" id="reader-h">One reader, five buttons</h2>
-          <div class="panel" role="tabpanel" id="p-view" aria-labelledby="t-view" data-p="view">
-            <h3 class="panel-t">View</h3>
-            <p>Layout, notation, size, paper and the pages shown. Scroll or page mode, tab only or tab with standard notation, a light or dark sheet.</p>
-          </div>
-          <div class="panel" role="tabpanel" id="p-practice" aria-labelledby="t-practice" data-p="practice" hidden>
-            <h3 class="panel-t">Practice</h3>
-            <p>Speed from 50% to 125%, the loop range, the metronome and a count-in. Learn a solo slowly, then bring it up to tempo.</p>
-          </div>
-          <div class="panel" role="tabpanel" id="p-tracks" aria-labelledby="t-tracks" data-p="tracks" hidden>
-            <h3 class="panel-t">Tracks</h3>
-            <p>Which tracks to show and hear, their levels and their color. Switch to one guitar, or to everything but the guitars.</p>
-          </div>
-          <div class="panel" role="tabpanel" id="p-guitar" aria-labelledby="t-guitar" data-p="guitar" hidden>
-            <h3 class="panel-t">Guitar</h3>
-            <p>Strings, tuning and capo for the guitar in your hands. It resets when the song closes, and is saved for the song, or as your usual guitar, only when you ask.</p>
-          </div>
-          <div class="panel" role="tabpanel" id="p-tools" aria-labelledby="t-tools" data-p="tools" hidden>
-            <h3 class="panel-t">Tools</h3>
-            <p>The chord library, scales, the circle of fifths, a fretboard, a tuner and a metronome, one tap from the score.</p>
-          </div>
+        <div class="panel" role="tabpanel" id="p-view" aria-labelledby="t-view" data-p="view">
+          <h3>View</h3>
+          <p>Layout, notation, size, paper and the pages shown. Scroll or page mode, tab only or tab with standard notation, a light or dark sheet.</p>
+        </div>
+        <div class="panel" role="tabpanel" id="p-practice" aria-labelledby="t-practice" data-p="practice" hidden>
+          <h3>Practice</h3>
+          <p>Speed from 50% to 125%, the loop range, the metronome and a count-in. Learn a solo slowly, then bring it up to tempo.</p>
+        </div>
+        <div class="panel" role="tabpanel" id="p-tracks" aria-labelledby="t-tracks" data-p="tracks" hidden>
+          <h3>Tracks</h3>
+          <p>Which tracks to show and hear, their levels and their color. Switch to one guitar, or to everything but the guitars.</p>
+        </div>
+        <div class="panel" role="tabpanel" id="p-guitar" aria-labelledby="t-guitar" data-p="guitar" hidden>
+          <h3>Guitar</h3>
+          <p>Strings, tuning and capo for the guitar in your hands. It resets when the song closes, and is saved for the song, or as your usual guitar, only when you ask.</p>
+        </div>
+        <div class="panel" role="tabpanel" id="p-tools" aria-labelledby="t-tools" data-p="tools" hidden>
+          <h3>Tools</h3>
+          <p>The chord library, scales, the circle of fifths, a fretboard, a tuner and a metronome, one tap from the score.</p>
         </div>
       </div>
-      <div class="plate-cells">
-        <a class="cell cell-a" href="#download">Get MajesticTab</a>
-        <a class="cell cell-b" href="https://github.com/cgarst/MajesticTab">Read the source</a>
+      <div class="pfig-wrap">
+        <figure class="pfig is-on" data-p="view">
+          <picture><source media="(max-width: 767px)" srcset="img/app/view-phone.webp" width="780" height="1688"><img src="img/app/view.webp" width="2880" height="1800" alt="The View panel in the MajesticTab reader, with layout, notation, size and paper options over a Guitar Pro tab" loading="lazy"></picture>
+        </figure>
+        <figure class="pfig" data-p="practice">
+          <picture><source media="(max-width: 767px)" srcset="img/app/practice-phone.webp" width="780" height="1688"><img src="img/app/practice.webp" width="2880" height="1800" alt="The Practice panel with speed presets, loop bars, a metronome and a count-in" loading="lazy"></picture>
+        </figure>
+        <figure class="pfig" data-p="tracks">
+          <picture><source media="(max-width: 767px)" srcset="img/app/tracks-phone.webp" width="780" height="1688"><img src="img/app/tracks.webp" width="2880" height="1800" alt="The Tracks panel with a toggle for each guitar and a color-by-track switch" loading="lazy"></picture>
+        </figure>
+        <figure class="pfig" data-p="guitar">
+          <picture><source media="(max-width: 767px)" srcset="img/app/guitar-phone.webp" width="780" height="1688"><img src="img/app/guitar.webp" width="2880" height="1800" alt="The Guitar panel with strings, tuning and capo for the guitar in your hands" loading="lazy"></picture>
+        </figure>
+        <figure class="pfig" data-p="tools">
+          <picture><source media="(max-width: 767px)" srcset="img/app/tools-phone.webp" width="780" height="1688"><img src="img/app/tools.webp" width="2880" height="1800" alt="The Tools menu listing the chord library, scales, circle of fifths, fretboard, tuner and metronome" loading="lazy"></picture>
+        </figure>
       </div>
     </div>
   </div>
 </section>
 
-<section class="sec how" id="how" aria-labelledby="how-h">
-  <div class="g">
-    <h2 id="how-h" class="rv">From file to first note</h2>
-    <div class="how-col">
+<section class="sec" id="how" aria-labelledby="how-h">
+  <div class="wrap">
+    <div class="sec-head rv"><h2 id="how-h">From file to first note</h2></div>
+    <div class="steps">
       <div class="step rv">
-        <p><strong>To begin,</strong> drop in a tab. Open Guitar Pro, PDF or text files from your device, then link each one to its song. MajesticTab fills in the artist, album, cover and tuning.</p>
+        <div class="step-text">
+          <h3>Drop in a tab</h3>
+          <p>Open Guitar Pro, PDF or text files from your device, then link each one to its song. MajesticTab fills in the artist, album, cover and tuning.</p>
+        </div>
         <figure><img src="img/app/reader.webp" width="2880" height="1800" alt="A Guitar Pro tab open in the MajesticTab reader" loading="lazy" style="transform: scale(1.45); transform-origin: 50% 10%"></figure>
       </div>
       <div class="step rv">
-        <p><strong>Then,</strong> press play. The cursor follows the music, the fretboard lights up each note, and every guitar part sits on the page together.</p>
+        <div class="step-text">
+          <h3>Press play</h3>
+          <p>The cursor follows the music, the fretboard lights up each note, and every guitar part sits on the page together.</p>
+        </div>
         <figure><img src="img/app/reader.webp" width="2880" height="1800" alt="The fretboard and playback dock under the score" loading="lazy" style="transform: scale(1.6); transform-origin: 40% 96%"></figure>
       </div>
       <div class="step rv">
-        <p><strong>When it gets hard,</strong> slow it down. Drop to half speed, loop the bars you are stuck on and turn on the metronome, then speed up as you improve.</p>
+        <div class="step-text">
+          <h3>Slow it down</h3>
+          <p>Drop to half speed, loop the bars you are stuck on and turn on the metronome, then speed up as you improve.</p>
+        </div>
         <figure><img src="img/app/practice.webp" width="2880" height="1800" alt="The Practice panel with speed presets and loop bars" loading="lazy" style="transform: scale(1.7); transform-origin: 62% 14%"></figure>
       </div>
       <div class="step rv">
-        <p><strong>With friends,</strong> jam on the same page. One player hosts on the local network, the others join with a QR code, and everyone sees the same song at the same spot.</p>
+        <div class="step-text">
+          <h3>Pick your tracks</h3>
+          <p>Show and hear only the parts you need, give each track its own color, and let the others play along.</p>
+        </div>
+        <figure><img src="img/app/tracks.webp" width="2880" height="1800" alt="The Tracks panel with a toggle for each guitar" loading="lazy" style="transform: scale(1.7); transform-origin: 60% 14%"></figure>
       </div>
     </div>
   </div>
 </section>
 
-<section class="sec facts" aria-labelledby="facts-h">
-  <div class="g">
-    <h2 id="facts-h" class="rv">The short version</h2>
-    <dl class="fl rv">
-      <div><dt>7</dt><dd>devices it runs on: iPhone, iPad, Mac, Windows, Android, Linux and Steam Deck.</dd></div>
-      <div><dt>3</dt><dd>kinds of tab file: Guitar Pro, PDF and text.</dd></div>
-      <div><dt>8</dt><dd>strings at most, with 7 and 8 string tabs and tunings.</dd></div>
-      <div><dt>9</dt><dd>app themes, each with a light or dark sheet.</dd></div>
-      <div><dt>0</dt><dd>ads, accounts or subscriptions.</dd></div>
+<section class="sec band" style="padding-block: 56px" aria-labelledby="facts-h">
+  <div class="wrap">
+    <h2 id="facts-h" class="sr">The short version</h2>
+    <dl class="facts-row rv">
+      <div><dt>7</dt><dd>devices it runs on: iPhone, iPad, Mac, Windows, Android, Linux and Steam Deck</dd></div>
+      <div><dt>3</dt><dd>kinds of tab file: Guitar Pro, PDF and text</dd></div>
+      <div><dt>8</dt><dd>strings at most, with 7 and 8 string tabs and tunings</dd></div>
+      <div><dt>9</dt><dd>app themes, each with a light or dark sheet</dd></div>
+      <div><dt>0</dt><dd>ads, accounts or subscriptions</dd></div>
     </dl>
-    <figure class="facts-fig rv" style="--d:1"><img src="img/app/tracks-phone.webp" width="780" height="1688" alt="The Tracks panel on a phone, with a toggle and a color for each guitar" loading="lazy"></figure>
   </div>
 </section>
 
-<section class="price" id="pricing" aria-labelledby="price-h">
-  <div class="g" style="padding-block: var(--section)">
-    <h2 id="price-h" class="rv"><span>Every feature</span><span>costs <b class="tag">$0</b></span></h2>
-    <div class="price-row">
-      <div class="rv">
-        <p class="lead">There is no paid tier, no trial clock and no ad. Your tabs and settings are always yours, and MajesticTab never expires.</p>
-        <ul>
-          <li>Guitar Pro, PDF and text tabs, with your whole library</li>
-          <li>Multi-track playback, mixer, speed control and YouTube backing tracks</li>
-          <li>Fretboard, tuner, chord library and Jam sessions</li>
-          <li>Every theme, setlists, custom SoundFonts and bulk PDF export</li>
-          <li>Backup and sync with Google Drive, S3 or iCloud</li>
-        </ul>
-      </div>
-      <div class="price-act rv" style="--d:1">
+<section class="sec band2" id="pricing" aria-labelledby="price-h">
+  <div class="wrap price">
+    <div class="rv">
+      <h2 id="price-h">Free to play. Every feature included.</h2>
+      <p class="lead muted">There is no paid tier, no trial clock and no ad. Your tabs and settings are always yours, and MajesticTab never expires.</p>
+      <div class="price-act">
         <a class="btn" href="#download">Get MajesticTab</a>
         <a class="text-link" href="https://github.com/cgarst/MajesticTab">Read the source on GitHub</a>
       </div>
     </div>
+    <ul class="price-list rv" style="--d:1">
+      <li>Guitar Pro, PDF and text tabs, with your whole library</li>
+      <li>Multi-track playback, mixer, speed control and YouTube backing tracks</li>
+      <li>Fretboard, tuner, chord library and Jam sessions</li>
+      <li>Every theme, setlists, custom SoundFonts and bulk PDF export</li>
+      <li>Foot pedal and gamepad page turns</li>
+      <li>Backup and sync with Google Drive, S3 or iCloud</li>
+    </ul>
   </div>
 </section>
 
-<section class="sec faq" id="faq" aria-labelledby="faq-h">
-  <div class="g">
-    <h2 id="faq-h" class="rv">Questions</h2>
-    <div class="qa rv">
-      <h3>Is it really free?</h3>
-      <p>Yes. Every feature is free: no paid tier, no subscription, no ads and no trial clock. The code is open source on GitHub.</p>
-    </div>
-    <div class="qa rv">
-      <h3>Does it work offline?</h3>
-      <p>Yes. It is a native app, and the built-in synth plays tabs with no connection. YouTube backing tracks, web search and cloud sync need internet, and you choose whether to use them.</p>
-    </div>
-    <div class="qa rv">
-      <h3>Which files can I open?</h3>
-      <p>Guitar Pro files (.gp, .gp3 to .gp5, .gpx), PDFs and text tabs, from your device or from Google Drive, S3 or iCloud.</p>
-    </div>
-    <div class="qa rv">
-      <h3>Where are my tabs kept?</h3>
-      <p>On your device, unless you choose to back them up or sync them. One .mtbackup file holds your library, settings and SoundFonts, so moving to a new device takes one restore.</p>
-    </div>
-    <div class="qa rv">
-      <h3>Can I jam with friends?</h3>
-      <p>Yes, on the same network. Anyone can join a Jam for free. Hosting needs a native app, and it is a feature in the App Store, Google Play and Microsoft Store versions.</p>
-    </div>
-    <div class="qa rv">
-      <h3>Does it run on my device?</h3>
-      <p>iPhone, iPad, Mac, Windows, Android, Linux and Steam Deck. <a href="#download">Downloads are below</a>, with the store listings that are open today.</p>
+<section class="sec" id="faq" aria-labelledby="faq-h">
+  <div class="wrap">
+    <div class="sec-head rv"><h2 id="faq-h">Questions</h2></div>
+    <div class="faq-grid">
+      <div class="qa rv">
+        <h3>Is it really free?</h3>
+        <p>Yes. Every feature is free: no paid tier, no subscription, no ads and no trial clock. The code is open source on GitHub.</p>
+      </div>
+      <div class="qa rv" style="--d:1">
+        <h3>Does it work offline?</h3>
+        <p>Yes. It is a native app, and the built-in synth plays tabs with no connection. YouTube backing tracks, web search and cloud sync need internet, and you choose whether to use them.</p>
+      </div>
+      <div class="qa rv">
+        <h3>Which files can I open?</h3>
+        <p>Guitar Pro files (.gp, .gp3 to .gp5, .gpx), PDFs and text tabs, from your device or from Google Drive, S3 or iCloud.</p>
+      </div>
+      <div class="qa rv" style="--d:1">
+        <h3>Where are my tabs kept?</h3>
+        <p>On your device, unless you choose to back them up or sync them. One .mtbackup file holds your library, settings and SoundFonts, so moving to a new device takes one restore.</p>
+      </div>
+      <div class="qa rv">
+        <h3>Can I jam with friends?</h3>
+        <p>Yes, on the same network. Anyone can join a Jam for free. Hosting needs a native app, and it is a feature in the App Store, Google Play and Microsoft Store versions.</p>
+      </div>
+      <div class="qa rv" style="--d:1">
+        <h3>Does it run on my device?</h3>
+        <p>iPhone, iPad, Mac, Windows, Android, Linux and Steam Deck. <a href="#download">Downloads are below</a>, with the store listings that are open today.</p>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="inv close" aria-labelledby="close-h">
-  <div class="g" style="align-content: space-between; flex: 1; display: grid">
-    <h2 id="close-h" class="rv"><span>Let the</span><span>score lead.</span></h2>
-    <div class="close-row">
-      <p class="rv">Free for every device you play on, with every feature included.</p>
-      <a class="btn btn-ink rv" style="--d:1" href="#download">Get MajesticTab</a>
+<section class="sec band" id="download" aria-labelledby="dl-h">
+  <div class="wrap">
+    <div class="sec-head rv">
+      <h2 id="dl-h">Download MajesticTab</h2>
+      <p class="muted">A native app that runs offline, with every feature included.</p>
     </div>
-  </div>
-</section>
-</main>
-
-<footer class="inv foot" id="download">
-  <div class="g" style="align-content: start">
-    <div class="foot-cols">
-      <div class="fc">
+    <div class="dl-grid">
+      <div class="dl">
         <h3>iPhone and iPad</h3>
         <p>App Store: coming soon</p>
         <a href="https://github.com/cgarst/MajesticTab/releases/latest">Download IPA</a>
         <p class="note">Not yet on the App Store, so the IPA is sideloaded with SideStore, AltStore, LiveContainer or Sideloadly. Or add our SideStore source:</p>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest/download/source.json">SideStore source (source.json)</a>
+        <a href="https://github.com/cgarst/MajesticTab/releases/latest/download/source.json">SideStore source</a>
       </div>
-      <div class="fc">
+      <div class="dl">
         <h3>Mac</h3>
         <p>Mac App Store: coming soon</p>
         <a href="https://github.com/cgarst/MajesticTab/releases/latest">Apple Silicon (.dmg)</a>
         <a href="https://github.com/cgarst/MajesticTab/releases/latest">Intel (.dmg)</a>
       </div>
-      <div class="fc">
+      <div class="dl">
         <h3>Windows</h3>
         <a href="https://apps.microsoft.com/detail/9p7mb2c84cfv?referrer=appbadge">Microsoft Store</a>
         <a href="https://github.com/cgarst/MajesticTab/releases/latest">EXE (x86_64)</a>
@@ -364,64 +323,50 @@
         <p class="note">Or with winget:</p>
         <code>winget install majestictab</code>
       </div>
-      <div class="fc">
+      <div class="dl">
         <h3>Android</h3>
         <p>Google Play: coming soon</p>
         <a href="https://github.com/cgarst/MajesticTab/releases/latest">Download APK</a>
       </div>
-      <div class="fc">
+      <div class="dl">
         <h3>Linux and Steam Deck</h3>
         <p>Flathub: coming soon</p>
         <a href="https://github.com/cgarst/MajesticTab/releases/latest">Flatpak (x86_64)</a>
         <a href="https://github.com/cgarst/MajesticTab/releases/latest">Flatpak (ARM64)</a>
         <a href="img/steam/steam_deck_artwork.zip">Steam Deck art (.zip)</a>
       </div>
-      <div class="fc">
-        <h3>Project</h3>
-        <a href="https://github.com/cgarst/MajesticTab">Source code</a>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest">Latest release</a>
-        <a href="https://github.com/cgarst/MajesticTab/issues">Report an issue</a>
-        <a href="privacy.html">Privacy</a>
-      </div>
     </div>
-    <div class="foot-bottom">
-      <p class="foot-mark">majestictab</p>
-      <p class="legal"><span>© MajesticTab</span><span class="dot">·</span><span>Free guitar tab reader and practice app</span><span class="dot">·</span><a href="privacy.html">Privacy</a></p>
-    </div>
+  </div>
+</section>
+</main>
+
+<footer class="foot">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="MajesticTab, back to top"><span class="tile"><img src="icons/mark.svg" width="24" height="25" alt=""></span>MajesticTab</a>
+    <nav class="foot-links" aria-label="Footer">
+      <a href="https://github.com/cgarst/MajesticTab">Source code</a>
+      <a href="https://github.com/cgarst/MajesticTab/releases/latest">Latest release</a>
+      <a href="https://github.com/cgarst/MajesticTab/issues">Report an issue</a>
+      <a href="privacy.html">Privacy</a>
+    </nav>
+    <p class="legal">© MajesticTab<span class="dot">·</span>Free guitar tab reader and practice app</p>
   </div>
 </footer>
 
 <script>
 (function () {
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  // Hero video: still poster under reduced motion
   var v = document.querySelector('.hero-media video');
   if (v && reduce) { v.removeAttribute('autoplay'); v.pause(); }
 
-  // Entrances, once, as each part scrolls in
   var rv = document.querySelectorAll('.rv');
   if ('IntersectionObserver' in window && !reduce) {
     var io = new IntersectionObserver(function (es) {
       es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
-    }, { rootMargin: '0px 0px -8% 0px', threshold: 0.05 });
+    }, { rootMargin: '0px 0px -6% 0px', threshold: 0.05 });
     rv.forEach(function (el) { io.observe(el); });
   } else { rv.forEach(function (el) { el.classList.add('in'); }); }
 
-  // Features: the hovered or focused name shows its sentence in a fixed place
-  var out = document.getElementById('fdesc');
-  var items = document.querySelectorAll('.fgroup li');
-  var current = null;
-  function show(li) {
-    if (current) current.classList.remove('is-on');
-    current = li; li.classList.add('is-on'); out.textContent = li.getAttribute('data-d');
-  }
-  items.forEach(function (li) {
-    li.addEventListener('mouseenter', function () { show(li); });
-    li.addEventListener('focus', function () { show(li); });
-  });
-  if (items.length) show(items[0]);
-
-  // Reader plate: the five buttons of the app
   var tabs = Array.prototype.slice.call(document.querySelectorAll('.tab'));
   var panels = document.querySelectorAll('.panel');
   var figs = document.querySelectorAll('.pfig');
