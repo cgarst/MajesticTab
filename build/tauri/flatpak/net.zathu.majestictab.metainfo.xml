@@ -16,8 +16,8 @@ __DESCRIPTION__
     <name>Zathu Software</name>
   </developer>
   <branding>
-    <color type="primary" scheme_preference="light">#eee9fb</color>
-    <color type="primary" scheme_preference="dark">#1c1535</color>
+    <color type="primary" scheme_preference="light">#e4e9f2</color>
+    <color type="primary" scheme_preference="dark">#111724</color>
   </branding>
   <screenshots>
     <screenshot type="default">

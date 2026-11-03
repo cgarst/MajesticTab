@@ -14,7 +14,7 @@ const outDir = outDirArg > -1
   ? path.resolve(process.argv[outDirArg + 1])
   : path.join(rootDir, 'docs', 'img', 'steam');
 
-const require = createRequire(path.join(scriptDir, 'tauri', 'package.json'));
+const require = createRequire(path.join(rootDir, 'build', 'tauri', 'package.json'));
 const { Resvg } = require('@resvg/resvg-js');
 const { zipSync, strToU8 } = require('fflate');
 
@@ -36,7 +36,7 @@ function composeGridVertical(w = 600, h = 900) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     <rect width="100%" height="100%" fill="#ffffff"/>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
-    <text x="${w / 2}" y="${575 * scale}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${48 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="#a7f3d0">Tab</tspan></text>
+    <text x="${w / 2}" y="${575 * scale}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${48 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#111724">Majestic<tspan fill="#2f4066">Tab</tspan></text>
   </svg>`;
 }
 
@@ -48,7 +48,7 @@ function composeGridHorizontal(w = 920, h = 430) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     <rect width="100%" height="100%" fill="#ffffff"/>
     <svg x="${iconX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
-    <text x="${340 * scale}" y="${230 * scale}" font-family="${FONT_FAMILY}" font-size="${64 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="#a7f3d0">Tab</tspan></text>
+    <text x="${340 * scale}" y="${230 * scale}" font-family="${FONT_FAMILY}" font-size="${64 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#111724">Majestic<tspan fill="#2f4066">Tab</tspan></text>
   </svg>`;
 }
 
@@ -71,7 +71,7 @@ function composeLogo(w = 1280, h = 720) {
   const startX = (w - totalWidth) / 2;
   const iconY = (h - iconSize) / 2;
   const content = `<svg x="${startX}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
-    <text x="${startX + iconSize + 35 * scale}" y="${h / 2 + 20 * scale}" font-family="${FONT_FAMILY}" font-size="${84 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="#a7f3d0">Tab</tspan></text>
+    <text x="${startX + iconSize + 35 * scale}" y="${h / 2 + 20 * scale}" font-family="${FONT_FAMILY}" font-size="${84 * scale}" font-weight="700" letter-spacing="-0.01em" fill="#111724">Majestic<tspan fill="#2f4066">Tab</tspan></text>
     <text x="${startX + iconSize + 38 * scale}" y="${h / 2 + 75 * scale}" font-family="${FONT_FAMILY}" font-size="${22 * scale}" font-weight="600" fill="rgba(255,255,255,0.6)" >Guitar tab viewer</text>`;
   const wrap = (transform) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
     <g${transform ? ` transform="${transform}"` : ''}>${content}</g>

@@ -13,7 +13,7 @@ const outDir = outDirArg > -1
   ? path.resolve(process.argv[outDirArg + 1])
   : path.join(rootDir, 'support', 'store', 'msstore', 'logos');
 
-const { Resvg } = createRequire(path.join(scriptDir, 'tauri', 'package.json'))('@resvg/resvg-js');
+const { Resvg } = createRequire(path.join(rootDir, 'build', 'tauri', 'package.json'))('@resvg/resvg-js');
 
 const source = await readFile(path.join(rootDir, 'support', 'branding', 'icon_v3.svg'), 'utf8');
 const viewBox = /viewBox="([^"]+)"/.exec(source)?.[1];
@@ -32,8 +32,8 @@ function compose({ id, w, h, iconSize, iconY, titleY, titleSize, tagY, tagSize, 
     
     <rect width="100%" height="100%" fill="#ffffff"/>
     <svg x="${(w - iconSize) / 2}" y="${iconY}" width="${iconSize}" height="${iconSize}" viewBox="${viewBox}">${inner}</svg>
-    <text x="${w / 2}" y="${titleY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${titleSize}" font-weight="700" letter-spacing="-0.01em" fill="#ffffff">Majestic<tspan fill="#a7f3d0">Tab</tspan></text>
-    <text x="${w / 2}" y="${tagY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${tagSize}" font-weight="600" fill="#a4aebf">Guitar tab viewer</text>
+    <text x="${w / 2}" y="${titleY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${titleSize}" font-weight="700" letter-spacing="-0.01em" fill="#111724">Majestic<tspan fill="#2f4066">Tab</tspan></text>
+    <text x="${w / 2}" y="${tagY}" text-anchor="middle" font-family="${FONT_FAMILY}" font-size="${tagSize}" font-weight="600" fill="#4a5568">Guitar tab reader</text>
   </svg>`;
 }
 

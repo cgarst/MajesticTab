@@ -3,8 +3,9 @@
 
 Each shot is captured from the app exactly as that channel ships it: the script runs
 build/tauri/prepare-tauri-frontend.mjs for the channel (channel.json, files and options the channel excludes
-removed), checks it with build/verify-channel.mjs, and serves the result. Capture is at the store's device size, then composed into a marketing frame
-(headline, subtitle, device-framed capture); Flathub shots are not made here (see flathub_screenshots.mjs). Only public-domain / test fixtures in tests/ are used (no copyrighted tabs).
+removed), checks it with build/verify-channel.mjs, and serves the result. Capture is at the store's device size, then composed into a flat
+marketing frame (Reimagined rules: tone steps, no gradients, glow or shadow; Barlow Condensed headline, sentence case, one subtitle) by
+rendering HTML in the same browser; Flathub shots are not made here (see flathub_screenshots.mjs). Only public-domain / test fixtures in tests/ are used (no copyrighted tabs).
 
 Usage:
     pip install playwright pillow && playwright install chromium
@@ -45,7 +46,7 @@ FRONTEND_DIR = TAURI_DIR / "frontend-dist"
 # Capture viewport is CSS px; final is the store's required pixel size.
 STORES = {
     "play": {
-        "viewport": {"width": 360, "height": 640},
+        "viewport": {"width": 390, "height": 700},
         "scale": 3,
         "user_agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
         "final": (1080, 1920),  # Play phone: 9:16, each side 320-3840 px, max 2:1
@@ -85,7 +86,6 @@ STORES = {
         "channel": "play",
         "out": "../../fastlane/metadata/android/en-US/images/tvScreenshots",
         "tab_scale": 80,
-        "shot_tab_scale": {"gp_page": 60},  # page mode shows a full spread, so it zooms out further
         "viewport": {"width": 960, "height": 540},
         "scale": 2,
         "mobile": False,
@@ -93,7 +93,6 @@ STORES = {
         "final": (1920, 1080),
         "root_classes": ["tv-mode", "fullscreen-unavailable"],
         "no_fullscreen": True,
-        "tv_frame": True,
     },
     "appstore-ios": {
         # iPhone 6.9" (16 Pro Max) logical width; height matched to visible frame so bottom docks aren't cropped.
@@ -118,28 +117,18 @@ STORES = {
     },
 }
 
-# Marketing copy: sentence-case headline (max ~4 words), one short subtitle. `requires` skips the shot
-# when the channel lacks a capability.
+# Marketing copy: sentence-case headline, one short subtitle. `requires` skips the shot when the channel lacks a capability.
+# `theme` is the app theme (default Slate Blue). Order is the order in the store listing: the first two decide the click.
 SHOTS = [
-    dict(id="gp_scroll", headline="Scroll through your tabs",
-         subtitle="All guitar parts stacked together, with no other clutter",
-         setup="gp_scroll"),
-    dict(id="gp_page", headline="Or, turn pages like a book", subtitle="Tap or use a Bluetooth page turner",
-         setup="gp_page"),
-    dict(id="library", headline="Your whole tab library", subtitle="Browse by artist and album",
-         setup="library"),
-    dict(id="tunings", headline="Browse tabs by tuning",
-         subtitle="Group your songs by 6-string, 7-string, and drop tunings",
-         setup="tunings"),
-    dict(id="synth_menu", headline="Play along with the band", subtitle="Built-in synth with per-track mixing",
-         setup="synth_menu"),
-    dict(id="fretboard", headline="Follow each note on a fretboard", subtitle="A color for every track as the tab plays",
-         setup="fretboard"),
-    dict(id="theme_palettes", headline="Make it yours", subtitle="Visual finishes for the whole app",
-         setup="themes"),
+    dict(id="reader", headline="Every guitar part, together", subtitle="Drums, bass and keys stay out of the way.", setup="reader"),
+    dict(id="library", headline="A library, not a folder", subtitle="Artists, albums and tracklists for every song you play.", setup="library"),
+    dict(id="original", headline="Play along with the record", subtitle="Tap to sync, and the cursor follows the original.", setup="original"),
+    dict(id="guitar", headline="Fit it to your guitar", subtitle="7 and 8 strings, tunings and capo, every pitch kept.", setup="guitar"),
+    dict(id="page", headline="Scroll or turn pages", subtitle="Tap, or use a Bluetooth page turner.", setup="page", theme="Snow White"),
+    dict(id="practice", headline="Practice at your pace", subtitle="Speed, loops, count-in and metronome.", setup="practice"),
+    dict(id="tunings", headline="Browse by tuning", subtitle="Build a set that needs no retuning.", setup="tunings"),
     # Jam mode is native-only, so this shot fakes the native shell (tests/jam/mockTauri.js) in a page of its own.
-    dict(id="jam", headline="Practice as a group", subtitle="Split up the parts over your network",
-         setup="jam", own_page=True),
+    dict(id="jam", headline="Jam in the same room", subtitle="Everyone on the same bar, from their own device.", setup="jam", own_page=True),
 ]
 
 
@@ -179,105 +168,34 @@ def has_feature(cfg, name):
     return v not in (False, "off", "none", None)
 
 
-# Fictional artists (1-4 albums each) plus Custom Music (books + songs) so the library shot never shows
-# copyrighted names or artwork while showcasing 1-, 2-, 3-, and 4-album artist collages.
+# Fictional artists (1-4 albums each) plus Custom Music, from demo_library.json, so the library never shows copyrighted names or artwork.
 with open(Path(__file__).with_name("demo_library.json")) as _f:
     _demo = json.load(_f)
-DEMO_LIBRARY = _demo["library"]
-
-COVER_TINTS = [
-    (255, 110, 90),   # warm coral / sunset
-    (70, 175, 255),   # glacial blue
-    (230, 95, 210),   # magenta dusk
-    (60, 220, 165),   # emerald / teal
-    (255, 185, 65),   # amber gold
-    (150, 115, 255),  # violet night
-    (255, 85, 120),   # crimson neon
-    (80, 210, 235),   # cyan horizon
-]
-
-
-def fake_cover_data_url(artist, title, idx):
-    """Fetch a deterministic Unsplash photo via picsum.photos and grade it like an album sleeve."""
-    from PIL import Image, ImageChops, ImageDraw, ImageEnhance
-    cache_dir = OUT_ROOT / ".cover-cache"
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    slug = "".join(c if c.isalnum() else "_" for c in f"{artist}_{title}").lower()
-    cached = cache_dir / f"{slug}.jpg"
-    if cached.exists():
-        b64 = base64.b64encode(cached.read_bytes()).decode("ascii")
-        return f"data:image/jpeg;base64,{b64}"
-
-    seed = urllib.parse.quote(f"mt-album-{idx}-{title}")
-    req = urllib.request.Request(
-        f"https://picsum.photos/seed/{seed}/240/240",
-        headers={"User-Agent": "MajesticTab-Screenshots/1.0"},
-    )
-    with urllib.request.urlopen(req, timeout=15) as resp:
-        im = Image.open(io.BytesIO(resp.read())).convert("RGB").resize((240, 240), Image.LANCZOS)
-
-    # Color grade + contrast boost so each album in a multi-album collage has a distinct palette.
-    im = ImageEnhance.Contrast(im).enhance(1.22)
-    im = ImageEnhance.Color(im).enhance(0.85)
-    tint = Image.new("RGB", (240, 240), COVER_TINTS[idx % len(COVER_TINTS)])
-    im = Image.blend(im, ImageChops.multiply(im, tint), 0.38)
-
-    # Bottom gradient scrim + sleeve typography.
-    overlay = Image.new("RGBA", (240, 240), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(overlay)
-    for y in range(130, 240):
-        alpha = round(185 * ((y - 130) / 110) ** 1.4)
-        draw.line([(0, y), (240, y)], fill=(8, 6, 16, alpha))
-    im = Image.alpha_composite(im.convert("RGBA"), overlay).convert("RGB")
-    draw = ImageDraw.Draw(im)
-    draw.text((16, 192), artist.upper(), font=font(13, bold=True), fill=(210, 205, 230))
-    draw.text((16, 210), title, font=font(18, bold=True), fill=(255, 255, 255))
-
-    buf = io.BytesIO()
-    im.save(buf, format="JPEG", quality=88, optimize=True)
-    data = buf.getvalue()
-    cached.write_bytes(data)
-    return "data:image/jpeg;base64," + base64.b64encode(data).decode("ascii")
-
-
-# Weighted pool so the Tunings view shows 6-String (Standard, Drop D, D Standard, DADGAD) and
-# 7-String (7-String Standard, 7-String Drop A) with distinct descending song counts.
-DEMO_TUNINGS = _demo["tunings"]
+FIXTURE = "Duo No 2 In G Major.gp5"
 
 
 def seed_library(page, base):
-    songs = []
-    alb_idx = 0
-    song_idx = 0
-    for a, albums in DEMO_LIBRARY.items():
-        for al, tracks in albums.items():
-            cover = fake_cover_data_url(a, al, alb_idx)
-            alb_idx += 1
-            for i, t in enumerate(tracks):
-                tuning = DEMO_TUNINGS[song_idx % len(DEMO_TUNINGS)]
-                song_idx += 1
-                songs.append(dict(title=t, artist=a, album=al, trackNumber=i + 1,
-                                  year=2018 + len(al) % 6, coverUrl=cover, tunings=[tuning]))
-    books = ["Acoustic Songbook Vol. 1.pdf", "Progressive Etudes.pdf"]
-    custom_songs = [
-        dict(title="Duo No. 2 in G Major", isCustom=True, artist="Custom Music", album="", tunings=["Drop D"]),
-        dict(title="Morning Prelude in G", isCustom=True, artist="Custom Music", album="", tunings=["Standard"]),
-        dict(title="Odd-Meter Study No. 3", isCustom=True, artist="Custom Music", album="", tunings=["7-String Standard"]),
-        dict(title="Fingerstyle Etude in D", isCustom=True, artist="Custom Music", album="", tunings=["DADGAD"]),
-        dict(title="Sweep Arpeggio Workout", isCustom=True, artist="Custom Music", album="", tunings=["Standard"]),
-    ]
-    page.goto(f"{base}/src/", wait_until="networkidle", timeout=60000)
-    page.evaluate("""async ({ songs, books, customSongs }) => {
-        const lib = await import('/src/libraryStore.js');
-        await lib.clearAllLibraryData();
-        for (const s of songs) await lib.saveSongToLibrary(s);
-        for (const b of books) {
-            await lib.addTabOptionToAlbum('default', 'Custom Music', 'Custom Music', {
-                name: b, fileType: 'pdf', isCustom: true
-            });
+    """Replace the library with the invented demo artists (no artwork: the app draws its flat letter tiles)."""
+    page.goto(f"{base}/src/", wait_until="load", timeout=60000)
+    page.evaluate("""async (d) => {
+        const m = await import('/src/libraryStore.js');
+        for (const s of await m.getSongsByCollection()) await m.deleteSongFromLibrary(s.id);
+        await m.clearRecents();
+        let i = 0, k = 0;
+        for (const [artist, albums] of Object.entries(d.library)) {
+            let year = 2008;
+            for (const [album, tracks] of Object.entries(albums)) {
+                year += 2; let tn = 1;
+                for (const title of tracks) {
+                    const tuning = d.tunings[i++ % d.tunings.length];
+                    const song = await m.saveSongToLibrary({ title, artist, album, year, trackNumber: tn++, tunings: [tuning], stringCount: /^7/.test(tuning) ? 7 : 6 });
+                    k++; if (k % 4 === 0) continue;
+                    const ft = ['gp', 'gp', 'pdf', 'gp', 'txt'][k % 5], ext = { gp: 'gp5', pdf: 'pdf', txt: 'txt' }[ft];
+                    await m.addTabOptionToSong(song.id, { name: title + '.' + ext, fileType: ft, tuning, stringCount: song.stringCount, isDefault: true, fileStoreId: 'demo_' + song.id });
+                }
+            }
         }
-        for (const cs of customSongs) await lib.saveSongToLibrary(cs);
-    }""", dict(songs=songs, books=books, customSongs=custom_songs))
+    }""", _demo)
 
 
 JAM_MOCK = ROOT / "tests" / "jam" / "mockTauri.js"
@@ -285,36 +203,43 @@ JAM_MOCK = ROOT / "tests" / "jam" / "mockTauri.js"
 JAM_PLAYERS = [("p1", "Dave's iPad"), ("p2", "Adrian's phone")]
 
 
-def setup_jam(page, base, scale=None):
+def open_reader(page, base):
+    """Open the app fresh on the fixture score (the ?test= loader) and wait until it is laid out."""
+    page.goto(f"{base}/src/?test={urllib.parse.quote(FIXTURE)}", wait_until="load", timeout=60000)
+    page.wait_for_function("!/Loading score|Laying out|Rendering|Parsing/i.test(document.body.innerText)"
+                           " && document.querySelectorAll('.at-surface svg').length > 3", timeout=90000)
+    page.wait_for_timeout(2500)
+
+
+def click(page, selector):
+    return page.evaluate("(s) => { const e = document.querySelector(s); if (!e) return false; e.click(); return true; }", selector)
+
+
+def setup_jam(page, base):
     """Host a Jam with two players who have the song and are in sync, and give each their own track."""
     page.add_init_script("window.__jamMockRole = 'host';\n" + JAM_MOCK.read_text())
-    gs.load_file(page, base, GP_FILE, "continuous", scale=scale)
-    # The mock makes the page look native; on macOS that adds a title-bar inset the real capture has not got.
-    page.evaluate("document.documentElement.classList.remove('tauri-macos')")
-    page.evaluate("""async () => {
-        const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-        document.getElementById('jamToggleBtn').click();
-        await sleep(500);
-        document.querySelector('[data-jam-tab=host]').click();
-        await sleep(300);
-        document.getElementById('jamStartHostBtn').click();
-        await sleep(1500);
-    }""")
+    open_reader(page, base)
+    page.evaluate("document.documentElement.classList.remove('tauri-macos')")  # the mock fakes the native shell
+    click(page, "#toolsToggleBtn")
+    page.wait_for_timeout(500)
+    click(page, "#jamToggleBtn")
+    page.wait_for_timeout(600)
+    page.evaluate("document.querySelector('[data-jam-tab=host]')?.click()")
+    page.wait_for_timeout(300)
+    page.evaluate("document.getElementById('jamStartHostBtn')?.click()")
+    page.wait_for_timeout(1500)
     for pid, name in JAM_PLAYERS:
         page.evaluate("([id, name]) => window.__jamMock.join(id, name)", [pid, name])
     page.wait_for_timeout(500)
     for pid, _ in JAM_PLAYERS:
         page.evaluate("(id) => window.__jamMock.sync(id)", pid)
     page.wait_for_selector(".jam-matrix-cell", state="attached", timeout=10000)
-    # Click the real matrix: each player takes a guitar track (spread across the tracks there are) and the
-    # host, who hears everything, listens.
     tracks = page.evaluate("document.querySelectorAll('.jam-matrix-col').length - 1")
     for n, (pid, _) in enumerate(JAM_PLAYERS):
         page.locator(f".jam-matrix-cell[data-jam-assign='{pid}'][data-jam-track]").nth(n % tracks).click()
         page.wait_for_timeout(200)
     page.locator(".jam-matrix-cell[data-jam-listening='host']").click()
     page.wait_for_timeout(200)
-    # Players see only their own tracks and hear everything but them, so the summaries under each name differ.
     page.locator("[data-jam-rule='assignedAudioMode'][data-jam-value='backing']").click()
     page.wait_for_timeout(200)
     page.locator("[data-jam-rule='assignedViewOnly'][data-jam-value='own']").click()
@@ -322,33 +247,45 @@ def setup_jam(page, base, scale=None):
     page.evaluate("document.getElementById('jamModalBody').scrollTop = 0")
 
 
-def setup_shot(page, base, kind, scale=None):
+def setup_guitar_fit(page):
+    """The Guitar panel: the tab rewritten for 7-string standard with a capo on fret 2 (the same picture the website shows)."""
+    def wait(js):
+        for _ in range(30):
+            if page.evaluate(js):
+                return
+            page.wait_for_timeout(300)
+    click(page, 'label[for="synthStringCount7"]'); page.wait_for_timeout(2500)
+    if not page.evaluate("document.querySelector('#adaptEnableSwitch').checked"):
+        click(page, "#adaptEnableSwitch")
+    page.wait_for_timeout(1200)
+    page.evaluate("(() => { const s = document.querySelector('#adaptTuningSelect'); s.value = '7-String Standard'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
+    page.wait_for_timeout(1500)
+    click(page, 'label[for="adaptMethodCapo"]'); page.wait_for_timeout(800)
+    page.evaluate("(() => { const s = document.querySelector('#adaptCapoSelect'); s.value = '2'; s.dispatchEvent(new Event('change', { bubbles: true })); })()")
+    wait("/Capo \\d/.test(document.querySelector('#adaptSummary')?.textContent || '')")
+    page.wait_for_timeout(1500)
+
+
+def setup_shot(page, base, kind):
     if kind == "jam":
-        setup_jam(page, base, scale)
+        setup_jam(page, base)
         page.wait_for_timeout(800)
         return
     if kind in ("library", "tunings"):
         seed_library(page, base)
-        # Not gs.goto_library: its .lib-view-switch wait never resolves at phone width (the switch is hidden).
-        page.goto(f"{base}/src/", wait_until="networkidle", timeout=60000)
-        page.evaluate("import('/src/libraryModal.js').then(m => m.openLibraryModal('library'))")
-        page.wait_for_selector(".artist-card", state="visible", timeout=15000)
-        page.evaluate(gs.FORCE_DEFAULT_THEME_JS)
+        page.goto(f"{base}/src/", wait_until="load", timeout=60000)
+        page.wait_for_function("/Artists/.test(document.body.innerText)", timeout=30000)
+        page.wait_for_timeout(1200)
         if kind == "tunings":
-            page.locator("[data-lib-tab='tunings']:visible").first.click()
-            page.wait_for_selector(".tuning-card", state="visible", timeout=10000)
-            page.wait_for_timeout(500)
-        else:
-            gs.wait_for_album_artwork(page)
+            page.evaluate("(() => { const b = [...document.querySelectorAll('button,a')].find(e => /^\\s*Tunings\\s*$/.test(e.textContent) && e.offsetParent); b?.click(); })()")
+            page.wait_for_timeout(1200)
         return
-    gs.load_file(page, base, GP_FILE, "page" if kind == "gp_page" else "continuous", scale=scale)
-    if kind == "synth_menu":
-        page.locator("#mobileSynthToggleBtn:visible, #synthToggleBtn:visible").first.click()
-    elif kind == "fretboard":
-        page.evaluate("document.querySelector('#toolsToggleBtn').click()")
-        page.wait_for_timeout(400)
-        page.evaluate("document.querySelector('#fretboardToggleBtn').click()")
-        page.wait_for_timeout(800)
+    open_reader(page, base)
+    if kind == "page":
+        page.evaluate("document.querySelector('#pageModeRadio').click()")
+        page.wait_for_timeout(2500)
+    elif kind == "reader":
+        # Put the cursor on a bar with two voices sounding, so the fretboard shows notes from both guitars.
         page.evaluate("""async () => {
             const gp = await import('/src/gpProcessor/gpPlayer.js');
             const { fretboardController } = await import('/src/fretboard/fretboardController.js');
@@ -360,123 +297,74 @@ def setup_shot(page, base, kind, scale=None):
             api.tickPosition = gp.getPlaybackTickForBeat(beat, api);
             fretboardController.showBeatsAtCursor(beat);
         }""")
-    elif kind == "themes":
-        page.evaluate("import('/src/themeEngine.js').then(m => m.openThemeSettings())")
-    page.wait_for_timeout(1500)
+        # The playback class also hides the top bar and the five buttons (auto-hide chrome); the picture shows them.
+        page.wait_for_timeout(600)
+        page.evaluate("document.body.classList.remove('chrome-hidden')")
+        page.wait_for_timeout(600)
+    elif kind in ("practice", "guitar"):
+        click(page, "#fretboardCloseBtn"); page.wait_for_timeout(700)  # panels read best without the fretboard behind them
+        click(page, f"#{kind}ToggleBtn"); page.wait_for_timeout(900)
+        if kind == "guitar":
+            setup_guitar_fit(page)
+    elif kind == "original":
+        click(page, "#fretboardCloseBtn"); page.wait_for_timeout(700)
+        page.wait_for_timeout(2500)  # let the score finish laying out so the panel can count its bars
+        click(page, "#ytToggleBtn, #mobileYtToggleBtn"); page.wait_for_timeout(800)
+        click(page, "#realAudioSourceLocal")
+        for _ in range(40):
+            if page.evaluate("/of [1-9]\\d* bars synced/.test(document.body.innerText)"):
+                break
+            page.wait_for_timeout(500)
+        page.wait_for_timeout(800)
+    page.wait_for_timeout(1200)
 
 
 # --- Composition -----------------------------------------------------------------------------------
+# A flat frame in the app's Slate Blue tokens: --s1 behind, the capture one tone step up (--ground), a big Barlow Condensed
+# headline, one grey subtitle, left aligned. No gradient, glow, shadow, bezel or hairline. The capture bleeds off the bottom.
 
-FONT = "/System/Library/Fonts/Avenir Next.ttc"  # macOS: index 0 Bold, 7 Regular
-WIN_FONTS = ("C:/Windows/Fonts/segoeuib.ttf", "C:/Windows/Fonts/segoeui.ttf")
-BG_TOP, BG_BOTTOM, GLOW = (26, 14, 58), (8, 6, 22), (0, 190, 190)
-
-
-def font(size, bold=True):
-    from PIL import ImageFont
-    if os.path.exists(FONT):
-        return ImageFont.truetype(FONT, size, index=0 if bold else 7)
-    return ImageFont.truetype(WIN_FONTS[0 if bold else 1], size)
-
-
-def wrap(draw, text, fnt, width):
-    lines, cur = [], ""
-    for word in text.split():
-        trial = f"{cur} {word}".strip()
-        if draw.textlength(trial, font=fnt) <= width or not cur:
-            cur = trial
-        else:
-            lines.append(cur)
-            cur = word
-    return lines + [cur]
+FONTS_DIR = ROOT / "docs" / "fonts"
+FRAME_CSS = """
+@font-face { font-family: 'Barlow Condensed'; font-weight: 600; src: url('%(fonts)s/barlow-condensed-latin-600-normal.woff2') format('woff2'); }
+:root { --s1: #111724; --ground: #1e2636; --ink: #f4f7fc; --ink2: #a9b8d2; }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: %(w)dpx; height: %(h)dpx; overflow: hidden; background: var(--s1); color: var(--ink); }
+body { position: relative; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+h1 { position: absolute; left: %(m)dpx; right: %(m)dpx; top: %(top)dpx; font: 600 %(hs)dpx/1.0 'Barlow Condensed', 'Arial Narrow', sans-serif; letter-spacing: -0.005em; }
+p { position: absolute; left: %(m)dpx; right: %(m)dpx; top: %(ptop)dpx; font-size: %(ps)dpx; line-height: 1.35; color: var(--ink2); }
+img { position: absolute; left: %(ix)dpx; top: %(iy)dpx; width: %(iw)dpx; background: var(--ground); border-radius: %(r)dpx; }
+"""
 
 
-def compose_tv(bg, shot, k, text_bottom, out_path):
-    """A whole television on the background: square corners, thin bezel, slightly thicker chin, two feet."""
-    from PIL import Image, ImageDraw, ImageFilter
-    W, H = bg.size
-    bezel, chin, foot_h = round(10 * k), round(22 * k), round(46 * k)
-    top = round(text_bottom + 36 * k)
-    floor_gap = round(30 * k)
-    scr_h = H - top - floor_gap - foot_h - bezel - chin
-    scr_w = min(round(scr_h * shot.width / shot.height), W - 2 * round(60 * k))
-    scr_h = round(scr_w * shot.height / shot.width)
-    shot = shot.resize((scr_w, scr_h), Image.LANCZOS)
-    frame_w, frame_h = scr_w + 2 * bezel, scr_h + bezel + chin
-    left = (W - frame_w) // 2
-    bottom = top + frame_h
-
-    # Soft shadow under the set, then the feet (drawn first so the frame overlaps their tops).
-    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    ImageDraw.Draw(shadow).rectangle([left, top + round(24 * k), left + frame_w, bottom + foot_h + round(24 * k)], fill=(0, 0, 0, 150))
-    bg = Image.alpha_composite(bg.convert("RGBA"), shadow.filter(ImageFilter.GaussianBlur(36 * k))).convert("RGB")
-    draw = ImageDraw.Draw(bg)
-    foot_w_top, foot_w_bottom = round(120 * k), round(170 * k)
-    for cx in (left + round(frame_w * 0.16), left + round(frame_w * 0.84)):
-        draw.polygon([(cx - foot_w_top // 2, bottom - 2), (cx + foot_w_top // 2, bottom - 2),
-                      (cx + foot_w_bottom // 2, bottom + foot_h), (cx - foot_w_bottom // 2, bottom + foot_h)], fill=(30, 30, 40))
-        draw.line([(cx - foot_w_bottom // 2, bottom + foot_h), (cx + foot_w_bottom // 2, bottom + foot_h)], fill=(70, 70, 88), width=max(1, round(3 * k)))
-    # Body: square corners, with a faint edge highlight, then the screen.
-    draw.rectangle([left, top, left + frame_w, bottom], fill=(12, 12, 20), outline=(58, 58, 74), width=max(1, round(2 * k)))
-    bg.paste(shot, (left + bezel, top + bezel))
-    Path(out_path).unlink(missing_ok=True)
-    bg.save(out_path, optimize=True)
-
-
-def compose(raw_path, out_path, size, headline, subtitle, tv=False):
-    from PIL import Image, ImageChops, ImageDraw, ImageFilter
+def compose(page, raw_path, out_path, size, headline, subtitle):
+    """Render the frame as a page in the capture browser and screenshot it at the store's pixel size."""
+    from PIL import Image
     W, H = size
-    landscape = W > H
-    k = min(W, H) / 1080  # layout below is authored at 1080 on the short side
-    # Vertical gradient plus a soft accent glow behind the device.
-    bg = Image.new("RGB", (W, H))
-    px = ImageDraw.Draw(bg)
-    for y in range(H):
-        t = y / (H - 1)
-        px.line([(0, y), (W, y)], fill=tuple(round(a + (b - a) * t) for a, b in zip(BG_TOP, BG_BOTTOM)))
-    glow = Image.new("RGB", (W, H), (0, 0, 0))
-    ImageDraw.Draw(glow).ellipse([W * 0.1, H * 0.35, W * 0.9, H * 0.95], fill=tuple(int(c * 0.28) for c in GLOW))
-    bg = ImageChops.add(bg, glow.filter(ImageFilter.GaussianBlur(160 * k)))
-
-    draw = ImageDraw.Draw(bg)
-    margin = 60 * k
-    head_sz, sub_sz = (56, 34) if landscape else (68, 40)
-    head_f, sub_f = font(round(head_sz * k)), font(round(sub_sz * k), bold=False)
-    y = (56 if landscape else 120) * k
-    for line in wrap(draw, headline, head_f, W - 2 * margin):
-        draw.text((W / 2, y), line, font=head_f, fill=(255, 255, 255), anchor="ma")
-        y += (70 if landscape else 86) * k
-    y += (10 if landscape else 16) * k
-    for line in wrap(draw, subtitle, sub_f, W - 2 * margin):
-        draw.text((W / 2, y), line, font=sub_f, fill=(196, 190, 226), anchor="ma")
-        y += (46 if landscape else 54) * k
-
-    # Device: scaled capture with rounded top corners, bleeding off the bottom edge without cropping bottom UI.
-    shot = Image.open(raw_path).convert("RGB")
-    if tv:
-        compose_tv(bg, shot, k, y, Path(out_path))
-        return
-    bezel, radius = (round(12 * k), round(28 * k)) if landscape else (round(14 * k), round(64 * k))
-    top = round(y + (42 if landscape else 70) * k)
-    dev_w = min(round((H - top - bezel) * shot.width / shot.height), W - 2 * (bezel + round(30 * k)))
-    shot = shot.resize((dev_w, round(shot.height * dev_w / shot.width)), Image.LANCZOS)
-    frame_w, frame_h = dev_w + 2 * bezel, H - top + radius  # extra height keeps bottom corners off-canvas
-    mask = Image.new("L", (frame_w, frame_h), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([0, 0, frame_w, frame_h], radius + bezel, fill=255)
-    frame = Image.new("RGB", (frame_w, frame_h), (12, 12, 20))
-    inner = Image.new("L", (dev_w, frame_h - bezel), 0)
-    ImageDraw.Draw(inner).rounded_rectangle([0, 0, dev_w, frame_h - bezel + radius], radius, fill=255)
-    screen = Image.new("RGB", (dev_w, frame_h - bezel), (0, 0, 0))
-    screen.paste(shot.crop((0, 0, dev_w, min(shot.height, frame_h - bezel))), (0, 0))
-    frame.paste(screen, (bezel, bezel), inner)
-
-    left = (W - frame_w) // 2
-    shadow = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    shadow.paste((0, 0, 0, 170), (left, top + round(24 * k)), mask)
-    bg = Image.alpha_composite(bg.convert("RGBA"), shadow.filter(ImageFilter.GaussianBlur(36 * k))).convert("RGB")
-    bg.paste(frame, (left, top), mask)
-    Path(out_path).unlink(missing_ok=True)  # Windows: unlinking first avoids Errno 22 when Explorer memory-maps the PNG
-    bg.save(out_path, optimize=True)
+    portrait = H > W
+    k = min(W, H) / 1080  # authored at 1080 on the short side
+    cap = Image.open(raw_path)
+    m = round(72 * k)
+    hs = round((104 if portrait else 76) * k)
+    top = round((72 if portrait else 44) * k)
+    lines = 2 if len(headline) > (19 if portrait else 40) else 1
+    ptop = top + round(hs * lines + 24 * k)
+    ps = round((38 if portrait else 30) * k)
+    sub_lines = 2 if len(subtitle) > (40 if portrait else 70) else 1
+    iy = ptop + round(ps * 1.35 * sub_lines + (36 if portrait else 28) * k)
+    # The whole capture is shown (the bottom row of buttons is part of the story), as large as the space left allows.
+    ih = H - iy - (m if portrait else round(44 * k))
+    iw = min(W - 2 * m, round(ih * cap.width / cap.height))
+    ix = (W - iw) // 2
+    css = FRAME_CSS % dict(fonts=FONTS_DIR.as_uri(), w=W, h=H, m=m, top=top, ptop=ptop, hs=hs, ps=ps, ix=ix, iy=iy, iw=iw, r=round((48 if portrait else 24) * k))
+    data = base64.b64encode(Path(raw_path).read_bytes()).decode("ascii")
+    html = (f"<!doctype html><meta charset=utf-8><style>{css}</style><h1>{headline}</h1><p>{subtitle}</p>"
+            f"<img src='data:image/png;base64,{data}'>")
+    page.set_viewport_size({"width": W, "height": H})
+    page.set_content(html, wait_until="load")
+    page.evaluate("document.fonts.ready")
+    page.wait_for_timeout(200)
+    Path(out_path).unlink(missing_ok=True)
+    page.screenshot(path=str(out_path), full_page=False)
 
 
 def main():
@@ -512,8 +400,11 @@ def main():
                                       is_mobile=mobile, has_touch=mobile, user_agent=store["user_agent"])
             ctx.add_init_script("""
                 try { Object.defineProperty(navigator, 'getGamepads', { value: () => [], configurable: true });
-                      localStorage.setItem('hasSeenControllerGuide', 'true'); } catch (e) {}
+                      localStorage.setItem('hasSeenControllerGuide', 'true');
+                    } catch (e) {}
             """)
+            frame_ctx = browser.new_context(viewport={"width": 1080, "height": 1920}, device_scale_factor=1)
+            frame_page = frame_ctx.new_page()
             if store.get("root_classes"):
                 ctx.add_init_script("document.addEventListener('DOMContentLoaded', () => document.documentElement.classList.add(...%s));"
                                     % json.dumps(store["root_classes"]))
@@ -536,7 +427,12 @@ def main():
                 shot_page = ctx.new_page() if shot.get("own_page") else page
                 if shot_page is not page:
                     shot_page.on("pageerror", lambda e: errors.append(str(e)))
-                setup_shot(shot_page, base, shot["setup"], store.get("shot_tab_scale", {}).get(shot["id"], store.get("tab_scale")))
+                # Page-level init scripts run after the context's and accumulate, so the newest (this shot's) theme and zoom win.
+                zoom = store.get("tab_scale")
+                shot_page.add_init_script("try { localStorage.setItem('majestictab_theme', %s); %s } catch (e) {}" % (
+                    json.dumps(shot.get("theme", "Slate Blue")),
+                    f"localStorage.setItem('gpSheetScale', '{zoom}');" if zoom else "localStorage.removeItem('gpSheetScale');"))
+                setup_shot(shot_page, base, shot["setup"])
                 if store.get("no_fullscreen"):
                     shown = shot_page.evaluate("""() => ['#fullscreenPill', '#fullscreenToggleBtn', '#toolsFullscreenRow']
                         .filter(s => { const e = document.querySelector(s); return e && e.offsetParent !== null; })""")
@@ -549,7 +445,7 @@ def main():
                 if shot_page is not page:
                     shot_page.close()
                 final = out / f"{n:02d}-{shot['id']}.png"
-                compose(raw, final, store["final"], shot["headline"], shot["subtitle"], tv=store.get("tv_frame", False))
+                compose(frame_page, raw, final, store["final"], shot["headline"], shot["subtitle"])
                 print(f"  wrote {final}")
             browser.close()
         if errors:

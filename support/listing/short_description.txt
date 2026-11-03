@@ -1,1 +1,1 @@
-Guitar tab reader and practice app for Guitar Pro, PDF, and text tabs.
+Free guitar tab library and reader for Guitar Pro, PDF and text tabs

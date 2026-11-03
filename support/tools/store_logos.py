@@ -18,8 +18,9 @@ SOURCE = ROOT / "support" / "branding" / "icon_v3.svg"
 OUT = ROOT / "support" / "store" / "msstore" / "logos"
 PLAY_OUT = ROOT / "fastlane" / "metadata" / "android" / "en-US" / "images"
 FONT = "/System/Library/Fonts/Helvetica.ttc"  # index 1 = Bold
-TOP, BOTTOM = (0x06, 0x05, 0x0A), (0x06, 0x05, 0x0A)  # flat --ground
-TAB_COLOR = (0xA7, 0xF3, 0xD0)  # --accent-text
+TOP, BOTTOM = (0xFF, 0xFF, 0xFF), (0xFF, 0xFF, 0xFF)  # flat white ground, like the app icon's tile
+INK = (0x11, 0x17, 0x24)  # the pick's body color
+TAB_COLOR = (0x2F, 0x40, 0x66)  # the pick's rim (Slate Blue)
 
 # name -> (w, h, mark width fraction, wordmark width fraction, content block center y fraction)
 SIZES = {
@@ -52,7 +53,7 @@ def wordmark(width):
     asc, desc = font.getmetrics()
     img = Image.new("RGBA", (round(wa + wb) + 4, asc + desc), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
-    d.text((0, 0), a, font=font, fill=(255, 255, 255, 255))
+    d.text((0, 0), a, font=font, fill=INK + (255,))
     d.text((wa, 0), b, font=font, fill=TAB_COLOR + (255,))
     return img
 
@@ -72,10 +73,12 @@ def render(w, h, mark_frac, word_frac, center):
 def render_play_icon(size=512):
     """The launcher icon (opaque full-bleed square; Play applies its own mask), so the listing matches the installed app.
 
-    Run support/branding/generate_icons.py first.
+    Same art and white tile as build/tauri/generate-icons.mjs.
     """
-    source = ROOT / "src" / "icons" / "android-chrome-maskable-512x512.png"  # from generate_icons.py
-    return Image.open(source).convert("RGBA").resize((size, size), Image.LANCZOS)
+    canvas = Image.new("RGBA", (size, size), (255, 255, 255, 255))
+    m = mark(round(size * 0.62))
+    canvas.alpha_composite(m, ((size - m.width) // 2, (size - m.height) // 2))
+    return canvas
 
 
 def render_play_feature(w=1024, h=500):
