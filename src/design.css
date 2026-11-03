@@ -809,6 +809,11 @@ body.practice-open #output { padding-right: 416px !important; }
 .library-list-toolbar > div:last-child { grid-column: 2; grid-row: 1; }
 .library-list-toolbar > div:first-child { grid-column: 1 / -1; grid-row: 2; }
 .library-list-toolbar > div:first-child > span.small { display: none; }
+/* Ghost text action beside the one primary action */
+.lib-ghost-action { min-height: 36px; padding: 0 12px; border: 0 !important; background: transparent !important; color: var(--ink2) !important; border-radius: var(--r-control) !important; font-weight: 500; box-shadow: none !important; white-space: nowrap; }
+.lib-ghost-action:hover:not(:disabled) { background: var(--s2) !important; color: var(--ink) !important; }
+.lib-ghost-action:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (pointer: coarse) { .lib-ghost-action { min-height: 44px; } }
 .library-page-container > .library-sticky-breadcrumbs, .library-page-container > #libBrowseContent, .library-page-container > #libFilteredSearchResults { grid-column: 1 / -1; }
 .library-page-container > #libBrowseContent { margin: 12px -20px 0; }
 .resume-card { margin-top: 0; }
@@ -2479,3 +2484,56 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .data-task-slot .p-3 { padding: 0 !important; }
 .data-task-slot .mb-3 { margin-bottom: 12px !important; }
 .srow-task:has(button[aria-expanded="true"]) + .data-task-slot:not([hidden]) { margin-top: -2px; }
+
+/* ==========================================================================
+   Open file page: one drop surface, one primary action, provider rows on a 56px pitch
+   ========================================================================== */
+.open-file-body { max-width: 760px; margin: 0 auto; padding: 0 0 24px; }
+.open-file-dropzone {
+  display: flex; flex-direction: column; align-items: center; gap: 4px; text-align: center;
+  padding: 32px 20px; background: var(--s2); border: 0; border-radius: var(--r-card); box-shadow: none; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.open-file-dropzone:hover, .open-file-dropzone.is-dragover { background: var(--s3); }
+.open-file-dropzone:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.open-file-dropzone-title { font-size: 18px; font-weight: 600; line-height: 1.3; color: var(--ink); }
+.open-file-dropzone-sub { font-size: 13px; color: var(--ink2); }
+.open-file-dropzone .btn { margin-top: 14px; min-height: 36px; padding: 0 20px; }
+.open-file-web-search { display: flex; align-items: center; gap: 10px; margin: 16px 0 0 !important; }
+.open-file-web-search .library-search-bar { flex: 1 1 auto; min-width: 0; }
+.open-file-web-search .btn { min-height: 36px; padding: 0 16px; }
+.open-file-section-label { margin: 28px 0 4px; padding: 0 12px; font: 600 14px system-ui, sans-serif; color: var(--ink2); letter-spacing: 0; text-transform: none; }
+.open-file-provider-list { display: flex; flex-direction: column; }
+.open-file-provider-item {
+  display: flex; align-items: center; min-height: 56px; padding: 8px 12px; min-width: 0;
+  background: transparent; border: 0; border-radius: var(--r-control); box-shadow: none; cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.open-file-provider-item:hover { background: var(--s2); }
+.open-file-provider-item:active { background: var(--s3); }
+.open-file-provider-item:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
+.open-file-provider-text { display: flex; flex-direction: column; min-width: 0; }
+.open-file-provider-name { font-size: 15px; font-weight: 500; color: var(--ink); }
+.open-file-provider-meta, .open-file-provider-desc { font-size: 12px; font-weight: 400; color: var(--ink2); line-height: 1.35; }
+@media (pointer: coarse) { .open-file-provider-item { min-height: 56px; } .open-file-dropzone .btn, .open-file-web-search .btn { min-height: 44px; } }
+@media (max-width: 576px) { .open-file-dropzone { padding: 24px 16px; } }
+@media (prefers-reduced-motion: reduce) { .open-file-dropzone, .open-file-provider-item { transition: none; } }
+
+.open-file-back { grid-column: 1 / -1; justify-self: start; min-height: 36px; margin: 0 0 4px -8px; padding: 0 10px 0 6px; border: 0 !important; background: transparent !important; color: var(--ink2) !important; border-radius: var(--r-control) !important; font-weight: 500; box-shadow: none !important; }
+.open-file-back:hover { background: var(--s2) !important; color: var(--ink) !important; }
+.open-file-back:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+@media (pointer: coarse) { .open-file-back { min-height: 44px; } }
+
+/* Open file page is a single column. The library header grid (search + action) does not apply here, which
+   is what squeezed the title and body into two narrow tracks on small widths. */
+.library-page-container.open-file-view { display: block; max-width: 760px; margin-inline: auto; }
+.open-file-view .library-page-title { margin: 0 0 16px; padding: 0 4px; text-align: left; }
+.open-file-view .library-page-title-text { font-size: 22px; font-weight: 600; margin: 0; color: var(--ink); }
+.open-file-view .library-page-title-sub { font-size: 14px; color: var(--ink2); margin: 4px 0 0; }
+.open-file-view .open-file-body { max-width: none; margin: 0; }
+.open-file-view .open-file-back { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 576px) {
+  .open-file-web-search { flex-wrap: wrap; }
+  .open-file-web-search .library-search-bar { flex: 1 1 100%; }
+  .open-file-web-search .btn { flex: 1 1 100%; }
+}

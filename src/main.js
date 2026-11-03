@@ -1144,11 +1144,6 @@ async function initApp() {
         openLibraryModal('library');
     });
 
-    document.getElementById('openFileMenuBtn')?.addEventListener('click', () => {
-        settingsPanel.hide();
-        openLibraryModal('openFile');
-    });
-
     document.getElementById('libraryToggleBtn')?.addEventListener('click', () => {
         if (isLibraryOpen() && getCurrentFile()) {
             closeLibraryModal();

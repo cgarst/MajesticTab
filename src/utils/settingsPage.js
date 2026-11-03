@@ -157,7 +157,6 @@ export function initSettingsPage() {
     const aboutBtn = take('aboutModalBtn');
     const privacy = body.querySelector('a[href*="privacy"]');
     const support = body.querySelector('a[href*="issues"]');
-    const openFile = take('openFileMenuBtn');
     const clearCache = take('clearCacheBtn');
     const deleteAll = take('deleteAllDataBtn');
 
@@ -362,9 +361,7 @@ export function initSettingsPage() {
     wrap.appendChild(page);
     shell.appendChild(head);
     shell.appendChild(wrap);
-    const openFileRow = openFile;
     body.querySelectorAll(':scope > .settings-card, :scope > #secondaryUtilities, :scope > .mt-auto').forEach((n) => n.remove());
-    openFileRow?.remove();
     body.appendChild(shell);
 
     function show(id, { focus = false } = {}) {
