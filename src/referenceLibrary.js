@@ -3,6 +3,7 @@
 // Scales & Modes, and Triad Inversions & Formulas.
 // Optimized for desktop and mobile viewports with MajesticTab finish theme integration.
 
+import { TRACK_PALETTE } from './utils/trackColors.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { chordData7, chordData8 } from './extendedRangeChords.js';
 
@@ -857,6 +858,13 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
     return svg;
 }
 
+/** Fretboard marker colour for a scale degree label: root is ink, degrees 2 to 7 take the six guitar track colours. */
+function scaleDegreeColor(label) {
+    const degree = parseInt(String(label).replace(/[^0-9]/g, ''), 10);
+    if (!degree || degree === 1) return 'var(--ink)';
+    return TRACK_PALETTE[(degree - 2) % TRACK_PALETTE.length];
+}
+
 /**
  * Generate Scale Fretboard SVG
  * Right-handed or Left-handed neck, Tab View (high e on top) or Inverted Player View (low E on top).
@@ -930,12 +938,13 @@ function buildFretboardSvg(scaleKey, rootNote) {
                 if (matched) {
                     const x = f === 0 ? startX - 20 : startX + (f * fretWidth) - (fretWidth / 2);
                     const isRoot = matched.lbl === 'R';
-                    const circleFill = isRoot ? 'var(--ink)' : 'var(--ink2)';
-                                        const noteName = noteNames[notePitch];
+                    const circleFill = scaleDegreeColor(matched.lbl);
+                    const textFill = isRoot ? 'var(--ground)' : '#111';
+                    const noteName = noteNames[notePitch];
 
                     svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note" data-note="${noteName}">
                         <circle cx="0" cy="0" r="${isRoot ? 13 : 10.5}" fill="${circleFill}"/>
-                        <text x="0" y="3.5" fill="var(--ground)" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
+                        <text x="0" y="3.5" fill="${textFill}" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
                     </g>`;
                 }
             }
@@ -985,12 +994,13 @@ function buildFretboardSvg(scaleKey, rootNote) {
                 if (matched) {
                     const x = f === 0 ? nutX + 20 : nutX - (f * fretWidth) + (fretWidth / 2);
                     const isRoot = matched.lbl === 'R';
-                    const circleFill = isRoot ? 'var(--ink)' : 'var(--ink2)';
-                                        const noteName = noteNames[notePitch];
+                    const circleFill = scaleDegreeColor(matched.lbl);
+                    const textFill = isRoot ? 'var(--ground)' : '#111';
+                    const noteName = noteNames[notePitch];
 
                     svg += `<g transform="translate(${x}, ${y})" class="ref-fret-note" data-note="${noteName}">
                         <circle cx="0" cy="0" r="${isRoot ? 13 : 10.5}" fill="${circleFill}"/>
-                        <text x="0" y="3.5" fill="var(--ground)" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
+                        <text x="0" y="3.5" fill="${textFill}" font-size="${isRoot ? 11 : 9.5}" font-weight="bold" text-anchor="middle">${matched.lbl}</text>
                     </g>`;
                 }
             }
