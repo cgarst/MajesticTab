@@ -1,5 +1,5 @@
 // toolsMenu.js
-// The "Tools" menu: Chord library, Scales, Circle of fifths, Fretboard, Tuner, Metronome and Jam. The rows keep their original
+// The "Tools" menu: Chord library, Scales, Circle of fifths, Tuner, Metronome and Jam. The rows keep their original
 // element ids, so the modules that bind to them work unchanged. This file adds:
 //   - open / close / placement of the menu
 //   - a live Jam session pill and a status dot on the Tools button
@@ -194,7 +194,7 @@ export function initToolsMenu() {
         syncStatus();
         if (isOpen()) updateDividers();
     });
-    ['fretboardPill', 'jamPill', 'fretboardToggleBtn', 'tunerToggleBtn', 'metronomeToggleBtn', 'jamToggleBtn']
+    ['jamPill', 'tunerToggleBtn', 'metronomeToggleBtn', 'jamToggleBtn']
         .forEach((id) => {
             const el = $(id);
             if (el) observer.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });

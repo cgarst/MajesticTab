@@ -871,7 +871,6 @@ body {
   box-shadow: 0 0 10px rgba(14, 165, 233, 0.45) !important;
 }
 
-#fretboardToggleBtn.active,
 #tunerToggleBtn.active {
   color: #ffffff !important;
   background: var(--accent-gradient) !important;

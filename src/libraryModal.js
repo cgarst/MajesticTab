@@ -4675,7 +4675,7 @@ export async function openRecentItem(r) {
         showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
 }
 
-// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome and Jam render in the page. The fretboard belongs to the open tab, so it lives only in the reader's Tools menu.
+// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome and Jam render in the page. The fretboard belongs to the open tab and sits above the playback dock.
 function renderToolsView(container) {
     const $ = (id) => document.getElementById(id);
     const tools = [
