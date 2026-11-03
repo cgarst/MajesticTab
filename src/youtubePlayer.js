@@ -798,8 +798,8 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
         ytBtn.style.display = 'inline-flex';
     }
 
-    // A song with sync points opens on its recording; otherwise no player is picked and the synth is the default
-    setActiveAudioMode(songHasSyncPoints(getSongKey()) ? 'real' : null);
+    // A song with sync points opens on its recording; otherwise the synth is selected
+    setActiveAudioMode(songHasSyncPoints(getSongKey()) ? 'real' : 'synth');
 
     updatePlaybackControls();
 

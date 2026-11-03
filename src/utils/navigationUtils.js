@@ -1053,6 +1053,12 @@ export function updateGlobalAudioControls() {
         }
     }
 
+    // Whichever sound the transport will use is shown as selected before anything plays
+    if (!synthBtn?.classList.contains('active-audio-mode') && !realAudioBtn?.classList.contains('active-audio-mode')) {
+        const useReal = isRealAudioVisible && (!isSynthVisible || (isRealAudioAvailable() && songHasSyncPoints(getSongKey())));
+        setActiveAudioMode(useReal ? 'real' : 'synth');
+    }
+
     const synthPlayable = isSynthAvailable();
     const realAudioPlayable = isRealAudioAvailable();
     const canPlay = synthPlayable || realAudioPlayable;
