@@ -1,6 +1,7 @@
 // navigationUtils.js
 import { settingsPanel } from './settingsPanel.js';
 import { showToast } from './toast.js';
+import { isIOSDevice } from './iosAudioUnlock.js';
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
@@ -1238,4 +1239,12 @@ export function setActiveAudioMode(mode) {
     document.getElementById('mobileSynthToggleBtn')?.classList.toggle('active-audio-mode', mode === 'synth');
     document.getElementById('ytToggleBtn')?.classList.toggle('active-audio-mode', isReal);
     document.getElementById('mobileYtToggleBtn')?.classList.toggle('active-audio-mode', isReal);
+    // iOS ignores volume on media elements and the YouTube embed, so the master slider only reaches the synth there
+    const slider = document.getElementById('synthVolumeSlider');
+    if (slider) {
+        const locked = isReal && isIOSDevice();
+        slider.dataset.mediaLocked = locked ? '1' : '';
+        slider.disabled = locked;
+        slider.title = locked ? 'iOS controls volume for this audio. Use the device volume buttons.' : '';
+    }
 }

@@ -127,10 +127,13 @@ function initVolumePopover() {
     pop.setAttribute('role', 'dialog');
     pop.setAttribute('aria-label', 'Volume');
     pop.hidden = true;
-    const title = document.createElement('div');
-    title.className = 'dock-pop-title';
-    title.textContent = 'Volume';
-    pop.append(title, slider.closest('.mb-3'));
+    pop.classList.add('dock-pop-volume');
+    // Vertical: level on top, the slider standing, speaker glyph at the foot
+    const section = slider.closest('.mb-3');
+    const badge = $('synthVolumeBadge');
+    section.replaceChildren();
+    section.append(badge, slider);
+    pop.append(section);
     document.body.appendChild(pop);
 
     let open = false;
@@ -148,7 +151,7 @@ function initVolumePopover() {
         pop.hidden = false;
         const r = trigger.getBoundingClientRect();
         const w = pop.offsetWidth || 300;
-        pop.style.left = `${Math.max(8, Math.min(window.innerWidth - w - 8, Math.round(r.left + r.width / 2 - w / 2)))}px`;
+        pop.style.setProperty('left', `${Math.max(8, Math.min(window.innerWidth - w - 8, Math.round(r.left + r.width / 2 - w / 2)))}px`, 'important');
         pop.style.bottom = `${Math.round(window.innerHeight - r.top + 8)}px`;
         requestAnimationFrame(() => pop.classList.add('is-open'));
         trigger.setAttribute('aria-expanded', 'true');

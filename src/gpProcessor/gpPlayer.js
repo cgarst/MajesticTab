@@ -650,7 +650,7 @@ export function updateSynthUI() {
     const volumeBadge = document.getElementById('synthVolumeBadge');
     if (volumeSlider) {
         volumeSlider.value = String(Math.round(synthPlayerState.masterVolume * 100));
-        volumeSlider.disabled = !canPlay;
+        volumeSlider.disabled = !canPlay || volumeSlider.dataset.mediaLocked === '1';
     }
     if (volumeBadge) {
         volumeBadge.textContent = `${Math.round(synthPlayerState.masterVolume * 100)}%`;
