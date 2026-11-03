@@ -100,6 +100,11 @@ STORES = {
         "final": (1920, 1080),
         "root_classes": ["tv-mode", "fullscreen-unavailable"],
         "no_fullscreen": True,
+        # No touch on a TV: copy that says "tap" is replaced per shot id.
+        "copy": {
+            "original": ("Play along with the record", "Sync once, and the cursor follows the original."),
+            "page": ("Scroll or turn pages", "Use the remote or a Bluetooth page turner."),
+        },
     },
     "appstore-ios": {
         "device": "iphone",
@@ -133,7 +138,7 @@ SHOTS = [
     dict(id="library", headline="A library, not a folder", subtitle="Artists, albums and tracklists for every song you play.", setup="library"),
     dict(id="original", headline="Play along with the record", subtitle="Tap to sync, and the cursor follows the original.", setup="original"),
     dict(id="guitar", headline="Fit it to your guitar", subtitle="7 and 8 strings, tunings and capo, every pitch kept.", setup="guitar"),
-    dict(id="page", headline="Scroll or turn pages", subtitle="Tap, or use a Bluetooth page turner.", setup="page", theme="Snow White"),
+    dict(id="page", headline="Scroll or turn pages", subtitle="Tap, or use a Bluetooth page turner.", setup="page", theme="Snow White", zoom_factor=0.8, density="tight"),
     dict(id="practice", headline="Practice at your pace", subtitle="Speed, loops, count-in and metronome.", setup="practice"),
     dict(id="tunings", headline="Browse by tuning", subtitle="Build a set that needs no retuning.", setup="tunings"),
     # Jam mode is native-only, so this shot fakes the native shell (tests/jam/mockTauri.js) in a page of its own.
@@ -304,6 +309,7 @@ def setup_shot(page, base, kind):
         return
     open_reader(page, base)
     if kind == "page":
+        click(page, "#fretboardCloseBtn"); page.wait_for_timeout(700)  # the pages need the full height
         page.evaluate("document.querySelector('#pageModeRadio').click()")
         page.wait_for_timeout(2500)
     elif kind == "reader":
@@ -416,7 +422,7 @@ def device_html(kind, d, x, y, data_uri):
         c = 0.034 * sw
         p.append(_box(sx + (sw - c) / 2, sy + 0.022 * sw, c, c, GLASS, "50%"))
         kw = 0.012 * sw
-        for ky, kh in ((0.30, 0.09), (0.45, 0.18)):
+        for ky, kh in ((0.15, 0.07), (0.26, 0.14)):  # power above volume, both in the upper third
             p.append(_box(bx + bw - 0.2 * kw, y + ky * bh, kw, kh * bh, RIM, f"{kw / 2:.1f}px"))
     elif kind == "iphone":  # Dynamic Island, action, volume and side buttons
         iw, ih = 0.27 * sw, 0.078 * sw
@@ -555,9 +561,12 @@ def run_store(args, name):
                     shot_page.on("pageerror", lambda e: errors.append(str(e)))
                 # Page-level init scripts run after the context's and accumulate, so the newest (this shot's) theme and zoom win.
                 zoom = store.get("tab_scale")
-                shot_page.add_init_script("try { localStorage.setItem('majestictab_theme', %s); %s } catch (e) {}" % (
+                if shot.get("zoom_factor"):  # a tighter sheet shows more bars per page
+                    zoom = round((zoom or 100) * shot["zoom_factor"])
+                shot_page.add_init_script("try { localStorage.setItem('majestictab_theme', %s); %s %s } catch (e) {}" % (
                     json.dumps(shot.get("theme", "Slate Blue")),
-                    f"localStorage.setItem('gpSheetScale', '{zoom}');" if zoom else "localStorage.removeItem('gpSheetScale');"))
+                    f"localStorage.setItem('gpSheetScale', '{zoom}');" if zoom else "localStorage.removeItem('gpSheetScale');",
+                    f"localStorage.setItem('gpNoteDensity', '{shot['density']}');" if shot.get("density") else "localStorage.removeItem('gpNoteDensity');"))
                 setup_shot(shot_page, base, shot["setup"])
                 if store.get("no_fullscreen"):
                     shown = shot_page.evaluate("""() => ['#fullscreenPill', '#fullscreenToggleBtn', '#toolsFullscreenRow']
@@ -571,7 +580,8 @@ def run_store(args, name):
                 if shot_page is not page:
                     shot_page.close()
                 final = out / f"{n:02d}-{shot['id']}.png"
-                compose(frame_page, raw, final, store["final"], shot["headline"], shot["subtitle"], store["device"])
+                headline, subtitle = store.get("copy", {}).get(shot["id"], (shot["headline"], shot["subtitle"]))
+                compose(frame_page, raw, final, store["final"], headline, subtitle, store["device"])
                 print(f"  wrote {final}")
             browser.close()
         if errors:
