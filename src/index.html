@@ -1949,7 +1949,13 @@
       <div class="metro-actions">
         <button type="button" class="btn btn-sm btn-theme-primary metro-play" id="metroPlayBtn" aria-pressed="false">Start</button>
         <button type="button" class="btn btn-sm metro-ghost" id="metroTapBtn" title="Tap the beat to set the tempo (T)">Tap tempo</button>
-        <button type="button" class="btn btn-sm metro-ghost" id="metroSigBtn" title="Time signature: press to change" aria-label="Time signature">4/4</button>
+        <div class="metro-sig" role="group" aria-label="Time signature">
+          <select class="form-select metro-field" id="metroBeatsSelect" aria-label="Beats per bar"><option value="2">2</option><option value="3">3</option><option value="4" selected>4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option><option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option></select>
+          <span class="metro-sig-slash" aria-hidden="true">/</span>
+          <select class="form-select metro-field" id="metroUnitSelect" aria-label="Note value of one beat">
+            <option value="1">1</option><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option><option value="16">16</option>
+          </select>
+        </div>
       </div>
       <div class="metro-options">
         <label class="metro-option" for="metroMuteSwitch"><span>Mute the click<small>Keep the display, silence the sound (M)</small></span><input class="form-check-input theme-switch" type="checkbox" role="switch" id="metroMuteSwitch"></label>

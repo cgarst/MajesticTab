@@ -13,8 +13,9 @@ const STORAGE_KEY = 'majestictab.metronome';
 const LOOKAHEAD_MS = 25;
 const SCHEDULE_AHEAD_S = 0.12;
 
-// [beats per bar, note value of one beat]
-const TIME_SIGNATURES = [[4, 4], [3, 4], [2, 4], [2, 2], [3, 8], [6, 8], [9, 8], [12, 8], [5, 4], [6, 4]];
+const MIN_BEATS = 2;
+const MAX_BEATS = 19;
+const UNITS = [1, 2, 4, 8, 16]; // note value of one beat
 
 const $ = (id) => document.getElementById(id);
 const clampBpm = (n) => Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(n)));
@@ -41,7 +42,8 @@ class TempoTapper {
 class MetronomeController {
     constructor() {
         this.bpm = 120;
-        this.sigIndex = 0;
+        this.beats = 4;
+        this.unit = 4;
         this.muted = false;
         this.blink = true;
         this.playing = false;
@@ -62,7 +64,8 @@ class MetronomeController {
         try {
             const s = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
             if (Number.isFinite(s.bpm)) this.bpm = clampBpm(s.bpm);
-            if (Number.isInteger(s.sig) && TIME_SIGNATURES[s.sig]) this.sigIndex = s.sig;
+            if (Number.isInteger(s.beats) && s.beats >= MIN_BEATS && s.beats <= MAX_BEATS) this.beats = s.beats;
+            if (UNITS.includes(s.unit)) this.unit = s.unit;
             if (typeof s.muted === 'boolean') this.muted = s.muted;
             if (typeof s.blink === 'boolean') this.blink = s.blink;
         } catch (_) { /* storage can be blocked or hold bad data; the defaults stand */ }
@@ -70,12 +73,10 @@ class MetronomeController {
 
     saveState() {
         try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify({ bpm: this.bpm, sig: this.sigIndex, muted: this.muted, blink: this.blink }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify({ bpm: this.bpm, beats: this.beats, unit: this.unit, muted: this.muted, blink: this.blink }));
         } catch (_) { /* the setting just won't persist */ }
     }
 
-    get beats() { return TIME_SIGNATURES[this.sigIndex][0]; }
-    get unit() { return TIME_SIGNATURES[this.sigIndex][1]; }
     /** Seconds per beat: a beat is one note of the signature's unit, with the BPM counting quarter notes. */
     get beatSeconds() { return (60 / this.bpm) * (4 / this.unit); }
 
@@ -95,7 +96,8 @@ class MetronomeController {
 
         $('metroPlayBtn')?.addEventListener('click', () => this.toggle());
         $('metroTapBtn')?.addEventListener('click', () => this.tap());
-        $('metroSigBtn')?.addEventListener('click', () => this.nextSignature());
+        $('metroBeatsSelect')?.addEventListener('change', (e) => this.setBeats(Number(e.target.value)));
+        $('metroUnitSelect')?.addEventListener('change', (e) => this.setUnit(Number(e.target.value)));
         $('metroBpmDown')?.addEventListener('click', () => this.setBpm(this.bpm - 1));
         $('metroBpmUp')?.addEventListener('click', () => this.setBpm(this.bpm + 1));
         $('metroBpmRange')?.addEventListener('input', (e) => this.setBpm(Number(e.target.value)));
@@ -144,8 +146,18 @@ class MetronomeController {
         this.render();
     }
 
-    nextSignature() {
-        this.sigIndex = (this.sigIndex + 1) % TIME_SIGNATURES.length;
+    /** Beats per bar and the note that gets the beat are set on their own; either one restarts the bar. */
+    setBeats(value) {
+        if (Number.isFinite(value)) this.beats = Math.min(MAX_BEATS, Math.max(MIN_BEATS, Math.round(value)));
+        this.signatureChanged();
+    }
+
+    setUnit(value) {
+        if (UNITS.includes(value)) this.unit = value;
+        this.signatureChanged();
+    }
+
+    signatureChanged() {
         this.beatIndex = 0;
         this.saveState();
         this.render();
@@ -164,10 +176,10 @@ class MetronomeController {
 
     onKey(e) {
         if (!this.isOpen() || e.ctrlKey || e.metaKey || e.altKey) return;
+        if (e.key === 'Escape') { this.close(); return; }
         const t = e.target;
         const typing = t && ((t.tagName === 'INPUT' && !['range', 'checkbox', 'button'].includes(t.type)) || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable);
         if (typing) return;
-        if (e.key === 'Escape') { this.close(); return; }
         const onButton = t && t.tagName === 'BUTTON';
         let handled = true;
         switch (e.key) {
@@ -296,8 +308,10 @@ class MetronomeController {
         bpmEl.textContent = String(this.bpm);
         const range = $('metroBpmRange');
         if (range) range.value = String(this.bpm);
-        const sig = $('metroSigBtn');
-        if (sig) sig.textContent = `${this.beats}/${this.unit}`;
+        const beatsSelect = $('metroBeatsSelect');
+        if (beatsSelect) beatsSelect.value = String(this.beats);
+        const unitSelect = $('metroUnitSelect');
+        if (unitSelect) unitSelect.value = String(this.unit);
         const play = $('metroPlayBtn');
         if (play) {
             play.textContent = this.playing ? 'Stop' : 'Start';

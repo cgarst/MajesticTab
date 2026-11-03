@@ -2354,9 +2354,8 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .metro-ghost { min-height: 44px; padding: 0 16px; border: 0 !important; border-radius: var(--r-control) !important; background: transparent !important; color: var(--ink2) !important; font-size: 14px; box-shadow: none !important; }
 .metro-sig { display: inline-flex; align-items: center; gap: 4px; }
 .metro-sig-slash { color: var(--ink2); font-size: 18px; }
-.metro-field.form-control, .metro-field.form-select { width: 64px; min-height: 44px; padding: 0 8px; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--metro-rest) !important; background-image: none; color: var(--ink) !important; font-size: 15px; font-variant-numeric: tabular-nums; text-align: center; box-shadow: none !important; }
-.metro-field.form-select { padding-right: 8px; }
-@media (hover: hover) { .metro-field:hover { background-color: var(--metro-on) !important; } }
+.metro-field.form-select, .library-page-view select.form-select.metro-field { width: 76px; min-height: 44px; padding: 0 26px 0 12px !important; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--metro-rest) !important; background-position: right 8px center !important; color: var(--ink) !important; font-size: 15px; font-variant-numeric: tabular-nums; text-align: left; text-align-last: left; box-shadow: none !important; }
+@media (hover: hover) { .metro-field:hover, .library-page-view select.form-select.metro-field:hover { background-color: var(--metro-on) !important; } }
 .metro-field:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .metro-options { display: flex; flex-direction: column; gap: 2px; }
 .metro-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 8px 12px; border-radius: var(--r-control); cursor: pointer; color: var(--ink); font-size: 15px; }
