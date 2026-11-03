@@ -197,23 +197,7 @@ export class FretboardView {
 
     buildDefs() {
         const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
-        defs.innerHTML = `
-            ${TRACK_COLORS.map((c, i) => `
-            <linearGradient id="trackGrad${i}" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stop-color="${c.color}" />
-                <stop offset="100%" stop-color="${c.end}" />
-            </linearGradient>`).join('')}
-
-            <linearGradient id="fretboardNutGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="var(--text-muted, #94a3b8)" stop-opacity="0.8" />
-                <stop offset="50%" stop-color="#ffffff" stop-opacity="0.95" />
-                <stop offset="100%" stop-color="var(--text-dim, #64748b)" stop-opacity="0.75" />
-            </linearGradient>
-            <filter id="fretboardGlow" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur stdDeviation="3" result="blur" />
-                <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-        `;
+        defs.innerHTML = ``;
         this.svg.appendChild(defs);
     }
 
@@ -430,9 +414,6 @@ export class FretboardView {
             g.setAttribute('class', 'fretboard-note-marker');
             g.style.display = 'none';
 
-            const glow = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-            glow.setAttribute('class', 'marker-glow');
-            glow.setAttribute('r', '15');
 
             // Standard single-track full circle
             const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -473,7 +454,6 @@ export class FretboardView {
             dead.setAttribute('d', 'M -4 -4 L 4 4 M 4 -4 L -4 4');
             dead.style.display = 'none';
 
-            g.appendChild(glow);
             g.appendChild(circle);
             g.appendChild(splitLeft);
             g.appendChild(splitRight);
@@ -485,7 +465,6 @@ export class FretboardView {
             poolGroup.appendChild(g);
             this.markerPool.push({
                 element: g,
-                glow,
                 circle,
                 splitLeft,
                 splitRight,
@@ -524,7 +503,7 @@ export class FretboardView {
                 : [note.trackColorIndex ?? 0];
             const primaryTrackColorIdx = colorIndices[0] % TRACK_PALETTE.length;
             const trackColor = TRACK_PALETTE[primaryTrackColorIdx] || 'var(--accent-primary)';
-            const trackGrad = `url(#trackGrad${primaryTrackColorIdx})`;
+            const trackGrad = trackColor; // flat fill: the notation and the rules allow no gradients
 
             const visualLine = this.getVisualString(atString);
             const posY = this.stringYs[visualLine];
@@ -551,8 +530,6 @@ export class FretboardView {
                 marker.element.setAttribute('transform', `translate(${posX}, ${posY})`);
                 marker.element.setAttribute('class', `fretboard-note-marker ${struckClass}${note.isGhost ? ' is-ghost' : ''}${note.isTieDestination ? ' is-tie' : ''}`);
 
-                const glowFill = TRACK_PALETTE[primaryTrackColorIdx] || 'var(--accent-glow)';
-                marker.glow.style.fill = glowFill;
 
                 if (colorIndices.length >= 2) {
                     marker.circle.style.display = 'none';
@@ -561,8 +538,8 @@ export class FretboardView {
                     marker.splitDivider.style.display = 'inline';
                     marker.outline.style.display = 'inline';
 
-                    marker.splitLeft.style.fill = `url(#trackGrad${colorIndices[0] % TRACK_PALETTE.length})`;
-                    marker.splitRight.style.fill = `url(#trackGrad${colorIndices[1] % TRACK_PALETTE.length})`;
+                    marker.splitLeft.style.fill = TRACK_PALETTE[colorIndices[0] % TRACK_PALETTE.length];
+                    marker.splitRight.style.fill = TRACK_PALETTE[colorIndices[1] % TRACK_PALETTE.length];
                 } else {
                     marker.circle.style.display = 'inline';
                     marker.circle.style.fill = trackGrad;
@@ -622,11 +599,7 @@ export class FretboardView {
             pick.setAttribute('class', 'pick-strike-shape');
             pick.setAttribute('d', PLECTRUM_PATH);
             pick.setAttribute('transform', 'translate(0 -1) scale(0.056) translate(-256 -255)');
-            const shine = document.createElementNS(svgNS, 'path');
-            shine.setAttribute('class', 'pick-strike-shine');
-            shine.setAttribute('d', 'M -5.2 -6.8 Q 0 -9.4 5.2 -6.8');
             inner.appendChild(pick);
-            inner.appendChild(shine);
             g.appendChild(inner);
             this.reachGroup.parentNode.appendChild(g);
             this.partPickPool.push({ group: g, pick, struckToggle: false });

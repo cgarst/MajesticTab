@@ -754,6 +754,8 @@ body.practice-open #output { padding-right: 416px !important; }
 .library-search-bar .search-key-hint { font: 12px system-ui, sans-serif; color: var(--ink2); background: var(--s3); border: 0; border-radius: 4px; padding: 1px 6px; flex-shrink: 0; }
 .library-search-bar:focus-within .search-key-hint, .library-search-bar:has(.search-clear-btn:not([style*="none"])) .search-key-hint { display: none; }
 @media (hover: none) { .library-search-bar .search-key-hint { display: none; } }
+/* Cancel exists only for the phone search layout (styled in the 576px block below); elsewhere it would be a bare native button */
+.library-search-bar .search-close-btn { display: none; }
 .library-list-toolbar { padding: 0 4px; font-size: 13px; color: var(--ink2); }
 .library-artists-grid, .library-albums-grid, .library-songs-list { display: flex !important; flex-direction: column; gap: 0 !important; }
 .library-card, .library-row-card, .library-song-row, .library-track-row {
@@ -2575,6 +2577,9 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   .search-key-hint, .tools-item kbd, .tools-page-row kbd, #smTapBtn kbd { display: none !important; }
 }
 
+/* A TV has a remote, not a keyboard: no key hints anywhere */
+.tv-mode kbd { display: none !important; }
+
 
 /* The key and gamepad reference is parked on <body> until Settings moves it into its page; do not paint it there (it covered the first frames) */
 body > #controllerHelpModal { display: none; }
@@ -2607,4 +2612,29 @@ body > #controllerHelpModal { display: none; }
 }
 @media (max-width: 640px) and (prefers-reduced-motion: reduce) {
   body:not(.library-view-active), body:not(.library-view-active) .fretboard-dock, body:not(.library-view-active) .page-strip, body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources { transition: none !important; }
+}
+
+/* Fretboard markers and picks: flat, no glow, no highlight, no outline. A part's colour is the only colour on
+   the neck (it identifies the track), and the label on it is dark ink because every part colour is a light tone
+   (white on them is 1.4 to 2.6:1). The brand pick keeps its shape. Pop feedback moves and fades only. */
+.fretboard-neck-bg { fill: var(--s1); stroke: none; }
+.fretboard-capo-bar { stroke: none; filter: none; }
+.fretboard-capo-label { fill: var(--on-action, var(--ink)); }
+.fretboard-note-marker .marker-glow { display: none; }
+.fretboard-note-marker .marker-circle,
+.fretboard-note-marker .marker-split-left,
+.fretboard-note-marker .marker-split-right { stroke: var(--ground); stroke-width: 1; box-shadow: none; }
+.fretboard-note-marker .marker-split-divider { stroke: var(--ground); stroke-width: 1; }
+.fretboard-note-marker .marker-outline { stroke: var(--ground); stroke-width: 1; }
+.fretboard-note-marker .marker-text { fill: black; font-weight: 700; }
+.fretboard-note-marker .marker-dead { stroke: black; }
+.pick-strike-shape { stroke: none; }
+@keyframes fb-pop { from { transform: scale(1.18); } to { transform: scale(1); } }
+.fretboard-note-marker.is-struck .marker-circle, .fretboard-note-marker.is-struck .marker-split-left, .fretboard-note-marker.is-struck .marker-split-right,
+.fretboard-note-marker.is-struck-alt .marker-circle, .fretboard-note-marker.is-struck-alt .marker-split-left, .fretboard-note-marker.is-struck-alt .marker-split-right,
+.fretboard-pick-marker.is-struck .pick-marker-inner, .fretboard-pick-marker.is-struck-alt .pick-marker-inner { animation: fb-pop var(--dur-fast) var(--ease-out); }
+.fretboard-pick-marker.is-struck-alt .pick-marker-inner, .fretboard-note-marker.is-struck-alt .marker-circle { animation-name: fb-pop-alt; }
+@keyframes fb-pop-alt { from { transform: scale(1.18); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .fretboard-note-marker .marker-circle, .fretboard-note-marker .marker-split-left, .fretboard-note-marker .marker-split-right, .pick-marker-inner { animation: none !important; }
 }
