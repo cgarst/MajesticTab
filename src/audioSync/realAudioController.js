@@ -9,7 +9,7 @@
 
 import {
     getSongKey, playerState, isYouTubeAvailable, isYouTubePlaying, playPauseYouTube,
-    pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate
+    pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode
 } from '../youtubePlayer.js';
 import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
@@ -332,8 +332,8 @@ export function switchRealAudioSlot(slot) {
     if (slot !== 'original' && slot !== 'backing') return;
     state.slot = slot;
 
-    // Notify YouTube of track mode change
-    playerState.trackMode = slot;
+    // Notify YouTube of track mode change: updates the search string and searches again
+    setYouTubeTrackMode(slot);
 
     // Notify Local Audio of slot change
     setAudioFileSlot(slot);

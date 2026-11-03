@@ -319,6 +319,23 @@ export function updateQueryInputUI() {
 }
 
 /**
+ * Switch between the original recording and the backing track: updates the search string
+ * (adds "guitar backing track" for backing) and searches again unless a video is saved for that mode.
+ * The recording panel's slot rows and the track radios both come through here.
+ */
+export function setYouTubeTrackMode(mode) {
+    if (mode !== 'original' && mode !== 'backing') return;
+    if (playerState.trackMode === mode) return;
+    if (playerState.isSearching) {
+        cancelYouTubeSearch();
+    }
+    playerState.trackMode = mode;
+    setVideoId(null, 'user');
+    updateQueryInputUI();
+    loadCurrentTrack(true, { source: 'user' });
+}
+
+/**
  * Redo YouTube search with an optional query override
  */
 export function redoSearchWithQuery(override = null) {
@@ -891,27 +908,11 @@ export function initYouTubePlayer() {
 
     // Track Mode Selector (Original vs Backing)
     originalRadio?.addEventListener('change', () => {
-        if (originalRadio.checked) {
-            if (playerState.isSearching) {
-                cancelYouTubeSearch();
-            }
-            playerState.trackMode = 'original';
-            setVideoId(null, 'user');
-            updateQueryInputUI();
-            loadCurrentTrack(true, { source: 'user' });
-        }
+        if (originalRadio.checked) setYouTubeTrackMode('original');
     });
 
     backingRadio?.addEventListener('change', () => {
-        if (backingRadio.checked) {
-            if (playerState.isSearching) {
-                cancelYouTubeSearch();
-            }
-            playerState.trackMode = 'backing';
-            setVideoId(null, 'user');
-            updateQueryInputUI();
-            loadCurrentTrack(true, { source: 'user' });
-        }
+        if (backingRadio.checked) setYouTubeTrackMode('backing');
     });
 
     // Query Override and Redo Search controls
