@@ -58,6 +58,20 @@ async function shot(name) {
 }
 const want = n => !ONLY || ONLY.includes(n);
 
+// The Guitar panel picture: the tab (D Standard) rewritten for 7-string standard with a capo
+async function guitarFit() {
+  const wait = async (js) => { for (let i = 0; i < 30 && !(await ev(js)); i++) await sleep(300); };
+  await click('label[for="synthStringCount7"]'); await sleep(2500);
+  if (!(await ev(`document.querySelector('#adaptEnableSwitch').checked`))) await click('#adaptEnableSwitch');
+  await sleep(1200);
+  await ev(`(() => { const s = document.querySelector('#adaptTuningSelect'); s.value = '7-String Standard'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await sleep(1500);
+  await click('label[for="adaptMethodCapo"]'); await sleep(800);
+  await ev(`(() => { const s = document.querySelector('#adaptCapoSelect'); s.value = '2'; s.dispatchEvent(new Event('change', { bubbles: true })); })()`);
+  await wait(`/Capo \\d/.test(document.querySelector('#adaptSummary')?.textContent || '')`);
+  await sleep(1500);
+}
+
 // ---- stills: desktop 1440x900 and phone 390x844, Slate Blue (the site's own finish) and Snow White
 const PANELS = { view: '#viewToggleBtn', practice: '#practiceToggleBtn', tracks: '#tracksToggleBtn', guitar: '#guitarToggleBtn', tools: '#toolsToggleBtn' };
 for (const [suffix, size] of [['', { w: 1440, h: 900 }], ['-phone', { w: 390, h: 844, mobile: true }]]) {
@@ -65,11 +79,17 @@ for (const [suffix, size] of [['', { w: 1440, h: 900 }], ['-phone', { w: 390, h:
     const tag = theme === 'Slate Blue' ? '' : '-snow';
     if (theme === 'Snow White' && !want('snow')) continue;
     await open({ ...size, theme });
-    if (want('reader')) await shot(`reader${suffix}${tag}`);
+    if (want('reader')) {
+      // the reader picture is the score alone: compact the fretboard for the shot, then bring it back (F) for the panel shots
+      await click('#fretboardCloseBtn'); await sleep(700);
+      await shot(`reader${suffix}${tag}`);
+      await click('#fretboardDockBtn'); await sleep(900);
+    }
     if (theme !== 'Slate Blue') continue;
     for (const [name, sel] of Object.entries(PANELS)) {
       if (!want(name)) continue;
       await click(sel); await sleep(900);
+      if (name === 'guitar') await guitarFit();
       await shot(`${name}${suffix}`);
       await click(sel); await sleep(500); // close again
       await ev(`document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))`); await sleep(300);
