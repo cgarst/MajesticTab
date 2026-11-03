@@ -208,4 +208,24 @@ test('adblock starts disabled and handles enabling with mocked fetch and caching
 
     // Cached hosts remain in storage for fast re-enabling
     assert.equal(JSON.parse(localStorage.getItem(ADBLOCK_HOSTS_KEY)).length, 3);
+
+    // Verify native HTTP fetch is preferred when available (bypassing CORS in Tauri)
+    let nativeHttpCalled = false;
+    global.window.__TAURI__ = {
+        http: {
+            fetch: async (url) => {
+                nativeHttpCalled = true;
+                return {
+                    ok: true,
+                    status: 200,
+                    arrayBuffer: async () => new TextEncoder().encode('native-ad.com\nanother-ad.net')
+                };
+            }
+        }
+    };
+    const resNative = await setAdblockEnabled(true, true);
+    assert.equal(nativeHttpCalled, true);
+    assert.equal(resNative.count, 2);
+    assert.deepEqual(JSON.parse(localStorage.getItem(ADBLOCK_HOSTS_KEY)), ['native-ad.com', 'another-ad.net']);
+    delete global.window.__TAURI__;
 });

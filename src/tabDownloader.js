@@ -539,9 +539,28 @@ export async function setAdblockEnabled(enabled, forceRefresh = false) {
 
     if (!hosts.length || isStale || forceRefresh) {
         try {
-            const res = await fetch(DEFAULT_ADBLOCK_SOURCE_URL);
+            const fetchFn = (typeof window !== 'undefined' && typeof window.__TAURI__?.http?.fetch === 'function')
+                ? window.__TAURI__.http.fetch
+                : fetch;
+            const res = await fetchFn(DEFAULT_ADBLOCK_SOURCE_URL);
             if (!res.ok) throw new Error('HTTP ' + res.status);
-            const text = await res.text();
+            let text = '';
+            if (typeof res.arrayBuffer === 'function') {
+                try {
+                    const buf = await res.arrayBuffer();
+                    const bytes = new Uint8Array(buf);
+                    if (bytes[0] === 0x1f && bytes[1] === 0x8b && typeof DecompressionStream === 'function') {
+                        const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+                        text = await new Response(stream).text();
+                    } else {
+                        text = new TextDecoder().decode(bytes);
+                    }
+                } catch {
+                    text = await res.text();
+                }
+            } else {
+                text = await res.text();
+            }
             hosts = text.split('\n')
                 .map(line => line.trim().toLowerCase())
                 .filter(line => line && !line.startsWith('#') && !line.startsWith('!') && !line.startsWith('//'));
@@ -553,6 +572,9 @@ export async function setAdblockEnabled(enabled, forceRefresh = false) {
             } catch {}
         } catch (err) {
             console.warn('[Tab Downloader] Failed to fetch adblock list:', err);
+            if (forceRefresh || !hosts.length) {
+                throw err;
+            }
         }
     }
 
@@ -940,7 +962,10 @@ export async function openTabDownloader(options = {}) {
     lastImportCheckedUrl = '';
     activeEphemeralSource = null;
     pendingMatchedTabUrl = null;
-    if (!isNative()) return;
+    if (!isNative()) {
+        console.warn('[Tab Downloader] openTabDownloader aborted: isNative() returned false');
+        return;
+    }
 
     activeDownloaderOnFileSelected = options.onFileSelected || null;
     activeTargetSong = options.targetSong || null;

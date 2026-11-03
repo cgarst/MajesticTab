@@ -77,7 +77,11 @@ async fn open_tab_downloader(
 
     let downloader = app
         .get_webview(tab_downloader_native::DOWNLOADER_LABEL)
-        .ok_or_else(|| "Tab downloader is unavailable".to_string())?;
+        .or_else(|| app.get_webview_window(tab_downloader_native::DOWNLOADER_LABEL).map(|w| w.as_ref().clone()))
+        .ok_or_else(|| {
+            eprintln!("[Tab Downloader] Webview '{}' not found", tab_downloader_native::DOWNLOADER_LABEL);
+            "Tab downloader is unavailable".to_string()
+        })?;
 
     let offset = top_offset.unwrap_or(84.0);
 
@@ -96,7 +100,12 @@ async fn open_tab_downloader(
         }
     }
 
-    if let Some(main_win) = app.get_window("main") {
+    let main_window = app
+        .get_webview_window("main")
+        .map(|w| w.as_ref().window().clone())
+        .or_else(|| app.get_window("main"));
+
+    if let Some(ref main_win) = main_window {
         let scale = main_win.scale_factor().unwrap_or(1.0);
         if let Ok(size) = main_win.inner_size() {
             let logical = size.to_logical::<f64>(scale);
@@ -117,7 +126,7 @@ async fn open_tab_downloader(
             webview.setHidden(false);
             if let Some(superview) = webview.superview() {
                 superview.addSubview(webview);
-            } else if let Some(main_win) = app_handle_wv.get_window("main") {
+            } else if let Some(main_win) = app_handle_wv.get_webview_window("main").map(|w| w.as_ref().window().clone()).or_else(|| app_handle_wv.get_window("main")) {
                 if let Ok(ns_win_ptr) = main_win.ns_window() {
                     let ns_window = &*(ns_win_ptr as *const objc2_app_kit::NSWindow);
                     if let Some(content_view) = ns_window.contentView() {
