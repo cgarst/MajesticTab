@@ -147,10 +147,13 @@ export function collectAudioSync(storage = localStorage) {
     const out = {};
     for (let i = 0; i < storage.length; i++) {
         const k = storage.key(i);
-        if (k && k.startsWith(AUDIO_SYNC_PREFIX)) {
-            const rec = parse(storage.getItem(k));
-            if (rec) out[k] = rec;
+        if (!k || !k.startsWith(AUDIO_SYNC_PREFIX)) continue;
+        if (k.startsWith(SHARE_PREFIX)) {
+            if (storage.getItem(k) === '1') out[k] = { shared: true };
+            continue;
         }
+        const rec = parse(storage.getItem(k));
+        if (rec) out[k] = rec;
     }
     return out;
 }
@@ -163,6 +166,13 @@ export function mergeAudioSync(incoming, { wipe = false } = {}, storage = localS
     let written = 0;
     for (const [key, raw] of Object.entries(incoming || {})) {
         if (!key.startsWith(AUDIO_SYNC_PREFIX)) continue;
+        if (key.startsWith(SHARE_PREFIX)) {
+            // The per song "backing track uses the original's points" option has no timestamp, so it only turns on
+            if (raw?.shared === true && storage.getItem(key) !== '1') {
+                try { storage.setItem(key, '1'); written++; } catch { /* quota: skip */ }
+            }
+            continue;
+        }
         const rec = normalizeRecord(raw);
         if (!rec || !rec.points.length) continue;
         const local = wipe ? null : parse(storage.getItem(key));

@@ -112,3 +112,15 @@ test('a backing track uses the original recording points when the option is on',
     assert.equal(loadRecord('Song', backing, s).points.length, 1);
     setSlotMediaResolver(null);
 });
+
+test('the shared-points option travels in backups and merges on', async () => {
+    const { setSyncSharedFromOriginal, isSyncSharedFromOriginal } = await import('../../src/audioSync/syncStore.js');
+    const a = fakeStorage(), b = fakeStorage();
+    setSyncSharedFromOriginal('Song', true, a);
+    const map = collectAudioSync(a);
+    assert.deepEqual(Object.values(map), [{ shared: true }]);
+    mergeAudioSync(map, {}, b);
+    assert.ok(isSyncSharedFromOriginal('Song', b));
+    clearAudioSync(b);
+    assert.ok(!isSyncSharedFromOriginal('Song', b));
+});
