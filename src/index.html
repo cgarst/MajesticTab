@@ -312,7 +312,7 @@
     <div id="synthTrackVisibilitySection" class="mb-3" style="display: none;">
       <div class="d-flex align-items-center justify-content-between mb-1">
         <label class="form-label small mb-0 fw-semibold text-muted">Tracks:</label>
-        <span class="d-flex gap-3"><button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthMixResetBtn">Reset levels</button><button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show all</button></span>
+        <span class="d-flex gap-3"><button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthShowAllTracksBtn">Show all</button></span>
       </div>
       <div id="synthTrackList" class="d-flex flex-column gap-1 mb-1"></div>
       <div class="form-check form-switch mb-0 mt-2">
@@ -546,6 +546,14 @@
     </div>
 
     <!-- Sections: chips that loop when tapped -->
+    <div class="mb-3" id="synthMixerSection" style="display: none;">
+      <div class="d-flex align-items-center justify-content-between mb-1">
+        <label class="form-label small mb-0 fw-semibold text-muted">Mixer</label>
+        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none small text-white-50" id="synthMixResetBtn">Reset levels</button>
+      </div>
+      <div id="synthMixerList" class="d-flex flex-column gap-1"></div>
+    </div>
+
     <div class="mb-3" id="synthSectionsContainer" style="display: none;">
       <div class="d-flex justify-content-between align-items-center mb-1">
         <label class="form-label small mb-0 fw-semibold text-muted">Sections</label>

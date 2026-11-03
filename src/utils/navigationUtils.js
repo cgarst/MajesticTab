@@ -1211,18 +1211,11 @@ export function setupGlobalAudioControls() {
         handleGlobalPlayPause();
     });
 
-    // Synth | Recording is a switch in the dock. The inactive segment switches the sound; the active one opens (or
-    // closes) its own panel, the same press-the-selected-thing-to-open rule as the reader buttons.
+    // Synth | Recording is a switch in the dock. Pressing either one switches to that sound and opens its panel;
+    // pressing it again closes the panel.
     mobileSynthBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (mobileSynthBtn.classList.contains('active-audio-mode')) {
-            document.getElementById('synthToggleBtn')?.click();
-            return;
-        }
-        document.getElementById('synthToggleBtn')?.click();   // switches to the synth and opens its (hidden) panel
-        document.getElementById('synthPanelCloseBtn')?.click(); // and closes it again, with no exit animation
-        const synthPanel = document.getElementById('synthDropdownPanel');
-        if (synthPanel) { synthPanel.classList.remove('rp-in', 'rp-out'); synthPanel.style.display = 'none'; }
+        document.getElementById('synthToggleBtn')?.click();
     });
 
     mobileRealAudioBtn?.addEventListener('click', (e) => {
