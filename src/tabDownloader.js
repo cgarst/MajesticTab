@@ -959,7 +959,6 @@ let debugToolsEnabled = null;
  * @param {Object} [options.targetSong]
  */
 export async function openTabDownloader(options = {}) {
-    lastImportCheckedUrl = '';
     activeEphemeralSource = null;
     pendingMatchedTabUrl = null;
     if (!isNative()) {

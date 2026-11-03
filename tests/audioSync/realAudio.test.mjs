@@ -48,7 +48,7 @@ test('real audio source can be set independently per slot', async () => {
 
 test('local audio file slots persist separately for original and backing track', async () => {
     storage.clear();
-    const songKey = 'Comfortably Numb';
+    const songKey = 'Carulli Duo No 2 In G Major';
     const SLOT_FILE_KEY = (songKey, slot) => `audio_file_${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;
 
     localStorage.setItem(SLOT_FILE_KEY(songKey, 'original'), 'audio_orig_123');

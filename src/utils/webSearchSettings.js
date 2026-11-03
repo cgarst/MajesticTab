@@ -237,9 +237,9 @@ function makeProvidersGroup() {
                 // Query format
                 const queryLabelEl = el('label', 'small text-white-50 mb-1', 'Search query format');
                 const querySelect = el('select', 'form-select form-select-sm');
-                const optBoth = el('option', '', 'Artist and song name (e.g. Metallica Master of Puppets)');
+                const optBoth = el('option', '', 'Artist and song name (e.g. Carulli Duo No 2 In G Major)');
                 optBoth.value = 'artist_song';
-                const optSong = el('option', '', 'Song name only (e.g. Master of Puppets)');
+                const optSong = el('option', '', 'Song name only (e.g. Duo No 2 In G Major)');
                 optSong.value = 'song_only';
                 querySelect.appendChild(optBoth);
                 querySelect.appendChild(optSong);

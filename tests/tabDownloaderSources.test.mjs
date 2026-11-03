@@ -25,8 +25,10 @@ const dummyEl = {
     append() {},
     closest: () => dummyEl,
     querySelector: () => dummyEl,
-    getContext: () => ({ fillRect() {}, clearRect() {} })
+    getContext: () => ({ fillRect() {}, clearRect() {} }),
+    getBoundingClientRect: () => ({ height: 84, width: 800 })
 };
+global.requestAnimationFrame = (cb) => setTimeout(cb, 0);
 
 global.window = {
     addEventListener: () => {},
@@ -65,7 +67,9 @@ const {
     getAdblockStatus,
     ADBLOCK_ENABLED_KEY,
     ADBLOCK_HOSTS_KEY,
-    ADBLOCK_UPDATED_KEY
+    ADBLOCK_UPDATED_KEY,
+    openTabDownloader,
+    closeTabDownloaderModal
 } = await import('../src/tabDownloader.js');
 
 test('DEFAULT_SOURCES has DuckDuckGo first and Google second', () => {
@@ -108,9 +112,9 @@ test('buildSearchUrl constructs expected search and home URLs for Google and Duc
 
 test('formatSearchQueryForSource formats artist and song according to queryFormat', () => {
     const [duckduckgo, google] = DEFAULT_SOURCES;
-    assert.equal(formatSearchQueryForSource(google, 'Metallica', 'One'), 'Metallica One');
-    assert.equal(formatSearchQueryForSource(duckduckgo, 'Metallica', 'One'), 'Metallica One');
-    assert.equal(formatSearchQueryForSource({ queryFormat: 'song_only' }, 'Metallica', 'One'), 'One');
+    assert.equal(formatSearchQueryForSource(google, 'Carulli', 'Duo No 2 In G Major'), 'Carulli Duo No 2 In G Major');
+    assert.equal(formatSearchQueryForSource(duckduckgo, 'Carulli', 'Duo No 2 In G Major'), 'Carulli Duo No 2 In G Major');
+    assert.equal(formatSearchQueryForSource({ queryFormat: 'song_only' }, 'Carulli', 'Duo No 2 In G Major'), 'Duo No 2 In G Major');
 });
 
 test('resetToDefaultSources writes and returns default sources', () => {
@@ -227,5 +231,26 @@ test('adblock starts disabled and handles enabling with mocked fetch and caching
     assert.equal(nativeHttpCalled, true);
     assert.equal(resNative.count, 2);
     assert.deepEqual(JSON.parse(localStorage.getItem(ADBLOCK_HOSTS_KEY)), ['native-ad.com', 'another-ad.net']);
+    delete global.window.__TAURI__;
+});
+
+test('openTabDownloader executes in native environment without ReferenceError', async () => {
+    let invokedCommands = [];
+    global.window.__TAURI__ = {
+        core: {
+            invoke: async (cmd, args) => {
+                invokedCommands.push({ cmd, args });
+                if (cmd === 'tab_downloader_is_debug_tools_enabled') return false;
+                return {};
+            }
+        }
+    };
+
+    await openTabDownloader({ query: 'Duo No 2 In G Major', artist: 'Carulli' });
+    assert.ok(invokedCommands.some(c => c.cmd === 'open_tab_downloader'), 'Expected open_tab_downloader to be invoked');
+
+    closeTabDownloaderModal();
+    assert.ok(invokedCommands.some(c => c.cmd === 'tab_downloader_hide'), 'Expected tab_downloader_hide to be invoked');
+
     delete global.window.__TAURI__;
 });
