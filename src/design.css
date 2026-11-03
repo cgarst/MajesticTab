@@ -1941,6 +1941,8 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 #synthDropdownPanel .synth-panel-body > :has(#synthSeekSlider), #synthDropdownPanel .synth-panel-body > :has(#synthSpeedButtons) { display: none !important; }
 #barRulerInfoBtn { display: none !important; }
 .dock-more { width: 32px !important; min-width: 32px !important; padding: 0 !important; }
+/* Equal air either side of the glyph: bpm text to glyph = glyph to the Synth | Original switch (the bpm box has 8px of padding, the grid 16px of gap, the glyph 4px of inset) */
+#fretboardDockBtn { margin-left: -8px; margin-right: 12px; }
 #practiceToggleBtn.has-state .bar-btn-label::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle; }
 .practice-menu { width: 360px; max-width: calc(100vw - 16px); max-height: calc(100vh - 90px); overflow-y: auto; padding: 14px 16px 14px; position: fixed; z-index: 1085; display: flex; flex-direction: column; gap: 16px; }
 .practice-menu > div { margin: 0 !important; }
