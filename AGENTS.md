@@ -184,6 +184,14 @@ Fixtures: `Duo No 2 In G Major.gp5`, `Haken - 1985.gp5` and `nightterror.gp5` (l
 - The `.at-cursors` layer and `.gp-reader-cursor` show from load, as in AlphaTab, with the cursor at the start of the score.
 - Public AlphaTab fields are minified (`Qw`, `vy`, `Ny`); avoid depending on them, and if unavoidable, route through a single helper such as `getMidiTickLookup()`.
 
+### Hosts in `src/` (Tauri build allowlist)
+
+`build/tauri/prepare-tauri-frontend.mjs` scans every `.html`, `.js`, `.css` and `.mjs` file under `src/` (comments and placeholder text included) for `http(s)://` URLs and fails the Android, Windows, macOS, Linux and iOS builds when a host is not in `allowedRemoteHosts`. It is not caught by dev-server testing, only by CI. So:
+
+- Never write a full `https://host/...` URL in a comment, JSDoc example or placeholder unless the host is really used and approved. Describe it in words (`a /path/ page on host www.<name>.com`) or use a host already in `allowedRemoteHosts`.
+- When code really needs a new host, add it to `allowedRemoteHosts` in the same change, with a comment saying why.
+- Before pushing any change that adds a URL string under `src/`, run `cd build/tauri && npm ci && node prepare-tauri-frontend.mjs --android` (or grep the diff for `https\?://`) and confirm no "Unapproved external URLs" error.
+
 ### Local Store Builds
 
 Release signing secrets live in the gitignored `.env` at the repo root (`ANDROID_KEYSTORE_FILE`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, etc.). `build/build-tauri.mjs` loads it automatically, but only for variables not already set in the environment. Do not export, override, or generate substitute keystores. Just run, e.g., the Play build:

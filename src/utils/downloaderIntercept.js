@@ -45,7 +45,7 @@ export function isWsaTabUrl(url) {
 
 /**
  * Dynamically derives the downloader URL by injecting the domain label into -downloader.com
- * e.g. "https://www.example.com/a/wsa/..." -> "https://www.example-downloader.com/"
+ * e.g. a /a/wsa/ page on host "www.<name>.com" maps to host "www.<name>-downloader.com" (no full URLs here: the Tauri build rejects unapproved hosts, even in comments)
  * @param {string} targetUrl
  * @returns {string|null}
  */
