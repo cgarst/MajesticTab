@@ -856,6 +856,7 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 @media (max-width: 899px) { .setwrap[data-pane="list"] .setpage { display: none; } .setwrap[data-pane="page"] .setnav { display: none; } }
 .setnav { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; overflow: auto; }
 .setnav button { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 0 12px; border-radius: var(--r); color: var(--ink2); font-weight: 500; width: 100%; text-align: left; position: relative; background: transparent; border: 0; transition: background-color var(--dur-fast), color var(--dur-fast); }
+.setnav button[hidden] { display: none; }
 .setnav button i:first-child { font-size: 1.15rem; width: 1.5rem; text-align: center; }
 .setnav button span { flex: 1; }
 .setnav button .chev { opacity: .6; font-size: .9rem; }
@@ -883,7 +884,6 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 .sgroup .settings-advanced-details { background: var(--s2); border-radius: var(--r); padding: 6px 14px; margin-top: 10px; }
 .sgroup .settings-advanced-details summary { color: var(--ink2) !important; min-height: 40px; display: flex; align-items: center; }
 @media (max-width: 899px) { .srow { flex-wrap: wrap; } .srow .sc { width: 100%; } }
-#updateSettingsCard { background: var(--s2) !important; border: 0 !important; border-radius: 0 !important; margin: 0 !important; padding: 12px 14px !important; }
 #fileMenu .offcanvas-header > :not(button) { display: none !important; }
 
 /* Phone: five tabs, no brand or Tools (Tools stays in the top bar) */

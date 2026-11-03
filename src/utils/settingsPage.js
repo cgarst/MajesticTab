@@ -19,6 +19,7 @@ const SECTIONS = [
     { id: 'converters', label: 'File converters', icon: 'bi-puzzle' },
     { id: 'sound', label: 'Sound', icon: 'bi-soundwave' },
     { id: 'library', label: 'Library and backup', icon: 'bi-collection' },
+    { id: 'updates', label: 'Updates', icon: 'bi-arrow-repeat' },
     { id: 'about', label: 'About', icon: 'bi-info-circle' }
 ];
 
@@ -339,10 +340,29 @@ export function initSettingsPage() {
     // keep the originals referenced so their ids stay unique if anything still looks them up
     void moreData; void clearCache; void deleteAll; void backupBtn; void restoreBtn;
 
+    // Updates: its own section above About. The card is kept as the container because updater.js shows it
+    // (self-updating builds) or removes it (store builds); the section follows it.
+    if (updates) {
+        const channelGroup = updates.querySelector('.hud-pill-group');
+        channelGroup?.classList.remove('w-100', 'mb-2');
+        channelGroup?.querySelectorAll('label').forEach((l) => l.classList.remove('w-33'));
+        const checkBtn = $('updateCheckBtn');
+        const status = $('updateStatus');
+        if (checkBtn) { checkBtn.className = 'btn btn-sm srow-ghost srow-hit'; checkBtn.textContent = 'Check'; checkBtn.setAttribute('aria-label', 'Check for updates'); }
+        const checkRow = row('Check for updates', 'Look for a newer version now.', checkBtn);
+        checkRow.classList.add('srow-task');
+        if (status) { status.className = 'small text-white-50 mt-1'; checkRow.querySelector('.st').appendChild(status); }
+        updates.className = '';
+        updates.removeAttribute('style');
+        updates.replaceChildren(group('App updates',
+            row('Update channel', 'None turns automatic checks off. Canary gets early builds.', channelGroup),
+            checkRow));
+        panes.updates.appendChild(updates);
+    }
+
     // About
     const abt = [];
-    if (updates) { updates.hidden = updates.hidden; abt.push(updates); }
-    if (aboutBtn) { aboutBtn.className = 'btn btn-sm btn-theme-outline'; aboutBtn.innerHTML = 'About MajesticTab'; abt.push(row('About', 'Version, credits and licences.', aboutBtn)); }
+    if (aboutBtn) { aboutBtn.className = 'btn btn-sm btn-theme-outline'; aboutBtn.innerHTML = 'About MajesticTab'; abt.push(row('About', 'Credits and licences.', aboutBtn)); }
     if (privacy) { privacy.className = 'btn btn-sm btn-theme-outline'; privacy.textContent = 'Read'; abt.push(row('Privacy policy', 'What stays on your device.', privacy)); }
     if (support) { support.className = 'btn btn-sm btn-theme-outline'; support.textContent = 'Report'; abt.push(row('Support', 'Report a problem or ask for a feature.', support)); }
     if (quitBtn && canQuitApp()) {
@@ -354,7 +374,16 @@ export function initSettingsPage() {
     $('fileMenuFooter')?.remove();
     const brand = el('div', 'about-brand', brandMarkSvg('about-mark') + '<span class="about-wordmark">Majestic<b>Tab</b></span>');
     panes.about.appendChild(brand);
-    if (abt.length) panes.about.appendChild(group('', ...abt));
+    if (abt.length) {
+        const aboutGroup = group('', ...abt);
+        panes.about.appendChild(aboutGroup);
+        // The version is the first row. Only the native apps carry build-info.js; the web build has no row.
+        import('../build-info.js').then(async ({ default: info }) => {
+            const { formatBuildVersion } = await import('../updater.js');
+            const v = el('span', 'small text-white-50', formatBuildVersion(info));
+            aboutGroup.querySelector('.srows')?.prepend(row('Version', '', v));
+        }).catch(() => {});
+    }
 
     // ---- put it together; the old cards are emptied of their controls and removed ----
     wrap.appendChild(nav);
@@ -363,6 +392,16 @@ export function initSettingsPage() {
     shell.appendChild(wrap);
     body.querySelectorAll(':scope > .settings-card, :scope > #secondaryUtilities, :scope > .mt-auto').forEach((n) => n.remove());
     body.appendChild(shell);
+
+    // The Updates entry shows only while the update card is there and visible
+    const updatesNav = nav.querySelector('button[data-section="updates"]');
+    const syncUpdatesNav = () => { if (updatesNav) updatesNav.hidden = !updates || !updates.isConnected || updates.hidden; };
+    syncUpdatesNav();
+    if (updates) {
+        const watch = new MutationObserver(syncUpdatesNav);
+        watch.observe(updates, { attributes: true, attributeFilter: ['hidden'] });
+        watch.observe(panes.updates, { childList: true });
+    }
 
     function show(id, { focus = false } = {}) {
         if (!panes[id]) return;

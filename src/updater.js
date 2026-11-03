@@ -210,6 +210,15 @@ async function runCheck(buildInfo, { manual }) {
     }
 }
 
+/** "1.0.19", with the canary build or local commit when there is one. */
+export function formatBuildVersion(buildInfo) {
+    return buildInfo.channel === 'canary'
+        ? `${buildInfo.version} (canary ${buildInfo.buildId})`
+        : buildInfo.channel === 'dev' && buildInfo.commit
+            ? `${buildInfo.version} (local ${buildInfo.commit})`
+            : buildInfo.version;
+}
+
 export async function initUpdater() {
     if (!window.__TAURI__) return;
     if (!hasFeature('selfUpdate')) {
@@ -230,17 +239,6 @@ export async function initUpdater() {
 
     const section = document.getElementById('updateSettingsCard');
     if (section) section.hidden = false;
-    const title = document.getElementById('updatesBackupTitle');
-    if (title) title.textContent = 'Updates and backup';
-    const version = document.getElementById('updateCurrentVersion');
-    if (version) {
-        version.textContent = buildInfo.channel === 'canary'
-            ? `Version ${buildInfo.version} (canary ${buildInfo.buildId})`
-            : buildInfo.channel === 'dev' && buildInfo.commit
-                ? `Version ${buildInfo.version} (local ${buildInfo.commit})`
-                : `Version ${buildInfo.version}`;
-    }
-
     const channel = getUpdateChannel();
     document.querySelectorAll('input[name="updateChannelRadio"]').forEach((radio) => {
         radio.checked = radio.value === channel;
