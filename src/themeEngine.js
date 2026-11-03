@@ -229,11 +229,9 @@ function applyTheme(themeName) {
   metaThemeColor.setAttribute('content', themeObj.bg);
 
   // Update drawer swatch & label
-  const modalActiveBadge = document.getElementById('themeModalActiveBadge');
   const drawerSwatch = document.getElementById('drawerThemeSwatch');
   const drawerLabel = document.getElementById('drawerThemeName');
 
-  if (modalActiveBadge) modalActiveBadge.innerText = themeObj.name;
   if (drawerSwatch) drawerSwatch.style.background = themeObj.gradient;
   if (drawerLabel) drawerLabel.innerText = themeObj.name;
 
@@ -271,54 +269,17 @@ export function renderThemeModalGrid(activeThemeId = getCurrentTheme()) {
   });
 }
 
-export function openThemeModal() {
-  const modal = document.getElementById('themeModal');
-  if (!modal) return;
-  renderThemeModalGrid(getCurrentTheme());
-  applySheetAppearance();
-  modal.classList.add('show');
-  modal.style.display = 'flex';
-  document.body.classList.add('modal-open');
-}
-
-export function closeThemeModal() {
-  const modal = document.getElementById('themeModal');
-  if (!modal) return;
-  if (modal.classList.contains('is-closing')) return;
-  modal.classList.add('is-closing');
-  const finishClose = () => {
-    modal.classList.remove('show', 'is-closing');
-    modal.style.display = 'none';
-    document.body.classList.remove('modal-open');
-  };
-  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    finishClose();
-  } else {
-    setTimeout(finishClose, 150);
-  }
+/** Open Settings on the Appearance section, where the finishes live. */
+export async function openThemeSettings() {
+  const panel = document.getElementById('fileMenu');
+  if (!panel) return;
+  const { settingsPanel } = await import('./utils/settingsPanel.js');
+  settingsPanel.show();
+  panel.dispatchEvent(new CustomEvent('settings:section', { detail: 'appearance' }));
 }
 
 export function initTheming() {
   refreshAppearance();
-  const modal = document.getElementById('themeModal');
-  if (modal) {
-    const closeBtns = modal.querySelectorAll('.theme-modal-close-btn');
-    closeBtns.forEach(btn => {
-      btn.addEventListener('click', closeThemeModal);
-    });
-    modal.addEventListener('click', (e) => {
-      if (e.target === modal) {
-        closeThemeModal();
-      }
-    });
-  }
-
-  // Setup top bar trigger
-  const topBarBtn = document.getElementById('topBarThemeBtn');
-  if (topBarBtn) {
-    topBarBtn.addEventListener('click', openThemeModal);
-  }
-
   // Setup sheet mode radio change listeners
   const sheetRadios = document.querySelectorAll('input[name="sheetModeRadio"]');
   sheetRadios.forEach(radio => {
@@ -337,11 +298,4 @@ export function initTheming() {
       }
     });
   }
-
-  // ESC to close modal
-  window.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal && modal.classList.contains('show')) {
-      closeThemeModal();
-    }
-  });
 }

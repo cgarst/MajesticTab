@@ -1994,3 +1994,12 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 
 /* Rows and cards a library search filtered out */
 .lib-filter-hidden { display: none !important; }
+
+/* File converters and finishes live inside Settings: flat rows on tone steps, no outlines */
+.setsec .extension-list-view { display: flex; flex-direction: column; gap: 12px; }
+.setsec .extension-list { overflow: visible; padding: 0; gap: 2px; }
+.setsec .extension-item { border: 0; border-radius: var(--r-control, 8px); background: var(--s1); min-height: 56px; }
+.setsec .extension-item:hover { background: var(--s2); }
+.setsec .extension-empty-state { border: 0; min-height: 56px; background: var(--s1); border-radius: var(--r-control, 8px); }
+.setsec .extension-delete-button { background: transparent; border: 0; }
+.setsec .fin-tile { border: 0; }

@@ -769,36 +769,6 @@
   </div>
 </div>
 
-<!-- Theme Chooser Modal (Ported from concerts) -->
-<div id="themeModal" class="theme-modal-backdrop">
-  <div class="theme-modal-card">
-    <div class="theme-modal-header">
-      <div class="theme-modal-title-group">
-        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
-          <i class="bi-palette-fill text-info"></i>
-        </div>
-        <div class="theme-modal-titles">
-          <h6 class="mb-0 fw-bold text-white text-truncate">Guitar Finish Themes</h6>
-          <small class="text-muted d-none d-sm-block" style="font-size: 0.75rem;">Homages to iconic guitar finishes and ambient stages</small>
-        </div>
-      </div>
-      <div class="theme-modal-actions">
-        <span id="themeModalActiveBadge" class="theme-active-pill d-none d-sm-inline-flex">Mystic Dream</span>
-        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" aria-label="Close modal">
-          <i class="bi-x-lg"></i>
-        </button>
-      </div>
-    </div>
-    <div class="theme-modal-body">
-
-      <!-- Theme Cards Grid -->
-      <div class="theme-modal-grid" id="themeModalGrid">
-        <!-- Populated dynamically by themeEngine.js -->
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Settings page -->
 <div class="settings-page" tabindex="-1" id="fileMenu" aria-labelledby="fileMenuLabel" aria-hidden="true">
   <div class="offcanvas-header">
@@ -841,17 +811,11 @@
 
     <div class="settings-card" id="settingsAppearance">
       <div class="settings-header-label"><i class="bi-palette-fill text-info"></i> Appearance</div>
-      <!-- Colorway Finish Row -->
-      <div class="d-flex align-items-center justify-content-between p-2 rounded-2" style="background: var(--bg-card); border: 1px solid var(--border-subtle);">
-        <div class="d-flex align-items-center gap-2">
-          <span class="theme-swatch-icon" id="drawerThemeSwatch" style="width: 1.25rem; height: 1.25rem;"></span>
-          <span class="small fw-semibold text-white" id="drawerThemeName">Mystic Dream</span>
-        </div>
-        <button type="button" class="btn btn-sm theme-control-btn" onclick="import('./themeEngine.js').then(m => m.openThemeModal())">
-          Change <i class="bi-chevron-right ms-1"></i>
-        </button>
+      <div class="d-flex align-items-center gap-2" id="finishCurrent">
+        <span class="theme-swatch-icon" id="drawerThemeSwatch" style="width: 1.25rem; height: 1.25rem;"></span>
+        <span id="drawerThemeName">Mystic Dream</span>
       </div>
-
+      <div id="themeModalGrid"></div>
     </div>
 
     <div class="settings-card" id="settingsReading">
@@ -924,14 +888,25 @@
 
     </div>
 
+    <div class="settings-card" id="settingsConverters">
+      <div class="extension-list-view" id="extensionListView">
+        <div class="extension-list-toolbar">
+          <span class="small text-white-50" id="extensionCount">0 converters</span>
+          <div class="extension-list-actions">
+            <input class="d-none" id="importExtensionInput" type="file" accept=".js,.mjs,text/javascript,application/javascript">
+            <button class="btn btn-sm btn-theme-outline" id="importExtensionFile" type="button">Add converter</button>
+          </div>
+        </div>
+        <div class="extension-list" id="extensionList" role="list"></div>
+        <div class="small text-white-50" id="extensionManagerStatus" role="status" aria-live="polite">No converters registered</div>
+      </div>
+    </div>
+
     <div class="settings-card" id="settingsControls">
       <div class="settings-header-label"><i class="bi-keyboard text-info"></i> Controls</div>
       <div class="d-flex gap-2" id="secondaryUtilities">
         <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openControllerHelpMenuBtn" type="button">
           <i class="bi-keyboard text-info"></i> Keys and pedals
-        </button>
-        <button class="btn theme-control-btn w-50 d-flex align-items-center justify-content-center gap-2 py-2" id="openExtensions" type="button">
-          <i class="bi-puzzle text-info"></i> File Converters
         </button>
       </div>
     </div>
@@ -1029,38 +1004,6 @@
       <span>Quit MajesticTab</span>
     </button>
   </div>
-</div>
-
-<div id="extensionModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="extensionModalTitle" aria-hidden="true">
-  <section class="theme-modal-card extension-modal-card">
-    <header class="theme-modal-header">
-      <div class="theme-modal-title-group">
-        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
-          <i class="bi-puzzle-fill text-info"></i>
-        </div>
-        <div class="theme-modal-titles">
-          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="extensionModalTitle">File Converters</h2>
-          <small class="text-muted d-none d-sm-block">Sandboxed file transforms</small>
-        </div>
-      </div>
-      <div class="theme-modal-actions">
-        <button type="button" class="brand-btn extension-modal-close-btn p-1 px-2" aria-label="Close File Converters">
-          <i class="bi-x-lg"></i>
-        </button>
-      </div>
-    </header>
-    <div class="theme-modal-body extension-modal-body extension-list-view" id="extensionListView">
-      <div class="extension-list-toolbar">
-        <span class="small text-white-50" id="extensionCount">0 converters</span>
-        <div class="extension-list-actions">
-          <input class="d-none" id="importExtensionInput" type="file" accept=".js,.mjs,text/javascript,application/javascript">
-          <button class="btn theme-control-btn" id="importExtensionFile" type="button"><i class="bi-file-earmark-code me-1"></i>Add Converter</button>
-        </div>
-      </div>
-      <div class="extension-list" id="extensionList" role="list"></div>
-      <div class="small text-info" id="extensionManagerStatus" role="status" aria-live="polite">No converters registered</div>
-    </div>
-  </section>
 </div>
 
 <!-- Game Controller Guide & Interactive Layout Modal -->

@@ -830,23 +830,19 @@ function setupMenuEdgeSwipeGesture() {
 }
 
 function setupExtensionSettings() {
-    const modal = document.getElementById('extensionModal');
-    const openButton = document.getElementById('openExtensions');
     const extensionList = document.getElementById('extensionList');
     const extensionCount = document.getElementById('extensionCount');
     const managerStatus = document.getElementById('extensionManagerStatus');
     const importButton = document.getElementById('importExtensionFile');
     const importInput = document.getElementById('importExtensionInput');
-    const closeButton = modal?.querySelector('.extension-modal-close-btn');
     const extensionsKey = 'customExtensions';
     const legacySourceKey = 'customExtensionSource';
     const legacyEnabledKey = 'customExtensionEnabled';
     const adapterSourceKey = 'customFileAdapterSource';
     const maxSourceBytes = 5 * 1024 * 1024;
 
-    if (!modal || !openButton || !extensionList || !importButton || !importInput) return;
+    if (!extensionList || !importButton || !importInput) return;
 
-    let returnFocusTarget = null;
     let extensions = [];
 
     const extensionLabel = extension => extension.name
@@ -964,41 +960,6 @@ function setupExtensionSettings() {
             extensionList.append(row);
         });
     };
-
-    const openModal = () => {
-        returnFocusTarget = document.getElementById('menuToggleBtn') || openButton;
-        modal.classList.add('show');
-        modal.style.display = 'flex';
-        modal.setAttribute('aria-hidden', 'false');
-        document.body.classList.add('modal-open');
-        renderExtensions();
-        importButton.focus();
-    };
-
-    const closeModal = () => {
-        modal.classList.remove('show');
-        modal.style.display = 'none';
-        modal.setAttribute('aria-hidden', 'true');
-        document.body.classList.remove('modal-open');
-        returnFocusTarget?.focus();
-    };
-
-    openButton.addEventListener('click', () => {
-        const menu = document.getElementById('fileMenu');
-        if (menu?.classList.contains('show')) {
-            menu.addEventListener('settings:hidden', openModal, { once: true });
-            settingsPanel.hide();
-        } else {
-            openModal();
-        }
-    });
-    closeButton?.addEventListener('click', closeModal);
-    modal.addEventListener('click', event => {
-        if (event.target === modal) closeModal();
-    });
-    window.addEventListener('keydown', event => {
-        if (event.key === 'Escape' && modal.classList.contains('show')) closeModal();
-    });
 
     const storedExtensions = localStorage.getItem(extensionsKey);
     if (storedExtensions !== null) {
@@ -1276,7 +1237,7 @@ async function initApp() {
         fileMenu.show();
     }
     if (urlParams.has('modal')) {
-        import('./themeEngine.js').then(m => m.openThemeModal());
+        import('./themeEngine.js').then(m => m.openThemeSettings());
     }
 
     // Create navigation config with getters for dynamic values

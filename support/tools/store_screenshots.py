@@ -361,7 +361,7 @@ def setup_shot(page, base, kind, scale=None):
             fretboardController.showBeatsAtCursor(beat);
         }""")
     elif kind == "themes":
-        page.evaluate("import('/src/themeEngine.js').then(m => m.openThemeModal())")
+        page.evaluate("import('/src/themeEngine.js').then(m => m.openThemeSettings())")
     page.wait_for_timeout(1500)
 
 

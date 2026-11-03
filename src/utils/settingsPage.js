@@ -16,6 +16,7 @@ const SECTIONS = [
     { id: 'appearance', label: 'Appearance', icon: 'bi-palette' },
     { id: 'reading', label: 'Reading', icon: 'bi-book' },
     { id: 'controls', label: 'Controls', icon: 'bi-controller' },
+    { id: 'converters', label: 'File converters', icon: 'bi-puzzle' },
     { id: 'sound', label: 'Sound', icon: 'bi-soundwave' },
     { id: 'library', label: 'Library and backup', icon: 'bi-collection' },
     { id: 'about', label: 'About', icon: 'bi-info-circle' }
@@ -164,13 +165,13 @@ export function initSettingsPage() {
     // ---- gather the existing controls before the old cards are taken apart ----
     const take = (id) => $(id);
     const instrumentGroup = take('instrumentModeGuitar')?.closest('.hud-pill-group');
-    const finishBlock = take('drawerThemeSwatch')?.closest('.d-flex.align-items-center.justify-content-between');
-    const finishChange = finishBlock?.querySelector('button');
+    const finishGrid = take('themeModalGrid');
+    const finishCurrent = take('finishCurrent');
+    const convertersView = take('extensionListView');
     const swatch = take('drawerThemeSwatch');
     const themeName = take('drawerThemeName');
     const defaultsBtn = take('defaultsModalBtn');
     const keysBtn = take('openControllerHelpMenuBtn');
-    const convertersBtn = take('openExtensions');
     const syncBtn = take('syncDataBtn');
     const syncStatus = take('syncStatusLine');
     const backupBtn = take('backupDataBtn');
@@ -220,15 +221,15 @@ export function initSettingsPage() {
     panes.player.appendChild(group('Your neck', makeLeftHandedRow(), makeStringOrderRow()));
 
     // Appearance
-    if (finishChange) {
+    if (finishGrid) {
         const sc = el('div', 'fin-ctl');
         if (swatch) sc.appendChild(swatch);
-        if (themeName) {
-            themeName.classList.remove('small', 'text-white');
-            sc.appendChild(themeName);
-        }
-        finishChange.classList.add('btn-theme-outline');
-        panes.appearance.appendChild(group('Finish', row('Guitar finish', 'Nine finishes, each a flat colour ground and two hues.', sc, finishChange)));
+        if (themeName) sc.appendChild(themeName);
+        finishCurrent?.remove();
+        panes.appearance.appendChild(group('Finish', row('Guitar finish', 'Pick the colour ground for the whole app.', sc)));
+        const g = el('div', 'sgroup');
+        g.appendChild(finishGrid);
+        panes.appearance.appendChild(g);
     }
 
     // Reading: how a new tab opens. The defaults modal's own rows live here now, so there is no second Settings
@@ -289,10 +290,17 @@ export function initSettingsPage() {
 
     // Controls
     const ctl = [];
-    let convertersRow = null;
     if (keysBtn) { keysBtn.classList.remove('w-50', 'py-2'); keysBtn.classList.add('btn-sm'); ctl.push(row('Keys, pedals and gamepad', 'See and test what each key, foot pedal or button does.', keysBtn)); }
-    if (convertersBtn) { convertersBtn.classList.remove('w-50', 'py-2'); convertersBtn.classList.add('btn-sm'); convertersBtn.textContent = 'Manage'; convertersRow = row('File converters', 'Extensions that open other tab formats and import from websites.', convertersBtn); }
     if (ctl.length) panes.controls.appendChild(group('Input', ...ctl));
+
+    // File converters: the list lives in the page, not in a popup
+    if (convertersView) {
+        const g = el('div', 'sgroup');
+        g.appendChild(el('h3', '', 'File converters'));
+        g.appendChild(el('p', 'snote', 'Sandboxed extensions that open other tab formats and import from websites.'));
+        g.appendChild(convertersView);
+        panes.converters.appendChild(g);
+    }
 
     // Sound
     const soundRows = [];
@@ -330,7 +338,6 @@ export function initSettingsPage() {
         return g;
     };
     if (lib.length) panes.library.appendChild(group('Sync', ...lib));
-    if (convertersRow) panes.library.appendChild(group('Open other formats', convertersRow));
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save everything to a file, a folder or your cloud.', 'Open'),
             taskRow('restore', 'Restore from a backup', 'Bring a backup or snapshot back.', 'Open')]));
@@ -372,6 +379,7 @@ export function initSettingsPage() {
     body.appendChild(shell);
 
     function show(id, { focus = false } = {}) {
+        if (!panes[id]) return;
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.section === id)));
         Object.entries(panes).forEach(([k, p]) => { p.hidden = k !== id; });
         wrap.dataset.pane = 'page';
@@ -382,6 +390,8 @@ export function initSettingsPage() {
         const b = e.target.closest('button[data-section]');
         if (b) show(b.dataset.section, { focus: true });
     });
+    // Other code can open a section: panel.dispatchEvent(new CustomEvent('settings:section', { detail: 'appearance' }))
+    panel.addEventListener('settings:section', (e) => show(e.detail, { focus: true }));
     back.addEventListener('click', () => { wrap.dataset.pane = 'list'; });
     // Wide: a section is always showing. Narrow: start on the list.
     const wide = () => window.matchMedia('(min-width: 900px)').matches;

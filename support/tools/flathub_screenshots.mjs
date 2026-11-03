@@ -162,7 +162,7 @@ const SCENES = [
       fretboardController.showBeatsAtCursor(beat);
     })()`),
   },
-  { id: 'theme_palettes', file: '07-theme_palettes.png', run: (page) => page.evaluate(`import('/themeEngine.js').then((m) => m.openThemeModal())`) },
+  { id: 'theme_palettes', file: '07-theme_palettes.png', run: (page) => page.evaluate(`import('/themeEngine.js').then((m) => m.openThemeSettings())`) },
   {
     id: 'jam', file: '08-jam.png', cleanup: [], run: async (page, scene) => {
       await page.evaluate(`(async () => {

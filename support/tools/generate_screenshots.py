@@ -522,7 +522,7 @@ def main():
                 # 13. Theme selector modal
                 if wanted("theme_palettes"):
                     load_file(page, base_url, GP_FILE, "continuous")
-                    page.evaluate("import('/src/themeEngine.js').then(m => m.openThemeModal())")
+                    page.evaluate("import('/src/themeEngine.js').then(m => m.openThemeSettings())")
                     page.wait_for_timeout(1000)
                     save("theme_palettes")
 
