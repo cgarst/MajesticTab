@@ -1,6 +1,6 @@
 // practiceMenu.js
-// The reader's "Practice" button and panel: how you work on the song. Speed, the parts and loop range, the metronome
-// and the count-in. The loop and click controls are the original ones from the old Practice panel (their ids and
+// The reader's "Practice" button and panel: how you work on the song. The metronome and the count-in, speed, the parts
+// and loop range. The loop and click controls are the original ones from the old Practice panel (their ids and
 // handlers are untouched); this file moves them here. Speed acts on whichever sound is playing: the synth, or a recording.
 // The dock keeps the transport, the Synth | Recording switch and a Volume popover.
 
@@ -50,7 +50,7 @@ export function initPracticeMenu() {
     const sections = $('synthSectionsContainer');
     const sectionsLabel = sections?.querySelector('label.form-label');
     if (sectionsLabel) sectionsLabel.textContent = 'Parts';
-    menu.replaceChildren(...[head, speed, sections, loopBlock, clickBlock].filter(Boolean));
+    menu.replaceChildren(...[head, clickBlock, speed, sections, loopBlock].filter(Boolean));
 
     // ---- Open, close, placement ----
     const isOpen = () => isShown(menu);
