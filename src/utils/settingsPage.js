@@ -6,8 +6,6 @@
 // reader's View and Guitar panels override them for the song that is open.
 
 import { getDefaultGpNotationMode, setGpNotationMode } from '../gpProcessor/gpProcessor.js';
-import { getUsualGuitar, setUsualGuitar, getAdaptTuningOptions } from './tabAdapter.js';
-import { getInstrumentMode } from './tuningUtils.js';
 import { brandMarkSvg } from '../brandMark.js';
 import { canQuitApp } from './quitApp.js';
 
@@ -75,30 +73,6 @@ function makeNotationDefault() {
         seg.appendChild(b);
     });
     return seg;
-}
-
-/** Tuning, method and capo of the guitar every song opens on. "As written" means no fit. */
-function makeUsualGuitar() {
-    const wrap = el('div', 'usual-guitar');
-    const usual = getUsualGuitar();
-    const select = el('select', 'form-select form-select-sm');
-    select.setAttribute('aria-label', 'Usual tuning');
-    select.innerHTML = '<option value="">As written</option>' + getAdaptTuningOptions(getInstrumentMode())
-        .map((t) => `<option value="${t.shortName}"${usual?.tuningName === t.shortName ? ' selected' : ''}>${t.name}</option>`).join('');
-    const method = el('select', 'form-select form-select-sm');
-    method.setAttribute('aria-label', 'How to fit');
-    [['shift', 'Shift frets'], ['capo', 'Capo'], ['transpose', 'Transpose']].forEach(([v, label]) => {
-        const o = el('option'); o.value = v; o.textContent = label; if ((usual?.method || 'shift') === v) o.selected = true; method.appendChild(o);
-    });
-    const save = () => {
-        method.disabled = !select.value;
-        setUsualGuitar(select.value ? { enabled: true, tuningName: select.value, method: method.value, capo: 'auto' } : null);
-    };
-    select.addEventListener('change', save);
-    method.addEventListener('change', save);
-    method.disabled = !select.value;
-    wrap.append(select, method);
-    return wrap;
 }
 
 // ---- Neck preferences: one place for the fretboard dock and the reference library's chord diagrams ----
@@ -173,7 +147,6 @@ export function initSettingsPage() {
     const swatch = take('drawerThemeSwatch');
     const themeName = take('drawerThemeName');
     const defaultsBtn = take('defaultsModalBtn');
-    const keysBtn = take('openControllerHelpMenuBtn');
     const syncBtn = take('syncDataBtn');
     const syncStatus = take('syncStatusLine');
     const backupBtn = take('backupDataBtn');
@@ -252,13 +225,12 @@ export function initSettingsPage() {
         const stringGroup = defaultRows('Usual strings', 1, ['Show 6 strings, or 7 or 8 for extended range guitars. "From file" keeps what the tab was saved with.', 'Show 4 strings, or 5 or 6 for extended range basses.']);
         if (viewGroup) panes.reading.appendChild(viewGroup);
         panes.reading.appendChild(group('Notation', row('A new tab shows', 'Tab only, or tab with the standard staff above it. Change it for one song in View.', makeNotationDefault())));
-        panes.reading.appendChild(group('Usual guitar', row('Every song opens fitted to', 'Pick the tuning of the guitar you normally play and songs in other tunings are re-fingered for it. Change it for one song in Guitar.', makeUsualGuitar())));
-        if (stringGroup) panes.reading.appendChild(stringGroup);
+        if (stringGroup) panes.player.appendChild(stringGroup);
         const resetBtn = $('defaultsResetBtn');
         if (resetBtn) {
-            resetBtn.className = 'btn btn-sm btn-theme-outline';
+            resetBtn.className = 'btn btn-sm srow-ghost';
             resetBtn.textContent = 'Reset';
-            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Scroll for score and text, Page for PDF, and strings from the file.', resetBtn)));
+            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Scroll for score and text, Page for PDF, and usual strings from the file (in Player).', resetBtn)));
         }
         defaultsBtn.remove();
         defaultsModal?.remove();
@@ -290,10 +262,15 @@ export function initSettingsPage() {
         panes.reading.appendChild(group('Song sections', row('Minimum section size', 'Shorter labeled sections are joined with adjacent parts.', makeMinBarsSelector())));
     }
 
-    // Controls
-    const ctl = [];
-    if (keysBtn) { keysBtn.classList.remove('w-50', 'py-2'); keysBtn.classList.add('btn-sm'); ctl.push(row('Keys, pedals and gamepad', 'See and test what each key, foot pedal or button does.', keysBtn)); }
-    if (ctl.length) panes.controls.appendChild(group('Input', ...ctl));
+    // Controls: the key, pedal and gamepad reference lives in the page, not in a popup
+    const controlsRef = take('controllerHelpModal');
+    if (controlsRef) {
+        const g = el('div', 'sgroup');
+        g.appendChild(el('h3', '', 'Keys, pedals and gamepad'));
+        g.appendChild(el('p', 'snote', 'What each key, foot pedal or controller button does.'));
+        g.appendChild(controlsRef);
+        panes.controls.appendChild(g);
+    }
 
     // File converters: the list lives in the page, not in a popup
     if (convertersView) {

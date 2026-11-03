@@ -867,6 +867,8 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 .srow .st b { display: block; font-weight: 500; font-size: 15px; color: var(--ink); }
 .srow .st span { display: block; font-size: 13px; color: var(--ink2); max-width: 48ch; }
 .srow .sc { flex: none; display: flex; gap: 8px; align-items: center; }
+.srow .srow-ghost { background: transparent; border: 0; box-shadow: none; color: var(--ink2); font-weight: 500; }
+.srow .srow-ghost:hover:not(:disabled) { background: var(--s3); color: var(--ink); }
 .fin-ctl { display: inline-flex; align-items: center; gap: 8px; }
 .fin-ctl #drawerThemeName { font-weight: 600; }
 .snote { margin: 8px 2px 0; font-size: 13px; color: var(--ink2); max-width: 52ch; }
@@ -2419,3 +2421,9 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .jam-modal-body .form-switch .form-check-label { padding-left: 0.5rem; }
 .jam-modal-body .form-switch { min-height: 44px; display: flex; align-items: center; }
 .jam-matrix-cell.btn-theme-outline { background: color-mix(in srgb, var(--ink) 14%, var(--s2)) !important; }
+
+/* Controls reference inside Settings: flat tone steps, no outlines or hairlines */
+#controllerHelpModal .controller-ref-card { background: var(--s1); border: 0; border-radius: var(--r-card); }
+#controllerHelpModal .controller-ref-title { border-bottom: 0; }
+#controllerHelpModal .controller-ref-item { border-bottom: 0 !important; }
+#controllerHelpModal .controls-tab-bar { border-bottom: 0; justify-content: flex-start !important; }

@@ -155,12 +155,6 @@ class GamepadManager {
         });
 
         // Setup close button on Controller Help Modal
-        const closeBtn = document.getElementById('controllerHelpModalCloseBtn');
-        closeBtn?.addEventListener('click', () => this.closeHelpModal());
-        const modalBackdrop = document.getElementById('controllerHelpModal');
-        modalBackdrop?.addEventListener('click', (e) => {
-            if (e.target === modalBackdrop) this.closeHelpModal();
-        });
 
         // Top bar pill trigger
         const pillBtn = document.getElementById('controllerHelpBtn');
@@ -173,13 +167,6 @@ class GamepadManager {
             });
         });
 
-        // Drawer menu trigger
-        const drawerBtn = document.getElementById('openControllerHelpMenuBtn');
-        drawerBtn?.addEventListener('click', () => {
-            // Dismiss offcanvas drawer first if needed
-            settingsPanel.hide();
-            this.openHelpModal('keyboard');
-        });
 
         // Check if gamepads are already available (e.g. page refreshed with controller plugged in)
         this.scanExistingGamepads();
@@ -1447,8 +1434,10 @@ class GamepadManager {
         return false;
     }
 
+    /** The controls reference is the Controls section of the Settings page. */
     isHelpModalOpen() {
-        return Boolean(this.controllerModal && this.controllerModal.style.display === 'flex');
+        const wrap = document.querySelector('#fileMenu .setwrap');
+        return Boolean(settingsPanel.isOpen() && wrap && wrap.dataset.section === 'controls' && wrap.dataset.pane === 'page');
     }
 
     isLibraryViewOpen() {
@@ -1468,27 +1457,15 @@ class GamepadManager {
     }
 
     openHelpModal(tab) {
-        if (!this.controllerModal) {
-            this.controllerModal = document.getElementById('controllerHelpModal');
-        }
-        if (!this.controllerModal) return;
-
-        this.setControlsTab(tab || (this.controllerModal.dataset.controlsTab) || 'keyboard');
-
-        this.controllerModal.classList.add('show');
-        this.controllerModal.style.display = 'flex';
-        document.body.classList.add('modal-open');
+        const panel = document.getElementById('fileMenu');
+        if (!panel) return;
+        this.setControlsTab(tab || this.controllerModal?.dataset.controlsTab || 'keyboard');
+        settingsPanel.show();
+        panel.dispatchEvent(new CustomEvent('settings:section', { detail: 'controls' }));
     }
 
     closeHelpModal() {
-        if (!this.controllerModal) {
-            this.controllerModal = document.getElementById('controllerHelpModal');
-        }
-        if (!this.controllerModal) return;
-
-        this.controllerModal.classList.remove('show');
-        this.controllerModal.style.display = 'none';
-        document.body.classList.remove('modal-open');
+        settingsPanel.hide();
     }
 
     toggleHelpModal(tab) {
