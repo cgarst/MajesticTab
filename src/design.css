@@ -1047,7 +1047,7 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 /* Tap to sync dock */
 .sync-mode-bar {
   position: fixed !important;
-  bottom: 0 !important;
+  bottom: var(--dock-h, 0px) !important;
   top: auto !important;
   left: 0 !important;
   right: 0 !important;
