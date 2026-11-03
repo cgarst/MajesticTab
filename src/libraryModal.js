@@ -1778,6 +1778,8 @@ export function libraryViewSwitchHtml(activeTab = null) {
 // Shared chrome for every library view: centered view switcher, then its own search box, then (below, via
 // libraryListToolbarHtml) a count on the left and the primary action on the right.
 export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, searchLabel, searchDisabled = false }) {
+    // On a phone the box is narrow: the icon says it is search, so the hint is one word
+    if (window.matchMedia?.('(max-width: 576px)').matches) placeholder = 'Search';
     return `<div class="lib-view-switch-row">${libraryViewSwitchHtml(activeTab)}</div>
       <div class="library-search-box mb-3">
         <div class="library-search-bar">
@@ -1959,7 +1961,8 @@ function syncLibraryBottomNav() {
                         panel.addEventListener('settings:hidden', syncLibraryBottomNav);
                     }
                     closeToolsMenu();
-                    settingsPanel.toggle();
+                    // A destination, not a switch: tapping it again stays on Settings
+                    settingsPanel.show();
                     syncLibraryBottomNav();
                 }
             }

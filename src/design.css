@@ -1433,7 +1433,11 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
   body.library-view-active #practiceToggleBtn,
   body.library-view-active #moreToggleBtn,
   body.library-view-active #fullscreenToggleBtn { display: none !important; }
-  body.library-view-active.settings-as-page #topBar { display: none !important; }
+  /* Settings keeps the bar above it like every other page */
+  html body.settings-as-page.library-view-active #fileMenu { top: var(--topbar-h, 57px) !important; height: calc(100% - var(--topbar-h, 57px)); bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  /* While you search, the list actions step aside so the box gets the whole row */
+  .library-page-container:has(.search-clear-btn:not([style*="none"])) .library-list-toolbar > div:last-child { display: none; }
+  .library-page-container:has(.search-clear-btn:not([style*="none"])) { column-gap: 0; }
 }
 
 /* Recents: one flat row, the row opens the tab */
@@ -1988,6 +1992,11 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
     transition: transform var(--dur-base) var(--ease-out);
   }
   body:not(.library-view-active).chrome-hidden #topFlexZone { transform: translateY(100%); }
+  /* Scrolling down clears all of the chrome: top bar, transport and the bottom row */
+  body:not(.library-view-active) #topBar { transition: transform var(--dur-base) var(--ease-out), margin-top var(--dur-base) var(--ease-out); }
+  body:not(.library-view-active).chrome-hidden #topBar { transform: translateY(-100%); margin-top: -57px; }
+  body:not(.library-view-active).chrome-hidden .mobile-playback-dock.has-audio-sources { transform: translateY(calc(100% + 56px)); pointer-events: none; }
+  body:not(.library-view-active) .mobile-playback-dock.has-audio-sources { transition: transform var(--dur-base) var(--ease-out); }
   body:not(.library-view-active) #topFlexZone .hud-pill-group, body:not(.library-view-active) #topFlexZone .rbar-item { flex: 1 1 0; display: flex; min-width: 0; }
   body:not(.library-view-active) #topFlexZone .btn { flex: 1; min-height: 56px; padding-inline: 2px !important; justify-content: center; border-radius: 0 !important; }
   body:not(.library-view-active) #fullscreenPill, body:not(.library-view-active) #jamLivePill { display: none !important; }
