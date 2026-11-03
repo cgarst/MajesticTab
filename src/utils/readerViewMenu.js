@@ -86,7 +86,7 @@ function initTracksMenu() {
     sync();
 }
 
-// The View menu reads: Paper, Layout, Notation, pages shown in landscape, page turn, Size.
+// The View menu reads: Size, Paper, Layout, Notation, pages shown in landscape, page turn.
 // The four original groups keep their controls and ids; this only reorders and relabels them.
 function arrangeViewOptions(root) {
     const groups = Array.from(root.children).filter((el) => el.tagName === 'DIV');
@@ -156,7 +156,7 @@ function arrangeViewOptions(root) {
         });
     }
 
-    const order = [paper, layout, notation, landscape, advance, size].filter(Boolean);
+    const order = [size, paper, layout, notation, landscape, advance].filter(Boolean);
     root.innerHTML = '';
     order.forEach((el) => root.appendChild(el));
 }
