@@ -7,6 +7,7 @@ import { showToast } from './toast.js';
 import { isTvMode } from '../tvMode.js';
 import { getDefaultGpDisplayScalePercent } from '../gpProcessor/gpProcessor.js';
 import { performAppBack } from './navigationUtils.js';
+import { isIOSDevice } from './iosAudioUnlock.js';
 
 // Controller configuration constants
 const STICK_DEADZONE = 0.18;
@@ -131,9 +132,9 @@ class GamepadManager {
         window.addEventListener('gamepaddisconnected', (e) => this.handleGamepadDisconnected(e.gamepad));
 
         // Setup mouse / pointer movement listener to temporarily peek HUD when hidden
-        window.addEventListener('mousemove', () => this.handlePointerActivity());
-        window.addEventListener('touchstart', () => {
-            this.handlePointerActivity();
+        window.addEventListener('mousemove', (e) => this.handlePointerActivity(e.clientY));
+        window.addEventListener('touchstart', (e) => {
+            this.handlePointerActivity(e.touches?.[0]?.clientY);
             this.lastInputWasNavigation = false;
             this.clearNavFocus();
         }, { passive: true });
@@ -735,7 +736,7 @@ class GamepadManager {
                     mobileDock.classList.remove('hud-leaving');
                 }, 150);
             }
-            showToast('Bars hidden (Zen mode) — Press Z or (Y) to restore', 'info', 2000);
+            showToast(this.zenHint(), 'info', 4000);
         } else {
             this.topBar.classList.remove('hud-hidden', 'hud-transient');
             clearTimeout(this.hudDockTimeout);
@@ -754,10 +755,25 @@ class GamepadManager {
     }
 
     /**
+     * The Zen mode toast: how to bring the bars back, naming only what this device has.
+     */
+    zenHint() {
+        const touch = isIOSDevice() || /Android/i.test(navigator.userAgent) || window.matchMedia?.('(pointer: coarse)').matches;
+        const ways = [`${touch ? 'tap' : 'click'} the top or bottom of the screen`];
+        if (!touch) ways.push('press Z');
+        if (this.connectedGamepads.size > 0) ways.push('press (Y)');
+        const list = ways.length > 1 ? `${ways.slice(0, -1).join(', ')} or ${ways[ways.length - 1]}` : ways[0];
+        return `Bars hidden. To show them, ${list}`;
+    }
+
+    /**
      * Temporarily peek the top bar when mouse/touch moves in Zen Mode
      */
-    handlePointerActivity() {
+    handlePointerActivity(clientY) {
         if (!this.isHudHidden || !this.topBar) return;
+        // Only the very top or bottom of the screen brings the bars back; a tap on the score leaves them hidden
+        const edge = 48;
+        if (!Number.isFinite(clientY) || (clientY > edge && clientY < window.innerHeight - edge)) return;
 
         const mobileDock = document.getElementById('mobilePlaybackDock');
         this.topBar.classList.add('hud-transient');
