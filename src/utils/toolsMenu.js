@@ -144,7 +144,7 @@ export function initToolsMenu() {
         });
     });
 
-    // ---- Keyboard shortcuts (R: Chord library, T: Tuner) ---------------
+    // ---- Keyboard shortcuts (T: Tuner) ---------------
 
     const isTypingTarget = (el) => Boolean(el) && (
         (el.tagName === 'INPUT' && !['radio', 'checkbox', 'button', 'submit', 'range'].includes(el.type)) ||
@@ -155,17 +155,11 @@ export function initToolsMenu() {
     window.addEventListener('keydown', async (e) => {
         if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || isTypingTarget(document.activeElement)) return;
         const key = e.key.toLowerCase();
-        if (key !== 'r' && key !== 't') return;
+        if (key !== 't') return;
         e.preventDefault();
-        if (key === 'r') {
-            const ref = await import('../referenceLibrary.js');
-            if (ref.isReferenceOpen()) ref.closeReferenceModal();
-            else if (!document.body.classList.contains('modal-open') && !$('tunerToggleBtn')?.classList.contains('active')) ref.openReferenceModal();
-        } else {
-            const tunerOpen = $('tunerToggleBtn')?.classList.contains('active');
-            if (tunerOpen) (await import('../tuner/tuner.js')).closeTunerModal();
-            else if (!document.body.classList.contains('modal-open')) $('tunerToggleBtn')?.click();
-        }
+        const tunerOpen = $('tunerToggleBtn')?.classList.contains('active');
+        if (tunerOpen) (await import('../tuner/tuner.js')).closeTunerModal();
+        else if (!document.body.classList.contains('modal-open')) $('tunerToggleBtn')?.click();
     });
 
     forward('jamLiveBtn', 'jamToggleBtn');
