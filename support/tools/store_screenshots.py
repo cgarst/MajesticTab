@@ -12,12 +12,13 @@ Usage:
     python3 tools/store_screenshots.py play                    # all Google Play phone shots (tab zoom 50%)
     python3 tools/store_screenshots.py play-tablet-7           # Play 7-inch tablet shots (also play-tablet-10, play-tv, play-desktop)
     python3 tools/store_screenshots.py msstore                 # all Microsoft Store desktop shots
+    python3 tools/store_screenshots.py play-all                # every Play device type (phone, 7" and 10" tablet, TV, Chromebook), one run
     python3 tools/store_screenshots.py play --only gp_scroll   # one shot
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
     python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist
 
 Output: support/store/<channel>/<NN>-<shot>.png , raw captures under .../raw/.
-Add a store by adding an entry to STORES (device profile, final size; `channel` is the id from build/channels.mjs and
+Add a store by adding an entry to STORES (device profile, `device` bezel: phone, iphone, tablet, laptop or tv; final size; `channel` is the id from build/channels.mjs and
 defaults to the entry's own name, `out` is the folder under support/store/).
 """
 import argparse
@@ -26,6 +27,7 @@ import functools
 import io
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -46,6 +48,7 @@ FRONTEND_DIR = TAURI_DIR / "frontend-dist"
 # Capture viewport is CSS px; final is the store's required pixel size.
 STORES = {
     "play": {
+        "device": "phone",
         "viewport": {"width": 390, "height": 700},
         "scale": 3,
         "user_agent": "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36",
@@ -55,6 +58,7 @@ STORES = {
     },
     # Play tablet and Chromebook/desktop shots: landscape 16:9 (how a tab stand is used), each side 320-3840 px. Same `play` build as the phone.
     "play-tablet-7": {
+        "device": "tablet",
         "channel": "play",
         "out": "../../fastlane/metadata/android/en-US/images/sevenInchScreenshots",
         "tab_scale": 50,
@@ -64,6 +68,7 @@ STORES = {
         "final": (1920, 1080),
     },
     "play-desktop": {
+        "device": "laptop",
         "channel": "play",
         "out": "play/desktop",
         "viewport": {"width": 1440, "height": 810},
@@ -73,6 +78,7 @@ STORES = {
         "final": (1920, 1080),
     },
     "play-tablet-10": {
+        "device": "tablet",
         "channel": "play",
         "out": "../../fastlane/metadata/android/en-US/images/tenInchScreenshots",
         "tab_scale": 80,
@@ -83,6 +89,7 @@ STORES = {
     },
     # Play Android TV shots: 1920x1080 landscape, no touch. The real shell sets these root classes from AndroidTv.isTelevision() (src/tvMode.js).
     "play-tv": {
+        "device": "tv",
         "channel": "play",
         "out": "../../fastlane/metadata/android/en-US/images/tvScreenshots",
         "tab_scale": 80,
@@ -95,6 +102,7 @@ STORES = {
         "no_fullscreen": True,
     },
     "appstore-ios": {
+        "device": "iphone",
         # iPhone 6.9" (16 Pro Max) logical width; height matched to visible frame so bottom docks aren't cropped.
         "viewport": {"width": 440, "height": 840},
         "scale": 3,
@@ -106,6 +114,7 @@ STORES = {
         "no_fullscreen": True,
     },
     "msstore": {
+        "device": "laptop",
         # Microsoft Store desktop: 16:9, 1366x768 to 3840x2160.
         "viewport": {"width": 1440, "height": 810},
         "scale": 2,
@@ -174,10 +183,23 @@ with open(Path(__file__).with_name("demo_library.json")) as _f:
 FIXTURE = "Duo No 2 In G Major.gp5"
 
 
+COVER_CACHE = OUT_ROOT / ".cover-cache"
+
+
+def cover_data_url(artist, album):
+    """The invented album sleeve cached for this album (shared with flathub_screenshots.mjs), as a data URL."""
+    slug = re.sub(r"[^\w]", "_", f"{artist}_{album}").lower()
+    f = COVER_CACHE / f"{slug}.jpg"
+    if not f.exists():
+        raise SystemExit(f"Missing {f}: the demo album sleeves live in support/store/.cover-cache")
+    return "data:image/jpeg;base64," + base64.b64encode(f.read_bytes()).decode("ascii")
+
+
 def seed_library(page, base):
-    """Replace the library with the invented demo artists (no artwork: the app draws its flat letter tiles)."""
+    """Replace the library with the invented demo artists and their cached album sleeves."""
+    covers = {f"{a}|{al}": cover_data_url(a, al) for a, albums in _demo["library"].items() for al in albums}
     page.goto(f"{base}/src/", wait_until="load", timeout=60000)
-    page.evaluate("""async (d) => {
+    page.evaluate("""async ([d, covers]) => {
         const m = await import('/src/libraryStore.js');
         for (const s of await m.getSongsByCollection()) await m.deleteSongFromLibrary(s.id);
         await m.clearRecents();
@@ -188,14 +210,14 @@ def seed_library(page, base):
                 year += 2; let tn = 1;
                 for (const title of tracks) {
                     const tuning = d.tunings[i++ % d.tunings.length];
-                    const song = await m.saveSongToLibrary({ title, artist, album, year, trackNumber: tn++, tunings: [tuning], stringCount: /^7/.test(tuning) ? 7 : 6 });
+                    const song = await m.saveSongToLibrary({ title, artist, album, year, trackNumber: tn++, coverUrl: covers[artist + '|' + album], tunings: [tuning], stringCount: /^7/.test(tuning) ? 7 : 6 });
                     k++; if (k % 4 === 0) continue;
                     const ft = ['gp', 'gp', 'pdf', 'gp', 'txt'][k % 5], ext = { gp: 'gp5', pdf: 'pdf', txt: 'txt' }[ft];
                     await m.addTabOptionToSong(song.id, { name: title + '.' + ext, fileType: ft, tuning, stringCount: song.stringCount, isDefault: true, fileStoreId: 'demo_' + song.id });
                 }
             }
         }
-    }""", _demo)
+    }""", [_demo, covers])
 
 
 JAM_MOCK = ROOT / "tests" / "jam" / "mockTauri.js"
@@ -321,7 +343,9 @@ def setup_shot(page, base, kind):
 
 # --- Composition -----------------------------------------------------------------------------------
 # A flat frame in the app's Slate Blue tokens: --s1 behind, the capture one tone step up (--ground), a big Barlow Condensed
-# headline, one grey subtitle, left aligned. No gradient, glow, shadow, bezel or hairline. The capture bleeds off the bottom.
+# headline, one grey subtitle, left aligned. The capture sits in a flat device bezel for the device it was taken on (phone with
+# punch-hole camera, iPhone with Dynamic Island, tablet, laptop with base, TV with feet), built from tone steps only:
+# no gradient, glow, shadow or hairline.
 
 FONTS_DIR = ROOT / "docs" / "fonts"
 FRAME_CSS = """
@@ -332,11 +356,96 @@ html, body { width: %(w)dpx; height: %(h)dpx; overflow: hidden; background: var(
 body { position: relative; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
 h1 { position: absolute; left: %(m)dpx; right: %(m)dpx; top: %(top)dpx; font: 600 %(hs)dpx/1.0 'Barlow Condensed', 'Arial Narrow', sans-serif; letter-spacing: -0.005em; }
 p { position: absolute; left: %(m)dpx; right: %(m)dpx; top: %(ptop)dpx; font-size: %(ps)dpx; line-height: 1.35; color: var(--ink2); }
-img { position: absolute; left: %(ix)dpx; top: %(iy)dpx; width: %(iw)dpx; background: var(--ground); border-radius: %(r)dpx; }
+.d { position: absolute; }
+img { position: absolute; background: var(--ground); }
 """
 
+# Bezel tones: the rim is one step above the app's ground, the glass surround is near black.
+RIM, GLASS = "#2a3448", "#05070b"
 
-def compose(page, raw_path, out_path, size, headline, subtitle):
+
+def device_layout(kind, a, avail_w, avail_h):
+    """Size a flat device around a screen of aspect `a` (w/h) so the whole device fits avail_w x avail_h."""
+    if kind in ("phone", "iphone"):
+        def build(sw):
+            return dict(sw=sw, sh=sw / a, bz=(0.032 * sw,) * 4, rim=0.009 * sw, sr=(0.15 if kind == "iphone" else 0.105) * sw, extra=0)
+    elif kind == "tablet":
+        def build(sw):
+            sh = sw / a
+            return dict(sw=sw, sh=sh, bz=(0.05 * sh,) * 4, rim=0.006 * sh, sr=0.03 * sh, extra=0)
+    elif kind == "laptop":
+        def build(sw):
+            sh = sw / a
+            return dict(sw=sw, sh=sh, bz=(0.022 * sh, 0.034 * sh, 0.022 * sh, 0.03 * sh), rim=0.006 * sh, sr=0.008 * sh, extra=0.05 * sh)
+    else:  # tv
+        def build(sw):
+            sh = sw / a
+            return dict(sw=sw, sh=sh, bz=(0.009 * sh,) * 4, rim=0.004 * sh, sr=0, extra=0.075 * sh)
+
+    def total(d):
+        w = d["sw"] + d["bz"][0] + d["bz"][2] + 2 * d["rim"]
+        h = d["sh"] + d["bz"][1] + d["bz"][3] + 2 * d["rim"] + d["extra"]
+        return (w * 1.07 if kind == "laptop" else w), h  # a laptop's base is wider than its lid
+    lo, hi = 10.0, 20000.0
+    for _ in range(40):
+        mid = (lo + hi) / 2
+        w, h = total(build(mid))
+        lo, hi = (mid, hi) if w <= avail_w and h <= avail_h else (lo, mid)
+    d = build(lo)
+    d["total"] = total(d)
+    return d
+
+
+def _box(x, y, w, h, color, radius="0"):
+    return f"<div class=d style='left:{x:.1f}px;top:{y:.1f}px;width:{w:.1f}px;height:{h:.1f}px;background:{color};border-radius:{radius}'></div>"
+
+
+def device_html(kind, d, x, y, data_uri):
+    """Flat device with its total box's top-left at x, y: rim, glass, the screenshot, then the device's own details."""
+    rim, (bl, bt, br, bb) = d["rim"], d["bz"]
+    sw, sh = d["sw"], d["sh"]
+    bw, bh = sw + bl + br + 2 * rim, sh + bt + bb + 2 * rim
+    tw, _ = d["total"]
+    bx = x + (tw - bw) / 2  # centre the lid over a laptop's wider base
+    gr = d["sr"] + max(bl, bt)
+    sx, sy = bx + rim + bl, y + rim + bt
+    p = [_box(bx, y, bw, bh, RIM, f"{gr + rim:.1f}px"),
+         _box(bx + rim, y + rim, bw - 2 * rim, bh - 2 * rim, GLASS, f"{gr:.1f}px"),
+         f"<img src='{data_uri}' style='left:{sx:.1f}px;top:{sy:.1f}px;width:{sw:.1f}px;height:{sh:.1f}px;border-radius:{d['sr']:.1f}px'>"]
+    if kind == "phone":  # punch-hole camera, power and volume keys
+        c = 0.034 * sw
+        p.append(_box(sx + (sw - c) / 2, sy + 0.022 * sw, c, c, GLASS, "50%"))
+        kw = 0.012 * sw
+        for ky, kh in ((0.30, 0.09), (0.45, 0.18)):
+            p.append(_box(bx + bw - 0.2 * kw, y + ky * bh, kw, kh * bh, RIM, f"{kw / 2:.1f}px"))
+    elif kind == "iphone":  # Dynamic Island, action, volume and side buttons
+        iw, ih = 0.27 * sw, 0.078 * sw
+        p.append(_box(sx + (sw - iw) / 2, sy + 0.028 * sw, iw, ih, GLASS, f"{ih / 2:.1f}px"))
+        kw = 0.012 * sw
+        for ky, kh in ((0.17, 0.04), (0.24, 0.07), (0.33, 0.07)):
+            p.append(_box(bx - 0.8 * kw, y + ky * bh, kw, kh * bh, RIM, f"{kw / 2:.1f}px"))
+        p.append(_box(bx + bw - 0.2 * kw, y + 0.27 * bh, kw, 0.11 * bh, RIM, f"{kw / 2:.1f}px"))
+    elif kind == "tablet":  # front camera in the bezel
+        c = 0.016 * sh
+        p.append(_box(sx + (sw - c) / 2, y + rim + bt / 2 - c / 2, c, c, RIM, "50%"))
+    elif kind == "laptop":  # webcam in the lid, then the base with its finger notch
+        c = 0.012 * sh
+        p.append(_box(sx + (sw - c) / 2, y + rim + bt / 2 - c / 2, c, c, RIM, "50%"))
+        bh2 = d["extra"]
+        p.append(_box(x, y + bh, tw, bh2, RIM, f"0 0 {bh2:.1f}px {bh2:.1f}px / 0 0 {bh2 * 0.8:.1f}px {bh2 * 0.8:.1f}px"))
+        nw, nh = tw * 0.16, bh2 * 0.45
+        p.append(_box(x + (tw - nw) / 2, y + bh, nw, nh, GLASS, f"0 0 {nh:.1f}px {nh:.1f}px"))
+    else:  # tv: a centre pedestal, a short neck on a wide flat base
+        fh = d["extra"]
+        cx, top = bx + bw / 2, y + bh
+        nw, nh = bw * 0.08, fh * 0.6
+        p.append(_box(cx - nw / 2, top - 1, nw, nh + 1, RIM))
+        base_w, base_h = bw * 0.3, fh * 0.4
+        p.append(_box(cx - base_w / 2, top + nh, base_w, base_h, RIM, f"{base_h / 2:.1f}px"))
+    return "".join(p)
+
+
+def compose(page, raw_path, out_path, size, headline, subtitle, device):
     """Render the frame as a page in the capture browser and screenshot it at the store's pixel size."""
     from PIL import Image
     W, H = size
@@ -351,14 +460,15 @@ def compose(page, raw_path, out_path, size, headline, subtitle):
     ps = round((38 if portrait else 30) * k)
     sub_lines = 2 if len(subtitle) > (40 if portrait else 70) else 1
     iy = ptop + round(ps * 1.35 * sub_lines + (36 if portrait else 28) * k)
-    # The whole capture is shown (the bottom row of buttons is part of the story), as large as the space left allows.
-    ih = H - iy - (m if portrait else round(44 * k))
-    iw = min(W - 2 * m, round(ih * cap.width / cap.height))
-    ix = (W - iw) // 2
-    css = FRAME_CSS % dict(fonts=FONTS_DIR.as_uri(), w=W, h=H, m=m, top=top, ptop=ptop, hs=hs, ps=ps, ix=ix, iy=iy, iw=iw, r=round((48 if portrait else 24) * k))
+    # The whole capture is shown inside its device, as large as the space left allows.
+    bottom = m if portrait else round(44 * k)
+    d = device_layout(device, cap.width / cap.height, W - 2 * m, H - iy - bottom)
+    dx = (W - d["total"][0]) / 2
+    dy = iy + (H - iy - bottom - d["total"][1]) / 2
+    css = FRAME_CSS % dict(fonts=FONTS_DIR.as_uri(), w=W, h=H, m=m, top=top, ptop=ptop, hs=hs, ps=ps)
     data = base64.b64encode(Path(raw_path).read_bytes()).decode("ascii")
     html = (f"<!doctype html><meta charset=utf-8><style>{css}</style><h1>{headline}</h1><p>{subtitle}</p>"
-            f"<img src='data:image/png;base64,{data}'>")
+            f"{device_html(device, d, dx, dy, 'data:image/png;base64,' + data)}")
     page.set_viewport_size({"width": W, "height": H})
     page.set_content(html, wait_until="load")
     page.evaluate("document.fonts.ready")
@@ -367,29 +477,45 @@ def compose(page, raw_path, out_path, size, headline, subtitle):
     page.screenshot(path=str(out_path), full_page=False)
 
 
+# Groups of stores run together by one name. play-all is every Google Play device type (they share one `play` build).
+GROUPS = {"play-all": ["play", "play-tablet-7", "play-tablet-10", "play-tv", "play-desktop"]}
+_prepared = None  # channel whose frontend is currently in build/tauri/frontend-dist
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("channel", choices=STORES)
+    ap.add_argument("channel", choices=[*STORES, *GROUPS], help="A store, or `play-all` for every Google Play device type in one run")
     ap.add_argument("--only", nargs="*", help="Only these shot ids")
     ap.add_argument("--no-prepare", action="store_true", help="Reuse build/tauri/frontend-dist as is")
     ap.add_argument("--raw", action="store_true", help="Keep unframed captures in raw/")
     ap.add_argument("--out-dir", default=None)
     args = ap.parse_args()
+    if args.channel not in GROUPS:
+        return run_store(args, args.channel)
+    if args.out_dir:
+        ap.error("--out-dir cannot be used with a group")
+    for name in GROUPS[args.channel]:
+        print(f"=== {name} ===", flush=True)
+        run_store(args, name)
 
+
+def run_store(args, name):
+    global _prepared
     from playwright.sync_api import sync_playwright
 
-    store = STORES[args.channel]
-    channel = store.get("channel", args.channel)
+    store = STORES[name]
+    channel = store.get("channel", name)
     cfg = resolve_channel(channel)
-    out = Path(args.out_dir).resolve() if args.out_dir else OUT_ROOT / store.get("out", args.channel)
+    out = Path(args.out_dir).resolve() if args.out_dir else OUT_ROOT / store.get("out", name)
     raw_dir = out / "raw"
     raw_dir.mkdir(parents=True, exist_ok=True)
     if not args.only:
         for f in out.glob("[0-9][0-9]-*.png"):
             f.unlink(missing_ok=True)
     shots = [s for s in SHOTS if (not args.only or s["id"] in args.only)]
-    if not args.no_prepare:
+    if not args.no_prepare and _prepared != channel:
         prepare_channel_frontend(channel)
+        _prepared = channel
     httpd, base = start_channel_server()
     print(f"[{channel}] capabilities: {json.dumps(cfg)}")
     try:
@@ -445,7 +571,7 @@ def main():
                 if shot_page is not page:
                     shot_page.close()
                 final = out / f"{n:02d}-{shot['id']}.png"
-                compose(frame_page, raw, final, store["final"], shot["headline"], shot["subtitle"])
+                compose(frame_page, raw, final, store["final"], shot["headline"], shot["subtitle"], store["device"])
                 print(f"  wrote {final}")
             browser.close()
         if errors:
