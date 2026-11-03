@@ -2,7 +2,6 @@
 // Complete single-file Backup and Restore engine for MajesticTab.
 // Bundles all settings, custom extensions, downloaded tabs local store, and library hierarchy.
 
-import { settingsPanel } from './utils/settingsPanel.js';
 import { collectAudioSync, mergeAudioSync, clearAudioSync } from './audioSync/syncStore.js';
 import { clearAllAudioFiles } from './audioSync/audioFileStore.js';
 import {
@@ -1279,7 +1278,7 @@ function getOrCreateModal() {
         modal.className = 'theme-modal-backdrop';
         modal.setAttribute('role', 'dialog');
         modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-labelledby', 'backupModalTitle');
+        modal.setAttribute('aria-label', 'Library and backup');
         document.body.appendChild(modal);
     }
     modalElement = modal;
@@ -1287,17 +1286,23 @@ function getOrCreateModal() {
 }
 
 
-/** The slot under a data task's row on the Settings page, opening Settings first when the library navigation is there. */
+/** The slot under a data task's row on the Settings page. Opens the library first when its navigation is not on screen. */
 async function getSettingsDataHost(tab) {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    if (!document.getElementById('libraryNavSettingsBtn')) {
+        const { openLibraryModal } = await import('./libraryModal.js');
+        await openLibraryModal();
+        for (let i = 0; i < 30 && !document.getElementById('libraryNavSettingsBtn'); i++) await wait(100);
+    }
     const navBtn = document.getElementById('libraryNavSettingsBtn');
     if (!navBtn) return null;
-    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     if (!document.body.classList.contains('settings-as-page')) {
         navBtn.click();
         await wait(450);
     }
+    for (let i = 0; i < 30 && !document.querySelector('.setnav [data-section="library"]'); i++) await wait(100);
     const section = document.querySelector('.setnav [data-section="library"]');
-    if (section && !section.hasAttribute('aria-current')) section.click();
+    if (section && section.getAttribute('aria-current') !== 'true') section.click();
     return document.querySelector(`.data-task-slot[data-task="${tab}"]`);
 }
 
@@ -1338,28 +1343,17 @@ function leaveEmbeddedBackup() {
  * @param {'backup'|'restore'|'reload'|'delete'} initialTab
  */
 export async function openBackupModal(initialTab = 'backup', options = {}) {
-    // Data management is part of Settings, on the Library and backup page. The popup remains only where Settings
-    // is not reachable (for example while a score is open).
+    // Data management lives in Settings, on the Library and backup page. There is no popup.
     const host = await getSettingsDataHost(initialTab);
     if (host) return mountBackupInSettings(host, initialTab, options);
-    const modal = getOrCreateModal();
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-
-    // Hide the Settings page if open
-    settingsPanel.hide();
-
-    await renderModal(modal, initialTab, options);
+    console.warn('[Data] Settings is not available; cannot open', initialTab);
 }
 
 /**
  * Close the Data Management modal
  */
 export function closeBackupModal() {
-    if (!leaveEmbeddedBackup() && modalElement) {
-        modalElement.style.display = 'none';
-    }
-    document.body.style.overflow = '';
+    leaveEmbeddedBackup();
     currentBackupFile = null;
     currentParsedBackup = null;
     if (activeGoogleAuthHandler) {
@@ -1458,46 +1452,6 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
 
     modal.innerHTML = `
     <div class="theme-modal-card backup-modal-card">
-      <!-- Modal Header -->
-      <div class="theme-modal-header">
-        <div class="theme-modal-title-group">
-          <div class="brand-btn p-2 theme-modal-icon" style="width: 38px; height: 38px;">
-            <i class="bi-database-gear text-primary fs-5"></i>
-          </div>
-          <div class="theme-modal-titles">
-            <h5 class="mb-0 fw-bold text-white fs-6" id="backupModalTitle">Data Management</h5>
-            <small class="text-muted d-none d-sm-block" style="font-size: 0.75rem;">Backup, restore, reload metadata, or manage stored tabs, library, and settings</small>
-          </div>
-        </div>
-        <div class="theme-modal-actions">
-          <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="backupModalCloseBtn" aria-label="Close modal">
-            <i class="bi-x-lg"></i>
-          </button>
-        </div>
-      </div>
-
-      <!-- Tab Switcher Navigation -->
-      <div class="backup-nav-tabs px-3 pt-2 pb-1 gap-2">
-        <button type="button" class="btn btn-sm ${activeTab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnBackup">
-          <i class="bi-cloud-arrow-up me-2"></i> Create Backup
-        </button>
-        <button type="button" class="btn btn-sm ${activeTab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnRestore">
-          <i class="bi-cloud-arrow-down me-2"></i> Restore from Backup
-        </button>
-        <button type="button" class="btn btn-sm ${activeTab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnReload">
-          <i class="bi-arrow-repeat me-2"></i> Reload Metadata
-        </button>
-        <button type="button" class="btn btn-sm ${activeTab === 'orphans' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnOrphans">
-          <i class="bi-file-earmark-x me-2"></i> Orphaned Files
-        </button>
-        <button type="button" class="btn btn-sm ${activeTab === 'cache' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnCache">
-          <i class="bi-brush me-2"></i> Clear Cache
-        </button>
-        <button type="button" class="btn btn-sm ${activeTab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1" id="tabBtnDelete">
-          <i class="bi-trash3 me-2"></i> Delete All Data
-        </button>
-      </div>
-
       <!-- Linked Google account (shown only while connected) -->
       <!-- @googleDrive:begin -->
       <div id="driveAccountRow" class="px-3 pt-2 d-none align-items-center justify-content-between gap-2">
@@ -2012,59 +1966,13 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
  * Attach interactive handlers to the Data Management modal
  */
 function attachModalHandlers(modal, options = {}) {
-    // Close button & backdrop click
-    modal.querySelector('#backupModalCloseBtn')?.addEventListener('click', closeBackupModal);
+    // Cancel buttons
     modal.querySelector('#backupCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#restoreCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#cacheCancelBtn')?.addEventListener('click', closeBackupModal);
     modal.querySelector('#deleteCancelBtn')?.addEventListener('click', closeBackupModal);
 
-    let backdropPointerDown = false;
-    modal.onpointerdown = (e) => {
-        backdropPointerDown = (e.target === modal);
-    };
-    modal.onclick = (e) => {
-        if (e.target === modal && backdropPointerDown) {
-            closeBackupModal();
-        }
-        backdropPointerDown = false;
-    };
 
-    // Tab Switchers
-    const tabBtnBackup = modal.querySelector('#tabBtnBackup');
-    const tabBtnRestore = modal.querySelector('#tabBtnRestore');
-    const tabBtnReload = modal.querySelector('#tabBtnReload');
-    const tabBtnCache = modal.querySelector('#tabBtnCache');
-    const tabBtnOrphans = modal.querySelector('#tabBtnOrphans');
-    const orphansContent = modal.querySelector('#orphansTabContent');
-    const tabBtnDelete = modal.querySelector('#tabBtnDelete');
-    const backupContent = modal.querySelector('#backupTabContent');
-    const restoreContent = modal.querySelector('#restoreTabContent');
-    const reloadContent = modal.querySelector('#reloadTabContent');
-    const cacheContent = modal.querySelector('#cacheTabContent');
-    const deleteContent = modal.querySelector('#deleteTabContent');
-
-    const switchTab = (tab) => {
-        if (tabBtnBackup) tabBtnBackup.className = `btn btn-sm ${tab === 'backup' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
-        if (tabBtnRestore) tabBtnRestore.className = `btn btn-sm ${tab === 'restore' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
-        if (tabBtnReload) tabBtnReload.className = `btn btn-sm ${tab === 'reload' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
-        if (tabBtnOrphans) tabBtnOrphans.className = `btn btn-sm ${tab === 'orphans' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
-        if (orphansContent) orphansContent.style.display = tab === 'orphans' ? 'block' : 'none';
-        if (tabBtnCache) tabBtnCache.className = `btn btn-sm ${tab === 'cache' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
-        if (tabBtnDelete) tabBtnDelete.className = `btn btn-sm ${tab === 'delete' ? 'btn-theme-primary' : 'btn-theme-outline'} flex-grow-1 py-1`;
-
-        if (backupContent) backupContent.style.display = tab === 'backup' ? 'block' : 'none';
-        if (restoreContent) restoreContent.style.display = tab === 'restore' ? 'block' : 'none';
-        if (reloadContent) reloadContent.style.display = tab === 'reload' ? 'block' : 'none';
-        if (cacheContent) cacheContent.style.display = tab === 'cache' ? 'block' : 'none';
-        if (deleteContent) deleteContent.style.display = tab === 'delete' ? 'block' : 'none';
-    };
-
-    tabBtnBackup?.addEventListener('click', () => switchTab('backup'));
-    tabBtnRestore?.addEventListener('click', () => switchTab('restore'));
-    tabBtnReload?.addEventListener('click', () => switchTab('reload'));
-    tabBtnCache?.addEventListener('click', () => switchTab('cache'));
-    tabBtnOrphans?.addEventListener('click', () => switchTab('orphans'));
 
     // --- ORPHANED FILES ---
     const orphansList = modal.querySelector('#orphansList');
@@ -2232,7 +2140,6 @@ function attachModalHandlers(modal, options = {}) {
             updateSnapOrphansDeleteBtn();
         }
     });
-    tabBtnDelete?.addEventListener('click', () => switchTab('delete'));
 
     // --- CLEAR CACHE ACTION ---
     const cacheExecuteBtn = modal.querySelector('#cacheExecuteBtn');
