@@ -4,6 +4,7 @@
 // (#readerViewOptions) with their original ids so the modules that bind to them keep working;
 // this file moves that block into the menu and handles open, close and placement.
 
+import { gamepadManager } from './gamepadManager.js';
 import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
 const $ = (id) => document.getElementById(id);
 
@@ -156,7 +157,14 @@ function arrangeViewOptions(root) {
         });
     }
 
-    const order = [size, paper, layout, notation, landscape, advance].filter(Boolean);
+    // Window: fullscreen (hidden by main.js where the platform has its own) and zen mode
+    const windowRows = ['fullscreenRow', 'zenRow'].map($).filter(Boolean);
+    $('zenToggleBtn')?.addEventListener('click', () => {
+        document.getElementById('viewToggleBtn')?.click();
+        gamepadManager.toggleTopBar();
+    });
+
+    const order = [size, paper, layout, notation, landscape, advance, ...windowRows].filter(Boolean);
     root.innerHTML = '';
     order.forEach((el) => root.appendChild(el));
 }

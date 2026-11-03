@@ -1789,6 +1789,8 @@ export function getPdfPages() {
         const fs = await getFsState();
         icon.className = fs ? "bi-fullscreen-exit" : "bi-arrows-fullscreen";
         btn.title = fs ? "Exit Fullscreen" : "Enter Fullscreen";
+        const fsLabel = document.getElementById("fullscreenLabel");
+        if (fsLabel) fsLabel.textContent = fs ? "Exit fullscreen" : "Fullscreen";
         if (lastFsState && !fs && wasMaximizedBeforeFullscreen && appWindow?.maximize) {
             wasMaximizedBeforeFullscreen = false;
             try { await appWindow.maximize(); } catch {}

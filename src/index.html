@@ -107,7 +107,7 @@
       </button>
     </div>
 
-    <!-- Flexible zone (max: live Jam session, pinned tool, Tools, Fullscreen). Behavior lives in utils/toolsMenu.js -->
+    <!-- Flexible zone (max: live Jam session, pinned tool, Tools). Behavior lives in utils/toolsMenu.js -->
     <div id="topFlexZone">
       <div id="jamLivePill" class="hud-pill-group" role="group" aria-label="Jam session" style="display:none;">
         <button class="btn btn-sm active" id="jamLiveBtn" type="button" title="Jam session">
@@ -147,12 +147,6 @@
         </button>
       </div>
 
-      <!-- Fullscreen Toggle -->
-      <div id="fullscreenPill" class="hud-pill-group" role="group" aria-label="Fullscreen">
-        <button class="btn btn-sm" id="fullscreenToggleBtn" title="Toggle Fullscreen">
-          <i class="bi-arrows-fullscreen" id="fullscreenIcon"></i>
-        </button>
-      </div>
     </div>
 
     <!-- Navigation Controls -->
@@ -176,6 +170,10 @@
 
 <!-- View menu: how the score is shown while playing (size, paper, pages). Hosts #readerViewOptions, moved here by utils/readerViewMenu.js so its controls keep their ids. -->
 <div id="viewMenu" class="tools-menu view-menu" role="dialog" aria-label="View" style="display:none;"></div>
+<div id="viewWindowRows" hidden>
+  <div id="fullscreenRow"><button class="btn btn-sm view-window-btn" id="fullscreenToggleBtn" type="button" title="Toggle Fullscreen"><i class="bi-arrows-fullscreen" id="fullscreenIcon" hidden></i><span id="fullscreenLabel">Fullscreen</span></button></div>
+  <div id="zenRow"><button class="btn btn-sm view-window-btn" id="zenToggleBtn" type="button" title="Hide the top bar (Z)"><span>Zen mode</span></button></div>
+</div>
 
 <!-- Tools menu (opened from #toolsToggleBtn; rows keep their original ids so existing handlers still bind) -->
 <div id="toolsMenu" class="tools-menu" role="menu" aria-label="Tools" style="display:none;">
