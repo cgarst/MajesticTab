@@ -55,7 +55,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
     releaseEmbeddedTools();
     container.innerHTML = `
     <div class="setshell tools-shell">
-      <div class="sethead"><h1>Tools</h1></div>
+      <div class="sethead" data-tauri-drag-region><h1 data-tauri-drag-region>Tools</h1></div>
       <div class="setwrap" data-pane="list">
         <nav class="setnav" aria-label="Tools">
           ${tools.map((t) => `<button type="button" data-tool="${t.id}" ${t.disabled ? 'disabled aria-disabled="true"' : ''} aria-current="false">

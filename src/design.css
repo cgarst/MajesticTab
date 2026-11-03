@@ -854,7 +854,7 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 #fileMenu .offcanvas-header > div:first-child { display: none; }
 #fileMenu .offcanvas-body { padding: 0 !important; display: block; overflow: hidden; }
 .setshell { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.sethead { padding: 22px 28px 6px; flex: none; }
+.sethead { padding: 22px 28px 6px; flex: none; user-select: none; -webkit-user-select: none; }
 .sethead h1 { font: 700 44px/1.02 var(--font-display); letter-spacing: -.01em; margin: 0; color: var(--ink); }
 .sethead p { margin: 6px 0 0; color: var(--ink2); font-size: 14px; }
 .setwrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
@@ -2288,7 +2288,10 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 .tauri-macos body.library-view-active #menuToggleBtn,
 .tauri-windows body.library-view-active #brandSection .brand-pick,
 .tauri-windows body.library-view-active #brand-text,
-.tauri-windows body.library-view-active #menuToggleBtn { display: none !important; }
+.tauri-windows body.library-view-active #menuToggleBtn,
+.tauri-linux body.library-view-active #brandSection .brand-pick,
+.tauri-linux body.library-view-active #brand-text,
+.tauri-linux body.library-view-active #menuToggleBtn { display: none !important; }
 
 /* ==========================================================================
    Recording panel: flat rows, plain-text status, one filled action (Tap to sync)
@@ -2324,19 +2327,20 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 #ytDropdownPanel .af-file-row.is-selected { background: var(--s3) !important; }
 @media (pointer: coarse) { #ytDropdownPanel .btn { min-height: 44px; } }
 @media (min-width: 577px) {
-  .tauri-macos body.library-view-active #topBar, .tauri-windows body.library-view-active #topBar { background: transparent !important; z-index: 1050; }
-  .tauri-macos body.library-view-active, .tauri-windows body.library-view-active { background: var(--s1) !important; }
-  .tauri-macos body.library-view-active .library-bottom-nav, .tauri-windows body.library-view-active .library-bottom-nav { top: 0; }
+  .tauri-macos body.library-view-active #topBar, .tauri-windows body.library-view-active #topBar, .tauri-linux body.library-view-active #topBar { background: transparent !important; z-index: 1050; }
+  .tauri-macos body.library-view-active, .tauri-windows body.library-view-active, .tauri-linux body.library-view-active { background: var(--s1) !important; }
+  .tauri-macos body.library-view-active .library-bottom-nav, .tauri-windows body.library-view-active .library-bottom-nav, .tauri-linux body.library-view-active .library-bottom-nav { top: 0; }
   .tauri-macos body.library-view-active .library-bottom-nav { padding-top: 48px; }
 }
 #ytDropdownPanel [hidden] { display: none !important; }
 
 /* Desktop shells, library: the bar takes no room. It is a thin drag strip over the top edge. Windows keeps its controls clear of the page's first row. */
 @media (min-width: 577px) {
-  .tauri-macos body.library-view-active #topBar, .tauri-windows body.library-view-active #topBar {
+  .tauri-macos body.library-view-active #topBar, .tauri-windows body.library-view-active #topBar, .tauri-linux body.library-view-active #topBar {
     position: fixed; top: 0; left: 0; right: 0; height: 20px; min-height: 0; padding-top: 0 !important; padding-bottom: 0 !important; overflow: visible;
   }
   .tauri-windows body.library-view-active #libraryPage { padding-top: 20px; }
+  .tauri-windows body.settings-as-page.library-view-active #topBar { height: var(--bar-h, 52px); }
 }
 
 /* About: the one place the pick appears */

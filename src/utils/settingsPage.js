@@ -165,7 +165,8 @@ export function initSettingsPage() {
     // ---- build the page ----
     const shell = el('div', 'setshell');
     const head = el('div', 'sethead');
-    head.innerHTML = '<h1>Settings</h1>';
+    head.setAttribute('data-tauri-drag-region', '');
+    head.innerHTML = '<h1 data-tauri-drag-region>Settings</h1>';
     const wrap = el('div', 'setwrap');
     wrap.dataset.pane = 'list';
     const nav = el('nav', 'setnav');

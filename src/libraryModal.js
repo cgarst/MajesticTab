@@ -1828,9 +1828,9 @@ document.addEventListener('click', (e) => {
 
 // Centered page title for library pages that are not a switcher tab (Open File, Add Music)
 export function libraryPageTitleHtml({ icon, title, subtitle = '' }) {
-    return `<div class="library-page-title">
-        <h5 class="library-page-title-text">${title}</h5>
-        ${subtitle ? `<p class="library-page-title-sub">${subtitle}</p>` : ''}
+    return `<div class="library-page-title" data-tauri-drag-region>
+        <h5 class="library-page-title-text" data-tauri-drag-region>${title}</h5>
+        ${subtitle ? `<p class="library-page-title-sub" data-tauri-drag-region>${subtitle}</p>` : ''}
       </div>`;
 }
 
@@ -1955,6 +1955,7 @@ function syncLibraryBottomNav() {
         nav.id = 'libraryBottomNav';
         nav.className = 'library-bottom-nav';
         nav.setAttribute('aria-label', 'Library');
+        nav.setAttribute('data-tauri-drag-region', '');
         // Phones: bottom tab bar. Wide windows: left rail (CSS). Settings sits last; Add music stays in each list's toolbar.
         nav.innerHTML = `${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tunings)}${tabHtml(tools)}
           <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
