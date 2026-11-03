@@ -751,9 +751,9 @@ class GamepadManager {
         }
 
         // Dispatch window resize event so AlphaTab and sheet layouts recalculate to full viewport height
-        requestAnimationFrame(() => {
-            window.dispatchEvent(new Event('resize'));
-        });
+        // Wait for the slide to finish so the score is laid out once, not mid-animation.
+        const settle = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : (this.isHudHidden ? 170 : 270);
+        setTimeout(() => window.dispatchEvent(new Event('resize')), settle);
     }
 
     /**

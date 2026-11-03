@@ -171,8 +171,14 @@
 <!-- View menu: how the score is shown while playing (size, paper, pages). Hosts #readerViewOptions, moved here by utils/readerViewMenu.js so its controls keep their ids. -->
 <div id="viewMenu" class="tools-menu view-menu" role="dialog" aria-label="View" style="display:none;"></div>
 <div id="viewWindowRows" hidden>
-  <div id="fullscreenRow"><button class="btn btn-sm view-window-btn" id="fullscreenToggleBtn" type="button" title="Toggle Fullscreen"><i class="bi-arrows-fullscreen" id="fullscreenIcon" hidden></i><span id="fullscreenLabel">Fullscreen</span></button></div>
-  <div id="zenRow"><button class="btn btn-sm view-window-btn" id="zenToggleBtn" type="button" title="Hide the top bar (Z)"><span>Zen mode</span></button></div>
+  <div id="screenRow">
+    <label class="form-label d-block mb-1 small text-white-50">Screen</label>
+    <div class="view-screen-pair">
+      <span id="fullscreenCell"><button class="btn btn-sm view-window-btn" id="fullscreenToggleBtn" type="button" title="Toggle fullscreen" aria-pressed="false"><i class="bi-arrows-fullscreen" id="fullscreenIcon" hidden></i><span id="fullscreenLabel">Fullscreen</span><small class="view-window-hint" id="fullscreenHint">Alt+Enter</small></button></span>
+      <span id="zenCell"><button class="btn btn-sm view-window-btn" id="zenToggleBtn" type="button" title="Hide the top bar and dock"><span id="zenLabel">Zen mode</span><small class="view-window-hint">Z</small></button></span>
+    </div>
+  </div>
+</div>
 </div>
 
 <!-- Tools menu (opened from #toolsToggleBtn; rows keep their original ids so existing handlers still bind) -->

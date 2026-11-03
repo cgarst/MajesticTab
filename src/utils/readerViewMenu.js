@@ -158,10 +158,14 @@ function arrangeViewOptions(root) {
     }
 
     // Window: fullscreen (hidden by main.js where the platform has its own) and zen mode
-    const windowRows = ['fullscreenRow', 'zenRow'].map($).filter(Boolean);
+    const windowRows = [$('screenRow')].filter(Boolean);
+    const zenLabel = $('zenLabel');
+    const syncZenLabel = () => { if (zenLabel) zenLabel.textContent = gamepadManager.isHudHidden ? 'Show top bar' : 'Zen mode'; };
+    $('viewToggleBtn')?.addEventListener('click', syncZenLabel, true);
     $('zenToggleBtn')?.addEventListener('click', () => {
-        document.getElementById('viewToggleBtn')?.click();
+        $('viewToggleBtn')?.click();
         gamepadManager.toggleTopBar();
+        syncZenLabel();
     });
 
     const order = [size, paper, layout, notation, landscape, advance, ...windowRows].filter(Boolean);

@@ -1791,6 +1791,10 @@ export function getPdfPages() {
         btn.title = fs ? "Exit Fullscreen" : "Enter Fullscreen";
         const fsLabel = document.getElementById("fullscreenLabel");
         if (fsLabel) fsLabel.textContent = fs ? "Exit fullscreen" : "Fullscreen";
+        btn.setAttribute("aria-pressed", fs ? "true" : "false");
+        btn.classList.toggle("is-on", fs);
+        const fsHint = document.getElementById("fullscreenHint");
+        if (fsHint && /Mac/i.test(navigator.platform)) fsHint.hidden = true;
         if (lastFsState && !fs && wasMaximizedBeforeFullscreen && appWindow?.maximize) {
             wasMaximizedBeforeFullscreen = false;
             try { await appWindow.maximize(); } catch {}
