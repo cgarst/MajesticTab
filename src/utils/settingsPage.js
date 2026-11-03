@@ -189,7 +189,7 @@ export function initSettingsPage() {
     // ---- build the page ----
     const shell = el('div', 'setshell');
     const head = el('div', 'sethead');
-    head.innerHTML = '<h1>Settings</h1><p>Set these once. What you change while playing is in the reader’s View menu.</p>';
+    head.innerHTML = '<h1>Settings</h1>';
     const wrap = el('div', 'setwrap');
     wrap.dataset.pane = 'list';
     const nav = el('nav', 'setnav');

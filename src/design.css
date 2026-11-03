@@ -2034,7 +2034,8 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 .setlists-view > .title-row h2 { font: 700 44px/1.02 var(--font-display); letter-spacing: -.01em; margin: 0; color: var(--ink); }
 .setlists-view > .title-row p { margin: 6px 0 0; color: var(--ink2); font-size: 14px; }
 @media (max-width: 899px) { .setlists-view > .title-row h2 { font-size: 36px; } }
-.tools-shell { min-height: 100%; }
+.tools-shell { min-height: 100%; margin: -20px -20px 0; }
+@media (max-width: 576px) { .tools-shell { margin: -20px -16px 0; } }
 .tools-shell .setpage { max-width: none; }
 .tool-pane-host:empty::before { content: 'Choose a tool.'; color: var(--ink2); font-size: 14px; }
 .theme-modal-backdrop.tool-embedded { position: static; inset: auto; z-index: auto; background: transparent; padding: 0; height: auto; display: block; }
