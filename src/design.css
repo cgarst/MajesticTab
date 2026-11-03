@@ -1871,6 +1871,7 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 #practiceToggleBtn.has-state .bar-btn-label::after { content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle; }
 .practice-menu { width: 360px; max-width: calc(100vw - 16px); max-height: calc(100vh - 90px); overflow-y: auto; padding: 14px 16px 14px; position: fixed; z-index: 1085; display: flex; flex-direction: column; gap: 16px; }
 .practice-menu > div { margin: 0 !important; }
+.practice-menu .form-check.form-switch { display: flex; align-items: center; gap: 12px; min-height: 44px; }
 .practice-title { font: 600 17px system-ui, sans-serif; color: var(--ink); }
 .practice-sub { color: var(--ink2); font-size: 13px; margin-top: 2px; }
 .practice-menu .form-label, .practice-label { color: var(--ink2) !important; font-size: 13px; font-weight: 500 !important; }
