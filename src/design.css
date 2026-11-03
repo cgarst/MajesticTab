@@ -1961,15 +1961,6 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 .setlists-view .setlist-actions .theme-control-btn, .setlists-view .pane-head .in-view-back-btn,
 .tunings-view .tuning-actions .theme-control-btn, .tunings-view .pane-head .in-view-back-btn { color: var(--ink2) !important; }
 
-/* Slate Blue: selection is shown by tone alone, so the inlay dots on selected items are dropped */
-[data-theme="Slate Blue"] .library-bottom-nav .library-nav-tab.active::before,
-[data-theme="Slate Blue"] .library-card[aria-current="true"]::before,
-[data-theme="Slate Blue"] .artist-card[aria-current="true"]::before,
-[data-theme="Slate Blue"] .setnav button[aria-current="true"]::before,
-[data-theme="Slate Blue"] .shelf-item.active::before,
-[data-theme="Slate Blue"] .pinned-group-card[aria-current="true"]::before,
-[data-theme="Slate Blue"] .tuning-card[aria-current="true"]::before { content: none; }
-
 /* Slate Blue: the rail sits a step darker than the library ground, as in the other finishes */
 @media (min-width: 577px) {
   [data-theme="Slate Blue"] body.library-view-active .library-bottom-nav { background: color-mix(in srgb, var(--s1) 45%, #000) !important; }
