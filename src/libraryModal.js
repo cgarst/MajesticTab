@@ -1770,8 +1770,8 @@ async function renderLibraryBrowseView(container) {
 }
 
 const LIBRARY_TABS = [
-    { id: 'library', label: 'Library', title: 'Browse your tab library', icon: 'bi-music-note-list' },
-    { id: 'setlists', label: 'Setlists', title: 'Build and play setlists of tabs', icon: 'bi-collection-play' },
+    { id: 'library', label: 'Library', title: 'Browse your tab library', icon: 'mt-ico mt-ico-library' },
+    { id: 'setlists', label: 'Setlists', title: 'Build and play setlists of tabs', icon: 'mt-ico mt-ico-setlists' },
     { id: 'tools', label: 'Tools', title: 'Tuner, metronome, reference library and Jam', icon: 'bi-grid-3x3-gap' },
     { id: 'tunings', label: 'Tunings', title: 'Browse songs by guitar and bass tuning', icon: 'bi-sliders' }
 ];

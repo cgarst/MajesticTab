@@ -128,7 +128,7 @@ async function renderSetlistsPage(container, onBack) {
     const cardHtml = (sl) => `
       <div class="library-card setlist-card p-3" data-setlist-id="${escapeHtml(sl.id)}" data-name="${escapeHtml(String(sl.name || '').toLowerCase())}" data-search="${escapeHtml(searchText[sl.id] || '')}" ${sl.id === setlist.id ? 'aria-current="true"' : ''} role="button" tabindex="0">
         <div class="d-flex align-items-center gap-3 min-w-0">
-          <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-collection-play"></i></span>
+          <span class="pinned-group-glyph" aria-hidden="true"><i class="mt-ico mt-ico-setlists"></i></span>
           <div class="min-w-0 flex-grow-1">
             <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(sl.name)}">${escapeHtml(sl.name)}</h6>
             <div class="small text-muted text-truncate tnum">${countLabel(sl.items.length)}</div>

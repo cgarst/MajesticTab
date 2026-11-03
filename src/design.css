@@ -2352,6 +2352,12 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .metro-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
 .metro-play { min-height: 44px; min-width: 120px; padding: 0 28px; border-radius: var(--r-control) !important; font-size: 15px; font-weight: 600; }
 .metro-ghost { min-height: 44px; padding: 0 16px; border: 0 !important; border-radius: var(--r-control) !important; background: transparent !important; color: var(--ink2) !important; font-size: 14px; box-shadow: none !important; }
+.metro-sig { display: inline-flex; align-items: center; gap: 4px; }
+.metro-sig-slash { color: var(--ink2); font-size: 18px; }
+.metro-field.form-control, .metro-field.form-select { width: 64px; min-height: 44px; padding: 0 8px; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--metro-rest) !important; background-image: none; color: var(--ink) !important; font-size: 15px; font-variant-numeric: tabular-nums; text-align: center; box-shadow: none !important; }
+.metro-field.form-select { padding-right: 8px; }
+@media (hover: hover) { .metro-field:hover { background-color: var(--metro-on) !important; } }
+.metro-field:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .metro-options { display: flex; flex-direction: column; gap: 2px; }
 .metro-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 8px 12px; border-radius: var(--r-control); cursor: pointer; color: var(--ink); font-size: 15px; }
 .metro-option small { display: block; font-size: 12px; color: var(--ink2); }
@@ -2361,3 +2367,8 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 #metronomeModal .theme-modal-close-btn i { display: inline-block !important; }
 .theme-modal-backdrop.tool-embedded .metronome-modal-card { max-width: 520px; }
 @media (prefers-reduced-motion: reduce) { .metro-mark, .metro-beat, .metro-step { transition: none; } }
+
+/* Library and Setlists glyphs from the Reimagined mockup (stroked, drawn as masks so they take currentColor and the icon font size) */
+.mt-ico { display: inline-block; width: 1em; height: 1em; background-color: currentColor; vertical-align: -0.125em; -webkit-mask: var(--mt-ico) center / contain no-repeat; mask: var(--mt-ico) center / contain no-repeat; }
+.mt-ico-library { --mt-ico: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 5v14M9 5v14M14.5 6.5l3.2-1 2.8 12.5-3.2 1z%22/%3E%3C/svg%3E"); }
+.mt-ico-setlists { --mt-ico: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 6h11M9 12h11M9 18h7M4.5 6h.01M4.5 12h.01M4.5 18h.01%22/%3E%3C/svg%3E"); }
