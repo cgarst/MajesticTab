@@ -288,17 +288,10 @@ export function initSettingsPage() {
     if (soundRows.length) panes.sound.appendChild(group('Playback', ...soundRows));
 
     // Library and backup
-    const lib = [];
-    if (syncBtn) {
-        syncBtn.classList.remove('w-100', 'py-2', 'mb-1');
-        syncBtn.classList.add('btn-sm');
-        const r = row('Sync', 'Keep this device and your backup location matching.', syncBtn);
-        if (syncStatus) r.querySelector('.st').appendChild(syncStatus);
-        lib.push(r);
-    }
     // The data tasks are rows like every other setting. Choosing one opens it in place under its row, and only one
     // is open at a time. They are the same screens the old popup had.
     const taskRow = (tab, title, help, label, danger, name = title) => {
+        const isSync = tab === 'sync';
         // The verb is the visible action; the button stretches over its row so the whole row is the target
         const btn = el('button', 'btn btn-sm srow-ghost srow-hit' + (danger ? ' is-danger' : ''), label);
         btn.type = 'button';
@@ -313,6 +306,10 @@ export function initSettingsPage() {
         slot.dataset.task = tab;
         slot.hidden = true;
         btn.addEventListener('click', async () => {
+            if (isSync) {
+                const sync = await import('../syncUi.js');
+                return btn.getAttribute('aria-expanded') === 'true' ? sync.closeSyncModal() : sync.openSyncModal();
+            }
             const mod = await import('../backupRestore.js');
             if (btn.getAttribute('aria-expanded') === 'true') mod.closeBackupModal();
             else mod.openBackupModal(tab);
@@ -325,7 +322,9 @@ export function initSettingsPage() {
         const g = group(title, ...tasks.flat());
         return g;
     };
-    if (lib.length) panes.library.appendChild(group('Sync', ...lib));
+    const syncTask = taskRow('sync', 'Sync', 'Keep this device and your backup location matching.', 'Sync');
+    if (syncStatus) syncTask[0].querySelector('.st').appendChild(syncStatus);
+    panes.library.appendChild(group('Sync', ...syncTask));
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save everything to a file, a folder or your cloud.', 'Create'),
             taskRow('restore', 'Restore from a backup', 'Bring a backup or snapshot back.', 'Restore')]));
@@ -338,7 +337,7 @@ export function initSettingsPage() {
     danger.classList.add('danger');
     panes.library.appendChild(danger);
     // keep the originals referenced so their ids stay unique if anything still looks them up
-    void moreData; void clearCache; void deleteAll; void backupBtn; void restoreBtn;
+    void syncBtn; void moreData; void clearCache; void deleteAll; void backupBtn; void restoreBtn;
 
     // Updates: its own section above About. The card is kept as the container because updater.js shows it
     // (self-updating builds) or removes it (store builds); the section follows it.

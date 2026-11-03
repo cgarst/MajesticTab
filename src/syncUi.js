@@ -1,8 +1,7 @@
 // syncUi.js
-// The Sync dialog: one tap from Settings, then a single review of exactly what will change
+// The Sync task: a row in Settings (Library and backup) that opens in place under its row. One tap, then a single review of exactly what will change
 // (see syncEngine.js), one confirmation, and a short result. The sync location is remembered.
-import { settingsPanel } from './utils/settingsPanel.js';
-import { planSync, applySync, getSyncBase, SYNC_ACTION } from './syncEngine.js';
+import { planSync, applySync, planReplaceRemote, applyReplaceRemote, getSyncBase, SYNC_ACTION } from './syncEngine.js';
 import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported, ICLOUD_UNAVAILABLE_MESSAGE } from './icloudDrive.js';
@@ -95,58 +94,60 @@ async function resolveBackend(target, { interactive = false } = {}) {
 // --- modal shell ---
 
 function getModal() {
-    if (modal && document.body.contains(modal)) return modal;
+    if (modal) return modal;
     modal = document.getElementById('syncModal');
     if (!modal) {
         modal = document.createElement('div');
         modal.id = 'syncModal';
-        modal.className = 'theme-modal-backdrop';
-        modal.setAttribute('role', 'dialog');
-        modal.setAttribute('aria-modal', 'true');
-        modal.setAttribute('aria-labelledby', 'syncModalTitle');
+        modal.className = 'theme-modal-backdrop tool-embedded';
+        modal.setAttribute('aria-label', 'Sync');
+        modal.style.display = 'none';
         document.body.appendChild(modal);
     }
     return modal;
 }
 
-export function closeSyncModal() {
+/** Stops whatever the task is doing and puts its element back out of the way. */
+function reset() {
     session++;
-    if (modal) modal.style.display = 'none';
-    document.body.style.overflow = '';
+    stopChecking();
     context = null;
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.appendChild(modal);
+    }
     refreshSyncStatus();
+}
+
+export async function closeSyncModal() {
+    const mod = await import('./backupRestore.js');
+    reset();
+    mod.setTaskOpenState(null);
     // Open library views read their stores once, so a reload shows what the sync brought in
-    if (reloadOnClose) window.location.reload();
+    if (reloadOnClose) { reloadOnClose = false; window.location.reload(); }
 }
 
 function frame(body, { subtitle = '', footer = '' } = {}) {
+    // The row names the task, so the screen opens with its own state line instead of a second title
     modal.innerHTML = `
-    <div class="theme-modal-card backup-modal-card">
-      <div class="theme-modal-header">
-        <div class="theme-modal-title-group">
-          <div class="brand-btn p-2 theme-modal-icon" style="width: 38px; height: 38px;">
-            <i class="bi-arrow-repeat text-primary fs-5"></i>
-          </div>
-          <div class="theme-modal-titles">
-            <h5 class="mb-0 fw-bold text-white fs-6" id="syncModalTitle">Sync</h5>
-            <small class="text-muted d-block text-truncate" style="font-size: 0.75rem;">${subtitle}</small>
-          </div>
-        </div>
-        <div class="theme-modal-actions">
-          <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" data-sync-action="close" aria-label="Close">
-            <i class="bi-x-lg"></i>
-          </button>
-        </div>
-      </div>
-      <div class="theme-modal-body p-3">${body}</div>
-      ${footer ? `<div class="theme-modal-footer d-flex justify-content-end align-items-center gap-2 px-3 py-2">${footer}</div>` : ''}
+    <div class="theme-modal-card backup-modal-card sync-card" role="region" aria-label="Sync">
+      <div class="theme-modal-body sync-body">${subtitle ? `<div class="sync-subtitle">${subtitle}</div>` : ''}${body}</div>
+      ${footer ? `<div class="theme-modal-footer sync-footer">${footer}</div>` : ''}
     </div>`;
 }
 
-const button = (action, label, { primary = false, icon = '' } = {}) =>
-    `<button type="button" class="btn btn-sm ${primary ? 'btn-theme-primary px-4' : 'btn-theme-outline px-3'} d-inline-flex align-items-center gap-2" data-sync-action="${action}">${icon ? `<i class="${icon}"></i>` : ''}<span>${label}</span></button>`;
+const button = (action, label, { primary = false, danger = false } = {}) =>
+    `<button type="button" class="btn btn-sm ${danger ? 'btn-theme-danger' : primary ? 'btn-theme-primary' : 'btn-theme-outline'}" data-sync-action="${action}">${label}</button>`;
 
-const notice = (icon, text) => `<div class="small text-white-50 py-2"><i class="${icon} me-2"></i>${text}</div>`;
+const textAction = (action, label) => `<button type="button" class="sync-text-action" data-sync-action="${action}">${label}</button>`;
+
+const notice = (text, { error = false } = {}) => `<div class="task-status${error ? ' task-status-error' : ''}" role="${error ? 'alert' : 'status'}">${text}</div>`;
+
+const progressTrack = (id = '', indeterminate = false) =>
+    `<div class="task-progress-track${indeterminate ? ' is-indeterminate' : ''}" role="progressbar" aria-valuemin="0" aria-valuemax="100" ${id ? `id="${id}"` : ''}><div class="task-progress-fill"${id ? ` id="${id}Fill"` : ''}></div></div>`;
+
+const where = (target) => targetLabel(target);
+const shortPlace = (target) => target === DRIVE ? 'Drive' : target === ICLOUD ? 'iCloud' : target === S3 ? 'bucket' : target === WEBDAV ? 'server' : 'folder';
 
 // --- screens ---
 
@@ -158,13 +159,13 @@ function stopChecking() {
 }
 
 /** Show the compare screen; returns a setter for the current step. A timer shows how long it has run. */
-function showChecking(target) {
+function showChecking(target, { title = `Comparing this device with ${targetLabel(target)}`, subtitle = 'Checking for changes' } = {}) {
     stopChecking();
-    frame(`<div class="py-4 text-center text-white-50 small">
-        <div><span class="spinner-border spinner-border-sm text-primary me-2" role="status"></span>Comparing this device with ${targetLabel(target)}...</div>
-        <div class="mt-2 text-white" data-sync-step>Starting...</div>
-        <div class="mt-1" style="font-size:0.72rem;" data-sync-elapsed></div>
-    </div>`, { subtitle: 'Checking for changes' });
+    frame(`<div class="task-progress" role="status" aria-live="polite">
+        <div class="task-progress-text"><span class="task-progress-label">${escapeHtml(title)}</span><span class="task-progress-detail" data-sync-step>Starting...</span></div>
+        ${progressTrack('', true)}
+        <div class="sync-hint" data-sync-elapsed></div>
+    </div>`, { subtitle });
     const startedAt = Date.now();
     const elapsed = document.querySelector('[data-sync-elapsed]');
     checkingTimer = setInterval(() => {
@@ -181,108 +182,104 @@ function showChecking(target) {
 function showChooseLocation() {
     const options = [
         // @googleDrive:begin
-        { id: DRIVE, icon: 'icon-gdrive', title: 'Google Drive', text: 'Sync across your devices through your Google account.' },
+        { id: DRIVE, title: 'Google Drive', text: 'Sync across your devices through your Google account.' },
         // @googleDrive:end
         ...(isIcloudDriveSupported()
-            ? [{ id: ICLOUD, icon: 'bi-cloud text-info', title: 'iCloud Drive', text: 'Sync through iCloud Drive across your Apple devices. No sign-in needed.' }]
+            ? [{ id: ICLOUD, title: 'iCloud Drive', text: 'Sync through iCloud Drive across your Apple devices. No sign-in needed.' }]
             : []),
-        { id: S3, icon: 'bi-hdd-network text-warning', title: 'S3 bucket', text: 'Sync through Amazon S3, Cloudflare R2, Backblaze B2, MinIO or any S3-compatible storage.' },
-        { id: WEBDAV, icon: 'bi-hdd-rack text-info', title: 'WebDAV server', text: 'Sync through Nextcloud, ownCloud, Synology or any WebDAV server.' },
+        { id: S3, title: 'S3 bucket', text: 'Sync through Amazon S3, Cloudflare R2, Backblaze B2, MinIO or any S3-compatible storage.' },
+        { id: WEBDAV, title: 'WebDAV server', text: 'Sync through Nextcloud, ownCloud, Synology or any WebDAV server.' },
         ...(isFolderBackupSupported()
-            ? [{ id: FOLDER, icon: 'bi-folder2-open text-primary', title: 'A folder on this device', text: 'Sync through a folder, such as one a cloud drive app keeps in step.' }]
+            ? [{ id: FOLDER, title: 'A folder on this device', text: 'Sync through a folder, such as one a cloud drive app keeps in step.' }]
             : [])
     ];
     frame(`
-        <div class="small text-white-50 mb-3">Choose where MajesticTab keeps your synced library. You only do this once. Your other devices sync with the same location.</div>
-        <div class="d-flex flex-column gap-2">
+        <p class="sync-lead">Choose where MajesticTab keeps your synced library. You only do this once. Your other devices sync with the same location.</p>
+        <div class="sync-list" role="list">
             ${options.map(o => `
-                <button type="button" class="backup-provider-option p-3 rounded-3 d-flex align-items-center gap-3 text-start w-100" data-sync-action="pick-${o.id}" style="cursor: pointer;">
-                    <div class="provider-mini-icon"><i class="${o.icon} fs-5"></i></div>
-                    <div class="min-w-0">
-                        <div class="fw-bold text-white small leading-tight">${o.title}</div>
-                        <div class="text-muted" style="font-size: 0.73rem;">${o.text}</div>
-                    </div>
+                <button type="button" class="sync-option" role="listitem" data-sync-action="pick-${o.id}">
+                    <span class="sync-option-title">${o.title}</span>
+                    <span class="sync-option-text">${o.text}</span>
                 </button>`).join('')}
         </div>`, { subtitle: 'Choose a sync location', footer: button('close', 'Cancel') });
 }
 
 function showS3Form(error = '') {
-    frame(`${error ? notice('bi-exclamation-triangle text-warning', escapeHtml(error)) : ''}${s3ConfigFormHtml()}`,
-        { subtitle: 'S3 bucket', footer: button('switch', 'Choose Another') + button('save-s3', 'Save and Connect', { primary: true, icon: 'bi-plug' }) });
+    frame(`${error ? notice(escapeHtml(error), { error: true }) : ''}${s3ConfigFormHtml()}`,
+        { subtitle: 'S3 bucket', footer: button('switch', 'Choose another') + button('save-s3', 'Save and connect', { primary: true }) });
 }
 
 function showWebDavForm(error = '') {
-    frame(`${error ? notice('bi-exclamation-triangle text-warning', escapeHtml(error)) : ''}${webdavConfigFormHtml()}`,
-        { subtitle: 'WebDAV server', footer: button('switch', 'Choose Another') + button('save-webdav', 'Save and Connect', { primary: true, icon: 'bi-plug' }) });
+    frame(`${error ? notice(escapeHtml(error), { error: true }) : ''}${webdavConfigFormHtml()}`,
+        { subtitle: 'WebDAV server', footer: button('switch', 'Choose another') + button('save-webdav', 'Save and connect', { primary: true }) });
 }
 
 function showNeedsSetup(status, folderName = '') {
     if (status === 'needs-auth') {
         // @googleDrive:begin
-        frame(notice('bi-info-circle', 'Connect Google Drive so MajesticTab can compare and sync your library.'),
-            { subtitle: 'Google Drive', footer: button('switch', 'Choose Another') + button('connect', 'Connect Google Drive', { primary: true, icon: 'icon-gdrive' }) });
+        frame(notice('Connect Google Drive so MajesticTab can compare and sync your library.'),
+            { subtitle: 'Google Drive', footer: button('switch', 'Choose another') + button('connect', 'Connect Google Drive', { primary: true }) });
         // @googleDrive:end
     } else if (status === 'needs-icloud') {
-        frame(notice('bi-cloud-slash', ICLOUD_UNAVAILABLE_MESSAGE),
-            { subtitle: 'iCloud Drive', footer: button('switch', 'Choose Another') + button('retry', 'Try Again', { primary: true, icon: 'bi-arrow-repeat' }) });
+        frame(notice(escapeHtml(ICLOUD_UNAVAILABLE_MESSAGE)),
+            { subtitle: 'iCloud Drive', footer: button('switch', 'Choose another') + button('retry', 'Try again', { primary: true }) });
     } else if (status === 'needs-s3') {
         showS3Form();
     } else if (status === 'needs-webdav') {
         showWebDavForm();
     } else if (status === 'needs-permission') {
-        frame(notice('bi-lock', `MajesticTab needs permission to use "${escapeHtml(folderName)}" again.`),
-            { subtitle: 'Backup folder', footer: button('switch', 'Choose Another') + button('allow-folder', 'Allow Access', { primary: true, icon: 'bi-unlock' }) });
+        frame(notice(`MajesticTab needs permission to use "${escapeHtml(folderName)}" again.`),
+            { subtitle: 'Backup folder', footer: button('switch', 'Choose another') + button('allow-folder', 'Allow access', { primary: true }) });
     } else {
-        frame(notice('bi-folder2-open', 'Choose the folder to sync through.'),
-            { subtitle: 'Backup folder', footer: button('switch', 'Choose Another') + button('choose-folder', 'Choose Folder', { primary: true, icon: 'bi-folder2-open' }) });
+        frame(notice('Choose the folder to sync through.'),
+            { subtitle: 'Backup folder', footer: button('switch', 'Choose another') + button('choose-folder', 'Choose folder', { primary: true }) });
     }
 }
 
-function tile(n, label, cls) {
-    return `<div class="col-6 col-md-3"><div class="p-2 rounded-2 backup-stat-card"><div class="fw-bold fs-6 ${n ? cls : 'text-white-50'}">${n}</div><div class="text-white-50 text-truncate" style="font-size:0.72rem;">${label}</div></div></div>`;
+/** Plain counts in one line, separated by middle dots; zero counts stay so the layout does not jump. */
+function counts(entries) {
+    return `<p class="sync-counts">${entries.map(([n, label]) => `<span class="${n ? '' : 'is-zero'}"><strong>${n}</strong> ${label}</span>`).join('<span aria-hidden="true"> · </span>')}</p>`;
 }
 
-function section(changes, { icon, title, note = '', tone }) {
+function section(changes, { title, note = '', open = false }) {
     if (!changes.length) return '';
     const bytes = changes.reduce((acc, c) => acc + c.size, 0);
     return `
-        <details class="mb-2" ${changes.length <= 8 || tone === 'text-warning' ? 'open' : ''}>
-            <summary class="small fw-semibold text-white py-1 d-flex align-items-center gap-2" style="cursor: pointer; user-select: none;">
-                <i class="${icon} ${tone}"></i><span>${title} (${changes.length})</span>
-                ${bytes ? `<span class="text-white-50 fw-normal ms-auto" style="font-size:0.72rem;">${formatBytes(bytes)}</span>` : ''}
-            </summary>
-            ${note ? `<div class="text-white-50 mb-1" style="font-size:0.72rem;">${note}</div>` : ''}
-            <ul class="list-unstyled mb-0 rounded-2 backup-summary-box" style="max-height: 28vh; overflow-y: auto;">
+        <details class="sync-section" ${changes.length <= 8 || open ? 'open' : ''}>
+            <summary><span>${title} (${changes.length})</span>${bytes ? `<span class="sync-meta">${formatBytes(bytes)}</span>` : ''}</summary>
+            ${note ? `<div class="sync-hint">${note}</div>` : ''}
+            <ul class="sync-rows">
                 ${changes.map(c => `
-                    <li class="d-flex align-items-start gap-2 px-2 py-2 border-bottom border-secondary-subtle">
-                        <i class="${c.kind === 'soundfont' ? 'bi-music-note-list' : c.kind === 'audio' ? 'bi-soundwave' : 'bi-file-earmark-music'} text-white-50 flex-shrink-0 mt-1"></i>
-                        <div class="min-w-0 flex-grow-1">
-                            <div class="small text-white text-truncate" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</div>
-                            <div class="text-white-50" style="font-size:0.7rem;">${escapeHtml(c.reason)}${c.size ? ` · ${formatBytes(c.size)}` : ''}</div>
-                        </div>
-                        ${c.conflict ? '<span class="badge badge-theme-secondary py-0 px-2 flex-shrink-0" style="font-size:0.65rem;">Both changed</span>' : ''}
+                    <li>
+                        <span class="sync-row-name" title="${escapeHtml(c.name)}">${escapeHtml(c.name)}</span>
+                        <span class="sync-row-note">${escapeHtml(c.reason)}${c.conflict ? ' · both changed' : ''}${c.size ? ` · ${formatBytes(c.size)}` : ''}</span>
                     </li>`).join('')}
             </ul>
         </details>`;
 }
 
-const OTHER_ICONS = { song: 'bi-music-note-beamed', collection: 'bi-collection', extension: 'bi-puzzle', setting: 'bi-gear' };
-
-function otherSection(items, { icon, title, tone }) {
+function otherSection(items, { title }) {
     if (!items.length) return '';
     return `
-        <details class="mb-2" open>
-            <summary class="small fw-semibold text-white py-1 d-flex align-items-center gap-2" style="cursor: pointer; user-select: none;">
-                <i class="${icon} ${tone}"></i><span>${title}</span>
-            </summary>
-            <ul class="list-unstyled mb-0 rounded-2 backup-summary-box">
-                ${items.map(i => `
-                    <li class="d-flex align-items-start gap-2 px-2 py-2 border-bottom border-secondary-subtle">
-                        <i class="${OTHER_ICONS[i.kind] || 'bi-gear'} text-white-50 flex-shrink-0 mt-1"></i>
-                        <div class="small text-white min-w-0" style="overflow-wrap:anywhere;">${escapeHtml(i.text)}</div>
-                    </li>`).join('')}
-            </ul>
+        <details class="sync-section" open>
+            <summary><span>${title}</span></summary>
+            <ul class="sync-rows">${items.map(i => `<li><span class="sync-row-name">${escapeHtml(i.text)}</span></li>`).join('')}</ul>
         </details>`;
+}
+
+/** The one place the destructive option lives. The first press opens a confirmation screen; the second one does it. */
+function dangerZone(target) {
+    return `
+        <div class="sync-danger">
+            <h3>Danger zone</h3>
+            <div class="sync-danger-row">
+                <div class="min-w-0">
+                    <div class="sync-row-name">Replace ${where(target)} with this device</div>
+                    <div class="sync-row-note">Makes ${where(target)} an exact copy of this library. Anything only stored there is left out.</div>
+                </div>
+                <button type="button" class="btn btn-sm btn-theme-danger" data-sync-action="replace">Replace...</button>
+            </div>
+        </div>`;
 }
 
 function showReview(target, backend, plan) {
@@ -291,31 +288,32 @@ function showReview(target, backend, plan) {
     const up = by(SYNC_ACTION.UPLOAD);
     const removeHere = by(SYNC_ACTION.DELETE_LOCAL);
     const removeThere = by(SYNC_ACTION.DELETE_REMOTE);
-    const where = targetLabel(target);
+    const place = where(target);
     const removals = removeHere.length + removeThere.length;
     const total = plan.changes.length + plan.unchanged;
     const unusual = removals >= MASS_REMOVAL_MIN && removals / Math.max(1, total) >= MASS_REMOVAL_SHARE;
+    const danger = plan.latest ? dangerZone(target) : '';
 
     const header = `
-        <div class="d-flex align-items-start justify-content-between gap-2 mb-3">
+        <div class="sync-head">
             <div class="min-w-0">
-                <div class="small fw-semibold text-white">${plan.firstSync
-                    ? '<i class="bi-info-circle text-info me-1"></i> First sync with this location. Nothing will be removed.'
-                    : `<i class="bi-check-circle text-success me-1"></i> Last synced ${escapeHtml(relativeTime(plan.lastSyncedAt))}`}</div>
-                <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(backend.location)}"><i class="bi-folder2 me-1"></i>${escapeHtml(backend.location)}</div>
+                <div class="sync-status">${plan.firstSync
+                    ? 'First sync with this location. Nothing will be removed.'
+                    : `Last synced ${escapeHtml(relativeTime(plan.lastSyncedAt))}`}</div>
+                <div class="sync-location" title="${escapeHtml(backend.location)}">${escapeHtml(backend.location)}</div>
             </div>
-            <div class="d-flex gap-1 flex-shrink-0">
-                ${target === FOLDER ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="change-folder">Change Folder</button>' : ''}
-                ${target === S3 ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="edit-s3">Bucket Settings</button>' : ''}
-                ${target === WEBDAV ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="edit-webdav">Server settings</button>' : ''}
-                <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-sync-action="switch">Change Location</button>
+            <div class="sync-head-actions">
+                ${target === FOLDER ? textAction('change-folder', 'Change folder') : ''}
+                ${target === S3 ? textAction('edit-s3', 'Bucket settings') : ''}
+                ${target === WEBDAV ? textAction('edit-webdav', 'Server settings') : ''}
+                ${textAction('switch', 'Change location')}
             </div>
         </div>`;
 
     const other = plan.other || { receive: [], send: [] };
     if (!plan.changes.length && !plan.needsPush && !other.receive.length) {
-        frame(`${header}<div class="text-center py-3"><i class="bi-check2-circle text-success fs-1 d-block mb-2"></i><div class="fw-bold text-white small">Everything is in sync</div><div class="text-white-50" style="font-size:0.75rem;">${plan.unchanged} tab${plan.unchanged === 1 ? '' : 's'} match ${where}.</div></div>`,
-            { subtitle: `Sync with ${where}`, footer: button('close', 'Done', { primary: true }) });
+        frame(`${header}<div class="task-status" role="status"><strong>Everything is in sync</strong><span class="task-status-detail">${plan.unchanged} tab${plan.unchanged === 1 ? '' : 's'} match ${place}.</span></div>${danger}`,
+            { subtitle: `Sync with ${place}`, footer: button('close', 'Done', { primary: true }) });
         return;
     }
 
@@ -327,55 +325,71 @@ function showReview(target, backend, plan) {
 
     frame(`
         ${header}
-        ${unusual ? `<div class="small text-warning mb-3 p-2 rounded-2 backup-summary-box"><i class="bi-exclamation-triangle-fill me-1"></i> This removes ${removals} of ${total} tabs. If that isn't what you expect, cancel and check ${where} first.</div>` : ''}
-        <div class="row g-2 mb-3">
-            ${tile(down.length, 'To receive', 'text-info')}
-            ${tile(up.length, 'To send', 'text-success')}
-            ${tile(removeHere.length, 'Removed here', 'text-warning')}
-            ${tile(removeThere.length, `Removed from ${target === DRIVE ? 'Drive' : target === ICLOUD ? 'iCloud' : target === S3 ? 'bucket' : target === WEBDAV ? 'server' : 'folder'}`, 'text-warning')}
-        </div>
-        ${section(removeHere, { icon: 'bi-trash3', title: 'Removed from this device', tone: 'text-warning', note: `Removed from ${where} on another device. Older snapshots still hold a copy.` })}
-        ${section(removeThere, { icon: 'bi-cloud-minus', title: `Removed from ${where}`, tone: 'text-warning', note: 'You removed these here. Older snapshots still hold a copy.' })}
-        ${section(down, { icon: 'bi-cloud-arrow-down', title: 'Received on this device', tone: 'text-info' })}
-        ${section(up, { icon: 'bi-cloud-arrow-up', title: `Sent to ${where}`, tone: 'text-success' })}
-        ${otherSection(other.receive, { icon: 'bi-sliders', title: 'Library, converters and settings received', tone: 'text-info' })}
-        ${otherSection(other.send, { icon: 'bi-sliders', title: `Library, converters and settings sent to ${where}`, tone: 'text-success' })}
-        <div class="text-white-50 mt-2" style="font-size:0.72rem;">
+        ${unusual ? `<div class="task-status task-status-error" role="alert"><strong>This removes ${removals} of ${total} tabs</strong><span class="task-status-detail">If that isn't what you expect, cancel and check ${place} first.</span></div>` : ''}
+        ${counts([[down.length, 'to receive'], [up.length, 'to send'], [removeHere.length, 'removed here'], [removeThere.length, `removed from ${shortPlace(target)}`]])}
+        ${section(removeHere, { title: 'Removed from this device', open: true, note: `Removed from ${place} on another device. Older snapshots still hold a copy.` })}
+        ${section(removeThere, { title: `Removed from ${place}`, open: true, note: 'You removed these here. Older snapshots still hold a copy.' })}
+        ${section(down, { title: 'Received on this device' })}
+        ${section(up, { title: `Sent to ${place}` })}
+        ${otherSection(other.receive, { title: 'Library, converters and settings received' })}
+        ${otherSection(other.send, { title: `Library, converters and settings sent to ${place}` })}
+        <p class="sync-hint">
             Settings, file converters, songs, collections, recents and setlists follow the newest change on either side, and a removal on one side is carried to the other. A new snapshot is saved only when this device has something to send.
-        </div>`,
+        </p>
+        ${danger}`,
         {
-            subtitle: `Sync with ${where}`,
-            footer: button('close', 'Cancel') + button('apply', parts.length ? `Sync Now (${parts.join(', ')})` : 'Sync Now', { primary: true, icon: 'bi-arrow-repeat' })
+            subtitle: `Sync with ${place}`,
+            footer: button('close', 'Cancel') + button('apply', parts.length ? `Sync now (${parts.join(', ')})` : 'Sync now', { primary: true })
         });
 }
 
-function showProgress(target) {
+/** Second step of the destructive option: says exactly what will be left out, and waits for the second press. */
+function showReplaceConfirm(target, replacePlan) {
+    const place = where(target);
+    const { lost } = replacePlan;
+    const lines = [
+        lost.tabs && `${lost.tabs} tab${lost.tabs === 1 ? '' : 's'}`,
+        lost.soundfonts && `${lost.soundfonts} SoundFont${lost.soundfonts === 1 ? '' : 's'}`,
+        lost.audio && `${lost.audio} audio file${lost.audio === 1 ? '' : 's'}`,
+        lost.records && `${lost.records} setting, song, setlist or converter record${lost.records === 1 ? '' : 's'}`
+    ].filter(Boolean);
     frame(`
-        <div class="p-2 rounded-2" style="background: rgba(0,0,0,0.25); border: 1px solid var(--border-subtle);">
-            <div class="d-flex justify-content-between text-white small mb-1" style="font-size: 0.75rem;">
-                <span id="syncProgressText" class="text-truncate">Starting...</span>
-                <span id="syncProgressPercent" class="fw-bold text-info ms-2">0%</span>
-            </div>
-            <div class="progress" style="height: 6px; background: rgba(255,255,255,0.1);">
-                <div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" id="syncProgressBar" role="progressbar" style="width: 0%;"></div>
-            </div>
+        <div class="task-status task-status-error" role="alert">
+            <strong>Replace ${place} with this device?</strong>
+            <span class="task-status-detail">${place} will become an exact copy of this library. Nothing is received from it, and your other devices will follow this device the next time they sync.</span>
         </div>
-        <div class="small text-white-50 mt-2">Keep this window open until it finishes.</div>`, { subtitle: `Syncing with ${targetLabel(target)}` });
+        ${counts([[replacePlan.sending, 'to send'], [lines.length ? lost.tabs + lost.soundfonts + lost.audio : 0, `left out of ${shortPlace(target)}`], [replacePlan.unchanged, 'already there']])}
+        ${lines.length ? `<div class="sync-section"><div class="sync-row-name">Only in ${place}, left out of the new snapshot</div><ul class="sync-rows"><li><span class="sync-row-name">${escapeHtml(lines.join(', '))}</span></li></ul></div>` : `<p class="sync-hint">${place} holds nothing this device lacks.</p>`}
+        <p class="sync-hint">Older snapshots stay in ${place} until they age out, so a restore can still reach them. This cannot be undone from here.</p>`,
+        {
+            subtitle: `Replace ${place}`,
+            footer: button('replace-cancel', 'Cancel') + button('replace-confirm', `Replace ${place}`, { danger: true })
+        });
+}
+
+function showProgress(target, { replace = false } = {}) {
+    frame(`
+        <div class="task-progress" role="status" aria-live="polite">
+            <div class="task-progress-text"><span class="task-progress-label" id="syncProgressPercent">0%</span><span class="task-progress-detail" id="syncProgressText">Starting...</span></div>
+            ${progressTrack('syncProgressBar')}
+        </div>
+        <p class="sync-hint">Keep this window open until it finishes.</p>`, { subtitle: `${replace ? 'Replacing' : 'Syncing with'} ${targetLabel(target)}` });
 }
 
 function updateProgress({ phase, current, total, text }) {
     const share = total > 0 ? current / total : 0;
     // Receiving takes the first half of the bar and sending the second
     const pct = Math.min(99, Math.round(phase === 'pull' ? share * 50 : 50 + share * 49));
-    const bar = modal.querySelector('#syncProgressBar');
-    if (bar) bar.style.width = `${pct}%`;
+    const bar = modal.querySelector('#syncProgressBarFill');
+    if (bar) bar.style.transform = `scaleX(${pct / 100})`;
+    modal.querySelector('#syncProgressBar')?.setAttribute('aria-valuenow', String(pct));
     const pctEl = modal.querySelector('#syncProgressPercent');
     if (pctEl) pctEl.textContent = `${pct}%`;
     const textEl = modal.querySelector('#syncProgressText');
     if (textEl) textEl.textContent = text;
 }
 
-function showDone(target, r) {
+function showDone(target, r, { replace = false } = {}) {
     const lines = [
         r.downloaded && `Received ${r.downloaded} tab${r.downloaded === 1 ? '' : 's'}`,
         r.uploaded && `Sent ${r.uploaded} (${formatBytes(r.bytesSent)})`,
@@ -383,15 +397,14 @@ function showDone(target, r) {
         r.removedRemote && `Removed ${r.removedRemote} from ${targetLabel(target)}`
     ].filter(Boolean);
     reloadOnClose = Boolean(r.downloaded || r.removedLocal || r.recordsChanged);
-    frame(`<div class="text-center py-3"><i class="bi-check2-circle text-success fs-1 d-block mb-2"></i>
-        <div class="fw-bold text-white small mb-1">Sync complete</div>
-        <div class="text-white-50" style="font-size:0.75rem;">${lines.length ? lines.map(escapeHtml).join('<br>') : 'Library and settings are up to date.'}</div></div>`,
+    frame(`<div class="task-status" role="status"><strong>${replace ? `${escapeHtml(targetLabel(target))} now matches this device` : 'Sync complete'}</strong>
+        <span class="task-status-detail">${lines.length ? lines.map(escapeHtml).join('<br>') : 'Library and settings are up to date.'}</span></div>`,
         { subtitle: `Synced with ${targetLabel(target)}`, footer: button('close', 'Done', { primary: true }) });
 }
 
 function showError(message) {
-    frame(`<div class="small text-danger py-2"><i class="bi-exclamation-triangle-fill me-1"></i> ${escapeHtml(message)}</div>`,
-        { subtitle: 'Sync stopped', footer: button('close', 'Close') + button('retry', 'Try Again', { primary: true }) });
+    frame(notice(escapeHtml(message), { error: true }),
+        { subtitle: 'Sync stopped', footer: button('close', 'Close') + button('retry', 'Try again', { primary: true }) });
 }
 
 // --- flow ---
@@ -451,9 +464,51 @@ async function apply() {
     }
 }
 
+/** First press of the destructive option: compare, then show what would be left out. Nothing changes yet. */
+async function startReplace() {
+    if (!context) return;
+    const { target, backend } = context;
+    const mine = ++session;
+    const setStep = showChecking(target, { title: `Reading ${targetLabel(target)}`, subtitle: `Replace ${targetLabel(target)}` });
+    try {
+        const replacePlan = await planReplaceRemote(backend, (text) => { if (mine === session) setStep(text); });
+        stopChecking();
+        if (mine !== session) return;
+        context.replacePlan = replacePlan;
+        showReplaceConfirm(target, replacePlan);
+    } catch (err) {
+        stopChecking();
+        if (mine !== session) return;
+        console.error('[Sync] Could not read the sync location:', err);
+        showError(err.message);
+    }
+}
+
+/** Second press: this device's library becomes the new snapshot. */
+async function confirmReplace() {
+    if (!context?.replacePlan) return;
+    const { target, backend, replacePlan } = context;
+    const mine = ++session;
+    showProgress(target, { replace: true });
+    try {
+        const result = await applyReplaceRemote(backend, replacePlan, updateProgress);
+        if (mine !== session) return;
+        context = null;
+        showDone(target, result, { replace: true });
+        refreshSyncStatus();
+    } catch (err) {
+        if (mine !== session) return;
+        console.error('[Sync] Replace failed:', err);
+        showError(err.message);
+    }
+}
+
 async function handleAction(action) {
     try {
         if (action === 'close') return closeSyncModal();
+        if (action === 'replace') return startReplace();
+        if (action === 'replace-confirm') return confirmReplace();
+        if (action === 'replace-cancel') return context ? showReview(context.target, context.backend, context.plan) : start();
         if (action === 'retry') return start({ interactive: true });
         if (action === 'apply') return apply();
         if (action === 'switch') return showChooseLocation();
@@ -513,17 +568,21 @@ async function handleAction(action) {
     }
 }
 
+/** Opens the Sync task under its row in Settings and compares. Used by the row and by the Sync button in the library. */
 export async function openSyncModal() {
+    const back = await import('./backupRestore.js');
+    const host = await back.getSettingsDataHost('sync');
+    if (!host) return console.warn('[Sync] Settings is not available');
+    back.closeBackupModal();
+    reset();
     getModal();
     reloadOnClose = false;
-    modal.style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-    settingsPanel.hide();
-
+    host.appendChild(modal);
+    modal.style.display = 'block';
+    back.setTaskOpenState('sync');
     if (!modal.dataset.wired) {
         modal.dataset.wired = '1';
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) return closeSyncModal();
             const action = e.target.closest('[data-sync-action]')?.dataset.syncAction;
             if (action) handleAction(action);
         });
@@ -532,10 +591,11 @@ export async function openSyncModal() {
 }
 
 export function initSync() {
-    document.getElementById('syncDataBtn')?.addEventListener('click', openSyncModal);
+    // The Sync row in Settings opens the task itself (settingsPage.js); another data task opening closes this one
+    window.addEventListener('dataTaskOpened', () => { if (modal?.style.display === 'block') reset(); });
     // Desktop and mobile sign in without reloading the page, so resume the comparison that was waiting on it
     window.addEventListener('googleAuthSuccess', (e) => {
-        if (e.detail?.state !== 'sync' || modal?.style.display !== 'flex') return;
+        if (e.detail?.state !== 'sync' || modal?.style.display !== 'block') return;
         sessionStorage.removeItem(AUTO_AUTH_KEY);
         start({ interactive: true });
     });

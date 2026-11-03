@@ -182,7 +182,7 @@ const BACKUP_AUTH_STATES = {
 function openBackupModalForAuthState(state, { skipIfOpen = false } = {}) {
     if (state === 'sync') {
         const syncModal = document.getElementById('syncModal');
-        if (skipIfOpen && syncModal && syncModal.style.display === 'flex') return;
+        if (skipIfOpen && syncModal && syncModal.style.display === 'block') return;
         import('./syncUi.js').then(({ openSyncModal }) => openSyncModal());
         return;
     }

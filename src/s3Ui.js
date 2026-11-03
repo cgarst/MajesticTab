@@ -14,8 +14,8 @@ function corsHintHtml() {
     return `
         <div class="mt-3 small text-white-50">
             <div class="mb-1">Add this to your bucket's CORS configuration so this site can reach it:</div>
-            <pre class="p-2 rounded-3 mb-1 text-white-50" style="font-size: 0.7rem; white-space: pre-wrap; user-select: all; background: var(--bg-card-solid); border: 1px solid var(--border-subtle);">${escapeHtml(rules)}</pre>
-            <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size: 0.72rem;" data-s3-copy="${escapeHtml(rules)}"><i class="bi-clipboard me-1"></i>Copy</button>
+            <pre class="p-2 rounded-3 mb-1 text-white-50" style="font-size: 0.7rem; white-space: pre-wrap; user-select: all; background: var(--s2);">${escapeHtml(rules)}</pre>
+            <button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size: 0.72rem;" data-s3-copy="${escapeHtml(rules)}">Copy</button>
             <div class="text-muted mt-1" style="font-size: 0.7rem;">Amazon S3 and Cloudflare R2 take this JSON as is. Other providers (Backblaze B2, MinIO, Wasabi) have the same fields in their own CORS settings.</div>
         </div>`;
 }

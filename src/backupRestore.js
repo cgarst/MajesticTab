@@ -1287,7 +1287,7 @@ function getOrCreateModal() {
 
 
 /** The slot under a data task's row on the Settings page. Opens the library first when its navigation is not on screen. */
-async function getSettingsDataHost(tab) {
+export async function getSettingsDataHost(tab) {
     const wait = (ms) => new Promise((r) => setTimeout(r, ms));
     if (!document.getElementById('libraryNavSettingsBtn')) {
         const { openLibraryModal } = await import('./libraryModal.js');
@@ -1306,7 +1306,9 @@ async function getSettingsDataHost(tab) {
     return document.querySelector(`.data-task-slot[data-task="${tab}"]`);
 }
 
-function setTaskOpenState(openTab) {
+export function setTaskOpenState(openTab) {
+    // One task is open at a time; the sync task lives in its own module and closes itself
+    if (openTab !== 'sync') window.dispatchEvent(new CustomEvent('dataTaskOpened', { detail: { task: openTab } }));
     document.querySelectorAll('.data-task-slot').forEach((slot) => {
         const open = slot.dataset.task === openTab;
         slot.hidden = !open;

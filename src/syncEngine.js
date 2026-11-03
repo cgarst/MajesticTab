@@ -509,3 +509,84 @@ export async function applySync(backend, plan, onProgress) {
         Object.fromEntries([...settledRecords].map(([key, r]) => [key, r.fp])));
     return result;
 }
+
+// --- replace the remote with this device ---
+
+/**
+ * What replacing the sync location with this device would do, without changing anything. Nothing is received:
+ * the next snapshot is this device's library as it is, so whatever only the old snapshot holds is left out of it.
+ * Older snapshots stay in the location until its own pruning removes them.
+ * @returns {Promise<{latest: object|null, changes: Array, unchanged: number, lost: {tabs: number, soundfonts: number, audio: number, records: number}, sending: number}>}
+ */
+export async function planReplaceRemote(backend, onStatus) {
+    const say = (text) => { if (typeof onStatus === 'function') onStatus(text); };
+    say('Reading this device\'s library and listing snapshots...');
+    const [backups, fileMetas, soundFonts, audioMetas] = await Promise.all([
+        listIncrementalBackups(backend), getAllStoredFiles(), listSoundFonts(), listAudioForBackup()
+    ]);
+    const local = localItems(fileMetas, soundFonts, audioMetas);
+    const latest = backups[0] ? { name: backups[0].name, exportedAt: backups[0].exportedAt } : null;
+    say(latest ? 'Reading the latest snapshot...' : 'No snapshot found.');
+    const manifest = latest ? await backend.readManifest(backups[0]) : null;
+    const remote = latest ? remoteItems(manifest) : new Map();
+
+    const changes = [];
+    let unchanged = 0;
+    for (const key of new Set([...local.keys(), ...remote.keys()])) {
+        const mine = local.get(key);
+        const theirs = remote.get(key);
+        const item = mine || theirs;
+        const entry = { kind: item.kind, id: item.id, key, name: item.name, size: item.size };
+        if (mine && theirs) {
+            if (mine.fingerprint === theirs.fingerprint) unchanged++;
+            else changes.push({ ...entry, action: SYNC_ACTION.UPLOAD, reason: 'Differs from the snapshot; this device\'s copy is kept' });
+        } else if (mine) changes.push({ ...entry, action: SYNC_ACTION.UPLOAD, reason: 'Not in the snapshot' });
+        else changes.push({ ...entry, action: SYNC_ACTION.DELETE_REMOTE, reason: 'Only in the snapshot; it will be left out' });
+    }
+    changes.sort((a, b) => (a.action === b.action ? 0 : a.action === SYNC_ACTION.DELETE_REMOTE ? -1 : 1) || a.name.localeCompare(b.name));
+
+    const lostItems = changes.filter(c => c.action === SYNC_ACTION.DELETE_REMOTE);
+    let records = 0;
+    if (latest) {
+        const theirs = recordViews({ settings: manifest.settings, extensions: manifest.extensions, library: manifest.library });
+        const mine = await localRecordViews();
+        for (const [key, r] of theirs.records) if (!mine.records.has(key) && mine.present.has(r.kind)) records++;
+    }
+    return {
+        latest, changes, unchanged,
+        sending: changes.length - lostItems.length,
+        lost: {
+            tabs: lostItems.filter(c => c.kind === 'tab').length,
+            soundfonts: lostItems.filter(c => c.kind === 'soundfont').length,
+            audio: lostItems.filter(c => c.kind === 'audio').length,
+            records
+        }
+    };
+}
+
+/**
+ * Save this device's library as the new snapshot and make it the baseline, receiving nothing.
+ * @returns {Promise<{uploaded: number, bytesSent: number, removedRemote: number}>}
+ */
+export async function applyReplaceRemote(backend, plan, onProgress) {
+    const report = (phase, current, total, text) => { if (typeof onProgress === 'function') onProgress({ phase, current, total, text }); };
+    const newest = (await listIncrementalBackups(backend))[0] || null;
+    if ((newest?.name || null) !== (plan.latest?.name || null)) {
+        throw new Error('The backup changed while you were reviewing. Start again to see the updated changes.');
+    }
+    const pushed = await createIncrementalBackup(backend, {
+        carryForward: [],
+        onProgress: ({ phase, current, total, name }) => report(
+            'push', current, total,
+            phase === 'manifest' ? 'Saving the new snapshot' : name ? `Sending ${name}` : 'Checking what the backup already holds'
+        )
+    });
+    const settled = localItems(await getAllStoredFiles(), await listSoundFonts(), await listAudioForBackup());
+    const settledRecords = (await localRecordViews()).records;
+    saveSyncBase(backend, Object.fromEntries([...settled].map(([key, item]) => [key, item.fingerprint])),
+        Object.fromEntries([...settledRecords].map(([key, r]) => [key, r.fp])));
+    return {
+        uploaded: pushed.uploaded, bytesSent: pushed.bytesSent,
+        removedRemote: plan.changes.filter(c => c.action === SYNC_ACTION.DELETE_REMOTE).length
+    };
+}

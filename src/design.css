@@ -2656,3 +2656,56 @@ body > #controllerHelpModal { display: none; }
   .fretboard-note-marker .marker-circle, .fretboard-note-marker .marker-split-left, .fretboard-note-marker .marker-split-right, .pick-marker-inner { animation: none !important; }
 }
 .setnav button svg:first-child { width: 1.5rem; height: 1.15rem; flex-shrink: 0; }
+
+/* ---------- Sync dialog ----------
+   Flat: tone steps and ink, no icon squares, tiles, outlines, badges or striped bars. The destructive option
+   sits in its own Danger zone and takes a second press on a separate screen. */
+#syncModal .sync-card { max-width: 620px; }
+#syncModal .theme-modal-header { border: 0; }
+#syncModal .theme-modal-footer, #syncModal .sync-footer { border: 0; display: flex; justify-content: flex-end; align-items: center; gap: 8px; padding: 8px 16px 16px; }
+#syncModal .sync-title { margin: 0; font-size: 17px; font-weight: 600; color: var(--ink); }
+#syncModal .sync-subtitle { color: var(--ink2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#syncModal .sync-body { padding: 4px 16px 12px; color: var(--ink); font-size: 14px; }
+#syncModal .text-white, #syncModal .text-white-50, #syncModal .text-muted { color: var(--ink2) !important; }
+#syncModal .form-label { color: var(--ink2) !important; }
+#syncModal .sync-lead { color: var(--ink2); margin: 0 0 12px; }
+#syncModal .sync-hint { color: var(--ink2); font-size: 13px; margin: 6px 0 0; }
+#syncModal .sync-list { display: flex; flex-direction: column; gap: 2px; }
+#syncModal .sync-option { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 56px; padding: 10px 14px; text-align: left; background: var(--s2); border: 0; border-radius: var(--r-control); color: var(--ink); }
+#syncModal .sync-option:hover { background: var(--s3); }
+#syncModal .sync-option:focus-visible, #syncModal .sync-text-action:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+#syncModal .sync-option-title { font-weight: 600; }
+#syncModal .sync-option-text { color: var(--ink2); font-size: 13px; }
+#syncModal .sync-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+#syncModal .sync-head > .min-w-0, #syncModal .sync-danger-row > .min-w-0 { min-width: 0; }
+#syncModal .sync-head-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; flex-shrink: 0; }
+#syncModal .sync-status { font-weight: 600; }
+#syncModal .sync-location { color: var(--ink2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#syncModal .sync-text-action { min-height: 32px; padding: 4px 10px; background: transparent; border: 0; border-radius: var(--r-control); color: var(--ink2); font-size: 13px; }
+#syncModal .sync-text-action:hover { background: var(--s2); color: var(--ink); }
+@media (pointer: coarse) { #syncModal .sync-text-action, #syncModal .btn { min-height: 44px; } }
+#syncModal .sync-counts { margin: 0 0 12px; color: var(--ink2); font-size: 14px; }
+#syncModal .sync-counts strong { color: var(--ink); font-weight: 600; }
+#syncModal .sync-counts .is-zero strong { color: var(--ink2); font-weight: 400; }
+#syncModal .sync-section { margin: 0 0 8px; }
+#syncModal .sync-section summary { display: flex; align-items: center; gap: 8px; min-height: 36px; font-weight: 600; cursor: pointer; user-select: none; }
+#syncModal .sync-meta { margin-left: auto; color: var(--ink2); font-weight: 400; font-size: 13px; }
+#syncModal .sync-rows { list-style: none; margin: 4px 0 0; padding: 0; max-height: 28vh; overflow-y: auto; background: var(--s2); border-radius: var(--r-control); }
+#syncModal .sync-rows li { display: flex; flex-direction: column; padding: 8px 12px; min-width: 0; }
+#syncModal .sync-rows li + li { background: transparent; }
+#syncModal .sync-row-name { color: var(--ink); overflow-wrap: anywhere; }
+#syncModal .sync-rows .sync-row-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#syncModal .sync-row-note { color: var(--ink2); font-size: 13px; }
+#syncModal .sync-danger { margin-top: 20px; }
+#syncModal .sync-danger h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; color: var(--danger, #f87171); }
+#syncModal .sync-danger-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 8px 12px; background: var(--s2); border-radius: var(--r-control); }
+#syncModal .sync-danger-row .btn { flex-shrink: 0; }
+#syncModal .task-status { margin-top: 0; margin-bottom: 12px; }
+#syncModal pre { border: 0 !important; }
+
+/* Embedded in Settings under its row: the row names the task, so no header, card or second title */
+#syncModal.tool-embedded .sync-card { max-width: none; }
+#syncModal.tool-embedded .sync-body { padding: 0; }
+#syncModal.tool-embedded .sync-footer { padding: 8px 0 0; }
+#syncModal.tool-embedded .sync-subtitle { display: none; }
+#syncModal.tool-embedded .sync-rows, #syncModal.tool-embedded .sync-danger-row, #syncModal.tool-embedded .sync-option { background: var(--s2); }
