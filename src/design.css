@@ -2631,9 +2631,8 @@ body > #controllerHelpModal { display: none; }
 .pick-strike-shape { stroke: none; }
 @keyframes fb-pop { from { transform: scale(1.18); } to { transform: scale(1); } }
 .fretboard-note-marker.is-struck .marker-circle, .fretboard-note-marker.is-struck .marker-split-left, .fretboard-note-marker.is-struck .marker-split-right,
-.fretboard-note-marker.is-struck-alt .marker-circle, .fretboard-note-marker.is-struck-alt .marker-split-left, .fretboard-note-marker.is-struck-alt .marker-split-right,
-.fretboard-pick-marker.is-struck .pick-marker-inner, .fretboard-pick-marker.is-struck-alt .pick-marker-inner { animation: fb-pop var(--dur-fast) var(--ease-out); }
-.fretboard-pick-marker.is-struck-alt .pick-marker-inner, .fretboard-note-marker.is-struck-alt .marker-circle { animation-name: fb-pop-alt; }
+.fretboard-note-marker.is-struck-alt .marker-circle, .fretboard-note-marker.is-struck-alt .marker-split-left, .fretboard-note-marker.is-struck-alt .marker-split-right { animation: fb-pop var(--dur-fast) var(--ease-out); }
+.fretboard-note-marker.is-struck-alt .marker-circle { animation-name: fb-pop-alt; }
 @keyframes fb-pop-alt { from { transform: scale(1.18); } to { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) {
   .fretboard-note-marker .marker-circle, .fretboard-note-marker .marker-split-left, .fretboard-note-marker .marker-split-right, .pick-marker-inner { animation: none !important; }

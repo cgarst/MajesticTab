@@ -409,5 +409,6 @@ body.library-view-active .fretboard-dock {
 .fretboard-pick-reach { pointer-events: none; }
 .pick-reach-strum { stroke-width: 3; stroke-linecap: round; opacity: 0.85; }
 .pick-reach-pluck { stroke-width: 1.6; stroke-linecap: round; stroke-dasharray: 0.1 4.5; opacity: 0.9; }
+.pick-string-shimmer { fill: none; stroke-width: 1; pointer-events: none; transform-box: fill-box; transform-origin: center; }
 .pick-reach-bead.is-strum { stroke-width: 0; }
 .pick-reach-bead.is-pluck { stroke-width: 1.8; fill: var(--ground, #0b0910) !important; }

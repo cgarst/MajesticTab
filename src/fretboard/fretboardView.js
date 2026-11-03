@@ -12,6 +12,13 @@ const FRET_NUMBERS = [1, 3, 5, 7, 9, 12, 15, 17, 19, 21, 24];
 // Outline of the brand guitar pick (the logo shape), in its own 303 x 316 coordinate space
 const PLECTRUM_PATH = 'M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z';
 
+// The plectrum anchored by its tip: the group's origin is the point that touches the string. The tip points back
+// the way the pick came from (UP is turned half a circle from the drawn shape, which has its tip down)
+const PICK_TIP_DOWN = 'translate(0 -8.7) scale(0.056) translate(-256 -255)';
+const PICK_TIP_UP = 'rotate(180) translate(0 -8.7) scale(0.056) translate(-256 -255)';
+const PICK_APPROACH = 9;   // px the pick starts short of the string
+const PICK_THROUGH = 2.5;  // px it travels past the string before it settles back
+
 export class FretboardView {
     /**
      * @param {HTMLElement} container
@@ -512,10 +519,11 @@ export class FretboardView {
             if (note.isPicked !== false) {
                 let part = partPicks.get(primaryTrackColorIdx);
                 if (!part) {
-                    part = { strings: new Set(), trackColor, trackGrad };
+                    part = { strings: new Set(), frets: new Map(), trackColor, trackGrad };
                     partPicks.set(primaryTrackColorIdx, part);
                 }
                 part.strings.add(atString);
+                part.frets.set(atString, fret);
             }
 
             // 2. For Fretted Notes (fret > 0), place Finger Dot Marker on the fret
@@ -598,11 +606,11 @@ export class FretboardView {
             const pick = document.createElementNS(svgNS, 'path');
             pick.setAttribute('class', 'pick-strike-shape');
             pick.setAttribute('d', PLECTRUM_PATH);
-            pick.setAttribute('transform', 'translate(0 -1) scale(0.056) translate(-256 -255)');
+            pick.setAttribute('transform', PICK_TIP_UP);
             inner.appendChild(pick);
             g.appendChild(inner);
             this.reachGroup.parentNode.appendChild(g);
-            this.partPickPool.push({ group: g, pick, struckToggle: false });
+            this.partPickPool.push({ group: g, pick });
         }
         return this.partPickPool[index];
     }
@@ -635,24 +643,58 @@ export class FretboardView {
 
             // A strum ends on the top string; anything else touches only the lowest
             const endString = connected ? top : lowest;
+            const strum = connected && strings.length > 1;
             pick.group.setAttribute('transform', `translate(${x}, ${yOf(endString)})`);
             pick.group.style.display = '';
-            pick.struckToggle = !pick.struckToggle;
-            pick.group.setAttribute('class', `fretboard-pick-marker ${pick.struckToggle ? 'is-struck' : 'is-struck-alt'}`);
             pick.pick.style.fill = part.trackGrad;
+
+            // One stroke direction for every pick, toward the higher strings (the way a strum sweeps), tip leading
+            const dir = Math.sign(yOf(this.stringCount) - yOf(1)) || -1;
+            pick.pick.setAttribute('transform', dir > 0 ? PICK_TIP_UP : PICK_TIP_DOWN);
 
             pick.sweep?.cancel();
             pick.sweep = null;
-            if (strings.length === 1 || !this.reachGroup) return;
 
-            // The sweep runs from the lowest string up to the top one, quicker the fewer strings it crosses
-            if (connected && !reduceMotion && pick.group.animate) {
-                const ms = Math.min(220, 40 + 28 * (strings.length - 1));
-                pick.sweep = pick.group.animate(
-                    [{ transform: `translate(${x}px, ${yOf(lowest)}px)` }, { transform: `translate(${x}px, ${yOf(top)}px)` }],
-                    { duration: ms, easing: 'cubic-bezier(0.2, 0.7, 0.3, 1)' }
-                );
+            const canAnimate = !reduceMotion && pick.group.animate;
+            const startY = yOf(strum ? lowest : endString) - dir * PICK_APPROACH;
+            const endY = yOf(endString);
+            const travel = Math.abs(endY - startY);
+            const ms = strum ? Math.min(240, 100 + 28 * (strings.length - 1)) : 150;
+            if (canAnimate) {
+                // Tip first: approach, push a little way past the string, settle back onto it
+                pick.sweep = pick.group.animate([
+                    { transform: `translate(${x}px, ${startY}px)`, easing: 'cubic-bezier(0.3, 0.6, 0.4, 1)' },
+                    { transform: `translate(${x}px, ${endY + dir * PICK_THROUGH}px)`, offset: 0.8, easing: 'ease-out' },
+                    { transform: `translate(${x}px, ${endY}px)` }
+                ], { duration: ms });
+
+                // Each sounded string answers when the pick reaches it: a damped shimmer from the fretted note to the bridge
+                strings.forEach((str) => {
+                    const fret = part.frets.get(str) || 0;
+                    const x0 = fret > 0 ? this.fretWiresX[fret] : this.nutX;
+                    const x1 = this.bridgeX;
+                    const hit = Math.min(1, (Math.abs(yOf(str) - startY)) / travel) * 0.8 * ms;
+                    const env = document.createElementNS(svgNS, 'ellipse');
+                    env.setAttribute('class', 'pick-string-shimmer');
+                    env.setAttribute('cx', (x0 + x1) / 2);
+                    env.setAttribute('cy', yOf(str));
+                    env.setAttribute('rx', Math.abs(x1 - x0) / 2);
+                    env.setAttribute('ry', 2);
+                    env.style.stroke = part.trackColor;
+                    env.style.opacity = 0;
+                    this.reachGroup.appendChild(env);
+                    env.animate([
+                        { transform: 'scaleY(0.3)', opacity: 0.45 },
+                        { transform: 'scaleY(1)', opacity: 0.45, offset: 0.15 },
+                        { transform: 'scaleY(-0.7)', opacity: 0.3, offset: 0.35 },
+                        { transform: 'scaleY(0.4)', opacity: 0.18, offset: 0.55 },
+                        { transform: 'scaleY(-0.15)', opacity: 0.08, offset: 0.8 },
+                        { transform: 'scaleY(0)', opacity: 0 }
+                    ], { duration: 220, delay: hit, fill: 'backwards', easing: 'ease-out' }).onfinish = () => env.remove();
+                });
             }
+
+            if (strings.length === 1 || !this.reachGroup) return;
 
             // Connected: a solid bar the pick travels along. Not connected: a dotted line to the plucked strings, no pick
             const l = document.createElementNS(svgNS, 'line');
