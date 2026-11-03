@@ -877,7 +877,7 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 .sgroup h3 { margin: 22px 0 8px; font: 600 13px system-ui, sans-serif; color: var(--ink2); }
 .sgroup.danger h3 { color: var(--danger, #f87171); }
 .srows { display: flex; flex-direction: column; gap: 2px; border-radius: var(--r); overflow: hidden; }
-.srow { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 60px; padding: 10px 14px; background: var(--s2); }
+.srow { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 60px; padding: 10px 14px; background: var(--s2); position: relative; }
 .srow .st { min-width: 0; }
 .srow .st b { display: block; font-weight: 500; font-size: 15px; color: var(--ink); }
 .srow .st span { display: block; font-size: 13px; color: var(--ink2); max-width: 48ch; }
@@ -2502,7 +2502,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .data-task-slot #restoreDriveLoading { text-align: left !important; }
 
 /* Data rows in Settings: a verb on the right, the whole row is the target, one tone step while open */
-.srow-task { position: relative; }
+.srow-task, .srow:has(.srow-hit) { position: relative; }
 .srow-task:hover { background: var(--s3); }
 .srow-task:has(button[aria-expanded="true"]) { background: var(--s3); }
 .srow-task:has(button:focus-visible) { outline: 2px solid var(--hue); outline-offset: -2px; }

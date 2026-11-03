@@ -446,17 +446,33 @@ function makeProvidersGroup() {
             }, 50);
         });
         const addRow = row('Add custom search provider', 'Add another tab website or search engine using $s for keywords.', addBtn);
+        addRow.classList.add('srow-task');
         listWrap.appendChild(addRow);
 
-        // Reset to defaults row
-        const resetBtn = el('button', 'btn btn-sm srow-ghost srow-hit', 'Reset');
+        // Reset to defaults row (requires confirmation; no srow-hit overlay)
+        const resetBtn = el('button', 'btn btn-sm srow-ghost', 'Reset');
         resetBtn.type = 'button';
         resetBtn.setAttribute('aria-label', 'Reset search providers to defaults');
+        let armTimer = null;
         resetBtn.addEventListener('click', () => {
-            resetToDefaultSources();
-            renderDownloaderTabs();
-            showToast('Search providers restored to defaults', 2500);
-            renderList();
+            if (resetBtn.dataset.confirming === 'true') {
+                clearTimeout(armTimer);
+                resetBtn.dataset.confirming = 'false';
+                resetBtn.textContent = 'Reset';
+                resetToDefaultSources();
+                renderDownloaderTabs();
+                showToast('Search providers restored to defaults', 2500);
+                renderList();
+                return;
+            }
+            resetBtn.dataset.confirming = 'true';
+            resetBtn.textContent = 'Confirm?';
+            armTimer = setTimeout(() => {
+                if (resetBtn.isConnected && resetBtn.dataset.confirming === 'true') {
+                    resetBtn.dataset.confirming = 'false';
+                    resetBtn.textContent = 'Reset';
+                }
+            }, 4000);
         });
         const resetRow = row('Reset search providers', 'Restore default DuckDuckGo and Google providers.', resetBtn);
         listWrap.appendChild(resetRow);
