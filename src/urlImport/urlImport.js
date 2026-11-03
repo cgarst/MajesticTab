@@ -1,12 +1,8 @@
 // urlImport/urlImport.js
-// Opens a tab file from a web address. A direct link to a supported file is just downloaded. A site that needs more
-// than one request is handled by a user extension's URL importer (`registerUrlImporter`, see extensionSandbox/frame.js),
-// which runs in a sandbox with no network: it is a step function that returns `{ fetch: [addresses] }` for this module
+// Opens a tab file from a web address. A direct link to a supported file is downloaded directly. A multi-step
+// URL importer is a step function that returns `{ fetch: [addresses] }` for this module
 // to fetch (`optional: true` turns a failed request into an empty response instead of an error), or the finished
-// `{ file: { name, bytes }, sync? }`. The extension decides where the data is; this decides
-// what it may fetch: https only, hosts the extension declared (`example.com` or `*.example.com`) plus the site the user
-// gave, a few rounds and requests, and a size cap. Pure apart from the injected functions; unit tested in
-// tests/urlImport.test.mjs.
+// `{ file: { name, bytes }, sync? }`. Pure apart from the injected functions; unit tested in tests/urlImport.test.mjs.
 
 const MAX_ROUNDS = 8;
 const MAX_PER_ROUND = 8;

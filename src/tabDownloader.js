@@ -877,53 +877,6 @@ function applyDownloaderUrl(rawUrl) {
     if (urlGroup && url) {
         urlGroup.title = url;
     }
-    if (url) maybeImportWithExtension(url);
-}
-
-// An extension's URL importer (see fileAdapters.findUrlImporter) can claim a page the downloader navigates to. The
-// downloader closes and the importer's file goes the same way a downloaded file does, so it opens, or attaches to the
-// song or album the downloader was opened for.
-let lastImportCheckedUrl = '';
-let extensionImportRunning = false;
-
-async function maybeImportWithExtension(url) {
-    if (extensionImportRunning || url === lastImportCheckedUrl || !/^https?:/i.test(url)) return;
-    lastImportCheckedUrl = url;
-    try {
-        const { getEnabledExtensionSources, findUrlImporter } = await import('./fileAdapters.js');
-        if (!getEnabledExtensionSources().length || !(await findUrlImporter(url))) return;
-
-        extensionImportRunning = true;
-        // Closing resets the targets handleDownloadedTabFile needs, so keep them across the close.
-        const targets = { song: activeTargetSong, album: activeTargetAlbum, onFileSelected: activeDownloaderOnFileSelected };
-        closeTabDownloaderModal();
-        showToast('Fetching...', 'info', 1500);
-
-        const { openFromUrl } = await import('./urlImport/openFromUrl.js');
-        const { file, sync } = await openFromUrl(url);
-        activeTargetSong = targets.song;
-        activeTargetAlbum = targets.album;
-        activeDownloaderOnFileSelected = targets.onFileSelected;
-        await handleDownloadedTabFile(file.name, new Uint8Array(await file.arrayBuffer()), file.name);
-
-        const openedInViewer = !targets.song?.id && !targets.album?.albumTitle && typeof targets.onFileSelected !== 'function';
-        if (!sync.length) return;
-        if (!openedInViewer) {
-            showToast('Sync points not added: the tab was attached to a song, not opened', 'warning', 6000);
-            return;
-        }
-        const { attachSyncSets } = await import('./urlImport/attachSync.js');
-        const { saved, skipped } = await attachSyncSets(sync);
-        if (saved.length) showToast(`Added sync points for ${saved.length === 1 ? saved[0] : `${saved.length} videos`}`, 'success');
-        if (skipped.length) {
-            const more = skipped.length > 1 ? ` (and ${skipped.length - 1} more)` : '';
-            showToast(`Sync points not added: ${skipped[0]}${more}`, 'warning', 6000);
-        }
-    } catch (error) {
-        if (error?.message !== 'Cancelled.') showToast(error?.message || 'Could not import that page.', 'error');
-    } finally {
-        extensionImportRunning = false;
-    }
 }
 
 // Android never delivers the shell's URL events to the app, so its bar reads the address from the webview.

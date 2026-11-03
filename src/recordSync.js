@@ -1,5 +1,5 @@
 // recordSync.js
-// Three-way sync for the small records that backups carry besides tab files: settings, file converters,
+// Three-way sync for the small records that backups carry besides tab files: settings,
 // collections, songs, recents and setlists. Each record has a key, a fingerprint of its value, and the
 // fingerprint it had at the last sync (the base). Comparing this device, the snapshot and the base tells
 // an edit or a deletion from a new record, the same way syncEngine treats tabs.
@@ -84,11 +84,11 @@ export function planRecords(mine, theirs, base, skipKinds = new Set()) {
 }
 
 const NOUN = {
-    setting: ['setting', 'settings'], converter: ['file converter', 'file converters'], collection: ['collection', 'collections'],
+    setting: ['setting', 'settings'], collection: ['collection', 'collections'],
     song: ['song', 'songs'], recent: ['recent', 'recents'], setlist: ['setlist', 'setlists']
 };
 const noun = (kind, n) => NOUN[kind][n === 1 ? 0 : 1];
-const OTHER_KIND = { setting: 'setting', converter: 'extension', collection: 'collection', song: 'song', recent: 'song', setlist: 'collection' };
+const OTHER_KIND = { setting: 'setting', collection: 'collection', song: 'song', recent: 'song', setlist: 'collection' };
 
 /** Plan lines for the sync screen, one per kind and direction: { receive, send }. */
 export function describeRecords(decisions) {

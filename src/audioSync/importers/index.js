@@ -1,7 +1,7 @@
 // importers/index.js
 // Imports sync points from a web address. The address is only fetched; how its text is read is decided by what the
 // text looks like (see detect.js), so no site is known by name. A site that needs more than one request can be handled
-// by a user extension's sync source (see syncSource.js), which `findSource` looks up for the address. A bare list of bar start times has to be placed on the
+// by a multi-step sync source (see builtinSource.js and syncSource.js). A bare list of bar start times has to be placed on the
 // score, which `placeBarTimes` does against the score's played bars (repeats included).
 
 import { detectSets } from './detect.js';
@@ -10,7 +10,7 @@ import { builtinSource } from './builtinSource.js';
 
 /**
  * Fetches `urlText` and returns the candidate sets in it (`{ label, points }` or `{ label, barTimesMs }`).
- * `findSource(url)` may return an extension's `{ step }` for the address, which then does the fetching instead of the
+ * `findSource(url)` may return a custom `{ step }` for the address, which then does the fetching instead of the
  * address being read directly.
  */
 export async function loadFromUrl(urlText, fetchText, { findSource = null } = {}) {

@@ -9,7 +9,6 @@ import { DEFAULT_CHANNEL, cargoFeatures, channels, isValidChannel, resolveChanne
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const tauriDir = path.join(scriptDir, 'tauri');
-const SANDBOX_CSP = "default-src 'none'; script-src 'self' mtsandbox: 'unsafe-eval'; worker-src blob:";
 
 async function sourceFiles(directory) {
   const files = [];
@@ -83,18 +82,6 @@ export async function verifyChannel(id, options = {}) {
   const contents = new Map();
   for (const file of files) contents.set(path.relative(frontendDir, file), await readFile(file, 'utf8'));
   const containing = (needle) => [...contents].filter(([, text]) => text.includes(needle)).map(([name]) => name);
-
-  // Extension sandbox CSP is unchanged in every channel
-  const frame = contents.get(path.join('extensionSandbox', 'frame.html'));
-  if (!frame) errors.push('extensionSandbox/frame.html is missing');
-  else if (!frame.includes(SANDBOX_CSP)) errors.push('extensionSandbox/frame.html no longer carries the expected no-network CSP');
-  try {
-    const rust = await readFile(path.join(tauriDir, 'src-tauri', 'src', 'lib.rs'), 'utf8');
-    if (!rust.includes(`"${SANDBOX_CSP}"`)) errors.push('src-tauri/src/lib.rs sandbox CSP differs from frame.html');
-  } catch {
-    errors.push('could not read src-tauri/src/lib.rs');
-  }
-  if (contents.has('extensionSandbox.js') && containing('codemirror').length) errors.push('an in-app code editor (CodeMirror) ships in the frontend');
 
   // Rust features follow the channel
   if (options.cargoToml) {

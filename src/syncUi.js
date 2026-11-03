@@ -331,10 +331,10 @@ function showReview(target, backend, plan) {
         ${section(removeThere, { title: `Removed from ${place}`, open: true, note: 'You removed these here. Older snapshots still hold a copy.' })}
         ${section(down, { title: 'Received on this device' })}
         ${section(up, { title: `Sent to ${place}` })}
-        ${otherSection(other.receive, { title: 'Library, converters and settings received' })}
-        ${otherSection(other.send, { title: `Library, converters and settings sent to ${place}` })}
+        ${otherSection(other.receive, { title: 'Library and settings received' })}
+        ${otherSection(other.send, { title: `Library and settings sent to ${place}` })}
         <p class="sync-hint">
-            Settings, file converters, songs, collections, recents and setlists follow the newest change on either side, and a removal on one side is carried to the other. A new snapshot is saved only when this device has something to send.
+            Settings, songs, collections, recents and setlists follow the newest change on either side, and a removal on one side is carried to the other. A new snapshot is saved only when this device has something to send.
         </p>
         ${danger}`,
         {
@@ -351,7 +351,7 @@ function showReplaceConfirm(target, replacePlan) {
         lost.tabs && `${lost.tabs} tab${lost.tabs === 1 ? '' : 's'}`,
         lost.soundfonts && `${lost.soundfonts} SoundFont${lost.soundfonts === 1 ? '' : 's'}`,
         lost.audio && `${lost.audio} audio file${lost.audio === 1 ? '' : 's'}`,
-        lost.records && `${lost.records} setting, song, setlist or converter record${lost.records === 1 ? '' : 's'}`
+        lost.records && `${lost.records} setting, song or setlist record${lost.records === 1 ? '' : 's'}`
     ].filter(Boolean);
     frame(`
         <div class="task-status task-status-error" role="alert">

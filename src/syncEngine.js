@@ -15,10 +15,8 @@ import {
     listAudioForBackup, restoreAudioEntry, isAudioItem, isAudioDownloadEnabled, audioItemFingerprint, audioSyncDecision
 } from './audioSync/audioBackup.js';
 import {
-    collectAllSettings, collectExtensions, applyRestoredSettings, applyRestoredPreferences
+    collectAllSettings, applyRestoredSettings, applyRestoredPreferences
 } from './backupRestore.js';
-import { dedupeExtensions, extensionKey } from './extensionDedupe.js';
-import { installExtensionSources } from './fileAdapters.js';
 import { RECORD_ACTION, fingerprintValue, planRecords, describeRecords } from './recordSync.js';
 import {
     listIncrementalBackups, loadIncrementalBundle, createIncrementalBackup, fileFingerprint, soundFontFingerprint, runPool, itemKey
@@ -177,17 +175,16 @@ function sameValue(a, b) {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
-// --- records: settings, file converters, collections, songs, recents and setlists ---
+// --- records: settings, collections, songs, recents and setlists ---
 
 const SETTING_SPECIAL = new Set([TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, 'audioSync']);
-const extRecordKey = (x) => `ext:${fingerprintValue(extensionKey(x))}`;
 
 /**
  * Key, kind, label, fingerprint and value for each record a backup carries other than files. The tab source list
  * and audio sync records merge by their own rules (see fillMissingPreferences), so they are not here.
  * `present` names the kinds the source actually holds: a snapshot from an older version lacks some.
  */
-function recordViews({ settings, extensions, library }) {
+function recordViews({ settings, library }) {
     const records = new Map();
     const present = new Set();
     const add = (key, kind, id, label, value, time) => records.set(key, { key, kind, id, label, fp: fingerprintValue(value), value, time });
@@ -204,14 +201,6 @@ function recordViews({ settings, extensions, library }) {
             }
         }
     }
-    if (Array.isArray(extensions)) {
-        present.add('converter');
-        for (const x of dedupeExtensions(extensions)) {
-            if (!x || typeof x.source !== 'string') continue;
-            add(extRecordKey(x), 'converter', x.id, x.name || 'File converter', { name: x.name || '', enabled: Boolean(x.enabled) }, x.enabledAt || 0);
-            records.get(extRecordKey(x)).value = x;
-        }
-    }
     const lib = library || {};
     const groups = [['collections', 'collection', 'col', c => c.name], ['songs', 'song', 'song', x => x.title || x.name],
         ['recents', 'recent', 'rec', x => x.title || x.name || x.fileName], ['setlists', 'setlist', 'sl', x => x.name]];
@@ -224,35 +213,15 @@ function recordViews({ settings, extensions, library }) {
 }
 
 async function localRecordViews() {
-    return recordViews({ settings: collectAllSettings(), extensions: collectExtensions(), library: await getAllLibraryData() });
+    return recordViews({ settings: collectAllSettings(), library: await getAllLibraryData() });
 }
 
 /** The records that apply would move, in each direction, with what each one does. */
 function compareRecords(manifest, local, base) {
-    const theirs = recordViews({ settings: manifest?.settings, extensions: manifest?.extensions, library: manifest?.library });
-    const skip = new Set(['setting', 'converter', 'collection', 'song', 'recent', 'setlist'].filter(k => !theirs.present.has(k)));
+    const theirs = recordViews({ settings: manifest?.settings, library: manifest?.library });
+    const skip = new Set(['setting', 'collection', 'song', 'recent', 'setlist'].filter(k => !theirs.present.has(k)));
     const records = planRecords(local.records, theirs.records, base, skip).map(({ value, ...d }) => d);
     return { records, other: describeRecords(records) };
-}
-
-/** Converters added on two devices have two ids; keep one, the same one on every device. */
-function applyExtensionDecisions(decisions, theirs) {
-    let list = collectExtensions();
-    for (const d of decisions) {
-        if (d.action === RECORD_ACTION.PULL) {
-            const t = theirs.get(d.key)?.value;
-            if (!t) continue;
-            const mine = list.find(e => e && typeof e.source === 'string' && extRecordKey(e) === d.key);
-            if (mine) Object.assign(mine, { name: t.name, enabled: Boolean(t.enabled), enabledAt: t.enabledAt || 0 });
-            else list.push({ ...t });
-        } else if (d.action === RECORD_ACTION.DELETE_LOCAL) {
-            list = list.filter(e => !(e && typeof e.source === 'string' && extRecordKey(e) === d.key));
-        }
-    }
-    list = dedupeExtensions(list);
-    localStorage.setItem('customExtensions', JSON.stringify(list));
-    installExtensionSources(list.filter(e => e.enabled).map(({ id, source }) => ({ id, source })))
-        .catch(e => console.warn('Could not reload extensions after sync:', e));
 }
 
 function localKeyOf(key) {
@@ -264,12 +233,10 @@ function localKeyOf(key) {
 
 /** Carry out the record decisions of a plan on this device. Returns how many records changed here. */
 async function applyRecordDecisions(bundle, decisions, droppedFileIds) {
-    const theirs = recordViews({ settings: bundle.settings, extensions: bundle.extensions, library: bundle.library }).records;
+    const theirs = recordViews({ settings: bundle.settings, library: bundle.library }).records;
     let changed = 0;
-    const converters = [];
     for (const d of decisions) {
         const t = theirs.get(d.key);
-        if (d.kind === 'converter') { converters.push(d); continue; }
         if (d.kind === 'setting') {
             if (d.action === RECORD_ACTION.PULL && t) {
                 if (d.key.startsWith('yt:') || d.key.startsWith('gts:')) localStorage.setItem(localKeyOf(d.key), String(t.value));
@@ -302,7 +269,6 @@ async function applyRecordDecisions(bundle, decisions, droppedFileIds) {
             if (kept.length) await importLibraryData({ songs: [{ ...t.value, tabOptions: kept }] }, { wipe: false });
         }
     }
-    if (converters.length) { applyExtensionDecisions(converters, theirs); changed += converters.filter(d => d.action !== RECORD_ACTION.PUSH && d.action !== RECORD_ACTION.DELETE_REMOTE).length; }
     return changed;
 }
 

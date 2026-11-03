@@ -11,7 +11,7 @@ const serving = (routes, seen = []) => async (url) => {
     return routes[url];
 };
 
-// A converter that looks up an id, then asks for the data, then hands it back
+// A sync source that looks up an id, then asks for the data, then hands it back
 const twoStep = async (url, responses) => {
     const origin = new URL(url).origin;
     if (!responses.length) return { fetch: [`${origin}/api/latest`] };
@@ -29,7 +29,7 @@ test('responses are fed back to the step until it returns text', async () => {
     assert.deepEqual(seen, ['https://example.org/api/latest', 'https://example.org/api/data/9']);
 });
 
-test('a converter may only fetch https addresses on the given site', async () => {
+test('a sync source may only fetch https addresses on the given site', async () => {
     const fetchText = serving({});
     await assert.rejects(runSyncSteps({ url: page, step: async () => ({ fetch: ['https://evil.example/x'] }), fetchText }), /not the site you gave/);
     await assert.rejects(runSyncSteps({ url: page, step: async () => ({ fetch: ['http://example.org/x'] }), fetchText }), /https/);
@@ -45,11 +45,11 @@ test('rounds, requests per round, empty answers and response size are limited', 
     await assert.rejects(runSyncSteps({ url: page, step: async () => ({ fetch: ['https://example.org/a'] }), fetchText: async () => 'x'.repeat(5_000_001) }), /too large/);
 });
 
-test('loadFromUrl uses a found converter, and reads the text it returns', async () => {
+test('loadFromUrl uses a found sync source, and reads the text it returns', async () => {
     const fetchText = serving({ 'https://example.org/api/latest': '{"id":9}', 'https://example.org/api/data/9': '{"items":[{"points":[0,2.5,5]}]}' });
     const sets = await loadFromUrl(page, fetchText, { findSource: async () => ({ step: twoStep }) });
     assert.deepEqual(sets[0].barTimesMs, [0, 2500, 5000]);
-    // with no converter the address itself is read, which here is not data
+    // with no sync source the address itself is read, which here is not data
     await assert.rejects(loadFromUrl(page, serving({ [page]: '<html></html>' }), { findSource: async () => null }), /web page/);
 });
 

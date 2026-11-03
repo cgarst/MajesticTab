@@ -28,7 +28,6 @@ import { initAudioLatencyModal } from './gpProcessor/audioLatencyModal.js';
 import { initSynthPlayer, hideSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
 import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdfBookmarksUI } from './pdfProcessor/pdfBookmarks.js';
 import { initTheming } from './themeEngine.js';
-import { installExtensionSources, applyFileAdapters } from './fileAdapters.js';
 import { initUpdater } from './updater.js';
 import { openFromProvider } from './fileProviders.js';
 import { initSecureStore } from './secureStore.js';
@@ -849,215 +848,6 @@ function setupMenuEdgeSwipeGesture() {
     }, { passive: true });
 }
 
-function setupExtensionSettings() {
-    const extensionList = document.getElementById('extensionList');
-    const extensionCount = document.getElementById('extensionCount');
-    const managerStatus = document.getElementById('extensionManagerStatus');
-    const importButton = document.getElementById('importExtensionFile');
-    const importInput = document.getElementById('importExtensionInput');
-    const extensionsKey = 'customExtensions';
-    const legacySourceKey = 'customExtensionSource';
-    const legacyEnabledKey = 'customExtensionEnabled';
-    const adapterSourceKey = 'customFileAdapterSource';
-    const maxSourceBytes = 5 * 1024 * 1024;
-
-    if (!extensionList || !importButton || !importInput) return;
-
-    let extensions = [];
-
-    const extensionLabel = extension => extension.name
-        || (extension.registrationIds?.length ? extension.registrationIds.join(', ') : 'Converter');
-    const saveExtensions = () => localStorage.setItem(extensionsKey, JSON.stringify(extensions));
-
-    const refreshInstalledExtensions = async () => {
-        extensions.forEach(extension => { extension.error = ''; });
-        const active = extensions.filter(extension => extension.enabled);
-        managerStatus.textContent = active.length ? 'Loading converters…' : 'No converters registered';
-        let result;
-        try {
-            result = await installExtensionSources(active.map(({ id, source }) => ({ id, source })));
-        } catch (error) {
-            managerStatus.textContent = `Could not load converters: ${error.message}`;
-            return;
-        }
-        result.errors.forEach(error => {
-            const extension = extensions.find(item => item.id === error.id);
-            if (extension) extension.error = error.message;
-        });
-        active.forEach(extension => {
-            extension.registrationIds = result.idsByExtension[extension.id] || [];
-            if (extension.error) extension.registrationIds = [];
-        });
-        saveExtensions();
-        const failedCount = result.errors.length;
-        managerStatus.textContent = failedCount
-            ? `${result.registrationCount} registrations active; ${failedCount} converter${failedCount === 1 ? '' : 's'} failed to load`
-            : result.registrationCount
-                ? `${result.registrationCount} registration${result.registrationCount === 1 ? '' : 's'} active`
-                : 'No converters registered';
-        renderExtensions();
-    };
-
-    const renderExtensions = () => {
-        extensionList.replaceChildren();
-        extensionCount.textContent = `${extensions.length} converter${extensions.length === 1 ? '' : 's'}`;
-
-        if (!extensions.length) {
-            const emptyState = document.createElement('div');
-            emptyState.className = 'extension-empty-state';
-            emptyState.textContent = 'No converters yet';
-            extensionList.append(emptyState);
-            return;
-        }
-
-        extensions.forEach(extension => {
-            const row = document.createElement('article');
-            row.className = 'extension-item';
-            row.setAttribute('role', 'listitem');
-
-            const details = document.createElement('div');
-            details.className = 'extension-item-details';
-            const label = extensionLabel(extension);
-            const name = document.createElement('strong');
-            name.className = 'extension-item-name';
-            name.textContent = label;
-            name.title = label;
-            const state = document.createElement('span');
-            state.className = extension.error ? 'extension-item-state text-danger' : 'extension-item-state';
-            state.textContent = extension.error
-                ? `Could not load: ${extension.error}`
-                : extension.enabled ? 'Enabled' : 'Disabled';
-            details.append(name, state);
-
-            const actions = document.createElement('div');
-            actions.className = 'extension-item-actions';
-            const enabledLabel = document.createElement('label');
-            enabledLabel.className = 'form-check form-switch extension-toggle';
-            const enabledInput = document.createElement('input');
-            enabledInput.className = 'form-check-input';
-            enabledInput.type = 'checkbox';
-            enabledInput.checked = extension.enabled;
-            enabledInput.setAttribute('aria-label', `${label} enabled`);
-            enabledInput.addEventListener('change', () => {
-                extension.enabled = enabledInput.checked;
-                extension.enabledAt = Date.now();
-                saveExtensions();
-                renderExtensions();
-                refreshInstalledExtensions();
-            });
-            enabledLabel.append(enabledInput);
-
-            const deleteButton = document.createElement('button');
-            deleteButton.className = 'btn btn-sm theme-control-btn extension-delete-button';
-            deleteButton.type = 'button';
-            deleteButton.title = `Delete ${label}`;
-            deleteButton.setAttribute('aria-label', `Delete ${label}`);
-            deleteButton.innerHTML = '<i class="bi-trash"></i>';
-            let confirmingDelete = false;
-            let resetConfirmTimer = null;
-            deleteButton.addEventListener('click', () => {
-                if (!confirmingDelete) {
-                    confirmingDelete = true;
-                    deleteButton.classList.add('text-danger');
-                    deleteButton.innerHTML = '<i class="bi-exclamation-triangle-fill"></i>';
-                    deleteButton.title = `Click again to confirm delete "${label}"`;
-                    resetConfirmTimer = setTimeout(() => {
-                        confirmingDelete = false;
-                        deleteButton.classList.remove('text-danger');
-                        deleteButton.innerHTML = '<i class="bi-trash"></i>';
-                        deleteButton.title = `Delete ${label}`;
-                    }, 3000);
-                    return;
-                }
-                clearTimeout(resetConfirmTimer);
-                extensions = extensions.filter(item => item.id !== extension.id);
-                saveExtensions();
-                renderExtensions();
-                refreshInstalledExtensions();
-            });
-
-            actions.append(enabledLabel, deleteButton);
-            row.append(details, actions);
-            extensionList.append(row);
-        });
-    };
-
-    const storedExtensions = localStorage.getItem(extensionsKey);
-    if (storedExtensions !== null) {
-        try {
-            const parsed = JSON.parse(storedExtensions);
-            if (Array.isArray(parsed)) {
-                extensions = parsed.filter(extension =>
-                    extension && typeof extension.id === 'string' && typeof extension.source === 'string'
-                        && extension.id !== 'builtin-acoustic-guitar'
-                ).map(extension => ({
-                    id: extension.id,
-                    name: typeof extension.name === 'string' ? extension.name : '',
-                    source: extension.source,
-                    enabled: extension.enabled === true,
-                    enabledAt: Number.isFinite(extension.enabledAt) ? extension.enabledAt : 0,
-                    registrationIds: Array.isArray(extension.registrationIds)
-                        ? extension.registrationIds.filter(id => typeof id === 'string')
-                        : [],
-                    error: ''
-                }));
-            }
-        } catch (error) {
-            managerStatus.textContent = `Could not read saved converters: ${error.message}`;
-        }
-    }
-
-    const oldSource = localStorage.getItem(legacySourceKey) ?? localStorage.getItem(adapterSourceKey);
-    if (oldSource !== null) {
-        if (!extensions.some(extension => extension.id === 'migrated-extension')) {
-            extensions.push({
-                id: 'migrated-extension',
-                name: '',
-                source: oldSource,
-                enabled: (localStorage.getItem(legacyEnabledKey) ?? localStorage.getItem('customFileAdapterEnabled')) === 'true',
-                registrationIds: [],
-                error: ''
-            });
-        }
-    }
-
-    localStorage.removeItem(legacySourceKey);
-    localStorage.removeItem(legacyEnabledKey);
-    localStorage.removeItem(adapterSourceKey);
-    localStorage.removeItem('customFileAdapterEnabled');
-    localStorage.removeItem('builtInAcousticGuitarExtensionInstalled');
-    renderExtensions();
-    refreshInstalledExtensions();
-
-    importButton.addEventListener('click', () => importInput.click());
-    importInput.addEventListener('change', async () => {
-        const file = importInput.files?.[0];
-        importInput.value = '';
-        if (!file) return;
-        if (file.size > maxSourceBytes) {
-            managerStatus.textContent = 'Could not add converter: file is larger than 5 MB';
-            return;
-        }
-
-        try {
-            extensions.push({
-                id: globalThis.crypto?.randomUUID?.() ?? `extension-${Date.now()}`,
-                name: file.name,
-                source: await file.text(),
-                enabled: true,
-                registrationIds: [],
-                error: ''
-            });
-        } catch (error) {
-            managerStatus.textContent = `Could not read converter file: ${error.message}`;
-            return;
-        }
-        saveExtensions();
-        renderExtensions();
-        refreshInstalledExtensions();
-    });
-}
-
 async function checkNativeOpenedFiles() {
     if (!window.__TAURI__?.core?.invoke) return false;
 
@@ -1112,7 +902,6 @@ async function initApp() {
     // @googleDrive:end
     setupSettings();
     setupPinchToZoom();
-    setupExtensionSettings();
     initUpdater();
     initYouTubePlayer();
     initAudioSyncUi();
@@ -1552,21 +1341,7 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
         }
     }
 
-    const supportedFile = isFileType(file, ['pdf', 'gp', 'gp3', 'gp4', 'gp5', 'gpx', 'txt']);
-    let fileToLoad = file;
-    // A file received over Jam was already converted by the host's file converters.
-    if (supportedFile && file instanceof File && !file.jamSongId) {
-        try {
-            showProgress(progressContainer, progressBar);
-            fileToLoad = await applyFileAdapters(file);
-        } catch (error) {
-            console.error('Error applying file adapters:', error);
-            showToast(error?.message || 'Unable to process this file.', 'error');
-            return;
-        } finally {
-            hideProgress(progressContainer, progressBar);
-        }
-    }
+    const fileToLoad = file;
 
     if (isFileType(file, ['pdf'])) {
         showScoreOptions('pdf');

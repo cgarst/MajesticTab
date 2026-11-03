@@ -18,7 +18,6 @@ const SECTIONS = [
     { id: 'appearance', label: 'Appearance', icon: 'bi-palette' },
     { id: 'reading', label: 'Reading', icon: 'bi-book' },
     { id: 'controls', label: 'Controls', icon: 'bi-controller' },
-    { id: 'converters', label: 'File converters', icon: 'bi-puzzle' },
     { id: 'websearch', label: 'Web search', icon: 'bi-globe2', nativeOnly: true },
     { id: 'sound', label: 'Sound', icon: 'bi-soundwave' },
     { id: 'library', label: 'Library and backup', icon: 'bi-collection' },
@@ -147,7 +146,6 @@ export function initSettingsPage() {
     const instrumentGroup = take('instrumentModeGuitar')?.closest('.hud-pill-group');
     const finishGrid = take('themeModalGrid');
     const finishCurrent = take('finishCurrent');
-    const convertersView = take('extensionListView');
     const swatch = take('drawerThemeSwatch');
     const themeName = take('drawerThemeName');
     const defaultsBtn = take('defaultsModalBtn');
@@ -274,15 +272,6 @@ export function initSettingsPage() {
         g.appendChild(el('p', 'snote', 'What each key, foot pedal or controller button does.'));
         g.appendChild(controlsRef);
         panes.controls.appendChild(g);
-    }
-
-    // File converters: the list lives in the page, not in a popup
-    if (convertersView) {
-        const g = el('div', 'sgroup');
-        g.appendChild(el('h3', '', 'File converters'));
-        g.appendChild(el('p', 'snote', 'Sandboxed extensions that open other tab formats and import from websites.'));
-        g.appendChild(convertersView);
-        panes.converters.appendChild(g);
     }
 
     // Web search: adblocking and tab search providers (native clients only)

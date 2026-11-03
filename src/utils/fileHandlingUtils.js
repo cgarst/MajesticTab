@@ -37,7 +37,7 @@ export function isFileType(file, extensions) {
 export const SUPPORTED_TAB_EXTENSIONS = ['gp', 'gp3', 'gp4', 'gp5', 'gpx', 'pdf', 'txt'];
 
 /**
- * Check if a file is a supported tab format or matches an active file adapter
+ * Check if a file is a supported tab format
  * @param {File|Blob|{name: string}} file File to check
  * @returns {Promise<boolean>}
  */
@@ -46,20 +46,7 @@ export async function isSupportedTabFile(file) {
     const name = typeof file === 'string' ? file : (file.name || '');
     if (!name) return false;
     const ext = name.split('.').pop().toLowerCase();
-    if (SUPPORTED_TAB_EXTENSIONS.includes(ext)) {
-        return true;
-    }
-    if (typeof file === 'object' && (file instanceof Blob || file instanceof File)) {
-        try {
-            const { hasMatchingFileAdapter } = await import('../fileAdapters.js');
-            if (typeof hasMatchingFileAdapter === 'function') {
-                return await hasMatchingFileAdapter(file);
-            }
-        } catch {
-            // ignore
-        }
-    }
-    return false;
+    return SUPPORTED_TAB_EXTENSIONS.includes(ext);
 }
 
 /**

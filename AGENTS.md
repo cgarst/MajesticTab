@@ -143,18 +143,6 @@ python3 -m http.server 8000
 
 Ports 9222/9223 are often held by `adb` forwards (`lsof -i :<port>`), and if a normal Edge is already running the flags are ignored, so quit it first. Stop with `pkill -f /tmp/edge-debug`.
 
-**Anything that runs extensions needs a dev server that sends CORS headers.** The extension sandbox (`src/extensionSandbox/frame.html`) is a sandboxed iframe with an opaque origin, and it loads `frame.js` with `crossorigin="anonymous"`. `python3 -m http.server` sends no `Access-Control-Allow-Origin`, so the browser blocks that script and every extension load fails after 10 seconds with "Extension sandbox did not start" (file adapters, sync sources and URL importers alike). It is not a bug in the code under test. Serve with a small subclass that adds the header, and `Cache-Control: no-store` too, since a cached ES module makes new exports look missing. Keep that script outside the repo, for example:
-
-```python
-import http.server, sys
-class H(http.server.SimpleHTTPRequestHandler):
-    def end_headers(self):
-        self.send_header('Access-Control-Allow-Origin', '*')
-        self.send_header('Cache-Control', 'no-store')
-        super().end_headers()
-http.server.test(HandlerClass=H, port=int(sys.argv[1]), bind='::')
-```
-
 Never put a `.gp*` file or tab PDF in the served repo root to test a download. Serve it from a second directory on another port (see Repository Content Rules).
 
 Fixtures: `Duo No 2 In G Major.gp5`, `Haken - 1985.gp5` and `nightterror.gp5` (large GP5), `octavarium.gp3` (GP3). Add new cases to `tests/`.

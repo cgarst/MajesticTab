@@ -20,13 +20,10 @@ import {
     getSaveProviders, saveToProvider, openFromProvider, getPreferredStorage
 } from './fileProviders.js';
 import { showToast } from './utils/toast.js';
-import { dedupeExtensions } from './extensionDedupe.js';
-export { dedupeExtensions };
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported } from './icloudDrive.js';
 import { refreshAppearance } from './themeEngine.js';
 import { setGpDisplayScale } from './gpProcessor/gpProcessor.js';
-import { installExtensionSources } from './fileAdapters.js';
 import {
     STORAGE_KEY_SOUNDFONT_SELECTION, STORAGE_KEY_SOUNDFONT_ORDER, STORAGE_KEY_SOUNDFONT_STRICT, STORAGE_KEY_SOUNDFONT_FORCED, SOUNDFONT_BACKUP_STORE, listSoundFonts, clearAllSoundFonts,
     collectSoundFontBackupEntries, restoreSoundFontEntry
@@ -160,32 +157,6 @@ export function collectAllSettings() {
     return settings;
 }
 
-/**
- * Collect all custom extensions from localStorage
- */
-export function collectExtensions() {
-    try {
-        const raw = localStorage.getItem('customExtensions');
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-        console.warn('Could not parse customExtensions:', e);
-        return [];
-    }
-}
-
-/** Removes exact duplicates from the extensions stored on this device. Returns how many were removed. */
-export function dedupeStoredExtensions() {
-    const stored = collectExtensions();
-    const kept = dedupeExtensions(stored);
-    if (kept.length === stored.length) return 0;
-    localStorage.setItem('customExtensions', JSON.stringify(kept));
-    installExtensionSources(kept.filter(e => e.enabled).map(({ id, source }) => ({ id, source })))
-        .catch(e => console.warn('Could not reload extensions after removing duplicates:', e));
-    return stored.length - kept.length;
-}
-
 /** Yields the backup JSON in pieces: header, one entry per stored tab, then soundfonts. */
 async function* backupTextChunks(onProgress) {
     const [fileMetas, libraryData, soundFonts] = await Promise.all([
@@ -195,7 +166,6 @@ async function* backupTextChunks(onProgress) {
     ]);
 
     const settings = collectAllSettings();
-    const extensions = collectExtensions();
     // Audio files that fit in one file; larger ones belong in a snapshot or folder backup
     const audioPlan = await audioBackupPlan();
 
@@ -208,8 +178,7 @@ async function* backupTextChunks(onProgress) {
         totalTabsSize: fileMetas.reduce((acc, f) => acc + (f.size || 0), 0),
         songsCount: libraryData.songs?.length || 0,
         collectionsCount: libraryData.collections?.length || 0,
-        recentsCount: libraryData.recents?.length || 0,
-        extensionsCount: extensions.length
+        recentsCount: libraryData.recents?.length || 0
     };
 
     const header = {
@@ -219,7 +188,6 @@ async function* backupTextChunks(onProgress) {
         exportedAt: new Date().toISOString(),
         summary,
         settings,
-        extensions,
         library: libraryData
     };
 
@@ -419,7 +387,6 @@ export async function createBackupBundle(onProgress) {
     ]);
 
     const settings = collectAllSettings();
-    const extensions = collectExtensions();
 
     const soundFontEntries = await collectSoundFontBackupEntries();
     const files = [];
@@ -465,11 +432,9 @@ export async function createBackupBundle(onProgress) {
             totalTabsSize: files.slice(0, tabsCount).reduce((acc, f) => acc + (f.size || 0), 0),
             songsCount: libraryData.songs?.length || 0,
             collectionsCount: libraryData.collections?.length || 0,
-            recentsCount: libraryData.recents?.length || 0,
-            extensionsCount: extensions.length
+            recentsCount: libraryData.recents?.length || 0
         },
         settings,
-        extensions,
         fileStore: {
             files
         },
@@ -508,7 +473,6 @@ function inspectBackupContentSync(fileContent) {
     const files = parsed.fileStore?.files || (Array.isArray(parsed.files) ? parsed.files : []);
     const songs = parsed.library?.songs || [];
     const collections = parsed.library?.collections || [];
-    const extensions = parsed.extensions || [];
     const settings = parsed.settings || {};
 
     let totalSize = parsed.summary?.totalTabsSize;
@@ -541,7 +505,6 @@ function inspectBackupContentSync(fileContent) {
         totalTabsSize: totalSize,
         songsCount: songs.length,
         collectionsCount: collections.length,
-        extensionsCount: extensions.length,
         settingsCount: Object.keys(settings).length,
         data: parsed
     };
@@ -618,7 +581,6 @@ async function inspectBackupBlob(file) {
                         totalTabsSize: summary.totalTabsSize ?? 0,
                         songsCount: summary.songsCount ?? 0,
                         collectionsCount: summary.collectionsCount ?? 0,
-                        extensionsCount: summary.extensionsCount ?? 0,
                         file
                     };
                 } catch (_) {}
@@ -631,37 +593,6 @@ async function inspectBackupBlob(file) {
     // Fallback: full read for legacy or small backups
     const text = await readBackupFileText(file);
     return inspectBackupContentSync(text);
-}
-
-export function applyRestoredExtensions(backupExtensions, { wipe }) {
-    let extensionsImported = 0;
-    if (backupExtensions.length > 0 || wipe) {
-        let finalExtensions = [];
-        if (wipe) {
-            finalExtensions = dedupeExtensions(backupExtensions.filter(ext => ext && ext.id && ext.source));
-            extensionsImported = finalExtensions.length;
-        } else {
-            const currentExtensions = collectExtensions();
-            const existingMap = new Map(currentExtensions.map(e => [e.id, e]));
-
-            for (const ext of backupExtensions) {
-                if (!ext || !ext.id || !ext.source) continue;
-                if (!existingMap.has(ext.id)) {
-                    existingMap.set(ext.id, ext);
-                    extensionsImported++;
-                } else {
-                    existingMap.set(ext.id, { ...existingMap.get(ext.id), ...ext });
-                }
-            }
-            finalExtensions = dedupeExtensions(Array.from(existingMap.values()));
-        }
-
-        localStorage.setItem('customExtensions', JSON.stringify(finalExtensions));
-        const active = finalExtensions.filter(e => e.enabled);
-        installExtensionSources(active.map(({ id, source }) => ({ id, source })))
-            .catch(e => console.warn('Could not load restored extensions:', e));
-    }
-    return extensionsImported;
 }
 
 export function applyRestoredSettings(settings, { wipe }) {
@@ -792,11 +723,6 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
 
                     if (headerObj.library && typeof headerObj.library === 'object') {
                         libraryResults = await importLibraryData(headerObj.library, { wipe });
-                    }
-
-                    const backupExtensions = Array.isArray(headerObj.extensions) ? headerObj.extensions : [];
-                    if (backupExtensions.length > 0 || wipe) {
-                        extensionsImported = applyRestoredExtensions(backupExtensions, { wipe });
                     }
 
                     if (headerObj.settings && typeof headerObj.settings === 'object') {
@@ -968,7 +894,6 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
         collectionsImported: libraryResults.collectionsCount,
         songsImported: libraryResults.songsCount,
         recentsCount: libraryResults.recentsCount,
-        extensionsImported,
         settingsApplied
     };
 }
@@ -1081,12 +1006,6 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
         libraryResults = await importLibraryData(bundle.library, { wipe });
     }
 
-    let extensionsImported = 0;
-    const backupExtensions = Array.isArray(bundle.extensions) ? bundle.extensions : [];
-    if (backupExtensions.length > 0 || wipe) {
-        extensionsImported = applyRestoredExtensions(backupExtensions, { wipe });
-    }
-
     let settingsApplied = 0;
     if (bundle.settings && typeof bundle.settings === 'object') {
         settingsApplied = applyRestoredSettings(bundle.settings, { wipe });
@@ -1104,7 +1023,6 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
         collectionsImported: libraryResults.collectionsCount,
         songsImported: libraryResults.songsCount,
         recentsCount: libraryResults.recentsCount,
-        extensionsImported,
         settingsApplied
     };
 }
@@ -1137,10 +1055,7 @@ export async function deleteAllAppData() {
     for (const k of keysToRemove) localStorage.removeItem(k);
     clearAudioSync();
 
-    // 4. Reset extensions
-    installExtensionSources([]).catch(e => console.warn('Could not reset extensions:', e));
-
-    // 5. Reset UI preferences to defaults
+    // 4. Reset UI preferences to defaults
     applyRestoredPreferences();
 }
 
@@ -1440,7 +1355,6 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
         getAllStoredFiles(),
         getAllLibraryData()
     ]);
-    const extensions = collectExtensions();
     const tabsTotalSize = storedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
 
     const songsMissingDuration = (libraryData.songs || []).filter(s => !s.length || s.length <= 0).length;
@@ -1472,7 +1386,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="backup-summary-box p-3 rounded-3 mb-3">
             <div class="small fw-semibold text-white mb-2">In this backup</div>
             <div class="text-white-50 small">
-              <span class="text-white fw-medium">${storedFiles.length}</span> tabs (${formatBytes(tabsTotalSize)}) · <span class="text-white fw-medium">${libraryData.songs?.length || 0}</span> songs · <span class="text-white fw-medium">${extensions.length}</span> file converters · App settings
+              <span class="text-white fw-medium">${storedFiles.length}</span> tabs (${formatBytes(tabsTotalSize)}) · <span class="text-white fw-medium">${libraryData.songs?.length || 0}</span> songs · App settings
             </div>
           </div>
 
@@ -1617,7 +1531,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               </div>
             </div>
             <div class="text-white-50 small mb-3">
-              <span class="text-white fw-medium" id="restoreTabsCount">0</span> tabs · <span class="text-white fw-medium" id="restoreSongsCount">0</span> songs · <span class="text-white fw-medium" id="restoreExtCount">0</span> file converters
+              <span class="text-white fw-medium" id="restoreTabsCount">0</span> tabs · <span class="text-white fw-medium" id="restoreSongsCount">0</span> songs
             </div>
 
             <!-- Snapshot restore preview (incremental backups only) -->
@@ -1636,7 +1550,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                     <span class="small text-white-50">Recommended</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
-                    Keeps everything you have and adds any tabs, songs, collections, file converters, and settings that are missing from the backup.
+                    Keeps everything you have and adds any tabs, songs, collections, and settings that are missing from the backup.
                   </div>
                 </div>
               </label>
@@ -1649,7 +1563,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                     <span class="fw-semibold text-danger small">Replace all data</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
-                    Erases all current local stored tabs, library entries, file converters, settings and audio files (unless you leave audio out above), and replaces them cleanly with this backup.
+                    Erases all current local stored tabs, library entries, settings and audio files (unless you leave audio out above), and replaces them cleanly with this backup.
                   </div>
                 </div>
               </label>
@@ -1848,25 +1762,19 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <i class="bi-exclamation-octagon text-danger"></i> What will be erased
             </div>
             <div class="row g-2 text-white-50 small">
-              <div class="col-6 col-md-3">
+              <div class="col-4">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6" id="deleteStatTabs">${storedFiles.length}</div>
                   <div class="text-truncate text-white-50" style="font-size:0.72rem;">Stored tabs (${formatBytes(tabsTotalSize)})</div>
                 </div>
               </div>
-              <div class="col-6 col-md-3">
+              <div class="col-4">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6" id="deleteStatSongs">${libraryData.songs?.length || 0}</div>
                   <div class="text-truncate text-white-50" style="font-size:0.72rem;">Library songs</div>
                 </div>
               </div>
-              <div class="col-6 col-md-3">
-                <div class="p-2 rounded-2 backup-stat-card">
-                  <div class="text-white fw-bold fs-6" id="deleteStatExt">${extensions.length}</div>
-                  <div class="text-truncate text-white-50" style="font-size:0.72rem;">File converters</div>
-                </div>
-              </div>
-              <div class="col-6 col-md-3">
+              <div class="col-4">
                 <div class="p-2 rounded-2 backup-stat-card">
                   <div class="text-white fw-bold fs-6"><i class="bi-gear text-warning"></i></div>
                   <div class="text-truncate text-white-50" style="font-size:0.72rem;">Settings and cache</div>
@@ -1882,7 +1790,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
               <div>
                 <div class="fw-bold text-white small mb-1">This cannot be undone</div>
                 <div class="text-white-50 small" style="font-size: 0.78rem; line-height: 1.45;">
-                  This action permanently removes all locally stored tab files, library tracks, playlists, collections, file converters, and resets all application settings to factory defaults.
+                  This action permanently removes all locally stored tab files, library tracks, playlists, collections, and resets all application settings to factory defaults.
                 </div>
               </div>
             </div>
@@ -3038,8 +2946,6 @@ function attachModalHandlers(modal, options = {}) {
             if (tabsCountEl) tabsCountEl.textContent = inspection.tabsCount ?? 0;
             const songsCountEl = modal.querySelector('#restoreSongsCount');
             if (songsCountEl) songsCountEl.textContent = inspection.songsCount ?? 0;
-            const extCountEl = modal.querySelector('#restoreExtCount');
-            if (extCountEl) extCountEl.textContent = inspection.extensionsCount ?? 0;
 
             renderRestorePreview();
 
@@ -3142,7 +3048,6 @@ function attachModalHandlers(modal, options = {}) {
             if (results.audioSkipped > 0 && !restoreAudioChoice) details.push(`${results.audioSkipped} audio files left out`);
             if (results.filesSkipped > 0) details.push(`${results.filesSkipped} existing tabs kept`);
             if (results.songsImported > 0) details.push(`${results.songsImported} library songs added/merged`);
-            if (results.extensionsImported > 0) details.push(`${results.extensionsImported} file converters updated`);
             if (results.settingsApplied > 0) details.push('settings restored');
 
             const summaryStr = details.length > 0 ? details.join(' · ') : 'Everything was already up to date';
@@ -3187,7 +3092,7 @@ function attachModalHandlers(modal, options = {}) {
 
         deleteExecuteBtn.disabled = true;
         deleteExecuteBtn.textContent = 'Deleting…';
-        showTaskProgress(deleteStatusAlert, { label: 'Clearing tabs, library, file converters and settings…' });
+        showTaskProgress(deleteStatusAlert, { label: 'Clearing tabs, library, and settings…' });
 
         try {
             await deleteAllAppData();
@@ -3198,10 +3103,8 @@ function attachModalHandlers(modal, options = {}) {
             // Refresh live stat numbers to 0
             const statTabs = modal.querySelector('#deleteStatTabs');
             const statSongs = modal.querySelector('#deleteStatSongs');
-            const statExt = modal.querySelector('#deleteStatExt');
             if (statTabs) statTabs.textContent = '0';
             if (statSongs) statSongs.textContent = '0';
-            if (statExt) statExt.textContent = '0';
 
             setTimeout(() => {
                 closeBackupModal();

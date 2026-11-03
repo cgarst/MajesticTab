@@ -20,7 +20,7 @@
 import { getAllStoredFiles, getStoredFileRecord } from './fileStore.js';
 import { getAllLibraryData } from './libraryStore.js';
 import { listSoundFonts, getSoundFontData, SOUNDFONT_BACKUP_STORE } from './soundFontStore.js';
-import { collectAllSettings, collectExtensions } from './backupRestore.js';
+import { collectAllSettings } from './backupRestore.js';
 import { getAudioFile, listAudioFiles } from './audioSync/audioFileStore.js';
 import {
     AUDIO_BACKUP_STORE, listAudioForBackup, audioManifestEntry, audioItemFingerprint, isAudioItem
@@ -251,7 +251,6 @@ export async function createIncrementalBackup(backend, { onProgress, carryForwar
         }
     }
 
-    const extensions = collectExtensions();
     const exportedAt = new Date();
     const manifest = {
         app: 'MajesticTab',
@@ -266,11 +265,9 @@ export async function createIncrementalBackup(backend, { onProgress, carryForwar
             totalTabsSize: files.reduce((acc, f) => acc + (f.size || 0), 0),
             songsCount: libraryData.songs?.length || 0,
             collectionsCount: libraryData.collections?.length || 0,
-            recentsCount: libraryData.recents?.length || 0,
-            extensionsCount: extensions.length
+            recentsCount: libraryData.recents?.length || 0
         },
         settings: collectAllSettings(),
-        extensions,
         library: libraryData,
         files: [...files, ...soundFontEntries, ...audioEntries]
     };
