@@ -635,29 +635,28 @@ export class FretboardView {
     }
 
     /**
-     * One pick per part. The pick sits on the lowest string the part plays. Where the part also plays the strings
-     * directly above it (a strum) a solid bar joins them; where there is a gap and higher strings still sound
-     * (plucked), a dotted line runs on to them. Every other sounding string gets a bead at the pick's position.
+     * One pick per part, each in its own vertical lane so picks sounding together never share a line. Lanes follow the
+     * parts' colour order, which keeps a part in the same lane from beat to beat. The pick sits on the first string
+     * the part plays. Where the part plays the strings directly after the first (a strum) a solid bar joins them; where there is a gap and
+     * more strings still sound (plucked), a dotted line runs on to them. Every other sounding string gets a bead.
      * @param {Map<number, {strings: Set<number>, trackColor: string, trackGrad: string}>} partPicks
      */
     drawPartPicks(partPicks) {
         const svgNS = 'http://www.w3.org/2000/svg';
-        const stackStep = 22 * (this.isLeftHanded ? 1 : -1);
-        const stackedAt = {};
-        let partIndex = 0;
+        const laneStep = 22 * (this.isLeftHanded ? 1 : -1);
+        const yOf = (str) => this.stringYs[this.getVisualString(str)];
+        let lane = 0;
 
-        partPicks.forEach((part) => {
+        [...partPicks.entries()].sort((a, b) => a[0] - b[0]).forEach(([, part]) => {
             const strings = [...part.strings].filter(n => n >= 1 && n <= this.stringCount).sort((a, b) => a - b);
             if (strings.length === 0) return;
-            const lowest = strings[0];
-            const pick = this.getPartPick(partIndex++);
+            const first = strings[0];
+            const last = strings[strings.length - 1];
+            const pick = this.getPartPick(lane);
+            const x = this.pickX + lane * laneStep;
+            lane++;
 
-            // Two parts on the same lowest string sit side by side instead of on top of each other
-            const n = stackedAt[lowest] || 0;
-            stackedAt[lowest] = n + 1;
-            const x = this.pickX + n * stackStep;
-            const yOf = (str) => this.stringYs[this.getVisualString(str)];
-            pick.group.setAttribute('transform', `translate(${x}, ${yOf(lowest)})`);
+            pick.group.setAttribute('transform', `translate(${x}, ${yOf(first)})`);
             pick.group.style.display = '';
             pick.struckToggle = !pick.struckToggle;
             pick.group.setAttribute('class', `fretboard-pick-marker ${pick.struckToggle ? 'is-struck' : 'is-struck-alt'}`);
@@ -665,10 +664,9 @@ export class FretboardView {
 
             if (strings.length === 1 || !this.reachGroup) return;
 
-            // The unbroken run of strings above the pick is the strum
-            let strumEnd = lowest;
+            // The unbroken run of strings after the first is the strum
+            let strumEnd = first;
             for (let i = 1; i < strings.length && strings[i] === strumEnd + 1; i++) strumEnd = strings[i];
-            const last = strings[strings.length - 1];
 
             const line = (y1, y2, cls) => {
                 const l = document.createElementNS(svgNS, 'line');
@@ -680,7 +678,7 @@ export class FretboardView {
                 l.style.stroke = part.trackColor;
                 this.reachGroup.appendChild(l);
             };
-            if (strumEnd > lowest) line(yOf(lowest), yOf(strumEnd), 'pick-reach-strum');
+            if (strumEnd > first) line(yOf(first), yOf(strumEnd), 'pick-reach-strum');
             if (last > strumEnd) line(yOf(strumEnd), yOf(last), 'pick-reach-pluck');
 
             strings.slice(1).forEach((str) => {
