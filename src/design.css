@@ -2294,7 +2294,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 
 /* About: the one place the pick appears */
 .about-brand { display: flex; align-items: center; gap: 14px; padding: 12px 0 0; margin-bottom: 20px; }
-.about-mark { width: 44px; height: 46px; flex: none; }
+.about-mark { width: 64px; height: 64px; box-sizing: border-box; padding: 9px 8px; flex: none; background: #fff; border-radius: var(--r-card); }
 .about-wordmark { font: 700 28px/1 var(--font-display); letter-spacing: -.01em; color: var(--ink); }
 .about-wordmark b { font-weight: 700; color: var(--ink2); }
 
@@ -2379,3 +2379,43 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .mt-ico { display: inline-block; width: 1em; height: 1em; background-color: currentColor; vertical-align: -0.125em; -webkit-mask: var(--mt-ico) center / contain no-repeat; mask: var(--mt-ico) center / contain no-repeat; }
 .mt-ico-library { --mt-ico: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M4 5v14M9 5v14M14.5 6.5l3.2-1 2.8 12.5-3.2 1z%22/%3E%3C/svg%3E"); }
 .mt-ico-setlists { --mt-ico: url("data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22black%22 stroke-width=%221.8%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22%3E%3Cpath d=%22M9 6h11M9 12h11M9 18h7M4.5 6h.01M4.5 12h.01M4.5 18h.01%22/%3E%3C/svg%3E"); }
+
+/* --- Jam mode modal: flat rows on tone steps, plain-text status, ghost secondary actions --- */
+.jam-modal-card { border: 0; }
+.jam-modal-body .form-control, .jam-modal-body .form-select { background-color: var(--s3); border: 0; border-radius: var(--r-control); color: var(--ink); min-height: 36px; }
+.jam-modal-body .form-control:focus, .jam-modal-body .form-select:focus { background-color: var(--s3); box-shadow: 0 0 0 2px var(--ink2); }
+.jam-modal-body .form-control::placeholder { color: var(--ink2); }
+.jam-label, .jam-help { color: var(--ink2); }
+.jam-card, .jam-list-row { background: var(--s2); border: 0; border-radius: var(--r-card); }
+.jam-list-row { min-height: 56px; }
+.jam-qr { border-radius: var(--r-control); }
+.jam-status { margin: 0; font-weight: 400; color: var(--ink2); }
+.jam-matrix-badge { font-size: 0.75rem; font-weight: 400; color: var(--warn); }
+.jam-matrix-sum { border-bottom: 0; }
+.jam-danger { margin-top: 1.25rem; padding-top: 0.5rem; }
+.jam-danger .jam-label { color: var(--danger); }
+
+/* Only Join and Start hosting stay filled; the rest are ghost text actions */
+.jam-modal-body .btn-theme-outline:not(.jam-matrix-cell):not([aria-pressed="true"]), .jam-modal-body .theme-control-btn {
+  background: transparent !important; color: var(--ink2) !important; font-weight: 500;
+}
+@media (hover: hover) {
+  .jam-modal-body .btn-theme-outline:not(.jam-matrix-cell):hover:not(:disabled), .jam-modal-body .theme-control-btn:hover:not(:disabled) { background: var(--s3) !important; color: var(--ink) !important; }
+}
+.jam-modal-body [data-jam-rename-save], .jam-modal-body [data-jam-qr][aria-pressed="true"] { background: var(--s3) !important; color: var(--ink) !important; }
+
+/* Matrix cells: a tone step shows the choice, not a coloured button */
+.jam-matrix-cell.btn-theme-outline { background: var(--s3) !important; color: var(--ink) !important; border-radius: var(--r-control); }
+.jam-matrix-cell.btn-theme-primary, .jam-matrix-cell.btn-theme-primary:hover:not(:disabled) { background: var(--ink) !important; color: var(--ground) !important; border-radius: var(--r-control) !important; }
+
+/* The control-request card floats: shadow only, no border or glow */
+.jam-request-card { border: 0; box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.5); border-radius: var(--r-card); animation: popIn var(--dur-base) var(--ease-out); }
+
+@media (pointer: coarse) {
+  .jam-modal-body .btn, .jam-request-card .btn { min-height: 44px; min-width: 44px; }
+  .jam-matrix { grid-template-columns: minmax(5rem, 12rem) repeat(var(--jam-cols), 44px); gap: 0.35rem 0.5rem; }
+  .jam-matrix-cell { width: 44px; height: 44px; }
+}
+.jam-modal-body .form-switch .form-check-label { padding-left: 0.5rem; }
+.jam-modal-body .form-switch { min-height: 44px; display: flex; align-items: center; }
+.jam-matrix-cell.btn-theme-outline { background: color-mix(in srgb, var(--ink) 14%, var(--s2)) !important; }

@@ -38,9 +38,8 @@ export function createJamModal(manager, { updateSetting }) {
       <section class="theme-modal-card jam-modal-card">
         <header class="theme-modal-header">
           <div class="theme-modal-title-group">
-            <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;"><i class="bi-people-fill fs-5"></i></div>
             <div class="theme-modal-titles">
-              <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="jamModalTitle">Jam mode</h2>
+              <h2 class="theme-modal-title mb-0" id="jamModalTitle">Jam mode</h2>
             </div>
           </div>
           <div class="theme-modal-actions">
@@ -59,6 +58,7 @@ export function createJamModal(manager, { updateSetting }) {
     document.body.appendChild(requestCard);
 
     function open() {
+        backdrop.classList.remove('is-closing');
         backdrop.classList.add('show');
         backdrop.style.display = 'flex';
         backdrop.setAttribute('aria-hidden', 'false');
@@ -67,13 +67,19 @@ export function createJamModal(manager, { updateSetting }) {
     }
 
     function close() {
-        backdrop.classList.remove('show');
-        backdrop.style.display = 'none';
+        if (!isOpen() || backdrop.classList.contains('is-closing')) return;
         backdrop.setAttribute('aria-hidden', 'true');
         document.body.classList.remove('modal-open');
+        const finish = () => {
+            backdrop.classList.remove('show', 'is-closing');
+            backdrop.style.display = 'none';
+        };
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { finish(); return; }
+        backdrop.classList.add('is-closing');
+        setTimeout(finish, 160);
     }
 
-    const isOpen = () => backdrop.style.display === 'flex';
+    const isOpen = () => backdrop.style.display === 'flex' && !backdrop.classList.contains('is-closing');
 
     let renamingId = null; // roster row being renamed
 
@@ -131,8 +137,8 @@ export function createJamModal(manager, { updateSetting }) {
         if (isJamWebGuest()) return webGuestPanel(settings);
         return `
         <div class="hud-pill-group jam-tab-group mb-3" role="group" aria-label="Jam role">
-          <button type="button" class="btn btn-sm ${tab === 'join' ? 'active' : ''}" data-jam-tab="join">Join a Jam</button>
-          <button type="button" class="btn btn-sm ${tab === 'host' ? 'active' : ''}" data-jam-tab="host">Host a Jam</button>
+          <button type="button" class="btn btn-sm ${tab === 'join' ? 'active' : ''}" data-jam-tab="join">Join a jam</button>
+          <button type="button" class="btn btn-sm ${tab === 'host' ? 'active' : ''}" data-jam-tab="host">Host a jam</button>
         </div>
         <div class="jam-field mb-3">
           <label class="jam-label" for="jamNameInput">Your name</label>
@@ -144,12 +150,12 @@ export function createJamModal(manager, { updateSetting }) {
             <input type="text" class="form-control form-control-sm" id="jamPinInput" maxlength="12" inputmode="numeric" value="${esc(settings.pin)}">
           </div>
           <p class="jam-help mb-3">Other devices on the same Wi-Fi or network can join. Each device plays the song locally (synth or YouTube), so no audio is streamed.</p>
-          <button type="button" class="btn btn-sm btn-theme-primary" id="jamStartHostBtn">Start Hosting</button>
+          <button type="button" class="btn btn-sm btn-theme-primary" id="jamStartHostBtn">Start hosting</button>
         ` : `
           <div class="jam-field mb-3">
             <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
               <span class="jam-label mb-0">Nearby hosts</span>
-              <button type="button" class="btn btn-sm theme-control-btn flex-shrink-0" id="jamDiscoverBtn" ${discovering ? 'disabled' : ''}>${discovering ? 'Searching…' : 'Find Hosts'}</button>
+              <button type="button" class="btn btn-sm theme-control-btn flex-shrink-0" id="jamDiscoverBtn" ${discovering ? 'disabled' : ''}>${discovering ? 'Searching…' : 'Find hosts'}</button>
             </div>
             <div class="jam-list" id="jamHostList">
               ${discovered.length ? discovered.map((h, i) => `
@@ -215,7 +221,7 @@ export function createJamModal(manager, { updateSetting }) {
               <div class="jam-matrix-name">
                 <span class="jam-matrix-person">${esc(person.name)}</span>
                 <span class="jam-matrix-meta">
-                  ${state === 'unset' ? '<span class="badge text-bg-warning jam-matrix-badge">Not set</span>' : ''}
+                  ${state === 'unset' ? '<span class="jam-matrix-badge">Not set</span>' : ''}
                   ${person.key === 'host' ? '' : `<button type="button" class="btn btn-sm btn-theme-icon p-0 px-1" data-jam-identify="${esc(person.key)}" title="Flash and beep on this device" aria-label="Identify ${esc(person.name)}"><i class="bi-broadcast"></i></button>`}
                 </span>
               </div>
@@ -270,11 +276,11 @@ export function createJamModal(manager, { updateSetting }) {
         </div>
 `;
         const playersHtml = `
-        <div class="mb-2">
+        <div class="mb-3">
           ${switchHtml('jamLockSwitch', 'Lock the jam so nobody new can join', session?.locked)}
           <div class="jam-help mt-1">Players who drop out can still come back.</div>
         </div>
-        <div class="jam-label">Players (${roster.length}/${JAM_MAX_CLIENTS})${session?.locked ? ' <span class="jam-badge">Locked</span>' : ''}</div>
+        <div class="jam-label">Players (${roster.length}/${JAM_MAX_CLIENTS})${session?.locked ? ' <span class="jam-status">· Locked</span>' : ''}</div>
         <div class="jam-list mb-3">
           ${roster.length ? roster.map((p) => {
             const isController = session?.controllerId === p.id;
@@ -284,14 +290,14 @@ export function createJamModal(manager, { updateSetting }) {
                   ? `<div class="d-flex gap-2 align-items-center"><input type="text" class="form-control form-control-sm" id="jamRenameInput" maxlength="24" value="${esc(p.name === p.originalName ? p.name : p.name.replace(/ \(\d+\)$/, ''))}" placeholder="${esc(p.originalName)}" data-jam-rename-for="${esc(p.id)}">
                       <button type="button" class="btn btn-sm btn-theme-primary" data-jam-rename-save="${esc(p.id)}">Save</button>
                       <button type="button" class="btn btn-sm btn-theme-outline" data-jam-rename-cancel>Cancel</button></div>`
-                  : `<span class="fw-semibold">${esc(p.name)}${p.name !== p.originalName ? ` <span class="jam-help">(${esc(p.originalName)})</span>` : ''}${isController ? ' <span class="jam-badge">Controller</span>' : ''}</span>`}
+                  : `<span class="fw-semibold">${esc(p.name)}${p.name !== p.originalName ? ` <span class="jam-help">(${esc(p.originalName)})</span>` : ''}${isController ? ' <span class="jam-status">· Controller</span>' : ''}</span>`}
                 <span class="jam-help">${p.ready ? 'Ready' : esc(PEER_STATUS_LABELS[p.status] || 'Loading')} · RTT ${Math.round(p.rttMs || 0)} ms${p.driftMs === null || p.driftMs === undefined ? '' : ` · drift ${p.driftMs} ms`}${p.ytDriftMs === null || p.ytDriftMs === undefined ? '' : ` · YouTube drift ${p.ytDriftMs} ms`}</span>
               </div>
               <div class="d-flex flex-wrap gap-2 flex-shrink-0 ms-2">
                 <button type="button" class="btn btn-sm btn-theme-outline" data-jam-identify="${esc(p.id)}" title="Flash and beep on this device">Identify</button>
                 <button type="button" class="btn btn-sm btn-theme-outline" data-jam-rename="${esc(p.id)}">Rename</button>
-                <button type="button" class="btn btn-sm btn-theme-outline" data-jam-control="${esc(p.id)}">${isController ? 'Take Back' : 'Hand Over'}</button>
-                <button type="button" class="btn btn-sm btn-theme-danger" data-jam-kick="${esc(p.id)}">Kick</button>
+                <button type="button" class="btn btn-sm btn-theme-outline" data-jam-control="${esc(p.id)}">${isController ? 'Take back' : 'Hand over'}</button>
+                <button type="button" class="btn btn-sm btn-theme-danger" data-jam-kick="${esc(p.id)}" data-jam-confirm="Confirm kick">Kick</button>
               </div>
             </div>`;
           }).join('') : '<div class="jam-help px-1">Nobody has joined yet.</div>'}
@@ -330,7 +336,10 @@ export function createJamModal(manager, { updateSetting }) {
             ${timingHtml}
           </div>
         </div>
-        <button type="button" class="btn btn-sm btn-theme-danger" id="jamStopHostBtn">Stop Hosting</button>`;
+        <div class="jam-danger">
+          <div class="jam-label">Danger zone</div>
+          <button type="button" class="btn btn-sm btn-theme-danger" id="jamStopHostBtn" data-jam-confirm="Confirm stop hosting">Stop hosting</button>
+        </div>`;
     }
 
     function clientPanel(settings) {
@@ -350,19 +359,22 @@ export function createJamModal(manager, { updateSetting }) {
           ${st.song ? `<div class="jam-help mt-1">Song: ${esc(st.song.title)}</div>` : ''}
         </div>
         <div class="d-flex flex-wrap gap-2 mb-3">
-          <button type="button" class="btn btn-sm ${st.following ? 'btn-theme-outline' : 'btn-theme-primary'}" id="jamFollowBtn">${st.following ? 'Detach' : 'Rejoin Host'}</button>
+          <button type="button" class="btn btn-sm ${st.following ? 'btn-theme-outline' : 'btn-theme-primary'}" id="jamFollowBtn">${st.following ? 'Detach' : 'Rejoin host'}</button>
           ${st.controllerId && st.canControl && st.policy !== 'anyone'
-            ? '<button type="button" class="btn btn-sm btn-theme-outline" id="jamReleaseBtn">Release Control</button>'
-            : (st.policy === 'anyone' ? '' : '<button type="button" class="btn btn-sm btn-theme-outline" id="jamRequestBtn">Request Control</button>')}
-          ${st.canControl ? '<button type="button" class="btn btn-sm btn-theme-outline" id="jamShareSongBtn">Share a Song</button>' : ''}
-          ${connected && st.songLoaded ? '<button type="button" class="btn btn-sm btn-theme-outline" id="jamSaveSongBtn">Save to Library</button>' : ''}
+            ? '<button type="button" class="btn btn-sm btn-theme-outline" id="jamReleaseBtn">Release control</button>'
+            : (st.policy === 'anyone' ? '' : '<button type="button" class="btn btn-sm btn-theme-outline" id="jamRequestBtn">Request control</button>')}
+          ${st.canControl ? '<button type="button" class="btn btn-sm btn-theme-outline" id="jamShareSongBtn">Share a song</button>' : ''}
+          ${connected && st.songLoaded ? '<button type="button" class="btn btn-sm btn-theme-outline" id="jamSaveSongBtn">Save to library</button>' : ''}
         </div>
         ${trimHtml(settings)}
         <div class="d-flex flex-column gap-2 mb-3">
           ${switchHtml('jamSmoothSwitch', 'Smooth drift correction', settings.smoothDrift !== false)}
           ${switchHtml('jamAlwaysSaveSwitch', 'Always save jam songs to my library', settings.alwaysSaveSongs)}
         </div>
-        <button type="button" class="btn btn-sm btn-theme-danger" id="jamLeaveBtn">Leave</button>`;
+        <div class="jam-danger">
+          <div class="jam-label">Danger zone</div>
+          <button type="button" class="btn btn-sm btn-theme-danger" id="jamLeaveBtn" data-jam-confirm="Confirm leave">Leave</button>
+        </div>`;
     }
 
     function render() {
@@ -480,6 +492,14 @@ export function createJamModal(manager, { updateSetting }) {
         const t = e.target.closest('button');
         if (!t) return;
         const settings = manager.getSettings();
+        // Destructive buttons need a second press within a few seconds.
+        if (t.dataset.jamConfirm && t.dataset.armed !== '1') {
+            const label = t.textContent;
+            t.dataset.armed = '1';
+            t.textContent = t.dataset.jamConfirm;
+            setTimeout(() => { if (t.isConnected) { t.dataset.armed = ''; t.textContent = label; } }, 4000);
+            return;
+        }
         if (t.dataset.jamTab) { tab = t.dataset.jamTab; body.dataset.role = ''; render(); return; }
         if (t.dataset.jamCopy !== undefined) {
             const toastMod = await import('../utils/toast.js');
