@@ -185,6 +185,15 @@ export function playPauseYouTube() {
     const iframe = document.getElementById('ytIframe');
     if (!iframe || !iframe.contentWindow) return false;
 
+    // The saved video has not been loaded yet (first play after opening the song, or on a fresh install):
+    // load it now, and show the panel until it plays, since YouTube only allows an embed that is visible
+    if (iframe.dataset.loaded !== 'true' && !playerState.isPlaying && hasSavedVideo()) {
+        loadCurrentTrack(true, { source: 'user' });
+        revealUntilPlaying();
+        updatePlaybackControls();
+        return true;
+    }
+
     if (playerState.isPlaying) {
         sendYouTubeMessage(iframe, { event: 'command', func: 'pauseVideo', args: [] });
         playerState.isPlaying = false;
@@ -200,8 +209,13 @@ export function playPauseYouTube() {
     return true;
 }
 
+/** Whether a video is saved for the current song and track mode, even if its player has not been loaded yet. */
+function hasSavedVideo() {
+    try { return Boolean(getSongKey() && localStorage.getItem(getStorageKey())); } catch { return false; }
+}
+
 export function isYouTubeAvailable() {
-    return Boolean(playerState.currentVideoId || playerState.hasStarted);
+    return Boolean(playerState.currentVideoId || playerState.hasStarted || hasSavedVideo());
 }
 
 export function isYouTubePlaying() {
