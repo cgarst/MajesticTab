@@ -39,6 +39,8 @@ let selectedArtist = null;
 // The Pinned songs group at the top of the artist list: true when picked, false when an artist was, null for the default
 let pinnedGroupSelected = null;
 let selectedAlbum = null;
+// Library search text, kept across the re-renders that picking an artist triggers
+let libraryFilterQuery = '';
 let selectedAlbumFilter = 'all';
 // File dropped on a custom folder, consumed by the Add Custom Music form: { file, folderPath }
 let pendingCustomDrop = null;
@@ -811,7 +813,7 @@ async function renderLibraryBrowseView(container) {
         clearId: 'libFilterClearBtn',
         placeholder: inTunings
             ? 'Search tunings...'
-            : (selectedAlbum ? 'Search tracks in album...' : selectedArtist ? 'Search albums or songs...' : 'Search artists, albums, or songs...'),
+            : 'Search your library',
         searchLabel: inTunings ? 'Search tunings' : 'Search library'
     })}
     `;
@@ -899,7 +901,7 @@ async function renderLibraryBrowseView(container) {
                 const notesDisplay = notesList.join(' ');
                 const isCurrent = (group.key || group.tuning || group.name) === (currentGroup.key || currentGroup.tuning || currentGroup.name);
                 return `
-                <div class="library-card tuning-card p-3" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}" ${isCurrent ? 'aria-current="true"' : ''} role="button" tabindex="0">
+                <div class="library-card tuning-card p-3" data-tuning-key="${escapeHtml(group.key || group.tuning)}" data-tuning-name="${escapeHtml(group.name)}" data-tuning-notes="${escapeHtml(group.notes || group.key || group.tuning)}" data-name="${escapeHtml(String(group.name || '').toLowerCase())}" data-search="${escapeHtml([group.name, group.notes, group.key, group.tuning, ...group.songs.map(sg => `${sg.title || ''} ${sg.artist || ''} ${sg.album || ''}`)].filter(Boolean).join(' ').toLowerCase())}" ${isCurrent ? 'aria-current="true"' : ''} role="button" tabindex="0">
                   <div class="d-flex align-items-center gap-3 min-w-0">
                     <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-sliders"></i></span>
                     <div class="min-w-0 flex-grow-1">
@@ -1712,7 +1714,7 @@ async function renderLibraryBrowseView(container) {
     });
 
     // Search / Filter setup
-    setupLibraryFilter(container, { hierarchy, artists, selectedArtist, selectedAlbum, selectedTuning });
+    setupLibraryFilter(container, { hierarchy, artists, selectedArtist, selectedAlbum, selectedTuning, pinnedSongs: hierarchy.pinnedSongs || [] });
 
     // Song actions & album tab actions
     setupSongRowActions(container);
@@ -1747,9 +1749,28 @@ export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, s
           <button class="search-clear-btn" type="button" id="${clearId}" title="Clear search" aria-label="Clear search" style="display: none;">
             <i class="bi-x-lg"></i>
           </button>
+          <kbd class="search-key-hint" aria-hidden="true">/</kbd>
         </div>
       </div>`;
 }
+
+// "/" focuses the library search from anywhere that is not a text field (one listener for the app)
+let librarySearchShortcutBound = false;
+function bindLibrarySearchShortcut() {
+    if (librarySearchShortcutBound) return;
+    librarySearchShortcutBound = true;
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+        const t = e.target;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+        const input = document.querySelector('.library-page-view .library-search-bar .search-input:not([disabled])');
+        if (!input || input.offsetParent === null) return;
+        e.preventDefault();
+        input.focus();
+        input.select();
+    });
+}
+bindLibrarySearchShortcut();
 
 // Centered page title for library pages that are not a switcher tab (Open File, Add Music)
 export function libraryPageTitleHtml({ icon, title, subtitle = '' }) {
@@ -1774,6 +1795,53 @@ export function libraryListToolbarHtml({ count = '', leftHtml = '', actionsHtml 
         <div class="d-flex align-items-center gap-2 min-w-0">${leftHtml}<span class="small text-white-50">${count}</span></div>
         <div class="d-flex align-items-center gap-2 flex-shrink-0">${actionsHtml}</div>
       </div>`;
+}
+
+// Search for the two-pane pages (setlists, tunings): cards on the left that do not match are hidden, the
+// selection moves to the first match, and the right pane keeps showing the selected card's rows, filtered.
+// Cards carry data-name and data-search (name plus the songs inside) in lower case.
+const twoPaneFilterQueries = {};
+export function bindTwoPaneFilter(container, { inputId, clearId, key, cardSelector, rowSelector }) {
+    const input = container.querySelector('#' + inputId);
+    const clear = container.querySelector('#' + clearId);
+    if (!input) return;
+    const apply = () => {
+        const q = input.value.trim().toLowerCase();
+        twoPaneFilterQueries[key] = input.value;
+        if (clear) clear.style.display = q ? 'inline-flex' : 'none';
+        container.querySelectorAll('.library-filter-empty-msg').forEach(el => el.remove());
+        const cards = [...container.querySelectorAll(cardSelector)];
+        cards.forEach(card => card.classList.toggle('lib-filter-hidden', Boolean(q) && !(card.dataset.search || '').includes(q)));
+        const visible = cards.filter(c => !c.classList.contains('lib-filter-hidden'));
+        const count = container.querySelector('.pane.list .pane-head .tnum');
+        if (count) {
+            if (count.dataset.total === undefined) count.dataset.total = count.textContent;
+            count.textContent = q ? String(visible.length) : count.dataset.total;
+        }
+        const current = cards.find(c => c.getAttribute('aria-current') === 'true');
+        if (q && current && current.classList.contains('lib-filter-hidden') && visible.length) { visible[0].click(); return; }
+        const nameHit = !q || (current?.dataset.name || '').includes(q);
+        const rows = container.querySelectorAll(rowSelector);
+        let shown = 0;
+        rows.forEach(row => {
+            const hit = nameHit || (row.textContent || '').toLowerCase().includes(q);
+            row.classList.toggle('lib-filter-hidden', !hit);
+            if (hit) shown++;
+        });
+        const note = (host, text) => {
+            if (!host) return;
+            const el = document.createElement('div');
+            el.className = 'library-filter-empty-msg text-center py-4 text-muted';
+            el.textContent = text;
+            host.appendChild(el);
+        };
+        if (q && !visible.length) note(container.querySelector('.pane.list .pane-scroll'), `Nothing matches "${input.value.trim()}". Clear the search to see everything.`);
+        else if (q && rows.length && !shown) note(container.querySelector('.pane.songs .pane-scroll'), 'Nothing matches that search.');
+    };
+    input.addEventListener('input', apply);
+    clear?.addEventListener('click', () => { input.value = ''; apply(); input.focus(); });
+    // After the caller has attached its card click handlers, so moving the selection can click a card
+    if (twoPaneFilterQueries[key] && !input.disabled) { input.value = twoPaneFilterQueries[key]; queueMicrotask(apply); }
 }
 
 // Client-side filter for simple list views (setlists, recents)
@@ -1978,12 +2046,18 @@ function setupLibraryFilter(container, context = {}) {
     const clearBtn = container.querySelector('#libFilterClearBtn');
     if (!filterInput) return;
 
+    if (libraryBrowseMode === 'tunings' && !context.selectedAlbum) {
+        bindTwoPaneFilter(container, { inputId: 'libFilterInput', clearId: 'libFilterClearBtn', key: 'tunings', cardSelector: '.tuning-card', rowSelector: '.pane.songs .library-song-row' });
+        return;
+    }
+
     const browseContent = container.querySelector('#libBrowseContent');
     const filterResults = container.querySelector('#libFilteredSearchResults');
 
     const applyFilter = () => {
         const rawQuery = (filterInput.value || '').trim();
         const query = rawQuery.toLowerCase();
+        libraryFilterQuery = filterInput.value || '';
         if (clearBtn) {
             clearBtn.style.display = query.length > 0 ? 'inline-flex' : 'none';
         }
@@ -2035,6 +2109,70 @@ function setupLibraryFilter(container, context = {}) {
                     emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No tunings match "${escapeHtml(query)}"`;
                     tuningsList.appendChild(emptyMsg);
                 }
+            }
+            return;
+        }
+
+        // 3a. Two-pane library: search inside it. Artists that match stay in the list, the songs pane
+        // follows the selected artist, and nothing is replaced by a results page.
+        const rootView = container.querySelector('.collection-root-view');
+        if (rootView) {
+            const artistMatches = (art) => {
+                if ((art.name || '').toLowerCase().includes(query)) return true;
+                const songMatch = (s) => (s.title || '').toLowerCase().includes(query)
+                    || (s.tabOptions || []).some(t => (t.name || '').toLowerCase().includes(query));
+                if ((art.songs || []).some(songMatch)) return true;
+                return (art.albums || []).some(alb => (alb.title || alb.name || '').toLowerCase().includes(query) || (alb.songs || []).some(songMatch));
+            };
+            const byName = new Map((context.artists || []).map(a => [a.name, a]));
+            let visibleArtists = 0, visibleRegular = 0;
+            rootView.querySelectorAll('.artist-card').forEach(card => {
+                const art = byName.get(card.dataset.artistName);
+                const hit = !query || (art ? artistMatches(art) : (card.textContent || '').toLowerCase().includes(query));
+                card.classList.toggle('lib-filter-hidden', !hit);
+                if (hit) { visibleArtists++; if (card.closest('#libArtistsGrid')) visibleRegular++; }
+            });
+            const listCount = rootView.querySelector('.pane.list .pane-head .tnum');
+            if (listCount) {
+                if (listCount.dataset.total === undefined) listCount.dataset.total = listCount.textContent;
+                listCount.textContent = query ? String(visibleRegular) : listCount.dataset.total;
+            }
+            const pinnedBtn = rootView.querySelector('#libPinnedGroupBtn');
+            const pinnedHit = !query || (context.pinnedSongs || []).some(sg => `${sg.title || ''} ${sg.artist || ''} ${sg.album || ''}`.toLowerCase().includes(query));
+            pinnedBtn?.classList.toggle('lib-filter-hidden', !pinnedHit);
+            const pinnedActive = pinnedBtn?.getAttribute('aria-current') === 'true';
+            const selectedName = context.selectedArtist?.name;
+            const selectedCard = [...rootView.querySelectorAll('.artist-card')].find(c => c.dataset.artistName === selectedName);
+            // The selected artist dropped out of the list: move to the first one that still matches
+            if (query && !pinnedActive && selectedCard && selectedCard.classList.contains('lib-filter-hidden')) {
+                const first = [...rootView.querySelectorAll('.artist-card')].find(c => !c.classList.contains('lib-filter-hidden'));
+                if (first) { first.click(); return; }
+            }
+            const selectedArtistMatches = !query || (!pinnedActive && (selectedName || '').toLowerCase().includes(query));
+            const rows = rootView.querySelectorAll('.pane.songs .library-song-row');
+            let shownRows = 0;
+            rows.forEach(row => {
+                const hit = selectedArtistMatches || (row.textContent || '').toLowerCase().includes(query);
+                row.classList.toggle('lib-filter-hidden', !hit);
+                if (hit) shownRows++;
+            });
+            const songsPane = rootView.querySelector('.pane.songs .pane-scroll');
+            if (songsPane && rows.length && shownRows === 0 && query) {
+                const emptyMsg = document.createElement('div');
+                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
+                emptyMsg.textContent = 'Nothing matches that search.';
+                songsPane.appendChild(emptyMsg);
+            }
+            const noneAtAll = query && visibleArtists === 0 && !pinnedHit;
+            if (browseContent) browseContent.style.display = noneAtAll ? 'none' : 'block';
+            if (filterResults) {
+                filterResults.style.display = noneAtAll ? 'block' : 'none';
+                filterResults.innerHTML = noneAtAll ? `
+                <div class="library-filter-empty-msg text-center py-5 text-muted">
+                  <div>No artist or song matches "${escapeHtml(rawQuery)}". Clear the search to see everything.</div>
+                </div>
+                ${renderDownloaderSearchButton(rawQuery)}` : '';
+                if (noneAtAll) wireDownloaderSearchButton(filterResults, rawQuery);
             }
             return;
         }
@@ -2222,6 +2360,14 @@ function setupLibraryFilter(container, context = {}) {
         applyFilter();
         filterInput.focus();
     });
+
+    // Re-rendered by picking an artist while a search is active: put the text back and filter again
+    if (libraryFilterQuery && !filterInput.value && libraryBrowseMode === 'artists') {
+        filterInput.value = libraryFilterQuery;
+        applyFilter();
+    } else if (!filterInput.value) {
+        libraryFilterQuery = '';
+    }
 }
 
 function renderArtistCollageHtml(artist) {

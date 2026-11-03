@@ -8,7 +8,7 @@ import {
 import { getSongById, getAllSongs, getRecents } from './libraryStore.js';
 import { getPlaceholderCoverSvg, hydrateCachedImages } from './musicbrainz.js';
 import { playSetlist } from './setlistPlayer.js';
-import { openThemedInputModal, libraryViewSwitchHtml, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, bindListFilter } from './libraryModal.js';
+import { openThemedInputModal, libraryViewSwitchHtml, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, bindTwoPaneFilter } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
 import { showToast } from './utils/toast.js';
 import { gamepadManager } from './utils/gamepadManager.js';
@@ -117,8 +117,16 @@ async function renderSetlistsPage(container, onBack) {
     const fmtTot = formatTrackDuration(totSec);
     const summary = [countLabel(setlist.items.length), fmtTot, tuningsList.length > 0 ? (tuningChanges === 0 ? 'no tuning changes' : `${tuningChanges} ${tuningChanges === 1 ? 'tuning change' : 'tuning changes'}`) : ''].filter(Boolean).join(' \u00b7 ');
 
+    const searchText = {};
+    await Promise.all(setlists.map(async (sl) => {
+        const titles = await Promise.all(sl.items.map(async (i) => {
+            const sg = await getSongById(i.songId);
+            return sg ? `${sg.title || ''} ${sg.artist || ''} ${sg.album || ''}` : '';
+        }));
+        searchText[sl.id] = [sl.name, ...titles].join(' ').toLowerCase();
+    }));
     const cardHtml = (sl) => `
-      <div class="library-card setlist-card p-3" data-setlist-id="${escapeHtml(sl.id)}" ${sl.id === setlist.id ? 'aria-current="true"' : ''} role="button" tabindex="0">
+      <div class="library-card setlist-card p-3" data-setlist-id="${escapeHtml(sl.id)}" data-name="${escapeHtml(String(sl.name || '').toLowerCase())}" data-search="${escapeHtml(searchText[sl.id] || '')}" ${sl.id === setlist.id ? 'aria-current="true"' : ''} role="button" tabindex="0">
         <div class="d-flex align-items-center gap-3 min-w-0">
           <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-collection-play"></i></span>
           <div class="min-w-0 flex-grow-1">
@@ -212,7 +220,7 @@ async function renderSetlistsPage(container, onBack) {
     </div>`;
 
     bindSetlistsChrome(container, rerender);
-    bindListFilter(container, { inputId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn', rowSelector: '#setlistsList .setlist-card' });
+    bindTwoPaneFilter(container, { inputId: 'setlistsFilterInput', clearId: 'setlistsFilterClearBtn', key: 'setlists', cardSelector: '.setlist-card', rowSelector: '.pane.songs .rowwrap' });
 
     const selectCard = (card) => {
         selectedSetlistId = card.dataset.setlistId;

@@ -721,10 +721,19 @@ body.practice-open #output { padding-right: 376px !important; }
 @media (min-width: 577px) { .library-page-view { border-radius: var(--r-lg) 0 0 0; margin-left: 0; } }
 .library-page-container { max-width: none; }
 .library-search-box .library-search-bar, .library-search-bar {
-  background: var(--s2) !important; border: 0 !important; border-radius: var(--r) !important; height: 40px; box-shadow: none !important;
+  background: var(--s2) !important; border: 0 !important; border-radius: var(--r-control, var(--r)) !important; height: 40px; box-shadow: none !important;
+  gap: 10px; padding: 0 12px !important; color: var(--ink2);
+  transition: background-color var(--dur-fast) var(--ease-out);
 }
-.library-search-bar:focus-within { background: var(--s3) !important; outline: 2px solid var(--hue); }
-.library-search-bar .search-input { background: transparent !important; color: var(--ink) !important; border: 0 !important; }
+.library-search-bar .search-icon { margin: 0; font-size: 15px; color: var(--ink2); }
+.library-search-bar:focus-within { background: var(--s3) !important; outline: 2px solid var(--hue); outline-offset: 0; }
+.library-search-bar .search-input { background: transparent !important; color: var(--ink) !important; border: 0 !important; font-size: 15px; }
+.library-search-bar .search-input::placeholder { color: var(--ink2); opacity: 1; }
+.library-search-bar .search-clear-btn { color: var(--ink2); min-width: 24px; min-height: 24px; }
+@media (hover: hover) and (pointer: fine) { .library-search-bar .search-clear-btn:hover { color: var(--ink); background: var(--s3); } }
+.library-search-bar .search-key-hint { font: 12px system-ui, sans-serif; color: var(--ink2); background: var(--s3); border: 0; border-radius: 4px; padding: 1px 6px; flex-shrink: 0; }
+.library-search-bar:focus-within .search-key-hint, .library-search-bar:has(.search-clear-btn:not([style*="none"])) .search-key-hint { display: none; }
+@media (hover: none) { .library-search-bar .search-key-hint { display: none; } }
 .library-list-toolbar { padding: 0 4px; font-size: 13px; color: var(--ink2); }
 .library-artists-grid, .library-albums-grid, .library-songs-list { display: flex !important; flex-direction: column; gap: 0 !important; }
 .library-card, .library-row-card, .library-song-row, .library-track-row {
@@ -1980,3 +1989,6 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   .pane.list { padding-right: 0; }
   .pane.songs { padding-left: 0; }
 }
+
+/* Rows and cards a library search filtered out */
+.lib-filter-hidden { display: none !important; }
