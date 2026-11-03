@@ -191,7 +191,7 @@ function initPracticePanels() {
 }
 
 
-// ---- Song menu (opens from the song's name): section marks, PDF, save and share ----
+// ---- Song menu (opens from the song's name): save and share, PDF options, section marks ----
 // Moves the original controls into place (ids kept). Notation went to View and strings and tuning to Guitar.
 function arrangeSongPanel() {
     const body = document.querySelector('#scoreOptionsDropdownPanel .synth-panel-body');
@@ -252,7 +252,7 @@ function arrangeSongPanel() {
     parking.hidden = true;
     ['scoreOptionsNotationStyleSection', 'scoreOptionsStringCountSection', 'scoreOptionsAdaptSection'].forEach((id) => { const n = $(id); if (n) parking.appendChild(n); });
     document.body.appendChild(parking);
-    body.replaceChildren(...[marksGroup, pdf, save].filter(Boolean));
+    body.replaceChildren(...[save, pdf, marksGroup].filter(Boolean));
 }
 
 
