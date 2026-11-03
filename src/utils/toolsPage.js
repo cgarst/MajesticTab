@@ -98,5 +98,9 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', 'false'));
         await releaseEmbeddedTools();
     });
-    if (wide()) select(tools.find((t) => !t.open && !t.disabled)?.id);
+    // Let the page (title and list) paint first: the chord library draws hundreds of diagrams
+    if (wide()) {
+        const first = tools.find((t) => !t.open && !t.disabled)?.id;
+        requestAnimationFrame(() => setTimeout(() => { if (nav.isConnected && !embedded) select(first); }, 0));
+    }
 }

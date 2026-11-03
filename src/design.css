@@ -122,7 +122,8 @@ body {
   transform-origin: top right;
   animation: popIn var(--dur-base) var(--ease-out);
 }
-@keyframes popIn { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: scale(1); } }
+/* `scale`, not `transform`: Popper positions menus with an inline transform, and animating transform would override it and make the menu jump */
+@keyframes popIn { from { opacity: 0; scale: 0.97; } to { opacity: 1; scale: 1; } }
 .settings-page { transition: transform var(--dur-slow) var(--ease-out), visibility var(--dur-slow); }
 .settings-page.hiding { transition-duration: var(--dur-base); }
 

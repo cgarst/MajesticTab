@@ -1192,11 +1192,7 @@ async function renderLibraryBrowseView(container) {
                               <span>Album tab</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
-                              ${window.__TAURI__ ? `<li><button class="dropdown-item small import-album-tab-btn" data-album-title="${escapeHtml(alb.title)}" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
-                              <li><button class="dropdown-item small import-album-tab-btn" data-album-title="${escapeHtml(alb.title)}" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
-                              <!-- @googleDrive:begin -->
-                              <li><button class="dropdown-item small import-album-tab-btn" data-album-title="${escapeHtml(alb.title)}" data-provider-id="google-drive"><i class="icon-gdrive me-2"></i> Google Drive</button></li>
-                              <!-- @googleDrive:end -->
+                              ${addTabProviderItemsHtml('import-album-tab-btn', `data-album-title="${escapeHtml(alb.title)}"`)}
                               ${isAlbumEditMode ? `
                                 <li><hr class="dropdown-divider"></li>
                                 <li><button class="dropdown-item small text-danger delete-album-btn" data-album-title="${escapeHtml(alb.title)}"><i class="bi-trash me-2"></i> Delete Album</button></li>
@@ -1288,10 +1284,7 @@ async function renderLibraryBrowseView(container) {
                       <div class="dropdown flex-shrink-0">
                         <button class="btn btn-sm btn-theme-outline dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach a whole-book PDF to this folder">Add book</button>
                         <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
-                          <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
-                          <!-- @googleDrive:begin -->
-                          <li><button class="dropdown-item small import-album-tab-btn" data-provider-id="google-drive"><i class="icon-gdrive me-2"></i> Google Drive</button></li>
-                          <!-- @googleDrive:end -->
+                          ${addTabProviderItemsHtml('import-album-tab-btn')}
                         </ul>
                       </div>
                       ${bookPdfs.length > 0 ? `<button class="btn btn-sm btn-theme-outline flex-shrink-0" id="addSongsFromBookPdfBtn" title="Create songs from page ranges of a book PDF">Set book pages</button>` : ''}
@@ -2652,11 +2645,7 @@ function renderSongRow(song, options = {}) {
                 return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Set ${pdfPagesNoun} PDF Pages...</button></li>
                 <li><hr class="dropdown-divider"></li>`;
               })() : ''}
-              ${window.__TAURI__ ? `<li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="tab-downloader"><i class="bi-search me-2 text-info"></i> Web Search</button></li>` : ''}
-              <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="local"><i class="bi-folder2-open me-2 text-primary"></i> Local Device</button></li>
-              <!-- @googleDrive:begin -->
-              <li><button class="dropdown-item small import-tab-provider-btn" data-song-id="${song.id}" data-provider-id="google-drive"><i class="icon-gdrive me-2"></i> Google Drive</button></li>
-              <!-- @googleDrive:end -->
+              ${addTabProviderItemsHtml('import-tab-provider-btn', `data-song-id="${song.id}"`)}
               ${isAlbumEditMode ? `
                 <li><hr class="dropdown-divider"></li>
                 <li><button class="dropdown-item small text-danger delete-song-btn" data-song-id="${song.id}"><i class="bi-trash me-2"></i> Remove from Library</button></li>
@@ -3121,8 +3110,8 @@ function setupSongRowActions(container) {
             const songId = btn.dataset.songId;
             const providerId = btn.dataset.providerId;
 
-            if (providerId === 'local') {
-                openFromProvider('local', { songId });
+            if (providerId === 'local' || providerId === 'url') {
+                openFromProvider(providerId, { songId });
                 return;
             }
 
@@ -4702,6 +4691,17 @@ export async function openRecentItem(r) {
             }
         }
         showToast(`File "${r.name}" could not be restored from storage.`, 'warning');
+}
+
+// The "Add tab" sources for this client, straight from the provider registry: Web Search on the desktop app, iCloud Drive
+// where it is supported, Google Drive only in builds that include it. `attrs` ties each row to its song or album.
+function addTabProviderItemsHtml(buttonClass, attrs = '') {
+    const order = ['tab-downloader', 'local', 'google-drive', 'icloud-drive', 's3', 'url'];
+    const rank = (p) => { const i = order.indexOf(p.id); return i < 0 ? order.length : i; };
+    return [...getFileProviders()].sort((a, b) => rank(a) - rank(b)).map((p) => {
+        const tint = String(p.icon).startsWith('icon-') ? '' : ` ${p.iconColorClass || ''}`;
+        return `<li><button class="dropdown-item small ${buttonClass}" ${attrs} data-provider-id="${escapeHtml(p.id)}"><i class="${escapeHtml(p.icon || 'bi-file-earmark')} me-2${tint}"></i> ${escapeHtml(p.name)}</button></li>`;
+    }).join('');
 }
 
 // Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome and Jam render in the page. The fretboard belongs to the open tab and sits above the playback dock.
