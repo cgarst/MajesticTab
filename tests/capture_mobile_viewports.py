@@ -191,10 +191,7 @@ async def run_capture(output_subdir="baseline"):
                 # Ensure score view is showing and library is closed
                 await evaluate_js(ws, msg_id, """
                     (function() {
-                        const retBtn = document.getElementById('libraryReturnToSongBtn');
-                        if (retBtn && retBtn.style.display !== 'none') {
-                            retBtn.click();
-                        } else {
+                        if (!window.returnToOpenSong || !window.returnToOpenSong()) {
                             const libPage = document.getElementById('libraryPage');
                             if (libPage) libPage.style.display = 'none';
                             const mainContent = document.getElementById('mainContent');
@@ -313,8 +310,7 @@ async def run_capture(output_subdir="baseline"):
                 # Return to score
                 await evaluate_js(ws, msg_id, """
                     (function() {
-                        const retBtn = document.getElementById('libraryReturnToSongBtn');
-                        if (retBtn && retBtn.style.display !== 'none') retBtn.click();
+                        if (window.returnToOpenSong) window.returnToOpenSong();
                     })()
                 """); msg_id += 1
                 await asyncio.sleep(0.6)

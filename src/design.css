@@ -2028,12 +2028,6 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 @media (max-width: 640px) { body.library-view-active #topFlexZone { display: none !important; } }
 /* View, Practice, Tracks, Guitar and Tools belong to an open song, at every width. The library reaches Tools from the rail. */
 body.library-view-active #viewPill, body.library-view-active #practicePill, body.library-view-active #tracksPill, body.library-view-active #guitarPill, body.library-view-active #toolsPill { display: none !important; }
-/* The way back to the open song: its name in plain ink, icons in grey (color is for the primary action, playhead and dot) */
-#libraryReturnToSongBtn i { color: var(--ink2) !important; }
-@media (max-width: 640px) {
-  #libraryReturnToSongBtn { min-height: 44px; }
-  #libraryReturnToSongBtn .library-return-song-name { display: inline !important; color: var(--ink); max-width: 60vw !important; }
-}
 
 /* Tools page: flat rows on a 56px pitch, the same left edge as Setlists and Library */
 .tools-view .tools-page-list { display: flex; flex-direction: column; }
@@ -2057,7 +2051,7 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .brand-title { color: var(--ink) !important; }
 .brand-title .brand-title-accent { background: none; -webkit-text-fill-color: currentColor; color: var(--accent-text); }
 @media (max-width: 576px) {
-  body.library-view-active #brandSection:not(.has-return-song) .brand-pick { display: block; margin-right: 8px; }
+  body.library-view-active #brandSection .brand-pick { display: block; margin-right: 8px; }
 }
 
 /* Book PDFs are plain text links: in the album header and the Custom Music books row */
@@ -2286,16 +2280,11 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 }
 #ytDropdownPanel [hidden] { display: none !important; }
 
-/* Desktop shells, library: the bar takes no room. It is a thin drag strip over the top edge, and full height only
-   while a song is open (the way back sits in it). Windows keeps its controls clear of the page's first row. */
+/* Desktop shells, library: the bar takes no room. It is a thin drag strip over the top edge. Windows keeps its controls clear of the page's first row. */
 @media (min-width: 577px) {
   .tauri-macos body.library-view-active #topBar, .tauri-windows body.library-view-active #topBar {
     position: fixed; top: 0; left: 0; right: 0; height: 20px; min-height: 0; padding-top: 0 !important; padding-bottom: 0 !important; overflow: visible;
   }
-  .tauri-macos body.library-view-active:has(#brandSection.has-return-song) #topBar,
-  .tauri-windows body.library-view-active:has(#brandSection.has-return-song) #topBar { height: var(--bar-h); }
-  .tauri-macos body.library-view-active:has(#brandSection.has-return-song) #libraryPage,
-  .tauri-windows body.library-view-active:has(#brandSection.has-return-song) #libraryPage { padding-top: var(--bar-h); }
   .tauri-windows body.library-view-active #libraryPage { padding-top: 20px; }
 }
 

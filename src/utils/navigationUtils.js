@@ -519,11 +519,7 @@ export function performAppBack(getConfig = null) {
             libSearchBackBtn.click();
             return true;
         }
-        const returnSongBtn = document.getElementById('libraryReturnToSongBtn');
-        if (returnSongBtn && returnSongBtn.style.display !== 'none') {
-            returnSongBtn.click();
-            return true;
-        }
+        if (window.returnToOpenSong?.()) return true;
         return false;
     }
 
@@ -574,11 +570,7 @@ export function performAppForward(getConfig = null) {
                 return true;
             }
         }
-        const returnSongBtn = document.getElementById('libraryReturnToSongBtn');
-        if (returnSongBtn && returnSongBtn.style.display !== 'none') {
-            returnSongBtn.click();
-            return true;
-        }
+        if (window.returnToOpenSong?.()) return true;
         return false;
     }
 

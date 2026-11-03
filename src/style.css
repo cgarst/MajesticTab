@@ -594,13 +594,6 @@ body {
   justify-content: center;
 }
 
-#libraryReturnToSongBtn {
-  height: 35px;
-  box-sizing: border-box;
-  border-radius: 9999px;
-  padding: 0 0.75rem;
-}
-
 .breadcrumb-divider {
   font-size: 0.85rem;
   color: var(--text-muted);
@@ -2892,8 +2885,7 @@ body:not(.synth-playback-started) .at-highlight {
   }
 
   .breadcrumb-back-btn,
-  .top-bar-song-btn,
-  #libraryReturnToSongBtn {
+  .top-bar-song-btn {
     height: 30px;
     padding: 0 0.5rem;
   }
@@ -3183,23 +3175,6 @@ body:not(.synth-playback-started) .at-highlight {
   /* Center mode selector */
   #modeButtons .btn {
     padding: 0 0.4rem !important;
-  }
-
-  /* Library Return Song Pill */
-  #brandSection.has-return-song .brand-title {
-    display: none !important;
-  }
-
-  #libraryReturnToSongBtn {
-    min-width: 28px;
-    max-width: none !important;
-    padding: 0 0.45rem !important;
-    height: 28px;
-    gap: 0.25rem !important;
-  }
-
-  .library-return-song-name {
-    display: none !important;
   }
 
   /* Notation Options Dropdown */
@@ -3507,25 +3482,6 @@ body:not(.synth-playback-started) .at-highlight {
   color: var(--text-primary) !important;
 }
 
-#libraryReturnToSongBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: all 0.2s ease;
-}
-
-#libraryReturnToSongBtn i.bi-arrow-return-left {
-  margin-right: 0.15rem;
-}
-
-@media (hover: hover) and (pointer: fine) {
-  #libraryReturnToSongBtn:hover {
-    border-color: var(--accent-primary) !important;
-    color: #ffffff !important;
-    box-shadow: 0 0 10px var(--accent-glow);
-  }
-}
-
 .library-page-view {
   flex: 1;
   display: flex;
@@ -3634,7 +3590,7 @@ body:not(.synth-playback-started) .at-highlight {
 }
 
 /* Library has no breadcrumb, so show the brand in the otherwise empty top bar at every width */
-body.library-view-active #brandSection:not(.has-return-song) .brand-title {
+body.library-view-active #brandSection .brand-title {
   display: inline-block;
 }
 
@@ -6859,7 +6815,6 @@ html.jam-web-guest #topBarBackToLibraryBtn,
 html.jam-web-guest .breadcrumb-back-btn,
 html.jam-web-guest .breadcrumb-back-btn + .breadcrumb-divider,
 html.jam-web-guest #libraryToggleBtn,
-html.jam-web-guest #libraryReturnToSongBtn,
 html.jam-web-guest #setlistNav {
     display: none !important;
 }

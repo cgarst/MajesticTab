@@ -101,8 +101,6 @@ function initLibraryTopBar() {
     if (topBarInitialized) return;
     topBarInitialized = true;
 
-    document.getElementById('libraryReturnToSongBtn')?.addEventListener('click', () => closeLibraryModal(false));
-
     window.addEventListener('libraryDataChanged', () => {
         // The add-music view updates its own buttons; a full re-render would reset it to the start
         if (isLibraryOpen() && activeView !== 'search') {
@@ -525,11 +523,8 @@ export async function openLibraryModal(initialView = 'library') {
     const globalAudio = document.getElementById('globalAudioControls');
     const audioSourcePill = document.getElementById('audioSourcePill');
     const navButtons = document.getElementById('navButtons');
-    const returnBtn = document.getElementById('libraryReturnToSongBtn');
-    const returnName = document.getElementById('libraryReturnSongName');
     const brandText = document.getElementById('brand-text');
     const songBreadcrumb = document.getElementById('songBreadcrumb');
-    const currentOpen = getCurrentFile();
 
     if (modeButtons) modeButtons.style.display = 'none';
     if (globalAudio) globalAudio.style.display = 'none';
@@ -538,7 +533,6 @@ export async function openLibraryModal(initialView = 'library') {
     if (songBreadcrumb) songBreadcrumb.style.display = 'none';
     if (brandText) brandText.style.display = '';
 
-    const brandSection = document.getElementById('brandSection');
     const mobileDock = document.getElementById('mobilePlaybackDock');
     if (mobileDock) mobileDock.style.display = 'none';
     document.body.classList.add('library-view-active');
@@ -548,18 +542,6 @@ export async function openLibraryModal(initialView = 'library') {
         fretboardController?.setScoreAvailable(false);
     } catch (_) {}
 
-    if (returnBtn) {
-        if (currentOpen && (currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name)) {
-            const displayName = currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name.replace(/\.[^/.]+$/, '');
-            returnBtn.style.display = 'inline-flex';
-            if (returnName) returnName.textContent = displayName;
-            returnBtn.title = `Return to score: ${displayName}`;
-            if (brandSection) brandSection.classList.add('has-return-song');
-        } else {
-            returnBtn.style.display = 'none';
-            if (brandSection) brandSection.classList.remove('has-return-song');
-        }
-    }
 
     page.style.display = 'flex';
     await renderLibraryModal();
@@ -585,13 +567,11 @@ export function closeLibraryModal(force = false) {
         // Restore top bar for Song Mode
         const modeButtons = document.getElementById('modeButtons');
         const navButtons = document.getElementById('navButtons');
-        const returnBtn = document.getElementById('libraryReturnToSongBtn');
         const brandText = document.getElementById('brand-text');
         const songBreadcrumb = document.getElementById('songBreadcrumb');
         const songTitleEl = document.getElementById('topBarSongTitle');
 
         if (modeButtons) modeButtons.style.display = currentOpen ? 'flex' : 'none';
-        if (returnBtn) returnBtn.style.display = 'none';
 
         // The library hid the fretboard; coming back to a Guitar Pro song brings it back
         try {
@@ -620,8 +600,6 @@ export function closeLibraryModal(force = false) {
         }
 
         document.body.classList.remove('library-view-active');
-        const brandSection = document.getElementById('brandSection');
-        if (brandSection) brandSection.classList.remove('has-return-song');
 
         if (navButtons && currentOpen) {
             navButtons.style.display = 'flex';
@@ -634,6 +612,12 @@ export function closeLibraryModal(force = false) {
 // Expose closeLibraryModal on window for automation/tests
 if (typeof window !== 'undefined') {
     window.closeLibraryModal = closeLibraryModal;
+    // Back, forward and the gamepad menu button go back to the open song from the library
+    window.returnToOpenSong = () => {
+        if (!getCurrentFile()) return false;
+        closeLibraryModal(false);
+        return true;
+    };
     window.openLibraryModal = openLibraryModal;
 }
 
@@ -686,23 +670,6 @@ export async function renderLibraryModal() {
     const collections = await getCollections();
     const currentCollection = collections.find(c => c.id === activeCollectionId) || collections[0] || { id: DEFAULT_COLLECTION_ID, name: 'My Library' };
     activeCollectionId = currentCollection.id;
-
-    const currentOpen = getCurrentFile();
-    const returnBtn = document.getElementById('libraryReturnToSongBtn');
-    const returnName = document.getElementById('libraryReturnSongName');
-    const brandSection = document.getElementById('brandSection');
-    if (returnBtn) {
-        if (currentOpen && (currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name)) {
-            const displayName = currentOpen.songTitle || currentOpen.librarySongTitle || currentOpen.name.replace(/\.[^/.]+$/, '');
-            returnBtn.style.display = 'inline-flex';
-            if (returnName) returnName.textContent = displayName;
-            returnBtn.title = `Return to score: ${displayName}`;
-            if (brandSection) brandSection.classList.add('has-return-song');
-        } else {
-            returnBtn.style.display = 'none';
-            if (brandSection) brandSection.classList.remove('has-return-song');
-        }
-    }
 
     updateBackBtnVisibility();
 
