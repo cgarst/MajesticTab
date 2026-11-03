@@ -28,6 +28,31 @@ import { pauseYouTube } from './youtubePlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
+
+// The phone's bottom tab bar is fixed over the bottom of the library, and Popper does not know it is there, so a
+// menu opened near the bottom stayed below it. Keep every dropdown clear of the bar: it flips up instead.
+try {
+    const dropdown = window.bootstrap?.Dropdown;
+    if (dropdown) {
+        dropdown.Default.popperConfig = (config) => {
+            const nav = document.getElementById('libraryBottomNav');
+            const rect = nav && nav.offsetParent !== null ? nav.getBoundingClientRect() : null;
+            // A bar along the bottom edge (phone); the rail on wider screens sits at the side and needs nothing
+            const bottom = rect && rect.top > window.innerHeight / 2 ? Math.ceil(window.innerHeight - rect.top) : 0;
+            if (!bottom) return config;
+            const pad = { top: 8, left: 8, right: 8, bottom };
+            return {
+                ...config,
+                modifiers: [
+                    ...(config.modifiers || []),
+                    { name: 'flip', options: { padding: pad } },
+                    { name: 'preventOverflow', options: { padding: pad } }
+                ]
+            };
+        };
+    }
+} catch { /* the menus still work, they may sit under the bar */ }
+
 import { toggleToolsMenu, closeToolsMenu } from './utils/toolsMenu.js';
 import { renderToolsPage, releaseEmbeddedTools } from './utils/toolsPage.js';
 
