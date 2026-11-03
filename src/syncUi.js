@@ -338,10 +338,10 @@ function showReview(target, backend, plan) {
         ${section(removeThere, { icon: 'bi-cloud-minus', title: `Removed from ${where}`, tone: 'text-warning', note: 'You removed these here. Older snapshots still hold a copy.' })}
         ${section(down, { icon: 'bi-cloud-arrow-down', title: 'Received on this device', tone: 'text-info' })}
         ${section(up, { icon: 'bi-cloud-arrow-up', title: `Sent to ${where}`, tone: 'text-success' })}
-        ${otherSection(other.receive, { icon: 'bi-sliders', title: 'Library and settings received', tone: 'text-info' })}
-        ${otherSection(other.send, { icon: 'bi-sliders', title: `Library and settings sent to ${where}`, tone: 'text-success' })}
+        ${otherSection(other.receive, { icon: 'bi-sliders', title: 'Library, converters and settings received', tone: 'text-info' })}
+        ${otherSection(other.send, { icon: 'bi-sliders', title: `Library, converters and settings sent to ${where}`, tone: 'text-success' })}
         <div class="text-white-50 mt-2" style="font-size:0.72rem;">
-            Library entries and settings are merged, so nothing there is deleted. A new snapshot is saved only when this device has something to send.
+            Settings, file converters, songs, collections, recents and setlists follow the newest change on either side, and a removal on one side is carried to the other. A new snapshot is saved only when this device has something to send.
         </div>`,
         {
             subtitle: `Sync with ${where}`,
@@ -382,7 +382,7 @@ function showDone(target, r) {
         r.removedLocal && `Removed ${r.removedLocal} from this device`,
         r.removedRemote && `Removed ${r.removedRemote} from ${targetLabel(target)}`
     ].filter(Boolean);
-    reloadOnClose = Boolean(r.downloaded || r.removedLocal);
+    reloadOnClose = Boolean(r.downloaded || r.removedLocal || r.recordsChanged);
     frame(`<div class="text-center py-3"><i class="bi-check2-circle text-success fs-1 d-block mb-2"></i>
         <div class="fw-bold text-white small mb-1">Sync complete</div>
         <div class="text-white-50" style="font-size:0.75rem;">${lines.length ? lines.map(escapeHtml).join('<br>') : 'Library and settings are up to date.'}</div></div>`,

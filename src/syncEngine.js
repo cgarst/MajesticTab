@@ -8,16 +8,18 @@
 // one device would otherwise disappear from the others. Audio this device chose not to download stays in the
 // snapshot (it is carried into the next one).
 import { getAllStoredFiles, deleteStoredFile, putStoredFileRecord } from './fileStore.js';
-import { getAllSongs, getAllLibraryData, importLibraryData, removeTabOptionFromSong } from './libraryStore.js';
+import { getAllSongs, getAllLibraryData, importLibraryData, removeTabOptionFromSong, putLibraryRecord, deleteLibraryRecord } from './libraryStore.js';
 import { listSoundFonts, deleteSoundFont, restoreSoundFontEntry } from './soundFontStore.js';
 import { listAudioFiles } from './audioSync/audioFileStore.js';
 import {
     listAudioForBackup, restoreAudioEntry, isAudioItem, isAudioDownloadEnabled, audioItemFingerprint, audioSyncDecision
 } from './audioSync/audioBackup.js';
 import {
-    collectAllSettings, collectExtensions, dedupeStoredExtensions, applyRestoredSettings, applyRestoredExtensions, applyRestoredPreferences
+    collectAllSettings, collectExtensions, applyRestoredSettings, applyRestoredPreferences
 } from './backupRestore.js';
 import { dedupeExtensions, extensionKey } from './extensionDedupe.js';
+import { installExtensionSources } from './fileAdapters.js';
+import { RECORD_ACTION, fingerprintValue, planRecords, describeRecords } from './recordSync.js';
 import {
     listIncrementalBackups, loadIncrementalBundle, createIncrementalBackup, fileFingerprint, soundFontFingerprint, runPool, itemKey
 } from './incrementalBackup.js';
@@ -40,9 +42,9 @@ export function getSyncBase() {
     try { return JSON.parse(localStorage.getItem(BASE_KEY)) || null; } catch (_) { return null; }
 }
 
-function saveSyncBase(backend, items) {
+function saveSyncBase(backend, items, records) {
     try {
-        localStorage.setItem(BASE_KEY, JSON.stringify({ location: locationKey(backend), syncedAt: Date.now(), items }));
+        localStorage.setItem(BASE_KEY, JSON.stringify({ location: locationKey(backend), syncedAt: Date.now(), items, records }));
     } catch (_) {}
 }
 
@@ -175,67 +177,133 @@ function sameValue(a, b) {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
+// --- records: settings, file converters, collections, songs, recents and setlists ---
+
+const SETTING_SPECIAL = new Set([TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, 'audioSync']);
+const extRecordKey = (x) => `ext:${fingerprintValue(extensionKey(x))}`;
+
 /**
- * Library entries, settings and extensions that apply would move, in each direction. Library and
- * extensions merge by id and settings only fill gaps here, so a setting that differs on both sides
- * keeps this device's value and goes to the snapshot with the next push.
+ * Key, kind, label, fingerprint and value for each record a backup carries other than files. The tab source list
+ * and audio sync records merge by their own rules (see fillMissingPreferences), so they are not here.
+ * `present` names the kinds the source actually holds: a snapshot from an older version lacks some.
  */
-function compareOther(manifest, localLibrary) {
-    const out = { receive: [], send: [] };
-    const label = (kind, n) => `${n} ${kind}${n === 1 ? '' : 's'}`;
+function recordViews({ settings, extensions, library }) {
+    const records = new Map();
+    const present = new Set();
+    const add = (key, kind, id, label, value, time) => records.set(key, { key, kind, id, label, fp: fingerprintValue(value), value, time });
 
-    const sides = (kind, mine, theirs, idOf) => {
-        const mineIds = new Set(mine.map(idOf));
-        const theirIds = new Set(theirs.map(idOf));
-        const gain = theirs.filter(x => !mineIds.has(idOf(x))).length;
-        const lose = mine.filter(x => !theirIds.has(idOf(x))).length;
-        if (gain) out.receive.push({ kind, text: `${label(kind, gain)} new in the snapshot` });
-        if (lose) out.send.push({ kind, text: `${label(kind, lose)} new on this device` });
-    };
-    const remoteLib = manifest?.library || {};
-    sides('song', localLibrary.songs || [], remoteLib.songs || [], x => x?.id);
-    sides('collection', localLibrary.collections || [], remoteLib.collections || [], x => x?.id);
-    // Extensions are the same when their code is, since each device gives its own id to the same file
-    const mineExt = dedupeExtensions(collectExtensions());
-    const theirExt = manifest?.extensions || [];
-    const merged = new Set(dedupeExtensions([...mineExt, ...theirExt]).map(x => x?.id));
-    const sourceOf = x => (typeof x?.source === 'string' ? extensionKey(x) : x?.id);
-    sides('extension', mineExt, theirExt, sourceOf);
-    const dupesHere = collectExtensions().length - mineExt.length;
-    const dupesThere = theirExt.filter(x => !merged.has(x?.id)).length;
-    // Exact copies are removed on both sides: the snapshot gets the same list this device ends up with
-    if (dupesHere) out.receive.push({ kind: 'extension', text: `${label('duplicate extension', dupesHere)} removed on this device` });
-    if (dupesThere) out.send.push({ kind: 'extension', text: `${label('duplicate extension', dupesThere)} removed from the snapshot` });
+    if (settings && typeof settings === 'object') {
+        present.add('setting');
+        for (const [key, val] of Object.entries(settings)) {
+            if (SETTING_SPECIAL.has(key)) continue;
+            if ((key === 'ytCache' || key === 'gpTabStrings') && val && typeof val === 'object') {
+                const prefix = key === 'ytCache' ? 'yt' : 'gts';
+                for (const [name, v] of Object.entries(val)) add(`${prefix}:${name}`, 'setting', name, '', v);
+            } else {
+                add(`set:${key}`, 'setting', key, key, val);
+            }
+        }
+    }
+    if (Array.isArray(extensions)) {
+        present.add('converter');
+        for (const x of dedupeExtensions(extensions)) {
+            if (!x || typeof x.source !== 'string') continue;
+            add(extRecordKey(x), 'converter', x.id, x.name || 'File converter', { name: x.name || '', enabled: Boolean(x.enabled) }, x.enabledAt || 0);
+            records.get(extRecordKey(x)).value = x;
+        }
+    }
+    const lib = library || {};
+    const groups = [['collections', 'collection', 'col', c => c.name], ['songs', 'song', 'song', x => x.title || x.name],
+        ['recents', 'recent', 'rec', x => x.title || x.name || x.fileName], ['setlists', 'setlist', 'sl', x => x.name]];
+    for (const [field, kind, prefix, labelOf] of groups) {
+        if (!Array.isArray(lib[field])) continue;
+        present.add(kind);
+        for (const x of lib[field]) if (x && x.id) add(`${prefix}:${x.id}`, kind, x.id, labelOf(x) || '', x);
+    }
+    return { records, present };
+}
 
-    const mineSettings = collectAllSettings();
-    const theirSettings = manifest?.settings || {};
-    const names = (list) => list.slice(0, 6).join(', ') + (list.length > 6 ? `, +${list.length - 6} more` : '');
-    const gain = [], lose = [], differ = [];
-    for (const key of new Set([...Object.keys(mineSettings), ...Object.keys(theirSettings)])) {
-        if (key === 'ytCache' || key === 'gpTabStrings' || key === 'audioSync') continue;
-        if (key === TAB_SOURCES_DELETED_KEY) continue;
-        if (key === TAB_SOURCES_KEY) {
-            const mine = readSourceList(mineSettings[key]);
-            const theirs = readSourceList(theirSettings[key]);
-            const { sources } = mergeSourceLists(mine, theirs, readTombstones(mineSettings[TAB_SOURCES_DELETED_KEY]), readTombstones(theirSettings[TAB_SOURCES_DELETED_KEY]));
-            const receive = describeSourceDiff(diffSourceLists(mine, sources));
-            const send = describeSourceDiff(diffSourceLists(theirs, sources));
-            if (receive) out.receive.push({ kind: 'setting', text: `${receive} from the snapshot` });
-            if (send) out.send.push({ kind: 'setting', text: `${send} on this device` });
+async function localRecordViews() {
+    return recordViews({ settings: collectAllSettings(), extensions: collectExtensions(), library: await getAllLibraryData() });
+}
+
+/** The records that apply would move, in each direction, with what each one does. */
+function compareRecords(manifest, local, base) {
+    const theirs = recordViews({ settings: manifest?.settings, extensions: manifest?.extensions, library: manifest?.library });
+    const skip = new Set(['setting', 'converter', 'collection', 'song', 'recent', 'setlist'].filter(k => !theirs.present.has(k)));
+    const records = planRecords(local.records, theirs.records, base, skip).map(({ value, ...d }) => d);
+    return { records, other: describeRecords(records) };
+}
+
+/** Converters added on two devices have two ids; keep one, the same one on every device. */
+function applyExtensionDecisions(decisions, theirs) {
+    let list = collectExtensions();
+    for (const d of decisions) {
+        if (d.action === RECORD_ACTION.PULL) {
+            const t = theirs.get(d.key)?.value;
+            if (!t) continue;
+            const mine = list.find(e => e && typeof e.source === 'string' && extRecordKey(e) === d.key);
+            if (mine) Object.assign(mine, { name: t.name, enabled: Boolean(t.enabled), enabledAt: t.enabledAt || 0 });
+            else list.push({ ...t });
+        } else if (d.action === RECORD_ACTION.DELETE_LOCAL) {
+            list = list.filter(e => !(e && typeof e.source === 'string' && extRecordKey(e) === d.key));
+        }
+    }
+    list = dedupeExtensions(list);
+    localStorage.setItem('customExtensions', JSON.stringify(list));
+    installExtensionSources(list.filter(e => e.enabled).map(({ id, source }) => ({ id, source })))
+        .catch(e => console.warn('Could not reload extensions after sync:', e));
+}
+
+function localKeyOf(key) {
+    if (key.startsWith('set:')) return key.slice(4);
+    if (key.startsWith('yt:')) return key.slice(3);
+    if (key.startsWith('gts:')) return key.slice(4);
+    return key;
+}
+
+/** Carry out the record decisions of a plan on this device. Returns how many records changed here. */
+async function applyRecordDecisions(bundle, decisions, droppedFileIds) {
+    const theirs = recordViews({ settings: bundle.settings, extensions: bundle.extensions, library: bundle.library }).records;
+    let changed = 0;
+    const converters = [];
+    for (const d of decisions) {
+        const t = theirs.get(d.key);
+        if (d.kind === 'converter') { converters.push(d); continue; }
+        if (d.kind === 'setting') {
+            if (d.action === RECORD_ACTION.PULL && t) {
+                if (d.key.startsWith('yt:') || d.key.startsWith('gts:')) localStorage.setItem(localKeyOf(d.key), String(t.value));
+                else applyRestoredSettings({ [localKeyOf(d.key)]: t.value }, { wipe: false });
+                changed++;
+            } else if (d.action === RECORD_ACTION.DELETE_LOCAL) {
+                localStorage.removeItem(localKeyOf(d.key));
+                changed++;
+            }
             continue;
         }
-        const has = key in mineSettings;
-        const there = key in theirSettings;
-        if (there && !has) gain.push(key);
-        else if (has && !there) lose.push(key);
-        else if (!sameValue(mineSettings[key], theirSettings[key])) differ.push(key);
+        if (d.action === RECORD_ACTION.PULL && t) {
+            let value = t.value;
+            if (d.kind === 'song') {
+                // Tabs removed on this device are still in the snapshot's songs until the new snapshot replaces it
+                const original = value.tabOptions || [];
+                const kept = original.filter(x => !droppedFileIds.has(x.fileStoreId));
+                if (original.length && !kept.length) continue;
+                value = { ...value, tabOptions: kept };
+            }
+            await putLibraryRecord(d.kind, value);
+            changed++;
+        } else if (d.action === RECORD_ACTION.DELETE_LOCAL) {
+            await deleteLibraryRecord(d.kind, d.id);
+            changed++;
+        } else if (d.action === RECORD_ACTION.PUSH && d.conflict && d.kind === 'song' && t) {
+            // Changed on both sides: this device's copy stays, and tabs only the snapshot has are added to it
+            const original = t.value.tabOptions || [];
+            const kept = original.filter(x => !droppedFileIds.has(x.fileStoreId));
+            if (kept.length) await importLibraryData({ songs: [{ ...t.value, tabOptions: kept }] }, { wipe: false });
+        }
     }
-    if (gain.length) out.receive.push({ kind: 'setting', text: `${label('setting', gain.length)} from the snapshot: ${names(gain)}` });
-    if (lose.length) out.send.push({ kind: 'setting', text: `${label('setting', lose.length)} new on this device: ${names(lose)}` });
-    if (differ.length) {
-        out.send.push({ kind: 'setting', text: `${label('setting', differ.length)} differ from the snapshot; this device's values are kept: ${names(differ)}` });
-    }
-    return out;
+    if (converters.length) { applyExtensionDecisions(converters, theirs); changed += converters.filter(d => d.action !== RECORD_ACTION.PUSH && d.action !== RECORD_ACTION.DELETE_REMOTE).length; }
+    return changed;
 }
 
 export async function planSync(backend, onStatus) {
@@ -254,10 +322,10 @@ export async function planSync(backend, onStatus) {
     const manifest = latest ? await backend.readManifest(backups[0]) : null;
     say('Comparing tabs, SoundFonts, audio files and settings...');
     const remote = latest ? remoteItems(manifest) : new Map();
-    const other = latest ? compareOther(manifest, await getAllLibraryData()) : { receive: [], send: [] };
-
     const savedBase = getSyncBase();
     const base = savedBase?.location === locationKey(backend) ? savedBase.items : null;
+    const recordBase = base ? (savedBase.records || {}) : null;
+    const { records, other } = latest ? compareRecords(manifest, await localRecordViews(), recordBase) : { records: [], other: { receive: [], send: [] } };
 
     const changes = [];
     let unchanged = 0;
@@ -307,6 +375,7 @@ export async function planSync(backend, onStatus) {
         lastSyncedAt: base ? savedBase.syncedAt : null,
         changes,
         unchanged,
+        records,
         other,
         bytesUp: sum(SYNC_ACTION.UPLOAD),
         bytesDown: sum(SYNC_ACTION.DOWNLOAD),
@@ -327,26 +396,14 @@ async function removeLocalTab(id) {
     await deleteStoredFile(id);
 }
 
-function mergeRemoteLibrary(library, droppedFileIds) {
-    if (!library) return Promise.resolve();
-    // Tabs removed on this device are still in the snapshot's library until the new snapshot replaces it
-    const songs = [];
-    for (const song of library.songs || []) {
-        const original = song.tabOptions || [];
-        const kept = original.filter(t => !droppedFileIds.has(t.fileStoreId));
-        if (original.length && !kept.length) continue;
-        songs.push({ ...song, tabOptions: kept });
-    }
-    return importLibraryData({ ...library, songs }, { wipe: false });
-}
-
 function fillMissingPreferences(manifest) {
     const settings = {};
     for (const [key, val] of Object.entries(manifest.settings || {})) {
         // ytCache and gpTabStrings are per-key maps that the restore code already fills without overwriting; audioSync is
         // merged by the restore code too (newer record wins)
         if (key === TAB_SOURCES_KEY || key === TAB_SOURCES_DELETED_KEY) continue;
-        if (key === 'ytCache' || key === 'gpTabStrings' || key === 'audioSync' || localStorage.getItem(key) === null) settings[key] = val;
+        // Everything else is carried by the record decisions (applyRecordDecisions); audioSync merges by its own rules
+        if (key === 'audioSync') settings[key] = val;
     }
     const theirSources = readSourceList(manifest.settings?.[TAB_SOURCES_KEY]);
     const theirTombs = readTombstones(manifest.settings?.[TAB_SOURCES_DELETED_KEY]);
@@ -359,10 +416,6 @@ function fillMissingPreferences(manifest) {
         settings[TAB_SOURCES_DELETED_KEY] = merged.tombs;
     }
     applyRestoredSettings(settings, { wipe: false });
-    const known = new Set(collectExtensions().map(e => e.id));
-    applyRestoredExtensions((manifest.extensions || []).filter(e => e && !known.has(e.id)), { wipe: false });
-    // The same extension added on two devices has two ids; keep one, the same one on every device
-    dedupeStoredExtensions();
     applyRestoredPreferences();
 }
 
@@ -383,7 +436,7 @@ export async function applySync(backend, plan, onProgress) {
         throw new Error('The backup changed while you were reviewing. Sync again to see the updated changes.');
     }
 
-    const result = { downloaded: 0, uploaded: 0, removedLocal: 0, removedRemote: 0, bytesSent: 0, pushed: false };
+    const result = { recordsChanged: 0, downloaded: 0, uploaded: 0, removedLocal: 0, removedRemote: 0, bytesSent: 0, pushed: false };
     const of = (action) => plan.changes.filter(c => c.action === action);
     const downloads = of(SYNC_ACTION.DOWNLOAD);
     let carryForward = [];
@@ -431,7 +484,7 @@ export async function applySync(backend, plan, onProgress) {
         }
 
         const droppedFileIds = new Set(of(SYNC_ACTION.DELETE_REMOTE).filter(c => c.kind === 'tab').map(c => c.id));
-        await mergeRemoteLibrary(bundle.library, droppedFileIds);
+        result.recordsChanged = await applyRecordDecisions(bundle, plan.records || [], droppedFileIds);
         fillMissingPreferences(bundle);
     }
 
@@ -451,6 +504,8 @@ export async function applySync(backend, plan, onProgress) {
 
     // The baseline is whatever this device holds now, which matches the snapshot after a push or pull
     const settled = localItems(await getAllStoredFiles(), await listSoundFonts(), await listAudioForBackup());
-    saveSyncBase(backend, Object.fromEntries([...settled].map(([key, item]) => [key, item.fingerprint])));
+    const settledRecords = (await localRecordViews()).records;
+    saveSyncBase(backend, Object.fromEntries([...settled].map(([key, item]) => [key, item.fingerprint])),
+        Object.fromEntries([...settledRecords].map(([key, r]) => [key, r.fp])));
     return result;
 }

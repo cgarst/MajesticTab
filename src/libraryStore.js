@@ -1,7 +1,7 @@
 // libraryStore.js
 // Storage and querying layer for Collections > Artists > Albums > Songs and Recents.
 
-import { getAllSetlists, clearAllSetlists, importSetlists } from './setlistStore.js';
+import { getAllSetlists, clearAllSetlists, importSetlists, putSetlistRecord, deleteSetlist } from './setlistStore.js';
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile, getAllStoredFiles, deleteStoredFile } from './fileStore.js';
 import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium, filterInstrumentalBonusDiscs } from './musicbrainz.js';
@@ -1268,6 +1268,36 @@ export async function getAllLibraryData() {
         recents,
         setlists
     };
+}
+
+const RECORD_STORES = { collection: STORE_COLLECTIONS, song: STORE_SONGS, recent: STORE_RECENTS };
+
+/** Replace one collection, song, recent or setlist with the given record (sync pulls a changed copy this way). */
+export async function putLibraryRecord(kind, record) {
+    if (!record || !record.id) return;
+    if (kind === 'setlist') return putSetlistRecord(record);
+    const name = RECORD_STORES[kind];
+    if (!name) throw new Error(`Unknown library record kind: ${kind}`);
+    const db = await getDB();
+    await new Promise((resolve, reject) => {
+        const req = db.transaction(name, 'readwrite').objectStore(name).put(record);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
+}
+
+/** Remove one collection, song, recent or setlist by id (sync carries a removal from another device this way). */
+export async function deleteLibraryRecord(kind, id) {
+    if (kind === 'setlist') return deleteSetlist(id);
+    const name = RECORD_STORES[kind];
+    if (!name) throw new Error(`Unknown library record kind: ${kind}`);
+    if (kind === 'collection' && id === DEFAULT_COLLECTION_ID) return;
+    const db = await getDB();
+    await new Promise((resolve, reject) => {
+        const req = db.transaction(name, 'readwrite').objectStore(name).delete(id);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+    });
 }
 
 /**

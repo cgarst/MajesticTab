@@ -76,6 +76,12 @@ export async function moveSetlistItem(setlistId, itemId, delta) {
     return saveSetlist(setlist);
 }
 
+/** Replace one setlist with the given record. */
+export async function putSetlistRecord(setlist) {
+    if (!setlist || !setlist.id) return;
+    await tx('readwrite', s => s.put(setlist));
+}
+
 export async function clearAllSetlists() {
     await tx('readwrite', s => s.clear());
 }

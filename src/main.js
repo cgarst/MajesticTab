@@ -940,6 +940,7 @@ function setupExtensionSettings() {
             enabledInput.setAttribute('aria-label', `${label} enabled`);
             enabledInput.addEventListener('change', () => {
                 extension.enabled = enabledInput.checked;
+                extension.enabledAt = Date.now();
                 saveExtensions();
                 renderExtensions();
                 refreshInstalledExtensions();
@@ -994,6 +995,7 @@ function setupExtensionSettings() {
                     name: typeof extension.name === 'string' ? extension.name : '',
                     source: extension.source,
                     enabled: extension.enabled === true,
+                    enabledAt: Number.isFinite(extension.enabledAt) ? extension.enabledAt : 0,
                     registrationIds: Array.isArray(extension.registrationIds)
                         ? extension.registrationIds.filter(id => typeof id === 'string')
                         : [],
