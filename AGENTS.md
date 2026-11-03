@@ -35,6 +35,7 @@ MajesticTab's interface follows the "MajesticTab Reimagined" design: the app rec
 **Process**
 - Check every changed screen at desktop (1440 wide) and phone (390 wide), and in at least two themes, one of them Snow White.
 - Real data first: restore a full backup before judging density, truncation and empty states.
+- Phone click-through: run `python3 tests/mobile_validate.py --channel msedge` (dev server on :8000) after any change to navigation, the library, Settings, Tools or the reader chrome. It samples every frame and fails on a flash, pop-in or sideways overflow. iPhone safe areas need the CSS served with `env(safe-area-inset-*)` replaced by pixels; check the reader's bottom rows that way, not only in a plain emulator.
 - Do not reintroduce a removed pattern by copying an older screen. If an older screen still uses pills, cards or outlines, fix it as part of the change that touches it.
 
 ## UI Theme Consistency

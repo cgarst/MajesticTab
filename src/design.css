@@ -1438,9 +1438,30 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
   body.library-view-active #fullscreenToggleBtn { display: none !important; }
   /* Settings keeps the bar above it like every other page */
   html body.settings-as-page.library-view-active #fileMenu { top: var(--topbar-h, 57px) !important; height: calc(100% - var(--topbar-h, 57px)); bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
-  /* While you search, the list actions step aside so the box gets the whole row */
-  .library-page-container:has(.search-clear-btn:not([style*="none"])) .library-list-toolbar > div:last-child { display: none; }
-  .library-page-container:has(.search-clear-btn:not([style*="none"])) { column-gap: 0; }
+  /* Search is a 44px button beside the actions until you use it; then the field takes the whole row.
+     Open means tapped, focused, or holding a query. */
+  .library-search-bar { cursor: pointer; }
+  .library-search-bar .search-close-btn { display: none; flex: none; min-height: 44px; padding: 0 4px 0 8px; border: 0; background: transparent; color: var(--ink2); font-size: 15px; cursor: pointer; }
+  .library-search-bar .search-close-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: var(--r-control); }
+  .library-page-container:not(.lib-search-open):not(:has(.library-search-bar:focus-within)):not(:has(.search-input:not(:placeholder-shown))) .library-search-bar {
+    width: 44px; height: 44px !important; padding: 0 !important; justify-content: center; gap: 0; background: var(--s2) !important;
+  }
+  .library-page-container:not(.lib-search-open):not(:has(.library-search-bar:focus-within)):not(:has(.search-input:not(:placeholder-shown))) .library-search-bar .search-icon { font-size: 18px !important; margin: 0 !important; color: var(--ink); }
+  .library-page-container:not(.lib-search-open):not(:has(.library-search-bar:focus-within)):not(:has(.search-input:not(:placeholder-shown))) .library-search-bar > :not(.search-icon):not(.search-input) { display: none; }
+  /* The field stays in the tree so the box can still be focused from the keyboard; it just has no size */
+  .library-page-container:not(.lib-search-open):not(:has(.library-search-bar:focus-within)):not(:has(.search-input:not(:placeholder-shown))) .library-search-bar .search-input { position: absolute; width: 1px; height: 1px; opacity: 0; padding: 0; }
+  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) { column-gap: 0; }
+  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) > .library-search-box { grid-column: 1 / -1; }
+  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-list-toolbar > div:last-child { display: none !important; }
+  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-search-bar { height: 44px !important; padding: 0 4px 0 14px !important; cursor: text; }
+  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-search-bar .search-icon { font-size: 16px !important; margin: 0 !important; }
+  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-search-bar .search-close-btn { display: inline-flex; align-items: center; }
+  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-search-bar .search-input { font-size: 16px !important; /* 16px stops iOS zooming the page on focus */ }
+}
+
+/* Second level (pinned, an artist, an album): the back control starts at the rows' left edge, not 8px in from it */
+@media (max-width: 576px) {
+  .pane-head .in-view-back-btn { padding-left: 0 !important; }
 }
 
 /* Recents: one flat row, the row opens the tab */
@@ -1996,8 +2017,11 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   }
   body:not(.library-view-active).chrome-hidden #topFlexZone { transform: translateY(100%); }
   /* Scrolling down clears all of the chrome: top bar, transport and the bottom row */
-  body:not(.library-view-active) #topBar { transition: transform var(--dur-base) var(--ease-out), margin-top var(--dur-base) var(--ease-out); }
-  body:not(.library-view-active).chrome-hidden #topBar { transform: translateY(-100%); margin-top: -57px; }
+  body:not(.library-view-active) #topBar { transition: margin-top var(--dur-base) var(--ease-out); }
+  /* No transform on the bar: #topFlexZone (the bottom row) is position:fixed inside it, and a transform would make the bar its containing block and carry the row to the top of the screen */
+  /* The reader's body does not scroll (the score does), so the bar needs no sticky pin, and a pinned bar could not leave */
+  body:not(.library-view-active) #topBar { position: relative; }
+  body:not(.library-view-active).chrome-hidden #topBar { margin-top: calc(-1 * var(--topbar-h, 52px)); }
   body:not(.library-view-active).chrome-hidden .mobile-playback-dock.has-audio-sources { transform: translateY(calc(100% + 56px)); pointer-events: none; }
   body:not(.library-view-active) .mobile-playback-dock.has-audio-sources { transition: transform var(--dur-base) var(--ease-out); }
   body:not(.library-view-active) #topFlexZone .hud-pill-group, body:not(.library-view-active) #topFlexZone .rbar-item { flex: 1 1 0; display: flex; min-width: 0; }
@@ -2081,7 +2105,8 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .setlists-view > .title-row p { margin: 6px 0 0; color: var(--ink2); font-size: 14px; }
 @media (max-width: 899px) { .setlists-view > .title-row h2 { font-size: 36px; } }
 .tools-shell { height: calc(100% + 52px); margin: -20px -20px -32px; }
-@media (max-width: 576px) { .tools-shell { margin: -20px -16px -32px; } }
+/* The phone page body is padded 12px / 8px, so this lands Tools exactly where Settings sits (title and rows 16px in) */
+@media (max-width: 576px) { .tools-shell { height: calc(100% + 44px); margin: -12px -8px -32px; } }
 .tools-shell .setpage { max-width: none; }
 .tool-pane-host:empty::before { content: 'Choose a tool.'; color: var(--ink2); font-size: 14px; }
 .theme-modal-backdrop.tool-embedded { position: static; inset: auto; z-index: auto; background: transparent; padding: 0; height: auto; display: block; }
@@ -2548,4 +2573,38 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 /* Keyboard hints are noise at phone width */
 @media (max-width: 576px) {
   .search-key-hint, .tools-item kbd, .tools-page-row kbd, #smTapBtn kbd { display: none !important; }
+}
+
+
+/* The key and gamepad reference is parked on <body> until Settings moves it into its page; do not paint it there (it covered the first frames) */
+body > #controllerHelpModal { display: none; }
+
+
+/* ---------- Phone reader chrome: hide and show as one piece, and give the space back ----------
+   Scrolling down slides the top bar, the transport and the bottom row away, and the score takes their space; scrolling
+   up brings all three back together. Placed last so it out-ranks the earlier dock and fretboard rules. */
+@media (max-width: 640px) {
+  /* The bottom row already clears the home indicator; the transport above it must not clear it a second time */
+  body:not(.library-view-active) .mobile-playback-dock-inner { padding-bottom: 10px; }
+  body:not(.library-view-active) { transition: padding-bottom var(--dur-base) var(--ease-out); }
+  body:not(.library-view-active).chrome-hidden { padding-bottom: 0 !important; }
+  body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources {
+    transition: transform var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out), display var(--dur-base) allow-discrete;
+  }
+  body:not(.library-view-active).chrome-hidden .mobile-playback-dock.has-audio-sources { margin-bottom: calc(-1 * var(--dock-own-h, 0px)); }
+  /* PDF and text tabs: the page strip is the third row and goes with the rest */
+  body:not(.library-view-active) .page-strip { transition: transform var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out); }
+  body:not(.library-view-active).chrome-hidden .page-strip { transform: translateY(calc(100% + 56px + env(safe-area-inset-bottom, 0px))); margin-bottom: calc(-1 * var(--strip-h, 0px)); pointer-events: none; }
+  /* The fretboard sits on top of the transport, which sits on top of the bottom row */
+  body:not(.library-view-active) .fretboard-dock {
+    bottom: calc(var(--dock-h, 0px) + 56px + env(safe-area-inset-bottom, 0px)) !important;
+    transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out);
+  }
+  body:not(.library-view-active).chrome-hidden .fretboard-dock { transform: translateY(calc(100% + var(--dock-h, 0px) + 56px + env(safe-area-inset-bottom, 0px) + 8px)); pointer-events: none; }
+  body:not(.library-view-active).chrome-hidden.fretboard-open #output.continuous-mode { padding-bottom: 24px !important; }
+  body:not(.library-view-active).chrome-hidden.fretboard-open #output:not(.continuous-mode) { height: 100% !important; max-height: 100% !important; }
+  body:not(.library-view-active).fretboard-open #output.continuous-mode { padding-bottom: calc(var(--fretboard-dock-height, 165px) + 24px) !important; }
+}
+@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
+  body:not(.library-view-active), body:not(.library-view-active) .fretboard-dock, body:not(.library-view-active) .page-strip, body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources { transition: none !important; }
 }

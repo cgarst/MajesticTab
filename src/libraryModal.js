@@ -1790,6 +1790,7 @@ export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, s
             <i class="bi-x-lg"></i>
           </button>
           <kbd class="search-key-hint" aria-hidden="true">/</kbd>
+          <button class="search-close-btn" type="button" aria-label="Close search">Cancel</button>
         </div>
       </div>`;
 }
@@ -1811,6 +1812,26 @@ function bindLibrarySearchShortcut() {
     });
 }
 bindLibrarySearchShortcut();
+
+// Phones: the search box is a button until you use it. Tapping it gives the field the whole row (CSS keys off
+// .lib-search-open); Cancel clears the search and puts the row back.
+document.addEventListener('click', (e) => {
+    const bar = e.target.closest?.('.library-search-bar');
+    if (!bar || !window.matchMedia?.('(max-width: 576px)').matches) return;
+    const container = bar.closest('.library-page-container');
+    if (!container) return;
+    const input = bar.querySelector('.search-input');
+    if (e.target.closest('.search-close-btn')) {
+        if (input && input.value) { input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); }
+        container.classList.remove('lib-search-open');
+        input?.blur();
+        return;
+    }
+    if (!container.classList.contains('lib-search-open')) {
+        container.classList.add('lib-search-open');
+        input?.focus();
+    }
+});
 
 // Centered page title for library pages that are not a switcher tab (Open File, Add Music)
 export function libraryPageTitleHtml({ icon, title, subtitle = '' }) {
@@ -1947,10 +1968,13 @@ function syncLibraryBottomNav() {
         nav.addEventListener('click', (e) => {
             const tab = e.target.closest('[data-lib-tab]');
             if (tab) {
-                // Settings is a page beside the rail: leaving it for another destination closes it
-                closeSettingsPage();
+                // Settings is a page beside the rail: leaving it for another destination closes it. Render the
+                // destination first, under Settings, so closing it shows that screen and not the one beneath.
                 closeToolsMenu();
-                return goLibraryTab(tab.dataset.libTab);
+                const settingsWasOpen = isSettingsPageOpen();
+                const going = goLibraryTab(tab.dataset.libTab);
+                if (settingsWasOpen) going.then(closeSettingsPage, closeSettingsPage);
+                return going;
             }
             if (e.target.closest('#libraryNavSettingsBtn')) {
                 const panel = document.getElementById('fileMenu');

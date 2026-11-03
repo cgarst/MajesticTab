@@ -815,7 +815,7 @@ export function reanchorPlaybackScroll(tick, barIndex = null) {
  * Handle auto-scrolling with quick snap and read-ahead in Continuous Mode
  * Adjusts scrolling to consider the virtual fretboard dock so that current stave group is entirely visible
  */
-export function updateContinuousPlaybackScroll(currentTick, force = false, targetBeat = null, barIndexHint = null) {
+export function updateContinuousPlaybackScroll(currentTick, force = false, targetBeat = null, barIndexHint = null, bringIntoView = false) {
     if (!currentApi || !currentScore || (!playbackActive() && !force)) return;
 
     const pageModeRadio = document.getElementById('pageModeRadio');
@@ -910,7 +910,8 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     // 3. Occlusion and read-ahead checks
     const isAboveTop = visualTop < 0 || (hasValidCursor && cursorVisualTop < 0);
     const isHidingBehindFretboard = isFretboardOpen && (Math.max(visualBottom, cursorVisualBottom) > (visibleViewportHeight - 16));
-    const isBelowThreshold = playbackActive() && (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60)));
+    // A seek (the ruler) brings the bar into view the way playback would, even while paused
+    const isBelowThreshold = (playbackActive() || bringIntoView) && (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60)));
 
     if (isAboveTop || isHidingBehindFretboard || isBelowThreshold) {
         const maxScroll = output.scrollHeight - output.clientHeight;
@@ -926,6 +927,15 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
             requestAnimationFrame(() => requestAnimationFrame(() => { autoScrollWrite = false; }));
         }
     }
+}
+
+/**
+ * After a seek that did not come from a click on the score (the bar ruler): show the cursor and scroll the score so
+ * the bar's system is in view, the way following playback does.
+ */
+export function followSeekToBar(tick, barIndex) {
+    document.body.classList.add('synth-playback-started');
+    requestAnimationFrame(() => updateContinuousPlaybackScroll(tick, true, null, barIndex, true));
 }
 
 if (typeof window !== 'undefined') {

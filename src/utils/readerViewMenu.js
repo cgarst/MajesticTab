@@ -195,7 +195,21 @@ function initPracticePanels() {
     }
     const dock = $('mobilePlaybackDock');
     if (dock && 'ResizeObserver' in window) {
-        new ResizeObserver(() => document.documentElement.style.setProperty('--dock-h', `${dock.offsetHeight}px`)).observe(dock);
+        // --dock-h is the whole stack above the bottom row (transport, plus the page strip on PDF and text tabs);
+        // --dock-own-h and --strip-h are its two parts, which the phone chrome needs to hide them one by one.
+        const strip = $('pageStrip');
+        const syncDock = () => {
+            const root = document.documentElement.style;
+            const own = dock.offsetHeight;
+            const stripH = strip && !strip.hidden ? strip.offsetHeight : 0;
+            root.setProperty('--dock-own-h', `${own}px`);
+            root.setProperty('--strip-h', `${stripH}px`);
+            root.setProperty('--dock-h', `${own + stripH}px`);
+        };
+        const ro = new ResizeObserver(syncDock);
+        ro.observe(dock);
+        if (strip) ro.observe(strip);
+        syncDock();
     }
     const bar = $('topBar');
     if (bar && 'ResizeObserver' in window) {
@@ -275,9 +289,19 @@ function initPhoneChrome() {
     if (!output) return;
     let last = 0;
     const narrow = () => window.matchMedia('(max-width: 640px)').matches;
+    // Only a hand moves the chrome. Playback following the cursor, a ruler drag or a jump to a bar also scroll the
+    // score, and the bottom row (with the fretboard) must not come and go because of those.
+    let handUntil = 0;
+    let lastH = output.clientHeight;
+    const hand = () => { handUntil = performance.now() + 1500; };
+    ['touchstart', 'touchmove', 'wheel', 'pointerdown'].forEach((ev) => output.addEventListener(ev, (e) => { if (ev !== 'pointerdown' || e.pointerType === 'touch') hand(); }, { passive: true }));
     output.addEventListener('scroll', () => {
         if (!narrow()) { document.body.classList.remove('chrome-hidden'); return; }
         const y = output.scrollTop;
+        // Hiding the chrome makes the score taller; at the end of the song the browser then pulls scrollTop back
+        // by itself, which is not the reader scrolling up
+        if (output.clientHeight !== lastH) { lastH = output.clientHeight; last = y; return; }
+        if (performance.now() > handUntil) { last = y; return; }
         const delta = y - last;
         if (Math.abs(delta) < 12) return;
         // never hide it while one of its sheets is open
