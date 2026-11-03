@@ -2532,3 +2532,8 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 
 /* The hint is a dismissible notice: one tone step above the bar, no divider */
 .downloader-hint-banner { background: var(--s3); border-top: 0; color: var(--ink); }
+
+/* Keyboard hints are noise at phone width */
+@media (max-width: 576px) {
+  .search-key-hint, .tools-item kbd, .tools-page-row kbd, #smTapBtn kbd { display: none !important; }
+}
