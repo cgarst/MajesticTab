@@ -1093,12 +1093,12 @@ async function renderLibraryBrowseView(container) {
               <div class="d-flex align-items-center gap-2 flex-shrink-0">
                 <span class="badge badge-theme-secondary d-none d-sm-inline-flex py-1 px-2" style="font-size: 0.72rem;">
                   ${isCustomArtist
-                    ? `${currentSubfolders.length > 0 ? `${currentSubfolders.length} ${currentSubfolders.length === 1 ? 'Folder' : 'Folders'} • ` : ''}${formatBooksSongsLabel(currentBooks, currentSongs.length + currentSubfolders.reduce((acc, f) => acc + f.songsCount, 0))}`
+                    ? `${currentSubfolders.length > 0 ? `${formatCount(currentSubfolders.length, 'folder')} · ` : ''}${formatBooksSongsLabel(currentBooks, currentSongs.length + currentSubfolders.reduce((acc, f) => acc + f.songsCount, 0))}`
                   : currentSubfolders.length > 0 && currentSongs.length > 0
-                    ? `${currentSubfolders.length} ${currentSubfolders.length === 1 ? 'Folder' : 'Folders'} • ${currentSongs.length} ${currentSongs.length === 1 ? 'Song' : 'Songs'}`
+                    ? `${formatCount(currentSubfolders.length, 'folder')} · ${formatCount(currentSongs.length, 'song')}`
                     : currentSubfolders.length > 0
-                      ? `${currentSubfolders.length} ${currentSubfolders.length === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')}`
-                      : `${currentSongs.length} ${currentSongs.length === 1 ? 'Song' : 'Songs'}`
+                      ? formatCount(currentSubfolders.length, 'album')
+                      : formatCount(currentSongs.length, 'song')
                   }
                 </span>
                 ${(!isStandardAlbumView && (currentSongs.length > 0 || isCustomArtist)) ? `
@@ -1346,7 +1346,7 @@ async function renderLibraryBrowseView(container) {
                 <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-clock-history"></i></span>
                 <span class="min-w-0 flex-grow-1 text-start">
                   <span class="d-block fw-bold text-white">Recents</span>
-                  <span class="d-block small text-muted tnum">${recentsList.length} ${recentsList.length === 1 ? 'tab' : 'tabs'}</span>
+                  <span class="d-block small text-muted tnum">${formatCount(recentsList.length, 'song')}</span>
                 </span>
                 <i class="bi-chevron-right text-muted flex-shrink-0"></i>
               </button>` : '';
@@ -1433,7 +1433,7 @@ async function renderLibraryBrowseView(container) {
               <h3 class="pane-head">
                 <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
                 <span class="text-white fw-semibold" style="flex:1;">Recents</span>
-                <span class="tnum">${recentsList.length} ${recentsList.length === 1 ? 'tab' : 'tabs'}</span>
+                <span class="tnum">${formatCount(recentsList.length, 'song')}</span>
                 ${isRecentsEditMode ? `<button class="btn btn-sm btn-theme-danger" id="clearRecentsBtn" title="Clear all recent history">Clear history</button>` : ''}
                 <button class="btn btn-sm btn-theme-outline" id="toggleRecentsEditBtn" title="${isRecentsEditMode ? 'Done editing' : 'Edit recents list'}">${isRecentsEditMode ? 'Done' : 'Edit'}</button>
               </h3>
@@ -2017,9 +2017,14 @@ function bindLibraryToolbarEvents(container) {
     });
 }
 
-// "2 Books • 5 Songs" for custom music spaces
+// "5 songs", "1 album": count plus its unit, lowercase, plural unless exactly 1
+function formatCount(n, unit) {
+    return `${n} ${n === 1 ? unit : `${unit}s`}`;
+}
+
+// "2 books · 5 songs" for custom music spaces
 function formatBooksSongsLabel(books, songs) {
-    return `${books} ${books === 1 ? 'Book' : 'Books'} • ${songs} ${songs === 1 ? 'Song' : 'Songs'}`;
+    return `${formatCount(books, 'book')} · ${formatCount(songs, 'song')}`;
 }
 
 function renderArtistCard(artist) {
@@ -2035,7 +2040,7 @@ function renderArtistCard(artist) {
         ${collageHtml}
         <div class="min-w-0 flex-grow-1">
           <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
-          <div class="small text-muted text-truncate">${albumCount > 0 ? `${albumCount} ${albumCount === 1 ? (isCustomArtist ? 'Folder' : 'Album') : (isCustomArtist ? 'Folders' : 'Albums')} • ` : ''}${isCustomArtist ? formatBooksSongsLabel(bookCount, songCount) : `${songCount} ${songCount === 1 ? 'Song' : 'Songs'}`}</div>
+          <div class="small text-muted text-truncate">${albumCount > 0 ? `${formatCount(albumCount, isCustomArtist ? 'folder' : 'album')} · ` : ''}${isCustomArtist ? formatBooksSongsLabel(bookCount, songCount) : formatCount(songCount, 'song')}</div>
         </div>
         <i class="bi-chevron-right text-muted flex-shrink-0"></i>
       </div>
@@ -2061,7 +2066,7 @@ function renderAlbumCard(album, artistName = '') {
         </div>
         <div class="album-card-content min-w-0 flex-grow-1">
           <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(title)}">${escapeHtml(title)}</h6>
-          <div class="small text-muted text-truncate">${artistName ? `<span class="fw-semibold text-white-50">${escapeHtml(artistName)}</span> • ` : ''}${year ? `${year} • ` : ''}${album.isCustom ? formatBooksSongsLabel(album.booksCount ?? (album.tabOptions ? album.tabOptions.length : 0), songCount) : `${songCount} ${songCount === 1 ? 'Song' : 'Songs'}`}</div>
+          <div class="small text-muted text-truncate">${artistName ? `<span class="fw-semibold text-white-50">${escapeHtml(artistName)}</span> · ` : ''}${year ? `${year} · ` : ''}${album.isCustom ? formatBooksSongsLabel(album.booksCount ?? (album.tabOptions ? album.tabOptions.length : 0), songCount) : formatCount(songCount, 'song')}</div>
         </div>
         <i class="bi-chevron-right text-muted flex-shrink-0 album-card-chevron"></i>
       </div>
@@ -4804,7 +4809,7 @@ async function renderRecentsView(container) {
     if (recents.length === 0) {
         container.innerHTML = `
         <div class="library-page-container">
-          ${libraryHeaderHtml({ activeTab: 'recents', searchId: 'recentsFilterInput', clearId: 'recentsFilterClearBtn', placeholder: 'Search recent tabs...', searchLabel: 'Search recent tabs', searchDisabled: true })}
+          ${libraryHeaderHtml({ activeTab: 'recents', searchId: 'recentsFilterInput', clearId: 'recentsFilterClearBtn', placeholder: 'Search recent songs...', searchLabel: 'Search recent songs', searchDisabled: true })}
           ${libraryEmptyStateHtml({
             icon: 'bi-clock-history',
             title: 'No recent tabs yet',
@@ -4819,10 +4824,10 @@ async function renderRecentsView(container) {
 
     container.innerHTML = `
     <div class="library-page-container recents-view">
-      ${libraryHeaderHtml({ activeTab: 'recents', searchId: 'recentsFilterInput', clearId: 'recentsFilterClearBtn', placeholder: 'Search recent tabs...', searchLabel: 'Search recent tabs' })}
+      ${libraryHeaderHtml({ activeTab: 'recents', searchId: 'recentsFilterInput', clearId: 'recentsFilterClearBtn', placeholder: 'Search recent songs...', searchLabel: 'Search recent songs' })}
 
       ${libraryListToolbarHtml({
-        count: `${recents.length} recent ${recents.length === 1 ? 'tab' : 'tabs'}`,
+        count: `${recents.length} recent ${recents.length === 1 ? 'song' : 'songs'}`,
         actionsHtml: `${isRecentsEditMode ? `
             <button class="btn btn-sm btn-theme-danger p-1 px-3 d-flex align-items-center gap-1" id="clearRecentsBtn" title="Clear all recent history">
               <i class="bi-trash"></i> <span>Clear History</span>
