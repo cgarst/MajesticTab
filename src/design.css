@@ -1465,6 +1465,13 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
   .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-search-bar .search-input { font-size: 16px !important; /* 16px stops iOS zooming the page on focus */ }
 }
 
+/* Pane back control (single-pane layout, under 1000px): flat text action, platform radius, ink on tone steps, no pill, no accent border or white hover */
+.pane-head .in-view-back-btn { border-radius: var(--r-control) !important; border: 0 !important; background: transparent !important; box-shadow: none; color: var(--ink) !important; min-height: 32px; transition: background-color var(--dur-fast) var(--ease-out); }
+@media (hover: hover) and (pointer: fine) { .pane-head .in-view-back-btn:hover { transform: none; background: var(--s2) !important; color: var(--ink) !important; } }
+.pane-head .in-view-back-btn:active { background: var(--s3) !important; }
+.pane-head .in-view-back-btn:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+@media (pointer: coarse) { .pane-head .in-view-back-btn { min-height: 44px; min-width: 44px; } }
+
 /* Second level (pinned, an artist, an album): the back control starts at the rows' left edge, not 8px in from it */
 @media (max-width: 576px) {
   .pane-head .in-view-back-btn { padding-left: 0 !important; }

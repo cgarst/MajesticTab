@@ -929,7 +929,7 @@ async function renderLibraryBrowseView(container) {
             const songsPaneHtml = `
               <section class="pane songs" aria-label="${escapeHtml(currentGroup.name)}">
                 <h3 class="pane-head">
-                  <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="tuningsBackBtn" type="button"><i class="bi-chevron-left"></i> Tunings</button>
+                  <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2" id="tuningsBackBtn" type="button"><i class="bi-chevron-left"></i> Tunings</button>
                   <span class="text-white fw-semibold" style="flex:1;">${escapeHtml(currentGroup.name)}</span>
                   <span class="tnum">${escapeHtml(summary)}</span>
                 </h3>
@@ -1400,7 +1400,7 @@ async function renderLibraryBrowseView(container) {
             const pinnedPaneHtml = `
             <section class="pane songs" aria-label="Pinned songs">
               <h3 class="pane-head">
-                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
+                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
                 <span class="text-white fw-semibold" style="flex:1;">Pinned songs</span>
                 <span class="tnum">${pinnedSongs.length} ${pinnedSongs.length === 1 ? 'song' : 'songs'}</span>
               </h3>
@@ -1417,7 +1417,7 @@ async function renderLibraryBrowseView(container) {
             const recentsPaneHtml = `
             <section class="pane songs" aria-label="Recents">
               <h3 class="pane-head">
-                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
+                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
                 <span class="text-white fw-semibold" style="flex:1;">Recents</span>
                 <span class="tnum">${formatCount(recentsList.length, 'song')}</span>
                 ${isRecentsEditMode ? `<button class="btn btn-sm btn-theme-danger" id="clearRecentsBtn" title="Clear all recent history">Clear history</button>` : ''}
@@ -1436,7 +1436,7 @@ async function renderLibraryBrowseView(container) {
             const songsPaneHtml = recentsActive ? recentsPaneHtml : pinnedActive ? pinnedPaneHtml : `
             <section class="pane songs" aria-label="Songs">
               <h3 class="pane-head">
-                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
+                <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
                 <span class="text-white fw-semibold" style="flex:1;">${escapeHtml(selectedArtist.name)}</span>
                 <span class="tnum">${totalSongsForPane} ${totalSongsForPane === 1 ? 'song' : 'songs'}${!isCustomArtist && selectedArtist.albums.length > 0 ? ` · ${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'album' : 'albums'}` : ''}</span>
                 ${customTopLevel ? `<button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>` : ''}
