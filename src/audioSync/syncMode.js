@@ -168,7 +168,7 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
     s.timeline = createSyncTimeline({
         host: $('smTimeline'),
         getData: () => ({
-            timeline: s.ctx.timeline, points: s.points, source: s.source, peaks: s.peaks,
+            timeline: s.ctx.timeline, points: s.points, source: s.source, peaks: s.peaks, showWave: false,
             durationMs: s.source.durationMs ?? null, selectedId: s.selectedId
         }),
         onChangePoints: (next) => { commit(next); retarget(); },

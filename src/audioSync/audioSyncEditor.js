@@ -15,10 +15,10 @@ import { hasNativeHttp } from '../s3Client.js';
 import { findSyncSource } from '../fileAdapters.js';
 import { createSyncTimeline } from './syncTimeline.js';
 import { isTvMode } from '../tvMode.js';
-import { tickToPosition, scoreMsToTick, positionToScoreMs } from './scorePositions.js';
+import { scoreMsToTick, positionToScoreMs } from './scorePositions.js';
 import {
-    addPoint, updatePoint, removePoints, shiftAfter, formatTime, parseTime,
-    toAlphaTexSync, toJson, importPoints
+    updatePoint, removePoints, shiftAfter, formatTime, parseTime,
+    toAlphaTexSync, importPoints
 } from './syncEdit.js';
 
 export { SYNC_CHANGED_EVENT };
@@ -241,14 +241,6 @@ export function initAudioSyncEditor() {
         seekTo(p.timeMs, ctx ? positionToScoreMs(ctx.timeline, p) : null);
     }
 
-    function addAtCursor() {
-        const ctx = getScoreContext();
-        if (!ctx) return;
-        const pos = tickToPosition(ctx.timeline, ctx.api.tickPosition);
-        if (!pos) return;
-        persist(addPoint(points, { ...pos, timeMs: Math.round(source.getTimeMs()), source: 'manual' }));
-    }
-
     /** A lone web address in the box, rather than sync text. */
     const isUrl = (text) => /^https?:\/\/\S+$/i.test(text.trim());
 
@@ -337,18 +329,6 @@ export function initAudioSyncEditor() {
         }
     }
 
-    function download(name, text, type) {
-        const url = URL.createObjectURL(new Blob([text], { type }));
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = name;
-        document.body.append(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }
-
-    $('syncAddBtn').addEventListener('click', addAtCursor);
     $('syncUndoBtn').addEventListener('click', undo);
     $('syncRedoBtn').addEventListener('click', redo);
     $('syncImportToggleBtn').addEventListener('click', () => {
@@ -373,7 +353,6 @@ export function initAudioSyncEditor() {
     $('syncCopyBtn').addEventListener('click', async () => {
         try { await navigator.clipboard.writeText(toAlphaTexSync(points)); $('syncEditorInfo').textContent = 'Copied the points as text'; } catch { /* clipboard unavailable */ }
     });
-    $('syncDownloadBtn').addEventListener('click', () => download('sync-points.json', toJson(points), 'application/json'));
     $('syncClearBtn').addEventListener('click', () => {
         if (points.length && confirm('Remove all sync points for this recording?')) persist([]);
     });

@@ -30,7 +30,7 @@ const FLAG_TEXT = {
 /**
  * @param {object} opts
  * @param {HTMLElement} opts.host element to build the timeline in
- * @param {() => object|null} opts.getData `{ timeline, points, source, peaks, durationMs, selectedId }`, or null when
+ * @param {() => object|null} opts.getData `{ timeline, points, source, peaks, showWave (false hides the waveform), durationMs, selectedId }`, or null when
  *   there is nothing to show yet
  * @param {(points: Array) => void} opts.onChangePoints called with the new point list after a drag or a range delete
  * @param {(target: {mediaMs:number, scoreMs:number}) => void} opts.onSeek
@@ -124,6 +124,7 @@ export function createSyncTimeline({ host, getData, onChangePoints, onSeek, onSe
     }
 
     function drawWave(ctx, c, dpr) {
+        if (data.showWave === false) return;
         const peaks = data.peaks;
         const mid = WAVE_TOP + WAVE_H / 2;
         ctx.fillStyle = c.border;
