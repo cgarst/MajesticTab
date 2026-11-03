@@ -59,7 +59,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
       <div class="setwrap" data-pane="list">
         <nav class="setnav" aria-label="Tools">
           ${tools.map((t) => `<button type="button" data-tool="${t.id}" ${t.disabled ? 'disabled aria-disabled="true"' : ''} aria-current="false">
-            <span>${escapeHtml(t.title)}</span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>`).join('')}
+            ${t.icon || ''}<span>${escapeHtml(t.title)}</span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>`).join('')}
         </nav>
         <div class="setpage tool-pane">
           <button type="button" class="setback btn btn-sm"><i class="bi-chevron-left" aria-hidden="true"></i> Tools</button>

@@ -2652,3 +2652,4 @@ body > #controllerHelpModal { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .fretboard-note-marker .marker-circle, .fretboard-note-marker .marker-split-left, .fretboard-note-marker .marker-split-right, .pick-marker-inner { animation: none !important; }
 }
+.setnav button svg:first-child { width: 1.5rem; height: 1.15rem; flex-shrink: 0; }
