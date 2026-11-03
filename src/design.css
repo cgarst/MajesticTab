@@ -347,7 +347,10 @@ body:not(.library-view-active) .breadcrumb-divider { display: none; }
 #topFlexZone .btn, #fullscreenPill .btn, #navButtons .btn, #globalAudioControls .btn {
   background: transparent !important; border: 0 !important; color: var(--ink2) !important; border-radius: var(--r) !important; min-height: 36px;
 }
-#topFlexZone .btn:hover, #fullscreenPill .btn:hover, #navButtons .btn:hover { background: var(--s2) !important; color: var(--ink) !important; }
+/* Hover only where a pointer really hovers: on touch, :hover sticks after a tap and the button stays lit */
+@media (hover: hover) { #topFlexZone .btn:hover, #fullscreenPill .btn:hover, #navButtons .btn:hover { background: var(--s2) !important; color: var(--ink) !important; } }
+#topFlexZone .btn:active, #fullscreenPill .btn:active, #navButtons .btn:active { background: var(--s2) !important; color: var(--ink) !important; }
+@media (hover: none) { #navButtons .btn:hover:not(:active) { background: transparent !important; color: var(--ink2) !important; } }
 #navButtons { display: inline-flex; gap: 0; }
 #pageIndicator { color: var(--ink2); font-size: 13px; font-variant-numeric: tabular-nums; min-width: 2.5ch; text-align: center; }
 
