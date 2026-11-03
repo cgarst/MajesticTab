@@ -2537,3 +2537,6 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   .open-file-web-search .library-search-bar { flex: 1 1 100%; }
   .open-file-web-search .btn { flex: 1 1 100%; }
 }
+
+/* The in-app downloader's top bar sits above the library rail and tab bar */
+.tab-downloader-bar { z-index: 1060; }
