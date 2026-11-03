@@ -12,9 +12,7 @@ import {
     isWsaTabUrl,
     getDownloaderUrlFromMatchedUrl,
     unwrapGoogleUrl,
-    buildPrefillUserscript,
-    attachSyncForMatchedUrl,
-    VIEWPORT_OPTIMIZER_USERSCRIPT
+    attachSyncForMatchedUrl
 } from './utils/downloaderIntercept.js';
 
 export const SOURCES_STORAGE_KEY = 'majestictab_tab_sources';
@@ -44,9 +42,6 @@ export const DEFAULT_SOURCES = [
         urlTemplate: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
         defaultUrl: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
         queryFormat: 'artist_song',
-        userscriptEnabled: false,
-        userscript: '',
-        defaultUserscript: '',
         isSeed: true
     },
     {
@@ -55,9 +50,6 @@ export const DEFAULT_SOURCES = [
         urlTemplate: 'https://www.google.com/search?q=$s+guitar+pro+tab',
         defaultUrl: 'https://www.google.com/search?q=$s+guitar+pro+tab',
         queryFormat: 'artist_song',
-        userscriptEnabled: false,
-        userscript: '',
-        defaultUserscript: '',
         isSeed: true
     }
 ];
@@ -137,11 +129,20 @@ export function getSources() {
                     saveSources(parsed.length > 0 ? parsed : []);
                 }
                 if (parsed.length === 0) return resetToDefaultSources();
+                // Strip legacy userscript fields from restored/stored sources
+                for (let j = 0; j < parsed.length; j++) {
+                    const s = parsed[j];
+                    if ('userscript' in s || 'userscriptEnabled' in s || 'defaultUserscript' in s) {
+                        delete s.userscript;
+                        delete s.userscriptEnabled;
+                        delete s.defaultUserscript;
+                        changed = true;
+                    }
+                }
                 for (let i = 0; i < DEFAULT_SOURCES.length; i++) {
                     const seed = DEFAULT_SOURCES[i];
                     const existing = parsed.find(s => s.id === seed.id);
                     if (existing && existing.isSeed) {
-                        existing.defaultUserscript = seed.defaultUserscript;
                         if (!existing.queryFormat || ((existing.id === 'google' || existing.id === 'duckduckgo') && existing.queryFormat !== 'artist_song')) {
                             existing.queryFormat = seed.queryFormat;
                         }
@@ -683,21 +684,20 @@ export function switchActiveSource(src) {
     showLoadingInUrlBar(src.name);
 
     let nextUrl;
-    let userscript;
     if (src.id === 'downloader' && activeEphemeralSource) {
         nextUrl = activeEphemeralSource.url;
-        userscript = buildPrefillUserscript(activeEphemeralSource.targetUrl);
     } else {
         const query = formatSearchQueryForSource(src, activeArtistName, activeSongName) || currentSearchQuery;
         nextUrl = buildSearchUrl(src, query);
-        userscript = src.userscriptEnabled ? (src.userscript || src.defaultUserscript || null) : null;
     }
     currentDownloaderUrl = nextUrl;
 
-    const effectiveUserscript = [userscript, VIEWPORT_OPTIMIZER_USERSCRIPT].filter(Boolean).join('\n;\n');
-
     if (window.__TAURI__?.core?.invoke) {
-        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl, userscript: effectiveUserscript }).catch(err => {
+        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl }).then(() => {
+            if (src.id === 'downloader' && activeEphemeralSource?.targetUrl) {
+                window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl: activeEphemeralSource.targetUrl }).catch(() => {});
+            }
+        }).catch(err => {
             console.error('[Tab Downloader] Failed to navigate to source:', err);
         });
     }
@@ -831,7 +831,7 @@ export function hideTabDownloaderBar() {
 
 /**
  * Intercepts links to the score endpoint, constructs the dynamic downloader URL,
- * creates the ephemeral Downloader tab, and navigates with the prefill userscript.
+ * creates the ephemeral Downloader tab, and navigates to the converter.
  * @param {string} url
  * @returns {boolean} true if intercepted
  */
@@ -1014,25 +1014,22 @@ export async function openTabDownloader(options = {}) {
             urlTemplate: s.urlTemplate,
             defaultUrl: s.defaultUrl,
             queryFormat: s.queryFormat,
-            userscriptEnabled: Boolean(s.userscriptEnabled),
             forceDesktop: Boolean(s.forceDesktop),
-            userscript: s.userscript || null,
-            defaultUserscript: s.defaultUserscript || null,
             isSeed: Boolean(s.isSeed)
         }))
     };
-    const targetScript = activeSource.userscriptEnabled ? (activeSource.userscript || '') : '';
-    const initialUserscript = [targetScript, VIEWPORT_OPTIMIZER_USERSCRIPT].filter(Boolean).join('\n;\n');
     // Android shows its site view natively; the shell's own eval of this can stall after a close
     try { window.MajesticDownloaderNative?.show?.(); } catch {}
     startUrlPolling();
     try {
         await window.__TAURI__.core.invoke('open_tab_downloader', {
             url: targetUrl,
-            userscript: initialUserscript || null,
             config,
             topOffset: barHeight
         });
+        if (activeEphemeralSource?.targetUrl) {
+            window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl: activeEphemeralSource.targetUrl }).catch(() => {});
+        }
         // open_tab_downloader overwrites the native offset with the height measured before the pills
         // rendered, and the ResizeObserver won't refire if the bar already settled, so push the final height.
         const settledBar = document.getElementById('tabDownloaderBar');

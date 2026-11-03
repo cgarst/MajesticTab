@@ -8,14 +8,13 @@ export const DEFAULT_CHANNEL = 'direct';
 
 const FULL = {
   tabDownloader: 'google-only', // 'google-only' | 'off'
-  userscripts: true, // ships the userscript editor; store builds turn it off (restored backups' userscripts run regardless)
   extensions: 'full', // 'full' | 'off'
   selfUpdate: true,
   googleDrive: true,
   youtube: 'full', // 'full' | 'official-origin' (official IFrame origin, no Referer override)
 };
 
-const STORE_DOWNLOADER = { selfUpdate: false, userscripts: false };
+const STORE_DOWNLOADER = { selfUpdate: false };
 
 export const channels = {
   direct: {

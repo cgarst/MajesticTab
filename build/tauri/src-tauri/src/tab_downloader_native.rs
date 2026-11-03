@@ -35,13 +35,7 @@ pub struct TabSourceInfo {
     #[serde(default)]
     pub query_format: Option<String>,
     #[serde(default)]
-    pub userscript_enabled: bool,
-    #[serde(default)]
     pub force_desktop: bool,
-    #[serde(default)]
-    pub userscript: Option<String>,
-    #[serde(default)]
-    pub default_userscript: Option<String>,
     #[serde(default)]
     pub is_seed: bool,
 }
@@ -82,13 +76,6 @@ impl Default for TabDownloaderConfig {
     }
 }
 
-/// Google's bot detection reads page-level tampering (patched window.open, fetch and click hooks) as automation,
-/// so nothing of ours runs on its pages.
-pub fn is_google_host(host: &str) -> bool {
-    let h = host.to_lowercase();
-    h == "google.com" || h.starts_with("google.") || h.contains(".google.")
-}
-
 pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     if (/(^|\.)google\.[a-z.]+$/i.test(location.hostname)) return;
     if (window.__majesticDownloaderShimInitialized) return;
@@ -100,18 +87,24 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     window.__cmp = window.__cmp || function() {};
 
     // 0b. Inject cosmetic ad hiding styles
-    try {
-        const id = 'majestic-adblock-cosmetic';
-        if (!document.getElementById(id)) {
-            const parent = document.head || document.documentElement;
-            if (parent) {
-                const style = document.createElement('style');
-                style.id = id;
-                style.textContent = '.adsbygoogle, [id^="google_ads"], [id*="taboola"], [class*="ad-container"], [class*="banner-ad"], [class*="advertisement"], .is_sticky_player, [class*="sticky_player"], [class*="BottomControls-fixed"], #pro-player-scroll-container { display: none !important; height: 0 !important; min-height: 0 !important; max-height: 0 !important; visibility: hidden !important; pointer-events: none !important; }';
-                parent.appendChild(style);
+    function injectCosmeticStyles() {
+        try {
+            const id = 'majestic-adblock-cosmetic';
+            if (!document.getElementById(id)) {
+                const parent = document.head || document.body || document.documentElement;
+                if (parent) {
+                    const style = document.createElement('style');
+                    style.id = id;
+                    style.textContent = '.adsbygoogle, [id^="google_ads"], [id*="taboola"], [class*="ad-container"], [class*="banner-ad"], [class*="advertisement"], .is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], [class*="BottomControls-fixed"], #pro-player-scroll-container, [id*="pro-player"], [class*="styles-containerWrapper"] { display: none !important; height: 0 !important; min-height: 0 !important; max-height: 0 !important; visibility: hidden !important; pointer-events: none !important; }';
+                    parent.appendChild(style);
+                }
             }
-        }
-    } catch (_) {}
+        } catch (_) {}
+    }
+    injectCosmeticStyles();
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectCosmeticStyles);
+    }
 
     // 1. Force window.open to redirect in the single active webview
     const origOpen = window.open;
@@ -525,7 +518,6 @@ pub struct DownloadChunkState {
 
 #[derive(Default)]
 pub struct TabDownloaderState {
-    pub active_userscript: Mutex<Option<String>>,
     pub current_config: Mutex<Option<TabDownloaderConfig>>,
     pub is_open: Mutex<bool>,
     pub is_visible: Mutex<bool>,
@@ -560,175 +552,6 @@ impl TabDownloaderState {
             }
         }
         false
-    }
-}
-
-pub fn wrap_userscript(raw_js: &str, config: Option<&TabDownloaderConfig>) -> String {
-    let trimmed = raw_js.trim();
-    let mut cfg = config.cloned().unwrap_or_default();
-    if cfg.platform.is_none() {
-        #[cfg(target_os = "macos")]
-        {
-            cfg.platform = Some("macos".to_string());
-        }
-        #[cfg(target_os = "windows")]
-        {
-            cfg.platform = Some("windows".to_string());
-        }
-        #[cfg(target_os = "linux")]
-        {
-            cfg.platform = Some("linux".to_string());
-        }
-        #[cfg(target_os = "android")]
-        {
-            cfg.platform = Some("android".to_string());
-        }
-        #[cfg(target_os = "ios")]
-        {
-            cfg.platform = Some("ios".to_string());
-        }
-    }
-    let config_json = serde_json::to_string(&cfg).unwrap_or_else(|_| "null".to_string());
-    format!(
-        r#"{core_shim}
-(function() {{
-    const cfg = {config_json};
-    if (cfg) {{
-        window.__MAJESTIC_TAB_DOWNLOADER_CONFIG__ = cfg;
-    }}
-    window.__majesticActiveUserscript = function() {{
-        try {{
-            {userscript}
-        }} catch (err) {{
-            console.error("[MajesticTab Userscript Error]", err);
-        }}
-    }};
-
-    let isExecuting = false;
-    let scheduledTimer = null;
-    function scheduleUserscriptRun() {{
-        if (scheduledTimer) return;
-        scheduledTimer = setTimeout(() => {{
-            scheduledTimer = null;
-            if (isExecuting) return;
-            isExecuting = true;
-            try {{
-                if (typeof window.__majesticActiveUserscript === 'function') {{
-                    window.__majesticActiveUserscript();
-                }}
-            }} catch (e) {{
-            }} finally {{
-                isExecuting = false;
-            }}
-        }}, 300);
-    }}
-
-    scheduleUserscriptRun();
-    if (document.readyState === 'loading') {{
-        document.addEventListener('DOMContentLoaded', scheduleUserscriptRun);
-    }}
-    window.addEventListener('load', scheduleUserscriptRun);
-
-    if (!window.__majesticRunnerInit) {{
-        window.__majesticRunnerInit = true;
-        setInterval(scheduleUserscriptRun, 2000);
-        try {{
-            const obs = new MutationObserver((mutations) => {{
-                let relevant = false;
-                for (let i = 0; i < mutations.length; i++) {{
-                    const m = mutations[i];
-                    const target = m.target;
-                    if (target && target.id === 'majestic-downloader-host') continue;
-                    if (target && target.id === 'majestic-downloader-offset-style') continue;
-                    relevant = true;
-                    break;
-                }}
-                if (relevant) {{
-                    scheduleUserscriptRun();
-                }}
-            }});
-            const target = document.body || document.documentElement;
-            if (target) {{
-                obs.observe(target, {{ childList: true, subtree: true }});
-            }} else {{
-                document.addEventListener('DOMContentLoaded', () => {{
-                    const t = document.body || document.documentElement;
-                    if (t) obs.observe(t, {{ childList: true, subtree: true }});
-                }});
-            }}
-        }} catch (e) {{}}
-    }}
-}})();"#,
-        core_shim = CORE_DOWNLOADER_SHIM,
-        config_json = config_json,
-        userscript = trimmed
-    )
-}
-
-/// Selects the userscript of the source that owns the page's site, so a page reached through
-/// another source (a Google result for a site with its own source) runs that source's script.
-pub fn bind_userscript_to_url(app_handle: &AppHandle, url: &tauri::Url) {
-    let Some(host) = url.host_str().map(|h| h.to_lowercase()) else { return };
-    let Some(state) = app_handle.try_state::<TabDownloaderState>() else { return };
-    let mut matched_sid: Option<String> = None;
-    let mut matched_script: Option<String> = None;
-    if let Ok(mut cfg_guard) = state.current_config.lock() {
-        if let Some(ref mut cfg) = *cfg_guard {
-            for s in &cfg.sources {
-                let matches = if let Ok(u) = tauri::Url::parse(if !s.default_url.is_empty() { &s.default_url } else { &s.url_template }) {
-                    u.host_str().map(|h| host.contains(h)).unwrap_or(false)
-                } else {
-                    false
-                };
-                if matches {
-                    matched_sid = Some(s.id.clone());
-                    if s.userscript_enabled {
-                        matched_script = s.userscript.clone().or_else(|| s.default_userscript.clone());
-                    }
-                    break;
-                }
-            }
-            if let Some(ref msid) = matched_sid {
-                cfg.active_source_id = Some(msid.clone());
-            }
-        }
-    }
-    if matched_sid.is_some() {
-        if let Ok(mut js_guard) = state.active_userscript.lock() {
-            *js_guard = matched_script;
-        }
-    }
-}
-
-pub fn schedule_userscript_injection(app_handle: &AppHandle) {
-    if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
-        let js_opt = state.active_userscript.lock().ok().and_then(|g| g.clone());
-        let cfg_opt = state.current_config.lock().ok().and_then(|g| g.clone());
-        let wrapped = wrap_userscript(js_opt.as_deref().unwrap_or(""), cfg_opt.as_ref());
-        let handle = app_handle.clone();
-        std::thread::spawn(move || {
-            for delay in [25, 80, 200, 500, 1000, 2000, 3500] {
-                std::thread::sleep(std::time::Duration::from_millis(delay));
-                if let Some(state) = handle.try_state::<TabDownloaderState>() {
-                    if let Ok(g) = state.is_open.lock() {
-                        if !*g {
-                            break;
-                        }
-                    }
-                }
-                if let Some(w) = handle.get_webview(DOWNLOADER_LABEL) {
-                    if w.url().ok().and_then(|u| u.host_str().map(is_google_host)).unwrap_or(false) {
-                        break;
-                    }
-                    let _ = w.eval(&wrapped);
-                } else if let Some(w) = handle.get_webview_window(DOWNLOADER_LABEL) {
-                    if w.url().ok().and_then(|u| u.host_str().map(is_google_host)).unwrap_or(false) {
-                        break;
-                    }
-                    let _ = w.eval(&wrapped);
-                }
-            }
-        });
     }
 }
 
@@ -966,12 +789,6 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
         return false;
     }
 
-    if url.scheme() == "http" || url.scheme() == "https" {
-        // The bar URL is emitted from on_page_load, which only reports the top-level frame; this handler also sees iframes (ads)
-        bind_userscript_to_url(app_handle, url);
-        schedule_userscript_injection(app_handle);
-    }
-
     true
 }
 
@@ -1075,10 +892,8 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     builder = builder.on_page_load(move |_webview, payload| {
         let s = payload.url().as_str();
         if s.starts_with("http://") || s.starts_with("https://") {
-            bind_userscript_to_url(&app_handle_for_load, payload.url());
             let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
         }
-        schedule_userscript_injection(&app_handle_for_load);
     });
 
     builder = builder.on_download(move |_webview, event| {
@@ -1329,20 +1144,52 @@ pub fn tab_downloader_set_visible(
 #[tauri::command]
 pub fn tab_downloader_navigate(
     app: AppHandle,
-    state: State<'_, TabDownloaderState>,
+    _state: State<'_, TabDownloaderState>,
     url: String,
-    userscript: Option<String>,
 ) -> Result<(), String> {
     let parsed_url = url.parse::<tauri::Url>().map_err(|e| e.to_string())?;
-    if let Ok(mut g) = state.active_userscript.lock() {
-        *g = userscript;
-    }
     if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
         let _ = w.navigate(parsed_url);
     } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
         let _ = w.navigate(parsed_url);
     }
-    schedule_userscript_injection(&app);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn tab_downloader_prefill(
+    app: AppHandle,
+    target_url: String,
+) -> Result<(), String> {
+    let json_target = serde_json::to_string(&target_url).map_err(|e| e.to_string())?;
+    let script = format!(
+        r#"(function() {{
+    function tryFill() {{
+        const input = document.querySelector('input[type="text"], input:not([type])');
+        if (!input) return false;
+        if (input.value === {json_target}) return true;
+        input.value = {json_target};
+        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
+        input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+        return true;
+    }}
+    if (!tryFill()) {{
+        const observer = new MutationObserver(() => {{
+            if (tryFill()) observer.disconnect();
+        }});
+        if (document.documentElement || document.body) {{
+            observer.observe(document.documentElement || document.body, {{ childList: true, subtree: true }});
+        }}
+        setTimeout(() => observer.disconnect(), 10000);
+    }}
+}})();"#,
+        json_target = json_target
+    );
+    if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
+        let _ = w.eval(&script);
+    } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
+        let _ = w.eval(&script);
+    }
     Ok(())
 }
 

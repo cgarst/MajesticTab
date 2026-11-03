@@ -6,8 +6,7 @@ import {
     unwrapRedirectUrl,
     isWsaTabUrl,
     getDownloaderUrlFromMatchedUrl,
-    buildPrefillUserscript,
-    VIEWPORT_OPTIMIZER_USERSCRIPT
+    attachSyncForMatchedUrl
 } from '../src/utils/downloaderIntercept.js';
 
 test('unwrapRedirectUrl unwraps redirects across search engines and proxies', () => {
@@ -67,26 +66,6 @@ test('getDownloaderUrlFromMatchedUrl dynamically derives downloader destination'
         getDownloaderUrlFromMatchedUrl(googleRedirect),
         'https://www.brandname-downloader.com/'
     );
-});
-
-test('VIEWPORT_OPTIMIZER_USERSCRIPT contains generic overlay suppressor without proprietary names', () => {
-    assert.ok(typeof VIEWPORT_OPTIMIZER_USERSCRIPT === 'string' && VIEWPORT_OPTIMIZER_USERSCRIPT.length > 50);
-    assert.ok(VIEWPORT_OPTIMIZER_USERSCRIPT.includes('is_sticky_player'));
-    assert.ok(VIEWPORT_OPTIMIZER_USERSCRIPT.includes('pro-player-scroll-container'));
-    assert.ok(!/ultimate[-_]?guitar/i.test(VIEWPORT_OPTIMIZER_USERSCRIPT));
-});
-
-test('buildPrefillUserscript produces prefill script without auto-submitting', () => {
-    const targetUrl = 'https://www.example.com/a/wsa/metallica-s123';
-    const script = buildPrefillUserscript(targetUrl);
-
-    assert.ok(script.includes(JSON.stringify(targetUrl)));
-    assert.ok(script.includes('input.value ='));
-    assert.ok(script.includes("dispatchEvent(new Event('input'"));
-    assert.ok(script.includes("dispatchEvent(new Event('change'"));
-    // Ensure no automatic click or submit is performed
-    assert.ok(!script.includes('.click()'));
-    assert.ok(!script.includes('.submit()'));
 });
 
 test('attachSyncForMatchedUrl feeds matched URL into sync pipeline and calls toast', async () => {

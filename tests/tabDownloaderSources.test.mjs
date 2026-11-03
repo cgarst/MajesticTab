@@ -151,6 +151,8 @@ test('getSources upgrades existing user sources by moving DuckDuckGo first', () 
     assert.equal(upgraded[0].id, 'duckduckgo');
     assert.equal(upgraded[1].id, 'google');
     assert.equal(upgraded[2].id, 'custom_source');
+    // Confirm legacy userscript properties are sanitized
+    assert.equal(upgraded[1].userscriptEnabled, undefined);
 
     // Confirm it was saved to storage
     const stored = JSON.parse(localStorage.getItem('majestictab_tab_sources'));

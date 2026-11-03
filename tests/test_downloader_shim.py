@@ -22,18 +22,20 @@ from playwright.sync_api import sync_playwright
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 def load_shim_from_app_code() -> str:
-    res = subprocess.run(
-        ["node", "-e", "import('./src/utils/downloaderIntercept.js').then(m => process.stdout.write(m.VIEWPORT_OPTIMIZER_USERSCRIPT))"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=True
-    )
-    if not res.stdout.strip():
-        raise RuntimeError("Failed to load VIEWPORT_OPTIMIZER_USERSCRIPT from src/utils/downloaderIntercept.js")
-    return res.stdout
+    path = REPO_ROOT / "build" / "tauri" / "src-tauri" / "src" / "tab_downloader_native.rs"
+    content = path.read_text(encoding="utf-8")
+    start_marker = "pub const CORE_DOWNLOADER_SHIM: &str = r#\""
+    end_marker = "\"#;"
+    start = content.find(start_marker)
+    if start == -1:
+        raise RuntimeError("Failed to find CORE_DOWNLOADER_SHIM in tab_downloader_native.rs")
+    start += len(start_marker)
+    end = content.find(end_marker, start)
+    if end == -1:
+        raise RuntimeError("Failed to find end of CORE_DOWNLOADER_SHIM in tab_downloader_native.rs")
+    return content[start:end]
 
-# Load dynamically from application code: src/utils/downloaderIntercept.js
+# Load dynamically from application code: build/tauri/src-tauri/src/tab_downloader_native.rs
 SHIM_CODE = load_shim_from_app_code()
 
 MOCK_FIXTURE_HTML = """<!DOCTYPE html>
@@ -65,13 +67,13 @@ def run_automated_test():
         page.goto(data_url)
         page.wait_for_timeout(300)
 
-        # 1. Sticky player and pro-player-scroll-container should be removed
-        player_exists = page.evaluate("() => Boolean(document.querySelector('.is_sticky_player, #pro-player-scroll-container'))")
-        assert not player_exists, "Expected sticky player elements to be removed"
+        # 1. Sticky player and pro-player-scroll-container should be hidden by cosmetic CSS
+        player_visible = page.is_visible('.is_sticky_player') or page.is_visible('#pro-player-scroll-container')
+        assert not player_visible, "Expected sticky player elements to be hidden"
 
         # 2. Style rule should be active
-        style_active = page.evaluate("() => Boolean(document.getElementById('mt-view-optimizer-style'))")
-        assert style_active, "Expected optimizer style rule to be active"
+        style_active = page.evaluate("() => Boolean(document.getElementById('majestic-adblock-cosmetic'))")
+        assert style_active, "Expected cosmetic adblock style rule to be active"
 
         # 3. Legitimate song content and download button must stay intact
         btn_exists = page.evaluate("() => Boolean(document.getElementById('download-gp-btn'))")

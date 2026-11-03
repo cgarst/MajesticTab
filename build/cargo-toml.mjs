@@ -13,7 +13,7 @@ export function rewriteCargoToml(content, target, channel) {
   if (pattern.test(content)) {
     content = content.replace(pattern, crateTypes);
   }
-  // Channel capabilities (self-update, userscripts) become the crate's default features.
+  // Channel capabilities (self-update, google-auth) become the crate's default features.
   const defaultFeatures = `default = [${cargoFeatures(channel).map((feature) => `"${feature}"`).join(', ')}]`;
   return content.replace(/^default\s*=\s*\[.*?\]$/m, defaultFeatures);
 }

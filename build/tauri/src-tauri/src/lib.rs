@@ -70,7 +70,6 @@ pub struct DownloadedTabPayload {
 async fn open_tab_downloader(
     app: tauri::AppHandle,
     url: String,
-    userscript: Option<String>,
     config: Option<tab_downloader_native::TabDownloaderConfig>,
     top_offset: Option<f64>,
 ) -> Result<(), String> {
@@ -83,9 +82,6 @@ async fn open_tab_downloader(
     let offset = top_offset.unwrap_or(84.0);
 
     if let Some(state) = app.try_state::<tab_downloader_native::TabDownloaderState>() {
-        if let Ok(mut g) = state.active_userscript.lock() {
-            *g = userscript.clone();
-        }
         if let Ok(mut g) = state.current_config.lock() {
             *g = config.clone();
         }
@@ -110,7 +106,6 @@ async fn open_tab_downloader(
     }
 
     let _ = downloader.navigate(parsed_url);
-    tab_downloader_native::schedule_userscript_injection(&app);
     let _ = downloader.show();
 
     #[cfg(target_os = "macos")]
@@ -142,7 +137,6 @@ async fn open_tab_downloader(
 async fn open_tab_downloader(
     app: tauri::AppHandle,
     url: String,
-    userscript: Option<String>,
     config: Option<tab_downloader_native::TabDownloaderConfig>,
     top_offset: Option<f64>,
 ) -> Result<(), String> {
@@ -154,9 +148,6 @@ async fn open_tab_downloader(
         }
         if let Ok(mut g) = state.is_visible.lock() {
             *g = true;
-        }
-        if let Ok(mut g) = state.active_userscript.lock() {
-            *g = userscript.clone();
         }
         if let Ok(mut g) = state.current_config.lock() {
             *g = config.clone();
@@ -198,7 +189,6 @@ async fn open_tab_downloader(
                 let _ = existing.set_focus();
             }
             let _ = existing.navigate(parsed_url);
-            tab_downloader_native::schedule_userscript_injection(&app);
             return Ok(());
         }
     }
@@ -242,10 +232,8 @@ async fn open_tab_downloader(
     builder = builder.on_page_load(move |_webview, payload| {
         let s = payload.url().as_str();
         if s.starts_with("http://") || s.starts_with("https://") {
-            tab_downloader_native::bind_userscript_to_url(&app_handle_for_load, payload.url());
             let _ = app_handle_for_load.emit("tab-downloader-url-changed", s.to_string());
         }
-        tab_downloader_native::schedule_userscript_injection(&app_handle_for_load);
     });
 
     let app_handle = app.clone();
@@ -606,6 +594,7 @@ pub fn run() {
         configure_ios_main_window,
         tab_downloader_native::tab_downloader_update,
         tab_downloader_native::tab_downloader_navigate,
+        tab_downloader_native::tab_downloader_prefill,
         tab_downloader_native::tab_downloader_nav,
         tab_downloader_native::tab_downloader_hide,
         tab_downloader_native::tab_downloader_set_visible,
@@ -653,6 +642,7 @@ pub fn run() {
         configure_ios_main_window,
         tab_downloader_native::tab_downloader_update,
         tab_downloader_native::tab_downloader_navigate,
+        tab_downloader_native::tab_downloader_prefill,
         tab_downloader_native::tab_downloader_nav,
         tab_downloader_native::tab_downloader_hide,
         tab_downloader_native::tab_downloader_set_visible,

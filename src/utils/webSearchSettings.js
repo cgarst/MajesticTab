@@ -268,43 +268,6 @@ function makeProvidersGroup() {
                     editorSlot.appendChild(desktopWrap);
                 }
 
-                // Userscript (if enabled by build features and not Google/DuckDuckGo)
-                let scriptCheck = null;
-                let scriptArea = null;
-                if (hasFeature('userscripts') && src.id !== 'google' && src.id !== 'duckduckgo') {
-                    const scriptWrap = el('div', 'p-2 rounded-2 mt-1');
-                    scriptWrap.style.background = 'var(--s1)';
-                    const switchRow = el('div', 'd-flex align-items-center justify-content-between mb-2');
-                    const switchDiv = el('div', 'form-check form-switch mb-0');
-                    scriptCheck = el('input', 'form-check-input theme-switch');
-                    scriptCheck.type = 'checkbox';
-                    scriptCheck.id = `scriptSwitch_${src.id}`;
-                    scriptCheck.checked = Boolean(src.userscriptEnabled);
-                    const scriptLabel = el('label', 'form-check-label small text-white fw-semibold', 'Inject userscript');
-                    scriptLabel.htmlFor = scriptCheck.id;
-                    switchDiv.appendChild(scriptCheck);
-                    switchDiv.appendChild(scriptLabel);
-                    switchRow.appendChild(switchDiv);
-
-                    if (src.defaultUserscript) {
-                        const resetScriptBtn = el('button', 'btn btn-link btn-sm text-info text-decoration-none p-0', 'Reset Script');
-                        resetScriptBtn.type = 'button';
-                        resetScriptBtn.addEventListener('click', () => {
-                            scriptArea.value = src.defaultUserscript;
-                            scriptCheck.checked = true;
-                        });
-                        switchRow.appendChild(resetScriptBtn);
-                    }
-                    scriptWrap.appendChild(switchRow);
-
-                    scriptArea = el('textarea', 'form-control form-control-sm font-monospace');
-                    scriptArea.rows = 4;
-                    scriptArea.placeholder = '// Custom JavaScript injected into webview';
-                    scriptArea.value = src.userscript || '';
-                    scriptWrap.appendChild(scriptArea);
-                    editorSlot.appendChild(scriptWrap);
-                }
-
                 // Action buttons footer
                 const footer = el('div', 'd-flex align-items-center justify-content-between pt-2 mt-1');
                 if (!src.isSeed) {
@@ -335,9 +298,7 @@ function makeProvidersGroup() {
                         name: nameInput.value.trim() || src.name,
                         urlTemplate: uVal,
                         queryFormat: querySelect.value,
-                        forceDesktop: desktopCheck ? desktopCheck.checked : src.forceDesktop,
-                        userscriptEnabled: scriptCheck ? scriptCheck.checked : src.userscriptEnabled,
-                        userscript: scriptArea ? scriptArea.value : src.userscript
+                        forceDesktop: desktopCheck ? desktopCheck.checked : src.forceDesktop
                     };
                     const all = getSources();
                     const idx = all.findIndex((s) => s.id === src.id);
@@ -379,8 +340,6 @@ function makeProvidersGroup() {
                         }
                         target.queryFormat = querySelect.value;
                         if (desktopCheck) target.forceDesktop = desktopCheck.checked;
-                        if (scriptCheck) target.userscriptEnabled = scriptCheck.checked;
-                        if (scriptArea) target.userscript = scriptArea.value;
 
                         stampSourceChanges(all);
                         saveSources(all);
@@ -427,9 +386,6 @@ function makeProvidersGroup() {
                 urlTemplate: DEFAULT_SOURCES[0].urlTemplate,
                 defaultUrl: '',
                 queryFormat: 'artist_song',
-                userscriptEnabled: false,
-                userscript: '',
-                defaultUserscript: '',
                 isSeed: false
             };
             all.push(newSrc);

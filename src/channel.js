@@ -4,7 +4,6 @@
 const DEFAULTS = {
     channel: 'web',
     tabDownloader: 'google-only',
-    userscripts: true,
     extensions: 'full',
     selfUpdate: true,
     googleDrive: true,
