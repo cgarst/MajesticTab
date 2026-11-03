@@ -233,8 +233,6 @@ body.library-view-active .fretboard-dock {
    -------------------------------------------------------------------------- */
 .fretboard-neck-bg {
   fill: var(--bg-card-solid);
-  stroke: var(--border-subtle);
-  stroke-width: 1.2;
 }
 
 .fretboard-inlay {
@@ -270,13 +268,9 @@ body.library-view-active .fretboard-dock {
 
 .fretboard-capo-bar {
   fill: var(--accent-primary);
-  stroke: var(--accent-secondary);
-  stroke-width: 1;
-  filter: drop-shadow(0 0 6px var(--accent-glow));
 }
 
 .fretboard-capo-label {
-  fill: #ffffff;
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -309,162 +303,33 @@ body.library-view-active .fretboard-dock {
 }
 
 /* Picking Hand Activity (Pick Strike / Pluck Indicator) */
-@keyframes pick-strike-pop {
-  0% {
-    transform: scale(1.45);
-    opacity: 1;
-    filter: brightness(1.75);
-  }
-  35% {
-    transform: scale(1.1);
-    opacity: 0.95;
-    filter: brightness(1.3);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.85;
-    filter: brightness(1);
-  }
-}
-
-@keyframes pick-strike-pop-alt {
-  0% {
-    transform: scale(1.45);
-    opacity: 1;
-    filter: brightness(1.75);
-  }
-  35% {
-    transform: scale(1.1);
-    opacity: 0.95;
-    filter: brightness(1.3);
-  }
-  100% {
-    transform: scale(1);
-    opacity: 0.85;
-    filter: brightness(1);
-  }
-}
-
 .fretboard-pick-marker {
   pointer-events: none;
 }
 
 .pick-marker-inner {
   transform-origin: 0 0;
-  will-change: transform, opacity, filter;
-}
-
-.fretboard-pick-marker.is-struck .pick-marker-inner {
-  animation: pick-strike-pop 0.095s cubic-bezier(0.12, 0.9, 0.24, 1.0);
-}
-
-.fretboard-pick-marker.is-struck-alt .pick-marker-inner {
-  animation: pick-strike-pop-alt 0.095s cubic-bezier(0.12, 0.9, 0.24, 1.0);
-}
-
-.pick-strike-shape {
-  stroke: rgba(0, 0, 0, 0.35);
-  stroke-width: 0.5;
-  vector-effect: non-scaling-stroke;
-}
-
-.pick-strike-shine {
-  fill: none;
-  stroke: rgba(255, 255, 255, 0.55);
-  stroke-width: 0.9;
-  stroke-linecap: round;
+  will-change: transform;
 }
 
 /* Active Note Markers */
-@keyframes fretboard-marker-pop {
-  0% {
-    transform: scale(1.22);
-    filter: brightness(1.35);
-  }
-  40% {
-    transform: scale(1.06);
-    filter: brightness(1.15);
-  }
-  100% {
-    transform: scale(1);
-    filter: brightness(1);
-  }
-}
-
-@keyframes fretboard-marker-pop-alt {
-  0% {
-    transform: scale(1.22);
-    filter: brightness(1.35);
-  }
-  40% {
-    transform: scale(1.06);
-    filter: brightness(1.15);
-  }
-  100% {
-    transform: scale(1);
-    filter: brightness(1);
-  }
-}
-
 .fretboard-note-marker {
   pointer-events: none;
 }
 
-.fretboard-note-marker .marker-glow {
-  fill: var(--accent-glow);
-  opacity: 0.75;
-}
-
-.fretboard-note-marker .marker-circle {
-  stroke: #ffffff;
-  stroke-width: 1.5;
-  box-shadow: 0 0 10px var(--accent-glow);
-  transform-origin: center;
-  transform-box: fill-box;
-  will-change: transform, filter;
-}
-
-.fretboard-note-marker.is-struck .marker-circle,
-.fretboard-note-marker.is-struck .marker-split-left,
-.fretboard-note-marker.is-struck .marker-split-right {
-  animation: fretboard-marker-pop 0.10s cubic-bezier(0.12, 0.9, 0.24, 1.0);
-}
-
-.fretboard-note-marker.is-struck-alt .marker-circle,
-.fretboard-note-marker.is-struck-alt .marker-split-left,
-.fretboard-note-marker.is-struck-alt .marker-split-right {
-  animation: fretboard-marker-pop-alt 0.10s cubic-bezier(0.12, 0.9, 0.24, 1.0);
-}
-
-/* Split Unison Badges */
+.fretboard-note-marker .marker-circle,
 .fretboard-note-marker .marker-split-left,
 .fretboard-note-marker .marker-split-right {
-  stroke: #ffffff;
-  stroke-width: 1.2;
   transform-origin: center;
   transform-box: fill-box;
-}
-
-.fretboard-note-marker .marker-split-divider {
-  stroke: #ffffff;
-  stroke-width: 1.2;
-}
-
-.fretboard-note-marker .marker-outline {
-  stroke: #ffffff;
-  stroke-width: 1.4;
-  fill: none;
 }
 
 .fretboard-note-marker .marker-text {
-  fill: #ffffff;
   font-size: 10px;
-  font-weight: 800;
   font-family: system-ui, -apple-system, sans-serif;
 }
 
 .fretboard-note-marker .marker-dead {
-  stroke: #ffffff;
   stroke-width: 2.2;
   stroke-linecap: round;
 }
