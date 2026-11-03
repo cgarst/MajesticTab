@@ -487,7 +487,7 @@ function setupSettings() {
         await applyGpSheetScale(nextScale);
     });
     
-    // Initialize modern guitar finish theming engine
+    // Initialize modern theme engine
     initTheming();
 
     // Setup dual-page advance selector

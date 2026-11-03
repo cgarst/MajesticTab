@@ -201,7 +201,7 @@ export function initSettingsPage() {
         if (swatch) sc.appendChild(swatch);
         if (themeName) sc.appendChild(themeName);
         finishCurrent?.remove();
-        panes.appearance.appendChild(group('Finish', row('Guitar finish', 'Pick the colour ground for the whole app.', sc)));
+        panes.appearance.appendChild(group('Theme', row('App theme', 'Pick the color ground for the whole app.', sc)));
         const g = el('div', 'sgroup');
         g.appendChild(finishGrid);
         panes.appearance.appendChild(g);
@@ -338,7 +338,7 @@ export function initSettingsPage() {
     if (privacy) { privacy.className = 'btn btn-sm btn-theme-outline'; privacy.textContent = 'Read'; abt.push(row('Privacy policy', 'What stays on your device.', privacy)); }
     if (support) { support.className = 'btn btn-sm btn-theme-outline'; support.textContent = 'Report'; abt.push(row('Support', 'Report a problem or ask for a feature.', support)); }
     if (quitBtn && canQuitApp()) {
-        // Quitting is not destructive: a plain row at the end of the list, not a coloured button or its own group
+        // Quitting is not destructive: a plain row at the end of the list, not a colored button or its own group
         quitBtn.className = 'btn btn-sm btn-theme-outline';
         quitBtn.textContent = 'Quit';
         abt.push(row('Quit', 'Close MajesticTab.', quitBtn));

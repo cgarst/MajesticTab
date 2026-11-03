@@ -18,7 +18,7 @@ export const ROOT_PITCH = {
 
 // Per suffix: `allowed` semitones above the root a voicing may sound, `signature` tones that must be present
 // (an array means any one of them), and `noThird` for chords that replace the third.
-// '-11' means ♯11 and '-13' means 13; 9ths are allowed as extra colour on those chords.
+// '-11' means ♯11 and '-13' means 13; 9ths are allowed as extra color on those chords.
 export const QUALITIES = {
   '': { allowed: [0, 4, 7], signature: [] },
   m: { allowed: [0, 3, 7], signature: [] },

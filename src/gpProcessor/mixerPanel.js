@@ -72,7 +72,7 @@ export function buildTrackMix(t) {
     box.className = 'track-mix';
     box.dataset.index = t.index;
 
-    // Top line: the track's colour and name, with Mute and Solo
+    // Top line: the track's color and name, with Mute and Solo
     const head = document.createElement('div');
     head.className = 'track-mix-head';
     const dot = document.createElement('span');

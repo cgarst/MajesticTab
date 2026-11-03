@@ -52,7 +52,7 @@ export function initReaderViewMenu() {
 }
 
 
-// ---- Tracks: the labelled button opens the track list (show, hear, levels, colour). The Song menu (recording, section
+// ---- Tracks: the labelled button opens the track list (show, hear, levels, color). The Song menu (recording, section
 // marks, PDF, save and share) opens from the song's name in the top bar and is the original score options panel.
 function initTracksMenu() {
     const btn = $('tracksToggleBtn');

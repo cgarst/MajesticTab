@@ -858,7 +858,7 @@ function buildChordDiagramSvg(chordOrFrets, explicitStartFret) {
     return svg;
 }
 
-/** Fretboard marker colour for a scale degree label: root is ink, degrees 2 to 7 take the six guitar track colours. */
+/** Fretboard marker color for a scale degree label: root is ink, degrees 2 to 7 take the six guitar track colors. */
 function scaleDegreeColor(label) {
     const degree = parseInt(String(label).replace(/[^0-9]/g, ''), 10);
     if (!degree || degree === 1) return 'var(--ink)';

@@ -1,10 +1,10 @@
 /* ==========================================================================
    MAJESTICTAB — MODERN THEME ENGINE & UI STYLES
-   Guitar Finish Themes (Mystic Dream default) ported from concerts
+   Themes (Mystic Dream default) ported from concerts
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
-   Guitar Finish Palettes
+   Theme Palettes
    -------------------------------------------------------------------------- */
 :root, [data-theme="Mystic Dream"] {
   --bg-body: #06050a;
@@ -2485,8 +2485,8 @@ body.sheet-mode-dark:not(.theme-sheet-active) .chord-lyric-chord {
 }
 
 /* --------------------------------------------------------------------------
-   OPT-IN: Extended Guitar Finish Theming (.theme-sheet-active)
-   Overrides sheet styling with active guitar finish palette and glowing ambient accents
+   OPT-IN: Extended Theming (.theme-sheet-active)
+   Overrides sheet styling with active theme palette and glowing ambient accents
    -------------------------------------------------------------------------- */
 body.theme-sheet-active .pageWrapper,
 body.theme-sheet-active .gp-page-wrapper,

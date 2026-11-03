@@ -1,8 +1,8 @@
 /**
  * MajesticTab Theme Engine
- * Ported from concerts with 8 iconic guitar finish themes.
+ * Ported from concerts with 8 iconic guitar-inspired themes.
  * Default theme: 'Slate Blue'
- * Sheet appearance: Auto / Light / Dark / Guitar Finish (all in one row)
+ * Sheet appearance: Auto / Light / Dark / Theme (all in one row)
  */
 
 
@@ -269,7 +269,7 @@ export function renderThemeModalGrid(activeThemeId = getCurrentTheme()) {
   });
 }
 
-/** Open Settings on the Appearance section, where the finishes live. */
+/** Open Settings on the Appearance section, where the themes live. */
 export async function openThemeSettings() {
   const panel = document.getElementById('fileMenu');
   if (!panel) return;

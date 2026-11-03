@@ -427,7 +427,7 @@ class FretboardController {
         const legendContainer = document.getElementById('fretboardTracksLegend');
         if (!legendContainer) return;
 
-        // A score with several tracks: a strip of names, each with its colour bar, that also shows and hides the track
+        // A score with several tracks: a strip of names, each with its color bar, that also shows and hides the track
         const trackBoxes = Array.from(document.querySelectorAll('#synthTrackList .gp-track-checkbox'));
         if (trackBoxes.length > 1) {
             const esc = (v) => String(v).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

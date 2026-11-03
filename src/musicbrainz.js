@@ -148,7 +148,7 @@ export function fetchMusicBrainz(url) {
  * Placeholder SVG for missing cover artwork
  */
 export function getPlaceholderCoverSvg(title = 'Tab') {
-    // A flat tile with the initial: a muted colour picked from the name, so the same artist always looks the same
+    // A flat tile with the initial: a muted color picked from the name, so the same artist always looks the same
     const initial = (title || 'T').trim().charAt(0).toUpperCase() || 'T';
     let hash = 0;
     for (const ch of String(title)) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
