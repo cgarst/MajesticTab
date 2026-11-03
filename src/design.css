@@ -777,7 +777,9 @@ body.practice-open #output { padding-right: 376px !important; }
 .resume-sub { font-size: 13px; color: var(--ink2); }
 .resume-btn { min-height: 44px; padding: 0 20px; font-size: 15px; }
 .resume-card .ruler { grid-column: 1 / -1; margin-top: 14px; }
-.ruler.mini { height: 28px; }
+.ruler.mini { height: 28px; overflow: visible; }
+.ruler.mini .fill-clip { position: absolute; inset: 0; overflow: hidden; border-radius: var(--r-sm); }
+.ruler.mini .head { z-index: 2; }
 .ruler.mini svg { height: 28px; }
 .ruler line { stroke: var(--ink2); stroke-opacity: .6; stroke-width: 1; vector-effect: non-scaling-stroke; }
 @media (max-width: 640px) { .resume-card { grid-template-columns: auto 1fr; margin: 4px 16px 12px; } .resume-btn { grid-column: 1 / -1; } .resume-title { font-size: 30px; } }

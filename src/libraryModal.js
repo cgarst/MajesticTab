@@ -772,9 +772,9 @@ function renderMiniBarRulerHtml(currentBar, totalBars) {
     }
     return `
     <div class="ruler mini" data-ruler aria-hidden="true">
-      <div class="fill" style="transform: scaleX(${ratio});"></div>
+      <div class="fill-clip"><div class="fill" style="transform: scaleX(${ratio});"></div></div>
       <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${ticks}</svg>
-      <div class="head" style="transform: translate3d(${pct}%, 0, 0);"></div>
+      <div class="head" style="left: ${pct}%;"></div>
     </div>`;
 }
 
