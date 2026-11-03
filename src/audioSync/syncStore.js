@@ -60,10 +60,45 @@ function parse(text) {
     try { return normalizeRecord(JSON.parse(text)); } catch { return null; }
 }
 
-export function loadRecord(songKey, media, storage = localStorage) {
+// Per song option: a backing track with no points of its own uses the original recording's points.
+const SHARE_PREFIX = 'audio_sync_share_';
+const shareKey = (songKey) => `${SHARE_PREFIX}${encodeURIComponent(String(songKey).toLowerCase())}`;
+
+export function isSyncSharedFromOriginal(songKey, storage = localStorage) {
+    try { return storage.getItem(shareKey(songKey)) === '1'; } catch { return false; }
+}
+
+export function setSyncSharedFromOriginal(songKey, on, storage = localStorage) {
+    try {
+        if (on) storage.setItem(shareKey(songKey), '1');
+        else storage.removeItem(shareKey(songKey));
+    } catch { /* ignore */ }
+}
+
+let slotMediaResolver = null;
+/** The player registers `(songKey) => ({ original, backing })` (media descriptors or null) so the store knows which recording is which. */
+export function setSlotMediaResolver(fn) { slotMediaResolver = fn; }
+
+function loadOwnRecord(songKey, media, storage) {
     const key = storageKey(songKey, media);
     if (!key) return null;
     try { const text = storage.getItem(key); return text === null ? null : parse(text); } catch { return null; }
+}
+
+/**
+ * The record for a recording. A backing track without points of its own gets the original recording's points
+ * (marked `inherited`) when the song's option is on; saving after an edit stores them under the backing track.
+ */
+export function loadRecord(songKey, media, storage = localStorage) {
+    const own = loadOwnRecord(songKey, media, storage);
+    if (own?.points.length || !slotMediaResolver || !isSyncSharedFromOriginal(songKey, storage)) return own;
+    let slots = null;
+    try { slots = slotMediaResolver(songKey); } catch { slots = null; }
+    if (!slots?.original || !slots.backing || mediaKey(slots.backing) !== mediaKey(media)) return own;
+    if (mediaKey(slots.original) === mediaKey(media)) return own;
+    const orig = loadOwnRecord(songKey, slots.original, storage);
+    if (!orig?.points.length) return own;
+    return { ...orig, media: normalizeRecord({ ...orig, media }).media, inherited: true };
 }
 
 /** Saves `points` for a recording, stamping `updatedAt`. An empty point list removes the entry. Returns the record. */

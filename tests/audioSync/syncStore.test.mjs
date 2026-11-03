@@ -94,3 +94,21 @@ test('clear removes only audio sync entries', () => {
     assert.equal(s.length, 1);
     assert.equal(s.getItem('yt_track_song_guitar'), 'abc');
 });
+
+test('a backing track uses the original recording points when the option is on', async () => {
+    const { setSlotMediaResolver, setSyncSharedFromOriginal } = await import('../../src/audioSync/syncStore.js');
+    const s = fakeStorage();
+    const backing = { kind: 'youtube', videoId: 'bk1' };
+    saveRecord('Song', yt, [{ barIndex: 0, timeMs: 0 }, { barIndex: 1, timeMs: 2000 }], s);
+    setSlotMediaResolver(() => ({ original: yt, backing }));
+    assert.equal(loadRecord('Song', backing, s), null);
+    setSyncSharedFromOriginal('Song', true, s);
+    const rec = loadRecord('Song', backing, s);
+    assert.equal(rec.points.length, 2);
+    assert.equal(rec.inherited, true);
+    assert.equal(rec.media.videoId, 'bk1');
+    // Its own points win once it has some
+    saveRecord('Song', backing, [{ barIndex: 0, timeMs: 500 }], s);
+    assert.equal(loadRecord('Song', backing, s).points.length, 1);
+    setSlotMediaResolver(null);
+});

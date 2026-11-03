@@ -16,7 +16,10 @@ import {
     rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile
 } from './audioFilePlayer.js';
 import { updateGlobalAudioControls, setActiveAudioMode } from '../utils/navigationUtils.js';
-import { listRecords, loadRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
+import {
+    listRecords, loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver,
+    isSyncSharedFromOriginal, setSyncSharedFromOriginal
+} from './syncStore.js';
 import { buildTimelineModel } from './timelineModel.js';
 import { playedBarsFromLookup, buildScoreTimeline } from './scorePositions.js';
 import { getMidiTickLookup, synthPlayerState, playClick } from '../gpProcessor/gpPlayer.js';
@@ -83,9 +86,7 @@ export function updateRealAudioDockIcon() {
     const titleEl = $('realAudioPanelTitle');
 
     const iconClass = isLocal ? 'bi-file-earmark-music' : 'bi-youtube';
-    const titleText = isLocal
-        ? `Real Audio: Local File (${slotLabel})`
-        : `Real Audio: YouTube (${slotLabel})`;
+    const titleText = `Original: ${isLocal ? 'local file' : 'YouTube'} (${slotLabel})`;
 
     for (const btn of [desktopBtn, mobileBtn]) {
         if (!btn) continue;
@@ -103,7 +104,7 @@ export function updateRealAudioDockIcon() {
         badgeIcon.className = `${iconClass} ${isLocal ? 'text-info' : 'text-danger'}`;
     }
     if (titleEl) {
-        titleEl.textContent = isLocal ? 'Real Audio · Local File' : 'Real Audio · YouTube';
+        titleEl.textContent = 'Original';
     }
 }
 
@@ -157,6 +158,8 @@ function getMediaForSlot(slot) {
     }
 }
 
+setSlotMediaResolver(() => ({ original: getMediaForSlot('original'), backing: getMediaForSlot('backing') }));
+
 export function updateRecordingSlotsAndSyncCard() {
     const songKey = getSongKey();
     const timeline = getScoreTimeline();
@@ -205,6 +208,14 @@ export function updateRecordingSlotsAndSyncCard() {
     // Update the follow card
     const card = $('realAudioSyncCard');
     if (!card) return;
+
+    // The shared-points option only applies to a backing track
+    const shareRow = $('realAudioShareSyncRow');
+    if (shareRow) {
+        shareRow.hidden = state.slot !== 'backing';
+        const shareSwitch = $('realAudioShareSyncSwitch');
+        if (shareSwitch) shareSwitch.checked = Boolean(songKey) && isSyncSharedFromOriginal(songKey);
+    }
 
     const isLocal = getRealAudioActiveSource() === 'local';
     const isFollow = Boolean((isLocal ? $('afSyncFollow')?.checked : $('ytSyncFollow')?.checked));
@@ -458,6 +469,14 @@ export function initRealAudioController() {
     // Slot rows
     $('slotRowOriginal')?.addEventListener('click', () => switchRealAudioSlot('original'));
     $('slotRowBacking')?.addEventListener('click', () => switchRealAudioSlot('backing'));
+
+    // Backing track uses the original recording's sync points
+    $('realAudioShareSyncSwitch')?.addEventListener('change', () => {
+        const songKey = getSongKey();
+        if (!songKey) return;
+        setSyncSharedFromOriginal(songKey, $('realAudioShareSyncSwitch').checked);
+        window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+    });
 
     // Follow switch
     $('realAudioFollowSwitch')?.addEventListener('change', () => {
