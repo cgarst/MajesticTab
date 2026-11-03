@@ -139,7 +139,7 @@ export class FretboardView {
         // Compute geometry
         const stringGap = this.stringCount <= 5 ? 20 : (this.stringCount === 6 ? 17 : 14);
         this.neckHeight = (this.stringCount - 1) * stringGap;
-        const topMargin = 16;
+        const topMargin = 27; // the pick resting on string 1 reaches about 26px above it (23px body plus the overshoot)
         this.totalHeight = topMargin + this.neckHeight + 32;
 
         this.svg.setAttribute('viewBox', `0 0 ${SVG_WIDTH} ${this.totalHeight}`);
