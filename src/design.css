@@ -1453,6 +1453,7 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
   /* Search is a 44px button beside the actions until you use it; then the field takes the whole row.
      Open means tapped, focused, or holding a query. */
   .library-search-bar { cursor: pointer; }
+  .library-search-bar .search-clear-btn { display: none !important; }
   .library-search-bar .search-close-btn { display: none; flex: none; min-height: 44px; padding: 0 4px 0 8px; border: 0; background: transparent; color: var(--ink2); font-size: 15px; cursor: pointer; }
   .library-search-bar .search-close-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: var(--r-control); }
   .library-page-container:not(.lib-search-open):not(:has(.library-search-bar:focus-within)):not(:has(.search-input:not(:placeholder-shown))) .library-search-bar {
