@@ -4579,6 +4579,7 @@ body.library-view-active #brandSection .brand-title {
   min-width: 0;
 }
 
+.downloader-url-btn,
 .downloader-url-copy-btn {
   flex-shrink: 0;
   display: inline-flex;
@@ -4596,6 +4597,7 @@ body.library-view-active #brandSection .brand-title {
   transition: color 0.15s ease, background 0.15s ease;
 }
 
+.downloader-url-btn:hover,
 .downloader-url-copy-btn:hover {
   color: var(--text-primary);
   background: var(--bg-card-hover, rgba(255, 255, 255, 0.08));

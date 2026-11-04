@@ -2586,9 +2586,23 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 
 /* The in-app downloader's top bar sits above the library rail and tab bar */
 .tab-downloader-bar { z-index: 1060; }
-#downloaderAdblockBtn { color: var(--ink2); transition: color var(--dur-fast), background-color var(--dur-fast); }
-#downloaderAdblockBtn:hover { color: var(--ink); background: var(--s2); }
-#downloaderAdblockBtn.active { color: var(--ink); background: var(--s1); }
+.downloader-url-btn,
+.downloader-url-copy-btn {
+  color: var(--ink2);
+  border-radius: var(--r-control);
+  transition: color var(--dur-fast), background-color var(--dur-fast);
+}
+.downloader-url-btn:hover,
+.downloader-url-copy-btn:hover {
+  color: var(--ink);
+  background: var(--s2);
+}
+.downloader-url-btn:focus-visible,
+.downloader-url-copy-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+#downloaderAdblockBtn.active { color: var(--ink); }
 
 .srow-editor-slot {
   background: var(--s2);

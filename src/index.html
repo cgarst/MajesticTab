@@ -247,7 +247,9 @@
     <!-- Center: URL / Status Indicator -->
     <div class="downloader-nav-center" data-tauri-drag-region>
       <div class="downloader-url-group" id="downloaderUrlGroup" title="Current Web Address" data-tauri-drag-region>
-        <i class="bi-globe2"></i>
+        <button type="button" class="downloader-url-btn" id="downloaderAdblockBtn" title="Block ads and trackers" aria-label="Block ads and trackers">
+          <i class="bi-shield"></i>
+        </button>
         <span class="downloader-url-text text-truncate" id="downloaderUrlText">Loading...</span>
         <button type="button" class="downloader-url-copy-btn" id="downloaderCopyUrlBtn" title="Copy Web Address" aria-label="Copy web address">
           <i class="bi-clipboard"></i>
@@ -255,14 +257,10 @@
       </div>
     </div>
 
-    <!-- Right: DevTools, Configure Sources, Close -->
+    <!-- Right: DevTools, Close -->
     <div class="downloader-nav-right" data-tauri-drag-region>
       <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderDevToolsBtn" title="Webview DevTools" style="display:none;">
         <i class="bi-terminal"></i>
-      </button>
-
-      <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderAdblockBtn" title="Block ads and trackers" aria-label="Block ads and trackers">
-        <i class="bi-shield"></i>
       </button>
 
       <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="downloaderCloseBtn" title="Return to MajesticTab (Esc)">
