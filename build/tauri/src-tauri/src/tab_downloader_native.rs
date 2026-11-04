@@ -1165,12 +1165,45 @@ pub fn tab_downloader_prefill(
     let script = format!(
         r#"(function() {{
     function tryFill() {{
-        const input = document.querySelector('input[type="text"], input:not([type])');
+        const input = document.querySelector('input[type="url"], input[name="url"], input[type="text"], input[type="search"], input:not([type])');
         if (!input) return false;
-        if (input.value === {json_target}) return true;
-        input.value = {json_target};
+        const form = input.form || input.closest('form');
+        if (form && form.__majesticSubmitted) return true;
+
+        try {{
+            const proto = Object.getPrototypeOf(input);
+            const nativeSet = Object.getOwnPropertyDescriptor(proto, 'value')?.set || Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+            if (nativeSet) {{
+                nativeSet.call(input, {json_target});
+            }} else {{
+                input.value = {json_target};
+            }}
+        }} catch (_) {{
+            input.value = {json_target};
+        }}
         input.dispatchEvent(new Event('input', {{ bubbles: true }}));
         input.dispatchEvent(new Event('change', {{ bubbles: true }}));
+        try {{
+            const dt = new DataTransfer();
+            dt.setData('text/plain', {json_target});
+            dt.setData('text', {json_target});
+            input.dispatchEvent(new ClipboardEvent('paste', {{ bubbles: true, cancelable: true, clipboardData: dt }}));
+        }} catch (_) {{}}
+
+        if (form) {{
+            form.__majesticSubmitted = true;
+            setTimeout(() => {{
+                try {{
+                    form.requestSubmit();
+                }} catch (_) {{
+                    try {{
+                        const btn = form.querySelector('button[type="submit"], button:not([type="button"])');
+                        if (btn) btn.click();
+                        else form.submit();
+                    }} catch (__) {{}}
+                }}
+            }}, 50);
+        }}
         return true;
     }}
     if (!tryFill()) {{
@@ -1185,11 +1218,20 @@ pub fn tab_downloader_prefill(
 }})();"#,
         json_target = json_target
     );
-    if let Some(w) = app.get_webview(DOWNLOADER_LABEL) {
-        let _ = w.eval(&script);
-    } else if let Some(w) = app.get_webview_window(DOWNLOADER_LABEL) {
-        let _ = w.eval(&script);
-    }
+    let handle = app.clone();
+    let script_clone = script.clone();
+    std::thread::spawn(move || {
+        for delay in [0, 150, 400, 800, 1500, 2500, 4000] {
+            if delay > 0 {
+                std::thread::sleep(std::time::Duration::from_millis(delay));
+            }
+            if let Some(w) = handle.get_webview(DOWNLOADER_LABEL) {
+                let _ = w.eval(&script_clone);
+            } else if let Some(w) = handle.get_webview_window(DOWNLOADER_LABEL) {
+                let _ = w.eval(&script_clone);
+            }
+        }
+    });
     Ok(())
 }
 

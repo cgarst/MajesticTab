@@ -5,8 +5,8 @@
 const SONG_ID_PATTERN = /(?:-|\/)s(\d+)(?=\/|$)/i;
 
 /**
- * Extracts target URL if wrapped in a search engine or proxy redirect
- * (e.g. Google /url?q=..., DuckDuckGo /l/?uddg=..., or generic ?url=...)
+ * Extracts target URL if wrapped in a known search engine or proxy redirect endpoint
+ * (e.g. Google /url?q=..., DuckDuckGo /l/?uddg=..., or generic /url?url=...)
  * @param {string} rawUrl
  * @returns {string}
  */
@@ -14,11 +14,26 @@ export function unwrapRedirectUrl(rawUrl) {
     if (!rawUrl || typeof rawUrl !== 'string') return '';
     try {
         const u = new URL(rawUrl);
-        // Check standard redirect query parameters used by Google, DuckDuckGo, Yahoo, and proxies
-        for (const key of ['q', 'url', 'uddg', 'target', 'dest', 'u', 'r']) {
-            const val = u.searchParams.get(key);
-            if (val && /^https?:/i.test(val)) {
-                return val;
+        const host = u.hostname.toLowerCase();
+        const path = u.pathname.toLowerCase();
+
+        // 1. Google redirect wrapper: ONLY on /url endpoint
+        if (host.includes('google.') && (path === '/url' || path.startsWith('/url/'))) {
+            const val = u.searchParams.get('url') || u.searchParams.get('q');
+            if (val && /^https?:/i.test(val)) return val;
+        }
+
+        // 2. DuckDuckGo redirect wrapper: ONLY on /l/ endpoint with uddg
+        if (host.includes('duckduckgo.com') && (path === '/l' || path.startsWith('/l/'))) {
+            const val = u.searchParams.get('uddg');
+            if (val && /^https?:/i.test(val)) return val;
+        }
+
+        // 3. Generic redirect wrappers on explicit redirect endpoints
+        if (path.includes('url') || path.includes('redirect') || path.includes('goto') || path.includes('link') || path.includes('out')) {
+            for (const key of ['url', 'target', 'dest', 'u', 'r', 'uddg']) {
+                const val = u.searchParams.get(key);
+                if (val && /^https?:/i.test(val)) return val;
             }
         }
     } catch {}
@@ -30,13 +45,14 @@ export const unwrapGoogleUrl = unwrapRedirectUrl;
 
 /**
  * Checks if a URL matches the target score endpoint pattern (/a/wsa/*-s{id})
+ * Evaluates only the URL's actual pathname, never inspecting query strings.
  * @param {string} url
  * @returns {boolean}
  */
 export function isWsaTabUrl(url) {
     if (!url || typeof url !== 'string') return false;
     try {
-        const u = new URL(unwrapGoogleUrl(url));
+        const u = new URL(url);
         return u.pathname.startsWith('/a/wsa/') && SONG_ID_PATTERN.test(u.pathname);
     } catch {
         return false;

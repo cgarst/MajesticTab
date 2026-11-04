@@ -27,21 +27,17 @@ test('unwrapRedirectUrl unwraps redirects across search engines and proxies', ()
     assert.equal(unwrapGoogleUrl(googleQ), direct);
 });
 
-test('isWsaTabUrl detects endpoint pattern on any website or search engine', () => {
+test('isWsaTabUrl detects endpoint pattern on score URLs', () => {
     // Direct links on any website, forum, or blog
     assert.ok(isWsaTabUrl('https://www.example.com/a/wsa/artist-song-tab-s12345'));
     assert.ok(isWsaTabUrl('https://example.com/a/wsa/another-song-s999/r1'));
     assert.ok(isWsaTabUrl('https://tab-community.org/a/wsa/guitar-solo-s777'));
 
-    // Wrapped redirect links from Google, DuckDuckGo, Reddit, etc.
-    assert.ok(isWsaTabUrl('https://www.google.com/url?q=' + encodeURIComponent('https://example.com/a/wsa/song-s42')));
-    assert.ok(isWsaTabUrl('https://duckduckgo.com/l/?uddg=' + encodeURIComponent('https://example.com/a/wsa/song-s42')));
-    assert.ok(isWsaTabUrl('https://out.reddit.com/url?url=' + encodeURIComponent('https://example.com/a/wsa/song-s42')));
-
     // Negative cases
     assert.ok(!isWsaTabUrl('https://example.com/artists/artist-name'));
     assert.ok(!isWsaTabUrl('https://example.com/a/wsa/no-song-id-here'));
-    assert.ok(!isWsaTabUrl('https://google.com/search?q=tab'));
+    assert.ok(!isWsaTabUrl('https://example.com/search?q=' + encodeURIComponent('https://example.com/a/wsa/song-s42')));
+    assert.ok(!isWsaTabUrl('https://example.com/url?q=' + encodeURIComponent('https://example.com/a/wsa/song-s42')));
     assert.ok(!isWsaTabUrl('https://reddit.com/r/guitar'));
     assert.ok(!isWsaTabUrl(''));
     assert.ok(!isWsaTabUrl(null));

@@ -899,6 +899,11 @@ function applyDownloaderUrl(rawUrl) {
     if (urlGroup && url) {
         urlGroup.title = url;
     }
+    if (activeSourceId === 'downloader' && activeEphemeralSource?.targetUrl) {
+        if (window.__TAURI__?.core?.invoke) {
+            window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl: activeEphemeralSource.targetUrl }).catch(() => {});
+        }
+    }
 }
 
 // Android never delivers the shell's URL events to the app, so its bar reads the address from the webview.
