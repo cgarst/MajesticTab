@@ -5,9 +5,9 @@
 // Defaults) is what every song starts on.
 // The controls are the original ones from the Song panel (ids kept), moved here by this file.
 
-import { getScoreMaxStringsForMode, formatTuningFromMidi, getInstrumentMode, getDefaultGpStringCount, getTabStringCountPreference, setTabStringCountPreference } from './tuningUtils.js';
+import { getScoreMaxStringsForMode, formatTuningFromMidi, getInstrumentMode, getDefaultGpStringCount, getTabStringCountPreference, setTabStringCountPreference, getDefaultInstrumentMode, getTabInstrumentModePreference, setTabInstrumentModePreference } from './tuningUtils.js';
 import { getTabAdaptPref, getSongGuitar, setSongGuitar, hasTemporaryAdapt, findAdaptTuning } from './tabAdapter.js';
-import { getOverride } from './sessionOverrides.js';
+import { getOverride, setOverride } from './sessionOverrides.js';
 import { showToast } from './toast.js';
 
 import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
@@ -45,6 +45,8 @@ function savedStrings(file) {
 /** Short state for the button: "Drop D, capo 2" or "7 strings". Empty when the song is on your usual guitar. */
 function describeFit(file) {
     const parts = [];
+    const mode = getOverride(file, 'instrumentMode');
+    if (mode) parts.push(mode === 'bass' ? 'bass' : 'guitar');
     const adapt = getTabAdaptPref(file);
     if (hasTemporaryAdapt(file) || getSongGuitar(file) !== undefined) {
         if (adapt) {
@@ -63,11 +65,11 @@ function describeFit(file) {
 
 /** True when the song has a fit saved on purpose (tuning or strings). */
 function hasSavedFit(file) {
-    return getSongGuitar(file) !== undefined || Boolean(savedStrings(file));
+    return getSongGuitar(file) !== undefined || Boolean(savedStrings(file)) || Boolean(getTabInstrumentModePreference(file));
 }
 
 function hasTemporaryFit(file) {
-    return hasTemporaryAdapt(file) || Boolean(getOverride(file, 'strings'));
+    return hasTemporaryAdapt(file) || Boolean(getOverride(file, 'strings')) || Boolean(getOverride(file, 'instrumentMode'));
 }
 
 export function initGuitarMenu() {
@@ -95,12 +97,38 @@ export function initGuitarMenu() {
     adapt.querySelector('#adaptStateBadge')?.remove();
     adapt.querySelector('label[for="adaptCapoSelect"]')?.replaceChildren('Capo fret');
 
+    const modeSection = document.createElement('div');
+    modeSection.className = 'guitar-menu-mode-section';
+    modeSection.innerHTML = `
+      <label class="form-label mb-1">Instrument</label>
+      <div class="hud-pill-group w-100" role="group" aria-label="Instrument mode">
+        <input type="radio" class="btn-check" name="guitarMenuModeRadio" id="guitarMenuModeGuitar" value="guitar" autocomplete="off">
+        <label class="btn btn-sm" for="guitarMenuModeGuitar">Guitar</label>
+        <input type="radio" class="btn-check" name="guitarMenuModeRadio" id="guitarMenuModeBass" value="bass" autocomplete="off">
+        <label class="btn btn-sm" for="guitarMenuModeBass">Bass</label>
+      </div>
+    `;
+
+    modeSection.querySelectorAll('input[name="guitarMenuModeRadio"]').forEach((radio) => {
+        radio.addEventListener('change', async () => {
+            if (!radio.checked) return;
+            const file = window.gpState?.currentFile;
+            if (!file) return;
+            const newMode = radio.value;
+            const baseMode = getDefaultInstrumentMode();
+            setOverride(file, 'instrumentMode', newMode === baseMode ? undefined : newMode);
+            const { loadFile } = await import('../main.js');
+            await loadFile(file, { hideMenu: false, keepMode: true });
+            refresh();
+        });
+    });
+
     const foot = document.createElement('div');
     foot.className = 'guitar-menu-foot';
     foot.innerHTML = '<button type="button" class="btn btn-sm guitar-menu-action" id="guitarSongBtn">Save for this song</button>'
         + '<button type="button" class="btn btn-sm guitar-menu-action" id="guitarResetBtn">Reset</button>';
 
-    menu.replaceChildren(head, written, strings, adapt, foot);
+    menu.replaceChildren(head, written, modeSection, strings, adapt, foot);
 
     // ---- Open, close, placement ----
     const isOpen = () => isShown(menu);
@@ -131,6 +159,13 @@ export function initGuitarMenu() {
         btn.disabled = !available;
         if (!available) { close(); }
         $('guitarWrittenFor').textContent = describeWrittenFor(score);
+        const currentMode = getInstrumentMode();
+        const gRadio = $('guitarMenuModeGuitar');
+        const bRadio = $('guitarMenuModeBass');
+        if (gRadio && bRadio) {
+            gRadio.checked = currentMode !== 'bass';
+            bRadio.checked = currentMode === 'bass';
+        }
         const state = file ? describeFit(file) : '';
         const temporary = file ? hasTemporaryFit(file) : false;
         const saved = file ? hasSavedFit(file) : false;
@@ -151,6 +186,12 @@ export function initGuitarMenu() {
     $('guitarResetBtn').addEventListener('click', async () => {
         const { resetGuitarFit } = await import('../gpProcessor/gpHandler.js');
         resetGuitarFit();
+        const file = window.gpState?.currentFile;
+        if (file) {
+            setOverride(file, 'instrumentMode', undefined);
+            const { loadFile } = await import('../main.js');
+            await loadFile(file, { hideMenu: false, keepMode: true });
+        }
         refresh();
     });
 
@@ -164,13 +205,16 @@ export function initGuitarMenu() {
             if (adaptOverride !== undefined) setSongGuitar(file, adaptOverride);
             const stringsOverride = getOverride(file, 'strings');
             if (stringsOverride) setTabStringCountPreference(file, stringsOverride.value, stringsOverride.mode);
+            const modeOverride = getOverride(file, 'instrumentMode');
+            if (modeOverride !== undefined) setTabInstrumentModePreference(file, modeOverride);
             // The saved fit now matches what is showing, so the temporary layer can go
-            const { setOverride } = await import('./sessionOverrides.js');
             setOverride(file, 'adapt', undefined);
             setOverride(file, 'strings', undefined);
+            setOverride(file, 'instrumentMode', undefined);
             showToast('Saved for this song. It opens this way next time.', 'success');
         } else {
             handler.forgetSavedGuitar();
+            setTabInstrumentModePreference(file, null);
             showToast('Forgot the saved fit. This song opens on your usual guitar.', 'info');
         }
         refresh();

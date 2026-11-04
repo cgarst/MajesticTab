@@ -45,11 +45,43 @@ export const KNOWN_TUNINGS = [
 export const CUSTOM_TUNINGS_STORAGE_KEY = 'majestictab_custom_tuning_names';
 export const INSTRUMENT_MODE_STORAGE_KEY = 'majestictab_instrument_mode';
 
-export function getInstrumentMode() {
+export function getDefaultInstrumentMode() {
     try {
         if (typeof localStorage === 'undefined') return 'guitar';
         const mode = localStorage.getItem('instrumentMode') || localStorage.getItem(INSTRUMENT_MODE_STORAGE_KEY);
         return mode === 'bass' ? 'bass' : 'guitar';
+    } catch {
+        return 'guitar';
+    }
+}
+
+export function getTabInstrumentModePreference(file) {
+    if (!file) return null;
+    if (file.preferredInstrumentMode) return file.preferredInstrumentMode;
+    const key = `gp_tab_instrument_mode_${String(getTabStorageId(file)).toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
+    try { return localStorage.getItem(key); } catch { return null; }
+}
+
+export function setTabInstrumentModePreference(file, mode) {
+    if (!file) return;
+    file.preferredInstrumentMode = mode;
+    const key = `gp_tab_instrument_mode_${String(getTabStorageId(file)).toLowerCase().replace(/[^a-z0-9_-]/g, '_')}`;
+    try {
+        if (mode) localStorage.setItem(key, mode);
+        else localStorage.removeItem(key);
+    } catch {}
+}
+
+export function getInstrumentMode() {
+    try {
+        const file = typeof window !== 'undefined' ? window.gpState?.currentFile : null;
+        if (file) {
+            const override = getOverride(file, 'instrumentMode');
+            if (override === 'bass' || override === 'guitar') return override;
+            const saved = getTabInstrumentModePreference(file);
+            if (saved === 'bass' || saved === 'guitar') return saved;
+        }
+        return getDefaultInstrumentMode();
     } catch {
         return 'guitar';
     }
