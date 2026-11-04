@@ -794,6 +794,7 @@ body.practice-open #output { padding-right: 416px !important; }
   .panes { margin-top: 8px; }
   .panes[data-pane="list"] .pane.songs { display: none !important; }
   .panes[data-pane="songs"] .pane.list { display: none !important; }
+  .collection-root-view:has(.panes[data-pane="songs"]) .resume-card { display: none !important; }
 }
 .library-card[aria-current="true"], .artist-card[aria-current="true"] { background: var(--s2) !important; position: relative; }
 .library-card[aria-current="true"]::before, .artist-card[aria-current="true"]::before {
