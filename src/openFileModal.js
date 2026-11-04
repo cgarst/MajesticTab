@@ -48,14 +48,20 @@ export function renderOpenFileView(container, { onBack }) {
       ${providers.length ? `
       <h6 class="open-file-section-label">Or open from</h6>
       <div class="open-file-provider-list" id="openFileProvidersList">
-        ${providers.map(p => `
+        ${providers.map(p => {
+          const tint = String(p.icon).startsWith('icon-') ? '' : ` ${p.iconColorClass || ''}`;
+          return `
           <div class="open-file-provider-item" data-provider-id="${escapeHtml(p.id)}" role="button" tabindex="0">
+            <div class="open-file-provider-icon flex-shrink-0">
+              <i class="${escapeHtml(p.icon || 'bi-file-earmark')}${tint}"></i>
+            </div>
             <div class="open-file-provider-text">
               <span class="open-file-provider-name">${escapeHtml(p.name)}${p.badge ? ` <span class="open-file-provider-meta">\u00b7 ${escapeHtml(p.badge)}</span>` : ''}</span>
               <span class="open-file-provider-desc">${escapeHtml(p.description || 'Load tabs from this provider')}</span>
             </div>
           </div>
-        `).join('')}
+          `;
+        }).join('')}
       </div>` : ''}
       </div>
     </div>
