@@ -25,6 +25,10 @@ export async function releaseEmbeddedTools() {
     if (!embedded) return;
     const { id, el } = embedded;
     embedded = null;
+    if (id === 'openfile') {
+        el.remove();
+        return;
+    }
     try {
         if (REFERENCE_TOOLS.includes(id)) (await import('../referenceLibrary.js')).closeReferenceModal();
         else if (id === 'tuner') (await import('../tuner/tuner.js')).closeTunerModal();
@@ -38,6 +42,20 @@ export async function releaseEmbeddedTools() {
 
 async function openTool(id, pane) {
     await releaseEmbeddedTools();
+    if (id === 'openfile') {
+        const { renderOpenFileView } = await import('../openFileModal.js');
+        const el = document.createElement('div');
+        el.className = 'tool-embedded openfile-tool-embedded';
+        renderOpenFileView(el, {
+            onBack: () => {
+                const back = pane.closest('.setshell')?.querySelector('.setback');
+                back?.click();
+            }
+        });
+        pane.appendChild(el);
+        embedded = { id, el };
+        return;
+    }
     if (REFERENCE_TOOLS.includes(id)) (await import('../referenceLibrary.js')).openReferenceModal(id);
     else if (id === 'tuner') $('tunerToggleBtn')?.click();
     else if (id === 'metronome') $('metronomeToggleBtn')?.click();

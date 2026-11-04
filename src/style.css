@@ -4993,13 +4993,6 @@ body.library-view-active #brandSection .brand-title {
   cursor: pointer;
 }
 
-/* Custom Document Card */
-.custom-doc-card {
-  background: var(--bg-card-solid);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.85rem;
-}
-
 /* --------------------------------------------------------------------------
    Game Controller Guide & Overlay Styles
    -------------------------------------------------------------------------- */

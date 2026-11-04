@@ -54,11 +54,8 @@ const PRIMARY_CONTENT_SELECTOR = [
     '.open-file-dropzone',
     '.open-file-provider-item',
     '.theme-card',
-    '#emptyStateAddBtn',
     '#newSetlistBtn',
-    '#recentsEmptyOpenBtn',
-    '#mbSearchInput',
-    '#customDocTitle'
+    '#recentsEmptyOpenBtn'
 ].join(', ');
 
 import { isSteamDeck, setIsSteamDeck, applyPlatformDefaults } from './platformUtils.js';
@@ -961,7 +958,7 @@ class GamepadManager {
         if (isLibOpen) {
             // Focus library search input in the active library view
             const libPage = document.getElementById('libraryPage') || document;
-            const searchInputs = Array.from(libPage.querySelectorAll('#libFilterInput, #mbSearchInput, #recentsFilterInput, #setlistsFilterInput, #setlistSongSearch, .search-input:not([disabled])'));
+            const searchInputs = Array.from(libPage.querySelectorAll('#libFilterInput, #recentsFilterInput, #setlistsFilterInput, #setlistSongSearch, .search-input:not([disabled])'));
             const searchInput = searchInputs.find(el => this.isElementVisible(el));
             if (searchInput) {
                 this.setNavFocus(searchInput);

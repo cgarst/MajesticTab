@@ -10,7 +10,7 @@ import {
     getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
 } from './libraryStore.js';
 import {
-    searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
+    searchMusicBrainz, getArtistAlbums, getAlbumTracks,
     getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium,
     filterInstrumentalBonusDiscs, hydrateCachedImages, getSynchronousCachedArtUrl,
     cleanTrackTitleForMatching
@@ -54,7 +54,7 @@ export function songHasTabs(song) {
 }
 
 window.addEventListener('library:refresh', () => {
-    if (isLibraryOpen() && activeView !== 'search') {
+    if (isLibraryOpen()) {
         renderLibraryModal();
     }
 });
@@ -93,7 +93,7 @@ document.addEventListener('shown.bs.dropdown', (e) => {
 import { closeToolsMenu } from './utils/toolsMenu.js';
 import { renderToolsPage, releaseEmbeddedTools } from './utils/toolsPage.js';
 
-let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists', 'tools'
+let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let activeLibraryPane = 'list'; // 'list' | 'songs'
@@ -104,21 +104,13 @@ let selectedAlbum = null;
 // Library search text, kept across the re-renders that picking an artist triggers
 let libraryFilterQuery = '';
 let selectedAlbumFilter = 'all';
-// File dropped on a custom folder, consumed by the Add Custom Music form: { file, folderPath }
-let pendingCustomDrop = null;
 let selectedFolderPath = []; // Array of folder path segments e.g. ['Exercises', 'Technique']
 let selectedTuning = null;
 let tuningsArtistFilter = ''; // artist name limiting the Tunings view, '' for all
 let isAlbumEditMode = false;
 let isRecentsEditMode = false;
-let searchType = 'artist'; // 'artist' (default), 'song', 'album', 'musician', 'custom'
-let currentSearchQuery = '';
-let currentSearchResults = [];
-let searchSubView = null; // null | { type: 'albums', artistMbid, artistName } | { type: 'bands', musicianMbid, musicianName } | { type: 'tracks', releaseGroupMbid, parentView }
+let searchSubView = null; // null | { type: 'tracks', releaseGroupMbid, fromView: 'library' }
 let viewHistory = [];
-let searchHistory = [];
-let isSearching = false;
-let searchDebounceTimer = null;
 
 function formatTrackDuration(duration) {
     if (!duration || duration <= 0) return '';
@@ -133,14 +125,14 @@ function formatTrackDuration(duration) {
 }
 
 let topBarInitialized = false;
+let currentArtistAlbumsViewHandler = null;
 
 function initLibraryTopBar() {
     if (topBarInitialized) return;
     topBarInitialized = true;
 
     window.addEventListener('libraryDataChanged', () => {
-        // The add-music view updates its own buttons; a full re-render would reset it to the start
-        if (isLibraryOpen() && activeView !== 'search') {
+        if (isLibraryOpen()) {
             renderLibraryModal();
         }
     });
@@ -148,7 +140,6 @@ function initLibraryTopBar() {
 
 let currentExploreTracklistToken = 0;
 let currentExploreArtistToken = 0;
-let currentExploreMusicianToken = 0;
 
 /**
  * Check if the library page can go back to a parent view
@@ -178,11 +169,7 @@ export function captureCurrentLibraryState() {
         selectedFolderPath: [...selectedFolderPath],
         selectedTuning,
         isAlbumEditMode,
-        searchSubView: searchSubView ? { ...searchSubView } : null,
-        searchType,
-        currentSearchQuery,
-        currentSearchResults: [...currentSearchResults],
-        searchHistory: [...searchHistory]
+        searchSubView: searchSubView ? { ...searchSubView } : null
     };
 }
 
@@ -198,7 +185,6 @@ export function canGoBack() {
         if (selectedFolderPath.length > 0) return true;
         if (selectedArtist || selectedAlbum) return true;
     }
-    if (activeView === 'search' && (searchSubView || searchHistory.length > 0)) return true;
     return viewHistory.length > 0;
 }
 
@@ -218,10 +204,6 @@ export async function restoreLibraryState(state) {
     selectedTuning = state.selectedTuning || null;
     isAlbumEditMode = false;
     searchSubView = state.searchSubView || null;
-    searchType = state.searchType || 'artist';
-    currentSearchQuery = state.currentSearchQuery || '';
-    currentSearchResults = state.currentSearchResults ? [...state.currentSearchResults] : [];
-    searchHistory = state.searchHistory ? [...state.searchHistory] : [];
     await renderLibraryModal();
 }
 
@@ -245,6 +227,23 @@ export async function handleBack() {
     restoreLibraryScroll = true;
 
     const executeBack = async () => {
+        if (searchSubView && searchSubView.type === 'artist-albums') {
+            searchSubView = null;
+            const filterInput = document.querySelector('#libFilterInput');
+            if (filterInput) filterInput.dispatchEvent(new Event('input'));
+            else await renderLibraryModal();
+            return true;
+        }
+        if (searchSubView && searchSubView.type === 'tracks' && searchSubView.parentArtistMbid) {
+            const pMbid = searchSubView.parentArtistMbid;
+            const pName = searchSubView.parentArtistName;
+            searchSubView = null;
+            const filterResults = document.querySelector('#libFilteredSearchResults');
+            if (filterResults) {
+                await viewArtistCatalogAlbums(pMbid, pName, filterResults, libraryFilterQuery);
+                return true;
+            }
+        }
         if (searchSubView && searchSubView.fromView === 'library') {
             searchSubView = null;
             if (viewHistory.length > 0) {
@@ -329,57 +328,6 @@ export async function handleBack() {
             if (libraryBrowseMode === 'tunings') {
                 libraryBrowseMode = 'artists';
                 await renderView();
-                return true;
-            }
-        } else if (activeView === 'search') {
-            const searchHeader = document.querySelector('.search-sticky-header');
-            let resContainer = document.getElementById('mbSearchResultsContainer');
-            if (!searchHeader || !resContainer) {
-                renderSearchMusicBrainzView(content);
-                resContainer = document.getElementById('mbSearchResultsContainer') || content;
-            }
-
-            if (searchHistory.length > 0) {
-                const prevSearch = searchHistory.pop();
-                if (prevSearch.type === 'results') {
-                    searchSubView = null;
-                    const header = document.querySelector('.search-sticky-header');
-                    if (header) header.style.display = '';
-                    renderSearchResults(currentSearchResults, searchType, resContainer);
-                } else if (prevSearch.type === 'albums') {
-                    searchSubView = prevSearch;
-                    const header = document.querySelector('.search-sticky-header');
-                    if (header) header.style.display = 'none';
-                    await exploreArtistAlbums(prevSearch.artistMbid, prevSearch.artistName, resContainer, false);
-                } else if (prevSearch.type === 'bands') {
-                    searchSubView = prevSearch;
-                    const header = document.querySelector('.search-sticky-header');
-                    if (header) header.style.display = 'none';
-                    await exploreMusicianBands(prevSearch.musicianMbid, prevSearch.musicianName, resContainer, false);
-                }
-                return true;
-            }
-            if (searchSubView) {
-                searchSubView = null;
-                const header = document.querySelector('.search-sticky-header');
-                if (header) header.style.display = '';
-                renderSearchResults(currentSearchResults, searchType, resContainer);
-                return true;
-            }
-            if (viewHistory.length > 0) {
-                const prev = viewHistory.pop();
-                activeView = prev.view || 'library';
-                selectedArtist = prev.selectedArtist || null;
-                pinnedGroupSelected = prev.selectedArtist ? false : null;
-                selectedAlbum = prev.selectedAlbum || null;
-                selectedAlbumFilter = prev.selectedAlbumFilter || 'all';
-                selectedFolderPath = prev.selectedFolderPath || [];
-                selectedTuning = prev.selectedTuning || null;
-                searchSubView = prev.searchSubView || null;
-                await renderLibraryModal();
-                return true;
-            } else {
-                await switchView('library', false);
                 return true;
             }
         } else if (activeView === 'recents' || activeView === 'openFile' || activeView === 'setlists' || activeView === 'tools') {
@@ -642,29 +590,31 @@ export async function handleGetTabSingleSong(songItem) {
     const artist = songItem.artist || '';
 
     // Check if song already exists in library
-    const hierarchy = await getLibraryHierarchy(activeCollectionId);
-    let targetSong = null;
-    for (const art of hierarchy.artists || []) {
-        if (cleanTrackTitleForMatching(art.name) === cleanTrackTitleForMatching(artist)) {
-            for (const s of art.songs || []) {
-                if (cleanTrackTitleForMatching(s.title) === cleanTrackTitleForMatching(title)) {
-                    targetSong = s;
-                    break;
-                }
-            }
-            if (!targetSong) {
-                for (const alb of art.albums || []) {
-                    for (const s of alb.songs || []) {
-                        if (cleanTrackTitleForMatching(s.title) === cleanTrackTitleForMatching(title)) {
-                            targetSong = s;
-                            break;
-                        }
+    let targetSong = songItem.id ? await getSongById(songItem.id) : null;
+    if (!targetSong) {
+        const hierarchy = await getLibraryHierarchy(activeCollectionId);
+        for (const art of hierarchy.artists || []) {
+            if (cleanTrackTitleForMatching(art.name) === cleanTrackTitleForMatching(artist)) {
+                for (const s of art.songs || []) {
+                    if (cleanTrackTitleForMatching(s.title) === cleanTrackTitleForMatching(title)) {
+                        targetSong = s;
+                        break;
                     }
-                    if (targetSong) break;
+                }
+                if (!targetSong) {
+                    for (const alb of art.albums || []) {
+                        for (const s of alb.songs || []) {
+                            if (cleanTrackTitleForMatching(s.title) === cleanTrackTitleForMatching(title)) {
+                                targetSong = s;
+                                break;
+                            }
+                        }
+                        if (targetSong) break;
+                    }
                 }
             }
+            if (targetSong) break;
         }
-        if (targetSong) break;
     }
 
     if (!targetSong) {
@@ -928,8 +878,6 @@ async function renderViewContent(content) {
     if (activeView !== 'tools') releaseEmbeddedTools();
     if (activeView === 'library') {
         await renderLibraryBrowseView(content);
-    } else if (activeView === 'search') {
-        renderSearchMusicBrainzView(content);
     } else if (activeView === 'recents') {
         // Recents is a group in the library list now; the old route opens it there
         activeView = 'library';
@@ -1070,9 +1018,8 @@ async function renderLibraryBrowseView(container) {
     let breadcrumbHtml = '';
     let bodyHtml = '';
     let toolbarHtml = '';
-    const openFileBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action" id="libOpenFileBtn" title="Open a tab file from this device, Google Drive or the web">Open file</button>`;
     const syncBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action" id="libSyncBtn" title="Sync your library with your backup location">Sync</button>`;
-    const toolbarActionsHtml = `<div class="library-toolbar-actions d-flex align-items-center gap-2">${openFileBtnHtml}${syncBtnHtml}</div>`;
+    const toolbarActionsHtml = `<div class="library-toolbar-actions d-flex align-items-center gap-2">${syncBtnHtml}</div>`;
 
     // ==========================================
     // A. TUNINGS BROWSE MODE
@@ -1760,7 +1707,7 @@ async function renderLibraryBrowseView(container) {
         });
     });
 
-    // Drop a file on the custom music space (the whole library pane, or the Custom Music card) to open Add Custom Music with it attached
+    // Drop a file on the custom music space (the whole library pane, or the Custom Music card) to add it directly
     const getCustomDropTarget = (e) => {
         if (activeView !== 'library') return null;
         if (selectedArtist?.isCustom) return { folderPath: selectedFolderPath.join('/') };
@@ -1784,9 +1731,43 @@ async function renderLibraryBrowseView(container) {
             showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
             return;
         }
-        pendingCustomDrop = { file, folderPath: target.folderPath };
-        searchType = 'custom';
-        await switchView('search');
+        try {
+            const meta = await detectFileMetadata(file, file.name);
+            const stored = await saveStoredFile(file, 'local');
+            const songTitle = file.name.replace(/\.[^/.]+$/, '').trim();
+            const tabOption = {
+                id: `tab_local_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                name: file.name,
+                source: 'local',
+                providerId: 'local',
+                fileStoreId: stored.id,
+                fileSize: file.size,
+                tunings: meta.tuning ? [meta.tuning] : [],
+                stringCount: meta.stringCount || null,
+                addedAt: Date.now()
+            };
+            const song = {
+                id: `song_custom_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+                collectionId: activeCollectionId,
+                title: songTitle,
+                artist: 'Custom Music',
+                album: target.folderPath,
+                folderPath: target.folderPath,
+                isCustom: true,
+                tunings: meta.tuning ? [meta.tuning] : [],
+                stringCount: meta.stringCount || null,
+                tabOptions: [tabOption],
+                defaultTabId: tabOption.id,
+                addedAt: Date.now()
+            };
+            await saveSongToLibrary(song, activeCollectionId);
+            showToast(`Added "${songTitle}" to Custom Music${target.folderPath ? ' / ' + target.folderPath : ''}`, 'success');
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+            renderLibraryBrowseView(container);
+        } catch (err) {
+            console.warn('Could not attach dropped file:', err);
+            showToast('Error attaching dropped file', 'error');
+        }
     };
 
     // Breadcrumb clicks
@@ -2320,13 +2301,7 @@ function bindLibraryToolbarEvents(container) {
         renderLibraryBrowseView(container);
     });
 
-    container.querySelector('#libOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
     container.querySelector('#libSyncBtn')?.addEventListener('click', () => import('./syncUi.js').then(m => m.openSyncModal()));
-
-    container.querySelector('#libAddMusicBtn')?.addEventListener('click', () => {
-        searchType = 'artist';
-        switchView('search');
-    });
 }
 
 // "5 songs", "1 album": count plus its unit, lowercase, plural unless exactly 1
@@ -2454,12 +2429,160 @@ function setupLibraryFilter(container, context = {}) {
         return;
     }
 
-    const renderCatalogTier = (catalogSongs, catalogAlbums, rawQuery) => {
+    const viewArtistCatalogAlbums = async (artistMbid, artistName, targetContainer, originalQuery) => {
+        searchSubView = { type: 'artist-albums', artistMbid, artistName, originalQuery, fromView: 'library' };
+        const thisFetchToken = ++currentExploreArtistToken;
+
+        targetContainer.innerHTML = `
+        <div class="search-artist-albums-view">
+          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
+            <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchCatalogBtn">
+              <i class="bi-arrow-left"></i> <span>Back to Search</span>
+            </button>
+            <div class="d-flex align-items-center gap-2 min-w-0">
+              <span class="fw-semibold text-white text-truncate">${escapeHtml(artistName)}</span>
+              <span class="text-muted small">· Studio Albums</span>
+            </div>
+          </div>
+          <div class="text-center py-5 text-muted">
+            <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
+            <div>Loading studio albums for ${escapeHtml(artistName)}…</div>
+          </div>
+        </div>
+        `;
+
+        targetContainer.querySelector('#backToSearchCatalogBtn')?.addEventListener('click', () => {
+            searchSubView = null;
+            runLocalFilter();
+        });
+
+        try {
+            const albums = await getArtistAlbums(artistMbid);
+            if (thisFetchToken !== currentExploreArtistToken) return;
+
+            if (!albums || albums.length === 0) {
+                targetContainer.innerHTML = `
+                <div class="search-artist-albums-view">
+                  <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
+                    <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchCatalogBtn">
+                      <i class="bi-arrow-left"></i> <span>Back to Search</span>
+                    </button>
+                  </div>
+                  <div class="text-center py-4 text-muted">No studio albums found for ${escapeHtml(artistName)}.</div>
+                </div>`;
+                targetContainer.querySelector('#backToSearchCatalogBtn')?.addEventListener('click', () => {
+                    searchSubView = null;
+                    runLocalFilter();
+                });
+                return;
+            }
+
+            const songs = await getSongsByCollection(activeCollectionId);
+            const existingAlbumKeys = new Set(songs.map(s => {
+                if (s.albumMbid) return `mbid:${s.albumMbid}`;
+                return `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`;
+            }));
+            const artistLower = artistName.toLowerCase().trim();
+
+            let html = `
+            <div class="search-artist-albums-view">
+              <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
+                <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchCatalogBtn">
+                  <i class="bi-arrow-left"></i> <span>Back to Search</span>
+                </button>
+                <div class="d-flex align-items-center gap-2 min-w-0">
+                  <span class="fw-semibold text-white text-truncate">${escapeHtml(artistName)}</span>
+                  <span class="text-muted small">· ${albums.length} ${albums.length === 1 ? 'album' : 'albums'} in release order</span>
+                </div>
+              </div>
+              <div class="search-stream-list">
+            `;
+
+            for (const alb of albums) {
+                const isInLib = existingAlbumKeys.has(`mbid:${alb.id}`) || existingAlbumKeys.has(`${artistLower}:::${(alb.title || '').toLowerCase().trim()}`);
+                const cover = alb.coverUrl || getPlaceholderCoverSvg(alb.title);
+                html += `
+                <div class="search-stream-row is-navigable" data-type="artist-album-row" data-album-id="${alb.id}" tabindex="0">
+                  <img loading="lazy" decoding="async" src="${cover}" class="shelf-cover flex-shrink-0" style="width: 44px; height: 44px; border-radius: var(--r); object-fit: cover; background: var(--s3);" alt="" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(alb.title)}'">
+                  <div class="search-row-meta min-w-0 flex-grow-1">
+                    <div class="search-row-title text-truncate">${escapeHtml(alb.title)}</div>
+                    <div class="search-row-sub text-truncate">${alb.year ? `${alb.year} · ` : ''}${escapeHtml(alb.primaryType || 'Album')}${isInLib ? ' · <span class="text-info">In Library</span>' : ''}</div>
+                  </div>
+                  <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+                    <button type="button" class="btn btn-sm btn-theme-outline view-album-tracks-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" title="View tracks">
+                      Tracks
+                    </button>
+                    <button type="button" class="btn btn-sm btn-theme-primary catalog-album-batch-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(artistName)}" data-year="${alb.year || ''}">
+                      Add Album &amp; Find Tabs
+                    </button>
+                  </div>
+                </div>
+                `;
+            }
+
+            html += `
+              </div>
+            </div>
+            `;
+
+            targetContainer.innerHTML = html;
+
+            targetContainer.querySelector('#backToSearchCatalogBtn')?.addEventListener('click', () => {
+                searchSubView = null;
+                runLocalFilter();
+            });
+
+            targetContainer.querySelectorAll('.catalog-album-batch-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    handleAddAlbumBatch({
+                        id: btn.dataset.albumId,
+                        title: btn.dataset.albumTitle,
+                        artist: btn.dataset.artistName,
+                        year: btn.dataset.year
+                    }, btn);
+                });
+            });
+
+            targetContainer.querySelectorAll('.view-album-tracks-btn').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    await exploreAlbumTracklist(btn.dataset.albumId, targetContainer, { mbid: artistMbid, name: artistName });
+                });
+            });
+
+            targetContainer.querySelectorAll('.search-stream-row[data-type="artist-album-row"]').forEach(row => {
+                row.addEventListener('click', (e) => {
+                    if (e.target.closest('button, a')) return;
+                    const albId = row.dataset.albumId;
+                    if (albId) exploreAlbumTracklist(albId, targetContainer, { mbid: artistMbid, name: artistName });
+                });
+            });
+        } catch (err) {
+            if (thisFetchToken !== currentExploreArtistToken) return;
+            targetContainer.innerHTML = `
+            <div class="search-artist-albums-view">
+              <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
+                <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchCatalogBtn">
+                  <i class="bi-arrow-left"></i> <span>Back to Search</span>
+                </button>
+              </div>
+              <div class="text-danger py-4 text-center">Failed to load studio albums: ${escapeHtml(err.message)}</div>
+            </div>`;
+            targetContainer.querySelector('#backToSearchCatalogBtn')?.addEventListener('click', () => {
+                searchSubView = null;
+                runLocalFilter();
+            });
+        }
+    };
+    currentArtistAlbumsViewHandler = viewArtistCatalogAlbums;
+
+    const renderCatalogTier = (catalogSongs, catalogAlbums, catalogArtists, rawQuery) => {
         const catalogContainer = filterResults.querySelector('#libSearchCatalogResults');
         const statusSlot = filterResults.querySelector('#libSearchCatalogStatus');
         if (!catalogContainer) return;
 
-        if (catalogSongs.length === 0 && catalogAlbums.length === 0) {
+        if (catalogArtists.length === 0 && catalogSongs.length === 0 && catalogAlbums.length === 0) {
             if (statusSlot) {
                 statusSlot.innerHTML = `<span class="text-muted">No music catalog matches found for "${escapeHtml(rawQuery)}"</span>`;
                 statusSlot.style.display = 'flex';
@@ -2478,6 +2601,20 @@ function setupLibraryFilter(container, context = {}) {
           <div class="search-stream-section-title">FROM MUSIC CATALOG &amp; WEB</div>
           <div class="search-stream-list">
         `;
+
+        // Render catalog artists (Bands)
+        for (const art of catalogArtists.slice(0, 3)) {
+            html += `
+            <div class="search-stream-row is-navigable" data-type="catalog-artist" data-artist-id="${art.id}" data-artist-name="${escapeHtml(art.name)}" tabindex="0">
+              <i class="bi-people-fill text-info fs-5 flex-shrink-0"></i>
+              <div class="search-row-meta min-w-0 flex-grow-1">
+                <div class="search-row-title text-truncate">${escapeHtml(art.name)} <span class="text-muted fw-normal" style="font-size: 13px;">(${escapeHtml(art.type || 'Artist')})</span></div>
+                <div class="search-row-sub text-truncate">${escapeHtml([art.disambiguation, art.country, art.lifeSpan].filter(Boolean).join(' · ') || 'Artist')}</div>
+              </div>
+              <button type="button" class="btn btn-sm btn-theme-outline catalog-artist-albums-btn flex-shrink-0 ms-2" data-artist-id="${art.id}" data-artist-name="${escapeHtml(art.name)}">View Albums</button>
+            </div>
+            `;
+        }
 
         // Render catalog albums
         for (const alb of catalogAlbums.slice(0, 5)) {
@@ -2520,6 +2657,20 @@ function setupLibraryFilter(container, context = {}) {
         });
 
         // Wire catalog action buttons
+        catalogContainer.querySelectorAll('.catalog-artist-albums-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                viewArtistCatalogAlbums(btn.dataset.artistId, btn.dataset.artistName, filterResults, rawQuery);
+            });
+        });
+
+        catalogContainer.querySelectorAll('.search-stream-row[data-type="catalog-artist"]').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('button, a')) return;
+                row.querySelector('.catalog-artist-albums-btn')?.click();
+            });
+        });
+
         catalogContainer.querySelectorAll('.catalog-album-batch-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -2575,22 +2726,38 @@ function setupLibraryFilter(container, context = {}) {
         const signal = searchAbortController.signal;
 
         try {
-            const [songsRes, albumsRes] = await Promise.allSettled([
+            const [songsRes, albumsRes, artistsRes] = await Promise.allSettled([
                 searchMusicBrainz(rawQuery, 'song', { signal }),
-                searchMusicBrainz(rawQuery, 'album', { signal })
+                searchMusicBrainz(rawQuery, 'album', { signal }),
+                searchMusicBrainz(rawQuery, 'artist', { signal })
             ]);
 
             if (signal.aborted) return;
 
             const remoteSongs = songsRes.status === 'fulfilled' && Array.isArray(songsRes.value) ? songsRes.value : [];
             const remoteAlbums = albumsRes.status === 'fulfilled' && Array.isArray(albumsRes.value) ? albumsRes.value : [];
+            const remoteArtists = artistsRes.status === 'fulfilled' && Array.isArray(artistsRes.value) ? artistsRes.value : [];
+
+            // Sort artists: exact match first, then prefix match, then score
+            const qLower = rawQuery.toLowerCase().trim();
+            const catalogArtists = remoteArtists.sort((a, b) => {
+                const aName = (a.name || '').toLowerCase().trim();
+                const bName = (b.name || '').toLowerCase().trim();
+                const aExact = aName === qLower;
+                const bExact = bName === qLower;
+                if (aExact !== bExact) return aExact ? -1 : 1;
+                const aStarts = aName.startsWith(qLower);
+                const bStarts = bName.startsWith(qLower);
+                if (aStarts !== bStarts) return aStarts ? -1 : 1;
+                return (b.score || 0) - (a.score || 0);
+            });
 
             // Deduplicate against user's owned songs
             const cleanOwnedKeys = new Set(allOwnedSongs.map(s => `${cleanTrackTitleForMatching(s.artist)}___${cleanTrackTitleForMatching(s.title)}`));
             const catalogSongs = remoteSongs.filter(s => !cleanOwnedKeys.has(`${cleanTrackTitleForMatching(s.artist)}___${cleanTrackTitleForMatching(s.title)}`));
             const catalogAlbums = remoteAlbums; // Eponymous albums remain present
 
-            renderCatalogTier(catalogSongs, catalogAlbums, rawQuery);
+            renderCatalogTier(catalogSongs, catalogAlbums, catalogArtists, rawQuery);
         } catch (err) {
             if (err.name === 'AbortError') return;
             console.warn('[Master Search] Catalog query error:', err);
@@ -2666,19 +2833,28 @@ function setupLibraryFilter(container, context = {}) {
           ${matchingSongs.length > 0 ? `
             <div class="search-stream-list" id="libLocalSearchResultsList">
               ${matchingSongs.slice(0, 10).map(s => {
+                const hasTabs = songHasTabs(s);
                 const tuningDisplay = s.tabOptions?.[0]?.tuning || s.tuning || '';
                 return `
                 <div class="search-stream-row is-navigable" data-type="local-song" data-song-id="${s.id}" tabindex="0">
+                  ${hasTabs ? `
                   <button type="button" class="btn btn-sm btn-theme-icon play-default-tab-btn flex-shrink-0" data-song-id="${s.id}" title="Play ${escapeHtml(s.title)}">
                     <i class="bi-play-fill fs-5"></i>
                   </button>
+                  ` : `
+                  <i class="bi-music-note text-muted flex-shrink-0 fs-5 px-1" aria-hidden="true"></i>
+                  `}
                   <div class="search-row-meta min-w-0 flex-grow-1">
                     <div class="search-row-title text-truncate">${escapeHtml(s.title)}</div>
                     <div class="search-row-sub text-truncate">
                       ${escapeHtml(s.artist || '')}${s.album ? ` · ${escapeHtml(s.album)}` : ''}${tuningDisplay ? ` · ${escapeHtml(tuningDisplay)}` : ''}
                     </div>
                   </div>
+                  ${hasTabs ? `
                   <button type="button" class="btn btn-sm btn-theme-outline play-default-tab-btn flex-shrink-0 ms-2" data-song-id="${s.id}">Play</button>
+                  ` : `
+                  <button type="button" class="btn btn-sm btn-theme-primary local-song-find-tab-btn flex-shrink-0 ms-2" data-song-id="${s.id}" data-title="${escapeHtml(s.title)}" data-artist="${escapeHtml(s.artist || '')}" data-album="${escapeHtml(s.album || '')}">Find Tab</button>
+                  `}
                 </div>
                 `;
               }).join('')}
@@ -2710,6 +2886,30 @@ function setupLibraryFilter(container, context = {}) {
 
         // Wire song row play actions
         setupSongRowActions(filterResults);
+
+        // Wire local song find tab buttons
+        filterResults.querySelectorAll('.local-song-find-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleGetTabSingleSong({
+                    id: btn.dataset.songId,
+                    title: btn.dataset.title,
+                    artist: btn.dataset.artist,
+                    album: btn.dataset.album
+                });
+            });
+        });
+
+        // Wire local song row click
+        filterResults.querySelectorAll('.search-stream-row[data-type="local-song"]').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.closest('button, a, input')) return;
+                const playBtn = row.querySelector('.play-default-tab-btn');
+                const findBtn = row.querySelector('.local-song-find-tab-btn');
+                if (playBtn) playBtn.click();
+                else if (findBtn) findBtn.click();
+            });
+        });
 
         // Wire fallbacks
         filterResults.querySelectorAll('.search-fallback-row').forEach(row => {
@@ -2766,12 +2966,12 @@ function setupLibraryFilter(container, context = {}) {
             e.preventDefault();
             if (activeNavIndex >= 0 && activeNavIndex < rows.length) {
                 const selectedRow = rows[activeNavIndex];
-                const primaryBtn = selectedRow.querySelector('.catalog-song-get-tab-btn, .catalog-album-batch-btn, .play-default-tab-btn');
+                const primaryBtn = selectedRow.querySelector('.catalog-song-get-tab-btn, .catalog-album-batch-btn, .catalog-artist-albums-btn, .local-song-find-tab-btn, .play-default-tab-btn');
                 if (primaryBtn) primaryBtn.click();
                 else selectedRow.click();
             } else {
-                // If local matches exist, play top local song
-                const topLocalBtn = filterResults.querySelector('#libLocalSearchResultsList .play-default-tab-btn');
+                // If local matches exist, trigger top local song action
+                const topLocalBtn = filterResults.querySelector('#libLocalSearchResultsList .play-default-tab-btn, #libLocalSearchResultsList .local-song-find-tab-btn');
                 if (topLocalBtn) {
                     topLocalBtn.click();
                 }
@@ -3849,928 +4049,19 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
     return false;
 }
 
-// -----------------------------------------------------------------------------
-// 2. SEARCH & ADD TO LIBRARY VIEW (Supports Song, Album, Artist, Musician, Custom Music)
-// -----------------------------------------------------------------------------
-function renderSearchMusicBrainzView(container) {
-    container.innerHTML = `
-    <div class="library-page-container search-mb-view">
-      <div class="search-sticky-header search-view-header">
-      <div class="lib-view-switch-row">${libraryViewSwitchHtml()}</div>
-      <button type="button" class="btn btn-sm open-file-back" id="searchBackBtn"><i class="bi-chevron-left" aria-hidden="true"></i> Library</button>
-      ${libraryPageTitleHtml({
-        icon: 'bi-plus-circle',
-        title: 'Add music',
-        subtitle: 'Find an artist, song or album, or create your own folders.'
-      })}
-      <div class="hud-pill-group library-type-pills" role="group" id="searchTypePill">
-        <button type="button" class="btn btn-sm ${searchType === 'artist' ? 'active' : ''}" data-type="artist">Artist</button>
-        <button type="button" class="btn btn-sm ${searchType === 'song' ? 'active' : ''}" data-type="song">Song</button>
-        <button type="button" class="btn btn-sm ${searchType === 'album' ? 'active' : ''}" data-type="album">Album</button>
-        <button type="button" class="btn btn-sm ${searchType === 'musician' ? 'active' : ''}" data-type="musician">Musician</button>
-        <button type="button" class="btn btn-sm ${searchType === 'custom' ? 'active' : ''}" data-type="custom" title="Add custom music, exercises, and custom folder structure">
-          Custom Music
-        </button>
-      </div>
-
-      ${searchType === 'custom' ? '' : `
-        <form id="mbSearchForm" class="library-search-box library-search-form mb-3">
-          <div class="library-search-bar">
-            <i class="bi-search search-icon"></i>
-            <input type="text" class="search-input" id="mbSearchInput" placeholder="Search ${searchType} to add music..." value="${escapeHtml(currentSearchQuery)}" autocomplete="off" spellcheck="false" aria-label="Search ${searchType}" autofocus>
-          </div>
-          <button type="submit" class="btn btn-theme-primary btn-sm px-3 flex-shrink-0" id="mbSearchSubmitBtn">Search</button>
-        </form>
-      `}
-      </div>
-
-      <!-- Search Results / Custom Form Area -->
-      <div id="mbSearchResultsContainer" class="search-results-container">
-        ${searchType === 'custom' ? renderCustomDocFormHtml() : `
-          <p class="library-empty py-4 text-muted mb-0">Type a name to find music to add to your library.</p>
-        `}
-      </div>
-    </div>
-    `;
-
-
-    // Back button to return to library
-    container.querySelector('#searchBackBtn')?.addEventListener('click', () => {
-        switchView('library');
-    });
-
-    // Type pills
-    container.querySelectorAll('#searchTypePill button').forEach(btn => {
-        btn.addEventListener('click', () => {
-            if (searchType !== btn.dataset.type) {
-                searchType = btn.dataset.type;
-                currentSearchResults = [];
-                searchSubView = null;
-                searchHistory = [];
-                renderSearchMusicBrainzView(container);
-            }
-        });
-    });
-
-    if (searchType === 'custom') {
-        setupCustomDocForm(container);
-        return;
-    }
-
-    // Form submit
-    const searchForm = container.querySelector('#mbSearchForm');
-    const searchInput = container.querySelector('#mbSearchInput');
-
-    searchForm?.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const query = searchInput?.value.trim();
-        if (query) {
-            await performMusicBrainzSearch(query, searchType);
-        }
-    });
-
-    // Debounced search on typing
-    searchInput?.addEventListener('input', (e) => {
-        clearTimeout(searchDebounceTimer);
-        const query = e.target.value.trim();
-        if (query.length >= 3) {
-            searchDebounceTimer = setTimeout(() => {
-                performMusicBrainzSearch(query, searchType);
-            }, 500);
-        }
-    });
-
-    gamepadManager.onLibraryViewRendered();
-}
-
-function renderCustomDocFormHtml() {
-    return `
-    <div class="library-card p-4 custom-doc-card">
-      <div class="d-flex align-items-center gap-3 mb-3">
-        <i class="bi-music-note-list text-info fs-3"></i>
-        <div>
-          <h6 class="text-white fw-bold mb-0">Add Custom Music</h6>
-          <div class="small text-muted">Add non-MusicBrainz exercises, original songs, or custom tabs, and organize into folders.</div>
-        </div>
-      </div>
-
-      <form id="customDocForm" class="d-flex flex-column gap-3">
-        <div>
-          <label class="form-label small text-white-50 mb-1 fw-semibold">Title *</label>
-          <input type="text" class="form-control form-control-sm" id="customDocTitle" placeholder="e.g. Major Triad Inversions, Sweep Picking #1, Original Song" required autofocus>
-        </div>
-
-        <div>
-          <label class="form-label small text-white-50 mb-1 fw-semibold">Folder / Path (Optional)</label>
-          <input type="text" class="form-control form-control-sm" id="customDocFolder" placeholder="e.g. Exercises, Originals/Acoustic, Technique/Arpeggios (Leave blank for Custom Music root)">
-          <div class="small text-muted mt-1" style="font-size:0.75rem;">Use <code class="text-info font-monospace">/</code> for nested subfolders (infinite layers), or leave blank for root Custom Music layer 1.</div>
-        </div>
-
-        <div class="form-check form-switch d-flex align-items-center gap-2 ps-0">
-          <input class="form-check-input theme-switch ms-0 flex-shrink-0" type="checkbox" role="switch" id="customDocIsBook">
-          <label class="form-check-label small text-white" for="customDocIsBook">
-            This is a book (PDF)
-            <span class="d-block text-muted" style="font-size:0.75rem;">Saves the PDF to the folder as a book, then use Set Book PDF Pages to create songs from page ranges.</span>
-          </label>
-        </div>
-
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label class="form-label small text-white-50 mb-1 fw-semibold">Tuning (Optional)</label>
-            <select class="form-select form-select-sm" id="customDocTuning">
-              <option value="" selected>None / Unspecified (Auto-detect from file)</option>
-              <option value="E Standard">E Standard (6-String)</option>
-              <option value="Drop D">Drop D (6-String)</option>
-              <option value="Eb Standard">Eb Standard (6-String)</option>
-              <option value="D Standard">D Standard (6-String)</option>
-              <option value="Drop C">Drop C (6-String)</option>
-              <option value="7-String Standard">7-String Standard (B E A D G B E)</option>
-              <option value="7-String Drop A">7-String Drop A</option>
-              <option value="8-String Standard">8-String Standard</option>
-              <option value="Bass Standard">Bass Standard (4-String)</option>
-              <option value="5-String Bass Standard">5-String Bass Standard</option>
-              <option value="6-String Bass Standard">6-String Bass Standard</option>
-              <option value="Open D">Open D</option>
-              <option value="DADGAD">DADGAD</option>
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label small text-white-50 mb-1 fw-semibold">String Count (Optional)</label>
-            <select class="form-select form-select-sm" id="customDocStrings">
-              <option value="" selected>None / Unspecified (Auto-detect from file)</option>
-              <option value="6">6 Strings (Guitar)</option>
-              <option value="7">7 Strings</option>
-              <option value="8">8 Strings</option>
-              <option value="4">4 Strings (Bass / Ukulele)</option>
-              <option value="5">5 Strings (Bass / Banjo)</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label class="form-label small text-white-50 mb-1 fw-semibold">Attach Tab / Score File (Optional)</label>
-          
-          <!-- Attached Tab Preview (Hidden when no file is attached) -->
-          <div id="customDocAttachedPreview" class="p-3 rounded-3 mb-2 align-items-center justify-content-between gap-2 border border-secondary-subtle" style="display: none; background: rgba(255, 255, 255, 0.04);">
-            <div class="d-flex align-items-center gap-2 min-w-0">
-              <i class="bi-file-earmark-music text-info fs-5 flex-shrink-0"></i>
-              <div class="min-w-0">
-                <div class="fw-semibold text-white text-truncate small" id="customDocAttachedName">filename.gp</div>
-                <div class="d-flex align-items-center gap-2 mt-1">
-                  <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;" id="customDocAttachedProvider">Local Device</span>
-                  <span class="badge badge-tuning py-0 px-2 font-monospace" style="font-size:0.65rem; display: none;" id="customDocAttachedTuning">E Standard</span>
-                </div>
-              </div>
-            </div>
-            <button type="button" class="btn btn-sm btn-theme-icon text-danger p-1" id="customDocRemoveFileBtn" title="Remove attached file">
-              <i class="bi-x-lg"></i>
-            </button>
-          </div>
-
-          <!-- Provider Attachment Buttons & Dropzone -->
-          <div id="customDocAttachOptions" class="d-flex flex-column gap-2">
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-              <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickLocalBtn">
-                <i class="bi-folder2-open text-primary"></i> Local Device
-              </button>
-              <!-- @googleDrive:begin -->
-              <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickDriveBtn">
-                <i class="icon-gdrive"></i> Google Drive
-              </button>
-              <!-- @googleDrive:end -->
-              ${window.__TAURI__ ? `
-                <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="customDocPickDownloaderBtn">
-                  <i class="bi-search text-info"></i> Web Search
-                </button>
-              ` : ''}
-            </div>
-            <div id="customDocDropzone" class="p-3 text-center border border-secondary-subtle border-dashed rounded-3 text-muted small" style="cursor: pointer; background: rgba(255, 255, 255, 0.02);">
-              <i class="bi-cloud-upload d-block fs-4 text-white-50 mb-1"></i>
-              <span>Or click or drag &amp; drop a tab file here (.gp, .gp5, .pdf, .txt)</span>
-            </div>
-          </div>
-        </div>
-
-        <div class="d-flex justify-content-end gap-2 pt-2 border-top border-secondary-subtle">
-          <button type="button" class="btn btn-sm btn-theme-outline px-3" id="customDocCancelBtn">Cancel</button>
-          <button type="submit" class="btn btn-sm btn-theme-primary px-4" id="customDocSaveBtn">
-            <i class="bi-check-lg me-1"></i> Save to Library
-          </button>
-        </div>
-      </form>
-    </div>
-    `;
-}
-
-function setupCustomDocForm(container) {
-    const form = container.querySelector('#customDocForm');
-    if (!form) return;
-
-    let attachedTab = null; // { file, providerId, fileStoreId, name, meta }
-
-    const updateAttachedUi = () => {
-        const preview = container.querySelector('#customDocAttachedPreview');
-        const optionsArea = container.querySelector('#customDocAttachOptions');
-        const nameEl = container.querySelector('#customDocAttachedName');
-        const providerEl = container.querySelector('#customDocAttachedProvider');
-        const tuningEl = container.querySelector('#customDocAttachedTuning');
-
-        if (attachedTab) {
-            if (preview) preview.style.display = 'flex';
-            if (optionsArea) optionsArea.style.display = 'none';
-            if (nameEl) nameEl.textContent = attachedTab.name;
-            if (providerEl) {
-                let pName = 'Local Device';
-                if (attachedTab.providerId === 'google-drive') pName = 'Google Drive';
-                else if (attachedTab.providerId.startsWith('tab-downloader')) pName = 'Web Search';
-                providerEl.textContent = pName;
-            }
-            if (tuningEl) {
-                if (attachedTab.meta?.primaryTuning) {
-                    tuningEl.textContent = attachedTab.meta.primaryTuning;
-                    tuningEl.style.display = 'inline-flex';
-                } else {
-                    tuningEl.style.display = 'none';
-                }
-            }
-        } else {
-            if (preview) preview.style.display = 'none';
-            if (optionsArea) optionsArea.style.display = 'flex';
-        }
-    };
-
-    const handleFileAttached = (result) => {
-        attachedTab = result;
-        updateAttachedUi();
-
-        // Auto-fill title if empty
-        const titleInput = form.querySelector('#customDocTitle');
-        if (titleInput && !titleInput.value.trim() && result.name) {
-            const cleanName = result.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-            titleInput.value = cleanName;
-        }
-
-        // Auto-fill tuning if blank and detected
-        const tuningSelect = form.querySelector('#customDocTuning');
-        if (tuningSelect && !tuningSelect.value && result.meta?.primaryTuning) {
-            const exists = Array.from(tuningSelect.options).some(o => o.value === result.meta.primaryTuning);
-            if (exists) {
-                tuningSelect.value = result.meta.primaryTuning;
-            }
-        }
-
-        // Auto-fill strings if blank and detected
-        const stringsSelect = form.querySelector('#customDocStrings');
-        if (stringsSelect && !stringsSelect.value && result.meta?.stringCount) {
-            stringsSelect.value = String(result.meta.stringCount);
-        }
-    };
-
-    container.querySelector('#customDocCancelBtn')?.addEventListener('click', () => switchView('library'));
-
-    // File dropped on the library: attach it and prefill the target folder
-    if (pendingCustomDrop) {
-        const { file, folderPath } = pendingCustomDrop;
-        pendingCustomDrop = null;
-        const folderInput = form.querySelector('#customDocFolder');
-        if (folderInput && folderPath) folderInput.value = folderPath;
-        (async () => {
-            try {
-                const meta = await detectFileMetadata(file, file.name);
-                const stored = await saveStoredFile(file, 'local');
-                handleFileAttached({ file, providerId: 'local', fileStoreId: stored.id, name: file.name, meta });
-            } catch (err) {
-                console.warn('Could not attach dropped file:', err);
-                showToast('Error attaching dropped file', 'error');
-            }
-        })();
-    }
-
-    container.querySelector('#customDocRemoveFileBtn')?.addEventListener('click', () => {
-        attachedTab = null;
-        updateAttachedUi();
-    });
-
-    // Pick Local
-    container.querySelector('#customDocPickLocalBtn')?.addEventListener('click', () => {
-        openFromProvider('local', { onFileSelected: handleFileAttached });
-    });
-
-    // @googleDrive:begin
-    // Pick Google Drive
-    container.querySelector('#customDocPickDriveBtn')?.addEventListener('click', () => {
-        openFromProvider('google-drive', { onFileSelected: handleFileAttached });
-    });
-
-    // @googleDrive:end
-    // Pick Tab Downloader
-    container.querySelector('#customDocPickDownloaderBtn')?.addEventListener('click', () => {
-        const title = form.querySelector('#customDocTitle')?.value?.trim() || '';
-        const folder = form.querySelector('#customDocFolder')?.value?.trim() || '';
-        openFromProvider('tab-downloader', {
-            query: title,
-            songName: title,
-            artist: folder || 'Custom Music',
-            onFileSelected: handleFileAttached
-        });
-    });
-
-    // Dropzone click / drag-and-drop
-    const dropzone = container.querySelector('#customDocDropzone');
-    if (dropzone) {
-        dropzone.addEventListener('click', () => {
-            openFromProvider('local', { onFileSelected: handleFileAttached });
-        });
-        ['dragenter', 'dragover'].forEach(name => {
-            dropzone.addEventListener(name, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                if (!canAcceptTabDrop(e)) {
-                    if (e.dataTransfer) e.dataTransfer.dropEffect = 'none';
-                    dropzone.classList.remove('border-info');
-                    return;
-                }
-                if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
-                dropzone.classList.add('border-info');
-            });
-        });
-        ['dragleave', 'drop'].forEach(name => {
-            dropzone.addEventListener(name, (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                dropzone.classList.remove('border-info');
-            });
-        });
-        dropzone.addEventListener('drop', async (e) => {
-            const file = e.dataTransfer?.files?.[0];
-            if (file) {
-                if (!(await isSupportedTabFile(file))) {
-                    showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
-                    return;
-                }
-                const meta = await detectFileMetadata(file, file.name);
-                const stored = await saveStoredFile(file, 'local');
-                handleFileAttached({ file, providerId: 'local', fileStoreId: stored.id, name: file.name, meta });
-            }
-        });
-    }
-
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const title = form.querySelector('#customDocTitle')?.value?.trim();
-        if (!title) return;
-
-        let folderPath = form.querySelector('#customDocFolder')?.value?.trim() || '';
-        folderPath = folderPath.replace(/^\/+|\/+$/g, '');
-
-        const tuning = form.querySelector('#customDocTuning')?.value || null;
-        const stringsVal = form.querySelector('#customDocStrings')?.value;
-        const stringCount = stringsVal ? parseInt(stringsVal, 10) : null;
-
-        if (form.querySelector('#customDocIsBook')?.checked) {
-            if (!attachedTab || !/\.pdf$/i.test(attachedTab.name)) {
-                showToast('Attach a PDF file to save it as a book.', 'warning');
-                return;
-            }
-            await addTabOptionToAlbum(activeCollectionId, 'Custom Music', folderPath || 'Custom Music', {
-                name: title,
-                providerId: attachedTab.providerId,
-                relativePath: attachedTab.name,
-                fileStoreId: attachedTab.fileStoreId,
-                tuning: tuning || attachedTab.meta?.primaryTuning || null,
-                tunings: tuning ? [tuning] : (attachedTab.meta?.tunings || []),
-                stringCount: stringCount || attachedTab.meta?.stringCount || null,
-                fileType: 'pdf',
-                isCustom: true
-            });
-            showToast(`Added book "${title}" to Custom Music${folderPath ? ' / ' + folderPath : ''}`, 'success');
-            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-            await switchView('library');
-            return;
-        }
-
-        const songId = `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-        const tabOptions = [];
-
-        if (attachedTab) {
-            tabOptions.push({
-                id: `tab_${Date.now()}`,
-                name: attachedTab.name,
-                providerId: attachedTab.providerId,
-                relativePath: attachedTab.name,
-                fileStoreId: attachedTab.fileStoreId,
-                tuning: tuning || attachedTab.meta?.primaryTuning || null,
-                tunings: tuning ? [tuning] : (attachedTab.meta?.tunings || []),
-                stringCount: stringCount || attachedTab.meta?.stringCount || null,
-                fileType: attachedTab.name.split('.').pop().toLowerCase(),
-                isDefault: true
-            });
-        }
-
-        const song = {
-            id: songId,
-            collectionId: activeCollectionId,
-            title,
-            artist: 'Custom Music',
-            album: folderPath,
-            folderPath,
-            isCustom: true,
-            tunings: tuning ? [tuning] : (tabOptions[0]?.tunings || []),
-            stringCount: stringCount || tabOptions[0]?.stringCount || null,
-            tabOptions,
-            defaultTabId: tabOptions[0]?.id || null,
-            addedAt: Date.now()
+async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist = null) {
+    if (parentArtist) {
+        searchSubView = {
+            type: 'tracks',
+            releaseGroupMbid,
+            fromView: 'library',
+            parentArtistMbid: parentArtist.mbid,
+            parentArtistName: parentArtist.name
         };
-
-        await saveSongToLibrary(song, activeCollectionId);
-        showToast(`Added "${title}" to Custom Music${folderPath ? ' / ' + folderPath : ''}`, 'success');
-        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-        await switchView('library');
-    });
-}
-
-async function performMusicBrainzSearch(query, type) {
-    currentSearchQuery = query;
-    const resultsContainer = document.getElementById('mbSearchResultsContainer');
-    if (!resultsContainer) return;
-
-    resultsContainer.innerHTML = `
-    <div class="text-center py-5 text-muted">
-      <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
-      <div>Searching for "${escapeHtml(query)}"...</div>
-    </div>
-    `;
-
-    try {
-        const rawResults = await searchMusicBrainz(query, type);
-
-        // Fetch existing library songs to check actual album / song / artist presence
-        const songs = await getSongsByCollection(activeCollectionId);
-        const existingArtists = new Set(songs.map(s => (s.artist || '').toLowerCase().trim()));
-        const existingAlbumKeys = new Set(songs.map(s => {
-            if (s.albumMbid) return `mbid:${s.albumMbid}`;
-            return `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`;
-        }));
-        const existingSongKeys = new Set(songs.map(s => {
-            if (s.recordingMbid) return `rec:${s.recordingMbid}`;
-            return `${(s.artist || '').toLowerCase().trim()}:::${(s.title || '').toLowerCase().trim()}`;
-        }));
-
-        let sortedResults = rawResults;
-        if (type === 'song' || type === 'album') {
-            const inLib = [];
-            const notInLib = [];
-
-            for (const item of rawResults) {
-                const artistName = (item.artist || '').toLowerCase().trim();
-                const artistInLib = existingArtists.has(artistName);
-
-                let isItemInLib = false;
-                if (type === 'album') {
-                    isItemInLib = (item.id && existingAlbumKeys.has(`mbid:${item.id}`)) ||
-                                  existingAlbumKeys.has(`${artistName}:::${(item.title || '').toLowerCase().trim()}`);
-                } else if (type === 'song') {
-                    isItemInLib = (item.recordingMbid && existingSongKeys.has(`rec:${item.recordingMbid}`)) ||
-                                  (item.id && existingSongKeys.has(`rec:${item.id}`)) ||
-                                  existingSongKeys.has(`${artistName}:::${(item.title || '').toLowerCase().trim()}`);
-                }
-
-                const enriched = { ...item, inLibrary: isItemInLib, artistInLibrary: artistInLib };
-                // Prioritize results from artists in your library or items already in library
-                if (isItemInLib || artistInLib) {
-                    inLib.push(enriched);
-                } else {
-                    notInLib.push(enriched);
-                }
-            }
-            sortedResults = [...inLib, ...notInLib];
-        } else if (type === 'artist' || type === 'musician') {
-            sortedResults = rawResults.map(a => ({
-                ...a,
-                inLibrary: existingArtists.has((a.name || '').toLowerCase().trim())
-            }));
-            sortedResults.sort((a, b) => (b.inLibrary ? 1 : 0) - (a.inLibrary ? 1 : 0));
-        }
-
-        currentSearchResults = sortedResults;
-        renderSearchResults(sortedResults, type, resultsContainer);
-    } catch (err) {
-        resultsContainer.innerHTML = `
-        <div class="text-center py-4 text-danger-emphasis">
-          <i class="bi-exclamation-triangle fs-3 mb-2 d-block"></i>
-          <div>Search failed: ${escapeHtml(err.message)}</div>
-        </div>
-        `;
+    } else {
+        searchSubView = { type: 'tracks', releaseGroupMbid, fromView: 'library' };
     }
-}
-
-function renderSearchResults(results, type, container) {
-    // Clicking anywhere on a result row/card triggers its primary action button
-    container.onclick = (e) => {
-        if (e.target.closest('button, a, input')) return;
-        const row = e.target.closest('[data-row-action]');
-        if (!row || !container.contains(row)) return;
-        const btn = row.querySelector(row.dataset.rowAction);
-        if (btn && !btn.disabled && !btn.classList.contains('disabled')) btn.click();
-    };
-    const searchHeader = document.querySelector('.search-sticky-header');
-    if (searchHeader) searchHeader.style.display = '';
-
-    if (results.length === 0) {
-        container.innerHTML = `
-        <div class="text-center py-5 text-muted">
-          <i class="bi-emoji-frown fs-2 mb-2 d-block"></i>
-          <div>No results found. Try a different search term.</div>
-        </div>
-        `;
-        return;
-    }
-
-    if (type === 'artist' || type === 'musician') {
-        container.innerHTML = `
-        <div class="d-flex flex-column gap-2">
-          ${results.map(a => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0" data-row-action=".explore-artist-btn" style="cursor:pointer;">
-              <div class="min-w-0 flex-grow-1">
-                <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(a.name)}">${escapeHtml(a.name)}</h6>
-                <div class="small text-muted text-truncate">${a.type || 'Artist'} • ${a.country || 'International'} ${a.lifeSpan ? `• ${a.lifeSpan}` : ''}</div>
-                ${a.disambiguation ? `<div class="small text-white-50 text-truncate" style="font-size:0.75rem;" title="${escapeHtml(a.disambiguation)}">${escapeHtml(a.disambiguation)}</div>` : ''}
-              </div>
-              <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
-                <!-- 'Add Artist' button hidden per requirements -->
-                <button class="btn btn-sm btn-theme-outline explore-artist-btn" data-artist-id="${a.id}" data-artist-name="${escapeHtml(a.name)}" data-is-musician="${type === 'musician'}">
-                  <i class="bi-${type === 'musician' ? 'people' : 'disc'} me-1"></i> ${type === 'musician' ? 'View Bands' : 'Browse Albums'}
-                </button>
-              </div>
-            </div>
-          `).join('')}
-        </div>
-        `;
-
-        container.querySelectorAll('.explore-artist-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const artistId = btn.dataset.artistId;
-                const artistName = btn.dataset.artistName;
-                const isMusician = btn.dataset.isMusician === 'true';
-
-                if (isMusician) {
-                    await exploreMusicianBands(artistId, artistName, container);
-                } else {
-                    await exploreArtistAlbums(artistId, artistName, container);
-                }
-            });
-        });
-    } else if (type === 'album') {
-        container.innerHTML = `
-        <div class="library-albums-grid">
-          ${results.map(rg => {
-            const cover = rg.coverUrl || getPlaceholderCoverSvg(rg.title);
-            return `
-            <div class="library-card album-card p-3" role="button" tabindex="0" data-row-action=".view-album-tracks-btn">
-              <div class="album-card-body d-flex min-w-0">
-                <div class="album-cover-container">
-                  <img loading="lazy" decoding="async" src="${cover}" class="album-cover-img" alt="${escapeHtml(rg.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(rg.title)}'">
-                  ${rg.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2 album-year-badge">${rg.year}</span>` : ''}
-                </div>
-                <div class="album-card-content min-w-0 flex-grow-1">
-                  <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(rg.title)}">${escapeHtml(rg.title)}</h6>
-                  <div class="small text-muted text-truncate" title="${escapeHtml(rg.artist)}">
-                    ${rg.inLibrary ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
-                    ${escapeHtml(rg.artist)} ${rg.year ? `• ${rg.year}` : ''}
-                  </div>
-                </div>
-              </div>
-              <div class="album-card-actions d-flex gap-2 mt-2">
-                <button class="btn btn-sm ${rg.inLibrary ? 'btn-theme-success disabled' : 'btn-theme-primary'} flex-grow-1 add-album-btn" data-rg-id="${rg.id}" data-rg-title="${escapeHtml(rg.title)}">
-                  <i class="${rg.inLibrary ? 'bi-check-lg' : 'bi-plus-lg'} me-1"></i> ${rg.inLibrary ? 'In Library' : 'Add Album'}
-                </button>
-                <button class="btn btn-sm btn-theme-outline view-album-tracks-btn px-2 flex-shrink-0" data-rg-id="${rg.id}" title="View Tracks">
-                  <i class="bi-music-note-list"></i>
-                </button>
-              </div>
-            </div>
-            `;
-          }).join('')}
-        </div>
-        `;
-
-        container.querySelectorAll('.add-album-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                await handleAddAlbum(btn.dataset.rgId, btn);
-            });
-        });
-
-        container.querySelectorAll('.view-album-tracks-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const rgId = btn.dataset.rgId;
-                await exploreAlbumTracklist(rgId, container);
-            });
-        });
-    } else if (type === 'song') {
-        container.innerHTML = `
-        <div class="d-flex flex-column gap-2">
-          ${results.map(song => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0" data-row-action=".add-single-song-btn" style="cursor:pointer;">
-              <div class="min-w-0 flex-grow-1">
-                <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(song.title)}">${escapeHtml(song.title)}</h6>
-                <div class="small text-muted text-truncate" title="${escapeHtml(song.artist)} • ${escapeHtml(song.album || 'Single')} ${song.year ? `• ${song.year}` : ''}">
-                  ${song.inLibrary ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
-                  ${escapeHtml(song.artist)} • ${escapeHtml(song.album || 'Single')} ${song.year ? `• ${song.year}` : ''}
-                </div>
-              </div>
-              <button class="btn btn-sm ${song.inLibrary ? 'btn-theme-success disabled' : 'btn-theme-primary'} flex-shrink-0 add-single-song-btn" data-song='${escapeHtml(JSON.stringify(song))}'>
-                <i class="${song.inLibrary ? 'bi-check-lg' : 'bi-plus-lg'} me-1"></i> ${song.inLibrary ? 'In Library' : 'Add Song'}
-              </button>
-            </div>
-          `).join('')}
-        </div>
-        `;
-
-        container.querySelectorAll('.add-single-song-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const songData = JSON.parse(btn.dataset.song);
-                await saveSongToLibrary(songData, activeCollectionId);
-                btn.className = 'btn btn-sm btn-theme-success flex-shrink-0 disabled';
-                btn.innerHTML = '<i class="bi-check-lg me-1"></i> In Library';
-            });
-        });
-    }
-
-    gamepadManager.onLibraryViewRendered();
-}
-
-async function handleAddAlbum(releaseGroupMbid, btn) {
-    if (!btn || btn.disabled) return;
-    const origHtml = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Adding tracks...';
-
-    try {
-        const albumData = await getAlbumTracks(releaseGroupMbid);
-        if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
-            btn.className = 'btn btn-sm btn-theme-outline flex-grow-1';
-            btn.innerHTML = '<i class="bi-exclamation-circle me-1"></i> No tracks found';
-            setTimeout(() => { btn.innerHTML = origHtml; btn.disabled = false; }, 3000);
-            return;
-        }
-
-        const added = await addAlbumToLibrary(albumData, albumData.tracks, activeCollectionId);
-        btn.className = 'btn btn-sm btn-theme-success flex-grow-1 disabled';
-        btn.innerHTML = `<i class="bi-check-lg me-1"></i> In Library (${added.length} tracks)`;
-    } catch (err) {
-        console.error('Failed to add album:', err);
-        btn.className = 'btn btn-sm btn-theme-danger flex-grow-1';
-        btn.innerHTML = '<i class="bi-arrow-clockwise me-1"></i> Retry Add';
-        btn.disabled = false;
-    }
-}
-
-async function exploreArtistAlbums(artistMbid, artistName, container, pushHistory = true) {
-    const searchHeader = document.querySelector('.search-sticky-header');
-    if (searchHeader) searchHeader.style.display = 'none';
-
-    if (pushHistory) {
-        searchHistory.push({ type: 'results' });
-    }
-    searchSubView = { type: 'albums', artistMbid, artistName };
-    updateBackBtnVisibility();
-
-    const targetContainer = (activeView === 'search' ? (document.getElementById('mbSearchResultsContainer') || container) : container);
-    const thisFetchToken = ++currentExploreArtistToken;
-
-    targetContainer.innerHTML = `
-    <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between pb-2 border-bottom border-secondary-subtle">
-      <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="cancelExploreArtistBtn">
-        <i class="bi-arrow-left"></i> <span>Back</span>
-      </button>
-    </div>
-    <div class="text-center py-5 text-muted">
-      <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
-      <div class="mb-3">Loading studio albums for ${escapeHtml(artistName)}...</div>
-      <button class="btn btn-sm btn-theme-outline px-3" id="cancelExploreArtistActionBtn">
-        <i class="bi-x-lg me-1"></i> Cancel
-      </button>
-    </div>
-    `;
-
-    const handleCancelFetch = () => {
-        currentExploreArtistToken++;
-        handleBack();
-    };
-    targetContainer.querySelector('#cancelExploreArtistBtn')?.addEventListener('click', handleCancelFetch);
-    targetContainer.querySelector('#cancelExploreArtistActionBtn')?.addEventListener('click', handleCancelFetch);
-
-    try {
-        const albums = await getArtistAlbums(artistMbid);
-        if (thisFetchToken !== currentExploreArtistToken) return;
-
-        if (albums.length === 0) {
-            targetContainer.innerHTML = `
-            <div class="mb-3">
-              <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
-                <i class="bi-arrow-left"></i> <span>Back to Search</span>
-              </button>
-            </div>
-            <div class="text-center py-4 text-muted">No studio albums found for ${escapeHtml(artistName)}.</div>`;
-            targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
-            return;
-        }
-
-        const existingSongs = await getSongsByCollection(activeCollectionId);
-        const existingAlbumKeys = new Set(existingSongs.map(s => {
-            if (s.albumMbid) return `mbid:${s.albumMbid}`;
-            return `${(s.artist || '').toLowerCase().trim()}:::${(s.album || '').toLowerCase().trim()}`;
-        }));
-
-        targetContainer.innerHTML = `
-        <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between flex-wrap gap-2 pb-2 border-bottom border-secondary-subtle">
-          <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchResultsBtn">
-            <i class="bi-arrow-left"></i> <span>Back to Search</span>
-          </button>
-          <div class="d-flex align-items-center gap-2 min-w-0">
-            <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(artistName)}">${escapeHtml(artistName)} (${albums.length} Studio Albums)</h6>
-          </div>
-        </div>
-        <div class="library-albums-grid">
-          ${albums.map(a => {
-            const isAlbumInLib = (a.id && existingAlbumKeys.has(`mbid:${a.id}`)) ||
-                                 existingAlbumKeys.has(`${artistName.toLowerCase().trim()}:::${(a.title || '').toLowerCase().trim()}`);
-            return `
-            <div class="library-card album-card p-3" role="button" tabindex="0" data-row-action=".view-album-tracks-btn">
-              <div class="album-card-body d-flex min-w-0">
-                <div class="album-cover-container">
-                  <img loading="lazy" decoding="async" src="${a.coverUrl || getPlaceholderCoverSvg(a.title)}" class="album-cover-img" alt="${escapeHtml(a.title)}" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(a.title)}'">
-                  ${a.year ? `<span class="badge badge-theme-year position-absolute bottom-0 end-0 m-2 album-year-badge">${a.year}</span>` : ''}
-                </div>
-                <div class="album-card-content min-w-0 flex-grow-1">
-                  <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(a.title)}">${escapeHtml(a.title)}</h6>
-                  <div class="small text-muted text-truncate">
-                    ${isAlbumInLib ? `<span class="badge badge-theme-primary me-1" style="font-size:0.62rem;"><i class="bi-collection-play me-1"></i>In Library</span>` : ''}
-                    ${a.year || 'Album'}
-                  </div>
-                </div>
-              </div>
-              <div class="album-card-actions d-flex gap-2 mt-2">
-                <button class="btn btn-sm ${isAlbumInLib ? 'btn-theme-success disabled' : 'btn-theme-primary'} flex-grow-1 add-album-btn" data-rg-id="${a.id}" data-rg-title="${escapeHtml(a.title)}">
-                  <i class="${isAlbumInLib ? 'bi-check-lg' : 'bi-plus-lg'} me-1"></i> ${isAlbumInLib ? 'In Library' : 'Add Album'}
-                </button>
-                <button class="btn btn-sm btn-theme-outline view-album-tracks-btn px-2 flex-shrink-0" data-rg-id="${a.id}" title="View Tracks">
-                  <i class="bi-music-note-list"></i>
-                </button>
-              </div>
-            </div>
-            `;
-          }).join('')}
-        </div>
-        `;
-
-        targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
-
-        targetContainer.querySelectorAll('.add-album-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                await handleAddAlbum(btn.dataset.rgId, btn);
-            });
-        });
-
-        targetContainer.querySelectorAll('.view-album-tracks-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                await exploreAlbumTracklist(btn.dataset.rgId, targetContainer);
-            });
-        });
-
-        targetContainer.querySelectorAll('.album-card[data-row-action]').forEach(card => {
-            card.addEventListener('click', (e) => {
-                if (e.target.closest('button, a, input')) return;
-                card.querySelector(card.dataset.rowAction)?.click();
-            });
-        });
-
-        gamepadManager.onLibraryViewRendered();
-    } catch (err) {
-        if (thisFetchToken !== currentExploreArtistToken) return;
-        targetContainer.innerHTML = `
-        <div class="mb-3">
-          <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
-            <i class="bi-arrow-left"></i> <span>Back</span>
-          </button>
-        </div>
-        <div class="text-danger py-4 text-center">Failed to load albums: ${escapeHtml(err.message)}</div>`;
-        targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
-    }
-}
-
-async function exploreMusicianBands(musicianMbid, musicianName, container, pushHistory = true) {
-    const searchHeader = document.querySelector('.search-sticky-header');
-    if (searchHeader) searchHeader.style.display = 'none';
-
-    if (pushHistory) {
-        searchHistory.push({ type: 'results' });
-    }
-    searchSubView = { type: 'bands', musicianMbid, musicianName };
-
-    const targetContainer = (activeView === 'search' ? (document.getElementById('mbSearchResultsContainer') || container) : container);
-    const thisFetchToken = ++currentExploreMusicianToken;
-
-    targetContainer.innerHTML = `
-    <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between pb-2 border-bottom border-secondary-subtle">
-      <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="cancelExploreMusicianBtn">
-        <i class="bi-arrow-left"></i> <span>Back</span>
-      </button>
-    </div>
-    <div class="text-center py-5 text-muted">
-      <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
-      <div class="mb-3">Finding bands &amp; projects for ${escapeHtml(musicianName)}...</div>
-      <button class="btn btn-sm btn-theme-outline px-3" id="cancelExploreMusicianActionBtn">
-        <i class="bi-x-lg me-1"></i> Cancel
-      </button>
-    </div>
-    `;
-
-    const handleCancelFetch = () => {
-        currentExploreMusicianToken++;
-        handleBack();
-    };
-    targetContainer.querySelector('#cancelExploreMusicianBtn')?.addEventListener('click', handleCancelFetch);
-    targetContainer.querySelector('#cancelExploreMusicianActionBtn')?.addEventListener('click', handleCancelFetch);
-
-    try {
-        const bands = await getMusicianRelations(musicianMbid);
-        if (thisFetchToken !== currentExploreMusicianToken) return;
-
-        if (bands.length === 0) {
-            targetContainer.innerHTML = `
-            <div class="mb-3">
-              <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
-                <i class="bi-arrow-left"></i> <span>Back to Search</span>
-              </button>
-            </div>
-            <div class="text-center py-4 text-muted">No associated bands found for ${escapeHtml(musicianName)}.</div>`;
-            targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
-            return;
-        }
-
-        targetContainer.innerHTML = `
-        <div class="library-sticky-breadcrumbs mb-3 d-flex align-items-center justify-content-between pb-2 border-bottom border-secondary-subtle">
-          <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchResultsBtn">
-            <i class="bi-arrow-left"></i> <span>Back</span>
-          </button>
-          <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(musicianName)}">${escapeHtml(musicianName)} — Associated Bands</h6>
-        </div>
-        <div class="d-flex flex-column gap-2">
-          ${bands.map(b => `
-            <div class="library-row-card d-flex align-items-center justify-content-between gap-3" role="button" tabindex="0" data-row-action=".explore-band-albums-btn" style="cursor:pointer;">
-              <div class="min-w-0 flex-grow-1">
-                <h6 class="mb-0 fw-bold text-white text-truncate" title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</h6>
-                <div class="small text-muted text-truncate">${b.role ? escapeHtml(b.role) : 'Band Member'}</div>
-              </div>
-              <button class="btn btn-sm btn-theme-outline flex-shrink-0 ms-2 explore-band-albums-btn" data-band-id="${b.id}" data-band-name="${escapeHtml(b.name)}">
-                <i class="bi-disc me-1"></i> View Albums
-              </button>
-            </div>
-          `).join('')}
-        </div>
-        `;
-
-        targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
-
-        targetContainer.querySelectorAll('.explore-band-albums-btn').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                await exploreArtistAlbums(btn.dataset.bandId, btn.dataset.bandName, targetContainer);
-            });
-        });
-
-        targetContainer.querySelectorAll('.library-row-card[data-row-action]').forEach(row => {
-            row.addEventListener('click', (e) => {
-                if (e.target.closest('button, a, input')) return;
-                row.querySelector(row.dataset.rowAction)?.click();
-            });
-        });
-
-        gamepadManager.onLibraryViewRendered();
-    } catch (err) {
-        if (thisFetchToken !== currentExploreMusicianToken) return;
-        targetContainer.innerHTML = `
-        <div class="mb-3">
-          <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2" id="backToSearchResultsBtn">
-            <i class="bi-arrow-left"></i> <span>Back</span>
-          </button>
-        </div>
-        <div class="text-danger py-4 text-center">Failed to load bands: ${escapeHtml(err.message)}</div>`;
-        targetContainer.querySelector('#backToSearchResultsBtn')?.addEventListener('click', handleBack);
-    }
-}
-
-async function exploreAlbumTracklist(releaseGroupMbid, container, pushHistory = true) {
-    const searchHeader = document.querySelector('.search-sticky-header');
-    if (searchHeader) searchHeader.style.display = 'none';
-
-    if (pushHistory) {
-        searchHistory.push(searchSubView ? { ...searchSubView } : { type: 'results' });
-    }
-    const fromView = searchSubView?.fromView || (activeView === 'library' ? 'library' : 'search');
-    searchSubView = { type: 'tracks', releaseGroupMbid, fromView };
-
-    const targetContainer = (activeView === 'search' ? (document.getElementById('mbSearchResultsContainer') || container) : container);
+    const targetContainer = container;
     const thisFetchToken = ++currentExploreTracklistToken;
 
     targetContainer.innerHTML = `
@@ -5123,7 +4414,7 @@ function addTabProviderItemsHtml(buttonClass, attrs = '') {
     }).join('');
 }
 
-// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome and Jam render in the page. The fretboard belongs to the open tab and sits above the playback dock.
+// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome, Jam and Open file render in the page.
 function renderToolsView(container) {
     const $ = (id) => document.getElementById(id);
     const tools = [
@@ -5134,6 +4425,7 @@ function renderToolsView(container) {
         { id: 'metronome', title: 'Metronome', icon: '<i class="bi-stopwatch" aria-hidden="true"></i>' }
     ];
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', title: 'Jam', icon: '<i class="bi-people-fill" aria-hidden="true"></i>' });
+    tools.push({ id: 'openfile', title: 'Open file', icon: '<i class="bi-folder2-open" aria-hidden="true"></i>' });
     renderToolsPage(container, { tools, escapeHtml });
 }
 

@@ -960,6 +960,10 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 .setsec[hidden] { display: none; }
 .setpage .sgroup:first-child h3 { margin-top: 0; }
 .tools-shell .tool-pane-host { margin-top: 0; }
+.tool-pane-host .openfile-tool-embedded { height: 100%; }
+.tool-pane-host .openfile-tool-embedded .open-file-back,
+.tool-pane-host .openfile-tool-embedded .lib-view-switch-row { display: none !important; }
+.tool-pane-host .openfile-tool-embedded .open-file-view { max-width: 680px; margin: 0 auto; padding: 12px 0 40px; }
 .sgroup h3 { margin: 22px 0 8px; font: 600 13px system-ui, sans-serif; color: var(--ink2); }
 .sgroup.danger h3 { color: var(--danger, #f87171); }
 .srows { display: flex; flex-direction: column; gap: 2px; border-radius: var(--r); overflow: hidden; }
@@ -1746,14 +1750,9 @@ body.fretboard-open .sync-mode-bar {
 .library-page-title, .library-page-title-text, .library-page-title-sub { text-align: left !important; justify-content: flex-start !important; }
 .library-empty { text-align: left; }
 .library-empty h6 { font-size: 17px; }
-.search-mb-view .library-type-pills { overflow: visible; }
 
 /* Setlist rows carry the album art */
 .setrow .setrow-cover { width: 44px; height: 44px; border-radius: var(--r); object-fit: cover; flex: none; background: var(--s3); }
-/* Add music: one column, left aligned */
-.search-mb-view { display: block; }
-.search-mb-view .library-type-pills, .search-mb-view .library-search-form { margin-left: 0; margin-right: 0; justify-content: flex-start; }
-.search-mb-view .search-results-container { text-align: left; }
 
 /* ---------- Reference library, Fretboard dock, Tuner: tools in the same flat language ---------- */
 /* Reference library: one frame for all three tabs, flat rows and tone steps, no outlines */
@@ -2713,8 +2712,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .open-file-view .library-page-title-text { font-size: 22px; font-weight: 600; margin: 0; color: var(--ink); }
 .open-file-view .library-page-title-sub { font-size: 14px; color: var(--ink2); margin: 4px 0 0; }
 .open-file-view .open-file-body { max-width: none; margin: 0; }
-.open-file-view .open-file-back,
-.search-mb-view .open-file-back { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.open-file-view .open-file-back { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; }
 @media (max-width: 576px) {
   .open-file-web-search { flex-wrap: wrap; }
   .open-file-web-search .library-search-bar { flex: 1 1 100%; }

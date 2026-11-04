@@ -51,7 +51,7 @@ export function updateUrl(main, sub = null, replace = false) {
     if (main === 'reference') {
         const activeSub = sub || getActiveReferenceTab() || 'chords';
         targetHash = `#reference/${activeSub}`;
-    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'metronome' || main === 'setlists' || main === 'tools' || main === 'openfile' || main === 'search' || main === 'tunings') {
+    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'metronome' || main === 'setlists' || main === 'tools' || main === 'openfile' || main === 'tunings') {
         targetHash = `#${main}`;
     } else if (!main) {
         targetHash = '';
@@ -107,7 +107,21 @@ export async function navigateToUrlRoute(route, isInitial = false) {
             return true;
         }
 
-        const libraryViews = { library: 'library', recents: 'recents', setlists: 'setlists', tools: 'tools', openfile: 'openFile', search: 'search', tunings: 'tunings' };
+        if (route.main === 'openfile') {
+            closeTunerModal();
+            closeMetronomeModal();
+            closeReferenceModal();
+            if (isLibraryOpen()) {
+                await switchLibraryView('tools', false);
+            } else {
+                await openLibraryModal('tools');
+            }
+            const btn = document.querySelector('.tools-shell button[data-tool="openfile"]');
+            btn?.click();
+            return true;
+        }
+
+        const libraryViews = { library: 'library', recents: 'recents', setlists: 'setlists', tools: 'tools', search: 'library', tunings: 'tunings' };
         if (libraryViews[route.main]) {
             const view = libraryViews[route.main];
             closeTunerModal();
