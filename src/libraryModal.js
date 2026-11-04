@@ -1436,10 +1436,12 @@ async function renderLibraryBrowseView(container) {
             <section class="pane songs" aria-label="Songs">
               <h3 class="pane-head">
                 <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
-                <span class="text-white fw-semibold" style="flex:1;">${escapeHtml(selectedArtist.name)}</span>
-                <span class="tnum">${totalSongsForPane} ${totalSongsForPane === 1 ? 'song' : 'songs'}${!isCustomArtist && selectedArtist.albums.length > 0 ? ` · ${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'album' : 'albums'}` : ''}</span>
+                <span class="tnum ms-auto">${totalSongsForPane} ${totalSongsForPane === 1 ? 'song' : 'songs'}${!isCustomArtist && selectedArtist.albums.length > 0 ? ` · ${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'album' : 'albums'}` : ''}</span>
                 <button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>
               </h3>
+              <div class="artist-head-title">
+                <h2 class="text-truncate">${escapeHtml(selectedArtist.name)}</h2>
+              </div>
               ${isCustomArtist ? breadcrumbHtml : ''}
               ${shelfHtml}
               <div class="pane-scroll" id="libArtistDetailScroll">
