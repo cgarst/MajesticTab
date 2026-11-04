@@ -565,6 +565,21 @@ pub fn run() {
     let builder = builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_persisted_scope::init());
+    // The dev server's auto-reload script opens ws://127.0.0.1:<port>/__tauri_cli, but the page
+    // now loads from localhost, so the browser's Origin no longer matches the Host and the CLI
+    // answers 403 (a console error repeated every few seconds). Point the socket at the page host.
+    #[cfg(debug_assertions)]
+    let builder = builder.plugin(
+        tauri::plugin::Builder::<tauri::Wry, ()>::new("dev-reload-host")
+            .js_init_script(
+                r#"(function(){var W=window.WebSocket;if(!W||location.hostname!=='localhost')return;
+function P(u,p){try{var x=new URL(u,location.href);if(x.hostname==='127.0.0.1'&&x.port===location.port){x.hostname='localhost';u=x.href}}catch(e){}
+return p===undefined?new W(u):new W(u,p)}
+P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(function(k){P[k]=W[k]});window.WebSocket=P})();"#
+                    .to_string(),
+            )
+            .build(),
+    );
 
     // Google Drive sign-in; pulls in Google Play services on Android, so the F-Droid channel builds without it.
     #[cfg(feature = "google-auth")]

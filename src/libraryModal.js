@@ -1028,6 +1028,7 @@ async function renderLibraryBrowseView(container) {
 
     if (artists.length === 0) {
         container.innerHTML = headerHtml + libraryListToolbarHtml({ leftHtml: collectionSelectHtml }) + `
+          <div id="libBrowseContent">
           ${libraryEmptyStateHtml({
             icon: 'bi-music-note-list',
             title: 'This collection is empty',
@@ -1036,10 +1037,14 @@ async function renderLibraryBrowseView(container) {
               <button class="btn btn-theme-outline btn-sm px-4" id="emptyStateOpenFileBtn"><i class="bi-folder2-open me-1"></i> Link existing files</button>
               <button class="btn btn-theme-outline btn-sm px-4" id="emptyStateRestoreBtn"><i class="bi-arrow-counterclockwise me-1"></i> Restore backup</button>`
           })}
+          </div>
+          <div id="libFilteredSearchResults" style="display: none;"></div>
         </div>
         `;
 
         bindLibraryToolbarEvents(container);
+        // An empty library still searches the catalog and the web
+        setupLibraryFilter(container, { hierarchy, artists: [], selectedArtist: null, selectedAlbum: null, selectedTuning: null, pinnedSongs: [] });
         container.querySelector('#emptyStateSearchBtn')?.addEventListener('click', () => {
             const input = container.querySelector('#libFilterInput');
             if (input) {
