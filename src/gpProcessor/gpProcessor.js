@@ -79,24 +79,48 @@ export function applySavedGpDisplayScale() {
 }
 
 // Note density: AlphaTab's display.stretchForce (1 is its default). Lower packs more bars on a row, higher spreads them.
-export const GP_DENSITY_STEPS = { ultra: 0.3, tight: 0.6, normal: 1, roomy: 1.5 };
-export let GP_STRETCH_FORCE = GP_DENSITY_STEPS.normal;
+export const GP_DENSITY_STEPS = { tight: 0.3, compact: 0.6, normal: 1, roomy: 1.5 };
 
 export function getGpDensity() {
     let raw = null;
     try { raw = typeof localStorage !== 'undefined' ? localStorage.getItem('gpNoteDensity') : null; } catch { /* storage blocked */ }
-    return Object.hasOwn(GP_DENSITY_STEPS, raw) ? raw : 'normal';
+    if (raw === 'ultra') return 'tight';
+    if (raw && (raw === 'auto' || Object.hasOwn(GP_DENSITY_STEPS, raw))) return raw;
+    return 'auto';
 }
 
-export function setGpDensity(density) {
+export function getEffectiveGpStretchForce(density = getGpDensity()) {
+    if (density === 'ultra') density = 'tight';
+    if (density === 'auto') {
+        const isMobile = typeof window !== 'undefined' && window.innerWidth <= 576;
+        return isMobile ? GP_DENSITY_STEPS.tight : GP_DENSITY_STEPS.normal;
+    }
     const safe = Object.hasOwn(GP_DENSITY_STEPS, density) ? density : 'normal';
-    GP_STRETCH_FORCE = GP_DENSITY_STEPS[safe];
+    return GP_DENSITY_STEPS[safe];
+}
+
+export let GP_STRETCH_FORCE = getEffectiveGpStretchForce();
+
+export function setGpDensity(density) {
+    if (density === 'ultra') density = 'tight';
+    const safe = (density === 'auto' || Object.hasOwn(GP_DENSITY_STEPS, density)) ? density : 'auto';
+    GP_STRETCH_FORCE = getEffectiveGpStretchForce(safe);
     try { localStorage.setItem('gpNoteDensity', safe); } catch { /* storage blocked */ }
     return safe;
 }
 
 export function applySavedGpDensity() {
     return setGpDensity(getGpDensity());
+}
+
+export function updateAutoGpDensity() {
+    if (getGpDensity() !== 'auto') return false;
+    const nextForce = getEffectiveGpStretchForce('auto');
+    if (GP_STRETCH_FORCE !== nextForce) {
+        GP_STRETCH_FORCE = nextForce;
+        return true;
+    }
+    return false;
 }
 
 export const DEFAULT_GP_NOTATION_MODE = 'tab';
@@ -273,6 +297,10 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
             const initialPlayerMode = hasAudioSync
                 ? alphaTab.PlayerMode.EnabledBackingTrack
                 : alphaTab.PlayerMode.EnabledSynthesizer;
+
+            if (getGpDensity() === 'auto') {
+                GP_STRETCH_FORCE = getEffectiveGpStretchForce('auto');
+            }
 
             const api = new alphaTab.AlphaTabApi(container, {
                 core: { file, tracks: activeTrackIndices, enableLazyLoading: false },

@@ -9,7 +9,7 @@ import { setupSaveToLibraryButton } from './saveToLibrary.js';
 import { setupAddToSetlistButton } from './setlistUi.js';
 import { setupSetlistNav, refreshSetlistNav } from './setlistPlayer.js';
 import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios } from './gpProcessor/gpHandler.js';
-import { setGpDisplayScale, applySavedGpDisplayScale, setGpDensity, applySavedGpDensity, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
+import { setGpDisplayScale, applySavedGpDisplayScale, setGpDensity, getGpDensity, applySavedGpDensity, updateAutoGpDensity, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { initPageStrip } from './utils/pageStrip.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
@@ -85,8 +85,17 @@ window.addEventListener('resize', () => {
         const continuousModeRadio = document.getElementById('continuousModeRadio');
         const output = document.getElementById('output');
         
+        const autoDensityChanged = getGpDensity() === 'auto' && updateAutoGpDensity();
+
         // Only re-render if we have a file loaded
         if (currentFile && pageModeRadio && output) {
+            if (isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
+                if (autoDensityChanged) {
+                    if (applyGpDisplayScale(output, pageModeRadio.checked, continuousModeRadio)) {
+                        return;
+                    }
+                }
+            }
             if (gpState.canvases[0]?.container && pageModeRadio.checked) {
                 // For GP files in page mode, recalculate pages based on new dimensions
                 const pageHeight = output.clientHeight - 20;
