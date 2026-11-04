@@ -193,10 +193,11 @@ export function initSettingsPage() {
     // Player
     if (instrumentGroup) {
         instrumentGroup.classList.remove('w-100');
+        instrumentGroup.querySelectorAll('i').forEach((ic) => ic.remove());
         panes.player.appendChild(group('Who is playing',
-            row('I play', 'Guitar or bass. Sets the instrument the app assumes.', instrumentGroup)));
+            row('Preferred instrument', 'Sets the instrument the app assumes.', instrumentGroup)));
     }
-    panes.player.appendChild(group('Your neck', makeLeftHandedRow(), makeStringOrderRow()));
+    panes.player.appendChild(group('Neck configuration', makeLeftHandedRow(), makeStringOrderRow()));
 
     // Appearance
     if (finishGrid) {
@@ -225,7 +226,10 @@ export function initSettingsPage() {
             return group(title, ...rows);
         };
         const viewGroup = defaultRows('A new tab opens as', 0, ['', '', '']);
-        const stringGroup = defaultRows('Usual strings', 1, ['Show 6 strings, or 7 or 8 for extended range guitars. "From file" keeps what the tab was saved with.', 'Show 4 strings, or 5 or 6 for extended range basses.']);
+        const stringGroup = defaultRows('Global string count preference', 1, [
+            'Always show 6 strings, or 7 or 8 for extended range guitars. "From file" keeps what the tab was saved with.',
+            'Always show 4 strings, or 5 or 6 for extended range basses.'
+        ]);
         if (viewGroup) panes.reading.appendChild(viewGroup);
         panes.reading.appendChild(group('Notation', row('A new tab shows', 'Tab only, or tab with the standard staff above it. Change it for one song in View.', makeNotationDefault())));
         if (stringGroup) panes.player.appendChild(stringGroup);
@@ -233,7 +237,7 @@ export function initSettingsPage() {
         if (resetBtn) {
             resetBtn.className = 'btn btn-sm srow-ghost';
             resetBtn.textContent = 'Reset';
-            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Scroll for score and text, Page for PDF, and usual strings from the file (in Player).', resetBtn)));
+            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Scroll for score and text, Page for PDF, and global string count preference from the file (in Player).', resetBtn)));
         }
         defaultsBtn.remove();
         defaultsModal?.remove();
