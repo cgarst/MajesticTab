@@ -811,6 +811,7 @@ async function renderLibraryBrowseView(container) {
             title: 'This collection is empty',
             message: 'Add your favorite songs and albums to build your personalized tab catalog, or add custom music and exercises.',
             actionsHtml: `<button class="btn btn-theme-outline btn-sm px-4" id="emptyStateOpenFileBtn"><i class="bi-folder2-open me-1"></i> Open File</button>
+              <button class="btn btn-theme-outline btn-sm px-4" id="emptyStateRestoreBtn"><i class="bi-arrow-counterclockwise me-1"></i> Restore backup</button>
               <button class="btn btn-theme-primary btn-sm px-4" id="emptyStateAddBtn"><i class="bi-plus-lg me-1"></i> Add Music</button>`
           })}
         </div>
@@ -819,6 +820,14 @@ async function renderLibraryBrowseView(container) {
         bindLibraryToolbarEvents(container);
         container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => { searchType = 'artist'; switchView('search'); });
         container.querySelector('#emptyStateOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
+        container.querySelector('#emptyStateRestoreBtn')?.addEventListener('click', async () => {
+            try {
+                const { openBackupModal } = await import('./backupRestore.js');
+                await openBackupModal('restore');
+            } catch (_) {
+                settingsPanel.show();
+            }
+        });
         return;
     }
 
