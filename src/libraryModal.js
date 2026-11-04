@@ -3443,6 +3443,7 @@ function renderSearchMusicBrainzView(container) {
     <div class="library-page-container search-mb-view">
       <div class="search-sticky-header search-view-header">
       <div class="lib-view-switch-row">${libraryViewSwitchHtml()}</div>
+      <button type="button" class="btn btn-sm open-file-back" id="searchBackBtn"><i class="bi-chevron-left" aria-hidden="true"></i> Library</button>
       ${libraryPageTitleHtml({
         icon: 'bi-plus-circle',
         title: 'Add music',
@@ -3478,6 +3479,11 @@ function renderSearchMusicBrainzView(container) {
     </div>
     `;
 
+
+    // Back button to return to library
+    container.querySelector('#searchBackBtn')?.addEventListener('click', () => {
+        switchView('library');
+    });
 
     // Type pills
     container.querySelectorAll('#searchTypePill button').forEach(btn => {

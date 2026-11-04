@@ -2681,7 +2681,8 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .open-file-view .library-page-title-text { font-size: 22px; font-weight: 600; margin: 0; color: var(--ink); }
 .open-file-view .library-page-title-sub { font-size: 14px; color: var(--ink2); margin: 4px 0 0; }
 .open-file-view .open-file-body { max-width: none; margin: 0; }
-.open-file-view .open-file-back { display: inline-flex; align-items: center; gap: 4px; }
+.open-file-view .open-file-back,
+.search-mb-view .open-file-back { display: inline-flex; align-items: center; gap: 4px; margin-bottom: 8px; }
 @media (max-width: 576px) {
   .open-file-web-search { flex-wrap: wrap; }
   .open-file-web-search .library-search-bar { flex: 1 1 100%; }
