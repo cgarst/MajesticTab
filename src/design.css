@@ -1803,6 +1803,7 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 @media (hover: hover) { .library-song-rowwrap .tab-row:hover { background: var(--s2) !important; } }
 .library-song-rowwrap .tab-row .tab-option-name { flex: 0 1 auto; min-width: 0; font-weight: 500; }
 .library-song-rowwrap .tab-row .tab-option-meta { color: var(--ink2); font-size: 13px; flex: none; }
+.library-song-rowwrap .tab-row .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--hue); display: inline-block; flex: none; }
 .library-song-rowwrap .tab-row .set-default-tab-btn { margin-left: auto; font-size: 13px; color: var(--ink2) !important; text-decoration: none; min-height: 32px; padding: 0 8px !important; }
 .library-song-rowwrap .tab-row .set-default-tab-btn.is-default { color: var(--ink) !important; font-weight: 600; cursor: default; }
 .library-song-rowwrap .tab-row-default::before { content: ""; position: absolute; left: 2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }

@@ -28,6 +28,7 @@ import { pauseYouTube } from './youtubePlayer.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
+import { songHasSyncPoints } from './audioSync/syncStore.js';
 
 // The phone's bottom tab bar is fixed over the bottom of the library, and Popper does not know it is there, so a
 // menu opened near the bottom stayed below it. Keep every dropdown clear of the bar: it flips up instead.
@@ -2566,7 +2567,13 @@ function renderSongRow(song, options = {}) {
         ? `<span class="chip sec" title="${tabOptions.length} tab versions attached"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} tabs</span>`
         : (hasTabs ? `<span class="chip sec" title="1 tab attached">1 tab</span>` : `<span class="chip no-tab" title="No tab attached">No tab</span>`);
 
-    const isSynced = Boolean(song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
+    const songKeys = [
+        [song.artist, song.title].filter(Boolean).join(' - '),
+        song.title,
+        ...(song.tabOptions || []).map(t => t.name)
+    ].filter(Boolean);
+    const hasSyncPoints = songKeys.some(k => songHasSyncPoints(k));
+    const isSynced = Boolean(hasSyncPoints || song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
     const syncDotHtml = isSynced ? `<span class="sync-dot" title="Synced audio available"></span>` : '';
 
     const tabOptionsListHtml = tabOptions.length > 1 ? `
@@ -2574,12 +2581,14 @@ function renderSongRow(song, options = {}) {
         <div class="tab-options-chips" role="list" aria-label="Tabs for ${escapeHtml(song.title)}">
         ${tabOptions.map((t, idx) => {
           const isDefault = (t.id === defaultTabId) || (!defaultTabId && idx === 0);
+          const isTabSynced = songHasSyncPoints(t.name) || (hasSyncPoints && isDefault) || Boolean(t.syncedAudio);
           const isPdfRange = Boolean(t.isAlbumRange || t.startPage);
           const tuningLabel = (t.tuning && isTuningMatchingInstrument(t.tuning)) ? (getTuningInfo(t.tuning)?.displayName || t.tuning) : '';
           const meta = [(t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '', tuningLabel].filter(Boolean).join(' \u00b7 ');
           return `
           <div class="tab-row ${isDefault ? 'tab-row-default' : ''} play-tab-chip-btn" role="listitem" data-song-id="${song.id}" data-tab-id="${t.id}" tabindex="0" title="Load ${escapeHtml(t.name)}">
             <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
+            ${isTabSynced ? `<span class="sync-dot" title="Synced audio available"></span>` : ''}
             ${meta ? `<span class="tab-option-meta">${escapeHtml(meta)}</span>` : ''}
             <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'is-default' : ''}" data-song-id="${song.id}" data-tab-id="${t.id}" ${isDefault ? 'aria-pressed="true"' : ''} title="${isDefault ? 'This tab opens by default' : 'Open this tab by default'}">${isDefault ? 'Default' : 'Make default'}</button>
             ${isPdfRange && isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" aria-label="Edit page range" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
