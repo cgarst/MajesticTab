@@ -624,7 +624,17 @@ class PitchCraftTunerController {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
 
-            osc.type = "sine";
+            // Warm string-like harmonic profile so low guitar/bass notes (e.g. low E at 82Hz)
+            // are clearly audible on mobile/laptop speakers via natural harmonic overtones
+            try {
+                const real = new Float32Array(8);
+                const imag = new Float32Array([0, 1.0, 0.7, 0.5, 0.35, 0.2, 0.1, 0.05]);
+                const wave = ctx.createPeriodicWave(real, imag);
+                osc.setPeriodicWave(wave);
+            } catch {
+                osc.type = "triangle";
+            }
+
             osc.frequency.setValueAtTime(freq, ctx.currentTime);
             gain.gain.setValueAtTime(0.0001, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + 0.03);
