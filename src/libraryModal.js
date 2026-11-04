@@ -3,15 +3,15 @@
 
 import { settingsPanel } from './utils/settingsPanel.js';
 import {
-    getCollections, deleteCollection, getLibraryHierarchy, getLibraryTuningsHierarchy,
+    getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
     deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, setDefaultTabOption,
     togglePinSong, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
-    mapOpenFileToSong, getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
+    getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
 } from './libraryStore.js';
 import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
-    getCoverArtUrl, getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium,
+    getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium,
     filterInstrumentalBonusDiscs, hydrateCachedImages
 } from './musicbrainz.js';
 import { getStoredFile, saveStoredFile } from './fileStore.js';
@@ -19,7 +19,7 @@ import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { renderOpenFileView } from './openFileModal.js';
 import { renderSetlistsView, openAddToSetlistModal } from './setlistUi.js';
-import { extractScoreTunings, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, setCustomTuningName, getCustomTuningName, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
+import { detectFileMetadata, getTuningInfo, setCustomTuningName, isTuningMatchingInstrument } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
@@ -53,7 +53,7 @@ try {
     }
 } catch { /* the menus still work, they may sit under the bar */ }
 
-import { toggleToolsMenu, closeToolsMenu } from './utils/toolsMenu.js';
+import { closeToolsMenu } from './utils/toolsMenu.js';
 import { renderToolsPage, releaseEmbeddedTools } from './utils/toolsPage.js';
 
 let activeView = 'library'; // 'library', 'search', 'recents', 'openFile', 'setlists', 'tools'
@@ -619,17 +619,6 @@ if (typeof window !== 'undefined') {
         return true;
     };
     window.openLibraryModal = openLibraryModal;
-}
-
-/**
- * Toggle Tab Library Page
- */
-export function toggleLibraryModal() {
-    if (isLibraryOpen() && getCurrentFile()) {
-        closeLibraryModal();
-    } else {
-        openLibraryModal(activeView || 'library');
-    }
 }
 
 /**

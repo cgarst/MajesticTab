@@ -10,8 +10,8 @@ import { isIcloudDriveSupported } from './icloudDrive.js';
 import { hasFeature } from './channel.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
 import { openTabDownloader } from './tabDownloader.js';
-import { addTabOptionToSong, addTabOptionToAlbum, mapOpenFileToSong } from './libraryStore.js';
-import { inferTuningFromTextOrName, detectFileMetadata } from './utils/tuningUtils.js';
+import { addTabOptionToSong, addTabOptionToAlbum } from './libraryStore.js';
+import { detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
 

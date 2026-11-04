@@ -3,8 +3,8 @@
 
 import { getAllSetlists, clearAllSetlists, importSetlists, putSetlistRecord, deleteSetlist } from './setlistStore.js';
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile, getAllStoredFiles, deleteStoredFile } from './fileStore.js';
-import { extractScoreTunings, extractScoreMetadata, inferTuningFromTextOrName, detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
-import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, isNonCdMedium, filterInstrumentalBonusDiscs } from './musicbrainz.js';
+import { detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
+import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, filterInstrumentalBonusDiscs } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
 
@@ -43,26 +43,6 @@ export async function getCollections() {
         const store = tx.objectStore(STORE_COLLECTIONS);
         const req = store.getAll();
         req.onsuccess = () => resolve(req.result || []);
-        req.onerror = () => reject(req.error);
-    });
-}
-
-/**
- * Add a new collection
- */
-export async function createCollection(name) {
-    const db = await getDB();
-    const id = `col_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-    const collection = {
-        id,
-        name: name || 'New Collection',
-        createdAt: Date.now()
-    };
-    return new Promise((resolve, reject) => {
-        const tx = db.transaction(STORE_COLLECTIONS, 'readwrite');
-        const store = tx.objectStore(STORE_COLLECTIONS);
-        const req = store.put(collection);
-        req.onsuccess = () => resolve(collection);
         req.onerror = () => reject(req.error);
     });
 }

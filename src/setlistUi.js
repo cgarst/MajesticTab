@@ -2,13 +2,13 @@
 // Setlists library view, the "Add to Setlist" picker, and the notation-menu button.
 
 import {
-    getAllSetlists, getSetlist, createSetlist, renameSetlist, deleteSetlist,
+    getAllSetlists, createSetlist, renameSetlist, deleteSetlist,
     addToSetlist, removeFromSetlist, moveSetlistItem
 } from './setlistStore.js';
 import { getSongById, getAllSongs, getRecents } from './libraryStore.js';
 import { getPlaceholderCoverSvg, hydrateCachedImages } from './musicbrainz.js';
 import { playSetlist } from './setlistPlayer.js';
-import { openThemedInputModal, libraryViewSwitchHtml, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, bindTwoPaneFilter } from './libraryModal.js';
+import { openThemedInputModal, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, bindTwoPaneFilter } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
 import { showToast } from './utils/toast.js';
 import { gamepadManager } from './utils/gamepadManager.js';
