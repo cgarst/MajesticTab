@@ -30,6 +30,33 @@ import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 import { songHasSyncPoints } from './audioSync/syncStore.js';
 
+export const HIDE_NO_TAB_SONGS_KEY = 'majestictab_hide_no_tab_songs';
+
+export function isHideNoTabSongsEnabled() {
+    try {
+        return localStorage.getItem(HIDE_NO_TAB_SONGS_KEY) === 'true';
+    } catch (_) {
+        return false;
+    }
+}
+
+export function setHideNoTabSongsEnabled(val) {
+    try {
+        localStorage.setItem(HIDE_NO_TAB_SONGS_KEY, val ? 'true' : 'false');
+    } catch (_) {}
+    window.dispatchEvent(new CustomEvent('library:refresh'));
+}
+
+export function songHasTabs(song) {
+    return Boolean(song && Array.isArray(song.tabOptions) && song.tabOptions.length > 0);
+}
+
+window.addEventListener('library:refresh', () => {
+    if (isLibraryOpen() && activeView !== 'search') {
+        renderLibraryModal();
+    }
+});
+
 // The phone's bottom tab bar is fixed over the bottom of the library, and Popper does not know it is there, so a
 // menu opened near the bottom stayed below it. Keep every dropdown clear of the bar: it flips up instead.
 try {
@@ -733,8 +760,22 @@ async function renderLibraryBrowseView(container) {
     activeCollectionId = currentCollection.id;
 
     const hierarchy = await getLibraryHierarchy(activeCollectionId);
-    const artists = hierarchy.artists || [];
-    const pinnedSongs = hierarchy.pinnedSongs || [];
+    let artists = hierarchy.artists || [];
+    let pinnedSongs = hierarchy.pinnedSongs || [];
+
+    if (isHideNoTabSongsEnabled()) {
+        pinnedSongs = pinnedSongs.filter(songHasTabs);
+        hierarchy.pinnedSongs = pinnedSongs;
+        artists = artists.map(art => ({
+            ...art,
+            songs: (art.songs || []).filter(songHasTabs),
+            albums: (art.albums || []).map(alb => ({
+                ...alb,
+                songs: (alb.songs || []).filter(songHasTabs)
+            }))
+        }));
+        hierarchy.artists = artists;
+    }
 
     // Re-sync selectedArtist and selectedAlbum against latest hierarchy data
     if (selectedArtist) {
@@ -804,7 +845,12 @@ async function renderLibraryBrowseView(container) {
     // ==========================================
     if (libraryBrowseMode === 'tunings') {
         const tuningsHierarchy = await getLibraryTuningsHierarchy(activeCollectionId);
-        const allTuningGroups = tuningsHierarchy.tunings || [];
+        let allTuningGroups = tuningsHierarchy.tunings || [];
+        if (isHideNoTabSongsEnabled()) {
+            allTuningGroups = allTuningGroups
+                .map(g => ({ ...g, songs: (g.songs || []).filter(songHasTabs) }))
+                .filter(g => g.songs.length > 0);
+        }
         const tuningArtists = Array.from(new Set(allTuningGroups.flatMap(g => g.songs.map(s => s.artist).filter(Boolean))))
             .sort((a, b) => a.localeCompare(b));
         if (tuningsArtistFilter && !tuningArtists.includes(tuningsArtistFilter)) tuningsArtistFilter = '';
@@ -1120,7 +1166,10 @@ async function renderLibraryBrowseView(container) {
                     ? selectedArtist.albums
                     : (selectedAlbumFilter === 'other' ? [] : selectedArtist.albums.filter(a => a.title === selectedAlbumFilter));
 
-                const albumBlocksHtml = albumsToRender.map(alb => {
+                const hasAnyAlbumTab = selectedArtist.albums.some(a => (albumTabsMap.get(a.title) || []).length > 0);
+                const showArtistEmptyState = totalArtistSongs === 0 && isHideNoTabSongsEnabled() && !hasAnyAlbumTab && selectedAlbumFilter === 'all';
+
+                const albumBlocksHtml = showArtistEmptyState ? '' : albumsToRender.map(alb => {
                     const coverSrc = getSynchronousCachedArtUrl(alb.coverUrl) || alb.coverUrl || getPlaceholderCoverSvg(alb.title);
                     const totalSecs = (alb.songs || []).reduce((acc, s) => acc + (typeof s.length === 'number' ? s.length : 0), 0);
                     const albumDurationText = totalSecs > 0 ? formatTrackDuration(totalSecs) : '';
@@ -1203,7 +1252,14 @@ async function renderLibraryBrowseView(container) {
                     emptyHtml = `
                     <div class="text-center py-5 text-muted">
                       <i class="bi-folder2-open fs-2 mb-2 d-block text-white-50"></i>
-                      <div>No songs in this artist.</div>
+                      <div>${isHideNoTabSongsEnabled() ? 'No songs with tabs for this artist.' : 'No songs in this artist.'}</div>
+                    </div>
+                    `;
+                } else if (showArtistEmptyState) {
+                    emptyHtml = `
+                    <div class="text-center py-5 text-muted">
+                      <i class="bi-folder2-open fs-2 mb-2 d-block text-white-50"></i>
+                      <div>No songs with tabs for this artist.</div>
                     </div>
                     `;
                 }
@@ -1267,7 +1323,7 @@ async function renderLibraryBrowseView(container) {
                     emptyHtml = `
                     <div class="text-center py-5 text-muted">
                       <i class="bi-folder2-open fs-2 mb-2 d-block text-white-50"></i>
-                      <div>This folder is empty.</div>
+                      <div>${isHideNoTabSongsEnabled() ? 'No songs with tabs in this folder.' : 'This folder is empty.'}</div>
                     </div>
                     `;
                 }
@@ -1369,7 +1425,9 @@ async function renderLibraryBrowseView(container) {
               <div class="pane-scroll" id="libArtistDetailScroll">
                 <div class="artist-detail-view">
                   <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
-                    ${pinnedSongs.map(song => renderSongRow(song, { showArtistAlbum: true, showTrackNumber: false, showCover: true })).join('')}
+                    ${pinnedSongs.length > 0
+                      ? pinnedSongs.map(song => renderSongRow(song, { showArtistAlbum: true, showTrackNumber: false, showCover: true })).join('')
+                      : `<div class="text-muted p-4 text-center">${isHideNoTabSongsEnabled() ? 'No pinned songs with tabs.' : 'No pinned songs.'}</div>`}
                   </div>
                 </div>
               </div>
@@ -2025,7 +2083,12 @@ function formatBooksSongsLabel(books, songs) {
 function renderArtistCard(artist) {
     const isCustomArtist = Boolean(artist.isCustom);
     const albumCount = artist.albums ? artist.albums.length : 0;
-    const songCount = (artist.songs ? artist.songs.length : 0) + (artist.albums ? artist.albums.reduce((acc, a) => acc + (a.songs ? a.songs.length : 0), 0) : 0);
+    const hideNoTabs = isHideNoTabSongsEnabled();
+    const artistSongs = hideNoTabs ? (artist.songs || []).filter(songHasTabs) : (artist.songs || []);
+    const songCount = artistSongs.length + (artist.albums ? artist.albums.reduce((acc, a) => {
+        const aSongs = hideNoTabs ? (a.songs || []).filter(songHasTabs) : (a.songs || []);
+        return acc + aSongs.length;
+    }, 0) : 0);
     const bookCount = (artist.rootBooks || 0) + (artist.albums ? artist.albums.reduce((acc, a) => acc + (a.tabOptions ? a.tabOptions.length : 0), 0) : 0);
     const collageHtml = renderArtistCollageHtml(artist);
     const isCurrent = selectedArtist && (artist.name === selectedArtist.name || (selectedArtist.artistMbid && artist.artistMbid === selectedArtist.artistMbid));
@@ -2047,7 +2110,10 @@ function renderAlbumCard(album, artistName = '') {
     const isCustom = Boolean(album.isCustom);
     const title = album.title || album.name || '';
     const cover = getSynchronousCachedArtUrl(album.coverUrl) || album.coverUrl || (isCustom ? null : getPlaceholderCoverSvg(title));
-    const songCount = Array.isArray(album.songs) ? album.songs.length : (album.songsCount || 0);
+    const hideNoTabs = isHideNoTabSongsEnabled();
+    const songCount = Array.isArray(album.songs)
+        ? (hideNoTabs ? album.songs.filter(songHasTabs).length : album.songs.length)
+        : (album.songsCount || 0);
     const year = album.year;
     return `
     <div class="library-card album-card p-3" data-artist-name="${escapeHtml(artistName)}" data-album-title="${escapeHtml(title)}" data-folder-name="${escapeHtml(title)}" role="button" tabindex="0">
@@ -2257,6 +2323,7 @@ function setupLibraryFilter(container, context = {}) {
         for (const art of artistsList) {
             if (Array.isArray(art.songs)) {
                 for (const s of art.songs) {
+                    if (isHideNoTabSongsEnabled() && !songHasTabs(s)) continue;
                     const titleMatch = (s.title || '').toLowerCase().includes(query);
                     const tabMatch = s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query));
                     if (titleMatch || tabMatch) {
@@ -2281,6 +2348,7 @@ function setupLibraryFilter(container, context = {}) {
 
                     if (Array.isArray(alb.songs)) {
                         for (const s of alb.songs) {
+                            if (isHideNoTabSongsEnabled() && !songHasTabs(s)) continue;
                             const titleMatch = (s.title || '').toLowerCase().includes(query);
                             const tabMatch = s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query));
                             if (titleMatch || tabMatch) {
@@ -2523,6 +2591,9 @@ function formatPageRange(start, end) {
 }
 
 function renderSongRow(song, options = {}) {
+    if (isHideNoTabSongsEnabled() && !options.forceShow && (!song?.tabOptions || song.tabOptions.length === 0)) {
+        return '';
+    }
     const pdfPagesNoun = selectedArtist?.isCustom ? 'Book' : 'Album';
     const tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
     const hasTabs = tabOptions.length > 0;
@@ -2653,12 +2724,19 @@ function renderSongRow(song, options = {}) {
     `;
 }
 
+export function renderSongList(songs, options = {}) {
+    return renderAlbumSongsList(songs, options);
+}
+
 function renderAlbumSongsList(songs, options = {}) {
     const hasCd = (songs || []).some(s => !isDvdOrBlurayMedium(s) && !isVinylOrTapeMedium(s));
     let cleanSongs = (songs || []).filter(s => !isDvdOrBlurayMedium(s) && !(hasCd && isVinylOrTapeMedium(s)));
     cleanSongs = filterInstrumentalBonusDiscs(cleanSongs);
+    if (isHideNoTabSongsEnabled()) {
+        cleanSongs = cleanSongs.filter(songHasTabs);
+    }
     if (!cleanSongs || cleanSongs.length === 0) {
-        return '<div class="text-muted p-4 text-center">No songs in this album.</div>';
+        return `<div class="text-muted p-4 text-center">${isHideNoTabSongsEnabled() ? 'No songs with tabs in this album.' : 'No songs in this album.'}</div>`;
     }
 
     // Group songs by mediumNumber

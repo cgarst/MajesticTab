@@ -10,6 +10,7 @@ import { brandMarkSvg } from '../brandMark.js';
 import { canQuitApp } from './quitApp.js';
 import { isNative } from '../tabDownloader.js';
 import { initWebSearchSettings } from './webSearchSettings.js';
+import { isHideNoTabSongsEnabled, setHideNoTabSongsEnabled } from '../libraryModal.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -133,6 +134,29 @@ function proxyButton(label, targetId, className = 'btn btn-sm btn-theme-outline'
     b.textContent = label;
     b.addEventListener('click', () => $(targetId)?.click());
     return b;
+}
+
+function makeHideNoTabSongsRow() {
+    const sw = el('input', 'form-check-input theme-switch');
+    sw.type = 'checkbox';
+    sw.id = 'hideNoTabSongsSwitch';
+    sw.checked = isHideNoTabSongsEnabled();
+    sw.setAttribute('aria-label', 'Hide songs without tabs');
+    sw.addEventListener('change', () => {
+        setHideNoTabSongsEnabled(sw.checked);
+        window.dispatchEvent(new CustomEvent('library:refresh'));
+    });
+    const wrap = el('div', 'form-check form-switch mb-0');
+    wrap.appendChild(sw);
+    const r = row('Hide songs without tabs', 'Only show songs in the library that have at least one tab attached.', wrap);
+    r.style.cursor = 'pointer';
+    r.addEventListener('click', (e) => {
+        if (e.target !== sw) {
+            sw.checked = !sw.checked;
+            sw.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+    return r;
 }
 
 export function initSettingsPage() {
@@ -334,6 +358,7 @@ export function initSettingsPage() {
     };
     const syncTask = taskRow('sync', 'Sync', 'Keep this device and your backup location matching.', 'Sync');
     if (syncStatus) syncTask[0].querySelector('.st').appendChild(syncStatus);
+    panes.library.appendChild(group('Library', makeHideNoTabSongsRow()));
     panes.library.appendChild(group('Sync', ...syncTask));
     panes.library.appendChild(taskGroup('Back up and restore',
         ...[taskRow('backup', 'Create a backup', 'Save everything to a file, a folder or your cloud.', 'Create'),
