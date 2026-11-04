@@ -6,7 +6,7 @@ import {
     getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
     deleteAlbumFromLibrary, getSongById, addTabOptionToSong, updateTabOptionOnSong, removeTabOptionFromSong, setDefaultTabOption,
-    togglePinSong, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
+    togglePinSong, toggleArtistPinned, isArtistPinned, getAlbumTabOptions, addTabOptionToAlbum, removeTabOptionFromAlbum, setDefaultAlbumTabOption,
     getRecents, clearRecents, deleteRecentItem, getRecentItem, restoreRecentItem, addRecentOpened, DEFAULT_COLLECTION_ID
 } from './libraryStore.js';
 import {
@@ -1455,6 +1455,7 @@ async function renderLibraryBrowseView(container) {
             </section>
             `;
 
+            const isArtistPinnedState = selectedArtist && isArtistPinned(selectedArtist.name);
             const songsPaneHtml = recentsActive ? recentsPaneHtml : pinnedActive ? pinnedPaneHtml : `
             <section class="pane songs" aria-label="Songs">
               ${libraryPaneHeadHtml({
@@ -1462,7 +1463,7 @@ async function renderLibraryBrowseView(container) {
                   backId: 'paneBackBtn',
                   backAct: 'paneback',
                   countText: `${totalSongsForPane} ${totalSongsForPane === 1 ? 'song' : 'songs'}${!isCustomArtist && selectedArtist.albums.length > 0 ? ` · ${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'album' : 'albums'}` : ''}`,
-                  actionsHtml: `<button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>`,
+                  actionsHtml: `${!isCustomArtist && selectedArtist ? `<button class="btn btn-sm btn-theme-icon pin-artist-btn me-1 ${isArtistPinnedState ? 'text-warning' : 'text-muted'}" data-artist-name="${escapeHtml(selectedArtist.name)}" title="${isArtistPinnedState ? 'Unpin artist' : 'Pin artist'}"><i class="bi-pin-angle${isArtistPinnedState ? '-fill' : ''}"></i></button>` : ''}<button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>`,
                   title: selectedArtist.name
               })}
               ${isCustomArtist ? breadcrumbHtml : ''}
@@ -1606,7 +1607,8 @@ async function renderLibraryBrowseView(container) {
 
     // Artist card clicks
     container.querySelectorAll('.artist-card').forEach(card => {
-        card.addEventListener('click', () => {
+        card.addEventListener('click', (e) => {
+            if (e.target.closest('.pin-artist-btn')) return;
             clearCardInteractionState(card);
             pushLibraryNavigationState();
             const artistName = card.dataset.artistName;
@@ -1617,6 +1619,17 @@ async function renderLibraryBrowseView(container) {
             selectedFolderPath = [];
             isAlbumEditMode = false;
             activeLibraryPane = 'songs';
+            renderLibraryBrowseView(container);
+        });
+    });
+
+    // Toggle Pin Artist
+    container.querySelectorAll('.pin-artist-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const artistName = btn.dataset.artistName;
+            const pinned = toggleArtistPinned(artistName);
+            showToast(pinned ? `Pinned ${artistName}` : `Unpinned ${artistName}`, 'info');
             renderLibraryBrowseView(container);
         });
     });
@@ -2083,6 +2096,7 @@ function formatBooksSongsLabel(books, songs) {
 function renderArtistCard(artist) {
     const isCustomArtist = Boolean(artist.isCustom);
     const albumCount = artist.albums ? artist.albums.length : 0;
+    const isPinned = Boolean(artist.pinned ?? isArtistPinned(artist.name));
     const hideNoTabs = isHideNoTabSongsEnabled();
     const artistSongs = hideNoTabs ? (artist.songs || []).filter(songHasTabs) : (artist.songs || []);
     const songCount = artistSongs.length + (artist.albums ? artist.albums.reduce((acc, a) => {
@@ -2093,13 +2107,19 @@ function renderArtistCard(artist) {
     const collageHtml = renderArtistCollageHtml(artist);
     const isCurrent = selectedArtist && (artist.name === selectedArtist.name || (selectedArtist.artistMbid && artist.artistMbid === selectedArtist.artistMbid));
     return `
-    <div class="library-card artist-card p-3" data-artist-name="${escapeHtml(artist.name)}" ${isCurrent ? 'aria-current="true"' : ''} role="button" tabindex="0">
+    <div class="library-card artist-card p-3 ${isPinned ? 'artist-card-pinned' : ''}" data-artist-name="${escapeHtml(artist.name)}" ${isCurrent ? 'aria-current="true"' : ''} role="button" tabindex="0">
       <div class="d-flex align-items-center gap-3 min-w-0">
         ${collageHtml}
         <div class="min-w-0 flex-grow-1">
-          <h6 class="mb-1 fw-bold text-white text-truncate" title="${escapeHtml(artist.name)}">${escapeHtml(artist.name)}</h6>
+          <h6 class="mb-1 fw-bold text-white text-truncate d-flex align-items-center gap-1" title="${escapeHtml(artist.name)}">
+            <span>${escapeHtml(artist.name)}</span>
+            ${isPinned ? '<i class="bi-pin-angle-fill text-warning small ms-1" title="Pinned artist"></i>' : ''}
+          </h6>
           <div class="small text-muted text-truncate">${albumCount > 0 ? `${formatCount(albumCount, isCustomArtist ? 'folder' : 'album')} · ` : ''}${isCustomArtist ? formatBooksSongsLabel(bookCount, songCount) : formatCount(songCount, 'song')}</div>
         </div>
+        <button type="button" class="btn btn-sm btn-theme-icon pin-artist-btn ${isPinned ? 'text-warning' : 'text-muted'} flex-shrink-0" data-artist-name="${escapeHtml(artist.name)}" title="${isPinned ? 'Unpin artist' : 'Pin artist'}">
+          <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
+        </button>
         <i class="bi-chevron-right text-muted flex-shrink-0"></i>
       </div>
     </div>
@@ -2434,7 +2454,8 @@ function setupLibraryFilter(container, context = {}) {
 
         // Click artist cards in filter results
         filterResults.querySelectorAll('.artist-card').forEach(card => {
-            card.addEventListener('click', () => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.pin-artist-btn')) return;
                 clearCardInteractionState(card);
                 pushLibraryNavigationState();
                 const artistName = card.dataset.artistName;
@@ -2442,6 +2463,17 @@ function setupLibraryFilter(container, context = {}) {
                 selectedAlbum = null;
                 selectedFolderPath = [];
                 isAlbumEditMode = false;
+                renderLibraryBrowseView(container);
+            });
+        });
+
+        // Toggle Pin Artist in filter results
+        filterResults.querySelectorAll('.pin-artist-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const artistName = btn.dataset.artistName;
+                const pinned = toggleArtistPinned(artistName);
+                showToast(pinned ? `Pinned ${artistName}` : `Unpinned ${artistName}`, 'info');
                 renderLibraryBrowseView(container);
             });
         });

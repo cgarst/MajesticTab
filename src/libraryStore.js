@@ -128,6 +128,39 @@ export async function getSongsByCollection(collectionId = DEFAULT_COLLECTION_ID)
     });
 }
 
+export const PINNED_ARTISTS_STORAGE_KEY = 'majestictab_pinned_artists';
+
+export function getPinnedArtists() {
+    try {
+        const raw = localStorage.getItem(PINNED_ARTISTS_STORAGE_KEY);
+        return new Set(raw ? JSON.parse(raw) : []);
+    } catch {
+        return new Set();
+    }
+}
+
+export function toggleArtistPinned(artistName) {
+    if (!artistName) return false;
+    const pinned = getPinnedArtists();
+    let isNowPinned = false;
+    if (pinned.has(artistName)) {
+        pinned.delete(artistName);
+        isNowPinned = false;
+    } else {
+        pinned.add(artistName);
+        isNowPinned = true;
+    }
+    try {
+        localStorage.setItem(PINNED_ARTISTS_STORAGE_KEY, JSON.stringify([...pinned]));
+    } catch {}
+    return isNowPinned;
+}
+
+export function isArtistPinned(artistName) {
+    if (!artistName) return false;
+    return getPinnedArtists().has(artistName);
+}
+
 /**
  * Return library organized as Collection > Artist > Album > Song hierarchy
  */
@@ -287,18 +320,23 @@ export async function getLibraryHierarchy(collectionId = DEFAULT_COLLECTION_ID) 
             return (a.title || '').localeCompare(b.title || '');
         });
 
+        const pinnedSet = getPinnedArtists();
         return {
             name: artist.name,
             artistMbid: artist.artistMbid,
             isCustom: artist.isCustom,
+            pinned: pinnedSet.has(artist.name),
             songs: artist.songs,
             rootBooks: artist.rootBooks,
             albums
         };
     });
 
-    // Sort artists alphabetically
-    artists.sort((a, b) => a.name.localeCompare(b.name));
+    // Sort artists: pinned artists first, then alphabetically
+    artists.sort((a, b) => {
+        if (Boolean(b.pinned) !== Boolean(a.pinned)) return b.pinned ? 1 : -1;
+        return a.name.localeCompare(b.name);
+    });
 
     const pinnedSongs = songs.filter(s => s.pinned && !s.isAlbumTabContainer);
     pinnedSongs.forEach(s => {
