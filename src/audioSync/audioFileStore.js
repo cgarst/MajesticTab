@@ -127,14 +127,6 @@ export async function unlinkAudioFile(id, songKey) {
     else await request('readwrite', s => s.delete(id));
 }
 
-export async function deleteAudioFile(id) {
-    await request('readwrite', s => s.delete(id));
-}
-
-export async function totalAudioBytes() {
-    return (await listAudioFiles()).reduce((sum, r) => sum + r.size, 0);
-}
-
 /** Writes a complete record as it is (used when restoring a backup, which keeps the original id). */
 export async function putAudioRecord(record) {
     await request('readwrite', s => s.put(record));

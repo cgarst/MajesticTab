@@ -49,10 +49,6 @@ const $ = (id) => document.getElementById(id);
 
 let session = null;
 
-export function isSyncModeActive() {
-    return Boolean(session);
-}
-
 function readOffset() {
     try {
         const n = Number(localStorage.getItem(OFFSET_KEY));

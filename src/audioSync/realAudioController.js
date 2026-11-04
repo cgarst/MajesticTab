@@ -15,9 +15,9 @@ import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
     rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile
 } from './audioFilePlayer.js';
-import { updateGlobalAudioControls, setActiveAudioMode } from '../utils/navigationUtils.js';
+import { updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import {
-    listRecords, loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver,
+    loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver,
     isSyncSharedFromOriginal, setSyncSharedFromOriginal
 } from './syncStore.js';
 import { buildTimelineModel } from './timelineModel.js';
@@ -60,16 +60,8 @@ export function setSlotSource(source, slot = state.slot) {
     } catch { /* optional */ }
 }
 
-export function getRealAudioSlot() {
-    return state.slot;
-}
-
 export function getRealAudioActiveSource() {
     return getSlotSource(state.slot);
-}
-
-export function getRealAudioRate() {
-    return state.rate;
 }
 
 /**

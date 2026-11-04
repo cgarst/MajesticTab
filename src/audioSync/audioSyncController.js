@@ -238,33 +238,6 @@ export function getAudioSyncSession() {
     return active;
 }
 
-/**
- * A MediaSource backed by the wall clock, for tests and the debug console: time runs from `startMs` at `rate`
- * while playing. Not a real recording.
- */
-export function createClockSource({ startMs = 0, rate = 1 } = {}) {
-    let base = startMs;
-    let from = performance.now();
-    let playing = false;
-    let r = rate;
-    const now = () => (playing ? base + (performance.now() - from) * r : base);
-    return {
-        kind: 'clock',
-        id: 'clock',
-        durationMs: null,
-        capabilities: { waveform: false, preciseClock: true, pitchPreservedRate: true },
-        getTimeMs: now,
-        seek(ms) { base = ms; from = performance.now(); },
-        play() { base = now(); from = performance.now(); playing = true; },
-        pause() { base = now(); playing = false; },
-        setRate(next) { base = now(); from = performance.now(); r = next; },
-        getRate: () => r,
-        isPlaying: () => playing,
-        isBuffering: () => false,
-        on: () => () => {}
-    };
-}
-
 /** The loaded score's timeline and AlphaTab API, or null until a score is ready. */
 export function getScoreContext() {
     const api = window.gpApi;

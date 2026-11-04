@@ -5,7 +5,7 @@
 // sync record remembers each file's name, length and fingerprint so a missing file can be relinked.
 
 import { getSongKey, pauseYouTube, onYouTubeEvent, toggleYouTubePanel } from '../youtubePlayer.js';
-import { pauseSynthPlayer, clearSynthHighlights, onTransportEvent, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
+import { pauseSynthPlayer, clearSynthHighlights, onTransportEvent } from '../gpProcessor/gpPlayer.js';
 import { setActiveAudioMode, updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import { createLocalAudioSource } from './localAudioSource.js';
 import { decodePeaks } from './peaks.js';
@@ -17,7 +17,6 @@ import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
 import { isJamHosting, JAM_BRIDGE_EVENT } from './jamBridge.js';
 import { listRecords, loadRecord, saveRecord } from './syncStore.js';
 import { mountSyncRow } from './audioSyncUi.js';
-import { formatTime } from './syncEdit.js';
 
 const LAST_FILE_KEY = (songKey) => `audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`;
 const SLOT_FILE_KEY = (songKey, slot) => `audio_file_${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;
