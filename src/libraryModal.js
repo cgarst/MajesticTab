@@ -683,7 +683,7 @@ export async function handleGetTabSingleSong(songItem) {
     }
 
     if (isNative()) {
-        const query = `${artist} ${title} guitar tab`;
+        const query = `${artist} ${title}`;
         await openTabDownloader({
             targetSong,
             artist,
@@ -2750,7 +2750,7 @@ function setupLibraryFilter(container, context = {}) {
                     if (isNative()) {
                         openTabDownloader({ query: rawQuery });
                     } else {
-                        window.open(`https://duckduckgo.com/?q=${encodeURIComponent(rawQuery + ' guitar pro tab')}`, '_blank');
+                        window.open(`https://duckduckgo.com/?q=${encodeURIComponent(rawQuery + ' guitar tab')}`, '_blank');
                     }
                 } else if (type === 'file-fallback') {
                     switchView('openFile');

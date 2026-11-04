@@ -39,16 +39,16 @@ export const DEFAULT_SOURCES = [
     {
         id: 'duckduckgo',
         name: 'DuckDuckGo',
-        urlTemplate: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
-        defaultUrl: 'https://duckduckgo.com/?q=$s+guitar+pro+tab',
+        urlTemplate: 'https://duckduckgo.com/?q=$s+guitar+tab',
+        defaultUrl: 'https://duckduckgo.com/?q=$s+guitar+tab',
         queryFormat: 'artist_song',
         isSeed: true
     },
     {
         id: 'google',
         name: 'Google',
-        urlTemplate: 'https://www.google.com/search?q=$s+guitar+pro+tab',
-        defaultUrl: 'https://www.google.com/search?q=$s+guitar+pro+tab',
+        urlTemplate: 'https://www.google.com/search?q=$s+guitar+tab',
+        defaultUrl: 'https://www.google.com/search?q=$s+guitar+tab',
         queryFormat: 'artist_song',
         isSeed: true
     }
@@ -382,6 +382,11 @@ export function getSources() {
                     if (existing && existing.isSeed) {
                         if (!existing.queryFormat || ((existing.id === 'google' || existing.id === 'duckduckgo') && existing.queryFormat !== 'artist_song')) {
                             existing.queryFormat = seed.queryFormat;
+                        }
+                        if ((existing.id === 'google' || existing.id === 'duckduckgo') && /\+guitar\+pro\+tab$/.test(existing.urlTemplate || '')) {
+                            existing.urlTemplate = seed.urlTemplate;
+                            existing.defaultUrl = seed.defaultUrl;
+                            changed = true;
                         }
                         if (existing.id === 'google' && /^https:\/\/www\.google\.com\/search\?q=(SEARCH\+TERM|\$s)\+tab$/.test(existing.urlTemplate || '')) {
                             existing.urlTemplate = seed.urlTemplate;
