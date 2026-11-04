@@ -166,20 +166,27 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
     document.body.classList.add('sync-mode');
     $('syncModeBar').hidden = false;
     // The toolbar docks over the bottom of the score: pad the score by the overlap so every system can be scrolled clear of it
-    s.prevPadding = output.style.paddingBottom;
     const padForBar = () => {
-        const need = output.getBoundingClientRect().bottom - $('syncModeBar').getBoundingClientRect().top + 8;
-        output.style.paddingBottom = `${Math.max(0, Math.round(need))}px`;
+        const barRect = $('syncModeBar')?.getBoundingClientRect();
+        if (!barRect) return;
+        const need = Math.max(0, Math.round(window.innerHeight - barRect.top + 32));
+        output.style.setProperty('padding-bottom', `${need}px`, 'important');
     };
     const barObserver = new ResizeObserver(padForBar);
     barObserver.observe($('syncModeBar'));
-    s.cleanup.push(() => { barObserver.disconnect(); output.style.paddingBottom = s.prevPadding; });
+    const bodyObserver = new MutationObserver(() => padForBar());
+    bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    window.addEventListener('resize', padForBar);
+    s.cleanup.push(() => {
+        barObserver.disconnect();
+        bodyObserver.disconnect();
+        window.removeEventListener('resize', padForBar);
+        output.style.removeProperty('padding-bottom');
+    });
     padForBar();
     showTimeline(s.timelineOpen);
-    applyFollower();
     renderOverlay();
     updateToolbar();
-    scrollToTarget(true);
     if (source.capabilities?.waveform && getAudioData) loadOnsets(s, getAudioData);
 
     const api = ctx.api;
@@ -214,6 +221,7 @@ export function exitSyncMode() {
     $('syncModeBar').hidden = true;
     document.body.classList.remove('sync-mode');
     setAudioSyncSuspended(false);
+    s.output?.style.removeProperty('padding-bottom');
     if (s.wasPage) $('pageModeRadio')?.click();
     window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
 }
