@@ -2,7 +2,7 @@
 // Shared WebDAV UI: the connection form (used by Sync, Backup and the file picker) and a folder
 // browser for opening a tab file.
 import { loadSecret, isSecureStorageAvailable } from './secureStore.js';
-import { WEBDAV_SECRET_NAME, getWebDavConfig, saveWebDavConfig, davCheck, davList, davGet, davJoin, hasNativeHttp, webdavCorsHint } from './webdavClient.js';
+import { WEBDAV_SECRET_NAME, getWebDavConfig, saveWebDavConfig, clearWebDavConfig, davCheck, davList, davGet, davJoin, hasNativeHttp, webdavCorsHint } from './webdavClient.js';
 import { escapeHtml, formatBytes } from './backupRestore.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
@@ -89,12 +89,14 @@ export function openWebDavBrowser(onPick) {
           ${footer ? `<div class="theme-modal-footer d-flex justify-content-end align-items-center gap-2 px-3 py-2">${footer}</div>` : ''}
         </div>`;
     };
-    const btn = (action, label, primary = false) =>
-        `<button type="button" class="btn btn-sm ${primary ? 'btn-theme-primary px-4' : 'btn-theme-outline px-3'}" data-webdav-action="${action}">${label}</button>`;
+    const btn = (action, label, { primary = false, danger = false, extraClass = '' } = {}) =>
+        `<button type="button" class="btn btn-sm ${primary ? 'btn-theme-primary px-4' : danger ? 'btn-theme-danger px-3' : 'btn-theme-outline px-3'} ${extraClass}" data-webdav-action="${action}">${label}</button>`;
 
     const showForm = (error = '') => {
         frame(`${error ? `<div class="small text-warning mb-2">${escapeHtml(error)}</div>` : ''}${webdavConfigFormHtml()}`,
-            btn('close', 'Cancel') + btn('connect', 'Connect', true));
+            (config ? btn('disconnect', 'Disconnect', { danger: true, extraClass: 'me-auto' }) : '') +
+            btn('close', 'Cancel') +
+            btn('connect', 'Connect', { primary: true }));
     };
 
     const showListing = async () => {
@@ -147,6 +149,13 @@ export function openWebDavBrowser(onPick) {
         const { webdavAction: action, webdavPath: path } = target.dataset;
         if (action === 'close') return close();
         if (action === 'settings') return showForm();
+        if (action === 'disconnect') {
+            clearWebDavConfig();
+            config = null;
+            dir = '';
+            showToast('Disconnected WebDAV server on this device.', 'info');
+            return showForm();
+        }
         if (action === 'folder') { dir = path; return showListing(); }
         if (action === 'up') { dir = dir.split('/').slice(0, -1).join('/'); return showListing(); }
         if (action === 'file') return pick(path);

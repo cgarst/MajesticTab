@@ -2100,7 +2100,7 @@ function attachModalHandlers(modal, options = {}) {
                         <div class="small fw-semibold text-white">${head}</div>
                         <div class="text-white-50 text-truncate" style="font-size:0.72rem;" title="${escapeHtml(target.backend.location)}">${escapeHtml(target.backend.location)}</div>
                     </div>
-                    ${isDrive || isIcloud ? '' : isS3 ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-s3">Bucket settings</button>' : isWebDav ? '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="edit-webdav">Server settings</button>' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
+                    ${isDrive || isIcloud ? '' : isS3 ? '<div class="d-flex align-items-center gap-1 flex-shrink-0"><button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-backup-action="edit-s3">Bucket settings</button><button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-backup-action="disconnect-s3">Disconnect</button></div>' : isWebDav ? '<div class="d-flex align-items-center gap-1 flex-shrink-0"><button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-backup-action="edit-webdav">Server settings</button><button type="button" class="btn btn-sm btn-theme-outline px-2 py-1" style="font-size:0.72rem;" data-backup-action="disconnect-webdav">Disconnect</button></div>' : '<button type="button" class="btn btn-sm btn-theme-outline px-2 py-1 flex-shrink-0" style="font-size:0.72rem;" data-backup-action="choose-folder">Change</button>'}
                 </div>
                 <div class="row g-2">
                     ${stat(p.added, 'New tabs', 'text-success')}
@@ -2131,12 +2131,12 @@ function attachModalHandlers(modal, options = {}) {
             // @googleDrive:end
             if (action === 'edit-s3') {
                 const { s3ConfigFormHtml } = await import('./s3Ui.js');
-                backupIncrementalPreview.innerHTML = `${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2" data-backup-action="save-s3"><span>Save and connect</span></button>`;
+                backupIncrementalPreview.innerHTML = `${s3ConfigFormHtml()}<div id="backupS3Error" class="small text-warning mt-2" style="display:none;"></div><div class="d-flex align-items-center justify-content-between gap-2 mt-2"><button type="button" class="btn btn-sm btn-theme-outline px-3" data-backup-action="save-s3"><span>Save and connect</span></button><button type="button" class="btn btn-sm btn-theme-danger px-2 py-1" style="font-size:0.75rem;" data-backup-action="disconnect-s3"><span>Disconnect</span></button></div>`;
                 return;
             }
             if (action === 'edit-webdav') {
                 const { webdavConfigFormHtml } = await import('./webdavUi.js');
-                backupIncrementalPreview.innerHTML = `${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div><button type="button" class="btn btn-sm btn-theme-outline px-3 mt-2" data-backup-action="save-webdav"><span>Save and connect</span></button>`;
+                backupIncrementalPreview.innerHTML = `${webdavConfigFormHtml()}<div id="backupWebDavError" class="small text-warning mt-2" style="display:none;"></div><div class="d-flex align-items-center justify-content-between gap-2 mt-2"><button type="button" class="btn btn-sm btn-theme-outline px-3" data-backup-action="save-webdav"><span>Save and connect</span></button><button type="button" class="btn btn-sm btn-theme-danger px-2 py-1" style="font-size:0.75rem;" data-backup-action="disconnect-webdav"><span>Disconnect</span></button></div>`;
                 return;
             }
             if (action === 'save-webdav') {
@@ -2165,6 +2165,18 @@ function attachModalHandlers(modal, options = {}) {
                     if (errorEl) { errorEl.textContent = err.message; errorEl.style.display = 'block'; }
                     return;
                 }
+            } else if (action === 'disconnect-s3') {
+                const { clearS3Config } = await import('./s3Client.js');
+                clearS3Config();
+                showToast('Disconnected S3 bucket on this device.', 'info');
+                renderIncrementalPreview();
+                return;
+            } else if (action === 'disconnect-webdav') {
+                const { clearWebDavConfig } = await import('./webdavClient.js');
+                clearWebDavConfig();
+                showToast('Disconnected WebDAV server on this device.', 'info');
+                renderIncrementalPreview();
+                return;
             } else if (action === 'choose-folder') {
                 const { pickBackupFolder } = await import('./folderBackup.js');
                 if (!(await pickBackupFolder())) return;

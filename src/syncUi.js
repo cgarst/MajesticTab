@@ -1,13 +1,15 @@
 // syncUi.js
 // The Sync task: a row in Settings (Library and backup) that opens in place under its row. One tap, then a single review of exactly what will change
 // (see syncEngine.js), one confirmation, and a short result. The sync location is remembered.
-import { planSync, applySync, planReplaceRemote, applyReplaceRemote, getSyncBase, SYNC_ACTION } from './syncEngine.js';
+import { planSync, applySync, planReplaceRemote, applyReplaceRemote, getSyncBase, clearSyncBase, SYNC_ACTION } from './syncEngine.js';
 import { formatBytes, escapeHtml } from './backupRestore.js';
 import { isFolderBackupSupported } from './folderBackup.js';
 import { isIcloudDriveSupported, ICLOUD_UNAVAILABLE_MESSAGE } from './icloudDrive.js';
 import { getPreferredStorage, setPreferredStorage } from './fileProviders.js';
 import { s3ConfigFormHtml, saveS3ConfigFromForm } from './s3Ui.js';
 import { webdavConfigFormHtml, saveWebDavConfigFromForm } from './webdavUi.js';
+import { getS3Config, clearS3Config } from './s3Client.js';
+import { getWebDavConfig, clearWebDavConfig } from './webdavClient.js';
 import { showToast } from './utils/toast.js';
 
 const DRIVE = 'google-drive';
@@ -205,13 +207,25 @@ function showChooseLocation() {
 }
 
 function showS3Form(error = '') {
+    const hasConfig = Boolean(getS3Config());
     frame(`${error ? notice(escapeHtml(error), { error: true }) : ''}${s3ConfigFormHtml()}`,
-        { subtitle: 'S3 bucket', footer: button('switch', 'Choose another') + button('save-s3', 'Save and connect', { primary: true }) });
+        {
+            subtitle: 'S3 bucket',
+            footer: (hasConfig ? button('disconnect-s3', 'Disconnect', { danger: true }) : '') +
+                button('switch', 'Choose another') +
+                button('save-s3', 'Save and connect', { primary: true })
+        });
 }
 
 function showWebDavForm(error = '') {
+    const hasConfig = Boolean(getWebDavConfig());
     frame(`${error ? notice(escapeHtml(error), { error: true }) : ''}${webdavConfigFormHtml()}`,
-        { subtitle: 'WebDAV server', footer: button('switch', 'Choose another') + button('save-webdav', 'Save and connect', { primary: true }) });
+        {
+            subtitle: 'WebDAV server',
+            footer: (hasConfig ? button('disconnect-webdav', 'Disconnect', { danger: true }) : '') +
+                button('switch', 'Choose another') +
+                button('save-webdav', 'Save and connect', { primary: true })
+        });
 }
 
 function showNeedsSetup(status, folderName = '') {
@@ -526,6 +540,12 @@ async function handleAction(action) {
             return start();
         }
         if (action === 'pick-s3' || action === 'edit-s3') return showS3Form();
+        if (action === 'disconnect-s3') {
+            clearS3Config();
+            clearSyncBase();
+            showToast('Disconnected S3 bucket on this device.', 'info');
+            return showChooseLocation();
+        }
         if (action === 'save-s3') {
             try {
                 await saveS3ConfigFromForm(modal);
@@ -536,6 +556,12 @@ async function handleAction(action) {
             return start();
         }
         if (action === 'pick-webdav' || action === 'edit-webdav') return showWebDavForm();
+        if (action === 'disconnect-webdav') {
+            clearWebDavConfig();
+            clearSyncBase();
+            showToast('Disconnected WebDAV server on this device.', 'info');
+            return showChooseLocation();
+        }
         if (action === 'save-webdav') {
             try {
                 await saveWebDavConfigFromForm(modal);

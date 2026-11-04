@@ -2,7 +2,7 @@
 // Shared S3 bucket UI: the connection form (used by Sync and the file picker) and a bucket browser
 // for opening a tab file.
 import { loadSecret, isSecureStorageAvailable } from './secureStore.js';
-import { S3_SECRET_NAME, getS3Config, saveS3Config, s3Check, s3List, s3Get, s3BasePrefix, hasNativeHttp, s3CorsRules } from './s3Client.js';
+import { S3_SECRET_NAME, getS3Config, saveS3Config, clearS3Config, s3Check, s3List, s3Get, s3BasePrefix, hasNativeHttp, s3CorsRules } from './s3Client.js';
 import { escapeHtml, formatBytes } from './backupRestore.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
@@ -115,12 +115,14 @@ export function openS3Browser(onPick) {
           ${footer ? `<div class="theme-modal-footer d-flex justify-content-end align-items-center gap-2 px-3 py-2">${footer}</div>` : ''}
         </div>`;
     };
-    const btn = (action, label, primary = false) =>
-        `<button type="button" class="btn btn-sm ${primary ? 'btn-theme-primary px-4' : 'btn-theme-outline px-3'}" data-s3-action="${action}">${label}</button>`;
+    const btn = (action, label, { primary = false, danger = false, extraClass = '' } = {}) =>
+        `<button type="button" class="btn btn-sm ${primary ? 'btn-theme-primary px-4' : danger ? 'btn-theme-danger px-3' : 'btn-theme-outline px-3'} ${extraClass}" data-s3-action="${action}">${label}</button>`;
 
     const showForm = (error = '') => {
         frame(`${error ? `<div class="small text-warning mb-2"><i class="bi-exclamation-triangle me-2"></i>${escapeHtml(error)}</div>` : ''}${s3ConfigFormHtml()}`,
-            btn('close', 'Cancel') + btn('connect', 'Connect', true));
+            (config ? btn('disconnect', 'Disconnect', { danger: true, extraClass: 'me-auto' }) : '') +
+            btn('close', 'Cancel') +
+            btn('connect', 'Connect', { primary: true }));
     };
 
     const showListing = async () => {
@@ -175,6 +177,13 @@ export function openS3Browser(onPick) {
         const { s3Action: action, s3Key: key } = target.dataset;
         if (action === 'close') return close();
         if (action === 'settings') return showForm();
+        if (action === 'disconnect') {
+            clearS3Config();
+            config = null;
+            prefix = '';
+            showToast('Disconnected S3 bucket on this device.', 'info');
+            return showForm();
+        }
         if (action === 'folder') { prefix = key.slice(s3BasePrefix(config).length); return showListing(); }
         if (action === 'up') { prefix = prefix.replace(/[^/]+\/$/, ''); return showListing(); }
         if (action === 'file') return pick(key);
