@@ -2491,10 +2491,9 @@ function renderPinnedSongTile(song) {
          data-song-artist="${escapeHtml(artistName)}" 
          data-song-album="${escapeHtml(albumName)}"
          role="button"
-         tabindex="0"
-         title="Play ${escapeHtml(song.title)}">
+         tabindex="0">
       
-      <div class="pinned-play-badge flex-shrink-0 ${coverUrl ? 'has-cover' : ''}" title="Play default tab">
+      <div class="pinned-play-badge flex-shrink-0 ${coverUrl ? 'has-cover' : ''}">
         ${coverUrl ? `
           <img loading="lazy" decoding="async" src="${coverUrl}" class="pinned-cover-img" alt="" draggable="false" onerror="this.style.display='none'; this.parentElement.classList.remove('has-cover');">
           <div class="pinned-play-scrim"></div>
@@ -2566,15 +2565,15 @@ function renderSongRow(song, options = {}) {
         const info = getTuningInfo(t);
         const label = info?.displayName || t;
         const isStandard = label.toLowerCase().includes('standard');
-        return `<span class="chip ${isStandard ? '' : 'hot'}" title="${escapeHtml(label)}">${escapeHtml(label)}</span>`;
+        return `<span class="chip ${isStandard ? '' : 'hot'}">${escapeHtml(label)}</span>`;
     }).join('');
 
     const pdfTab = tabOptions.find(t => t.startPage && t.endPage);
-    const pdfChipHtml = pdfTab ? `<span class="chip sec" title="PDF ${formatPageRange(pdfTab.startPage, pdfTab.endPage)}">${formatPageRange(pdfTab.startPage, pdfTab.endPage)}</span>` : '';
+    const pdfChipHtml = pdfTab ? `<span class="chip sec">${formatPageRange(pdfTab.startPage, pdfTab.endPage)}</span>` : '';
 
     const multiTabsChipHtml = tabOptions.length > 1
-        ? `<span class="chip sec" title="${tabOptions.length} tab versions attached"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} tabs</span>`
-        : (hasTabs ? `<span class="chip sec" title="1 tab attached">1 tab</span>` : `<span class="chip no-tab" title="No tab attached">No tab</span>`);
+        ? `<span class="chip sec"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} tabs</span>`
+        : (hasTabs ? `<span class="chip sec">1 tab</span>` : `<span class="chip no-tab">No tab</span>`);
 
     const songKeys = [
         [song.artist, song.title].filter(Boolean).join(' - '),
@@ -2583,7 +2582,7 @@ function renderSongRow(song, options = {}) {
     ].filter(Boolean);
     const hasSyncPoints = songKeys.some(k => songHasSyncPoints(k));
     const isSynced = Boolean(hasSyncPoints || song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
-    const syncDotHtml = isSynced ? `<span class="sync-dot" title="Synced audio available"></span>` : '';
+    const syncDotHtml = isSynced ? `<span class="sync-dot"></span>` : '';
 
     const tabOptionsListHtml = tabOptions.length > 1 ? `
       <div class="tab-options-container">
@@ -2595,9 +2594,9 @@ function renderSongRow(song, options = {}) {
           const tuningLabel = (t.tuning && isTuningMatchingInstrument(t.tuning)) ? (getTuningInfo(t.tuning)?.displayName || t.tuning) : '';
           const meta = [(t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '', tuningLabel].filter(Boolean).join(' \u00b7 ');
           return `
-          <div class="tab-row ${isDefault ? 'tab-row-default' : ''} play-tab-chip-btn" role="listitem" data-song-id="${song.id}" data-tab-id="${t.id}" tabindex="0" title="Load ${escapeHtml(t.name)}">
+          <div class="tab-row ${isDefault ? 'tab-row-default' : ''} play-tab-chip-btn" role="listitem" data-song-id="${song.id}" data-tab-id="${t.id}" tabindex="0">
             <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
-            ${isTabSynced ? `<span class="sync-dot" title="Synced audio available"></span>` : ''}
+            ${isTabSynced ? `<span class="sync-dot"></span>` : ''}
             ${meta ? `<span class="tab-option-meta">${escapeHtml(meta)}</span>` : ''}
             <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'is-default' : ''}" data-song-id="${song.id}" data-tab-id="${t.id}" ${isDefault ? 'aria-pressed="true"' : ''} title="${isDefault ? 'This tab opens by default' : 'Open this tab by default'}">${isDefault ? 'Default' : 'Make default'}</button>
             ${isPdfRange && isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" aria-label="Edit page range" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
@@ -2612,7 +2611,7 @@ function renderSongRow(song, options = {}) {
     return `
     <div class="rowwrap library-song-rowwrap ${isPinned ? 'library-song-row-pinned' : ''} ${!hasTabs ? 'no-tab' : ''}">
       <div class="song-row-container">
-        <div class="song-row library-song-row ${!hasTabs ? 'no-tab' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
+        <div class="song-row library-song-row ${!hasTabs ? 'no-tab' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0">
           ${trackNumStr === '\u2022' ? '' : `<span class="num tnum">${trackNumStr}</span>`}
           ${options.showCover ? `<img loading="lazy" decoding="async" class="song-cover" src="${song.coverUrl || getPlaceholderCoverSvg(song.album || song.title || 'Tab')}" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(song.title || 'Tab')}'">` : ''}
           <span class="t">
@@ -4746,7 +4745,7 @@ function recentRowHtml(r) {
             const rowTitle = [tabLabel, isPdf && r.startPage ? `p. ${r.startPage}${r.endPage && r.endPage !== r.startPage ? `-${r.endPage}` : ''}` : ''].filter(Boolean).join(' ');
 
             return `
-            <div class="library-row-card recent-row d-flex align-items-center gap-3 open-recent-row ${isRecentsEditMode ? '' : 'library-row-clickable'}" data-recent-id="${escapeHtml(r.id)}" data-recent='${escapeHtml(JSON.stringify(r))}' ${isRecentsEditMode ? '' : 'role="button" tabindex="0"'} title="${escapeHtml(rowTitle)}">
+            <div class="library-row-card recent-row d-flex align-items-center gap-3 open-recent-row ${isRecentsEditMode ? '' : 'library-row-clickable'}" data-recent-id="${escapeHtml(r.id)}" data-recent='${escapeHtml(JSON.stringify(r))}' ${isRecentsEditMode ? '' : 'role="button" tabindex="0"'}>
               <img loading="lazy" decoding="async" src="${cover}" class="artist-thumbnail flex-shrink-0" style="width: 48px; height: 48px;" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(r.songTitle || r.name)}'">
               <div class="min-w-0 flex-grow-1">
                 <h6 class="mb-0 fw-bold text-white text-truncate">${escapeHtml(r.songTitle || r.name)}</h6>
