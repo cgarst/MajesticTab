@@ -79,10 +79,19 @@ export function initBarRuler() {
 
     // ---- drawing ------------------------------------------------------------------------------------------
 
+    function syncDockTimeVisibility() {
+        const dockTime = $('dockTime');
+        if (!dockTime) return;
+        const isNarrow = window.innerWidth <= 640 || (dock && dock.clientWidth > 0 && dock.clientWidth < 560);
+        const next = isNarrow ? 'none' : '';
+        if (dockTime.style.display !== next) dockTime.style.display = next;
+    }
+
     function render() {
         dock?.classList.toggle('has-ruler', Boolean(model));
         ruler.hidden = !model;
         if (!model) return;
+        syncDockTimeVisibility();
         const { total } = model;
         ruler.setAttribute('aria-valuemax', String(total));
         drawTicks();
@@ -145,6 +154,7 @@ export function initBarRuler() {
 
     function updateHead() {
         if (!model) return;
+        syncDockTimeVisibility();
         const { total, parts } = model;
         const frac = Math.min(1, Math.max(0, (current.bar - 1 + current.pos) / total));
         const w = ruler.clientWidth || 0;
@@ -392,5 +402,5 @@ export function initBarRuler() {
         }
     });
 
-    window.addEventListener('resize', () => { if (model) { buildModel(); render(); } });
+    window.addEventListener('resize', () => { syncDockTimeVisibility(); if (model) { buildModel(); render(); } });
 }
