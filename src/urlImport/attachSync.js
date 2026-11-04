@@ -74,8 +74,8 @@ export async function attachSyncSets(sets, { songKey = null, bars = null } = {})
     if (!playedBars.length) return { saved: [], skipped: ['The score was not ready, so no sync points were added'] };
     const { placed, skipped } = placeSyncSets(sets, times => placeBarTimes(times, playedBars));
     const targetKey = songKey || getSongKey();
-    for (const { videoId, points } of placed) {
-        saveRecord(targetKey, { kind: 'youtube', videoId }, points);
+    for (const { videoId, points, label } of placed) {
+        saveRecord(targetKey, { kind: 'youtube', videoId, label }, points);
     }
     if (placed.length) window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     return { saved: placed.map(p => p.label), skipped };

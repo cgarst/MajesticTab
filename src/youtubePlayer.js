@@ -3,7 +3,7 @@
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel } from './gpProcessor/gpPlayer.js';
 import { showPanel, hidePanel } from './utils/readerPanels.js';
 import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
-import { songHasSyncPoints } from './audioSync/syncStore.js';
+import { songHasSyncPoints, listRecords } from './audioSync/syncStore.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 
 let activeSearchController = null;
@@ -102,8 +102,13 @@ function applyYouTubeVolume() {
 }
 onMasterVolume(applyYouTubeVolume);
 
+// The native player ignores an update while its slot is hidden or still zero-sized (the panel is opening), so a
+// request to autoplay is kept until an update that is actually shown has carried it.
+let nativeAutoplayPending = false;
+
 function syncNativeMacPlayerBounds(autoplay = false) {
     if (!isNativeOverlayPlayer()) return;
+    if (autoplay) nativeAutoplayPending = true;
 
     const iframe = document.getElementById('ytIframe');
     const rect = iframe?.getBoundingClientRect();
@@ -117,7 +122,7 @@ function syncNativeMacPlayerBounds(autoplay = false) {
 
     window.__TAURI__.core.invoke('youtube_player_update', {
         videoId: playerState.currentVideoId || '',
-        autoplay,
+        autoplay: nativeAutoplayPending && visible,
         start: Math.floor(playerState.currentTime || 0),
         left: rect?.left || 0,
         top: rect?.top || 0,
@@ -126,6 +131,7 @@ function syncNativeMacPlayerBounds(autoplay = false) {
         visible,
         keepAlive: playerState.isPlaying || playerState.hasStarted
     }).catch(() => {});
+    if (visible) nativeAutoplayPending = false;
 }
 
 function animateNativeMacPlayerBounds() {
@@ -151,6 +157,7 @@ export function pauseYouTube() {
     sendYouTubeMessage(iframe, { event: 'command', func: 'pauseVideo', args: [] });
     if (playerState.isPlaying) {
         playerState.isPlaying = false;
+        nativeAutoplayPending = false;
         updatePlaybackControls();
     }
 }
@@ -197,6 +204,7 @@ export function playPauseYouTube() {
     if (playerState.isPlaying) {
         sendYouTubeMessage(iframe, { event: 'command', func: 'pauseVideo', args: [] });
         playerState.isPlaying = false;
+        nativeAutoplayPending = false;
     } else {
         pauseSynthPlayer();
         clearSynthHighlights();
@@ -339,7 +347,7 @@ export function updateQueryInputUI() {
  */
 export function setYouTubeTrackMode(mode) {
     if (mode !== 'original' && mode !== 'backing') return;
-    if (playerState.trackMode === mode) return;
+    if (playerState.trackMode === mode) { applySyncedDefaults(); renderSyncedVideos(); return; }
     if (playerState.isSearching) {
         cancelYouTubeSearch();
     }
@@ -376,6 +384,7 @@ export function redoSearchWithQuery(override = null) {
 
     // Clear saved video ID so the search runs fresh
     localStorage.removeItem(getStorageKey());
+    markUserPick(mode); // an explicit search wins over the synced default
     setVideoId(null, 'user');
 
     updateQueryInputUI();
@@ -523,6 +532,11 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
     // 1. Check if user already saved a video ID for this song & mode
     const storedId = localStorage.getItem(getStorageKey());
     let videoId = forcedVideoId || storedId || playerState.currentVideoId;
+    // A recording defaults to a video the song already has sync points for, before any search
+    if (!videoId && !localStorage.getItem(pickMarkerKey(playerState.trackMode))) {
+        videoId = pickSyncedVideo(playerState.trackMode)?.videoId || null;
+        if (videoId) localStorage.setItem(getStorageKey(), videoId);
+    }
 
     // 2. If no ID, attempt search with visible loading indicator and cancel capability
     if (!videoId) {
@@ -660,7 +674,84 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
 /**
  * Update titles, labels, and external links
  */
+/** YouTube videos this song has sync points for (newest first), e.g. from a tab download. */
+function getSyncedVideos() {
+    try {
+        return listRecords(getSongKey() || '')
+            .filter(r => r.media.kind === 'youtube' && r.points.length)
+            .map(r => ({
+                videoId: r.media.videoId,
+                // The source tags a video with a feature (backing, solo, alternative); no tag means the original recording
+                kind: /feature (\w+)/.exec(r.media.label || '')?.[1] || 'original',
+                count: r.points.length
+            }));
+    } catch { return []; }
+}
+
+/** The synced video to use for a track mode: backing for Backing, the untagged original for Original. */
+function pickSyncedVideo(mode) {
+    const videos = getSyncedVideos();
+    return videos.find(v => v.kind === (mode === 'backing' ? 'backing' : 'original')) || null;
+}
+
+const pickMarkerKey = (mode) => `yt_pick_${encodeURIComponent(getSongKey().toLowerCase())}_${mode}`;
+function markUserPick(mode = playerState.trackMode) {
+    try { localStorage.setItem(pickMarkerKey(mode), '1'); } catch { /* optional */ }
+}
+
+/**
+ * When a song gets sync points (a tab download), a video found by search is replaced by the matching synced
+ * one. A video the user chose is kept.
+ */
+export function applySyncedDefaults({ reload = true } = {}) {
+    if (!getSongKey()) return;
+    const synced = new Set(getSyncedVideos().map(v => v.videoId));
+    let changedCurrent = false;
+    for (const mode of ['original', 'backing']) {
+        const pick = pickSyncedVideo(mode);
+        if (!pick) continue;
+        const saved = localStorage.getItem(getStorageKey(mode));
+        if (saved && (synced.has(saved) || localStorage.getItem(pickMarkerKey(mode)))) continue;
+        localStorage.setItem(getStorageKey(mode), pick.videoId);
+        if (mode === playerState.trackMode) changedCurrent = true;
+    }
+    if (changedCurrent && reload && playerState.isOpen && !playerState.isPlaying) loadCurrentTrack(false);
+}
+
+/** A dropdown of the song's synced videos; choosing one binds it to the current track mode (Original or Backing). */
+export function renderSyncedVideos() {
+    const wrap = document.getElementById('ytSyncedVideos');
+    const select = document.getElementById('ytSyncedSelect');
+    if (!wrap || !select) return;
+    const videos = getSyncedVideos();
+    wrap.hidden = videos.length === 0;
+    select.textContent = '';
+    const current = localStorage.getItem(getStorageKey()) || playerState.currentVideoId;
+    const add = (value, text, disabled = false) => {
+        const o = document.createElement('option');
+        o.value = value; o.textContent = text; o.disabled = disabled;
+        select.appendChild(o);
+        return o;
+    };
+    if (current && !videos.some(v => v.videoId === current)) add(current, 'Another video (no sync points)', true);
+    videos.forEach(v => {
+        const same = videos.filter(o => o.kind === v.kind);
+        const name = v.kind.charAt(0).toUpperCase() + v.kind.slice(1) + (same.length > 1 ? ` ${same.indexOf(v) + 1}` : '');
+        add(v.videoId, `${name} · ${v.count} sync points`);
+    });
+    select.value = current || '';
+}
+
+function bindSyncedVideo(videoId) {
+    if (!videoId) return;
+    if (playerState.isSearching) cancelYouTubeSearch();
+    localStorage.setItem(getStorageKey(), videoId);
+    markUserPick();
+    loadCurrentTrack(playerState.isPlaying || playerState.hasStarted, { videoId, source: 'user' });
+}
+
 function updatePanelTitle() {
+    renderSyncedVideos();
     const titleEl = document.getElementById('ytPanelTitle');
     const promptTitle = document.getElementById('ytPromptTitle');
     const searchExternalBtn = document.getElementById('ytSearchExternalBtn');
@@ -812,6 +903,9 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
         ytBtn.style.display = 'inline-flex';
     }
 
+    // Synced videos become the saved Original and Backing videos (no search)
+    applySyncedDefaults({ reload: false });
+
     // A song with sync points opens on its recording; otherwise the synth is selected
     setActiveAudioMode(songHasSyncPoints(getSongKey()) ? 'real' : 'synth');
 
@@ -920,6 +1014,8 @@ export function initYouTubePlayer() {
         cancelYouTubeSearch();
     });
 
+    document.getElementById('ytSyncedSelect')?.addEventListener('change', (e) => bindSyncedVideo(e.target.value));
+
     // Track Mode Selector (Original vs Backing)
     originalRadio?.addEventListener('change', () => {
         if (originalRadio.checked) setYouTubeTrackMode('original');
@@ -967,6 +1063,7 @@ export function initYouTubePlayer() {
         if (videoId) {
             setVideoId(videoId, 'user');
             localStorage.setItem(getStorageKey(), videoId);
+            markUserPick();
 
             const iframe = document.getElementById('ytIframe');
             if (iframe?.dataset.loaded === 'true' && iframe.contentWindow && iframe.src.includes(videoId)) {

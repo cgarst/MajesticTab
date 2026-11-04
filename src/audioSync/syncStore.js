@@ -47,7 +47,7 @@ export function normalizeRecord(raw) {
     if (!mediaKey(raw.media) || !Array.isArray(raw.points)) return null;
     const m = raw.media;
     const media = m.kind === 'youtube'
-        ? { kind: 'youtube', videoId: String(m.videoId) }
+        ? { kind: 'youtube', videoId: String(m.videoId), ...(m.label ? { label: String(m.label) } : {}) }
         : {
             kind: 'local', audioId: String(m.audioId), name: String(m.name ?? ''),
             durationMs: Number.isFinite(m.durationMs) ? m.durationMs : null, fingerprint: String(m.fingerprint ?? '')

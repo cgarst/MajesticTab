@@ -8,6 +8,7 @@
 //   - Delegating transport actions (play/pause, rewind, availability) to the active engine
 
 import {
+    applySyncedDefaults, renderSyncedVideos,
     getSongKey, playerState, isYouTubeAvailable, isYouTubePlaying, playPauseYouTube,
     pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode
 } from '../youtubePlayer.js';
@@ -499,6 +500,8 @@ export function initRealAudioController() {
     });
 
     window.addEventListener(SYNC_CHANGED_EVENT, () => {
+        applySyncedDefaults();
+        renderSyncedVideos();
         updateRecordingSlotsAndSyncCard();
     });
 
