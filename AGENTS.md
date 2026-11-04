@@ -127,6 +127,7 @@ Check the upstream license first. Only port code whose license allows it, and ke
 ## Repository Content Rules
 
 - **Never commit tabs to the repo:** Agents must not add, commit, or push Guitar Pro files (`.gp`, `.gp3`, `.gp4`, `.gp5`, `.gpx`) or tab PDFs anywhere in the repository. These are copyrighted. The only exception is the `Duo No 2 In G Major.gp5` fixture in `tests/`. Use local, untracked copies for ad-hoc testing and keep them out of commits.
+- **Never name tab sites in the code:** Do not identify any tab site or tab service by name anywhere in the repository: not in UI text, defaults, seeds, comments, tests, docs or commit messages. Describe it generically ("tab sites", "search the web"). General search engines (DuckDuckGo, Google) are not tab sites and may be named.
 
 ## Test Procedures
 
