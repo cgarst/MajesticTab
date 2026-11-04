@@ -1,6 +1,6 @@
-import { loadGuitarPro, GP_DISPLAY_SCALE, GP_STRETCH_FORCE, getGuitarTracks, getActiveInstrumentTracks, getGpNotationMode, setGpNotationMode, getGpStaveProfile, saveHiddenTracks } from './gpProcessor.js';
+import { loadGuitarPro, GP_DISPLAY_SCALE, GP_STRETCH_FORCE, getActiveInstrumentTracks, getGpNotationMode, getGpStaveProfile, saveHiddenTracks } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
-import { getPagesPerView, switchToPageMode } from '../utils/viewModeUtils.js';
+import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator, updateScrollIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
@@ -10,15 +10,8 @@ import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOption
 import { waitForMainThreadIdle } from '../utils/mainThreadIdle.js';
 import { showLoadingCard, setLoadingProgress, setLoadingIdentity, hideLoadingCard } from '../utils/loadingCard.js';
 import {
-    extractScoreTunings,
     extractScoreMetadata,
     applyScoreStringCount,
-    getDefaultGpStringCount,
-    setDefaultGpStringCount,
-    getGpStringCountPreference,
-    setGpStringCountPreference,
-    getTabStringCountPreference,
-    setTabStringCountPreference,
     getEffectiveGpStringCount,
     getBaselineGpStringCount,
     clearTabStringCountPreference,
@@ -35,7 +28,6 @@ import {
     getMyInstrument,
     setMyInstrument,
     getUsualGuitar,
-    hasTemporaryAdapt,
     setSongGuitar,
     getAdaptTuningOptions,
     findAdaptTuning

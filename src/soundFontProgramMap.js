@@ -135,25 +135,6 @@ export function resolveProgramLayered(program, presets, mode = 'closest') {
     return { program, how: 'none' };
 }
 
-/**
- * Plan program substitutions for a score.
- * @param {Array<{program:number, isPercussion:boolean}>} tracks
- * @param {{melodic:Set<number>, drumKits:Set<number>}} presets merged presets of the enabled fonts
- * @param {'similar'|'closest'} [mode] see resolveProgram
- * @returns {Array<{program:number, resolved:number, how:string, isPercussion:boolean, silent:boolean}>} one per track
- */
-export function planProgramMapping(tracks, presets, mode = 'closest') {
-    return tracks.map(({ program, isPercussion }) => {
-        if (isPercussion) {
-            // AlphaTab already falls back to drum kit 0; a font with no drum bank cannot be helped here.
-            const silent = presets.drumKits.size === 0;
-            return { program, resolved: program, how: silent ? 'none' : 'exact', isPercussion, silent };
-        }
-        const r = resolveProgramLayered(program, presets, mode);
-        return { program, resolved: r.program, how: r.how, isPercussion, silent: r.how === 'none' };
-    });
-}
-
 const AUTOMATION_INSTRUMENT = 2; // AlphaTab AutomationType.Instrument
 
 /**

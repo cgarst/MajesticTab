@@ -1,4 +1,4 @@
-import { getCurrentFile, getCondensedCanvases, getPdfPages } from './main.js';
+import { getCurrentFile, getCondensedCanvases } from './main.js';
 import { gpState } from './gpProcessor/gpHandler.js';
 import { showToast } from './utils/toast.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
