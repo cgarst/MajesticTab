@@ -621,6 +621,41 @@ fn blank_downloader_page(navigate: impl FnOnce(tauri::Url) -> tauri::Result<()>)
     }
 }
 
+pub fn focus_main_window(app_handle: &AppHandle) {
+    #[cfg(any(target_os = "android", target_os = "ios"))]
+    if let Some(main) = app_handle.get_webview_window("main") {
+        let _ = main.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
+        let _ = main.show();
+        let _ = main.set_focus();
+    }
+    #[cfg(not(any(target_os = "android", target_os = "ios")))]
+    {
+        if let Some(main_wv) = app_handle.get_webview("main") {
+            let _ = main_wv.set_focus();
+        }
+        if let Some(main_win) = app_handle.get_webview_window("main") {
+            let _ = main_win.set_focus();
+        } else if let Some(win) = app_handle.get_window("main") {
+            let _ = win.set_focus();
+        }
+        #[cfg(target_os = "macos")]
+        {
+            use objc2_web_kit::WKWebView;
+            let wv_opt = app_handle.get_webview("main").or_else(|| {
+                app_handle.get_webview_window("main").map(|w| w.as_ref().clone())
+            });
+            if let Some(main_wv) = wv_opt {
+                let _ = main_wv.with_webview(|platform| unsafe {
+                    let webview = &*platform.inner().cast::<WKWebView>();
+                    if let Some(window) = webview.window() {
+                        let _ = window.makeFirstResponder(Some(webview));
+                    }
+                });
+            }
+        }
+    }
+}
+
 pub fn hide_downloader(app_handle: &AppHandle) {
     #[cfg(not(any(target_os = "android", target_os = "ios")))]
     if let Some(w) = app_handle.get_webview(DOWNLOADER_LABEL) {
@@ -629,6 +664,7 @@ pub fn hide_downloader(app_handle: &AppHandle) {
         let _ = w.set_size(tauri::LogicalSize::new(1.0, 1.0));
         let _ = w.hide();
         blank_downloader_page(|url| w.navigate(url));
+        focus_main_window(app_handle);
         return;
     }
     if let Some(w) = app_handle.get_webview_window(DOWNLOADER_LABEL) {
@@ -638,12 +674,7 @@ pub fn hide_downloader(app_handle: &AppHandle) {
     }
     #[cfg(target_os = "ios")]
     ios_place_downloader(app_handle, None, false);
-    #[cfg(any(target_os = "android", target_os = "ios"))]
-    if let Some(main) = app_handle.get_webview_window("main") {
-        let _ = main.eval("try { window.MajesticDownloaderNative?.close(); } catch(e) {}");
-        let _ = main.show();
-        let _ = main.set_focus();
-    }
+    focus_main_window(app_handle);
 }
 
 pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
@@ -940,6 +971,7 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
                                     let _ = downloader.set_size(tauri::LogicalSize::new(1.0, 1.0));
                                     let _ = downloader.hide();
                                 }
+                                focus_main_window(&app_handle_for_download);
                                 let payload = DownloadedTabPayload {
                                     name: filename,
                                     path: Some(p.to_string_lossy().to_string()),
@@ -1118,6 +1150,7 @@ pub fn tab_downloader_set_visible(
             let _ = downloader.set_position(tauri::LogicalPosition::new(-10000.0, -10000.0));
             let _ = downloader.set_size(tauri::LogicalSize::new(1.0, 1.0));
             let _ = downloader.hide();
+            focus_main_window(&app);
         }
     }
     Ok(())

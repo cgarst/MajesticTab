@@ -350,6 +350,14 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     closeLibraryModal(true);
     await loadFile(file);
 
+    try {
+        window.focus();
+        const output = document.getElementById('output');
+        if (output && output.style.display !== 'none') {
+            output.focus();
+        }
+    } catch {}
+
     if (matchedUrl) {
         attachSyncForMatchedUrl(matchedUrl, { showToast });
     }
@@ -1089,6 +1097,14 @@ export function closeTabDownloaderModal(invokeNative = true) {
     if (invokeNative && window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke('tab_downloader_hide').catch(() => {});
     }
+
+    try {
+        window.focus();
+        const output = document.getElementById('output');
+        if (output && output.style.display !== 'none') {
+            output.focus();
+        }
+    } catch {}
 }
 
 export function getActiveEphemeralSource() {

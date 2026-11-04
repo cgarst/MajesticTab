@@ -246,11 +246,16 @@ test('openTabDownloader executes in native environment without ReferenceError', 
         }
     };
 
+    let windowFocused = false;
+    global.window.focus = () => { windowFocused = true; };
+
     await openTabDownloader({ query: 'Duo No 2 In G Major', artist: 'Carulli' });
     assert.ok(invokedCommands.some(c => c.cmd === 'open_tab_downloader'), 'Expected open_tab_downloader to be invoked');
 
     closeTabDownloaderModal();
     assert.ok(invokedCommands.some(c => c.cmd === 'tab_downloader_hide'), 'Expected tab_downloader_hide to be invoked');
+    assert.equal(windowFocused, true, 'Expected window.focus() on close');
 
     delete global.window.__TAURI__;
+    delete global.window.focus;
 });

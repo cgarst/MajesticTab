@@ -231,8 +231,8 @@ export function setupKeyboardNavigation(getConfig) {
         const isB = (e.key === 'b' || e.key === 'B');
         // Remote and keyboard media keys act like Space; MediaPlay / MediaPause only do their half of the toggle
         const isMediaToggle = e.key === 'MediaPlayPause'
-            || (e.key === 'MediaPlay' && !(isSynthPlaying() || isYouTubePlaying()))
-            || (e.key === 'MediaPause' && (isSynthPlaying() || isYouTubePlaying()));
+            || (e.key === 'MediaPlay' && !(isSynthPlaying() || isRealAudioPlaying()))
+            || (e.key === 'MediaPause' && (isSynthPlaying() || isRealAudioPlaying()));
 
         // Avoid handling keys when focused on editable text elements
         const activeEl = document.activeElement;
@@ -336,7 +336,7 @@ export function setupKeyboardNavigation(getConfig) {
 
         // B key rewinds audio playback by 10 seconds
         if (isB && !e.ctrlKey && !e.metaKey && !e.altKey) {
-            if (isSynthAvailable() || isYouTubeAvailable() || isSynthPlaying() || isYouTubePlaying()) {
+            if (isSynthAvailable() || isRealAudioAvailable() || isSynthPlaying() || isRealAudioPlaying()) {
                 e.preventDefault();
                 handleGlobalRewind10Seconds();
                 return;
@@ -391,9 +391,9 @@ export function setupKeyboardNavigation(getConfig) {
         // Spacebar and the media play/pause keys toggle playback
         if (isSpace || isMediaToggle) {
             // 1. If a player is playing, pause it; otherwise resume the last
-            //    active/selected source (soundfont or YouTube), falling back to
+            //    active/selected source (synth or recording), falling back to
             //    whichever is available
-            if (isSynthPlaying() || isYouTubePlaying() || isSynthAvailable() || isYouTubeAvailable()) {
+            if (isSynthPlaying() || isRealAudioPlaying() || isSynthAvailable() || isRealAudioAvailable()) {
                 handleGlobalPlayPause();
                 return;
             }
