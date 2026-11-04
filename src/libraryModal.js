@@ -676,7 +676,7 @@ export async function handleGetTabSingleSong(songItem) {
     }
 
     if (isNative()) {
-        const query = `${artist} ${title} guitar pro tab`;
+        const query = `${artist} ${title} guitar tab`;
         await openTabDownloader({
             targetSong,
             artist,
@@ -685,7 +685,7 @@ export async function handleGetTabSingleSong(songItem) {
             autoOpenOnDownload: true
         });
     } else {
-        const query = `${artist} ${title} guitar pro tab`;
+        const query = `${artist} ${title} guitar tab`;
         window.open(`https://duckduckgo.com/?q=${encodeURIComponent(query)}`, '_blank');
         showToast('Waiting for downloaded tab — drop it here when finished', 'info');
     }
