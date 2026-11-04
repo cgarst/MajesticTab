@@ -1512,6 +1512,8 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
   background: transparent; padding: 0; height: auto; border-radius: 0; font-size: 13px; font-weight: 400; color: var(--ink2);
 }
 .library-song-row .sub .chip.hot { color: var(--ink); }
+.library-song-row .sub .chip.no-tab { color: var(--warn, #eab308) !important; font-weight: 500; }
+.library-song-rowwrap.no-tab .library-song-row .t b { color: var(--ink2); }
 .library-song-row .sub .chip i { display: none; }
 .library-song-row .sub .chip + .chip::before, .library-song-row .sub .album-label + .chip::before { content: "\00b7"; margin-right: 8px; }
 .library-song-row .sub .chip.text-muted { opacity: 1 !important; }

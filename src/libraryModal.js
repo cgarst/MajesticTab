@@ -2564,7 +2564,7 @@ function renderSongRow(song, options = {}) {
 
     const multiTabsChipHtml = tabOptions.length > 1
         ? `<span class="chip sec" title="${tabOptions.length} tab versions attached"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} tabs</span>`
-        : (!hasTabs ? `<span class="chip text-muted" style="opacity: 0.6;"><i class="bi-plus-circle me-1"></i>No tab</span>` : '');
+        : (hasTabs ? `<span class="chip sec" title="1 tab attached">1 tab</span>` : `<span class="chip no-tab" title="No tab attached">No tab</span>`);
 
     const isSynced = Boolean(song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
     const syncDotHtml = isSynced ? `<span class="sync-dot" title="Synced audio available"></span>` : '';
@@ -2592,9 +2592,9 @@ function renderSongRow(song, options = {}) {
     ` : '';
 
     return `
-    <div class="rowwrap library-song-rowwrap ${isPinned ? 'library-song-row-pinned' : ''}">
+    <div class="rowwrap library-song-rowwrap ${isPinned ? 'library-song-row-pinned' : ''} ${!hasTabs ? 'no-tab' : ''}">
       <div class="song-row-container">
-        <div class="song-row library-song-row" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
+        <div class="song-row library-song-row ${!hasTabs ? 'no-tab' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0" title="Drag &amp; drop a tab file (.gp, .pdf, .txt) here to attach">
           ${trackNumStr === '\u2022' ? '' : `<span class="num tnum">${trackNumStr}</span>`}
           ${options.showCover ? `<img loading="lazy" decoding="async" class="song-cover" src="${song.coverUrl || getPlaceholderCoverSvg(song.album || song.title || 'Tab')}" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(song.title || 'Tab')}'">` : ''}
           <span class="t">
