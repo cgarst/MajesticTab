@@ -631,11 +631,13 @@ function buildRectIndex(api) {
     const index = new Map();
     for (const system of api.renderer?.boundsLookup?.staffSystems || []) {
         for (const masterBar of system.bars || []) {
-            const trackBar = masterBar.bars?.[0];
-            if (!trackBar?.beats?.length) continue;
-            const beats = trackBar.beats
-                .map((b) => ({ rel: b.beat?.playbackStart ?? 0, rect: b.realBounds ?? b.visualBounds }))
-                .filter((b) => b.rect);
+            const beats = [];
+            for (const trackBar of masterBar.bars || []) {
+                for (const b of trackBar.beats || []) {
+                    const rect = b.realBounds ?? b.visualBounds;
+                    if (rect) beats.push({ rel: b.beat?.playbackStart ?? 0, rect });
+                }
+            }
             if (beats.length) index.set(masterBar.index, beats);
         }
     }

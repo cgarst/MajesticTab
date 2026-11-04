@@ -2515,9 +2515,17 @@ export function initSynthPlayer() {
                             let closest = bestTrackBar.beats[0];
                             let minDist = Infinity;
                             for (const b of bestTrackBar.beats) {
-                                const bBounds = boundsLookup.findBeat(b.beat);
+                                const bBounds = boundsLookup.findBeat(b.beat) || b;
                                 const bX = bBounds ? (bBounds.visualBounds?.x ?? bBounds.realBounds?.x ?? 0) : 0;
-                                const d = Math.abs(relX - bX);
+                                const bW = bBounds ? (bBounds.realBounds?.w ?? bBounds.visualBounds?.w ?? 0) : 0;
+                                // If click falls inside this beat's horizontal bounds, it is an exact hit
+                                if (relX >= bX && relX <= bX + bW) {
+                                    closest = b;
+                                    minDist = 0;
+                                    break;
+                                }
+                                const center = bX + bW / 2;
+                                const d = Math.abs(relX - center);
                                 if (d < minDist) {
                                     minDist = d;
                                     closest = b;
