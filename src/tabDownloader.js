@@ -521,7 +521,10 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     } catch {}
 
     // In-memory .zip archive extraction
-    const isZip = (name && name.toLowerCase().endsWith('.zip')) || (uint8.length > 4 && uint8[0] === 0x50 && uint8[1] === 0x4B && uint8[2] === 0x03 && uint8[3] === 0x04);
+    // A GP7/8 .gp file is itself a ZIP container, so only unpack when the name is not a tab extension.
+    const nameExt = (name || '').split('.').pop()?.toLowerCase();
+    const looksZip = uint8.length > 4 && uint8[0] === 0x50 && uint8[1] === 0x4B && uint8[2] === 0x03 && uint8[3] === 0x04;
+    const isZip = nameExt === 'zip' || (looksZip && !SUPPORTED_TAB_EXTENSIONS.includes(nameExt));
     if (isZip && typeof window !== 'undefined' && window.fflate?.unzipSync) {
         try {
             const unzipped = window.fflate.unzipSync(uint8);
@@ -530,7 +533,11 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
                 const ext = filename.split('.').pop()?.toLowerCase();
                 return SUPPORTED_TAB_EXTENSIONS.includes(ext);
             });
-            if (tabEntries.length === 0) {
+            const isGpContainer = Object.keys(unzipped).some(f => /(^|\/)score\.gpif$/i.test(f));
+            if (tabEntries.length === 0 && isGpContainer) {
+                // Extensionless GP7/8 file: it is the tab itself, not an archive of tabs.
+                if (!/\.gp$/i.test(name || '')) name = `${name || 'tab'}.gp`;
+            } else if (tabEntries.length === 0) {
                 const warnMsg = '⚠️ Archive contains no supported tab files. Try an alternate tab link.';
                 if (activeBatchMode) {
                     showTransientFeedback(warnMsg, null);
