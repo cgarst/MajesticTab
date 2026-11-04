@@ -3049,6 +3049,7 @@ function renderSongRow(song, options = {}) {
                 <li><hr class="dropdown-divider"></li>`;
               })() : ''}
               ${addTabProviderItemsHtml('import-tab-provider-btn', `data-song-id="${song.id}"`)}
+              ${hasTabs ? `<li><hr class="dropdown-divider"></li>` + tabOptions.map(t => `<li><button class="dropdown-item small text-danger remove-tab-menu-btn" data-song-id="${song.id}" data-tab-id="${t.id}" data-label="${escapeHtml(t.name)}">Remove tab: ${escapeHtml(t.name)}</button></li>`).join('') : ''}
               ${isAlbumEditMode ? `
                 <li><hr class="dropdown-divider"></li>
                 <li><button class="dropdown-item small text-danger delete-song-btn" data-song-id="${song.id}"><i class="bi-trash me-2"></i> Remove from Library</button></li>
@@ -3313,6 +3314,20 @@ function setupSongRowActions(container) {
                 return;
             }
             openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab, { isCustom: Boolean(selectedArtist?.isCustom) });
+        });
+    });
+
+    // Remove tab from the song menu (second press confirms)
+    container.querySelectorAll('.remove-tab-menu-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (btn.dataset.confirming !== 'true') {
+                btn.dataset.confirming = 'true';
+                btn.textContent = 'Press again to remove: ' + btn.dataset.label;
+                return;
+            }
+            await removeTabOptionFromSong(btn.dataset.songId, btn.dataset.tabId);
+            await renderView();
         });
     });
 
