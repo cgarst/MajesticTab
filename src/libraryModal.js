@@ -83,6 +83,13 @@ try {
     }
 } catch { /* the menus still work, they may sit under the bar */ }
 
+// The library page scrolls and clips what hangs past it, so the last song's menu was cut off at the bottom edge.
+// Once a menu opens inside it, scroll it into view.
+document.addEventListener('shown.bs.dropdown', (e) => {
+    const menu = e.target?.closest?.('.library-page-body') ? e.target.querySelector('.dropdown-menu.show') : null;
+    if (menu) menu.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+
 import { closeToolsMenu } from './utils/toolsMenu.js';
 import { renderToolsPage, releaseEmbeddedTools } from './utils/toolsPage.js';
 
