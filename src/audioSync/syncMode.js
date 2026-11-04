@@ -1,22 +1,20 @@
 // syncMode.js
 // Tap to sync: play a recording and click each bar (or beat) of the tab as you hear it, and every click records a
-// sync point at the recording's current time. Two modes: Step Sync walks the score bar by bar (click the target or
-// press J, arrow keys skip ahead); Patch Sync is for fixing a stretch of a mostly synced song: the cursor follows the
-// current points while it plays, a click on any bar pins that bar to now and replaces the points it contradicts, and
-// Fix Range takes two taps (start and end of a bad stretch) and clears the points between them. The recording is the clock, so the taps only need to be roughly right;
+// sync point at the recording's current time. The cursor follows the current points while it plays, a click on any bar
+// pins that bar to now and replaces the points it contradicts, and Fix Range takes two taps (start and end of a bad stretch)
+// and clears the points between them. The recording is the clock, so the taps only need to be roughly right;
 // the refine tools tighten them: select a point to nudge it and audition 2 s around it, snap taps (or a point) to the
 // nearest sound in a local file, re-tap a range of bars, or pause on a sound and click a beat to put a point there.
-// While active, the score switches to scroll view, the follower is suspended (except while auditioning), and score
-// clicks are taps instead of cursor moves.
+// While active, the score switches to scroll view, the follower is active, and score clicks are taps instead of cursor moves.
 
 import { getAudioLatencyMs, setScoreClickOverride, pauseSynthPlayer, clearSynthHighlights, getMidiTickLookup, onTransportEvent } from '../gpProcessor/gpPlayer.js';
 import { getSongKey, pauseYouTube } from '../youtubePlayer.js';
 import { showToast } from '../utils/toast.js';
 import { getScoreContext, setAudioSyncSuspended, startAudioSync, stopAudioSync, getAudioSyncSession } from './audioSyncController.js';
 import { resolvePoints } from './pointCheck.js';
-import { positionToScoreMs, scoreMsToTick } from './scorePositions.js';
-import { buildBeatMap, candidatesForBeat, entryAt, nextTarget, firstUnsyncedTarget } from './beatMap.js';
-import { chooseTap, patchPlan, rangePlan } from './tapRules.js';
+import { positionToScoreMs } from './scorePositions.js';
+import { buildBeatMap, candidatesForBeat, entryAt } from './beatMap.js';
+import { patchPlan, rangePlan } from './tapRules.js';
 import { loadRecord, saveRecord } from './syncStore.js';
 import { makeId, formatTime } from './syncEdit.js';
 import { SYNC_CHANGED_EVENT } from './audioSyncEditor.js';
@@ -30,20 +28,12 @@ import { isJamGuestFollowing } from './jamBridge.js';
 const OFFSET_KEY = 'audio_sync_tap_offset';
 const TIMELINE_KEY = 'audio_sync_timeline';
 const SNAP_KEY = 'audio_sync_snap';
-const MODE_KEY = 'audio_sync_mode';
 const AUDITION_LEAD_MS = 1000;
 const AUDITION_TAIL_MS = 1000;
 const RETAP_LEAD_MS = 4000;
 const RETAP_TAIL_MS = 1500;
 const NUDGE_MERGE_MS = 1500;
 const HISTORY_LIMIT = 100;
-const SCROLL_IDLE_MS = 600;
-
-/** Where Step Sync starts: the first bar without a point, but never bar 1, which the recording starts on. */
-function startTarget(map, points) {
-    const first = map.bars[0];
-    return firstUnsyncedTarget(map, first ? [...points, { barIndex: first.barIndex, occurrence: first.occurrence }] : points);
-}
 
 const $ = (id) => document.getElementById(id);
 
@@ -66,12 +56,6 @@ function readTimelinePref() {
 
 function readSnapPref() {
     try { return localStorage.getItem(SNAP_KEY) === '1'; } catch { return false; }
-}
-
-/** Patch Sync suits a song that already has points; a new song starts with Step Sync. */
-function initialMode(hasPoints) {
-    if (!hasPoints) return 'step';
-    try { return localStorage.getItem(MODE_KEY) === 'step' ? 'step' : 'patch'; } catch { return 'patch'; }
 }
 
 function writeOffset(ms) {
@@ -139,14 +123,10 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
         prevRate: source.getRate?.() ?? 1,
         points: loadRecord(songKey, media)?.points || [],
         undo: [], redo: [],
-        granularity: 'bar',
-        mode: 'step',
         ghosts: [],
         rangeArmed: false,
         rangeStart: null,
         offsetMs: readOffset(),
-        lastTick: null,
-        target: null,
         lastUserScrollAt: 0,
         lastTapId: null,
         selectedId: null,
@@ -166,24 +146,23 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
             timeline: s.ctx.timeline, points: s.points, source: s.source, peaks: s.peaks, showWave: false,
             durationMs: s.source.durationMs ?? null, selectedId: s.selectedId
         }),
-        onChangePoints: (next) => { commit(next); retarget(); },
+        onChangePoints: (next) => { commit(next); renderOverlay(); updateToolbar(); },
         onSeek: ({ mediaMs }) => { endAudition(); s.source.seek(mediaMs); },
         onSelect: (id) => selectPoint(id),
         onRetap: startRetap
     });
     s.cleanup.push(() => s.timeline.destroy());
 
-    // One audio source at a time, and the cursor must not be moved by the points being edited
+    // One audio source at a time, and the cursor follows the sync points being edited
     pauseSynthPlayer();
     clearSynthHighlights();
     if (source.kind !== 'youtube') pauseYouTube();
-    setAudioSyncSuspended(true);
-    s.mode = initialMode(s.points.length > 0);
+    setAudioSyncSuspended(false);
+    startAudioSync({ source: s.source, points: s.points });
     setScoreClickOverride(onBeatClick);
     source.setRate(1);
 
     wireToolbar(s);
-    s.target = s.mode === 'step' ? startTarget(map, s.points) : null;
     document.body.classList.add('sync-mode');
     $('syncModeBar').hidden = false;
     // The toolbar docks over the bottom of the score: pad the score by the overlap so every system can be scrolled clear of it
@@ -251,18 +230,6 @@ function onBeatClick(beat) {
     registerTap(withScoreMs(candidatesForBeat(s.map, beat)), beat);
 }
 
-/** Step Sync's J key: taps the highlighted target bar. */
-function tapTarget() {
-    const s = session;
-    if (!s || s.entering || s.audition || s.mode !== 'step' || !s.target) return;
-    const t = s.target;
-    if (s.source.isBuffering?.()) {
-        showToast('Waiting for the recording', 'info', 1500);
-        return;
-    }
-    registerTap(withScoreMs([{ barIndex: t.barIndex, occurrence: t.occurrence, pos: t.pos, tick: t.tick }]), t.beat);
-}
-
 function withScoreMs(candidates) {
     const s = session;
     return candidates
@@ -283,29 +250,7 @@ function registerTap(candidates, beat) {
             s.lastSnap = Math.round(hit.deltaMs);
         }
     }
-    if (s.mode === 'patch') patchTap(candidates, beat, timeMs);
-    else stepTap(candidates, beat, timeMs);
-}
-
-function stepTap(candidates, beat, timeMs) {
-    const s = session;
-    const choice = chooseTap(resolvePoints(s.ctx.timeline, s.points), candidates, timeMs);
-    if (!choice) {
-        flash(beat, 'That bar does not fit between the points around it. Undo, or fix it in Sync Points.');
-        return;
-    }
-    const { candidate, replaceId } = choice;
-    const point = {
-        id: makeId(), barIndex: candidate.barIndex, occurrence: candidate.occurrence, pos: candidate.pos, timeMs, source: 'tap'
-    };
-    commit([...s.points.filter((p) => p.id !== replaceId), point].sort((a, b) => a.timeMs - b.timeMs));
-    s.lastTick = candidate.tick;
-    s.lastTapId = point.id;
-    s.target = nextTarget(s.map, s.lastTick, s.granularity);
-    navigator.vibrate?.(8);
-    renderOverlay(point.id);
-    updateToolbar();
-    scrollToTarget(false);
+    patchTap(candidates, beat, timeMs);
 }
 
 const pointAt = (c, timeMs) => ({ id: makeId(), barIndex: c.barIndex, occurrence: c.occurrence, pos: c.pos, timeMs, source: 'tap' });
@@ -368,53 +313,6 @@ function cancelRange() {
     updateToolbar();
 }
 
-/** Step Sync: moves the target bar (arrow keys), to skip ahead or back. */
-function moveTarget(bars) {
-    const s = session;
-    if (!s || s.mode !== 'step' || s.audition) return;
-    const current = s.target ? s.target.barEntry : s.map.bars.length;
-    const next = Math.min(s.map.bars.length - 1, Math.max(0, current + bars));
-    const entry = s.map.entries[s.map.bars[next]?.firstEntry];
-    if (!entry) return;
-    s.target = entry;
-    renderOverlay();
-    updateToolbar();
-    scrollToTarget(true);
-}
-
-/** Switches between Step Sync and Patch Sync. */
-function setMode(mode) {
-    const s = session;
-    if (!s || s.entering || s.mode === mode) return;
-    endAudition();
-    s.retap = null;
-    s.mode = mode;
-    s.ghosts = [];
-    s.rangeArmed = false;
-    s.rangeStart = null;
-    try { localStorage.setItem(MODE_KEY, mode); } catch { /* per-viewer convenience only */ }
-    applyFollower();
-    if (mode === 'patch') {
-        s.target = null;
-        s.lastTick = null;
-    } else {
-        retarget();
-    }
-    renderOverlay();
-    updateToolbar();
-}
-
-/** Step Sync keeps the cursor still; Patch Sync lets it follow the current points so the drift can be seen. */
-function applyFollower() {
-    const s = session;
-    if (s?.mode === 'patch') {
-        setAudioSyncSuspended(false);
-        startAudioSync({ source: s.source, points: s.points });
-    } else {
-        setAudioSyncSuspended(true);
-    }
-}
-
 /**
  * Records an edit for undo. Edits with the same `mergeKey` close together (nudging one point several times) are
  * one undo step.
@@ -445,27 +343,9 @@ function setPoints(next) {
     const s = session;
     s.points = next;
     saveRecord(s.songKey, s.media, s.points);
-    if (s.mode === 'patch' && !s.audition) getAudioSyncSession()?.setPoints(next);
+    if (!s.audition) getAudioSyncSession()?.setPoints(next);
     window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     if (s.timelineOpen) s.timeline.refresh();
-}
-
-/** After undo or redo, aim at the beat after the latest point in the recording. */
-function retarget() {
-    const s = session;
-    if (s.mode === 'patch') {
-        s.target = null;
-        renderOverlay();
-        updateToolbar();
-        return;
-    }
-    const latest = s.points.reduce((a, p) => (!a || p.timeMs > a.timeMs ? p : a), null);
-    const entry = latest && entryAt(s.map, latest);
-    s.lastTick = entry ? entry.tick : null;
-    s.target = entry ? nextTarget(s.map, entry.tick, s.granularity) : startTarget(s.map, s.points);
-    renderOverlay();
-    updateToolbar();
-    scrollToTarget(false);
 }
 
 function undo() {
@@ -474,7 +354,8 @@ function undo() {
     s.redo.push(s.points);
     s.ghosts = [];
     setPoints(s.undo.pop());
-    retarget();
+    renderOverlay();
+    updateToolbar();
 }
 
 function redo() {
@@ -483,7 +364,8 @@ function redo() {
     s.undo.push(s.points);
     s.ghosts = [];
     setPoints(s.redo.pop());
-    retarget();
+    renderOverlay();
+    updateToolbar();
 }
 
 // --- Refine ----------------------------------------------------------------------------------------------------------
@@ -527,7 +409,8 @@ function deleteSelected() {
     if (!point) return;
     s.selectedId = null;
     commit(s.points.filter((p) => p.id !== point.id));
-    retarget();
+    renderOverlay();
+    updateToolbar();
 }
 
 /** Moves the selected point to the nearest sound in the recording. */
@@ -576,7 +459,8 @@ function endAudition({ keepPlaying = false } = {}) {
     if (!s?.audition) return;
     clearInterval(s.audition.timer);
     s.audition = null;
-    applyFollower();
+    setAudioSyncSuspended(false);
+    startAudioSync({ source: s.source, points: s.points });
     if (!keepPlaying) s.source.pause();
     updateToolbar();
 }
@@ -590,7 +474,6 @@ function startRetap(range) {
     if (!s || !range) return;
     const bars = wholeBarRange(s.ctx.timeline, range.scoreFrom, range.scoreTo);
     if (!bars) return;
-    setMode('step');
     endAudition();
     const resolved = resolvePoints(s.ctx.timeline, s.points);
     const window_ = retapWindow(resolved, bars.scoreFrom, bars.scoreTo);
@@ -598,12 +481,9 @@ function startRetap(range) {
     if (inside.size) commit(s.points.filter((p) => !inside.has(p.id)));
     s.selectedId = null;
     s.retap = { mediaEnd: window_.mediaTo + RETAP_TAIL_MS, scoreFrom: bars.scoreFrom, scoreTo: bars.scoreTo };
-    s.lastTick = null;
-    s.target = nextTarget(s.map, scoreMsToTick(s.ctx.timeline, bars.scoreFrom) - 1, s.granularity);
     s.source.seek(Math.max(0, window_.mediaFrom - RETAP_LEAD_MS));
     renderOverlay();
     updateToolbar();
-    scrollToTarget(true);
     playSource();
 }
 
@@ -697,16 +577,6 @@ function renderOverlay(newPointId = null) {
         dot.style.top = `${startRect.y}px`;
         els.push(dot);
     }
-    const rect = s.target && beatRect(s.target);
-    if (rect) {
-        const box = document.createElement('div');
-        box.className = 'sync-target';
-        box.style.left = `${rect.x - 4}px`;
-        box.style.top = `${rect.y - 4}px`;
-        box.style.width = `${Math.max(rect.w, 16) + 8}px`;
-        box.style.height = `${rect.h + 8}px`;
-        els.push(box);
-    }
     s.overlay.replaceChildren(...els);
 }
 
@@ -725,22 +595,6 @@ function flash(beat, message) {
         setTimeout(() => box.remove(), 800);
     }
     showToast(message, 'info', 2200);
-}
-
-/** Scroll so the target beat sits clear above the bottom toolbar, unless the user is scrolling by hand. */
-function scrollToTarget(force) {
-    const s = session;
-    const rect = s?.target && beatRect(s.target);
-    if (!rect) return;
-    if (!force && performance.now() - s.lastUserScrollAt < SCROLL_IDLE_MS) return;
-    const viewH = s.output.clientHeight;
-    const barH = Math.max(0, s.output.getBoundingClientRect().bottom - $('syncModeBar').getBoundingClientRect().top);
-    const containerTop = s.container.getBoundingClientRect().top - s.output.getBoundingClientRect().top + s.output.scrollTop;
-    const beatTop = containerTop + rect.y;
-    const visibleTop = s.output.scrollTop + 8;
-    const visibleBottom = s.output.scrollTop + Math.min(viewH * 0.8, viewH - barH - 8);
-    if (!force && beatTop >= visibleTop && beatTop + rect.h <= visibleBottom) return;
-    s.output.scrollTo({ top: Math.max(0, beatTop - 40), behavior: force ? 'auto' : 'smooth' });
 }
 
 // --- Toolbar -------------------------------------------------------------------------------------------------------
@@ -782,48 +636,14 @@ function wireToolbar(s) {
         b.addEventListener('click', handler);
         s.cleanup.push(() => b.removeEventListener('click', handler));
     });
-    on('smTapBtn', tapTarget);
-    // A press moves the target a bar; holding moves it 4, for touch screens without arrow keys
-    for (const [id, dir] of [['smPrevBarBtn', -1], ['smNextBarBtn', 1]]) {
-        const btn = $(id);
-        let timer = 0;
-        let held = false;
-        const down = () => { held = false; timer = setTimeout(() => { held = true; moveTarget(dir * 4); }, 500); };
-        const up = () => clearTimeout(timer);
-        const click = () => { if (held) held = false; else moveTarget(dir); };
-        btn.addEventListener('pointerdown', down);
-        for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.addEventListener(ev, up);
-        btn.addEventListener('click', click);
-        s.cleanup.push(() => {
-            clearTimeout(timer);
-            btn.removeEventListener('pointerdown', down);
-            for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) btn.removeEventListener(ev, up);
-            btn.removeEventListener('click', click);
-        });
-    }
     on('smRangeBtn', () => {
         if (s.rangeArmed) cancelRange();
         else { s.rangeArmed = true; s.rangeStart = null; updateToolbar(); }
-    });
-    document.querySelectorAll('#smMode [data-sm-mode]').forEach((b) => {
-        const handler = () => setMode(b.dataset.smMode);
-        b.addEventListener('click', handler);
-        s.cleanup.push(() => b.removeEventListener('click', handler));
     });
     on('smDoneBtn', exitSyncMode);
     on('smTimelineBtn', () => showTimeline(!s.timelineOpen));
     document.querySelectorAll('#smRates [data-sm-rate]').forEach((b) => {
         const handler = () => { s.source.setRate(Number(b.dataset.smRate)); updateToolbar(); };
-        b.addEventListener('click', handler);
-        s.cleanup.push(() => b.removeEventListener('click', handler));
-    });
-    document.querySelectorAll('#smGranularity [data-sm-granularity]').forEach((b) => {
-        const handler = () => {
-            s.granularity = b.dataset.smGranularity;
-            s.target = s.lastTick === null ? startTarget(s.map, s.points) : nextTarget(s.map, s.lastTick, s.granularity);
-            renderOverlay();
-            updateToolbar();
-        };
         b.addEventListener('click', handler);
         s.cleanup.push(() => b.removeEventListener('click', handler));
     });
@@ -886,14 +706,6 @@ function handleKey(e) {
         e.preventDefault();
         e.stopImmediatePropagation();
         cancelRange();
-    } else if (!mod && !e.repeat && s.mode === 'step' && e.key.toLowerCase() === 'j') {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        tapTarget();
-    } else if (!mod && s.mode === 'step' && !selectedPoint() && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
-        e.preventDefault();
-        e.stopImmediatePropagation();
-        moveTarget((e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 4 : 1));
     } else if (!mod && selectedPoint()) {
         // Keys for the selected point
         const step = e.shiftKey ? 50 : 10;
@@ -927,20 +739,8 @@ function updateToolbar() {
     $('smPlayIcon').className = playing ? 'bi-pause-fill' : 'bi-play-fill';
     const rate = s.source.getRate?.() ?? 1;
     document.querySelectorAll('#smRates [data-sm-rate]').forEach((b) => b.classList.toggle('active', Math.abs(Number(b.dataset.smRate) - rate) < 0.01));
-    document.querySelectorAll('#smGranularity [data-sm-granularity]').forEach((b) => b.classList.toggle('active', b.dataset.smGranularity === s.granularity));
-    document.querySelectorAll('#smMode [data-sm-mode]').forEach((b) => b.classList.toggle('active', b.dataset.smMode === s.mode));
-    $('smGranularity').style.display = s.mode === 'patch' ? 'none' : '';
-    $('smRangeBtn').hidden = s.mode !== 'patch';
-    document.querySelectorAll('#syncModeBar [data-sm-step]').forEach((b) => { b.style.display = s.mode === 'step' ? '' : 'none'; });
-    const tapBtn = $('smTapBtn');
-    if (tapBtn) {
-        tapBtn.disabled = !s.target;
-        const barNum = s.target ? s.target.barIndex + 1 : '';
-        tapBtn.innerHTML = s.mode === 'step'
-            ? (s.target ? `Tap bar <b>${barNum}</b> <kbd>J</kbd>` : 'All bars covered')
-            : `Pin bar <b>${barNum}</b> to now <kbd>J</kbd>`;
-    }
-    $('smRangeBtn').classList.toggle('active', s.rangeArmed);
+    const rangeBtn = $('smRangeBtn');
+    if (rangeBtn) rangeBtn.classList.toggle('active', s.rangeArmed);
     $('smUndoBtn').disabled = !s.undo.length;
     $('smRedoBtn').disabled = !s.redo.length;
     if (s.timelineOpen) s.timeline.wake();
@@ -965,20 +765,10 @@ function updateToolbar() {
     let hint;
     if (s.source.isBuffering?.()) hint = 'Waiting for the recording...';
     else if (s.audition) hint = 'Auditioning: the cursor follows the points. Press Stop when you have heard enough.';
-    else if (s.mode === 'patch') {
-        if (s.rangeArmed && !s.rangeStart) hint = 'Fix Range: while it plays, click the bar where the bad stretch starts. Escape cancels.';
-        else if (s.rangeArmed) hint = 'Now click the bar where the bad stretch ends.';
-        else if (playing) hint = 'Click any bar at the moment you hear it start. The points it contradicts are replaced.';
-        else hint = 'Press play. When the cursor drifts, click the bar you hear. Use Fix Range for a longer stretch.';
-    }
-    else if (s.retap && !s.target) hint = 'That is the whole range. Press pause, or keep going to fix more bars.';
-    else if (!s.target) hint = 'Every bar has a point. Select a dot to adjust it, or press Done.';
-    else {
-        const where = `bar ${s.target.barIndex + 1}${s.target.occurrence ? ` (pass ${s.target.occurrence + 1})` : ''}${s.granularity === 'beat' ? `, beat at ${Math.round(s.target.pos * 100)}%` : ''}`;
-        if (s.retap) hint = `Re-tapping from bar ${(s.ctx.timeline.bars.find((b) => b.startMs >= s.retap.scoreFrom) || s.ctx.timeline.bars[0]).barIndex + 1}: tap ${where} when you hear it.`;
-        else if (playing) hint = `Tap ${where} when you hear it (J, the Tap button or a click). Arrow keys or the arrow buttons skip bars.`;
-        else hint = `Press play, then tap ${where} when you hear it (J, the Tap button or a click). Arrow keys or the arrow buttons skip bars. Or pause on a sound and click a beat to put a point there.`;
-    }
+    else if (s.rangeArmed && !s.rangeStart) hint = 'Fix Range: while it plays, click the bar where the bad stretch starts. Escape cancels.';
+    else if (s.rangeArmed) hint = 'Now click the bar where the bad stretch ends.';
+    else if (playing) hint = 'Click any bar at the moment you hear it start. The points it contradicts are replaced.';
+    else hint = 'Press play. When the cursor drifts, click the bar you hear. Use Fix Range for a longer stretch.';
     if (s.lastSnap !== null && !s.audition) hint += ` (Last tap snapped ${Math.abs(s.lastSnap)} ms ${s.lastSnap < 0 ? 'earlier' : 'later'}.)`;
     $('smHint').textContent = hint;
 }

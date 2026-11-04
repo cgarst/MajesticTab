@@ -1190,18 +1190,7 @@
       <button type="button" class="btn btn-sm" data-sm-rate="0.75">0.75x</button>
       <button type="button" class="btn btn-sm" data-sm-rate="1">1x</button>
     </div>
-    <div class="hud-pill-group" role="group" aria-label="Sync mode" id="smMode">
-      <button type="button" class="btn btn-sm active" data-sm-mode="step" title="Walk through the bars in order: click the highlighted bar or press J. Arrow keys skip ahead.">Step Sync</button>
-      <button type="button" class="btn btn-sm" data-sm-mode="patch" title="Fix part of a synced song: click any bar while it plays to pin it to that moment">Patch Sync</button>
-    </div>
-    <button type="button" class="btn btn-sm btn-theme-icon" data-sm-step id="smPrevBarBtn" title="Move the target back a bar (Left arrow). Hold for 4 bars." aria-label="Target back one bar"><i class="bi-chevron-left"></i></button>
-    <button type="button" class="btn btn-sm btn-theme-primary" data-sm-step id="smTapBtn" title="Tap the highlighted bar (J)">Tap (J)</button>
-    <button type="button" class="btn btn-sm btn-theme-icon" data-sm-step id="smNextBarBtn" title="Move the target forward a bar (Right arrow). Hold for 4 bars." aria-label="Target forward one bar"><i class="bi-chevron-right"></i></button>
-    <button type="button" class="btn btn-sm btn-theme-outline" id="smRangeBtn" title="Tap the start and the end of a bad stretch to redo everything between them" hidden>Fix Range</button>
-    <div class="hud-pill-group" role="group" aria-label="What to tap" id="smGranularity">
-      <button type="button" class="btn btn-sm active" data-sm-granularity="bar" title="Tap the first beat of each bar">Bars</button>
-      <button type="button" class="btn btn-sm" data-sm-granularity="beat" title="Tap every beat">Beats</button>
-    </div>
+    <button type="button" class="btn btn-sm btn-theme-outline" id="smRangeBtn" title="Tap the start and the end of a bad stretch to redo everything between them">Fix Range</button>
     <label class="sync-mode-offset small text-white-50" title="Subtracted from every tap, for a reaction delay. Raise it if your taps land late.">
       Offset <input type="number" class="form-control form-control-sm" id="smOffset" value="0" step="10" min="0" max="500" aria-label="Tap offset in milliseconds"> ms
     </label>
