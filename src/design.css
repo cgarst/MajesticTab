@@ -3234,6 +3234,15 @@ body > #controllerHelpModal { display: none; }
     outline-offset: -2px;
 }
 
+.search-track-num {
+    width: 24px;
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink2);
+    text-align: right;
+    flex-shrink: 0;
+}
+
 .search-row-meta {
     min-width: 0;
     flex: 1 1 auto;
