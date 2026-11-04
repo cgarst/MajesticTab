@@ -712,29 +712,24 @@ export async function handleAddAlbumBatch(albumItem, btnEl) {
 
         // If album does not exist in library, fetch tracks and add album
         if (!albumObj) {
-            let tracks = [];
+            let albumData = null;
             const releaseGroupMbid = albumItem.id || albumItem.releaseGroupMbid || albumItem.albumMbid;
             if (releaseGroupMbid) {
                 try {
-                    tracks = await getAlbumTracks(releaseGroupMbid);
+                    albumData = await getAlbumTracks(releaseGroupMbid);
                 } catch (e) {
                     console.warn('[Batch Assistant] Failed to fetch album tracks from MusicBrainz:', e);
                 }
             }
             await addAlbumToLibrary({
-                albumTitle,
-                artistName,
-                collectionId: activeCollectionId,
-                year: albumItem.year || null,
-                coverUrl: albumItem.coverUrl || null,
-                releaseGroupMbid: releaseGroupMbid || '',
-                tracks: tracks.map((t, idx) => ({
-                    title: t.title || t.name,
-                    trackNumber: t.trackNumber || (idx + 1),
-                    length: t.length || null,
-                    recordingMbid: t.recordingMbid || t.id || ''
-                }))
-            });
+                title: albumTitle,
+                artist: artistName,
+                artistMbid: albumData?.artistMbid || albumItem.artistMbid || null,
+                releaseGroupId: releaseGroupMbid || albumData?.releaseGroupId || '',
+                releaseId: albumData?.releaseId || null,
+                year: albumData?.year || albumItem.year || null,
+                coverUrl: albumData?.coverUrl || albumItem.coverUrl || null
+            }, albumData?.tracks || [], activeCollectionId);
             window.dispatchEvent(new CustomEvent('libraryDataChanged'));
             const updatedHierarchy = await getLibraryHierarchy(activeCollectionId);
             artistObj = (updatedHierarchy.artists || []).find(a => cleanTrackTitleForMatching(a.name) === cleanTrackTitleForMatching(artistName));
