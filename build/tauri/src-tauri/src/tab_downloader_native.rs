@@ -81,12 +81,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
     if (window.__majesticDownloaderShimInitialized) return;
     window.__majesticDownloaderShimInitialized = true;
 
-    // 0. Stub common ad globals to defuse missing ad scripts
-    window.adsbygoogle = window.adsbygoogle || [];
-    window.ga = window.ga || function() {};
-    window.__cmp = window.__cmp || function() {};
-
-    // 0b. Inject cosmetic ad hiding styles
+    // 0. Suppress sticky player controls that occlude the tab notation
     function injectCosmeticStyles() {
         try {
             const id = 'majestic-adblock-cosmetic';
@@ -95,7 +90,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
                 if (parent) {
                     const style = document.createElement('style');
                     style.id = id;
-                    style.textContent = '.adsbygoogle, [id^="google_ads"], [id*="taboola"], [class*="ad-container"], [class*="banner-ad"], [class*="advertisement"], .is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], [class*="BottomControls-fixed"], #pro-player-scroll-container, [id*="pro-player"], [class*="styles-containerWrapper"] { display: none !important; height: 0 !important; min-height: 0 !important; max-height: 0 !important; visibility: hidden !important; pointer-events: none !important; }';
+                    style.textContent = '.is_sticky_player, [class*="is_sticky_player"], [class*="sticky_player"], #pro-player-scroll-container, [id*="pro-player"] { display: none !important; height: 0 !important; min-height: 0 !important; max-height: 0 !important; visibility: hidden !important; pointer-events: none !important; }';
                     parent.appendChild(style);
                 }
             }
@@ -1380,6 +1375,17 @@ pub fn generate_webkit_rules_json(hosts: &[String]) -> String {
             },
             "action": {
                 "type": "block"
+            }
+        }));
+    }
+    if !hosts.is_empty() {
+        rules.push(serde_json::json!({
+            "trigger": {
+                "url-filter": ".*"
+            },
+            "action": {
+                "type": "css-display-none",
+                "selector": ".adsbygoogle, [id^=\"google_ads\"], [id*=\"taboola\"], [class*=\"ad-container\"], [class*=\"banner-ad\"], [class*=\"advertisement\"], [class*=\"styles-containerWrapper\"]"
             }
         }));
     }

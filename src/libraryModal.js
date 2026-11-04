@@ -4209,8 +4209,14 @@ function setupCustomDocForm(container) {
     // @googleDrive:end
     // Pick Tab Downloader
     container.querySelector('#customDocPickDownloaderBtn')?.addEventListener('click', () => {
-        const query = form.querySelector('#customDocTitle')?.value?.trim() || '';
-        openFromProvider('tab-downloader', { query, onFileSelected: handleFileAttached });
+        const title = form.querySelector('#customDocTitle')?.value?.trim() || '';
+        const folder = form.querySelector('#customDocFolder')?.value?.trim() || '';
+        openFromProvider('tab-downloader', {
+            query: title,
+            songName: title,
+            artist: folder || 'Custom Music',
+            onFileSelected: handleFileAttached
+        });
     });
 
     // Dropzone click / drag-and-drop

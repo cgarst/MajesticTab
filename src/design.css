@@ -2722,24 +2722,301 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 }
 
 /* The in-app downloader's top bar sits above the library rail and tab bar */
-.tab-downloader-bar { z-index: 1060; }
-.downloader-url-btn,
+.tab-downloader-bar {
+  z-index: 1060;
+  background: var(--s1) !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid var(--s2) !important;
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+.downloader-nav-row {
+  background: var(--s1);
+  border-bottom: 1px solid var(--s2) !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) !important;
+  align-items: center !important;
+}
+
+.downloader-nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  justify-self: start;
+}
+
+.downloader-nav-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.downloader-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  justify-self: end;
+}
+
+.downloader-nav-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--s2);
+  border-radius: var(--r-control);
+  padding: 2px;
+}
+
+.downloader-nav-group .btn-theme-icon {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ink2) !important;
+  border-radius: calc(var(--r-control) - 2px) !important;
+  min-width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.downloader-nav-group .btn-theme-icon:hover:not(:disabled) {
+  color: var(--ink) !important;
+  background: var(--s3) !important;
+}
+
+.downloader-url-group {
+  background: var(--s2) !important;
+  border: 0 !important;
+  border-radius: var(--r-control) !important;
+  color: var(--ink) !important;
+  height: 34px !important;
+  padding: 4px 10px !important;
+}
+
+.downloader-url-globe {
+  color: var(--ink2);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.downloader-url-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--ink2) !important;
+  font-size: 12px;
+  letter-spacing: -0.2px;
+}
+
 .downloader-url-copy-btn {
   color: var(--ink2);
   border-radius: var(--r-control);
   transition: color var(--dur-fast), background-color var(--dur-fast);
 }
-.downloader-url-btn:hover,
 .downloader-url-copy-btn:hover {
   color: var(--ink);
-  background: var(--s2);
+  background: var(--s3);
 }
-.downloader-url-btn:focus-visible,
 .downloader-url-copy-btn:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
 }
-#downloaderAdblockBtn.active { color: var(--ink); }
+
+.downloader-adblock-btn {
+  color: var(--ink2) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: var(--r-control) !important;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color var(--dur-fast), background-color var(--dur-fast);
+}
+.downloader-adblock-btn:hover {
+  color: var(--ink) !important;
+  background: var(--s2) !important;
+}
+.downloader-adblock-btn.active,
+#downloaderAdblockBtn.active,
+#downloaderAdblockBtn[aria-pressed="true"] {
+  color: var(--ink) !important;
+  background: var(--s2) !important;
+}
+.downloader-adblock-btn.active:hover,
+#downloaderAdblockBtn.active:hover,
+#downloaderAdblockBtn[aria-pressed="true"]:hover {
+  background: var(--s3) !important;
+}
+.downloader-adblock-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.downloader-sources-btn {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ink2) !important;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--r-control);
+  transition: color var(--dur-fast), background-color var(--dur-fast);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.downloader-sources-btn:hover {
+  color: var(--ink) !important;
+  background: var(--s2) !important;
+}
+.downloader-sources-btn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+.downloader-source-menu-item.active {
+  font-weight: 600;
+  color: var(--ink) !important;
+  background: var(--s3) !important;
+}
+
+#downloaderSourcesMenu {
+  background: var(--s2) !important;
+  border: 0 !important;
+  border-radius: var(--r-card) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  padding: 6px !important;
+  min-width: 170px;
+  z-index: 1070 !important;
+}
+
+#downloaderSourcesMenu .downloader-source-menu-item {
+  color: var(--ink2) !important;
+  background: transparent !important;
+  border-radius: calc(var(--r-control) - 2px) !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+  font-weight: 500;
+  transition: color var(--dur-fast), background-color var(--dur-fast);
+}
+
+#downloaderSourcesMenu .downloader-source-menu-item:hover,
+#downloaderSourcesMenu .downloader-source-menu-item:focus {
+  color: var(--ink) !important;
+  background: var(--s3) !important;
+}
+
+#downloaderSourcesMenu .downloader-source-menu-item.active {
+  font-weight: 600;
+  color: var(--ink) !important;
+  background: var(--s3) !important;
+}
+
+.downloader-close-btn,
+#downloaderCloseBtn {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ink2) !important;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--r-control);
+  transition: color var(--dur-fast), background-color var(--dur-fast);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.downloader-close-btn:hover,
+#downloaderCloseBtn:hover {
+  color: var(--ink) !important;
+  background: var(--s2) !important;
+}
+.downloader-close-btn:focus-visible,
+#downloaderCloseBtn:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 1px;
+}
+
+/* Row 2: Dedicated Target & Workflow Row */
+.downloader-target-row {
+  background: var(--s1);
+  border-top: 1px solid var(--s2);
+  min-height: 40px;
+  padding: 4px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.downloader-single-target {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.downloader-target-artist,
+.downloader-target-album,
+.downloader-target-dot,
+.downloader-target-dot2 {
+  font-size: 13px;
+  color: var(--ink2);
+  flex-shrink: 0;
+}
+
+.downloader-target-title {
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.downloader-target-row .downloader-batch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+  min-height: 36px;
+}
+
+.downloader-batch-track-name {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.downloader-batch-row i.bi-disc {
+  color: var(--ink2);
+}
+
+.downloader-batch-skip-btn {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--ink2) !important;
+  border-radius: var(--r-control) !important;
+}
+
+.downloader-batch-skip-btn:hover {
+  color: var(--ink) !important;
+  background: var(--s2) !important;
+}
 
 .srow-editor-slot {
   background: var(--s2);
@@ -3219,19 +3496,43 @@ body > #controllerHelpModal { display: none; }
     .tab-downloader-bar .downloader-nav-row {
         height: 44px;
         min-height: 44px;
+        padding-left: 8px;
+        padding-right: 8px;
+        gap: 6px;
+    }
+    .downloader-url-group {
+        padding: 2px 8px !important;
+    }
+    .downloader-sources-btn {
+        padding: 4px 6px;
+        font-size: 12px;
+    }
+    .downloader-target-row {
+        min-height: 36px;
+        padding: 2px 10px;
+    }
+    .downloader-target-artist,
+    .downloader-target-album,
+    .downloader-target-dot,
+    .downloader-target-dot2 {
+        display: none !important;
+    }
+    .downloader-target-title {
+        font-size: 13px;
     }
     .tab-downloader-bar .downloader-batch-row {
-        height: 44px;
-        min-height: 44px;
-        padding: 0 8px;
+        height: 40px;
+        min-height: 40px;
+        padding: 0 4px;
     }
     .downloader-batch-stepper-btn {
-        min-height: 40px;
-        padding: 0 8px;
+        min-height: 36px;
+        padding: 0 6px;
+        font-size: 12px;
     }
     .downloader-batch-actions .btn {
-        min-height: 40px;
-        padding: 0 12px;
+        min-height: 36px;
+        padding: 0 8px;
     }
     .downloader-transient-banner,
     .downloader-advisory-badge {

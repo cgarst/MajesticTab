@@ -193,7 +193,7 @@ export function updateBatchHUD() {
     const currentTrack = activeBatchQueue[activeBatchIndex];
     if (trackInfoEl) {
         if (currentTrack) {
-            trackInfoEl.textContent = `Track ${activeBatchIndex + 1} of ${activeBatchQueue.length}: ${currentTrack.title}`;
+            trackInfoEl.innerHTML = `<span class="downloader-batch-progress tnum">${activeBatchIndex + 1} of ${activeBatchQueue.length}</span><span class="mx-1 text-muted">·</span><span class="downloader-batch-track-name text-truncate">${escapeHtml(currentTrack.title)}</span>`;
         } else {
             trackInfoEl.textContent = `${activeBatchQueue.length} tracks`;
         }
@@ -209,7 +209,7 @@ export function updateBatchHUD() {
         popoverList.innerHTML = activeBatchQueue.map((track, idx) => {
             const isCurrent = idx === activeBatchIndex;
             const statusIcon = track.acquired ? '✓' : (isCurrent ? '▶' : '○');
-            const statusClass = track.acquired ? 'text-success' : (isCurrent ? 'text-primary' : 'text-muted');
+            const statusClass = track.acquired ? 'text-success' : (isCurrent ? 'fw-bold' : 'text-muted');
             const badgeText = track.alreadyInLibrary ? 'Already in Library' : (track.acquired ? (track.fileName ? `Saved (${track.fileName.split('.').pop().toUpperCase()})` : 'Acquired') : (isCurrent ? 'Active in browser' : 'Pending'));
             let actionBtn = '';
             if (track.acquired) {
@@ -842,6 +842,7 @@ if (typeof window !== 'undefined') {
 }
 
 let isDomInitialized = false;
+let isSourcesDropdownOpen = false;
 let resizeObserver = null;
 let currentEditingSourceId = null;
 let localEditingSources = [];
@@ -877,9 +878,7 @@ export function initTabDownloaderDomEvents() {
     });
 
     document.getElementById('downloaderNavReloadBtn')?.addEventListener('click', () => {
-        if (window.__TAURI__?.core?.invoke) {
-            window.__TAURI__.core.invoke('tab_downloader_nav', { action: 'reload' }).catch(() => {});
-        }
+        reloadDownloaderWebview();
     });
 
     document.getElementById('downloaderCopyUrlBtn')?.addEventListener('click', async () => {
@@ -904,21 +903,33 @@ export function initTabDownloaderDomEvents() {
     const adblockBtn = document.getElementById('downloaderAdblockBtn');
     if (adblockBtn) {
         syncDownloaderAdblockButton();
-        adblockBtn.addEventListener('click', async () => {
+        adblockBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             const next = !isAdblockEnabled();
-            const status = getAdblockStatus();
-            if (next && status.count === 0) {
-                showToast('Enabling adblock (downloading community list)...', 3000);
-            }
+
+            // Optimistic UI sync
+            try {
+                localStorage.setItem(ADBLOCK_ENABLED_KEY, next ? 'true' : 'false');
+            } catch {}
+            syncDownloaderAdblockButton();
+
             try {
                 const res = await setAdblockEnabled(next);
                 if (res.enabled) {
-                    showToast(`Adblock active (${res.count.toLocaleString()} domains)`, 2500);
+                    showToast(`Adblock active (${res.count.toLocaleString()} domains)`, 'success', 2500);
                 } else {
-                    showToast('Adblock disabled', 2500);
+                    showToast('Adblock disabled', 'info', 2500);
                 }
             } catch (err) {
-                showToast('Failed to update adblock rules', 3000);
+                console.warn('[Tab Downloader] Failed to update adblock rules:', err);
+                showToast('Failed to update adblock rules', 'error', 3000);
+                try {
+                    localStorage.setItem(ADBLOCK_ENABLED_KEY, (!next) ? 'true' : 'false');
+                } catch {}
+            } finally {
+                syncDownloaderAdblockButton();
+                reloadDownloaderWebview();
             }
         });
     }
@@ -934,6 +945,37 @@ export function initTabDownloaderDomEvents() {
             }
         } catch {}
     }
+
+    // Sources dropdown height synchronization with native webview
+    let sourcesMenuResizeObserver = null;
+    const sourcesDropdown = document.getElementById('downloaderSourcesDropdown');
+    const sourcesMenu = document.getElementById('downloaderSourcesMenu');
+    sourcesDropdown?.addEventListener('show.bs.dropdown', () => {
+        isSourcesDropdownOpen = true;
+        refreshDownloaderOffset();
+        if (typeof ResizeObserver !== 'undefined' && sourcesMenu) {
+            if (!sourcesMenuResizeObserver) {
+                sourcesMenuResizeObserver = new ResizeObserver(() => {
+                    if (isSourcesDropdownOpen) refreshDownloaderOffset();
+                });
+            }
+            sourcesMenuResizeObserver.observe(sourcesMenu);
+        }
+    });
+    sourcesDropdown?.addEventListener('shown.bs.dropdown', () => {
+        isSourcesDropdownOpen = true;
+        refreshDownloaderOffset();
+    });
+    sourcesDropdown?.addEventListener('hide.bs.dropdown', () => {
+        isSourcesDropdownOpen = false;
+        if (sourcesMenuResizeObserver) sourcesMenuResizeObserver.disconnect();
+        refreshDownloaderOffset();
+    });
+    sourcesDropdown?.addEventListener('hidden.bs.dropdown', () => {
+        isSourcesDropdownOpen = false;
+        if (sourcesMenuResizeObserver) sourcesMenuResizeObserver.disconnect();
+        refreshDownloaderOffset();
+    });
 
     // Close button
     document.getElementById('downloaderCloseBtn')?.addEventListener('click', () => {
@@ -1086,6 +1128,17 @@ export async function setAdblockEnabled(enabled, forceRefresh = false) {
     return { enabled: true, count: hosts.length, lastUpdated };
 }
 
+export function reloadDownloaderWebview() {
+    if (window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke('tab_downloader_nav', { action: 'reload' }).catch(() => {});
+    }
+    if (window.MajesticDownloaderNative?.reload) {
+        try { window.MajesticDownloaderNative.reload(); } catch {}
+    } else if (currentDownloaderUrl) {
+        navigateToDownloaderUrl(currentDownloaderUrl);
+    }
+}
+
 export async function dispatchNativeAdblock(hosts, enabled) {
     if (window.MajesticDownloaderNative?.setBlockedHosts) {
         try {
@@ -1115,19 +1168,34 @@ export function syncDownloaderAdblockButton() {
     btn.title = enabled ? 'Adblock active (click to turn off)' : 'Block ads and trackers';
     const icon = btn.querySelector('i');
     if (icon) {
-        icon.className = enabled ? 'bi-shield-check' : 'bi-shield';
+        icon.className = enabled ? 'bi-shield-fill-check' : 'bi-shield';
     }
 }
 
 /**
- * The album tracklist drops below the bar, but the site webview is a separate native view that
- * would cover it. While it is open, push the site webview down to the popover's bottom edge.
+ * The album tracklist and sources dropdown drop below the bar, but the site webview is a separate
+ * native view that would cover them. While either is open, push the site webview down to its bottom edge.
  * @returns {number}
  */
 function downloaderPopoverReach() {
+    let reach = 0;
     const pop = document.getElementById('downloaderBatchPopover');
-    if (!pop || pop.style.display !== 'block') return 0;
-    return Math.ceil(pop.getBoundingClientRect().bottom + 8);
+    if (pop && pop.style.display === 'block') {
+        reach = Math.max(reach, Math.ceil(pop.getBoundingClientRect().bottom + 12));
+    }
+    const sourcesMenu = document.getElementById('downloaderSourcesMenu');
+    if (sourcesMenu && (isSourcesDropdownOpen || sourcesMenu.classList.contains('show'))) {
+        const rect = sourcesMenu.getBoundingClientRect();
+        if (rect.bottom > 0) {
+            reach = Math.max(reach, Math.ceil(rect.bottom + 12));
+        } else {
+            const btn = document.getElementById('downloaderSourcesBtn');
+            const btnBottom = btn ? btn.getBoundingClientRect().bottom : 44;
+            const items = sourcesMenu.querySelectorAll('li').length || 3;
+            reach = Math.max(reach, Math.ceil(btnBottom + (items * 38) + 20));
+        }
+    }
+    return reach;
 }
 
 function refreshDownloaderOffset() {
@@ -1173,11 +1241,11 @@ export function stampSourceChanges(edited) {
 }
 
 /**
- * Render tab provider pills in the top bar
+ * Render tab provider choices in the Sources dropdown menu
  */
 export function renderDownloaderTabs() {
-    const container = document.getElementById('downloaderTabsRow');
-    if (!container) return;
+    const menu = document.getElementById('downloaderSourcesMenu');
+    const label = document.getElementById('downloaderActiveSourceName');
 
     const sources = [...getSources()];
     if (activeEphemeralSource) {
@@ -1188,24 +1256,32 @@ export function renderDownloaderTabs() {
             urlTemplate: activeEphemeralSource.url
         });
     }
-    let html = sources.map(s => `
-        <button type="button" class="downloader-source-tab-btn ${s.id === activeSourceId ? 'active' : ''}" data-source-id="${s.id}" title="${s.name}">
-            <i class="bi-globe"></i>
-            <span>${s.name}</span>
-        </button>
-    `).join('');
 
-    container.innerHTML = html;
+    const currentSrc = sources.find(s => s.id === activeSourceId) || sources[0];
+    if (label && currentSrc) {
+        label.textContent = currentSrc.name;
+    }
 
-    container.querySelectorAll('.downloader-source-tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const sid = btn.dataset.sourceId;
-            const src = sources.find(s => s.id === sid);
-            if (src) {
-                switchActiveSource(src);
-            }
+    if (menu) {
+        menu.innerHTML = sources.map(s => `
+            <li>
+                <button type="button" class="dropdown-item small d-flex align-items-center justify-content-between downloader-source-menu-item ${s.id === activeSourceId ? 'active' : ''}" data-source-id="${s.id}">
+                    <span>${escapeHtml(s.name)}</span>
+                    ${s.id === activeSourceId ? '<i class="bi-check2 ms-2" aria-hidden="true"></i>' : ''}
+                </button>
+            </li>
+        `).join('');
+
+        menu.querySelectorAll('.downloader-source-menu-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sid = btn.dataset.sourceId;
+                const src = sources.find(s => s.id === sid);
+                if (src) {
+                    switchActiveSource(src);
+                }
+            });
         });
-    });
+    }
 }
 
 /**
@@ -1217,12 +1293,8 @@ export function switchActiveSource(src) {
     pendingSourceId = src.id;
     clearTimeout(pendingSourceTimer);
     pendingSourceTimer = setTimeout(() => { pendingSourceId = null; }, 10000);
-    const container = document.getElementById('downloaderTabsRow');
-    if (container) {
-        container.querySelectorAll('.downloader-source-tab-btn').forEach(b => {
-            b.classList.toggle('active', b.dataset.sourceId === src.id);
-        });
-    }
+    syncDownloaderAdblockButton();
+    renderDownloaderTabs();
 
     showLoadingInUrlBar(src.name);
 
@@ -1291,12 +1363,8 @@ export function highlightSourceTabForUrl(url) {
         }
         if (matchedId && matchedId !== activeSourceId) {
             activeSourceId = matchedId;
-            const container = document.getElementById('downloaderTabsRow');
-            if (container) {
-                container.querySelectorAll('.downloader-source-tab-btn').forEach(b => {
-                    b.classList.toggle('active', b.dataset.sourceId === matchedId);
-                });
-            }
+            syncDownloaderAdblockButton();
+    renderDownloaderTabs();
         }
     } catch {}
 }
@@ -1314,26 +1382,54 @@ export function showTabDownloaderBar(isDebugToolsEnabled = false) {
     const bar = document.getElementById('tabDownloaderBar');
     if (bar) bar.style.display = 'flex';
 
-    // Update song pill or batch HUD
-    const songText = activeArtistName && activeSongName ? `${activeArtistName} - ${activeSongName}` : (activeSongName || activeArtistName || '');
-    const songPill = document.getElementById('downloaderSongPill');
-    const songTextEl = document.getElementById('downloaderSongText');
+    // Update target context row (Single Song Context vs Album Batch Stepper)
+    const targetRow = document.getElementById('downloaderTargetRow');
+    const singleTarget = document.getElementById('downloaderSingleTarget');
     const batchRow = document.getElementById('downloaderBatchRow');
 
     if (activeBatchMode) {
-        if (songPill) songPill.style.display = 'none';
+        if (singleTarget) singleTarget.style.display = 'none';
         if (batchRow) batchRow.style.display = 'flex';
+        if (targetRow) targetRow.style.display = 'flex';
         updateBatchHUD();
     } else {
         if (batchRow) batchRow.style.display = 'none';
-        if (songPill && songTextEl) {
-            if (songText) {
-                songTextEl.textContent = songText;
-                songPill.style.display = 'flex';
-                songPill.title = songText;
-            } else {
-                songPill.style.display = 'none';
+        const hasSong = Boolean(activeSongName);
+        const hasArtist = Boolean(activeArtistName);
+        const hasAlbum = Boolean(activeTargetAlbum?.albumTitle);
+        if (hasSong || hasArtist || hasAlbum) {
+            if (singleTarget) {
+                const artistEl = document.getElementById('downloaderTargetArtist');
+                const dotEl = document.getElementById('downloaderTargetDot');
+                const albumEl = document.getElementById('downloaderTargetAlbum');
+                const dot2El = document.getElementById('downloaderTargetDot2');
+                const titleEl = document.getElementById('downloaderTargetTitle');
+
+                if (artistEl) {
+                    artistEl.textContent = activeArtistName || '';
+                    artistEl.style.display = activeArtistName ? 'inline' : 'none';
+                }
+                if (dotEl) {
+                    dotEl.style.display = (activeArtistName && (hasAlbum || hasSong)) ? 'inline' : 'none';
+                }
+                if (albumEl) {
+                    const alb = activeTargetAlbum?.albumTitle || '';
+                    albumEl.textContent = alb;
+                    albumEl.style.display = alb ? 'inline' : 'none';
+                }
+                if (dot2El) {
+                    dot2El.style.display = (hasAlbum && hasSong) ? 'inline' : 'none';
+                }
+                if (titleEl) {
+                    titleEl.textContent = activeSongName || activeArtistName || '';
+                    titleEl.style.display = (activeSongName || activeArtistName) ? 'inline' : 'none';
+                }
+                singleTarget.style.display = 'flex';
             }
+            if (targetRow) targetRow.style.display = 'flex';
+        } else {
+            if (singleTarget) singleTarget.style.display = 'none';
+            if (targetRow) targetRow.style.display = 'none';
         }
     }
 
@@ -1343,6 +1439,7 @@ export function showTabDownloaderBar(isDebugToolsEnabled = false) {
         devToolsBtn.style.display = isDebugToolsEnabled ? 'inline-flex' : 'none';
     }
 
+    syncDownloaderAdblockButton();
     renderDownloaderTabs();
 
     // Setup ResizeObserver to synchronize top bar height with native webview
@@ -1402,6 +1499,7 @@ export function handleWsaUrlIntercept(url) {
         url: downloaderUrl,
         targetUrl: cleanUrl
     };
+    syncDownloaderAdblockButton();
     renderDownloaderTabs();
     switchActiveSource(activeEphemeralSource);
     return true;
@@ -1633,6 +1731,7 @@ export async function openTabDownloader(options = {}) {
  * @param {boolean} [invokeNative=true] - Whether to invoke native tab_downloader_hide command
  */
 export function closeTabDownloaderModal(invokeNative = true) {
+    isSourcesDropdownOpen = false;
     activeDownloaderOnFileSelected = null;
     activeTargetSong = null;
     activeTargetAlbum = null;

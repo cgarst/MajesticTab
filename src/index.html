@@ -223,10 +223,11 @@
 
 <!-- Native Tab Downloader Top Bar (Split-Webview Header) -->
 <nav id="tabDownloaderBar" class="tab-downloader-bar" style="display:none;" data-tauri-drag-region>
+  <!-- Row 1: Browser Navigation, Centered Omnibar, Extensions & Actions -->
   <div class="downloader-nav-row" data-tauri-drag-region>
-    <!-- Left: Navigation buttons and Target Song Pill -->
+    <!-- Left: Navigation buttons -->
     <div class="downloader-nav-left" data-tauri-drag-region>
-      <div class="btn-group hud-pill-group" role="group" aria-label="Web Navigation">
+      <div class="btn-group downloader-nav-group" role="group" aria-label="Web navigation">
         <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavBackBtn" title="Back">
           <i class="bi-chevron-left"></i>
         </button>
@@ -237,75 +238,87 @@
           <i class="bi-arrow-clockwise"></i>
         </button>
       </div>
-
-      <div class="downloader-song-pill" id="downloaderSongPill" style="display:none;" title="Target Song" data-tauri-drag-region>
-        <i class="bi-music-note-beamed text-info"></i>
-        <span class="text-truncate" id="downloaderSongText"></span>
-      </div>
     </div>
 
     <!-- Center: URL / Status Indicator -->
     <div class="downloader-nav-center" data-tauri-drag-region>
-      <div class="downloader-url-group" id="downloaderUrlGroup" title="Current Web Address" data-tauri-drag-region>
-        <button type="button" class="downloader-url-btn" id="downloaderAdblockBtn" title="Block ads and trackers" aria-label="Block ads and trackers">
-          <i class="bi-shield"></i>
-        </button>
+      <div class="downloader-url-group" id="downloaderUrlGroup" title="Current web address" data-tauri-drag-region>
+        <i class="bi-globe downloader-url-globe me-2" aria-hidden="true"></i>
         <span class="downloader-url-text text-truncate" id="downloaderUrlText">Loading...</span>
-        <button type="button" class="downloader-url-copy-btn" id="downloaderCopyUrlBtn" title="Copy Web Address" aria-label="Copy web address">
+        <button type="button" class="downloader-url-copy-btn" id="downloaderCopyUrlBtn" title="Copy web address" aria-label="Copy web address">
           <i class="bi-clipboard"></i>
         </button>
       </div>
     </div>
 
-    <!-- Right: DevTools, Close -->
+    <!-- Right: Adblock, DevTools, Sources Dropdown, Close -->
     <div class="downloader-nav-right" data-tauri-drag-region>
+      <button type="button" class="btn btn-sm btn-theme-icon downloader-adblock-btn" id="downloaderAdblockBtn" title="Block ads and trackers" aria-label="Block ads and trackers">
+        <i class="bi-shield"></i>
+      </button>
+
       <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderDevToolsBtn" title="Webview DevTools" style="display:none;">
         <i class="bi-terminal"></i>
       </button>
 
-      <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="downloaderCloseBtn" title="Return to MajesticTab (Esc)">
-        <i class="bi-x-lg"></i>
-        <span class="d-none d-sm-inline">Back to App</span>
+      <div class="dropdown" id="downloaderSourcesDropdown">
+        <button type="button" class="btn btn-sm downloader-sources-btn dropdown-toggle" id="downloaderSourcesBtn" data-bs-toggle="dropdown" data-bs-offset="0,6" aria-expanded="false" title="Search source">
+          <span id="downloaderActiveSourceName">DuckDuckGo</span>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu" id="downloaderSourcesMenu">
+          <!-- Dynamically populated from getSources() -->
+        </ul>
+      </div>
+
+      <button type="button" class="btn btn-sm downloader-close-btn" id="downloaderCloseBtn" title="Return to MajesticTab (Esc)" aria-label="Back to app">
+        <span>Back to app</span>
       </button>
     </div>
   </div>
 
-  <!-- Bottom: Source Tabs Row -->
-  <div class="downloader-tabs-row" id="downloaderTabsRow" data-tauri-drag-region>
-    <!-- Source pills will be dynamically rendered here -->
-  </div>
+  <!-- Row 2: Dedicated Music Target Row (Single Song Context or Album Batch Stepper) -->
+  <div class="downloader-target-row" id="downloaderTargetRow" style="display:none;" data-tauri-drag-region>
+    <!-- Single Song Context View -->
+    <div class="downloader-single-target" id="downloaderSingleTarget" style="display:none;" data-tauri-drag-region>
+      <span class="downloader-target-artist" id="downloaderTargetArtist"></span>
+      <span class="downloader-target-dot" id="downloaderTargetDot">·</span>
+      <span class="downloader-target-album" id="downloaderTargetAlbum"></span>
+      <span class="downloader-target-dot2" id="downloaderTargetDot2">·</span>
+      <span class="downloader-target-title" id="downloaderTargetTitle"></span>
+    </div>
 
-  <!-- Batch Assistant Stepper Row -->
-  <div class="downloader-batch-row" id="downloaderBatchRow" style="display:none;" data-tauri-drag-region>
-    <div class="downloader-batch-stepper-container" id="downloaderBatchStepperContainer">
-      <button type="button" class="btn btn-sm downloader-batch-stepper-btn" id="downloaderBatchStepperBtn" aria-expanded="false" aria-haspopup="true">
-        <i class="bi-disc text-primary me-1"></i>
-        <span class="downloader-batch-album-title" id="downloaderBatchAlbumTitle">Album</span>
-        <span class="mx-1 text-muted">·</span>
-        <span class="downloader-batch-track-info" id="downloaderBatchTrackInfo">Track 1 of 8: Title</span>
-        <i class="bi-chevron-down ms-1 text-muted"></i>
-      </button>
-      <!-- Checklist Popover -->
-      <div class="downloader-batch-popover" id="downloaderBatchPopover" style="display:none;">
-        <div class="downloader-batch-popover-header">
-          <span class="fw-semibold">Album Tracks</span>
-          <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderBatchPopoverCloseBtn" aria-label="Close tracklist"><i class="bi-x-lg"></i></button>
-        </div>
-        <div class="downloader-batch-popover-list" id="downloaderBatchTracklist">
-          <!-- Dynamic track rows -->
+    <!-- Batch Assistant Stepper View -->
+    <div class="downloader-batch-row" id="downloaderBatchRow" style="display:none;" data-tauri-drag-region>
+      <div class="downloader-batch-stepper-container" id="downloaderBatchStepperContainer">
+        <button type="button" class="btn btn-sm downloader-batch-stepper-btn" id="downloaderBatchStepperBtn" aria-expanded="false" aria-haspopup="true">
+          <i class="bi-disc me-1" aria-hidden="true"></i>
+          <span class="downloader-batch-album-title" id="downloaderBatchAlbumTitle">Album</span>
+          <span class="mx-1 text-muted">·</span>
+          <span class="downloader-batch-track-info" id="downloaderBatchTrackInfo">Track 1 of 8: Title</span>
+          <i class="bi-chevron-down ms-1 text-muted" aria-hidden="true"></i>
+        </button>
+        <!-- Checklist Popover -->
+        <div class="downloader-batch-popover" id="downloaderBatchPopover" style="display:none;">
+          <div class="downloader-batch-popover-header">
+            <span class="fw-semibold">Album tracks</span>
+            <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderBatchPopoverCloseBtn" aria-label="Close tracklist"><i class="bi-x-lg"></i></button>
+          </div>
+          <div class="downloader-batch-popover-list" id="downloaderBatchTracklist">
+            <!-- Dynamic track rows -->
+          </div>
         </div>
       </div>
-    </div>
-    <div class="downloader-batch-actions ms-auto d-flex align-items-center gap-2">
-      <button type="button" class="btn btn-sm btn-theme-outline" id="downloaderBatchSkipBtn" title="Skip this track for now">Skip</button>
-      <button type="button" class="btn btn-sm btn-theme-primary" id="downloaderBatchDoneBtn" title="Finish batch download">Done (0/0)</button>
+      <div class="downloader-batch-actions ms-auto d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-sm downloader-batch-skip-btn" id="downloaderBatchSkipBtn" title="Skip this track for now">Skip</button>
+        <button type="button" class="btn btn-sm btn-theme-primary" id="downloaderBatchDoneBtn" title="Finish batch download">Done (0/0)</button>
+      </div>
     </div>
   </div>
 
   <!-- Transient Feedback Banner (Undo / Advance) -->
   <div class="downloader-transient-banner" id="downloaderTransientBanner" style="display:none;" role="status">
     <span class="downloader-transient-text" id="downloaderTransientText"></span>
-    <button type="button" class="btn btn-sm btn-theme-outline downloader-transient-undo-btn" id="downloaderTransientUndoBtn">Undo / Re-download</button>
+    <button type="button" class="btn btn-sm btn-theme-outline downloader-transient-undo-btn" id="downloaderTransientUndoBtn">Undo / re-download</button>
   </div>
 
   <!-- Navigation Advisory Badge -->
