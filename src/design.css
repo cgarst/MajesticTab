@@ -778,11 +778,11 @@ body.practice-open #output { padding-right: 416px !important; }
 .pane { min-height: 0; display: flex; flex-direction: column; }
 .pane .pane-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; flex: 1; -webkit-overflow-scrolling: touch; }
 .pane h3.pane-head { margin: 0; padding: 12px 20px 6px; font: 500 13px system-ui, sans-serif; color: var(--ink2); display: flex; align-items: center; gap: 8px; justify-content: space-between; }
-.artist-head-title { padding: 4px 20px 8px; }
-.artist-head-title h2 { margin: 0; font: 700 24px/1.2 var(--font-display, inherit); color: var(--ink); letter-spacing: -0.01em; }
+.pane-head-title, .artist-head-title { padding: 4px 20px 8px; }
+.pane-head-title h2, .artist-head-title h2 { margin: 0; font: 700 24px/1.2 var(--font-display, inherit); color: var(--ink); letter-spacing: -0.01em; }
 @media (max-width: 576px) {
-  .artist-head-title { padding: 2px 12px 6px; }
-  .artist-head-title h2 { font-size: 20px; }
+  .pane-head-title, .artist-head-title { padding: 2px 12px 6px; }
+  .pane-head-title h2, .artist-head-title h2 { font-size: 20px; }
 }
 @media (min-width: 1000px) {
   .panes { grid-template-columns: 320px minmax(0, 1fr) !important; margin-top: 16px; align-items: start; }

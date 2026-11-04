@@ -8,7 +8,7 @@ import {
 import { getSongById, getAllSongs, getRecents } from './libraryStore.js';
 import { getPlaceholderCoverSvg, hydrateCachedImages } from './musicbrainz.js';
 import { playSetlist } from './setlistPlayer.js';
-import { openThemedInputModal, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, bindTwoPaneFilter } from './libraryModal.js';
+import { openThemedInputModal, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, libraryPaneHeadHtml, bindTwoPaneFilter } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
 import { showToast } from './utils/toast.js';
 import { gamepadManager } from './utils/gamepadManager.js';
@@ -189,11 +189,12 @@ async function renderSetlistsPage(container, onBack) {
 
     const songsPaneHtml = `
       <section class="pane songs" aria-label="${escapeHtml(setlist.name)}">
-        <h3 class="pane-head">
-          <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2 d-md-none" id="setlistsBackBtn" type="button"><i class="bi-chevron-left"></i> Setlists</button>
-          <span class="text-white fw-semibold" style="flex:1;">${escapeHtml(setlist.name)}</span>
-          <span class="tnum">${escapeHtml(summary)}</span>
-        </h3>
+        ${libraryPaneHeadHtml({
+            backLabel: 'Setlists',
+            backId: 'setlistsBackBtn',
+            countText: summary,
+            title: setlist.name
+        })}
         <div class="setlist-actions">
           ${setlist.items.length > 0 && !isEditMode ? `<button class="btn btn-sm btn-theme-primary" id="playSetlistBtn" title="Start set from the first song">Start set</button>` : ''}
           <button class="btn btn-sm theme-control-btn" id="renameSetlistBtn" title="Rename setlist">Rename</button>
