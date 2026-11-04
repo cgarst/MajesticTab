@@ -75,7 +75,6 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
     <div class="setshell tools-shell" data-pane="list">
       <div class="sethead" data-tauri-drag-region>
         <button type="button" class="setback btn btn-sm" aria-label="Back to Tools"><i class="bi-chevron-left" aria-hidden="true"></i> <span>Tools</span></button>
-        <h1 class="sethead-title" data-tauri-drag-region>Tools</h1>
         <h2 class="sethead-section" data-tauri-drag-region></h2>
       </div>
       <div class="setwrap" data-pane="list">

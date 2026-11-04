@@ -872,15 +872,12 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 .setwrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
 @media (min-width: 900px) {
   .setwrap { grid-template-columns: 260px minmax(0, 1fr); }
-  .sethead .setback { display: none !important; }
-  .sethead .sethead-section { display: none !important; }
-  .sethead .sethead-title { display: block !important; }
+  .sethead { display: none !important; }
 }
 @media (max-width: 899px) {
+  .sethead { display: none; padding-inline: 16px; }
   .setwrap[data-pane="list"] .setpage { display: none; }
   .setwrap[data-pane="page"] .setnav { display: none; }
-  .sethead { padding-inline: 16px; }
-  .sethead h1, .sethead .sethead-title { font-size: 36px; }
   .setpage { padding-inline: 16px; }
 
   /* Mobile detail pane: single adaptive top bar with back action and current section title */
@@ -3287,19 +3284,54 @@ body > #controllerHelpModal { display: none; }
     50% { opacity: 1; transform: scale(1.15); }
 }
 
-.search-stream-fallbacks {
-    margin-top: 4px;
-    background: var(--s2);
+.search-subview-head {
+    min-height: 36px;
+}
+
+.search-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: 0;
     border-radius: var(--r-control);
+    color: var(--ink2);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+    padding: 6px 10px 6px 6px;
+    min-height: 32px;
+    cursor: pointer;
+    box-shadow: none;
+    transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
 
-.search-fallback-row {
-    font-size: 13px;
+.search-back-btn i {
+    font-size: 15px;
+    line-height: 1;
+}
+
+.search-back-btn:hover {
+    background: var(--s2);
     color: var(--ink);
 }
 
-.search-fallback-row strong {
+.search-back-btn:active {
+    background: var(--s3);
     color: var(--ink);
+}
+
+.search-back-btn:focus-visible {
+    outline: 2px solid var(--hue);
+    outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+    .search-back-btn {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 8px 12px 8px 8px;
+    }
 }
 
 @media (pointer: coarse) {

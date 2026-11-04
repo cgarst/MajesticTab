@@ -195,12 +195,9 @@ export function initSettingsPage() {
     back.type = 'button';
     back.setAttribute('aria-label', 'Back to Settings');
     back.innerHTML = '<i class="bi-chevron-left" aria-hidden="true"></i> <span>Settings</span>';
-    const title = el('h1', 'sethead-title', 'Settings');
-    title.setAttribute('data-tauri-drag-region', '');
     const sectionTitle = el('h2', 'sethead-section');
     sectionTitle.setAttribute('data-tauri-drag-region', '');
     head.appendChild(back);
-    head.appendChild(title);
     head.appendChild(sectionTitle);
     const wrap = el('div', 'setwrap');
     wrap.dataset.pane = 'list';

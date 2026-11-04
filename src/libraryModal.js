@@ -238,9 +238,9 @@ export async function handleBack() {
             const pMbid = searchSubView.parentArtistMbid;
             const pName = searchSubView.parentArtistName;
             searchSubView = null;
-            const filterResults = document.querySelector('#libFilteredSearchResults');
-            if (filterResults) {
-                await viewArtistCatalogAlbums(pMbid, pName, filterResults, libraryFilterQuery);
+            const filterResults = document.querySelector('#libFilteredSearchResults') || document.querySelector('#libraryModalContent');
+            if (filterResults && currentArtistAlbumsViewHandler) {
+                await currentArtistAlbumsViewHandler(pMbid, pName, filterResults, libraryFilterQuery);
                 return true;
             }
         }
@@ -2435,13 +2435,13 @@ function setupLibraryFilter(container, context = {}) {
 
         targetContainer.innerHTML = `
         <div class="search-artist-albums-view">
-          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-            <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchCatalogBtn">
-              <i class="bi-arrow-left"></i> <span>Back to Search</span>
+          <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+            <button type="button" class="search-back-btn" id="backToSearchCatalogBtn">
+              <i class="bi-chevron-left" aria-hidden="true"></i> <span>Search</span>
             </button>
             <div class="d-flex align-items-center gap-2 min-w-0">
-              <span class="fw-semibold text-white text-truncate">${escapeHtml(artistName)}</span>
-              <span class="text-muted small">· Studio Albums</span>
+              <span class="fw-semibold text-truncate" style="color: var(--ink);">${escapeHtml(artistName)}</span>
+              <span class="small" style="color: var(--ink2);">· Studio Albums</span>
             </div>
           </div>
           <div class="text-center py-5 text-muted">
@@ -2463,9 +2463,9 @@ function setupLibraryFilter(container, context = {}) {
             if (!albums || albums.length === 0) {
                 targetContainer.innerHTML = `
                 <div class="search-artist-albums-view">
-                  <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-                    <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchCatalogBtn">
-                      <i class="bi-arrow-left"></i> <span>Back to Search</span>
+                  <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+                    <button type="button" class="search-back-btn" id="backToSearchCatalogBtn">
+                      <i class="bi-chevron-left" aria-hidden="true"></i> <span>Search</span>
                     </button>
                   </div>
                   <div class="text-center py-4 text-muted">No studio albums found for ${escapeHtml(artistName)}.</div>
@@ -2486,13 +2486,13 @@ function setupLibraryFilter(container, context = {}) {
 
             let html = `
             <div class="search-artist-albums-view">
-              <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-                <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchCatalogBtn">
-                  <i class="bi-arrow-left"></i> <span>Back to Search</span>
+              <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+                <button type="button" class="search-back-btn" id="backToSearchCatalogBtn">
+                  <i class="bi-chevron-left" aria-hidden="true"></i> <span>Search</span>
                 </button>
                 <div class="d-flex align-items-center gap-2 min-w-0">
-                  <span class="fw-semibold text-white text-truncate">${escapeHtml(artistName)}</span>
-                  <span class="text-muted small">· ${albums.length} ${albums.length === 1 ? 'album' : 'albums'} in release order</span>
+                  <span class="fw-semibold text-truncate" style="color: var(--ink);">${escapeHtml(artistName)}</span>
+                  <span class="small" style="color: var(--ink2);">· ${albums.length} ${albums.length === 1 ? 'album' : 'albums'} in release order</span>
                 </div>
               </div>
               <div class="search-stream-list">
@@ -2547,7 +2547,15 @@ function setupLibraryFilter(container, context = {}) {
             targetContainer.querySelectorAll('.view-album-tracks-btn').forEach(btn => {
                 btn.addEventListener('click', async (e) => {
                     e.stopPropagation();
-                    await exploreAlbumTracklist(btn.dataset.albumId, targetContainer, { mbid: artistMbid, name: artistName });
+                    const albId = btn.dataset.albumId;
+                    const alb = albums.find(a => a.id === albId);
+                    await exploreAlbumTracklist(albId, targetContainer, { mbid: artistMbid, name: artistName }, alb ? {
+                        title: alb.title,
+                        artist: artistName,
+                        year: alb.year,
+                        coverUrl: alb.coverUrl,
+                        primaryType: alb.primaryType
+                    } : null);
                 });
             });
 
@@ -2555,16 +2563,23 @@ function setupLibraryFilter(container, context = {}) {
                 row.addEventListener('click', (e) => {
                     if (e.target.closest('button, a')) return;
                     const albId = row.dataset.albumId;
-                    if (albId) exploreAlbumTracklist(albId, targetContainer, { mbid: artistMbid, name: artistName });
+                    const alb = albums.find(a => a.id === albId);
+                    if (albId) exploreAlbumTracklist(albId, targetContainer, { mbid: artistMbid, name: artistName }, alb ? {
+                        title: alb.title,
+                        artist: artistName,
+                        year: alb.year,
+                        coverUrl: alb.coverUrl,
+                        primaryType: alb.primaryType
+                    } : null);
                 });
             });
         } catch (err) {
             if (thisFetchToken !== currentExploreArtistToken) return;
             targetContainer.innerHTML = `
             <div class="search-artist-albums-view">
-              <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-                <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToSearchCatalogBtn">
-                  <i class="bi-arrow-left"></i> <span>Back to Search</span>
+              <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+                <button type="button" class="search-back-btn" id="backToSearchCatalogBtn">
+                  <i class="bi-chevron-left" aria-hidden="true"></i> <span>Search</span>
                 </button>
               </div>
               <div class="text-danger py-4 text-center">Failed to load studio albums: ${escapeHtml(err.message)}</div>
@@ -2869,17 +2884,6 @@ function setupLibraryFilter(container, context = {}) {
         </div>
 
         <div class="search-catalog-results" id="libSearchCatalogResults"></div>
-
-        <div class="search-stream-fallbacks">
-          <div class="search-stream-row is-navigable search-fallback-row" data-type="web-fallback" tabindex="0">
-            <i class="bi-globe2 text-info flex-shrink-0"></i>
-            <span class="text-truncate">Search the web for "<strong>${escapeHtml(rawQuery)}</strong>" &rarr;</span>
-          </div>
-          <div class="search-stream-row is-navigable search-fallback-row" data-type="file-fallback" tabindex="0">
-            <i class="bi-folder2-open text-muted flex-shrink-0"></i>
-            <span class="text-truncate">Looking for a local file? Drop it here or browse device</span>
-          </div>
-        </div>
         `;
 
         filterResults.innerHTML = html;
@@ -2908,22 +2912,6 @@ function setupLibraryFilter(container, context = {}) {
                 const findBtn = row.querySelector('.local-song-find-tab-btn');
                 if (playBtn) playBtn.click();
                 else if (findBtn) findBtn.click();
-            });
-        });
-
-        // Wire fallbacks
-        filterResults.querySelectorAll('.search-fallback-row').forEach(row => {
-            row.addEventListener('click', () => {
-                const type = row.dataset.type;
-                if (type === 'web-fallback') {
-                    if (isNative()) {
-                        openTabDownloader({ query: rawQuery });
-                    } else {
-                        window.open(`https://duckduckgo.com/?q=${encodeURIComponent(rawQuery + ' guitar tab')}`, '_blank');
-                    }
-                } else if (type === 'file-fallback') {
-                    switchView('openFile');
-                }
             });
         });
 
@@ -4049,42 +4037,67 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
     return false;
 }
 
-async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist = null) {
+async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist = null, albumPreload = null) {
     if (parentArtist) {
         searchSubView = {
             type: 'tracks',
             releaseGroupMbid,
             fromView: 'library',
             parentArtistMbid: parentArtist.mbid,
-            parentArtistName: parentArtist.name
+            parentArtistName: parentArtist.name,
+            albumPreload
         };
     } else {
-        searchSubView = { type: 'tracks', releaseGroupMbid, fromView: 'library' };
+        searchSubView = { type: 'tracks', releaseGroupMbid, fromView: 'library', albumPreload };
     }
     const targetContainer = container;
     const thisFetchToken = ++currentExploreTracklistToken;
 
+    const preloadTitle = albumPreload?.title || '';
+    const preloadArtist = albumPreload?.artist || parentArtist?.name || '';
+    const preloadYear = albumPreload?.year || '';
+    const preloadCover = albumPreload?.coverUrl || (preloadTitle ? getPlaceholderCoverSvg(preloadTitle) : '');
+
+    const goBackToAlbumsOrParent = () => {
+        currentExploreTracklistToken++;
+        if (parentArtist?.mbid && currentArtistAlbumsViewHandler) {
+            searchSubView = null;
+            currentArtistAlbumsViewHandler(parentArtist.mbid, parentArtist.name, targetContainer, libraryFilterQuery);
+        } else {
+            handleBack();
+        }
+    };
+
     targetContainer.innerHTML = `
     <div class="search-artist-albums-view">
-      <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-        <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="cancelFetchTracklistBtn">
-          <i class="bi-arrow-left"></i> <span>Back</span>
+      <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+        <button type="button" class="search-back-btn" id="cancelFetchTracklistBtn">
+          <i class="bi-chevron-left" aria-hidden="true"></i> <span>Albums</span>
         </button>
       </div>
-      <div class="text-center py-5 text-muted">
+
+      ${preloadTitle ? `
+      <!-- Album Header Banner (Preloaded) -->
+      <div class="d-flex align-items-center gap-3 p-3 mb-3" style="background: var(--s1); border-radius: var(--r-card);">
+        <img loading="lazy" decoding="async" src="${preloadCover}" class="flex-shrink-0" style="width: 56px; height: 56px; border-radius: var(--r-control); object-fit: cover; background: var(--s3);" alt="${escapeHtml(preloadTitle)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(preloadTitle)}'">
+        <div class="min-w-0 flex-grow-1">
+          <div class="fw-bold text-truncate" style="font-family: var(--font-display, inherit); font-size: 1.15rem; color: var(--ink);">${escapeHtml(preloadTitle)}</div>
+          <div class="small text-truncate" style="color: var(--ink2);">
+            ${escapeHtml(preloadArtist)}${preloadYear ? ` · ${preloadYear}` : ''}
+          </div>
+        </div>
+      </div>
+      ` : ''}
+
+      <div class="text-center py-5 text-muted" id="tracklistLoadingSpinner">
         <div class="spinner-border spinner-border-sm text-info mb-2" role="status"></div>
         <div class="mb-3">Fetching album tracklist…</div>
-        <button class="btn btn-sm btn-theme-outline px-3" id="cancelFetchTracklistActionBtn">Cancel</button>
       </div>
+      <div class="search-stream-list" id="albumTracksChecklist" style="display: none;"></div>
     </div>
     `;
 
-    const handleCancelFetch = () => {
-        currentExploreTracklistToken++;
-        handleBack();
-    };
-    targetContainer.querySelector('#cancelFetchTracklistBtn')?.addEventListener('click', handleCancelFetch);
-    targetContainer.querySelector('#cancelFetchTracklistActionBtn')?.addEventListener('click', handleCancelFetch);
+    targetContainer.querySelector('#cancelFetchTracklistBtn')?.addEventListener('click', goBackToAlbumsOrParent);
 
     try {
         const albumData = await getAlbumTracks(releaseGroupMbid);
@@ -4093,38 +4106,39 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
         if (!albumData || !albumData.tracks || albumData.tracks.length === 0) {
             targetContainer.innerHTML = `
             <div class="search-artist-albums-view">
-              <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-                <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToAlbumsListBtn">
-                  <i class="bi-arrow-left"></i> <span>Back</span>
+              <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+                <button type="button" class="search-back-btn" id="backToAlbumsListBtn">
+                  <i class="bi-chevron-left" aria-hidden="true"></i> <span>Albums</span>
                 </button>
               </div>
               <div class="text-center py-4 text-muted">No tracklist available for this album.</div>
             </div>`;
-            targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
+            targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', goBackToAlbumsOrParent);
             return;
         }
 
         const existingSongs = await getSongsByCollection(activeCollectionId);
-        const existingSongKeys = new Set(existingSongs.map(s => {
-            if (s.recordingMbid) return `rec:${s.recordingMbid}`;
-            return `${(s.artist || '').toLowerCase().trim()}:::${(s.title || '').toLowerCase().trim()}`;
-        }));
+        const existingSongMap = new Map();
+        for (const s of existingSongs) {
+            if (s.recordingMbid) existingSongMap.set(`rec:${s.recordingMbid}`, s);
+            existingSongMap.set(`${(s.artist || '').toLowerCase().trim()}:::${(s.title || '').toLowerCase().trim()}`, s);
+        }
 
         const hasCd = (albumData.tracks || []).some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
         let cleanTracks = (albumData.tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
         cleanTracks = filterInstrumentalBonusDiscs(cleanTracks);
 
         const missingTracks = cleanTracks.filter(t => {
-            const inLib = (t.recordingMbid && existingSongKeys.has(`rec:${t.recordingMbid}`)) ||
-                          (t.id && existingSongKeys.has(`rec:${t.id}`)) ||
-                          existingSongKeys.has(`${(albumData.artist || '').toLowerCase().trim()}:::${(t.title || '').toLowerCase().trim()}`);
+            const inLib = (t.recordingMbid && existingSongMap.has(`rec:${t.recordingMbid}`)) ||
+                          (t.id && existingSongMap.has(`rec:${t.id}`)) ||
+                          existingSongMap.has(`${(albumData.artist || '').toLowerCase().trim()}:::${(t.title || '').toLowerCase().trim()}`);
             return !inLib;
         });
 
         const allInLib = cleanTracks.length > 0 && missingTracks.length === 0;
         const partialInLib = missingTracks.length > 0 && missingTracks.length < cleanTracks.length;
 
-        const cover = albumData.coverUrl || getPlaceholderCoverSvg(albumData.title);
+        const cover = albumData.coverUrl || preloadCover || getPlaceholderCoverSvg(albumData.title);
 
         let addAllBtnHtml = '';
         if (allInLib) {
@@ -4145,9 +4159,9 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
 
         targetContainer.innerHTML = `
         <div class="search-artist-albums-view">
-          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-            <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToAlbumsListBtn">
-              <i class="bi-arrow-left"></i> <span>Back</span>
+          <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+            <button type="button" class="search-back-btn" id="backToAlbumsListBtn">
+              <i class="bi-chevron-left" aria-hidden="true"></i> <span>Albums</span>
             </button>
             <div class="d-flex align-items-center gap-2 flex-shrink-0">
               <button class="btn btn-sm btn-theme-outline px-3 flex-shrink-0 ${cleanTracks.length > missingTracks.length ? '' : 'd-none'}" id="viewAlbumInLibraryBtn">
@@ -4170,12 +4184,12 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
 
           <!-- Tracks List -->
           <div class="search-stream-list" id="albumTracksChecklist">
-            ${renderAddAlbumTracksList(albumData.tracks, existingSongKeys, albumData.artist, albumData.excludedTracks)}
+            ${renderAddAlbumTracksList(albumData.tracks, existingSongMap, albumData.artist, albumData.excludedTracks)}
           </div>
         </div>
         `;
 
-        targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
+        targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', goBackToAlbumsOrParent);
 
         // Add missing tracks or full album button
         if (!allInLib) {
@@ -4184,7 +4198,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
                 await addAlbumToLibrary(albumData, tracksToAdd, activeCollectionId);
                 showToast(`Added ${tracksToAdd.length} ${tracksToAdd.length === 1 ? 'track' : 'tracks'} to library`, 'success');
                 window.dispatchEvent(new CustomEvent('libraryDataChanged'));
-                await exploreAlbumTracklist(releaseGroupMbid, container, parentArtist);
+                await exploreAlbumTracklist(releaseGroupMbid, container, parentArtist, albumPreload);
             });
         }
 
@@ -4200,13 +4214,14 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
             await switchView('library', false);
         });
 
-        // Add single track
+        // Add single track / find tab
         targetContainer.querySelectorAll('.add-single-track-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 e.stopPropagation();
                 const idx = parseInt(btn.dataset.trackIdx, 10);
                 const track = albumData.tracks[idx];
-                const song = {
+                const songItem = {
+                    id: btn.dataset.songId || null,
                     title: track.title,
                     artist: albumData.artist,
                     artistMbid: albumData.artistMbid,
@@ -4221,8 +4236,7 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
                     recordingMbid: track.recordingMbid,
                     coverUrl: albumData.coverUrl || track.coverUrl || null
                 };
-                await saveSongToLibrary(song, activeCollectionId);
-                window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+                await handleGetTabSingleSong(songItem);
                 const parent = btn.parentElement;
                 btn.remove();
                 if (parent) {
@@ -4250,18 +4264,18 @@ async function exploreAlbumTracklist(releaseGroupMbid, container, parentArtist =
         if (thisFetchToken !== currentExploreTracklistToken) return;
         targetContainer.innerHTML = `
         <div class="search-artist-albums-view">
-          <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom border-secondary-subtle">
-            <button class="btn btn-sm btn-theme-outline in-view-back-btn py-1 px-3 d-inline-flex align-items-center gap-2 flex-shrink-0" id="backToAlbumsListBtn">
-              <i class="bi-arrow-left"></i> <span>Back</span>
+          <div class="search-subview-head d-flex align-items-center justify-content-between mb-3">
+            <button type="button" class="search-back-btn" id="backToAlbumsListBtn">
+              <i class="bi-chevron-left" aria-hidden="true"></i> <span>Albums</span>
             </button>
           </div>
           <div class="text-danger py-4 text-center">Failed to load tracklist: ${escapeHtml(err.message)}</div>
         </div>`;
-        targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', handleBack);
+        targetContainer.querySelector('#backToAlbumsListBtn')?.addEventListener('click', goBackToAlbumsOrParent);
     }
 }
 
-function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistName = '', excludedTracks = []) {
+function renderAddAlbumTracksList(tracks, existingSongMap = new Map(), artistName = '', excludedTracks = []) {
     const hasCd = (tracks || []).some(t => !isDvdOrBlurayMedium(t) && !isVinylOrTapeMedium(t));
     let cleanTracks = (tracks || []).filter(t => !isDvdOrBlurayMedium(t) && !(hasCd && isVinylOrTapeMedium(t)));
     cleanTracks = filterInstrumentalBonusDiscs(cleanTracks);
@@ -4318,9 +4332,29 @@ function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistNa
             `;
         }
 
-        const isSongInLib = (t.recordingMbid && existingSongKeys.has(`rec:${t.recordingMbid}`)) ||
-                            (t.id && existingSongKeys.has(`rec:${t.id}`)) ||
-                            existingSongKeys.has(`${(artistName || '').toLowerCase().trim()}:::${(t.title || '').toLowerCase().trim()}`);
+        const existingSong = (t.recordingMbid && existingSongMap.get(`rec:${t.recordingMbid}`)) ||
+                             (t.id && existingSongMap.get(`rec:${t.id}`)) ||
+                             existingSongMap.get(`${(artistName || '').toLowerCase().trim()}:::${(t.title || '').toLowerCase().trim()}`) || null;
+
+        const isSongInLib = Boolean(existingSong);
+        const hasTabInLib = isSongInLib && songHasTabs(existingSong);
+
+        let actionHtml = '';
+        if (hasTabInLib) {
+            actionHtml = `<span class="text-muted small flex-shrink-0 ms-2">In library</span>`;
+        } else if (isSongInLib) {
+            actionHtml = `
+            <button type="button" class="btn btn-sm btn-theme-primary add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}" data-song-id="${existingSong.id}">
+              Find Tab
+            </button>
+            `;
+        } else {
+            actionHtml = `
+            <button type="button" class="btn btn-sm btn-theme-primary add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
+              Add Song &amp; Find Tab
+            </button>
+            `;
+        }
 
         return `
         <div class="search-stream-row is-navigable" data-type="album-track-row" data-track-idx="${idx}" tabindex="0">
@@ -4329,13 +4363,7 @@ function renderAddAlbumTracksList(tracks, existingSongKeys = new Set(), artistNa
             <div class="search-row-title text-truncate">${escapeHtml(t.title)}</div>
             ${durationText ? `<div class="search-row-sub text-truncate">${durationText}</div>` : ''}
           </div>
-          ${isSongInLib ? `
-            <span class="text-muted small flex-shrink-0 ms-2">In library</span>
-          ` : `
-            <button type="button" class="btn btn-sm btn-theme-outline add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
-              Add
-            </button>
-          `}
+          ${actionHtml}
         </div>
         `;
     };
