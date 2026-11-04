@@ -164,18 +164,25 @@ export function initSettingsPage() {
 
     // ---- build the page ----
     const shell = el('div', 'setshell');
+    shell.dataset.pane = 'list';
     const head = el('div', 'sethead');
     head.setAttribute('data-tauri-drag-region', '');
-    head.innerHTML = '<h1 data-tauri-drag-region>Settings</h1>';
+    const back = el('button', 'btn btn-sm setback');
+    back.type = 'button';
+    back.setAttribute('aria-label', 'Back to Settings');
+    back.innerHTML = '<i class="bi-chevron-left" aria-hidden="true"></i> <span>Settings</span>';
+    const title = el('h1', 'sethead-title', 'Settings');
+    title.setAttribute('data-tauri-drag-region', '');
+    const sectionTitle = el('h2', 'sethead-section');
+    sectionTitle.setAttribute('data-tauri-drag-region', '');
+    head.appendChild(back);
+    head.appendChild(title);
+    head.appendChild(sectionTitle);
     const wrap = el('div', 'setwrap');
     wrap.dataset.pane = 'list';
     const nav = el('nav', 'setnav');
     nav.setAttribute('aria-label', 'Settings sections');
     const page = el('div', 'setpage');
-    const back = el('button', 'btn btn-sm setback');
-    back.type = 'button';
-    back.innerHTML = '<i class="bi-chevron-left"></i> Settings';
-    page.appendChild(back);
     const panes = {};
     SECTIONS.forEach((s) => {
         if (s.nativeOnly && !isNative()) return;
@@ -407,10 +414,14 @@ export function initSettingsPage() {
 
     function show(id, { focus = false } = {}) {
         if (!panes[id]) return;
+        const sec = SECTIONS.find((s) => s.id === id);
+        if (sec) sectionTitle.textContent = sec.label;
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.section === id)));
         Object.entries(panes).forEach(([k, p]) => { p.hidden = k !== id; });
         wrap.dataset.pane = 'page';
+        shell.dataset.pane = 'page';
         wrap.dataset.section = id;
+        shell.dataset.section = id;
         // The data screens count every stored tab; read them while the page is being looked at
         if (id === 'library') (window.requestIdleCallback || setTimeout)(() => import('../fileStore.js').then((m) => m.prewarmStoredFiles()).catch(() => {}));
         if (focus) page.scrollTop = 0;
@@ -421,13 +432,29 @@ export function initSettingsPage() {
     });
     // Other code can open a section: panel.dispatchEvent(new CustomEvent('settings:section', { detail: 'appearance' }))
     panel.addEventListener('settings:section', (e) => show(e.detail, { focus: true }));
-    back.addEventListener('click', () => { wrap.dataset.pane = 'list'; });
+    back.addEventListener('click', () => {
+        wrap.dataset.pane = 'list';
+        shell.dataset.pane = 'list';
+    });
     // Wide: a section is always showing. Narrow: start on the list.
     const wide = () => window.matchMedia('(min-width: 900px)').matches;
     show('player');
-    if (!wide()) wrap.dataset.pane = 'list';
-    window.matchMedia('(min-width: 900px)').addEventListener?.('change', (e) => { if (e.matches && wrap.dataset.pane === 'list') wrap.dataset.pane = 'page'; });
+    if (!wide()) {
+        wrap.dataset.pane = 'list';
+        shell.dataset.pane = 'list';
+    }
+    window.matchMedia('(min-width: 900px)').addEventListener?.('change', (e) => {
+        if (e.matches && wrap.dataset.pane === 'list') {
+            wrap.dataset.pane = 'page';
+            shell.dataset.pane = 'page';
+        }
+    });
 
     // Settings is a page wherever it opens from
-    panel.addEventListener('settings:show', () => { if (!wide()) wrap.dataset.pane = 'list'; });
+    panel.addEventListener('settings:show', () => {
+        if (!wide()) {
+            wrap.dataset.pane = 'list';
+            shell.dataset.pane = 'list';
+        }
+    });
 }

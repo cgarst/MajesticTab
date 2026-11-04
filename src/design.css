@@ -865,11 +865,87 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 #fileMenu .offcanvas-body { padding: 0 !important; display: block; overflow: hidden; }
 .setshell { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .sethead { padding: 22px 28px 6px; flex: none; user-select: none; -webkit-user-select: none; }
-.sethead h1 { font: 700 44px/1.02 var(--font-display); letter-spacing: -.01em; margin: 0; color: var(--ink); }
+.sethead h1, .sethead .sethead-title { font: 700 44px/1.02 var(--font-display); letter-spacing: -.01em; margin: 0; color: var(--ink); }
 .sethead p { margin: 6px 0 0; color: var(--ink2); font-size: 14px; }
+.sethead .sethead-section { display: none; margin: 0; font: 700 20px/1.2 var(--font-display); color: var(--ink); letter-spacing: -.01em; }
+.sethead .setback { display: none; }
 .setwrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
-@media (min-width: 900px) { .setwrap { grid-template-columns: 260px minmax(0, 1fr); } .setback { display: none !important; } }
-@media (max-width: 899px) { .setwrap[data-pane="list"] .setpage { display: none; } .setwrap[data-pane="page"] .setnav { display: none; } }
+@media (min-width: 900px) {
+  .setwrap { grid-template-columns: 260px minmax(0, 1fr); }
+  .sethead .setback { display: none !important; }
+  .sethead .sethead-section { display: none !important; }
+  .sethead .sethead-title { display: block !important; }
+}
+@media (max-width: 899px) {
+  .setwrap[data-pane="list"] .setpage { display: none; }
+  .setwrap[data-pane="page"] .setnav { display: none; }
+  .sethead { padding-inline: 16px; }
+  .sethead h1, .sethead .sethead-title { font-size: 36px; }
+  .setpage { padding-inline: 16px; }
+
+  /* Mobile detail pane: single adaptive top bar with back action and current section title */
+  .setshell[data-pane="page"] .sethead,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px;
+    min-height: 52px;
+  }
+  .setshell[data-pane="page"] .sethead .sethead-title,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead .sethead-title,
+  .setshell[data-pane="page"] .sethead p,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead p {
+    display: none;
+  }
+  .setshell[data-pane="page"] .sethead .sethead-section,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead .sethead-section {
+    display: block;
+    font: 700 20px/1.2 var(--font-display);
+    color: var(--ink);
+    letter-spacing: -.01em;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+  .setshell[data-pane="page"] .sethead .setback,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead .setback {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--ink2);
+    background: transparent;
+    border: 0;
+    font: 500 15px system-ui, sans-serif;
+    min-height: 44px;
+    padding: 0 8px 0 0;
+    margin: 0;
+    border-radius: var(--r-control);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color var(--dur-fast), background-color var(--dur-fast);
+  }
+  .setshell[data-pane="page"] .sethead .setback:hover,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead .setback:hover {
+    color: var(--ink);
+  }
+  .setshell[data-pane="page"] .sethead .setback:active,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead .setback:active {
+    background: var(--s2);
+  }
+  .setshell[data-pane="page"] .sethead .setback:focus-visible,
+  .setshell:has(.setwrap[data-pane="page"]) .sethead .setback:focus-visible {
+    outline: 2px solid var(--hue);
+    outline-offset: 2px;
+  }
+  .setshell[data-pane="page"] .setpage,
+  .setshell:has(.setwrap[data-pane="page"]) .setpage {
+    padding-top: 12px;
+  }
+}
 .setnav { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; overflow: auto; }
 .setnav button { display: flex; align-items: center; gap: 12px; min-height: 46px; padding: 0 12px; border-radius: var(--r); color: var(--ink2); font-weight: 500; width: 100%; text-align: left; position: relative; background: transparent; border: 0; transition: background-color var(--dur-fast), color var(--dur-fast); }
 .setnav button[hidden] { display: none; }
@@ -881,24 +957,6 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 @media (min-width: 900px) { .setnav button .chev { display: none; } .setnav button[aria-current="true"]::before { content: ''; position: absolute; left: -2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); } }
 @media (max-width: 899px) { .setnav button { background: var(--s2); min-height: 56px; color: var(--ink); } }
 .setpage { overflow: auto; padding: 4px 28px 40px; min-width: 0; max-width: 820px; }
-.setback { margin: 8px 0 12px -8px; color: var(--ink2); background: transparent; border: 0; display: none; }
-@media (max-width: 899px) {
-  .setback {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: var(--s1);
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin: 0 -16px 12px -16px;
-    padding: 10px 16px;
-    width: calc(100% + 32px);
-  }
-  .setpage { padding-inline: 16px; }
-  .sethead { padding-inline: 16px; }
-  .sethead h1 { font-size: 36px; }
-}
 .setsec[hidden] { display: none; }
 .setpage .sgroup:first-child h3 { margin-top: 0; }
 .tools-shell .tool-pane-host { margin-top: 0; }
@@ -2687,8 +2745,15 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 /* Keyboard hints are noise at phone width */
 @media (max-width: 576px) {
   .search-key-hint, .tools-item kbd, .tools-page-row kbd, #smTapBtn kbd { display: none !important; }
-  #output { padding: 8px max(env(safe-area-inset-right, 0px), 0px) 16px max(env(safe-area-inset-left, 0px), 0px) !important; }
-  .gp-page-container { padding-left: 2px !important; padding-right: 2px !important; }
+  #output { padding: 8px 0 16px !important; }
+  .gp-page-container { padding-left: 0 !important; padding-right: 0 !important; }
+  #output .alphaTabContainer,
+  .gp-page-wrapper {
+    border-left: 0 !important;
+    border-right: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
 }
 
 /* A TV has a remote, not a keyboard: no key hints anywhere */
