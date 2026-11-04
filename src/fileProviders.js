@@ -9,7 +9,8 @@ import { openDrivePicker, redirectToGoogleAuth, isTokenValid, ensureFreshToken }
 import { isIcloudDriveSupported } from './icloudDrive.js';
 import { hasFeature } from './channel.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
-import { openTabDownloader } from './tabDownloader.js';
+import { openTabDownloader, handleWsaUrlIntercept, isNative as isNativeDownloader } from './tabDownloader.js';
+import { isWsaTabUrl, unwrapRedirectUrl } from './utils/downloaderIntercept.js';
 import { addTabOptionToSong, addTabOptionToAlbum } from './libraryStore.js';
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
@@ -393,6 +394,13 @@ export const UrlFileProvider = {
 
 async function openTabFromUrl(text, options = {}) {
     try {
+        // A link to a score page is handled like one clicked in the in-app browser: open the downloader source.
+        const pageUrl = unwrapRedirectUrl((text || '').trim());
+        if (isNativeDownloader() && isWsaTabUrl(pageUrl)) {
+            await openTabDownloader(options);
+            handleWsaUrlIntercept(pageUrl);
+            return;
+        }
         showToast('Fetching...', 'info', 1500);
         const { openFromUrl } = await import('./urlImport/openFromUrl.js');
         const { file, sync } = await openFromUrl(text);
