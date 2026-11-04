@@ -2628,6 +2628,25 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   gap: 12px;
 }
 .srow-editor-slot[hidden] { display: none !important; }
+.srow-editor-slot .form-control,
+.srow-editor-slot .form-select {
+  background-color: var(--s3) !important;
+  border: 0 !important;
+  border-radius: var(--r-control, var(--r)) !important;
+  color: var(--ink) !important;
+  box-shadow: none !important;
+}
+.srow-editor-slot .form-control:focus,
+.srow-editor-slot .form-select:focus {
+  background-color: var(--s3) !important;
+  outline: 2px solid var(--hue) !important;
+  outline-offset: -1px;
+  color: var(--ink) !important;
+}
+.srow-editor-slot .form-select option {
+  background-color: var(--s1) !important;
+  color: var(--ink) !important;
+}
 
 /* The hint is a dismissible notice: one tone step above the bar, no divider */
 .downloader-hint-banner { background: var(--s3); border-top: 0; color: var(--ink); }
