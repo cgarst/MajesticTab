@@ -13,7 +13,7 @@ import { setGpDisplayScale, applySavedGpDisplayScale, setGpDensity, applySavedGp
 import { initPageStrip } from './utils/pageStrip.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
-import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupTrackpadSwipeNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
+import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
 import { getPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtils.js';
@@ -713,138 +713,6 @@ function setupSettings() {
             }
         });
     }
-
-    // Setup edge swipe gesture to open the menu on touch-enabled platforms
-    setupMenuEdgeSwipeGesture();
-}
-
-/**
- * Enables swiping right from the left screen edge to open the hamburger menu drawer,
- * and sliding/swiping left from the right to dismiss the drawer across all touch platforms.
- */
-function setupMenuEdgeSwipeGesture() {
-    let startX = 0;
-    let startY = 0;
-    let isTrackingOpen = false;
-    let isTrackingClose = false;
-    const EDGE_THRESHOLD = 30; // Max distance from left viewport edge in pixels to initiate open gesture
-    const SWIPE_MIN_DISTANCE = 45; // Minimum horizontal distance to trigger drawer opening or closing
-
-    window.addEventListener('touchstart', (e) => {
-        if (e.touches.length !== 1) {
-            isTrackingOpen = false;
-            isTrackingClose = false;
-            return;
-        }
-
-        const touch = e.touches[0];
-        const fileMenu = document.getElementById('fileMenu');
-        const isMenuOpen = Boolean(fileMenu && fileMenu.classList.contains('show'));
-
-        if (isMenuOpen) {
-            // Avoid triggering drawer dismissal when user is dragging a range slider
-            if (e.target && e.target.closest && e.target.closest('input[type="range"]')) {
-                isTrackingClose = false;
-                return;
-            }
-            startX = touch.clientX;
-            startY = touch.clientY;
-            isTrackingClose = true;
-            isTrackingOpen = false;
-            return;
-        }
-
-        // Below is for opening the menu when closed
-        if (touch.clientX > EDGE_THRESHOLD) {
-            isTrackingOpen = false;
-            return;
-        }
-
-        // Do not trigger if any interactive modal or dialog backdrop is open
-        const openBackdrops = Array.from(document.querySelectorAll('.theme-modal-backdrop'))
-            .filter(el => el.style.display === 'flex' || el.style.display === 'block');
-        if (openBackdrops.length > 0 || document.querySelector('.modal.show')) {
-            isTrackingOpen = false;
-            return;
-        }
-
-        // Over the library there is nothing to swipe to; the swipe only returns from an open tab
-        const libPage = document.getElementById('libraryPage');
-        if (libPage && libPage.style.display !== 'none') {
-            isTrackingOpen = false;
-            return;
-        }
-
-        // Avoid triggering when interacting with form controls or buttons near edge
-        if (e.target && e.target.closest && e.target.closest('input, textarea, select, button')) {
-            isTrackingOpen = false;
-            return;
-        }
-
-        startX = touch.clientX;
-        startY = touch.clientY;
-        isTrackingOpen = true;
-        isTrackingClose = false;
-    }, { passive: true });
-
-    window.addEventListener('touchmove', (e) => {
-        if (e.touches.length !== 1) return;
-        const touch = e.touches[0];
-
-        if (isTrackingOpen) {
-            const deltaX = touch.clientX - startX;
-            const deltaY = Math.abs(touch.clientY - startY);
-
-            // Cancel if swiping backwards or primarily vertical scroll
-            if (deltaX < 0 || (deltaY > 25 && deltaY > deltaX)) {
-                isTrackingOpen = false;
-                return;
-            }
-
-            // Trigger action when threshold reached
-            if (deltaX >= SWIPE_MIN_DISTANCE && deltaX > deltaY * 1.2) {
-                const libPage = document.getElementById('libraryPage');
-                const isTabOpen = Boolean(currentFile && (!libPage || libPage.style.display === 'none'));
-
-                if (isTabOpen) {
-                    // When a tab is open, swiping from left does the same as back button (e.g. return to library)
-                    const backBtn = document.getElementById('topBarBackToLibraryBtn');
-                    if (backBtn && backBtn.offsetParent !== null && backBtn.style.display !== 'none') {
-                        backBtn.click();
-                    } else if (typeof handleGlobalBack === 'function') {
-                        handleGlobalBack();
-                    }
-                }
-                // In the library the edge swipe does nothing: Settings is a page in the navigation, not a drawer
-                isTrackingOpen = false;
-            }
-        } else if (isTrackingClose) {
-            const deltaX = touch.clientX - startX;
-            const deltaY = Math.abs(touch.clientY - startY);
-
-            // Cancel if swiping right (deeper into screen) or primarily vertical scroll
-            if (deltaX > 15 || (deltaY > 20 && deltaY > Math.abs(deltaX))) {
-                isTrackingClose = false;
-                return;
-            }
-
-            // Trigger closing when threshold reached
-            if (deltaX <= -SWIPE_MIN_DISTANCE && Math.abs(deltaX) > deltaY * 1.2) {
-                settingsPanel.hide();
-                isTrackingClose = false;
-            }
-        }
-    }, { passive: true });
-
-    window.addEventListener('touchend', () => {
-        isTrackingOpen = false;
-        isTrackingClose = false;
-    }, { passive: true });
-
-    window.addEventListener('touchcancel', () => {
-        isTrackingOpen = false;
-        isTrackingClose = false;
-    }, { passive: true });
 }
 
 async function checkNativeOpenedFiles() {
@@ -1079,7 +947,6 @@ async function initApp() {
     setupPrevNextNavigation(prevBtn, nextBtn, getNavigationConfig);
     setupKeyboardNavigation(getNavigationConfig);
     setupMouseNavigation(getNavigationConfig);
-    setupTrackpadSwipeNavigation(getNavigationConfig);
     setupSystemBackNavigation(getNavigationConfig);
     setupViewModeToggles(pageModeRadio, continuousModeRadio, getNavigationConfig);
     setupTapClickNavigation(output, getNavigationConfig);

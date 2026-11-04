@@ -415,26 +415,9 @@ function setupLibraryTouchListeners(page) {
     libraryTouchBlurInitialized = true;
 
     let isTouchScrolling = false;
-    let startX = 0;
-    let startY = 0;
-    let isTrackingNav = false;
-    const SWIPE_MIN_DISTANCE = 50;
 
-    page.addEventListener('touchstart', (e) => {
+    page.addEventListener('touchstart', () => {
         isTouchScrolling = false;
-        if (e.touches.length === 1) {
-            const touch = e.touches[0];
-            startX = touch.clientX;
-            startY = touch.clientY;
-            // Ignore if touching interactive sliders or form inputs
-            if (e.target && e.target.closest && e.target.closest('input, textarea, select')) {
-                isTrackingNav = false;
-            } else {
-                isTrackingNav = true;
-            }
-        } else {
-            isTrackingNav = false;
-        }
     }, { passive: true });
 
     page.addEventListener('touchmove', () => {
@@ -442,7 +425,7 @@ function setupLibraryTouchListeners(page) {
         blurActiveLibraryElement(page);
     }, { passive: true });
 
-    page.addEventListener('touchend', (e) => {
+    page.addEventListener('touchend', () => {
         if (isTouchScrolling) {
             blurActiveLibraryElement(page);
             setTimeout(() => blurActiveLibraryElement(page), 50);
@@ -451,33 +434,10 @@ function setupLibraryTouchListeners(page) {
             setTimeout(() => blurActiveLibraryElement(page, true), 50);
         }
         isTouchScrolling = false;
-
-        if (isTrackingNav && e.changedTouches && e.changedTouches.length === 1) {
-            const touch = e.changedTouches[0];
-            const deltaX = touch.clientX - startX;
-            const deltaY = Math.abs(touch.clientY - startY);
-
-            // Require strong horizontal intent (deltaX significantly larger than vertical deltaY)
-            if (Math.abs(deltaX) >= SWIPE_MIN_DISTANCE && Math.abs(deltaX) > deltaY * 1.5) {
-                if (deltaX > 0) {
-                    // Swiping right -> Safari Back
-                    if (canGoBack()) {
-                        handleBack();
-                    }
-                } else {
-                    // Swiping left -> Safari Forward
-                    if (canGoForward()) {
-                        handleForward();
-                    }
-                }
-            }
-        }
-        isTrackingNav = false;
     }, { passive: true });
 
     page.addEventListener('touchcancel', () => {
         isTouchScrolling = false;
-        isTrackingNav = false;
     }, { passive: true });
 }
 
