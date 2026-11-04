@@ -28,6 +28,8 @@ const PROBLEM_TEXT = {
     tempo: 'Implies a tempo far from the written one'
 };
 
+const escapeHtml = str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
 /**
  * One editor serves every recording: `open({ source, media, peaks })` edits the points of that MediaSource and its
  * media descriptor (`{ kind: 'youtube', videoId }` or a local file's); `peaks` is the waveform, for a local file.
@@ -40,6 +42,7 @@ export function initAudioSyncEditor() {
     const rowsEl = $('syncRows');
     let points = [];
     let current = null; // { source, media, peaks } of the open editor
+    let currentRecord = null;
     let scoreCtx = null; // the score's timeline, read once per render
     let selectedId = null;
     let offSource = null;
@@ -224,6 +227,10 @@ export function initAudioSyncEditor() {
         if (totalBars > syncedBars && points.length > 0) {
             infoHtml += ` <span class="chip">${totalBars - syncedBars} bars not synced</span>`;
         }
+        if (currentRecord?.media?.origin?.fromTabName || currentRecord?.media?.origin?.fromSongKey) {
+            const originName = currentRecord.media.origin.fromTabName || currentRecord.media.origin.fromSongKey;
+            infoHtml += ` <span class="small text-muted ms-auto">Copied from tab: <b>${escapeHtml(originName)}</b></span>`;
+        }
         $('syncEditorInfo').innerHTML = infoHtml;
     }
 
@@ -389,7 +396,8 @@ export function initAudioSyncEditor() {
             selectedId = null;
             undoStack = [];
             redoStack = [];
-            points = loadRecord(songKey(), media())?.points || [];
+            currentRecord = loadRecord(songKey(), media());
+            points = currentRecord?.points || [];
             offSource?.();
             offSource = ctx.source.on(() => timeline.wake());
             $('syncImportPanel').hidden = true;

@@ -78,15 +78,15 @@ test('DEFAULT_SOURCES has DuckDuckGo first and Google second', () => {
 
     assert.equal(google.id, 'google');
     assert.equal(google.name, 'Google');
-    assert.equal(google.urlTemplate, 'https://www.google.com/search?q=$s+guitar+pro+tab');
-    assert.equal(google.defaultUrl, 'https://www.google.com/search?q=$s+guitar+pro+tab');
+    assert.equal(google.urlTemplate, 'https://www.google.com/search?q=$s+guitar+tab');
+    assert.equal(google.defaultUrl, 'https://www.google.com/search?q=$s+guitar+tab');
     assert.equal(google.queryFormat, 'artist_song');
     assert.equal(google.isSeed, true);
 
     assert.equal(duckduckgo.id, 'duckduckgo');
     assert.equal(duckduckgo.name, 'DuckDuckGo');
-    assert.equal(duckduckgo.urlTemplate, 'https://duckduckgo.com/?q=$s+guitar+pro+tab');
-    assert.equal(duckduckgo.defaultUrl, 'https://duckduckgo.com/?q=$s+guitar+pro+tab');
+    assert.equal(duckduckgo.urlTemplate, 'https://duckduckgo.com/?q=$s+guitar+tab');
+    assert.equal(duckduckgo.defaultUrl, 'https://duckduckgo.com/?q=$s+guitar+tab');
     assert.equal(duckduckgo.queryFormat, 'artist_song');
     assert.equal(duckduckgo.isSeed, true);
 });
@@ -97,11 +97,11 @@ test('buildSearchUrl constructs expected search and home URLs for Google and Duc
     // Search queries
     assert.equal(
         buildSearchUrl(google, 'Carulli Duo No 2 In G Major'),
-        'https://www.google.com/search?q=Carulli+Duo+No+2+In+G+Major+guitar+pro+tab'
+        'https://www.google.com/search?q=Carulli+Duo+No+2+In+G+Major+guitar+tab'
     );
     assert.equal(
         buildSearchUrl(duckduckgo, 'Carulli Duo No 2 In G Major'),
-        'https://duckduckgo.com/?q=Carulli+Duo+No+2+In+G+Major+guitar+pro+tab'
+        'https://duckduckgo.com/?q=Carulli+Duo+No+2+In+G+Major+guitar+tab'
     );
 
     // Empty query returns home URLs

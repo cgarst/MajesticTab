@@ -284,7 +284,27 @@ function arrangeSongPanel() {
         const { handleGetTabSingleSong } = await import('../libraryModal.js');
         handleGetTabSingleSong({ artist, title });
     });
-    const altGroup = group('scoreOptionsAltTabGroup', 'Tabs', altBtn);
+
+    // Source website: when the tab was downloaded or imported from a web address
+    const srcBtn = document.createElement('a');
+    srcBtn.id = 'songSourceUrlBtn';
+    srcBtn.className = 'btn btn-sm song-row-btn';
+    srcBtn.target = '_blank';
+    srcBtn.rel = 'noopener noreferrer';
+    srcBtn.hidden = true;
+    const updateSrcBtn = async () => {
+        const { getCurrentFile } = await import('../main.js');
+        const file = getCurrentFile();
+        if (file?.sourceUrl) {
+            srcBtn.href = file.sourceUrl;
+            srcBtn.innerHTML = `<span><b>Source website</b><small>${file.sourceWebsite || file.sourceUrl}</small></span>`;
+            srcBtn.hidden = false;
+        } else {
+            srcBtn.hidden = true;
+        }
+    };
+    document.addEventListener('scoreoptions:open', updateSrcBtn);
+    const altGroup = group('scoreOptionsAltTabGroup', 'Tabs', altBtn, srcBtn);
 
     const pdf = $('scoreOptionsPdfSection');
     const save = $('scoreOptionsSaveGroup');

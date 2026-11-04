@@ -618,6 +618,8 @@ export async function addTabOptionToSong(songId, tabOption) {
         endPage: (tabOption.endPage !== undefined && tabOption.endPage !== null) ? parseInt(tabOption.endPage, 10) : null,
         isAlbumRange: Boolean(tabOption.isAlbumRange),
         isDefault: Boolean(tabOption.isDefault),
+        sourceUrl: tabOption.sourceUrl || null,
+        sourceWebsite: tabOption.sourceWebsite || null,
         addedAt: Date.now()
     };
 
@@ -628,6 +630,8 @@ export async function addTabOptionToSong(songId, tabOption) {
     // Replace if same fileStoreId or append
     const existingIdx = song.tabOptions.findIndex(t => (t.fileStoreId && t.fileStoreId === newOption.fileStoreId) || (t.id === newOption.id));
     if (existingIdx >= 0) {
+        newOption.sourceUrl = newOption.sourceUrl || song.tabOptions[existingIdx].sourceUrl || null;
+        newOption.sourceWebsite = newOption.sourceWebsite || song.tabOptions[existingIdx].sourceWebsite || null;
         song.tabOptions[existingIdx] = newOption;
     } else {
         song.tabOptions.push(newOption);
@@ -787,6 +791,8 @@ export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, 
         endPage: (tabOption.endPage !== undefined && tabOption.endPage !== null) ? parseInt(tabOption.endPage, 10) : null,
         isAlbumRange: Boolean(tabOption.isAlbumRange),
         isDefault: Boolean(tabOption.isDefault),
+        sourceUrl: tabOption.sourceUrl || null,
+        sourceWebsite: tabOption.sourceWebsite || null,
         addedAt: Date.now()
     };
 
@@ -848,7 +854,9 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
         name: file.name,
         type: file.type,
         relativePath: relativePath || file.name,
-        songId
+        songId,
+        sourceUrl: file.sourceUrl || null,
+        sourceWebsite: file.sourceWebsite || null
     });
 
     let song = await getSongById(songId);
@@ -866,7 +874,9 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
         tuning: meta.primaryTuning,
         tunings: meta.tunings,
         stringCount: meta.stringCount,
-        fileType: file.name.split('.').pop().toLowerCase()
+        fileType: file.name.split('.').pop().toLowerCase(),
+        sourceUrl: file.sourceUrl || null,
+        sourceWebsite: file.sourceWebsite || null
     };
 
     await addTabOptionToSong(songId, tabOption);

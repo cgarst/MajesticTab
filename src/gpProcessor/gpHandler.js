@@ -169,7 +169,10 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
                 filename: file.name,
                 scoreTitle: api.score.title,
                 scoreArtist: api.score.artist,
-                librarySongId: file.librarySongId
+                librarySongId: file.librarySongId,
+                tabName: file.tabName || file.name,
+                sourceWebsite: file.sourceWebsite || null,
+                sourceUrl: file.sourceUrl || null
             });
             // The song's identity is now the score's artist and title, so list that song's audio files
             updateSongForAudioFile({ final: true });

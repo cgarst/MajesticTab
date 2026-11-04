@@ -3853,6 +3853,8 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
             file.fileStoreId = tabOption.fileStoreId;
             file.preferredStringCount = tabOption.preferredStringCount || null;
             file.librarySongId = song.id;
+            file.sourceUrl = tabOption.sourceUrl || null;
+            file.sourceWebsite = tabOption.sourceWebsite || null;
             file.setlistId = setlistContext.setlistId || null;
             file.setlistItemId = setlistContext.setlistItemId || null;
             closeLibraryModal();
@@ -5138,6 +5140,8 @@ export async function openRecentItem(r) {
                 stored.file.tabName = r.tabName || r.name;
                 stored.file.fileStoreId = r.fileStoreId;
                 stored.file.preferredStringCount = r.preferredStringCount || null;
+                stored.file.sourceUrl = stored.record?.metadata?.sourceUrl || null;
+                stored.file.sourceWebsite = stored.record?.metadata?.sourceWebsite || null;
                 closeLibraryModal();
                 await loadFile(stored.file);
                 return;

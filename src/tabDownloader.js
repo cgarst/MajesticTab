@@ -490,6 +490,32 @@ export function buildSearchUrl(source, query) {
 }
 
 /**
+ * Extracts a clean friendly website name from a URL, preferring configured source names if matched
+ * @param {string|null} url
+ * @returns {string|null}
+ */
+export function extractSourceWebsite(url) {
+    if (!url) return null;
+    try {
+        const u = new URL(url);
+        const host = u.hostname.replace(/^www\./i, '').toLowerCase();
+        const sources = getSources();
+        for (const s of sources) {
+            try {
+                const su = new URL(s.defaultUrl || s.urlTemplate);
+                const shost = su.hostname.replace(/^www\./i, '').toLowerCase();
+                if (shost && (host === shost || host.endsWith('.' + shost))) {
+                    return s.name || host;
+                }
+            } catch {}
+        }
+        return host;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Core handler for downloaded tab binary payload across all platforms
  * @param {string} name
  * @param {Uint8Array} uint8
@@ -569,6 +595,11 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     const blob = new Blob([uint8], { type: 'application/octet-stream' });
     const file = new File([blob], name || 'downloaded.gp', { type: blob.type, lastModified: Date.now() });
 
+    const sourceUrl = pendingMatchedTabUrl || currentDownloaderUrl || null;
+    const sourceWebsite = extractSourceWebsite(sourceUrl);
+    file.sourceUrl = sourceUrl;
+    file.sourceWebsite = sourceWebsite;
+
     // 1. Batch Assistant mode
     if (activeBatchMode && activeBatchQueue.length > 0) {
         const currentTrack = activeBatchQueue[activeBatchIndex];
@@ -577,7 +608,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             const stored = await saveStoredFile(file, 'tab-downloader', {
                 name: file.name,
                 relativePath: path || file.name,
-                targetSongId: currentTrack.songId
+                targetSongId: currentTrack.songId,
+                sourceUrl,
+                sourceWebsite
             });
             const addedOption = await addTabOptionToSong(currentTrack.songId, {
                 name: file.name,
@@ -587,7 +620,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
                 tuning: meta.primaryTuning,
                 tunings: meta.tunings,
                 stringCount: meta.stringCount,
-                fileType: file.name.split('.').pop().toLowerCase()
+                fileType: file.name.split('.').pop().toLowerCase(),
+                sourceUrl,
+                sourceWebsite
             });
             currentTrack.acquired = true;
             currentTrack.fileName = file.name;
@@ -649,7 +684,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         const stored = await saveStoredFile(file, 'tab-downloader', {
             name: file.name,
             relativePath: path || file.name,
-            targetSongId: targetSong.id
+            targetSongId: targetSong.id,
+            sourceUrl,
+            sourceWebsite
         });
         await addTabOptionToSong(targetSong.id, {
             name: file.name,
@@ -659,7 +696,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             tuning: meta.primaryTuning,
             tunings: meta.tunings,
             stringCount: meta.stringCount,
-            fileType: file.name.split('.').pop().toLowerCase()
+            fileType: file.name.split('.').pop().toLowerCase(),
+            sourceUrl,
+            sourceWebsite
         });
         showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
@@ -670,6 +709,12 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             const output = document.getElementById('output');
             if (output && output.style.display !== 'none') output.focus();
         } catch {}
+        if (matchedUrl) {
+            const songKey = [targetSong.artist, targetSong.title].filter(Boolean).join(' - ') || targetSong.title || file.name;
+            attachSyncForMatchedUrl(matchedUrl, { showToast, file, songKey }).catch(err => {
+                console.warn('[Tab Downloader] Background sync point attachment failed:', err);
+            });
+        }
         return;
     }
 
@@ -680,10 +725,12 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         const meta = await detectFileMetadata(file, file.name);
         const stored = await saveStoredFile(file, 'tab-downloader', {
             name: file.name,
-            relativePath: path || file.name
+            relativePath: path || file.name,
+            sourceUrl,
+            sourceWebsite
         });
         closeLibraryModal(true);
-        onFileSelectedCb({ file, providerId: 'tab-downloader', fileStoreId: stored.id, name: file.name, meta });
+        onFileSelectedCb({ file, providerId: 'tab-downloader', fileStoreId: stored.id, name: file.name, meta, sourceUrl, sourceWebsite });
         return;
     }
 
@@ -693,7 +740,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         const stored = await saveStoredFile(file, 'tab-downloader', {
             name: file.name,
             relativePath: path || file.name,
-            targetSongId: targetSong.id
+            targetSongId: targetSong.id,
+            sourceUrl,
+            sourceWebsite
         });
 
         await addTabOptionToSong(targetSong.id, {
@@ -704,7 +753,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             tuning: meta.primaryTuning,
             tunings: meta.tunings,
             stringCount: meta.stringCount,
-            fileType: file.name.split('.').pop().toLowerCase()
+            fileType: file.name.split('.').pop().toLowerCase(),
+            sourceUrl,
+            sourceWebsite
         });
 
         showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
@@ -724,7 +775,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         const meta = await detectFileMetadata(file, file.name);
         const stored = await saveStoredFile(file, 'tab-downloader', {
             name: file.name,
-            relativePath: path || file.name
+            relativePath: path || file.name,
+            sourceUrl,
+            sourceWebsite
         });
 
         await addTabOptionToAlbum(targetAlbum.collectionId, targetAlbum.artistName, targetAlbum.albumTitle, {
@@ -735,7 +788,9 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
             tuning: meta.primaryTuning,
             tunings: meta.tunings,
             stringCount: meta.stringCount,
-            fileType: file.name.split('.').pop().toLowerCase()
+            fileType: file.name.split('.').pop().toLowerCase(),
+            sourceUrl,
+            sourceWebsite
         });
 
         showToast(`Added "${file.name}" to album`, 'success');

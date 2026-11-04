@@ -1226,6 +1226,53 @@ body.fretboard-open .sync-mode-bar {
   margin-bottom: 12px;
 }
 
+/* Synced videos manager & copy dialog rows */
+.synced-video-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  min-height: 56px;
+  border-radius: var(--r-control);
+  background: var(--s1);
+  transition: background var(--dur-fast) var(--ease-out);
+  cursor: pointer;
+  user-select: none;
+}
+.synced-video-row:hover {
+  background: var(--s2);
+}
+.synced-video-row.is-selected {
+  background: var(--s3);
+}
+.synced-video-row .form-check-input,
+#manageSyncedSelectAll {
+  width: 18px !important;
+  height: 18px !important;
+  margin: 0 !important;
+  border: 1px solid var(--border-subtle) !important;
+  background-color: var(--s2) !important;
+  cursor: pointer;
+  flex: none;
+}
+.synced-video-row .form-check-input[type="checkbox"],
+#manageSyncedSelectAll {
+  border-radius: 4px !important;
+}
+.synced-video-row .form-check-input[type="radio"] {
+  border-radius: 50% !important;
+}
+.synced-video-row .form-check-input:checked,
+#manageSyncedSelectAll:checked,
+#manageSyncedSelectAll:indeterminate {
+  background-color: var(--action) !important;
+  border-color: var(--action) !important;
+}
+#ytSyncedOriginInfo {
+  font-size: 12px;
+  color: var(--ink2);
+}
+
 /* ==========================================================================
    Discography Shelf & Album Blocks (Precision Gear-Stack Style)
    ========================================================================== */

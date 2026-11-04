@@ -140,8 +140,19 @@ async function handlePickedFile(file, options = {}) {
     if (typeof options.onFileSelected === 'function') {
         try {
             const meta = await detectFileMetadata(file, file.name);
-            const stored = await saveStoredFile(file, 'local');
-            options.onFileSelected({ file, providerId: 'local', fileStoreId: stored.id, name: file.name, meta });
+            const stored = await saveStoredFile(file, 'local', {
+                sourceUrl: file.sourceUrl || null,
+                sourceWebsite: file.sourceWebsite || null
+            });
+            options.onFileSelected({
+                file,
+                providerId: 'local',
+                fileStoreId: stored.id,
+                name: file.name,
+                meta,
+                sourceUrl: file.sourceUrl || null,
+                sourceWebsite: file.sourceWebsite || null
+            });
         } catch (err) {
             console.warn('Could not persist file to store:', err);
             showToast('Error attaching tab file', 'error');
@@ -155,7 +166,10 @@ async function handlePickedFile(file, options = {}) {
     if (targetId) {
         try {
             const meta = await detectFileMetadata(file, file.name);
-            const stored = await saveStoredFile(file, 'local');
+            const stored = await saveStoredFile(file, 'local', {
+                sourceUrl: file.sourceUrl || null,
+                sourceWebsite: file.sourceWebsite || null
+            });
             await addTabOptionToSong(targetId, {
                 name: file.name,
                 providerId: 'local',
@@ -164,7 +178,9 @@ async function handlePickedFile(file, options = {}) {
                 tuning: meta.primaryTuning,
                 tunings: meta.tunings,
                 stringCount: meta.stringCount,
-                fileType: file.name.split('.').pop().toLowerCase()
+                fileType: file.name.split('.').pop().toLowerCase(),
+                sourceUrl: file.sourceUrl || null,
+                sourceWebsite: file.sourceWebsite || null
             });
             showToast(`Added "${file.name}" to song`, 'success');
             window.dispatchEvent(new CustomEvent('libraryDataChanged'));
@@ -178,7 +194,10 @@ async function handlePickedFile(file, options = {}) {
     if (isAlbumTab) {
         try {
             const meta = await detectFileMetadata(file, file.name);
-            const stored = await saveStoredFile(file, 'local');
+            const stored = await saveStoredFile(file, 'local', {
+                sourceUrl: file.sourceUrl || null,
+                sourceWebsite: file.sourceWebsite || null
+            });
             await addTabOptionToAlbum(options.collectionId, options.artistName, options.albumTitle, {
                 name: file.name,
                 providerId: 'local',
@@ -187,7 +206,9 @@ async function handlePickedFile(file, options = {}) {
                 tuning: meta.primaryTuning,
                 tunings: meta.tunings,
                 stringCount: meta.stringCount,
-                fileType: file.name.split('.').pop().toLowerCase()
+                fileType: file.name.split('.').pop().toLowerCase(),
+                sourceUrl: file.sourceUrl || null,
+                sourceWebsite: file.sourceWebsite || null
             });
             showToast(`Added "${file.name}" to album`, 'success');
             window.dispatchEvent(new CustomEvent('libraryDataChanged'));
@@ -404,6 +425,9 @@ async function openTabFromUrl(text, options = {}) {
         showToast('Fetching...', 'info', 1500);
         const { openFromUrl } = await import('./urlImport/openFromUrl.js');
         const { file, sync } = await openFromUrl(text);
+        file.sourceUrl = (text || '').trim();
+        const { extractSourceWebsite } = await import('./tabDownloader.js');
+        file.sourceWebsite = extractSourceWebsite(file.sourceUrl);
         if (!(await isSupportedTabFile(file))) {
             showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
             return;

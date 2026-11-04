@@ -1234,7 +1234,13 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
     currentProcessing = { aborted: false };
     
     // Update YouTube player metadata with filename
-    updateSongForYouTube({ filename: file.name, librarySongId: file.librarySongId });
+    updateSongForYouTube({
+        filename: file.name,
+        librarySongId: file.librarySongId,
+        tabName: file.tabName || file.name,
+        sourceWebsite: file.sourceWebsite || null,
+        sourceUrl: file.sourceUrl || null
+    });
     updateSongForAudioFile();
     updateSongForRealAudio();
     

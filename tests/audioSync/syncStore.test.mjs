@@ -31,10 +31,16 @@ test('keys separate songs and recordings', () => {
 
 test('save and load round trip, sorted by time', () => {
     const s = fakeStorage();
-    const rec = saveRecord('Song', yt, pts, s, 1000);
+    const ytWithOrigin = {
+        kind: 'youtube', videoId: 'abc123',
+        origin: { fromSongKey: 'Other', fromTabName: 'Other.gp5', copiedAt: 500 }
+    };
+    const rec = saveRecord('Song', ytWithOrigin, pts, s, 1000);
     assert.equal(rec.updatedAt, 1000);
-    const back = loadRecord('Song', yt, s);
+    assert.deepEqual(rec.media.origin, { fromSongKey: 'Other', fromTabName: 'Other.gp5', copiedAt: 500 });
+    const back = loadRecord('Song', ytWithOrigin, s);
     assert.deepEqual(back.points.map(p => p.id), ['a', 'b']);
+    assert.deepEqual(back.media.origin, { fromSongKey: 'Other', fromTabName: 'Other.gp5', copiedAt: 500 });
     assert.deepEqual(loadRecord('Song', local, s), null);
 });
 

@@ -3,7 +3,7 @@
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel } from './gpProcessor/gpPlayer.js';
 import { showPanel, hidePanel } from './utils/readerPanels.js';
 import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
-import { songHasSyncPoints, listRecords, saveRecord, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
+import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
 
 let activeSearchController = null;
@@ -677,44 +677,183 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
 // Tabs of one library song can carry different score titles, so their sync points sit under different song keys.
 // The keys seen for a library song are remembered, so a tab can offer the synced videos of its sibling tabs.
 const songKeysStore = (id) => `yt_song_keys_${id}`;
-function rememberSongKey(librarySongId, key) {
+function rememberSongKey(librarySongId, key, meta = {}) {
     if (!librarySongId || !key) return;
     try {
-        const keys = JSON.parse(localStorage.getItem(songKeysStore(librarySongId)) || '[]');
-        if (!keys.includes(key)) localStorage.setItem(songKeysStore(librarySongId), JSON.stringify([...keys, key].slice(-20)));
+        const raw = JSON.parse(localStorage.getItem(songKeysStore(librarySongId)) || '[]');
+        const list = raw.map(item => (typeof item === 'string' ? { key: item } : item));
+        const entry = {
+            key,
+            filename: meta.filename || playerState.filename || '',
+            tabName: meta.tabName || playerState.tabName || '',
+            sourceWebsite: meta.sourceWebsite || playerState.sourceWebsite || null,
+            sourceUrl: meta.sourceUrl || playerState.sourceUrl || null
+        };
+        const existingIdx = list.findIndex(e => e.key && e.key.toLowerCase() === key.toLowerCase());
+        if (existingIdx >= 0) {
+            list[existingIdx] = { ...list[existingIdx], ...entry };
+        } else {
+            list.push(entry);
+        }
+        localStorage.setItem(songKeysStore(librarySongId), JSON.stringify(list.slice(-20)));
     } catch { /* optional */ }
 }
+
 function siblingSongKeys() {
     const own = getSongKey() || '';
     if (!playerState.librarySongId) return [];
     try {
-        return JSON.parse(localStorage.getItem(songKeysStore(playerState.librarySongId)) || '[]')
-            .filter(k => k && k.toLowerCase() !== own.toLowerCase());
+        const raw = JSON.parse(localStorage.getItem(songKeysStore(playerState.librarySongId)) || '[]');
+        return raw
+            .map(item => (typeof item === 'string' ? { key: item } : item))
+            .filter(e => e.key && e.key.toLowerCase() !== own.toLowerCase());
     } catch { return []; }
 }
 
 /**
- * YouTube videos this song has sync points for (newest first), e.g. from a tab download. With `includeOtherTabs`,
- * videos synced on other tabs of the same library song follow (`own: false`).
+ * YouTube videos this specific tab has sync points for (newest first).
  */
-function getSyncedVideos({ includeOtherTabs = false } = {}) {
-    const out = [];
-    const collect = (key, own) => {
-        listRecords(key || '')
-            .filter(r => r.media.kind === 'youtube' && r.points.length && !out.some(v => v.videoId === r.media.videoId))
-            .forEach(r => out.push({
+export function getSyncedVideos() {
+    try {
+        return listRecords(getSongKey() || '')
+            .filter(r => r.media.kind === 'youtube' && r.points.length)
+            .map(r => ({
                 videoId: r.media.videoId,
                 // The source tags a video with a feature (backing, solo, alternative); no tag means the original recording
                 kind: /feature (\w+)/.exec(r.media.label || '')?.[1] || 'original',
+                label: r.media.label || '',
                 count: r.points.length,
-                own, key, media: r.media, points: r.points
+                own: true,
+                key: getSongKey(),
+                media: r.media,
+                points: r.points,
+                origin: r.media.origin || null
             }));
-    };
+    } catch { return []; }
+}
+
+/**
+ * Available synced videos on sibling tabs of the same library song.
+ */
+export async function getSiblingSyncedVideos() {
+    const own = getSongKey() || '';
+    if (!playerState.librarySongId) return [];
+    const ownVideos = getSyncedVideos();
+    const siblingEntries = [];
+
+    // From remembered score keys
+    siblingSongKeys().forEach(e => siblingEntries.push(e));
+
+    // Also look up tabs from libraryStore
     try {
-        collect(getSongKey(), true);
-        if (includeOtherTabs) siblingSongKeys().forEach(k => collect(k, false));
+        const { getSongById } = await import('./libraryStore.js');
+        const song = await getSongById(playerState.librarySongId);
+        if (song && Array.isArray(song.tabOptions)) {
+            song.tabOptions.forEach(tab => {
+                const tabKey = tab.name || '';
+                if (tabKey && tabKey.toLowerCase() !== (playerState.tabName || '').toLowerCase() && tabKey.toLowerCase() !== own.toLowerCase()) {
+                    siblingEntries.push({
+                        key: tabKey,
+                        tabName: tab.name,
+                        sourceWebsite: tab.sourceWebsite || null,
+                        sourceUrl: tab.sourceUrl || null
+                    });
+                }
+            });
+        }
     } catch { /* optional */ }
+
+    const seenKeys = new Set();
+    const out = [];
+
+    for (const sib of siblingEntries) {
+        const k = (sib.key || '').toLowerCase();
+        if (!k || k === own.toLowerCase() || seenKeys.has(k)) continue;
+        seenKeys.add(k);
+
+        const records = listRecords(sib.key);
+        for (const r of records) {
+            if (r.media?.kind === 'youtube' && r.points?.length) {
+                if (ownVideos.some(o => o.videoId === r.media.videoId)) continue;
+                if (out.some(o => o.videoId === r.media.videoId)) continue;
+
+                out.push({
+                    videoId: r.media.videoId,
+                    kind: /feature (\w+)/.exec(r.media.label || '')?.[1] || 'original',
+                    label: r.media.label || '',
+                    count: r.points.length,
+                    media: r.media,
+                    points: r.points,
+                    originSongKey: sib.key,
+                    originTabName: sib.tabName || sib.filename || sib.key,
+                    originSourceWebsite: sib.sourceWebsite || null,
+                    originSourceUrl: sib.sourceUrl || null
+                });
+            }
+        }
+    }
+
     return out;
+}
+
+/**
+ * Copy one synced video + sync points from a sibling tab to this tab file, recording origin.
+ */
+export function copySyncedVideoFromSibling(siblingVideo) {
+    if (!siblingVideo || !getSongKey()) return false;
+    const origin = {
+        fromSongKey: siblingVideo.originSongKey,
+        fromTabName: siblingVideo.originTabName,
+        fromSourceWebsite: siblingVideo.originSourceWebsite || null,
+        copiedAt: Date.now()
+    };
+    const media = {
+        ...siblingVideo.media,
+        origin
+    };
+    const record = saveRecord(getSongKey(), media, siblingVideo.points);
+    if (record) {
+        window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+        bindSyncedVideo(siblingVideo.videoId);
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Delete synced videos & associated sync points from this tab, supporting multi-select deletion.
+ */
+export function deleteSyncedVideos(videoIds) {
+    if (!Array.isArray(videoIds) || !videoIds.length || !getSongKey()) return 0;
+    const records = listRecords(getSongKey());
+    let deletedCount = 0;
+    let deletedActive = false;
+
+    for (const r of records) {
+        if (r.media?.kind === 'youtube' && videoIds.includes(r.media.videoId)) {
+            deleteRecord(getSongKey(), r.media);
+            deletedCount++;
+            if (playerState.currentVideoId === r.media.videoId) {
+                deletedActive = true;
+            }
+            for (const mode of ['original', 'backing']) {
+                if (localStorage.getItem(getStorageKey(mode)) === r.media.videoId) {
+                    localStorage.removeItem(getStorageKey(mode));
+                }
+            }
+        }
+    }
+
+    if (deletedCount > 0) {
+        if (deletedActive) {
+            playerState.currentVideoId = null;
+            applySyncedDefaults({ reload: true });
+        }
+        window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+        renderSyncedVideos();
+    }
+
+    return deletedCount;
 }
 
 /** The synced video to use for a track mode: backing for Backing, the untagged original for Original. */
@@ -748,12 +887,28 @@ export function applySyncedDefaults({ reload = true } = {}) {
 }
 
 /** A dropdown of the song's synced videos; choosing one binds it to the current track mode (Original or Backing). */
-export function renderSyncedVideos() {
+export async function renderSyncedVideos() {
     const wrap = document.getElementById('ytSyncedVideos');
     const select = document.getElementById('ytSyncedSelect');
+    const manageBtn = document.getElementById('ytManageSyncedBtn');
+    const copyBtn = document.getElementById('ytCopyFromOtherTabBtn');
+    const originInfo = document.getElementById('ytSyncedOriginInfo');
     if (!wrap || !select) return;
-    const videos = getSyncedVideos({ includeOtherTabs: true });
-    wrap.hidden = videos.length === 0;
+
+    const ownVideos = getSyncedVideos();
+    let siblingVideos = [];
+    try { siblingVideos = await getSiblingSyncedVideos(); } catch {}
+
+    wrap.hidden = ownVideos.length === 0 && siblingVideos.length === 0;
+    if (wrap.hidden) return;
+
+    if (manageBtn) {
+        manageBtn.hidden = ownVideos.length === 0;
+    }
+    if (copyBtn) {
+        copyBtn.hidden = siblingVideos.length === 0;
+    }
+
     select.textContent = '';
     const current = localStorage.getItem(getStorageKey()) || playerState.currentVideoId;
     const add = (value, text, disabled = false) => {
@@ -762,26 +917,41 @@ export function renderSyncedVideos() {
         select.appendChild(o);
         return o;
     };
-    if (current && !videos.some(v => v.videoId === current)) add(current, 'Another video (no sync points)', true);
-    videos.forEach(v => {
-        const same = videos.filter(o => o.kind === v.kind);
-        const name = v.kind.charAt(0).toUpperCase() + v.kind.slice(1) + (same.length > 1 ? ` ${same.indexOf(v) + 1}` : '');
-        add(v.videoId, `${name} · ${v.count} sync points${v.own ? '' : ' · from another tab'}`);
-    });
-    select.value = current || '';
+
+    if (ownVideos.length === 0) {
+        add('', 'No synced videos for this tab', true);
+    } else {
+        if (current && !ownVideos.some(v => v.videoId === current)) {
+            add(current, 'Another video (no sync points)', true);
+        }
+        ownVideos.forEach(v => {
+            const same = ownVideos.filter(o => o.kind === v.kind);
+            const name = v.kind.charAt(0).toUpperCase() + v.kind.slice(1) + (same.length > 1 ? ` ${same.indexOf(v) + 1}` : '');
+            add(v.videoId, `${name} · ${v.count} sync points`);
+        });
+    }
+
+    select.value = current || (ownVideos[0]?.videoId || '');
+
+    const activeVideo = ownVideos.find(v => v.videoId === select.value);
+    if (originInfo) {
+        if (activeVideo?.origin) {
+            originInfo.hidden = false;
+            originInfo.innerHTML = `<i class="bi-info-circle me-1"></i>Copied from tab: <b>${escapeHtml(activeVideo.origin.fromTabName || activeVideo.origin.fromSongKey)}</b>`;
+        } else {
+            originInfo.hidden = true;
+            originInfo.textContent = '';
+        }
+    }
 }
 
-function bindSyncedVideo(videoId) {
+export function bindSyncedVideo(videoId) {
     if (!videoId) return;
     if (playerState.isSearching) cancelYouTubeSearch();
-    // A video synced on another tab of this song: copy its points to this tab so they apply here
-    const other = getSyncedVideos({ includeOtherTabs: true }).find(v => v.videoId === videoId && !v.own);
-    if (other && saveRecord(getSongKey(), other.media, other.points)) {
-        window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
-    }
     localStorage.setItem(getStorageKey(), videoId);
     markUserPick();
     loadCurrentTrack(playerState.isPlaying || playerState.hasStarted, { videoId, source: 'user' });
+    renderSyncedVideos();
 }
 
 function updatePanelTitle() {
@@ -913,7 +1083,15 @@ function updatePlaybackControls() {
 /**
  * Called when a new file or score metadata is loaded in the app
  */
-export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArtist = '', librarySongId = null } = {}) {
+export function updateSongForYouTube({
+    filename = '',
+    scoreTitle = '',
+    scoreArtist = '',
+    librarySongId = null,
+    tabName = '',
+    sourceWebsite = null,
+    sourceUrl = null
+} = {}) {
     if (activeSearchController) {
         activeSearchController.abort();
         activeSearchController = null;
@@ -924,7 +1102,15 @@ export function updateSongForYouTube({ filename = '', scoreTitle = '', scoreArti
     playerState.title = title;
     playerState.filename = filename;
     playerState.librarySongId = librarySongId || null;
-    rememberSongKey(playerState.librarySongId, getSongKey());
+    playerState.tabName = tabName || filename || '';
+    playerState.sourceWebsite = sourceWebsite || null;
+    playerState.sourceUrl = sourceUrl || null;
+    rememberSongKey(playerState.librarySongId, getSongKey(), {
+        filename: playerState.filename,
+        tabName: playerState.tabName,
+        sourceWebsite: playerState.sourceWebsite,
+        sourceUrl: playerState.sourceUrl
+    });
     playerState.customQueries = { original: '', backing: '' };
     playerState.customQuery = '';
     setVideoId(null, 'song');
@@ -1051,6 +1237,11 @@ export function initYouTubePlayer() {
     });
 
     document.getElementById('ytSyncedSelect')?.addEventListener('change', (e) => bindSyncedVideo(e.target.value));
+
+    // Initialize synced videos management and copy modals
+    import('./audioSync/syncedVideosModal.js').then(({ initSyncedVideosModals }) => {
+        initSyncedVideosModals();
+    }).catch(() => {});
 
     // Track Mode Selector (Original vs Backing)
     originalRadio?.addEventListener('change', () => {

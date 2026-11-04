@@ -47,10 +47,16 @@ export function normalizeRecord(raw) {
     if (!mediaKey(raw.media) || !Array.isArray(raw.points)) return null;
     const m = raw.media;
     const media = m.kind === 'youtube'
-        ? { kind: 'youtube', videoId: String(m.videoId), ...(m.label ? { label: String(m.label) } : {}) }
+        ? {
+            kind: 'youtube',
+            videoId: String(m.videoId),
+            ...(m.label ? { label: String(m.label) } : {}),
+            ...(m.origin && typeof m.origin === 'object' ? { origin: m.origin } : {})
+        }
         : {
             kind: 'local', audioId: String(m.audioId), name: String(m.name ?? ''),
-            durationMs: Number.isFinite(m.durationMs) ? m.durationMs : null, fingerprint: String(m.fingerprint ?? '')
+            durationMs: Number.isFinite(m.durationMs) ? m.durationMs : null, fingerprint: String(m.fingerprint ?? ''),
+            ...(m.origin && typeof m.origin === 'object' ? { origin: m.origin } : {})
         };
     const points = raw.points.map(cleanPoint).filter(Boolean).sort((a, b) => a.timeMs - b.timeMs);
     return { version: AUDIO_SYNC_VERSION, media, points, updatedAt: Number.isFinite(raw.updatedAt) ? raw.updatedAt : 0 };

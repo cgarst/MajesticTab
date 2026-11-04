@@ -749,8 +749,13 @@
         </div>
       </div>
       <div id="ytSyncedVideos" class="mb-3" hidden>
-        <label class="small text-white-50 mb-1" for="ytSyncedSelect">Synced video</label>
+        <div class="d-flex align-items-center justify-content-between mb-1">
+          <label class="small text-white-50 mb-0" for="ytSyncedSelect">Synced video</label>
+          <button type="button" class="btn btn-link p-0 text-decoration-none small text-white-50" id="ytManageSyncedBtn" title="Manage and delete synced videos for this tab">Manage…</button>
+        </div>
         <select id="ytSyncedSelect" class="form-select form-select-sm" aria-label="Synced video for this recording"></select>
+        <div id="ytSyncedOriginInfo" class="small text-muted mt-1" hidden></div>
+        <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="ytCopyFromOtherTabBtn" hidden>Copy sync from another tab…</button>
       </div>
       <div id="ytSyncRow" class="mb-3 rec-sync-proxy" hidden>
         <div class="d-flex align-items-center justify-content-between gap-2">
@@ -1353,6 +1358,73 @@
         </div>
       </details>
       <div class="small text-white-50 mt-2" id="syncEmpty" hidden>No sync points yet. Play the recording, move the cursor to the bar you hear, and add a point.</div>
+    </div>
+  </section>
+</div>
+
+<div id="manageSyncedVideosModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="manageSyncedModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card" style="max-width: 560px; width: 92%;">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
+          <i class="bi-film text-info fs-5"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="manageSyncedModalTitle">Synced videos</h2>
+          <div class="small text-white-50" id="manageSyncedModalSub">Synced videos and points for this tab</div>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="manageSyncedVideosModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body p-3">
+      <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2" id="manageSyncedToolbar">
+        <div class="d-flex align-items-center gap-2">
+          <div class="form-check mb-0">
+            <input class="form-check-input" type="checkbox" id="manageSyncedSelectAll">
+            <label class="form-check-label small text-white" for="manageSyncedSelectAll">Select all</label>
+          </div>
+          <span class="small text-muted ms-2" id="manageSyncedSelectionCount">0 selected</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button type="button" class="btn btn-sm btn-theme-outline" id="manageSyncedCopyBtn" hidden>Copy from another tab…</button>
+          <button type="button" class="btn btn-sm btn-theme-danger" id="manageSyncedDeleteBtn" disabled>Delete selected</button>
+        </div>
+      </div>
+      <div id="manageSyncedList" class="d-flex flex-column gap-2" role="list"></div>
+      <div id="manageSyncedEmpty" class="text-center text-muted py-4" hidden>No synced videos for this tab.</div>
+    </div>
+  </section>
+</div>
+
+<div id="copySyncedVideoModal" class="theme-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="copySyncedModalTitle" aria-hidden="true" style="display:none;">
+  <section class="theme-modal-card" style="max-width: 560px; width: 92%;">
+    <header class="theme-modal-header">
+      <div class="theme-modal-title-group">
+        <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;">
+          <i class="bi-copy text-info fs-5"></i>
+        </div>
+        <div class="theme-modal-titles">
+          <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="copySyncedModalTitle">Copy synced video</h2>
+          <div class="small text-white-50">Select a video from another tab of this song to copy its sync points</div>
+        </div>
+      </div>
+      <div class="theme-modal-actions">
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="copySyncedVideoModalCloseBtn" aria-label="Close modal">
+          <i class="bi-x-lg"></i>
+        </button>
+      </div>
+    </header>
+    <div class="theme-modal-body p-3">
+      <div id="copySyncedList" class="d-flex flex-column gap-2" role="list"></div>
+      <div id="copySyncedEmpty" class="text-center text-muted py-4" hidden>No other tabs of this song have synced videos.</div>
+    </div>
+    <div class="theme-modal-footer d-flex justify-content-end gap-2 p-3">
+      <button type="button" class="btn btn-sm btn-theme-outline" id="copySyncedCancelBtn">Cancel</button>
+      <button type="button" class="btn btn-sm btn-theme-primary" id="copySyncedConfirmBtn" disabled>Copy to this tab</button>
     </div>
   </section>
 </div>
