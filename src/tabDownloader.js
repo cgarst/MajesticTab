@@ -245,7 +245,7 @@ export function jumpToBatchTrack(targetIndex) {
     if (!activeBatchMode || targetIndex < 0 || targetIndex >= activeBatchQueue.length) return;
     activeBatchIndex = targetIndex;
     const popover = document.getElementById('downloaderBatchPopover');
-    if (popover) popover.style.display = 'none';
+    if (popover) { popover.style.display = 'none'; refreshDownloaderOffset(); }
     const stepperBtn = document.getElementById('downloaderBatchStepperBtn');
     if (stepperBtn) stepperBtn.setAttribute('aria-expanded', 'false');
 
@@ -894,12 +894,14 @@ export function initTabDownloaderDomEvents() {
         const isOpen = popover.style.display === 'block';
         popover.style.display = isOpen ? 'none' : 'block';
         stepperBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+        refreshDownloaderOffset();
     });
 
     document.getElementById('downloaderBatchPopoverCloseBtn')?.addEventListener('click', (e) => {
         e.stopPropagation();
-        if (popover) popover.style.display = 'none';
+        if (popover) { popover.style.display = 'none'; refreshDownloaderOffset(); }
         stepperBtn?.setAttribute('aria-expanded', 'false');
+        refreshDownloaderOffset();
     });
 
     // Close popover when clicking outside
@@ -907,6 +909,7 @@ export function initTabDownloaderDomEvents() {
         if (popover && popover.style.display === 'block' && !e.target.closest('#downloaderBatchStepperContainer')) {
             popover.style.display = 'none';
             stepperBtn?.setAttribute('aria-expanded', 'false');
+            refreshDownloaderOffset();
         }
     });
 
@@ -1050,10 +1053,28 @@ export function syncDownloaderAdblockButton() {
 }
 
 /**
+ * The album tracklist drops below the bar, but the site webview is a separate native view that
+ * would cover it. While it is open, push the site webview down to the popover's bottom edge.
+ * @returns {number}
+ */
+function downloaderPopoverReach() {
+    const pop = document.getElementById('downloaderBatchPopover');
+    if (!pop || pop.style.display !== 'block') return 0;
+    return Math.ceil(pop.getBoundingClientRect().bottom + 8);
+}
+
+function refreshDownloaderOffset() {
+    const bar = document.getElementById('tabDownloaderBar');
+    const h = bar ? Math.floor(bar.getBoundingClientRect().height) : 0;
+    syncDownloaderTopOffset(h);
+}
+
+/**
  * Tell the native shell how tall the top bar is so the content webview starts below it.
  * @param {number} cssHeight
  */
 function syncDownloaderTopOffset(cssHeight) {
+    cssHeight = Math.max(cssHeight, downloaderPopoverReach());
     if (window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke('tab_downloader_update', { topOffset: cssHeight }).catch(() => {});
     }
@@ -1562,7 +1583,7 @@ export function closeTabDownloaderModal(invokeNative = true) {
     hideTransientFeedback();
     hideAdvisoryBadge();
     const popover = document.getElementById('downloaderBatchPopover');
-    if (popover) popover.style.display = 'none';
+    if (popover) { popover.style.display = 'none'; refreshDownloaderOffset(); }
     const picker = document.getElementById('downloaderZipPicker');
     if (picker) picker.style.display = 'none';
 
