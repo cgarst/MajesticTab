@@ -22,17 +22,44 @@ export async function loadFromUrl(urlText, fetchText, { findSource = null } = {}
     return detectSets(text);
 }
 
+const MIN_PREFIX_SHARE = 0.5;
+const MAX_PREFIX_ERROR = 0.12;
+
+/**
+ * A list shorter than the played bars is accepted only as the start of the score: when the gaps between its times
+ * follow the bar lengths at the score's tempo (mean error under 12% of a bar), every point sits on the right bar and
+ * the last bars just have no points. Needs the bars' `seconds`; without them a short list is refused.
+ */
+function fitsScoreStart(barTimesMs, playedBars) {
+    const n = barTimesMs.length;
+    if (n < 3 || n < playedBars.length * MIN_PREFIX_SHARE) return false;
+    let error = 0;
+    let length = 0;
+    for (let i = 0; i < n - 1; i++) {
+        const seconds = playedBars[i].seconds;
+        if (!(seconds > 0)) return false;
+        error += Math.abs((barTimesMs[i + 1] - barTimesMs[i]) / 1000 - seconds);
+        length += seconds;
+    }
+    return error / length <= MAX_PREFIX_ERROR;
+}
+
 /**
  * Places one time per bar on the played bars of the score, repeats included. The counts must match exactly: a
  * different count means a different bar structure, and every point after the difference would land on the wrong bar.
+ * The one exception is a shorter list whose times follow the start of the score (see fitsScoreStart); `covered`
+ * reports how many bars got points then.
  * @param {number[]} barTimesMs
- * @param {Array<{barIndex:number, occurrence:number}>} playedBars the score's bars in play order
+ * @param {Array<{barIndex:number, occurrence:number, seconds?:number|null}>} playedBars the score's bars in play order
+ * @param {{covered?: number}} [info] receives `covered` when only the start of the score is placed
  * @returns {Array<{barIndex:number, occurrence:number, pos:number, timeMs:number}>}
  */
-export function placeBarTimes(barTimesMs, playedBars) {
-    if (barTimesMs.length !== playedBars.length) {
+export function placeBarTimes(barTimesMs, playedBars, info = null) {
+    const partial = barTimesMs.length < playedBars.length && fitsScoreStart(barTimesMs, playedBars);
+    if (barTimesMs.length !== playedBars.length && !partial) {
         throw new Error(`That list has ${barTimesMs.length} bars, but this score plays ${playedBars.length}. They have to match exactly, or the points would land on the wrong bars.`);
     }
+    if (partial && info) info.covered = barTimesMs.length;
     // Never below 0 and strictly increasing, as the point list requires
     let last = -1;
     return barTimesMs.map((ms, i) => {
@@ -52,7 +79,7 @@ export function setToPoints(set, playedBars) {
  * those are offered, and when none do the error says what was found.
  */
 export function setsFittingScore(sets, playedBars) {
-    const fitting = sets.filter(s => s.points || s.barTimesMs.length === playedBars.length);
+    const fitting = sets.filter(s => s.points || s.barTimesMs.length === playedBars.length || fitsScoreStart(s.barTimesMs, playedBars));
     if (fitting.length) return fitting;
     const counts = [...new Set(sets.map(s => s.barTimesMs.length))].join(', ');
     throw new Error(`That address has lists of ${counts} bars, but this score plays ${playedBars.length}. They have to match exactly, or the points would land on the wrong bars.`);

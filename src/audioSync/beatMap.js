@@ -4,19 +4,37 @@
 // tested in Node with a fake (tests/audioSync/beatMap.test.mjs). Ticks are the MIDI timeline's, repeats expanded.
 //
 // Entry: { tick, barIndex, occurrence, pos, beat, barEntry } where `barEntry` indexes `bars`.
-// Bar:   { barIndex, occurrence, startTick, endTick, firstEntry }
+// Bar:   { barIndex, occurrence, startTick, endTick, firstEntry, seconds } (`seconds`: the bar's length at the score's tempo, or null)
+
+const TICKS_PER_QUARTER = 960;
+
+/** Tempo of each master bar in score order: the last tempo automation at or before it. */
+function tempoByBar(lookup) {
+    const first = lookup?.masterBars?.[0]?.masterBar;
+    const all = first?.score?.masterBars;
+    if (!all) return null;
+    let bpm = Number(first.score.tempo) || 0;
+    return all.map(mb => {
+        const autos = mb.tempoAutomations;
+        if (autos?.length && Number(autos[autos.length - 1].value) > 0) bpm = Number(autos[autos.length - 1].value);
+        return bpm;
+    });
+}
 
 export function buildBeatMap(lookup) {
     const entries = [];
     const bars = [];
     const seenBars = new Map();
+    const tempos = tempoByBar(lookup);
     for (const bar of lookup?.masterBars || []) {
         const barIndex = bar.masterBar.index;
         const occurrence = seenBars.get(barIndex) || 0;
         seenBars.set(barIndex, occurrence + 1);
         const length = bar.end - bar.start;
         const barEntry = bars.length;
-        bars.push({ barIndex, occurrence, startTick: bar.start, endTick: bar.end, firstEntry: entries.length });
+        const bpm = tempos?.[barIndex];
+        const seconds = bpm > 0 && length > 0 ? (length / TICKS_PER_QUARTER) * (60 / bpm) : null;
+        bars.push({ barIndex, occurrence, startTick: bar.start, endTick: bar.end, firstEntry: entries.length, seconds });
         const seenBeats = new Set();
         for (let slice = bar.firstBeat; slice; slice = slice.nextBeat) {
             const beat = slice.highlightedBeats?.[0]?.beat;

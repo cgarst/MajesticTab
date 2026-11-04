@@ -3,7 +3,7 @@
 // a fixed order and the first one that recognises the text wins:
 //   1. AlphaTab sync text (`\sync bar pass ms` lines)
 //   2. a MajesticTab JSON export (`{ points: [{ barIndex, occurrence, timeMs, ... }] }`, or a bare array of such points)
-//   3. JSON that holds lists of bar start times: any array of numbers that only goes up, found anywhere in the JSON
+//   3. JSON that holds lists of bar start times: any array of numbers that only goes up (a few repeated times are tolerated), found anywhere in the JSON
 // Each format returns candidate sets, `{ label, points }` (already placed in the score) or `{ label, barTimesMs }` (one
 // time per bar in play order, placed by importers/index.js). Pure; tested in tests/audioSync/importers.test.mjs.
 
@@ -21,9 +21,11 @@ export function timesToMs(values) {
     return values.map(v => Math.round(v * scale));
 }
 
+// Never goes down, and only the odd pair of bars may share a time (a score can have two bars at one point; placeBarTimes spreads them)
 const isBarTimes = (value) => Array.isArray(value)
     && value.length >= MIN_BARS
-    && value.every((v, i) => typeof v === 'number' && Number.isFinite(v) && v >= -1 && (i === 0 || v > value[i - 1]));
+    && value.every((v, i) => typeof v === 'number' && Number.isFinite(v) && v >= -1 && (i === 0 || v >= value[i - 1]))
+    && value.filter((v, i) => i > 0 && v === value[i - 1]).length <= (value.length - 1) * 0.1;
 
 /** Short text fields of the object holding a list, to tell the lists apart (an id, a name, a status). */
 function describe(owner) {

@@ -72,7 +72,15 @@ export async function attachSyncSets(sets, { songKey = null, bars = null } = {})
     if (!sets?.length) return { saved: [], skipped: [] };
     const playedBars = (bars && bars.length) ? bars : await playedBarsWhenReady();
     if (!playedBars.length) return { saved: [], skipped: ['The score was not ready, so no sync points were added'] };
-    const { placed, skipped } = placeSyncSets(sets, times => placeBarTimes(times, playedBars));
+    let covered = 0;
+    const { placed, skipped } = placeSyncSets(sets, times => {
+        const info = {};
+        const points = placeBarTimes(times, playedBars, info);
+        covered = info.covered || 0;
+        return points;
+    });
+    // Only the start of the score had times: say so, so the missing last bars are not a surprise
+    if (covered) for (const p of placed) p.label = `${p.label} (bars 1-${covered} of ${playedBars.length})`;
     const targetKey = songKey || getSongKey();
     for (const { videoId, points, label } of placed) {
         saveRecord(targetKey, { kind: 'youtube', videoId, label }, points);

@@ -111,12 +111,17 @@ export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, lo
 
         const attach = attachSyncSetsFn || (await import('../urlImport/attachSync.js')).attachSyncSets;
         const result = await attach(sets, { songKey, bars });
-        if (result?.saved?.length && typeof showToast === 'function') {
-            showToast(`Added sync points for ${result.saved.length === 1 ? result.saved[0] : `${result.saved.length} videos`}`, 'success');
+        if (typeof showToast === 'function') {
+            if (result?.saved?.length) {
+                showToast(`Added sync points for ${result.saved.length === 1 ? result.saved[0] : `${result.saved.length} videos`}`, 'success');
+            } else if (result?.skipped?.length) {
+                showToast(`Sync points not added: ${result.skipped[0]}`, 'warning', 6000);
+            }
         }
         return result;
     } catch (e) {
         console.warn('[Tab Downloader] Auto-sync points error:', e);
+        if (typeof showToast === 'function') showToast(`Sync points not added: ${e?.message || 'could not fetch them'}`, 'warning', 6000);
         return { saved: [], skipped: [e?.message || 'Failed to fetch sync points'] };
     }
 }

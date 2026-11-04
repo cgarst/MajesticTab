@@ -84,3 +84,29 @@ test('only the lists that fit the score are offered', () => {
     assert.deepEqual(setsFittingScore(sets, playedBars([0, 1, 2])).map(s => s.label), ['b', 'p']);
     assert.throws(() => setsFittingScore([sets[0]], playedBars([0, 1, 2])), /lists of 2 bars.*plays 3/);
 });
+
+test('a list with one repeated time is still bar times', () => {
+    const times = Array.from({ length: 40 }, (_, i) => i * 2 + 1);
+    times[21] = times[20];
+    const sets = detectSets(JSON.stringify([{ id: 1, points: times }]));
+    assert.equal(sets.length, 1);
+    assert.equal(sets[0].barTimesMs.length, 40);
+});
+
+test('a shorter list is placed on the start of the score only when its gaps follow the bar lengths', () => {
+    const bars = Array.from({ length: 20 }, (_, i) => ({ barIndex: i, occurrence: 0, seconds: 2 }));
+    const times = Array.from({ length: 15 }, (_, i) => 5000 + i * 2050); // a little off, like real data
+    const info = {};
+    const pts = placeBarTimes(times, bars, info);
+    assert.equal(pts.length, 15);
+    assert.equal(info.covered, 15);
+    assert.equal(pts[14].barIndex, 14);
+    assert.equal(setsFittingScore([{ label: 'a', barTimesMs: times }], bars).length, 1);
+    // gaps that do not follow the bars (a different structure) are still refused
+    const wrong = Array.from({ length: 15 }, (_, i) => i * 3500);
+    assert.throws(() => placeBarTimes(wrong, bars), /15 bars.*plays 20/);
+    // without bar lengths a short list is refused, as before
+    assert.throws(() => placeBarTimes(times, bars.map(b => ({ barIndex: b.barIndex, occurrence: 0 }))), /plays 20/);
+    // too little of the score is not a start
+    assert.throws(() => placeBarTimes(times.slice(0, 5), bars), /plays 20/);
+});
