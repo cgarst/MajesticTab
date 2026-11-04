@@ -2048,9 +2048,8 @@ export function libraryViewSwitchHtml(activeTab = null) {
 // Shared chrome for every library view: centered view switcher, then its own search box, then (below, via
 // libraryListToolbarHtml) a count on the left and the primary action on the right.
 export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, searchLabel, searchDisabled = false }) {
-    const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 576px)').matches;
-    if (isMobile) {
-        placeholder = 'Search library or web…';
+    if (window.matchMedia?.('(max-width: 576px)').matches) {
+        placeholder = 'Search';
     } else if (!placeholder || placeholder === 'Search your library') {
         placeholder = 'Search your library or find any artist, song, or album…';
     }
@@ -2067,7 +2066,6 @@ export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, s
           <kbd class="search-key-hint" aria-hidden="true">${shortcutHint}</kbd>
           <button class="search-close-btn" type="button" aria-label="Close search">Cancel</button>
         </div>
-        <div class="library-search-guidance" id="libSearchGuidance" style="display: none;">Type to filter your collection · Press Enter or select below to search the web for new tabs</div>
       </div>`;
 }
 
@@ -2403,39 +2401,10 @@ function renderAlbumCard(album, artistName = '') {
     `;
 }
 
-function renderDownloaderSearchButton(rawQuery) {
-    if (!window.__TAURI__) return '';
-    return `
-      <div class="text-center mt-3 mb-4">
-        <button type="button" class="btn btn-sm btn-theme-outline d-inline-flex align-items-center gap-2" id="libFilterDownloaderBtn">
-          <i class="bi-search text-info"></i>
-          <span>Search "${escapeHtml(rawQuery)}" on the web</span>
-        </button>
-      </div>`;
-}
-
-function wireDownloaderSearchButton(root, rawQuery) {
-    root.querySelector('#libFilterDownloaderBtn')?.addEventListener('click', () => {
-        openFromProvider('tab-downloader', { query: rawQuery });
-    });
-}
-
 function setupLibraryFilter(container, context = {}) {
     const filterInput = container.querySelector('#libFilterInput');
     const clearBtn = container.querySelector('#libFilterClearBtn');
     if (!filterInput) return;
-
-    const guidanceCue = container.querySelector('#libSearchGuidance');
-    filterInput.addEventListener('focus', () => {
-        if (guidanceCue) guidanceCue.style.display = 'block';
-    });
-    filterInput.addEventListener('blur', () => {
-        setTimeout(() => {
-            if (document.activeElement !== filterInput && guidanceCue) {
-                guidanceCue.style.display = 'none';
-            }
-        }, 200);
-    });
 
     if (libraryBrowseMode === 'tunings' && !context.selectedAlbum) {
         bindTwoPaneFilter(container, { inputId: 'libFilterInput', clearId: 'libFilterClearBtn', key: 'tunings', cardSelector: '.tuning-card', rowSelector: '.pane.songs .library-song-row' });
@@ -2794,8 +2763,8 @@ function setupLibraryFilter(container, context = {}) {
             rows.forEach((r, idx) => r.classList.toggle('is-selected', idx === activeNavIndex));
             rows[activeNavIndex]?.scrollIntoView({ block: 'nearest' });
         } else if (e.key === 'Enter') {
+            e.preventDefault();
             if (activeNavIndex >= 0 && activeNavIndex < rows.length) {
-                e.preventDefault();
                 const selectedRow = rows[activeNavIndex];
                 const primaryBtn = selectedRow.querySelector('.catalog-song-get-tab-btn, .catalog-album-batch-btn, .play-default-tab-btn');
                 if (primaryBtn) primaryBtn.click();
@@ -2804,20 +2773,7 @@ function setupLibraryFilter(container, context = {}) {
                 // If local matches exist, play top local song
                 const topLocalBtn = filterResults.querySelector('#libLocalSearchResultsList .play-default-tab-btn');
                 if (topLocalBtn) {
-                    e.preventDefault();
                     topLocalBtn.click();
-                } else {
-                    const topCatalogBtn = filterResults.querySelector('.catalog-song-get-tab-btn, .catalog-album-batch-btn');
-                    if (topCatalogBtn) {
-                        e.preventDefault();
-                        topCatalogBtn.click();
-                    } else {
-                        const webFallback = filterResults.querySelector('[data-type="web-fallback"]');
-                        if (webFallback) {
-                            e.preventDefault();
-                            webFallback.click();
-                        }
-                    }
                 }
             }
         } else if (e.key === 'Escape') {

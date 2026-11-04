@@ -3186,15 +3186,6 @@ body > #controllerHelpModal { display: none; }
    Master Search & Live Search Stream (Reimagined Flat Ground Ladder)
    ========================================================================== */
 
-.library-search-guidance {
-    padding: 6px 12px;
-    font-size: 12px;
-    color: var(--ink2);
-    background: var(--s1);
-    border-radius: var(--r-control);
-    margin-top: 4px;
-}
-
 #libFilteredSearchResults {
     background: var(--s1);
     border-radius: var(--r-card);
