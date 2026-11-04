@@ -1429,7 +1429,7 @@ async function renderLibraryBrowseView(container) {
                 <button class="btn btn-sm btn-ghost in-view-back-btn p-1 px-2" id="paneBackBtn" data-act="paneback" type="button"><i class="bi-chevron-left"></i> Library</button>
                 <span class="text-white fw-semibold" style="flex:1;">${escapeHtml(selectedArtist.name)}</span>
                 <span class="tnum">${totalSongsForPane} ${totalSongsForPane === 1 ? 'song' : 'songs'}${!isCustomArtist && selectedArtist.albums.length > 0 ? ` · ${selectedArtist.albums.length} ${selectedArtist.albums.length === 1 ? 'album' : 'albums'}` : ''}</span>
-                ${customTopLevel ? `<button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>` : ''}
+                <button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>
               </h3>
               ${isCustomArtist ? breadcrumbHtml : ''}
               ${shelfHtml}
@@ -2719,10 +2719,12 @@ function renderAlbumSongsList(songs, options = {}) {
 
 function setupSongRowActions(container) {
     // Toggle Album Edit Mode
-    container.querySelector('#toggleAlbumEditBtn')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        isAlbumEditMode = !isAlbumEditMode;
-        renderLibraryBrowseView(container);
+    container.querySelectorAll('.toggle-album-edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            isAlbumEditMode = !isAlbumEditMode;
+            renderLibraryBrowseView(container);
+        });
     });
 
     // Delete Entire Album
