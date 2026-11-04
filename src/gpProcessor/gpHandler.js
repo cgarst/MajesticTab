@@ -116,8 +116,8 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
 
     const pagesPerView = getPagesPerView(true);
     // Page width = (viewport - container padding - gaps) / pages, minus wrapper border and horizontal padding
-        const wrapperPadX = window.innerWidth < 768 ? 4 : 8;
-        const targetWidth = Math.floor((window.innerWidth - 20 - 10 * (pagesPerView - 1)) / pagesPerView) - 2 - wrapperPadX * 2;
+        const wrapperPadX = window.innerWidth <= 576 ? 2 : window.innerWidth < 768 ? 4 : 8;
+        const targetWidth = Math.floor((window.innerWidth - (window.innerWidth <= 576 ? 4 : 20) - 10 * (pagesPerView - 1)) / pagesPerView) - 2 - wrapperPadX * 2;
 
     container.style.width = isPageMode ? `${targetWidth}px` : '100%';
     container.style.height = isPageMode ? '100%' : 'auto';
@@ -314,7 +314,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         output.style.overflow = 'hidden';
 
         const pagesPerView = getPagesPerView(true);
-        const targetWidth = Math.floor((window.innerWidth - 24) / pagesPerView) - (window.innerWidth < 768 ? 16 : 24);
+        const targetWidth = Math.floor((window.innerWidth - (window.innerWidth <= 576 ? 4 : 24)) / pagesPerView) - (window.innerWidth <= 576 ? 4 : window.innerWidth < 768 ? 16 : 24);
         const targetWidthStr = `${targetWidth}px`;
         const widthChanged = container.style.width !== targetWidthStr;
 
@@ -544,7 +544,7 @@ function renderGPPageMode(output) {
         const wrapper = createPageWrapper();
         wrapper.className = 'gp-page-wrapper alphaTab at';
         wrapper.style.width = `${(100 / pagesPerView)}%`;
-        wrapper.style.padding = window.innerWidth < 768 ? '5px 4px' : '5px 8px';
+        wrapper.style.padding = window.innerWidth <= 576 ? '5px 2px' : window.innerWidth < 768 ? '5px 4px' : '5px 8px';
         wrapper.style.boxSizing = 'border-box';
         wrapper.style.overflow = 'hidden';
 

@@ -285,7 +285,7 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
                     enableElementHighlighting: true,
                     scrollMode: alphaTab.ScrollMode.Off
                 },
-                display: { staveProfile: getGpStaveProfile(), layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE, stretchForce: GP_STRETCH_FORCE },
+                display: { staveProfile: getGpStaveProfile(), layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE, stretchForce: GP_STRETCH_FORCE, padding: [20, (typeof window !== 'undefined' && window.innerWidth <= 576) ? 4 : 20] },
                 notation: {
                     rhythmMode: alphaTab.TabRhythmMode.ShowWithBars,
                     elements: {
