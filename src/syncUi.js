@@ -306,7 +306,7 @@ function showReview(target, backend, plan) {
     const removals = removeHere.length + removeThere.length;
     const total = plan.changes.length + plan.unchanged;
     const unusual = removals >= MASS_REMOVAL_MIN && removals / Math.max(1, total) >= MASS_REMOVAL_SHARE;
-    const danger = plan.latest ? dangerZone(target) : '';
+    const danger = dangerZone(target);
 
     const header = `
         <div class="sync-head">
