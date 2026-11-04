@@ -1852,7 +1852,17 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 /* ---------- Data tasks live on the Settings page (Library and backup) ---------- */
 .data-task-back { display: inline-flex; background: transparent !important; border: 0 !important; color: var(--ink2) !important; padding-left: 0 !important; margin: 4px 0 8px; }
 .data-task-back::before { content: "\2039"; margin-right: 6px; font-size: 18px; line-height: 1; }
-#backupModal.is-embedded { position: static !important; display: block; background: transparent !important; padding: 0 !important; inset: auto !important; }
+#backupModal.is-embedded,
+.data-task-slot .theme-modal-backdrop,
+.data-task-slot #backupModal {
+  position: static !important;
+  display: block;
+  background: transparent !important;
+  padding: 0 !important;
+  inset: auto !important;
+  height: auto !important;
+  min-height: 0 !important;
+}
 #backupModal.is-embedded .theme-modal-card { width: 100%; max-width: 100%; max-height: none; height: auto; background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0; transform: none !important; opacity: 1 !important; }
 #backupModal.is-embedded .theme-modal-body { padding-inline: 0 !important; overflow: visible; max-height: none; }
 
@@ -2523,7 +2533,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 /* A data task opens as the rest of its row: same surface, same left edge, no page of its own */
 .srow-task:has(button[aria-expanded="true"]) { padding-bottom: 6px; }
 .data-task-slot { background: var(--s3); padding: 0 14px 6px; }
-.data-task-slot #deleteTabContent .form-check { margin-bottom: 0 !important; }
+.data-task-slot #deleteTabContent, .data-task-slot #deleteTabContent .form-check { margin-bottom: 0 !important; }
 .data-task-slot .theme-modal-body, #backupModal.is-embedded .theme-modal-body { padding: 0 !important; }
 .data-task-slot .theme-modal-card > :first-child, .data-task-slot .theme-modal-body > :first-child > :first-child { margin-top: 0 !important; }
 .data-task-slot .backup-summary-box { padding: 4px 0 8px !important; margin-bottom: 4px !important; }
