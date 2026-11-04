@@ -17,16 +17,28 @@ const inFlightRequests = new Map();
 /**
  * Execute a single HTTP request to MusicBrainz with automatic exponential backoff retry.
  */
-async function executeWithRetry(url, maxRetries = MAX_RETRIES) {
+async function executeWithRetry(url, maxRetries = MAX_RETRIES, signal = null) {
     let attempt = 0;
     let delay = 1500;
 
     while (attempt <= maxRetries) {
+        if (signal?.aborted) {
+            throw new DOMException('Aborted', 'AbortError');
+        }
+
         // Enforce minimum rate limiting interval before each request
         const now = Date.now();
         const elapsed = now - lastRequestTime;
         if (elapsed < MIN_REQUEST_INTERVAL) {
-            await new Promise(r => setTimeout(r, MIN_REQUEST_INTERVAL - elapsed));
+            await new Promise((r, rej) => {
+                const timer = setTimeout(r, MIN_REQUEST_INTERVAL - elapsed);
+                if (signal) {
+                    signal.addEventListener('abort', () => {
+                        clearTimeout(timer);
+                        rej(new DOMException('Aborted', 'AbortError'));
+                    }, { once: true });
+                }
+            });
         }
         lastRequestTime = Date.now();
 
@@ -35,7 +47,8 @@ async function executeWithRetry(url, maxRetries = MAX_RETRIES) {
                 headers: {
                     'Accept': 'application/json',
                     'User-Agent': USER_AGENT
-                }
+                },
+                signal
             });
             lastRequestTime = Date.now();
 
@@ -59,7 +72,15 @@ async function executeWithRetry(url, maxRetries = MAX_RETRIES) {
                     }
                 }
                 console.warn(`[MusicBrainz] HTTP ${status} for ${url}. Retrying attempt ${attempt}/${maxRetries} in ${waitTime}ms...`);
-                await new Promise(r => setTimeout(r, waitTime));
+                await new Promise((r, rej) => {
+                    const timer = setTimeout(r, waitTime);
+                    if (signal) {
+                        signal.addEventListener('abort', () => {
+                            clearTimeout(timer);
+                            rej(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    }
+                });
                 delay *= 2; // exponential backoff (1.5s -> 3s -> 6s -> 12s)
                 continue;
             }
@@ -67,12 +88,23 @@ async function executeWithRetry(url, maxRetries = MAX_RETRIES) {
             throw new Error(`MusicBrainz HTTP ${status}`);
         } catch (err) {
             lastRequestTime = Date.now();
+            if (err.name === 'AbortError' || signal?.aborted) {
+                throw err;
+            }
             const isNetworkError = !err.message?.startsWith('MusicBrainz HTTP');
             if (isNetworkError && attempt < maxRetries) {
                 attempt++;
                 const waitTime = delay + Math.floor(Math.random() * 500);
                 console.warn(`[MusicBrainz] Network error (${err.message}). Retrying attempt ${attempt}/${maxRetries} in ${waitTime}ms...`);
-                await new Promise(r => setTimeout(r, waitTime));
+                await new Promise((r, rej) => {
+                    const timer = setTimeout(r, waitTime);
+                    if (signal) {
+                        signal.addEventListener('abort', () => {
+                            clearTimeout(timer);
+                            rej(new DOMException('Aborted', 'AbortError'));
+                        }, { once: true });
+                    }
+                });
                 delay *= 2;
                 continue;
             }
@@ -87,8 +119,12 @@ async function processQueue() {
 
     while (requestQueue.length > 0) {
         const item = requestQueue.shift();
+        if (item.signal?.aborted) {
+            item.reject(new DOMException('Aborted', 'AbortError'));
+            continue;
+        }
         try {
-            const data = await executeWithRetry(item.url);
+            const data = await executeWithRetry(item.url, MAX_RETRIES, item.signal);
             item.resolve(data);
         } catch (err) {
             item.reject(err);
@@ -98,7 +134,12 @@ async function processQueue() {
     isProcessingQueue = false;
 }
 
-export function fetchMusicBrainz(url) {
+export function fetchMusicBrainz(url, options = {}) {
+    const signal = options?.signal;
+    if (signal?.aborted) {
+        return Promise.reject(new DOMException('Aborted', 'AbortError'));
+    }
+
     // Check in-memory/session cache
     try {
         const cached = sessionStorage.getItem(CACHE_PREFIX + url);
@@ -107,14 +148,15 @@ export function fetchMusicBrainz(url) {
         }
     } catch {}
 
-    // Check if there is already an in-flight request for this exact URL
-    if (inFlightRequests.has(url)) {
+    // Check if there is already an in-flight request for this exact URL without signal or matching
+    if (!signal && inFlightRequests.has(url)) {
         return inFlightRequests.get(url);
     }
 
     const promise = new Promise((resolve, reject) => {
-        requestQueue.push({
+        const item = {
             url,
+            signal,
             resolve: (data) => {
                 inFlightRequests.delete(url);
                 try {
@@ -136,11 +178,24 @@ export function fetchMusicBrainz(url) {
                 inFlightRequests.delete(url);
                 reject(err);
             }
-        });
+        };
+
+        if (signal) {
+            signal.addEventListener('abort', () => {
+                const idx = requestQueue.indexOf(item);
+                if (idx !== -1) requestQueue.splice(idx, 1);
+                inFlightRequests.delete(url);
+                reject(new DOMException('Aborted', 'AbortError'));
+            }, { once: true });
+        }
+
+        requestQueue.push(item);
         processQueue();
     });
 
-    inFlightRequests.set(url, promise);
+    if (!signal) {
+        inFlightRequests.set(url, promise);
+    }
     return promise;
 }
 
@@ -507,14 +562,14 @@ function scoreAndRankRecordings(recordings, query) {
 /**
  * Search MusicBrainz by entity type (artist, album, song, musician)
  */
-export async function searchMusicBrainz(query, type = 'artist') {
+export async function searchMusicBrainz(query, type = 'artist', options = {}) {
     if (!query || !query.trim()) return [];
     const cleanQuery = query.trim().replace(/['"()]/g, '');
 
     switch (type) {
         case 'artist': {
             const url = `${MB_BASE}/artist?query=${encodeURIComponent(cleanQuery)}&limit=25&fmt=json`;
-            const data = await fetchMusicBrainz(url);
+            const data = await fetchMusicBrainz(url, options);
             return (data.artists || []).map(a => ({
                 id: a.id,
                 name: a.name,
@@ -528,7 +583,7 @@ export async function searchMusicBrainz(query, type = 'artist') {
 
         case 'album': {
             const url = `${MB_BASE}/release-group?query=${encodeURIComponent(cleanQuery)}&limit=40&fmt=json`;
-            const data = await fetchMusicBrainz(url);
+            const data = await fetchMusicBrainz(url, options);
             return (data['release-groups'] || [])
                 .filter(rg => {
                     const sec = (rg['secondary-types'] || []).map(t => String(t).toLowerCase());
@@ -556,14 +611,14 @@ export async function searchMusicBrainz(query, type = 'artist') {
             // High-precision Lucene query: exact title boosted, term matches, title track release matches, and live exclusion
             const lucene = `(recording:"${cleanQuery}"^10 OR recording:(${cleanQuery})^4 OR (recording:(${cleanQuery}) AND release:(${cleanQuery})^3) OR (recording:(${cleanQuery}) AND artist:(${cleanQuery})^5)) AND NOT comment:live AND NOT video:true`;
             const url = `${MB_BASE}/recording?query=${encodeURIComponent(lucene)}&limit=100&fmt=json`;
-            const data = await fetchMusicBrainz(url);
+            const data = await fetchMusicBrainz(url, options);
             return scoreAndRankRecordings(data.recordings || [], cleanQuery);
         }
 
         case 'musician': {
             // Search artists with Person type prioritized, then relations
             const url = `${MB_BASE}/artist?query=${encodeURIComponent(cleanQuery)}&limit=25&fmt=json`;
-            const data = await fetchMusicBrainz(url);
+            const data = await fetchMusicBrainz(url, options);
             return (data.artists || []).map(a => ({
                 id: a.id,
                 name: a.name,

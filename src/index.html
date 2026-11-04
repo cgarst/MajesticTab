@@ -275,6 +275,55 @@
     <!-- Source pills will be dynamically rendered here -->
   </div>
 
+  <!-- Batch Assistant Stepper Row -->
+  <div class="downloader-batch-row" id="downloaderBatchRow" style="display:none;" data-tauri-drag-region>
+    <div class="downloader-batch-stepper-container" id="downloaderBatchStepperContainer">
+      <button type="button" class="btn btn-sm downloader-batch-stepper-btn" id="downloaderBatchStepperBtn" aria-expanded="false" aria-haspopup="true">
+        <i class="bi-disc text-primary me-1"></i>
+        <span class="downloader-batch-album-title" id="downloaderBatchAlbumTitle">Album</span>
+        <span class="mx-1 text-muted">·</span>
+        <span class="downloader-batch-track-info" id="downloaderBatchTrackInfo">Track 1 of 8: Title</span>
+        <i class="bi-chevron-down ms-1 text-muted"></i>
+      </button>
+      <!-- Checklist Popover -->
+      <div class="downloader-batch-popover" id="downloaderBatchPopover" style="display:none;">
+        <div class="downloader-batch-popover-header">
+          <span class="fw-semibold">Album Tracks</span>
+          <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderBatchPopoverCloseBtn" aria-label="Close tracklist"><i class="bi-x-lg"></i></button>
+        </div>
+        <div class="downloader-batch-popover-list" id="downloaderBatchTracklist">
+          <!-- Dynamic track rows -->
+        </div>
+      </div>
+    </div>
+    <div class="downloader-batch-actions ms-auto d-flex align-items-center gap-2">
+      <button type="button" class="btn btn-sm btn-theme-outline" id="downloaderBatchSkipBtn" title="Skip this track for now">Skip</button>
+      <button type="button" class="btn btn-sm btn-theme-primary" id="downloaderBatchDoneBtn" title="Finish batch download">Done (0/0)</button>
+    </div>
+  </div>
+
+  <!-- Transient Feedback Banner (Undo / Advance) -->
+  <div class="downloader-transient-banner" id="downloaderTransientBanner" style="display:none;" role="status">
+    <span class="downloader-transient-text" id="downloaderTransientText"></span>
+    <button type="button" class="btn btn-sm btn-theme-outline downloader-transient-undo-btn" id="downloaderTransientUndoBtn">Undo / Re-download</button>
+  </div>
+
+  <!-- Navigation Advisory Badge -->
+  <div class="downloader-advisory-badge" id="downloaderAdvisoryBadge" style="display:none;" role="alert">
+    <i class="bi-info-circle me-1"></i>
+    <span class="downloader-advisory-text" id="downloaderAdvisoryText"></span>
+    <button type="button" class="btn btn-sm btn-link p-0 ms-2 text-decoration-none downloader-advisory-switch-btn" id="downloaderAdvisorySwitchBtn">Switch target</button>
+  </div>
+
+  <!-- Multi-File ZIP Extraction Picker -->
+  <div class="downloader-zip-picker" id="downloaderZipPicker" style="display:none;">
+    <div class="downloader-zip-picker-card">
+      <div class="downloader-zip-picker-title">Choose file to attach</div>
+      <div class="downloader-zip-picker-files" id="downloaderZipPickerFiles"></div>
+      <button type="button" class="btn btn-sm btn-theme-outline mt-2 w-100" id="downloaderZipPickerCancelBtn">Cancel</button>
+    </div>
+  </div>
+
   <div class="downloader-hint-banner" id="downloaderHintBanner" role="note">
     <i class="bi-info-circle"></i>
     <span>Browse to a supported tab file (Guitar Pro, PDF or TXT) and download it to add it to MajesticTab.</span>

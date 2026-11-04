@@ -21,7 +21,7 @@ function refreshSaveToLibraryBtn() {
     if (btn) btn.style.display = isSavableFile(getCurrentFile()) ? '' : 'none';
 }
 
-async function openSaveToLibraryModal(file) {
+export async function openSaveToLibraryModal(file) {
     const [collections, meta] = await Promise.all([
         getCollections(),
         detectFileMetadata(file, file.name).catch(() => null)

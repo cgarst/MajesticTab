@@ -12,7 +12,8 @@ import {
 import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
     getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium,
-    filterInstrumentalBonusDiscs, hydrateCachedImages, getSynchronousCachedArtUrl
+    filterInstrumentalBonusDiscs, hydrateCachedImages, getSynchronousCachedArtUrl,
+    cleanTrackTitleForMatching
 } from './musicbrainz.js';
 import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
@@ -29,6 +30,7 @@ import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 import { songHasSyncPoints } from './audioSync/syncStore.js';
+import { isNative, openTabDownloader } from './tabDownloader.js';
 
 export const HIDE_NO_TAB_SONGS_KEY = 'majestictab_hide_no_tab_songs';
 
@@ -597,6 +599,225 @@ export function closeLibraryModal(force = false) {
     }
 }
 
+/**
+ * Navigate directly to an album inside the library
+ */
+export async function navigateToAlbumInLibrary(artistName, albumTitle) {
+    await openLibraryModal('library');
+    libraryBrowseMode = 'artists';
+    activeView = 'library';
+    const hierarchy = await getLibraryHierarchy(activeCollectionId);
+    const targetArtist = (hierarchy.artists || []).find(a => cleanTrackTitleForMatching(a.name) === cleanTrackTitleForMatching(artistName));
+    if (targetArtist) {
+        selectedArtist = targetArtist;
+        const targetAlbum = (targetArtist.albums || []).find(al => cleanTrackTitleForMatching(al.title || al.name) === cleanTrackTitleForMatching(albumTitle));
+        selectedAlbum = targetAlbum || null;
+        selectedFolderPath = selectedAlbum ? (selectedAlbum.folderPath && selectedAlbum.isCustom ? selectedAlbum.folderPath.split('/') : [selectedAlbum.title || selectedAlbum.name]) : [];
+    } else {
+        selectedArtist = null;
+        selectedAlbum = null;
+        selectedFolderPath = [];
+    }
+    isAlbumEditMode = false;
+    activeLibraryPane = 'songs';
+    const container = document.getElementById('libraryPage');
+    if (container) {
+        await renderLibraryBrowseView(container);
+    }
+}
+
+/**
+ * Handle 1-click single song fulfillment: creates library song shell and opens downloader pre-targeted
+ */
+export async function handleGetTabSingleSong(songItem) {
+    if (!songItem) return;
+    const title = songItem.title || '';
+    const artist = songItem.artist || '';
+
+    // Check if song already exists in library
+    const hierarchy = await getLibraryHierarchy(activeCollectionId);
+    let targetSong = null;
+    for (const art of hierarchy.artists || []) {
+        if (cleanTrackTitleForMatching(art.name) === cleanTrackTitleForMatching(artist)) {
+            for (const s of art.songs || []) {
+                if (cleanTrackTitleForMatching(s.title) === cleanTrackTitleForMatching(title)) {
+                    targetSong = s;
+                    break;
+                }
+            }
+            if (!targetSong) {
+                for (const alb of art.albums || []) {
+                    for (const s of alb.songs || []) {
+                        if (cleanTrackTitleForMatching(s.title) === cleanTrackTitleForMatching(title)) {
+                            targetSong = s;
+                            break;
+                        }
+                    }
+                    if (targetSong) break;
+                }
+            }
+        }
+        if (targetSong) break;
+    }
+
+    if (!targetSong) {
+        targetSong = await saveSongToLibrary({
+            title,
+            artist,
+            album: songItem.album || '',
+            collectionId: activeCollectionId,
+            recordingMbid: songItem.recordingMbid || songItem.id || '',
+            artistMbid: songItem.artistMbid || '',
+            coverUrl: songItem.coverUrl || null,
+            year: songItem.year || null,
+            length: songItem.length || null
+        });
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    }
+
+    if (isNative()) {
+        const query = `${artist} ${title} guitar pro tab`;
+        await openTabDownloader({
+            targetSong,
+            artist,
+            songName: title,
+            query,
+            autoOpenOnDownload: true
+        });
+    } else {
+        const query = `${artist} ${title} guitar pro tab`;
+        window.open(`https://duckduckgo.com/?q=${encodeURIComponent(query)}`, '_blank');
+        showToast('Waiting for downloaded tab — drop it here when finished', 'info');
+    }
+}
+
+/**
+ * Handle Guided Batch Tab Assistant for albums:
+ * Pre-flights library for existing tabs, builds smart queue, launches downloader in batch mode
+ */
+export async function handleAddAlbumBatch(albumItem, btnEl) {
+    if (!albumItem) return;
+    const albumTitle = albumItem.title || albumItem.name || '';
+    const artistName = albumItem.artist || albumItem.artistName || '';
+
+    if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.textContent = 'Preparing...';
+    }
+
+    try {
+        const hierarchy = await getLibraryHierarchy(activeCollectionId);
+        let artistObj = (hierarchy.artists || []).find(a => cleanTrackTitleForMatching(a.name) === cleanTrackTitleForMatching(artistName));
+        let albumObj = artistObj?.albums?.find(al => cleanTrackTitleForMatching(al.title || al.name) === cleanTrackTitleForMatching(albumTitle));
+
+        // If album does not exist in library, fetch tracks and add album
+        if (!albumObj) {
+            let tracks = [];
+            const releaseGroupMbid = albumItem.id || albumItem.releaseGroupMbid || albumItem.albumMbid;
+            if (releaseGroupMbid) {
+                try {
+                    tracks = await getAlbumTracks(releaseGroupMbid);
+                } catch (e) {
+                    console.warn('[Batch Assistant] Failed to fetch album tracks from MusicBrainz:', e);
+                }
+            }
+            await addAlbumToLibrary({
+                albumTitle,
+                artistName,
+                collectionId: activeCollectionId,
+                year: albumItem.year || null,
+                coverUrl: albumItem.coverUrl || null,
+                releaseGroupMbid: releaseGroupMbid || '',
+                tracks: tracks.map((t, idx) => ({
+                    title: t.title || t.name,
+                    trackNumber: t.trackNumber || (idx + 1),
+                    length: t.length || null,
+                    recordingMbid: t.recordingMbid || t.id || ''
+                }))
+            });
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+            const updatedHierarchy = await getLibraryHierarchy(activeCollectionId);
+            artistObj = (updatedHierarchy.artists || []).find(a => cleanTrackTitleForMatching(a.name) === cleanTrackTitleForMatching(artistName));
+            albumObj = artistObj?.albums?.find(al => cleanTrackTitleForMatching(al.title || al.name) === cleanTrackTitleForMatching(albumTitle));
+        }
+
+        const albumTracks = albumObj?.songs || [];
+        if (albumTracks.length === 0) {
+            showToast(`No tracks found for album "${albumTitle}"`, 'warning');
+            if (btnEl) {
+                btnEl.disabled = false;
+                btnEl.textContent = 'Add Album & Find Tabs';
+            }
+            return;
+        }
+
+        // Pre-flight library scan: match against existing artist songs with tabs
+        const existingArtistSongs = [
+            ...(artistObj?.songs || []),
+            ...(artistObj?.albums || []).flatMap(al => al.songs || [])
+        ];
+
+        const queue = albumTracks.map((track, idx) => {
+            const cleanTitle = cleanTrackTitleForMatching(track.title);
+            let hasTab = songHasTabs(track);
+            let alreadyInLib = false;
+            let fileName = track.tabOptions?.[0]?.name || null;
+
+            if (!hasTab) {
+                const matchSong = existingArtistSongs.find(s => s.id !== track.id && cleanTrackTitleForMatching(s.title) === cleanTitle && songHasTabs(s));
+                if (matchSong && matchSong.tabOptions?.[0]) {
+                    hasTab = true;
+                    alreadyInLib = true;
+                    fileName = matchSong.tabOptions[0].name;
+                    addTabOptionToSong(track.id, matchSong.tabOptions[0]).catch(() => {});
+                }
+            } else {
+                alreadyInLib = true;
+            }
+
+            return {
+                trackNumber: track.trackNumber || (idx + 1),
+                title: track.title,
+                artist: artistName,
+                songId: track.id,
+                acquired: Boolean(hasTab),
+                alreadyInLibrary: Boolean(alreadyInLib),
+                fileName
+            };
+        });
+
+        const unacquiredCount = queue.filter(t => !t.acquired).length;
+        if (unacquiredCount === 0) {
+            showToast(`All ${queue.length} tracks already in library with tabs`, 'info');
+            await navigateToAlbumInLibrary(artistName, albumTitle);
+            return;
+        }
+
+        if (!isNative()) {
+            showToast('Batch tab downloading requires the MajesticTab desktop or mobile app. On the web, you can add songs individually or drop tab files.', 'warning');
+            await navigateToAlbumInLibrary(artistName, albumTitle);
+            return;
+        }
+
+        const firstMissingIdx = queue.findIndex(t => !t.acquired);
+        await openTabDownloader({
+            batchMode: true,
+            albumTitle,
+            artistName,
+            albumId: albumObj?.id || null,
+            queue,
+            currentIndex: firstMissingIdx >= 0 ? firstMissingIdx : 0
+        });
+    } catch (err) {
+        console.error('[Batch Assistant] Error preparing batch download:', err);
+        showToast('Error preparing album batch download', 'error');
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.textContent = 'Add Album & Find Tabs';
+        }
+    }
+}
+
 // Expose closeLibraryModal on window for automation/tests
 if (typeof window !== 'undefined') {
     window.closeLibraryModal = closeLibraryModal;
@@ -810,16 +1031,22 @@ async function renderLibraryBrowseView(container) {
           ${libraryEmptyStateHtml({
             icon: 'bi-music-note-list',
             title: 'This collection is empty',
-            message: 'Add your favorite songs and albums to build your personalized tab catalog, or add custom music and exercises.',
-            actionsHtml: `<button class="btn btn-theme-outline btn-sm px-4" id="emptyStateOpenFileBtn"><i class="bi-folder2-open me-1"></i> Open File</button>
-              <button class="btn btn-theme-outline btn-sm px-4" id="emptyStateRestoreBtn"><i class="bi-arrow-counterclockwise me-1"></i> Restore backup</button>
-              <button class="btn btn-theme-primary btn-sm px-4" id="emptyStateAddBtn"><i class="bi-plus-lg me-1"></i> Add Music</button>`
+            message: 'Add your favorite songs and albums to build your personalized tab catalog, or link existing files from your device.',
+            actionsHtml: `<button class="btn btn-theme-primary btn-sm px-4" id="emptyStateSearchBtn"><i class="bi-search me-1"></i> Search Catalog &amp; Web</button>
+              <button class="btn btn-theme-outline btn-sm px-4" id="emptyStateOpenFileBtn"><i class="bi-folder2-open me-1"></i> Link existing files</button>
+              <button class="btn btn-theme-outline btn-sm px-4" id="emptyStateRestoreBtn"><i class="bi-arrow-counterclockwise me-1"></i> Restore backup</button>`
           })}
         </div>
         `;
 
         bindLibraryToolbarEvents(container);
-        container.querySelector('#emptyStateAddBtn')?.addEventListener('click', () => { searchType = 'artist'; switchView('search'); });
+        container.querySelector('#emptyStateSearchBtn')?.addEventListener('click', () => {
+            const input = container.querySelector('#libFilterInput');
+            if (input) {
+                input.focus();
+                input.select();
+            }
+        });
         container.querySelector('#emptyStateOpenFileBtn')?.addEventListener('click', () => switchView('openFile'));
         container.querySelector('#emptyStateRestoreBtn')?.addEventListener('click', async () => {
             try {
@@ -838,7 +1065,7 @@ async function renderLibraryBrowseView(container) {
     let toolbarHtml = '';
     const openFileBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action" id="libOpenFileBtn" title="Open a tab file from this device, Google Drive or the web">Open file</button>`;
     const syncBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action" id="libSyncBtn" title="Sync your library with your backup location">Sync</button>`;
-    const addMusicBtnHtml = openFileBtnHtml + syncBtnHtml + `<button type="button" class="btn btn-sm btn-theme-primary p-1 px-3 d-flex align-items-center gap-1" id="libAddMusicBtn" title="Search catalog or add custom music"><i class="bi-plus-lg"></i> <span>Add Music</span></button>`;
+    const toolbarActionsHtml = `<div class="library-toolbar-actions d-flex align-items-center gap-2">${openFileBtnHtml}${syncBtnHtml}</div>`;
 
     // ==========================================
     // A. TUNINGS BROWSE MODE
@@ -974,7 +1201,7 @@ async function renderLibraryBrowseView(container) {
             toolbarHtml = libraryListToolbarHtml({
                 leftHtml: collectionSelectHtml,
                 count: '0 artists',
-                actionsHtml: addMusicBtnHtml
+                actionsHtml: toolbarActionsHtml
             });
         } else {
             // Keep selectedArtist in sync; default to first artist if not set
@@ -1193,6 +1420,11 @@ async function renderLibraryBrowseView(container) {
                         </div>
 
                         <div class="album-header-actions d-flex align-items-center gap-2 flex-shrink-0">
+                          ${alb.songs && alb.songs.some(s => !songHasTabs(s)) ? `
+                            <button type="button" class="btn btn-sm btn-theme-primary batch-album-find-tabs-btn py-1 px-2 d-inline-flex align-items-center gap-1" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(selectedArtist.name)}" title="Find tabs for missing tracks in this album">
+                              <span>Find tabs</span>
+                            </button>
+                          ` : ''}
                           <button type="button" class="btn btn-sm btn-theme-outline explore-album-tracklist-btn py-1 px-2 d-none d-sm-inline-flex align-items-center gap-1" data-album-title="${escapeHtml(alb.title)}" title="Explore complete album tracklist on MusicBrainz">
                             <span>Tracklist</span>
                           </button>
@@ -1365,7 +1597,7 @@ async function renderLibraryBrowseView(container) {
             toolbarHtml = libraryListToolbarHtml({
                 leftHtml: collectionSelectHtml,
                 count: `${artists.length} ${artists.length === 1 ? 'artist' : 'artists'}`,
-                actionsHtml: addMusicBtnHtml
+                actionsHtml: toolbarActionsHtml
             });
 
             let resumeHtml = '';
@@ -1809,8 +2041,14 @@ export function libraryViewSwitchHtml(activeTab = null) {
 // Shared chrome for every library view: centered view switcher, then its own search box, then (below, via
 // libraryListToolbarHtml) a count on the left and the primary action on the right.
 export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, searchLabel, searchDisabled = false }) {
-    // On a phone the box is narrow: the icon says it is search, so the hint is one word
-    if (window.matchMedia?.('(max-width: 576px)').matches) placeholder = 'Search';
+    const isMobile = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 576px)').matches;
+    if (isMobile) {
+        placeholder = 'Search library or web…';
+    } else if (!placeholder || placeholder === 'Search your library') {
+        placeholder = 'Search your library or find any artist, song, or album…';
+    }
+    const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || navigator.userAgent);
+    const shortcutHint = isMac ? '⌘K' : 'Ctrl+K';
     return `<div class="lib-view-switch-row">${libraryViewSwitchHtml(activeTab)}</div>
       <div class="library-search-box mb-3">
         <div class="library-search-bar">
@@ -1819,19 +2057,22 @@ export function libraryHeaderHtml({ activeTab, searchId, clearId, placeholder, s
           <button class="search-clear-btn" type="button" id="${clearId}" title="Clear search" aria-label="Clear search" style="display: none;">
             <i class="bi-x-lg"></i>
           </button>
-          <kbd class="search-key-hint" aria-hidden="true">/</kbd>
+          <kbd class="search-key-hint" aria-hidden="true">${shortcutHint}</kbd>
           <button class="search-close-btn" type="button" aria-label="Close search">Cancel</button>
         </div>
+        <div class="library-search-guidance" id="libSearchGuidance" style="display: none;">Type to filter your collection · Press Enter or select below to search the web for new tabs</div>
       </div>`;
 }
 
-// "/" focuses the library search from anywhere that is not a text field (one listener for the app)
+// ⌘K / Ctrl+K and "/" focus the library search from anywhere that is not a text field
 let librarySearchShortcutBound = false;
 function bindLibrarySearchShortcut() {
-    if (librarySearchShortcutBound) return;
+    if (librarySearchShortcutBound || typeof document === 'undefined') return;
     librarySearchShortcutBound = true;
     document.addEventListener('keydown', (e) => {
-        if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey) return;
+        const isSlash = e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey;
+        const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k';
+        if (!isSlash && !isCmdK) return;
         const t = e.target;
         if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
         const input = document.querySelector('.library-page-view .library-search-bar .search-input:not([disabled])');
@@ -2177,6 +2418,18 @@ function setupLibraryFilter(container, context = {}) {
     const clearBtn = container.querySelector('#libFilterClearBtn');
     if (!filterInput) return;
 
+    const guidanceCue = container.querySelector('#libSearchGuidance');
+    filterInput.addEventListener('focus', () => {
+        if (guidanceCue) guidanceCue.style.display = 'block';
+    });
+    filterInput.addEventListener('blur', () => {
+        setTimeout(() => {
+            if (document.activeElement !== filterInput && guidanceCue) {
+                guidanceCue.style.display = 'none';
+            }
+        }, 200);
+    });
+
     if (libraryBrowseMode === 'tunings' && !context.selectedAlbum) {
         bindTwoPaneFilter(container, { inputId: 'libFilterInput', clearId: 'libFilterClearBtn', key: 'tunings', cardSelector: '.tuning-card', rowSelector: '.pane.songs .library-song-row' });
         return;
@@ -2185,19 +2438,18 @@ function setupLibraryFilter(container, context = {}) {
     const browseContent = container.querySelector('#libBrowseContent');
     const filterResults = container.querySelector('#libFilteredSearchResults');
 
-    const applyFilter = () => {
-        const rawQuery = (filterInput.value || '').trim();
-        const query = rawQuery.toLowerCase();
-        libraryFilterQuery = filterInput.value || '';
-        if (clearBtn) {
-            clearBtn.style.display = query.length > 0 ? 'inline-flex' : 'none';
-        }
+    let localTimer = null;
+    let catalogTimer = null;
+    let searchAbortController = null;
+    let activeNavIndex = -1;
 
-        // Clean up previous filter empty message if any
-        container.querySelectorAll('.library-filter-empty-msg').forEach(el => el.remove());
-
-        // 1. Song List View (Album Detail - specifically #libSongsList)
-        if (context.selectedAlbum) {
+    // 1. Song List View (Album Detail - specifically #libSongsList)
+    if (context.selectedAlbum) {
+        const applyAlbumFilter = () => {
+            const rawQuery = (filterInput.value || '').trim();
+            const query = rawQuery.toLowerCase();
+            if (clearBtn) clearBtn.style.display = query.length > 0 ? 'inline-flex' : 'none';
+            container.querySelectorAll('.library-filter-empty-msg').forEach(el => el.remove());
             const songsList = container.querySelector('#libSongsList');
             if (songsList) {
                 const songRows = songsList.querySelectorAll('.library-song-row');
@@ -2216,168 +2468,212 @@ function setupLibraryFilter(container, context = {}) {
                     songsList.appendChild(emptyMsg);
                 }
             }
+        };
+        filterInput.addEventListener('input', applyAlbumFilter);
+        clearBtn?.addEventListener('click', () => {
+            filterInput.value = '';
+            applyAlbumFilter();
+            filterInput.focus();
+        });
+        return;
+    }
+
+    const renderCatalogTier = (catalogSongs, catalogAlbums, rawQuery) => {
+        const catalogContainer = filterResults.querySelector('#libSearchCatalogResults');
+        const statusSlot = filterResults.querySelector('#libSearchCatalogStatus');
+        if (!catalogContainer) return;
+
+        if (catalogSongs.length === 0 && catalogAlbums.length === 0) {
+            if (statusSlot) {
+                statusSlot.innerHTML = `<span class="text-muted">No music catalog matches found for "${escapeHtml(rawQuery)}"</span>`;
+                statusSlot.style.display = 'flex';
+            }
+            catalogContainer.innerHTML = '';
             return;
         }
 
-        // 2. Tunings View (#libTuningsList)
-        if (libraryBrowseMode === 'tunings') {
-            const tuningsList = container.querySelector('#libTuningsList');
-            if (tuningsList) {
-                const tuningCards = tuningsList.querySelectorAll('.tuning-card');
-                let totalVisibleCount = 0;
-                tuningCards.forEach(card => {
-                    const name = (card.dataset.tuningName || '').toLowerCase();
-                    const notes = (card.dataset.tuningNotes || '').toLowerCase();
-                    const key = (card.dataset.tuningKey || '').toLowerCase();
-                    const text = (card.textContent || '').toLowerCase();
-                    const matches = !query || name.includes(query) || notes.includes(query) || key.includes(query) || text.includes(query);
-                    card.style.display = matches ? '' : 'none';
-                    if (matches) totalVisibleCount++;
+        if (statusSlot) {
+            statusSlot.innerHTML = '';
+            statusSlot.style.display = 'none';
+        }
+
+        let html = `
+        <div class="search-stream-section">
+          <div class="search-stream-section-title">FROM MUSIC CATALOG &amp; WEB</div>
+          <div class="search-stream-list">
+        `;
+
+        // Render catalog albums
+        for (const alb of catalogAlbums.slice(0, 5)) {
+            html += `
+            <div class="search-stream-row is-navigable" data-type="catalog-album" tabindex="0">
+              <i class="bi-disc text-primary fs-5 flex-shrink-0"></i>
+              <div class="search-row-meta min-w-0 flex-grow-1">
+                <div class="search-row-title text-truncate">${escapeHtml(alb.title)} (Album)</div>
+                <div class="search-row-sub text-truncate">${escapeHtml(alb.artist)}${alb.year ? ` · ${alb.year}` : ''}${alb.trackCount ? ` · ${alb.trackCount} tracks` : ''}</div>
+              </div>
+              <button type="button" class="btn btn-sm btn-theme-primary catalog-album-batch-btn flex-shrink-0 ms-2" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(alb.artist)}" data-year="${alb.year || ''}">Add Album &amp; Find Tabs</button>
+            </div>
+            `;
+        }
+
+        // Render catalog songs
+        for (const song of catalogSongs.slice(0, 10)) {
+            html += `
+            <div class="search-stream-row is-navigable" data-type="catalog-song" tabindex="0">
+              <i class="bi-music-note-beamed text-info fs-5 flex-shrink-0"></i>
+              <div class="search-row-meta min-w-0 flex-grow-1">
+                <div class="search-row-title text-truncate">${escapeHtml(song.title)}</div>
+                <div class="search-row-sub text-truncate">${escapeHtml(song.artist)}${song.album ? ` · ${escapeHtml(song.album)}` : ''}${song.year ? ` · ${song.year}` : ''}</div>
+              </div>
+              <button type="button" class="btn btn-sm btn-theme-primary catalog-song-get-tab-btn flex-shrink-0 ms-2" data-song-id="${song.id}" data-title="${escapeHtml(song.title)}" data-artist="${escapeHtml(song.artist)}" data-album="${escapeHtml(song.album || '')}" data-year="${song.year || ''}" data-recording-mbid="${song.recordingMbid || song.id || ''}">Get Tab</button>
+            </div>
+            `;
+        }
+
+        html += `
+          </div>
+        </div>
+        `;
+
+        catalogContainer.innerHTML = html;
+        catalogContainer.style.opacity = '0';
+        catalogContainer.style.transition = 'opacity var(--dur-fast, 150ms) ease';
+        requestAnimationFrame(() => {
+            catalogContainer.style.opacity = '1';
+        });
+
+        // Wire catalog action buttons
+        catalogContainer.querySelectorAll('.catalog-album-batch-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleAddAlbumBatch({
+                    id: btn.dataset.albumId,
+                    title: btn.dataset.albumTitle,
+                    artist: btn.dataset.artistName,
+                    year: btn.dataset.year
+                }, btn);
+            });
+        });
+
+        catalogContainer.querySelectorAll('.catalog-song-get-tab-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                handleGetTabSingleSong({
+                    id: btn.dataset.songId,
+                    title: btn.dataset.title,
+                    artist: btn.dataset.artist,
+                    album: btn.dataset.album,
+                    year: btn.dataset.year,
+                    recordingMbid: btn.dataset.recordingMbid
                 });
-                if (totalVisibleCount === 0 && query) {
-                    const emptyMsg = document.createElement('div');
-                    emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted w-100';
-                    emptyMsg.innerHTML = `<i class="bi-search fs-3 mb-2 d-block text-white-50"></i>No tunings match "${escapeHtml(query)}"`;
-                    tuningsList.appendChild(emptyMsg);
-                }
-            }
+            });
+        });
+    };
+
+    const runCatalogSearch = async (rawQuery, matchingSongs, allOwnedSongs) => {
+        if (!filterResults || filterResults.style.display === 'none') return;
+        const statusSlot = filterResults.querySelector('#libSearchCatalogStatus');
+        const catalogContainer = filterResults.querySelector('#libSearchCatalogResults');
+        if (!catalogContainer || !statusSlot) return;
+
+        if (!navigator.onLine) {
+            statusSlot.innerHTML = `<span class="text-muted">Offline · Showing local library results only</span>`;
+            statusSlot.style.display = 'flex';
+            catalogContainer.innerHTML = '';
             return;
         }
 
-        // 3a. Two-pane library: search inside it. Artists that match stay in the list, the songs pane
-        // follows the selected artist, and nothing is replaced by a results page.
-        const rootView = container.querySelector('.collection-root-view');
-        if (rootView) {
-            const artistMatches = (art) => {
-                if ((art.name || '').toLowerCase().includes(query)) return true;
-                const songMatch = (s) => (s.title || '').toLowerCase().includes(query)
-                    || (s.tabOptions || []).some(t => (t.name || '').toLowerCase().includes(query));
-                if ((art.songs || []).some(songMatch)) return true;
-                return (art.albums || []).some(alb => (alb.title || alb.name || '').toLowerCase().includes(query) || (alb.songs || []).some(songMatch));
-            };
-            const byName = new Map((context.artists || []).map(a => [a.name, a]));
-            let visibleArtists = 0, visibleRegular = 0;
-            rootView.querySelectorAll('.artist-card').forEach(card => {
-                const art = byName.get(card.dataset.artistName);
-                const hit = !query || (art ? artistMatches(art) : (card.textContent || '').toLowerCase().includes(query));
-                card.classList.toggle('lib-filter-hidden', !hit);
-                if (hit) { visibleArtists++; if (card.closest('#libArtistsGrid')) visibleRegular++; }
-            });
-            const listCount = rootView.querySelector('.pane.list .pane-head .tnum');
-            if (listCount) {
-                if (listCount.dataset.total === undefined) listCount.dataset.total = listCount.textContent;
-                listCount.textContent = query ? String(visibleRegular) : listCount.dataset.total;
-            }
-            const pinnedBtn = rootView.querySelector('#libPinnedGroupBtn');
-            const pinnedHit = !query || (context.pinnedSongs || []).some(sg => `${sg.title || ''} ${sg.artist || ''} ${sg.album || ''}`.toLowerCase().includes(query));
-            pinnedBtn?.classList.toggle('lib-filter-hidden', !pinnedHit);
-            const recentsBtn = rootView.querySelector('#libRecentsGroupBtn');
-            recentsBtn?.classList.toggle('lib-filter-hidden', Boolean(query) && !'recents recent tabs'.includes(query));
-            const pinnedActive = pinnedBtn?.getAttribute('aria-current') === 'true' || recentsBtn?.getAttribute('aria-current') === 'true';
-            const selectedName = context.selectedArtist?.name;
-            const selectedCard = [...rootView.querySelectorAll('.artist-card')].find(c => c.dataset.artistName === selectedName);
-            // The selected artist dropped out of the list: move to the first one that still matches
-            if (query && !pinnedActive && selectedCard && selectedCard.classList.contains('lib-filter-hidden')) {
-                const first = [...rootView.querySelectorAll('.artist-card')].find(c => !c.classList.contains('lib-filter-hidden'));
-                if (first) { first.click(); return; }
-            }
-            const selectedArtistMatches = !query || (!pinnedActive && (selectedName || '').toLowerCase().includes(query));
-            const rows = rootView.querySelectorAll('.pane.songs .library-song-row');
-            let shownRows = 0;
-            rows.forEach(row => {
-                const hit = selectedArtistMatches || (row.textContent || '').toLowerCase().includes(query);
-                row.classList.toggle('lib-filter-hidden', !hit);
-                if (hit) shownRows++;
-            });
-            const songsPane = rootView.querySelector('.pane.songs .pane-scroll');
-            if (songsPane && rows.length && shownRows === 0 && query) {
-                const emptyMsg = document.createElement('div');
-                emptyMsg.className = 'library-filter-empty-msg text-center py-4 text-muted';
-                emptyMsg.textContent = 'Nothing matches that search.';
-                songsPane.appendChild(emptyMsg);
-            }
-            const noneAtAll = query && visibleArtists === 0 && !pinnedHit;
-            if (browseContent) browseContent.style.display = noneAtAll ? 'none' : 'block';
-            if (filterResults) {
-                filterResults.style.display = noneAtAll ? 'block' : 'none';
-                filterResults.innerHTML = noneAtAll ? `
-                <div class="library-filter-empty-msg text-center py-5 text-muted">
-                  <div>No artist or song matches "${escapeHtml(rawQuery)}". Clear the search to see everything.</div>
-                </div>
-                ${renderDownloaderSearchButton(rawQuery)}` : '';
-                if (noneAtAll) wireDownloaderSearchButton(filterResults, rawQuery);
-            }
+        if (rawQuery.length < 3) {
+            statusSlot.innerHTML = '';
+            statusSlot.style.display = 'none';
+            catalogContainer.innerHTML = '';
             return;
         }
 
-        // 3. Collection Root View OR Artist Detail View (Artists browse mode)
+        statusSlot.innerHTML = `<span class="search-catalog-pulse-dot"></span><span>Searching music catalog…</span>`;
+        statusSlot.style.display = 'flex';
+
+        if (searchAbortController) searchAbortController.abort();
+        searchAbortController = new AbortController();
+        const signal = searchAbortController.signal;
+
+        try {
+            const [songsRes, albumsRes] = await Promise.allSettled([
+                searchMusicBrainz(rawQuery, 'song', { signal }),
+                searchMusicBrainz(rawQuery, 'album', { signal })
+            ]);
+
+            if (signal.aborted) return;
+
+            const remoteSongs = songsRes.status === 'fulfilled' && Array.isArray(songsRes.value) ? songsRes.value : [];
+            const remoteAlbums = albumsRes.status === 'fulfilled' && Array.isArray(albumsRes.value) ? albumsRes.value : [];
+
+            // Deduplicate against user's owned songs
+            const cleanOwnedKeys = new Set(allOwnedSongs.map(s => `${cleanTrackTitleForMatching(s.artist)}___${cleanTrackTitleForMatching(s.title)}`));
+            const catalogSongs = remoteSongs.filter(s => !cleanOwnedKeys.has(`${cleanTrackTitleForMatching(s.artist)}___${cleanTrackTitleForMatching(s.title)}`));
+            const catalogAlbums = remoteAlbums; // Eponymous albums remain present
+
+            renderCatalogTier(catalogSongs, catalogAlbums, rawQuery);
+        } catch (err) {
+            if (err.name === 'AbortError') return;
+            console.warn('[Master Search] Catalog query error:', err);
+            statusSlot.innerHTML = `<span class="text-muted">Unable to reach music catalog</span>`;
+        }
+    };
+
+    const runLocalFilter = () => {
+        const rawQuery = (filterInput.value || '').trim();
+        const query = rawQuery.toLowerCase();
+        libraryFilterQuery = filterInput.value || '';
+        if (clearBtn) clearBtn.style.display = query.length > 0 ? 'inline-flex' : 'none';
+
         if (!query) {
+            if (searchAbortController) searchAbortController.abort();
             if (browseContent) browseContent.style.display = 'block';
             if (filterResults) {
                 filterResults.style.display = 'none';
                 filterResults.innerHTML = '';
             }
+            activeNavIndex = -1;
             return;
         }
 
-        // A query is active: filter down directly to the searched objects!
         if (browseContent) browseContent.style.display = 'none';
         if (!filterResults) return;
         filterResults.style.display = 'block';
 
-        const artistsList = context.selectedArtist ? [context.selectedArtist] : (context.artists || []);
         const matchingSongs = [];
-        const matchingAlbums = [];
-        const matchingArtists = [];
+        const allOwnedSongs = [];
+        const artistsList = context.artists || [];
 
-        // Check matching artists (only if at collection root)
-        if (!context.selectedArtist) {
-            for (const art of artistsList) {
-                if ((art.name || '').toLowerCase().includes(query)) {
-                    matchingArtists.push(art);
-                }
-            }
-        }
-
-        // Collect matching songs and albums
         for (const art of artistsList) {
             if (Array.isArray(art.songs)) {
                 for (const s of art.songs) {
+                    const songObj = { ...s, artist: s.artist || art.name, album: s.album || '' };
+                    allOwnedSongs.push(songObj);
                     if (isHideNoTabSongsEnabled() && !songHasTabs(s)) continue;
                     const titleMatch = (s.title || '').toLowerCase().includes(query);
+                    const artistMatch = (art.name || '').toLowerCase().includes(query);
                     const tabMatch = s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query));
-                    if (titleMatch || tabMatch) {
-                        matchingSongs.push({
-                            ...s,
-                            artist: s.artist || art.name,
-                            album: s.album || ''
-                        });
+                    if (titleMatch || artistMatch || tabMatch) {
+                        matchingSongs.push(songObj);
                     }
                 }
             }
-
             if (Array.isArray(art.albums)) {
                 for (const alb of art.albums) {
                     const albTitle = alb.title || alb.name || '';
-                    if (albTitle.toLowerCase().includes(query)) {
-                        matchingAlbums.push({
-                            ...alb,
-                            artistName: art.name
-                        });
-                    }
-
                     if (Array.isArray(alb.songs)) {
                         for (const s of alb.songs) {
+                            const songObj = { ...s, artist: s.artist || art.name, album: s.album || albTitle, coverUrl: s.coverUrl || alb.coverUrl || null };
+                            allOwnedSongs.push(songObj);
                             if (isHideNoTabSongsEnabled() && !songHasTabs(s)) continue;
                             const titleMatch = (s.title || '').toLowerCase().includes(query);
+                            const artistMatch = (art.name || '').toLowerCase().includes(query);
                             const tabMatch = s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query));
-                            if (titleMatch || tabMatch) {
-                                matchingSongs.push({
-                                    ...s,
-                                    artist: s.artist || art.name,
-                                    album: s.album || albTitle,
-                                    coverUrl: s.coverUrl || alb.coverUrl || null
-                                });
+                            if (titleMatch || artistMatch || tabMatch) {
+                                matchingSongs.push(songObj);
                             }
                         }
                     }
@@ -2385,135 +2681,150 @@ function setupLibraryFilter(container, context = {}) {
             }
         }
 
-        const hasMatches = matchingSongs.length > 0 || matchingAlbums.length > 0 || matchingArtists.length > 0;
-
-        if (!hasMatches) {
-            filterResults.innerHTML = `
-            <div class="library-filter-empty-msg text-center py-5 text-muted">
-              <i class="bi-search fs-3 mb-2 d-block text-white-50"></i>
-              <div>No songs, albums, or artists match "${escapeHtml(query)}"</div>
+        let html = `
+        <div class="search-stream-section" id="libLocalSearchSection">
+          <div class="search-stream-section-title">
+            <span>IN YOUR LIBRARY</span>
+            ${matchingSongs.length > 0 ? `<span class="search-stream-count">(${matchingSongs.length})</span>` : ''}
+          </div>
+          ${matchingSongs.length > 0 ? `
+            <div class="search-stream-list" id="libLocalSearchResultsList">
+              ${matchingSongs.slice(0, 10).map(s => {
+                const tuningDisplay = s.tabOptions?.[0]?.tuning || s.tuning || '';
+                return `
+                <div class="search-stream-row is-navigable" data-type="local-song" data-song-id="${s.id}" tabindex="0">
+                  <button type="button" class="btn btn-sm btn-theme-icon play-default-tab-btn flex-shrink-0" data-song-id="${s.id}" title="Play ${escapeHtml(s.title)}">
+                    <i class="bi-play-fill fs-5"></i>
+                  </button>
+                  <div class="search-row-meta min-w-0 flex-grow-1">
+                    <div class="search-row-title text-truncate">${escapeHtml(s.title)}</div>
+                    <div class="search-row-sub text-truncate">
+                      ${escapeHtml(s.artist || '')}${s.album ? ` · ${escapeHtml(s.album)}` : ''}${tuningDisplay ? ` · ${escapeHtml(tuningDisplay)}` : ''}
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-sm btn-theme-outline play-default-tab-btn flex-shrink-0 ms-2" data-song-id="${s.id}">Play</button>
+                </div>
+                `;
+              }).join('')}
             </div>
-            ${renderDownloaderSearchButton(rawQuery)}
-            `;
-            wireDownloaderSearchButton(filterResults, rawQuery);
-            return;
-        }
+          ` : `
+            <div class="search-stream-empty-text text-muted py-2 px-3">No local songs match "${escapeHtml(rawQuery)}"</div>
+          `}
+        </div>
 
-        let html = '';
+        <div class="search-catalog-status-slot" id="libSearchCatalogStatus">
+          ${!navigator.onLine ? `Offline · Showing local library results only` : (rawQuery.length >= 3 ? `<span class="search-catalog-pulse-dot"></span><span>Searching music catalog…</span>` : '')}
+        </div>
 
-        // 1. Render Songs
-        if (matchingSongs.length > 0) {
-            html += `
-            <div class="library-filter-section mb-4">
-              <div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2">
-                <i class="bi-music-note-beamed text-info"></i> Songs
-                <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${matchingSongs.length}</span>
-              </div>
-              <div class="library-songs-list d-flex flex-column gap-2" id="libFilterSongsList">
-                ${matchingSongs.map(s => renderSongRow(s, { showArtistAlbum: true, showTrackNumber: false })).join('')}
-              </div>
-            </div>
-            `;
-        }
+        <div class="search-catalog-results" id="libSearchCatalogResults"></div>
 
-        // 2. Render Albums
-        if (matchingAlbums.length > 0) {
-            html += `
-            <div class="library-filter-section mb-4">
-              <div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2">
-                <i class="bi-disc text-primary"></i> Albums
-                <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${matchingAlbums.length}</span>
-              </div>
-              <div class="library-albums-grid" id="libFilterAlbumsGrid">
-                ${matchingAlbums.map(alb => renderAlbumCard(alb, alb.artistName)).join('')}
-              </div>
-            </div>
-            `;
-        }
+        <div class="search-stream-fallbacks">
+          <div class="search-stream-row is-navigable search-fallback-row" data-type="web-fallback" tabindex="0">
+            <i class="bi-globe2 text-info flex-shrink-0"></i>
+            <span class="text-truncate">Search the web for "<strong>${escapeHtml(rawQuery)}</strong>" &rarr;</span>
+          </div>
+          <div class="search-stream-row is-navigable search-fallback-row" data-type="file-fallback" tabindex="0">
+            <i class="bi-folder2-open text-muted flex-shrink-0"></i>
+            <span class="text-truncate">Looking for a local file? Drop it here or browse device</span>
+          </div>
+        </div>
+        `;
 
-        // 3. Render Artists
-        if (matchingArtists.length > 0) {
-            html += `
-            <div class="library-filter-section mb-4">
-              <div class="small text-white-50 fw-semibold mb-2 d-flex align-items-center gap-2">
-                <i class="bi-person text-info"></i> Artists
-                <span class="badge badge-theme-secondary py-0 px-2" style="font-size:0.65rem;">${matchingArtists.length}</span>
-              </div>
-              <div class="library-artists-grid" id="libFilterArtistsGrid">
-                ${matchingArtists.map(art => renderArtistCard(art)).join('')}
-              </div>
-            </div>
-            `;
-        }
+        filterResults.innerHTML = html;
 
-        filterResults.innerHTML = html + renderDownloaderSearchButton(rawQuery);
-        wireDownloaderSearchButton(filterResults, rawQuery);
-
-        // Wire up song row actions (play default tab, + tab, dropdowns, pin)
+        // Wire song row play actions
         setupSongRowActions(filterResults);
 
-        // Click artist cards in filter results
-        filterResults.querySelectorAll('.artist-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                if (e.target.closest('.pin-artist-btn')) return;
-                clearCardInteractionState(card);
-                pushLibraryNavigationState();
-                const artistName = card.dataset.artistName;
-                selectedArtist = (context.artists || []).find(a => a.name === artistName);
-                selectedAlbum = null;
-                selectedFolderPath = [];
-                isAlbumEditMode = false;
-                renderLibraryBrowseView(container);
-            });
-        });
-
-        // Toggle Pin Artist in filter results
-        filterResults.querySelectorAll('.pin-artist-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const artistName = btn.dataset.artistName;
-                const pinned = toggleArtistPinned(artistName);
-                showToast(pinned ? `Pinned ${artistName}` : `Unpinned ${artistName}`, 'info');
-                renderLibraryBrowseView(container);
-            });
-        });
-
-        // Click album cards in filter results
-        filterResults.querySelectorAll('.album-card').forEach(card => {
-            card.addEventListener('click', () => {
-                clearCardInteractionState(card);
-                pushLibraryNavigationState();
-                const artistName = card.dataset.artistName;
-                const albumTitle = card.dataset.albumTitle;
-                const targetArtist = (context.artists || []).find(a => a.name === artistName);
-                if (targetArtist) {
-                    selectedArtist = targetArtist;
-                    selectedAlbum = targetArtist.albums?.find(al => al.title === albumTitle || al.name === albumTitle) || null;
-                    selectedFolderPath = selectedAlbum ? (selectedAlbum.folderPath && selectedAlbum.isCustom ? selectedAlbum.folderPath.split('/') : [selectedAlbum.title || selectedAlbum.name]) : [];
-                    isAlbumEditMode = false;
-                    renderLibraryBrowseView(container);
+        // Wire fallbacks
+        filterResults.querySelectorAll('.search-fallback-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const type = row.dataset.type;
+                if (type === 'web-fallback') {
+                    if (isNative()) {
+                        openTabDownloader({ query: rawQuery });
+                    } else {
+                        window.open(`https://duckduckgo.com/?q=${encodeURIComponent(rawQuery + ' guitar pro tab')}`, '_blank');
+                    }
+                } else if (type === 'file-fallback') {
+                    switchView('openFile');
                 }
             });
         });
 
-        // Hydrate images
-        hydrateCachedImages(filterResults);
+        // Trigger catalog query debounce
+        clearTimeout(catalogTimer);
+        catalogTimer = setTimeout(() => {
+            runCatalogSearch(rawQuery, matchingSongs, allOwnedSongs);
+        }, 450);
     };
 
-    filterInput.addEventListener('input', applyFilter);
+    filterInput.addEventListener('input', () => {
+        clearTimeout(localTimer);
+        localTimer = setTimeout(runLocalFilter, 50);
+    });
 
     clearBtn?.addEventListener('click', () => {
         filterInput.value = '';
-        applyFilter();
+        runLocalFilter();
         filterInput.focus();
     });
 
-    // Re-rendered by picking an artist while a search is active: put the text back and filter again
+    // Keyboard navigation
+    filterInput.addEventListener('keydown', (e) => {
+        if (!filterResults || filterResults.style.display === 'none') return;
+        const rows = Array.from(filterResults.querySelectorAll('.search-stream-row.is-navigable'));
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (!rows.length) return;
+            activeNavIndex = (activeNavIndex + 1) % rows.length;
+            rows.forEach((r, idx) => r.classList.toggle('is-selected', idx === activeNavIndex));
+            rows[activeNavIndex]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (!rows.length) return;
+            activeNavIndex = activeNavIndex <= 0 ? rows.length - 1 : activeNavIndex - 1;
+            rows.forEach((r, idx) => r.classList.toggle('is-selected', idx === activeNavIndex));
+            rows[activeNavIndex]?.scrollIntoView({ block: 'nearest' });
+        } else if (e.key === 'Enter') {
+            if (activeNavIndex >= 0 && activeNavIndex < rows.length) {
+                e.preventDefault();
+                const selectedRow = rows[activeNavIndex];
+                const primaryBtn = selectedRow.querySelector('.catalog-song-get-tab-btn, .catalog-album-batch-btn, .play-default-tab-btn');
+                if (primaryBtn) primaryBtn.click();
+                else selectedRow.click();
+            } else {
+                // If local matches exist, play top local song
+                const topLocalBtn = filterResults.querySelector('#libLocalSearchResultsList .play-default-tab-btn');
+                if (topLocalBtn) {
+                    e.preventDefault();
+                    topLocalBtn.click();
+                } else {
+                    const topCatalogBtn = filterResults.querySelector('.catalog-song-get-tab-btn, .catalog-album-batch-btn');
+                    if (topCatalogBtn) {
+                        e.preventDefault();
+                        topCatalogBtn.click();
+                    } else {
+                        const webFallback = filterResults.querySelector('[data-type="web-fallback"]');
+                        if (webFallback) {
+                            e.preventDefault();
+                            webFallback.click();
+                        }
+                    }
+                }
+            }
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            filterInput.value = '';
+            runLocalFilter();
+            filterInput.blur();
+        }
+    });
+
+    // Initial query if any
     if (libraryFilterQuery && !filterInput.value && libraryBrowseMode === 'artists') {
         filterInput.value = libraryFilterQuery;
-        applyFilter();
-    } else if (!filterInput.value) {
-        libraryFilterQuery = '';
+        runLocalFilter();
     }
 }
 
@@ -3053,6 +3364,19 @@ function setupSongRowActions(container) {
         const albumTabs = await getAlbumTabOptions(activeCollectionId, selectedArtist.name, folderTitle);
         const bookPdfs = albumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.fileType === 'pdf');
         openBookPdfSongsModal(selectedArtist.name, { title: folderTitle === 'Custom Music' && !selectedAlbum ? '' : folderTitle }, bookPdfs);
+    });
+
+    // Batch Find Tabs from Library Album Block
+    container.querySelectorAll('.batch-album-find-tabs-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const albumTitle = btn.dataset.albumTitle;
+            const artistName = btn.dataset.artistName;
+            const targetAlb = selectedArtist?.albums?.find(a => a.title === albumTitle) || selectedAlbum;
+            if (targetAlb) {
+                handleAddAlbumBatch({ ...targetAlb, artist: artistName, title: albumTitle }, btn);
+            }
+        });
     });
 
     // Explore Tracklist from Library Album Detail View

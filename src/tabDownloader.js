@@ -3,10 +3,11 @@
 
 import { saveStoredFile } from './fileStore.js';
 import { loadFile } from './main.js';
-import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryStore.js';
+import { addTabOptionToSong, addTabOptionToAlbum, getSongById, removeTabOptionFromSong } from './libraryStore.js';
 import { detectFileMetadata } from './utils/tuningUtils.js';
-import { closeLibraryModal } from './libraryModal.js';
+import { closeLibraryModal, navigateToAlbumInLibrary } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
+import { SUPPORTED_TAB_EXTENSIONS } from './utils/fileHandlingUtils.js';
 import {
     isWsaTabUrl,
     getDownloaderUrlFromMatchedUrl,
@@ -60,6 +61,16 @@ let activeArtistName = '';
 let activeSongName = '';
 let activeSourceId = 'duckduckgo';
 let currentSearchQuery = '';
+// Batch Assistant state
+let activeBatchMode = false;
+let activeBatchQueue = [];
+let activeBatchIndex = 0;
+let activeBatchAlbumTitle = '';
+let activeBatchArtistName = '';
+let activeBatchAlbumId = null;
+let activeAutoOpenOnDownload = false;
+let lastAcquiredTrack = null;
+let transientUndoTimer = null;
 // Source the user just clicked: the tab bar keeps it selected until its page starts loading,
 // instead of flickering back to the old page's source while the new one loads.
 let pendingSourceId = null;
@@ -70,6 +81,233 @@ let activeEphemeralSource = null;
 let pendingMatchedTabUrl = null;
 let pendingSourceTimer = null;
 let loadingBarTimer = null;
+
+const escapeHtml = str => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+/**
+ * Navigate native webview to a URL
+ * @param {string} nextUrl
+ */
+export function navigateToDownloaderUrl(nextUrl) {
+    if (!nextUrl) return;
+    currentDownloaderUrl = nextUrl;
+    const urlText = document.getElementById('downloaderUrlText');
+    if (urlText) urlText.textContent = nextUrl;
+    if (window.__TAURI__?.core?.invoke) {
+        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl }).catch(err => {
+            console.error('[Tab Downloader] Failed to navigate to url:', err);
+        });
+    }
+    try { window.MajesticDownloaderNative?.loadUrl?.(nextUrl); } catch {}
+}
+
+/**
+ * Show 6-second transient undo feedback banner
+ */
+export function showTransientFeedback(text, onUndo) {
+    clearTimeout(transientUndoTimer);
+    const banner = document.getElementById('downloaderTransientBanner');
+    const textEl = document.getElementById('downloaderTransientText');
+    const undoBtn = document.getElementById('downloaderTransientUndoBtn');
+    if (!banner || !textEl) return;
+    textEl.textContent = text;
+    if (undoBtn) {
+        undoBtn.style.display = onUndo ? '' : 'none';
+        undoBtn.onclick = () => {
+            hideTransientFeedback();
+            if (typeof onUndo === 'function') onUndo();
+        };
+    }
+    banner.style.display = 'flex';
+    transientUndoTimer = setTimeout(() => {
+        hideTransientFeedback();
+    }, 6000);
+}
+
+export function hideTransientFeedback() {
+    clearTimeout(transientUndoTimer);
+    const banner = document.getElementById('downloaderTransientBanner');
+    if (banner) banner.style.display = 'none';
+}
+
+/**
+ * Show non-modal advisory badge
+ */
+export function showAdvisoryBadge(text, onSwitch) {
+    const badge = document.getElementById('downloaderAdvisoryBadge');
+    const textEl = document.getElementById('downloaderAdvisoryText');
+    const switchBtn = document.getElementById('downloaderAdvisorySwitchBtn');
+    if (!badge || !textEl) return;
+    textEl.textContent = text;
+    if (switchBtn) {
+        switchBtn.style.display = onSwitch ? '' : 'none';
+        switchBtn.onclick = () => {
+            hideAdvisoryBadge();
+            if (typeof onSwitch === 'function') onSwitch();
+        };
+    }
+    badge.style.display = 'flex';
+}
+
+export function hideAdvisoryBadge() {
+    const badge = document.getElementById('downloaderAdvisoryBadge');
+    if (badge) badge.style.display = 'none';
+}
+
+/**
+ * Present picker for multi-file ZIP archive
+ */
+function promptMultiFileZipChoice(files = []) {
+    const picker = document.getElementById('downloaderZipPicker');
+    const list = document.getElementById('downloaderZipPickerFiles');
+    if (!picker || !list) return;
+    list.innerHTML = files.map((f, i) => `
+        <button type="button" class="btn btn-sm btn-theme-outline text-truncate w-100 mb-1 zip-choice-btn" data-file-index="${i}">
+            <i class="bi-file-earmark-music me-1"></i>${escapeHtml(f.name)}
+        </button>
+    `).join('');
+    list.querySelectorAll('.zip-choice-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            picker.style.display = 'none';
+            const idx = parseInt(btn.dataset.fileIndex, 10);
+            const chosen = files[idx];
+            if (chosen) {
+                handleDownloadedTabFile(chosen.name, chosen.data, chosen.path);
+            }
+        });
+    });
+    picker.style.display = 'flex';
+}
+
+/**
+ * Update Batch HUD elements (stepper button, counter, checklist popover)
+ */
+export function updateBatchHUD() {
+    if (!activeBatchMode) return;
+    const albumTitleEl = document.getElementById('downloaderBatchAlbumTitle');
+    const trackInfoEl = document.getElementById('downloaderBatchTrackInfo');
+    const doneBtn = document.getElementById('downloaderBatchDoneBtn');
+    const popoverList = document.getElementById('downloaderBatchTracklist');
+
+    if (albumTitleEl) albumTitleEl.textContent = activeBatchAlbumTitle || 'Album';
+    const currentTrack = activeBatchQueue[activeBatchIndex];
+    if (trackInfoEl) {
+        if (currentTrack) {
+            trackInfoEl.textContent = `Track ${activeBatchIndex + 1} of ${activeBatchQueue.length}: ${currentTrack.title}`;
+        } else {
+            trackInfoEl.textContent = `${activeBatchQueue.length} tracks`;
+        }
+    }
+
+    const acquiredCount = activeBatchQueue.filter(t => t.acquired).length;
+    const totalCount = activeBatchQueue.length;
+    if (doneBtn) {
+        doneBtn.textContent = `Done (${acquiredCount}/${totalCount})`;
+    }
+
+    if (popoverList) {
+        popoverList.innerHTML = activeBatchQueue.map((track, idx) => {
+            const isCurrent = idx === activeBatchIndex;
+            const statusIcon = track.acquired ? '✓' : (isCurrent ? '▶' : '○');
+            const statusClass = track.acquired ? 'text-success' : (isCurrent ? 'text-primary' : 'text-muted');
+            const badgeText = track.alreadyInLibrary ? 'Already in Library' : (track.acquired ? (track.fileName ? `Saved (${track.fileName.split('.').pop().toUpperCase()})` : 'Acquired') : (isCurrent ? 'Active in browser' : 'Pending'));
+            let actionBtn = '';
+            if (track.acquired) {
+                actionBtn = `<button type="button" class="btn btn-sm btn-theme-outline py-0 px-2 batch-track-action-btn" data-track-index="${idx}">${track.alreadyInLibrary ? 'Re-download' : 'Replace'}</button>`;
+            } else if (!isCurrent) {
+                actionBtn = `<button type="button" class="btn btn-sm btn-theme-outline py-0 px-2 batch-track-action-btn" data-track-index="${idx}">Jump</button>`;
+            }
+            return `
+            <div class="downloader-batch-popover-row ${isCurrent ? 'is-active' : ''}" data-track-index="${idx}">
+              <span class="batch-popover-status ${statusClass}">${statusIcon}</span>
+              <span class="batch-popover-num">${idx + 1}.</span>
+              <span class="batch-popover-title text-truncate">${escapeHtml(track.title)}</span>
+              <span class="batch-popover-meta text-muted text-truncate">${badgeText}</span>
+              <div class="ms-auto">${actionBtn}</div>
+            </div>
+            `;
+        }).join('');
+
+        popoverList.querySelectorAll('.batch-track-action-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.trackIndex, 10);
+                jumpToBatchTrack(idx);
+            });
+        });
+    }
+}
+
+/**
+ * Jump to a specific track in the batch queue
+ */
+export function jumpToBatchTrack(targetIndex) {
+    if (!activeBatchMode || targetIndex < 0 || targetIndex >= activeBatchQueue.length) return;
+    activeBatchIndex = targetIndex;
+    const popover = document.getElementById('downloaderBatchPopover');
+    if (popover) popover.style.display = 'none';
+    const stepperBtn = document.getElementById('downloaderBatchStepperBtn');
+    if (stepperBtn) stepperBtn.setAttribute('aria-expanded', 'false');
+
+    updateBatchHUD();
+
+    const targetTrack = activeBatchQueue[targetIndex];
+    if (targetTrack) {
+        const sources = getSources();
+        const activeSource = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
+        const nextQuery = formatSearchQueryForSource(activeSource, activeBatchArtistName, targetTrack.title);
+        currentSearchQuery = nextQuery;
+        showLoadingInUrlBar(activeSource.name);
+        navigateToDownloaderUrl(buildSearchUrl(activeSource, nextQuery));
+    }
+}
+
+/**
+ * Skip current track in batch queue
+ */
+export function skipCurrentBatchTrack() {
+    if (!activeBatchMode || activeBatchQueue.length === 0) return;
+    let nextIdx = activeBatchQueue.findIndex((t, i) => i > activeBatchIndex && !t.acquired);
+    if (nextIdx === -1) nextIdx = activeBatchQueue.findIndex((t, i) => i !== activeBatchIndex && !t.acquired);
+    if (nextIdx !== -1) {
+        jumpToBatchTrack(nextIdx);
+    } else {
+        finishBatchSession();
+    }
+}
+
+/**
+ * Complete the batch session and return to library
+ */
+export function finishBatchSession() {
+    const albumTitle = activeBatchAlbumTitle;
+    const artistName = activeBatchArtistName;
+    closeTabDownloaderModal();
+    if (albumTitle) {
+        showToast(`Finished album session for ${albumTitle}`, 'success');
+        navigateToAlbumInLibrary(artistName, albumTitle);
+    }
+}
+
+/**
+ * Undo last batch download
+ */
+export function undoLastBatchDownload() {
+    if (!lastAcquiredTrack) return;
+    const track = activeBatchQueue.find(t => (lastAcquiredTrack.songId && t.songId === lastAcquiredTrack.songId) || t.title === lastAcquiredTrack.title);
+    if (track) {
+        track.acquired = false;
+        track.fileName = null;
+        if (lastAcquiredTrack.tabOptionId && lastAcquiredTrack.songId) {
+            removeTabOptionFromSong(lastAcquiredTrack.songId, lastAcquiredTrack.tabOptionId).catch(() => {});
+        }
+        const idx = activeBatchQueue.indexOf(track);
+        if (idx !== -1) {
+            jumpToBatchTrack(idx);
+        }
+    }
+    lastAcquiredTrack = null;
+}
 
 /**
  * Show "Loading <source>..." in the URL bar, falling back to the real address if the
@@ -268,13 +506,121 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         return;
     }
 
+    // HTML payload guard (paywall / login trap / web error page)
+    try {
+        const sample = new TextDecoder().decode(uint8.subarray(0, 256)).toLowerCase().trim();
+        if (sample.startsWith('<!doctype html') || sample.startsWith('<html') || sample.includes('<head>') || sample.includes('<body>')) {
+            const warnMsg = '⚠️ Download was a web page or invalid file. Try an alternate tab link.';
+            if (activeBatchMode) {
+                showTransientFeedback(warnMsg, null);
+            } else {
+                showToast(warnMsg, 'warning');
+            }
+            return;
+        }
+    } catch {}
+
+    // In-memory .zip archive extraction
+    const isZip = (name && name.toLowerCase().endsWith('.zip')) || (uint8.length > 4 && uint8[0] === 0x50 && uint8[1] === 0x4B && uint8[2] === 0x03 && uint8[3] === 0x04);
+    if (isZip && typeof window !== 'undefined' && window.fflate?.unzipSync) {
+        try {
+            const unzipped = window.fflate.unzipSync(uint8);
+            const tabEntries = Object.keys(unzipped).filter(filename => {
+                if (filename.includes('__MACOSX') || filename.endsWith('/')) return false;
+                const ext = filename.split('.').pop()?.toLowerCase();
+                return SUPPORTED_TAB_EXTENSIONS.includes(ext);
+            });
+            if (tabEntries.length === 0) {
+                const warnMsg = '⚠️ Archive contains no supported tab files. Try an alternate tab link.';
+                if (activeBatchMode) {
+                    showTransientFeedback(warnMsg, null);
+                } else {
+                    showToast(warnMsg, 'warning');
+                }
+                return;
+            } else if (tabEntries.length === 1) {
+                name = tabEntries[0].split('/').pop();
+                uint8 = unzipped[tabEntries[0]];
+            } else {
+                promptMultiFileZipChoice(tabEntries.map(entry => ({
+                    name: entry.split('/').pop(),
+                    path: entry,
+                    data: unzipped[entry]
+                })));
+                return;
+            }
+        } catch (zipErr) {
+            console.warn('[Tab Downloader] Failed to uncompress zip archive:', zipErr);
+        }
+    }
+
     const blob = new Blob([uint8], { type: 'application/octet-stream' });
     const file = new File([blob], name || 'downloaded.gp', { type: blob.type, lastModified: Date.now() });
+
+    // 1. Batch Assistant mode
+    if (activeBatchMode && activeBatchQueue.length > 0) {
+        const currentTrack = activeBatchQueue[activeBatchIndex];
+        if (currentTrack) {
+            const meta = await detectFileMetadata(file, file.name);
+            const stored = await saveStoredFile(file, 'tab-downloader', {
+                name: file.name,
+                relativePath: path || file.name,
+                targetSongId: currentTrack.songId
+            });
+            const addedOption = await addTabOptionToSong(currentTrack.songId, {
+                name: file.name,
+                providerId: 'tab-downloader',
+                relativePath: path || file.name,
+                fileStoreId: stored.id,
+                tuning: meta.primaryTuning,
+                tunings: meta.tunings,
+                stringCount: meta.stringCount,
+                fileType: file.name.split('.').pop().toLowerCase()
+            });
+            currentTrack.acquired = true;
+            currentTrack.fileName = file.name;
+            lastAcquiredTrack = {
+                ...currentTrack,
+                fileStoreId: stored.id,
+                tabOptionId: addedOption?.id
+            };
+            window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+
+            let nextIdx = activeBatchQueue.findIndex((t, i) => i > activeBatchIndex && !t.acquired);
+            if (nextIdx === -1) nextIdx = activeBatchQueue.findIndex(t => !t.acquired);
+
+            const nextTrack = nextIdx !== -1 ? activeBatchQueue[nextIdx] : null;
+            const feedbackMsg = `✓ ${currentTrack.title} saved! · Next: ${nextTrack ? nextTrack.title : 'Finish'}…`;
+            showTransientFeedback(feedbackMsg, () => {
+                undoLastBatchDownload();
+            });
+
+            if (!nextTrack) {
+                updateBatchHUD();
+                setTimeout(() => {
+                    finishBatchSession();
+                }, 1200);
+                return;
+            }
+
+            activeBatchIndex = nextIdx;
+            updateBatchHUD();
+
+            const sources = getSources();
+            const activeSource = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
+            const nextQuery = formatSearchQueryForSource(activeSource, activeBatchArtistName, nextTrack.title);
+            currentSearchQuery = nextQuery;
+            showLoadingInUrlBar(activeSource.name);
+            navigateToDownloaderUrl(buildSearchUrl(activeSource, nextQuery));
+            return;
+        }
+    }
 
     const targetSong = activeTargetSong;
     const targetAlbum = activeTargetAlbum;
     const onFileSelectedCb = activeDownloaderOnFileSelected;
     const matchedUrl = pendingMatchedTabUrl;
+    const autoOpen = activeAutoOpenOnDownload;
 
     // Reset targets once consumed
     activeTargetSong = null;
@@ -282,6 +628,38 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     activeDownloaderOnFileSelected = null;
     pendingMatchedTabUrl = null;
     activeEphemeralSource = null;
+    activeAutoOpenOnDownload = false;
+
+    // 2. 1-Step Single Song Fulfillment (autoOpenOnDownload)
+    if (autoOpen && targetSong?.id) {
+        closeTabDownloaderModal();
+        const meta = await detectFileMetadata(file, file.name);
+        const stored = await saveStoredFile(file, 'tab-downloader', {
+            name: file.name,
+            relativePath: path || file.name,
+            targetSongId: targetSong.id
+        });
+        await addTabOptionToSong(targetSong.id, {
+            name: file.name,
+            providerId: 'tab-downloader',
+            relativePath: path || file.name,
+            fileStoreId: stored.id,
+            tuning: meta.primaryTuning,
+            tunings: meta.tunings,
+            stringCount: meta.stringCount,
+            fileType: file.name.split('.').pop().toLowerCase()
+        });
+        showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+        closeLibraryModal(true);
+        await loadFile(file);
+        try {
+            window.focus();
+            const output = document.getElementById('output');
+            if (output && output.style.display !== 'none') output.focus();
+        } catch {}
+        return;
+    }
 
     // Close / hide downloader
     closeTabDownloaderModal();
@@ -505,6 +883,46 @@ export function initTabDownloaderDomEvents() {
                 e.stopPropagation();
             }
         }
+    });
+
+    // Batch Assistant: Stepper button opens popover
+    const stepperBtn = document.getElementById('downloaderBatchStepperBtn');
+    const popover = document.getElementById('downloaderBatchPopover');
+    stepperBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!popover) return;
+        const isOpen = popover.style.display === 'block';
+        popover.style.display = isOpen ? 'none' : 'block';
+        stepperBtn.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+    });
+
+    document.getElementById('downloaderBatchPopoverCloseBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (popover) popover.style.display = 'none';
+        stepperBtn?.setAttribute('aria-expanded', 'false');
+    });
+
+    // Close popover when clicking outside
+    document.addEventListener('click', (e) => {
+        if (popover && popover.style.display === 'block' && !e.target.closest('#downloaderBatchStepperContainer')) {
+            popover.style.display = 'none';
+            stepperBtn?.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    // Batch Skip & Done buttons
+    document.getElementById('downloaderBatchSkipBtn')?.addEventListener('click', () => {
+        skipCurrentBatchTrack();
+    });
+
+    document.getElementById('downloaderBatchDoneBtn')?.addEventListener('click', () => {
+        finishBatchSession();
+    });
+
+    // ZIP picker cancel
+    document.getElementById('downloaderZipPickerCancelBtn')?.addEventListener('click', () => {
+        const picker = document.getElementById('downloaderZipPicker');
+        if (picker) picker.style.display = 'none';
     });
 }
 
@@ -808,17 +1226,26 @@ export function showTabDownloaderBar(isDebugToolsEnabled = false) {
     const bar = document.getElementById('tabDownloaderBar');
     if (bar) bar.style.display = 'flex';
 
-    // Update song pill
+    // Update song pill or batch HUD
     const songText = activeArtistName && activeSongName ? `${activeArtistName} - ${activeSongName}` : (activeSongName || activeArtistName || '');
     const songPill = document.getElementById('downloaderSongPill');
     const songTextEl = document.getElementById('downloaderSongText');
-    if (songPill && songTextEl) {
-        if (songText) {
-            songTextEl.textContent = songText;
-            songPill.style.display = 'flex';
-            songPill.title = songText;
-        } else {
-            songPill.style.display = 'none';
+    const batchRow = document.getElementById('downloaderBatchRow');
+
+    if (activeBatchMode) {
+        if (songPill) songPill.style.display = 'none';
+        if (batchRow) batchRow.style.display = 'flex';
+        updateBatchHUD();
+    } else {
+        if (batchRow) batchRow.style.display = 'none';
+        if (songPill && songTextEl) {
+            if (songText) {
+                songTextEl.textContent = songText;
+                songPill.style.display = 'flex';
+                songPill.title = songText;
+            } else {
+                songPill.style.display = 'none';
+            }
         }
     }
 
@@ -914,6 +1341,19 @@ function applyDownloaderUrl(rawUrl) {
     if (urlGroup && url) {
         urlGroup.title = url;
     }
+
+    if (activeBatchMode && activeBatchQueue.length > 0) {
+        const curTrack = activeBatchQueue[activeBatchIndex];
+        const matchIdx = activeBatchQueue.findIndex((t, i) => i !== activeBatchIndex && t.title && url.toLowerCase().includes(encodeURIComponent(t.title.toLowerCase())));
+        if (matchIdx !== -1 && curTrack) {
+            showAdvisoryBadge(`Viewing prior page · Target remains: Track ${activeBatchIndex + 1} (${curTrack.title})`, () => {
+                jumpToBatchTrack(matchIdx);
+            });
+        } else {
+            hideAdvisoryBadge();
+        }
+    }
+
     if (activeSourceId === 'downloader' && activeEphemeralSource?.targetUrl) {
         if (window.__TAURI__?.core?.invoke) {
             window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl: activeEphemeralSource.targetUrl }).catch(() => {});
@@ -986,6 +1426,15 @@ export async function openTabDownloader(options = {}) {
         return;
     }
 
+    activeBatchMode = Boolean(options.batchMode);
+    activeBatchQueue = Array.isArray(options.queue) ? options.queue : [];
+    activeBatchIndex = Number.isInteger(options.currentIndex) ? options.currentIndex : 0;
+    activeBatchAlbumTitle = options.albumTitle || '';
+    activeBatchArtistName = options.artistName || options.artist || '';
+    activeBatchAlbumId = options.albumId || null;
+    activeAutoOpenOnDownload = Boolean(options.autoOpenOnDownload);
+    lastAcquiredTrack = null;
+
     activeDownloaderOnFileSelected = options.onFileSelected || null;
     activeTargetSong = options.targetSong || null;
     if (options.songId && !activeTargetSong) {
@@ -1002,8 +1451,13 @@ export async function openTabDownloader(options = {}) {
         activeTargetAlbum = null;
     }
 
-    activeArtistName = options.artist || activeTargetSong?.artist || activeTargetAlbum?.artistName || '';
-    activeSongName = options.songName || activeTargetSong?.title || activeTargetAlbum?.albumTitle || '';
+    if (activeBatchMode && activeBatchQueue.length > 0 && activeBatchIndex < activeBatchQueue.length) {
+        activeArtistName = activeBatchArtistName;
+        activeSongName = activeBatchQueue[activeBatchIndex]?.title || '';
+    } else {
+        activeArtistName = options.artist || activeTargetSong?.artist || activeTargetAlbum?.artistName || '';
+        activeSongName = options.songName || activeTargetSong?.title || activeTargetAlbum?.albumTitle || '';
+    }
 
     // A build-time constant, so ask the shell once (on Android its sync commands can stall after a close)
     if (debugToolsEnabled === null) {
@@ -1096,6 +1550,21 @@ export function closeTabDownloaderModal(invokeNative = true) {
     activeTargetAlbum = null;
     activeEphemeralSource = null;
     pendingMatchedTabUrl = null;
+    activeBatchMode = false;
+    activeBatchQueue = [];
+    activeBatchIndex = 0;
+    activeBatchAlbumTitle = '';
+    activeBatchArtistName = '';
+    activeBatchAlbumId = null;
+    activeAutoOpenOnDownload = false;
+    lastAcquiredTrack = null;
+
+    hideTransientFeedback();
+    hideAdvisoryBadge();
+    const popover = document.getElementById('downloaderBatchPopover');
+    if (popover) popover.style.display = 'none';
+    const picker = document.getElementById('downloaderZipPicker');
+    if (picker) picker.style.display = 'none';
 
     try { window.MajesticDownloaderNative?.close?.(); } catch {}
     stopUrlPolling();

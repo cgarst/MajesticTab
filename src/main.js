@@ -236,12 +236,81 @@ window.addEventListener('dragstart', (e) => {
     }
 }, true);
 
-// Prevent browser from opening dropped files as webpages outside drop targets
+// Prevent browser from opening dropped files as webpages outside drop targets,
+// and present a 2-option prompt for dropped tab files: [ Add to Library & Play ] vs [ Just Play ]
 window.addEventListener('dragover', (e) => {
     e.preventDefault();
 }, false);
-window.addEventListener('drop', (e) => {
+
+window.addEventListener('drop', async (e) => {
     e.preventDefault();
+    if (e.target.closest('#libraryPage') || e.target.closest('.drop-zone')) return;
+
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const { SUPPORTED_TAB_EXTENSIONS } = await import('./utils/fileHandlingUtils.js');
+    if (!SUPPORTED_TAB_EXTENSIONS.includes(ext)) return;
+
+    let backdrop = document.getElementById('tabDropPromptModal');
+    if (!backdrop) {
+        backdrop = document.createElement('div');
+        backdrop.id = 'tabDropPromptModal';
+        backdrop.className = 'theme-modal-backdrop';
+        backdrop.style.zIndex = '10060';
+        document.body.appendChild(backdrop);
+    }
+    backdrop.style.display = 'flex';
+    const safeName = file.name.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    backdrop.innerHTML = `
+    <div class="theme-modal-card" style="max-width: 440px; width: 90%;">
+      <div class="theme-modal-header">
+        <div class="theme-modal-title-group">
+          <div class="theme-modal-icon"><i class="bi-file-earmark-music text-primary fs-5"></i></div>
+          <div class="theme-modal-titles">
+            <h5 class="modal-title mb-0 fs-6 fw-bold text-white text-truncate">${safeName}</h5>
+            <small class="text-muted d-block">Choose how to open this tab</small>
+          </div>
+        </div>
+        <button type="button" class="brand-btn theme-modal-close-btn p-1 px-2" id="dropPromptCloseBtn"><i class="bi-x-lg"></i></button>
+      </div>
+      <div class="theme-modal-body py-3">
+        <p class="small text-muted mb-3">Add this song to your personal library to organize, practice, and sync across devices, or just play it temporarily.</p>
+        <div class="d-flex flex-column gap-2">
+          <button type="button" class="btn btn-theme-primary py-2 d-flex align-items-center justify-content-center gap-2" id="dropAddAndPlayBtn">
+            <i class="bi-plus-circle"></i>
+            <span>Add to Library &amp; Play</span>
+          </button>
+          <button type="button" class="btn btn-theme-outline py-2 d-flex align-items-center justify-content-center gap-2" id="dropJustPlayBtn">
+            <i class="bi-play-circle"></i>
+            <span>Just Play (Don't Save)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    `;
+
+    const close = () => { backdrop.style.display = 'none'; };
+    backdrop.querySelector('#dropPromptCloseBtn').onclick = close;
+
+    const addBtn = backdrop.querySelector('#dropAddAndPlayBtn');
+    addBtn.focus();
+    addBtn.onclick = async () => {
+        close();
+        await loadFile(file);
+        try {
+            const { openSaveToLibraryModal } = await import('./saveToLibrary.js');
+            await openSaveToLibraryModal(file);
+        } catch (err) {
+            console.warn('[Drag & Drop] Save to library modal failed:', err);
+        }
+    };
+
+    backdrop.querySelector('#dropJustPlayBtn').onclick = async () => {
+        close();
+        await loadFile(file);
+    };
 }, false);
 
 
