@@ -2526,7 +2526,7 @@ function setupLibraryFilter(container, context = {}) {
                 <div class="search-row-title text-truncate">${escapeHtml(song.title)}</div>
                 <div class="search-row-sub text-truncate">${escapeHtml(song.artist)}${song.album ? ` · ${escapeHtml(song.album)}` : ''}${song.year ? ` · ${song.year}` : ''}</div>
               </div>
-              <button type="button" class="btn btn-sm btn-theme-primary catalog-song-get-tab-btn flex-shrink-0 ms-2" data-song-id="${song.id}" data-title="${escapeHtml(song.title)}" data-artist="${escapeHtml(song.artist)}" data-album="${escapeHtml(song.album || '')}" data-year="${song.year || ''}" data-recording-mbid="${song.recordingMbid || song.id || ''}">Get Tab</button>
+              <button type="button" class="btn btn-sm btn-theme-primary catalog-song-get-tab-btn flex-shrink-0 ms-2" data-song-id="${song.id}" data-title="${escapeHtml(song.title)}" data-artist="${escapeHtml(song.artist)}" data-album="${escapeHtml(song.album || '')}" data-year="${song.year || ''}" data-recording-mbid="${song.recordingMbid || song.id || ''}">Add Song &amp; Find Tab</button>
             </div>
             `;
         }
