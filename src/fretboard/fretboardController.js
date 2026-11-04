@@ -125,6 +125,32 @@ class FretboardController {
                 }
             }
         });
+
+        // Responsive dock button placement (desktop: far right of .dock-tools; mobile: flanking play in .dock-tr)
+        this.syncDockBtnSlot();
+        window.matchMedia?.('(max-width: 640px)').addEventListener?.('change', () => {
+            this.syncDockBtnSlot();
+        });
+        window.addEventListener('resize', () => {
+            this.syncDockBtnSlot();
+        });
+    }
+
+    /**
+     * Position the dock button:
+     * - Desktop (> 640px): Far right of .dock-tools (after volume)
+     * - Mobile (<= 640px): In .dock-tr flanking the play button
+     */
+    syncDockBtnSlot() {
+        const btn = document.getElementById('fretboardDockBtn');
+        if (!btn) return;
+        const isNarrow = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches;
+        const targetParent = isNarrow
+            ? document.querySelector('.dock-tr')
+            : document.querySelector('.dock-tools');
+        if (targetParent && btn.parentElement !== targetParent) {
+            targetParent.appendChild(btn);
+        }
     }
 
     /**
@@ -162,6 +188,7 @@ class FretboardController {
     syncUIState() {
         const dock = document.getElementById('fretboardDock');
         this.trackDockHeight(dock);
+        this.syncDockBtnSlot();
         // The dock's button only shows while the fretboard is compacted on a song that has one
         const dockBtn = document.getElementById('fretboardDockBtn');
         if (dockBtn) dockBtn.style.display = this.isScoreAvailable && !this.isOpen ? '' : 'none';

@@ -1959,8 +1959,6 @@
       <button type="button" class="btn mobile-dock-play-btn" id="mobilePlayPauseBtn" title="Play / Pause" aria-label="Play / Pause" disabled>
         <svg class="pk" viewBox="105 97 303 316" aria-hidden="true"><path d="M243.89,410.70C231.98,405.69 222.99,398.82 207.45,382.85C140.70,314.27 93.23,213.94 105.31,167.00C114.73,130.40 146.89,109.16 207.00,99.85C226.60,96.81 281.05,96.50 301.00,99.31C373.92,109.58 407.60,136.53 407.46,184.50C407.32,232.23 371.35,306.44 318.76,367.50C286.51,404.94 262.77,418.64 243.89,410.70Z"/></svg><i class="bi-play-fill" id="mobilePlayPauseIcon"></i>
       </button>
-      <!-- Shown only while the fretboard is compacted: brings it back -->
-      <button type="button" class="btn mobile-dock-btn dock-more" id="fretboardDockBtn" aria-label="Show the fretboard" title="Show the fretboard (F)" style="display: none;"><svg class="fretboard-glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" shape-rendering="crispEdges" aria-hidden="true"><path d="M3.5 5v14" stroke-width="3"/><path d="M5 5.75h17M5 18.25h17" stroke-width="1.5"/><path d="M11.25 6.5v11M17.25 6.5v11" stroke-width="1.5"/><path d="M5 10h17M5 14h17" stroke-width="1" opacity=".55"/><circle cx="14.25" cy="12" r="1.5" fill="currentColor" stroke="none" shape-rendering="auto"/></svg></button>
     </div>
     <div class="dock-ruler" id="dockRulerSlot"></div>
     <div class="dock-time" id="dockTime" aria-live="off"><span class="dock-section" id="dockSection" style="display:none;"></span><span id="dockBarPrefix">Bar </span><b id="dockBar">1</b><span class="dock-clock"> &middot; <span id="dockClock">0:00 / 0:00</span></span></div>
@@ -1981,6 +1979,8 @@
         </button>
         <button type="button" class="btn mobile-dock-btn dock-more" id="dockVolumeBtn" aria-haspopup="dialog" aria-expanded="false" aria-label="Volume" title="Volume"><i class="bi-volume-up"></i></button>
       </div>
+      <!-- Shown only while the fretboard is compacted: brings it back -->
+      <button type="button" class="btn mobile-dock-btn dock-more" id="fretboardDockBtn" aria-label="Show the fretboard" title="Show the fretboard (F)" style="display: none;"><svg class="fretboard-glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" shape-rendering="crispEdges" aria-hidden="true"><path d="M3.5 5v14" stroke-width="3"/><path d="M5 5.75h17M5 18.25h17" stroke-width="1.5"/><path d="M11.25 6.5v11M17.25 6.5v11" stroke-width="1.5"/><path d="M5 10h17M5 14h17" stroke-width="1" opacity=".55"/><circle cx="14.25" cy="12" r="1.5" fill="currentColor" stroke="none" shape-rendering="auto"/></svg></button>
     </div>
   </div>
 </aside>
