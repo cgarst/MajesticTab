@@ -6,7 +6,7 @@ import {
     addToSetlist, removeFromSetlist, moveSetlistItem
 } from './setlistStore.js';
 import { getSongById, getAllSongs, getRecents } from './libraryStore.js';
-import { getPlaceholderCoverSvg, hydrateCachedImages } from './musicbrainz.js';
+import { getPlaceholderCoverSvg, hydrateCachedImages, getSynchronousCachedArtUrl } from './musicbrainz.js';
 import { playSetlist } from './setlistPlayer.js';
 import { openThemedInputModal, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, libraryPaneHeadHtml, bindTwoPaneFilter } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
@@ -159,7 +159,7 @@ async function renderSetlistsPage(container, onBack) {
               <div class="rowwrap">
                 <button class="row setrow ${isEditMode ? '' : 'clickable'}" data-index="${idx}" ${isEditMode ? 'style="cursor:default;"' : ''}>
                   <span class="num tnum">${idx + 1}</span>
-                  <img loading="lazy" decoding="async" class="setrow-cover" src="${song?.coverUrl || getPlaceholderCoverSvg(song?.album || song?.title || 'Tab')}" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(song?.title || 'Tab')}'">
+                  <img loading="lazy" decoding="async" class="setrow-cover" src="${getSynchronousCachedArtUrl(song?.coverUrl) || song?.coverUrl || getPlaceholderCoverSvg(song?.album || song?.title || 'Tab')}" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(song?.title || 'Tab')}'">
                   <span class="t">
                     <b>${escapeHtml(song?.title || 'Song removed from library')}</b>
                     <span title="${escapeHtml(tab ? tab.name : '')}">${escapeHtml(metaLine)}</span>

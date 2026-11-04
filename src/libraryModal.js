@@ -12,7 +12,7 @@ import {
 import {
     searchMusicBrainz, getArtistAlbums, getAlbumTracks, getMusicianRelations,
     getPlaceholderCoverSvg, isDvdOrBlurayMedium, isVinylOrTapeMedium,
-    filterInstrumentalBonusDiscs, hydrateCachedImages
+    filterInstrumentalBonusDiscs, hydrateCachedImages, getSynchronousCachedArtUrl
 } from './musicbrainz.js';
 import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
@@ -1100,7 +1100,7 @@ async function renderLibraryBrowseView(container) {
                         </div>
                       </button>
                       ${selectedArtist.albums.map(alb => {
-                        const coverSrc = alb.coverUrl || getPlaceholderCoverSvg(alb.title);
+                        const coverSrc = getSynchronousCachedArtUrl(alb.coverUrl) || alb.coverUrl || getPlaceholderCoverSvg(alb.title);
                         const isSel = selectedAlbumFilter === alb.title;
                         return `
                         <button type="button" class="shelf-item ${isSel ? 'active' : ''}" data-album-filter="${escapeHtml(alb.title)}" role="tab" aria-selected="${isSel}" aria-label="${escapeHtml(alb.title)}" title="${escapeHtml(alb.title)}${alb.year ? `, ${alb.year}` : ''}">
@@ -1121,7 +1121,7 @@ async function renderLibraryBrowseView(container) {
                     : (selectedAlbumFilter === 'other' ? [] : selectedArtist.albums.filter(a => a.title === selectedAlbumFilter));
 
                 const albumBlocksHtml = albumsToRender.map(alb => {
-                    const coverSrc = alb.coverUrl || getPlaceholderCoverSvg(alb.title);
+                    const coverSrc = getSynchronousCachedArtUrl(alb.coverUrl) || alb.coverUrl || getPlaceholderCoverSvg(alb.title);
                     const totalSecs = (alb.songs || []).reduce((acc, s) => acc + (typeof s.length === 'number' ? s.length : 0), 0);
                     const albumDurationText = totalSecs > 0 ? formatTrackDuration(totalSecs) : '';
                     const albTabs = albumTabsMap.get(alb.title) || [];
@@ -1323,7 +1323,7 @@ async function renderLibraryBrowseView(container) {
                     const subText = subParts.length > 0 ? `${subParts.join(', ')}. ` : '';
                     const rulerHtml = renderMiniBarRulerHtml(lastBar, totalBars);
                     resumeHtml = `<div class="resume-card" id="libResumeCard">
-                      <img class="resume-cover" alt="" src="${last.coverUrl || getPlaceholderCoverSvg(last.artist || name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(last.artist || name)}'">
+                      <img class="resume-cover" alt="" src="${getSynchronousCachedArtUrl(last.coverUrl) || last.coverUrl || getPlaceholderCoverSvg(last.artist || name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(last.artist || name)}'">
                       <div class="resume-meta">
                         <div class="resume-kicker">Pick up where you left off</div>
                         <h2 class="resume-title">${escapeHtml(name)}</h2>
@@ -2046,7 +2046,7 @@ function renderArtistCard(artist) {
 function renderAlbumCard(album, artistName = '') {
     const isCustom = Boolean(album.isCustom);
     const title = album.title || album.name || '';
-    const cover = album.coverUrl || (isCustom ? null : getPlaceholderCoverSvg(title));
+    const cover = getSynchronousCachedArtUrl(album.coverUrl) || album.coverUrl || (isCustom ? null : getPlaceholderCoverSvg(title));
     const songCount = Array.isArray(album.songs) ? album.songs.length : (album.songsCount || 0);
     const year = album.year;
     return `
@@ -2420,7 +2420,7 @@ function setupLibraryFilter(container, context = {}) {
 function renderArtistCollageHtml(artist) {
     const isCustom = Boolean(artist.isCustom);
     const covers = Array.from(new Set(
-        (artist.albums || []).map(a => a.coverUrl).filter(Boolean)
+        (artist.albums || []).map(a => getSynchronousCachedArtUrl(a.coverUrl) || a.coverUrl).filter(Boolean)
     )).slice(0, 4);
 
     if (covers.length === 0) {
@@ -2464,7 +2464,7 @@ function renderPinnedSongTile(song) {
     const artistName = song.artist || '';
     const albumName = song.album || '';
     const subtext = [artistName, albumName].filter(Boolean).join(' • ');
-    const coverUrl = song.coverUrl;
+    const coverUrl = getSynchronousCachedArtUrl(song.coverUrl) || song.coverUrl;
 
     return `
     <div class="library-pinned-card d-flex align-items-center gap-2 p-2 rounded-3 position-relative" 
@@ -2595,7 +2595,7 @@ function renderSongRow(song, options = {}) {
       <div class="song-row-container">
         <div class="song-row library-song-row ${!hasTabs ? 'no-tab' : ''}" data-song-id="${song.id}" data-song-title="${escapeHtml(song.title)}" data-song-artist="${escapeHtml(song.artist || '')}" role="button" tabindex="0">
           ${trackNumStr === '\u2022' ? '' : `<span class="num tnum">${trackNumStr}</span>`}
-          ${options.showCover ? `<img loading="lazy" decoding="async" class="song-cover" src="${song.coverUrl || getPlaceholderCoverSvg(song.album || song.title || 'Tab')}" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(song.title || 'Tab')}'">` : ''}
+          ${options.showCover ? `<img loading="lazy" decoding="async" class="song-cover" src="${getSynchronousCachedArtUrl(song.coverUrl) || song.coverUrl || getPlaceholderCoverSvg(song.album || song.title || 'Tab')}" alt="" draggable="false" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(song.title || 'Tab')}'">` : ''}
           <span class="t">
             <b>${escapeHtml(song.title)}</b>
             <span class="sub">
@@ -4716,7 +4716,7 @@ function renderToolsView(container) {
 }
 
 function recentRowHtml(r) {
-            const cover = r.coverUrl || getPlaceholderCoverSvg(r.songTitle || r.name);
+            const cover = getSynchronousCachedArtUrl(r.coverUrl) || r.coverUrl || getPlaceholderCoverSvg(r.songTitle || r.name);
             const tunings = (Array.isArray(r.tunings) ? r.tunings : []).filter(t => isTuningMatchingInstrument(t));
             const timeAgo = formatTimeAgo(r.openedAt);
 

@@ -175,6 +175,42 @@ const inFlightArt = new Map();
 const failedArt = new Set();
 
 /**
+ * Returns synchronous in-memory cached artwork URL if already resolved, otherwise the given URL.
+ */
+export function getSynchronousCachedArtUrl(url) {
+    if (!url || typeof url !== 'string') return url;
+    return artMemoryCache.get(url) || url;
+}
+
+/**
+ * Warm in-memory art cache from persistent Cache Storage in background.
+ */
+export async function warmArtMemoryCache() {
+    if (typeof caches === 'undefined') return;
+    try {
+        const cache = await caches.open(ART_CACHE_NAME);
+        const requests = await cache.keys();
+        for (const req of requests) {
+            const url = req.url;
+            if (artMemoryCache.has(url)) continue;
+            try {
+                const matched = await cache.match(req);
+                if (matched && matched.ok) {
+                    const blob = await matched.blob();
+                    if (blob && blob.size > 0 && !artMemoryCache.has(url)) {
+                        artMemoryCache.set(url, URL.createObjectURL(blob));
+                    }
+                }
+            } catch (_) {}
+        }
+    } catch (_) {}
+}
+
+if (typeof caches !== 'undefined' && typeof window !== 'undefined') {
+    warmArtMemoryCache();
+}
+
+/**
  * Get or fetch cached artwork as a local blob URL.
  * Stored persistently in Cache Storage (separate from database backups).
  */
@@ -288,12 +324,16 @@ function getArtObserver() {
  */
 export function hydrateCachedImages(container) {
     if (!container || typeof document === 'undefined') return;
-    const images = container.querySelectorAll('img.album-cover-img, img.album-cover-banner, img.artist-collage-img, img.artist-thumbnail, img.recent-cover-img, img.pinned-cover-img, img.setrow-cover, img.song-cover');
+    const images = container.querySelectorAll('img.album-cover-img, img.album-cover-banner, img.artist-collage-img, img.artist-thumbnail, img.recent-cover-img, img.pinned-cover-img, img.setrow-cover, img.song-cover, img.shelf-cover, img.album-header-cover, img.resume-cover');
     const observer = getArtObserver();
     images.forEach(img => {
         img.setAttribute('draggable', 'false');
         const src = img.getAttribute('src');
         if (src && src.startsWith('https://coverartarchive.org')) {
+            if (artMemoryCache.has(src)) {
+                img.src = artMemoryCache.get(src);
+                return;
+            }
             if (observer) {
                 observer.observe(img);
                 return;
