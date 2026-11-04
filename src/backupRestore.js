@@ -17,7 +17,7 @@ import {
     reloadAllLibraryMetadata, findOrphanedStoredFiles, deleteOrphanedStoredFiles
 } from './libraryStore.js';
 import {
-    getSaveProviders, saveToProvider, openFromProvider, getPreferredStorage
+    getSaveProviders, saveToProvider, getPreferredStorage
 } from './fileProviders.js';
 import { showToast } from './utils/toast.js';
 import { isFolderBackupSupported } from './folderBackup.js';
@@ -373,75 +373,6 @@ export async function readBackupFileText(file) {
         const buffer = await file.arrayBuffer();
         return new TextDecoder('utf-8').decode(buffer);
     }
-}
-
-/**
- * Create a complete single-file backup bundle object
- * @param {function(current: number, total: number): void} [onProgress]
- * @returns {Promise<object>} Complete backup bundle
- */
-export async function createBackupBundle(onProgress) {
-    const [fileMetas, libraryData] = await Promise.all([
-        getAllStoredFiles(),
-        getAllLibraryData()
-    ]);
-
-    const settings = collectAllSettings();
-
-    const soundFontEntries = await collectSoundFontBackupEntries();
-    const files = [];
-    for (let i = 0; i < fileMetas.length; i++) {
-        const meta = fileMetas[i];
-        const record = await getStoredFileRecord(meta.id);
-        let dataBase64 = '';
-        if (record && record.data) {
-            try {
-                dataBase64 = await arrayBufferToBase64Async(record.data);
-            } catch {
-                dataBase64 = arrayBufferToBase64(record.data);
-            }
-        }
-        files.push({
-            id: meta.id,
-            name: meta.name,
-            type: meta.type || 'application/octet-stream',
-            size: meta.size || (record?.data ? record.data.byteLength : 0),
-            providerId: meta.providerId || 'local',
-            metadata: meta.metadata || {},
-            savedAt: meta.savedAt || Date.now(),
-            lastModified: meta.lastModified || Date.now(),
-            dataBase64
-        });
-        if (typeof onProgress === 'function') {
-            onProgress(i + 1, fileMetas.length);
-        }
-    }
-
-    const tabsCount = files.length;
-    files.push(...soundFontEntries);
-
-    const now = new Date();
-    const bundle = {
-        app: 'MajesticTab',
-        format: 'majestictab_backup',
-        version: 1,
-        exportedAt: now.toISOString(),
-        summary: {
-            tabsCount,
-            soundFontsCount: soundFontEntries.length,
-            totalTabsSize: files.slice(0, tabsCount).reduce((acc, f) => acc + (f.size || 0), 0),
-            songsCount: libraryData.songs?.length || 0,
-            collectionsCount: libraryData.collections?.length || 0,
-            recentsCount: libraryData.recents?.length || 0
-        },
-        settings,
-        fileStore: {
-            files
-        },
-        library: libraryData
-    };
-
-    return bundle;
 }
 
 /**

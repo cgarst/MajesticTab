@@ -23,7 +23,7 @@ import { listSoundFonts, getSoundFontData, SOUNDFONT_BACKUP_STORE } from './soun
 import { collectAllSettings } from './backupRestore.js';
 import { getAudioFile, listAudioFiles } from './audioSync/audioFileStore.js';
 import {
-    AUDIO_BACKUP_STORE, listAudioForBackup, audioManifestEntry, audioItemFingerprint, isAudioItem
+    listAudioForBackup, audioManifestEntry, audioItemFingerprint, isAudioItem
 } from './audioSync/audioBackup.js';
 
 export const ROOT_FOLDER_NAME = 'MajesticTab Backup';
