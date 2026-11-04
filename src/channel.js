@@ -20,14 +20,6 @@ try {
     if (window.__TAURI__) config.selfUpdate = false;
 }
 
-export function getChannel() {
-    return config.channel;
-}
-
-export function getFeature(name) {
-    return config[name];
-}
-
 /** True when the capability is on: not false, 'off' or 'none'. */
 export function hasFeature(name) {
     const value = config[name];

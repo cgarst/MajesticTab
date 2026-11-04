@@ -11,8 +11,6 @@ const MAX_CAPO = 9;
 const MISSING_STRING_PENALTY = 12;
 const MY_INSTRUMENT_KEY = 'majestictab_my_instrument';
 
-export const ADAPT_METHODS = ['shift', 'capo', 'transpose'];
-
 export function getAdaptTuningOptions(instrumentMode = getInstrumentMode()) {
     const wantBass = instrumentMode === 'bass';
     return KNOWN_TUNINGS.filter(t => /\bbass\b/i.test(t.name) === wantBass);
@@ -50,17 +48,6 @@ export function getUsualGuitar() {
         if (pref?.enabled && findAdaptTuning(pref.tuningName)) return pref;
     } catch { /* fall through */ }
     return null;
-}
-
-/** Pass null to open every song as written. */
-export function setUsualGuitar(pref) {
-    try {
-        if (!pref || !pref.enabled) localStorage.removeItem(USUAL_GUITAR_KEY);
-        else localStorage.setItem(USUAL_GUITAR_KEY, JSON.stringify({ enabled: true, tuningName: pref.tuningName, method: pref.method, capo: pref.capo ?? 'auto' }));
-    } catch (e) {
-        console.warn('Could not save your usual guitar:', e);
-    }
-    try { document.dispatchEvent(new CustomEvent('guitar:overrides-changed')); } catch (_) { /* no DOM */ }
 }
 
 function songKey(file) {

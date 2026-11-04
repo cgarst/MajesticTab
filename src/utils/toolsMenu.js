@@ -21,16 +21,11 @@ function writeStorage(key, value) {
     } catch (_) { /* storage can be blocked; the setting just won't persist */ }
 }
 
-let _openMenu = null;
 let _closeMenu = null;
 let _toggleMenu = null;
 
 export function toggleToolsMenu(triggerEl) {
     if (_toggleMenu) _toggleMenu(triggerEl);
-}
-
-export function openToolsMenu(triggerEl) {
-    if (_openMenu) _openMenu(triggerEl);
 }
 
 export function closeToolsMenu() {
@@ -98,7 +93,6 @@ export function initToolsMenu() {
         else openMenu(trigger);
     }
 
-    _openMenu = openMenu;
     _closeMenu = closeMenu;
     _toggleMenu = toggleMenu;
 

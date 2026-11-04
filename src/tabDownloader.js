@@ -7,7 +7,6 @@ import { addTabOptionToSong, addTabOptionToAlbum, getSongById } from './libraryS
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { closeLibraryModal } from './libraryModal.js';
 import { showToast } from './utils/toast.js';
-import { hasFeature } from './channel.js';
 import {
     isWsaTabUrl,
     getDownloaderUrlFromMatchedUrl,
@@ -1105,13 +1104,5 @@ export function closeTabDownloaderModal(invokeNative = true) {
             output.focus();
         }
     } catch {}
-}
-
-export function getActiveEphemeralSource() {
-    return activeEphemeralSource;
-}
-
-export function getPendingMatchedTabUrl() {
-    return pendingMatchedTabUrl;
 }
 

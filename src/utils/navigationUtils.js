@@ -8,8 +8,7 @@ import { clearOutput } from './renderUtils.js';
 import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
 import { gamepadManager } from './gamepadManager.js';
 import { stepSetlist } from '../setlistPlayer.js';
-import { playPauseYouTube, isYouTubeAvailable, isYouTubePlaying, rewindYouTubeToBeginning, rewindYouTube10Seconds, toggleYouTubePanel, getSongKey } from '../youtubePlayer.js';
-import { playPauseAudioFile, isAudioFileAvailable, isAudioFilePlaying, rewindAudioFile10Seconds } from '../audioSync/audioFilePlayer.js';
+import { isYouTubeAvailable, rewindYouTubeToBeginning, toggleYouTubePanel, getSongKey } from '../youtubePlayer.js';
 import { songHasSyncPoints } from '../audioSync/syncStore.js';
 import {
     isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds

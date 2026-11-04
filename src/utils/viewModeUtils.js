@@ -1,4 +1,4 @@
-import { enableContinuousScrollTracking, disableContinuousScrollTracking, scrollToPage } from './scrollUtils.js';
+import { enableContinuousScrollTracking, disableContinuousScrollTracking } from './scrollUtils.js';
 import { getDefaultLandscapePageLayout } from './platformUtils.js';
 
 /**
@@ -7,14 +7,6 @@ import { getDefaultLandscapePageLayout } from './platformUtils.js';
  */
 export function getLandscapePageLayout() {
     return localStorage.getItem('landscapePageLayout') || getDefaultLandscapePageLayout();
-}
-
-/**
- * Set landscape page layout preference ('dual' or 'single')
- * @param {string} layout 
- */
-export function setLandscapePageLayout(layout) {
-    localStorage.setItem('landscapePageLayout', layout);
 }
 
 /**
@@ -86,19 +78,5 @@ export function switchToPageMode(output, currentPage = 0, totalPages = 0) {
     const indicator = document.getElementById('pageIndicator');
     if (indicator) {
         indicator.textContent = `${currentPage + 1} of ${totalPages}`;
-    }
-}
-
-export function changePage(continuous, output, condensedCanvases, currentPage, pages, direction, onPageChange) {
-    if (continuous) {
-        const targetPage = currentPage + direction;
-        scrollToPage(output, condensedCanvases, targetPage);
-    } else {
-        const pagesPerView = getPagesPerView();
-        if (direction > 0 && currentPage < pages.length - pagesPerView) {
-            onPageChange(currentPage + Math.abs(direction));
-        } else if (direction < 0 && currentPage > 0) {
-            onPageChange(currentPage + direction);
-        }
     }
 }

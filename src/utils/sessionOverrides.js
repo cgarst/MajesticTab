@@ -61,17 +61,3 @@ export function setNotationOverride(mode) {
     current.notation = mode;
     notify();
 }
-
-export function hasOverrides() {
-    return current.key !== null && ['notation', 'strings', 'adapt'].some((f) => current[f] !== undefined);
-}
-
-export function resetOverrides() {
-    if (current.key === null) return;
-    current = { key: current.key };
-    notify();
-}
-
-export function describeOverrides() {
-    return { ...current };
-}

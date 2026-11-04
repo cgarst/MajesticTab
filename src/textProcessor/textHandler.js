@@ -3,7 +3,7 @@ import { processText } from './textProcessor.js';
 import { hideLoadingBar } from '../main.js';
 import { clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
-import { enableContinuousScrollTracking, scrollByViewport } from '../utils/scrollUtils.js';
+import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
 
 // State management for text files
 export const textState = {

@@ -15,7 +15,6 @@ import {
     getAdblockStatus,
     openTabDownloader
 } from '../tabDownloader.js';
-import { hasFeature } from '../channel.js';
 import { showToast } from './toast.js';
 import { hide as hideSettings } from './settingsPanel.js';
 

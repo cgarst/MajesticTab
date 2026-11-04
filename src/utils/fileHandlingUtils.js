@@ -4,23 +4,6 @@
  */
 
 /**
- * File state interface for both PDF and GP files
- */
-export class FileState {
-    constructor() {
-        this.canvases = [];
-        this.pages = [];
-        this.currentPageIndex = 0;
-    }
-
-    reset() {
-        this.canvases.length = 0;
-        this.pages.length = 0;
-        this.currentPageIndex = 0;
-    }
-}
-
-/**
  * Check if a file is of a given type
  * @param {File} file File to check
  * @param {string[]} extensions Array of allowed extensions

@@ -56,10 +56,6 @@ export function nowMs() {
     return performance.now() + nowBase;
 }
 
-export function isNowCalibrated() {
-    return nowCalibrated;
-}
-
 /** Android filters multicast (mDNS) unless a MulticastLock is held; no-op elsewhere. */
 export function setMulticastEnabled(on) {
     try { window.AndroidJam?.setMulticast?.(Boolean(on)); } catch (_) {}

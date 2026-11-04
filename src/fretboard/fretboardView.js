@@ -1,7 +1,7 @@
 // fretboardView.js
 // High-DPI Responsive SVG Neck & Fretboard Visualizer for MajesticTab
 import { NOTE_NAMES, midiToNoteName } from '../utils/tuningUtils.js';
-import { TRACK_PALETTE, TRACK_COLORS } from '../utils/trackColors.js';
+import { TRACK_PALETTE } from '../utils/trackColors.js';
 
 const TOTAL_FRETS = 24;
 const SVG_WIDTH = 1150;

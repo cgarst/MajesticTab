@@ -13,10 +13,10 @@
 // - #reference/tone
 // (also supports corresponding slash formats e.g. #/library, #/reference/scales, and query params e.g. ?view=tuner, ?view=reference&tab=scales)
 
-import { openLibraryModal, closeLibraryModal, isLibraryOpen, getActiveLibraryView, switchLibraryView, goLibraryTab } from '../libraryModal.js';
+import { openLibraryModal, isLibraryOpen, switchLibraryView, goLibraryTab } from '../libraryModal.js';
 import { openTunerModal, closeTunerModal } from '../tuner/tuner.js';
 import { openMetronomeModal, closeMetronomeModal } from '../metronome/metronome.js';
-import { getActiveReferenceTab, setReferenceTabChangeListener, openReferenceModal, closeReferenceModal, isReferenceOpen } from '../referenceLibrary.js';
+import { getActiveReferenceTab, setReferenceTabChangeListener, openReferenceModal, closeReferenceModal } from '../referenceLibrary.js';
 
 let isSyncingUrl = false;
 let isInitialized = false;

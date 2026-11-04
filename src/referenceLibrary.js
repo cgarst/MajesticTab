@@ -53,12 +53,6 @@ export function getActiveReferenceTab() {
     return activeTab;
 }
 
-export function setActiveReferenceTab(tab) {
-    if (['circle', 'chords', 'scales'].includes(tab)) {
-        activeTab = tab;
-    }
-}
-
 export function setReferenceTabChangeListener(fn) {
     refTabChangeListener = fn;
 }

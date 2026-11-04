@@ -6,7 +6,7 @@
 // The controls are the original ones from the Song panel (ids kept), moved here by this file.
 
 import { getScoreMaxStringsForMode, formatTuningFromMidi, getInstrumentMode, getDefaultGpStringCount, getTabStringCountPreference, setTabStringCountPreference } from './tuningUtils.js';
-import { getUsualGuitar, getTabAdaptPref, getSongGuitar, setSongGuitar, hasTemporaryAdapt, findAdaptTuning } from './tabAdapter.js';
+import { getTabAdaptPref, getSongGuitar, setSongGuitar, hasTemporaryAdapt, findAdaptTuning } from './tabAdapter.js';
 import { getOverride } from './sessionOverrides.js';
 import { showToast } from './toast.js';
 
