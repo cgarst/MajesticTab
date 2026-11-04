@@ -270,6 +270,22 @@ function arrangeSongPanel() {
     };
     if (!watchMarks()) { const t = setInterval(() => { if (watchMarks()) clearInterval(t); }, 500); setTimeout(() => clearInterval(t), 20000); }
 
+    // Find alternate tab: the same search as the library's "find tab" for this song, to try another version
+    const altBtn = document.createElement('button');
+    altBtn.type = 'button';
+    altBtn.id = 'songFindAltTabBtn';
+    altBtn.className = 'btn btn-sm song-row-btn';
+    altBtn.innerHTML = '<span><b>Find alternate tab</b><small>Look for another tab of this song</small></span>';
+    altBtn.addEventListener('click', async () => {
+        const { playerState } = await import('../youtubePlayer.js');
+        const { artist, title } = playerState;
+        if (!title) return;
+        $('scoreOptionsPanelCloseBtn')?.click();
+        const { handleGetTabSingleSong } = await import('../libraryModal.js');
+        handleGetTabSingleSong({ artist, title });
+    });
+    const altGroup = group('scoreOptionsAltTabGroup', 'Tabs', altBtn);
+
     const pdf = $('scoreOptionsPdfSection');
     const save = $('scoreOptionsSaveGroup');
     // Notation, strings and tuning leave this panel: View and Guitar claim them. Until they do (they initialise after
@@ -279,7 +295,7 @@ function arrangeSongPanel() {
     parking.hidden = true;
     ['scoreOptionsNotationStyleSection', 'scoreOptionsStringCountSection', 'scoreOptionsAdaptSection'].forEach((id) => { const n = $(id); if (n) parking.appendChild(n); });
     document.body.appendChild(parking);
-    body.replaceChildren(...[save, pdf, marksGroup].filter(Boolean));
+    body.replaceChildren(...[save, altGroup, pdf, marksGroup].filter(Boolean));
 }
 
 

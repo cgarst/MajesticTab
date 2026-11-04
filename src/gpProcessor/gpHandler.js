@@ -168,7 +168,8 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
             updateSongForYouTube({
                 filename: file.name,
                 scoreTitle: api.score.title,
-                scoreArtist: api.score.artist
+                scoreArtist: api.score.artist,
+                librarySongId: file.librarySongId
             });
             // The song's identity is now the score's artist and title, so list that song's audio files
             updateSongForAudioFile({ final: true });
