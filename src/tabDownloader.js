@@ -319,6 +319,14 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
 
         showToast(`Added "${file.name}" to ${targetSong.title || 'song'}`, 'success');
         window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+
+        if (matchedUrl) {
+            const songKey = [targetSong.artist, targetSong.title].filter(Boolean).join(' - ') || targetSong.title || file.name;
+            attachSyncForMatchedUrl(matchedUrl, { showToast, file, songKey }).catch(err => {
+                console.warn('[Tab Downloader] Background sync point attachment failed:', err);
+            });
+        }
+
         return; // Do not auto-open into player viewer when adding a tab to a library song
     }
 
@@ -358,7 +366,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     } catch {}
 
     if (matchedUrl) {
-        attachSyncForMatchedUrl(matchedUrl, { showToast });
+        attachSyncForMatchedUrl(matchedUrl, { showToast, file });
     }
 }
 

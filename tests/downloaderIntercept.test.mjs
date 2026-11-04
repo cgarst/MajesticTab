@@ -97,3 +97,24 @@ test('attachSyncForMatchedUrl feeds matched URL into sync pipeline and calls toa
     assert.equal(toastMessage, 'Added sync points for Official Video');
 });
 
+test('attachSyncForMatchedUrl passes songKey and file when attaching to library song without opening', async () => {
+    const matchedUrl = 'https://www.example.com/a/wsa/artist-song-s1234';
+    let passedOptions = null;
+
+    const mockLoad = async () => [{ videoId: 'dQw4w9WgXcQ', barTimesMs: [0, 2000, 4000] }];
+    const mockAttach = async (sets, options) => {
+        passedOptions = options;
+        return { saved: ['Official Video'], skipped: [] };
+    };
+
+    const { attachSyncForMatchedUrl } = await import('../src/utils/downloaderIntercept.js');
+    const result = await attachSyncForMatchedUrl(matchedUrl, {
+        loadFromUrlFn: mockLoad,
+        attachSyncSetsFn: mockAttach,
+        songKey: 'Test Artist - Test Song'
+    });
+
+    assert.equal(passedOptions.songKey, 'Test Artist - Test Song');
+    assert.deepEqual(result.saved, ['Official Video']);
+});
+

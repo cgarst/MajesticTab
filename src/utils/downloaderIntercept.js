@@ -91,9 +91,11 @@ export function getDownloaderUrlFromMatchedUrl(targetUrl) {
  * @param {Function} [options.showToast]
  * @param {Function} [options.loadFromUrlFn]
  * @param {Function} [options.attachSyncSetsFn]
+ * @param {File|Blob|Uint8Array} [options.file]
+ * @param {string} [options.songKey]
  * @returns {Promise<{saved: string[], skipped: string[]}>}
  */
-export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, loadFromUrlFn = null, attachSyncSetsFn = null } = {}) {
+export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, loadFromUrlFn = null, attachSyncSetsFn = null, file = null, songKey = null } = {}) {
     if (!matchedUrl) return { saved: [], skipped: [] };
     try {
         const load = loadFromUrlFn || (await import('../audioSync/importers/index.js')).loadFromUrl;
@@ -101,8 +103,14 @@ export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, lo
         const sets = await load(matchedUrl, fetchText);
         if (!sets?.length) return { saved: [], skipped: ['No sync points found in source'] };
 
+        let bars = null;
+        if (file) {
+            const { extractPlayedBarsFromFile } = await import('../urlImport/attachSync.js');
+            bars = await extractPlayedBarsFromFile(file);
+        }
+
         const attach = attachSyncSetsFn || (await import('../urlImport/attachSync.js')).attachSyncSets;
-        const result = await attach(sets);
+        const result = await attach(sets, { songKey, bars });
         if (result?.saved?.length && typeof showToast === 'function') {
             showToast(`Added sync points for ${result.saved.length === 1 ? result.saved[0] : `${result.saved.length} videos`}`, 'success');
         }
