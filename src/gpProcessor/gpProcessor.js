@@ -3,6 +3,7 @@ import { applyScoreAdaptation, getTabAdaptPref } from '../utils/tabAdapter.js';
 import { getNotationOverride, beginSong } from '../utils/sessionOverrides.js';
 import { applyTabTrackColors, tintTrackCurves } from '../utils/trackColors.js';
 import { fitTempoLabels } from '../utils/tempoLabelFit.js';
+import { fitScoreText } from '../utils/scoreTextFit.js';
 import { createCustomCursorHandler } from './gpPlayer.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { applyProgramMapping } from '../soundFontProgramMap.js';
@@ -285,7 +286,7 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
                     enableElementHighlighting: true,
                     scrollMode: alphaTab.ScrollMode.Off
                 },
-                display: { staveProfile: getGpStaveProfile(), layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE, stretchForce: GP_STRETCH_FORCE, padding: [20, (typeof window !== 'undefined' && window.innerWidth <= 576) ? 4 : 20] },
+                display: { staveProfile: getGpStaveProfile(), layoutMode: alphaTab.LayoutMode.Page, scale: GP_DISPLAY_SCALE, stretchForce: GP_STRETCH_FORCE, padding: (typeof window !== 'undefined' && window.innerWidth <= 576) ? [4, 18, 4, 16] : [20, 20, 20, 20] },
                 notation: {
                     rhythmMode: alphaTab.TabRhythmMode.ShowWithBars,
                     elements: {
@@ -343,6 +344,7 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
             // Registered before any other render listener so Page mode clones the tinted SVG
             api.postRenderFinished.on(() => tintTrackCurves(api, container));
             api.postRenderFinished.on(() => fitTempoLabels(container));
+            api.postRenderFinished.on(() => fitScoreText(container));
 
             api.postRenderFinished.on(() => {
                 // debugging

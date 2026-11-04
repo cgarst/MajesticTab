@@ -36,6 +36,7 @@ import { buildTrackMix, bindTrackMix } from './mixerPanel.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { setOverride, setNotationOverride } from '../utils/sessionOverrides.js';
 import { applyTabTrackColors, isTabTrackColorsEnabled, setTabTrackColorsEnabled, TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
+import { fitScoreText } from '../utils/scoreTextFit.js';
 
 const PAGE_PADDING = 6;
 
@@ -307,6 +308,16 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
     const container = gpState.canvases[0].container;
     const api = gpState.canvases[0].api;
 
+    const isPhone = window.innerWidth <= 576;
+    const expectedPadding = isPhone ? [4, 18, 4, 16] : [20, 20, 20, 20];
+    const paddingChanged = api && (!api.settings.display.padding ||
+        api.settings.display.padding[0] !== expectedPadding[0] ||
+        api.settings.display.padding[1] !== expectedPadding[1]);
+    if (paddingChanged) {
+        api.settings.display.padding = expectedPadding;
+        api.updateSettings();
+    }
+
     if (pageModeChecked) {
         output.classList.remove('continuous-mode');
         output.style.overflowY = 'hidden';
@@ -321,7 +332,7 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         container.style.width = targetWidthStr;
         container.style.height = '100%';
 
-        if (widthChanged && api) {
+        if ((widthChanged || paddingChanged) && api) {
             // Park container offscreen while alphaTab re-renders at new target width
             const offscreenHolder = document.createElement('div');
             offscreenHolder.style.cssText = 'position:absolute;visibility:hidden;width:0;height:0;overflow:hidden;';
@@ -368,10 +379,15 @@ export function renderGPPage(output, pageModeChecked, continuousModeRadio) {
         enableContinuousScrollTracking(output, [container], () => {});
         updateScrollIndicator(document.getElementById('pageIndicator'), output, 1);
 
-        if (wasNotFullWidth && api) {
-            const unsubSettle = api.postRenderFinished.on(() => { unsubSettle(); settleLayout(); });
+        if ((wasNotFullWidth || paddingChanged) && api) {
+            const unsubSettle = api.postRenderFinished.on(() => {
+                unsubSettle();
+                fitScoreText(container);
+                settleLayout();
+            });
             api.render();
         } else {
+            fitScoreText(container);
             settleLayout();
         }
     }
@@ -454,38 +470,6 @@ export function layoutGPPages(container, pageHeight, pageWidth = null) {
 /**
  * Render in page mode
  */
-/**
- * AlphaTab draws the title, subtitle and artist lines at a fixed font size and does not wrap them, so a long title is
- * cut off at the page edge when the page is narrow (a TV, a phone, a high sheet zoom). Shrink any text line that runs
- * past its page, keeping its anchor point, so the whole title is always readable. The staves are not touched.
- */
-function fitScoreTextToPages(root) {
-    const margin = 8;
-    root.querySelectorAll('.gp-page-wrapper svg').forEach((svg) => {
-        const box = svg.viewBox && svg.viewBox.baseVal;
-        const width = box && box.width > 0 ? box.width : svg.width.baseVal.value;
-        if (!(width > 0)) return;
-        svg.querySelectorAll('text').forEach((text) => {
-            if (text.dataset.fitted) return;
-            let bbox;
-            try { bbox = text.getBBox(); } catch { return; }
-            if (!bbox.width) return;
-            const left = Math.max(0, bbox.x);
-            const room = width - margin - left;
-            if (bbox.x + bbox.width <= width - margin || room <= 0) return;
-            const factor = room / bbox.width;
-            const x = Number.parseFloat(text.getAttribute('x')) || bbox.x;
-            const y = Number.parseFloat(text.getAttribute('y')) || (bbox.y + bbox.height);
-            const anchor = text.getAttribute('text-anchor') || getComputedStyle(text).textAnchor;
-            // Scale about the anchor edge so the text still starts (or centres) where AlphaTab put it.
-            const pivotX = anchor === 'middle' ? x : (anchor === 'end' ? x : Math.max(x, left));
-            const existing = text.getAttribute('transform');
-            text.setAttribute('transform', `${existing ? existing + ' ' : ''}translate(${pivotX} ${y}) scale(${factor.toFixed(4)}) translate(${-pivotX} ${-y})`);
-            text.dataset.fitted = '1';
-        });
-    });
-}
-
 function renderGPPageMode(output) {
     clearOutput(output);
     const pagesPerView = getPagesPerView(true); // true = Guitar Pro mode
@@ -544,7 +528,7 @@ function renderGPPageMode(output) {
         const wrapper = createPageWrapper();
         wrapper.className = 'gp-page-wrapper alphaTab at';
         wrapper.style.width = `${(100 / pagesPerView)}%`;
-        wrapper.style.padding = window.innerWidth <= 576 ? '5px 2px' : window.innerWidth < 768 ? '5px 4px' : '5px 8px';
+        wrapper.style.padding = window.innerWidth <= 576 ? '12px 2px 5px' : window.innerWidth < 768 ? '5px 4px' : '5px 8px';
         wrapper.style.boxSizing = 'border-box';
         wrapper.style.overflow = 'hidden';
 
@@ -604,7 +588,7 @@ function renderGPPageMode(output) {
         containerWrapper.appendChild(wrapper);
     }
     output.appendChild(containerWrapper);
-    fitScoreTextToPages(containerWrapper);
+    fitScoreText(containerWrapper);
     updatePageIndicator(
         document.getElementById('pageIndicator'), 
         gpState.currentPageIndex,
