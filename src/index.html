@@ -773,10 +773,6 @@
       </div>
       <div id="ytSyncRow" class="mb-3 rec-sync-proxy" hidden>
         <div class="d-flex align-items-center justify-content-between gap-2">
-          <div class="form-check form-switch mb-0">
-            <input class="form-check-input theme-switch" type="checkbox" id="ytSyncFollow">
-            <label class="form-check-label small text-white" for="ytSyncFollow" title="Move the tab cursor with this video using its sync points">Follow recording</label>
-          </div>
           <span class="text-muted text-truncate" id="ytSyncInfo" style="font-size: 0.72rem;"></span>
           <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="ytSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
         </div>
@@ -806,10 +802,6 @@
         </div>
         <div id="afSyncRow" class="mb-1 rec-sync-proxy" hidden>
           <div class="d-flex align-items-center justify-content-between gap-2">
-            <div class="form-check form-switch mb-0">
-              <input class="form-check-input theme-switch" type="checkbox" id="afSyncFollow">
-              <label class="form-check-label small text-white" for="afSyncFollow" title="Move the tab cursor with this recording using its sync points">Follow recording</label>
-            </div>
             <span class="text-muted text-truncate" id="afSyncInfo" style="font-size: 0.72rem;"></span>
             <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 py-0 px-2" id="afSyncEditBtn" style="font-size: 0.75rem;">Sync Points</button>
           </div>
@@ -829,11 +821,7 @@
     <!-- Sync Coverage & Follow Card (Mockup) -->
     <div class="syncc mt-3" id="realAudioSyncCard">
       <div class="hd">
-        <h4 id="realAudioSyncFollowTitle">The tab follows this recording</h4>
-        <div class="form-check form-switch mb-0">
-          <input class="form-check-input theme-switch" type="checkbox" id="realAudioFollowSwitch">
-          <label class="visually-hidden" for="realAudioFollowSwitch">Follow recording</label>
-        </div>
+        <h4>The tab follows this recording</h4>
       </div>
       <div class="covbar" id="realAudioCovBar" role="img" aria-label="Sync coverage by bar">
         <div class="lane-base"></div>

@@ -210,17 +210,6 @@ export function updateRecordingSlotsAndSyncCard() {
         if (shareSwitch) shareSwitch.checked = Boolean(songKey) && isSyncSharedFromOriginal(songKey);
     }
 
-    const isLocal = getRealAudioActiveSource() === 'local';
-    const isFollow = Boolean((isLocal ? $('afSyncFollow')?.checked : $('ytSyncFollow')?.checked));
-    
-    const followSwitch = $('realAudioFollowSwitch');
-    if (followSwitch) followSwitch.checked = isFollow;
-
-    const followTitle = $('realAudioSyncFollowTitle');
-    if (followTitle) {
-        followTitle.textContent = isFollow ? 'The tab follows this recording' : 'The tab stays where you put it';
-    }
-
     const media = getMediaForSlot(state.slot);
     const rec = (songKey && media) ? loadRecord(songKey, media) : null;
 
@@ -469,21 +458,6 @@ export function initRealAudioController() {
         if (!songKey) return;
         setSyncSharedFromOriginal(songKey, $('realAudioShareSyncSwitch').checked);
         window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
-    });
-
-    // Follow switch
-    $('realAudioFollowSwitch')?.addEventListener('change', () => {
-        const isLocal = getRealAudioActiveSource() === 'local';
-        const target = isLocal ? $('afSyncFollow') : $('ytSyncFollow');
-        const checked = $('realAudioFollowSwitch').checked;
-        if (target) {
-            target.checked = checked;
-            target.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-        const followTitle = $('realAudioSyncFollowTitle');
-        if (followTitle) {
-            followTitle.textContent = checked ? 'The tab follows this recording' : 'The tab stays where you put it';
-        }
     });
 
     // Tap to sync / Adjust points action buttons

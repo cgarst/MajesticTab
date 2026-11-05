@@ -1,7 +1,6 @@
 // audioSyncUi.js
 // The sync row that sits in a recording's panel (YouTube, audio file): a "Sync Points" button that opens the editor
-// and, when the song has sync points for that recording, a "Follow recording" switch that starts or stops the
-// follower. Only one recording drives the cursor at a time. The synth and a recording are never the clock together:
+// and, when the song has sync points for that recording, the follower runs on its own. Only one recording drives the cursor at a time. The synth and a recording are never the clock together:
 // the follower stands down while the synth plays and resumes when the recording does.
 
 import { getSongKey, onYouTubeEvent, jamYouTubeControl, toggleYouTubePanel } from '../youtubePlayer.js';
@@ -14,21 +13,11 @@ import { enterSyncMode } from './syncMode.js';
 import { isTvMode } from '../tvMode.js';
 import { sessionPointsFor, isJamGuestFollowing, JAM_BRIDGE_EVENT } from './jamBridge.js';
 
-const FOLLOW_PREF_KEY = 'audio_sync_follow';
-
-function readFollowPref() {
-    try { return localStorage.getItem(FOLLOW_PREF_KEY) !== '0'; } catch { return true; }
-}
-
-function writeFollowPref(on) {
-    try { localStorage.setItem(FOLLOW_PREF_KEY, on ? '1' : '0'); } catch { /* per-viewer convenience only */ }
-}
-
 let editor = null;
 const $tap = (prefix) => document.getElementById(`${prefix}SyncTapBtn`);
 
 /**
- * Wires the row whose elements are `<prefix>SyncRow`, `<prefix>SyncFollow`, `<prefix>SyncInfo` and
+ * Wires the row whose elements are `<prefix>SyncRow`, `<prefix>SyncInfo` and
  * `<prefix>SyncEditBtn` and `<prefix>SyncTapBtn`.
  *
  * @param {object} opts
@@ -44,11 +33,9 @@ const $tap = (prefix) => document.getElementById(`${prefix}SyncTapBtn`);
  */
 export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSync, getPeaks, getAudioData }) {
     const row = document.getElementById(`${prefix}SyncRow`);
-    const toggle = document.getElementById(`${prefix}SyncFollow`);
     const info = document.getElementById(`${prefix}SyncInfo`);
     const editBtn = document.getElementById(`${prefix}SyncEditBtn`);
-    if (!row || !toggle) return { refresh() {} };
-    const switchWrap = toggle.closest('.form-check');
+    if (!row) return { refresh() {} };
     editor ||= initAudioSyncEditor();
 
     // A Jam guest follows the host's video with the host's points (kept for the session), and cannot author them
@@ -69,15 +56,13 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
         const has = Boolean(record?.points.length);
         // A TV, or a guest following the host, only follows existing points, so with none the row has nothing to offer
         row.hidden = !media || ((isTvMode() || guestOnVideo(media)) && !has);
-        switchWrap.hidden = !has;
         info.textContent = has
             ? `${record.points.length} sync point${record.points.length === 1 ? '' : 's'}${record.fromHost ? ' from the host' : ''}`
             : 'No sync points';
-        toggle.checked = has && readFollowPref();
 
         const session = getAudioSyncSession();
         const mine = Boolean(session && source && session.source === source);
-        const want = has && toggle.checked && Boolean(source) && !isSynthPlaying();
+        const want = has && Boolean(source) && !isSynthPlaying();
         if (!want) {
             if (mine) stopAudioSync();
             return;
@@ -91,10 +76,6 @@ export function mountSyncRow({ prefix, getSource, getMedia, subscribe, prepareSy
         startAudioSync({ source, points: record.points, alignToCursor: !guestOnVideo(media) });
     }
 
-    toggle.addEventListener('change', () => {
-        writeFollowPref(toggle.checked);
-        refresh('play');
-    });
     editBtn?.addEventListener('click', () => {
         const media = getMedia();
         const source = getSource();
