@@ -168,10 +168,12 @@ export function initBarRuler() {
         if (secEl) {
             if (part && part.name && part.name !== 'Start') {
                 secEl.textContent = `${part.name}, `;
-                secEl.style.display = 'inline';
+                secEl.title = part.name;
+                secEl.style.display = '';
                 if (prefixEl) prefixEl.textContent = 'bar ';
             } else {
                 secEl.textContent = '';
+                secEl.title = '';
                 secEl.style.display = 'none';
                 if (prefixEl) prefixEl.textContent = 'Bar ';
             }
@@ -373,7 +375,7 @@ export function initBarRuler() {
         } else if (e.type === 'detached') {
             model = null;
             const secEl = $('dockSection');
-            if (secEl) { secEl.textContent = ''; secEl.style.display = 'none'; }
+            if (secEl) { secEl.textContent = ''; secEl.title = ''; secEl.style.display = 'none'; }
             const prefixEl = $('dockBarPrefix');
             if (prefixEl) prefixEl.textContent = 'Bar ';
             render();

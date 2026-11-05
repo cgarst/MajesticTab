@@ -177,10 +177,12 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
     const bodyObserver = new MutationObserver(() => padForBar());
     bodyObserver.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     window.addEventListener('resize', padForBar);
+    $('syncModeBar')?.addEventListener('transitionend', padForBar);
     s.cleanup.push(() => {
         barObserver.disconnect();
         bodyObserver.disconnect();
         window.removeEventListener('resize', padForBar);
+        $('syncModeBar')?.removeEventListener('transitionend', padForBar);
         output.style.removeProperty('padding-bottom');
     });
     padForBar();

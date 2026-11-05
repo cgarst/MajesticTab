@@ -197,6 +197,8 @@ class FretboardController {
             dock?.style.setProperty('display', 'block');
             dock?.classList.remove('is-hidden');
             document.body.classList.add('fretboard-open');
+            const h = Math.ceil(dock?.getBoundingClientRect().height || 0);
+            if (h > 0) document.documentElement.style.setProperty('--fretboard-dock-height', `${h}px`);
             if (this.lastBeatNotes?.length) {
                 this.view?.updateActiveNotes(this.lastBeatNotes, this.displayMode);
             } else {
