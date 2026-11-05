@@ -52,7 +52,15 @@ export const unwrapGoogleUrl = unwrapRedirectUrl;
 export function isWsaTabUrl(url) {
     if (!url || typeof url !== 'string') return false;
     try {
-        const u = new URL(url);
+        let direct = url;
+        const uRaw = new URL(url);
+        const host = uRaw.hostname.toLowerCase();
+        const path = uRaw.pathname.toLowerCase();
+        if ((host.includes('google.') && (path === '/url' || path.startsWith('/url/'))) ||
+            (host.includes('duckduckgo.com') && (path === '/l' || path.startsWith('/l/')))) {
+            direct = unwrapRedirectUrl(url);
+        }
+        const u = new URL(direct);
         return u.pathname.startsWith('/a/wsa/') && SONG_ID_PATTERN.test(u.pathname);
     } catch {
         return false;

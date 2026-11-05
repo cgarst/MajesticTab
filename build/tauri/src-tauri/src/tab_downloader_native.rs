@@ -1196,7 +1196,9 @@ pub fn tab_downloader_prefill(
         const input = document.querySelector('input[type="url"], input[name="url"], input[type="text"], input[type="search"], input:not([type])');
         if (!input) return false;
         const form = input.form || input.closest('form');
-        if (form && form.__majesticSubmitted) return true;
+        // Hydration of the page can wipe the field after the first fill, so keep it
+        // filled until it holds the target; only the submit happens once.
+        if (form && form.__majesticSubmitted && input.value === {json_target}) return true;
 
         try {{
             const proto = Object.getPrototypeOf(input);
@@ -1218,21 +1220,22 @@ pub fn tab_downloader_prefill(
             input.dispatchEvent(new ClipboardEvent('paste', {{ bubbles: true, cancelable: true, clipboardData: dt }}));
         }} catch (_) {{}}
 
-        if (form) {{
+        if (form && !form.__majesticSubmitted) {{
+            // Submitting before the page enables its button bypasses its own handler
+            // and leaves the field empty; wait for the button to enable.
+            const btn = form.querySelector('button[type="submit"], button:not([type="button"])');
+            if (btn && btn.disabled) return false;
             form.__majesticSubmitted = true;
             setTimeout(() => {{
                 try {{
-                    form.requestSubmit();
+                    if (btn) btn.click();
+                    else form.requestSubmit();
                 }} catch (_) {{
-                    try {{
-                        const btn = form.querySelector('button[type="submit"], button:not([type="button"])');
-                        if (btn) btn.click();
-                        else form.submit();
-                    }} catch (__) {{}}
+                    try {{ form.submit(); }} catch (__) {{}}
                 }}
             }}, 50);
         }}
-        return true;
+        return input.value === {json_target};
     }}
     if (!tryFill()) {{
         const observer = new MutationObserver(() => {{
