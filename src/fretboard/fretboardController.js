@@ -79,12 +79,12 @@ class FretboardController {
     }
 
     bindEvents() {
-        // Compact button on the fretboard, and the playback dock's button that pops it open again
+        // Fretboard toggle button in the playback dock (or F key)
+        document.getElementById('fretboardDockBtn')?.addEventListener('click', () => {
+            this.toggle();
+        });
         document.getElementById('fretboardCloseBtn')?.addEventListener('click', () => {
             this.toggle(false);
-        });
-        document.getElementById('fretboardDockBtn')?.addEventListener('click', () => {
-            this.toggle(true);
         });
 
         // Display mode pill buttons (Notes | Frets)
@@ -189,9 +189,16 @@ class FretboardController {
         const dock = document.getElementById('fretboardDock');
         this.trackDockHeight(dock);
         this.syncDockBtnSlot();
-        // The dock's button only shows while the fretboard is compacted on a song that has one
+        // The dock's toggle button shows on any song that has a fretboard, whether opened or closed
         const dockBtn = document.getElementById('fretboardDockBtn');
-        if (dockBtn) dockBtn.style.display = this.isScoreAvailable && !this.isOpen ? '' : 'none';
+        if (dockBtn) {
+            dockBtn.style.display = this.isScoreAvailable ? '' : 'none';
+            dockBtn.classList.toggle('active', Boolean(this.isOpen));
+            dockBtn.setAttribute('aria-pressed', String(Boolean(this.isOpen)));
+            const label = this.isOpen ? 'Hide the fretboard' : 'Show the fretboard';
+            dockBtn.setAttribute('aria-label', label);
+            dockBtn.setAttribute('title', `${label} (F)`);
+        }
 
         if (this.isOpen && this.isScoreAvailable) {
             dock?.style.setProperty('display', 'block');

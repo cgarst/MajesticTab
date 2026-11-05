@@ -187,12 +187,12 @@ body.library-view-active #viewPill { display: none; }
 [data-theme="Snow White"] { --ok: #047857; --warn: #92400e; --danger: #b91c1c; }
 
 .theme-toast-container {
-  position: fixed; z-index: 10000; right: 16px; bottom: calc(var(--dock-h, 0px) + 16px);
+  position: fixed; z-index: 10000; right: 16px; bottom: calc(var(--dock-h, 0px) + var(--fretboard-effective-h, 0px) + 16px);
   display: flex; flex-direction: column; gap: 8px; width: min(420px, calc(100% - 32px));
   pointer-events: none;
 }
 @media (max-width: 576px) {
-  .theme-toast-container { left: 16px; right: 16px; width: auto; bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--dock-h, 0px) + 12px); }
+  .theme-toast-container { left: 16px; right: 16px; width: auto; bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px) + var(--fretboard-effective-h, 0px) + 12px); }
 }
 .theme-toast {
   pointer-events: auto; display: flex; align-items: center; gap: 12px;
@@ -383,7 +383,13 @@ body:not(.library-view-active) .mobile-playback-dock.has-audio-sources {
 /* must out-rank the display:block rule above, which carries two :not() and .has-audio-sources */
 body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources.hud-hidden:not(.hud-transient) { display: none !important; }
 .mobile-playback-dock.hud-hidden:not(.hud-transient) { display: none !important; }
-.fretboard-dock { bottom: var(--dock-h, 0px) !important; }
+.fretboard-dock {
+  bottom: var(--dock-h, 0px) !important;
+  box-shadow: none !important;
+  border-top: 0 !important;
+  background: var(--s1) !important;
+}
+.fretboard-dock-header { border-bottom: 0 !important; }
 body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .mobile-playback-dock-inner {
   display: grid; grid-template-columns: auto minmax(120px, 1fr) auto auto auto; gap: 8px 16px; align-items: center;
@@ -406,6 +412,8 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 }
 .mobile-dock-btn:hover { background: var(--s2) !important; color: var(--ink) !important; }
 .mobile-dock-btn.active-audio-mode { background: transparent !important; color: var(--hue) !important; }
+#fretboardDockBtn.active, #fretboardDockBtn[aria-pressed="true"] { background: var(--s2) !important; color: var(--ink) !important; }
+#fretboardDockBtn.active:hover, #fretboardDockBtn[aria-pressed="true"]:hover { background: var(--s3) !important; color: var(--ink) !important; }
 .dock-src .mobile-dock-btn { width: auto; padding: 0 10px; border-radius: calc(var(--r) - 3px) !important; gap: 6px; height: 32px; font-size: 13px; font-weight: 500; }
 .dock-src .mobile-dock-btn:hover { background: transparent !important; color: var(--ink) !important; }
 .dock-src .mobile-dock-btn.active-audio-mode, #mobileSynthToggleBtn.active-audio-mode, #mobileYtToggleBtn.active-audio-mode {
@@ -586,16 +594,22 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
    Practice panel: the Synth and Recording panels as one right-hand panel beside the score
    ========================================================================== */
 #synthDropdownPanel, #ytDropdownPanel {
-  position: fixed !important; top: var(--topbar-h, 52px) !important; right: 0 !important; left: auto !important; bottom: var(--dock-h, 96px) !important;
+  position: fixed !important; top: var(--topbar-h, 52px) !important; right: 0 !important; left: auto !important;
+  bottom: calc(var(--dock-h, 0px) + var(--fretboard-effective-h, 0px)) !important;
   width: 400px !important; max-width: 100% !important; height: auto !important; max-height: none !important; transform: none !important;
   border-radius: var(--r-lg) 0 0 var(--r-lg) !important; z-index: 1030; overflow-y: auto; overflow-x: hidden;
   background: var(--s2) !important; animation: practiceIn var(--dur-slow) var(--ease-out);
+  transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 @keyframes practiceIn { from { opacity: 0; transform: translate3d(24px, 0, 0); } to { opacity: 1; transform: none; } }
 body.practice-open #output { padding-right: 416px !important; }
 @media (max-width: 900px) {
-  #synthDropdownPanel, #ytDropdownPanel { top: auto !important; left: 0 !important; width: auto !important; max-height: 86% !important; height: auto !important;
-    border-radius: var(--r-lg) var(--r-lg) 0 0 !important; animation: sheetIn var(--dur-slow) var(--ease-out); }
+  #synthDropdownPanel, #ytDropdownPanel {
+    top: auto !important; left: 0 !important; width: auto !important;
+    bottom: calc(var(--dock-h, 0px) + var(--fretboard-effective-h, 0px)) !important;
+    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--fretboard-effective-h, 0px) - 24px) !important; height: auto !important;
+    border-radius: var(--r-lg) var(--r-lg) 0 0 !important; animation: sheetIn var(--dur-slow) var(--ease-out);
+  }
   body.practice-open #output { padding-right: 16px !important; }
 }
 @keyframes sheetIn { from { transform: translate3d(0, 40px, 0); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -604,7 +618,7 @@ body.practice-open #output { padding-right: 416px !important; }
 }
 #synthDropdownPanel .synth-panel-header > div:first-child > i, #ytDropdownPanel .yt-header-badge { display: none !important; }
 #synthPanelTitle, #realAudioPanelTitle { font-size: 0 !important; }
-#realAudioPanelTitle::before { content: 'Recording'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
+#realAudioPanelTitle::before { content: 'Original audio'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
 #synthPanelTitle::before { content: 'Synth'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
 #synthDropdownPanel .synth-panel-body, #ytDropdownPanel .yt-panel-body { padding: 4px 16px 18px; }
 .practice-seg { width: 100%; display: flex; margin-bottom: 16px; }
@@ -1220,7 +1234,7 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
   font-style: normal;
 }
 
-/* Tap to sync dock: stacks cleanly above playback dock, mobile nav, and the virtual fretboard */
+/* Reader stacking: clean vertical offsets for playback dock, mobile nav, and the virtual fretboard */
 :root {
   --reader-bottom-nav-h: 0px;
   --fretboard-effective-h: 0px;
@@ -2216,8 +2230,10 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   /* Menus and panels become bottom sheets above the dock and the bottom row */
   #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel {
     position: fixed !important; left: 0 !important; right: 0 !important; top: auto !important; width: auto !important; max-width: none !important;
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px) + var(--dock-h, 0px)) !important; transform: none !important;
-    max-height: calc(100vh - 56px - var(--dock-h, 0px) - 70px) !important; overflow-y: auto; border-radius: var(--r-lg) var(--r-lg) 0 0 !important;
+    bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px) + var(--fretboard-effective-h, 0px)) !important; transform: none !important;
+    max-height: calc(100vh - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - var(--fretboard-effective-h, 0px) - 70px) !important;
+    overflow-y: auto; border-radius: var(--r-lg) var(--r-lg) 0 0 !important;
+    transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
   .dock-pop { left: 8px !important; right: 8px; width: auto; }
 }
@@ -2235,6 +2251,7 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 /* Reduced motion: the side panel and sheets, and the rail's inlay dot, appear without moving */
 @media (prefers-reduced-motion: reduce) {
   #synthDropdownPanel, #ytDropdownPanel, .library-bottom-nav .library-nav-tab.active::before { animation: none !important; }
+  #synthDropdownPanel, #ytDropdownPanel, #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel { transition: none !important; }
 }
 
 /* Phones: the library has no reader controls (the reader's five words and page buttons belong to a song) */
@@ -2409,7 +2426,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 @media (min-width: 641px) {
   #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel {
     width: min(360px, calc(100vw - 16px)) !important; max-width: none;
-    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - 24px); overflow-y: auto; overflow-x: hidden;
+    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--fretboard-effective-h, 0px) - 24px); overflow-y: auto; overflow-x: hidden;
   }
 }
 

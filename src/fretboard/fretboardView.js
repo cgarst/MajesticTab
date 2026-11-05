@@ -648,9 +648,9 @@ export class FretboardView {
             pick.group.style.display = '';
             pick.pick.style.fill = part.trackGrad;
 
-            // One stroke direction for every pick, toward the higher strings (the way a strum sweeps), tip leading
+            // The brand pick rests on the string with its tip pointed down
             const dir = Math.sign(yOf(this.stringCount) - yOf(1)) || -1;
-            pick.pick.setAttribute('transform', dir > 0 ? PICK_TIP_UP : PICK_TIP_DOWN);
+            pick.pick.setAttribute('transform', PICK_TIP_DOWN);
 
             pick.sweep?.cancel();
             pick.sweep = null;

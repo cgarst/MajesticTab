@@ -1457,8 +1457,9 @@ export function initYouTubePlayer() {
         const panel = document.getElementById('ytDropdownPanel');
         const sourcePill = document.getElementById('audioSourcePill');
         const mobileDock = document.getElementById('mobilePlaybackDock');
+        const fretboardDock = document.getElementById('fretboardDock');
 
-        if (playerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target) && !mobileDock?.contains(e.target)) {
+        if (playerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target) && !mobileDock?.contains(e.target) && !fretboardDock?.contains(e.target)) {
             toggleYouTubePanel(false);
         }
     };
@@ -1472,23 +1473,11 @@ export function initYouTubePlayer() {
 // --- Jam Mode remote control -----------------------------------------------
 
 /**
- * A new embed may refuse to autoplay while hidden, so show the panel until the video
- * actually plays, then tuck it away again. A panel the user opened stays open.
+ * A new embed needs to be visible to play, so reveal the panel on play and keep it open.
  */
-function revealUntilPlaying(timeoutMs = 10000) {
+function revealUntilPlaying() {
     if (playerState.isOpen) return;
     toggleYouTubePanel(true);
-    const start = Date.now();
-    const check = setInterval(() => {
-        if (!playerState.isOpen) {
-            clearInterval(check);
-        } else if (reportedPlaying) {
-            clearInterval(check);
-            setTimeout(() => toggleYouTubePanel(false), 400);
-        } else if (Date.now() - start > timeoutMs) {
-            clearInterval(check);
-        }
-    }, 150);
 }
 
 let jamYouTubeMuted = false;

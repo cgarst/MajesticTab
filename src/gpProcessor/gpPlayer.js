@@ -2426,11 +2426,12 @@ export function initSynthPlayer() {
         const panel = document.getElementById('synthDropdownPanel');
         const sourcePill = document.getElementById('audioSourcePill');
         const mobileDock = document.getElementById('mobilePlaybackDock');
+        const fretboardDock = document.getElementById('fretboardDock');
 
         // Modals opened from the panel (SoundFonts, Mixer, Audio Latency) live outside it; interacting with them is not an outside click
         if (e.target.closest?.('.theme-modal-backdrop')) return;
 
-        if (synthPlayerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target) && !mobileDock?.contains(e.target)) {
+        if (synthPlayerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target) && !mobileDock?.contains(e.target) && !fretboardDock?.contains(e.target)) {
             toggleSynthPanel(false);
         }
     };

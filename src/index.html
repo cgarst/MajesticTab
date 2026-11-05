@@ -2020,12 +2020,6 @@
         </button>
       </div>
     </div>
-
-    <div class="fretboard-dock-right">
-      <button type="button" class="btn btn-sm theme-control-btn fretboard-close-btn" id="fretboardCloseBtn" title="Compact the fretboard" aria-label="Compact the fretboard">
-        <i class="bi-chevron-down"></i>
-      </button>
-    </div>
   </div>
 
   <div class="fretboard-neck-wrapper" id="fretboardNeckWrapper">
@@ -2065,8 +2059,8 @@
         </button>
         <button type="button" class="btn mobile-dock-btn dock-more" id="dockVolumeBtn" aria-haspopup="dialog" aria-expanded="false" aria-label="Volume" title="Volume"><i class="bi-volume-up"></i></button>
       </div>
-      <!-- Shown only while the fretboard is compacted: brings it back -->
-      <button type="button" class="btn mobile-dock-btn dock-more" id="fretboardDockBtn" aria-label="Show the fretboard" title="Show the fretboard (F)" style="display: none;"><svg class="fretboard-glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" shape-rendering="crispEdges" aria-hidden="true"><path d="M3.5 5v14" stroke-width="3"/><path d="M5 5.75h17M5 18.25h17" stroke-width="1.5"/><path d="M11.25 6.5v11M17.25 6.5v11" stroke-width="1.5"/><path d="M5 10h17M5 14h17" stroke-width="1" opacity=".55"/><circle cx="14.25" cy="12" r="1.5" fill="currentColor" stroke="none" shape-rendering="auto"/></svg></button>
+      <!-- Fretboard toggle button in the playback dock -->
+      <button type="button" class="btn mobile-dock-btn dock-more" id="fretboardDockBtn" aria-label="Toggle fretboard" aria-pressed="false" title="Toggle fretboard (F)" style="display: none;"><svg class="fretboard-glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" shape-rendering="crispEdges" aria-hidden="true"><path d="M3.5 5v14" stroke-width="3"/><path d="M5 5.75h17M5 18.25h17" stroke-width="1.5"/><path d="M11.25 6.5v11M17.25 6.5v11" stroke-width="1.5"/><path d="M5 10h17M5 14h17" stroke-width="1" opacity=".55"/><circle cx="14.25" cy="12" r="1.5" fill="currentColor" stroke="none" shape-rendering="auto"/></svg></button>
     </div>
   </div>
 </aside>

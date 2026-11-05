@@ -309,7 +309,7 @@ def setup_shot(page, base, kind):
         return
     open_reader(page, base)
     if kind == "page":
-        click(page, "#fretboardCloseBtn"); page.wait_for_timeout(700)  # the pages need the full height
+        click(page, "#fretboardDockBtn, #fretboardCloseBtn"); page.wait_for_timeout(700)  # the pages need the full height
         page.evaluate("document.querySelector('#pageModeRadio').click()")
         page.wait_for_timeout(2500)
     elif kind == "reader":
@@ -330,12 +330,12 @@ def setup_shot(page, base, kind):
         page.evaluate("document.body.classList.remove('chrome-hidden')")
         page.wait_for_timeout(600)
     elif kind in ("practice", "guitar"):
-        click(page, "#fretboardCloseBtn"); page.wait_for_timeout(700)  # panels read best without the fretboard behind them
+        click(page, "#fretboardDockBtn, #fretboardCloseBtn"); page.wait_for_timeout(700)  # panels read best without the fretboard behind them
         click(page, f"#{kind}ToggleBtn"); page.wait_for_timeout(900)
         if kind == "guitar":
             setup_guitar_fit(page)
     elif kind == "original":
-        click(page, "#fretboardCloseBtn"); page.wait_for_timeout(700)
+        click(page, "#fretboardDockBtn, #fretboardCloseBtn"); page.wait_for_timeout(700)
         page.wait_for_timeout(2500)  # let the score finish laying out so the panel can count its bars
         click(page, "#ytToggleBtn, #mobileYtToggleBtn"); page.wait_for_timeout(800)
         click(page, "#realAudioSourceLocal")
