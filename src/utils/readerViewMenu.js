@@ -285,22 +285,73 @@ function arrangeSongPanel() {
         handleGetTabSingleSong({ artist, title });
     });
 
-    // Source website: when the tab was downloaded or imported from a web address
+    // Tab info: web source, file provider used, or unknown; plus tracked added date
     const srcBtn = document.createElement('a');
     srcBtn.id = 'songSourceUrlBtn';
     srcBtn.className = 'btn btn-sm song-row-btn';
     srcBtn.target = '_blank';
     srcBtn.rel = 'noopener noreferrer';
-    srcBtn.hidden = true;
+
+    const providerNames = {
+        'local': 'This Device',
+        'tab-downloader': 'Web Search',
+        'google-drive': 'Google Drive',
+        'icloud-drive': 'iCloud Drive',
+        's3': 'Amazon S3',
+        'webdav': 'WebDAV',
+        'url': 'Web URL'
+    };
+
+    const formatAddedDate = (ts) => {
+        if (!ts) return '';
+        try {
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return '';
+            return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+        } catch {
+            return '';
+        }
+    };
+
+    const escapeText = (str) => {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    };
+
     const updateSrcBtn = async () => {
         const { getCurrentFile } = await import('../main.js');
         const file = getCurrentFile();
-        if (file?.sourceUrl) {
-            srcBtn.href = file.sourceUrl;
-            srcBtn.innerHTML = `<span><b>Source website</b><small>${file.sourceWebsite || file.sourceUrl}</small></span>`;
-            srcBtn.hidden = false;
-        } else {
+        if (!file) {
             srcBtn.hidden = true;
+            return;
+        }
+        srcBtn.hidden = false;
+        const addedStr = formatAddedDate(file.addedAt || file.lastModified);
+        const addedMeta = addedStr ? ` · Added ${addedStr}` : '';
+
+        if (file.sourceUrl || file.sourceWebsite) {
+            const webSource = file.sourceWebsite || file.sourceUrl;
+            if (file.sourceUrl) {
+                srcBtn.href = file.sourceUrl;
+                srcBtn.style.cursor = 'pointer';
+            } else {
+                srcBtn.removeAttribute('href');
+                srcBtn.style.cursor = 'default';
+            }
+            srcBtn.innerHTML = `<span><b>Source website</b><small>${escapeText(webSource)}${addedMeta}</small></span>`;
+        } else if (file.providerId) {
+            srcBtn.removeAttribute('href');
+            srcBtn.style.cursor = 'default';
+            const pName = providerNames[file.providerId] || file.providerId;
+            srcBtn.innerHTML = `<span><b>File provider</b><small>${escapeText(pName)}${addedMeta}</small></span>`;
+        } else {
+            srcBtn.removeAttribute('href');
+            srcBtn.style.cursor = 'default';
+            srcBtn.innerHTML = `<span><b>Source</b><small>Unknown${addedMeta}</small></span>`;
         }
     };
     document.addEventListener('scoreoptions:open', updateSrcBtn);

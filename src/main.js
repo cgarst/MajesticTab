@@ -1227,6 +1227,12 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
         fileMenu.hide();
     }
     currentFile = file;
+    if (!file.addedAt) {
+        file.addedAt = file.lastModified || Date.now();
+    }
+    if (!file.providerId && file.sourceUrl) {
+        file.providerId = 'url';
+    }
     refreshSetlistNav(file);
     closeLibraryModal(true);
     resetView();

@@ -620,7 +620,7 @@ export async function addTabOptionToSong(songId, tabOption) {
         isDefault: Boolean(tabOption.isDefault),
         sourceUrl: tabOption.sourceUrl || null,
         sourceWebsite: tabOption.sourceWebsite || null,
-        addedAt: Date.now()
+        addedAt: tabOption.addedAt || Date.now()
     };
 
     if (!Array.isArray(song.tabOptions)) {
@@ -632,6 +632,7 @@ export async function addTabOptionToSong(songId, tabOption) {
     if (existingIdx >= 0) {
         newOption.sourceUrl = newOption.sourceUrl || song.tabOptions[existingIdx].sourceUrl || null;
         newOption.sourceWebsite = newOption.sourceWebsite || song.tabOptions[existingIdx].sourceWebsite || null;
+        newOption.addedAt = song.tabOptions[existingIdx].addedAt || tabOption.addedAt || Date.now();
         song.tabOptions[existingIdx] = newOption;
     } else {
         song.tabOptions.push(newOption);
@@ -793,7 +794,7 @@ export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, 
         isDefault: Boolean(tabOption.isDefault),
         sourceUrl: tabOption.sourceUrl || null,
         sourceWebsite: tabOption.sourceWebsite || null,
-        addedAt: Date.now()
+        addedAt: tabOption.addedAt || Date.now()
     };
 
     if (!Array.isArray(albumRecord.tabOptions)) {
@@ -802,6 +803,7 @@ export async function addTabOptionToAlbum(collectionId, artistName, albumTitle, 
 
     const existingIdx = albumRecord.tabOptions.findIndex(t => (t.fileStoreId && t.fileStoreId === newOption.fileStoreId) || (t.id === newOption.id));
     if (existingIdx >= 0) {
+        newOption.addedAt = albumRecord.tabOptions[existingIdx].addedAt || tabOption.addedAt || Date.now();
         albumRecord.tabOptions[existingIdx] = newOption;
     } else {
         albumRecord.tabOptions.push(newOption);

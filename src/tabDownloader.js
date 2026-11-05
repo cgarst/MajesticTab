@@ -599,6 +599,8 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     const sourceWebsite = extractSourceWebsite(sourceUrl);
     file.sourceUrl = sourceUrl;
     file.sourceWebsite = sourceWebsite;
+    file.providerId = 'tab-downloader';
+    file.addedAt = Date.now();
 
     // 1. Batch Assistant mode
     if (activeBatchMode && activeBatchQueue.length > 0) {
