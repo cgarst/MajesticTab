@@ -2033,17 +2033,35 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 #backupModal.is-embedded .theme-modal-card { width: 100%; max-width: 100%; max-height: none; height: auto; background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: 0; transform: none !important; opacity: 1 !important; }
 #backupModal.is-embedded .theme-modal-body { padding-inline: 0 !important; overflow: visible; max-height: none; }
 
-/* Data tasks open in place under their row */
-.data-task-slot { background: var(--s1); padding: 4px 16px 16px; }
+/* Data tasks open in place under their row: same surface as the expanded row */
+.data-task-slot { background: var(--s3); padding: 0 14px 12px; }
 
 /* ---------- Data task content: rows and words, no boxes inside boxes ---------- */
-.data-task-slot { padding: 4px 16px 20px; }
 .data-task-slot .backup-summary-box, .data-task-slot .backup-stat-card, .data-task-slot .restore-mode-card, .data-task-slot .backup-provider-option,
 .data-task-slot #restoreInspectionCard, .data-task-slot [class*="alert"], .data-task-slot .rounded-3 {
   background: transparent !important; border: 0 !important; box-shadow: none !important;
 }
-.data-task-slot .backup-provider-option, .data-task-slot .restore-mode-card, .data-task-slot .backup-dropzone { background: var(--s2) !important; border-radius: var(--r-control, 8px) !important; }
-.data-task-slot .backup-provider-option:has(input:checked), .data-task-slot .restore-mode-card:has(input:checked), .data-task-slot .backup-dropzone:hover, .data-task-slot .backup-dropzone.drag-over { background: var(--s3) !important; }
+.data-task-slot .backup-provider-option, .data-task-slot .restore-mode-card {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: var(--r-control, 8px) !important;
+  transition: background var(--dur-fast, 150ms) var(--ease-out);
+}
+.data-task-slot .backup-provider-option:hover, .data-task-slot .restore-mode-card:hover {
+  background: color-mix(in srgb, var(--ink) 5%, transparent) !important;
+}
+.data-task-slot .backup-dropzone {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: var(--r-control, 8px) !important;
+  padding: 8px 0 16px !important;
+}
+.data-task-slot .backup-dropzone:hover {
+  background: transparent !important;
+}
+.data-task-slot .backup-dropzone.drag-over {
+  background: color-mix(in srgb, var(--ink) 8%, var(--s3)) !important;
+}
 .data-task-slot .backup-summary-box { padding: 12px 0 !important; }
 .data-task-slot .backup-stat-card { background: transparent !important; padding-left: 0 !important; }
 .data-task-slot .provider-mini-icon, .data-task-slot .backup-provider-option .badge, .data-task-slot .backup-provider-option > :last-child:not(label):not(div:has(input)) { }
@@ -2055,7 +2073,7 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 .data-task-slot .text-white-50, .data-task-slot .text-muted { color: var(--ink2) !important; }
 .data-task-slot .text-danger, .data-task-slot .text-danger-emphasis { color: var(--ink) !important; }
 .data-task-slot #wipeConfirmContainer, .data-task-slot #wipeConfirmContainer label, .data-task-slot .text-danger.is-danger-notice { color: var(--danger, #f87171) !important; }
-.data-task-slot #wipeConfirmContainer { background: color-mix(in srgb, var(--danger, #f87171) 14%, var(--s2)) !important; }
+.data-task-slot #wipeConfirmContainer { background: color-mix(in srgb, var(--danger, #f87171) 14%, var(--s3)) !important; border-radius: var(--r-control, 8px) !important; }
 .data-task-slot .text-success { color: var(--ink2) !important; }
 .data-task-slot .bg-danger, .data-task-slot [class*="bg-danger"] { background: transparent !important; }
 .data-task-slot .border, .data-task-slot [class*="border-"] { border: 0 !important; }
@@ -2063,12 +2081,33 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 /* The row's Close does this job */
 .data-task-slot #restoreCancelBtn, .data-task-slot #backupCancelBtn, .data-task-slot [id$="CancelBtn"], .data-task-slot #orphansCloseBtn, .data-task-slot #reloadCancelBtn { display: none !important; }
 .data-task-slot .theme-modal-footer { background: transparent !important; border: 0 !important; padding-inline: 0 !important; }
-.data-task-slot .btn-theme-outline, .data-task-slot .theme-control-btn { background: var(--s3) !important; border: 0 !important; }
+.data-task-slot .btn-theme-outline, .data-task-slot .theme-control-btn {
+  background: color-mix(in srgb, var(--ink) 10%, var(--s3)) !important;
+  color: var(--ink) !important;
+  border: 0 !important;
+  border-radius: var(--r-control, var(--r)) !important;
+  font-weight: 500;
+}
+.data-task-slot .btn-theme-outline:hover:not(:disabled), .data-task-slot .theme-control-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink) 18%, var(--s3)) !important;
+  color: var(--ink) !important;
+}
+.data-task-slot .form-control {
+  background-color: color-mix(in srgb, var(--ink) 6%, var(--s3)) !important;
+  border: 0 !important;
+  color: var(--ink) !important;
+  border-radius: var(--r-control, var(--r)) !important;
+}
+.data-task-slot .form-control:focus {
+  background-color: color-mix(in srgb, var(--ink) 9%, var(--s3)) !important;
+  outline: 2px solid var(--hue) !important;
+  outline-offset: -1px;
+  color: var(--ink) !important;
+}
 /* The one destructive action in a task keeps the danger color */
-.data-task-slot #deleteAllExecuteBtn, .data-task-slot [id*="Delete"][id$="Btn"].btn-theme-danger, .data-task-slot .btn-theme-danger { background: color-mix(in srgb, var(--danger, #f87171) 24%, var(--s2)) !important; color: var(--ink) !important; border: 0 !important; }
+.data-task-slot #deleteAllExecuteBtn, .data-task-slot [id*="Delete"][id$="Btn"].btn-theme-danger, .data-task-slot .btn-theme-danger { background: color-mix(in srgb, var(--danger, #f87171) 24%, var(--s3)) !important; color: var(--ink) !important; border: 0 !important; }
 .data-task-slot .text-center { text-align: left !important; }
 .data-task-slot .justify-content-center { justify-content: flex-start !important; }
-.data-task-slot .backup-dropzone { padding: 16px !important; }
 .data-task-slot #restoreChangeLocationBtn, .data-task-slot #restoreDrivePickBtn, .data-task-slot .select-drive-backup-btn { min-height: 32px; }
 
 
@@ -2710,7 +2749,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .data-task-slot .backup-summary-box { padding: 4px 0 8px !important; margin-bottom: 4px !important; }
 .data-task-slot .backup-summary-box:last-child, .data-task-slot .theme-modal-body > div > :last-child { margin-bottom: 0 !important; }
 .data-task-slot .d-flex.justify-content-end.pt-1 { padding-top: 8px !important; }
-.data-task-slot .task-status, .data-task-slot .task-status:not(:empty) { background: var(--s2); }
+.data-task-slot .task-status, .data-task-slot .task-status:not(:empty) { background: color-mix(in srgb, var(--ink) 6%, var(--s3)); border-radius: var(--r-control, 8px) !important; }
 .data-task-slot .p-3 { padding: 0 !important; }
 .data-task-slot .mb-3 { margin-bottom: 12px !important; }
 .srow-task:has(button[aria-expanded="true"]) + .data-task-slot:not([hidden]) { margin-top: -2px; }
@@ -3228,7 +3267,9 @@ body > #controllerHelpModal { display: none; }
 #syncModal.tool-embedded .sync-body { padding: 0; }
 #syncModal.tool-embedded .sync-footer { padding: 8px 0 0; }
 #syncModal.tool-embedded .sync-subtitle { display: none; }
-#syncModal.tool-embedded .sync-rows, #syncModal.tool-embedded .sync-danger-row, #syncModal.tool-embedded .sync-option { background: var(--s2); }
+#syncModal.tool-embedded .sync-option { background: transparent; border-radius: var(--r-control, 8px); transition: background var(--dur-fast, 150ms) var(--ease-out); }
+#syncModal.tool-embedded .sync-option:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+#syncModal.tool-embedded .sync-rows, #syncModal.tool-embedded .sync-danger-row { background: color-mix(in srgb, var(--ink) 5%, var(--s3)); border-radius: var(--r-control, 8px); }
 
 /* ==========================================================================
    Master Search & Live Search Stream (Reimagined Flat Ground Ladder)
