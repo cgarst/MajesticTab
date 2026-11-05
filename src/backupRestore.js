@@ -2461,13 +2461,45 @@ function attachModalHandlers(modal, options = {}) {
         }
     };
 
+    // Not connected yet: show the connection form in the restore list instead of sending the user elsewhere
+    const showRestoreConnectForm = async (kind, reload) => {
+        const isS3 = kind === 's3';
+        const ui = isS3 ? await import('./s3Ui.js') : await import('./webdavUi.js');
+        restoreChangeLocationBtn?.classList.add('d-none');
+        restoreDrivePickBtn?.classList.add('d-none');
+        if (restoreDriveContainer) restoreDriveContainer.style.display = 'block';
+        if (restoreDriveLoading) restoreDriveLoading.style.display = 'none';
+        if (restoreDriveEmpty) restoreDriveEmpty.style.display = 'none';
+        if (restoreDriveError) restoreDriveError.style.display = 'none';
+        if (restoreSourceIcon) restoreSourceIcon.className = isS3 ? 'bi-hdd-network text-warning' : 'bi-hdd-rack text-info';
+        if (restoreSourceTitle) restoreSourceTitle.textContent = isS3 ? 'S3 Bucket:' : 'WebDAV:';
+        if (restoreSourceLocation) restoreSourceLocation.textContent = 'Not connected';
+        if (!restoreDriveList) return;
+        restoreDriveList.innerHTML = `<div class="small text-white-50 mb-2">${isS3 ? 'Enter your S3 bucket details to see its backups.' : 'Enter your WebDAV server details to see its backups.'}</div>${isS3 ? ui.s3ConfigFormHtml({}) : ui.webdavConfigFormHtml({})}<div class="small text-warning mt-2" data-restore-connect-error style="display:none;"></div><div class="mt-2"><button type="button" class="btn btn-sm btn-theme-primary px-3" data-restore-connect>Connect and view backups</button></div>`;
+        const errEl = restoreDriveList.querySelector('[data-restore-connect-error]');
+        const btn = restoreDriveList.querySelector('[data-restore-connect]');
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            errEl.style.display = 'none';
+            try {
+                if (isS3) await ui.saveS3ConfigFromForm(restoreDriveList);
+                else await ui.saveWebDavConfigFromForm(restoreDriveList);
+                await reload();
+            } catch (err) {
+                errEl.textContent = err?.message || 'Could not connect';
+                errEl.style.display = 'block';
+                btn.disabled = false;
+            }
+        });
+    };
+
     // Lists snapshots in the connected S3 bucket
     const loadS3Backups = async () => {
         try {
             const { createS3Backend } = await import('./s3Backup.js');
             const backend = createS3Backend();
             if (!backend) {
-                showToast('Connect an S3 bucket first, from the Create Backup tab or Sync.', 'warning');
+                await showRestoreConnectForm('s3', loadS3Backups);
                 return;
             }
             activeSource = { type: 's3', backend };
@@ -2508,7 +2540,7 @@ function attachModalHandlers(modal, options = {}) {
             const { createWebDavBackend } = await import('./webdavBackup.js');
             const backend = createWebDavBackend();
             if (!backend) {
-                showToast('Connect an WebDAV server first, from the Create Backup tab or Sync.', 'warning');
+                await showRestoreConnectForm('webdav', loadWebDavBackups);
                 return;
             }
             activeSource = { type: 'webdav', backend };
