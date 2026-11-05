@@ -893,6 +893,9 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
   .setwrap[data-pane="list"] .setpage { display: none; }
   .setwrap[data-pane="page"] .setnav { display: none; }
   .setpage { padding-inline: 16px; }
+  .setnav {
+    padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 16px) !important;
+  }
 
   /* Mobile detail pane: single adaptive top bar with back action and current section title */
   .setshell[data-pane="page"] .sethead,
@@ -900,8 +903,11 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 6px 16px;
-    min-height: 52px;
+    padding-left: max(env(safe-area-inset-left, 0px), 16px);
+    padding-right: max(env(safe-area-inset-right, 0px), 16px);
+    padding-top: max(calc(env(safe-area-inset-top, 0px) + 6px), 12px) !important;
+    padding-bottom: 6px;
+    min-height: calc(52px + env(safe-area-inset-top, 0px));
   }
   .setshell[data-pane="page"] .sethead .sethead-title,
   .setshell:has(.setwrap[data-pane="page"]) .sethead .sethead-title,
@@ -2275,7 +2281,7 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 @media (max-width: 899px) { .setlists-view > .title-row h2 { font-size: 36px; } }
 .tools-shell { height: calc(100% + 52px); margin: -20px -20px -32px; }
 /* The phone page body is padded 12px / 8px, so this lands Tools exactly where Settings sits (title and rows 16px in) */
-@media (max-width: 576px) { .tools-shell { height: calc(100% + 44px); margin: -12px -8px -32px; } }
+@media (max-width: 576px) { .tools-shell { height: calc(100% + 44px); margin: 0 -8px -32px; } }
 .tools-shell .setpage { max-width: none; }
 .tool-pane-host:empty::before { content: 'Choose a tool.'; color: var(--ink2); font-size: 14px; }
 .theme-modal-backdrop.tool-embedded { position: static; inset: auto; z-index: auto; background: transparent; padding: 0; height: auto; display: block; }
