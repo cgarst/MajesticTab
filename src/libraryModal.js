@@ -181,9 +181,14 @@ export function pushLibraryNavigationState() {
 export function canGoBack() {
     if (searchSubView) return true;
     if (activeView === 'library') {
-        if (libraryBrowseMode === 'tunings') return activeLibraryPane === 'songs';
+        if (libraryBrowseMode === 'tunings') return activeLibraryPane === 'songs' || viewHistory.length > 0;
         if (selectedFolderPath.length > 0) return true;
-        if (selectedArtist || selectedAlbum) return true;
+        if (selectedAlbum) return true;
+        if (window.innerWidth < 1000) {
+            if (activeLibraryPane === 'songs') return true;
+        } else {
+            if (selectedArtist) return true;
+        }
     }
     return viewHistory.length > 0;
 }
@@ -296,7 +301,7 @@ export async function handleBack() {
                 }
                 return true;
             }
-            if (selectedArtist) {
+            if (selectedArtist && (window.innerWidth >= 1000 || activeLibraryPane === 'songs')) {
                 const prevArtistName = currentState.selectedArtist?.name || '';
                 selectedArtist = null;
                 selectedFolderPath = [];
@@ -842,6 +847,7 @@ async function switchView(view, pushHistory = true) {
         pushLibraryNavigationState();
     }
     activeView = view;
+    activeLibraryPane = 'list';
     updateUrl(view.toLowerCase());
     await renderLibraryModal();
 }
@@ -1891,8 +1897,7 @@ async function renderLibraryBrowseView(container) {
     });
 
     container.querySelector('#tuningsBackBtn')?.addEventListener('click', () => {
-        activeLibraryPane = 'list';
-        renderLibraryBrowseView(container);
+        handleBack();
     });
 
     // Edit tuning name buttons (in grid cards and detail header)
@@ -2195,6 +2200,7 @@ export async function goLibraryTab(tab) {
     if (!alreadyThere) pushLibraryNavigationState();
     activeView = 'library';
     libraryBrowseMode = wantTunings ? 'tunings' : 'artists';
+    activeLibraryPane = 'list';
     selectedArtist = null;
     pinnedGroupSelected = null;
     selectedAlbum = null;
