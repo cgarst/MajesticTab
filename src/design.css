@@ -357,7 +357,13 @@ body:not(.library-view-active) .breadcrumb-divider { display: none; }
 
 /* ---------- The paper: a light card floating on the ground, bright and quiet ---------- */
 #mainContent { background: var(--ground); }
-#output { background: var(--ground); padding: 12px 16px 16px !important; }
+#output {
+  background: var(--ground);
+  padding-top: 12px !important;
+  padding-bottom: 16px !important;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)) !important;
+  padding-right: max(16px, env(safe-area-inset-right, 0px)) !important;
+}
 #output .alphaTabContainer {
   margin: 0 auto; border-radius: 3px; overflow: hidden;
 }
@@ -381,7 +387,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .mobile-playback-dock-inner {
   display: grid; grid-template-columns: auto minmax(120px, 1fr) auto auto auto; gap: 8px 16px; align-items: center;
-  padding: 10px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+  padding: 10px max(14px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(14px, env(safe-area-inset-left, 0px));
   background: transparent; border: 0; border-radius: 0; box-shadow: none; width: 100%;
 }
 .dock-tr { display: flex; align-items: center; gap: 6px; }
@@ -471,7 +477,8 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 @media (min-width: 641px) and (max-width: 899px) {
   .mobile-playback-dock-inner {
     gap: 8px 12px;
-    padding-inline: 10px;
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
     grid-template-columns: auto minmax(80px, 1fr) auto auto auto;
   }
 }
@@ -737,9 +744,17 @@ body.practice-open #output { padding-right: 416px !important; }
   html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.library-view-active #topBar { display: none; }
   html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.library-view-active .library-bottom-nav { top: 0; }
   body.library-view-active .library-bottom-nav {
-    width: 76px; padding: 14px 8px; gap: 2px; background: var(--ground) !important; border: 0 !important;
+    width: calc(76px + env(safe-area-inset-left, 0px));
+    padding-left: calc(8px + env(safe-area-inset-left, 0px));
+    padding-right: 8px;
+    padding-top: max(env(safe-area-inset-top, 0px), 14px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 14px);
+    gap: 2px; background: var(--ground) !important; border: 0 !important;
   }
-  body.library-view-active #libraryPage { padding-left: 76px; }
+  body.library-view-active #libraryPage {
+    padding-left: calc(76px + env(safe-area-inset-left, 0px));
+    padding-right: max(env(safe-area-inset-right, 0px), 0px);
+  }
   .library-bottom-nav .library-nav-tab { min-height: 48px; border-radius: var(--r) !important; font-size: 11px; font-weight: 500; }
   .library-bottom-nav .library-nav-tab.active { background: var(--s2); color: var(--ink); }
   .library-bottom-nav .library-nav-tab.active i { color: var(--ink); }
@@ -832,7 +847,7 @@ body.practice-open #output { padding-right: 416px !important; }
 @media (max-width: 640px) { .resume-card { grid-template-columns: auto 1fr; margin: 4px 16px 12px; } .resume-btn { grid-column: 1 / -1; } .resume-title { font-size: 30px; } }
 
 /* Library header: search and the primary action share one row */
-.library-page-container { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: center; padding: 16px 20px 0; }
+.library-page-container { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 10px; align-items: center; padding: 16px max(env(safe-area-inset-right, 0px), 20px) 0 max(env(safe-area-inset-left, 0px), 20px); }
 .library-page-container > .lib-view-switch-row { display: none; }
 .library-page-container > .library-search-box { grid-column: 1; grid-row: 1; margin: 0 !important; max-width: none; }
 .library-page-container > .library-list-toolbar { display: contents; }
@@ -848,7 +863,7 @@ body.practice-open #output { padding-right: 416px !important; }
 .library-page-container > #libBrowseContent { margin: 12px -20px 0; }
 .resume-card { margin-top: 0; }
 @media (max-width: 576px) {
-  .library-page-container { padding: max(env(safe-area-inset-top, 0px), 12px) 16px 0 !important; }
+  .library-page-container { padding: max(env(safe-area-inset-top, 0px), 12px) max(env(safe-area-inset-right, 0px), 16px) 0 max(env(safe-area-inset-left, 0px), 16px) !important; }
   .library-page-container > #libBrowseContent { margin-inline: -16px; }
 }
 
@@ -869,7 +884,7 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 /* Desktop shells keep the bar (drag strip and window controls) above Settings */
 .tauri-windows body.settings-as-page.library-view-active #fileMenu { top: var(--bar-h, 52px); height: calc(100% - var(--bar-h, 52px)); }
 @media (min-width: 577px) {
-  body.settings-as-page.library-view-active #fileMenu { left: 76px; width: calc(100vw - 76px) !important; }
+  body.settings-as-page.library-view-active #fileMenu { left: calc(76px + env(safe-area-inset-left, 0px)); width: calc(100vw - 76px - env(safe-area-inset-left, 0px)) !important; }
 }
 @media (min-width: 1000px) {
   body.settings-as-page.library-view-active #fileMenu { left: 212px; width: calc(100vw - 212px) !important; }
@@ -889,12 +904,17 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
   .sethead { display: none !important; }
 }
 @media (max-width: 899px) {
-  .sethead { display: none; padding-inline: 16px; }
+  .sethead { display: none; padding-inline: max(env(safe-area-inset-left, 0px), 16px) max(env(safe-area-inset-right, 0px), 16px); }
   .setwrap[data-pane="list"] .setpage { display: none; }
   .setwrap[data-pane="page"] .setnav { display: none; }
-  .setpage { padding-inline: 16px; }
+  .setpage {
+    padding-left: max(env(safe-area-inset-left, 0px), 16px);
+    padding-right: max(env(safe-area-inset-right, 0px), 16px);
+  }
   .setnav {
     padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 16px) !important;
+    padding-left: max(env(safe-area-inset-left, 0px), 16px) !important;
+    padding-right: max(env(safe-area-inset-right, 0px), 16px) !important;
   }
 
   /* Mobile detail pane: single adaptive top bar with back action and current section title */
@@ -1086,8 +1106,8 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 }
 
 #topBar {
-  padding-left: calc(12px + var(--wc-l, 0px)) !important;
-  padding-right: calc(12px + var(--wc-r, 0px)) !important;
+  padding-left: max(calc(12px + var(--wc-l, 0px)), calc(env(safe-area-inset-left, 0px) + 6px)) !important;
+  padding-right: max(calc(12px + var(--wc-r, 0px)), calc(env(safe-area-inset-right, 0px) + 6px)) !important;
 }
 
 .tauri-windows #winControls {
