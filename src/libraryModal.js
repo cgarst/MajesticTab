@@ -2070,25 +2070,6 @@ function bindLibrarySearchShortcut() {
 }
 bindLibrarySearchShortcut();
 
-// Phones: the search box is a button until you use it. Tapping it gives the field the whole row (CSS keys off
-// .lib-search-open); Cancel clears the search and puts the row back.
-document.addEventListener('click', (e) => {
-    const bar = e.target.closest?.('.library-search-bar');
-    if (!bar || !window.matchMedia?.('(max-width: 576px)').matches) return;
-    const container = bar.closest('.library-page-container');
-    if (!container) return;
-    const input = bar.querySelector('.search-input');
-    if (e.target.closest('.search-close-btn')) {
-        if (input && input.value) { input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); }
-        container.classList.remove('lib-search-open');
-        input?.blur();
-        return;
-    }
-    if (!container.classList.contains('lib-search-open')) {
-        container.classList.add('lib-search-open');
-        input?.focus();
-    }
-});
 
 // Two-pane songs detail pane header (Artists, Tunings, Setlists, Pinned, Recents)
 export function libraryPaneHeadHtml({ backLabel = 'Library', backId = 'paneBackBtn', backAct = '', countText = '', actionsHtml = '', title = '' }) {

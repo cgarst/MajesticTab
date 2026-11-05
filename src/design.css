@@ -1599,26 +1599,8 @@ body.fretboard-open {
   .setpage {
     padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px)) !important;
   }
-  /* Search is a 44px button beside the actions until you use it; then the field takes the whole row.
-     Open means tapped, focused, or holding a query. */
-  .library-search-bar { cursor: pointer; }
-  .library-search-bar .search-clear-btn { display: none !important; }
-  .library-search-bar .search-close-btn { display: none; flex: none; min-height: 44px; padding: 0 4px 0 8px; border: 0; background: transparent; color: var(--ink2); font-size: 15px; cursor: pointer; }
-  .library-search-bar .search-close-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; border-radius: var(--r-control); }
-  .library-page-container:not(.lib-search-open):not(:has(.library-search-bar:focus-within)):not(:has(.search-input:not(:placeholder-shown))) .library-search-bar {
-    width: 44px; height: 44px !important; padding: 0 !important; justify-content: center; gap: 0; background: var(--s2) !important;
-  }
-  .library-page-container:not(.lib-search-open):not(:has(.library-search-bar:focus-within)):not(:has(.search-input:not(:placeholder-shown))) .library-search-bar .search-icon { font-size: 18px !important; margin: 0 !important; color: var(--ink); }
-  .library-page-container:not(.lib-search-open):not(:has(.library-search-bar:focus-within)):not(:has(.search-input:not(:placeholder-shown))) .library-search-bar > :not(.search-icon):not(.search-input) { display: none; }
-  /* The field stays in the tree so the box can still be focused from the keyboard; it just has no size */
-  .library-page-container:not(.lib-search-open):not(:has(.library-search-bar:focus-within)):not(:has(.search-input:not(:placeholder-shown))) .library-search-bar .search-input { position: absolute; width: 1px; height: 1px; opacity: 0; padding: 0; }
-  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) { column-gap: 0; }
-  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) > .library-search-box { grid-column: 1 / -1; }
-  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-list-toolbar > div:last-child { display: none !important; }
-  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-search-bar { height: 44px !important; padding: 0 4px 0 14px !important; cursor: text; }
-  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-search-bar .search-icon { font-size: 16px !important; margin: 0 !important; }
-  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-search-bar .search-close-btn { display: inline-flex; align-items: center; }
-  .library-page-container:is(.lib-search-open, :has(.library-search-bar:focus-within), :has(.search-input:not(:placeholder-shown))) .library-search-bar .search-input { font-size: 16px !important; /* 16px stops iOS zooming the page on focus */ }
+  .library-search-bar { height: 44px !important; }
+  .library-search-bar .search-input { font-size: 16px !important; /* 16px stops iOS zooming the page on focus */ }
 }
 
 /* Pane back control (single-pane layout, under 1000px): flat text action, platform radius, ink on tone steps, no pill, no accent border or white hover */

@@ -118,15 +118,10 @@ async def main():
         await step('Pinned -> back', lambda: pg.tap('.in-view-back-btn'), 'collection-root-view')
         await step('Library -> artist', lambda: pg.tap('.artist-card >> nth=0'), 'collection-root-view')
         await step('artist -> back', lambda: pg.tap('.in-view-back-btn >> nth=0'), 'collection-root-view')
-        # Search: a button that opens a full-width field
+        # Search: normal search field
         box = await pg.evaluate("(() => { const r = document.querySelector('.library-search-bar').getBoundingClientRect(); return [r.width, r.height]; })()")
-        print('search collapsed:', box)
-        if box[0] < 40 or box[1] < 40: problems.append(f'search button is {box}, under 44px')
-        await pg.tap('.library-search-bar'); await pg.wait_for_timeout(300)
-        box = await pg.evaluate("(() => { const r = document.querySelector('.library-search-bar').getBoundingClientRect(); return [r.width, r.height]; })()")
-        print('search open:', box)
-        if box[0] < a.width - 56: problems.append(f'open search is only {box[0]}px wide')
-        await pg.tap('.search-close-btn'); await pg.wait_for_timeout(300)
+        print('search field:', box)
+        if box[0] < 120 or box[1] < 40: problems.append(f'search field is {box}, under expected dimensions')
         # Every Settings section
         await pg.tap(S); await pg.wait_for_timeout(500)
         n = await pg.evaluate("document.querySelectorAll('#fileMenu .setnav button').length")
