@@ -2912,6 +2912,35 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   outline-offset: 1px;
 }
 
+.downloader-nav-group .btn-theme-icon:focus:not(:focus-visible),
+.downloader-adblock-btn:focus:not(:focus-visible),
+.downloader-sources-btn:focus:not(:focus-visible),
+.downloader-close-btn:focus:not(:focus-visible),
+.downloader-url-copy-btn:focus:not(:focus-visible) {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.downloader-nav-group .btn-theme-icon:active:not(:disabled),
+.downloader-adblock-btn:active:not(:disabled),
+.downloader-sources-btn:active:not(:disabled),
+.downloader-close-btn:active:not(:disabled),
+.downloader-url-copy-btn:active:not(:disabled) {
+  background: var(--s3) !important;
+  color: var(--ink) !important;
+}
+
+@media (hover: none) {
+  .downloader-nav-group .btn-theme-icon:hover:not(:active),
+  .downloader-adblock-btn:hover:not(:active):not(.active),
+  .downloader-sources-btn:hover:not(:active),
+  .downloader-close-btn:hover:not(:active),
+  .downloader-url-copy-btn:hover:not(:active) {
+    background: transparent !important;
+    color: var(--ink2) !important;
+  }
+}
+
 .downloader-adblock-btn {
   color: var(--ink2) !important;
   background: transparent !important;
@@ -2923,7 +2952,19 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   align-items: center;
   justify-content: center;
   padding: 0;
-  transition: color var(--dur-fast), background-color var(--dur-fast);
+  transition: color var(--dur-fast), background-color var(--dur-fast), opacity var(--dur-fast);
+}
+.downloader-adblock-btn.adblock-not-downloaded,
+#downloaderAdblockBtn.adblock-not-downloaded {
+  opacity: 0.35 !important;
+  color: var(--ink2) !important;
+  background: transparent !important;
+}
+.downloader-adblock-btn.adblock-not-downloaded:hover,
+#downloaderAdblockBtn.adblock-not-downloaded:hover {
+  opacity: 0.75 !important;
+  color: var(--ink) !important;
+  background: var(--s2) !important;
 }
 .downloader-adblock-btn:hover {
   color: var(--ink) !important;

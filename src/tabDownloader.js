@@ -901,6 +901,20 @@ export function initTabDownloaderDomEvents() {
         }
     });
 
+    // Ensure buttons only appear selected briefly on press and blur after clicking
+    const downloaderBar = document.getElementById('tabDownloaderBar');
+    if (downloaderBar && !downloaderBar.__blurAttached) {
+        downloaderBar.__blurAttached = true;
+        downloaderBar.addEventListener('pointerup', (e) => {
+            const btn = e.target.closest('button');
+            if (btn) setTimeout(() => btn.blur(), 120);
+        });
+        downloaderBar.addEventListener('click', (e) => {
+            const btn = e.target.closest('button');
+            if (btn) setTimeout(() => btn.blur(), 120);
+        });
+    }
+
     // Adblock button
     const adblockBtn = document.getElementById('downloaderAdblockBtn');
     if (adblockBtn) {
@@ -908,6 +922,26 @@ export function initTabDownloaderDomEvents() {
         adblockBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
+            setTimeout(() => adblockBtn.blur(), 120);
+
+            const status = getAdblockStatus();
+            const hasDownloaded = status.count > 0;
+
+            if (!hasDownloaded) {
+                showToast('Downloading adblock rules…', 'info', 2500);
+                try {
+                    const res = await setAdblockEnabled(true, true);
+                    showToast(`Adblock downloaded and enabled (${res.count.toLocaleString()} domains)`, 'success', 3000);
+                } catch (err) {
+                    console.warn('[Tab Downloader] Failed to download adblock rules:', err);
+                    showToast('Failed to download adblock rules', 'error', 3000);
+                } finally {
+                    syncDownloaderAdblockButton();
+                    reloadDownloaderWebview();
+                }
+                return;
+            }
+
             const next = !isAdblockEnabled();
 
             // Optimistic UI sync
@@ -1164,10 +1198,20 @@ export async function dispatchNativeAdblock(hosts, enabled) {
 export function syncDownloaderAdblockButton() {
     const btn = document.getElementById('downloaderAdblockBtn');
     if (!btn) return;
-    const enabled = isAdblockEnabled();
+    const status = getAdblockStatus();
+    const hasDownloaded = status.count > 0;
+    const enabled = status.enabled && hasDownloaded;
+
     btn.setAttribute('aria-pressed', String(enabled));
     btn.classList.toggle('active', enabled);
-    btn.title = enabled ? 'Adblock active (click to turn off)' : 'Block ads and trackers';
+    btn.classList.toggle('adblock-not-downloaded', !hasDownloaded);
+
+    if (!hasDownloaded) {
+        btn.title = 'Adblock (rules not downloaded — tap to download and enable)';
+    } else {
+        btn.title = enabled ? 'Adblock active (click to turn off)' : 'Block ads and trackers';
+    }
+
     const icon = btn.querySelector('i');
     if (icon) {
         icon.className = enabled ? 'bi-shield-fill-check' : 'bi-shield';
