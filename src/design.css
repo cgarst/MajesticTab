@@ -619,7 +619,7 @@ body.practice-open #output { padding-right: 416px !important; }
 #synthDropdownPanel .synth-panel-header > div:first-child > i, #ytDropdownPanel .yt-header-badge { display: none !important; }
 #synthPanelTitle, #realAudioPanelTitle { font-size: 0 !important; }
 #realAudioPanelTitle::before { content: 'Original audio'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
-#synthPanelTitle::before { content: 'Synth'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
+#synthPanelTitle::before { content: 'Synth audio'; font: 600 17px system-ui, sans-serif; color: var(--ink); }
 #synthDropdownPanel .synth-panel-body, #ytDropdownPanel .yt-panel-body { padding: 4px 16px 18px; }
 .practice-seg { width: 100%; display: flex; margin-bottom: 16px; }
 .practice-seg .btn { flex: 1; justify-content: center; }

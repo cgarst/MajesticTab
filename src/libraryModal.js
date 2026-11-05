@@ -91,6 +91,7 @@ document.addEventListener('shown.bs.dropdown', (e) => {
 });
 
 import { closeToolsMenu } from './utils/toolsMenu.js';
+import { closeAllReaderPanels } from './utils/readerPanels.js';
 import { renderToolsPage, releaseEmbeddedTools } from './utils/toolsPage.js';
 
 let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools'
@@ -486,6 +487,7 @@ export async function openLibraryModal(initialView = 'library') {
     const mobileDock = document.getElementById('mobilePlaybackDock');
     if (mobileDock) mobileDock.style.display = 'none';
     document.body.classList.add('library-view-active');
+    closeAllReaderPanels();
 
     // Hide the fretboard in the library without clearing the saved open preference
     try {
@@ -2191,10 +2193,15 @@ function getActiveLibraryTab() {
 
 // Shared by the desktop view switcher and the phone bottom nav
 export async function goLibraryTab(tab) {
+    // Choosing a destination always starts it fresh: a search typed there is cleared
+    libraryFilterQuery = '';
+    searchSubView = null;
     if (tab === 'setlists' || tab === 'recents' || tab === 'tools') {
         if (activeView !== tab) await switchView(tab);
+        else { activeLibraryPane = 'list'; await renderLibraryModal(); }
         return;
     }
+    tuningsArtistFilter = '';
     const wantTunings = tab === 'tunings';
     const alreadyThere = activeView === 'library' && (libraryBrowseMode === 'tunings') === wantTunings;
     if (!alreadyThere) pushLibraryNavigationState();

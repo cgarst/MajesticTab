@@ -72,6 +72,15 @@ const PANELS = [
     { button: 'dockVolumeBtn', panel: null, close: click('dockVolumeBtn') }
 ];
 
+/** Close every open reader panel (the library has no reader chrome). */
+export function closeAllReaderPanels() {
+    PANELS.forEach((p) => {
+        const open = p.panel ? isShown(document.getElementById(p.panel))
+            : document.getElementById(p.button)?.getAttribute('aria-expanded') === 'true';
+        if (open) p.close();
+    });
+}
+
 export function initReaderPanels() {
     const openNow = (p) => {
         if (p.panel) return isShown(document.getElementById(p.panel));
