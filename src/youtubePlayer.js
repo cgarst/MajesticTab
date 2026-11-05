@@ -1,6 +1,6 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
-import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel } from './gpProcessor/gpPlayer.js';
+import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel, isSynthPlaying } from './gpProcessor/gpPlayer.js';
 import { showPanel, hidePanel } from './utils/readerPanels.js';
 import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
 import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
@@ -1452,19 +1452,16 @@ export function initYouTubePlayer() {
         window.addEventListener('scroll', syncBounds, true);
     }
 
-    // Close panel when clicking outside of panel and top bar toggle
-    const handleOutsideYtClick = (e) => {
-        const panel = document.getElementById('ytDropdownPanel');
-        const sourcePill = document.getElementById('audioSourcePill');
-        const mobileDock = document.getElementById('mobilePlaybackDock');
-        const fretboardDock = document.getElementById('fretboardDock');
+    // The panel stays open until the Synth or Original button (or its close control) is pressed; clicks on the score do not close it.
 
-        if (playerState.isOpen && panel && !panel.contains(e.target) && !sourcePill?.contains(e.target) && !mobileDock?.contains(e.target) && !fretboardDock?.contains(e.target)) {
-            toggleYouTubePanel(false);
-        }
-    };
-    document.addEventListener('click', handleOutsideYtClick);
-    document.addEventListener('pointerdown', handleOutsideYtClick);
+    // Sync points can arrive after the song opened (a tab fetched with its sync data attaches them once the score is
+    // ready). Until something has played, the sound the transport will use follows them: the Original recording.
+    window.addEventListener(SYNC_CHANGED_EVENT, () => {
+        if (!getSongKey() || playerState.hasStarted || playerState.isPlaying || isSynthPlaying()) return;
+        applySyncedDefaults({ reload: false });
+        if (songHasSyncPoints(getSongKey())) setActiveAudioMode('real');
+        updatePlaybackControls();
+    });
 
     updatePlaybackControls();
 }
