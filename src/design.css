@@ -3552,22 +3552,53 @@ body > #controllerHelpModal { display: none; }
 
 @media (max-width: 576px) {
     .tab-downloader-bar .downloader-nav-row {
-        height: 44px;
+        height: auto;
         min-height: 44px;
-        padding-left: 8px;
-        padding-right: 8px;
+        padding-left: max(env(safe-area-inset-left, 0px), 8px);
+        padding-right: max(env(safe-area-inset-right, 0px), 8px);
+        padding-top: max(calc(env(safe-area-inset-top, 0px) + 6px), 8px);
+        padding-bottom: 6px;
         gap: 6px;
+        display: flex !important;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .downloader-nav-left {
+        flex: 0 0 auto;
+    }
+    .downloader-nav-center {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin-inline: 4px;
+    }
+    .downloader-nav-right {
+        flex: 0 0 auto;
+        gap: 4px;
     }
     .downloader-url-group {
         padding: 2px 8px !important;
+        width: 100%;
+        min-width: 0;
     }
     .downloader-sources-btn {
         padding: 4px 6px;
         font-size: 12px;
+        max-width: 90px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .downloader-close-btn,
+    #downloaderCloseBtn {
+        padding: 6px 8px;
+        font-size: 13px;
     }
     .downloader-target-row {
         min-height: 36px;
-        padding: 2px 10px;
+        padding-left: max(env(safe-area-inset-left, 0px), 10px);
+        padding-right: max(env(safe-area-inset-right, 0px), 10px);
+        padding-top: 2px;
+        padding-bottom: 2px;
     }
     .downloader-target-artist,
     .downloader-target-album,
@@ -3596,5 +3627,11 @@ body > #controllerHelpModal { display: none; }
     .downloader-advisory-badge {
         font-size: 12px;
         padding: 6px 12px;
+    }
+}
+
+@media (orientation: portrait) {
+    .tauri-ios .tab-downloader-bar .downloader-nav-row {
+        padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 54px) !important;
     }
 }
