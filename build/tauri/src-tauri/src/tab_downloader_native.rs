@@ -1252,7 +1252,11 @@ pub fn tab_downloader_prefill(
     let handle = app.clone();
     let script_clone = script.clone();
     std::thread::spawn(move || {
-        for delay in [0, 150, 400, 800, 1500, 2500, 4000] {
+        // Each eval dies with the document it ran in, and the Android webview can take many
+        // seconds to load the mobile page, so keep retrying for ~25s; a filled field is a no-op.
+        let mut delays: Vec<u64> = vec![0, 150, 400, 800, 1500, 2500, 4000];
+        delays.extend(std::iter::repeat(1000).take(21));
+        for delay in delays {
             if delay > 0 {
                 std::thread::sleep(std::time::Duration::from_millis(delay));
             }
