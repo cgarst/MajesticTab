@@ -33,7 +33,7 @@ export class FretboardView {
         this.tuning = [64, 59, 55, 50, 45, 40]; // Standard guitar high to low
         this.capo = 0;
         this.isLeftHanded = false;
-        this.isFlipped = false; // false = Tab View (high on top), true = Player View (low on top)
+        this.isFlipped = true; // true = Standard (low on top), false = Upside down (high on top)
         this.displayMode = 'notes'; // 'notes' | 'frets'
 
         // Precalculated geometry cache
@@ -124,7 +124,7 @@ export class FretboardView {
     /**
      * Render or re-render the physical fretboard neck
      */
-    renderNeck({ stringCount = 6, tuning = null, capo = 0, isLeftHanded = false, isFlipped = false, displayMode = 'notes' } = {}) {
+    renderNeck({ stringCount = 6, tuning = null, capo = 0, isLeftHanded = false, isFlipped = true, displayMode = 'notes' } = {}) {
         this.stringCount = Math.max(4, Math.min(10, stringCount));
         if (Array.isArray(tuning) && tuning.length === this.stringCount) {
             this.tuning = [...tuning];

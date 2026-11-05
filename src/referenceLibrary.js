@@ -23,7 +23,7 @@ export function getIsFlipped() {
         const stored = localStorage.getItem(STORAGE_KEY_FLIP);
         if (stored !== null) return stored === 'true';
     } catch (_) {}
-    return fretboardController?.isFlipped ?? false;
+    return fretboardController?.isFlipped ?? true;
 }
 
 export function setIsLeftHanded(val) {

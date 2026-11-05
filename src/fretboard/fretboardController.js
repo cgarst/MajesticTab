@@ -16,7 +16,7 @@ class FretboardController {
         this.isScoreAvailable = false;
         this.displayMode = 'notes'; // 'notes' | 'frets'
         this.isLeftHanded = false;
-        this.isFlipped = false; // false = Tab View (high on top), true = Player View (low on top)
+        this.isFlipped = true; // true = Standard (low on top), false = Upside down (high on top)
 
         this.currentApi = null;
         this.activeScore = null;
@@ -45,12 +45,12 @@ class FretboardController {
             const savedMode = localStorage.getItem(STORAGE_KEY_MODE);
             this.displayMode = savedMode === 'frets' ? 'frets' : 'notes';
             this.isLeftHanded = localStorage.getItem(STORAGE_KEY_LH) === 'true';
-            this.isFlipped = localStorage.getItem(STORAGE_KEY_FLIP) === 'true';
+            this.isFlipped = localStorage.getItem(STORAGE_KEY_FLIP) === null ? true : localStorage.getItem(STORAGE_KEY_FLIP) === 'true';
         } catch (_) {
             this.isOpen = true;
             this.displayMode = 'notes';
             this.isLeftHanded = false;
-            this.isFlipped = false;
+            this.isFlipped = true;
         }
 
         const container = document.getElementById('fretboardSvgContainer');
@@ -276,7 +276,7 @@ class FretboardController {
     }
 
     /**
-     * Invert string order (Tab View vs Player View)
+     * Stringing (Standard vs Upside down)
      * @param {boolean} isFlipped
      */
     setFlipped(isFlipped) {

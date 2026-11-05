@@ -83,8 +83,13 @@ function makeNotationDefault() {
 const LH_KEY = 'majestictab_fretboard_left_handed';
 const FLIP_KEY = 'majestictab_fretboard_flip_strings';
 
-function readFlag(key) {
-    try { return localStorage.getItem(key) === 'true'; } catch (_) { return false; }
+function readFlag(key, defaultVal = false) {
+    try {
+        const v = localStorage.getItem(key);
+        return v === null ? defaultVal : v === 'true';
+    } catch (_) {
+        return defaultVal;
+    }
 }
 
 async function applyNeckFlag(kind, value) {
@@ -101,20 +106,20 @@ async function applyNeckFlag(kind, value) {
 function makeLeftHandedRow() {
     const sw = el('input', 'form-check-input theme-switch');
     sw.type = 'checkbox';
-    sw.checked = readFlag(LH_KEY);
-    sw.setAttribute('aria-label', 'Left-handed neck');
+    sw.checked = readFlag(LH_KEY, false);
+    sw.setAttribute('aria-label', 'Left-handed guitar');
     sw.addEventListener('change', () => applyNeckFlag('lh', sw.checked));
     const wrap = el('div', 'form-check form-switch mb-0');
     wrap.appendChild(sw);
-    return row('Left-handed neck', 'Mirror the fretboard and the chord diagrams.', wrap);
+    return row('Left-handed guitar', 'Flips the fretboard and chord diagrams for a left-handed guitar.', wrap);
 }
 
-function makeStringOrderRow() {
-    let flipped = readFlag(FLIP_KEY);
+function makeStringingRow() {
+    let flipped = readFlag(FLIP_KEY, true);
     const seg = el('div', 'hud-pill-group');
     seg.setAttribute('role', 'radiogroup');
-    seg.setAttribute('aria-label', 'String order');
-    [['High string on top', false], ['Low string on top', true]].forEach(([label, val]) => {
+    seg.setAttribute('aria-label', 'Stringing');
+    [['Standard', true], ['Upside down', false]].forEach(([label, val]) => {
         const b = el('button', 'btn btn-sm' + (val === flipped ? ' active' : ''));
         b.type = 'button';
         b.textContent = label;
@@ -125,7 +130,7 @@ function makeStringOrderRow() {
         });
         seg.appendChild(b);
     });
-    return row('String order', 'Tab view puts the high string on top; player view puts the low string on top.', seg);
+    return row('Stringing', 'Standard keeps the low string on top; upside down puts the high string on top.', seg);
 }
 
 function proxyButton(label, targetId, className = 'btn btn-sm btn-theme-outline') {
@@ -225,7 +230,7 @@ export function initSettingsPage() {
         panes.player.appendChild(group('Who is playing',
             row('Preferred instrument', 'Sets the instrument the app assumes.', instrumentGroup)));
     }
-    panes.player.appendChild(group('Neck configuration', makeLeftHandedRow(), makeStringOrderRow()));
+    panes.player.appendChild(group('Your instrument', makeLeftHandedRow(), makeStringingRow()));
 
     // Appearance
     if (finishGrid) {
@@ -254,7 +259,7 @@ export function initSettingsPage() {
             return group(title, ...rows);
         };
         const viewGroup = defaultRows('A new tab opens as', 0, ['', '', '']);
-        const stringGroup = defaultRows('Global string count preference', 1, [
+        const stringGroup = defaultRows('Default strings', 1, [
             'Always show 6 strings, or 7 or 8 for extended range guitars. "From file" keeps what the tab was saved with.',
             'Always show 4 strings, or 5 or 6 for extended range basses.'
         ]);
@@ -265,7 +270,7 @@ export function initSettingsPage() {
         if (resetBtn) {
             resetBtn.className = 'btn btn-sm srow-ghost';
             resetBtn.textContent = 'Reset';
-            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Scroll for score and text, Page for PDF, and global string count preference from the file (in Player).', resetBtn)));
+            panes.reading.appendChild(group('', row('Reset these defaults', 'Back to Scroll for score and text, Page for PDF, and default string counts from the file (in Player).', resetBtn)));
         }
         defaultsBtn.remove();
         defaultsModal?.remove();
