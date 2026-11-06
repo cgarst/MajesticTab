@@ -592,6 +592,13 @@ export function updateSynthUI() {
                     synthPlayerState.loopEndMeasure = part.endBar;
                     synthPlayerState.loopEnabled = true;
                     applyLoopSettings();
+                    // Clicking a part moves to it, also while audio plays; the recording follows the cursor
+                    // (MIDI timeline: the first time the bar is played, repeats expanded)
+                    const startPlayed = getMidiTickLookup(currentApi)?.masterBars?.find(b => b.masterBar.index === part.startBar - 1);
+                    if (currentApi && startPlayed) {
+                        currentApi.tickPosition = startPlayed.start;
+                        userSeekListeners.forEach((cb) => { try { cb(startPlayed.start); } catch (e) { console.error('[Synth Player] seek listener error:', e); } });
+                    }
                     updateSynthUI();
                 });
             });

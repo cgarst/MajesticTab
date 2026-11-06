@@ -5,7 +5,7 @@
 
 import {
     getMidiTickLookup, getAudioLatencyMs, synthPlayerState, onUserSeekTick, setExternalPlayback, updateContinuousPlaybackScroll,
-    reanchorPlaybackScroll, playClick
+    reanchorPlaybackScroll, playClick, onTransportEvent
 } from '../gpProcessor/gpPlayer.js';
 import { buildScoreTimeline, playedBarsFromLookup, tickToScoreMs, scoreMsToTick } from './scorePositions.js';
 import { scoreToMedia, mediaToScore, ratioAtScore } from './syncMap.js';
@@ -170,6 +170,38 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
         follower.refresh();
     };
     const stopListeningForSeeks = onUserSeekTick(seekRecordingToTick);
+
+    // The recording is the clock, so AlphaTab's own loop range cannot stop it: the loop is kept here. The range is
+    // the first pass of the bars (a loop end after a repeat still ends at the first time it is played).
+    function loopRangeTicks() {
+        if (!synthPlayerState.loopEnabled) return null;
+        const first = map.bars.find(b => b.barIndex === synthPlayerState.loopStartMeasure - 1);
+        if (!first) return null;
+        const last = map.bars.find(b => b.barIndex === synthPlayerState.loopEndMeasure - 1 && b.startTick >= first.startTick);
+        return last ? { start: first.startTick, end: last.endTick } : null;
+    }
+    let lastWrapAt = 0;
+    function enforceLoop(force = false) {
+        const range = loopRangeTicks();
+        if (!range || source.isBuffering?.()) return;
+        if (!force && !source.isPlaying()) return;
+        const heard = source.getTimeMs() - getAudioLatencyMs();
+        const tick = scoreMsToTick(timeline, mediaToScore(resolved, heard));
+        if (tick >= range.start && tick < range.end) return;
+        const now = performance.now();
+        if (now - lastWrapAt < 250) return; // the clock is stale right after a seek
+        lastWrapAt = now;
+        seekRecordingToTick(range.start);
+        const handler = api.customCursorHandler;
+        if (handler) {
+            const go = () => { clearTimeout(fallback); handler.afterNextPlace = null; glideNow(); };
+            const fallback = setTimeout(go, 120);
+            handler.afterNextPlace = go;
+        }
+        api.tickPosition = range.start;
+    }
+    // Choosing a loop (a part, the loop button, the range fields) moves the recording into it, playing or not
+    const stopListeningForLoop = onTransportEvent((e) => { if (e.type === 'loop') enforceLoop(true); });
     // The cursor stops with the recording, picks up where it is on play, and re-aims when the speed changes
     const stopListeningToSource = source.on?.((e) => {
         if (e.type === 'rate') glideNow();
@@ -196,6 +228,7 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
         stop() {
             clearInterval(clickTimer);
             stopListeningForSeeks();
+            stopListeningForLoop();
             stopListeningToSource?.();
             setExternalPlayback(false);
             clearTimeout(glideTimer);
@@ -217,6 +250,7 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
     let fretFrame = 0;
     const fretLoop = () => {
         fretFrame = requestAnimationFrame(fretLoop);
+        enforceLoop();
         if (!source.isPlaying() || source.isBuffering?.()) return;
         const heard = source.getTimeMs() - getAudioLatencyMs();
         const tick = scoreMsToTick(timeline, mediaToScore(resolved, heard));
