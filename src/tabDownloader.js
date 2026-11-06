@@ -1606,10 +1606,11 @@ export function handleWsaUrlIntercept(url) {
  */
 function applyDownloaderUrl(rawUrl) {
     const url = stripAdFragment(rawUrl || '');
+    let offeredWsaBanner = false;
     if (url && isWsaTabUrl(url)) {
         const cleanUrl = unwrapGoogleUrl(url);
         const sent = pendingMatchedTabUrl === cleanUrl && activeSourceId === 'downloader';
-        if (!sent) offerWsaUrlBanner(url);
+        if (!sent) { offerWsaUrlBanner(url); offeredWsaBanner = true; }
         else hideAdvisoryBadge();
     }
     const urlText = document.getElementById('downloaderUrlText');
@@ -1633,7 +1634,7 @@ function applyDownloaderUrl(rawUrl) {
             showAdvisoryBadge(`Viewing prior page · Target remains: Track ${activeBatchIndex + 1} (${curTrack.title})`, () => {
                 jumpToBatchTrack(matchIdx);
             });
-        } else {
+        } else if (!offeredWsaBanner) {
             hideAdvisoryBadge();
         }
     }
