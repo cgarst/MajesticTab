@@ -17,7 +17,7 @@ import { initTextSync } from './textSync/textSync.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
-import { getPagesPerView } from './utils/viewModeUtils.js';
+import { getPagesPerView, setTextPagesPerView } from './utils/viewModeUtils.js';
 import { clearOutput, updatePageIndicator, layoutPages, renderPage } from './utils/renderUtils.js';
 import { enableContinuousScrollTracking, scrollToPage } from './utils/scrollUtils.js';
 import { initYouTubePlayer, updateSongForYouTube } from './youtubePlayer.js';
@@ -1309,6 +1309,7 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
     }
 
     const fileToLoad = file;
+    setTextPagesPerView(null); // only a text tab sets its own count
 
     if (isFileType(file, ['pdf'])) {
         showScoreOptions('pdf');

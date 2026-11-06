@@ -1,5 +1,5 @@
 // textProcessor.js
-import { getPagesPerView } from '../utils/viewModeUtils.js';
+import { setTextPagesPerView, getLandscapePageLayout } from '../utils/viewModeUtils.js';
 
 const PAGE_PADDING = 20;
 
@@ -279,9 +279,22 @@ function createPaginatedPages(processedLines) {
     const outputHeight = outputEl?.clientHeight || window.innerHeight;
     const pageHeight = outputHeight - 80 - PAGE_PADDING * 2 - 2;
     const pageWidth = window.innerWidth - 40;
-    const pagesPerView = getPagesPerView(false);
-    const availableWidth = Math.floor((pageWidth - PAGE_PADDING * 4) / pagesPerView);
-    
+    const available = pageWidth - PAGE_PADDING * 4;
+
+    // How many pages sit side by side follows the text itself: a narrow tab leaves room for more pages at the same
+    // size, a wide one gets one. Measure the widest line at its natural width.
+    const probe = document.createElement('div');
+    probe.className = 'measure-div';
+    probe.style.cssText = 'position:absolute;visibility:hidden;width:max-content;white-space:pre';
+    processedLines.forEach(el => probe.appendChild(el.cloneNode(true)));
+    document.body.appendChild(probe);
+    const naturalWidth = Math.ceil(probe.scrollWidth) + PAGE_PADDING * 2;
+    document.body.removeChild(probe);
+    const MAX_PAGES = getLandscapePageLayout() === 'single' ? 1 : 6;
+    const pagesPerView = Math.max(1, Math.min(MAX_PAGES, Math.floor(available / Math.max(1, naturalWidth))));
+    setTextPagesPerView(pagesPerView);
+    const availableWidth = Math.floor(available / pagesPerView);
+
     // Create a temporary div to measure content height
     const measureDiv = document.createElement('div');
     measureDiv.className = 'measure-div';

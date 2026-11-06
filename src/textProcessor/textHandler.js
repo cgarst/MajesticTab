@@ -28,7 +28,7 @@ export function renderTextPage(output, pageModeChecked) {
     
     if (pageModeChecked) {
         output.style.overflowY = 'hidden';
-        const pagesPerView = getPagesPerView(false); // false = PDF mode
+        const pagesPerView = getPagesPerView('txt');
         
         // Create outer container that fills the viewport
         const outerContainer = document.createElement('div');

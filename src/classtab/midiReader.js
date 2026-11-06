@@ -26,6 +26,9 @@ export function readMidiFile(b, at = globalThis.alphaTab) {
     const list = [];
     const add = (tick, ev) => list.push({ tick, n: list.length, ev });
     let events = 0;
+    const tempos = [];
+    const sigs = [];
+    let lastTick = 0;
     for (let t = 0; t < tracks && p + 8 <= b.length; t++) {
         if (tag() !== 'MTrk') break;
         const end = Math.min(p + 4 + dv.getUint32(p), b.length);
@@ -39,7 +42,17 @@ export function readMidiFile(b, at = globalThis.alphaTab) {
             if (status === 0xff) {
                 const type = b[p++];
                 const len = vlq();
-                if (type === 0x51 && len === 3) { add(tick, new midi.TempoChangeEvent(tick, (b[p] << 16) | (b[p + 1] << 8) | b[p + 2])); events++; }
+                if (type === 0x51 && len === 3) {
+                    const usq = (b[p] << 16) | (b[p + 1] << 8) | b[p + 2];
+                    add(tick, new midi.TempoChangeEvent(tick, usq));
+                    tempos.push({ tick, usq });
+                    events++;
+                } else if (type === 0x58 && len >= 2) {
+                    const num = b[p];
+                    const den = b[p + 1];
+                    add(tick, new midi.TimeSignatureEvent(0, tick, num, den, 24, 8));
+                    sigs.push({ tick, num, den });
+                }
                 p += len;
             } else if (status === 0xf0 || status === 0xf7) {
                 p += vlq();
@@ -58,9 +71,47 @@ export function readMidiFile(b, at = globalThis.alphaTab) {
             }
         }
         p = end;
+        lastTick = Math.max(lastTick, tick);
     }
+    addClick(list, add, midi, division, tempos, sigs, lastTick);
     list.sort((x, y) => x.tick - y.tick || x.n - y.n);
     for (const { ev } of list) file.addEvent(ev);
     if (!events) throw new Error('That MIDI file has no notes.');
     return file;
+}
+
+/**
+ * The metronome and the count-in of alphaTab's synth play from metronome events it writes into the MIDI it makes from a
+ * score; a MIDI file has none. Write one per beat (the beat is the time signature's unit, and the first beat of each
+ * bar counts 0 so it is accented), and a time signature at the start for the count-in's length.
+ */
+function addClick(list, add, midi, division, tempos, sigs, lastTick) {
+    tempos.sort((x, y) => x.tick - y.tick);
+    sigs.sort((x, y) => x.tick - y.tick);
+    if (!sigs.length || sigs[0].tick > 0) {
+        sigs.unshift({ tick: 0, num: 4, den: 2 });
+        add(0, new midi.TimeSignatureEvent(0, 0, 4, 2, 24, 8));
+    }
+    if (!tempos.length || tempos[0].tick > 0) tempos.unshift({ tick: 0, usq: 500000 });
+    // Milliseconds of a span of ticks, through the tempo changes inside it
+    const millis = (from, to) => {
+        let ms = 0;
+        for (let i = 0; i < tempos.length; i++) {
+            const a = Math.max(from, tempos[i].tick);
+            const z = Math.min(to, i + 1 < tempos.length ? tempos[i + 1].tick : Infinity);
+            if (z > a) ms += ((z - a) / division) * (tempos[i].usq / 1000);
+        }
+        return ms;
+    };
+    const end = lastTick + 1;
+    for (let i = 0; i < sigs.length; i++) {
+        const { tick: start, num, den } = sigs[i];
+        const stop = Math.min(end, i + 1 < sigs.length ? sigs[i + 1].tick : end);
+        const beat = Math.max(1, Math.round((division * 4) / 2 ** den));
+        let counter = 0;
+        for (let t = start; t < stop; t += beat) {
+            add(t, new midi.AlphaTabMetronomeEvent(0, t, counter, beat, millis(t, t + beat)));
+            counter = (counter + 1) % Math.max(1, num);
+        }
+    }
 }

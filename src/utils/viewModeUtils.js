@@ -15,7 +15,16 @@ export function getLandscapePageLayout() {
  * @param {string|boolean} fileType - File type ('gp', 'txt', 'pdf') or boolean (true=gp, false=pdf)
  * @returns {number} Number of pages to show
  */
-export function getPagesPerView(fileType = 'gp') {
+// A text tab fits as many pages as its own width allows (see createPaginatedPages); null while another kind is open
+let textPagesPerView = null;
+export function setTextPagesPerView(n) { textPagesPerView = n > 0 ? n : null; }
+
+export function getPagesPerView(fileType) {
+    if (textPagesPerView && (fileType === 'txt' || fileType === undefined)) return textPagesPerView;
+    return layoutPagesPerView();
+}
+
+function layoutPagesPerView() {
     const aspectRatio = window.innerWidth / window.innerHeight;
     // Show 1 page when 4:3 or narrower; 2-page mode kicks in only when wider than 4:3
     if (aspectRatio <= (4 / 3)) {
