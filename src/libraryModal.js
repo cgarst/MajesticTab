@@ -993,9 +993,9 @@ async function renderLibraryBrowseView(container) {
             icon: 'bi-music-note-list',
             title: 'This collection is empty',
             message: 'Add your favorite songs and albums to build your personalized tab catalog, or link existing files from your device.',
-            actionsHtml: `<button class="btn btn-theme-primary btn-sm px-4" id="emptyStateSearchBtn"><i class="bi-search me-1"></i> Search Catalog &amp; Web</button>
-              <button class="btn btn-theme-outline btn-sm px-4" id="emptyStateOpenFileBtn"><i class="bi-folder2-open me-1"></i> Link existing files</button>
-              <button class="btn btn-theme-outline btn-sm px-4" id="emptyStateRestoreBtn"><i class="bi-arrow-counterclockwise me-1"></i> Restore backup</button>`
+            actionsHtml: `<button class="btn btn-theme-primary btn-sm px-4" id="emptyStateSearchBtn">Search the catalog and web</button>
+              <button class="btn btn-sm lib-ghost-action" id="emptyStateOpenFileBtn">Link existing files</button>
+              <button class="btn btn-sm lib-ghost-action" id="emptyStateRestoreBtn">Restore backup</button>`
           })}
           </div>
           <div id="libFilteredSearchResults" style="display: none;"></div>
@@ -1008,6 +1008,9 @@ async function renderLibraryBrowseView(container) {
         container.querySelector('#emptyStateSearchBtn')?.addEventListener('click', () => {
             const input = container.querySelector('#libFilterInput');
             if (input) {
+                // Say what to type: the field takes a song or artist and searches the catalog and the web
+                input.placeholder = 'Type a song or artist';
+                input.scrollIntoView({ block: 'nearest' });
                 input.focus();
                 input.select();
             }
@@ -1070,7 +1073,8 @@ async function renderLibraryBrowseView(container) {
               ${libraryEmptyStateHtml({
                 icon: 'bi-sliders',
                 title: 'No tunings yet',
-                message: 'Add tab files with guitar or bass scores to see your songs categorized by tuning.'
+                message: 'Add tab files with guitar or bass scores to see your songs categorized by tuning.',
+                actionsHtml: '<button type="button" class="btn btn-sm lib-ghost-action" data-lib-tab="library">Go to Library</button>'
               })}
             </div>
             `;

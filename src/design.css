@@ -1783,7 +1783,9 @@ body.fretboard-open {
 
 /* Page titles and empty states are left aligned words, not centred glyphs */
 .library-page-title, .library-page-title-text, .library-page-title-sub { text-align: left !important; justify-content: flex-start !important; }
-.library-empty { text-align: left; }
+.library-empty { text-align: left; padding-inline: 16px; }
+@media (min-width: 577px) { .library-empty { padding-inline: 20px; } }
+@media (pointer: coarse) { .library-empty .btn { min-height: 44px; } }
 .library-empty h6 { font-size: 17px; }
 
 /* Setlist rows carry the album art */
