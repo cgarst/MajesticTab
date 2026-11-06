@@ -5,7 +5,7 @@
 // The bar drives the existing sync controls (tap to sync, which links on to the point editor) rather than copying them.
 
 import { getSongKey, playerState } from '../youtubePlayer.js';
-import { getActiveRecording } from './realAudioController.js';
+import { getActiveRecording, getActiveMedia } from './realAudioController.js';
 import { loadRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { sessionPointsFor, isJamGuestFollowing, JAM_BRIDGE_EVENT } from './jamBridge.js';
 import { buildTimelineModel } from './timelineModel.js';
@@ -150,7 +150,13 @@ export function initScoreRecordingStrip() {
         strip.hidden = !rec;
         document.body.classList.toggle('score-rec-strip-on', Boolean(rec));
         // A recording with no sync points can't be followed, so the score shows no cursor
-        document.body.classList.toggle('score-cursor-hidden', Boolean(rec) && points.length === 0);
+        // Before its player has loaded the recording is not "active" yet, but it is attached: judge it by its saved points
+        let noPoints = Boolean(rec) && points.length === 0;
+        if (!rec && !hidden) {
+            const media = getActiveMedia();
+            if (media) noPoints = media.kind === 'youtube' ? !loadRecord(getSongKey(), media)?.points?.length : true;
+        }
+        document.body.classList.toggle('score-cursor-hidden', noPoints);
         if (!rec) return;
         const t = rec.source.getTimeMs() || 0;
         const dur = durationOf(rec);

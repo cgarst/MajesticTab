@@ -162,6 +162,11 @@ let ytSource = null;
  * The recording the Original button plays now, as `{ source, media, kind }`, or null when the slot has nothing loaded.
  * The media descriptor is the one the sync points are stored under.
  */
+/** The media attached to the Original slot (YouTube or local file), even when its player is not loaded yet; null when none. */
+export function getActiveMedia() {
+    return getMediaForSlot(state.slot);
+}
+
 export function getActiveRecording() {
     if (!getMediaForSlot(state.slot)) return null;
     if (getRealAudioActiveSource() === 'local') {
