@@ -651,6 +651,12 @@ function wireToolbar(s) {
         else { s.rangeArmed = true; s.rangeStart = null; updateToolbar(); }
     });
     on('smDoneBtn', exitSyncMode);
+    on('smAdjustBtn', () => {
+        // Hand over to the point editor of the same recording
+        const editBtn = $(`${s.media.kind === 'youtube' ? 'yt' : 'af'}SyncEditBtn`);
+        exitSyncMode();
+        editBtn?.click();
+    });
     on('smTimelineBtn', () => showTimeline(!s.timelineOpen));
     document.querySelectorAll('#smRates [data-sm-rate]').forEach((b) => {
         const handler = () => { s.source.setRate(Number(b.dataset.smRate)); updateToolbar(); };

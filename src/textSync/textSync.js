@@ -274,7 +274,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         } else {
             statusEl.textContent = 'Not synced';
             statusEl.title = `The ${rec?.label?.toLowerCase() || 'recording'} plays on its own. The tab won't follow it until you add sync points.`;
-            actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add sync points</button>';
+            actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add points</button>';
         }
         if (points.length) statusEl.removeAttribute('title');
         // Tick marks where the tab is pinned to the recording

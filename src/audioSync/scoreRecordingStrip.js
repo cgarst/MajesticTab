@@ -2,7 +2,7 @@
 // The recording bar for Guitar Pro tabs: the same two-bar layout the text and PDF tabs have. While Original is the
 // selected sound, the recording's own progress (time, a track with ticks at the sync points, and its sync state) sits
 // directly above the bar ruler. "Add sync points" lives here, so the Original panel only chooses the source.
-// The bar drives the existing sync controls (tap to sync, the point editor) rather than copying them.
+// The bar drives the existing sync controls (tap to sync, which links on to the point editor) rather than copying them.
 
 import { getSongKey, playerState } from '../youtubePlayer.js';
 import { getActiveRecording } from './realAudioController.js';
@@ -95,9 +95,8 @@ export function initScoreRecordingStrip() {
             statusEl.textContent = `${state} · ${n} ${n === 1 ? 'point' : 'points'}${fromHost ? ' from the host' : ''}`;
         }
         if (!canAuthor()) actionsEl.innerHTML = '';
-        else if (!n) actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add sync points</button>';
-        else actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="edit">Adjust points</button>'
-            + `<button type="button" class="ct-text" data-act="sync">${summary.full ? 'Re-sync' : 'Add sync points'}</button>`;
+        else if (!n) actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add points</button>';
+        else actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add points</button>';
         marksEl.replaceChildren();
         if (dur) {
             for (const p of points) {
@@ -112,7 +111,7 @@ export function initScoreRecordingStrip() {
         const act = e.target.closest('[data-act]')?.dataset.act;
         if (!act || !rec) return;
         // The controls that own the sync flow live in the Original panel; they check TV and Jam guest rules themselves
-        $(`${prefixOf(rec)}Sync${act === 'edit' ? 'Edit' : 'Tap'}Btn`)?.click();
+        $(`${prefixOf(rec)}SyncTapBtn`)?.click();
     });
 
     function seekFromPointer(e) {

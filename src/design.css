@@ -3973,6 +3973,16 @@ body > #controllerHelpModal { display: none; }
 .rec-actions .ct-text[disabled] { opacity: .4; pointer-events: none; }
 .rec-actions .rec-done { color: var(--ink); }
 .rec-track:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* Phone width: the strip is two deliberate rows, not a wrap. Row one is the time and the track; row two is the status on
+   the left and the actions on the right, so the links never drop under the track with empty space beside them. */
+@media (max-width: 576px) {
+  .rec-strip { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0 12px; }
+  .rec-time { grid-column: 1; grid-row: 1; min-width: 0; }
+  .rec-track { grid-column: 2 / 4; grid-row: 1; min-width: 0; }
+  .rec-status { grid-column: 1 / 3; grid-row: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rec-actions { grid-column: 3; grid-row: 2; justify-self: end; }
+  .rec-actions:empty { display: none; }
+}
 .page-strip.in-dock ~ .rec-strip { order: -1; }
 /* On Guitar Pro tabs the recording bar sits in the dock's ruler slot, directly above the bar ruler */
 #scoreRecStrip { margin-bottom: 4px; }
@@ -3993,3 +4003,9 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
 .reading-line.is-off { opacity: 0; transition-duration: var(--dur-fast); }
 @media (prefers-reduced-motion: reduce) { .reading-line { transition: none; } }
 @media (prefers-reduced-motion: no-preference) { .rec-fill { transition: transform 120ms linear; } }
+
+/* Link-style action inside the tap-to-sync toolbar */
+.sync-mode-bar .sm-link { background: transparent; border: 0; color: var(--ink2); font-size: 14px; padding: 6px 10px; min-height: 32px; border-radius: var(--r-control); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: background-color var(--dur-fast), color var(--dur-fast); }
+.sync-mode-bar .sm-link:hover { background: var(--s3); color: var(--ink); }
+.sync-mode-bar .sm-link:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+@media (pointer: coarse) { .sync-mode-bar .sm-link { min-height: 44px; } }
