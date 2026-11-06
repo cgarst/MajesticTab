@@ -46,6 +46,8 @@ export function initPageStrip(getConfig) {
             }
             track.appendChild(frag);
             track.style.setProperty('--pages', String(state.total));
+            // A long book has more pages than the strip has pixels for gaps: drop the gaps so it never outgrows the track
+            track.style.setProperty('--seg-gap', state.total * 4 > (track.clientWidth || 600) ? '0px' : '2px');
         } else {
             const fill = document.createElement('i');
             fill.className = 'page-strip-fill';

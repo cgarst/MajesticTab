@@ -2191,8 +2191,8 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 /* ---------- Page strip (PDF and text tabs) ---------- */
 .page-strip { flex: none; width: 100%; background: var(--s1); padding: 12px 14px 8px; position: relative; z-index: 1045; }
 .page-strip[hidden] { display: none; }
-.page-strip-track { position: relative; height: 40px; display: grid; grid-template-columns: repeat(var(--pages, 1), 1fr); gap: 2px; touch-action: none; cursor: pointer; border-radius: var(--r-sm); }
-.page-strip-seg { display: block; background: var(--s3); border-radius: 2px; min-width: 1px; }
+.page-strip-track { position: relative; height: 40px; display: grid; grid-template-columns: repeat(var(--pages, 1), minmax(0, 1fr)); gap: var(--seg-gap, 2px); overflow: hidden; touch-action: none; cursor: pointer; border-radius: var(--r-sm); }
+.page-strip-seg { display: block; background: var(--s3); border-radius: 2px; min-width: 0; }
 .page-strip-seg.is-current { background: var(--hue); }
 .page-strip-track:has(.page-strip-fill) { display: block; background: var(--s2); overflow: hidden; }
 .page-strip-fill { position: absolute; inset: 0; background: var(--s3); transform-origin: 0 50%; transform: scaleX(0); display: block; }
