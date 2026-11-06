@@ -93,8 +93,8 @@ window.addEventListener('resize', () => {
         
         const autoDensityChanged = getGpDensity() === 'auto' && updateAutoGpDensity();
 
-        // Only re-render if we have a file loaded
-        if (currentFile && pageModeRadio && output) {
+        // Only re-render if we have a file loaded and the reader (not the library) is showing
+        if (currentFile && pageModeRadio && output && !document.body.classList.contains('library-view-active')) {
             if (isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx'])) {
                 if (autoDensityChanged) {
                     if (applyGpDisplayScale(output, pageModeRadio.checked, continuousModeRadio)) {
