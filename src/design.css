@@ -3821,3 +3821,7 @@ body > #controllerHelpModal { display: none; }
     .search-album-row .search-row-sub { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
     .search-album-row .search-album-actions { flex: 1 0 100%; margin-left: 56px !important; }
 }
+
+/* Search and tracklist rows: titles wrap instead of truncating, so the row
+   action stays a short ghost text action. */
+.search-stream-row .search-row-title { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }

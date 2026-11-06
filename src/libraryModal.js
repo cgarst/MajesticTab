@@ -706,7 +706,7 @@ export async function handleAddAlbumBatch(albumItem, btnEl) {
             showToast(`No tracks found for album "${albumTitle}"`, 'warning');
             if (btnEl) {
                 btnEl.disabled = false;
-                btnEl.textContent = 'Add Album & Find Tabs';
+                btnEl.textContent = 'Add album';
             }
             return;
         }
@@ -773,7 +773,7 @@ export async function handleAddAlbumBatch(albumItem, btnEl) {
         showToast('Error preparing album batch download', 'error');
         if (btnEl) {
             btnEl.disabled = false;
-            btnEl.textContent = 'Add Album & Find Tabs';
+            btnEl.textContent = 'Add album';
         }
     }
 }
@@ -2508,11 +2508,11 @@ function setupLibraryFilter(container, context = {}) {
                     <div class="search-row-sub text-truncate">${alb.year ? `${alb.year} · ` : ''}${escapeHtml(alb.primaryType || 'Album')}${isInLib ? ' · <span class="text-info">In Library</span>' : ''}</div>
                   </div>
                   <div class="search-album-actions d-flex align-items-center gap-2 flex-shrink-0 ms-2">
-                    <button type="button" class="btn btn-sm btn-theme-outline view-album-tracks-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" title="View tracks">
+                    <button type="button" class="btn btn-sm lib-ghost-action view-album-tracks-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" title="View tracks">
                       Tracks
                     </button>
-                    <button type="button" class="btn btn-sm btn-theme-outline catalog-album-batch-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(artistName)}" data-year="${alb.year || ''}">
-                      Add Album &amp; Find Tabs
+                    <button type="button" class="btn btn-sm lib-ghost-action catalog-album-batch-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(artistName)}" data-year="${alb.year || ''}" aria-label="Add album and find tabs">
+                      Add album
                     </button>
                   </div>
                 </div>
@@ -2624,7 +2624,7 @@ function setupLibraryFilter(container, context = {}) {
                 <div class="search-row-title text-truncate">${escapeHtml(art.name)} <span class="text-muted fw-normal" style="font-size: 13px;">(${escapeHtml(art.type || 'Artist')})</span></div>
                 <div class="search-row-sub text-truncate">${escapeHtml([art.disambiguation, art.country, art.lifeSpan].filter(Boolean).join(' · ') || 'Artist')}</div>
               </div>
-              <button type="button" class="btn btn-sm btn-theme-outline catalog-artist-albums-btn flex-shrink-0 ms-2" data-artist-id="${art.id}" data-artist-name="${escapeHtml(art.name)}">View Albums</button>
+              <button type="button" class="btn btn-sm lib-ghost-action catalog-artist-albums-btn flex-shrink-0 ms-2" data-artist-id="${art.id}" data-artist-name="${escapeHtml(art.name)}" aria-label="View albums">Albums</button>
             </div>
             `;
         }
@@ -2637,7 +2637,7 @@ function setupLibraryFilter(container, context = {}) {
                 <div class="search-row-title text-truncate">${escapeHtml(alb.title)} (Album)</div>
                 <div class="search-row-sub text-truncate">${escapeHtml(alb.artist)}${alb.year ? ` · ${alb.year}` : ''}${alb.trackCount ? ` · ${alb.trackCount} tracks` : ''}</div>
               </div>
-              <button type="button" class="btn btn-sm btn-theme-outline catalog-album-batch-btn flex-shrink-0 ms-2" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(alb.artist)}" data-year="${alb.year || ''}">Add Album &amp; Find Tabs</button>
+              <button type="button" class="btn btn-sm lib-ghost-action catalog-album-batch-btn flex-shrink-0 ms-2" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" data-artist-name="${escapeHtml(alb.artist)}" data-year="${alb.year || ''}" aria-label="Add album and find tabs">Add album</button>
             </div>
             `;
         }
@@ -2650,7 +2650,7 @@ function setupLibraryFilter(container, context = {}) {
                 <div class="search-row-title text-truncate">${escapeHtml(song.title)}</div>
                 <div class="search-row-sub text-truncate">${escapeHtml(song.artist)}${song.album ? ` · ${escapeHtml(song.album)}` : ''}${song.year ? ` · ${song.year}` : ''}</div>
               </div>
-              <button type="button" class="btn btn-sm btn-theme-outline catalog-song-get-tab-btn flex-shrink-0 ms-2" data-song-id="${song.id}" data-title="${escapeHtml(song.title)}" data-artist="${escapeHtml(song.artist)}" data-album="${escapeHtml(song.album || '')}" data-year="${song.year || ''}" data-recording-mbid="${song.recordingMbid || song.id || ''}">Add Song &amp; Find Tab</button>
+              <button type="button" class="btn btn-sm lib-ghost-action catalog-song-get-tab-btn flex-shrink-0 ms-2" data-song-id="${song.id}" data-title="${escapeHtml(song.title)}" data-artist="${escapeHtml(song.artist)}" data-album="${escapeHtml(song.album || '')}" data-year="${song.year || ''}" data-recording-mbid="${song.recordingMbid || song.id || ''}" aria-label="Add song and find tab">Add song</button>
             </div>
             `;
         }
@@ -2862,7 +2862,7 @@ function setupLibraryFilter(container, context = {}) {
                   ${hasTabs ? `
                   <button type="button" class="btn btn-sm btn-theme-outline play-default-tab-btn flex-shrink-0 ms-2" data-song-id="${s.id}">Play</button>
                   ` : `
-                  <button type="button" class="btn btn-sm btn-theme-outline local-song-find-tab-btn flex-shrink-0 ms-2" data-song-id="${s.id}" data-title="${escapeHtml(s.title)}" data-artist="${escapeHtml(s.artist || '')}" data-album="${escapeHtml(s.album || '')}">Find Tab</button>
+                  <button type="button" class="btn btn-sm lib-ghost-action local-song-find-tab-btn flex-shrink-0 ms-2" data-song-id="${s.id}" data-title="${escapeHtml(s.title)}" data-artist="${escapeHtml(s.artist || '')}" data-album="${escapeHtml(s.album || '')}">Find tab</button>
                   `}
                 </div>
                 `;
@@ -4278,14 +4278,14 @@ function renderAddAlbumTracksList(tracks, existingSongMap = new Map(), artistNam
             actionHtml = `<span class="text-muted small flex-shrink-0 ms-2">In library</span>`;
         } else if (isSongInLib) {
             actionHtml = `
-            <button type="button" class="btn btn-sm btn-theme-outline add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}" data-song-id="${existingSong.id}">
-              Find Tab
+            <button type="button" class="btn btn-sm lib-ghost-action add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}" data-song-id="${existingSong.id}" aria-label="Find tab">
+              Find tab
             </button>
             `;
         } else {
             actionHtml = `
-            <button type="button" class="btn btn-sm btn-theme-outline add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}">
-              Add Song &amp; Find Tab
+            <button type="button" class="btn btn-sm lib-ghost-action add-single-track-btn flex-shrink-0 ms-2" data-track-idx="${idx}" aria-label="Add song and find tab">
+              Add song
             </button>
             `;
         }
