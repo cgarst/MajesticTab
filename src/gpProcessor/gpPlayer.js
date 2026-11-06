@@ -12,6 +12,7 @@ import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, r
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { deriveSections, DEFAULT_MIN_BARS } from './songSections.js';
+import { buildScoreTimeline, playedBarsFromLookup, buildClickList, tickToScoreMs } from '../audioSync/scorePositions.js';
 
 const STORAGE_KEY_SYNTH_VOLUME = 'majestic_synth_volume';
 
@@ -444,6 +445,8 @@ function seekToLoopStart() {
 
 export function applyLoopSettings() {
     if (!currentApi) return;
+    cancelPendingClicks();
+    clickLastNow = null;
     emitTransportEvent('loop', {
         enabled: synthPlayerState.loopEnabled,
         startMeasure: synthPlayerState.loopStartMeasure,
@@ -1398,6 +1401,7 @@ export function createCustomCursorHandler(api) {
  */
 function applyPlayerState(api, state) {
     synthPlayerState.isPlaying = (state === 1);
+    syncClickTimer();
     if (state !== 1) flushDeferredVisuals();
     if (state === 1) {
         synthPlayerState.hasPlayed = true;
@@ -1442,7 +1446,16 @@ document.addEventListener('visibilitychange', async () => {
     playPauseSynthLocal(true);
 });
 
-export function attachAlphaTabApi(api) {
+/**
+ * @param {object} api the AlphaTab API
+ * @param {{ clicks?: Array<{ ms: number, accent: boolean }> }} [opts] `clicks`: the metronome clicks of a MIDI file (song ms
+ *   at 1x); a score builds its own from the tick lookup.
+ */
+export function attachAlphaTabApi(api, opts = {}) {
+    cancelPendingClicks();
+    cancelCountIn();
+    fileClicks = opts.clicks || null;
+    clickCache = null;
     currentApi = api;
     currentScore = api.score;
     clearTimeout(panReloadTimer);
@@ -1541,7 +1554,9 @@ export function attachAlphaTabApi(api) {
         synthPlayerState.isReady = true;
         // Apply existing preferences
         api.playbackSpeed = synthPlayerState.playbackSpeed;
-        setupSynthClick(api);
+        // The clicks are ours (see clickTick), so AlphaTab's own metronome and count-in stay silent
+        api.metronomeVolume = 0;
+        api.countInVolume = 0;
         if (!synthPlayerState.audioSyncEnabled) {
             applySynthTrackMode();
         }
@@ -1584,7 +1599,6 @@ export function attachAlphaTabApi(api) {
     api.playedBeatChanged.on((beat) => {
         if (warmingUp) return;
         playedBeatState.beat = beat;
-        countInPhase = false;
         if (!api.activeBeatsChanged) {
             deferVisual(() => fretboardController.onBeatChanged(beat));
         }
@@ -1692,6 +1706,10 @@ export async function reloadSynthSoundFonts() {
 
 export function detachAlphaTabApi() {
     pauseIOSAudioPlayback();
+    cancelCountIn();
+    stopClickTimer();
+    fileClicks = null;
+    clickCache = null;
     warmingUp = false;
     warmUpPaused = false;
     jamPrevViewTracks = null;
@@ -1768,6 +1786,7 @@ export function playPauseSynth() {
 
 function playPauseSynthLocal(forcePlay = false) {
     if (!currentApi) return;
+    if (countInTimer) { cancelCountIn(); return; } // a second press during the count-in cancels it
     if (warmingUp) {
         // The post-load warm-up is already running the synth muted; make it the real start. If it has already paused
         // the synth, there is nothing running to take over: restore the volume and start normally below.
@@ -1798,6 +1817,7 @@ function playPauseSynthLocal(forcePlay = false) {
         // Jam starts must not toggle: a pause issued moments earlier may not have reached the
         // synth worker yet, and playPause() would then pause instead of play.
         const wasPlaying = synthPlayerState.isPlaying;
+        if (!wasPlaying && !forcePlay && synthPlayerState.countInEnabled && startCountIn()) return;
         if (forcePlay) currentApi.play();
         else currentApi.playPause();
         if (!wasPlaying) verifySynthAudioAfterPlay(currentApi);
@@ -1880,6 +1900,7 @@ export function isSynthPlaying() {
  * Pause Synth playback
  */
 export function pauseSynthPlayer() {
+    cancelCountIn();
     pauseIOSAudioPlayback();
     if (!currentApi) return;
     try {
@@ -1898,6 +1919,7 @@ export function pauseSynthPlayer() {
  */
 export function rewindSynth() {
     if (!currentApi) return;
+    cancelCountIn();
     if (interceptTransport('seekMs', { timeMs: 0 })) return;
     try {
         currentApi.timePosition = 0;
@@ -1918,6 +1940,7 @@ export function rewindSynth10Seconds() {
             ? synthPlayerState.currentTime
             : (currentApi.timePosition || 0);
         const targetMs = Math.max(0, currentMs - 10000);
+        cancelCountIn();
         if (interceptTransport('seekMs', { timeMs: toSongMs(targetMs) })) return;
         currentApi.timePosition = targetMs;
         synthPlayerState.currentTime = targetMs;
@@ -1933,6 +1956,7 @@ export function rewindSynth10Seconds() {
 export function seekSynthPercent(percent) {
     if (!currentApi || synthPlayerState.endTime <= 0) return;
     const targetMs = Math.floor(percent * synthPlayerState.endTime);
+    cancelCountIn();
     if (interceptTransport('seekMs', { timeMs: toSongMs(targetMs) })) return;
     try {
         currentApi.timePosition = targetMs;
@@ -1971,22 +1995,32 @@ function setPlaybackSpeedLocal(speed) {
             console.error('[Synth Player] Set speed error:', e);
         }
     }
+    cancelPendingClicks(); // their delays were worked out at the old speed; the next tick schedules them again
+    clickLastNow = null;
     emitTransportEvent('speed', { speed });
     updateSynthUI();
 }
 
-// The metronome/count-in click is rendered here rather than by AlphaTab's synth, which plays it from the loaded
-// SoundFonts' drum kit and so changes (or loses) the click whenever a custom SoundFont is active.
-// AlphaTab still needs a non-zero count-in volume to run a count-in, so it gets one too quiet to hear.
-const SYNTH_CLICK_COUNT_IN_VOLUME = 0.0001;
+// The metronome and count-in clicks are rendered here rather than by AlphaTab's synth, which plays them from the loaded
+// SoundFonts' drum kit and so changes (or loses) the click whenever a custom SoundFont is active. They are not taken from
+// AlphaTab's metronome events either: those arrive late above 100% speed. Instead a timer reads the song position and
+// schedules the clicks that are about to fall due on our own AudioContext, ahead of time on its clock.
 let clickContext = null;
-let countInPhase = false;
+const CLICK_LOOKAHEAD_MS = 120; // of real time
+const CLICK_START_GRACE_MS = 60;
+const pendingClicks = new Set();
+let fileClicks = null; // a MIDI file's clicks, from readMidiFile
+let clickCache = null; // a score's clicks: { lookup, clicks, timeline }, rebuilt when the tick lookup is replaced
+let clickTimer = 0;
+let clickNext = 0;
+let clickLastNow = null;
+let countInTimer = 0;
 
 export function playClick(accent, delaySec = 0) {
     try {
         if (!clickContext) {
             const Ctx = window.AudioContext || window.webkitAudioContext;
-            if (!Ctx) return;
+            if (!Ctx) return null;
             clickContext = new Ctx();
             registerAudioContext(clickContext);
         }
@@ -2003,24 +2037,138 @@ export function playClick(accent, delaySec = 0) {
         osc.connect(gain).connect(ctx.destination);
         osc.start(now);
         osc.stop(now + 0.06);
-    } catch (_) {}
+        return { osc, gain };
+    } catch (_) { return null; }
 }
 
-function setupSynthClick(api) {
-    api.metronomeVolume = 0;
-    api.countInVolume = synthPlayerState.countInEnabled ? SYNTH_CLICK_COUNT_IN_VOLUME : 0;
-    api.midiEventsPlayedFilter = [alphaTab.midi.MidiEventType.AlphaTabMetronome];
-    api.midiEventsPlayed.on((e) => {
-        if (warmingUp) return;
-        const wanted = countInPhase ? synthPlayerState.countInEnabled : synthPlayerState.metronomeEnabled;
-        if (!wanted) return;
-        for (const ev of e.events) {
-            if (ev.isMetronome) playClick(ev.metronomeNumerator === 0);
+function scheduleClick(accent, delaySec) {
+    const nodes = playClick(accent, delaySec);
+    if (!nodes) return;
+    pendingClicks.add(nodes);
+    nodes.osc.onended = () => { pendingClicks.delete(nodes); try { nodes.gain.disconnect(); } catch (_) {} };
+}
+
+function cancelPendingClicks() {
+    for (const { osc, gain } of pendingClicks) {
+        try { osc.onended = null; osc.stop(); osc.disconnect(); gain.disconnect(); } catch (_) {}
+    }
+    pendingClicks.clear();
+}
+
+/** The clicks of the loaded song as `{ clicks, timeline }` (timeline is null for a MIDI file), or null if not ready. */
+function currentClicks() {
+    if (fileClicks) return { clicks: fileClicks, timeline: null };
+    if (!currentApi) return null;
+    const lookup = getMidiTickLookup(currentApi);
+    if (!lookup) return null;
+    if (!clickCache || clickCache.lookup !== lookup) {
+        try {
+            const played = playedBarsFromLookup(lookup);
+            const timeline = buildScoreTimeline(played, currentApi.score?.tempo);
+            clickCache = { lookup, clicks: buildClickList(played, timeline), timeline };
+        } catch (_) { return null; }
+    }
+    return clickCache;
+}
+
+function firstClickAtOrAfter(clicks, ms) {
+    let lo = 0;
+    let hi = clicks.length;
+    while (lo < hi) {
+        const mid = (lo + hi) >> 1;
+        if (clicks[mid].ms < ms) lo = mid + 1; else hi = mid;
+    }
+    return lo;
+}
+
+function clickTick() {
+    if (!synthPlayerState.isPlaying || !synthPlayerState.metronomeEnabled || warmingUp || !currentApi) {
+        clickLastNow = null;
+        return;
+    }
+    const song = currentClicks();
+    if (!song) return;
+    const { clicks, timeline } = song;
+    const speed = currentSpeedFactor();
+    const nowMs = jamPlayerControl.timeMs();
+    let grace = 5;
+    if (clickLastNow === null || nowMs < clickLastNow || nowMs - clickLastNow > 400 * speed) {
+        // A seek, a loop wrap or a first tick: what was scheduled belongs to another position
+        // The click of the beat playback starts on is only a few ms behind by the first tick, and is still played
+        cancelPendingClicks();
+        clickNext = firstClickAtOrAfter(clicks, nowMs - CLICK_START_GRACE_MS * speed);
+        grace = CLICK_START_GRACE_MS;
+    }
+    clickLastNow = nowMs;
+    let loopEndMs = Infinity;
+    if (synthPlayerState.loopEnabled && timeline && currentScore?.masterBars?.length) {
+        const lastBar = currentScore.masterBars[synthPlayerState.loopEndMeasure - 1];
+        if (lastBar) loopEndMs = tickToScoreMs(timeline, lastBar.start + lastBar.calculateDuration());
+    }
+    while (clickNext < clicks.length) {
+        const click = clicks[clickNext];
+        if (click.ms > nowMs + CLICK_LOOKAHEAD_MS * speed) break;
+        clickNext++;
+        if (click.ms >= loopEndMs) break;
+        if (click.ms >= nowMs - grace * speed) scheduleClick(click.accent, Math.max(0, (click.ms - nowMs) / speed / 1000));
+    }
+}
+
+function stopClickTimer() {
+    clearInterval(clickTimer);
+    clickTimer = 0;
+    clickLastNow = null;
+    cancelPendingClicks();
+}
+
+/** Runs the click timer exactly while the synth plays with the metronome on; idempotent. */
+function syncClickTimer() {
+    const wanted = synthPlayerState.isPlaying && synthPlayerState.metronomeEnabled;
+    if (wanted && !clickTimer) {
+        clickLastNow = null;
+        clickTimer = setInterval(clickTick, 25);
+    } else if (!wanted && clickTimer) {
+        stopClickTimer();
+    }
+}
+
+function cancelCountIn() {
+    if (!countInTimer) return;
+    clearTimeout(countInTimer);
+    countInTimer = 0;
+}
+
+/**
+ * Plays one bar of clicks at the tempo and meter of the song here, then starts the synth. Returns false (nothing
+ * started) when the song's clicks are not known, so playback starts at once instead.
+ */
+function startCountIn() {
+    const song = currentClicks();
+    if (!song?.clicks.length) return false;
+    const { clicks } = song;
+    const speed = currentSpeedFactor();
+    let i = Math.min(clicks.length - 1, firstClickAtOrAfter(clicks, jamPlayerControl.timeMs()));
+    while (i > 0 && !clicks[i].accent) i--;
+    let beats = 1;
+    while (clicks[i + beats] && !clicks[i + beats].accent) beats++;
+    const barMs = clicks[i + beats] ? clicks[i + beats].ms - clicks[i].ms : (i > 0 ? clicks[i].ms - clicks[i - 1].ms : 500) * beats;
+    const intervalMs = Math.min(3000, Math.max(100, barMs / beats / speed)) || 500 / speed;
+    const api = currentApi;
+    let n = 0;
+    const step = () => {
+        if (n >= beats) {
+            countInTimer = 0;
+            if (api !== currentApi) return;
+            api.play();
+            verifySynthAudioAfterPlay(api);
+            return;
         }
-    });
-    api.playerStateChanged.on((args) => {
-        countInPhase = args.state === 1 && synthPlayerState.countInEnabled;
-    });
+        playClick(n === 0);
+        n++;
+        countInTimer = setTimeout(step, intervalMs);
+    };
+    step();
+    return true;
 }
 
 /**
@@ -2029,13 +2177,7 @@ function setupSynthClick(api) {
 export function toggleMetronome(force = null) {
     const newState = force !== null ? force : !synthPlayerState.metronomeEnabled;
     synthPlayerState.metronomeEnabled = newState;
-    if (currentApi) {
-        try {
-            // click is rendered by playClick(); see setupSynthClick()
-        } catch (e) {
-            console.error('[Synth Player] Metronome error:', e);
-        }
-    }
+    syncClickTimer();
     updateSynthUI();
 }
 
@@ -2045,13 +2187,6 @@ export function toggleMetronome(force = null) {
 export function toggleCountIn(force = null) {
     const newState = force !== null ? force : !synthPlayerState.countInEnabled;
     synthPlayerState.countInEnabled = newState;
-    if (currentApi) {
-        try {
-            currentApi.countInVolume = newState ? SYNTH_CLICK_COUNT_IN_VOLUME : 0;
-        } catch (e) {
-            console.error('[Synth Player] Count-in error:', e);
-        }
-    }
     updateSynthUI();
 }
 

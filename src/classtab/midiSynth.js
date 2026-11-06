@@ -23,7 +23,7 @@ export let midiSynthActive = false;
  */
 export async function attachMidiSynth(bytes) {
     const at = globalThis.alphaTab;
-    const file = readMidiFile(bytes, at);
+    const { file, clicks } = readMidiFile(bytes, at);
     removeMidiSynth();
     hostEl = document.createElement('div');
     hostEl.className = 'midi-synth-host';
@@ -41,7 +41,7 @@ export async function attachMidiSynth(bytes) {
     ownApi = api;
     midiSynthActive = true;
     applySoundFontsToApi(api).catch((e) => console.error('[SoundFont] Failed to load SoundFonts:', e));
-    attachAlphaTabApi(api);
+    attachAlphaTabApi(api, { clicks });
     // The fretboard shows Guitar Pro notes only; this placeholder score has none
     const noFretboard = () => { if (ownApi === api) fretboardController.onScoreClosed(); };
     noFretboard();

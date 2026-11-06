@@ -5,7 +5,11 @@
 // The result is a single-track file with every event on track 0 and the original channels kept: alphaTab 1.8.4's
 // MidiFile.events getter recurses forever on a multi-track file, so a type 1 file is merged, never mapped track for track.
 
-/** @param {Uint8Array} b @param {object} at the alphaTab namespace (globalThis.alphaTab in the app) */
+/**
+ * @param {Uint8Array} b @param {object} at the alphaTab namespace (globalThis.alphaTab in the app)
+ * @returns {{ file: object, clicks: Array<{ ms: number, accent: boolean }> }} the alphaTab file and the metronome clicks
+ *   (song ms at 1x, first beat of each bar accented) that gpPlayer's click scheduler plays
+ */
 export function readMidiFile(b, at = globalThis.alphaTab) {
     const { midi } = at;
     const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
@@ -73,17 +77,20 @@ export function readMidiFile(b, at = globalThis.alphaTab) {
         p = end;
         lastTick = Math.max(lastTick, tick);
     }
-    addClick(list, add, midi, division, tempos, sigs, lastTick);
+    const clicks = addClick(list, add, midi, division, tempos, sigs, lastTick);
     list.sort((x, y) => x.tick - y.tick || x.n - y.n);
     for (const { ev } of list) file.addEvent(ev);
     if (!events) throw new Error('That MIDI file has no notes.');
-    return file;
+    return { file, clicks };
 }
 
 /**
  * The metronome and the count-in of alphaTab's synth play from metronome events it writes into the MIDI it makes from a
  * score; a MIDI file has none. Write one per beat (the beat is the time signature's unit, and the first beat of each
- * bar counts 0 so it is accented), and a time signature at the start for the count-in's length.
+ * bar counts 0 so it is accented), and a time signature at the start for the count-in's length. AlphaTab's own
+ * metronome events play late above 100% speed, so they are not what is heard: the returned click list is, scheduled by
+ * gpPlayer. The events stay because AlphaTab's bar math still reads them.
+ * @returns {Array<{ ms: number, accent: boolean }>}
  */
 function addClick(list, add, midi, division, tempos, sigs, lastTick) {
     tempos.sort((x, y) => x.tick - y.tick);
@@ -104,14 +111,20 @@ function addClick(list, add, midi, division, tempos, sigs, lastTick) {
         return ms;
     };
     const end = lastTick + 1;
+    const clicks = [];
     for (let i = 0; i < sigs.length; i++) {
         const { tick: start, num, den } = sigs[i];
         const stop = Math.min(end, i + 1 < sigs.length ? sigs[i + 1].tick : end);
         const beat = Math.max(1, Math.round((division * 4) / 2 ** den));
         let counter = 0;
+        let ms = millis(0, start);
         for (let t = start; t < stop; t += beat) {
-            add(t, new midi.AlphaTabMetronomeEvent(0, t, counter, beat, millis(t, t + beat)));
+            const len = millis(t, t + beat);
+            add(t, new midi.AlphaTabMetronomeEvent(0, t, counter, beat, len));
+            clicks.push({ ms, accent: counter === 0 });
+            ms += len;
             counter = (counter + 1) % Math.max(1, num);
         }
     }
+    return clicks;
 }
