@@ -121,7 +121,10 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
     const s = session = {
         source, media, peaks, ctx, map, container, output, overlay, songKey, wasPage,
         prevRate: source.getRate?.() ?? 1,
-        points: loadRecord(songKey, media)?.points || [],
+        // A new song starts with a point at 0:00 on beat 1. It stays in memory until the first tap saves the list
+        points: loadRecord(songKey, media)?.points?.length
+            ? loadRecord(songKey, media).points
+            : [{ id: makeId(), barIndex: map.bars[0]?.barIndex ?? 0, occurrence: map.bars[0]?.occurrence ?? 0, pos: 0, timeMs: 0, source: 'tap' }],
         undo: [], redo: [],
         ghosts: [],
         rangeArmed: false,

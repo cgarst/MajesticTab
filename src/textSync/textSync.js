@@ -190,7 +190,9 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         const timeMs = Math.max(0, Math.round(rec.source.getTimeMs() - latency()));
         const point = { id: makeId(), barIndex: unit, occurrence: 0, pos: 0, timeMs, source: 'tap' };
         // A tap within half a second of an older point replaces it
-        writePoints([...points.filter((p) => Math.abs(p.timeMs - timeMs) > 500), point]);
+        // A new song starts at 0:00 on the first page or block, saved together with the first tap
+        const base = points.length ? points : [{ id: makeId(), barIndex: 0, occurrence: 0, pos: 0, timeMs: 0, source: 'tap' }];
+        writePoints([...base.filter((p) => Math.abs(p.timeMs - timeMs) > 500), point]);
         history.push(point.id);
         lastTapText = isPdf(getCurrentFile()) ? `Page ${unit + 1} at ${fmtTime(timeMs)}` : `Pinned at ${fmtTime(timeMs)}`;
         markCurrent(unit);
