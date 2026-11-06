@@ -15,6 +15,19 @@ export function initPageStrip(getConfig) {
     let drawn = { total: -1, continuous: null };
     let dragging = false;
 
+    // Desktop: the strip takes the ruler's place in the dock row, like the bar ruler on Guitar Pro files, so the
+    // bottom is one row. Phone keeps it as its own row below the transport, as the ruler is there.
+    const slot = $('dockRulerSlot');
+    const home = { parent: strip.parentNode, next: strip.nextSibling };
+    const wide = window.matchMedia('(min-width: 641px)');
+    const place = () => {
+        if (wide.matches && slot) slot.appendChild(strip);
+        else if (strip.parentNode !== home.parent) home.parent.insertBefore(strip, home.next && home.next.parentNode === home.parent ? home.next : null);
+        strip.classList.toggle('in-dock', strip.parentNode === slot);
+    };
+    wide.addEventListener('change', place);
+    place();
+
     const isScore = () => Boolean(getConfig().gpState?.canvases?.[0]);
 
     function applyMarks() {

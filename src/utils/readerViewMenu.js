@@ -201,7 +201,7 @@ function initPracticePanels() {
         const syncDock = () => {
             const root = document.documentElement.style;
             const own = dock.offsetHeight;
-            const stripH = strip && !strip.hidden ? strip.offsetHeight : 0;
+            const stripH = strip && !strip.hidden && !strip.classList.contains('in-dock') ? strip.offsetHeight : 0;
             root.setProperty('--dock-own-h', `${own}px`);
             root.setProperty('--strip-h', `${stripH}px`);
             root.setProperty('--dock-h', `${own + stripH}px`);
