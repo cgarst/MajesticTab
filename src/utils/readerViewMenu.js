@@ -383,7 +383,7 @@ function initPhoneChrome() {
     const IDLE_MS = 4000;
     let idleTimer = 0;
     // never hide it while one of its sheets is open
-    const anySheetOpen = () => ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'tracksMenu', 'scoreOptionsDropdownPanel'].some((id) => {
+    const anySheetOpen = () => ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'tracksMenu', 'scoreOptionsDropdownPanel', 'synthDropdownPanel', 'ytDropdownPanel', 'pdfBookmarksPanel'].some((id) => {
         const el = $(id); return el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
     });
     const armIdle = () => {
