@@ -279,7 +279,6 @@ export function renderClasstabTool(container, { onBack } = {}) {
         const pinnedPieces = pins.pieces.filter((m) => passesFilters(m.piece, activeIds));
         const pinCount = pins.composers.length + pins.pieces.length;
         const pinnedActive = !searching && pinCount > 0 && state.showPinned !== false;
-        const chosenPinned = chosen ? isComposerPinned(chosen.name) : false;
         const shown = res.pieces.slice(0, MAX_ROWS);
         list = res.pieces;
         const total = state.rec.counts.pieces;
@@ -306,14 +305,17 @@ export function renderClasstabTool(container, { onBack } = {}) {
             ${pinCount ? `<button type="button" class="ct-comp" data-act="showpinned" aria-current="${pinnedActive}">
               <span class="ct-comp-text"><span class="ct-comp-name"><b>Pinned</b></span><small>${[pins.composers.length ? plural(pins.composers.length, 'composer', 'composers') : '', pins.pieces.length ? plural(pins.pieces.length, 'piece', 'pieces') : ''].filter(Boolean).join(' · ')}</small></span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>` : ''}
             <div class="ct-colhead"><span>Composers</span><span>${comps.length.toLocaleString()}</span></div>
-            ${comps.map((c) => `<button type="button" class="ct-comp" data-comp="${c.index}" aria-current="${!searching && !pinnedActive && c.index === state.composer}">
-              <span class="ct-comp-text"><span class="ct-comp-name">${nameHtml(c.name)}</span><small>${plural(res.composerCounts.get(c.index), 'piece', 'pieces')}</small></span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>`).join('') || '<p class="ct-empty">No composers match.</p>'}
+            ${comps.map((c) => {
+              const pinned = isComposerPinned(c.name);
+              return `<div class="ct-comprow"><button type="button" class="ct-comp" data-comp="${c.index}" aria-current="${!searching && !pinnedActive && c.index === state.composer}">
+              <span class="ct-comp-text"><span class="ct-comp-name">${nameHtml(c.name)}</span><small>${plural(res.composerCounts.get(c.index), 'piece', 'pieces')}</small></span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>
+              <button type="button" class="ct-pin" data-pincomp="${c.index}" aria-pressed="${pinned}" aria-label="${pinned ? 'Unpin' : 'Pin'} ${esc(c.name)}"><i class="bi-pin-angle${pinned ? '-fill' : ''}" aria-hidden="true"></i></button></div>`;
+            }).join('') || '<p class="ct-empty">No composers match.</p>'}
           </nav>
           <section class="ct-pieces" aria-label="Pieces">
             <button type="button" class="ct-back" data-act="back"><i class="bi-chevron-left" aria-hidden="true"></i> Composers</button>
             <div class="ct-head-row">
               <h3 class="ct-pieces-title">${searching ? esc(plural(res.pieces.length, 'result', 'results')) : pinnedActive ? 'Pinned' : chosen ? esc(composerHeading(chosen)) : ''}</h3>
-              ${!searching && !pinnedActive && chosen ? `<button type="button" class="ct-text" data-pincomp="${state.composer}" aria-pressed="${chosenPinned}">${chosenPinned ? 'Unpin composer' : 'Pin composer'}</button>` : ''}
             </div>
             ${!searching && !pinnedActive && chosen?.aliases ? `<p class="ct-sub">Also ${esc(chosen.aliases)}</p>` : ''}
             <div class="ct-list" role="list">

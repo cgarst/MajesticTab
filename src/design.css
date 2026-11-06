@@ -3940,6 +3940,9 @@ body > #controllerHelpModal { display: none; }
 .ct-pin:hover { background: var(--s2); color: var(--ink); }
 .ct-pin[aria-pressed="true"] { color: var(--ink); }
 .ct-pin:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.ct-comprow { position: relative; }
+.ct-comprow .ct-comp { padding-right: 56px; }
+.ct-comprow .ct-pin { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); }
 .ct-comp-text small { font-size: 12px; color: var(--ink2); line-height: 1.2; }
 .ct-comp .chev { color: var(--ink2); opacity: .6; font-size: .9rem; }
 .ct-comp[aria-current="true"]::before { content: ''; position: absolute; left: 7px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
