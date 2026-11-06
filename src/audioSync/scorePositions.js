@@ -8,7 +8,7 @@ export const TICKS_PER_QUARTER = 960;
 
 /**
  * Pulls plain played-bar data out of AlphaTab's MidiTickLookup:
- * `[{ barIndex, start, end, tempoChanges: [{ tick, tempo }] }]`.
+ * `[{ barIndex, start, end, num, den, tempoChanges: [{ tick, tempo }] }]`.
  */
 export function playedBarsFromLookup(lookup) {
     const bars = lookup?.masterBars;
@@ -17,6 +17,8 @@ export function playedBarsFromLookup(lookup) {
         barIndex: b.masterBar.index,
         start: b.start,
         end: b.end,
+        num: b.masterBar.timeSignatureNumerator || 4,
+        den: b.masterBar.timeSignatureDenominator || 4,
         tempoChanges: (b.tempoChanges || []).map(c => ({ tick: c.tick, tempo: c.tempo }))
     }));
 }
@@ -157,4 +159,21 @@ export function tickToPosition(timeline, tick) {
         occurrence: bar.occurrence,
         pos: span > 0 ? Math.min(Math.max((tick - bar.startTick) / span, 0), 1) : 0
     };
+}
+
+/**
+ * The metronome clicks of a score: one per beat of every played bar (the beat is the time signature's unit), the first
+ * of each bar accented, as `[{ ms, accent }]` in `scoreMs`. `timeline` is buildScoreTimeline's result for the same bars.
+ */
+export function buildClickList(playedBars, timeline) {
+    const clicks = [];
+    for (const bar of playedBars) {
+        const num = bar.num || 4;
+        const step = 3840 / (bar.den || 4);
+        for (let k = 0; k < num; k++) {
+            const tick = bar.start + k * step;
+            if (tick < bar.end) clicks.push({ ms: tickToScoreMs(timeline, tick), accent: k === 0 });
+        }
+    }
+    return clicks;
 }

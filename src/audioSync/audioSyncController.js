@@ -7,7 +7,7 @@ import {
     getMidiTickLookup, getAudioLatencyMs, synthPlayerState, onUserSeekTick, setExternalPlayback, updateContinuousPlaybackScroll,
     reanchorPlaybackScroll, playClick, onTransportEvent
 } from '../gpProcessor/gpPlayer.js';
-import { buildScoreTimeline, playedBarsFromLookup, tickToScoreMs, scoreMsToTick } from './scorePositions.js';
+import { buildScoreTimeline, playedBarsFromLookup, buildClickList, tickToScoreMs, scoreMsToTick } from './scorePositions.js';
 import { scoreToMedia, mediaToScore, ratioAtScore } from './syncMap.js';
 import { buildBeatMap } from './beatMap.js';
 import { createCursorGlide } from './cursorGlide.js';
@@ -90,16 +90,7 @@ export function startAudioSync({ source, points: storedPoints, alignToCursor = f
 
     // Metronome: the clicks are the score's beats, placed in the recording through the sync points, so they follow
     // the recording's tempo. Scheduled a little ahead on the click audio context so they stay steady.
-    const clicks = [];
-    for (const bar of lookup.masterBars || []) {
-        const mb = bar.masterBar;
-        const num = mb.timeSignatureNumerator || 4;
-        const step = 3840 / (mb.timeSignatureDenominator || 4);
-        for (let k = 0; k < num; k++) {
-            const tick = bar.start + k * step;
-            if (tick < bar.end) clicks.push({ ms: tickToScoreMs(timeline, tick), accent: k === 0 });
-        }
-    }
+    const clicks = buildClickList(playedBarsFromLookup(lookup), timeline);
     const firstClickAtOrAfter = (scoreMs) => {
         let lo = 0;
         let hi = clicks.length;
