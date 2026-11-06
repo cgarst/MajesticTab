@@ -1345,7 +1345,10 @@ function refreshDownloaderOffset() {
  * @param {number} cssHeight
  */
 function syncDownloaderTopOffset(cssHeight) {
-    cssHeight = Math.max(cssHeight, downloaderPopoverReach());
+    const reach = downloaderPopoverReach();
+    // The gap the site view leaves below the bar still shows the app page; a ground panel covers it
+    document.getElementById('tabDownloaderBar')?.classList.toggle('has-popover-reach', reach > cssHeight);
+    cssHeight = Math.max(cssHeight, reach);
     if (window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke('tab_downloader_update', { topOffset: cssHeight }).catch(() => {});
     }

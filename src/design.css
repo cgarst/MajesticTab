@@ -2787,6 +2787,18 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   backdrop-filter: none !important;
 }
 
+.tab-downloader-bar.has-popover-reach::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  background: var(--ground);
+  z-index: -1;
+  pointer-events: none;
+}
+
 .downloader-nav-row {
   background: var(--s1);
   border-bottom: 1px solid var(--s2) !important;
