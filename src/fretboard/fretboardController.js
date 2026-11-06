@@ -2,6 +2,8 @@
 // Controller coordinating AlphaTab events, multi-track note aggregation, layout, and virtual fretboard rendering
 import { FretboardView } from './fretboardView.js';
 import { formatTuningFromMidi } from '../utils/tuningUtils.js';
+import { getTrackedAudioContext } from '../utils/iosAudioUnlock.js';
+import { getAudioSyncSession } from '../audioSync/audioSyncController.js';
 import { TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
 
 const STORAGE_KEY_OPEN = 'majestictab_fretboard_open';
@@ -896,10 +898,21 @@ class FretboardController {
     playPluckSound(midiPitch) {
         if (typeof window === 'undefined' || typeof window.AudioContext === 'undefined') return;
 
+        // A fretboard tap must leave Original playback alone: on iOS, opening a new audio context or
+        // resuming one can pause the Original audio element, so reuse a context the app already has
+        // and start the recording again if it was paused by the tap.
+        const original = getAudioSyncSession()?.source;
+        const wasPlayingOriginal = Boolean(original?.isPlaying?.());
+        if (wasPlayingOriginal) {
+            setTimeout(() => {
+                if (!original.isPlaying()) { try { original.play()?.catch?.(() => {}); } catch (_) {} }
+            }, 150);
+        }
+
         try {
-            if (!this.audioCtx) {
+            if (!this.audioCtx || this.audioCtx.state === 'closed') {
                 const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-                this.audioCtx = new AudioCtxClass();
+                this.audioCtx = getTrackedAudioContext() || new AudioCtxClass();
             }
 
             if (this.audioCtx.state === 'suspended') {

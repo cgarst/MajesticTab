@@ -134,6 +134,17 @@ export function resumeTrackedAudioContexts() {
 }
 
 /**
+ * An AudioContext the app already owns (synth, metronome), or null. Short previews reuse it instead of
+ * opening one more context, which on iOS can interrupt the Original audio element.
+ */
+export function getTrackedAudioContext() {
+    for (const ctx of trackedAudioContexts) {
+        if (ctx && ctx.state !== 'closed') return ctx;
+    }
+    return null;
+}
+
+/**
  * True when every tracked AudioContext is running (or none exist).
  */
 export function areTrackedAudioContextsRunning() {
