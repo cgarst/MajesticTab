@@ -492,7 +492,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 
 /* Phone: the transport stacks with the ruler on top */
 @media (max-width: 640px) {
-  .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto; grid-template-areas: "r r r" "a b c"; gap: 8px; }
+  .mobile-playback-dock-inner { grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "r r r" "a b c"; gap: 8px; }
   .dock-ruler { grid-area: r; }
   .dock-tr { grid-area: a; }
   .dock-time { grid-area: b; display: none !important; }
@@ -503,6 +503,8 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   .dock-src .mobile-dock-btn { padding: 0 11px; }
   #dockMetroBtn { display: none; }
 }
+/* Narrow phones: "Synth" and "Original" keep the row inside the screen; the buttons keep their full names for screen readers */
+@media (max-width: 440px) { .dock-src .audio-sfx { display: none; } }
 @media (prefers-reduced-motion: reduce) { .mobile-dock-play-btn { transition: none; } }
 
 /* page navigation keeps its buttons but loses the pill outline */
@@ -2238,7 +2240,8 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   .dock-src .audio-src-label { display: inline !important; }
   .dock-src .mobile-dock-btn { padding: 0 9px; font-size: 13px; }
   #dockBarPrefix { display: none; }
-  .mobile-playback-dock-inner { grid-template-columns: auto 1fr auto; }
+  .mobile-playback-dock-inner { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .dock-tools, .dock-src { min-width: 0; }
   .dock-time { display: none !important; }
   /* Menus and panels become bottom sheets above the dock and the bottom row */
   #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel {
