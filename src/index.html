@@ -144,10 +144,10 @@
 
     <!-- Navigation Controls -->
     <div id="navButtons" style="display:none;">
-      <button class="btn btn-sm" id="pdfBookmarksBtn" title="Bookmarks & Table of Contents" style="display:none;"><i class="bi-bookmark"></i></button>
-      <button class="btn btn-sm" id="prevPage" title="Previous Page"><i class="bi-chevron-left"></i></button>
+      <button class="btn btn-sm" id="pdfBookmarksBtn" title="Bookmarks and contents" aria-label="Bookmarks and contents" style="display:none;"><i class="bi-bookmark"></i></button>
+      <button class="btn btn-sm" id="prevPage" title="Previous page" aria-label="Previous page"><i class="bi-chevron-left"></i></button>
       <span id="pageIndicator"></span>
-      <button class="btn btn-sm" id="nextPage" title="Next Page"><i class="bi-chevron-right"></i></button>
+      <button class="btn btn-sm" id="nextPage" title="Next page" aria-label="Next page"><i class="bi-chevron-right"></i></button>
     </div>
   </div>
 </nav>
@@ -228,13 +228,13 @@
     <!-- Left: Navigation buttons -->
     <div class="downloader-nav-left" data-tauri-drag-region>
       <div class="btn-group downloader-nav-group" role="group" aria-label="Web navigation">
-        <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavBackBtn" title="Back">
+        <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavBackBtn" title="Back" aria-label="Back">
           <i class="bi-chevron-left"></i>
         </button>
-        <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavForwardBtn" title="Forward">
+        <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavForwardBtn" title="Forward" aria-label="Forward">
           <i class="bi-chevron-right"></i>
         </button>
-        <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavReloadBtn" title="Reload">
+        <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderNavReloadBtn" title="Reload" aria-label="Reload">
           <i class="bi-arrow-clockwise"></i>
         </button>
       </div>
@@ -257,7 +257,7 @@
         <i class="bi-shield"></i>
       </button>
 
-      <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderDevToolsBtn" title="Webview DevTools" style="display:none;">
+      <button type="button" class="btn btn-sm btn-theme-icon" id="downloaderDevToolsBtn" title="Webview DevTools" aria-label="Webview DevTools" style="display:none;">
         <i class="bi-terminal"></i>
       </button>
 
