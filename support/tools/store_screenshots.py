@@ -553,8 +553,8 @@ def run_store(args, name):
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.goto(f"{base}/src/", wait_until="networkidle", timeout=60000)
-            live = page.evaluate("import('/src/channel.js').then(m => m.getChannel())")
-            if live != channel:
+            live = page.evaluate("fetch('/src/channel.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : null)")
+            if live is None or any(live.get(k) != v for k, v in cfg.items()):
                 raise SystemExit(f"App is not running as the {channel} channel: {live}")
             n = 0
             for shot in SHOTS:
