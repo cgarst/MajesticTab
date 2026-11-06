@@ -2612,7 +2612,7 @@ function setupLibraryFilter(container, context = {}) {
 
         let html = `
         <div class="search-stream-section">
-          <div class="search-stream-section-title">FROM MUSIC CATALOG &amp; WEB</div>
+          <div class="search-stream-section-title">From the music catalog and web</div>
           <div class="search-stream-list">
         `;
 
@@ -2841,8 +2841,8 @@ function setupLibraryFilter(container, context = {}) {
         let html = `
         <div class="search-stream-section" id="libLocalSearchSection">
           <div class="search-stream-section-title">
-            <span>IN YOUR LIBRARY</span>
-            ${matchingSongs.length > 0 ? `<span class="search-stream-count">(${matchingSongs.length})</span>` : ''}
+            <span>In your library</span>
+            ${matchingSongs.length > 0 ? `<span class="search-stream-count">· ${matchingSongs.length}</span>` : ''}
           </div>
           ${matchingSongs.length > 0 ? `
             <div class="search-stream-list" id="libLocalSearchResultsList">
