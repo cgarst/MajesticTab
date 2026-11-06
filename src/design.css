@@ -1603,10 +1603,6 @@ body.fretboard-open {
   color: var(--ink2);
 }
 
-.library-song-rowwrap .tab-options-container {
-  padding: 4px 16px 8px 56px;
-  background: transparent;
-}
 
 
 
@@ -1676,7 +1672,7 @@ body.fretboard-open {
   background: transparent; padding: 0; height: auto; border-radius: 0; font-size: 13px; font-weight: 400; color: var(--ink2);
 }
 .library-song-row .sub .chip.hot { color: var(--ink); }
-.library-song-row .sub .chip.no-tab { color: var(--warn, #eab308) !important; font-weight: 500; }
+.library-song-row .sub .chip.no-tab { color: var(--ink2) !important; font-weight: 400; }
 .library-song-rowwrap.no-tab .library-song-row .t b { color: var(--ink2); }
 .library-song-row .sub .chip i { display: none; }
 .library-song-row .sub .chip + .chip::before, .library-song-row .sub .album-label + .chip::before { content: "\00b7"; margin-right: 8px; }
@@ -1951,26 +1947,6 @@ body.fretboard-open {
 .setsec .defaults-pills { flex: 0 1 auto; max-width: none; }
 .setsec .defaults-pills .btn { flex: 0 0 auto; padding-inline: 14px; }
 
-/* A song with several tabs: its tabs are plain lines under the title, not capsules */
-.library-song-rowwrap .tab-options-container { padding: 0 16px 8px 64px; background: transparent; border: 0; }
-.library-song-rowwrap .tab-options-chips { display: flex; flex-direction: column; gap: 0; }
-.library-song-rowwrap .tab-row {
-  user-select: none; max-width: 100%; min-width: 0; box-sizing: border-box; transition: background var(--dur-fast) var(--ease-out);
-  display: flex; align-items: center; gap: 14px; min-height: 40px; padding: 0 12px; border: 0 !important; border-radius: var(--r-control, 8px) !important;
-  background: transparent !important; box-shadow: none !important; color: var(--ink); font-size: 14px; position: relative; cursor: pointer;
-}
-@media (hover: hover) { .library-song-rowwrap .tab-row:hover { background: var(--s2) !important; } }
-.library-song-rowwrap .tab-row .tab-option-name { flex: 0 1 auto; min-width: 0; font-weight: 500; }
-.library-song-rowwrap .tab-row .tab-option-meta { color: var(--ink2); font-size: 13px; flex: none; }
-.library-song-rowwrap .tab-row .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--hue); display: inline-block; flex: none; }
-.library-song-rowwrap .tab-row .set-default-tab-btn { margin-left: auto; font-size: 13px; color: var(--ink2) !important; text-decoration: none; min-height: 32px; padding: 0 8px !important; }
-.library-song-rowwrap .tab-row .set-default-tab-btn.is-default { color: var(--ink) !important; font-weight: 600; cursor: default; }
-.library-song-rowwrap .tab-row-default::before { content: ""; position: absolute; left: 2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
-.library-song-rowwrap .tab-row .edit-tab-chip-btn, .library-song-rowwrap .tab-row .remove-tab-chip-btn { min-width: 32px; min-height: 32px; }
-@media (max-width: 576px) { .library-song-rowwrap .tab-options-container { padding-left: 16px; } }
-.library-song-rowwrap .tab-row .set-default-tab-btn { white-space: nowrap; flex: none; }
-.library-song-rowwrap .tab-row .tab-option-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 576px) { .library-song-rowwrap .tab-row { gap: 10px; } .library-song-rowwrap .tab-row .tab-option-meta { display: none; } }
 
 /* ---------- Per-track mix, under each track in Song: Mix opens mute, solo, level and pan ---------- */
 .gp-track-item { display: block; }
@@ -3762,3 +3738,80 @@ body > #controllerHelpModal { display: none; }
   .setshell[data-pane="page"] .setpage,
   .setshell:has(.setwrap[data-pane="page"]) .setpage { padding-top: 16px; }
 }
+
+
+/* ---------- Song row tab actions and the tab picker ----------
+   One row height for 0, 1 and several tabs. "Add tab" and "n tabs" are text actions in a fixed slot; the choice itself
+   happens in a floating panel (a sheet above the tab bar on phones), so the list never grows. */
+.song-tabs-btn {
+  flex: none; width: 80px; min-height: 32px; padding: 0 10px; border: 0; border-radius: var(--r-control);
+  background: transparent; color: var(--ink2); font: 500 14px system-ui, sans-serif; text-align: right; white-space: nowrap; cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.song-tabs-btn .song-tabs-chev { margin-left: 2px; }
+@media (hover: hover) { .song-tabs-btn:hover { background: var(--s3); color: var(--ink); } }
+.song-tabs-btn:active { background: var(--s3); }
+.song-tabs-btn[aria-expanded="true"] { background: var(--s3); color: var(--ink); }
+.song-tabs-btn:focus-visible, .tabpick button:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+.song-tabs-spacer { flex: none; width: 80px; }
+.song-actions-spacer { flex: none; }
+@media (pointer: coarse) { .song-tabs-btn { min-height: 44px; } .song-actions-spacer { width: 44px; } }
+/* Phone: a narrower slot, but still fixed, so the time column lines up on every row */
+@media (max-width: 576px) { .song-tabs-spacer, .song-tabs-btn { width: 66px; padding: 0 6px; } }
+
+.tabpick {
+  position: fixed; z-index: 1090; width: 340px; max-width: calc(100vw - 16px); max-height: min(70vh, 440px); overflow-y: auto;
+  padding: 6px; background: var(--s2); color: var(--ink); border-radius: var(--r-card); box-shadow: 0 8px 28px rgb(0 0 0 / 0.32);
+  animation: popIn var(--dur-base) var(--ease-out); transform-origin: top right;
+}
+.tabpick.is-closing { animation: tabpickOut var(--dur-fast) ease-in forwards; pointer-events: none; }
+@keyframes tabpickOut { to { opacity: 0; } }
+.tabpick-scrim { position: fixed; inset: 0; z-index: 1089; background: rgb(0 0 0 / 0.45); animation: scrimIn var(--dur-base) var(--ease-out); }
+.tabpick-scrim.is-closing { animation: scrimOut var(--dur-fast) ease-in forwards; }
+.tabpick-list { list-style: none; margin: 0; padding: 0; }
+.tabpick-title { margin: 0; padding: 10px 12px 6px; font: 600 16px system-ui, sans-serif; }
+.tabpick-sub { color: var(--ink2); font-weight: 400; }
+.tabpick-label, .tabpick-note { margin: 0; padding: 10px 12px 4px; color: var(--ink2); font-size: 13px; }
+.tabpick-note { padding-top: 6px; padding-bottom: 8px; }
+.tabpick-bar { padding: 2px 0; }
+.tabpick-item { position: relative; display: flex; align-items: center; gap: 4px; border-radius: var(--r-control); }
+.tabpick-item.is-default::before { content: ""; position: absolute; left: 3px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
+.tabpick-row, .tabpick-act, .tabpick-back {
+  border: 0; background: transparent; color: var(--ink); font: 14px system-ui, sans-serif; text-align: left; cursor: pointer;
+  border-radius: var(--r-control); min-height: 40px; padding: 0 12px; transition: background-color var(--dur-fast) var(--ease-out);
+}
+.tabpick-row { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; }
+.tabpick-item .tabpick-row { flex: 1 1 auto; padding-left: 16px; }
+.tabpick-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.tabpick-meta { flex: none; color: var(--ink2); font-size: 13px; white-space: nowrap; }
+.tabpick .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--hue); display: inline-block; flex: none; }
+.tabpick-act, .tabpick-back { flex: none; color: var(--ink2); font-size: 13px; padding: 0 10px; white-space: nowrap; }
+.tabpick-state { flex: none; padding: 0 10px; color: var(--ink2); font-size: 13px; white-space: nowrap; }
+.tabpick-danger { color: var(--danger); }
+.tabpick-foot { margin-top: 4px; padding-top: 4px; }
+.tabpick-foot .tabpick-row { padding-left: 16px; }
+@media (hover: hover) { .tabpick-row:hover, .tabpick-act:hover, .tabpick-back:hover { background: var(--s3); } .tabpick-item:hover { background: var(--s3); } .tabpick-item .tabpick-row:hover { background: transparent; } }
+.tabpick-row:active, .tabpick-act:active, .tabpick-back:active { background: var(--s3); }
+/* "Make default" is a set-once action: on desktop it shows on hover or focus, on touch it is always there */
+@media (hover: hover) and (pointer: fine) {
+  .tabpick-makedef { opacity: 0; }
+  .tabpick-item:hover .tabpick-makedef, .tabpick-makedef:focus-visible { opacity: 1; }
+}
+@media (pointer: coarse) { .tabpick-row, .tabpick-act, .tabpick-back { min-height: 44px; } }
+
+@media (max-width: 576px) {
+  .tabpick {
+    left: 0 !important; right: 0; top: auto !important; bottom: calc(56px + env(safe-area-inset-bottom, 0px)); width: auto; max-width: none;
+    max-height: 70vh; border-radius: var(--r-card) var(--r-card) 0 0; padding: 4px 8px 12px; transform-origin: bottom center;
+    animation: tabpickSheetIn var(--dur-base) var(--ease-out);
+  }
+  .tabpick.is-closing { animation: tabpickSheetOut var(--dur-fast) ease-in forwards; }
+}
+@keyframes tabpickSheetIn { from { transform: translate3d(0, 24px, 0); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes tabpickSheetOut { to { transform: translate3d(0, 24px, 0); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tabpick, .tabpick-scrim { animation: none !important; } }
+/* The row menu is a plain ⋯: no caret, and the placeholder on rows without a menu is exactly as wide */
+.song-actions .dropdown > .dropdown-toggle.btn-theme-icon::after { display: none; }
+.song-actions .dropdown > .dropdown-toggle.btn-theme-icon { min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
+.song-actions-spacer { width: 36px; }
+@media (pointer: coarse) { .song-actions .dropdown > .dropdown-toggle.btn-theme-icon { min-width: 44px; } }

@@ -1082,6 +1082,10 @@ class GamepadManager {
             .find(el => this.isElementVisible(el));
         if (openDropdown) return openDropdown;
 
+        // 1b. The library's tab picker (add, choose or manage a song's tabs)
+        const tabPicker = document.querySelector('.tabpick:not(.is-closing)');
+        if (tabPicker && this.isElementVisible(tabPicker)) return tabPicker;
+
         // 2. If an offcanvas drawer is open (Menu / Settings)
         const openOffcanvas = document.querySelector('.settings-page.show');
         if (openOffcanvas && this.isElementVisible(openOffcanvas)) return openOffcanvas;

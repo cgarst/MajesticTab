@@ -31,6 +31,7 @@ import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 import { songHasSyncPoints } from './audioSync/syncStore.js';
 import { isNative, openTabDownloader } from './tabDownloader.js';
+import { openSongTabPicker, closeSongTabPicker, isSongTabPickerOpen } from './songTabPicker.js';
 
 export const HIDE_NO_TAB_SONGS_KEY = 'majestictab_hide_no_tab_songs';
 
@@ -3079,6 +3080,95 @@ function formatPageRange(start, end) {
     return start && end && String(start) !== String(end) ? `pp. ${start}\u2013${end}` : `p. ${start || end}`;
 }
 
+// Opens a source for a song's tab: the file picker or URL box, Drive, or the tab downloader prefilled with the song
+function importTabFromProvider(songId, providerId) {
+    if (providerId === 'local' || providerId === 'url') {
+        openFromProvider(providerId, { songId });
+        return;
+    }
+    // @googleDrive:begin
+    if (providerId === 'google-drive') {
+        getSongById(songId).then(song => {
+            openFromProvider('google-drive', {
+                songId,
+                targetSong: song,
+                songName: song?.title,
+                artist: song?.artist,
+                query: song ? `${song.artist} ${song.title}` : ''
+            });
+        }).catch(() => {
+            openFromProvider('google-drive', { songId });
+        });
+        return;
+    }
+    // @googleDrive:end
+    getSongById(songId).then(song => {
+        if (!song) return;
+        openFromProvider(providerId, {
+            songId: song.id,
+            targetSong: song,
+            songName: song.title,
+            artist: song.artist,
+            query: `${song.artist} ${song.title}`
+        });
+    });
+}
+
+// Pick the whole-album PDF and the page range for a song's tab (new range, or edit the one on `tabId`)
+async function openAlbumPdfPagesFor(songId, tabId) {
+    const song = await getSongById(songId);
+    if (!song) return;
+    const albumTabs = (selectedArtist && selectedAlbum)
+        ? await getAlbumTabOptions(activeCollectionId, selectedArtist.name, selectedAlbum.title)
+        : [];
+    let albumPdfTabs = albumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
+    const existingTab = tabId ? song.tabOptions?.find(t => t.id === tabId) : (song.tabOptions?.find(t => t.isAlbumRange || t.startPage) || null);
+    if (albumPdfTabs.length === 0 && existingTab?.fileStoreId) {
+        albumPdfTabs = [{
+            id: existingTab.fileStoreId,
+            name: existingTab.name?.replace(/\s*\(pp\.\s*\d+-\d+\)/, '') || 'Album PDF',
+            fileStoreId: existingTab.fileStoreId,
+            relativePath: existingTab.relativePath,
+            fileType: 'pdf'
+        }];
+    }
+    if (albumPdfTabs.length === 0) {
+        showToast('No whole-album PDF found for this album.', 'warning');
+        return;
+    }
+    openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab, { isCustom: Boolean(selectedArtist?.isCustom) });
+}
+
+// One panel for adding, choosing and managing a song's tabs, so the row stays one line however many there are
+async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } = {}) {
+    if (!forceOpen && anchor.getAttribute('aria-expanded') === 'true' && isSongTabPickerOpen()) {
+        closeSongTabPicker();
+        return;
+    }
+    const song = await getSongById(songId);
+    if (!song) return;
+    const providers = getFileProviders().map(p => ({ id: p.id, name: p.name }));
+    openSongTabPicker({
+        anchor,
+        song,
+        mode,
+        providers,
+        canEditRange: true,
+        isSynced: (t) => songHasSyncPoints(t.name) || Boolean(t.syncedAudio),
+        tabMeta: (t) => {
+            const tuning = (t.tuning && isTuningMatchingInstrument(t.tuning)) ? (getTuningInfo(t.tuning)?.displayName || t.tuning) : '';
+            return [(t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '', tuning].filter(Boolean).join(' \u00b7 ');
+        },
+        on: {
+            openTab: (tab) => loadSongTab(song, tab),
+            makeDefault: async (tabId) => { await setDefaultTabOption(songId, tabId); showToast('Set default tab', 'success'); await renderView(); },
+            removeTab: async (tabId) => { await removeTabOptionFromSong(songId, tabId); await renderView(); },
+            editRange: (tab) => openAlbumPdfPagesFor(songId, tab.id),
+            addFrom: (providerId) => importTabFromProvider(songId, providerId)
+        }
+    });
+}
+
 function renderSongRow(song, options = {}) {
     if (isHideNoTabSongsEnabled() && !options.forceShow && (!song?.tabOptions || song.tabOptions.length === 0)) {
         return '';
@@ -3091,6 +3181,7 @@ function renderSongRow(song, options = {}) {
     const isPinned = Boolean(song.pinned);
     const defaultTabId = song.defaultTabId || (tabOptions[0]?.id || null);
     const albumPdfTabs = (options.albumTabs || []).filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
+    const hasMenu = hasTabs || albumPdfTabs.length > 0 || isAlbumEditMode;
     const showTrackNumber = options.showTrackNumber !== undefined ? options.showTrackNumber : !options.showArtistAlbum;
 
     let trackNumStr = '•';
@@ -3103,19 +3194,23 @@ function renderSongRow(song, options = {}) {
         }
     }
 
-    const tuningChipsHtml = tunings.map(t => {
+    // The row's meta describes the song, not each tab: the default tab's tuning, and "+n" when other tabs differ
+    const defaultTabOpt = tabOptions.find(t => t.id === defaultTabId) || tabOptions[0] || null;
+    const defaultTuning = defaultTabOpt?.tuning && tunings.includes(defaultTabOpt.tuning) ? defaultTabOpt.tuning : null;
+    const shownTunings = tabOptions.length > 1 && defaultTuning ? [defaultTuning] : tunings;
+    const hiddenTunings = tunings.length - shownTunings.length;
+    const tuningChipsHtml = shownTunings.map(t => {
         const info = getTuningInfo(t);
         const label = info?.displayName || t;
         const isStandard = label.toLowerCase().includes('standard');
         return `<span class="chip ${isStandard ? '' : 'hot'}">${escapeHtml(label)}</span>`;
-    }).join('');
+    }).join('') + (hiddenTunings > 0 ? `<span class="chip sec">+${hiddenTunings} more</span>` : '');
 
-    const pdfTab = tabOptions.find(t => t.startPage && t.endPage);
+    const pdfTab = (defaultTabOpt?.startPage && defaultTabOpt?.endPage) ? defaultTabOpt : tabOptions.find(t => t.startPage && t.endPage);
     const pdfChipHtml = pdfTab ? `<span class="chip sec">${formatPageRange(pdfTab.startPage, pdfTab.endPage)}</span>` : '';
 
-    const multiTabsChipHtml = tabOptions.length > 1
-        ? `<span class="chip sec"><i class="bi-file-earmark-music me-1 text-info"></i>${tabOptions.length} tabs</span>`
-        : (hasTabs ? `<span class="chip sec">1 tab</span>` : `<span class="chip no-tab">No tab</span>`);
+    // One tab is the normal state and says nothing; no tab is a plain grey fact; the count of several lives on the row's action
+    const multiTabsChipHtml = hasTabs ? '' : `<span class="chip no-tab">No tab yet</span>`;
 
     const songKeys = [
         [song.artist, song.title].filter(Boolean).join(' - '),
@@ -3125,30 +3220,6 @@ function renderSongRow(song, options = {}) {
     const hasSyncPoints = songKeys.some(k => songHasSyncPoints(k));
     const isSynced = Boolean(hasSyncPoints || song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
     const syncDotHtml = isSynced ? `<span class="sync-dot"></span>` : '';
-
-    const tabOptionsListHtml = tabOptions.length > 1 ? `
-      <div class="tab-options-container">
-        <div class="tab-options-chips" role="list" aria-label="Tabs for ${escapeHtml(song.title)}">
-        ${tabOptions.map((t, idx) => {
-          const isDefault = (t.id === defaultTabId) || (!defaultTabId && idx === 0);
-          const isTabSynced = songHasSyncPoints(t.name) || (hasSyncPoints && isDefault) || Boolean(t.syncedAudio);
-          const isPdfRange = Boolean(t.isAlbumRange || t.startPage);
-          const tuningLabel = (t.tuning && isTuningMatchingInstrument(t.tuning)) ? (getTuningInfo(t.tuning)?.displayName || t.tuning) : '';
-          const meta = [(t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '', tuningLabel].filter(Boolean).join(' \u00b7 ');
-          return `
-          <div class="tab-row ${isDefault ? 'tab-row-default' : ''} play-tab-chip-btn" role="listitem" data-song-id="${song.id}" data-tab-id="${t.id}" tabindex="0">
-            <span class="tab-option-name text-truncate">${escapeHtml(t.name)}</span>
-            ${isTabSynced ? `<span class="sync-dot"></span>` : ''}
-            ${meta ? `<span class="tab-option-meta">${escapeHtml(meta)}</span>` : ''}
-            <button class="btn btn-link p-0 set-default-tab-btn ${isDefault ? 'is-default' : ''}" data-song-id="${song.id}" data-tab-id="${t.id}" ${isDefault ? 'aria-pressed="true"' : ''} title="${isDefault ? 'This tab opens by default' : 'Open this tab by default'}">${isDefault ? 'Default' : 'Make default'}</button>
-            ${isPdfRange && isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted edit-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" aria-label="Edit page range" title="Edit tab range"><i class="bi-pencil" style="font-size:0.7rem;"></i></button>` : ''}
-            ${isAlbumEditMode ? `<button class="btn btn-link p-0 text-muted remove-tab-chip-btn" data-song-id="${song.id}" data-tab-id="${t.id}" aria-label="Remove tab" title="Remove tab"><i class="bi-x"></i></button>` : ''}
-          </div>
-          `;
-        }).join('')}
-        </div>
-      </div>
-    ` : '';
 
     return `
     <div class="rowwrap library-song-rowwrap ${isPinned ? 'library-song-row-pinned' : ''} ${!hasTabs ? 'no-tab' : ''}">
@@ -3170,38 +3241,32 @@ function renderSongRow(song, options = {}) {
           ${hasTabs ? `<button type="button" class="play-default-tab-btn visually-hidden" data-song-id="${song.id}" aria-label="Play ${escapeHtml(song.title)}"></button>` : ''}
         </div>
         <div class="song-actions">
-          <button type="button" class="btn btn-sm btn-theme-icon pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song from collection' : 'Pin song to collection'}">
+          ${!hasTabs
+            ? `<button type="button" class="song-tabs-btn song-tabs-add" data-song-id="${song.id}" data-tabs-mode="add" aria-haspopup="dialog" aria-expanded="false">Add tab</button>`
+            : tabOptions.length > 1
+              ? `<button type="button" class="song-tabs-btn" data-song-id="${song.id}" data-tabs-mode="list" aria-haspopup="dialog" aria-expanded="false" aria-label="${tabOptions.length} tabs for ${escapeHtml(song.title)}. Choose one">${tabOptions.length} tabs <span class="song-tabs-chev" aria-hidden="true">\u203a</span></button>`
+              : '<span class="song-tabs-spacer" aria-hidden="true"></span>'}
+          <button type="button" class="btn btn-sm btn-theme-icon pin-song-btn ${isPinned ? 'text-warning' : 'text-muted'}" data-song-id="${song.id}" title="${isPinned ? 'Unpin song from collection' : 'Pin song to collection'}" aria-label="${isPinned ? 'Unpin song' : 'Pin song'}" aria-pressed="${isPinned}">
             <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
           </button>
-          <div class="dropdown">
-            ${!hasTabs ? `
-              <button class="btn btn-sm btn-theme-outline py-0 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Import Tab">
-                <span>Add tab</span>
-              </button>
-            ` : `
-              <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Song options">
-                <i class="bi-three-dots"></i>
-              </button>
-            `}
+          ${hasMenu ? `<div class="dropdown">
+            <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Song options" aria-label="Song options">
+              <i class="bi-three-dots"></i>
+            </button>
             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
-              ${hasTabs ? `<li><button class="dropdown-item small add-to-setlist-btn" data-song-id="${song.id}"><i class="bi-collection-play me-2 text-info"></i> Add to Setlist</button></li>` : ''}
+              ${hasTabs ? `<li><button class="dropdown-item small add-to-setlist-btn" data-song-id="${song.id}">Add to setlist</button></li>` : ''}
+              ${hasTabs ? `<li><button class="dropdown-item small song-tabs-menu-btn" data-song-id="${song.id}" data-tabs-mode="add">Add another tab\u2026</button></li>
+              <li><button class="dropdown-item small song-tabs-menu-btn" data-song-id="${song.id}" data-tabs-mode="manage">Manage tabs\u2026</button></li>` : ''}
               ${albumPdfTabs.length > 0 ? (() => {
                 const existingPdfTab = tabOptions.find(t => t.isAlbumRange || t.startPage);
-                if (existingPdfTab) {
-                  return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}" data-tab-id="${existingPdfTab.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Edit ${pdfPagesNoun} PDF Pages...</button></li>
-                  <li><hr class="dropdown-divider"></li>`;
-                }
-                return `<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"><i class="bi-file-earmark-pdf me-2 text-warning"></i> Set ${pdfPagesNoun} PDF Pages...</button></li>
-                <li><hr class="dropdown-divider"></li>`;
+                return `${hasTabs ? '<li><hr class="dropdown-divider"></li>' : ''}<li><button class="dropdown-item small set-album-pdf-pages-btn" data-song-id="${song.id}"${existingPdfTab ? ` data-tab-id="${existingPdfTab.id}"` : ''}>${existingPdfTab ? 'Edit' : 'Set'} ${pdfPagesNoun} PDF pages\u2026</button></li>`;
               })() : ''}
-              ${addTabProviderItemsHtml('import-tab-provider-btn', `data-song-id="${song.id}"`)}
-              ${hasTabs ? `<li><hr class="dropdown-divider"></li>` + tabOptions.map(t => `<li><button class="dropdown-item small text-danger remove-tab-menu-btn" data-song-id="${song.id}" data-tab-id="${t.id}" data-label="${escapeHtml(t.name)}">Remove tab: ${escapeHtml(t.name)}</button></li>`).join('') : ''}
               ${isAlbumEditMode ? `
                 <li><hr class="dropdown-divider"></li>
-                <li><button class="dropdown-item small text-danger delete-song-btn" data-song-id="${song.id}"><i class="bi-trash me-2"></i> Remove from Library</button></li>
+                <li><button class="dropdown-item small text-danger delete-song-btn" data-song-id="${song.id}">Remove from library</button></li>
               ` : ''}
             </ul>
-          </div>
+          </div>` : '<span class="song-actions-spacer" aria-hidden="true"></span>'}
           ${isAlbumEditMode ? `
             <button type="button" class="btn btn-sm btn-theme-danger p-1 px-2 delete-song-btn ms-1" data-song-id="${song.id}" title="Remove song from library">
               <i class="bi-trash"></i>
@@ -3209,7 +3274,6 @@ function renderSongRow(song, options = {}) {
           ` : ''}
         </div>
       </div>
-      ${tabOptionsListHtml}
     </div>
     `;
 }
@@ -3393,18 +3457,6 @@ function setupSongRowActions(container) {
         });
     });
 
-    // Set Default Tab for Song
-    container.querySelectorAll('.set-default-tab-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const songId = btn.dataset.songId;
-            const tabId = btn.dataset.tabId;
-            await setDefaultTabOption(songId, tabId);
-            showToast('Set default tab', 'success');
-            await renderView();
-        });
-    });
-
     // Play default tab
     container.querySelectorAll('.play-default-tab-btn').forEach(btn => {
         btn.addEventListener('click', async () => {
@@ -3417,104 +3469,24 @@ function setupSongRowActions(container) {
         });
     });
 
-    // Play specific tab chip
-    container.querySelectorAll('.play-tab-chip-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            if (e.target.closest('.remove-tab-chip-btn') || e.target.closest('.edit-tab-chip-btn') || e.target.closest('.set-default-tab-btn')) return;
-            e.stopPropagation();
-            const songId = btn.dataset.songId;
-            const tabId = btn.dataset.tabId;
-            const song = await getSongById(songId);
-            const tab = song?.tabOptions?.find(t => t.id === tabId);
-            if (song && tab) {
-                await loadSongTab(song, tab);
-            }
-        });
+    // Tab picker: "Add tab" (no tabs), "n tabs" (several) and the row menu's Add / Manage items
+    container.querySelectorAll('.song-tabs-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => { e.stopPropagation(); toggleSongTabsPicker(btn, btn.dataset.songId, btn.dataset.tabsMode); });
     });
-
-    // Edit tab chip range
-    container.querySelectorAll('.edit-tab-chip-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
+    container.querySelectorAll('.song-tabs-menu-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const songId = btn.dataset.songId;
-            const tabId = btn.dataset.tabId;
-            const song = await getSongById(songId);
-            if (!song) return;
-            const existingTab = (song.tabOptions || []).find(t => t.id === tabId);
-            if (!existingTab) return;
-            const albumTabs = (selectedArtist && selectedAlbum)
-                ? await getAlbumTabOptions(activeCollectionId, selectedArtist.name, selectedAlbum.title)
-                : [];
-            let albumPdfTabs = albumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
-            if (albumPdfTabs.length === 0 && existingTab.fileStoreId) {
-                albumPdfTabs = [{
-                    id: existingTab.fileStoreId,
-                    name: existingTab.name?.replace(/\s*\(pp\.\s*\d+-\d+\)/, '') || 'Album PDF',
-                    fileStoreId: existingTab.fileStoreId,
-                    relativePath: existingTab.relativePath,
-                    fileType: 'pdf'
-                }];
-            }
-            if (albumPdfTabs.length === 0) {
-                showToast('No whole-album PDF found for this album.', 'warning');
-                return;
-            }
-            openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab, { isCustom: Boolean(selectedArtist?.isCustom) });
-        });
-    });
-
-    // Remove tab from the song menu (second press confirms)
-    container.querySelectorAll('.remove-tab-menu-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (btn.dataset.confirming !== 'true') {
-                btn.dataset.confirming = 'true';
-                btn.textContent = 'Press again to remove: ' + btn.dataset.label;
-                return;
-            }
-            await removeTabOptionFromSong(btn.dataset.songId, btn.dataset.tabId);
-            await renderView();
-        });
-    });
-
-    // Remove tab chip
-    container.querySelectorAll('.remove-tab-chip-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            const songId = btn.dataset.songId;
-            const tabId = btn.dataset.tabId;
-            await removeTabOptionFromSong(songId, tabId);
-            await renderView();
+            // The menu closes as the item is pressed; the picker returns focus to the row's menu button
+            const anchor = btn.closest('.dropdown')?.querySelector('.dropdown-toggle') || btn;
+            toggleSongTabsPicker(anchor, btn.dataset.songId, btn.dataset.tabsMode, { forceOpen: true });
         });
     });
 
     // Set Album PDF page range for song
     container.querySelectorAll('.set-album-pdf-pages-btn').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
+        btn.addEventListener('click', (e) => {
             e.stopPropagation();
-            const songId = btn.dataset.songId;
-            const tabId = btn.dataset.tabId;
-            const song = await getSongById(songId);
-            if (!song) return;
-            const albumTabs = (selectedArtist && selectedAlbum)
-                ? await getAlbumTabOptions(activeCollectionId, selectedArtist.name, selectedAlbum.title)
-                : [];
-            let albumPdfTabs = albumTabs.filter(t => (t.name || '').toLowerCase().endsWith('.pdf') || t.isPdf || t.fileType === 'pdf');
-            const existingTab = tabId ? song.tabOptions?.find(t => t.id === tabId) : (song.tabOptions?.find(t => t.isAlbumRange || t.startPage) || null);
-            if (albumPdfTabs.length === 0 && existingTab?.fileStoreId) {
-                albumPdfTabs = [{
-                    id: existingTab.fileStoreId,
-                    name: existingTab.name?.replace(/\s*\(pp\.\s*\d+-\d+\)/, '') || 'Album PDF',
-                    fileStoreId: existingTab.fileStoreId,
-                    relativePath: existingTab.relativePath,
-                    fileType: 'pdf'
-                }];
-            }
-            if (albumPdfTabs.length === 0) {
-                showToast('No whole-album PDF found for this album.', 'warning');
-                return;
-            }
-            openSetAlbumPdfPagesModal(song, albumPdfTabs, existingTab, { isCustom: Boolean(selectedArtist?.isCustom) });
+            openAlbumPdfPagesFor(btn.dataset.songId, btn.dataset.tabId);
         });
     });
 
@@ -3692,44 +3664,7 @@ function setupSongRowActions(container) {
 
     // Import Tab with Provider (Local, Drive, Tab Downloader)
     container.querySelectorAll('.import-tab-provider-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const songId = btn.dataset.songId;
-            const providerId = btn.dataset.providerId;
-
-            if (providerId === 'local' || providerId === 'url') {
-                openFromProvider(providerId, { songId });
-                return;
-            }
-
-            // @googleDrive:begin
-            if (providerId === 'google-drive') {
-                getSongById(songId).then(song => {
-                    openFromProvider('google-drive', {
-                        songId,
-                        targetSong: song,
-                        songName: song?.title,
-                        artist: song?.artist,
-                        query: song ? `${song.artist} ${song.title}` : ''
-                    });
-                }).catch(() => {
-                    openFromProvider('google-drive', { songId });
-                });
-                return;
-            }
-            // @googleDrive:end
-
-            // Tab downloader
-            getSongById(songId).then(song => {
-                if (!song) return;
-                openFromProvider(providerId, {
-                    songId: song.id,
-                    targetSong: song,
-                    songName: song.title,
-                    artist: song.artist,
-                    query: `${song.artist} ${song.title}`
-                });
-            });
-        });
+        btn.addEventListener('click', () => importTabFromProvider(btn.dataset.songId, btn.dataset.providerId));
     });
 
     // Drag & Drop tab files onto individual song rows
@@ -3744,6 +3679,10 @@ function setupSongRowActions(container) {
             if (song && song.tabOptions?.length > 0) {
                 const targetTab = (song.defaultTabId && song.tabOptions.find(t => t.id === song.defaultTabId)) || song.tabOptions[0];
                 await loadSongTab(song, targetTab);
+            } else if (song) {
+                // Nothing to play: pressing the row asks where the tab comes from
+                const addBtn = row.closest('.library-song-rowwrap')?.querySelector('.song-tabs-add');
+                if (addBtn) toggleSongTabsPicker(addBtn, songId, 'add');
             }
         });
 
