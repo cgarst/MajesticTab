@@ -1346,6 +1346,7 @@ function resetView() {
     pages.length = 0;
     currentPageIndex = 0;
     gpState.reset();
+    textState.reset();
     clearPdfBookmarks();
 
     // Reset UI and scroll position
