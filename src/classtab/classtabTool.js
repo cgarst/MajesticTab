@@ -17,6 +17,8 @@ const MAX_ROWS = 400;
 // A search typed elsewhere (the library's search) that the tool should open on
 let pendingView = null;
 export function requestClasstabView(view) { pendingView = view; }
+/** The player left Tools for good: the next visit starts fresh. */
+export function forgetClasstabView() { savedView = null; }
 // Where the player was when the reader took the screen, so coming back lands on the same list
 let savedView = null;
 
@@ -124,8 +126,13 @@ export function renderClasstabTool(container, { onBack } = {}) {
         message: '', error: '', inLibrary: new Set(), menuFor: null,
         showPinned: null // null: the Pinned group when there are pins; true / false once the player picks
     };
-    if (!pendingView && savedView) Object.assign(state, savedView);
-    savedView = null;
+    // Kept until the player leaves Tools for good, so a second draw of the page (or a dispose without keep) cannot lose it
+    let restoreScroll = null;
+    if (!pendingView && savedView) {
+        const { scroll, ...rest } = savedView;
+        Object.assign(state, rest);
+        restoreScroll = scroll || null;
+    }
     if (pendingView) {
         state.query = pendingView.query || '';
         state.pane = 'pieces';
@@ -335,6 +342,18 @@ export function renderClasstabTool(container, { onBack } = {}) {
         const caret = hadSearch ? document.activeElement.selectionStart : 0;
         if (!state.rec) renderEmpty();
         else renderBrowse();
+        if (restoreScroll && state.rec) {
+            const sc = restoreScroll;
+            restoreScroll = null;
+            const apply = () => {
+                const c = root.querySelector('.ct-composers');
+                const p = root.querySelector('.ct-pieces');
+                if (c) c.scrollTop = sc.composers || 0;
+                if (p) p.scrollTop = sc.pieces || 0;
+            };
+            apply();
+            requestAnimationFrame(apply);
+        }
         if (hadSearch) {
             const s = root.querySelector('.ct-search');
             s?.focus();
@@ -420,8 +439,13 @@ export function renderClasstabTool(container, { onBack } = {}) {
 
     refresh();
     return (keep = false) => {
+        if (keep) {
+            savedView = {
+                query: state.query, filters: new Set(state.filters), composer: state.composer, pane: state.pane, showPinned: state.showPinned,
+                scroll: { composers: root.querySelector('.ct-composers')?.scrollTop || 0, pieces: root.querySelector('.ct-pieces')?.scrollTop || 0 }
+            };
+        }
         alive = false;
         unsubscribe();
-        savedView = keep ? { query: state.query, filters: new Set(state.filters), composer: state.composer, pane: state.pane, showPinned: state.showPinned } : null;
     };
 }

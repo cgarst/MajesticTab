@@ -94,7 +94,7 @@ document.addEventListener('shown.bs.dropdown', (e) => {
 
 import { closeToolsMenu } from './utils/toolsMenu.js';
 import { closeAllReaderPanels } from './utils/readerPanels.js';
-import { renderToolsPage, releaseEmbeddedTools } from './utils/toolsPage.js';
+import { renderToolsPage, releaseEmbeddedTools, forgetResume } from './utils/toolsPage.js';
 
 let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -885,7 +885,7 @@ async function renderView() {
 }
 
 async function renderViewContent(content) {
-    if (activeView !== 'tools') releaseEmbeddedTools();
+    if (activeView !== 'tools') { releaseEmbeddedTools(); forgetResume(); }
     if (activeView === 'library') {
         await renderLibraryBrowseView(content);
     } else if (activeView === 'recents') {

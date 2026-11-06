@@ -25,9 +25,15 @@ function hostOf(id) {
     }[id]?.() || null;
 }
 
+/** The player left Tools on purpose: the next visit starts at the list again. */
+export function forgetResume() {
+    resumeTool = null;
+    import('../classtab/classtabTool.js').then((m) => m.forgetClasstabView()).catch(() => {});
+}
+
 /** Close the tool shown in the page and give its screen back to the document. */
 export async function releaseEmbeddedTools(keep = false) {
-    resumeTool = keep && embedded ? embedded.id : null;
+    if (keep && embedded) resumeTool = embedded.id;
     if (!embedded) return;
     const { id, el, dispose } = embedded;
     embedded = null;
@@ -85,8 +91,8 @@ async function openTool(id, pane) {
 }
 
 export function renderToolsPage(container, { tools, escapeHtml }) {
+    // resumeTool stays until the player leaves Tools on purpose (forgetResume), so a second draw cannot lose it
     if (!pendingTool && resumeTool) pendingTool = resumeTool;
-    resumeTool = null;
     releaseEmbeddedTools();
     container.innerHTML = `
     <div class="setshell tools-shell" data-pane="list">
@@ -117,6 +123,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         const tool = tools.find((t) => t.id === id);
         if (!tool) return;
         if (tool.open) { await releaseEmbeddedTools(); tool.open(); return; } // not a section: it works on the song
+        if (id !== resumeTool) forgetResume();
         if (sectionTitle) sectionTitle.textContent = tool.title;
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.tool === id)));
         wrap.dataset.pane = 'page';
@@ -141,6 +148,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         if (b && !b.disabled) select(b.dataset.tool);
     });
     back.addEventListener('click', async () => {
+        forgetResume();
         wrap.dataset.pane = 'list';
         shell.dataset.pane = 'list';
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', 'false'));
