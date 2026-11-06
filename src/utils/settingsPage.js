@@ -115,11 +115,11 @@ function makeLeftHandedRow() {
 }
 
 function makeStringingRow() {
-    let flipped = readFlag(FLIP_KEY, true);
+    let flipped = readFlag(FLIP_KEY, false);
     const seg = el('div', 'hud-pill-group');
     seg.setAttribute('role', 'radiogroup');
     seg.setAttribute('aria-label', 'Stringing');
-    [['Standard', true], ['Upside down', false]].forEach(([label, val]) => {
+    [['Standard', false], ['Upside down', true]].forEach(([label, val]) => {
         const b = el('button', 'btn btn-sm' + (val === flipped ? ' active' : ''));
         b.type = 'button';
         b.textContent = label;
@@ -130,7 +130,7 @@ function makeStringingRow() {
         });
         seg.appendChild(b);
     });
-    return row('Stringing', 'Standard keeps the low string on top; upside down puts the high string on top.', seg);
+    return row('Stringing', 'Standard puts the high string on top, as in tab; upside down puts the low string on top.', seg);
 }
 
 function proxyButton(label, targetId, className = 'btn btn-sm btn-theme-outline') {
