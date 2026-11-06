@@ -2964,7 +2964,10 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   color: var(--ink2) !important;
   font-size: 13px;
   font-weight: 500;
-  padding: 4px 10px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
   border-radius: var(--r-control);
   transition: color var(--dur-fast), background-color var(--dur-fast);
   cursor: pointer;
