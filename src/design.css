@@ -2794,7 +2794,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   left: 0;
   right: 0;
   height: 100vh;
-  background: var(--ground);
+  background: var(--s1);
   z-index: -1;
   pointer-events: none;
 }
