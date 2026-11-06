@@ -122,7 +122,7 @@ pub const CORE_DOWNLOADER_SHIM: &str = r#"(function() {
         return origFormSubmit.apply(this, arguments);
     };
 
-    // 2b. iOS hands a tapped cross-site link (including its redirect chain, e.g. google.com/goto to songsterr.com)
+    // 2b. iOS hands a tapped cross-site link (including its redirect chain through a search engine's click-tracking link)
     // to the site's native app when it has a Universal Link. A script-initiated navigation is never handed off,
     // so cross-site taps go through location.assign. This runs in the capture phase on window, ahead of the page's own
     // handlers (Google result links rewrite and handle the click themselves, so a bubble listener never saw them).
@@ -1017,6 +1017,7 @@ pub fn configure_ios_webview(window: &tauri::WebviewWindow, r: f64, g: f64, b: f
     use objc2::runtime::AnyObject;
     use objc2_ui_kit::UIColor;
 
+    let is_downloader = window.label() == DOWNLOADER_LABEL;
     let _ = window.with_webview(move |platform| unsafe {
         let webview_ptr = platform.inner().cast::<AnyObject>();
         let bg_color = UIColor::colorWithRed_green_blue_alpha(r / 255.0, g / 255.0, b / 255.0, 1.0);
@@ -1031,6 +1032,9 @@ pub fn configure_ios_webview(window: &tauri::WebviewWindow, r: f64, g: f64, b: f
 
         // UIUserInterfaceStyleDark = 2
         let _: () = msg_send![webview_ptr, setOverrideUserInterfaceStyle: 2isize];
+        if is_downloader {
+            ios_install_link_loader(webview_ptr);
+        }
         #[cfg(feature = "debug-tools")]
         {
             let _: () = msg_send![webview_ptr, setInspectable: true];
@@ -1045,6 +1049,81 @@ pub fn configure_ios_webview(window: &tauri::WebviewWindow, r: f64, g: f64, b: f
             let _: () = msg_send![superview, setOverrideUserInterfaceStyle: 2isize];
         }
     });
+}
+
+/// The downloader's WKWebView, the only one whose link taps are re-issued (see `ios_install_link_loader`).
+#[cfg(target_os = "ios")]
+static IOS_DOWNLOADER_WEBVIEW: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+#[cfg(target_os = "ios")]
+static IOS_ORIGINAL_DECIDE_POLICY: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// iOS hands a tapped link (`WKNavigationTypeLinkActivated`) to the site's native app when the site has a
+/// Universal Link. A navigation the app starts itself with `loadRequest:` is never handed off. So for the
+/// downloader's web view only, wrap the navigation delegate's `decidePolicyForNavigationAction`: a main-frame,
+/// http(s) link tap is cancelled and the same request is loaded programmatically. Everything else (the main
+/// app web view, redirects, form posts, iframes, `mailto:` and other schemes) goes to the original handler.
+#[cfg(target_os = "ios")]
+unsafe fn ios_install_link_loader(webview: *mut objc2::runtime::AnyObject) {
+    use objc2::msg_send;
+    use objc2::runtime::{AnyObject, Imp, Sel};
+    use objc2::sel;
+    use std::sync::atomic::Ordering;
+
+    IOS_DOWNLOADER_WEBVIEW.store(webview as usize, Ordering::SeqCst);
+    if IOS_ORIGINAL_DECIDE_POLICY.load(Ordering::SeqCst) != 0 {
+        return;
+    }
+    let delegate: *mut AnyObject = msg_send![webview, navigationDelegate];
+    if delegate.is_null() {
+        return;
+    }
+    let class = (*delegate).class();
+    let selector = sel!(webView:decidePolicyForNavigationAction:decisionHandler:);
+    let Some(method) = class.instance_method(selector) else {
+        return;
+    };
+
+    unsafe extern "C" fn decide_policy(
+        this: *mut AnyObject,
+        cmd: Sel,
+        webview: *mut AnyObject,
+        action: *mut AnyObject,
+        handler: *mut AnyObject,
+    ) {
+        use objc2::msg_send;
+        use std::sync::atomic::Ordering;
+        if webview as usize == IOS_DOWNLOADER_WEBVIEW.load(Ordering::SeqCst) && !action.is_null() {
+            // WKNavigationTypeLinkActivated = 0
+            let nav_type: isize = msg_send![action, navigationType];
+            let frame: *mut AnyObject = msg_send![action, targetFrame];
+            let main_frame: bool = !frame.is_null() && msg_send![frame, isMainFrame];
+            let request: *mut AnyObject = msg_send![action, request];
+            let url: *mut AnyObject = if request.is_null() { std::ptr::null_mut() } else { msg_send![request, URL] };
+            if nav_type == 0 && main_frame && !url.is_null() {
+                let scheme: *mut AnyObject = msg_send![url, scheme];
+                let is_web: bool = !scheme.is_null()
+                    && (msg_send![scheme, isEqualToString: &*objc2_foundation::NSString::from_str("http")]
+                        || msg_send![scheme, isEqualToString: &*objc2_foundation::NSString::from_str("https")]);
+                if is_web {
+                    // WKNavigationActionPolicyCancel = 0
+                    let call: unsafe extern "C" fn(*mut AnyObject, isize) = std::mem::transmute(
+                        // Block layout: isa, flags, reserved, invoke
+                        *((handler as *const u8).add(16) as *const usize),
+                    );
+                    call(handler, 0);
+                    let _: *mut AnyObject = msg_send![webview, loadRequest: request];
+                    return;
+                }
+            }
+        }
+        let original: unsafe extern "C" fn(*mut AnyObject, Sel, *mut AnyObject, *mut AnyObject, *mut AnyObject) =
+            std::mem::transmute(IOS_ORIGINAL_DECIDE_POLICY.load(Ordering::SeqCst));
+        original(this, cmd, webview, action, handler);
+    }
+
+    let new_imp: Imp = std::mem::transmute(decide_policy as unsafe extern "C" fn(_, _, _, _, _));
+    let old = method.set_implementation(new_imp);
+    IOS_ORIGINAL_DECIDE_POLICY.store(old as usize, Ordering::SeqCst);
 }
 
 #[cfg(not(any(target_os = "android", target_os = "ios")))]
