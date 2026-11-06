@@ -1,7 +1,7 @@
 // Run: node tests/catalogRank.test.mjs
 // Fixture mirrors real MusicBrainz responses for the query "Metallica".
 import assert from 'node:assert/strict';
-import { rankCatalogArtists, rankCatalogAlbums, rankCatalogSongs } from '../src/catalogRank.js';
+import { rankCatalogArtists, rankCatalogAlbums, rankCatalogSongs, splitCatalogArtists } from '../src/catalogRank.js';
 
 const artists = [
   { id: 'x2', name: 'Metallica 2', disambiguation: 'Chilean tribal ambient/metal', score: 61, tagCount: 3 },
@@ -32,4 +32,14 @@ const s2 = [
   { title: 'Shape of You', artist: 'Ed Sheeran', score: 280 },
 ];
 assert.equal(rankCatalogSongs(s2, 'Shape of You', null)[0].artist, 'Ed Sheeran');
+// Weak partial-name artists trail the real artist's albums and songs.
+const many = rankCatalogArtists([
+  { id: 'x2', name: 'Metallica 2', score: 100, tagCount: 3 },
+  { id: 'sk', name: 'Some Kind of Metallica', score: 100, tagCount: 1 },
+  { id: 'real', name: 'Metallica', score: 100, tagCount: 65 },
+], 'Metallica');
+const sp = splitCatalogArtists(many, 'Metallica');
+assert.deepEqual(sp.lead.map(a => a.id), ['real']);
+assert.deepEqual(sp.rest.map(a => a.id).sort(), ['sk', 'x2']);
+assert.equal(splitCatalogArtists(many, 'Metal').rest.length, 0);
 console.log('catalogRank ok');

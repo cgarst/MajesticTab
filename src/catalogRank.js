@@ -60,3 +60,13 @@ export function rankCatalogSongs(songs, query, top) {
         return { so, s, i };
     }).sort((x, y) => y.s - x.s || x.i - y.i).map(x => x.so);
 }
+
+// Split ranked artists into those that lead the results and weaker partial-name matches
+// ("Metallica 2", "Some Kind of Metallica") that belong after the real artist's albums and songs.
+// When no artist matches the query exactly, nothing is demoted.
+export function splitCatalogArtists(rankedArtists, query) {
+    const q = norm(query);
+    const exact = rankedArtists.filter(a => norm(a.name) === q);
+    if (!exact.length) return { lead: rankedArtists, rest: [] };
+    return { lead: exact, rest: rankedArtists.filter(a => norm(a.name) !== q) };
+}

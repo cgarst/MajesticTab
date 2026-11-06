@@ -15,7 +15,7 @@ import {
     filterInstrumentalBonusDiscs, hydrateCachedImages, getSynchronousCachedArtUrl,
     cleanTrackTitleForMatching
 } from './musicbrainz.js';
-import { rankCatalogArtists, rankCatalogAlbums, rankCatalogSongs } from './catalogRank.js';
+import { rankCatalogArtists, rankCatalogAlbums, rankCatalogSongs, splitCatalogArtists } from './catalogRank.js';
 import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
@@ -2621,9 +2621,9 @@ function setupLibraryFilter(container, context = {}) {
           <div class="search-stream-list">
         `;
 
-        // Render catalog artists (Bands)
-        for (const art of catalogArtists.slice(0, 3)) {
-            html += `
+        // Exact-name artists lead; partial-name matches trail the albums and songs
+        const { lead: leadArtists, rest: weakArtists } = splitCatalogArtists(catalogArtists, rawQuery);
+        const artistRow = (art) => `
             <div class="search-stream-row is-navigable" data-type="catalog-artist" data-artist-id="${art.id}" data-artist-name="${escapeHtml(art.name)}" tabindex="0">
               <div class="search-row-meta min-w-0 flex-grow-1">
                 <div class="search-row-title text-truncate">${escapeHtml(art.name)} <span class="text-muted fw-normal" style="font-size: 13px;">(${escapeHtml(art.type || 'Artist')})</span></div>
@@ -2632,7 +2632,9 @@ function setupLibraryFilter(container, context = {}) {
               <button type="button" class="btn btn-sm lib-ghost-action catalog-artist-albums-btn flex-shrink-0 ms-2" data-artist-id="${art.id}" data-artist-name="${escapeHtml(art.name)}" aria-label="View albums">Albums</button>
             </div>
             `;
-        }
+
+        // Render catalog artists (Bands)
+        for (const art of leadArtists.slice(0, 3)) html += artistRow(art);
 
         // Render catalog albums
         for (const alb of catalogAlbums.slice(0, 5)) {
@@ -2659,6 +2661,8 @@ function setupLibraryFilter(container, context = {}) {
             </div>
             `;
         }
+
+        for (const art of weakArtists.slice(0, 2)) html += artistRow(art);
 
         html += `
           </div>
