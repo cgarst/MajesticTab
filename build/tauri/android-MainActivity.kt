@@ -336,7 +336,13 @@ class MainActivity : TauriActivity() {
         return url
       }
 
+      // Runs a script in the downloader view itself; the shell's eval does not reliably reach it.
       @JavascriptInterface
+      fun evalInDownloader(script: String) {
+        runOnUiThread { downloaderWebView?.evaluateJavascript(script, null) }
+      }
+
+            @JavascriptInterface
       fun setBlockedHosts(jsonArrayStr: String) {
         try {
           val arr = org.json.JSONArray(jsonArrayStr)

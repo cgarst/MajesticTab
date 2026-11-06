@@ -102,6 +102,31 @@ export function navigateToDownloaderUrl(nextUrl) {
 }
 
 /**
+ * Fill the converter page's URL field. Each run dies with the document it ran in and a slow page
+ * can take many seconds to load, so it repeats for ~25s; a filled field is a no-op.
+ * Android runs the script in its native downloader view, since the shell's eval does not reliably reach it.
+ * @param {string} targetUrl
+ */
+function prefillDownloaderUrl(targetUrl) {
+    if (!window.__TAURI__?.core?.invoke) return;
+    if (typeof window.MajesticDownloaderNative?.evalInDownloader !== 'function') {
+        window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl }).catch(() => {});
+        return;
+    }
+    window.__TAURI__.core.invoke('tab_downloader_prefill_script', { targetUrl }).then(script => {
+        const delays = [0, 150, 400, 800, 1500, 2500, 4000, ...Array(21).fill(1000)];
+        let at = 0;
+        delays.forEach(d => {
+            at += d;
+            setTimeout(() => {
+                if (activeEphemeralSource?.targetUrl !== targetUrl) return;
+                try { window.MajesticDownloaderNative.evalInDownloader(script); } catch {}
+            }, at);
+        });
+    }).catch(() => {});
+}
+
+/**
  * Show 6-second transient undo feedback banner
  */
 export function showTransientFeedback(text, onUndo) {
@@ -1372,7 +1397,7 @@ export function switchActiveSource(src) {
     if (window.__TAURI__?.core?.invoke) {
         window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl }).then(() => {
             if (src.id === 'downloader' && activeEphemeralSource?.targetUrl) {
-                window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl: activeEphemeralSource.targetUrl }).catch(() => {});
+                prefillDownloaderUrl(activeEphemeralSource.targetUrl);
             }
         }).catch(err => {
             console.error('[Tab Downloader] Failed to navigate to source:', err);
@@ -1607,7 +1632,7 @@ function applyDownloaderUrl(rawUrl) {
 
     if (activeSourceId === 'downloader' && activeEphemeralSource?.targetUrl) {
         if (window.__TAURI__?.core?.invoke) {
-            window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl: activeEphemeralSource.targetUrl }).catch(() => {});
+            prefillDownloaderUrl(activeEphemeralSource.targetUrl);
         }
     }
 }
@@ -1777,7 +1802,7 @@ export async function openTabDownloader(options = {}) {
             topOffset: barHeight
         });
         if (activeEphemeralSource?.targetUrl) {
-            window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl: activeEphemeralSource.targetUrl }).catch(() => {});
+            prefillDownloaderUrl(activeEphemeralSource.targetUrl);
         }
         // open_tab_downloader overwrites the native offset with the height measured before the pills
         // rendered, and the ResizeObserver won't refire if the bar already settled, so push the final height.

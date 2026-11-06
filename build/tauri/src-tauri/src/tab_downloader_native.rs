@@ -1263,11 +1263,8 @@ pub fn tab_downloader_navigate(
     Ok(())
 }
 
-#[tauri::command]
-pub fn tab_downloader_prefill(
-    app: AppHandle,
-    target_url: String,
-) -> Result<(), String> {
+/// The script that fills the downloader page's URL field and submits it.
+fn prefill_script(target_url: &str) -> Result<String, String> {
     let json_target = serde_json::to_string(&target_url).map_err(|e| e.to_string())?;
     let script = format!(
         r#"(function() {{
@@ -1328,6 +1325,22 @@ pub fn tab_downloader_prefill(
 }})();"#,
         json_target = json_target
     );
+    Ok(script)
+}
+
+/// Android's downloader is a native view the shell's eval cannot reliably address (both webviews
+/// share one activity), so the app gets the script and runs it through MajesticDownloaderNative.
+#[tauri::command]
+pub async fn tab_downloader_prefill_script(target_url: String) -> Result<String, String> {
+    prefill_script(&target_url)
+}
+
+#[tauri::command]
+pub fn tab_downloader_prefill(
+    app: AppHandle,
+    target_url: String,
+) -> Result<(), String> {
+    let script = prefill_script(&target_url)?;
     let handle = app.clone();
     let script_clone = script.clone();
     std::thread::spawn(move || {
