@@ -12,6 +12,7 @@ import { buildTimelineModel } from './timelineModel.js';
 import { buildScoreTimeline, playedBarsFromLookup } from './scorePositions.js';
 import { getMidiTickLookup } from '../gpProcessor/gpPlayer.js';
 import { isTvMode } from '../tvMode.js';
+import { midiSynthActive } from '../classtab/midiSynth.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -136,7 +137,8 @@ export function initScoreRecordingStrip() {
     window.addEventListener(JAM_BRIDGE_EVENT, refresh);
 
     function tick() {
-        const isScore = Boolean(window.gpApi?.score);
+        // A MIDI file runs on a placeholder score; its tab is text, and the text recording bar covers it
+        const isScore = Boolean(window.gpApi?.score) && !midiSynthActive;
         const originalOn = Boolean($('mobileYtToggleBtn')?.classList.contains('active-audio-mode'));
         const hidden = !isScore || !originalOn || document.body.classList.contains('library-view-active')
             || document.body.classList.contains('sync-mode'); // tap mode has its own toolbar
