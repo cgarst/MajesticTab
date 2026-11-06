@@ -25,6 +25,9 @@ function hostOf(id) {
     }[id]?.() || null;
 }
 
+/** A tool was open when the reader took the screen: back should return to it. */
+export function hasResumeTool() { return !!resumeTool; }
+
 /** The player left Tools on purpose: the next visit starts at the list again. */
 export function forgetResume() {
     resumeTool = null;

@@ -885,8 +885,10 @@ async function initApp() {
     initSettingsPage();
     initSlidingPills();
 
-    document.getElementById('topBarBackToLibraryBtn')?.addEventListener('click', () => {
-        openLibraryModal('library');
+    document.getElementById('topBarBackToLibraryBtn')?.addEventListener('click', async () => {
+        // A song opened from a tool in Tools goes back to that tool, not to the library
+        const { hasResumeTool } = await import('./utils/toolsPage.js');
+        openLibraryModal(hasResumeTool() ? 'tools' : 'library');
     });
 
     document.getElementById('libraryToggleBtn')?.addEventListener('click', () => {
