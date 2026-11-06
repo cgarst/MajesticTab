@@ -1125,9 +1125,10 @@ export function initTabDownloaderDomEvents() {
 
 export function isAdblockEnabled() {
     try {
-        return localStorage.getItem(ADBLOCK_ENABLED_KEY) === 'true';
+        // On unless the player turned it off: sponsored results must not lead into stores.
+        return localStorage.getItem(ADBLOCK_ENABLED_KEY) !== 'false';
     } catch {
-        return false;
+        return true;
     }
 }
 
