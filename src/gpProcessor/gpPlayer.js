@@ -811,6 +811,29 @@ export function reanchorPlaybackScroll(tick, barIndex = null) {
     updateContinuousPlaybackScroll(tick, true, null, barIndex);
 }
 
+// Safe-area insets (notch, Dynamic Island) in px, read through a hidden probe whose padding uses env()
+let safeAreaProbe = null;
+function readSafeInsets() {
+    try {
+        if (!safeAreaProbe) {
+            safeAreaProbe = document.createElement('div');
+            safeAreaProbe.setAttribute('aria-hidden', 'true');
+            safeAreaProbe.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;'
+                + 'padding:env(safe-area-inset-top,0px) env(safe-area-inset-right,0px) env(safe-area-inset-bottom,0px) env(safe-area-inset-left,0px)';
+            document.body.appendChild(safeAreaProbe);
+        }
+        const cs = getComputedStyle(safeAreaProbe);
+        return {
+            top: parseFloat(cs.paddingTop) || 0,
+            right: parseFloat(cs.paddingRight) || 0,
+            bottom: parseFloat(cs.paddingBottom) || 0,
+            left: parseFloat(cs.paddingLeft) || 0
+        };
+    } catch (_) {
+        return { top: 0, right: 0, bottom: 0, left: 0 };
+    }
+}
+
 /**
  * Handle auto-scrolling with quick snap and read-ahead in Continuous Mode
  * Adjusts scrolling to consider the virtual fretboard dock so that current stave group is entirely visible
@@ -838,8 +861,11 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     // Available visible height above the bottom dock
     const visibleViewportHeight = Math.max(100, viewportHeight - fretboardHeight);
 
-    const TOP_PADDING = 12;
     const outputRect = output.getBoundingClientRect();
+    // Part of the view that lies under the top inset (Dynamic Island, status bar) is not usable for the cursor
+    const safe = readSafeInsets();
+    const safeTop = Math.max(0, safe.top - outputRect.top);
+    const TOP_PADDING = 12 + safeTop;
 
     // 1. Staff system bounds lookup from renderer
     const boundsLookup = currentApi.renderer?.boundsLookup;
@@ -908,7 +934,7 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     const visualBottom = visualTop + sysH;
 
     // 3. Occlusion and read-ahead checks
-    const isAboveTop = visualTop < 0 || (hasValidCursor && cursorVisualTop < 0);
+    const isAboveTop = visualTop < safeTop || (hasValidCursor && cursorVisualTop < safeTop);
     const isHidingBehindFretboard = isFretboardOpen && (Math.max(visualBottom, cursorVisualBottom) > (visibleViewportHeight - 16));
     // A seek (the ruler) brings the bar into view the way playback would, even while paused
     const isBelowThreshold = (playbackActive() || bringIntoView) && (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60)));
@@ -917,13 +943,27 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
         const maxScroll = output.scrollHeight - output.clientHeight;
         const isFirstSystem = boundsLookup?.staffSystems?.length && targetStaffSystem === boundsLookup.staffSystems[0];
         const anchorY = (sysY > 0) ? sysY : cursorDocY;
-        const targetScrollTop = (isFirstSystem || anchorY < 160)
+        const targetScrollTop = (isFirstSystem || anchorY < 160 + safeTop)
             ? 0
             : Math.max(0, Math.min(maxScroll, anchorY - TOP_PADDING));
         if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
             autoScrollWrite = true;
             output.scrollTop = targetScrollTop;
             // scroll events fire asynchronously; clear the flag after they've been dispatched
+            requestAnimationFrame(() => requestAnimationFrame(() => { autoScrollWrite = false; }));
+        }
+    }
+
+    // Landscape side insets: keep the cursor out of the notch strip when the score can scroll sideways
+    if (hasValidCursor && output.scrollWidth > output.clientWidth + 1) {
+        const minX = Math.max(outputRect.left, safe.left) + 12;
+        const maxX = Math.min(outputRect.right, window.innerWidth - safe.right) - 12;
+        let dx = 0;
+        if (cursorRect.left < minX) dx = cursorRect.left - minX;
+        else if (cursorRect.right > maxX) dx = cursorRect.right - maxX;
+        if (dx) {
+            autoScrollWrite = true;
+            output.scrollLeft += dx;
             requestAnimationFrame(() => requestAnimationFrame(() => { autoScrollWrite = false; }));
         }
     }
