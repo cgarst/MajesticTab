@@ -191,7 +191,11 @@ function initPracticePanels() {
     }
     function updateOpen() {
         const open = panels.some(({ id }) => { const el = $(id); return el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none'; });
+        if (document.body.classList.contains('practice-open') === open) return;
         document.body.classList.toggle('practice-open', open);
+        // The panel changes the width the pages sit in (see design.css), so text and PDF tabs re-fit their pages:
+        // the resize handler in main.js re-paginates them for the new width.
+        window.dispatchEvent(new Event('resize'));
     }
     const dock = $('mobilePlaybackDock');
     if (dock && 'ResizeObserver' in window) {
