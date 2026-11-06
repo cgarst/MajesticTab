@@ -102,6 +102,7 @@ let jamAudioTracks = null; // Jam host assigned this device track indices: only 
 let jamMuteTracks = null; // Jam host: tracks assigned to others, silenced on this unassigned device
 let jamViewTracks = null; // Jam host assigned this device track indices: only those are shown
 let jamPrevViewTracks = null; // tracks that were visible before the Jam view restriction
+let warmUpPaused = false; // the warm-up has already paused the synth (its brief settle window), so a takeover must really play
 let warmingUp = false; // muted Jam Mode warm-up play in progress; player events are suppressed
 
 // AlphaTab's timePosition is wall-clock time at the current playback speed (it doubles when
@@ -1702,6 +1703,7 @@ export async function reloadSynthSoundFonts() {
 export function detachAlphaTabApi() {
     pauseIOSAudioPlayback();
     warmingUp = false;
+    warmUpPaused = false;
     jamPrevViewTracks = null;
     emitTransportEvent('detached');
     if (currentApi) {
@@ -1777,15 +1779,20 @@ export function playPauseSynth() {
 function playPauseSynthLocal(forcePlay = false) {
     if (!currentApi) return;
     if (warmingUp) {
-        // The post-load warm-up is already running the synth muted; make it the real start
+        // The post-load warm-up is already running the synth muted; make it the real start. If it has already paused
+        // the synth, there is nothing running to take over: restore the volume and start normally below.
+        const wasPaused = warmUpPaused;
         warmingUp = false;
-        try {
-            currentApi.masterVolume = effectiveVolume();
-            applyPlayerState(currentApi, 1);
-        } catch (e) {
-            console.error('[Synth Player] Warm-up takeover error:', e);
+        warmUpPaused = false;
+        try { currentApi.masterVolume = effectiveVolume(); } catch (_) {}
+        if (!wasPaused) {
+            try {
+                applyPlayerState(currentApi, 1);
+            } catch (e) {
+                console.error('[Synth Player] Warm-up takeover error:', e);
+            }
+            return;
         }
-        return;
     }
     try {
         pauseYouTube();
@@ -2710,10 +2717,15 @@ export const jamPlayerControl = {
         if (warmingUp) {
             // A real start arrived mid warm-up: the synth is already running, so keep it going
             // (the caller has just seeked) and surface the playing state that was suppressed.
+            // If the warm-up already paused it, start for real instead.
+            const wasPaused = warmUpPaused;
             warmingUp = false;
+            warmUpPaused = false;
             currentApi.masterVolume = effectiveVolume();
-            applyPlayerState(currentApi, 1);
-            return;
+            if (!wasPaused) {
+                applyPlayerState(currentApi, 1);
+                return;
+            }
         }
         if (synthPlayerState.isPlaying) return;
         playPauseSynthLocal(true);
@@ -2732,6 +2744,7 @@ export const jamPlayerControl = {
             api.play();
             await new Promise((r) => setTimeout(r, durationMs));
             if (!warmingUp || currentApi !== api) return true; // aborted by a real play() or song change
+            warmUpPaused = true;
             api.pause();
             await new Promise((r) => setTimeout(r, 60));
             if (!warmingUp || currentApi !== api) return true;
@@ -2743,6 +2756,7 @@ export const jamPlayerControl = {
                 api.masterVolume = effectiveVolume();
                 warmingUp = false;
             }
+            if (currentApi === api && !warmingUp) warmUpPaused = false;
         }
         return true;
     },
