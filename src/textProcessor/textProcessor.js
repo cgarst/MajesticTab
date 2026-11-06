@@ -2,6 +2,7 @@
 import { setTextPagesPerView, getLandscapePageLayout } from '../utils/viewModeUtils.js';
 
 const PAGE_PADDING = 20;
+const MIN_TEXT_FIT = 0.4; // smallest share of the normal text size a tab is shrunk to
 
 function createChordLyricSegments(chordLine, lyricLine) {
     const segments = [];
@@ -303,11 +304,23 @@ function createPaginatedPages(processedLines) {
         if (widthPerPage(n) >= naturalWidth) pagesPerView = n; else break;
     }
     setTextPagesPerView(pagesPerView);
-    const availableWidth = Math.floor(widthPerPage(pagesPerView));
+    // When even one page is narrower than the text (a phone), the text shrinks to fit instead of being cut off.
+    // Monospace text scales linearly, so scale the text part of the width; stop at a size that is still legible.
+    let fit = 1;
+    if (pagesPerView === 1 && naturalWidth > widthPerPage(1)) {
+        const chrome = PAGE_PADDING * 2 + PAGE_BORDER;
+        fit = Math.max(MIN_TEXT_FIT, Math.min(1, ((widthPerPage(1) - chrome) / (naturalWidth - chrome)) * 0.99));
+    }
+    const baseScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-scale')) || 1;
+    const fitScale = String(+(baseScale * fit).toFixed(4));
+    const fittedNatural = Math.ceil((naturalWidth - PAGE_PADDING * 2 - PAGE_BORDER) * fit) + PAGE_PADDING * 2 + PAGE_BORDER;
+    // A page is only as wide as its text (never wider than its share of the area), so no empty strip sits beside it.
+    const availableWidth = Math.min(Math.floor(widthPerPage(pagesPerView)), fittedNatural);
 
     // Create a temporary div to measure content height
     const measureDiv = document.createElement('div');
     measureDiv.className = 'measure-div';
+    measureDiv.style.setProperty('--text-scale', fitScale);
     measureDiv.style.width = `${availableWidth - PAGE_PADDING * 2 - PAGE_BORDER}px`;
     document.body.appendChild(measureDiv);
     
@@ -323,8 +336,11 @@ function createPaginatedPages(processedLines) {
         pageWrapper.className = 'pageWrapper';
         pageWrapper.setAttribute('role', 'document');
         pageWrapper.tabIndex = 0;
+        pageWrapper.style.width = `${availableWidth}px`;
+        pageWrapper.style.flex = '0 0 auto';
 
         const pageContent = document.createElement('div');
+        if (fit < 1) pageContent.style.setProperty('--text-scale', fitScale);
 
         elements.forEach(el => pageContent.appendChild(el.cloneNode(true)));
         pageWrapper.appendChild(pageContent);
