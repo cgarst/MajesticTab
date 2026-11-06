@@ -194,6 +194,9 @@ export function initSettingsPage() {
     // ---- build the page ----
     const shell = el('div', 'setshell');
     shell.dataset.pane = 'list';
+    // The page's one h1: the rail already names the destination, so it is hidden but kept for screen readers
+    const pageTitle = el('h1', 'visually-hidden', 'Settings');
+    shell.appendChild(pageTitle);
     const head = el('div', 'sethead');
     head.setAttribute('data-tauri-drag-region', '');
     const back = el('button', 'btn btn-sm setback');
