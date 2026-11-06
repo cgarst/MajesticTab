@@ -895,8 +895,8 @@ body.settings-as-page #fileMenu {
 }
 body.settings-as-page.library-view-active #fileMenu { top: 0; height: 100%; }
 html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-page.library-view-active #fileMenu { top: 0; }
-/* Desktop shells keep the bar (drag strip and window controls) above Settings */
-.tauri-windows body.settings-as-page.library-view-active #fileMenu { top: var(--bar-h, 52px); height: calc(100% - var(--bar-h, 52px)); }
+/* Desktop shells keep the bar (drag strip and window controls) above Settings, the same 20px strip as the other library pages */
+.tauri-windows body.settings-as-page.library-view-active #fileMenu { top: 20px; height: calc(100% - 20px); }
 @media (min-width: 577px) {
   body.settings-as-page.library-view-active #fileMenu { left: calc(76px + env(safe-area-inset-left, 0px)); width: calc(100vw - 76px - env(safe-area-inset-left, 0px)) !important; }
 }
@@ -2567,7 +2567,6 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
   }
   .tauri-macos body.library-view-active #topBar { height: 36px; }
   .tauri-windows body.library-view-active #libraryPage { padding-top: 20px; }
-  .tauri-windows body.settings-as-page.library-view-active #topBar { height: var(--bar-h, 52px); }
 }
 
 /* About: the one place the pick appears */
