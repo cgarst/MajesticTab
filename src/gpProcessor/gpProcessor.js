@@ -346,7 +346,10 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
 
                 newScore.stylesheet.hideEmptyStaves = true;
                 newScore.stylesheet.hideEmptyStavesInFirstSystem = true;
-                newScore.stylesheet.globalDisplayTuning = true;
+                // AlphaTab stacks one italic tuning line per track above the first system; on a phone that
+                // pushes the first bar down by hundreds of pixels. The tuning stays in the Guitar panel.
+                const isPhoneWidth = typeof window !== 'undefined' && window.innerWidth <= 576;
+                newScore.stylesheet.globalDisplayTuning = !(isPhoneWidth && newScore.tracks.length > 1);
                 const trackNamePolicy = globalThis.alphaTab?.model?.TrackNamePolicy;
                 if (trackNamePolicy) {
                     newScore.stylesheet.singleTrackTrackNamePolicy = trackNamePolicy.Hidden;
