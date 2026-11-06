@@ -101,10 +101,28 @@ export function navigateToDownloaderUrl(nextUrl) {
     try { window.MajesticDownloaderNative?.loadUrl?.(nextUrl); } catch {}
 }
 
+const PREFILL_URL_PLACEHOLDER = '__MAJESTICTAB_PREFILL_URL__';
+let prefillScriptTemplate = null;
+
+/**
+ * Android only: fetch the prefill script once, with a placeholder for the page address. On Android the shell
+ * answers commands by evaluating script in the most recently created webview, which is the downloader once it
+ * exists, so a command called after the downloader opens never resolves in the app. The script is therefore
+ * requested while only the app's own webview exists (at startup, and again before the downloader opens).
+ */
+function loadPrefillScript() {
+    if (prefillScriptTemplate) return prefillScriptTemplate;
+    if (!window.__TAURI__?.core?.invoke || typeof window.MajesticDownloaderNative?.evalInDownloader !== 'function') return null;
+    prefillScriptTemplate = window.__TAURI__.core.invoke('tab_downloader_prefill_script', { targetUrl: PREFILL_URL_PLACEHOLDER })
+        .catch(() => { prefillScriptTemplate = null; return null; });
+    return prefillScriptTemplate;
+}
+loadPrefillScript();
+
 /**
  * Fill the converter page's URL field. Each run dies with the document it ran in and a slow page
  * can take many seconds to load, so it repeats for ~25s; a filled field is a no-op.
- * Android runs the script in its native downloader view, since the shell's eval does not reliably reach it.
+ * Android runs the script in its native downloader view, since the shell's eval does not reach it.
  * @param {string} targetUrl
  */
 function prefillDownloaderUrl(targetUrl) {
@@ -113,14 +131,22 @@ function prefillDownloaderUrl(targetUrl) {
         window.__TAURI__.core.invoke('tab_downloader_prefill', { targetUrl }).catch(() => {});
         return;
     }
-    window.__TAURI__.core.invoke('tab_downloader_prefill_script', { targetUrl }).then(script => {
+    Promise.resolve(loadPrefillScript()).then(template => {
+        if (!template) return;
+        const quote = JSON.stringify;
+        const script = template.split(quote(PREFILL_URL_PLACEHOLDER)).join(quote(targetUrl));
         const delays = [0, 150, 400, 800, 1500, 2500, 4000, ...Array(21).fill(1000)];
         let at = 0;
         delays.forEach(d => {
             at += d;
             setTimeout(() => {
                 if (activeEphemeralSource?.targetUrl !== targetUrl) return;
-                try { window.MajesticDownloaderNative.evalInDownloader(script); } catch {}
+                try {
+                    // The run can start before the navigation lands; never fill the page the user came from.
+                    const here = new URL(window.MajesticDownloaderNative.currentUrl?.() || 'about:blank').hostname;
+                    if (here !== new URL(activeEphemeralSource.url).hostname) return;
+                    window.MajesticDownloaderNative.evalInDownloader(script);
+                } catch {}
             }, at);
         });
     }).catch(() => {});
@@ -1420,10 +1446,15 @@ export function switchActiveSource(src) {
     currentDownloaderUrl = nextUrl;
 
     if (window.__TAURI__?.core?.invoke) {
-        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl }).then(() => {
+        const prefill = () => {
             if (src.id === 'downloader' && activeEphemeralSource?.targetUrl) {
                 prefillDownloaderUrl(activeEphemeralSource.targetUrl);
             }
+        };
+        // Android's command replies never reach the app once the downloader exists, so it cannot wait for this one.
+        if (typeof window.MajesticDownloaderNative?.evalInDownloader === 'function') prefill();
+        window.__TAURI__.core.invoke('tab_downloader_navigate', { url: nextUrl }).then(() => {
+            if (typeof window.MajesticDownloaderNative?.evalInDownloader !== 'function') prefill();
         }).catch(err => {
             console.error('[Tab Downloader] Failed to navigate to source:', err);
         });
@@ -1725,6 +1756,7 @@ let debugToolsEnabled = null;
  * @param {Object} [options.targetSong]
  */
 export async function openTabDownloader(options = {}) {
+    loadPrefillScript();
     activeEphemeralSource = null;
     pendingMatchedTabUrl = null;
     if (!isNative()) {
