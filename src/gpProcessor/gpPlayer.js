@@ -867,6 +867,8 @@ function readSafeInsets() {
  */
 export function updateContinuousPlaybackScroll(currentTick, force = false, targetBeat = null, barIndexHint = null, bringIntoView = false) {
     if (!currentApi || !currentScore || (!playbackActive() && !force)) return;
+    // A MIDI file under a text or PDF tab plays through a hidden one-bar score; there is nothing on the page to follow
+    if (currentApi.followDisabled) return;
 
     const pageModeRadio = document.getElementById('pageModeRadio');
     const isPageMode = pageModeRadio ? pageModeRadio.checked : false;

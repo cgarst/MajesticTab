@@ -243,6 +243,9 @@ export async function processText(file) {
             }
         });
 
+        // Each block (a line, a staff system, a chord-and-lyric line) is numbered so sync points can name it
+        allProcessedLines.forEach((el, i) => { if (el.className !== 'section-separator') el.dataset.block = String(i); });
+
         // Add all processed lines to the full content
         allProcessedLines.forEach(line => fullContent.appendChild(line.cloneNode(true)));
 

@@ -462,6 +462,10 @@
       <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="exportSourceTabBtn" type="button">
         <i class="bi-download text-info"></i> Export Source Tab
       </button>
+      <p class="small text-muted mb-0 text-center" id="songSourceLine" style="display: none;"></p>
+      <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="linkMidiBtn" type="button" style="display: none;">
+        Link a MIDI file&hellip;
+      </button>
       <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="exportPDFBtn" type="button" style="display: none;">
         <i class="bi-file-earmark-pdf text-danger"></i> Export as PDF
       </button>
@@ -524,6 +528,13 @@
     </button>
   </div>
   <div class="synth-panel-body">
+    <div class="mb-3" id="synthMidiSection" style="display: none;">
+      <p class="small text-muted mb-2">Plays the MIDI file. It isn't synced to the tab.</p>
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-theme-outline" id="synthMidiReplaceBtn">Link another MIDI file&hellip;</button>
+        <button type="button" class="btn btn-sm btn-theme-outline" id="synthMidiRemoveBtn">Remove</button>
+      </div>
+    </div>
     <!-- Scrubber / Timeline -->
     <div class="mb-3">
       <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
@@ -1214,6 +1225,7 @@
           <li><a href="https://github.com/CoderLine/alphaTab" target="_blank" rel="noopener noreferrer">AlphaTab</a> (Mozilla Public License 2.0)</li>
           <li><a href="https://github.com/mozilla/pdf.js" target="_blank" rel="noopener noreferrer">PDF.js</a> (Apache License 2.0)</li>
           <li><a href="https://github.com/parallax/jsPDF" target="_blank" rel="noopener noreferrer">jsPDF</a> (MIT License)</li>
+          <li><a href="https://www.classtab.org/" target="_blank" rel="noopener noreferrer">Classtab</a> (free archive of classical guitar tabs, downloaded by the user)</li>
           <li><a href="https://github.com/101arrowz/fflate" target="_blank" rel="noopener noreferrer">fflate</a> (MIT License)</li>
           <li><a href="https://github.com/pdf-lib/pdf-lib" target="_blank" rel="noopener noreferrer">pdf-lib</a> (MIT License)</li>
           <li><a href="https://github.com/indjoov/pitchcraft" target="_blank" rel="noopener noreferrer">PitchCraft</a> (MIT License)</li>

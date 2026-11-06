@@ -75,6 +75,7 @@ const BACKUP_SETTINGS_KEYS = [
     'tab_downloader_sources', // legacy name, kept so older backups still restore
     'majestictab_tab_sources',
     'majestictab_tab_sources_deleted',
+    'majestictab_classtab_pins', // pinned Classical tab composers and pieces, by name
     'majestictab_custom_tuning_names',
     'gpDefaultStringsGuitar',
     'gpDefaultStringsBass',

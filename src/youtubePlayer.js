@@ -18,6 +18,7 @@ export let playerState = {
     customQuery: '',
     currentVideoId: null,
     currentTime: 0,
+    duration: 0, // seconds, as the embed reports it
     isPlaying: false,
     hasStarted: false,
     isSearching: false,
@@ -49,6 +50,7 @@ function emitYouTubeEvent(type, detail = {}) {
 function setVideoId(videoId, source) {
     if (playerState.currentVideoId === videoId) return;
     playerState.currentVideoId = videoId;
+    playerState.duration = 0;
     // A new (or no) embed: the old iframe won't report that it stopped.
     iframePlayed = false;
     reportedPlaying = false;
@@ -1396,6 +1398,7 @@ export function initYouTubePlayer() {
             if (data.event === 'infoDelivery' && data.info) {
                 // The player resets to full volume on each load; push the master level when it differs
                 if (typeof data.info.volume === 'number' && Math.abs(data.info.volume - getMasterVolume() * 100) > 1) applyYouTubeVolume();
+                if (typeof data.info.duration === 'number' && data.info.duration > 0) playerState.duration = data.info.duration;
                 if (typeof data.info.currentTime === 'number') {
                     playerState.currentTime = data.info.currentTime;
                     // currentTimeLastUpdated_ is the wall clock (s) at which currentTime was sampled.

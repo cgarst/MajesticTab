@@ -6,6 +6,10 @@
 const $ = (id) => document.getElementById(id);
 let embedded = null; // { id, el }
 let refTabHandler = null;
+let pendingTool = null;
+
+/** The next Tools page that is drawn opens on this tool (used by the library search to land in Classical tab). */
+export function openToolOnNextRender(id) { pendingTool = id; }
 
 // Chords, Scales and Circle of fifths are three tools on one screen, which opens on the tool chosen
 const REFERENCE_TOOLS = ['chords', 'scales', 'circle'];
@@ -23,9 +27,10 @@ function hostOf(id) {
 /** Close the tool shown in the page and give its screen back to the document. */
 export async function releaseEmbeddedTools() {
     if (!embedded) return;
-    const { id, el } = embedded;
+    const { id, el, dispose } = embedded;
     embedded = null;
-    if (id === 'openfile') {
+    if (id === 'openfile' || id === 'classtab') {
+        dispose?.();
         el.remove();
         return;
     }
@@ -54,6 +59,14 @@ async function openTool(id, pane) {
         });
         pane.appendChild(el);
         embedded = { id, el };
+        return;
+    }
+    if (id === 'classtab') {
+        const { renderClasstabTool } = await import('../classtab/classtabTool.js');
+        const el = document.createElement('div');
+        el.className = 'tool-embedded classtab-tool-embedded';
+        pane.appendChild(el);
+        embedded = { id, el, dispose: renderClasstabTool(el) };
         return;
     }
     if (REFERENCE_TOOLS.includes(id)) (await import('../referenceLibrary.js')).openReferenceModal(id);
@@ -130,7 +143,11 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         await releaseEmbeddedTools();
     });
     // Let the page (title and list) paint first: the chord library draws hundreds of diagrams
-    if (wide()) {
+    if (pendingTool) {
+        const id = pendingTool;
+        pendingTool = null;
+        requestAnimationFrame(() => setTimeout(() => { if (nav.isConnected && !embedded) select(id); }, 0));
+    } else if (wide()) {
         const first = tools.find((t) => !t.open && !t.disabled)?.id;
         requestAnimationFrame(() => setTimeout(() => { if (nav.isConnected && !embedded) select(first); }, 0));
     }

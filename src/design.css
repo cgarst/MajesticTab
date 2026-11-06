@@ -3873,3 +3873,133 @@ body > #controllerHelpModal { display: none; }
 /* Search and tracklist rows: titles wrap instead of truncating, so the row
    action stays a short ghost text action. */
 .search-stream-row .search-row-title { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+
+/* Classical tab (Tools): composers left, pieces right; flat rows on the ground ladder, no outlines or pills */
+.classtab-tool-embedded { height: 100%; }
+.ct-root { display: flex; flex-direction: column; gap: 12px; min-height: 0; height: 100%; max-width: 1040px; }
+.ct-head { display: flex; flex-direction: column; gap: 4px; }
+.ct-head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.ct-title { margin: 0; font-family: var(--font-display); font-size: 2rem; font-weight: 600; color: var(--ink); }
+.ct-credit, .ct-sub, .ct-note, .ct-error, .ct-empty { margin: 0; font-size: 13px; color: var(--ink2); }
+.ct-credit a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.ct-error { color: var(--danger, #f87171); }
+.ct-empty { padding: 14px; }
+.ct-start { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
+.ct-status { display: flex; align-items: center; gap: 16px; min-height: 44px; color: var(--ink); font-size: 14px; }
+.ct-text { background: transparent; border: 0; color: var(--ink2); font-size: 14px; padding: 6px 10px; min-height: 32px; border-radius: var(--r-control); cursor: pointer; transition: background-color var(--dur-fast), color var(--dur-fast); }
+.ct-text:hover { background: var(--s2); color: var(--ink); }
+.ct-text:focus-visible, .ct-filter:focus-visible, .ct-comp:focus-visible, .ct-open:focus-visible, .ct-more:focus-visible, .ct-menu button:focus-visible, .ct-back:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.ct-search { width: 100%; min-height: 44px; padding: 0 14px; border: 0; border-radius: var(--r-control); background: var(--s2); color: var(--ink); font-size: 15px; }
+.ct-search::placeholder { color: var(--ink2); }
+.ct-filters { display: flex; flex-wrap: wrap; gap: 8px; }
+.ct-filter { min-height: 32px; padding: 0 12px; border: 0; border-radius: var(--r-control); background: var(--s1); color: var(--ink2); font-size: 13px; cursor: pointer; transition: background-color var(--dur-fast), color var(--dur-fast); }
+.ct-filter:hover { background: var(--s2); color: var(--ink); }
+.ct-filter[aria-pressed="true"] { background: var(--s3); color: var(--ink); }
+.ct-morewrap { position: relative; display: inline-block; }
+.ct-moremenu { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; display: flex; flex-direction: column; gap: 2px; padding: 6px; min-width: 160px; background: var(--s3); border-radius: var(--r-control); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+.ct-moremenu .ct-filter { text-align: left; background: transparent; }
+.ct-moremenu .ct-filter[aria-pressed="true"] { background: var(--s2); }
+.ct-cols { display: grid; grid-template-columns: minmax(180px, 280px) minmax(0, 1fr); gap: 16px; min-height: 0; flex: 1; }
+.ct-composers, .ct-pieces { min-height: 0; overflow: auto; }
+.ct-comp { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink2); text-align: left; font-size: 14px; cursor: pointer; content-visibility: auto; contain-intrinsic-size: auto 44px; }
+.ct-comp:hover { background: var(--s1); color: var(--ink); }
+.ct-comp[aria-current="true"] { background: var(--s2); color: var(--ink); }
+.ct-count { color: var(--ink2); font-size: 13px; flex-shrink: 0; }
+.ct-pieces-title { margin: 4px 0 4px; font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; color: var(--ink); }
+.ct-back { display: none; background: transparent; border: 0; color: var(--ink2); min-height: 44px; padding: 0 8px; cursor: pointer; }
+.ct-list { display: flex; flex-direction: column; margin-top: 8px; }
+.ct-row { position: relative; display: flex; align-items: center; min-height: 56px; content-visibility: auto; contain-intrinsic-size: auto 56px; border-radius: var(--r-control); }
+.ct-row:hover { background: var(--s1); }
+.ct-open { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 12px; border: 0; background: transparent; text-align: left; color: var(--ink); cursor: pointer; border-radius: var(--r-control); }
+.ct-row-title { font-size: 15px; overflow-wrap: anywhere; }
+.ct-row-meta { font-size: 13px; color: var(--ink2); }
+.ct-more { flex-shrink: 0; width: 44px; min-height: 44px; margin-right: 4px; border: 0; background: transparent; color: var(--ink2); font-size: 18px; cursor: pointer; border-radius: var(--r-control); }
+.ct-more:hover { background: var(--s2); color: var(--ink); }
+.ct-menu { position: absolute; z-index: 5; right: 8px; top: calc(100% - 8px); display: flex; flex-direction: column; min-width: 200px; padding: 6px; background: var(--s3); border-radius: var(--r-control); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+.ct-menu button { min-height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--ink); text-align: left; font-size: 14px; cursor: pointer; border-radius: var(--r-control); }
+.ct-menu button:hover { background: var(--s2); }
+@media (max-width: 899px) {
+  .ct-cols { grid-template-columns: minmax(0, 1fr); }
+  .ct-cols[data-pane="composers"] .ct-pieces { display: none; }
+  .ct-cols[data-pane="pieces"] .ct-composers { display: none; }
+  .ct-cols[data-pane="pieces"] .ct-back { display: inline-flex; align-items: center; gap: 4px; }
+  .ct-title { font-size: 1.6rem; }
+}
+@media (pointer: coarse) { .ct-filter { min-height: 44px; } .ct-text { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { .ct-text, .ct-filter { transition: none; } }
+
+/* Classical tab matches the library: two-line rows (bold title, grey line), a column heading with its count,
+   a chevron and the ink dot on the chosen composer, and the row action in plain sight. No artwork. */
+.ct-colhead { display: flex; justify-content: space-between; padding: 8px 12px; font-size: 13px; color: var(--ink2); }
+.ct-comp { position: relative; min-height: 56px; padding: 6px 8px 6px 20px; gap: 12px; }
+.ct-comp-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.ct-comp-name { font-weight: 400; font-size: 14.5px; color: var(--ink); line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-comp-name b, .ct-row-title .ct-comp-name b { font-weight: 700; }
+.ct-row-title .ct-comp-name { font-size: inherit; overflow: visible; white-space: normal; }
+.ct-pin { flex-shrink: 0; width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--ink2); cursor: pointer; border-radius: var(--r-control); }
+.ct-pin:hover { background: var(--s2); color: var(--ink); }
+.ct-pin[aria-pressed="true"] { color: var(--ink); }
+.ct-pin:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.ct-comp-text small { font-size: 12px; color: var(--ink2); line-height: 1.2; }
+.ct-comp .chev { color: var(--ink2); opacity: .6; font-size: .9rem; }
+.ct-comp[aria-current="true"]::before { content: ''; position: absolute; left: 7px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
+.ct-row { min-height: 56px; border-radius: 0; }
+.ct-row:hover { background: var(--s2); }
+.ct-open { padding: 6px 12px 6px 20px; border-radius: 0; gap: 2px; }
+.ct-row-title { font-weight: 600; font-size: 14.5px; line-height: 1.25; }
+.ct-row-meta { font-size: 12px; line-height: 1.2; }
+.ct-add, .ct-inlib { flex-shrink: 0; font-size: 14px; white-space: nowrap; }
+.ct-inlib { color: var(--ink2); padding: 0 10px; }
+@media (max-width: 576px) { .ct-add, .ct-inlib { display: none; } }
+
+/* Tools fill the height of the page. The pane is a column and the host grows into it; a tool that has its own
+   scrolling lists (Classical tab) is held to the pane's height instead of growing past it. */
+.tools-shell .tool-pane { display: flex; flex-direction: column; }
+.tools-shell .tool-pane-host { flex: 1 0 auto; display: flex; flex-direction: column; }
+.tools-shell .tool-pane-host > .tool-embedded { flex: 1 0 auto; }
+.tools-shell .tool-pane:has(.classtab-tool-embedded) { overflow: hidden; padding-bottom: 12px; }
+.tools-shell .tool-pane:has(.classtab-tool-embedded) .tool-pane-host { flex: 1 1 0; min-height: 0; }
+.tools-shell .tool-pane-host > .classtab-tool-embedded { flex: 1 1 0; min-height: 0; height: auto; }
+
+/* The line between composers and pieces, as between artists and songs in the library */
+@media (min-width: 900px) {
+  .ct-composers { border-right: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08)); padding-right: 12px; }
+}
+
+/* Recording strip: the linked recording's progress, above the page strip on text and PDF tabs. It reads as unlinked
+   until sync points exist: grey fill, "Not synced", and the tab does not follow it. Synced, the fill takes the playhead
+   color and ticks show where the tab is pinned. */
+.rec-strip { flex: none; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; width: 100%; min-height: 36px; padding: 2px 0; }
+.rec-strip[hidden] { display: none; }
+.page-strip:not(.in-dock) ~ .rec-strip, .rec-strip:not(.in-dock) { padding-left: 14px; padding-right: 14px; }
+.rec-time { flex: none; min-width: 5.5em; font: 500 12px system-ui, sans-serif; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.rec-track { position: relative; flex: 1 1 160px; min-width: 120px; height: 8px; border-radius: var(--r-control); background: var(--s2); cursor: pointer; touch-action: none; overflow: hidden; }
+.rec-track::before { content: ''; position: absolute; inset: -14px 0; } /* a taller hit area */
+.rec-fill { position: absolute; inset: 0; transform-origin: 0 50%; transform: scaleX(0); background: var(--ink2); opacity: .55; display: block; }
+.rec-strip.is-synced .rec-fill { background: var(--hue); opacity: 1; }
+.rec-marks { position: absolute; inset: 0; pointer-events: none; }
+.rec-marks i { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); opacity: .6; }
+.rec-status { flex: none; font: 500 13px system-ui, sans-serif; color: var(--ink2); }
+.rec-strip.is-synced .rec-status, .rec-strip.is-tapping .rec-status { color: var(--ink); }
+.rec-actions { display: inline-flex; gap: 2px; flex: none; }
+.rec-actions .ct-text[disabled] { opacity: .4; pointer-events: none; }
+.rec-actions .rec-done { color: var(--ink); }
+.rec-track:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.page-strip.in-dock ~ .rec-strip { order: -1; }
+body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { display: block !important; }
+/* Tab text: where the recording is, and what is pinned while tapping */
+/* The block you just tapped while syncing. When following, the reading line shows the position instead. */
+.ts-tapping .ts-current { background: var(--s2); box-shadow: inset 3px 0 0 var(--hue); }
+.ts-tapping [data-block] { cursor: pointer; }
+.ts-tapping [data-block]:hover { background: var(--s1); }
+.ts-pinned { box-shadow: inset 3px 0 0 var(--ink2); }
+.ts-pinned.ts-current { box-shadow: inset 3px 0 0 var(--hue); }
+/* Reading marker: a solid playhead-colored triangle at the left edge of the tab, level with where the recording puts the
+   reader. It glides down at the pace the sync points imply, so how near it is to the bottom says how soon the page
+   scrolls or turns. Flat, no glow. */
+.reading-line { position: absolute; left: 0; top: 0; z-index: 6; width: 0; height: 0; pointer-events: none; will-change: transform; opacity: 1; transition: opacity var(--dur-base) var(--ease-out); }
+.reading-line::before { content: ''; position: absolute; left: 2px; top: -8px; border: 8px solid transparent; border-left: 12px solid var(--hue); border-right: 0; }
+.reading-line[hidden] { display: none; }
+.reading-line.is-off { opacity: 0; transition-duration: var(--dur-fast); }
+@media (prefers-reduced-motion: reduce) { .reading-line { transition: none; } }
+@media (prefers-reduced-motion: no-preference) { .rec-fill { transition: transform 120ms linear; } }

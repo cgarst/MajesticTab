@@ -59,6 +59,7 @@ const allowedRemoteHosts = new Set([
   '127.0.0.1',
   'accounts.google.com',
   'api.github.com',
+  'www.classtab.org', // Classical tab: the archive download and the credit link to the site's home page
   'cloud.example.com', // placeholder text in the WebDAV form, never requested
   'apis.google.com',
   'developers.google.com',

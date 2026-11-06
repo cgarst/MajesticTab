@@ -2872,6 +2872,8 @@ function setupLibraryFilter(container, context = {}) {
           `}
         </div>
 
+        <div class="search-stream-section" id="libClasstabSearch" hidden></div>
+
         <div class="search-catalog-status-slot" id="libSearchCatalogStatus">
           ${!navigator.onLine ? `Offline · Showing local library results only` : (rawQuery.length >= 3 ? `<span class="search-catalog-pulse-dot"></span><span>Searching music catalog…</span>` : '')}
         </div>
@@ -2880,6 +2882,8 @@ function setupLibraryFilter(container, context = {}) {
         `;
 
         filterResults.innerHTML = html;
+
+        renderClasstabSearchSection(filterResults.querySelector('#libClasstabSearch'), rawQuery);
 
         // Wire song row play actions
         setupSongRowActions(filterResults);
@@ -2970,6 +2974,59 @@ function setupLibraryFilter(container, context = {}) {
         filterInput.value = libraryFilterQuery;
         runLocalFilter();
     }
+}
+
+// Classical tab results in the library search: pieces and composers from the installed archive (nothing when there is none)
+async function renderClasstabSearchSection(slot, rawQuery) {
+    if (!slot) return;
+    let res;
+    try {
+        res = await (await import('./classtab/search.js')).searchClasstab(rawQuery);
+    } catch { return; }
+    if (!res || !slot.isConnected || !res.total) return;
+    const { nameParts } = await import('./classtab/catalog.js');
+    const nameHtml = (name) => { const p = nameParts(name); return `${escapeHtml(p.before)}${p.key ? `<b>${escapeHtml(p.key)}</b>` : ''}${escapeHtml(p.after)}`; };
+    const pin = (on) => (on ? '<i class="bi-pin-angle-fill" aria-label="Pinned"></i> ' : '');
+    slot.innerHTML = `
+      <div class="search-stream-section-title"><span>Classical tab</span><span class="search-stream-count">· ${res.total.toLocaleString()}</span></div>
+      <div class="search-stream-list">
+        ${res.composers.map((c) => `<div class="search-stream-row is-navigable" data-ct-composer="${escapeHtml(c.name)}" tabindex="0">
+          <div class="search-row-meta min-w-0 flex-grow-1"><div class="search-row-title text-truncate">${pin(c.pinned)}${nameHtml(c.name)}</div>
+          <div class="search-row-sub text-truncate">Composer · ${c.count.toLocaleString()} ${c.count === 1 ? 'piece' : 'pieces'}</div></div>
+          <button type="button" class="btn btn-sm lib-ghost-action flex-shrink-0 ms-2" data-ct-composer="${escapeHtml(c.name)}">Browse</button></div>`).join('')}
+        ${res.pieces.map((m, i) => `<div class="search-stream-row is-navigable" data-ct-piece="${i}" tabindex="0">
+          <div class="search-row-meta min-w-0 flex-grow-1"><div class="search-row-title text-truncate">${pin(m.pinned)}${escapeHtml(m.piece.title)}</div>
+          <div class="search-row-sub text-truncate">${escapeHtml(m.composer.name)}</div></div>
+          <button type="button" class="btn btn-sm btn-theme-outline flex-shrink-0 ms-2" data-ct-open="${i}">Open</button></div>`).join('')}
+        ${res.total > res.pieces.length ? `<div class="search-stream-row is-navigable" data-ct-all tabindex="0"><div class="search-row-meta flex-grow-1"><div class="search-row-title">See all ${res.total.toLocaleString()} in Classical tab</div></div></div>` : ''}
+      </div>`;
+    slot.hidden = false;
+    const goTool = async (query) => {
+        const { requestClasstabView } = await import('./classtab/classtabTool.js');
+        const { openToolOnNextRender } = await import('./utils/toolsPage.js');
+        requestClasstabView({ query });
+        openToolOnNextRender('classtab');
+        libraryFilterQuery = '';
+        await goLibraryTab('tools');
+    };
+    const open = async (i) => {
+        try {
+            const m = res.pieces[i];
+            await (await import('./classtab/classtabTool.js')).openPiece(m.piece, m.composer);
+        } catch (err) { showToast(err?.message || 'Could not open that piece.', 'error'); }
+    };
+    slot.addEventListener('click', (e) => {
+        const openBtn = e.target.closest('[data-ct-open]');
+        if (openBtn) { open(Number(openBtn.dataset.ctOpen)); return; }
+        const row = e.target.closest('[data-ct-piece]');
+        if (row) { open(Number(row.dataset.ctPiece)); return; }
+        const comp = e.target.closest('[data-ct-composer]');
+        if (comp) { goTool(comp.dataset.ctComposer); return; }
+        if (e.target.closest('[data-ct-all]')) goTool(rawQuery);
+    });
+    slot.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.matches('.search-stream-row')) e.target.click();
+    });
 }
 
 function renderArtistCollageHtml(artist) {
@@ -4383,7 +4440,7 @@ function addTabProviderItemsHtml(buttonClass, attrs = '') {
     }).join('');
 }
 
-// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome, Jam and Open file render in the page.
+// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome, Jam, Classical tab and Open file render in the page.
 function renderToolsView(container) {
     const $ = (id) => document.getElementById(id);
     const tools = [
@@ -4394,6 +4451,7 @@ function renderToolsView(container) {
         { id: 'metronome', title: 'Metronome', icon: '<i class="bi-stopwatch" aria-hidden="true"></i>' }
     ];
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', title: 'Jam', icon: '<i class="bi-people-fill" aria-hidden="true"></i>' });
+    tools.push({ id: 'classtab', title: 'Classical tab', icon: '<i class="bi-music-note-list" aria-hidden="true"></i>' });
     tools.push({ id: 'openfile', title: 'Open file', icon: '<i class="bi-folder2-open" aria-hidden="true"></i>' });
     renderToolsPage(container, { tools, escapeHtml });
 }

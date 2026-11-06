@@ -13,6 +13,7 @@ import { showLoadingCard, setLoadingProgress, hideLoadingCard } from './utils/lo
 import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios } from './gpProcessor/gpHandler.js';
 import { setGpDisplayScale, applySavedGpDisplayScale, setGpDensity, getGpDensity, applySavedGpDensity, updateAutoGpDensity, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { initPageStrip } from './utils/pageStrip.js';
+import { initTextSync } from './textSync/textSync.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
@@ -27,6 +28,8 @@ import { restoreDebugBackup } from './debugRestore.js';
 import { initSoundFontPanel } from './gpProcessor/soundFontPanel.js';
 import { initMixerPanel, wireModal, closeModal } from './gpProcessor/mixerPanel.js';
 import { initAudioLatencyModal } from './gpProcessor/audioLatencyModal.js';
+import { initMidiSynthUi } from './classtab/midiSynth.js';
+import { initClasstabSongMenu } from './classtab/songMenu.js';
 import { initSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
 import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdfBookmarksUI } from './pdfProcessor/pdfBookmarks.js';
 import { initTheming } from './themeEngine.js';
@@ -855,6 +858,8 @@ async function initApp() {
     initAudioFilePlayer();
     initRealAudioController();
     initSynthPlayer();
+    initMidiSynthUi(getCurrentFile);
+    initClasstabSongMenu(getCurrentFile);
     initSoundFontPanel();
     initMixerPanel();
     initAudioLatencyModal();
@@ -1031,6 +1036,7 @@ async function initApp() {
     setupViewModeToggles(pageModeRadio, continuousModeRadio, getNavigationConfig);
     setupTapClickNavigation(output, getNavigationConfig);
     initPageStrip(getNavigationConfig);
+    initTextSync({ getConfig: getNavigationConfig, getCurrentFile });
 }
 
 // Modules with top-level await (channel.js) can finish evaluating after DOMContentLoaded has fired.
@@ -1245,6 +1251,8 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
     // Update YouTube player metadata with filename
     updateSongForYouTube({
         filename: file.name,
+        scoreTitle: file.songTitle || '',
+        scoreArtist: file.songTitle ? (file.artist || '') : '',
         librarySongId: file.librarySongId,
         tabName: file.tabName || file.name,
         sourceWebsite: file.sourceWebsite || null,

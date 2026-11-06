@@ -61,6 +61,11 @@ function setStatus(text) {
 
 // --- Public state for the global transport -------------------------------------------------------------------------
 
+/** The loaded audio file as a recording for a tab without bars: `{ source, media }`, or null. */
+export function getLocalRecording() {
+    return state.source && state.meta ? { source: state.source, media: mediaOf(state.meta) } : null;
+}
+
 export function isAudioFileAvailable() {
     return Boolean(state.currentId && state.files.some(f => f.id === state.currentId));
 }

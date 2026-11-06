@@ -22,6 +22,7 @@ const SECTIONS = [
     { id: 'websearch', label: 'Web search', icon: 'bi-globe2', nativeOnly: true },
     { id: 'sound', label: 'Sound', icon: 'bi-soundwave' },
     { id: 'library', label: 'Library and backup', icon: 'bi-collection' },
+    { id: 'classtab', label: 'Classical tab', icon: 'bi-music-note-list' },
     { id: 'updates', label: 'Updates', icon: 'bi-arrow-repeat' },
     { id: 'about', label: 'About', icon: 'bi-info-circle' }
 ];
@@ -378,6 +379,44 @@ export function initSettingsPage() {
     panes.library.appendChild(danger);
     // keep the originals referenced so their ids stay unique if anything still looks them up
     void syncBtn; void moreData; void clearCache; void deleteAll; void backupBtn; void restoreBtn;
+
+    // Classical tab: what the downloaded archive takes up, and removing it. Updating lives on the tool itself.
+    const renderClasstabPane = async () => {
+        const { getCatalogRecord, removeArchive } = await import('../classtab/archive.js');
+        const { formatUpdated } = await import('../classtab/catalog.js');
+        const rec = await getCatalogRecord();
+        const pane = panes.classtab;
+        pane.replaceChildren();
+        if (!rec) {
+            pane.appendChild(group('Archive', row('No archive', 'Download the Classtab archive from the Classical tab tool in Tools.')));
+            return;
+        }
+        const mb = (rec.bytes / 1048576).toFixed(1);
+        pane.appendChild(group('Archive',
+            row('Size on this device', `${mb} MB \u00b7 ${rec.counts.pieces.toLocaleString()} pieces by ${rec.counts.composers.toLocaleString()} composers`),
+            row('Last updated', formatUpdated(rec.updatedAt)),
+            row('Backup', 'Not part of your backup. Download it again anytime. Songs you added to your library are backed up.')));
+        const btn = el('button', 'btn btn-sm srow-ghost srow-hit is-danger', 'Remove');
+        btn.type = 'button';
+        btn.setAttribute('aria-label', 'Remove archive');
+        let armed = null;
+        btn.addEventListener('click', async () => {
+            if (!armed) {
+                btn.textContent = 'Press again to remove';
+                armed = setTimeout(() => { armed = null; btn.textContent = 'Remove'; }, 4000);
+                return;
+            }
+            clearTimeout(armed);
+            await removeArchive();
+        });
+        const r = row('Remove archive', 'Deletes the downloaded archive. Songs you added to your library stay as they are.', btn);
+        r.classList.add('srow-task');
+        const danger = group('Danger zone', r);
+        danger.classList.add('danger');
+        pane.appendChild(danger);
+    };
+    renderClasstabPane();
+    import('../classtab/archive.js').then((m) => m.onArchiveChange(renderClasstabPane));
 
     // Updates: its own section above About. The card is kept as the container because updater.js shows it
     // (self-updating builds) or removes it (store builds); the section follows it.
