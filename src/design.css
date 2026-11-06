@@ -3388,6 +3388,28 @@ body > #controllerHelpModal { display: none; }
 
 .search-subview-head {
     min-height: 36px;
+    gap: 8px;
+}
+
+.search-subview-title {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    min-width: 0;
+    flex: 1 1 0;
+    text-align: right;
+}
+
+.search-subview-name {
+    color: var(--ink);
+    font-weight: 600;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.search-subview-sub {
+    color: var(--ink2);
+    font-size: 0.875em;
 }
 
 .search-back-btn {

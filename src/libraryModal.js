@@ -2491,9 +2491,9 @@ function setupLibraryFilter(container, context = {}) {
                 <button type="button" class="search-back-btn" id="backToSearchCatalogBtn">
                   <i class="bi-chevron-left" aria-hidden="true"></i> <span>Search</span>
                 </button>
-                <div class="d-flex align-items-center gap-2 min-w-0">
-                  <span class="fw-semibold text-truncate" style="color: var(--ink);">${escapeHtml(artistName)}</span>
-                  <span class="small" style="color: var(--ink2);">· ${albums.length} ${albums.length === 1 ? 'release' : 'releases'} · albums first, then EPs and singles</span>
+                <div class="search-subview-title">
+                  <span class="search-subview-name">${escapeHtml(artistName)}</span>
+                  <span class="search-subview-sub">${albums.length} ${albums.length === 1 ? 'release' : 'releases'} · albums first, then EPs and singles</span>
                 </div>
               </div>
               <div class="search-stream-list">
