@@ -3670,20 +3670,26 @@ body > #controllerHelpModal { display: none; }
         padding-bottom: 6px;
         gap: 6px;
         display: flex !important;
+        flex-wrap: wrap;
         justify-content: space-between;
         align-items: center;
     }
     .downloader-nav-left {
         flex: 0 0 auto;
-    }
-    .downloader-nav-center {
-        flex: 1 1 auto;
-        min-width: 0;
-        margin-inline: 4px;
+        order: 1;
     }
     .downloader-nav-right {
         flex: 0 0 auto;
         gap: 4px;
+        order: 2;
+    }
+    /* The address gets its own full-width second row. */
+    .downloader-nav-center {
+        flex: 0 0 100%;
+        order: 3;
+        min-width: 0;
+        margin-inline: 0;
+        padding: 0;
     }
     .downloader-url-group {
         padding: 2px 8px !important;
