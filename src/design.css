@@ -3625,12 +3625,12 @@ body > #controllerHelpModal { display: none; }
     background: var(--s2);
     color: var(--ink2);
     font-size: 12px;
-    border-top: 1px solid var(--s3);
 }
 
 .downloader-advisory-switch-btn {
     color: var(--hue) !important;
     font-size: 12px;
+    font-weight: 600;
 }
 
 .downloader-zip-picker {

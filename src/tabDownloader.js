@@ -133,7 +133,7 @@ export function hideTransientFeedback() {
 /**
  * Show non-modal advisory badge
  */
-export function showAdvisoryBadge(text, onSwitch) {
+export function showAdvisoryBadge(text, onSwitch, actionLabel = 'Switch target') {
     const badge = document.getElementById('downloaderAdvisoryBadge');
     const textEl = document.getElementById('downloaderAdvisoryText');
     const switchBtn = document.getElementById('downloaderAdvisorySwitchBtn');
@@ -141,6 +141,7 @@ export function showAdvisoryBadge(text, onSwitch) {
     textEl.textContent = text;
     if (switchBtn) {
         switchBtn.style.display = onSwitch ? '' : 'none';
+        switchBtn.textContent = actionLabel;
         switchBtn.onclick = () => {
             hideAdvisoryBadge();
             if (typeof onSwitch === 'function') onSwitch();
@@ -152,6 +153,21 @@ export function showAdvisoryBadge(text, onSwitch) {
 export function hideAdvisoryBadge() {
     const badge = document.getElementById('downloaderAdvisoryBadge');
     if (badge) badge.style.display = 'none';
+}
+
+/**
+ * Offer to send a tab site page address to the downloader. Nothing is redirected
+ * until the user presses the action.
+ * @param {string} url
+ * @param {Function} [onSend] runs instead of switching the in-app browser (used outside the downloader)
+ */
+export function offerWsaUrlBanner(url, onSend) {
+    const cleanUrl = unwrapGoogleUrl(url);
+    const send = () => {
+        if (typeof onSend === 'function') onSend(cleanUrl);
+        else handleWsaUrlIntercept(cleanUrl);
+    };
+    showAdvisoryBadge('This is a tab site page. The downloader can fetch it.', send, 'Send to downloader');
 }
 
 /**
@@ -1558,7 +1574,10 @@ export function handleWsaUrlIntercept(url) {
 function applyDownloaderUrl(rawUrl) {
     const url = stripAdFragment(rawUrl || '');
     if (url && isWsaTabUrl(url)) {
-        if (handleWsaUrlIntercept(url)) return;
+        const cleanUrl = unwrapGoogleUrl(url);
+        const sent = pendingMatchedTabUrl === cleanUrl && activeSourceId === 'downloader';
+        if (!sent) offerWsaUrlBanner(url);
+        else hideAdvisoryBadge();
     }
     const urlText = document.getElementById('downloaderUrlText');
     const urlGroup = document.getElementById('downloaderUrlGroup');
