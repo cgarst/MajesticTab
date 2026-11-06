@@ -64,7 +64,7 @@
 
 <header class="top">
   <div class="wrap">
-    <a class="brand" href="#top" aria-label="MajesticTab home"><span class="tile"><img src="icons/mark.svg" width="28" height="29" alt=""></span>Majestic<b>Tab</b></a>
+    <a class="brand" href="#top" aria-label="MajesticTab home"><span class="tile"><img src="icons/mark.svg" width="28" height="29" alt=""></span><span>Majestic<b>Tab</b></span></a>
     <nav class="nav" aria-label="Main">
       <a href="#library">Library</a>
       <a href="#sources">Sources</a>
@@ -414,35 +414,34 @@
       <div class="dl">
         <h3>iPhone and iPad</h3>
         <p>App Store: coming soon</p>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest">Download IPA</a>
-        <p class="note">Not yet on the App Store, so the IPA is sideloaded with SideStore, AltStore, LiveContainer or Sideloadly. Or add our SideStore source:</p>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest/download/source.json">SideStore source</a>
+        <a href="https://github.com/cgarst/MajesticTab/releases/latest" data-asset="-ios.ipa">Download IPA</a>
+        <button type="button" class="copy" data-copy="https://github.com/cgarst/MajesticTab/releases/latest/download/source.json" aria-label="Copy SideStore source address"><span>SideStore source</span><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="i-copy"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5"/></g><path class="i-done" d="M3 8.5l3.2 3.2L13 4.8"/></svg></button>
       </div>
       <div class="dl">
         <h3>Mac</h3>
         <p>Mac App Store: coming soon</p>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest">Apple Silicon (.dmg)</a>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest">Intel (.dmg)</a>
+        <a href="https://github.com/cgarst/MajesticTab/releases/latest" data-asset="-macos-apple-silicon.dmg">Apple Silicon (.dmg)</a>
+        <a href="https://github.com/cgarst/MajesticTab/releases/latest" data-asset="-macos-intel.dmg">Intel (.dmg)</a>
       </div>
       <div class="dl">
         <h3>Windows</h3>
         <a href="https://apps.microsoft.com/detail/9p7mb2c84cfv?referrer=appbadge">Microsoft Store</a>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest">EXE (x86_64)</a>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest">EXE (ARM64)</a>
+        <a href="https://github.com/cgarst/MajesticTab/releases/latest" data-asset="-windows-x64-setup.exe">EXE (x86_64)</a>
+        <a href="https://github.com/cgarst/MajesticTab/releases/latest" data-asset="-windows-arm64-setup.exe">EXE (ARM64)</a>
         <p class="note">Or with winget:</p>
-        <code>winget install majestictab</code>
+        <button type="button" class="copy" data-copy="winget install majestictab" aria-label="Copy winget command"><code>winget install majestictab</code><svg class="ico" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="i-copy"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 3.5v-.5a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 3v5A1.5 1.5 0 0 0 4 9.5h.5"/></g><path class="i-done" d="M3 8.5l3.2 3.2L13 4.8"/></svg></button>
       </div>
       <div class="dl">
         <h3>Android</h3>
         <p>Google Play: coming soon</p>
         <p>F-Droid: coming soon</p>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest">Download APK</a>
+        <a href="https://github.com/cgarst/MajesticTab/releases/latest" data-asset="-android.apk">Download APK</a>
       </div>
       <div class="dl">
         <h3>Linux and Steam Deck</h3>
         <p>Flathub: coming soon</p>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest">Flatpak (x86_64)</a>
-        <a href="https://github.com/cgarst/MajesticTab/releases/latest">Flatpak (ARM64)</a>
+        <a href="https://github.com/cgarst/MajesticTab/releases/latest" data-asset="-linux-x86_64.flatpak">Flatpak (x86_64)</a>
+        <a href="https://github.com/cgarst/MajesticTab/releases/latest" data-asset="-linux-aarch64.flatpak">Flatpak (ARM64)</a>
         <a href="img/steam/steam_deck_artwork.zip">Steam Deck art (.zip)</a>
       </div>
     </div>
@@ -452,7 +451,7 @@
 
 <footer class="foot">
   <div class="wrap">
-    <a class="brand" href="#top" aria-label="MajesticTab, back to top"><span class="tile"><img src="icons/mark.svg" width="24" height="25" alt=""></span>Majestic<b>Tab</b></a>
+    <a class="brand" href="#top" aria-label="MajesticTab, back to top"><span class="tile"><img src="icons/mark.svg" width="24" height="25" alt=""></span><span>Majestic<b>Tab</b></span></a>
     <nav class="foot-links" aria-label="Footer">
       <a href="https://github.com/cgarst/MajesticTab">Source code</a>
       <a href="https://github.com/cgarst/MajesticTab/releases/latest">Latest release</a>
@@ -468,6 +467,44 @@
   var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   var v = document.querySelector('.hero-media video');
   if (v && reduce) { v.removeAttribute('autoplay'); v.pause(); }
+
+  // Download links: point each at the newest release's file. Without the lookup
+  // they keep the releases page as their href, which always has the latest files.
+  var assetLinks = document.querySelectorAll('a[data-asset]');
+  if (assetLinks.length && window.fetch) {
+    var applyAssets = function (assets) {
+      assetLinks.forEach(function (a) {
+        for (var i = 0; i < assets.length; i++) {
+          if (assets[i].name.slice(-a.dataset.asset.length) === a.dataset.asset) { a.href = assets[i].url; break; }
+        }
+      });
+    };
+    var cached = null;
+    try { cached = JSON.parse(sessionStorage.getItem('mt-assets')); } catch (e) {}
+    if (cached && cached.length) applyAssets(cached);
+    else fetch('https://api.github.com/repos/cgarst/MajesticTab/releases/latest', { headers: { Accept: 'application/vnd.github+json' } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (rel) {
+        var assets = (rel.assets || []).map(function (x) { return { name: x.name, url: x.browser_download_url }; });
+        applyAssets(assets);
+        try { sessionStorage.setItem('mt-assets', JSON.stringify(assets)); } catch (e) {}
+      })
+      .catch(function () {});
+  }
+
+  document.querySelectorAll('.copy').forEach(function (b) {
+    var label = b.getAttribute('aria-label'), t;
+    b.addEventListener('click', function () {
+      var done = function (ok) {
+        b.classList.toggle('done', ok);
+        b.setAttribute('aria-label', ok ? 'Copied' : 'Copy failed');
+        clearTimeout(t); t = setTimeout(function () { b.classList.remove('done'); b.setAttribute('aria-label', label); }, 1800);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(b.dataset.copy).then(function () { done(true); }, function () { done(false); });
+      } else done(false);
+    });
+  });
 
   var rv = document.querySelectorAll('.rv');
   var small = matchMedia('(max-width: 767px)').matches; // phones: no entrance animation, the page is long and every part is simply there
