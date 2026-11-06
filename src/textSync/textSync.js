@@ -50,14 +50,17 @@ function activeRecording(file) {
     const yt = ytSource.id ? { source: ytSource, label: 'Video', media: { kind: 'youtube', videoId: ytSource.id } } : null;
     const l = getLocalRecording();
     const local = l ? { source: l.source, label: 'Audio file', media: l.media } : null;
-    const all = { midi, yt, local };
+    // The dock's choice leads: with Synth selected the MIDI file is the recording, and with Original selected it is not,
+    // however recently it played (a sticky MIDI pick would keep its progress bar up after the switch).
+    const synthMode = $('mobileSynthToggleBtn')?.classList.contains('active-audio-mode');
+    if (synthMode && midi) return midi;
+    const all = { midi: synthMode || !(yt || local) ? midi : null, yt, local };
     const playing = Object.keys(all).find((k) => all[k] && all[k].source.isPlaying());
     if (playing) stickyKind = playing;
     if (stickyKind && all[stickyKind]) return all[stickyKind];
-    const synthMode = $('mobileSynthToggleBtn')?.classList.contains('active-audio-mode');
-    if (synthMode && midi) return midi;
     const preferLocal = getRealAudioActiveSource() === 'local';
-    return (preferLocal ? local : yt) || (preferLocal ? yt : local) || midi;
+    const originalMode = $('mobileYtToggleBtn')?.classList.contains('active-audio-mode');
+    return (preferLocal ? local : yt) || (preferLocal ? yt : local) || (originalMode ? null : midi);
 }
 
 // --- Tab units: what a point names ------------------------------------------------------------------------------------

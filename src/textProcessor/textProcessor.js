@@ -278,27 +278,37 @@ function createPaginatedPages(processedLines) {
     const outputEl = document.getElementById('output');
     const outputHeight = outputEl?.clientHeight || window.innerHeight;
     const pageHeight = outputHeight - 80 - PAGE_PADDING * 2 - 2;
-    const pageWidth = window.innerWidth - 40;
-    const available = pageWidth - PAGE_PADDING * 4;
+    // The text area's own width, not the window's: the library rail and the open Practice panel take space too.
+    const outStyle = outputEl ? getComputedStyle(outputEl) : null;
+    const outputWidth = outputEl
+        ? outputEl.clientWidth - (parseFloat(outStyle.paddingLeft) || 0) - (parseFloat(outStyle.paddingRight) || 0)
+        : window.innerWidth;
+    // .pageContainer pads 20px a side and puts 20px between pages; a lone page is capped at 95% of that.
+    const CONTAINER_PAD = 20, PAGE_GAP = 20, PAGE_BORDER = 2;
+    const inner = Math.max(0, outputWidth - CONTAINER_PAD * 2);
+    const widthPerPage = n => (n === 1 ? inner * 0.95 : (inner - PAGE_GAP * (n - 1)) / n);
 
     // How many pages sit side by side follows the text itself: a narrow tab leaves room for more pages at the same
-    // size, a wide one gets one. Measure the widest line at its natural width.
+    // size, a wide one gets one. Measure the widest line at its natural width; add pages only while it still fits.
     const probe = document.createElement('div');
     probe.className = 'measure-div';
     probe.style.cssText = 'position:absolute;visibility:hidden;width:max-content;white-space:pre';
     processedLines.forEach(el => probe.appendChild(el.cloneNode(true)));
     document.body.appendChild(probe);
-    const naturalWidth = Math.ceil(probe.scrollWidth) + PAGE_PADDING * 2;
+    const naturalWidth = Math.ceil(probe.scrollWidth) + PAGE_PADDING * 2 + PAGE_BORDER;
     document.body.removeChild(probe);
     const MAX_PAGES = getLandscapePageLayout() === 'single' ? 1 : 6;
-    const pagesPerView = Math.max(1, Math.min(MAX_PAGES, Math.floor(available / Math.max(1, naturalWidth))));
+    let pagesPerView = 1;
+    for (let n = 2; n <= MAX_PAGES; n++) {
+        if (widthPerPage(n) >= naturalWidth) pagesPerView = n; else break;
+    }
     setTextPagesPerView(pagesPerView);
-    const availableWidth = Math.floor(available / pagesPerView);
+    const availableWidth = Math.floor(widthPerPage(pagesPerView));
 
     // Create a temporary div to measure content height
     const measureDiv = document.createElement('div');
     measureDiv.className = 'measure-div';
-    measureDiv.style.width = `${availableWidth - PAGE_PADDING * 2}px`;
+    measureDiv.style.width = `${availableWidth - PAGE_PADDING * 2 - PAGE_BORDER}px`;
     document.body.appendChild(measureDiv);
     
     function measureContentHeight(elements) {
