@@ -10,8 +10,9 @@ const pts = [
     { barIndex: 5, timeMs: 9000 }
 ];
 
-test('nothing before the first point', () => {
-    assert.equal(positionAt(pts, units, 500), null);
+test('before the first point the line waits at its unit; no points, no line', () => {
+    assert.equal(positionAt(pts, units, 500), 0);
+    assert.equal(positionAt([{ barIndex: 2, timeMs: 5000 }], units, 0), 2);
     assert.equal(positionAt([], units, 500), null);
 });
 

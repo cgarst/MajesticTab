@@ -18,13 +18,15 @@ export function rankOf(unitIds, unit) {
  * @param {number[]} unitIds every unit in reading order
  * @param {number} timeMs the heard time (recording clock minus audio latency)
  * @param {number|null} endMs length of the recording, to let the last unit finish
- * @returns {number|null} a rank (unit index + fraction), or null before the first point or with no usable points
+ * @returns {number|null} a rank (unit index + fraction), or null with no usable points; before the first point it rests at that point's unit
  */
 export function positionAt(points, unitIds, timeMs, endMs = null) {
     const usable = points
         .map((p) => ({ rank: rankOf(unitIds, p.barIndex), t: p.timeMs }))
         .filter((p) => p.rank >= 0);
-    if (!usable.length || timeMs < usable[0].t) return null;
+    if (!usable.length) return null;
+    // Before the first point the line waits at the first point's unit (where the song starts)
+    if (timeMs < usable[0].t) return usable[0].rank;
     let i = 0;
     while (i + 1 < usable.length && usable[i + 1].t <= timeMs) i++;
     const a = usable[i];

@@ -187,14 +187,16 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         e.preventDefault();
         e.stopPropagation();
         if (unit == null) return;
-        const timeMs = Math.max(0, Math.round(rec.source.getTimeMs() - latency()));
+        // The first tap marks where the song starts: that unit at 0:00, wherever the recording is now. A song seldom
+        // begins on the first line or page, so the reading line waits there from the moment the recording plays.
+        const isStart = !points.length;
+        const timeMs = isStart ? 0 : Math.max(0, Math.round(rec.source.getTimeMs() - latency()));
         const point = { id: makeId(), barIndex: unit, occurrence: 0, pos: 0, timeMs, source: 'tap' };
         // A tap within half a second of an older point replaces it
-        // A new song starts at 0:00 on the first page or block, saved together with the first tap
-        const base = points.length ? points : [{ id: makeId(), barIndex: 0, occurrence: 0, pos: 0, timeMs: 0, source: 'tap' }];
-        writePoints([...base.filter((p) => Math.abs(p.timeMs - timeMs) > 500), point]);
+        writePoints([...points.filter((p) => Math.abs(p.timeMs - timeMs) > 500), point]);
         history.push(point.id);
-        lastTapText = isPdf(getCurrentFile()) ? `Page ${unit + 1} at ${fmtTime(timeMs)}` : `Pinned at ${fmtTime(timeMs)}`;
+        if (isStart) lastTapText = `Start set. Now tap each ${unitWord()} as you hear it`;
+        else lastTapText = isPdf(getCurrentFile()) ? `Page ${unit + 1} at ${fmtTime(timeMs)}` : `Pinned at ${fmtTime(timeMs)}`;
         markCurrent(unit);
         drawn(true);
     }
@@ -207,7 +209,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         lastTapText = '';
         output.classList.add('ts-tapping');
         drawn(true);
-        showToast(`Play the recording, then tap each ${unitWord()} as you hear it.`, 'info', 4000);
+        showToast(points.length ? `Play the recording, then tap each ${unitWord()} as you hear it.` : `First tap the ${unitWord()} where the song starts, then play and tap each one as you hear it.`, 'info', 5000);
     }
     function stopTapping() {
         tapping = false;
@@ -266,7 +268,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         strip.classList.toggle('is-tapping', tapping);
         const word = unitWord();
         if (tapping) {
-            statusEl.textContent = lastTapText || `Tap the ${word} you hear`;
+            statusEl.textContent = lastTapText || (points.length ? `Tap the ${word} you hear` : `Tap the ${word} where the song starts`);
             actionsEl.innerHTML = `<button type="button" class="ct-text" data-act="undo" ${history.length ? '' : 'disabled'}>Undo</button>`
                 + `<button type="button" class="ct-text" data-act="clear" ${points.length ? '' : 'disabled'}>${clearArmed ? 'Press again to clear' : 'Clear'}</button>`
                 + '<button type="button" class="ct-text rec-done" data-act="done">Done</button>';
@@ -481,6 +483,9 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         if (points.length && !tapping) ensureFrame(); else hideLine();
         if (tapping) {
             // The lines already pinned show while tapping, so the user sees what is left
+            // and lines whose point was cleared or undone stop showing
+            const pinned = new Set(points.map((p) => String(p.barIndex)));
+            output.querySelectorAll('.ts-pinned').forEach((n) => { if (!pinned.has(n.dataset.block)) n.classList.remove('ts-pinned'); });
             for (const p of points) blockEl(p.barIndex)?.classList.add('ts-pinned');
         }
     }
