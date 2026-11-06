@@ -1614,6 +1614,7 @@ async function renderLibraryBrowseView(container) {
                   backId: 'paneBackBtn',
                   backAct: 'paneback',
                   countText: `${pinnedSongs.length} ${pinnedSongs.length === 1 ? 'song' : 'songs'}`,
+                  actionsHtml: pinnedSongs.length > 0 ? `<button class="btn btn-sm btn-theme-outline toggle-album-edit-btn" id="toggleAlbumEditBtn" title="${isAlbumEditMode ? 'Done editing' : 'Edit and delete songs'}">${isAlbumEditMode ? 'Done' : 'Edit'}</button>` : '',
                   title: 'Pinned songs'
               })}
               <div class="pane-scroll" id="libArtistDetailScroll">
