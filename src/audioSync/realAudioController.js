@@ -71,7 +71,8 @@ export function getRealAudioActiveSource() {
 export function updateRealAudioDockIcon() {
     const activeSource = getRealAudioActiveSource();
     const isLocal = activeSource === 'local';
-    const slotLabel = state.slot === 'backing' ? 'Backing Track' : 'Original Song';
+    const slotLabel = state.slot === 'backing' ? 'backing track' : 'original song';
+    const attached = Boolean(getMediaForSlot(state.slot));
 
     const desktopBtn = $('ytToggleBtn');
     const mobileBtn = $('mobileYtToggleBtn');
@@ -79,7 +80,9 @@ export function updateRealAudioDockIcon() {
     const titleEl = $('realAudioPanelTitle');
 
     const iconClass = isLocal ? 'bi-file-earmark-music' : 'bi-youtube';
-    const titleText = `Original: ${isLocal ? 'local file' : 'YouTube'} (${slotLabel})`;
+    const titleText = attached
+        ? `Original audio: ${isLocal ? 'local file' : 'YouTube'} (${slotLabel})`
+        : 'Original audio, not set up';
 
     for (const btn of [desktopBtn, mobileBtn]) {
         if (!btn) continue;
@@ -157,6 +160,10 @@ export function updateRecordingSlotsAndSyncCard() {
     const songKey = getSongKey();
     const timeline = getScoreTimeline();
     const totalBars = window.gpApi?.score?.masterBars?.length || (timeline?.bars?.length ?? 0);
+
+    updateRealAudioDockIcon();
+    const emptyHint = $('realAudioEmptyHint');
+    if (emptyHint) emptyHint.hidden = Boolean(getMediaForSlot('original') || getMediaForSlot('backing'));
 
     // Update the two slot rows
     ['original', 'backing'].forEach(slot => {
