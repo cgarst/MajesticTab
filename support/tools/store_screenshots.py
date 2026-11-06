@@ -13,6 +13,7 @@ Usage:
     python3 tools/store_screenshots.py play-tablet-7           # Play 7-inch tablet shots (also play-tablet-10, play-tv, play-desktop)
     python3 tools/store_screenshots.py msstore                 # all Microsoft Store desktop shots
     python3 tools/store_screenshots.py play-all                # every Play device type (phone, 7" and 10" tablet, TV, Chromebook), one run
+    python3 tools/store_screenshots.py all                     # every store above, one run
     python3 tools/store_screenshots.py play --only gp_scroll   # one shot
     python3 tools/store_screenshots.py play --raw              # also keep the unframed captures
     python3 tools/store_screenshots.py play --no-prepare       # reuse the existing build/tauri/frontend-dist
@@ -24,6 +25,7 @@ defaults to the entry's own name, `out` is the folder under support/store/).
 import argparse
 import base64
 import functools
+import http.server
 import io
 import json
 import os
@@ -36,10 +38,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import generate_screenshots as gs  # noqa: E402  (reuses the fixture loaders and local server)
-
-ROOT = gs.ROOT
+ROOT = Path(__file__).resolve().parent.parent.parent
 GP_FILE = ROOT / "tests" / "Duo No 2 In G Major.gp5"
 OUT_ROOT = ROOT / "support" / "store"
 TAURI_DIR = ROOT / "build" / "tauri"
@@ -158,7 +157,16 @@ def prepare_channel_frontend(channel):
     subprocess.run(["node", str(ROOT / "build" / "verify-channel.mjs"), channel], check=True)
 
 
-class _ChannelHandler(gs._Quiet):
+class _Server(http.server.ThreadingHTTPServer):
+    request_queue_size = 256  # default backlog of 5 resets connections during the app's module-load burst
+
+
+class _Quiet(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+
+class _ChannelHandler(_Quiet):
     """Serve the prepared channel frontend at /src/ (as the native shell does at /) and fixtures at /tests/."""
     def translate_path(self, path):
         rel = urllib.parse.urlsplit(path).path
@@ -172,7 +180,7 @@ def start_channel_server():
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
     sock.close()
-    httpd = gs._Server(("127.0.0.1", port), functools.partial(_ChannelHandler, directory=str(ROOT)))
+    httpd = _Server(("127.0.0.1", port), functools.partial(_ChannelHandler, directory=str(ROOT)))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, f"http://127.0.0.1:{port}"
 
@@ -484,13 +492,14 @@ def compose(page, raw_path, out_path, size, headline, subtitle, device):
 
 
 # Groups of stores run together by one name. play-all is every Google Play device type (they share one `play` build).
-GROUPS = {"play-all": ["play", "play-tablet-7", "play-tablet-10", "play-tv", "play-desktop"]}
+GROUPS = {"play-all": ["play", "play-tablet-7", "play-tablet-10", "play-tv", "play-desktop"],
+          "all": list(STORES)}
 _prepared = None  # channel whose frontend is currently in build/tauri/frontend-dist
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("channel", choices=[*STORES, *GROUPS], help="A store, or `play-all` for every Google Play device type in one run")
+    ap.add_argument("channel", choices=[*STORES, *GROUPS], help="A store, `play-all` for every Google Play device type, or `all` for every store, in one run")
     ap.add_argument("--only", nargs="*", help="Only these shot ids")
     ap.add_argument("--no-prepare", action="store_true", help="Reuse build/tauri/frontend-dist as is")
     ap.add_argument("--raw", action="store_true", help="Keep unframed captures in raw/")
