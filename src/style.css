@@ -2078,8 +2078,7 @@ input[type=range]::-webkit-slider-thumb:hover {
   min-height: 0;
   isolation: isolate;
   width: 100%;
-  padding-left: max(env(safe-area-inset-left), 0px);
-  padding-right: max(env(safe-area-inset-right), 0px);
+  /* no side inset here: #output pads its own content, so the paper and ground reach the screen edge */
 }
 
 #output {
