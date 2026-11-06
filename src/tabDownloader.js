@@ -323,9 +323,17 @@ export function skipCurrentBatchTrack() {
 export function finishBatchSession() {
     const albumTitle = activeBatchAlbumTitle;
     const artistName = activeBatchArtistName;
+    const addedCount = activeBatchQueue.filter(t => t.acquired).length;
+    const totalCount = activeBatchQueue.length;
     closeTabDownloaderModal();
     if (albumTitle) {
-        showToast(`Finished album session for ${albumTitle}`, 'success');
+        if (addedCount === 0) {
+            showToast(`No tabs added to ${albumTitle}`, 'info');
+        } else if (addedCount < totalCount) {
+            showToast(`Added ${addedCount} of ${totalCount} tabs to ${albumTitle}`, 'success');
+        } else {
+            showToast(`Finished album session for ${albumTitle}`, 'success');
+        }
         navigateToAlbumInLibrary(artistName, albumTitle);
     }
 }
