@@ -2488,13 +2488,16 @@ function setupLibraryFilter(container, context = {}) {
                 </button>
                 <div class="d-flex align-items-center gap-2 min-w-0">
                   <span class="fw-semibold text-truncate" style="color: var(--ink);">${escapeHtml(artistName)}</span>
-                  <span class="small" style="color: var(--ink2);">· ${albums.length} ${albums.length === 1 ? 'album' : 'albums'} in release order</span>
+                  <span class="small" style="color: var(--ink2);">· ${albums.length} ${albums.length === 1 ? 'release' : 'releases'} · albums first, then EPs and singles</span>
                 </div>
               </div>
               <div class="search-stream-list">
             `;
 
-            for (const alb of albums) {
+            // Albums first, then EPs, singles and other types; release order within each group.
+            const isPlainAlbum = a => !a.primaryType || /^album$/i.test(a.primaryType);
+            const orderedAlbums = [...albums.filter(isPlainAlbum), ...albums.filter(a => !isPlainAlbum(a))];
+            for (const alb of orderedAlbums) {
                 const isInLib = existingAlbumKeys.has(`mbid:${alb.id}`) || existingAlbumKeys.has(`${artistLower}:::${(alb.title || '').toLowerCase().trim()}`);
                 const cover = alb.coverUrl || getPlaceholderCoverSvg(alb.title);
                 html += `
