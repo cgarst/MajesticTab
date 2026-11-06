@@ -15,6 +15,7 @@ import {
     filterInstrumentalBonusDiscs, hydrateCachedImages, getSynchronousCachedArtUrl,
     cleanTrackTitleForMatching
 } from './musicbrainz.js';
+import { rankCatalogArtists, rankCatalogAlbums, rankCatalogSongs } from './catalogRank.js';
 import { getStoredFile, saveStoredFile } from './fileStore.js';
 import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
@@ -2749,24 +2750,14 @@ function setupLibraryFilter(container, context = {}) {
             const remoteAlbums = albumsRes.status === 'fulfilled' && Array.isArray(albumsRes.value) ? albumsRes.value : [];
             const remoteArtists = artistsRes.status === 'fulfilled' && Array.isArray(artistsRes.value) ? artistsRes.value : [];
 
-            // Sort artists: exact match first, then prefix match, then score
-            const qLower = rawQuery.toLowerCase().trim();
-            const catalogArtists = remoteArtists.sort((a, b) => {
-                const aName = (a.name || '').toLowerCase().trim();
-                const bName = (b.name || '').toLowerCase().trim();
-                const aExact = aName === qLower;
-                const bExact = bName === qLower;
-                if (aExact !== bExact) return aExact ? -1 : 1;
-                const aStarts = aName.startsWith(qLower);
-                const bStarts = bName.startsWith(qLower);
-                if (aStarts !== bStarts) return aStarts ? -1 : 1;
-                return (b.score || 0) - (a.score || 0);
-            });
+            // Real artist first (exact name, then popularity); tribute/same-name acts are demoted
+            const catalogArtists = rankCatalogArtists(remoteArtists, rawQuery);
+            const topArtist = catalogArtists[0] || null;
 
             // Deduplicate against user's owned songs
             const cleanOwnedKeys = new Set(allOwnedSongs.map(s => `${cleanTrackTitleForMatching(s.artist)}___${cleanTrackTitleForMatching(s.title)}`));
-            const catalogSongs = remoteSongs.filter(s => !cleanOwnedKeys.has(`${cleanTrackTitleForMatching(s.artist)}___${cleanTrackTitleForMatching(s.title)}`));
-            const catalogAlbums = remoteAlbums; // Eponymous albums remain present
+            const catalogSongs = rankCatalogSongs(remoteSongs, rawQuery, topArtist).filter(s => !cleanOwnedKeys.has(`${cleanTrackTitleForMatching(s.artist)}___${cleanTrackTitleForMatching(s.title)}`));
+            const catalogAlbums = rankCatalogAlbums(remoteAlbums, rawQuery, topArtist);
 
             renderCatalogTier(catalogSongs, catalogAlbums, catalogArtists, rawQuery);
         } catch (err) {

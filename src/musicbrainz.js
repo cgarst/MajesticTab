@@ -577,7 +577,8 @@ export async function searchMusicBrainz(query, type = 'artist', options = {}) {
                 type: a.type || 'Artist',
                 country: a.country || a.area?.name || '',
                 lifeSpan: a['life-span'] ? `${a['life-span'].begin?.slice(0, 4) || ''} - ${a['life-span'].ended ? a['life-span'].end?.slice(0, 4) || 'Present' : 'Present'}` : '',
-                score: a.score || 0
+                score: a.score || 0,
+                tagCount: (a.tags || []).reduce((n, t) => n + (t.count || 0), 0)
             }));
         }
 
