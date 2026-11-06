@@ -1019,13 +1019,13 @@ export function initTabDownloaderDomEvents() {
             const hasDownloaded = status.count > 0;
 
             if (!hasDownloaded) {
-                showToast('Downloading adblock rules…', 'info', 2500);
+                showToast('Downloading ad blocking rules…', 'info', 2500);
                 try {
                     const res = await setAdblockEnabled(true, true);
-                    showToast(`Adblock downloaded and enabled (${res.count.toLocaleString()} domains)`, 'success', 3000);
+                    showToast(`Ad blocking on (${res.count.toLocaleString()} domains)`, 'success', 3000);
                 } catch (err) {
                     console.warn('[Tab Downloader] Failed to download adblock rules:', err);
-                    showToast('Failed to download adblock rules', 'error', 3000);
+                    showToast('Failed to download ad blocking rules', 'error', 3000);
                 } finally {
                     syncDownloaderAdblockButton();
                     reloadDownloaderWebview();
@@ -1044,13 +1044,13 @@ export function initTabDownloaderDomEvents() {
             try {
                 const res = await setAdblockEnabled(next);
                 if (res.enabled) {
-                    showToast(`Adblock active (${res.count.toLocaleString()} domains)`, 'success', 2500);
+                    showToast(`Ad blocking on (${res.count.toLocaleString()} domains)`, 'success', 2500);
                 } else {
-                    showToast('Adblock disabled', 'info', 2500);
+                    showToast('Ad blocking off', 'info', 2500);
                 }
             } catch (err) {
                 console.warn('[Tab Downloader] Failed to update adblock rules:', err);
-                showToast('Failed to update adblock rules', 'error', 3000);
+                showToast('Failed to update ad blocking rules', 'error', 3000);
                 try {
                     localStorage.setItem(ADBLOCK_ENABLED_KEY, (!next) ? 'true' : 'false');
                 } catch {}
@@ -1299,15 +1299,13 @@ export function syncDownloaderAdblockButton() {
     btn.classList.toggle('adblock-not-downloaded', !hasDownloaded);
 
     if (!hasDownloaded) {
-        btn.title = 'Adblock (rules not downloaded — tap to download and enable)';
+        btn.title = 'Ad blocking (rules not downloaded — tap to download and enable)';
     } else {
-        btn.title = enabled ? 'Adblock active (click to turn off)' : 'Block ads and trackers';
+        btn.title = enabled ? 'Ad blocking on (click to turn off)' : 'Block ads and trackers';
     }
 
-    const icon = btn.querySelector('i');
-    if (icon) {
-        icon.className = enabled ? 'bi-shield-fill-check' : 'bi-shield';
-    }
+    const label = btn.querySelector('#downloaderAdblockLabel');
+    if (label) label.textContent = enabled ? 'Ad blocking on' : 'Ad blocking off';
 }
 
 /**

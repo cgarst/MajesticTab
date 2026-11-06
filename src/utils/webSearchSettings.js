@@ -72,7 +72,7 @@ function makeAdblockGroup() {
     const statusSpan = el('span', 'small mt-1 d-block');
     const refreshBtn = el('button', 'btn btn-sm srow-ghost', 'Refresh list');
     refreshBtn.type = 'button';
-    refreshBtn.setAttribute('aria-label', 'Refresh adblock list');
+    refreshBtn.setAttribute('aria-label', 'Refresh ad blocking list');
 
     const updateStatusText = () => {
         const status = getAdblockStatus();
@@ -106,18 +106,18 @@ function makeAdblockGroup() {
         const enabling = sw.checked;
         const status = getAdblockStatus();
         if (enabling && status.count === 0) {
-            showToast('Enabling adblock (downloading community list)...', 3000);
+            showToast('Turning on ad blocking (downloading community list)...', 3000);
         }
         refreshBtn.disabled = !enabling;
         try {
             const res = await setAdblockEnabled(enabling);
             if (res.enabled) {
-                showToast(`Adblock active (${res.count.toLocaleString()} domains)`, 2500);
+                showToast(`Ad blocking on (${res.count.toLocaleString()} domains)`, 2500);
             } else {
-                showToast('Adblock disabled', 2500);
+                showToast('Ad blocking off', 2500);
             }
         } catch {
-            showToast('Failed to update adblock rules', 3000);
+            showToast('Failed to update ad blocking rules', 3000);
         }
         updateStatusText();
     });

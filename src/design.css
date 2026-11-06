@@ -2915,25 +2915,16 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   background: transparent !important;
   border: 0 !important;
   border-radius: var(--r-control) !important;
-  width: 32px;
+  min-width: 32px;
   height: 32px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
   transition: color var(--dur-fast), background-color var(--dur-fast), opacity var(--dur-fast);
-}
-.downloader-adblock-btn.adblock-not-downloaded,
-#downloaderAdblockBtn.adblock-not-downloaded {
-  opacity: 0.35 !important;
-  color: var(--ink2) !important;
-  background: transparent !important;
-}
-.downloader-adblock-btn.adblock-not-downloaded:hover,
-#downloaderAdblockBtn.adblock-not-downloaded:hover {
-  opacity: 0.75 !important;
-  color: var(--ink) !important;
-  background: var(--s2) !important;
 }
 .downloader-adblock-btn:hover {
   color: var(--ink) !important;
@@ -3689,10 +3680,14 @@ body > #controllerHelpModal { display: none; }
         width: 100%;
         min-width: 0;
     }
+    .downloader-adblock-btn {
+        padding: 0 6px;
+        font-size: 12px;
+    }
     .downloader-sources-btn {
         padding: 4px 6px;
         font-size: 12px;
-        max-width: 90px;
+        max-width: 72px;
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
