@@ -212,6 +212,13 @@
     </button>
   </div>
 
+  <div class="tools-row" id="latencyPill">
+    <button class="tools-item" id="latencyModalBtn" type="button" role="menuitem">
+      <i class="bi-bluetooth"></i>
+      <span class="tools-item-text"><span>Audio latency</span><small>Match late Bluetooth speakers &middot; <span id="latencyModalBadge">0 ms</span></small></span>
+    </button>
+  </div>
+
   <div class="tools-row" id="jamPill" style="display:none;">
     <button class="tools-item" id="jamToggleBtn" type="button" role="menuitem" title="Jam mode (play together)">
       <i class="bi-people-fill"></i>
@@ -532,16 +539,6 @@
         <button type="button" class="btn btn-sm btn-theme-outline" id="synthMidiRemoveBtn">Remove</button>
       </div>
     </div>
-    <!-- Scrubber / Timeline -->
-    <div class="mb-3">
-      <div class="d-flex justify-content-between align-items-center mb-1 small text-muted">
-        <span id="synthCurrentTimeText">0:00</span>
-        <span class="fw-semibold text-white" id="synthPositionPercent">0%</span>
-        <span id="synthTotalTimeText">0:00</span>
-      </div>
-      <input type="range" id="synthSeekSlider" min="0" max="1000" value="0" step="1" disabled>
-    </div>
-
     <!-- Speed / Tempo Control -->
     <div class="mb-3">
       <div class="d-flex justify-content-between align-items-center mb-1">
@@ -578,9 +575,6 @@
     <!-- SoundFonts opens in its own modal; the mixer lives under each track in Song -->
     <div class="mb-3 d-flex gap-2">
       <button type="button" class="btn btn-sm theme-control-btn" style="flex:1 1 0;min-width:0" id="soundFontModalBtn"><i class="bi-music-note-beamed me-1" aria-hidden="true"></i>SoundFonts</button>
-    </div>
-    <div class="mb-3">
-      <button type="button" class="btn btn-sm theme-control-btn w-100" id="latencyModalBtn"><i class="bi-bluetooth me-1" aria-hidden="true"></i>Audio Latency<span class="theme-value-badge ms-2" id="latencyModalBadge">0 ms</span></button>
     </div>
 
     <!-- Embedded Audio Sync Option -->
@@ -825,28 +819,6 @@
       <label class="rec-label" for="realAudioShareSyncSwitch">Use the original recording's sync points</label>
       <div class="form-check form-switch mb-0">
         <input class="form-check-input theme-switch" type="checkbox" id="realAudioShareSyncSwitch">
-      </div>
-    </div>
-
-    <!-- Sync Coverage & Follow Card (Mockup) -->
-    <div class="syncc mt-3" id="realAudioSyncCard">
-      <div class="hd">
-        <h4>The tab follows this recording</h4>
-      </div>
-      <div class="covbar" id="realAudioCovBar" role="img" aria-label="Sync coverage by bar">
-        <div class="lane-base"></div>
-      </div>
-      <p class="tnum" id="realAudioSyncBarCount">
-        <b>0 of 0 bars synced.</b>
-      </p>
-      <p class="warnl" id="realAudioSyncWarnLine" style="display: none;">
-        <b>Check.</b> <span id="realAudioSyncWarnText">Bar looks late. Open Adjust points to see it against the sound.</span>
-      </p>
-      <div class="acts">
-        <button type="button" class="btn btn-theme-primary" id="realAudioTapSyncBtn">Tap to sync</button>
-        <button type="button" class="btn rec-text-btn" id="realAudioAdjustPointsBtn">
-          Adjust points
-        </button>
       </div>
     </div>
   </div>
@@ -2027,7 +1999,7 @@
       </button>
     </div>
     <div class="dock-ruler" id="dockRulerSlot"></div>
-    <div class="dock-time" id="dockTime" aria-live="off"><span class="dock-section" id="dockSection" style="display:none;"></span><span id="dockBarPrefix">Bar </span><b id="dockBar">1</b><span class="dock-clock"> &middot; <span id="dockClock">0:00 / 0:00</span></span></div>
+    <div class="dock-time" id="dockTime" aria-live="off"><span class="dock-section" id="dockSection" style="display:none;"></span><span id="dockBarPrefix">Bar </span><b id="dockBar">1</b></div>
     <div class="dock-bpm" id="dockBpmBox" title="Tempo"><b id="dockBpm">&ndash;</b><span>bpm</span></div>
     <div class="dock-tools">
       <!-- Loop and metronome are driven from the Practice panel; these buttons carry their state for barRuler.js -->

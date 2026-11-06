@@ -58,6 +58,7 @@ import { initGuitarMenu } from './utils/guitarMenu.js';
 import { initPracticeMenu } from './utils/practiceMenu.js';
 import { initReaderPanels } from './utils/readerPanels.js';
 import { initBarRuler } from './gpProcessor/barRuler.js';
+import { initScoreRecordingStrip } from './audioSync/scoreRecordingStrip.js';
 import { initSettingsPage } from './utils/settingsPage.js';
 import { initSlidingPills } from './utils/slidingPill.js';
 import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
@@ -880,6 +881,7 @@ async function initApp() {
     initPracticeMenu();
     initReaderPanels();
     initBarRuler();
+    initScoreRecordingStrip();
     initSettingsPage();
     initSlidingPills();
 

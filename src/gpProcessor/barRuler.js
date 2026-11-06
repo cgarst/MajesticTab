@@ -23,12 +23,6 @@ function readMinBars() {
     } catch (_) { return DEFAULT_MIN_BARS; }
 }
 
-function formatClock(ms) {
-    if (!Number.isFinite(ms) || ms < 0) return '0:00';
-    const t = Math.floor(ms / 1000);
-    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
-}
-
 function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -371,7 +365,6 @@ export function initBarRuler() {
             syncMetro();
             const total = getPlayerContext().score?.tempo;
             if (total) $('dockBpm').textContent = String(Math.round(total * (synthPlayerState.playbackSpeed || 1)));
-            $('dockClock').textContent = '0:00 / 0:00';
         } else if (e.type === 'detached') {
             model = null;
             const secEl = $('dockSection');
@@ -385,8 +378,6 @@ export function initBarRuler() {
             const at = model.timeline ? tickToPosition(model.timeline, e.tick) : null;
             if (at) { current = { bar: at.barIndex + 1, pos: at.pos }; notePlaybackBar(current.bar, model.total); }
             updateHead();
-            const clock = $('dockClock');
-            if (clock) clock.textContent = `${formatClock(e.timeMs)} / ${formatClock(e.endMs)}`;
             if (model.timeline) {
                 try {
                     const scoreMs = tickToScoreMs(model.timeline, e.tick);

@@ -4448,7 +4448,9 @@ function renderToolsView(container) {
         { id: 'scales', title: 'Scales', icon: '<i class="bi-soundwave" aria-hidden="true"></i>' },
         { id: 'circle', title: 'Circle of fifths', icon: '<i class="bi-circle-half" aria-hidden="true"></i>' },
         { id: 'tuner', title: 'Tuner', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12v9"/><circle cx="12" cy="21" r="1.5"/><path d="M7 3v6a5 5 0 0 0 10 0V3"/></svg>' },
-        { id: 'metronome', title: 'Metronome', icon: '<i class="bi-stopwatch" aria-hidden="true"></i>' }
+        { id: 'metronome', title: 'Metronome', icon: '<i class="bi-stopwatch" aria-hidden="true"></i>' },
+        // Not a section: it is a dialog that applies to every sound in the app
+        { id: 'latency', title: 'Audio latency', icon: '<i class="bi-bluetooth" aria-hidden="true"></i>', open: () => $('latencyModalBtn')?.click() }
     ];
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', title: 'Jam', icon: '<i class="bi-people-fill" aria-hidden="true"></i>' });
     tools.push({ id: 'classtab', title: 'Classical tab', icon: '<i class="bi-music-note-list" aria-hidden="true"></i>' });

@@ -9,13 +9,14 @@
 
 import {
     applySyncedDefaults, renderSyncedVideos,
-    getSongKey, playerState, isYouTubeAvailable, isYouTubePlaying, playPauseYouTube,
+    getSongKey, playerState, jamYouTubeControl, onYouTubeEvent, isYouTubeAvailable, isYouTubePlaying, playPauseYouTube,
     pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode
 } from '../youtubePlayer.js';
 import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
-    rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile
+    rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile, getLocalRecording
 } from './audioFilePlayer.js';
+import { createYouTubeSource } from './mediaSource.js';
 import { updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import {
     loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver,
@@ -154,12 +155,28 @@ function getMediaForSlot(slot) {
     }
 }
 
+// Built on first use: youtubePlayer.js imports this file, so its exports are not ready while this one loads
+let ytSource = null;
+
+/**
+ * The recording the Original button plays now, as `{ source, media, kind }`, or null when the slot has nothing loaded.
+ * The media descriptor is the one the sync points are stored under.
+ */
+export function getActiveRecording() {
+    if (!getMediaForSlot(state.slot)) return null;
+    if (getRealAudioActiveSource() === 'local') {
+        const local = getLocalRecording();
+        return local ? { ...local, kind: 'local' } : null;
+    }
+    ytSource ||= createYouTubeSource(jamYouTubeControl, onYouTubeEvent);
+    return ytSource.id ? { source: ytSource, media: { kind: 'youtube', videoId: ytSource.id }, kind: 'youtube' } : null;
+}
+
 setSlotMediaResolver(() => ({ original: getMediaForSlot('original'), backing: getMediaForSlot('backing') }));
 
-export function updateRecordingSlotsAndSyncCard() {
+export function updateRecordingSlots() {
     const songKey = getSongKey();
     const timeline = getScoreTimeline();
-    const totalBars = window.gpApi?.score?.masterBars?.length || (timeline?.bars?.length ?? 0);
 
     updateRealAudioDockIcon();
     const emptyHint = $('realAudioEmptyHint');
@@ -205,89 +222,12 @@ export function updateRecordingSlotsAndSyncCard() {
         }
     });
 
-    // Update the follow card
-    const card = $('realAudioSyncCard');
-    if (!card) return;
-
     // The shared-points option only applies to a backing track
     const shareRow = $('realAudioShareSyncRow');
     if (shareRow) {
         shareRow.hidden = state.slot !== 'backing';
         const shareSwitch = $('realAudioShareSyncSwitch');
         if (shareSwitch) shareSwitch.checked = Boolean(songKey) && isSyncSharedFromOriginal(songKey);
-    }
-
-    const media = getMediaForSlot(state.slot);
-    const rec = (songKey && media) ? loadRecord(songKey, media) : null;
-
-    const covBar = $('realAudioCovBar');
-    const barCount = $('realAudioSyncBarCount');
-    const warnLine = $('realAudioSyncWarnLine');
-    const warnText = $('realAudioSyncWarnText');
-    const tapBtn = $('realAudioTapSyncBtn');
-
-    if (!rec || !rec.points?.length || !timeline) {
-        if (covBar) covBar.innerHTML = '<div class="lane-base" style="background: var(--s2);"></div>';
-        if (barCount) barCount.innerHTML = `<b>0 of ${totalBars} bars synced.</b>`;
-        if (warnLine) warnLine.style.display = 'none';
-        if (tapBtn) {
-            tapBtn.textContent = 'Tap to sync';
-            tapBtn.className = 'btn btn-theme-primary';
-        }
-        return;
-    }
-
-    const view = buildTimelineModel({ timeline, points: rec.points, axis: 'bars' });
-    const isFull = view.gaps.length === 0;
-    const bars = timeline.bars;
-    const toMaster = (f) => {
-        const i = Math.min(bars.length - 1, Math.max(0, Math.floor(f)));
-        return Math.min(1, (bars[i].barIndex + (f - i)) / totalBars);
-    };
-
-    if (covBar) {
-        covBar.innerHTML = '';
-        const base = document.createElement('div');
-        base.className = 'lane-base';
-        covBar.appendChild(base);
-
-        for (const g of view.gaps) {
-            const el = document.createElement('div');
-            el.className = 'lane-gap';
-            const x0 = toMaster(g.x0 * view.totalBars);
-            const x1 = g.x1 >= 1 ? 1 : toMaster(g.x1 * view.totalBars);
-            el.style.left = `${x0 * 100}%`;
-            el.style.width = `${Math.max(0, x1 - x0) * 100}%`;
-            covBar.appendChild(el);
-        }
-
-        for (const m of view.markers) {
-            const el = document.createElement('div');
-            el.className = `lane-point${m.flag ? ' is-flagged' : ''}`;
-            el.style.left = `${toMaster(m.barFraction) * 100}%`;
-            covBar.appendChild(el);
-        }
-    }
-
-    const syncedCount = new Set(rec.points.map(p => p.barIndex)).size;
-    if (barCount) {
-        barCount.innerHTML = `<b>${syncedCount} of ${totalBars} bars synced.</b> `
-            + (isFull ? 'Every bar has a point, so the cursor stays with the recording.' : 'Some stretches have no points, so the cursor drifts there.');
-    }
-
-    const flagged = view.markers.filter(m => m.flag);
-    if (warnLine) {
-        if (flagged.length > 0) {
-            warnLine.style.display = 'flex';
-            if (warnText) warnText.textContent = `Bar ${flagged[0].barIndex + 1} looks late. Open Adjust points to see it against the sound.`;
-        } else {
-            warnLine.style.display = 'none';
-        }
-    }
-
-    if (tapBtn) {
-        tapBtn.textContent = isFull ? 'Re-sync' : 'Tap to sync';
-        tapBtn.className = isFull ? 'btn btn-theme-outline' : 'btn btn-theme-primary';
     }
 }
 
@@ -321,8 +261,8 @@ export function updateRealAudioPanelView() {
         renderAudioFile();
     }
 
-    // Update mockup slot rows and follow card
-    updateRecordingSlotsAndSyncCard();
+    // Update the slot rows
+    updateRecordingSlots();
 }
 
 /**
@@ -467,25 +407,12 @@ export function initRealAudioController() {
         window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     });
 
-    // Tap to sync / Adjust points action buttons
-    $('realAudioTapSyncBtn')?.addEventListener('click', () => {
-        const isLocal = getRealAudioActiveSource() === 'local';
-        const target = isLocal ? $('afSyncTapBtn') : $('ytSyncTapBtn');
-        target?.click();
-    });
-
-    $('realAudioAdjustPointsBtn')?.addEventListener('click', () => {
-        const isLocal = getRealAudioActiveSource() === 'local';
-        const target = isLocal ? $('afSyncEditBtn') : $('ytSyncEditBtn');
-        target?.click();
-    });
-
     window.addEventListener(SYNC_CHANGED_EVENT, () => {
         applySyncedDefaults();
         renderSyncedVideos();
-        updateRecordingSlotsAndSyncCard();
+        updateRecordingSlots();
     });
 
     updateRealAudioDockIcon();
-    updateRecordingSlotsAndSyncCard();
+    updateRecordingSlots();
 }

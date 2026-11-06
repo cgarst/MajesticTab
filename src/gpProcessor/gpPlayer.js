@@ -25,7 +25,6 @@ try {
 
 let currentApi = null;
 let currentScore = null;
-let isSeeking = false;
 
 export const synthPlayerState = {
     isOpen: false,
@@ -484,10 +483,6 @@ export function updateSynthUI() {
     const metronomeSwitch = document.getElementById('synthMetronomeSwitch');
     const countInSwitch = document.getElementById('synthCountInSwitch');
     const timeDisplay = document.getElementById('synthTimeDisplay');
-    const currentTimeText = document.getElementById('synthCurrentTimeText');
-    const totalTimeText = document.getElementById('synthTotalTimeText');
-    const seekSlider = document.getElementById('synthSeekSlider');
-    const positionPercent = document.getElementById('synthPositionPercent');
     const speedBadge = document.getElementById('synthSpeedBadge');
     const loopSwitch = document.getElementById('synthLoopSwitch');
     const loopStartInput = document.getElementById('synthLoopStartMeasure');
@@ -517,27 +512,6 @@ export function updateSynthUI() {
 
     if (timeDisplay) {
         timeDisplay.textContent = `${formatTime(synthPlayerState.currentTime)} / ${formatTime(synthPlayerState.endTime)}`;
-    }
-
-    if (currentTimeText) {
-        currentTimeText.textContent = formatTime(synthPlayerState.currentTime);
-    }
-
-    if (totalTimeText) {
-        totalTimeText.textContent = formatTime(synthPlayerState.endTime);
-    }
-
-    const pct = synthPlayerState.endTime > 0 
-        ? Math.min(100, Math.max(0, (synthPlayerState.currentTime / synthPlayerState.endTime) * 100))
-        : 0;
-
-    if (positionPercent) {
-        positionPercent.textContent = `${Math.round(pct)}%`;
-    }
-
-    if (seekSlider && !isSeeking) {
-        seekSlider.value = pct * 10; // 0 to 1000 range
-        seekSlider.disabled = !canPlay || synthPlayerState.endTime <= 0;
     }
 
     if (speedBadge) {
@@ -2367,7 +2341,6 @@ export function initSynthPlayer() {
     const metronomeQuickBtn = document.getElementById('synthMetronomeQuickBtn');
     const metronomeSwitch = document.getElementById('synthMetronomeSwitch');
     const countInSwitch = document.getElementById('synthCountInSwitch');
-    const seekSlider = document.getElementById('synthSeekSlider');
     const speedButtons = document.querySelectorAll('#synthSpeedButtons button');
     const trackModeRadios = document.querySelectorAll('input[name="synthTrackMode"]');
     const loopSwitch = document.getElementById('synthLoopSwitch');
@@ -2513,24 +2486,6 @@ export function initSynthPlayer() {
                 setPlaybackSpeed(speed);
             }
         });
-    });
-
-    // Seek slider handlers
-    seekSlider?.addEventListener('input', (e) => {
-        isSeeking = true;
-        const val = parseFloat(e.target.value);
-        const pct = val / 1000;
-        const tempMs = Math.floor(pct * synthPlayerState.endTime);
-        const currentTimeText = document.getElementById('synthCurrentTimeText');
-        const positionPercent = document.getElementById('synthPositionPercent');
-        if (currentTimeText) currentTimeText.textContent = formatTime(tempMs);
-        if (positionPercent) positionPercent.textContent = `${Math.round(pct * 100)}%`;
-    });
-
-    seekSlider?.addEventListener('change', (e) => {
-        isSeeking = false;
-        const val = parseFloat(e.target.value);
-        seekSynthPercent(val / 1000);
     });
 
     // The panel stays open until the Synth or Original button (or its close control) is pressed; clicks on the score do not close it.

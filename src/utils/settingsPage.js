@@ -324,7 +324,6 @@ export function initSettingsPage() {
     // Sound
     const soundRows = [];
     if ($('soundFontModalBtn')) soundRows.push(row('SoundFonts', 'Choose and manage the instrument sounds.', proxyButton('Manage', 'soundFontModalBtn')));
-    if ($('latencyModalBtn')) soundRows.push(row('Audio latency', 'Delay the cursor to match Bluetooth speakers.', proxyButton('Adjust', 'latencyModalBtn')));
     if (soundRows.length) panes.sound.appendChild(group('Playback', ...soundRows));
 
     // Library and backup
