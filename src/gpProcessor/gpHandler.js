@@ -143,6 +143,12 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
         setLoadingProgress(loadingToken, 55, 'Preparing sound…');
         if (api.score?.title && !(file.librarySongTitle || file.songTitle)) {
             setLoadingIdentity(loadingToken, { title: api.score.title, subtitle: file.artist || api.score.artist || '' });
+            // The top bar was filled from the file name (often lowercased by tab sites); the score's own title is better
+            const topBarTitle = document.getElementById('topBarSongTitle');
+            if (topBarTitle) {
+                topBarTitle.textContent = api.score.title;
+                topBarTitle.title = api.score.title;
+            }
         }
         gpState.canvases = [{ container, api }];
         window.gpApi = api;
