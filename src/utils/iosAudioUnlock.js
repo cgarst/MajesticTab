@@ -144,6 +144,18 @@ export function areTrackedAudioContextsRunning() {
 }
 
 /**
+ * Resume tracked contexts and wait briefly for them to report running. Resolves false when a
+ * context stays suspended/interrupted (iOS needs a user gesture) so the caller can rebuild.
+ */
+export async function recoverAudioContexts(waitMs = 400) {
+    configureAudioSession();
+    await Promise.race([resumeTrackedAudioContexts(), new Promise(r => setTimeout(r, waitMs))]);
+    if (areTrackedAudioContextsRunning()) return true;
+    await new Promise(r => setTimeout(r, waitMs));
+    return areTrackedAudioContextsRunning();
+}
+
+/**
  * Start the silent audio channel and configure audio session for active synth playback.
  * Called when synth playback starts.
  */
@@ -238,6 +250,15 @@ export function initIOSAudioUnlock() {
         window.addEventListener(evt, handleFirstUserGesture, { capture: true, passive: true });
     }
 
+    // Returning to the app (including from the back/forward cache) leaves contexts interrupted
+    const onReturn = () => {
+        if (document.hidden) return;
+        configureAudioSession();
+        resumeTrackedAudioContexts();
+    };
+    window.addEventListener('pageshow', onReturn);
+    window.addEventListener('focus', onReturn);
+
     // Handle page visibility changes (pause silent audio in background, resume if playing in foreground)
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
@@ -246,6 +267,7 @@ export function initIOSAudioUnlock() {
             }
         } else {
             resetIOSAudioSession();
+            resumeTrackedAudioContexts();
             if (isPlaybackActive) enableIOSAudioPlayback();
         }
     });

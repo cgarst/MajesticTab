@@ -8,7 +8,7 @@ import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
-import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning } from '../utils/iosAudioUnlock.js';
+import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning, recoverAudioContexts } from '../utils/iosAudioUnlock.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { deriveSections, DEFAULT_MIN_BARS } from './songSections.js';
@@ -1769,10 +1769,35 @@ function playPauseSynthLocal(forcePlay = false) {
         }
         // Jam starts must not toggle: a pause issued moments earlier may not have reached the
         // synth worker yet, and playPause() would then pause instead of play.
+        const wasPlaying = synthPlayerState.isPlaying;
         if (forcePlay) currentApi.play();
         else currentApi.playPause();
+        if (!wasPlaying) verifySynthAudioAfterPlay(currentApi);
     } catch (e) {
         console.error('[Synth Player] Play/Pause error:', e);
+    }
+}
+
+// After a play press, check the AudioContext really runs. A context that stays suspended or
+// interrupted after backgrounding is retried on the next touch (the gesture handler resumes it);
+// if it still will not run, rebuild the synth (soundfont/worklet reload) once and play again.
+let audioRebuilding = false;
+async function verifySynthAudioAfterPlay(api) {
+    if (audioRebuilding) return;
+    const ok = await recoverAudioContexts();
+    if (ok || api !== currentApi || !synthPlayerState.isPlaying) return;
+    audioRebuilding = true;
+    try {
+        console.warn('[Synth Player] AudioContext would not resume; rebuilding synth');
+        await reloadSynthSoundFonts();
+        if (api === currentApi) {
+            await recoverAudioContexts();
+            if (!synthPlayerState.isPlaying) currentApi.play();
+        }
+    } catch (e) {
+        console.error('[Synth Player] Audio rebuild failed:', e);
+    } finally {
+        audioRebuilding = false;
     }
 }
 
