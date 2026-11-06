@@ -2007,7 +2007,7 @@ function setPlaybackSpeedLocal(speed) {
 // schedules the clicks that are about to fall due on our own AudioContext, ahead of time on its clock.
 let clickContext = null;
 const CLICK_LOOKAHEAD_MS = 120; // of real time
-const CLICK_START_GRACE_MS = 60;
+const CLICK_START_GRACE_MS = 120;
 const pendingClicks = new Set();
 let fileClicks = null; // a MIDI file's clicks, from readMidiFile
 let clickCache = null; // a score's clicks: { lookup, clicks, timeline }, rebuilt when the tick lookup is replaced
