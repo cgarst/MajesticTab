@@ -2050,6 +2050,10 @@ body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
 .data-task-slot .backup-provider-option:hover, .data-task-slot .restore-mode-card:hover {
   background: color-mix(in srgb, var(--ink) 5%, transparent) !important;
 }
+/* The inspection card's own rule is more specific: keep its options flat like the other rows */
+.data-task-slot #restoreInspectionCard .restore-mode-card,
+.data-task-slot #restoreInspectionCard .restore-mode-card:has(input:checked) { background: transparent !important; }
+.data-task-slot #restoreInspectionCard .restore-mode-card:hover { background: color-mix(in srgb, var(--ink) 5%, transparent) !important; }
 .data-task-slot .backup-dropzone {
   background: transparent !important;
   border: 0 !important;
