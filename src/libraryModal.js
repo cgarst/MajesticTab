@@ -2501,13 +2501,13 @@ function setupLibraryFilter(container, context = {}) {
                 const isInLib = existingAlbumKeys.has(`mbid:${alb.id}`) || existingAlbumKeys.has(`${artistLower}:::${(alb.title || '').toLowerCase().trim()}`);
                 const cover = alb.coverUrl || getPlaceholderCoverSvg(alb.title);
                 html += `
-                <div class="search-stream-row is-navigable" data-type="artist-album-row" data-album-id="${alb.id}" tabindex="0">
+                <div class="search-stream-row search-album-row is-navigable" data-type="artist-album-row" data-album-id="${alb.id}" tabindex="0">
                   <img loading="lazy" decoding="async" src="${cover}" class="shelf-cover flex-shrink-0" style="width: 44px; height: 44px; border-radius: var(--r); object-fit: cover; background: var(--s3);" alt="" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(alb.title)}'">
                   <div class="search-row-meta min-w-0 flex-grow-1">
                     <div class="search-row-title text-truncate">${escapeHtml(alb.title)}</div>
                     <div class="search-row-sub text-truncate">${alb.year ? `${alb.year} · ` : ''}${escapeHtml(alb.primaryType || 'Album')}${isInLib ? ' · <span class="text-info">In Library</span>' : ''}</div>
                   </div>
-                  <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-2">
+                  <div class="search-album-actions d-flex align-items-center gap-2 flex-shrink-0 ms-2">
                     <button type="button" class="btn btn-sm btn-theme-outline view-album-tracks-btn" data-album-id="${alb.id}" data-album-title="${escapeHtml(alb.title)}" title="View tracks">
                       Tracks
                     </button>

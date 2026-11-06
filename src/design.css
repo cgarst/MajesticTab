@@ -3813,3 +3813,11 @@ body > #controllerHelpModal { display: none; }
 .song-actions .dropdown > .dropdown-toggle.btn-theme-icon { min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
 .song-actions-spacer { width: 36px; }
 @media (pointer: coarse) { .song-actions .dropdown > .dropdown-toggle.btn-theme-icon { min-width: 44px; } }
+
+/* Album list rows on phones: title and year get the full width, the actions sit under them */
+@media (max-width: 576px) {
+    .search-album-row { flex-wrap: wrap; row-gap: 8px; }
+    .search-album-row .search-row-title,
+    .search-album-row .search-row-sub { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+    .search-album-row .search-album-actions { flex: 1 0 100%; margin-left: 56px !important; }
+}
