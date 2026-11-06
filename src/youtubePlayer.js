@@ -916,11 +916,24 @@ export function applySyncedDefaults({ reload = true } = {}) {
         const pick = pickSyncedVideo(mode);
         if (!pick) continue;
         const saved = localStorage.getItem(getStorageKey(mode));
-        if (saved && (synced.has(saved) || localStorage.getItem(pickMarkerKey(mode)))) continue;
-        localStorage.setItem(getStorageKey(mode), pick.videoId);
+        const userPicked = !!localStorage.getItem(pickMarkerKey(mode));
+        if (saved && (synced.has(saved) || userPicked)) {
+            // Another listener may have stored the synced pick already (reload: false) while the panel is still
+            // searching or showing something else, so the pick still has to reach the screen.
+            const pending = !userPicked && saved === pick.videoId && mode === playerState.trackMode
+                && (playerState.isSearching || playerState.currentVideoId !== pick.videoId);
+            if (!pending) continue;
+        } else {
+            localStorage.setItem(getStorageKey(mode), pick.videoId);
+        }
         if (mode === playerState.trackMode) changedCurrent = true;
     }
-    if (changedCurrent && reload && playerState.isOpen && !playerState.isPlaying) loadCurrentTrack(false);
+    if (changedCurrent && reload && playerState.isOpen && !playerState.isPlaying) {
+        // A search for this song is still running: drop it, the synced video replaces its result
+        if (playerState.isSearching) cancelYouTubeSearch();
+        if (playerState.currentVideoId !== localStorage.getItem(getStorageKey())) setVideoId(null, 'auto');
+        loadCurrentTrack(false);
+    }
 }
 
 /** A dropdown of the song's synced videos; choosing one binds it to the current track mode (Original or Backing). */
