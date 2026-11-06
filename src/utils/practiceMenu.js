@@ -74,8 +74,13 @@ export function initPracticeMenu() {
     window.addEventListener('resize', () => { if (isOpen()) place(); });
 
     // ---- Speed ----
+    let presetKey = '';
     function render() {
         $('practiceSpeedValue').textContent = currentSpeedLabel();
+        // While playing, the speed readout updates constantly; rebuilding identical buttons would swallow a click between press and release.
+        const key = activePresets().map((p) => p.label + (p.active ? '*' : '')).join('|');
+        if (key === presetKey && $('practicePresets').childElementCount) return;
+        presetKey = key;
         $('practicePresets').replaceChildren(...activePresets().map((p) => {
             const b = document.createElement('button');
             b.type = 'button';
