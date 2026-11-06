@@ -518,6 +518,23 @@ export function cancelYouTubeSearch() {
     updatePanelTitle();
 }
 
+const SEARCH_TIMEOUT_MS = 15000;
+
+/**
+ * Replace the spinner with an error and a "Try again" action after a search timeout
+ */
+function showSearchTimeout() {
+    const prompt = document.getElementById('ytPlaceholderPrompt');
+    const loadingIndicator = document.getElementById('ytLoadingIndicator');
+    const title = document.getElementById('ytPromptTitle');
+    const retry = document.getElementById('ytRetrySearchBtn');
+    if (loadingIndicator) loadingIndicator.style.setProperty('display', 'none', 'important');
+    updatePanelTitle();
+    if (title) title.textContent = 'The YouTube search timed out. Check your connection, then try again or paste a link below.';
+    if (retry) retry.hidden = false;
+    if (prompt) prompt.style.setProperty('display', 'flex', 'important');
+}
+
 /**
  * Update the YouTube iframe or prompt UI based on current video ID.
  * `videoId` forces a video without saving it for this song (Jam Mode).
@@ -564,21 +581,41 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
         activeSearchController = new AbortController();
         const signal = activeSearchController.signal;
 
-        try {
+        let timedOut = false;
+        let timer;
+        const timeout = new Promise((resolve) => {
+            timer = setTimeout(() => { timedOut = true; resolve(null); }, SEARCH_TIMEOUT_MS);
+        });
+        const runSearch = async () => {
             // Check native search if on Tauri (desktop & mobile native)
-            videoId = await fetchYouTubeNativeSearch(query);
+            let found = await fetchYouTubeNativeSearch(query);
 
             // Check YouTube Data API if key provided
-            if (!videoId && !signal.aborted) {
-                videoId = await fetchYouTubeApiKeySearch(query, signal);
+            if (!found && !signal.aborted && !timedOut) {
+                found = await fetchYouTubeApiKeySearch(query, signal);
             }
 
             // If still no ID, attempt public mirrors search
-            if (!videoId && !signal.aborted) {
-                videoId = await fetchMultiMirrorSearch(query, signal);
+            if (!found && !signal.aborted && !timedOut) {
+                found = await fetchMultiMirrorSearch(query, signal);
             }
+            return found;
+        };
+
+        try {
+            // A search that never settles (stalled native call or network) must not spin forever
+            videoId = await Promise.race([runSearch(), timeout]);
         } catch (e) {
             // Handled
+        }
+        clearTimeout(timer);
+
+        if (timedOut && !videoId && !signal.aborted) {
+            activeSearchController?.abort();
+            activeSearchController = null;
+            playerState.isSearching = false;
+            showSearchTimeout();
+            return;
         }
 
         if (signal.aborted) {
@@ -1228,6 +1265,12 @@ export function initYouTubePlayer() {
     closeBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleYouTubePanel(false);
+    });
+
+    document.getElementById('ytRetrySearchBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.currentTarget.hidden = true;
+        loadCurrentTrack(false);
     });
 
     // Cancel search button in loading state
