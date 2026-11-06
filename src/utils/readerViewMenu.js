@@ -335,8 +335,9 @@ function arrangeSongPanel() {
 
         if (file.sourceUrl || file.sourceWebsite) {
             const webSource = file.sourceWebsite || file.sourceUrl;
-            if (file.sourceUrl) {
-                srcBtn.href = file.sourceUrl;
+            const linkUrl = file.sourceUrl || (file.sourceWebsite === 'Classtab' ? 'https://www.classtab.org/' : '');
+            if (linkUrl) {
+                srcBtn.href = linkUrl;
                 srcBtn.style.cursor = 'pointer';
             } else {
                 srcBtn.removeAttribute('href');

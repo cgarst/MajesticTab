@@ -121,8 +121,11 @@ const $ = (id) => document.getElementById(id);
 function showLinkUi(file) {
     const eligible = isTextOrPdf(file);
     const linked = midiSynthActive;
-    if ($('linkMidiBtn')) $('linkMidiBtn').style.display = eligible && !linked ? '' : 'none';
-    if ($('synthMidiSection')) $('synthMidiSection').style.display = linked ? '' : 'none';
+    // A text or PDF tab always gets the section: link a MIDI file when none is linked, replace or remove it when one is
+    if ($('synthMidiSection')) $('synthMidiSection').style.display = eligible || linked ? '' : 'none';
+    if ($('synthMidiNote')) $('synthMidiNote').textContent = linked ? "Plays the MIDI file. It isn't synced to the tab." : 'Link a MIDI file to hear this tab. It isn\'t synced to the tab.';
+    if ($('synthMidiReplaceBtn')) $('synthMidiReplaceBtn').textContent = linked ? 'Link another MIDI file\u2026' : 'Link a MIDI file\u2026';
+    if ($('synthMidiRemoveBtn')) $('synthMidiRemoveBtn').style.display = linked ? '' : 'none';
 }
 
 /** After a text or PDF tab is on screen: give it the MIDI it has, if any. */
@@ -155,7 +158,7 @@ function pickMidi() {
     });
 }
 
-/** Wire the Song menu's "Link a MIDI file" and the Synth panel's replace and remove. */
+/** Wire the Synth panel's link, replace and remove. */
 export function initMidiSynthUi(getCurrent) {
     const link = async () => {
         const file = getCurrent();
@@ -172,7 +175,6 @@ export function initMidiSynthUi(getCurrent) {
             showToast(e?.message || 'Could not use that MIDI file.', 'warning');
         }
     };
-    $('linkMidiBtn')?.addEventListener('click', link);
     $('synthMidiReplaceBtn')?.addEventListener('click', link);
     $('synthMidiRemoveBtn')?.addEventListener('click', async () => {
         const file = getCurrent();

@@ -463,9 +463,6 @@
         <i class="bi-download text-info"></i> Export Source Tab
       </button>
       <p class="small text-muted mb-0 text-center" id="songSourceLine" style="display: none;"></p>
-      <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="linkMidiBtn" type="button" style="display: none;">
-        Link a MIDI file&hellip;
-      </button>
       <button class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="exportPDFBtn" type="button" style="display: none;">
         <i class="bi-file-earmark-pdf text-danger"></i> Export as PDF
       </button>
@@ -529,7 +526,7 @@
   </div>
   <div class="synth-panel-body">
     <div class="mb-3" id="synthMidiSection" style="display: none;">
-      <p class="small text-muted mb-2">Plays the MIDI file. It isn't synced to the tab.</p>
+      <p class="small text-muted mb-2" id="synthMidiNote">Plays the MIDI file. It isn't synced to the tab.</p>
       <div class="d-flex gap-2">
         <button type="button" class="btn btn-sm btn-theme-outline" id="synthMidiReplaceBtn">Link another MIDI file&hellip;</button>
         <button type="button" class="btn btn-sm btn-theme-outline" id="synthMidiRemoveBtn">Remove</button>

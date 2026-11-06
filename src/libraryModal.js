@@ -509,7 +509,7 @@ export function closeLibraryModal(force = false) {
     const currentOpen = getCurrentFile();
 
     if (force === true || currentOpen) {
-        releaseEmbeddedTools();
+        releaseEmbeddedTools(true);
         if (page) page.style.display = 'none';
         // Drop the hidden library's DOM: covers still loading (or retrying 500s from the art server) are cancelled, and
         // nothing keeps requesting art while a tab is open. Opening the library renders it again.

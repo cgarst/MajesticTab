@@ -7,6 +7,7 @@ const $ = (id) => document.getElementById(id);
 let embedded = null; // { id, el }
 let refTabHandler = null;
 let pendingTool = null;
+let resumeTool = null; // the tool that was open when the reader took the screen
 
 /** The next Tools page that is drawn opens on this tool (used by the library search to land in Classical tab). */
 export function openToolOnNextRender(id) { pendingTool = id; }
@@ -25,12 +26,13 @@ function hostOf(id) {
 }
 
 /** Close the tool shown in the page and give its screen back to the document. */
-export async function releaseEmbeddedTools() {
+export async function releaseEmbeddedTools(keep = false) {
+    resumeTool = keep && embedded ? embedded.id : null;
     if (!embedded) return;
     const { id, el, dispose } = embedded;
     embedded = null;
     if (id === 'openfile' || id === 'classtab') {
-        dispose?.();
+        dispose?.(keep);
         el.remove();
         return;
     }
@@ -83,6 +85,8 @@ async function openTool(id, pane) {
 }
 
 export function renderToolsPage(container, { tools, escapeHtml }) {
+    if (!pendingTool && resumeTool) pendingTool = resumeTool;
+    resumeTool = null;
     releaseEmbeddedTools();
     container.innerHTML = `
     <div class="setshell tools-shell" data-pane="list">

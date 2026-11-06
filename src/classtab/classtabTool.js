@@ -17,6 +17,8 @@ const MAX_ROWS = 400;
 // A search typed elsewhere (the library's search) that the tool should open on
 let pendingView = null;
 export function requestClasstabView(view) { pendingView = view; }
+// Where the player was when the reader took the screen, so coming back lands on the same list
+let savedView = null;
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 /** A composer's name with the sorted-on last name in bold. */
@@ -122,6 +124,8 @@ export function renderClasstabTool(container, { onBack } = {}) {
         message: '', error: '', inLibrary: new Set(), menuFor: null,
         showPinned: null // null: the Pinned group when there are pins; true / false once the player picks
     };
+    if (!pendingView && savedView) Object.assign(state, savedView);
+    savedView = null;
     if (pendingView) {
         state.query = pendingView.query || '';
         state.pane = 'pieces';
@@ -413,5 +417,9 @@ export function renderClasstabTool(container, { onBack } = {}) {
     });
 
     refresh();
-    return () => { alive = false; unsubscribe(); };
+    return (keep = false) => {
+        alive = false;
+        unsubscribe();
+        savedView = keep ? { query: state.query, filters: new Set(state.filters), composer: state.composer, pane: state.pane, showPinned: state.showPinned } : null;
+    };
 }
