@@ -2620,7 +2620,6 @@ function setupLibraryFilter(container, context = {}) {
         for (const art of catalogArtists.slice(0, 3)) {
             html += `
             <div class="search-stream-row is-navigable" data-type="catalog-artist" data-artist-id="${art.id}" data-artist-name="${escapeHtml(art.name)}" tabindex="0">
-              <i class="bi-people-fill text-info fs-5 flex-shrink-0"></i>
               <div class="search-row-meta min-w-0 flex-grow-1">
                 <div class="search-row-title text-truncate">${escapeHtml(art.name)} <span class="text-muted fw-normal" style="font-size: 13px;">(${escapeHtml(art.type || 'Artist')})</span></div>
                 <div class="search-row-sub text-truncate">${escapeHtml([art.disambiguation, art.country, art.lifeSpan].filter(Boolean).join(' · ') || 'Artist')}</div>
@@ -2634,7 +2633,6 @@ function setupLibraryFilter(container, context = {}) {
         for (const alb of catalogAlbums.slice(0, 5)) {
             html += `
             <div class="search-stream-row is-navigable" data-type="catalog-album" tabindex="0">
-              <i class="bi-disc text-primary fs-5 flex-shrink-0"></i>
               <div class="search-row-meta min-w-0 flex-grow-1">
                 <div class="search-row-title text-truncate">${escapeHtml(alb.title)} (Album)</div>
                 <div class="search-row-sub text-truncate">${escapeHtml(alb.artist)}${alb.year ? ` · ${alb.year}` : ''}${alb.trackCount ? ` · ${alb.trackCount} tracks` : ''}</div>
@@ -2648,7 +2646,6 @@ function setupLibraryFilter(container, context = {}) {
         for (const song of catalogSongs.slice(0, 10)) {
             html += `
             <div class="search-stream-row is-navigable" data-type="catalog-song" tabindex="0">
-              <i class="bi-music-note-beamed text-info fs-5 flex-shrink-0"></i>
               <div class="search-row-meta min-w-0 flex-grow-1">
                 <div class="search-row-title text-truncate">${escapeHtml(song.title)}</div>
                 <div class="search-row-sub text-truncate">${escapeHtml(song.artist)}${song.album ? ` · ${escapeHtml(song.album)}` : ''}${song.year ? ` · ${song.year}` : ''}</div>
@@ -2855,9 +2852,7 @@ function setupLibraryFilter(container, context = {}) {
                   <button type="button" class="btn btn-sm btn-theme-icon play-default-tab-btn flex-shrink-0" data-song-id="${s.id}" title="Play ${escapeHtml(s.title)}">
                     <i class="bi-play-fill fs-5"></i>
                   </button>
-                  ` : `
-                  <i class="bi-music-note text-muted flex-shrink-0 fs-5 px-1" aria-hidden="true"></i>
-                  `}
+                  ` : ''}
                   <div class="search-row-meta min-w-0 flex-grow-1">
                     <div class="search-row-title text-truncate">${escapeHtml(s.title)}</div>
                     <div class="search-row-sub text-truncate">
