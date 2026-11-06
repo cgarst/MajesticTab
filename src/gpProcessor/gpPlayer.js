@@ -777,6 +777,25 @@ function bumpUserScroll(ms) {
     userScrollingUntil = Math.max(userScrollingUntil, performance.now() + ms);
 }
 
+let lastScrollCheckAt = 0;
+const SCROLL_CHECK_MIN_MS = 120;
+// master bar index -> staff system, per bounds lookup (rebuilt on every re-render)
+let systemByBarLookup = null;
+let systemByBar = null;
+
+function findStaffSystemForBar(boundsLookup, barIndex) {
+    if (systemByBarLookup !== boundsLookup || !systemByBar) {
+        systemByBarLookup = boundsLookup;
+        systemByBar = new Map();
+        for (const sys of boundsLookup.staffSystems) {
+            for (const b of (sys.bars || [])) {
+                if (!systemByBar.has(b.index)) systemByBar.set(b.index, sys);
+            }
+        }
+    }
+    return systemByBar.get(barIndex) || null;
+}
+
 function watchUserScroll(output) {
     if (userScrollOutput === output) return;
     userScrollOutput = output;
@@ -849,7 +868,14 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     if (!output) return;
 
     watchUserScroll(output);
-    if (!force && performance.now() < userScrollingUntil) return;
+    const nowMs = performance.now();
+    if (!force && nowMs < userScrollingUntil) return;
+    // Position events arrive far more often than the view needs to move; the checks below read layout, which on a
+    // dense score (and on iOS) is costly. Forced calls (seeks, play, clicks) always run.
+    if (!force) {
+        if (nowMs - lastScrollCheckAt < SCROLL_CHECK_MIN_MS) return;
+        lastScrollCheckAt = nowMs;
+    }
 
     const fretboardDock = document.getElementById('fretboardDock');
     const isFretboardOpen = document.body.classList.contains('fretboard-open') && fretboardDock && fretboardDock.style.display !== 'none';
@@ -904,13 +930,7 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
             }
         }
         if (activeMasterBarIndex >= 0) {
-            for (let s = 0; s < boundsLookup.staffSystems.length; s++) {
-                const sys = boundsLookup.staffSystems[s];
-                if (sys.bars && sys.bars.some(b => b.index === activeMasterBarIndex)) {
-                    targetStaffSystem = sys;
-                    break;
-                }
-            }
+            targetStaffSystem = findStaffSystemForBar(boundsLookup, activeMasterBarIndex);
             if (targetStaffSystem) {
                 const container = gpState.canvases[0]?.container;
                 const containerTop = container ? container.offsetTop : 0;
@@ -1071,6 +1091,8 @@ export function createCustomCursorHandler(api) {
     let readerEl = null;
     let svgPathEl = null;
     let lastH = 0;
+    let pageCursorsMayExist = true;
+    let lastReaderTop = null;
 
     function getOrCreateReader() {
         const container = gpState.canvases[0]?.container;
@@ -1163,6 +1185,7 @@ export function createCustomCursorHandler(api) {
             cursorBeat = document.createElement('div');
             cursorBeat.className = 'gp-page-cursor-beat gp-reader-cursor';
             visibleBlock.appendChild(cursorBeat);
+            pageCursorsMayExist = true;
             isNew = true;
         }
 
@@ -1298,7 +1321,11 @@ export function createCustomCursorHandler(api) {
                 return;
             }
 
-            document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
+            // Sweeping the whole document every beat scales with the number of score elements; only needed after page mode
+            if (pageCursorsMayExist) {
+                document.querySelectorAll('.gp-page-cursor-bar, .gp-page-cursor-beat').forEach(el => el.remove());
+                pageCursorsMayExist = false;
+            }
 
             const masterBounds = beatBounds?.barBounds?.masterBarBounds;
             // Use lineAlignedBounds to strictly bound to physical staff lines
@@ -1327,10 +1354,14 @@ export function createCustomCursorHandler(api) {
                     updateReaderDimensions(cursorH);
                     reader.style.transition = 'none';
                     setCursorX(reader, startBeatX);
+                    const moved = lastReaderTop !== cursorY || reader.style.display !== 'block' || reader.style.height !== `${cursorH}px`;
                     reader.style.top = `${cursorY}px`;
                     reader.style.height = `${cursorH}px`;
                     reader.style.display = 'block';
-                    void reader.offsetWidth; // Force reflow so transition starts cleanly
+                    lastReaderTop = cursorY;
+                    // Forcing layout every beat is costly on a dense score; it is only needed when the cursor jumps to
+                    // another system (or appears), so the glide that follows starts from the new spot.
+                    if (moved) void reader.offsetWidth;
                 }
 
                 if (beatCursor) {
