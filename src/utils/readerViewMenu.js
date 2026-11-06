@@ -375,7 +375,7 @@ function initPhoneChrome() {
     const output = $('output');
     if (!output) return;
     let last = 0;
-    const narrow = () => window.matchMedia('(max-width: 640px)').matches;
+    const narrow = () => window.matchMedia('(max-width: 640px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px)').matches;
     // Only a hand moves the chrome. Playback following the cursor, a ruler drag or a jump to a bar also scroll the
     // score, and the bottom row (with the fretboard) must not come and go because of those.
     let handUntil = 0;

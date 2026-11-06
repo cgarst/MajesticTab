@@ -3751,3 +3751,15 @@ body > #controllerHelpModal { display: none; }
         padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 54px) !important;
     }
 }
+
+/* Phone in landscape (wider than 640px, but short): the top bar, transport and page strip leave in step with the phone's, and the score takes their space */
+@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) and (min-width: 641px) {
+  body:not(.library-view-active) #topBar { transition: margin-top var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
+  body:not(.library-view-active).chrome-hidden #topBar { margin-top: calc(-1 * var(--topbar-h, 52px)); }
+  body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources { transition: transform var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out); }
+  body:not(.library-view-active).chrome-hidden .mobile-playback-dock.has-audio-sources { transform: translateY(100%); margin-bottom: calc(-1 * var(--dock-own-h, 0px)); pointer-events: none; }
+  body:not(.library-view-active) .page-strip { transition: transform var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out); }
+  body:not(.library-view-active).chrome-hidden .page-strip { transform: translateY(100%); margin-bottom: calc(-1 * var(--strip-h, 0px)); pointer-events: none; }
+  body:not(.library-view-active).chrome-hidden .fretboard-dock { transform: translateY(calc(100% + var(--dock-h, 0px))); pointer-events: none; }
+}
+@media (prefers-reduced-motion: reduce) { body:not(.library-view-active) #topBar, body:not(.library-view-active) .mobile-playback-dock, body:not(.library-view-active) .page-strip { transition: none !important; } }
