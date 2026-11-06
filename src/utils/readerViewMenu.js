@@ -379,6 +379,26 @@ function initPhoneChrome() {
     // Only a hand moves the chrome. Playback following the cursor, a ruler drag or a jump to a bar also scroll the
     // score, and the bottom row (with the fretboard) must not come and go because of those.
     let handUntil = 0;
+    // Idle timer: with no touch, key or pointer input for a few seconds the bars slide away; any input brings them back
+    const IDLE_MS = 4000;
+    let idleTimer = 0;
+    // never hide it while one of its sheets is open
+    const anySheetOpen = () => ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'tracksMenu', 'scoreOptionsDropdownPanel'].some((id) => {
+        const el = $(id); return el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
+    });
+    const armIdle = () => {
+        clearTimeout(idleTimer);
+        if (!narrow() || document.body.classList.contains('library-view-active')) return;
+        idleTimer = setTimeout(() => {
+            if (narrow() && !document.body.classList.contains('library-view-active') && !anySheetOpen()) document.body.classList.add('chrome-hidden');
+            else armIdle();
+        }, IDLE_MS);
+    };
+    ['pointerdown', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, () => {
+        document.body.classList.remove('chrome-hidden');
+        armIdle();
+    }, { passive: true, capture: true }));
+    armIdle();
     let lastH = output.clientHeight;
     const hand = () => { handUntil = performance.now() + 1500; };
     ['touchstart', 'touchmove', 'wheel', 'pointerdown'].forEach((ev) => output.addEventListener(ev, (e) => { if (ev !== 'pointerdown' || e.pointerType === 'touch') hand(); }, { passive: true }));
@@ -391,12 +411,10 @@ function initPhoneChrome() {
         if (performance.now() > handUntil) { last = y; return; }
         const delta = y - last;
         if (Math.abs(delta) < 12) return;
-        // never hide it while one of its sheets is open
-        const sheetOpen = ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'tracksMenu', 'scoreOptionsDropdownPanel'].some((id) => {
-            const el = $(id); return el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
-        });
+        const sheetOpen = anySheetOpen();
         document.body.classList.toggle('chrome-hidden', delta > 0 && y > 80 && !sheetOpen);
         last = y;
+        armIdle();
     }, { passive: true });
     window.addEventListener('resize', () => { if (!narrow()) document.body.classList.remove('chrome-hidden'); });
 }
