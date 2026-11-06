@@ -401,7 +401,9 @@ function initPhoneChrome() {
     armIdle();
     let lastH = output.clientHeight;
     const hand = () => { handUntil = performance.now() + 1500; };
-    ['touchstart', 'touchmove', 'wheel', 'pointerdown'].forEach((ev) => output.addEventListener(ev, (e) => { if (ev !== 'pointerdown' || e.pointerType === 'touch') hand(); }, { passive: true }));
+    // A plain tap is not a hand scroll: counting touchstart/pointerdown let playback's own autoscroll within the next
+    // 1.5s hide the bars again right after the tap brought them back
+    ['touchmove', 'wheel'].forEach((ev) => output.addEventListener(ev, hand, { passive: true }));
     output.addEventListener('scroll', () => {
         if (!narrow()) { document.body.classList.remove('chrome-hidden'); return; }
         const y = output.scrollTop;
