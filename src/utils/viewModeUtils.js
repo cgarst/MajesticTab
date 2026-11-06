@@ -33,8 +33,15 @@ function layoutPagesPerView() {
 
     // Respect the landscape page layout preference ('dual' (2) or 'single' (1))
     const layout = getLandscapePageLayout();
-    return layout === 'single' ? 1 : 2;
+    if (layout === 'single') return 1;
+
+    // Wide windows (ultrawide monitors) get more pages instead of two enormous ones: one more page for every
+    // MAX_PAGE_WIDTH of window width, never fewer than two, capped so the pages stay readable.
+    return Math.max(2, Math.min(MAX_DUAL_PAGES, Math.floor(window.innerWidth / MAX_PAGE_WIDTH)));
 }
+
+const MAX_PAGE_WIDTH = 900;
+const MAX_DUAL_PAGES = 4;
 
 export function switchToContinuous(output, condensedCanvases, onPageChange) {
     // Clean out old page-mode layout
