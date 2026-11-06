@@ -198,6 +198,21 @@ class MainActivity : TauriActivity() {
           else controller.show(WindowInsetsCompat.Type.systemBars())
         }
       }
+
+      // Paints the window behind the transparent system bars with the app theme and picks icon contrast.
+      @JavascriptInterface
+      fun setSystemBars(color: String, lightBackground: Boolean) {
+        runOnUiThread {
+          try {
+            window.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(android.graphics.Color.parseColor(color)))
+            val controller = WindowInsetsControllerCompat(window, window.decorView)
+            controller.isAppearanceLightStatusBars = lightBackground
+            controller.isAppearanceLightNavigationBars = lightBackground
+          } catch (e: Exception) {
+            android.util.Log.w("MajesticTab", "setSystemBars failed", e)
+          }
+        }
+      }
     }, "AndroidImmersive")
 
     // @selfUpdate:begin

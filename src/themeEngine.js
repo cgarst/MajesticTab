@@ -228,6 +228,16 @@ function applyTheme(themeName) {
   }
   metaThemeColor.setAttribute('content', themeObj.bg);
 
+  // Android: the system bars are transparent over the window, so tell the shell the colour and icon contrast.
+  try {
+    const bgHex = /^#[0-9a-f]{6}$/i.test(themeObj.bg || '') ? themeObj.bg : '#06050a';
+    const [r, g, b] = [1, 3, 5].map(i => parseInt(bgHex.slice(i, i + 2), 16));
+    const isLight = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255 > 0.5;
+    if (window.AndroidImmersive && window.AndroidImmersive.setSystemBars) {
+      window.AndroidImmersive.setSystemBars(bgHex, isLight);
+    }
+  } catch (e) {}
+
   // Update drawer swatch & label
   const drawerSwatch = document.getElementById('drawerThemeSwatch');
   const drawerLabel = document.getElementById('drawerThemeName');
