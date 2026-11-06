@@ -158,7 +158,7 @@ export function hideTransientFeedback() {
 /**
  * Show non-modal advisory badge
  */
-export function showAdvisoryBadge(text, onSwitch, actionLabel = 'Switch target') {
+export function showAdvisoryBadge(text, onSwitch, actionLabel = 'Switch target', keepOpen = false) {
     const badge = document.getElementById('downloaderAdvisoryBadge');
     const textEl = document.getElementById('downloaderAdvisoryText');
     const switchBtn = document.getElementById('downloaderAdvisorySwitchBtn');
@@ -168,7 +168,7 @@ export function showAdvisoryBadge(text, onSwitch, actionLabel = 'Switch target')
         switchBtn.style.display = onSwitch ? '' : 'none';
         switchBtn.textContent = actionLabel;
         switchBtn.onclick = () => {
-            hideAdvisoryBadge();
+            if (!keepOpen) hideAdvisoryBadge();
             if (typeof onSwitch === 'function') onSwitch();
         };
     }
@@ -178,6 +178,22 @@ export function showAdvisoryBadge(text, onSwitch, actionLabel = 'Switch target')
 export function hideAdvisoryBadge() {
     const badge = document.getElementById('downloaderAdvisoryBadge');
     if (badge) badge.style.display = 'none';
+}
+
+/**
+ * While the converter is open, keep the tab page address in view with a copy action, since the
+ * converter's own field may not accept an injected value.
+ * @param {string} tabUrl
+ */
+function showCopyTabUrlBanner(tabUrl) {
+    showAdvisoryBadge(`Tab page: ${tabUrl}`, async () => {
+        try {
+            await navigator.clipboard.writeText(tabUrl);
+            showToast('Tab URL copied. Paste it into the converter.', 'success');
+        } catch {
+            showToast('Could not copy the tab URL', 'error');
+        }
+    }, 'Copy tab URL', true);
 }
 
 /**
@@ -1598,6 +1614,7 @@ export function handleWsaUrlIntercept(url) {
     syncDownloaderAdblockButton();
     renderDownloaderTabs();
     switchActiveSource(activeEphemeralSource);
+    showCopyTabUrlBanner(cleanUrl);
     return true;
 }
 
@@ -1612,7 +1629,10 @@ function applyDownloaderUrl(rawUrl) {
         const cleanUrl = unwrapGoogleUrl(url);
         const sent = pendingMatchedTabUrl === cleanUrl && activeSourceId === 'downloader';
         if (!sent) { offerWsaUrlBanner(url); offeredWsaBanner = true; }
-        else hideAdvisoryBadge();
+        else showCopyTabUrlBanner(cleanUrl);
+    } else if (url && activeSourceId === 'downloader' && activeEphemeralSource?.targetUrl) {
+        showCopyTabUrlBanner(activeEphemeralSource.targetUrl);
+        offeredWsaBanner = true;
     }
     const urlText = document.getElementById('downloaderUrlText');
     const urlGroup = document.getElementById('downloaderUrlGroup');
