@@ -110,3 +110,13 @@ test('a shorter list is placed on the start of the score only when its gaps foll
     // too little of the score is not a start
     assert.throws(() => placeBarTimes(times.slice(0, 5), bars), /plays 20/);
 });
+
+test('a list with one time per score bar is placed on the first pass of each bar', () => {
+    const bars = playedBars([0, 1, 2, 1, 2, 3]); // bars 1-2 repeat: 6 played, 4 without repeats
+    const info = {};
+    const pts = placeBarTimes([0, 1000, 2000, 3000], bars, info);
+    assert.deepEqual(pts.map(p => [p.barIndex, p.occurrence]), [[0, 0], [1, 0], [2, 0], [3, 0]]);
+    assert.equal(info.firstPassOnly, true);
+    assert.equal(setsFittingScore([{ label: 'a', barTimesMs: [0, 1, 2, 3] }], bars).length, 1);
+    assert.throws(() => placeBarTimes([0, 1, 2, 3, 4], bars), /5 bars.*plays 6 \(4 without its repeats\)/);
+});

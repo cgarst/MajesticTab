@@ -44,28 +44,50 @@ function fitsScoreStart(barTimesMs, playedBars) {
     return error / length <= MAX_PREFIX_ERROR;
 }
 
+/** The score's bars without the repeated passes: one entry per bar, in score order. */
+function firstPassBars(playedBars) {
+    return playedBars.filter(b => !b.occurrence);
+}
+
+/**
+ * The played bars a list of `count` times belongs to: all played bars (repeats expanded), or, when the count is that
+ * of the score's bars played once each, those (a list made without repeating the repeated sections). Null when neither
+ * has that many bars.
+ */
+function barsForCount(count, playedBars) {
+    if (count === playedBars.length) return playedBars;
+    const once = firstPassBars(playedBars);
+    return count === once.length ? once : null;
+}
+
 /**
  * Places one time per bar on the played bars of the score, repeats included. The counts must match exactly: a
  * different count means a different bar structure, and every point after the difference would land on the wrong bar.
- * The one exception is a shorter list whose times follow the start of the score (see fitsScoreStart); `covered`
- * reports how many bars got points then.
+ * Two exceptions: a list with one time per score bar (repeats not expanded) is placed on each bar's first pass, and
+ * `info.firstPassOnly` says so; and a shorter list whose times follow the start of the score (see fitsScoreStart),
+ * where `covered` reports how many bars got points.
  * @param {number[]} barTimesMs
  * @param {Array<{barIndex:number, occurrence:number, seconds?:number|null}>} playedBars the score's bars in play order
- * @param {{covered?: number}} [info] receives `covered` when only the start of the score is placed
+ * @param {{covered?: number, firstPassOnly?: boolean}} [info] receives `covered` or `firstPassOnly` when the list does not cover every played bar
  * @returns {Array<{barIndex:number, occurrence:number, pos:number, timeMs:number}>}
  */
 export function placeBarTimes(barTimesMs, playedBars, info = null) {
-    const partial = barTimesMs.length < playedBars.length && fitsScoreStart(barTimesMs, playedBars);
-    if (barTimesMs.length !== playedBars.length && !partial) {
-        throw new Error(`That list has ${barTimesMs.length} bars, but this score plays ${playedBars.length}. They have to match exactly, or the points would land on the wrong bars.`);
+    let target = barsForCount(barTimesMs.length, playedBars);
+    const partial = !target && barTimesMs.length < playedBars.length && fitsScoreStart(barTimesMs, playedBars);
+    if (!target && !partial) {
+        const once = firstPassBars(playedBars).length;
+        const plays = once !== playedBars.length ? ` (${once} without its repeats)` : '';
+        throw new Error(`That list has ${barTimesMs.length} bars, but this score plays ${playedBars.length}${plays}. They have to match exactly, or the points would land on the wrong bars.`);
     }
+    target = target || playedBars;
+    if (target !== playedBars && info) info.firstPassOnly = true;
     if (partial && info) info.covered = barTimesMs.length;
     // Never below 0 and strictly increasing, as the point list requires
     let last = -1;
     return barTimesMs.map((ms, i) => {
         const timeMs = Math.max(last + 1, Math.round(Math.max(0, ms)));
         last = timeMs;
-        return { barIndex: playedBars[i].barIndex, occurrence: playedBars[i].occurrence, pos: 0, timeMs };
+        return { barIndex: target[i].barIndex, occurrence: target[i].occurrence, pos: 0, timeMs };
     });
 }
 
@@ -75,12 +97,14 @@ export function setToPoints(set, playedBars) {
 }
 
 /**
- * The sets that fit this score. A list of bar times fits when it has one time per played bar; when some do, only
+ * The sets that fit this score. A list of bar times fits when it has one time per played bar (or per bar without its repeats); when some do, only
  * those are offered, and when none do the error says what was found.
  */
 export function setsFittingScore(sets, playedBars) {
-    const fitting = sets.filter(s => s.points || s.barTimesMs.length === playedBars.length || fitsScoreStart(s.barTimesMs, playedBars));
+    const fitting = sets.filter(s => s.points || barsForCount(s.barTimesMs.length, playedBars) || fitsScoreStart(s.barTimesMs, playedBars));
     if (fitting.length) return fitting;
     const counts = [...new Set(sets.map(s => s.barTimesMs.length))].join(', ');
-    throw new Error(`That address has lists of ${counts} bars, but this score plays ${playedBars.length}. They have to match exactly, or the points would land on the wrong bars.`);
+    const once = firstPassBars(playedBars).length;
+    const plays = once !== playedBars.length ? ` (${once} without its repeats)` : '';
+    throw new Error(`That address has lists of ${counts} bars, but this score plays ${playedBars.length}${plays}. They have to match exactly, or the points would land on the wrong bars.`);
 }
