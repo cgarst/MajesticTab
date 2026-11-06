@@ -1560,7 +1560,14 @@ export function attachAlphaTabApi(api) {
     // Player State Changed (0: Stopped, 1: Playing, 2: Paused)
     api.playerStateChanged.on((args) => {
         if (warmingUp) return;
+        // Pausing a MIDI file (midiSynth.js) makes AlphaTab's player jump back to 0; a score keeps its place. Seek back
+        // to where it was, unless it had played to the end.
+        const resumeAt = api.keepPositionOnPause && args.state !== 1 ? synthPlayerState.currentTime : 0;
+        const atEnd = synthPlayerState.endTime > 0 && resumeAt >= synthPlayerState.endTime - 250;
         applyPlayerState(api, args.state);
+        if (resumeAt > 0 && !atEnd) {
+            try { api.timePosition = resumeAt; synthPlayerState.currentTime = resumeAt; updateSynthUI(); } catch (_) {}
+        }
     });
 
     // Multi-track active beats synchronization for fretboard visualizer

@@ -35,6 +35,7 @@ export async function attachMidiSynth(bytes) {
         player: { enablePlayer: true, playerMode: at.PlayerMode.EnabledSynthesizer, enableCursor: false, enableElementHighlighting: false, scrollMode: at.ScrollMode.Off }
     });
     api.tex('\\tempo 100 . 3.3.4');
+    api.keepPositionOnPause = true; // pausing a MIDI file would reset its player to 0:00 (gpPlayer restores the spot)
     api.followDisabled = true; // its placeholder score has no page to scroll to (gpPlayer's playback follow skips it)
     window.gpApi = api;
     ownApi = api;
