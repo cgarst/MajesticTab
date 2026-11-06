@@ -149,6 +149,8 @@ export function initScoreRecordingStrip() {
         }
         strip.hidden = !rec;
         document.body.classList.toggle('score-rec-strip-on', Boolean(rec));
+        // A recording with no sync points can't be followed, so the score shows no cursor
+        document.body.classList.toggle('score-cursor-hidden', Boolean(rec) && points.length === 0);
         if (!rec) return;
         const t = rec.source.getTimeMs() || 0;
         const dur = durationOf(rec);

@@ -4009,3 +4009,9 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
 .sync-mode-bar .sm-link:hover { background: var(--s3); color: var(--ink); }
 .sync-mode-bar .sm-link:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 @media (pointer: coarse) { .sync-mode-bar .sm-link { min-height: 44px; } }
+
+/* A Guitar Pro tab whose Original recording has no sync points: the cursor can't follow it, so it is not shown */
+body.score-cursor-hidden .gp-reader-cursor,
+body.score-cursor-hidden .gp-page-cursor-beat {
+  display: none !important;
+}
