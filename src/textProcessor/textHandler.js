@@ -1,6 +1,7 @@
 // textHandler.js
 import { processText } from './textProcessor.js';
 import { hideLoadingBar } from '../main.js';
+import { showLoadingCard, setLoadingProgress, hideLoadingCard } from '../utils/loadingCard.js';
 import { clearOutput, updatePageIndicator } from '../utils/renderUtils.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
@@ -87,10 +88,18 @@ export async function loadText(file, output, pageModeRadio, continuousModeRadio)
     // Reset state and clear output
     textState.reset();
     clearOutput(output);
-    
+
+    const loadingToken = showLoadingCard(output, {
+        title: file.librarySongTitle || file.songTitle || file.tabName || (file.name || '').replace(/\.[^/.]+$/, ''),
+        subtitle: file.artist || '',
+        coverUrl: file.coverUrl || '',
+        stage: 'Reading file…'
+    });
     try {
         // Process text content for both modes up front
+        setLoadingProgress(loadingToken, 30, 'Laying out pages…');
         const { fullContent, pages } = await processText(file);
+        setLoadingProgress(loadingToken, 80, 'Rendering…');
         
         // Store both representations
         textState.fullContent = fullContent;
@@ -108,6 +117,10 @@ export async function loadText(file, output, pageModeRadio, continuousModeRadio)
     } catch (err) {
         console.error('Error loading text file:', err);
         hideLoadingBar();
+    } finally {
+        setLoadingProgress(loadingToken, 100, 'Ready');
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        hideLoadingCard(loadingToken, output);
     }
 }
 

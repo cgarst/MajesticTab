@@ -8,6 +8,7 @@ import { setupExportPDFButton } from './exportPdf.js';
 import { setupSaveToLibraryButton } from './saveToLibrary.js';
 import { setupAddToSetlistButton } from './setlistUi.js';
 import { setupSetlistNav, refreshSetlistNav } from './setlistPlayer.js';
+import { showLoadingCard, setLoadingProgress, hideLoadingCard } from './utils/loadingCard.js';
 import { loadGP, renderGPPage, applyGpDisplayScale, gpState, nextGPPage, prevGPPage, layoutGPPages, applyGpNotationMode, syncGpNotationRadios } from './gpProcessor/gpHandler.js';
 import { setGpDisplayScale, applySavedGpDisplayScale, setGpDensity, getGpDensity, applySavedGpDensity, updateAutoGpDensity, getGpNotationMode, getGpDisplayScalePercent, getDefaultGpDisplayScalePercent } from './gpProcessor/gpProcessor.js';
 import { initPageStrip } from './utils/pageStrip.js';
@@ -1047,9 +1048,14 @@ async function loadPDF(file) {
     pdfLoadingProcessing = processing;
     pageIndicator.textContent = 'Loading…';
     
-    // Show progress bar immediately
-    showProgress(progressContainer, progressBar);
-    
+    // The loading card (same as Guitar Pro files) shows the progress
+    const loadingToken = showLoadingCard(output, {
+        title: file.librarySongTitle || file.songTitle || file.tabName || (file.name || '').replace(/\.[^/.]+$/, ''),
+        subtitle: file.artist || '',
+        coverUrl: file.coverUrl || '',
+        stage: 'Reading file…'
+    });
+    try {
     // Show navigation controls
     navButtons.style.display = 'flex';
     modeButtons.style.display = 'flex';
@@ -1073,8 +1079,7 @@ async function loadPDF(file) {
     await processPDF(file, {
         debugMode: { checked: debugMode.checked },
         originalMode: { checked: !condensePdfMode.checked },
-        progressContainer,
-        progressBar,
+        onProgress: (pct, stage) => setLoadingProgress(loadingToken, pct, stage),
         condensedCanvases,
         startPage: file.startPage,
         endPage: file.endPage,
@@ -1153,9 +1158,6 @@ async function loadPDF(file) {
         }
     });
     
-    // Hide progress bar after processing is complete
-    hideProgress(progressContainer, progressBar);
-
     // Finalize: compute the full page count once
     if (pdfLoadingProcessing === processing) pdfLoadingProcessing = null;
     if (processing.aborted) return;
@@ -1171,6 +1173,12 @@ async function loadPDF(file) {
     } else {
         const scrollPercent = (output.scrollTop / (output.scrollHeight - output.clientHeight) * 100) || 0;
         pageIndicator.textContent = `${Math.round(scrollPercent)}%`;
+    }
+    setLoadingProgress(loadingToken, 100, 'Ready');
+    } finally {
+        // Let the freshly laid-out pages paint before the card fades out
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        hideLoadingCard(loadingToken, output);
     }
 }
 

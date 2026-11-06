@@ -9,18 +9,16 @@ import { detectCopyright } from './copyrightDetector.js';
 import { detectMargins } from './marginDetector.js';
 import { detectLeftMargins } from './leftMarginDetector.js';
 import { renderCondensedCanvas } from './condenseRenderer.js';
-import { updateProgress } from '../utils/fileHandlingUtils.js';
 
 const canvasCache = new WeakMap();
 
-export async function processPDF(file, { debugMode, originalMode, progressContainer, progressBar, condensedCanvases, onCanvasRendered, onPdfLoaded, abortSignal, scale, startPage, endPage }) {
+export async function processPDF(file, { debugMode, originalMode, onProgress, condensedCanvases, onCanvasRendered, onPdfLoaded, abortSignal, scale, startPage, endPage }) {
   // Create a scaled config if a custom scale is provided
   const config = scale ? createScaledConfig(scale) : CONFIG;
   
   condensedCanvases.length = 0;
-  progressBar.classList.add('indeterminate');
-  progressContainer.style.display = 'block';
-  
+  onProgress?.(5, 'Reading file…');
+
   const arrayBuffer = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: arrayBuffer, isEvalSupported: false }).promise;
   if (abortSignal?.aborted) return;
@@ -33,9 +31,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
   const actualEnd = Math.max(actualStart, Math.min(pdf.numPages, parseInt(endPage || file.endPage || pdf.numPages, 10)));
   const totalRangePages = actualEnd - actualStart + 1;
 
-  // Switch to determinate progress bar now that we know the total pages
-  progressBar.classList.remove('indeterminate');
-  progressBar.style.width = '0%';
+  onProgress?.(15, 'Reading pages…');
 
   if (!canvasCache.has(file)) canvasCache.set(file, { debug: [], normal: [], original: [] });
   const fileCache = canvasCache.get(file);
@@ -54,7 +50,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
       const cachedCanvas = fileCache[cacheKey][pageNum - 1];
       condensedCanvases.push(cachedCanvas);
       onCanvasRendered(cachedCanvas);
-      updateProgress(progressBar, progressPercent);
+      onProgress?.(15 + progressPercent * 0.85, `Reading pages ${pageNum - actualStart + 1} of ${totalRangePages}…`);
       continue;
     }
 
@@ -73,7 +69,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
       condensedCanvases.push(canvas);
       fileCache[cacheKey][pageNum - 1] = canvas;
       onCanvasRendered(canvas);
-      progressBar.style.width = `${progressPercent.toFixed(1)}%`;
+      onProgress?.(15 + progressPercent * 0.85, `Reading pages ${pageNum - actualStart + 1} of ${totalRangePages}…`);
       continue;
     }
 
@@ -145,7 +141,7 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
     fileCache[cacheKey][pageNum - 1] = finalCanvas;
     onCanvasRendered(finalCanvas);
 
-    updateProgress(progressBar, progressPercent);
+    onProgress?.(15 + progressPercent * 0.85, `Reading pages ${pageNum - actualStart + 1} of ${totalRangePages}…`);
 
     // Detect bottom-of-page copyright for first page
     if (pageNum === 1 && !debugMode.checked) {
@@ -169,5 +165,4 @@ export async function processPDF(file, { debugMode, originalMode, progressContai
     }
   }
 
-  progressContainer.style.display = 'none';
 }
