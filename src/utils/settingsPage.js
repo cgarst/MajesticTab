@@ -166,7 +166,7 @@ function makeHideNoTabSongsRow() {
 
 export function initSettingsPage() {
     const panel = $('fileMenu');
-    const body = panel?.querySelector('.offcanvas-body');
+    const body = panel?.querySelector('.page-body');
     if (!panel || !body || panel.dataset.pageBuilt) return;
     panel.dataset.pageBuilt = '1';
 

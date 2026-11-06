@@ -491,7 +491,11 @@ export function performAppBack(getConfig = null) {
 
     const openModal = document.querySelector('.modal.show, .settings-page.show');
     if (openModal) {
-        const closeBtn = openModal.querySelector('[data-bs-dismiss="modal"], [data-settings-close], .btn-close, .theme-modal-close-btn');
+        if (openModal.classList.contains('settings-page')) {
+            settingsPanel.hide();
+            return true;
+        }
+        const closeBtn = openModal.querySelector('[data-bs-dismiss="modal"], .btn-close, .theme-modal-close-btn');
         if (closeBtn) {
             closeBtn.click();
             return true;

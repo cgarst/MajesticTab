@@ -275,7 +275,6 @@
 [data-theme="Snow White"] .text-white,
 [data-theme="Snow White"] .theme-card-title,
 [data-theme="Snow White"] .settings-header-label,
-[data-theme="Snow White"] .offcanvas-title,
 [data-theme="Snow White"] .theme-modal-title,
 [data-theme="Snow White"] .theme-modal-titles :is(h1, h2, h3, h4, h5, h6),
 [data-theme="Snow White"] .yt-mode-btn {
@@ -442,9 +441,6 @@ body {
   html.ios-pwa #topBar {
     padding-top: max(calc(env(safe-area-inset-top) + 0.5rem + 4px), 58px);
   }
-  html.ios-pwa .offcanvas-header {
-    padding-top: max(calc(env(safe-area-inset-top) + 0.5rem + 4px), 58px);
-  }
   html.ios-pwa .downloader-nav-row {
     padding-top: max(calc(env(safe-area-inset-top) + 8px + 4px), 58px);
   }
@@ -490,10 +486,6 @@ body {
 .win-ctrl-btn.win-ctrl-close:hover {
   color: #fff;
   background: #e81123;
-}
-
-.tauri-windows .settings-page {
-  top: var(--bar-h, 52px);
 }
 
 #topBar::-webkit-scrollbar {
@@ -1674,19 +1666,6 @@ input[type=range]::-webkit-slider-thumb:hover {
 .picker-dialog-bg { z-index: 20000 !important; }
 .picker-dialog { z-index: 20001 !important; }
 
-/* --------------------------------------------------------------------------
-   Modernized Offcanvas Settings Drawer
-   -------------------------------------------------------------------------- */
-.settings-page {
-  background: var(--bg-modal) !important;
-  color: var(--text-primary) !important;
-  border-right: 1px solid var(--border-subtle) !important;
-  box-shadow: 12px 0 36px rgba(0, 0, 0, 0.85);
-  width: 380px !important;
-  max-width: 90vw !important;
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
 /* iOS installed PWA: html/body height can stop short of the home-indicator inset, exposing a black strip. Pin the body to the full screen instead. */
 .tauri-ios body {
   position: fixed;
@@ -1694,85 +1673,6 @@ input[type=range]::-webkit-slider-thumb:hover {
   height: auto;
   min-height: 0;
   background-attachment: scroll;
-}
-
-/* No footer on iOS, so let the body scroll through the home-indicator inset instead of leaving a blank strip */
-.tauri-ios .settings-page {
-  padding-bottom: 0;
-}
-
-.tauri-ios .offcanvas-body {
-  padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
-}
-
-@media (orientation: portrait) {
-  .tauri-ios .settings-page {
-    padding-top: 0;
-  }
-  .tauri-ios .offcanvas-header {
-    padding-top: max(calc(env(safe-area-inset-top) + 0.5rem), 54px);
-  }
-}
-
-@media (orientation: portrait) and (max-width: 576px) {
-  .tauri-ios .offcanvas-header {
-    padding-top: max(calc(env(safe-area-inset-top) + 0.3rem), 54px);
-  }
-}
-
-.tauri-macos .settings-page {
-  top: var(--bar-h, 52px);
-}
-
-/* Clip the shadow's upward bleed onto the top bar */
-.tauri-macos .settings-page,
-.tauri-windows .settings-page {
-  clip-path: inset(0 -60px 0 0);
-}
-
-.tauri-macos .offcanvas-backdrop,
-.tauri-windows .offcanvas-backdrop {
-  top: var(--bar-h, 52px);
-  height: calc(100% - var(--bar-h, 52px));
-}
-
-.offcanvas-header {
-  border-bottom: 1px solid var(--border-subtle);
-  padding: max(env(safe-area-inset-top), 0.5rem) max(env(safe-area-inset-right), 1rem) 0.5rem max(env(safe-area-inset-left), 1rem);
-  min-height: 52px;
-  background: var(--bg-card-solid);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  box-sizing: border-box;
-}
-
-.offcanvas-title {
-  font-weight: 700;
-  font-size: 1rem;
-  color: #ffffff !important;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.offcanvas-header .btn-close {
-  padding: 0.25rem;
-  font-size: 0.85rem;
-}
-
-.offcanvas-body {
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
-}
-
-.offcanvas-footer {
-  border-top: 1px solid var(--border-subtle);
-  padding: 0.85rem 1.25rem;
-  background: var(--bg-card-solid);
-  flex-shrink: 0;
 }
 
 .settings-card {
@@ -1814,17 +1714,6 @@ input[type=range]::-webkit-slider-thumb:hover {
   justify-content: center;
   font-size: 0.95rem;
   flex-shrink: 0;
-}
-
-.offcanvas-header .theme-modal-close-btn {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.85rem;
 }
 
 .settings-advanced-details summary {
@@ -2598,11 +2487,6 @@ body.theme-sheet-active .chord-lyric-chord {
     gap: 0.4rem;
   }
 
-  .offcanvas-header {
-    padding: 0.4rem 0.75rem;
-    min-height: 48px;
-  }
-
   .brand-title {
     display: none;
   }
@@ -2647,23 +2531,6 @@ body.theme-sheet-active .chord-lyric-chord {
     gap: 0.3rem;
   }
 
-  .offcanvas-header {
-    padding: 0.35rem 0.65rem;
-    min-height: 42px;
-  }
-
-  .offcanvas-title {
-    font-size: 0.95rem;
-  }
-
-  .offcanvas-header i {
-    font-size: 1rem !important;
-  }
-
-  .offcanvas-header .btn-close {
-    font-size: 0.75rem;
-    padding: 0.2rem;
-  }
   
   #centerSection {
     gap: 0.25rem;
@@ -2796,7 +2663,7 @@ body.theme-sheet-active .chord-lyric-chord {
   bottom: max(calc(env(safe-area-inset-bottom) + 8px), 18px);
   left: 50%;
   transform: translateX(-50%);
-  /* Below the settings offcanvas (1045) so the menu opens over the dock */
+  /* Below the Settings page (1030) so the menu opens over the dock */
   z-index: 1040;
   pointer-events: auto;
   transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
@@ -2921,24 +2788,6 @@ body.theme-sheet-active .chord-lyric-chord {
     padding: max(env(safe-area-inset-top), 0.3rem) max(env(safe-area-inset-right), 0.5rem) 0.3rem max(env(safe-area-inset-left), 0.5rem);
     gap: 0.3rem;
     overflow-x: hidden;
-  }
-
-  .offcanvas-header {
-    padding: max(env(safe-area-inset-top), 0.3rem) max(env(safe-area-inset-right), 0.5rem) 0.3rem max(env(safe-area-inset-left), 0.5rem);
-    min-height: 40px;
-  }
-
-  .offcanvas-title {
-    font-size: 0.9rem;
-  }
-
-  .offcanvas-header i {
-    font-size: 0.95rem !important;
-  }
-
-  .offcanvas-header .btn-close {
-    font-size: 0.7rem;
-    padding: 0.15rem;
   }
 
   /* Score mode: audio controls live in the thumb dock */
@@ -6265,7 +6114,6 @@ body.library-view-active #toolsFullscreenRow { display: none !important; }
 @supports (-webkit-touch-callout: none) {
   @media (display-mode: standalone) and (orientation: portrait) {
     #topBar,
-    .offcanvas-header,
     .downloader-nav-row {
       padding-top: calc(env(safe-area-inset-top) + 14px);
     }
@@ -6473,7 +6321,7 @@ body.library-view-active #toolsFullscreenRow { display: none !important; }
     left: 0;
     right: 0;
     bottom: 0;
-    /* Below the settings offcanvas (1045), above page content */
+    /* Below the Settings page (1030), above page content */
     z-index: 1040;
     padding: 0.35rem 0.5rem max(env(safe-area-inset-bottom), 0.5rem) 0.5rem;
     background: var(--bg-card);

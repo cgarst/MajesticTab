@@ -80,8 +80,7 @@ body {
 /* Display face: song titles and big numerals only, like pedal and amp labels */
 .brand-title,
 .breadcrumb-song-title,
-.theme-modal-title,
-.offcanvas-title {
+.theme-modal-title {
   font-family: var(--font-display);
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -90,7 +89,6 @@ body {
 
 /* Modals and panels: opaque cards, scale-in, faster out */
 .theme-modal-card { box-shadow: none; border: 1px solid var(--border-subtle); border-radius: var(--r-card); }
-.settings-page { box-shadow: none; }
 
 /* --- Motion (phase 2): transform and opacity only, exits faster than entries --- */
 @keyframes modalScaleUp {
@@ -124,12 +122,10 @@ body {
 }
 /* `scale`, not `transform`: Popper positions menus with an inline transform, and animating transform would override it and make the menu jump */
 @keyframes popIn { from { opacity: 0; scale: 0.97; } to { opacity: 1; scale: 1; } }
-.settings-page { transition: transform var(--dur-slow) var(--ease-out), visibility var(--dur-slow); }
-.settings-page.hiding { transition-duration: var(--dur-base); }
 
 @media (prefers-reduced-motion: reduce) {
   .theme-modal-card, .theme-modal-backdrop, .dropdown-menu, .tools-menu, .popover-pop { animation: none !important; }
-  .form-switch .form-check-input, .settings-page { transition: none !important; }
+  .form-switch .form-check-input, .app-page { transition: none !important; }
   .btn-theme-primary:active:not(:disabled),
   .btn-theme-outline:active:not(:disabled),
   .theme-control-btn:active:not(:disabled),
@@ -888,27 +884,21 @@ body.practice-open #output { padding-right: 416px !important; }
 /* ==========================================================================
    Settings: a page. Big title, section list, grouped rows (title, help, control).
    ========================================================================== */
-/* Settings is a regular page, not a drawer: shown and hidden in place (src/utils/settingsPanel.js). */
-.settings-page { position: fixed; bottom: 0; left: 0; z-index: 1030; display: none; flex-direction: column; outline: 0; }
-.settings-page.show { display: flex; }
-#fileMenu { background: var(--s1) !important; border: 0 !important; box-shadow: none !important; }
-body.settings-as-page #fileMenu {
-  --bs-offcanvas-width: 100vw; width: 100vw !important; max-width: 100vw; left: 0; top: var(--topbar-h, 52px); height: calc(100% - var(--topbar-h, 52px));
-  z-index: 1030; transform: none;
+/* One shell for the pages that fill the content area beside the rail (Settings; Tools and the library fill the same area in the document flow).
+   It is placed with all four insets, never a height, so it always reaches the bottom edge of the screen on iOS and nothing under it shows.
+   Settings opens and closes in place (src/utils/settingsPanel.js). */
+.app-page {
+  --page-top: var(--topbar-h, 52px); --page-left: 0px;
+  position: fixed; inset: var(--page-top) 0 0 var(--page-left); z-index: 1030; display: none; flex-direction: column; outline: 0;
+  background: var(--s1); border: 0; box-shadow: none; color: var(--ink); overflow: hidden;
 }
-body.settings-as-page.library-view-active #fileMenu { top: 0; height: 100%; }
-html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-page.library-view-active #fileMenu { top: 0; }
-/* Desktop shells keep the bar (drag strip and window controls) above Settings, the same 20px strip as the other library pages */
-.tauri-windows body.settings-as-page.library-view-active #fileMenu { top: 20px; height: calc(100% - 20px); }
-@media (min-width: 577px) {
-  body.settings-as-page.library-view-active #fileMenu { left: calc(76px + env(safe-area-inset-left, 0px)); width: calc(100vw - 76px - env(safe-area-inset-left, 0px)) !important; }
-}
-@media (min-width: 1000px) {
-  body.settings-as-page.library-view-active #fileMenu { left: 212px; width: calc(100vw - 212px) !important; }
-}
-#fileMenu .offcanvas-header { position: absolute; right: 12px; top: 10px; background: transparent !important; border: 0 !important; padding: 0; z-index: 3; }
-#fileMenu .offcanvas-header > div:first-child { display: none; }
-#fileMenu .offcanvas-body { padding: 0 !important; display: block; overflow: hidden; }
+.app-page.show { display: flex; }
+body.library-view-active .app-page { --page-top: 0px; }
+/* Windows keeps the 20px drag strip above the page, like the other library pages */
+.tauri-windows body.library-view-active .app-page { --page-top: 20px; }
+@media (min-width: 577px) { body.library-view-active .app-page { --page-left: calc(76px + env(safe-area-inset-left, 0px)); } }
+@media (min-width: 1000px) { body.library-view-active .app-page { --page-left: 212px; } }
+.page-body { flex: 1; min-height: 0; padding: 0; display: block; overflow: hidden; }
 .setshell { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .sethead { padding: 22px 28px 6px; flex: none; user-select: none; -webkit-user-select: none; }
 .sethead h1, .sethead .sethead-title { font: 700 44px/1.02 var(--font-display); letter-spacing: -.01em; margin: 0; color: var(--ink); }
@@ -1034,7 +1024,6 @@ html:not(.tauri-macos):not(.tauri-windows):not(.tauri-linux) body.settings-as-pa
 .sgroup .settings-advanced-details { background: var(--s2); border-radius: var(--r); padding: 6px 14px; margin-top: 10px; }
 .sgroup .settings-advanced-details summary { color: var(--ink2) !important; min-height: 40px; display: flex; align-items: center; }
 @media (max-width: 899px) { .srow { flex-wrap: wrap; } .srow .sc { width: 100%; } }
-#fileMenu .offcanvas-header > :not(button) { display: none !important; }
 
 /* Phone: five tabs, no brand or Tools (Tools stays in the top bar) */
 @media (max-width: 576px) {
@@ -2012,10 +2001,6 @@ body.fretboard-open {
 .loading-card-fill { background: var(--hue) !important; border-radius: 2px; }
 @media (prefers-reduced-motion: reduce) { .loading-card-panel, .loading-card, .loading-card-fill { transition: none !important; } }
 
-/* Settings page: full width on phones (the drawer's 90vw cap no longer applies) and no close X, since the navigation closes it */
-body.settings-as-page #fileMenu { max-width: 100vw !important; }
-body.settings-as-page #fileMenu .offcanvas-header { display: none !important; }
-@media (max-width: 576px) { body.settings-as-page #fileMenu { left: 0 !important; width: 100vw !important; } }
 .backup-summary-box { background: var(--s2) !important; border: 0 !important; box-shadow: none !important; }
 .backup-summary-box i { display: none; }
 

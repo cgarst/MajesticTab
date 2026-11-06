@@ -842,21 +842,8 @@
 </div>
 
 <!-- Settings page -->
-<div class="settings-page" tabindex="-1" id="fileMenu" aria-labelledby="fileMenuLabel" aria-hidden="true">
-  <div class="offcanvas-header">
-    <div class="d-flex align-items-center gap-2">
-      <div class="settings-header-icon-box">
-        <i class="bi-sliders2-vertical text-info"></i>
-      </div>
-      <div>
-        <h5 class="offcanvas-title mb-0" id="fileMenuLabel">Settings</h5>
-      </div>
-    </div>
-    <button type="button" class="brand-btn theme-modal-close-btn" data-settings-close aria-label="Close" title="Close">
-      <i class="bi-x-lg"></i>
-    </button>
-  </div>
-  <div class="offcanvas-body">
+<div class="settings-page app-page" tabindex="-1" id="fileMenu" role="region" aria-label="Settings" aria-hidden="true">
+  <div class="page-body">
 
 
     <!-- Settings are the things you set once. Reader options (size, paper, pages) live in the reader's View menu. -->
@@ -1060,7 +1047,7 @@
     </div>
 
   </div>
-  <div class="offcanvas-footer" id="fileMenuFooter" style="display: none;">
+  <div id="fileMenuFooter" hidden>
     <button type="button" class="btn btn-theme-outline w-100 d-flex align-items-center justify-content-center gap-2" id="menuQuitAppBtn" title="Quit MajesticTab">
       <i class="bi-power text-danger"></i>
       <span>Quit MajesticTab</span>
