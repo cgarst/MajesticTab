@@ -68,6 +68,30 @@ export function updateScrollIndicator(indicator, container, totalItems) {
 const PAGE_PADDING = 20;
 
 /**
+ * Size of the box a page may use, measured from the real #output area (below the top bar,
+ * above the dock or fretboard) and the page container's own padding, so a page never runs
+ * past the bottom edge.
+ */
+function pageBox() {
+    const output = document.getElementById('output');
+    const outH = output?.clientHeight || (window.innerHeight - 80);
+    const outW = output?.clientWidth || window.innerWidth;
+    let padV = 40, padH = 40;
+    if (output) {
+        const probe = document.createElement('div');
+        probe.className = 'pageContainer';
+        probe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;width:0;height:0;min-height:0';
+        output.appendChild(probe);
+        const cs = getComputedStyle(probe);
+        padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+        padH = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
+        probe.remove();
+    }
+    // 2px for the wrapper border
+    return { wrapperHeight: Math.max(100, Math.floor(outH - padV - 2)), width: Math.max(100, outW - padH) };
+}
+
+/**
  * Layout pages for display in page mode
  * @param {Array} condensedCanvases Array of canvases to layout
  * @param {Array} pages Array to store page layouts
@@ -76,8 +100,9 @@ const PAGE_PADDING = 20;
  */
 export function layoutPages(condensedCanvases) {
     const pages = [];
-    const pageHeight = window.innerHeight - 80 - PAGE_PADDING;
-    const pageWidth = window.innerWidth - 40;
+    const { wrapperHeight, width } = pageBox();
+    const pageHeight = wrapperHeight - PAGE_PADDING;
+    const pageWidth = width;
     const pagesPerView = getPagesPerView('pdf');
     const pageGap = 10; // Gap between canvases on the same page
 
@@ -169,6 +194,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
 
     const startIndex = currentPageIndex;
     const pagesPerView = getPagesPerView('pdf');
+    const box = pageBox();
     
     for (let i = 0; i < pagesPerView; i++) {
         const pageSet = pages[startIndex + i];
@@ -176,8 +202,8 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
 
         const wrapper = document.createElement('div');
         wrapper.className = 'pageWrapper';
-        wrapper.style.width = `${(window.innerWidth - 40) / pagesPerView}px`;
-        wrapper.style.height = `${window.innerHeight - 80}px`;
+        wrapper.style.width = `${box.width / pagesPerView}px`;
+        wrapper.style.height = `${box.wrapperHeight}px`;
         wrapper.style.paddingTop = `${PAGE_PADDING}px`;
         wrapper.style.boxSizing = 'border-box';
 
