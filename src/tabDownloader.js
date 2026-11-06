@@ -804,7 +804,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
         } catch {}
         if (matchedUrl) {
             const songKey = [targetSong.artist, targetSong.title].filter(Boolean).join(' - ') || targetSong.title || file.name;
-            attachSyncForMatchedUrl(matchedUrl, { showToast, file, songKey }).catch(err => {
+            attachSyncForMatchedUrl(matchedUrl, { showToast, file, songKey, switchToOriginal: true }).catch(err => {
                 console.warn('[Tab Downloader] Background sync point attachment failed:', err);
             });
         }
@@ -904,7 +904,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
     } catch {}
 
     if (matchedUrl) {
-        attachSyncForMatchedUrl(matchedUrl, { showToast, file });
+        attachSyncForMatchedUrl(matchedUrl, { showToast, file, switchToOriginal: true });
     }
 }
 

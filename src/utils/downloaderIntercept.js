@@ -92,6 +92,18 @@ export function getDownloaderUrlFromMatchedUrl(targetUrl) {
     }
 }
 
+/** Puts the dock on Original (the synced recording) the way pressing it would, on every platform. */
+export async function switchToOriginalSound() {
+    try {
+        const { switchRealAudioSlot } = await import('../audioSync/realAudioController.js');
+        const { toggleYouTubePanel } = await import('../youtubePlayer.js');
+        switchRealAudioSlot('original');
+        toggleYouTubePanel(true);
+    } catch (e) {
+        console.warn('[Tab Downloader] Could not switch to original audio:', e);
+    }
+}
+
 /**
  * Fetches sync points for the matched score URL and attaches them to the opened score.
  * @param {string} matchedUrl
@@ -101,9 +113,10 @@ export function getDownloaderUrlFromMatchedUrl(targetUrl) {
  * @param {Function} [options.attachSyncSetsFn]
  * @param {File|Blob|Uint8Array} [options.file]
  * @param {string} [options.songKey]
+ * @param {boolean} [options.switchToOriginal] switch the dock to the Original sound once points were saved (the score is open in the reader)
  * @returns {Promise<{saved: string[], skipped: string[]}>}
  */
-export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, loadFromUrlFn = null, attachSyncSetsFn = null, file = null, songKey = null } = {}) {
+export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, loadFromUrlFn = null, attachSyncSetsFn = null, file = null, songKey = null, switchToOriginal = false } = {}) {
     if (!matchedUrl) return { saved: [], skipped: [] };
     try {
         const load = loadFromUrlFn || (await import('../audioSync/importers/index.js')).loadFromUrl;
@@ -119,6 +132,7 @@ export async function attachSyncForMatchedUrl(matchedUrl, { showToast = null, lo
 
         const attach = attachSyncSetsFn || (await import('../urlImport/attachSync.js')).attachSyncSets;
         const result = await attach(sets, { songKey, bars });
+        if (switchToOriginal && result?.saved?.length) await switchToOriginalSound();
         if (typeof showToast === 'function') {
             if (result?.saved?.length) {
                 showToast(`Added sync points for ${result.saved.length === 1 ? result.saved[0] : `${result.saved.length} videos`}`, 'success');

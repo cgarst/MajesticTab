@@ -357,6 +357,32 @@ class MainActivity : TauriActivity() {
         runOnUiThread { downloaderWebView?.evaluateJavascript(script, null) }
       }
 
+      // Plugin command replies never reach the app webview once the downloader exists, so a plain GET made from the
+      // app (the sync points of a downloaded tab) is done here and answered through window.__onNativeFetch(id, status, body).
+      @JavascriptInterface
+      fun fetchText(id: String, url: String) {
+        if (!url.startsWith("http://") && !url.startsWith("https://")) {
+          answerNativeFetch(id, 0, "")
+          return
+        }
+        Thread {
+          var status = 0
+          var body = ""
+          try {
+            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 15000
+            conn.readTimeout = 20000
+            conn.setRequestProperty("Accept", "application/json, text/html, text/plain, */*")
+            status = conn.responseCode
+            val stream = if (status in 200..299) conn.inputStream else conn.errorStream
+            body = stream?.use { String(it.readBytes(), Charsets.UTF_8) } ?: ""
+          } catch (e: Exception) {
+            android.util.Log.w("MajesticTab", "fetchText failed: " + url, e)
+          }
+          answerNativeFetch(id, status, body)
+        }.start()
+      }
+
             @JavascriptInterface
       fun setBlockedHosts(jsonArrayStr: String) {
         try {
@@ -440,6 +466,16 @@ class MainActivity : TauriActivity() {
       head.contains("FICHIER GUITAR PRO v4") -> "$base.gp4"
       head.contains("FICHIER GUITAR PRO v5") -> "$base.gp5"
       else -> name
+    }
+  }
+
+  private fun answerNativeFetch(id: String, status: Int, body: String) {
+    runOnUiThread {
+      mainWebView?.evaluateJavascript(
+        "window.__onNativeFetch && window.__onNativeFetch(" + org.json.JSONObject.quote(id) + ", " + status + ", " +
+          org.json.JSONObject.quote(body) + ");",
+        null
+      )
     }
   }
 
