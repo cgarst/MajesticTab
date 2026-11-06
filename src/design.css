@@ -4020,3 +4020,7 @@ body.score-cursor-hidden .gp-reader-cursor,
 body.score-cursor-hidden .gp-page-cursor-beat {
   display: none !important;
 }
+
+/* A MIDI file as the sound source has no bars to loop (its player holds a one-bar placeholder) */
+body.midi-synth-source #dockLoopBtn,
+body.midi-synth-source .mb-3:has(#synthLoopSwitch) { display: none !important; }

@@ -121,6 +121,8 @@ const $ = (id) => document.getElementById(id);
 function showLinkUi(file) {
     const eligible = isTextOrPdf(file);
     const linked = midiSynthActive;
+    // The MIDI file's player holds a one-bar placeholder score, so bar loops mean nothing: design.css hides them
+    document.body.classList.toggle('midi-synth-source', linked);
     // A text or PDF tab always gets the section: link a MIDI file when none is linked, replace or remove it when one is
     if ($('synthMidiSection')) $('synthMidiSection').style.display = eligible || linked ? '' : 'none';
     if ($('synthMidiNote')) $('synthMidiNote').textContent = linked ? "Plays the MIDI file. It isn't synced to the tab." : 'Link a MIDI file to hear this tab. It isn\'t synced to the tab.';
