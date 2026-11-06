@@ -399,6 +399,13 @@ function initPhoneChrome() {
         armIdle();
     }, { passive: true, capture: true }));
     armIdle();
+    // A sheet opened without a touch (keyboard, gamepad, a script) must still bring the bars back: the sheet sits
+    // above the dock and bottom row, so it cannot stand without them
+    const revealForSheet = () => { if (anySheetOpen()) document.body.classList.remove('chrome-hidden'); };
+    const sheetObserver = new MutationObserver(revealForSheet);
+    ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'tracksMenu', 'scoreOptionsDropdownPanel', 'synthDropdownPanel', 'ytDropdownPanel', 'pdfBookmarksPanel'].forEach((id) => {
+        const el = $(id); if (el) sheetObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+    });
     let lastH = output.clientHeight;
     const hand = () => { handUntil = performance.now() + 1500; };
     // A plain tap is not a hand scroll: counting touchstart/pointerdown let playback's own autoscroll within the next
