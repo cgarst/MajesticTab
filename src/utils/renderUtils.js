@@ -1,5 +1,6 @@
 // renderUtils.js
 import { getPagesPerView } from './viewModeUtils.js';
+import { canvasSize } from '../pdfProcessor/lazyPages.js';
 
 /**
  * Common utilities for rendering content
@@ -91,13 +92,15 @@ export function layoutPages(condensedCanvases) {
 
     for (let i = 0; i < condensedCanvases.length; i++) {
         const canvas = condensedCanvases[i];
+        // Lazy pages keep their size while their pixels are not loaded
+        const { w: canvasW, h: canvasH } = canvasSize(canvas);
         // Initial scale based on width
-        let scale = pageWidth / canvas.width / pagesPerView;
-        let scaledHeight = canvas.height * scale;
+        let scale = pageWidth / canvasW / pagesPerView;
+        let scaledHeight = canvasH * scale;
 
         // If this canvas is taller than the page, scale it to fit
         if (scaledHeight > pageHeight) {
-            scale = (pageHeight / canvas.height);
+            scale = (pageHeight / canvasH);
             scaledHeight = pageHeight;
         }
         
@@ -118,7 +121,7 @@ export function layoutPages(condensedCanvases) {
             }
 
             // If a single canvas is still too tall, scale it to fit exactly
-            scale = pageHeight / canvas.height;
+            scale = pageHeight / canvasH;
             currentPage.push({ canvas, scale });
             pages.push(currentPage);
             currentPage = [];
@@ -180,7 +183,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
 
         pageSet.forEach((page, idx) => {
             const canvas = page.canvas;
-            canvas.style.width = `${canvas.width * page.scale}px`;
+            canvas.style.width = `${canvasSize(canvas).w * page.scale}px`;
             canvas.style.height = 'auto';
             if (idx > 0) {
                 canvas.style.marginTop = '10px'; // Add gap between canvases

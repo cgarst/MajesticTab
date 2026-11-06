@@ -1,5 +1,6 @@
 import { enableContinuousScrollTracking, disableContinuousScrollTracking } from './scrollUtils.js';
 import { getDefaultLandscapePageLayout } from './platformUtils.js';
+import { canvasSize, getActiveLazy } from '../pdfProcessor/lazyPages.js';
 
 /**
  * Get current landscape page layout preference ('dual' or 'single')
@@ -43,9 +44,10 @@ export function switchToContinuous(output, condensedCanvases, onPageChange) {
         wrapper.style.textAlign = 'center';
 
         // Skip scaling if canvas doesn't have dimensions
-        if (c.width) {
-            const scale = output.clientWidth / c.width;
-            c.style.width = `${c.width * scale}px`;
+        const size = canvasSize(c);
+        if (size.w) {
+            const scale = output.clientWidth / size.w;
+            c.style.width = `${size.w * scale}px`;
             c.style.height = 'auto';
         }
 
@@ -55,6 +57,9 @@ export function switchToContinuous(output, condensedCanvases, onPageChange) {
 
     // Reset scroll position
     output.scrollTop = 0;
+
+    // Long PDFs: process the pages on screen as they scroll into view
+    getActiveLazy()?.observe(output);
 
     // Set up new scroll tracking and update indicator
     enableContinuousScrollTracking(output, condensedCanvases, onPageChange);

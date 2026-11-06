@@ -1,4 +1,5 @@
 import { getCurrentFile, getCondensedCanvases } from './main.js';
+import { getActiveLazy } from './pdfProcessor/lazyPages.js';
 import { gpState } from './gpProcessor/gpHandler.js';
 import { showToast } from './utils/toast.js';
 import { isIOSDevice } from './utils/iosAudioUnlock.js';
@@ -363,6 +364,9 @@ async function exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar
 
   for (let i = 0; i < canvases.length; i++) {
     const canvas = canvases[i];
+    // Long PDFs process their pages on demand: load this one (and free it again once drawn)
+    const lazyIndex = canvas._lazy?.index;
+    if (lazyIndex != null) await getActiveLazy()?.materialize(lazyIndex);
     const scale = Math.min(A4_WIDTH / canvas.width, A4_HEIGHT / canvas.height);
     const canvasWidth = canvas.width * scale;
     const canvasHeight = canvas.height * scale;
@@ -375,6 +379,7 @@ async function exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar
     const imgData = canvas.toDataURL('image/png');
     pdf.addImage(imgData, 'PNG', (A4_WIDTH - canvasWidth) / 2, cursorY, canvasWidth, canvasHeight);
     cursorY += canvasHeight;
+    if (lazyIndex != null) getActiveLazy()?.release(lazyIndex);
 
     if (progressBar) {
       const pct = Math.round(((i + 1) / canvases.length) * 100);

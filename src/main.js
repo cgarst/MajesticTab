@@ -1,6 +1,7 @@
 // main.js
 import { settingsPanel } from './utils/settingsPanel.js';
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
+import { canvasSize, getActiveLazy, disposeActiveLazy } from './pdfProcessor/lazyPages.js';
 // @googleDrive:begin
 import { setupDrivePicker, migrateGoogleAuth } from './googleDrive.js';
 // @googleDrive:end
@@ -1076,8 +1077,9 @@ async function loadPDF(file) {
     }
 
     // Process PDF with current settings
-    await processPDF(file, {
+    const lazyPages = await processPDF(file, {
         debugMode: { checked: debugMode.checked },
+        onLazyChange: () => scheduleLazyRelayout(),
         originalMode: { checked: !condensePdfMode.checked },
         onProgress: (pct, stage) => setLoadingProgress(loadingToken, pct, stage),
         condensedCanvases,
@@ -1136,19 +1138,7 @@ async function loadPDF(file) {
                     canvas._appendScheduled = true;
                     setTimeout(() => {
                         if (!processing.aborted) {
-                            const wrapper = document.createElement('div');
-                            wrapper.style.width = '100%';
-                            wrapper.style.textAlign = 'center';
-                            
-                            // Scale canvas to fit width
-                            if (canvas.width) {
-                                const scale = output.clientWidth / canvas.width;
-                                canvas.style.width = `${canvas.width * scale}px`;
-                                canvas.style.height = 'auto';
-                            }
-                            
-                            wrapper.appendChild(canvas);
-                            output.appendChild(wrapper);
+                            appendContinuousCanvas(canvas);
                             updatePageDisplay();
                         }
                         canvas._appendScheduled = false;
@@ -1171,6 +1161,11 @@ async function loadPDF(file) {
         renderCurrentPage();
         output.focus();
     } else {
+        if (lazyPages) {
+            // Long PDFs come as placeholders: show them all, and process the ones that scroll into view
+            condensedCanvases.forEach(appendContinuousCanvas);
+            lazyPages.observe(output);
+        }
         const scrollPercent = (output.scrollTop / (output.scrollHeight - output.clientHeight) * 100) || 0;
         pageIndicator.textContent = `${Math.round(scrollPercent)}%`;
     }
@@ -1331,6 +1326,7 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
 // --- RESET FUNCTION ---
 function resetView() {
     if (currentProcessing) currentProcessing.aborted = true;
+    disposeActiveLazy();
 
     // Reset file states
     condensedCanvases.length = 0;
@@ -1380,6 +1376,56 @@ function getPageStep() {
 function renderCurrentPage() {
     if (!pages || !pages.length) return;
     renderPage(output, pages, currentPageIndex, updatePageDisplay);
+    requestLazyPagesForView();
+}
+
+// Long PDFs: process the pages on screen and a few ahead of the reader
+function requestLazyPagesForView() {
+    const lazy = getActiveLazy();
+    if (!lazy || !pageModeRadio.checked) return;
+    let first = Infinity;
+    let last = -1;
+    const perView = getPagesPerView('pdf');
+    for (let i = 0; i < perView; i++) {
+        const set = pages[currentPageIndex + i];
+        if (!set) break;
+        for (const item of set) {
+            const idx = item.canvas._lazy?.index;
+            if (idx == null) continue;
+            first = Math.min(first, idx);
+            last = Math.max(last, idx);
+        }
+    }
+    if (last < 0) return;
+    lazy.setWindow(first - 2, last + 5, first);
+}
+
+// Processed pages come out a different size than their placeholders, so the page layout is redone, staying on the
+// page the reader is on
+let lazyRelayoutTimer = null;
+function scheduleLazyRelayout() {
+    if (lazyRelayoutTimer) return;
+    lazyRelayoutTimer = setTimeout(() => {
+        lazyRelayoutTimer = null;
+        if (pageModeRadio.checked && getActiveLazy()) doLayoutPages();
+    }, 120);
+}
+
+function appendContinuousCanvas(canvas) {
+    const wrapper = document.createElement('div');
+    wrapper.style.width = '100%';
+    wrapper.style.textAlign = 'center';
+
+    // Scale canvas to fit width
+    const size = canvasSize(canvas);
+    if (size.w) {
+        const scale = output.clientWidth / size.w;
+        canvas.style.width = `${size.w * scale}px`;
+        canvas.style.height = 'auto';
+    }
+
+    wrapper.appendChild(canvas);
+    output.appendChild(wrapper);
 }
 
 // --- PAGE INDICATOR ---
