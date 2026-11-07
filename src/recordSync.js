@@ -84,11 +84,11 @@ export function planRecords(mine, theirs, base, skipKinds = new Set()) {
 }
 
 const NOUN = {
-    setting: ['setting', 'settings'], collection: ['collection', 'collections'],
+    setting: ['setting', 'settings'], syncpoints: ['sync point set', 'sync point sets'], collection: ['collection', 'collections'],
     song: ['song', 'songs'], recent: ['recent', 'recents'], setlist: ['setlist', 'setlists']
 };
 const noun = (kind, n) => NOUN[kind][n === 1 ? 0 : 1];
-const OTHER_KIND = { setting: 'setting', collection: 'collection', song: 'song', recent: 'song', setlist: 'collection' };
+const OTHER_KIND = { setting: 'setting', syncpoints: 'setting', collection: 'collection', song: 'song', recent: 'song', setlist: 'collection' };
 
 /** Plan lines for the sync screen, one per kind and direction: { receive, send }. */
 export function describeRecords(decisions) {

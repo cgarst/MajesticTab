@@ -179,3 +179,16 @@ export async function archiveHasPiece(tabFile) {
     const rec = await getCatalogRecord();
     return Boolean(rec && rec.sizes?.[rec.prefix + tabFile] != null);
 }
+
+/** The installed archive as a backup item (no bytes), or null: { id, name, size, addedAt }. */
+export async function getArchiveBackupMeta() {
+    const rec = await getCatalogRecord();
+    if (!rec) return null;
+    return { id: 'archive', name: 'Classical tab archive', size: rec.bytes || 0, addedAt: rec.updatedAt || 0 };
+}
+
+/** The raw ZIP bytes (an ArrayBuffer view's buffer) for a backup, or null. */
+export async function getArchiveBytes() {
+    const zip = await getZip();
+    return zip || null;
+}

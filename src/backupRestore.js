@@ -28,6 +28,9 @@ import {
     STORAGE_KEY_SOUNDFONT_SELECTION, STORAGE_KEY_SOUNDFONT_ORDER, STORAGE_KEY_SOUNDFONT_STRICT, STORAGE_KEY_SOUNDFONT_FORCED, SOUNDFONT_BACKUP_STORE, listSoundFonts, clearAllSoundFonts,
     collectSoundFontBackupEntries, restoreSoundFontEntry
 } from './soundFontStore.js';
+import {
+    CLASSTAB_BACKUP_STORE, collectClasstabBackupEntries, restoreClasstabEntry, listClasstab, deleteClasstab
+} from './classtab/backup.js';
 
 let modalElement = null;
 let currentBackupFile = null;
@@ -165,6 +168,7 @@ async function* backupTextChunks(onProgress) {
         getAllLibraryData(),
         listSoundFonts()
     ]);
+    const classtabEntries = await collectClasstabBackupEntries();
 
     const settings = collectAllSettings();
     // Audio files that fit in one file; larger ones belong in a snapshot or folder backup
@@ -172,7 +176,7 @@ async function* backupTextChunks(onProgress) {
 
     const summary = {
         tabsCount: fileMetas.length,
-        soundFontsCount: soundFonts.length,
+        soundFontsCount: soundFonts.length + classtabEntries.length,
         audioCount: audioPlan.count,
         totalAudioSize: audioPlan.bytes,
         audioTooLargeCount: audioPlan.tooLarge.length,
@@ -234,8 +238,14 @@ async function* backupTextChunks(onProgress) {
         soundFontEntries[i].dataBase64 = null;
     }
 
+    // The Classical tab archive, tagged `store: 'classtab'`
+    for (let i = 0; i < classtabEntries.length; i++) {
+        yield (fileMetas.length + soundFontEntries.length + i > 0 ? ',' : '') + JSON.stringify(classtabEntries[i]);
+        classtabEntries[i].dataBase64 = null;
+    }
+
     // Audio files too, one at a time, tagged `store: 'audio'`
-    let written = fileMetas.length + soundFontEntries.length;
+    let written = fileMetas.length + soundFontEntries.length + classtabEntries.length;
     for await (const entry of iterateAudioBackupEntries()) {
         yield (written > 0 ? ',' : '') + JSON.stringify(entry);
         written++;
@@ -719,6 +729,12 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
                         if (typeof onProgress === 'function') {
                             onProgress(filesImported + filesSkipped + soundFontsImported + audioImported + audioSkipped, totalFilesExpected);
                         }
+                    } else if (item && item.store === CLASSTAB_BACKUP_STORE && item.dataBase64) {
+                        if (await restoreClasstabEntry(item, { wipe })) soundFontsImported++;
+                        else filesSkipped++;
+                        if (typeof onProgress === 'function') {
+                            onProgress(filesImported + filesSkipped + soundFontsImported, totalFilesExpected);
+                        }
                     } else if (item && item.store === SOUNDFONT_BACKUP_STORE && item.id && item.name && item.dataBase64) {
                         if (await restoreSoundFontEntry(item, { wipe })) soundFontsImported++;
                         else filesSkipped++;
@@ -882,6 +898,12 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
             continue;
         }
 
+        if (item.store === CLASSTAB_BACKUP_STORE) {
+            if (await restoreClasstabEntry(item, { wipe })) soundFontsImported++;
+            else filesSkipped++;
+            continue;
+        }
+
         if (item.store === SOUNDFONT_BACKUP_STORE) {
             if (await restoreSoundFontEntry(item, { wipe })) soundFontsImported++;
             else filesSkipped++;
@@ -966,6 +988,7 @@ export async function deleteAllAppData() {
     // 1. Wipe IndexedDB stored files and library
     await clearAllStoredFiles();
     await clearAllSoundFonts();
+    await deleteClasstab();
     await clearAllAudioFiles();
     await clearAllLibraryData();
     await ensureDefaultCollection();

@@ -10,6 +10,8 @@
 import { getAllStoredFiles, deleteStoredFile, putStoredFileRecord } from './fileStore.js';
 import { getAllSongs, getAllLibraryData, importLibraryData, removeTabOptionFromSong, putLibraryRecord, deleteLibraryRecord } from './libraryStore.js';
 import { listSoundFonts, deleteSoundFont, restoreSoundFontEntry } from './soundFontStore.js';
+import { CLASSTAB_BACKUP_STORE, isClasstabItem, classtabFingerprint, listClasstab, restoreClasstabEntry, deleteClasstab } from './classtab/backup.js';
+import { mergeAudioSync, AUDIO_SYNC_PREFIX } from './audioSync/syncStore.js';
 import { listAudioFiles } from './audioSync/audioFileStore.js';
 import {
     listAudioForBackup, restoreAudioEntry, isAudioItem, isAudioDownloadEnabled, audioItemFingerprint, audioSyncDecision
@@ -55,9 +57,10 @@ export function clearSyncBase() {
 const fileKey = (id) => `f:${id}`;
 const soundFontKey = (id) => `s:${id}`;
 const audioKey = (id) => `a:${id}`;
-const keyOf = (item) => (item.kind === 'tab' ? fileKey(item.id) : item.kind === 'audio' ? audioKey(item.id) : soundFontKey(item.id));
+const classtabKey = (id) => `c:${id}`;
+const keyOf = (item) => (item.kind === 'tab' ? fileKey(item.id) : item.kind === 'audio' ? audioKey(item.id) : item.kind === 'classtab' ? classtabKey(item.id) : soundFontKey(item.id));
 
-function localItems(fileMetas, soundFonts, audioMetas = []) {
+function localItems(fileMetas, soundFonts, audioMetas = [], classtabMetas = []) {
     const items = new Map();
     for (const m of fileMetas) {
         items.set(fileKey(m.id), {
@@ -69,6 +72,12 @@ function localItems(fileMetas, soundFonts, audioMetas = []) {
         items.set(soundFontKey(m.id), {
             kind: 'soundfont', id: m.id, name: m.name, size: m.size || 0,
             fingerprint: soundFontFingerprint(m), time: m.addedAt || 0
+        });
+    }
+    for (const m of classtabMetas) {
+        items.set(classtabKey(m.id), {
+            kind: 'classtab', id: m.id, name: m.name, size: m.size || 0,
+            fingerprint: classtabFingerprint(m), time: m.addedAt || 0
         });
     }
     for (const m of audioMetas) {
@@ -88,6 +97,11 @@ function remoteItems(manifest) {
             items.set(audioKey(f.id), {
                 kind: 'audio', id: f.id, name: f.name, size: f.size || 0,
                 fingerprint: audioItemFingerprint(f), time: f.savedAt || 0
+            });
+        } else if (isClasstabItem(f)) {
+            items.set(classtabKey(f.id), {
+                kind: 'classtab', id: f.id, name: f.name, size: f.size || 0,
+                fingerprint: classtabFingerprint(f), time: f.addedAt || 0
             });
         } else if (f.store) {
             items.set(soundFontKey(f.id), {
@@ -184,6 +198,12 @@ const SETTING_SPECIAL = new Set([TAB_SOURCES_KEY, TAB_SOURCES_DELETED_KEY, 'audi
  * and audio sync records merge by their own rules (see fillMissingPreferences), so they are not here.
  * `present` names the kinds the source actually holds: a snapshot from an older version lacks some.
  */
+/** A readable name for a sync point record from its storage key: the song, as it was written in the key. */
+function syncPointLabel(key) {
+    const m = /^audio_sync_(?:share_)?(.*?)(?:_(?:yt|local)_[^_]*)?$/.exec(key);
+    try { return m ? decodeURIComponent(m[1]) : ''; } catch { return m ? m[1] : ''; }
+}
+
 function recordViews({ settings, library }) {
     const records = new Map();
     const present = new Set();
@@ -198,6 +218,14 @@ function recordViews({ settings, library }) {
                 for (const [name, v] of Object.entries(val)) add(`${prefix}:${name}`, 'setting', name, '', v);
             } else {
                 add(`set:${key}`, 'setting', key, key, val);
+            }
+        }
+        // Audio sync points: one record per song and recording, so a change shows in the plan and moves by itself
+        present.add('syncpoints');
+        if (settings.audioSync && typeof settings.audioSync === 'object') {
+            for (const [key, val] of Object.entries(settings.audioSync)) {
+                if (!key.startsWith(AUDIO_SYNC_PREFIX)) continue;
+                add(`sp:${key}`, 'syncpoints', key, syncPointLabel(key), val, Number.isFinite(val?.updatedAt) ? val.updatedAt : undefined);
             }
         }
     }
@@ -219,7 +247,7 @@ async function localRecordViews() {
 /** The records that apply would move, in each direction, with what each one does. */
 function compareRecords(manifest, local, base) {
     const theirs = recordViews({ settings: manifest?.settings, library: manifest?.library });
-    const skip = new Set(['setting', 'collection', 'song', 'recent', 'setlist'].filter(k => !theirs.present.has(k)));
+    const skip = new Set(['setting', 'syncpoints', 'collection', 'song', 'recent', 'setlist'].filter(k => !theirs.present.has(k)));
     const records = planRecords(local.records, theirs.records, base, skip).map(({ value, ...d }) => d);
     return { records, other: describeRecords(records) };
 }
@@ -228,6 +256,7 @@ function localKeyOf(key) {
     if (key.startsWith('set:')) return key.slice(4);
     if (key.startsWith('yt:')) return key.slice(3);
     if (key.startsWith('gts:')) return key.slice(4);
+    if (key.startsWith('sp:')) return key.slice(3);
     return key;
 }
 
@@ -237,6 +266,16 @@ async function applyRecordDecisions(bundle, decisions, droppedFileIds) {
     let changed = 0;
     for (const d of decisions) {
         const t = theirs.get(d.key);
+        if (d.kind === 'syncpoints') {
+            if (d.action === RECORD_ACTION.PULL && t) {
+                mergeAudioSync({ [localKeyOf(d.key)]: t.value }, { wipe: true });
+                changed++;
+            } else if (d.action === RECORD_ACTION.DELETE_LOCAL) {
+                localStorage.removeItem(localKeyOf(d.key));
+                changed++;
+            }
+            continue;
+        }
         if (d.kind === 'setting') {
             if (d.action === RECORD_ACTION.PULL && t) {
                 if (d.key.startsWith('yt:') || d.key.startsWith('gts:')) localStorage.setItem(localKeyOf(d.key), String(t.value));
@@ -275,13 +314,14 @@ async function applyRecordDecisions(bundle, decisions, droppedFileIds) {
 export async function planSync(backend, onStatus) {
     const say = (text) => { if (typeof onStatus === 'function') onStatus(text); };
     say('Reading this device\'s library and listing snapshots...');
-    const [backups, fileMetas, soundFonts, audioMetas] = await Promise.all([
+    const [backups, fileMetas, soundFonts, audioMetas, classtabMetas] = await Promise.all([
         listIncrementalBackups(backend),
         getAllStoredFiles(),
         listSoundFonts(),
-        listAudioForBackup()
+        listAudioForBackup(),
+        listClasstab()
     ]);
-    const local = localItems(fileMetas, soundFonts, audioMetas);
+    const local = localItems(fileMetas, soundFonts, audioMetas, classtabMetas);
     const downloadAudio = isAudioDownloadEnabled();
     const latest = backups[0] ? { name: backups[0].name, exportedAt: backups[0].exportedAt } : null;
     say(latest ? `Downloading the latest snapshot (${backups.length} found)...` : 'No snapshot found; this is a first sync.');
@@ -363,14 +403,8 @@ async function removeLocalTab(id) {
 }
 
 function fillMissingPreferences(manifest) {
+    // ytCache and gpTabStrings fill in by key, audio sync points are records (applyRecordDecisions)
     const settings = {};
-    for (const [key, val] of Object.entries(manifest.settings || {})) {
-        // ytCache and gpTabStrings are per-key maps that the restore code already fills without overwriting; audioSync is
-        // merged by the restore code too (newer record wins)
-        if (key === TAB_SOURCES_KEY || key === TAB_SOURCES_DELETED_KEY) continue;
-        // Everything else is carried by the record decisions (applyRecordDecisions); audioSync merges by its own rules
-        if (key === 'audioSync') settings[key] = val;
-    }
     const theirSources = readSourceList(manifest.settings?.[TAB_SOURCES_KEY]);
     const theirTombs = readTombstones(manifest.settings?.[TAB_SOURCES_DELETED_KEY]);
     if (theirSources.length || Object.keys(theirTombs).length) {
@@ -417,6 +451,8 @@ export async function applySync(backend, plan, onProgress) {
             if (item) {
                 if (change.kind === 'audio') {
                     await restoreAudioEntry(item, { wipe: true });
+                } else if (change.kind === 'classtab') {
+                    await restoreClasstabEntry(item, { wipe: true });
                 } else if (change.kind === 'soundfont') {
                     await restoreSoundFontEntry(item, { wipe: true });
                 } else {
@@ -445,6 +481,7 @@ export async function applySync(backend, plan, onProgress) {
 
         for (const change of of(SYNC_ACTION.DELETE_LOCAL)) {
             if (change.kind === 'soundfont') await deleteSoundFont(change.id);
+            else if (change.kind === 'classtab') await deleteClasstab();
             else await removeLocalTab(change.id);
             result.removedLocal++;
         }
@@ -469,7 +506,7 @@ export async function applySync(backend, plan, onProgress) {
     result.removedRemote = of(SYNC_ACTION.DELETE_REMOTE).length;
 
     // The baseline is whatever this device holds now, which matches the snapshot after a push or pull
-    const settled = localItems(await getAllStoredFiles(), await listSoundFonts(), await listAudioForBackup());
+    const settled = localItems(await getAllStoredFiles(), await listSoundFonts(), await listAudioForBackup(), await listClasstab());
     const settledRecords = (await localRecordViews()).records;
     saveSyncBase(backend, Object.fromEntries([...settled].map(([key, item]) => [key, item.fingerprint])),
         Object.fromEntries([...settledRecords].map(([key, r]) => [key, r.fp])));
@@ -487,10 +524,10 @@ export async function applySync(backend, plan, onProgress) {
 export async function planReplaceRemote(backend, onStatus) {
     const say = (text) => { if (typeof onStatus === 'function') onStatus(text); };
     say('Reading this device\'s library and listing snapshots...');
-    const [backups, fileMetas, soundFonts, audioMetas] = await Promise.all([
-        listIncrementalBackups(backend), getAllStoredFiles(), listSoundFonts(), listAudioForBackup()
+    const [backups, fileMetas, soundFonts, audioMetas, classtabMetas] = await Promise.all([
+        listIncrementalBackups(backend), getAllStoredFiles(), listSoundFonts(), listAudioForBackup(), listClasstab()
     ]);
-    const local = localItems(fileMetas, soundFonts, audioMetas);
+    const local = localItems(fileMetas, soundFonts, audioMetas, classtabMetas);
     const latest = backups[0] ? { name: backups[0].name, exportedAt: backups[0].exportedAt } : null;
     say(latest ? 'Reading the latest snapshot...' : 'No snapshot found.');
     const manifest = latest ? await backend.readManifest(backups[0]) : null;
@@ -547,7 +584,7 @@ export async function applyReplaceRemote(backend, plan, onProgress) {
             phase === 'manifest' ? 'Saving the new snapshot' : name ? `Sending ${name}` : 'Checking what the backup already holds'
         )
     });
-    const settled = localItems(await getAllStoredFiles(), await listSoundFonts(), await listAudioForBackup());
+    const settled = localItems(await getAllStoredFiles(), await listSoundFonts(), await listAudioForBackup(), await listClasstab());
     const settledRecords = (await localRecordViews()).records;
     saveSyncBase(backend, Object.fromEntries([...settled].map(([key, item]) => [key, item.fingerprint])),
         Object.fromEntries([...settledRecords].map(([key, r]) => [key, r.fp])));

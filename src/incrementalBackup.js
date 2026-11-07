@@ -19,6 +19,7 @@
 //   deleteManifest(entry)
 import { getAllStoredFiles, getStoredFileRecord } from './fileStore.js';
 import { getAllLibraryData } from './libraryStore.js';
+import { CLASSTAB_BACKUP_STORE, isClasstabItem, classtabFingerprint, listClasstab, getClasstabData } from './classtab/backup.js';
 import { listSoundFonts, getSoundFontData, SOUNDFONT_BACKUP_STORE } from './soundFontStore.js';
 import { collectAllSettings } from './backupRestore.js';
 import { getAudioFile, listAudioFiles } from './audioSync/audioFileStore.js';
@@ -91,11 +92,13 @@ export function soundFontFingerprint(meta) {
 /** Key and change detector of a manifest item, by what kind it is (tab, SoundFont or audio file). */
 export function itemKey(item) {
     if (isAudioItem(item)) return `a:${item.id}`;
+    if (isClasstabItem(item)) return `c:${item.id}`;
     return item.store ? `s:${item.id}` : `f:${item.id}`;
 }
 
 export function itemFingerprint(item) {
     if (isAudioItem(item)) return audioItemFingerprint(item);
+    if (isClasstabItem(item)) return classtabFingerprint(item);
     return item.store ? soundFontFingerprint(item) : fileFingerprint(item);
 }
 
@@ -133,11 +136,12 @@ export async function createIncrementalBackup(backend, { onProgress, carryForwar
     const remote = await backend.listBlobs();
     const remoteHashes = new Set(remote.map(f => blobHash(f.name)));
 
-    const [fileMetas, libraryData, soundFonts, audioMetas] = await Promise.all([
+    const [fileMetas, libraryData, soundFonts, audioMetas, classtabMetas] = await Promise.all([
         getAllStoredFiles(),
         getAllLibraryData(),
         listSoundFonts(),
-        listAudioForBackup()
+        listAudioForBackup(),
+        listClasstab()
     ]);
 
     // Each source knows how to read its bytes lazily and which cache key proves they're unchanged
@@ -155,6 +159,13 @@ export async function createIncrementalBackup(backend, { onProgress, carryForwar
             cacheKey: `s:${meta.id}`,
             fingerprint: soundFontFingerprint(meta),
             read: async () => getSoundFontData(meta.id)
+        })),
+        ...classtabMetas.map(meta => ({
+            kind: 'classtab',
+            meta,
+            cacheKey: `c:${meta.id}`,
+            fingerprint: classtabFingerprint(meta),
+            read: async () => getClasstabData()
         })),
         ...audioMetas.map(meta => ({
             kind: 'audio',
@@ -230,6 +241,15 @@ export async function createIncrementalBackup(backend, { onProgress, carryForwar
                 lastModified: meta.lastModified || Date.now(),
                 blob: source.hash
             });
+        } else if (source.kind === 'classtab') {
+            soundFontEntries.push({
+                store: CLASSTAB_BACKUP_STORE,
+                id: meta.id,
+                name: meta.name,
+                size: meta.size,
+                addedAt: meta.addedAt,
+                blob: source.hash
+            });
         } else {
             soundFontEntries.push({
                 store: SOUNDFONT_BACKUP_STORE,
@@ -297,15 +317,17 @@ export async function createIncrementalBackup(backend, { onProgress, carryForwar
  *   audio: {count: number, bytes: number, added: number, modified: number, unchanged: number, bytesToSend: number}}>}
  */
 export async function previewIncrementalBackup(backend) {
-    const [backups, fileMetas, soundFonts, audioMetas] = await Promise.all([
+    const [backups, fileMetas, soundFonts, audioMetas, classtabMetas] = await Promise.all([
         listIncrementalBackups(backend),
         getAllStoredFiles(),
         listSoundFonts(),
-        listAudioForBackup()
+        listAudioForBackup(),
+        listClasstab()
     ]);
     const local = [
         ...fileMetas.map(m => ({ key: `f:${m.id}`, fingerprint: fileFingerprint(m), size: m.size || 0 })),
-        ...soundFonts.map(m => ({ key: `s:${m.id}`, fingerprint: soundFontFingerprint(m), size: m.size || 0 }))
+        ...soundFonts.map(m => ({ key: `s:${m.id}`, fingerprint: soundFontFingerprint(m), size: m.size || 0 })),
+        ...classtabMetas.map(m => ({ key: `c:${m.id}`, fingerprint: classtabFingerprint(m), size: m.size || 0 }))
     ];
     const localAudio = audioMetas.map(m => ({ key: `a:${m.id}`, fingerprint: audioItemFingerprint(m), size: m.size || 0 }));
     const audio = {
@@ -356,10 +378,11 @@ export async function previewIncrementalBackup(backend) {
  *   audio: {total: number, totalBytes: number, missing: number, missingBytes: number, same: number, localOnly: number}}>}
  */
 export async function previewIncrementalRestore(bundle) {
-    const [fileMetas, soundFonts, audioMetas] = await Promise.all([getAllStoredFiles(), listSoundFonts(), listAudioFiles()]);
+    const [fileMetas, soundFonts, audioMetas, classtabMetas] = await Promise.all([getAllStoredFiles(), listSoundFonts(), listAudioFiles(), listClasstab()]);
     const local = new Map([
         ...fileMetas.map(m => [`f:${m.id}`, fileFingerprint(m)]),
-        ...soundFonts.map(m => [`s:${m.id}`, soundFontFingerprint(m)])
+        ...soundFonts.map(m => [`s:${m.id}`, soundFontFingerprint(m)]),
+        ...classtabMetas.map(m => [`c:${m.id}`, classtabFingerprint(m)])
     ]);
     const localAudio = new Map(audioMetas.map(m => [`a:${m.id}`, audioItemFingerprint(m)]));
     const audio = { total: 0, totalBytes: 0, missing: 0, missingBytes: 0, same: 0, localOnly: 0 };
