@@ -7,11 +7,15 @@ import { getAudioSyncSession } from '../audioSync/audioSyncController.js';
 import { TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
 
 const STORAGE_KEY_OPEN = 'majestictab_fretboard_open';
-// A short landscape phone has no room for the fretboard under the tab: start it compacted there
-// unless the player has chosen (the stored value is only written by their own toggle).
+// A short landscape phone has no room for the fretboard under the tab: it compacts itself when the phone turns to
+// landscape, and what the player chose in portrait is kept apart (the stored value is written only in portrait)
+// and comes back when the phone turns upright.
 const SHORT_LANDSCAPE_PHONE_QUERY = '(pointer: coarse) and (orientation: landscape) and (max-height: 500px)';
-function defaultOpen() {
-    try { return !window.matchMedia(SHORT_LANDSCAPE_PHONE_QUERY).matches; } catch (_) { return true; }
+function isLandscapePhone() {
+    try { return window.matchMedia(SHORT_LANDSCAPE_PHONE_QUERY).matches; } catch (_) { return false; }
+}
+function portraitOpen() {
+    try { return localStorage.getItem(STORAGE_KEY_OPEN) !== 'false'; } catch (_) { return true; }
 }
 const STORAGE_KEY_MODE = 'majestictab_fretboard_display_mode';
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
@@ -49,8 +53,7 @@ class FretboardController {
         // Restore saved preferences
         try {
             // Open unless the player compacted it: there is no other switch for it
-            const storedOpen = localStorage.getItem(STORAGE_KEY_OPEN);
-            this.isOpen = storedOpen === null ? defaultOpen() : storedOpen !== 'false';
+            this.isOpen = isLandscapePhone() ? false : portraitOpen();
             const savedMode = localStorage.getItem(STORAGE_KEY_MODE);
             this.displayMode = savedMode === 'frets' ? 'frets' : 'notes';
             this.isLeftHanded = localStorage.getItem(STORAGE_KEY_LH) === 'true';
@@ -143,15 +146,9 @@ class FretboardController {
         window.addEventListener('resize', () => {
             this.syncDockBtnSlot();
         });
-        // Rotating follows the default until the player has made their own choice
+        // Turning the phone: landscape compacts the fretboard, upright restores the portrait choice
         window.matchMedia?.(SHORT_LANDSCAPE_PHONE_QUERY).addEventListener?.('change', () => {
-            let chosen = true;
-            try { chosen = localStorage.getItem(STORAGE_KEY_OPEN) !== null; } catch (_) {}
-            if (!chosen) {
-                this.toggle(defaultOpen());
-                // toggle() stores its state; an automatic change is not the player's choice
-                try { localStorage.removeItem(STORAGE_KEY_OPEN); } catch (_) {}
-            }
+            this.toggle(isLandscapePhone() ? false : portraitOpen());
         });
     }
 
@@ -179,7 +176,8 @@ class FretboardController {
         this.isOpen = (forceState !== undefined) ? Boolean(forceState) : !this.isOpen;
 
         try {
-            localStorage.setItem(STORAGE_KEY_OPEN, String(this.isOpen));
+            // Only a portrait choice is remembered; landscape's compacting is automatic
+            if (!isLandscapePhone()) localStorage.setItem(STORAGE_KEY_OPEN, String(this.isOpen));
         } catch (_) {}
 
         this.syncUIState();
