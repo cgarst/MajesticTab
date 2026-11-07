@@ -991,7 +991,8 @@ body.library-view-active .app-page { --page-top: 0px; }
 .setnav button:hover { color: var(--ink); }
 .setnav button[aria-current="true"] { color: var(--ink); background: var(--s2); }
 @media (min-width: 900px) { .setnav button .chev { display: none; } .setnav button[aria-current="true"]::before { content: ''; position: absolute; left: -2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); } }
-@media (max-width: 899px) { .setnav button { background: var(--s2); min-height: 56px; color: var(--ink); } }
+/* Flat rows on the 56px pitch (they were filled tonal cards); a press takes one tone step */
+@media (max-width: 899px) { .setnav button { background: transparent; min-height: 56px; color: var(--ink); } .setnav button:active, .setnav button[aria-current="true"]:active { background: var(--s2); } .setnav button[aria-current="true"] { background: transparent; } }
 .setpage { overflow: auto; padding: 4px 28px 40px; min-width: 0; max-width: 820px; }
 .setsec[hidden] { display: none; }
 .setpage .sgroup:first-child h3 { margin-top: 0; }
