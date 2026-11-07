@@ -4263,3 +4263,8 @@ body.midi-synth-source .mb-3:has(#synthLoopSwitch) { display: none !important; }
 /* Guitar Pro on a phone: the bar ruler already shows where you are, so the scroll percentage beside the page arrows
    says the same thing twice. PDF and text tabs keep their page range, which the page strip does not spell out. */
 body.phone-reader:not(.library-view-active):not(.page-strip-on) #navButtons #pageIndicator { display: none; }
+
+/* The beat cursor is an outline drawn over the score. Where it crosses a bar number or a P.M. mark (the first beat of a
+   bar) it hid them. Multiplying it into the paper keeps dark notation fully dark under the outline; it is still the
+   playhead color on the paper. Not on a dark sheet, where multiplying would make it vanish. */
+body:not(.sheet-mode-dark) .gp-reader-cursor svg { mix-blend-mode: multiply; }
