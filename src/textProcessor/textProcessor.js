@@ -1,5 +1,6 @@
 // textProcessor.js
 import { setTextPagesPerView, getLandscapePageLayout } from '../utils/viewModeUtils.js';
+import { decodeText } from '../utils/decodeText.js';
 import { groupBlocks, paginate, createChordLyricSegments } from './textBlocks.js';
 
 const PAGE_PADDING = 20;
@@ -10,7 +11,8 @@ const MIN_TEXT_FIT = 0.4; // smallest share of the normal text size a tab is shr
  */
 export async function processText(file) {
     try {
-        const text = await file.text();
+        // Not file.text(): that always reads UTF-8 and turns GBK, Big5, Shift-JIS and Latin-1 tabs into U+FFFD
+        const text = decodeText(await file.arrayBuffer());
         const lines = text.replace(/\r\n?/g, '\n').split('\n');
 
         // A page may only break between blocks: a staff system (ruler, strings, marks) is one block, never split.

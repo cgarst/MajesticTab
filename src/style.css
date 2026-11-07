@@ -447,6 +447,10 @@ body {
 
 /* Themed scrollbars; scrollbar-color inherits to all scroll containers. */
 :root {
+  /* Text tabs draw Chinese, Japanese and Korean from these when the monospace font has no glyph (some Linux WebViews
+     ship no CJK font and would show empty boxes). Listed in the order the platforms provide them. */
+  --tab-cjk-fonts: "PingFang SC", "Hiragino Sans GB", "Hiragino Sans", "Microsoft YaHei", "Yu Gothic", "Malgun Gothic",
+    "Noto Sans Mono CJK SC", "Noto Sans CJK SC", "Noto Sans CJK JP", "Noto Sans CJK KR", "Source Han Sans", "WenQuanYi Micro Hei", sans-serif;
   scrollbar-color: color-mix(in srgb, var(--accent-primary) 55%, transparent) transparent;
   scrollbar-width: thin;
 }
@@ -2034,7 +2038,7 @@ body.fretboard-open .mobile-playback-dock {
   flex: 1;
   box-sizing: border-box;
   font-size: calc(14px * var(--text-scale, 1));
-  font-family: monospace;
+  font-family: monospace, var(--tab-cjk-fonts);
   line-height: 1.5;
 }
 
@@ -2106,7 +2110,7 @@ canvas {
   max-width: 1200px;
   margin: 20px auto;
   padding: 24px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace, var(--tab-cjk-fonts);
   line-height: 1.5;
   background-color: var(--sheet-bg);
   color: var(--sheet-text);
@@ -2118,7 +2122,7 @@ canvas {
 }
 
 .measure-div {
-  font-family: monospace;
+  font-family: monospace, var(--tab-cjk-fonts);
   font-size: calc(14px * var(--text-scale, 1));
   line-height: 1.5;
 }

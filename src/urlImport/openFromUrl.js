@@ -3,6 +3,7 @@
 
 import { hasNativeHttp } from '../s3Client.js';
 import { parseWebAddress, fileNameFor } from './urlImport.js';
+import { decodeText, charsetOf } from '../utils/decodeText.js';
 
 const CORS_HINT = 'Could not reach that address. In the browser the site must allow cross-origin requests; the desktop and mobile apps can fetch it.';
 
@@ -69,7 +70,7 @@ export const fetchText = async url => {
         const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
         bytes = new Uint8Array(await new Response(stream).arrayBuffer());
     }
-    return new TextDecoder().decode(bytes);
+    return decodeText(bytes, charsetOf(res.headers?.get?.('content-type')));
 };
 
 async function fetchFile(url) {
