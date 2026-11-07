@@ -4228,9 +4228,8 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
    reader. It glides down at the pace the sync points imply, so how near it is to the bottom says how soon the page
    scrolls or turns. Flat, no glow. */
 .reading-line { position: absolute; left: 0; top: 0; z-index: 6; width: 0; height: 0; pointer-events: none; will-change: transform; opacity: 1; transition: opacity var(--dur-base) var(--ease-out); }
-.reading-line::before { content: ''; position: absolute; left: 2px; top: -8px; border: 8px solid transparent; border-left: 12px solid var(--hue); border-right: 0; }
-/* Keep the marker (2px to 14px) out of the text: the text column starts clear of it, also on a narrow phone */
-body.phone-reader .text-content { padding-left: 20px; }
+/* The marker's origin is the left edge of the text, so the arrow is drawn in the gutter to its left (the paper pads the text by 20px) */
+.reading-line::before { content: ''; position: absolute; left: -16px; top: -8px; border: 8px solid transparent; border-left: 12px solid var(--hue); border-right: 0; }
 .reading-line[hidden] { display: none; }
 .reading-line.is-off { opacity: 0; transition-duration: var(--dur-fast); }
 @media (prefers-reduced-motion: reduce) { .reading-line { transition: none; } }
