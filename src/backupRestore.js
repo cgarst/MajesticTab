@@ -1416,7 +1416,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
           <div class="backup-dropzone p-4 rounded-3 text-center mb-3" id="restoreDropzone">
             <input type="file" id="restoreFileInput" accept=".mtbackup" class="d-none">
             <div class="fw-semibold text-white small mb-1">Restore from a snapshot or a backup file</div>
-            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive, an S3 bucket, a WebDAV server or a backup folder, or open a single .mtbackup file (you can also drop one here)</div>
+            <div class="text-white-50 mb-3" style="font-size: 0.74rem;">Pick an incremental snapshot from Google Drive, an S3 bucket, a WebDAV server or a backup folder, or open a single .mtbackup file<span class="restore-drop-hint"> (you can also drop one here)</span></div>
             <div class="d-flex justify-content-center align-items-center gap-2 flex-wrap">
               <button type="button" class="btn btn-sm btn-theme-outline px-3" id="restoreBrowseBtn">
                 <span>From file…</span>
@@ -1475,12 +1475,12 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
 
           <!-- Step 2: Inspection Card (Hidden until file selected) -->
           <div id="restoreInspectionCard" class="p-3 rounded-3 mb-3" style="display:none;">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <div class="d-flex align-items-center gap-2">
+            <div class="restore-inspect-head d-flex align-items-center justify-content-between flex-wrap gap-1 mb-2">
+              <div class="d-flex align-items-center gap-2 min-w-0 flex-wrap">
                 <span class="small fw-semibold text-white">Valid backup</span>
-                <span class="small text-white-50" id="restoreFilenameLabel" style="font-size: 0.75rem;"></span>
+                <span class="small text-white-50 text-break" id="restoreFilenameLabel" style="font-size: 0.75rem;"></span>
               </div>
-              <div class="d-flex align-items-center gap-2">
+              <div class="d-flex align-items-center gap-2 flex-wrap">
                 <span class="small text-white-50" id="restoreExportedDate" style="font-size: 0.75rem;"></span>
                 <button type="button" class="btn btn-sm srow-ghost px-2 py-0" id="restoreChangeFileBtn" style="font-size: 0.75rem;">Change</button>
               </div>
@@ -1518,7 +1518,7 @@ async function renderModal(modal, activeTab = 'backup', options = {}) {
                     <span class="fw-semibold text-danger small">Replace all data</span>
                   </div>
                   <div class="text-muted" style="font-size: 0.73rem; line-height: 1.35;">
-                    Erases all current local stored tabs, library entries, settings and audio files (unless you leave audio out above), and replaces them cleanly with this backup.
+                    Erases all current local stored tabs, library entries, settings and audio files<span id="restoreAudioNote" style="display:none;"> (unless you leave audio out above)</span>, and replaces them cleanly with this backup.
                   </div>
                 </div>
               </label>
@@ -2835,6 +2835,8 @@ function attachModalHandlers(modal, options = {}) {
     const renderRestoreAudioBox = (info) => {
         restoreAudioInfo = info;
         if (!restoreAudioBox) return;
+        const audioNote = modal.querySelector('#restoreAudioNote');
+        if (audioNote) audioNote.style.display = info?.count ? 'inline' : 'none';
         if (!info || !info.count) { restoreAudioBox.style.display = 'none'; return; }
         restoreAudioBox.style.display = 'block';
         const detail = `${plural(info.count, 'audio file')}, ${formatBytes(info.bytes)}${info.onDevice ? ` (${info.onDevice} already on this device)` : ''}`;

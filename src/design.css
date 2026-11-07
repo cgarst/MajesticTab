@@ -4293,3 +4293,6 @@ body.phone-reader #screenRow { display: none !important; }
 
 /* Text pages: a line wider than the page at the smallest legible size scrolls sideways instead of being cut off */
 .pageContainer > .pageWrapper:has(.text-line) { overflow-x: auto; overflow-y: hidden; }
+
+/* Restore: a phone has nothing to drop a file on */
+@media (pointer: coarse) { .restore-drop-hint { display: none; } }
