@@ -326,7 +326,6 @@ body { font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica 
 #topBar {
   background: var(--ground) !important; border: 0 !important; min-height: 52px; padding-top: 6px; padding-bottom: 6px;
 }
-body:not(.library-view-active) #menuToggleBtn,
 body:not(.library-view-active) #brand-text { display: none !important; }
 body:not(.library-view-active) #songBreadcrumb { gap: 2px; }
 body:not(.library-view-active) .breadcrumb-divider { display: none; }
@@ -1750,9 +1749,6 @@ body.fretboard-open {
 .library-song-rowwrap.library-song-row-pinned { border-left: 0 !important; box-shadow: none !important; }
 .library-song-rowwrap, #libSongsList { min-width: 0; max-width: 100%; }
 
-/* Settings is a page in the navigation; the hamburger drawer is gone */
-#menuToggleBtn { display: none !important; }
-
 /* ---------- Custom Music: no boxed bars, books are words ---------- */
 .library-sticky-breadcrumbs { background: transparent !important; border: 0 !important; box-shadow: none !important; padding-inline: 20px !important; }
 .library-book-pdf-bar { background: transparent !important; border: 0 !important; padding: 4px 20px !important; margin-bottom: 4px; }
@@ -2722,13 +2718,10 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
    shows nothing there but the way back to an open song. It stays as the drag strip and window-control clearance. */
 .tauri-macos body.library-view-active #brandSection .brand-pick,
 .tauri-macos body.library-view-active #brand-text,
-.tauri-macos body.library-view-active #menuToggleBtn,
 .tauri-windows body.library-view-active #brandSection .brand-pick,
 .tauri-windows body.library-view-active #brand-text,
-.tauri-windows body.library-view-active #menuToggleBtn,
 .tauri-linux body.library-view-active #brandSection .brand-pick,
-.tauri-linux body.library-view-active #brand-text,
-.tauri-linux body.library-view-active #menuToggleBtn { display: none !important; }
+.tauri-linux body.library-view-active #brand-text { display: none !important; }
 
 /* ==========================================================================
    Recording panel: flat rows, plain-text status, one filled action (Tap to sync)
@@ -4279,3 +4272,7 @@ body:not(.sheet-mode-dark) .gp-reader-cursor svg { mix-blend-mode: multiply; }
 /* Phone: the View sheet's Screen row (Fullscreen, Reading mode) is not needed. The phone has no fullscreen toggle to
    offer, and Reading mode already has its own toggle in the bottom bar, which is its only home. */
 body.phone-reader #screenRow { display: none !important; }
+
+/* A row with a switch keeps the switch at the row's trailing edge on a phone, level with the label, instead of wrapping
+   it onto its own line under the description (the 100% width rule above is for rows with several buttons). */
+@media (max-width: 899px) { .srow:has(.form-switch) { flex-wrap: nowrap; } .srow .sc:has(.form-switch) { width: auto; } }

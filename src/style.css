@@ -274,7 +274,6 @@
 /* Snow White is a light theme: hard-coded white text must become dark ink */
 [data-theme="Snow White"] .text-white,
 [data-theme="Snow White"] .theme-card-title,
-[data-theme="Snow White"] .settings-header-label,
 [data-theme="Snow White"] .theme-modal-title,
 [data-theme="Snow White"] .theme-modal-titles :is(h1, h2, h3, h4, h5, h6),
 [data-theme="Snow White"] .yt-mode-btn {
@@ -527,22 +526,6 @@ body {
   border-color: var(--accent-primary);
   color: #ffffff;
   box-shadow: 0 0 12px -2px var(--accent-glow);
-}
-
-.menu-toggle-btn {
-  border-radius: 9999px;
-  width: 35px;
-  height: 35px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-}
-
-.menu-toggle-btn i {
-  font-size: 1.15rem;
-  line-height: 1;
 }
 
 .brand-title {
@@ -1675,28 +1658,6 @@ input[type=range]::-webkit-slider-thumb:hover {
   background-attachment: scroll;
 }
 
-.settings-card {
-  background: var(--bg-card-solid);
-  border: 1px solid var(--border-subtle);
-  border-radius: 0.75rem;
-  padding: 0.85rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.settings-header-label {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: #ffffff;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  margin-bottom: 0.2rem;
-}
 
 .settings-sublabel {
   font-size: 0.72rem;
@@ -2582,16 +2543,6 @@ body.theme-sheet-active .chord-lyric-chord {
   #synthMiniPill,
   #ytMiniPill {
     height: 30px;
-  }
-
-  .menu-toggle-btn {
-    width: 30px;
-    height: 30px;
-    padding: 0;
-  }
-
-  .menu-toggle-btn i {
-    font-size: 1rem;
   }
 
   .hud-pill-group .btn,

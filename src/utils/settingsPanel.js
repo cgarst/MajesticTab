@@ -9,9 +9,6 @@ let wired = false;
 function wire() {
     if (wired) return;
     wired = true;
-    document.addEventListener('click', (e) => {
-        if (e.target.closest?.('[data-settings-toggle]')) toggle();
-    });
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && isOpen() && !document.body.classList.contains('modal-open')) hide();
     });

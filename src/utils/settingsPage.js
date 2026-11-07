@@ -171,7 +171,7 @@ export function initSettingsPage() {
     if (!panel || !body || panel.dataset.pageBuilt) return;
     panel.dataset.pageBuilt = '1';
 
-    // ---- gather the existing controls before the old cards are taken apart ----
+    // ---- gather the controls from the static markup before it is replaced by the page ----
     const take = (id) => $(id);
     const instrumentGroup = take('instrumentModeGuitar')?.closest('.hud-pill-group');
     const finishGrid = take('themeModalGrid');
@@ -462,12 +462,13 @@ export function initSettingsPage() {
         }).catch(() => {});
     }
 
-    // ---- put it together; the old cards are emptied of their controls and removed ----
+    // ---- put it together; the static markup is emptied of its controls and removed ----
     wrap.appendChild(nav);
     wrap.appendChild(page);
     shell.appendChild(head);
     shell.appendChild(wrap);
-    body.querySelectorAll(':scope > .settings-card, :scope > #secondaryUtilities, :scope > .mt-auto').forEach((n) => n.remove());
+    // What is left of the markup it was taken from (the controls above now live in the rows)
+    body.querySelectorAll(':scope > *').forEach((n) => n.remove());
     body.appendChild(shell);
 
     // The Updates entry shows only while the update card is there and visible
