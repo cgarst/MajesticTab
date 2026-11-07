@@ -4,6 +4,7 @@
 // - #library
 // - #recents
 // - #setlists, #openfile, #search (add music)
+// - #classtab (Tools > Classical tab; #classical also works)
 // - #tuner
 // - #metronome
 // - #reference
@@ -51,7 +52,7 @@ export function updateUrl(main, sub = null, replace = false) {
     if (main === 'reference') {
         const activeSub = sub || getActiveReferenceTab() || 'chords';
         targetHash = `#reference/${activeSub}`;
-    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'metronome' || main === 'setlists' || main === 'tools' || main === 'openfile' || main === 'tunings') {
+    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'metronome' || main === 'setlists' || main === 'tools' || main === 'openfile' || main === 'classtab' || main === 'tunings') {
         targetHash = `#${main}`;
     } else if (!main) {
         targetHash = '';
@@ -104,6 +105,24 @@ export async function navigateToUrlRoute(route, isInitial = false) {
             closeMetronomeModal();
             const targetRefTab = (route.sub && ['circle', 'chords', 'scales', 'tone'].includes(route.sub)) ? route.sub : 'chords';
             openReferenceModal(targetRefTab);
+            return true;
+        }
+
+        if (route.main === 'classtab' || route.main === 'classical') {
+            closeTunerModal();
+            closeMetronomeModal();
+            closeReferenceModal();
+            // The Tools page opens on this tool when it is drawn; when Tools is already showing, press the tool's row
+            (await import('./toolsPage.js')).openToolOnNextRender('classtab');
+            if (isLibraryOpen()) {
+                await switchLibraryView('tools', false);
+            } else {
+                await openLibraryModal('tools');
+            }
+            // The page picks the pending tool on its own after it paints; press the row only if that did not happen
+            await new Promise((r) => setTimeout(r, 400));
+            const btn = document.querySelector('.tools-shell button[data-tool="classtab"]');
+            if (btn && btn.getAttribute('aria-current') !== 'true' && !document.querySelector('.classtab-tool-embedded')) btn.click();
             return true;
         }
 

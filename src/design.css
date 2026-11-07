@@ -1611,6 +1611,10 @@ body.fretboard-open {
   .setpage {
     padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px)) !important;
   }
+  /* Classical tab scrolls its own list, so the list runs down to the tab bar (the pane reaches 16px under the bar) */
+  .tools-shell .setpage:has(.classtab-tool-embedded) {
+    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+  }
   .library-search-bar { height: 44px !important; }
   .library-search-bar .search-input { font-size: 16px !important; /* 16px stops iOS zooming the page on focus */ }
 }
@@ -3917,8 +3921,22 @@ body > #controllerHelpModal { display: none; }
   .ct-cols[data-pane="pieces"] .ct-composers { display: none; }
   .ct-cols[data-pane="pieces"] .ct-back { display: inline-flex; align-items: center; gap: 4px; }
   .ct-title { font-size: 1.6rem; }
+  /* One pane: the whole page scrolls, so the search and filters move away with the list like in the library */
+  .ct-root { overflow-y: auto; overscroll-behavior: contain; }
+  .ct-root > * { flex-shrink: 0; }
+  .ct-cols { flex: none; display: block; }
+  .ct-composers, .ct-pieces { overflow: visible; }
 }
 @media (pointer: coarse) { .ct-filter { min-height: 44px; } .ct-text { min-height: 44px; } }
+/* Browse header: one row (what it is, then Update archive) so the list starts high on a phone. The screen's title is
+   the top bar's; the full credit and the update date show where there is room. */
+.ct-facts { flex: 1; min-width: 0; align-self: center; }
+.ct-facts a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+@media (max-width: 576px) {
+  .ct-credit-long { display: none; }
+  .ct-filters { gap: 4px; }
+  .ct-filter { padding: 0 10px; }
+}
 @media (prefers-reduced-motion: reduce) { .ct-text, .ct-filter { transition: none; } }
 
 /* Classical tab matches the library: two-line rows (bold title, grey line), a column heading with its count,

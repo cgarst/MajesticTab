@@ -134,6 +134,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         wrap.dataset.tool = id;
         shell.dataset.tool = id;
         await openTool(id, host);
+        if (id === 'classtab') import('./urlRouter.js').then((m) => m.updateUrl('classtab')).catch(() => {});
     }
     // A chord chosen on the circle of fifths opens the Chord library: keep the list in step
     if (refTabHandler) document.removeEventListener('reference-tab', refTabHandler);
@@ -156,6 +157,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         shell.dataset.pane = 'list';
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', 'false'));
         await releaseEmbeddedTools();
+        import('./urlRouter.js').then((m) => m.updateUrl('tools')).catch(() => {});
     });
     // Let the page (title and list) paint first: the chord library draws hundreds of diagrams
     if (pendingTool) {

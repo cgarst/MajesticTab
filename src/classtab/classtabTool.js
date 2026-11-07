@@ -183,7 +183,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
             keepComposerByName(keep);
             state.inLibrary = await libraryTabNames();
             state.message = res.first
-                ? `Classical tab ready · ${plural(res.counts.pieces, 'piece', 'pieces')}`
+                ? '' // the piece count is already in the header
                 : `Classical tab updated · ${res.added} new, ${res.changed} changed`;
         } catch (e) {
             if (e?.code !== 'cancelled') state.error = e instanceof ClasstabError ? e.message : "Couldn't read that archive.";
@@ -293,12 +293,11 @@ export function renderClasstabTool(container, { onBack } = {}) {
         const moreOn = MORE_FILTERS.some((f) => state.filters.has(f.id));
         root.innerHTML = `
         <header class="ct-head">
+          <h2 class="visually-hidden">Classical tab</h2>
           <div class="ct-head-row">
-            <h2 class="ct-title">Classical tab</h2>
+            <p class="ct-sub ct-facts">${plural(total, 'piece', 'pieces')} · <span class="ct-credit-long">Tabs and MIDI files from </span><a href="${CLASSTAB_HOME}" data-ct-home>Classtab</a><span class="ct-credit-long">, a free archive of classical guitar tabs · updated ${formatUpdated(state.rec.updatedAt)}</span></p>
             ${state.job ? '' : `<button type="button" class="ct-text" data-act="update">${updateArmed ? 'Press again to replace the library (your songs stay)' : 'Update archive'}</button>`}
           </div>
-          ${creditHtml()}
-          <p class="ct-sub">${plural(total, 'piece', 'pieces')} · updated ${formatUpdated(state.rec.updatedAt)}</p>
         </header>
         ${statusHtml()}
         <input type="search" class="ct-search" placeholder="Search composers and pieces" aria-label="Search composers and pieces" value="${esc(state.query)}" autocomplete="off" spellcheck="false">
@@ -348,6 +347,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
             const apply = () => {
                 const c = root.querySelector('.ct-composers');
                 const p = root.querySelector('.ct-pieces');
+                root.scrollTop = sc.root || 0; // on a phone the whole page scrolls, not the two lists
                 if (c) c.scrollTop = sc.composers || 0;
                 if (p) p.scrollTop = sc.pieces || 0;
             };
@@ -442,7 +442,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
         if (keep) {
             savedView = {
                 query: state.query, filters: new Set(state.filters), composer: state.composer, pane: state.pane, showPinned: state.showPinned,
-                scroll: { composers: root.querySelector('.ct-composers')?.scrollTop || 0, pieces: root.querySelector('.ct-pieces')?.scrollTop || 0 }
+                scroll: { root: root.scrollTop || 0, composers: root.querySelector('.ct-composers')?.scrollTop || 0, pieces: root.querySelector('.ct-pieces')?.scrollTop || 0 }
             };
         }
         alive = false;
