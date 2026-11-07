@@ -2178,7 +2178,9 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 .song-row-btn small { color: var(--ink2); font-size: 12px; font-weight: 400; }
 .score-options-group .song-row-btn + * { margin-top: 10px; }
 #synthAudioSyncSection:has(#synthAudioSyncSwitch:disabled) { display: none; }
-#scoreOptionsSaveGroup .btn { background: var(--s3) !important; border: 0 !important; color: var(--ink) !important; justify-content: flex-start !important; padding-inline: 12px !important; border-radius: var(--r) !important; min-height: 44px; }
+/* Flat text rows on the 56px pitch (not stacked filled buttons); one tone step on hover */
+#scoreOptionsSaveGroup .btn { background: transparent !important; border: 0 !important; color: var(--ink) !important; justify-content: flex-start !important; padding-inline: 12px !important; border-radius: var(--r-control) !important; min-height: 56px; }
+#scoreOptionsSaveGroup .btn:hover { background: var(--s2) !important; }
 #scoreOptionsSaveGroup .btn i { display: none; }
 .top-bar-song-btn.active { background: transparent !important; }
 
