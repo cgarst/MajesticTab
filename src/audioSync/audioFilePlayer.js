@@ -15,7 +15,7 @@ import {
 } from './audioFileStore.js';
 import { AUDIO_FILES_CHANGED_EVENT } from './audioBackup.js';
 import { isJamHosting, JAM_BRIDGE_EVENT } from './jamBridge.js';
-import { listRecords, loadRecord, saveRecord } from './syncStore.js';
+import { listRecords, loadRecord, saveRecord, SYNC_CHANGED_EVENT } from './syncStore.js';
 import { mountSyncRow } from './audioSyncUi.js';
 
 const LAST_FILE_KEY = (songKey) => `audio_file_last_${encodeURIComponent(String(songKey).toLowerCase())}`;
@@ -231,6 +231,8 @@ async function selectFile(id) {
         localStorage.setItem(SLOT_FILE_KEY(songKey, slot), id);
         if (slot === 'original') localStorage.setItem(LAST_FILE_KEY(songKey), id);
     } catch { /* optional */ }
+    // The Original recording row and the empty-state line in the panel read this attachment
+    window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
     if (id === state.currentId && state.source) return;
     destroySource();
     state.currentId = id;
