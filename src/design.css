@@ -4285,3 +4285,8 @@ body.phone-reader #screenRow { display: none !important; }
   .resume-btn { grid-column: auto; }
   .resume-title { font-size: 24px; }
 }
+
+/* Original audio panel: the Source switch reads as a switch (its own darker track), not one filled word beside bright text,
+   and in portrait the sheet keeps one height whichever source is shown, so it does not jump when you switch. */
+#ytDropdownPanel #realAudioSourcePills { background: var(--s1) !important; }
+@media (orientation: portrait) { body.phone-reader #ytDropdownPanel { height: 40vh !important; } }
