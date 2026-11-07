@@ -1704,6 +1704,11 @@ export async function reloadSynthSoundFonts() {
     setTimeout(restore, 400);
 }
 
+let keepPlayerOnReset = false;
+/** While true, a view reset (gpState.reset) leaves the current player alone: a MIDI file keeps playing through a re-layout. */
+export function setKeepPlayerOnReset(on) { keepPlayerOnReset = !!on; }
+export function playerKeptOnReset() { return keepPlayerOnReset; }
+
 export function detachAlphaTabApi() {
     pauseIOSAudioPlayback();
     cancelCountIn();

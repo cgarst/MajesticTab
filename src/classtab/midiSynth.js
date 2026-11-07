@@ -13,6 +13,12 @@ import { showToast } from '../utils/toast.js';
 
 let hostEl = null;
 let ownApi = null;
+let ownFile = null;
+
+/** True when this file's MIDI is already the reader's live synth (a re-layout of the same tab must not rebuild it). */
+export function midiSynthIsFor(file) {
+    return !!file && midiSynthActive && ownFile === file && !!ownApi && window.gpApi === ownApi;
+}
 
 /** True when a MIDI synth source is loaded as the reader's synth. */
 export let midiSynthActive = false;
@@ -77,6 +83,7 @@ export function removeMidiSynth() {
         try { detachAlphaTabApi(); } catch { /* already gone */ }
     }
     ownApi = null;
+    ownFile = null;
     midiSynthActive = false;
     hostEl?.remove();
     hostEl = null;
@@ -133,6 +140,7 @@ function showLinkUi(file) {
 
 /** After a text or PDF tab is on screen: give it the MIDI it has, if any. */
 export async function attachSynthMidiForFile(file, getCurrent) {
+    if (midiSynthIsFor(file)) { showLinkUi(file); return; }
     removeMidiSynth();
     showLinkUi(file);
     if (!isTextOrPdf(file)) return;
@@ -140,6 +148,7 @@ export async function attachSynthMidiForFile(file, getCurrent) {
         const bytes = await bytesFor(file);
         if (!bytes || getCurrent() !== file) return;
         await attachMidiSynth(bytes);
+        ownFile = file;
         showLinkUi(file);
     } catch (e) {
         console.warn('[MIDI synth]', e);
@@ -173,6 +182,7 @@ export function initMidiSynthUi(getCurrent) {
             file.synthMidiBytes = picked.bytes;
             if (file.librarySongId) await saveSongMidi(file.librarySongId, picked.name, picked.bytes);
             await attachMidiSynth(picked.bytes);
+            ownFile = file;
             showLinkUi(file);
         } catch (e) {
             showToast(e?.message || 'Could not use that MIDI file.', 'warning');

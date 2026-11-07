@@ -6,7 +6,7 @@ import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicato
 import { updateSongForYouTube } from '../youtubePlayer.js';
 import { updateSongForAudioFile } from '../audioSync/audioFilePlayer.js';
 import { updateSongForRealAudio } from '../audioSync/realAudioController.js';
-import { attachAlphaTabApi, detachAlphaTabApi, showScoreOptions, hideScoreOptions, reapplyJamTrackView, warmUpAfterLoad, getMixerTracks } from './gpPlayer.js';
+import { attachAlphaTabApi, detachAlphaTabApi, playerKeptOnReset, showScoreOptions, hideScoreOptions, reapplyJamTrackView, warmUpAfterLoad, getMixerTracks } from './gpPlayer.js';
 import { waitForMainThreadIdle } from '../utils/mainThreadIdle.js';
 import { showLoadingCard, setLoadingProgress, setLoadingIdentity, hideLoadingCard } from '../utils/loadingCard.js';
 import {
@@ -47,7 +47,7 @@ export const gpState = {
     pages: [],
     lastLayoutDimensions: null, // Cache layout dimensions
     reset() {
-        detachAlphaTabApi();
+        if (!playerKeptOnReset()) detachAlphaTabApi();
         hideScoreOptions();
         this.canvases.length = 0;
         this.pages.length = 0;

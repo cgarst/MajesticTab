@@ -28,9 +28,9 @@ import { restoreDebugBackup } from './debugRestore.js';
 import { initSoundFontPanel } from './gpProcessor/soundFontPanel.js';
 import { initMixerPanel, wireModal, closeModal } from './gpProcessor/mixerPanel.js';
 import { initAudioLatencyModal } from './gpProcessor/audioLatencyModal.js';
-import { initMidiSynthUi } from './classtab/midiSynth.js';
+import { initMidiSynthUi, midiSynthIsFor } from './classtab/midiSynth.js';
 import { initClasstabSongMenu } from './classtab/songMenu.js';
-import { initSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels } from './gpProcessor/gpPlayer.js';
+import { initSynthPlayer, initScoreOptionsPanel, showScoreOptions, hideScoreOptions, syncSynthTrackModeLabels, setKeepPlayerOnReset } from './gpProcessor/gpPlayer.js';
 import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdfBookmarksUI } from './pdfProcessor/pdfBookmarks.js';
 import { initTheming } from './themeEngine.js';
 import { initUpdater } from './updater.js';
@@ -1248,7 +1248,9 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
     }
     refreshSetlistNav(file);
     closeLibraryModal(true);
-    resetView();
+    // Re-laying out the same tab (resize, reader mode, rotation) must not stop its MIDI synth
+    setKeepPlayerOnReset(midiSynthIsFor(file));
+    try { resetView(); } finally { setKeepPlayerOnReset(false); }
     currentProcessing.aborted = true;
     currentProcessing = { aborted: false };
     
