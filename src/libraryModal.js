@@ -3284,7 +3284,7 @@ function renderSongRow(song, options = {}) {
           <span class="t">
             <b>${escapeHtml(song.title)}</b>
             <span class="sub">
-              ${options.showArtistAlbum ? `<span class="album-label text-truncate">${escapeHtml(song.artist || '')}${song.album ? ` • ${escapeHtml(song.album)}` : ''}</span>` : (options.showAlbum && song.album ? `<span class="album-label text-truncate">${escapeHtml(song.album)}</span>` : '')}
+              ${options.showArtistAlbum ? ([song.artist, song.album].filter(Boolean).length ? `<span class="album-label text-truncate">${escapeHtml([song.artist, song.album].filter(Boolean).join(' · '))}</span>` : '') : (options.showAlbum && song.album ? `<span class="album-label text-truncate">${escapeHtml(song.album)}</span>` : '')}
               ${tuningChipsHtml}
               ${pdfChipHtml}
               ${multiTabsChipHtml}
