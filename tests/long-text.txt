@@ -1,0 +1,181 @@
+Long text fixture (synthetic)
+
+Line 001: the quick brown fox jumps over the dog
+Line 002: the quick brown fox jumps over the dog
+Line 003: the quick brown fox jumps over the dog
+Line 004: the quick brown fox jumps over the dog
+Line 005: the quick brown fox jumps over the dog
+Line 006: the quick brown fox jumps over the dog
+Line 007: the quick brown fox jumps over the dog
+Line 008: the quick brown fox jumps over the dog
+
+Line 009: the quick brown fox jumps over the dog
+Line 010: the quick brown fox jumps over the dog
+Line 011: the quick brown fox jumps over the dog
+Line 012: the quick brown fox jumps over the dog
+Line 013: the quick brown fox jumps over the dog
+Line 014: the quick brown fox jumps over the dog
+Line 015: the quick brown fox jumps over the dog
+Line 016: the quick brown fox jumps over the dog
+
+Line 017: the quick brown fox jumps over the dog
+Line 018: the quick brown fox jumps over the dog
+Line 019: the quick brown fox jumps over the dog
+Line 020: the quick brown fox jumps over the dog
+Line 021: the quick brown fox jumps over the dog
+Line 022: the quick brown fox jumps over the dog
+Line 023: the quick brown fox jumps over the dog
+Line 024: the quick brown fox jumps over the dog
+
+Line 025: the quick brown fox jumps over the dog
+Line 026: the quick brown fox jumps over the dog
+Line 027: the quick brown fox jumps over the dog
+Line 028: the quick brown fox jumps over the dog
+Line 029: the quick brown fox jumps over the dog
+Line 030: the quick brown fox jumps over the dog
+Line 031: the quick brown fox jumps over the dog
+Line 032: the quick brown fox jumps over the dog
+
+Line 033: the quick brown fox jumps over the dog
+Line 034: the quick brown fox jumps over the dog
+Line 035: the quick brown fox jumps over the dog
+Line 036: the quick brown fox jumps over the dog
+Line 037: the quick brown fox jumps over the dog
+Line 038: the quick brown fox jumps over the dog
+Line 039: the quick brown fox jumps over the dog
+Line 040: the quick brown fox jumps over the dog
+
+Line 041: the quick brown fox jumps over the dog
+Line 042: the quick brown fox jumps over the dog
+Line 043: the quick brown fox jumps over the dog
+Line 044: the quick brown fox jumps over the dog
+Line 045: the quick brown fox jumps over the dog
+Line 046: the quick brown fox jumps over the dog
+Line 047: the quick brown fox jumps over the dog
+Line 048: the quick brown fox jumps over the dog
+
+Line 049: the quick brown fox jumps over the dog
+Line 050: the quick brown fox jumps over the dog
+Line 051: the quick brown fox jumps over the dog
+Line 052: the quick brown fox jumps over the dog
+Line 053: the quick brown fox jumps over the dog
+Line 054: the quick brown fox jumps over the dog
+Line 055: the quick brown fox jumps over the dog
+Line 056: the quick brown fox jumps over the dog
+
+Line 057: the quick brown fox jumps over the dog
+Line 058: the quick brown fox jumps over the dog
+Line 059: the quick brown fox jumps over the dog
+Line 060: the quick brown fox jumps over the dog
+Line 061: the quick brown fox jumps over the dog
+Line 062: the quick brown fox jumps over the dog
+Line 063: the quick brown fox jumps over the dog
+Line 064: the quick brown fox jumps over the dog
+
+Line 065: the quick brown fox jumps over the dog
+Line 066: the quick brown fox jumps over the dog
+Line 067: the quick brown fox jumps over the dog
+Line 068: the quick brown fox jumps over the dog
+Line 069: the quick brown fox jumps over the dog
+Line 070: the quick brown fox jumps over the dog
+Line 071: the quick brown fox jumps over the dog
+Line 072: the quick brown fox jumps over the dog
+
+Line 073: the quick brown fox jumps over the dog
+Line 074: the quick brown fox jumps over the dog
+Line 075: the quick brown fox jumps over the dog
+Line 076: the quick brown fox jumps over the dog
+Line 077: the quick brown fox jumps over the dog
+Line 078: the quick brown fox jumps over the dog
+Line 079: the quick brown fox jumps over the dog
+Line 080: the quick brown fox jumps over the dog
+
+Line 081: the quick brown fox jumps over the dog
+Line 082: the quick brown fox jumps over the dog
+Line 083: the quick brown fox jumps over the dog
+Line 084: the quick brown fox jumps over the dog
+Line 085: the quick brown fox jumps over the dog
+Line 086: the quick brown fox jumps over the dog
+Line 087: the quick brown fox jumps over the dog
+Line 088: the quick brown fox jumps over the dog
+
+Line 089: the quick brown fox jumps over the dog
+Line 090: the quick brown fox jumps over the dog
+Line 091: the quick brown fox jumps over the dog
+Line 092: the quick brown fox jumps over the dog
+Line 093: the quick brown fox jumps over the dog
+Line 094: the quick brown fox jumps over the dog
+Line 095: the quick brown fox jumps over the dog
+Line 096: the quick brown fox jumps over the dog
+
+Line 097: the quick brown fox jumps over the dog
+Line 098: the quick brown fox jumps over the dog
+Line 099: the quick brown fox jumps over the dog
+Line 100: the quick brown fox jumps over the dog
+Line 101: the quick brown fox jumps over the dog
+Line 102: the quick brown fox jumps over the dog
+Line 103: the quick brown fox jumps over the dog
+Line 104: the quick brown fox jumps over the dog
+
+Line 105: the quick brown fox jumps over the dog
+Line 106: the quick brown fox jumps over the dog
+Line 107: the quick brown fox jumps over the dog
+Line 108: the quick brown fox jumps over the dog
+Line 109: the quick brown fox jumps over the dog
+Line 110: the quick brown fox jumps over the dog
+Line 111: the quick brown fox jumps over the dog
+Line 112: the quick brown fox jumps over the dog
+
+Line 113: the quick brown fox jumps over the dog
+Line 114: the quick brown fox jumps over the dog
+Line 115: the quick brown fox jumps over the dog
+Line 116: the quick brown fox jumps over the dog
+Line 117: the quick brown fox jumps over the dog
+Line 118: the quick brown fox jumps over the dog
+Line 119: the quick brown fox jumps over the dog
+Line 120: the quick brown fox jumps over the dog
+
+Line 121: the quick brown fox jumps over the dog
+Line 122: the quick brown fox jumps over the dog
+Line 123: the quick brown fox jumps over the dog
+Line 124: the quick brown fox jumps over the dog
+Line 125: the quick brown fox jumps over the dog
+Line 126: the quick brown fox jumps over the dog
+Line 127: the quick brown fox jumps over the dog
+Line 128: the quick brown fox jumps over the dog
+
+Line 129: the quick brown fox jumps over the dog
+Line 130: the quick brown fox jumps over the dog
+Line 131: the quick brown fox jumps over the dog
+Line 132: the quick brown fox jumps over the dog
+Line 133: the quick brown fox jumps over the dog
+Line 134: the quick brown fox jumps over the dog
+Line 135: the quick brown fox jumps over the dog
+Line 136: the quick brown fox jumps over the dog
+
+Line 137: the quick brown fox jumps over the dog
+Line 138: the quick brown fox jumps over the dog
+Line 139: the quick brown fox jumps over the dog
+Line 140: the quick brown fox jumps over the dog
+Line 141: the quick brown fox jumps over the dog
+Line 142: the quick brown fox jumps over the dog
+Line 143: the quick brown fox jumps over the dog
+Line 144: the quick brown fox jumps over the dog
+
+Line 145: the quick brown fox jumps over the dog
+Line 146: the quick brown fox jumps over the dog
+Line 147: the quick brown fox jumps over the dog
+Line 148: the quick brown fox jumps over the dog
+Line 149: the quick brown fox jumps over the dog
+Line 150: the quick brown fox jumps over the dog
+Line 151: the quick brown fox jumps over the dog
+Line 152: the quick brown fox jumps over the dog
+
+Line 153: the quick brown fox jumps over the dog
+Line 154: the quick brown fox jumps over the dog
+Line 155: the quick brown fox jumps over the dog
+Line 156: the quick brown fox jumps over the dog
+Line 157: the quick brown fox jumps over the dog
+Line 158: the quick brown fox jumps over the dog
+Line 159: the quick brown fox jumps over the dog
+Line 160: the quick brown fox jumps over the dog

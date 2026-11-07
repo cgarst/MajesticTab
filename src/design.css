@@ -2241,6 +2241,10 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
   }
   .dock-pop { left: 8px !important; right: 8px; width: auto; }
 }
+@media (max-width: 640px) {
+  /* With the bars away the score runs edge to edge, but not under the status bar or the home indicator */
+  body:not(.library-view-active).chrome-hidden #output { margin-top: env(safe-area-inset-top, 0px); margin-bottom: env(safe-area-inset-bottom, 0px); height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+}
 @media (max-width: 640px) and (prefers-reduced-motion: reduce) { body:not(.library-view-active) #topFlexZone { transition: none; } }
 
 /* Song, Tracks: visible keyboard focus and 44px targets on touch */
@@ -3194,7 +3198,7 @@ body > #controllerHelpModal { display: none; }
   }
   body:not(.library-view-active).chrome-hidden .fretboard-dock { transform: translateY(calc(100% + var(--dock-h, 0px) + 56px + env(safe-area-inset-bottom, 0px) + 8px)); pointer-events: none; }
   body:not(.library-view-active).chrome-hidden.fretboard-open #output.continuous-mode { padding-bottom: 24px !important; }
-  body:not(.library-view-active).chrome-hidden.fretboard-open #output:not(.continuous-mode) { height: 100% !important; max-height: 100% !important; }
+  body:not(.library-view-active).chrome-hidden.fretboard-open #output:not(.continuous-mode) { height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important; max-height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important; }
   body:not(.library-view-active).fretboard-open #output.continuous-mode { padding-bottom: calc(var(--fretboard-dock-height, 165px) + 24px) !important; }
 }
 @media (max-width: 640px) and (prefers-reduced-motion: reduce) {
@@ -3759,6 +3763,7 @@ body > #controllerHelpModal { display: none; }
   body:not(.library-view-active) .page-strip { transition: transform var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out); }
   body:not(.library-view-active).chrome-hidden .page-strip { transform: translateY(100%); margin-bottom: calc(-1 * var(--strip-h, 0px)); pointer-events: none; }
   body:not(.library-view-active).chrome-hidden .fretboard-dock { transform: translateY(calc(100% + var(--dock-h, 0px))); pointer-events: none; }
+  body:not(.library-view-active).chrome-hidden #output { margin-top: env(safe-area-inset-top, 0px); margin-bottom: env(safe-area-inset-bottom, 0px); height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
 }
 @media (prefers-reduced-motion: reduce) { body:not(.library-view-active) #topBar, body:not(.library-view-active) .mobile-playback-dock, body:not(.library-view-active) .page-strip { transition: none !important; } }
 

@@ -40,6 +40,18 @@ function layoutPagesPerView() {
     return Math.max(2, Math.min(MAX_DUAL_PAGES, Math.floor(window.innerWidth / MAX_PAGE_WIDTH)));
 }
 
+// The reader chrome is "phone-sized" below 641px wide, or on a short landscape phone
+export const PHONE_READER_QUERY = '(max-width: 640px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px)';
+export function isPhoneReader() { return window.matchMedia(PHONE_READER_QUERY).matches; }
+// Phone page mode: a tap in the top or bottom band brings the bars back; anywhere else the left half turns the page
+// back and the right half forward, so turning a page never moves the bars.
+export const TAP_BAND_FRACTION = 0.2;
+export function phoneTapZone(clientX, clientY, rect) {
+    const fy = (clientY - rect.top) / Math.max(1, rect.height);
+    if (fy < TAP_BAND_FRACTION || fy > 1 - TAP_BAND_FRACTION) return 'bars';
+    return (clientX - rect.left) / Math.max(1, rect.width) < 0.5 ? 'prev' : 'next';
+}
+
 const MAX_PAGE_WIDTH = 900;
 const MAX_DUAL_PAGES = 4;
 

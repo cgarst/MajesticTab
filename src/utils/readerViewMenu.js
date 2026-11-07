@@ -5,6 +5,7 @@
 // this file moves that block into the menu and handles open, close and placement.
 
 import { gamepadManager } from './gamepadManager.js';
+import { PHONE_READER_QUERY, phoneTapZone } from './viewModeUtils.js';
 import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
 const $ = (id) => document.getElementById(id);
 
@@ -380,7 +381,7 @@ function initPhoneChrome() {
     const output = $('output');
     if (!output) return;
     let last = 0;
-    const narrow = () => window.matchMedia('(max-width: 640px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px)').matches;
+    const narrow = () => window.matchMedia(PHONE_READER_QUERY).matches;
     // Only a hand moves the chrome. Playback following the cursor, a ruler drag or a jump to a bar also scroll the
     // score, and the bottom row (with the fretboard) must not come and go because of those.
     let handUntil = 0;
@@ -399,10 +400,34 @@ function initPhoneChrome() {
             else armIdle();
         }, IDLE_MS);
     };
-    ['pointerdown', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, () => {
-        document.body.classList.remove('chrome-hidden');
+    // In page mode a tap on the page turns it (navigationUtils.js) and leaves the bars as they are;
+    // a tap in the top or bottom band, or anywhere outside the page area, brings them back
+    const isPageTurnTap = (e) => {
+        if (!narrow() || e.type === 'keydown') return false;
+        if (!output.contains(e.target) || output.classList.contains('continuous-mode')) return false;
+        if (e.target.closest && e.target.closest('button, input, select, textarea, a, .fretboard-dock')) return false;
+        if (!output.querySelector('.pageWrapper, .gp-page-wrapper')) return false;
+        const pt = e.touches ? e.touches[0] : e;
+        return !!pt && phoneTapZone(pt.clientX, pt.clientY, output.getBoundingClientRect()) !== 'bars';
+    };
+    ['pointerdown', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, (e) => {
+        if (!isPageTurnTap(e)) document.body.classList.remove('chrome-hidden');
         armIdle();
     }, { passive: true, capture: true }));
+    // The score area changes height as the bars come and go; PDF, text and Guitar Pro pages are laid out for a height,
+    // so refit them (the resize handler in main.js re-paginates) once the new height has settled
+    let fitH = output.clientHeight, fitTimer = 0;
+    if ('ResizeObserver' in window) {
+        new ResizeObserver(() => {
+            clearTimeout(fitTimer);
+            fitTimer = setTimeout(() => {
+                const h = output.clientHeight;
+                if (Math.abs(h - fitH) < 2) return;
+                fitH = h;
+                if (narrow() && !output.classList.contains('continuous-mode')) window.dispatchEvent(new Event('resize'));
+            }, 120);
+        }).observe(output);
+    }
     armIdle();
     // A sheet opened without a touch (keyboard, gamepad, a script) must still bring the bars back: the sheet sits
     // above the dock and bottom row, so it cannot stand without them

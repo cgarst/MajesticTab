@@ -3,7 +3,7 @@ import { settingsPanel } from './settingsPanel.js';
 import { showToast } from './toast.js';
 import { isIOSDevice } from './iosAudioUnlock.js';
 import { scrollByViewport } from './scrollUtils.js';
-import { switchToContinuous, switchToPageMode, getPagesPerView } from './viewModeUtils.js';
+import { switchToContinuous, switchToPageMode, getPagesPerView, isPhoneReader, phoneTapZone } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
 import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
 import { gamepadManager } from './gamepadManager.js';
@@ -963,6 +963,16 @@ export function handleTapNavigation(e, config) {
     const outputRect = config.output.getBoundingClientRect();
     if (e.clientY < outputRect.top) {
         console.log('Click ignored: above content area');
+        return;
+    }
+
+    // Phone: the top and bottom bands are for the bars (readerViewMenu.js), the rest turns the page
+    if (isPhoneReader()) {
+        const zone = phoneTapZone(e.clientX, e.clientY, outputRect);
+        if (zone === 'bars') return;
+        const navigationHandler = new NavigationHandler(config);
+        const result = navigationHandler.handleAction(zone === 'next' ? NavigationAction.NEXT : NavigationAction.PREV);
+        if (result?.newPageIndex !== undefined) config.setCurrentPageIndex(result.newPageIndex);
         return;
     }
 
