@@ -863,6 +863,54 @@ body.practice-open #output { padding-right: 416px !important; }
 .lib-ghost-action:hover:not(:disabled) { background: var(--s2) !important; color: var(--ink) !important; }
 .lib-ghost-action:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 @media (pointer: coarse) { .lib-ghost-action { min-height: 44px; } }
+
+/* One header for Library, Setlists and Tunings: the search bar ends at the same x on every page.
+   The action slot is at least 148px whatever the page puts in it, and every action in it is the same height and radius. */
+.library-page-container { grid-template-columns: minmax(0, 1fr) minmax(148px, auto); }
+.library-list-toolbar > div:last-child { display: flex; justify-content: flex-start; min-width: 0; }
+.library-list-toolbar .library-toolbar-actions { justify-content: flex-start; }
+.library-list-toolbar .btn { min-height: 36px; }
+.library-list-toolbar .btn.btn-theme-primary, .library-list-toolbar .btn.btn-theme-primary:hover:not(:disabled) { padding: 0 14px; border-radius: var(--r-control) !important; }
+@media (pointer: coarse) { .library-list-toolbar .btn { min-height: 44px; } }
+
+/* Filters in the toolbar (collection, artist) are text actions with a chevron, not pills */
+.library-list-toolbar .collection-pill-group {
+  position: relative; display: flex; flex: 1 1 auto; min-width: 0; max-width: 100%;
+  background: transparent; border: 0; box-shadow: none; border-radius: var(--r-control); overflow: visible;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.library-list-toolbar .collection-pill-group::after {
+  content: ""; position: absolute; right: 10px; top: 50%; width: 11px; height: 11px; margin-top: -5px; pointer-events: none;
+  background: var(--ink2);
+  -webkit-mask: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e") center / contain no-repeat;
+}
+.library-list-toolbar .collection-pill-group .collection-select-input,
+.library-list-toolbar .collection-pill-group .collection-select-input:hover,
+.library-list-toolbar .collection-pill-group .collection-select-input:focus {
+  background-image: none !important; color: var(--ink2) !important; font: 500 14px/1.2 system-ui, sans-serif !important;
+  min-height: 36px; min-width: 0 !important; max-width: none !important; width: 100%; padding: 0 30px 0 12px !important;
+  text-overflow: ellipsis; border-radius: var(--r-control) !important;
+}
+.library-list-toolbar .collection-pill-group:focus-within { box-shadow: none; outline: 2px solid var(--ink); outline-offset: 2px; }
+.library-list-toolbar .collection-pill-group:focus-within .collection-select-input { color: var(--ink) !important; }
+@media (hover: hover) and (pointer: fine) {
+  .library-list-toolbar .collection-pill-group:hover { background: var(--s2); box-shadow: none; }
+  .library-list-toolbar .collection-pill-group:hover .collection-select-input { color: var(--ink) !important; }
+  .library-list-toolbar .collection-pill-group:hover::after { background: var(--ink); }
+}
+@media (pointer: coarse) { .library-list-toolbar .collection-pill-group .collection-select-input { min-height: 44px; } }
+
+/* Phones: search takes the whole first row on every page; the second row holds the count and filter on the left and the one action on the right */
+@media (max-width: 576px) {
+  .library-page-container { grid-template-columns: minmax(0, 1fr) auto; }
+  .library-list-toolbar > div:first-child { grid-column: 1; grid-row: 2; min-width: 0; margin-top: 8px; }
+  .library-list-toolbar > div:last-child { grid-column: 2; grid-row: 2; margin-top: 8px; max-width: 60vw; justify-content: flex-end; }
+  .library-list-toolbar .library-toolbar-actions { justify-content: flex-end; }
+  .library-page-container > .library-search-box { grid-column: 1 / -1; }
+  .library-list-toolbar > div:first-child > span.small { display: inline; color: var(--ink2) !important; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .library-list-toolbar > div:first-child > span.small:empty { display: none; }
+}
 .library-page-container > .library-sticky-breadcrumbs, .library-page-container > #libBrowseContent, .library-page-container > #libFilteredSearchResults { grid-column: 1 / -1; }
 .library-page-container > #libBrowseContent { margin: 12px -20px 0; }
 .resume-card { margin-top: 0; }
