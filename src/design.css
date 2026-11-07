@@ -2252,8 +2252,7 @@ body.phone-reader:not(.library-view-active) #topFlexZone { order: 3; flex: 0 0 1
 body.phone-reader:not(.library-view-active) #topFlexZone .hud-pill-group, body.phone-reader:not(.library-view-active) #topFlexZone .rbar-item { flex: 1 1 0; display: flex; min-width: 0; }
 body.phone-reader:not(.library-view-active) #topFlexZone .btn { flex: 1; min-height: 44px; padding-inline: 2px !important; justify-content: center; border-radius: var(--r-control) !important; }
 body.phone-reader:not(.library-view-active) .bar-btn-label { font-size: 14px; }
-/* The top leaves upward (Scroll-mode hand scroll, or Reading mode). It overlays the score, so nothing is resized. */
-body.phone-reader.top-away:not(.library-view-active) #topBar,
+/* The top leaves upward in Reading mode only. It overlays the score, so nothing is resized. */
 body.phone-reader:not(.library-view-active) #topBar.hud-hidden:not(.hud-transient) {
   transform: translateY(-100%); margin-top: 0; opacity: 1; visibility: hidden; pointer-events: none;
   transition: transform var(--dur-fast) var(--ease-out), visibility 0s linear var(--dur-fast);
@@ -2285,6 +2284,10 @@ body.phone-reader:not(.library-view-active) .dock-src { margin-inline: auto; tra
 body.phone-reader:not(.library-view-active) .dock-src { min-width: 0; }
 body.phone-reader:not(.library-view-active) .dock-src .audio-src-label { display: inline !important; }
 body.phone-reader:not(.library-view-active) .dock-src .mobile-dock-btn { padding: 0 8px; font-size: 13px; }
+/* The sound switch is 34px tall on every phone; the touch target stays 44px through an invisible extension */
+body.phone-reader:not(.library-view-active) .dock-src { padding: 2px; }
+body.phone-reader:not(.library-view-active) .dock-src .rbtn { min-height: 34px; height: 34px; position: relative; }
+body.phone-reader:not(.library-view-active) .dock-src .rbtn::after { content: ''; position: absolute; left: 0; right: 0; top: -5px; bottom: -5px; }
 body.phone-reader:not(.library-view-active) #mobileRewindBtn, body.phone-reader:not(.library-view-active) #mobilePlayPauseBtn { width: 44px; min-width: 44px; height: 44px; }
 body.phone-reader:not(.library-view-active) #fretboardDockBtn, body.phone-reader:not(.library-view-active) #readingDockBtn { display: inline-flex; width: 44px !important; min-width: 44px !important; height: 44px; align-items: center; justify-content: center; }
 body.phone-reader:not(.library-view-active) #fretboardDockBtn[style*="display: none"] { display: none !important; }
@@ -2299,6 +2302,9 @@ body.phone-reader:not(.library-view-active) #scoreRecStrip { margin-bottom: 0; }
 
 /* Reading mode (every platform): the bottom bar narrows to play, the progress track and the Reading mode button, in one row */
 body.phone-reader.reading-mode:not(.library-view-active) .mobile-playback-dock-inner { grid-template-areas: "a r c"; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 0; }
+/* Reading mode: the toggle takes its place in the single row (the portrait/landscape placements of .dock-tools must not apply) */
+body.phone-reader.reading-mode:not(.library-view-active) .dock-tools { grid-area: c; }
+
 /* Desktop Reading mode: the bar is one slim row (the phone bar already is) */
 body.reading-mode:not(.library-view-active):not(.phone-reader) .mobile-playback-dock-inner { padding-top: 4px; padding-bottom: 4px; }
 body.reading-mode:not(.library-view-active):not(.phone-reader) .ruler { height: 28px; }
@@ -2346,14 +2352,51 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
 .panel-volume { display: flex; align-items: center; gap: 12px; }
 .panel-volume::before { content: 'Volume'; color: var(--ink2); font-size: 13px; font-weight: 500; }
 .panel-volume #synthVolumeSlider { writing-mode: horizontal-tb; direction: ltr; flex: 1; width: auto; height: auto; min-height: 44px; margin: 0; accent-color: var(--hue); }
+/* Mixer level and pan sliders: the same plain track and thumb */
+.track-mix input[type="range"] { -webkit-appearance: none; appearance: none; background: transparent; border: 0; padding: 0; margin: 0; flex: 1; min-width: 0; }
+.track-mix input[type="range"]::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--s3); }
+.track-mix input[type="range"]::-moz-range-track { height: 4px; border-radius: 2px; background: var(--s3); }
+.track-mix input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin-top: -7px; border: 0; border-radius: 50%; background: var(--hue); }
+.track-mix input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--hue); }
+/* A plain track with a thumb: the native control draws a tall outlined pill when it is given a 44px row */
+.panel-volume #synthVolumeSlider { -webkit-appearance: none; appearance: none; background: transparent; border: 0; padding: 0; }
+.panel-volume #synthVolumeSlider::-webkit-slider-runnable-track { height: 4px; border-radius: 2px; background: var(--s3); }
+.panel-volume #synthVolumeSlider::-moz-range-track { height: 4px; border-radius: 2px; background: var(--s3); }
+.panel-volume #synthVolumeSlider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; margin-top: -8px; border: 0; border-radius: 50%; background: var(--hue); }
+.panel-volume #synthVolumeSlider::-moz-range-thumb { width: 20px; height: 20px; border: 0; border-radius: 50%; background: var(--hue); }
+.panel-volume #synthVolumeSlider:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .panel-volume #synthVolumeBadge { order: 3; font: 600 13px system-ui, sans-serif; color: var(--ink2); background: none; padding: 0; min-width: 3ch; text-align: right; }
 
 /* Short landscape phone: the top becomes a side rail (back, song name, the five words); Reading mode removes it and
    leaves the slim strip */
 @media (min-width: 641px) {
-  body.phone-reader:not(.library-view-active) { --reader-rail-w: calc(112px + env(safe-area-inset-left, 0px)); }
-  body.phone-reader.reading-mode:not(.library-view-active) { --reader-rail-w: env(safe-area-inset-left, 0px); }
+  body.phone-reader:not(.library-view-active) { --reader-rail-w: calc(92px + env(safe-area-inset-left, 0px)); --strip-inset: 0px; }
+  body.phone-reader.reading-mode:not(.library-view-active) { --reader-rail-w: env(safe-area-inset-left, 0px); --strip-inset: 0px; }
   body.phone-reader:not(.library-view-active) #topBar { right: auto; bottom: 0; width: var(--reader-rail-w); flex-direction: column; flex-wrap: nowrap; align-items: stretch; padding: 4px 4px 4px max(env(safe-area-inset-left, 0px), 4px) !important; }
+  /* The rail and the strip are one L of chrome in the same tone, so the corner where they meet has no seam; the strip drops the home inset (the score ends above it) */
+  body.phone-reader:not(.library-view-active) #topBar { background: var(--s1) !important; }
+  body.phone-reader:not(.library-view-active) .dock-src .audio-sfx { display: none !important; }
+  body.phone-reader:not(.library-view-active) .dock-src { padding: 2px; }
+  /* A shorter switch (34px); the touch target stays 44px through an invisible extension */
+  body.phone-reader:not(.library-view-active) .dock-src .rbtn { min-height: 34px; height: 34px; position: relative; }
+  body.phone-reader:not(.library-view-active) .dock-src .rbtn::after { content: ''; position: absolute; left: 0; right: 0; top: -5px; bottom: -5px; }
+  body.phone-reader:not(.library-view-active) .dock-src .mobile-dock-btn { padding: 0 12px; }
+  /* Recording bar (Original): one row, time, track, then the sync state and Add points to the right of the track, so the strip stays short */
+  body.phone-reader:not(.library-view-active) .rec-strip { display: flex; flex-wrap: nowrap; align-items: center; gap: 0 10px; min-height: 28px; padding: 0; }
+  body.phone-reader:not(.library-view-active) .rec-time { min-width: 0; }
+  body.phone-reader:not(.library-view-active) .rec-track { flex: 1 1 0; min-width: 60px; }
+  body.phone-reader:not(.library-view-active) .rec-status { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  body.phone-reader:not(.library-view-active) .rec-actions .ct-text { min-height: 28px; padding: 0 8px; font-size: 13px; white-space: nowrap; position: relative; }
+  body.phone-reader:not(.library-view-active) .rec-actions .ct-text::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+  body.phone-reader:not(.library-view-active) #scoreRecStrip { margin-bottom: 2px; }
+  /* Page arrows and the percent share the 88px the rail has: they were 129px and spilled out of it */
+  body.phone-reader:not(.library-view-active) #navButtons { width: 100%; gap: 0; margin: 0; padding: 0; }
+  body.phone-reader:not(.library-view-active) #navButtons #prevPage, body.phone-reader:not(.library-view-active) #navButtons #nextPage { flex: 0 0 32px; width: 32px; min-width: 32px; padding-inline: 0 !important; }
+  body.phone-reader:not(.library-view-active) #navButtons #pageIndicator { flex: 1 1 0; min-width: 0; width: auto; padding: 0; text-align: center; font-size: 13px; }
+  /* Right side: keep the score, the strip and the fretboard clear of a camera cutout or the Dynamic Island (the left is the rail's) */
+  body.phone-reader:not(.library-view-active) #mainContent { padding-right: env(safe-area-inset-right, 0px) !important; }
+  body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { padding-right: max(8px, env(safe-area-inset-right, 0px)); }
+  body.phone-reader:not(.library-view-active) .fretboard-dock { right: env(safe-area-inset-right, 0px) !important; }
   body.phone-reader:not(.library-view-active) #brandSection { flex: none; min-height: 0; flex-direction: column; align-items: stretch; }
   body.phone-reader:not(.library-view-active) #songBreadcrumb { flex-direction: column; align-items: stretch !important; gap: 0; }
   body.phone-reader:not(.library-view-active) .top-bar-song-btn { height: auto; min-height: 44px; text-align: left; padding: 0 8px; }
@@ -2363,7 +2406,6 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
   body.phone-reader:not(.library-view-active) #topFlexZone { order: 4; flex: 1 1 auto; flex-direction: column; justify-content: flex-start; padding: 0; min-height: 0; }
   body.phone-reader:not(.library-view-active) #topFlexZone .hud-pill-group, body.phone-reader:not(.library-view-active) #topFlexZone .rbar-item { flex: none; }
   body.phone-reader:not(.library-view-active) #topFlexZone .btn { flex: none; width: 100%; min-height: 44px; justify-content: flex-start; padding-inline: 10px !important; }
-  body.phone-reader.top-away:not(.library-view-active) #topBar,
   body.phone-reader:not(.library-view-active) #topBar.hud-hidden:not(.hud-transient) { transform: translateX(-100%); }
   body.phone-reader:not(.library-view-active) #mainContent { padding-top: env(safe-area-inset-top, 0px) !important; padding-left: var(--reader-rail-w) !important; }
   body.phone-reader:not(.library-view-active):has(#output.continuous-mode) #mainContent { padding-top: 0 !important; }
@@ -2371,6 +2413,74 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
   body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-left: var(--reader-rail-w); width: auto !important; }
   body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { padding-left: 8px; }
   body.phone-reader:not(.library-view-active) .fretboard-dock { left: var(--reader-rail-w) !important; width: auto !important; }
+}
+/* Short landscape phone, continued: the strip is one row (the screen is short), the fretboard header is compact, and
+   sheets are side panels (a bottom sheet would sit under the fretboard and leave no score) */
+@media (min-width: 641px) {
+  body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { grid-template-areas: "a r c"; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
+  body.phone-reader:not(.library-view-active) .dock-tools { grid-area: c; grid-column: auto; grid-row: auto; }
+  body.phone-reader:not(.library-view-active) .dock-src { margin-inline: 0; transform: none; }
+  body.phone-reader:not(.library-view-active) .fretboard-dock-header { padding: 2px 8px; flex-wrap: nowrap; gap: 8px; }
+  body.phone-reader:not(.library-view-active) .fb-track { min-height: 28px; padding: 0 8px; gap: 6px; font-size: 13px; position: relative; }
+  body.phone-reader:not(.library-view-active) .fb-track::before { height: 12px; }
+  body.phone-reader:not(.library-view-active) .fb-track::after, body.phone-reader:not(.library-view-active) .fretboard-mode-pills .btn::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+  body.phone-reader:not(.library-view-active) .fretboard-mode-pills { height: 26px !important; }
+  body.phone-reader:not(.library-view-active) .fretboard-mode-pills .btn { position: relative; font-size: 12px !important; }
+  body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper { padding: 0 0 2px; }
+  body.phone-reader:not(.library-view-active) .fretboard-dock { padding-bottom: 4px; }
+  body.phone-reader .rpanel { --rp-from: -24px 0; }
+  /* The sound panels belong to the strip's Synth | Original switch, which sits on the right: they open on the right */
+  body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel { --rp-from: 24px 0; }
+  body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) { width: min(320px, 50vw) !important; }
+  body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu, body.phone-reader #tracksMenu,
+  body.phone-reader #scoreOptionsDropdownPanel {
+    left: var(--reader-rail-w, 0px) !important; right: auto !important; top: 0 !important; bottom: var(--dock-h, 0px) !important; width: min(380px, 55vw) !important;
+    max-height: none !important; z-index: 1060 !important; border-radius: 0 var(--r-lg) var(--r-lg) 0 !important;
+  }
+  body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel {
+    left: auto !important; right: env(safe-area-inset-right, 0px) !important; top: 0 !important; bottom: var(--dock-h, 0px) !important; width: min(320px, 50vw) !important;
+    max-height: none !important; z-index: 1060 !important; border-radius: var(--r-lg) 0 0 var(--r-lg) !important;
+  }
+}
+/* Sound panels: the header stays, only the body scrolls (the panel itself scrolling as well made two nested scrollers) */
+body.phone-reader #synthDropdownPanel:not([style*="display: none"]):not([style*="display:none"]),
+body.phone-reader #ytDropdownPanel:not([style*="display: none"]):not([style*="display:none"]) { display: flex !important; flex-direction: column; overflow: hidden !important; }
+body.phone-reader #synthDropdownPanel .synth-panel-header, body.phone-reader #ytDropdownPanel .yt-panel-header { flex: none; }
+body.phone-reader #synthDropdownPanel .synth-panel-body, body.phone-reader #ytDropdownPanel .yt-panel-body {
+  flex: 1 1 auto !important; min-height: 0; overflow-y: auto !important; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
+}
+/* The video keeps its 16:9 shape but not the whole sheet width: a full-width player is too tall on a portrait phone */
+@media (max-width: 640px) {
+  body.phone-reader #ytDropdownPanel #ytPlayerWrapper { max-width: 240px; margin-inline: auto; }
+}
+/* Phone panels are denser (portrait sheets and landscape side panels): the screen is small, so type, rows and controls are about 20% smaller */
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) { font-size: 13px; padding: 10px 12px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(h1, h2, h3, .tracks-title, .rpanel-title, #synthPanelTitle::before) { font-size: 15px !important; padding-block: 0 6px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.btn, button, .rbtn, .form-select, .form-control, select, input:not([type=range]):not([type=checkbox])) { min-height: 34px !important; font-size: 13px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.btn, button, .rbtn):not(.form-check-input) { padding-block: 4px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(label, p, small, .text-muted, span, div) { line-height: 1.25; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.form-check-input, .theme-switch) { transform: scale(.8); }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mixer-toggle, .track-mix-toggles .mixer-toggle) { min-width: 34px !important; width: 34px !important; height: 34px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) [class*="gap-"], body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .view-screen-pair { gap: 6px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mb-3, .my-3, .py-3) { margin-bottom: 8px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-step { width: 34px; height: 34px; font-size: 18px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-speed-value { font-size: 22px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-presets { grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 6px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-presets .btn { padding-inline: 0 !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.form-check.form-switch, .practice-menu .form-check.form-switch) { min-height: 34px !important; gap: 8px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.d-flex.align-items-center.justify-content-between, #synthLoopSteppers) { min-height: 0; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mixer-toggle) { height: 34px !important; }
+@media (max-width: 640px) {
+  /* Recording bar (Original): one row, time, track, then the sync state and Add points to the right of the track, so the strip stays short */
+  body.phone-reader:not(.library-view-active) .rec-strip { display: flex; flex-wrap: nowrap; align-items: center; gap: 0 10px; min-height: 28px; padding: 0; }
+  body.phone-reader:not(.library-view-active) .rec-time { min-width: 0; }
+  body.phone-reader:not(.library-view-active) .rec-track { flex: 1 1 0; min-width: 60px; }
+  body.phone-reader:not(.library-view-active) .rec-status { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  body.phone-reader:not(.library-view-active) .rec-actions .ct-text { min-height: 28px; padding: 0 8px; font-size: 13px; white-space: nowrap; position: relative; }
+  body.phone-reader:not(.library-view-active) .rec-actions .ct-text::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+  body.phone-reader:not(.library-view-active) #scoreRecStrip { margin-bottom: 2px; }
+  body.phone-reader:not(.library-view-active) .rec-time { font-size: 11px; }
+  body.phone-reader:not(.library-view-active) .rec-status { font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) { body.phone-reader:not(.library-view-active) #topBar, body.phone-reader .panel-volume { transition: none !important; } }
 

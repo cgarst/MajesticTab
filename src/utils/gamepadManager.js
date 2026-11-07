@@ -721,7 +721,6 @@ class GamepadManager {
         this.isHudHidden = nextHidden;
         const mobileDock = document.getElementById('mobilePlaybackDock');
         document.body.classList.toggle('reading-mode', nextHidden);
-        document.body.classList.remove('top-away');
         for (const id of ['readingToggleBtn', 'readingDockBtn']) document.getElementById(id)?.setAttribute('aria-pressed', String(nextHidden));
         if (phone) {
             try { localStorage.setItem(READING_MODE_KEY, nextHidden ? '1' : '0'); } catch { /* storage blocked */ }
@@ -763,7 +762,6 @@ class GamepadManager {
     enterTopBar() {
         if (!this.topBar) this.topBar = document.getElementById('topBar');
         if (!this.topBar) return false;
-        document.body.classList.remove('top-away');
         if (this.isHudHidden) {
             this.topBar.classList.add('hud-transient');
             if (this.hudTransientTimeout) {
