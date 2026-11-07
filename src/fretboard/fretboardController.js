@@ -139,20 +139,15 @@ class FretboardController {
     }
 
     /**
-     * Position the dock button:
-     * - Desktop (> 640px): Far right of .dock-tools (after volume)
-     * - Mobile (<= 640px): In .dock-tr flanking the play button
+     * Position the dock button: in .dock-tools after the sound switch, before the Reading mode button (phones),
+     * or at the far right of .dock-tools (desktop). It no longer moves with the viewport width.
      */
     syncDockBtnSlot() {
         const btn = document.getElementById('fretboardDockBtn');
-        if (!btn) return;
-        const isNarrow = typeof window !== 'undefined' && window.matchMedia?.('(max-width: 640px)').matches;
-        const targetParent = isNarrow
-            ? document.querySelector('.dock-tr')
-            : document.querySelector('.dock-tools');
-        if (targetParent && btn.parentElement !== targetParent) {
-            targetParent.appendChild(btn);
-        }
+        const tools = document.querySelector('.dock-tools');
+        if (!btn || !tools) return;
+        const reading = document.getElementById('readingDockBtn');
+        if (btn.parentElement !== tools || (reading && btn.nextElementSibling !== reading)) tools.insertBefore(btn, reading || null);
     }
 
     /**

@@ -137,8 +137,8 @@ if (want('original')) {
     await sleep(4000); // let the score finish laying out so the panel can count its bars
     await click('#ytToggleBtn'); await sleep(800);
     await click('#realAudioSourceLocal');
-    // with a sheet open the top bar and dock must be showing (this shot caught them hidden once)
-    console.log('chrome hidden with sheet open:', await ev(`document.body.classList.contains('chrome-hidden')`));
+    // with a sheet open the top and the strip must be showing
+    console.log('top away with sheet open:', await ev(`document.body.classList.contains('top-away') || document.body.classList.contains('reading-mode')`));
     for (let i = 0; i < 40 && !(await ev(`/of [1-9]\\d* bars synced/.test(document.body.innerText)`)); i++) await sleep(500);
     await sleep(800);
     await shot(`original${suffix}`);

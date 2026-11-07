@@ -286,8 +286,8 @@ export function setupKeyboardNavigation(getConfig) {
             return;
         }
 
-        // Z key toggles zen mode (hides the top and bottom bars)
-        if ((e.key === 'z' || e.key === 'Z') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat && !document.body.classList.contains('modal-open')) {
+        // R key toggles reading mode (hides the top and the playback controls)
+        if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey && !e.repeat && !document.body.classList.contains('modal-open')) {
             e.preventDefault();
             gamepadManager.toggleTopBar();
             return;
@@ -966,10 +966,9 @@ export function handleTapNavigation(e, config) {
         return;
     }
 
-    // Phone: the top and bottom bands are for the bars (readerViewMenu.js), the rest turns the page
+    // Phone: the left half turns the page back and the right half forward; no tap moves a bar
     if (isPhoneReader()) {
         const zone = phoneTapZone(e.clientX, e.clientY, outputRect);
-        if (zone === 'bars') return;
         const navigationHandler = new NavigationHandler(config);
         const result = navigationHandler.handleAction(zone === 'next' ? NavigationAction.NEXT : NavigationAction.PREV);
         if (result?.newPageIndex !== undefined) config.setCurrentPageIndex(result.newPageIndex);

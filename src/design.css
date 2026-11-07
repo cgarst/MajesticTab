@@ -412,12 +412,14 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   width: 36px; height: 36px; min-width: 36px; padding: 0; border: 0 !important; background: transparent !important; color: var(--ink2) !important;
   border-radius: var(--r) !important; box-shadow: none !important; display: inline-flex; align-items: center; justify-content: center;
 }
-.mobile-dock-btn:hover { background: var(--s2) !important; color: var(--ink) !important; }
+/* Tone step on hover only where a pointer really hovers (on touch :hover sticks after a tap), and while pressed */
+@media (hover: hover) { .mobile-dock-btn:hover { background: var(--s2) !important; color: var(--ink) !important; } }
+.mobile-dock-btn:active { background: var(--s2) !important; color: var(--ink) !important; }
 .mobile-dock-btn.active-audio-mode { background: transparent !important; color: var(--hue) !important; }
-#fretboardDockBtn.active, #fretboardDockBtn[aria-pressed="true"] { background: var(--s2) !important; color: var(--ink) !important; }
-#fretboardDockBtn.active:hover, #fretboardDockBtn[aria-pressed="true"]:hover { background: var(--s3) !important; color: var(--ink) !important; }
+/* On is shown by the playhead color on the glyph, not a fill, so it never reads as a stuck hover */
+#fretboardDockBtn.active, #fretboardDockBtn[aria-pressed="true"], #readingDockBtn[aria-pressed="true"] { background: transparent !important; color: var(--hue) !important; }
 .dock-src .mobile-dock-btn { width: auto; padding: 0 10px; border-radius: calc(var(--r) - 3px) !important; gap: 6px; height: 32px; font-size: 13px; font-weight: 500; }
-.dock-src .mobile-dock-btn:hover { background: transparent !important; color: var(--ink) !important; }
+@media (hover: hover) { .dock-src .mobile-dock-btn:hover { background: transparent !important; color: var(--ink) !important; } }
 .dock-src .mobile-dock-btn.active-audio-mode, #mobileSynthToggleBtn.active-audio-mode, #mobileYtToggleBtn.active-audio-mode {
   background: var(--s3) !important; color: var(--ink) !important;
 }
@@ -1225,9 +1227,6 @@ body.fretboard-open {
   --fretboard-effective-h: var(--fretboard-dock-height, 213px);
 }
 @media (max-width: 640px) {
-  :root {
-    --reader-bottom-nav-h: calc(56px + env(safe-area-inset-bottom, 0px));
-  }
   body.fretboard-open {
     --fretboard-effective-h: var(--fretboard-dock-height, 111px);
   }
@@ -1614,7 +1613,7 @@ body.fretboard-open {
   /* Classical tab scrolls its own list, so the list runs down to the tab bar. The pane already reaches 8px under the
      bar, and the bar covers the safe area, so the pane's bottom padding is exactly those 8px (no safe-area inset) */
   .tools-shell .setpage:has(.classtab-tool-embedded) {
-    padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: 8px !important;
   }
   .library-search-bar { height: 44px !important; }
   .library-search-bar .search-input { font-size: 16px !important; /* 16px stops iOS zooming the page on focus */ }
@@ -2205,52 +2204,175 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 .page-strip-mark:hover { background: var(--s2); color: var(--ink); }
 .page-strip-marks:empty { display: none; }
 
-/* ---------- Phone: the top says which song and holds the page buttons; the bottom says what you can do ---------- */
-@media (max-width: 640px) {
-  body:not(.library-view-active) { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important; }
-  /* View, Practice, Song, Guitar, Tools become the bottom row (the same five words as desktop) */
-  body:not(.library-view-active) #topFlexZone {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1055; display: flex; align-items: stretch; justify-content: space-around; gap: 0;
-    background: var(--s1); padding: 0 4px env(safe-area-inset-bottom, 0px); min-height: calc(56px + env(safe-area-inset-bottom, 0px));
-    transition: transform var(--dur-base) var(--ease-out);
-  }
-  body:not(.library-view-active).chrome-hidden #topFlexZone { transform: translateY(100%); }
-  /* Scrolling down clears all of the chrome: top bar, transport and the bottom row */
-  body:not(.library-view-active) #topBar { transition: margin-top var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
-  /* No transform on the bar: #topFlexZone (the bottom row) is position:fixed inside it, and a transform would make the bar its containing block and carry the row to the top of the screen */
-  /* The reader's body does not scroll (the score does), so the bar needs no sticky pin, and a pinned bar could not leave */
-  body:not(.library-view-active) #topBar { position: relative; }
-  body:not(.library-view-active).chrome-hidden #topBar { margin-top: calc(-1 * var(--topbar-h, 52px)); }
-  body:not(.library-view-active).chrome-hidden .mobile-playback-dock.has-audio-sources { transform: translateY(calc(100% + 56px)); pointer-events: none; }
-  body:not(.library-view-active) .mobile-playback-dock.has-audio-sources { transition: transform var(--dur-base) var(--ease-out); }
-  body:not(.library-view-active) #topFlexZone .hud-pill-group, body:not(.library-view-active) #topFlexZone .rbar-item { flex: 1 1 0; display: flex; min-width: 0; }
-  body:not(.library-view-active) #topFlexZone .btn { flex: 1; min-height: 56px; padding-inline: 2px !important; justify-content: center; border-radius: 0 !important; }
-  body:not(.library-view-active) #fullscreenPill, body:not(.library-view-active) #jamLivePill { display: none !important; }
-  body:not(.library-view-active) #rightSection { gap: 0; }
-  body:not(.library-view-active) #navButtons .btn { min-width: 44px; min-height: 44px; }
-  .bar-btn-label { font-size: 13px; }
-  /* The dock keeps its words on a phone: Synth, Recording and the speaker */
-  .dock-src .audio-src-label { display: inline !important; }
-  .dock-src .mobile-dock-btn { padding: 0 9px; font-size: 13px; }
-  #dockBarPrefix { display: none; }
-  .mobile-playback-dock-inner { grid-template-columns: auto minmax(0, 1fr) auto; }
-  .dock-tools, .dock-src { min-width: 0; }
-  .dock-time { display: none !important; }
-  /* Menus and panels become bottom sheets above the dock and the bottom row */
-  #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel {
-    position: fixed !important; left: 0 !important; right: 0 !important; top: auto !important; width: auto !important; max-width: none !important;
-    bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px) + var(--fretboard-effective-h, 0px)) !important; transform: none !important;
-    max-height: calc(100vh - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - var(--fretboard-effective-h, 0px) - 70px) !important;
-    overflow-y: auto; border-radius: var(--r-lg) var(--r-lg) 0 0 !important;
-    transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
-  }
-  .dock-pop { left: 8px !important; right: 8px; width: auto; }
+/* ---------- Phone reader chrome ----------
+   Top: two slim rows over the score (back and song name; View, Practice, Tracks, Guitar, Tools).
+   Bottom: one strip (progress on top; restart, play, position, sound, fretboard, Reading mode).
+   Nothing resizes the sheet on its own: the top slides away only on a hand scroll down in Scroll mode (an overlay, so no
+   refit), and Reading mode is the explicit, remembered way to reclaim the top. body.phone-reader is set by readerViewMenu.js
+   from PHONE_READER_QUERY (narrow screens, and short landscape phones, where the top becomes a side rail). */
+body.phone-reader:not(.library-view-active) { --reader-rail-w: 0px; padding-bottom: 0 !important; }
+body.phone-reader:not(.library-view-active) #topBar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1056; display: flex !important; flex-wrap: wrap; align-items: center; gap: 0;
+  overflow: visible; min-height: 0; grid-template-columns: none !important;
+  padding: env(safe-area-inset-top, 0px) max(env(safe-area-inset-right, 0px), 6px) 0 max(env(safe-area-inset-left, 0px), 6px) !important;
+  background: var(--ground) !important;
+  transition: transform var(--dur-base) var(--ease-out), visibility 0s;
 }
+body.phone-reader:not(.library-view-active) #rightSection { display: contents; }
+body.phone-reader:not(.library-view-active) #centerSection, body.phone-reader:not(.library-view-active) #globalAudioControls, body.phone-reader:not(.library-view-active) #audioSourcePill, body.phone-reader:not(.library-view-active) #fullscreenPill, body.phone-reader:not(.library-view-active) #jamLivePill { display: none !important; }
+body.phone-reader:not(.library-view-active) #brandSection { order: 1; flex: 1 1 0; min-width: 0; min-height: 44px; display: flex; align-items: center; }
+body.phone-reader:not(.library-view-active) #navButtons { order: 2; flex: none; }
+body.phone-reader:not(.library-view-active) #navButtons .btn { min-width: 44px; min-height: 44px; }
+body.phone-reader:not(.library-view-active) #topFlexZone { order: 3; flex: 0 0 100%; display: flex; align-items: stretch; justify-content: space-around; gap: 0; }
+/* Portrait phone: View, Practice, Tracks, Guitar and Tools are the bottom row, for the thumb. setPhoneTabs() in readerViewMenu.js
+   moves them out of the top bar (a transformed bar would carry a fixed child with it). The strip sits above them. */
 @media (max-width: 640px) {
-  /* With the bars away the score runs edge to edge, but not under the status bar or the home indicator */
-  body:not(.library-view-active).chrome-hidden #output { margin-top: env(safe-area-inset-top, 0px); margin-bottom: env(safe-area-inset-bottom, 0px); height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+  body.phone-reader:not(.library-view-active) { --tabs-h: calc(48px + env(safe-area-inset-bottom, 0px)); --reader-bottom-nav-h: var(--tabs-h); padding-bottom: var(--tabs-h) !important; }
+  body.phone-reader.reading-mode:not(.library-view-active) { --tabs-h: 0px; }
+  body.phone-reader:not(.library-view-active) > #topFlexZone {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1055; min-height: var(--tabs-h); padding: 0 4px env(safe-area-inset-bottom, 0px); background: var(--s1);
+  }
+  body.phone-reader.reading-mode:not(.library-view-active) > #topFlexZone { display: none; }
+  /* The five words below the strip clear the home indicator; without them (Reading mode) the strip does */
+  body.phone-reader:not(.library-view-active) { --strip-inset: 0px; }
+  body.phone-reader.reading-mode:not(.library-view-active) { --strip-inset: env(safe-area-inset-bottom, 0px); }
+  body.phone-reader:not(.library-view-active) .fretboard-dock { bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; }
+  /* Compact fretboard header on a phone: one short row. The controls look smaller but keep a 44px touch target (an invisible extension). */
+  body.phone-reader:not(.library-view-active) .fretboard-dock-header { padding: 2px 8px; flex-wrap: nowrap; gap: 8px; }
+  body.phone-reader:not(.library-view-active) .fb-track { min-height: 28px; padding: 0 8px; gap: 6px; font-size: 13px; position: relative; }
+  body.phone-reader:not(.library-view-active) .fb-track::before { height: 12px; }
+  body.phone-reader:not(.library-view-active) .fb-track::after,
+  body.phone-reader:not(.library-view-active) .fretboard-mode-pills .btn::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+  body.phone-reader:not(.library-view-active) .fretboard-mode-pills { height: 26px !important; }
+  body.phone-reader:not(.library-view-active) .fretboard-mode-pills .btn { position: relative; font-size: 12px !important; }
+  body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper { padding: 0 0 2px; }
+  /* it sits above the strip, which clears the home indicator, so it needs no inset of its own */
+  body.phone-reader:not(.library-view-active) .fretboard-dock { padding-bottom: 6px; }
 }
-@media (max-width: 640px) and (prefers-reduced-motion: reduce) { body:not(.library-view-active) #topFlexZone { transition: none; } }
+body.phone-reader:not(.library-view-active) #topFlexZone .hud-pill-group, body.phone-reader:not(.library-view-active) #topFlexZone .rbar-item { flex: 1 1 0; display: flex; min-width: 0; }
+body.phone-reader:not(.library-view-active) #topFlexZone .btn { flex: 1; min-height: 44px; padding-inline: 2px !important; justify-content: center; border-radius: var(--r-control) !important; }
+body.phone-reader:not(.library-view-active) .bar-btn-label { font-size: 14px; }
+/* The top leaves upward (Scroll-mode hand scroll, or Reading mode). It overlays the score, so nothing is resized. */
+body.phone-reader.top-away:not(.library-view-active) #topBar,
+body.phone-reader:not(.library-view-active) #topBar.hud-hidden:not(.hud-transient) {
+  transform: translateY(-100%); margin-top: 0; opacity: 1; visibility: hidden; pointer-events: none;
+  transition: transform var(--dur-fast) var(--ease-out), visibility 0s linear var(--dur-fast);
+}
+body.phone-reader:not(.library-view-active) #topBar.hud-hidden.hud-transient { margin-top: 0; }
+/* The score starts below the top; in Scroll mode it scrolls under it instead */
+body.phone-reader:not(.library-view-active) #mainContent { padding-top: var(--topbar-h, 96px) !important; }
+body.phone-reader:not(.library-view-active):has(#output.continuous-mode) #mainContent { padding-top: 0 !important; }
+body.phone-reader:not(.library-view-active) #output.continuous-mode { padding-top: calc(var(--topbar-h, 96px) + 4px) !important; }
+body.phone-reader:not(.library-view-active) #output:not(.continuous-mode) { padding-top: 4px !important; }
+body.phone-reader.reading-mode:not(.library-view-active) #mainContent { padding-top: env(safe-area-inset-top, 0px) !important; }
+body.phone-reader.reading-mode:not(.library-view-active) #output.continuous-mode { padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important; }
+
+/* The strip: progress on top, one row of controls under it. It clears the home indicator itself. */
+body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner {
+  grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "r r r" "a b c"; gap: 8px 4px;
+  padding: 4px max(8px, var(--inset-far)) calc(4px + var(--strip-inset, env(safe-area-inset-bottom, 0px))) max(8px, env(safe-area-inset-left, 0px));
+}
+body.phone-reader:not(.library-view-active) .dock-ruler { grid-area: r; }
+body.phone-reader:not(.library-view-active) .dock-tr { grid-area: a; gap: 0; }
+/* No bar number on a phone: the playhead on the track shows where you are, and the controls get the room */
+body.phone-reader:not(.library-view-active) .dock-time { display: none !important; }
+body.phone-reader:not(.library-view-active) .dock-section, body.phone-reader:not(.library-view-active) .dock-bpm, body.phone-reader:not(.library-view-active) #dockMetroBtn, body.phone-reader:not(.library-view-active) #dockVolumeBtn { display: none !important; }
+body.phone-reader:not(.library-view-active) #dockBarPrefix { display: inline; }
+/* The sound switch sits midway between the play button and the fretboard button; the two icon buttons stay together at the right */
+body.phone-reader:not(.library-view-active) .dock-tools { grid-column: 2 / 4; grid-row: 2; gap: 2px; min-width: 0; }
+/* auto margins centre the boxes; the fretboard glyph sits about 10px inside its box, so nudge 5px to even the visible gaps */
+body.phone-reader:not(.library-view-active) .dock-src { margin-inline: auto; transform: translateX(5px); }
+body.phone-reader:not(.library-view-active) .dock-src { min-width: 0; }
+body.phone-reader:not(.library-view-active) .dock-src .audio-src-label { display: inline !important; }
+body.phone-reader:not(.library-view-active) .dock-src .mobile-dock-btn { padding: 0 8px; font-size: 13px; }
+body.phone-reader:not(.library-view-active) #mobileRewindBtn, body.phone-reader:not(.library-view-active) #mobilePlayPauseBtn { width: 44px; min-width: 44px; height: 44px; }
+body.phone-reader:not(.library-view-active) #fretboardDockBtn, body.phone-reader:not(.library-view-active) #readingDockBtn { display: inline-flex; width: 44px !important; min-width: 44px !important; height: 44px; align-items: center; justify-content: center; }
+body.phone-reader:not(.library-view-active) #fretboardDockBtn[style*="display: none"] { display: none !important; }
+body.phone-reader:not(.library-view-active) .ruler { height: 28px; }
+body.phone-reader:not(.library-view-active) .ruler[data-lane="1"] { height: 38px; }
+body.phone-reader:not(.library-view-active) .ruler svg, body.phone-reader:not(.library-view-active) .ruler-labels { height: 28px; }
+body.phone-reader:not(.library-view-active) .ruler-labels em { display: none; }
+body.phone-reader:not(.library-view-active) .page-strip-track { height: 28px; }
+body.phone-reader:not(.library-view-active) .page-strip-marks { display: none; }
+body.phone-reader:not(.library-view-active) .rec-strip { min-height: 28px; }
+body.phone-reader:not(.library-view-active) #scoreRecStrip { margin-bottom: 0; }
+
+/* Reading mode (every platform): the bottom bar narrows to play, the progress track and the Reading mode button, in one row */
+body.phone-reader.reading-mode:not(.library-view-active) .mobile-playback-dock-inner { grid-template-areas: "a r c"; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; column-gap: 0; }
+/* Desktop Reading mode: the bar is one slim row (the phone bar already is) */
+body.reading-mode:not(.library-view-active):not(.phone-reader) .mobile-playback-dock-inner { padding-top: 4px; padding-bottom: 4px; }
+body.reading-mode:not(.library-view-active):not(.phone-reader) .ruler { height: 28px; }
+body.reading-mode:not(.library-view-active):not(.phone-reader) .ruler svg, body.reading-mode:not(.library-view-active):not(.phone-reader) .ruler-labels { height: 28px; }
+body.reading-mode:not(.library-view-active):not(.phone-reader) .ruler-labels em { display: none; }
+body.reading-mode:not(.library-view-active):not(.phone-reader) .page-strip.in-dock .page-strip-track { height: 28px; }
+body.reading-mode:not(.library-view-active):not(.phone-reader) .page-strip-marks { display: none; }
+body.reading-mode:not(.library-view-active):not(.phone-reader) .rec-strip { min-height: 28px; }
+body.reading-mode:not(.library-view-active):not(.phone-reader) #mobilePlayPauseBtn { width: 40px; min-width: 40px; height: 40px; }
+/* Optical spacing: the playhead overhangs the ruler's left end by about 7px and the toggle's glyph sits about 14px inside its 44px box, so the left gap is wider and the right gap is zero: both read as about 13px */
+body.phone-reader.reading-mode:not(.library-view-active) .dock-ruler { margin-left: 20px; }
+body.reading-mode:not(.library-view-active) #mobileRewindBtn,
+body.reading-mode:not(.library-view-active) .dock-time,
+body.reading-mode:not(.library-view-active) .dock-bpm,
+body.reading-mode:not(.library-view-active) .dock-tools > :not(#readingDockBtn),
+body.reading-mode:not(.library-view-active) .rec-status,
+body.reading-mode:not(.library-view-active) .rec-actions { display: none !important; }
+/* An open fretboard stays open in Reading mode, without its header (track list, Notes | Frets); the dock's height follows */
+body.reading-mode:not(.library-view-active) .fretboard-dock-header { display: none !important; }
+/* The fretboard and the sync bar sit above the strip and shrink the sheet (the score area) instead of covering it: its
+   height is what is left between the top and them, in Page and Scroll mode alike. --sync-bar-h is set by syncMode.js. */
+body.phone-reader:not(.library-view-active) #output {
+  height: calc(100% - var(--fretboard-effective-h, 0px) - var(--sync-bar-h, 0px)) !important;
+  max-height: calc(100% - var(--fretboard-effective-h, 0px) - var(--sync-bar-h, 0px)) !important;
+  flex: none; padding-bottom: 16px !important;
+}
+body.phone-reader:not(.library-view-active) #output.continuous-mode { padding-bottom: 24px !important; }
+/* View does not repeat the toggle; the strip has it */
+#readingCell { display: none !important; }
+
+/* Sheets (View, Practice, Tracks, Guitar, Tools, Song, Synth, Original) rise from the bottom, above the strip and the
+   fretboard, and stop short of the top so the tab stays visible */
+body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu, body.phone-reader #tracksMenu,
+body.phone-reader #scoreOptionsDropdownPanel, body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel {
+  position: fixed !important; left: var(--reader-rail-w) !important; right: 0 !important; top: auto !important; width: auto !important; max-width: none !important;
+  bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px) + var(--fretboard-effective-h, 0px)) !important; transform: none !important;
+  max-height: min(62vh, calc(100vh - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - var(--fretboard-effective-h, 0px) - 24px)) !important;
+  overflow-y: auto; border-radius: var(--r-lg) var(--r-lg) 0 0 !important;
+  transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+body.phone-reader .dock-pop { left: 8px !important; right: 8px; width: auto; }
+body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #topFlexZone .btn.active { background: var(--s2) !important; }
+
+/* Volume lives in the sound panel on a phone */
+.panel-volume { display: flex; align-items: center; gap: 12px; }
+.panel-volume::before { content: 'Volume'; color: var(--ink2); font-size: 13px; font-weight: 500; }
+.panel-volume #synthVolumeSlider { writing-mode: horizontal-tb; direction: ltr; flex: 1; width: auto; height: auto; min-height: 44px; margin: 0; accent-color: var(--hue); }
+.panel-volume #synthVolumeBadge { order: 3; font: 600 13px system-ui, sans-serif; color: var(--ink2); background: none; padding: 0; min-width: 3ch; text-align: right; }
+
+/* Short landscape phone: the top becomes a side rail (back, song name, the five words); Reading mode removes it and
+   leaves the slim strip */
+@media (min-width: 641px) {
+  body.phone-reader:not(.library-view-active) { --reader-rail-w: calc(112px + env(safe-area-inset-left, 0px)); }
+  body.phone-reader.reading-mode:not(.library-view-active) { --reader-rail-w: env(safe-area-inset-left, 0px); }
+  body.phone-reader:not(.library-view-active) #topBar { right: auto; bottom: 0; width: var(--reader-rail-w); flex-direction: column; flex-wrap: nowrap; align-items: stretch; padding: 4px 4px 4px max(env(safe-area-inset-left, 0px), 4px) !important; }
+  body.phone-reader:not(.library-view-active) #brandSection { flex: none; min-height: 0; flex-direction: column; align-items: stretch; }
+  body.phone-reader:not(.library-view-active) #songBreadcrumb { flex-direction: column; align-items: stretch !important; gap: 0; }
+  body.phone-reader:not(.library-view-active) .top-bar-song-btn { height: auto; min-height: 44px; text-align: left; padding: 0 8px; }
+  body.phone-reader:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { font-size: 15px; white-space: normal !important; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.15; }
+  body.phone-reader:not(.library-view-active) .top-bar-song-btn .song-title-chevron { display: none; }
+  body.phone-reader:not(.library-view-active) #navButtons { order: 3; display: flex; justify-content: center; }
+  body.phone-reader:not(.library-view-active) #topFlexZone { order: 4; flex: 1 1 auto; flex-direction: column; justify-content: flex-start; padding: 0; min-height: 0; }
+  body.phone-reader:not(.library-view-active) #topFlexZone .hud-pill-group, body.phone-reader:not(.library-view-active) #topFlexZone .rbar-item { flex: none; }
+  body.phone-reader:not(.library-view-active) #topFlexZone .btn { flex: none; width: 100%; min-height: 44px; justify-content: flex-start; padding-inline: 10px !important; }
+  body.phone-reader.top-away:not(.library-view-active) #topBar,
+  body.phone-reader:not(.library-view-active) #topBar.hud-hidden:not(.hud-transient) { transform: translateX(-100%); }
+  body.phone-reader:not(.library-view-active) #mainContent { padding-top: env(safe-area-inset-top, 0px) !important; padding-left: var(--reader-rail-w) !important; }
+  body.phone-reader:not(.library-view-active):has(#output.continuous-mode) #mainContent { padding-top: 0 !important; }
+  body.phone-reader:not(.library-view-active) #output.continuous-mode { padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important; }
+  body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-left: var(--reader-rail-w); width: auto !important; }
+  body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { padding-left: 8px; }
+  body.phone-reader:not(.library-view-active) .fretboard-dock { left: var(--reader-rail-w) !important; width: auto !important; }
+}
+@media (prefers-reduced-motion: reduce) { body.phone-reader:not(.library-view-active) #topBar, body.phone-reader .panel-volume { transition: none !important; } }
 
 /* Song, Tracks: visible keyboard focus and 44px targets on touch */
 .gp-track-only-btn:focus-visible, .mixer-toggle:focus-visible, #synthMixResetBtn:focus-visible, #synthShowAllTracksBtn:focus-visible,
@@ -2392,7 +2514,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 
 /* ==========================================================================
    Reader buttons and panels: one look and one behaviour
-   View, Practice, Song, Guitar, Tools (top bar or bottom row) and the dock's Synth | Recording switch are all .rbtn.
+   View, Practice, Song, Guitar, Tools (top bar rows or side rail on phones) and the dock's Synth | Recording switch are all .rbtn.
    Every panel they open is .rpanel (class set by utils/readerPanels.js), with entry and exit driven by showPanel/hidePanel.
    ========================================================================== */
 .rbtn {
@@ -2401,7 +2523,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
   font: 600 14px system-ui, sans-serif; white-space: nowrap;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.rbtn:hover:not(:disabled) { background: var(--s1) !important; color: var(--ink) !important; }
+@media (hover: hover) { .rbtn:hover:not(:disabled) { background: var(--s1) !important; color: var(--ink) !important; } }
 .rbtn[aria-expanded="true"], .rbtn.active { background: var(--s2) !important; color: var(--ink) !important; }
 .rbtn:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
 .rbtn:disabled { opacity: 0.4; }
@@ -2410,7 +2532,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 
 /* The Synth | Recording switch: a tray with the selected sound one step up */
 .dock-src .rbtn { min-height: 32px; height: 32px; padding-inline: 10px !important; border-radius: calc(var(--r) - 3px) !important; font-size: 13px; }
-.dock-src .rbtn:hover:not(:disabled) { background: var(--s3) !important; }
+@media (hover: hover) { .dock-src .rbtn:hover:not(:disabled) { background: var(--s3) !important; } }
 .dock-src .rbtn.active-audio-mode, .dock-src .rbtn.active { background: var(--s3) !important; color: var(--ink) !important; }
 @media (pointer: coarse) { .dock-src .rbtn { min-height: 44px; height: 44px; } }
 
@@ -2545,7 +2667,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 .about-wordmark { font: 700 28px/1 var(--font-display); letter-spacing: -.01em; color: var(--ink); }
 .about-wordmark b { font-weight: 700; color: var(--ink2); }
 
-/* View menu: Screen row (Fullscreen, Zen mode): two flat tone-step buttons, like Layout and Notation */
+/* View menu: Screen row (Fullscreen, Reading mode): two flat tone-step buttons, like Layout and Notation */
 #viewMenu .view-screen-pair { display: flex; gap: 8px; }
 #viewMenu .view-screen-pair > span { flex: 1 1 0; min-width: 0; display: block; }
 #viewMenu .view-window-btn {
@@ -2558,7 +2680,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 #viewMenu .view-window-hint { color: var(--ink2); font-size: 11px; line-height: 1; }
 @media (hover: none) { #viewMenu .view-window-hint { display: none; } }
 
-/* Zen mode: leaving is quicker than arriving. The dock fades (hud-leaving) at the same moment and for the same time as the top bar, then hud-hidden takes it out of the layout; WebViews without display transitions would otherwise drop it at once */
+/* Reading mode (desktop): leaving is quicker than arriving. The dock fades (hud-leaving) at the same moment and for the same time as the top bar, then hud-hidden takes it out of the layout; WebViews without display transitions would otherwise drop it at once */
 #topBar { transition: transform var(--dur-base) var(--ease-out), margin-top var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
 #topBar.hud-hidden:not(.hud-transient) { transition-duration: var(--dur-fast); }
 body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources {
@@ -3181,35 +3303,6 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 body > #controllerHelpModal { display: none; }
 
 
-/* ---------- Phone reader chrome: hide and show as one piece, and give the space back ----------
-   Scrolling down slides the top bar, the transport and the bottom row away, and the score takes their space; scrolling
-   up brings all three back together. Placed last so it out-ranks the earlier dock and fretboard rules. */
-@media (max-width: 640px) {
-  /* The bottom row already clears the home indicator; the transport above it must not clear it a second time */
-  body:not(.library-view-active) .mobile-playback-dock-inner { padding-bottom: 10px; }
-  body:not(.library-view-active) { transition: padding-bottom var(--dur-base) var(--ease-out); }
-  body:not(.library-view-active).chrome-hidden { padding-bottom: 0 !important; }
-  body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources {
-    transition: transform var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out), display var(--dur-base) allow-discrete;
-  }
-  body:not(.library-view-active).chrome-hidden .mobile-playback-dock.has-audio-sources { margin-bottom: calc(-1 * var(--dock-own-h, 0px)); }
-  /* PDF and text tabs: the page strip is the third row and goes with the rest */
-  body:not(.library-view-active) .page-strip { transition: transform var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out); }
-  body:not(.library-view-active).chrome-hidden .page-strip { transform: translateY(calc(100% + 56px + env(safe-area-inset-bottom, 0px))); margin-bottom: calc(-1 * var(--strip-h, 0px)); pointer-events: none; }
-  /* The fretboard sits on top of the transport, which sits on top of the bottom row */
-  body:not(.library-view-active) .fretboard-dock {
-    bottom: calc(var(--dock-h, 0px) + 56px + env(safe-area-inset-bottom, 0px)) !important;
-    transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out);
-  }
-  body:not(.library-view-active).chrome-hidden .fretboard-dock { transform: translateY(calc(100% + var(--dock-h, 0px) + 56px + env(safe-area-inset-bottom, 0px) + 8px)); pointer-events: none; }
-  body:not(.library-view-active).chrome-hidden.fretboard-open #output.continuous-mode { padding-bottom: 24px !important; }
-  body:not(.library-view-active).chrome-hidden.fretboard-open #output:not(.continuous-mode) { height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important; max-height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important; }
-  body:not(.library-view-active).fretboard-open #output.continuous-mode { padding-bottom: calc(var(--fretboard-dock-height, 165px) + 24px) !important; }
-}
-@media (max-width: 640px) and (prefers-reduced-motion: reduce) {
-  body:not(.library-view-active), body:not(.library-view-active) .fretboard-dock, body:not(.library-view-active) .page-strip, body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources { transition: none !important; }
-}
-
 /* Fretboard markers and picks: flat, no glow, no highlight, no outline. A part's colour is the only colour on
    the neck (it identifies the track), and the label on it is dark ink because every part colour is a light tone
    (white on them is 1.4 to 2.6:1). The brand pick keeps its shape. Pop feedback moves and fades only. */
@@ -3759,17 +3852,6 @@ body > #controllerHelpModal { display: none; }
     }
 }
 
-/* Phone in landscape (wider than 640px, but short): the top bar, transport and page strip leave in step with the phone's, and the score takes their space */
-@media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) and (min-width: 641px) {
-  body:not(.library-view-active) #topBar { transition: margin-top var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
-  body:not(.library-view-active).chrome-hidden #topBar { margin-top: calc(-1 * var(--topbar-h, 52px)); }
-  body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-sources { transition: transform var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out); }
-  body:not(.library-view-active).chrome-hidden .mobile-playback-dock.has-audio-sources { transform: translateY(100%); margin-bottom: calc(-1 * var(--dock-own-h, 0px)); pointer-events: none; }
-  body:not(.library-view-active) .page-strip { transition: transform var(--dur-base) var(--ease-out), margin-bottom var(--dur-base) var(--ease-out); }
-  body:not(.library-view-active).chrome-hidden .page-strip { transform: translateY(100%); margin-bottom: calc(-1 * var(--strip-h, 0px)); pointer-events: none; }
-  body:not(.library-view-active).chrome-hidden .fretboard-dock { transform: translateY(calc(100% + var(--dock-h, 0px))); pointer-events: none; }
-  body:not(.library-view-active).chrome-hidden #output { margin-top: env(safe-area-inset-top, 0px); margin-bottom: env(safe-area-inset-bottom, 0px); height: calc(100% - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
-}
 @media (prefers-reduced-motion: reduce) { body:not(.library-view-active) #topBar, body:not(.library-view-active) .mobile-playback-dock, body:not(.library-view-active) .page-strip { transition: none !important; } }
 
 /* Settings and Tools pages: breathing room above the first row (nav list and page body) */

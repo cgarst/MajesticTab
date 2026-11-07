@@ -141,6 +141,25 @@ function initVolumePopover() {
     pop.append(section);
     document.body.appendChild(pop);
 
+    // Phones: the volume lives in the sound panel (Synth or Original, whichever is open) and the dock has no speaker
+    const phone = window.matchMedia('(max-width: 640px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px)');
+    const panelBody = (id, sel) => document.querySelector(`#${id} ${sel}`);
+    const placeVolume = () => {
+        if (!phone.matches) { if (section.parentNode !== pop) pop.append(section); return; }
+        const yt = $('ytDropdownPanel');
+        const ytOpen = yt && yt.style.display !== 'none' && getComputedStyle(yt).display !== 'none';
+        const host = ytOpen ? panelBody('ytDropdownPanel', '.yt-panel-body') : panelBody('synthDropdownPanel', '.synth-panel-body');
+        if (host && section.parentNode !== host) host.prepend(section);
+        else if (host && host.firstChild !== section) host.prepend(section);
+    };
+    section.classList.add('panel-volume');
+    ['synthDropdownPanel', 'ytDropdownPanel'].forEach((id) => {
+        const el = $(id);
+        if (el) new MutationObserver(placeVolume).observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
+    });
+    phone.addEventListener?.('change', placeVolume);
+    placeVolume();
+
     let open = false;
     const close = () => {
         if (!open) return;

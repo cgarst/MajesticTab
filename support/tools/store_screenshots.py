@@ -333,9 +333,9 @@ def setup_shot(page, base, kind):
             api.tickPosition = gp.getPlaybackTickForBeat(beat, api);
             fretboardController.showBeatsAtCursor(beat);
         }""")
-        # The playback class also hides the top bar and the five buttons (auto-hide chrome); the picture shows them.
+        # Make sure the picture shows the top and the controls (nothing auto-hides, but a remembered Reading mode would).
         page.wait_for_timeout(600)
-        page.evaluate("document.body.classList.remove('chrome-hidden')")
+        page.evaluate("document.body.classList.remove('top-away', 'reading-mode')")
         page.wait_for_timeout(600)
     elif kind in ("practice", "guitar"):
         click(page, "#fretboardDockBtn, #fretboardCloseBtn"); page.wait_for_timeout(700)  # panels read best without the fretboard behind them

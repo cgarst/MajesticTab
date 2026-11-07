@@ -4,8 +4,8 @@
 // (#readerViewOptions) with their original ids so the modules that bind to them keep working;
 // this file moves that block into the menu and handles open, close and placement.
 
-import { gamepadManager } from './gamepadManager.js';
-import { PHONE_READER_QUERY, phoneTapZone } from './viewModeUtils.js';
+import { gamepadManager, READING_MODE_KEY } from './gamepadManager.js';
+import { PHONE_READER_QUERY } from './viewModeUtils.js';
 import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
 const $ = (id) => document.getElementById(id);
 
@@ -158,16 +158,14 @@ function arrangeViewOptions(root) {
         });
     }
 
-    // Window: fullscreen (hidden by main.js where the platform has its own) and zen mode
+    // Window: fullscreen (hidden by main.js where the platform has its own) and Reading mode
     const windowRows = [$('screenRow')].filter(Boolean);
-    const zenLabel = $('zenLabel');
-    const syncZenLabel = () => { if (zenLabel) zenLabel.textContent = gamepadManager.isHudHidden ? 'Show bars' : 'Zen mode'; };
-    $('viewToggleBtn')?.addEventListener('click', syncZenLabel, true);
-    $('zenToggleBtn')?.addEventListener('click', () => {
+    $('readingToggleBtn')?.addEventListener('click', () => {
         $('viewToggleBtn')?.click();
         gamepadManager.toggleTopBar();
-        syncZenLabel();
     });
+    // Phones have the toggle in the bottom strip, so View does not repeat it
+    $('readingCell')?.classList.add('desktop-only-control');
 
     const density = $('gpDensitySection');
     const order = [...windowRows, size, density, paper, layout, notation, landscape, advance].filter(Boolean);
@@ -376,84 +374,82 @@ function arrangeSongPanel() {
 }
 
 
-// ---- Phone: the bottom row of words slides away while you scroll down in Scroll mode and returns on scroll up ----
+// ---- Phone: the top (back, song name, the five words) slides away on a hand scroll down in Scroll mode ----
+// The only trigger is the player's own scroll in continuous mode. No timers, no tap zones, no playback events.
+// The top overlays the score, so hiding it resizes nothing and nothing is refitted.
+const HIDE_AFTER_PX = 48;     // net scroll down before it hides
+const SHOW_AFTER_PX = 16;     // scroll up that brings it back
+const NEVER_HIDE_WITHIN_PX = 80; // the first 80px of the score keep it
+const SHEET_IDS = ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'tracksMenu', 'scoreOptionsDropdownPanel', 'synthDropdownPanel', 'ytDropdownPanel', 'pdfBookmarksPanel'];
+
 function initPhoneChrome() {
     const output = $('output');
     if (!output) return;
-    let last = 0;
+    const body = document.body;
     const narrow = () => window.matchMedia(PHONE_READER_QUERY).matches;
-    // Only a hand moves the chrome. Playback following the cursor, a ruler drag or a jump to a bar also scroll the
-    // score, and the bottom row (with the fretboard) must not come and go because of those.
-    let handUntil = 0;
-    // Idle timer: with no touch, key or pointer input for a few seconds the bars slide away; any input brings them back
-    const IDLE_MS = 4000;
-    let idleTimer = 0;
-    // never hide it while one of its sheets is open
-    const anySheetOpen = () => ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'tracksMenu', 'scoreOptionsDropdownPanel', 'synthDropdownPanel', 'ytDropdownPanel', 'pdfBookmarksPanel'].some((id) => {
+    const anySheetOpen = () => SHEET_IDS.some((id) => {
         const el = $(id); return el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none';
     });
-    const armIdle = () => {
-        clearTimeout(idleTimer);
-        if (!narrow() || document.body.classList.contains('library-view-active')) return;
-        idleTimer = setTimeout(() => {
-            if (narrow() && !document.body.classList.contains('library-view-active') && !anySheetOpen()) document.body.classList.add('chrome-hidden');
-            else armIdle();
-        }, IDLE_MS);
+    // body.phone-reader switches on the phone layout in design.css (the same query as isPhoneReader)
+    const mq = window.matchMedia(PHONE_READER_QUERY);
+    const syncPhoneClass = () => {
+        document.body.classList.toggle('phone-reader', mq.matches);
+        if (!mq.matches) document.body.classList.remove('top-away');
     };
-    // In page mode a tap on the page turns it (navigationUtils.js) and leaves the bars as they are;
-    // a tap in the top or bottom band, or anywhere outside the page area, brings them back
-    const isPageTurnTap = (e) => {
-        if (!narrow() || e.type === 'keydown') return false;
-        if (!output.contains(e.target) || output.classList.contains('continuous-mode')) return false;
-        if (e.target.closest && e.target.closest('button, input, select, textarea, a, .fretboard-dock')) return false;
-        if (!output.querySelector('.pageWrapper, .gp-page-wrapper')) return false;
-        const pt = e.touches ? e.touches[0] : e;
-        return !!pt && phoneTapZone(pt.clientX, pt.clientY, output.getBoundingClientRect()) !== 'bars';
+    // Portrait phone: the five words live in the bottom row, outside the (transformed) top bar
+    const portraitMq = window.matchMedia('(max-width: 640px)');
+    const placeTabs = () => {
+        const zone = $('topFlexZone');
+        if (!zone) return;
+        if (portraitMq.matches) { if (zone.parentNode !== document.body) document.body.appendChild(zone); }
+        else if (zone.parentNode === document.body) $('rightSection')?.insertBefore(zone, $('navButtons'));
     };
-    ['pointerdown', 'touchstart', 'keydown'].forEach((ev) => document.addEventListener(ev, (e) => {
-        if (!isPageTurnTap(e)) document.body.classList.remove('chrome-hidden');
-        armIdle();
-    }, { passive: true, capture: true }));
-    // The score area changes height as the bars come and go; PDF, text and Guitar Pro pages are laid out for a height,
-    // so refit them (the resize handler in main.js re-paginates) once the new height has settled
-    let fitH = output.clientHeight, fitTimer = 0;
-    if ('ResizeObserver' in window) {
-        new ResizeObserver(() => {
-            clearTimeout(fitTimer);
-            fitTimer = setTimeout(() => {
-                const h = output.clientHeight;
-                if (Math.abs(h - fitH) < 2) return;
-                fitH = h;
-                if (narrow() && !output.classList.contains('continuous-mode')) window.dispatchEvent(new Event('resize'));
-            }, 120);
-        }).observe(output);
-    }
-    armIdle();
-    // A sheet opened without a touch (keyboard, gamepad, a script) must still bring the bars back: the sheet sits
-    // above the dock and bottom row, so it cannot stand without them
-    const revealForSheet = () => { if (anySheetOpen()) document.body.classList.remove('chrome-hidden'); };
-    const sheetObserver = new MutationObserver(revealForSheet);
-    ['viewMenu', 'practiceMenu', 'guitarMenu', 'toolsMenu', 'tracksMenu', 'scoreOptionsDropdownPanel', 'synthDropdownPanel', 'ytDropdownPanel', 'pdfBookmarksPanel'].forEach((id) => {
-        const el = $(id); if (el) sheetObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
-    });
-    let lastH = output.clientHeight;
+    syncPhoneClass();
+    placeTabs();
+    mq.addEventListener?.('change', () => { syncPhoneClass(); placeTabs(); });
+    portraitMq.addEventListener?.('change', placeTabs);
+    const setAway = (away) => body.classList.toggle('top-away', away && !body.classList.contains('reading-mode'));
+
+    // Restore Reading mode on phones (silently: the score has not loaded yet, so there is nothing to refit)
+    try { if (narrow() && localStorage.getItem(READING_MODE_KEY) === '1') gamepadManager.toggleTopBar(true, { silent: true }); } catch { /* storage blocked */ }
+
+    // Only a hand moves the top. Playback following the cursor, a ruler drag or a jump to a bar also scroll the score.
+    let handUntil = 0;
     const hand = () => { handUntil = performance.now() + 1500; };
-    // A plain tap is not a hand scroll: counting touchstart/pointerdown let playback's own autoscroll within the next
-    // 1.5s hide the bars again right after the tap brought them back
     ['touchmove', 'wheel'].forEach((ev) => output.addEventListener(ev, hand, { passive: true }));
+    document.addEventListener('keydown', (e) => {
+        if (['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' '].includes(e.key) && !e.target.closest?.('input, textarea, select')) hand();
+    }, { passive: true, capture: true });
+
+    let anchor = 0; // scrollTop where the current direction began
+    let lastY = 0;
+    let dir = 0;
     output.addEventListener('scroll', () => {
-        if (!narrow()) { document.body.classList.remove('chrome-hidden'); return; }
         const y = output.scrollTop;
-        // Hiding the chrome makes the score taller; at the end of the song the browser then pulls scrollTop back
-        // by itself, which is not the reader scrolling up
-        if (output.clientHeight !== lastH) { lastH = output.clientHeight; last = y; return; }
-        if (performance.now() > handUntil) { last = y; return; }
-        const delta = y - last;
-        if (Math.abs(delta) < 12) return;
-        const sheetOpen = anySheetOpen();
-        document.body.classList.toggle('chrome-hidden', delta > 0 && y > 80 && !sheetOpen);
-        last = y;
-        armIdle();
+        const delta = y - lastY;
+        lastY = y;
+        if (!narrow() || !output.classList.contains('continuous-mode')) { setAway(false); anchor = y; dir = 0; return; }
+        if (performance.now() > handUntil) { anchor = y; dir = 0; return; }
+        if (y <= NEVER_HIDE_WITHIN_PX) { setAway(false); anchor = y; dir = 0; return; }
+        const d = Math.sign(delta);
+        if (d !== 0 && d !== dir) { dir = d; anchor = y - delta; }
+        const net = y - anchor;
+        if (dir > 0 && net >= HIDE_AFTER_PX && !anySheetOpen()) { setAway(true); anchor = y; }
+        else if (dir < 0 && -net >= SHOW_AFTER_PX) { setAway(false); anchor = y; }
     }, { passive: true });
-    window.addEventListener('resize', () => { if (!narrow()) document.body.classList.remove('chrome-hidden'); });
+
+    $('readingDockBtn')?.addEventListener('click', () => gamepadManager.toggleTopBar());
+
+    // Back in the bar: a sheet opening, the Song menu, or focus entering the top
+    const reveal = () => setAway(false);
+    const sheetObserver = new MutationObserver(() => { if (anySheetOpen()) reveal(); });
+    SHEET_IDS.forEach((id) => { const el = $(id); if (el) sheetObserver.observe(el, { attributes: true, attributeFilter: ['style', 'class'] }); });
+    $('topBar')?.addEventListener('focusin', reveal);
+    // Leaving the reader (back to the library) starts the next song with the top shown
+    new MutationObserver(() => { if (body.classList.contains('library-view-active')) reveal(); }).observe(body, { attributes: true, attributeFilter: ['class'] });
+    // Rotation or leaving phone size: the top starts shown
+    window.addEventListener('resize', () => { if (!narrow()) { setAway(false); } });
+    window.addEventListener('orientationchange', reveal);
+    // Switching to Page mode (no scroll) or a new song starts with the top shown
+    document.addEventListener('scoreoptions:open', reveal);
 }

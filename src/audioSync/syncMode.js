@@ -172,6 +172,13 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
     const padForBar = () => {
         const barRect = $('syncModeBar')?.getBoundingClientRect();
         if (!barRect) return;
+        // Phones: the bar shrinks the score area (design.css) rather than padding it
+        if (document.body.classList.contains('phone-reader')) {
+            document.documentElement.style.setProperty('--sync-bar-h', `${Math.round(barRect.height)}px`);
+            output.style.removeProperty('padding-bottom');
+            return;
+        }
+        document.documentElement.style.removeProperty('--sync-bar-h');
         const need = Math.max(0, Math.round(window.innerHeight - barRect.top + 32));
         output.style.setProperty('padding-bottom', `${need}px`, 'important');
     };
@@ -187,6 +194,7 @@ export async function enterSyncMode({ source, media, peaks = null, getAudioData 
         window.removeEventListener('resize', padForBar);
         $('syncModeBar')?.removeEventListener('transitionend', padForBar);
         output.style.removeProperty('padding-bottom');
+        document.documentElement.style.removeProperty('--sync-bar-h');
     });
     padForBar();
     showTimeline(s.timelineOpen);

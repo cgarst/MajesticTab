@@ -168,7 +168,8 @@
     <label class="form-label d-block mb-1 small text-white-50">Screen</label>
     <div class="view-screen-pair">
       <span id="fullscreenCell"><button class="btn btn-sm view-window-btn" id="fullscreenToggleBtn" type="button" title="Toggle fullscreen" aria-pressed="false"><i class="bi-arrows-fullscreen" id="fullscreenIcon" hidden></i><span id="fullscreenLabel">Fullscreen</span><small class="view-window-hint" id="fullscreenHint">Alt+Enter</small></button></span>
-      <span id="zenCell"><button class="btn btn-sm view-window-btn" id="zenToggleBtn" type="button" title="Hide the top and bottom bars"><span id="zenLabel">Zen mode</span><small class="view-window-hint">Z</small></button></span>
+      <span id="readingCell"><button class="btn btn-sm view-window-btn" id="readingToggleBtn" type="button" title="Hide the top and bottom bars" aria-pressed="false"><span id="readingLabel">Reading mode</span><small class="view-window-hint">R</small></button></span>
+    </span>
     </div>
   </div>
 </div>
@@ -1539,10 +1540,6 @@
               <span class="small text-white fw-semibold text-end">Toggle fretboard dock</span>
             </div>
             <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
-              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">R</span> </span>
-              <span class="small text-white fw-semibold text-end">Toggle reference library</span>
-            </div>
-            <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
               <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">T</span> </span>
               <span class="small text-white fw-semibold text-end">Toggle tuner</span>
             </div>
@@ -1635,8 +1632,8 @@
               <span class="small text-white fw-semibold text-end">Scroll score</span>
             </div>
             <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
-              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Z</span> </span>
-              <span class="small text-white fw-semibold text-end">Toggle zen mode (hide top and bottom bars)</span>
+              <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">R</span> </span>
+              <span class="small text-white fw-semibold text-end">Toggle reading mode (hide the top and the controls)</span>
             </div>
             <div class="controller-ref-item d-flex align-items-center justify-content-between gap-3 py-1 border-bottom border-secondary-subtle">
               <span class="small text-white-50 d-flex align-items-center gap-1 flex-wrap"><span class="badge-key">Alt</span> <span class="badge-key">Enter</span> </span>
@@ -1730,7 +1727,7 @@
             <circle cx="0" cy="0" r="18.77" fill="#291e0a" stroke="#f59e0b" stroke-width="2.2" />
             <text x="0" y="5.5" fill="#f59e0b" font-size="15" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="middle">Y</text>
           </g>
-          <text x="535" y="174" fill="#f59e0b" font-size="13" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="start">Toggle Zen Mode</text>
+          <text x="535" y="174" fill="#f59e0b" font-size="13" font-family="system-ui, sans-serif" font-weight="bold" text-anchor="start">Toggle Reading Mode</text>
           <line x1="462" y1="174" x2="525" y2="174" stroke="#f59e0b" stroke-dasharray="3 3" stroke-width="1.5" />
 
           <!-- X Button (Blue) at (400, 212.1) -->
@@ -1767,7 +1764,7 @@
             </div>
             <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
               <span class="small text-white-50"><span class="badge-controller-btn badge-btn-y me-1">Y</span> Top Bar</span>
-              <span class="small text-white fw-semibold">Toggle Zen Fullscreen</span>
+              <span class="small text-white fw-semibold">Toggle Reading Mode</span>
             </div>
             <div class="controller-ref-item d-flex align-items-center justify-content-between py-1 border-bottom border-secondary-subtle">
               <span class="small text-white-50"><span class="badge-controller-btn badge-btn-a me-1">A</span> Playback</span>
@@ -2020,6 +2017,8 @@
       </div>
       <!-- Fretboard toggle button in the playback dock -->
       <button type="button" class="btn mobile-dock-btn dock-more" id="fretboardDockBtn" aria-label="Toggle fretboard" aria-pressed="false" title="Toggle fretboard (F)" style="display: none;"><svg class="fretboard-glyph" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" shape-rendering="crispEdges" aria-hidden="true"><path d="M3.5 5v14" stroke-width="3"/><path d="M5 5.75h17M5 18.25h17" stroke-width="1.5"/><path d="M11.25 6.5v11M17.25 6.5v11" stroke-width="1.5"/><path d="M5 10h17M5 14h17" stroke-width="1" opacity=".55"/><circle cx="14.25" cy="12" r="1.5" fill="currentColor" stroke="none" shape-rendering="auto"/></svg></button>
+      <!-- Reading mode (phones): hides the top and everything in this strip but play, progress and this button -->
+      <button type="button" class="btn mobile-dock-btn dock-more" id="readingDockBtn" aria-label="Reading mode" aria-pressed="false" title="Reading mode (R)"><i class="bi-book" aria-hidden="true"></i></button>
     </div>
   </div>
 </aside>

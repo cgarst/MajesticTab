@@ -76,7 +76,8 @@ export function initBarRuler() {
     function syncDockTimeVisibility() {
         const dockTime = $('dockTime');
         if (!dockTime) return;
-        const isNarrow = window.innerWidth <= 640 || (dock && dock.clientWidth > 0 && dock.clientWidth < 560);
+        // On a phone the strip shows the position (and it is the only place that does); between phone and desktop widths it hides when the dock is cramped
+        const isNarrow = window.innerWidth > 640 && dock && dock.clientWidth > 0 && dock.clientWidth < 560;
         const next = isNarrow ? 'none' : '';
         if (dockTime.style.display !== next) dockTime.style.display = next;
     }

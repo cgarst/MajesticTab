@@ -4862,7 +4862,7 @@ body.library-view-active #brandSection .brand-title {
   color: var(--text-muted, inherit);
 }
 
-.controller-zen-banner {
+.controller-reading-banner {
   background: color-mix(in srgb, var(--accent-primary) 14%, var(--bg-card-solid));
   border: 1px solid color-mix(in srgb, var(--accent-primary) 40%, transparent);
   box-shadow: 0 2px 14px -3px var(--accent-glow);

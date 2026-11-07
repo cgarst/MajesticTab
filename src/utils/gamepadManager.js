@@ -7,9 +7,11 @@ import { showToast } from './toast.js';
 import { isTvMode } from '../tvMode.js';
 import { getDefaultGpDisplayScalePercent } from '../gpProcessor/gpProcessor.js';
 import { performAppBack } from './navigationUtils.js';
-import { isIOSDevice } from './iosAudioUnlock.js';
+import { isPhoneReader } from './viewModeUtils.js';
 
 // Controller configuration constants
+// Reading mode is remembered across sessions on phones
+export const READING_MODE_KEY = 'majestictab.readingMode';
 const STICK_DEADZONE = 0.18;
 const STICK_NAV_THRESHOLD = 0.45;
 const STICK_NAV_RELEASE = 0.25;
@@ -128,10 +130,7 @@ class GamepadManager {
         window.addEventListener('gamepadconnected', (e) => this.handleGamepadConnected(e.gamepad));
         window.addEventListener('gamepaddisconnected', (e) => this.handleGamepadDisconnected(e.gamepad));
 
-        // Setup mouse / pointer movement listener to temporarily peek HUD when hidden
-        window.addEventListener('mousemove', (e) => this.handlePointerActivity(e.clientY));
-        window.addEventListener('touchstart', (e) => {
-            this.handlePointerActivity(e.touches?.[0]?.clientY);
+        window.addEventListener('touchstart', () => {
             this.lastInputWasNavigation = false;
             this.clearNavFocus();
         }, { passive: true });
@@ -707,33 +706,31 @@ class GamepadManager {
     // --- Action Implementations ---
 
     /**
-     * Toggle top and bottom bar visibility (Zen Mode for score reading)
+     * Toggle Reading mode: the explicit way to reclaim the screen for the score.
+     * The top leaves, and the bottom bar narrows to play, progress and the Reading mode button (CSS keys off
+     * body.reading-mode), on every platform. The button in the bar is the way back; no pointer position or tap moves a bar.
      */
-    toggleTopBar(forceState = null) {
+    toggleTopBar(forceState = null, { silent = false } = {}) {
         if (!this.topBar) {
             this.topBar = document.getElementById('topBar');
         }
         if (!this.topBar) return;
 
+        const phone = isPhoneReader();
         const nextHidden = forceState !== null ? forceState : !this.isHudHidden;
         this.isHudHidden = nextHidden;
         const mobileDock = document.getElementById('mobilePlaybackDock');
+        document.body.classList.toggle('reading-mode', nextHidden);
+        document.body.classList.remove('top-away');
+        for (const id of ['readingToggleBtn', 'readingDockBtn']) document.getElementById(id)?.setAttribute('aria-pressed', String(nextHidden));
+        if (phone) {
+            try { localStorage.setItem(READING_MODE_KEY, nextHidden ? '1' : '0'); } catch { /* storage blocked */ }
+        }
 
         if (this.isHudHidden) {
             this.topBar.classList.add('hud-hidden');
             this.topBar.classList.remove('hud-transient');
             mobileDock?.classList.remove('hud-transient');
-            if (mobileDock) {
-                // Fade it with the top bar first, then take it out of the layout when that finishes
-                clearTimeout(this.hudDockTimeout);
-                const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-                mobileDock.classList.add(instant ? 'hud-hidden' : 'hud-leaving');
-                if (!instant) this.hudDockTimeout = setTimeout(() => {
-                    if (this.isHudHidden) mobileDock.classList.add('hud-hidden');
-                    mobileDock.classList.remove('hud-leaving');
-                }, 150);
-            }
-            showToast(this.zenHint(), 'info', 4000);
         } else {
             this.topBar.classList.remove('hud-hidden', 'hud-transient');
             clearTimeout(this.hudDockTimeout);
@@ -742,50 +739,12 @@ class GamepadManager {
                 clearTimeout(this.hudTransientTimeout);
                 this.hudTransientTimeout = null;
             }
-            showToast('Bars restored', 'info', 1500);
         }
 
-        // Dispatch window resize event so AlphaTab and sheet layouts recalculate to full viewport height
-        // Wait for the slide to finish so the score is laid out once, not mid-animation.
+        // One deliberate refit per change: AlphaTab and the page layouts recalculate for the new area once the slide has finished.
+        if (silent) return;
         const settle = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : (this.isHudHidden ? 170 : 270);
         setTimeout(() => window.dispatchEvent(new Event('resize')), settle);
-    }
-
-    /**
-     * The Zen mode toast: how to bring the bars back, naming only what this device has.
-     */
-    zenHint() {
-        const touch = isIOSDevice() || /Android/i.test(navigator.userAgent) || window.matchMedia?.('(pointer: coarse)').matches;
-        const ways = [`${touch ? 'tap' : 'click'} the top or bottom of the screen`];
-        if (!touch) ways.push('press Z');
-        if (this.connectedGamepads.size > 0) ways.push('press (Y)');
-        const list = ways.length > 1 ? `${ways.slice(0, -1).join(', ')} or ${ways[ways.length - 1]}` : ways[0];
-        return `Bars hidden. To show them, ${list}`;
-    }
-
-    /**
-     * Temporarily peek the top bar when mouse/touch moves in Zen Mode
-     */
-    handlePointerActivity(clientY) {
-        if (!this.isHudHidden || !this.topBar) return;
-        // Only the very top or bottom of the screen brings the bars back; a tap on the score leaves them hidden
-        const edge = 48;
-        if (!Number.isFinite(clientY) || (clientY > edge && clientY < window.innerHeight - edge)) return;
-
-        const mobileDock = document.getElementById('mobilePlaybackDock');
-        this.topBar.classList.add('hud-transient');
-        mobileDock?.classList.add('hud-transient');
-        if (this.hudTransientTimeout) {
-            clearTimeout(this.hudTransientTimeout);
-        }
-
-        this.hudTransientTimeout = setTimeout(() => {
-            if (this.isHudHidden && this.topBar && !this.topBar.contains(document.activeElement)) {
-                this.topBar.classList.remove('hud-transient');
-                mobileDock?.classList.remove('hud-transient');
-            }
-            this.hudTransientTimeout = null;
-        }, 3200);
     }
 
     /**
@@ -798,12 +757,13 @@ class GamepadManager {
     }
 
     /**
-     * Move focus from the score into the top bar (peeking it when Zen Mode hides it), so D-pad, keyboard and
+     * Move focus from the score into the top bar (peeking it when Reading mode hides it), so D-pad, keyboard and
      * controller users can reach its buttons. Down at the bottom of the bar returns to the score.
      */
     enterTopBar() {
         if (!this.topBar) this.topBar = document.getElementById('topBar');
         if (!this.topBar) return false;
+        document.body.classList.remove('top-away');
         if (this.isHudHidden) {
             this.topBar.classList.add('hud-transient');
             if (this.hudTransientTimeout) {
@@ -826,7 +786,7 @@ class GamepadManager {
 
     /** The always-visible score chrome: the top bar and the floating playback dock. */
     getChromeRoots() {
-        return [this.topBar, document.getElementById('mobilePlaybackDock')].filter(Boolean);
+        return [this.topBar, document.getElementById('mobilePlaybackDock'), document.getElementById('topFlexZone')].filter(Boolean);
     }
 
     isTopBarFocused() {

@@ -60,7 +60,7 @@ Shortcuts apply while a tab is open and no text field has focus.
 | `F` | Show or hide the fretboard (Guitar Pro files) |
 | `R` | Show or hide the reference library |
 | `T` | Show or hide the tuner |
-| `Z` | Toggle zen mode (hide the top bar) |
+| `R` | Toggle reading mode (hide the top and the controls) |
 | `` ` ``, `~` | Open or close the settings menu |
 | `[`, `]` | Previous or next tab in the open setlist |
 | `Alt+Enter` | Toggle fullscreen (Windows and Linux) |

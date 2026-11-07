@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-"""Phone reader check: page fit with the bars hidden, and the tap zones, for text, PDF and Guitar Pro tabs.
+"""Phone reader check: page fit in Normal and Reading mode, and that nothing but the Reading mode toggle moves a bar.
 
 Needs the dev server on :8000 and Edge with --remote-debugging-port=9333 (see AGENTS.md), and `pip3 install websockets`.
 Emulates a 390x844 phone with a 47px top and 34px bottom safe area, then for each fixture checks that
-  - with the bars hidden the page sits inside the safe area and the pages are laid out again for the taller area,
-  - a tap on the left or right half of the page turns it and leaves the bars hidden,
-  - a tap in the top or bottom band brings the bars back.
+  - normally the page sits between the top (title row) and the bottom strip,
+  - a tap anywhere on the left or right half turns the page, including the old top and bottom bands, and moves no bar,
+  - the bars stay put for 6 seconds of idle (no auto-hide),
+  - Reading mode (the toggle in the strip) hides the top, keeps the strip, grows the page and keeps it inside the safe area,
+    and the R key does the same while Z does nothing,
+  - leaving Reading mode puts the page back.
 Usage: python3 tests/phone_page_fit.py [fixture ...]   (default: long-text.txt, the Duo PDF and the Duo GP5)
 """
 import asyncio, json, sys, urllib.request, urllib.parse, websockets
 
 SAFE_T, SAFE_B, W, H = 47, 34, 390, 844
 FIXTURES = ["long-text.txt", "Duo No 2 In G Major.pdf", "Duo No 2 In G Major.gp5"]
-STATE = """(()=>{const w=document.querySelector('.pageWrapper,.gp-page-wrapper'),b=w&&w.getBoundingClientRect();
- return {hidden:document.body.classList.contains('chrome-hidden'),ind:(document.getElementById('pageIndicator')||{}).textContent,
+STATE = """(()=>{const w=document.querySelector('.pageWrapper,.gp-page-wrapper'),b=w&&w.getBoundingClientRect(),
+ t=document.getElementById('topBar').getBoundingClientRect(),d=document.getElementById('mobilePlaybackDock').getBoundingClientRect();
+ return {reading:document.body.classList.contains('reading-mode'),away:document.body.classList.contains('top-away'),
+ topBottom:Math.round(t.bottom),dockTop:Math.round(d.top),ind:(document.getElementById('pageIndicator')||{}).textContent,
  first:w?(w.textContent||'').trim().slice(0,24):null,page:b&&[Math.round(b.top),Math.round(b.bottom)]}})()"""
 
 
@@ -49,28 +54,57 @@ async def run(fixture):
         await ev("(()=>{const p=document.getElementById('pageModeRadio'); if(p&&!p.checked) p.click()})()")
         await asyncio.sleep(2)
 
-        await tap(W // 2, 60)
-        shown = await ev(STATE)
-        if shown["hidden"]: problems.append("top tap did not show the bars")
-        await asyncio.sleep(6)  # idle hide
-        hid = await ev(STATE)
-        if not hid["hidden"]: problems.append("bars did not auto-hide")
-        top, bottom = hid["page"]
-        if top < SAFE_T or bottom > H - SAFE_B: problems.append(f"hidden page {top}-{bottom} outside the safe area {SAFE_T}-{H - SAFE_B}")
-        if hid["page"][1] - hid["page"][0] <= shown["page"][1] - shown["page"][0]:
-            problems.append("page did not grow when the bars hid")
-        before = (hid["ind"], hid["first"])
+        await ev("localStorage.removeItem('majestictab.readingMode')")
+        if (await ev(STATE))["reading"]:  # restored from an earlier run
+            await ev("document.getElementById('readingDockBtn').click()")
+            await asyncio.sleep(1.5)
+        normal = await ev(STATE)
+        if normal["reading"] or normal["away"]: problems.append("started with the bars away")
+        if normal["topBottom"] <= SAFE_T + 30: problems.append(f"top is only {normal['topBottom']}px tall: expected the title row")
+        top, bottom = normal["page"]
+        if top < normal["topBottom"] - 1 or bottom > normal["dockTop"] + 1:
+            problems.append(f"page {top}-{bottom} is not between the top ({normal['topBottom']}) and the strip ({normal['dockTop']})")
+        await asyncio.sleep(6)  # no idle hide
+        idle = await ev(STATE)
+        if idle["reading"] or idle["away"] or idle["page"] != normal["page"]: problems.append("the bars or the page moved while idle")
+        before = (idle["ind"], idle["first"])
         await tap(W - 40, 420)
         s = await ev(STATE)
         if (s["ind"], s["first"]) == before: problems.append("right tap did not turn the page")
-        if not s["hidden"]: problems.append("right tap brought the bars back")
+        if s["page"] != normal["page"]: problems.append("a tap moved the page area")
         await tap(40, 420)
         s = await ev(STATE)
         if (s["ind"], s["first"]) != before: problems.append("left tap did not turn back")
-        if not s["hidden"]: problems.append("left tap brought the bars back")
-        await tap(W // 2, H - 60)
-        s = await ev(STATE)
-        if s["hidden"]: problems.append("bottom tap did not bring the bars back")
+        for y, name in ((SAFE_T + 8, "top"), (H - SAFE_B - 8, "bottom")):
+            if y > normal["topBottom"] and y < normal["dockTop"]:
+                await tap(W - 40, y)
+                s = await ev(STATE)
+                if (s["ind"], s["first"]) == before: problems.append(f"right tap in the {name} band did not turn the page")
+                if s["reading"] or s["away"]: problems.append(f"a tap in the {name} band moved a bar")
+                await tap(40, y)
+        await ev("document.getElementById('readingDockBtn').click()")
+        await asyncio.sleep(1.5)
+        r = await ev(STATE)
+        if not r["reading"]: problems.append("the Reading mode toggle did not turn it on")
+        if r["topBottom"] > 0: problems.append("the top did not leave in Reading mode")
+        top, bottom = r["page"]
+        if top < SAFE_T or bottom > r["dockTop"] + 1: problems.append(f"Reading page {top}-{bottom} outside the safe area {SAFE_T}-{r['dockTop']}")
+        if r["page"][1] - r["page"][0] <= normal["page"][1] - normal["page"][0] and fixture.endswith(".gp5"):
+            problems.append("page did not grow in Reading mode")
+        await asyncio.sleep(6)
+        if (await ev(STATE))["topBottom"] > 0: problems.append("the top came back by itself in Reading mode")
+        await tap(W // 2, 20)
+        if (await ev(STATE))["topBottom"] > 0: problems.append("a tap at the screen's top brought the top back")
+        await ev("document.getElementById('readingDockBtn').click()")
+        await asyncio.sleep(1.5)
+        if (await ev(STATE))["page"] != normal["page"]: problems.append("leaving Reading mode did not restore the page")
+        await ev("document.dispatchEvent(new KeyboardEvent('keydown',{key:'z',bubbles:true}))")
+        if (await ev(STATE))["reading"]: problems.append("Z still toggles a mode")
+        await ev("document.dispatchEvent(new KeyboardEvent('keydown',{key:'r',bubbles:true}))")
+        await asyncio.sleep(1)
+        if not (await ev(STATE))["reading"]: problems.append("R did not toggle Reading mode")
+        await ev("document.dispatchEvent(new KeyboardEvent('keydown',{key:'r',bubbles:true}))")
+        await ev("localStorage.removeItem('majestictab.readingMode')")
         await c("Emulation.clearDeviceMetricsOverride")
     return problems
 
