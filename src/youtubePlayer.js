@@ -387,6 +387,7 @@ export function redoSearchWithQuery(override = null) {
     // Clear saved video ID so the search runs fresh
     localStorage.removeItem(getStorageKey());
     markUserPick(mode); // an explicit search wins over the synced default
+    clearVideoRemoved(mode);
     setVideoId(null, 'user');
 
     updateQueryInputUI();
@@ -525,6 +526,56 @@ const SEARCH_TIMEOUT_MS = 15000;
 /**
  * Replace the spinner with an error and a "Try again" action after a search timeout
  */
+/** Panel state for a recording slot with no video: no embed, no search running, the paste-a-link prompt. */
+function showNoVideoPrompt() {
+    const iframe = document.getElementById('ytIframe');
+    const prompt = document.getElementById('ytPlaceholderPrompt');
+    const loadingIndicator = document.getElementById('ytLoadingIndicator');
+    const title = document.getElementById('ytPromptTitle');
+    const retry = document.getElementById('ytRetrySearchBtn');
+    if (iframe) {
+        iframe.src = '';
+        iframe.style.display = 'none';
+        delete iframe.dataset.loaded;
+    }
+    if (loadingIndicator) loadingIndicator.style.setProperty('display', 'none', 'important');
+    updatePanelTitle();
+    if (title) title.textContent = 'No video attached. Search YouTube, or paste a link below.';
+    if (retry) retry.hidden = true;
+    if (prompt) prompt.style.setProperty('display', 'flex', 'important');
+    updateRemoveVideoBtn();
+}
+
+const removedKey = (mode = playerState.trackMode) => `yt_none_${encodeURIComponent(getSongKey().toLowerCase())}_${mode}`;
+function isVideoRemoved(mode = playerState.trackMode) {
+    try { return Boolean(getSongKey() && localStorage.getItem(removedKey(mode))); } catch { return false; }
+}
+function clearVideoRemoved(mode = playerState.trackMode) {
+    try { localStorage.removeItem(removedKey(mode)); } catch { /* optional */ }
+}
+function updateRemoveVideoBtn() {
+    const btn = document.getElementById('ytRemoveVideoBtn');
+    if (btn) btn.hidden = !(playerState.currentVideoId || hasSavedVideo());
+}
+
+/** Detach the video from this song's recording slot and go back to having none (its sync points are kept). */
+export function removeYouTubeVideo() {
+    if (!getSongKey()) return;
+    if (playerState.isSearching) cancelYouTubeSearch();
+    pauseYouTube();
+    try {
+        localStorage.removeItem(getStorageKey());
+        localStorage.setItem(removedKey(), '1');
+    } catch { /* optional */ }
+    markUserPick(); // do not fall back to a synced video by itself
+    setVideoId(null, 'user');
+    playerState.isPlaying = false;
+    playerState.hasStarted = false;
+    showNoVideoPrompt();
+    updatePlaybackControls();
+    window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+}
+
 function showSearchTimeout() {
     const prompt = document.getElementById('ytPlaceholderPrompt');
     const loadingIndicator = document.getElementById('ytLoadingIndicator');
@@ -555,6 +606,13 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
     if (!videoId && !localStorage.getItem(pickMarkerKey(playerState.trackMode))) {
         videoId = pickSyncedVideo(playerState.trackMode)?.videoId || null;
         if (videoId) localStorage.setItem(getStorageKey(), videoId);
+    }
+
+    // No automatic search when it would only be a guess: a tab with no artist (a plain file name is a poor query and
+    // finds unrelated videos), or one whose video the player removed. The panel then asks for a search or a link.
+    if (!videoId && source === 'auto' && (!playerState.artist || isVideoRemoved())) {
+        showNoVideoPrompt();
+        return;
     }
 
     // 2. If no ID, attempt search with visible loading indicator and cancel capability
@@ -1001,6 +1059,7 @@ export function bindSyncedVideo(videoId) {
     if (!videoId) return;
     if (playerState.isSearching) cancelYouTubeSearch();
     localStorage.setItem(getStorageKey(), videoId);
+    clearVideoRemoved();
     markUserPick();
     loadCurrentTrack(playerState.isPlaying || playerState.hasStarted, { videoId, source: 'user' });
     renderSyncedVideos();
@@ -1008,6 +1067,7 @@ export function bindSyncedVideo(videoId) {
 
 function updatePanelTitle() {
     renderSyncedVideos();
+    updateRemoveVideoBtn();
     const titleEl = document.getElementById('ytPanelTitle');
     const promptTitle = document.getElementById('ytPromptTitle');
     const searchExternalBtn = document.getElementById('ytSearchExternalBtn');
@@ -1315,6 +1375,11 @@ export function initYouTubePlayer() {
     const redoSearchBtn = document.getElementById('ytRedoSearchBtn');
     const resetQueryBtn = document.getElementById('ytResetQueryBtn');
 
+    document.getElementById('ytRemoveVideoBtn')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        removeYouTubeVideo();
+    });
+
     redoSearchBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         redoSearchWithQuery();
@@ -1348,6 +1413,7 @@ export function initYouTubePlayer() {
         if (videoId) {
             setVideoId(videoId, 'user');
             localStorage.setItem(getStorageKey(), videoId);
+            clearVideoRemoved();
             markUserPick();
 
             const iframe = document.getElementById('ytIframe');
