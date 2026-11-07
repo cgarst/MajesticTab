@@ -150,6 +150,12 @@ async function refreshFiles() {
     updateGlobalAudioControls();
     // The panel can be open before the list arrives (right after the song loads): load the selection then
     if (state.isOpen && state.currentId && !state.source) ensureSource();
+    // A song whose Original is a local file loads it when it opens, so its recording bar is there before the first Play
+    else if (state.currentId && !state.source && usesLocalOriginal(songKey)) ensureSource();
+}
+
+function usesLocalOriginal(songKey) {
+    try { return localStorage.getItem(`real_audio_source_${encodeURIComponent(String(songKey).toLowerCase())}_original`) === 'local'; } catch { return false; }
 }
 
 const peaksTried = new Set();

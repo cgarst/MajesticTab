@@ -43,6 +43,14 @@ const durationOf = (rec) => rec.source.durationMs || (rec.source.kind === 'youtu
 let stickyKind = null; // the recording last played, kept while nothing is playing
 
 /** The recording in use, as { source, media, label }, or null: what is playing, else the last one used, else the dock's choice. */
+// Synth counts as the selected sound only while its button is there to choose it. A text or PDF tab with no MIDI has the
+// Original button alone, but the hidden Synth button keeps its class until the first Play, which kept the recording bar
+// away after a recording was attached.
+function synthSelected() {
+    const btn = $('mobileSynthToggleBtn');
+    return Boolean(btn?.classList.contains('active-audio-mode') && btn.getClientRects().length > 0);
+}
+
 function activeRecording(file) {
     const midi = midiSynthActive
         ? { source: midiSource, label: 'MIDI', media: { kind: 'local', audioId: `midi_${file.librarySongId || file.name}`, name: 'MIDI', durationMs: null, fingerprint: '' } }
@@ -52,7 +60,7 @@ function activeRecording(file) {
     const local = l ? { source: l.source, label: 'Audio file', media: l.media } : null;
     // The dock's choice leads: with Synth selected the MIDI file is the recording, and with Original selected it is not,
     // however recently it played (a sticky MIDI pick would keep its progress bar up after the switch).
-    const synthMode = $('mobileSynthToggleBtn')?.classList.contains('active-audio-mode');
+    const synthMode = synthSelected();
     if (synthMode && midi) return midi;
     const all = { midi: synthMode || !(yt || local) ? midi : null, yt, local };
     const playing = Object.keys(all).find((k) => all[k] && all[k].source.isPlaying());
@@ -465,7 +473,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         }
         let next = eligible ? activeRecording(file) : null;
         // With Synth selected, a video or audio file is not what plays, so it gets no recording bar and the page strip stays
-        if (next && next.source !== midiSource && $('mobileSynthToggleBtn')?.classList.contains('active-audio-mode')) next = null;
+        if (next && next.source !== midiSource && synthSelected()) next = null;
         const sameMedia = next && rec && next.source === rec.source && JSON.stringify(next.media) === JSON.stringify(rec.media);
         if (!sameMedia) {
             if (tapping) stopTapping();
