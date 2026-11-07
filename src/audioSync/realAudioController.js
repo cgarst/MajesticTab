@@ -421,3 +421,8 @@ export function initRealAudioController() {
     updateRealAudioDockIcon();
     updateRecordingSlots();
 }
+
+// A recording's speed, like the synth's, is a practice setting: each song opens at 100%
+if (typeof window !== 'undefined') {
+    window.addEventListener('majestictab:file-loaded', () => { if (state.rate !== 1) setRealAudioRate(1); });
+}

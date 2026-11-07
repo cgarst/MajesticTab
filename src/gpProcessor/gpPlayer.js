@@ -1497,6 +1497,13 @@ export function attachAlphaTabApi(api, opts = {}) {
     synthPlayerState.loopEndMeasure = Math.max(1, currentScore?.masterBars?.length || 1);
     applyLoopSettings();
 
+    // Practice settings belong to the song being practised: every song opens at the defaults
+    synthPlayerState.playbackSpeed = 1.0;
+    synthPlayerState.metronomeEnabled = false;
+    synthPlayerState.countInEnabled = false;
+    try { api.playbackSpeed = 1.0; } catch (_) {}
+    syncClickTimer();
+
     synthPlayerState.isPlaying = false;
     synthPlayerState.hasPlayed = false;
     synthPlayerState.currentTime = 0;

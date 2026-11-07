@@ -15,6 +15,7 @@ import { setGpDisplayScale, applySavedGpDisplayScale, setGpDensity, getGpDensity
 import { initPageStrip } from './utils/pageStrip.js';
 import { initTextSync } from './textSync/textSync.js';
 import { loadText, renderTextPage, textState, nextTextPage, prevTextPage } from './textProcessor/textHandler.js';
+import { getTextMaxScalePercent } from './textProcessor/textProcessor.js';
 import { isFileType, showProgress, hideProgress } from './utils/fileHandlingUtils.js';
 import { setupFirstPageNavigation, setupPrevNextNavigation, setupKeyboardNavigation, setupMouseNavigation, setupSystemBackNavigation, setupViewModeToggles, setupTapClickNavigation, setupGlobalRewindButton, updateGlobalAudioControls, handleGlobalBack } from './utils/navigationUtils.js';
 import { getPagesPerView, setTextPagesPerView } from './utils/viewModeUtils.js';
@@ -364,13 +365,22 @@ let continuous = false;
 // --- TAB SIZE & DISPLAY SCALE ---
 export function syncGpSheetScale(nextValue) {
     const currentScale = Number.parseInt(nextValue, 10);
-    const safeValue = Number.isFinite(currentScale) ? Math.min(150, Math.max(50, currentScale)) : getDefaultGpDisplayScalePercent();
+    // A text tab stops zooming where its widest line still fits the page, so nothing is cut off
+    const cap = currentFile && isFileType(currentFile, ['txt']) ? getTextMaxScalePercent(!!pageModeRadio?.checked) : null;
+    const max = cap ? Math.max(5, Math.min(150, cap)) : 150;
+    const min = Math.min(50, max);
+    const safeValue = Number.isFinite(currentScale) ? Math.min(max, Math.max(min, currentScale)) : Math.min(max, getDefaultGpDisplayScalePercent());
     const input = document.getElementById('gpSheetScale');
+    if (input) { input.max = String(max); input.min = String(min); }
     const valueEl = document.getElementById('gpSheetScaleValue');
     if (input) input.value = String(safeValue);
     if (valueEl) valueEl.textContent = `${safeValue}%`;
     return safeValue;
 }
+
+document.addEventListener('change', (e) => {
+    if (e.target === pageModeRadio || e.target === continuousModeRadio) syncGpSheetScale(getGpDisplayScalePercent());
+});
 
 export async function applyGpSheetScale(nextValue) {
     const scaledValue = syncGpSheetScale(nextValue);
@@ -1335,6 +1345,7 @@ export async function loadFile(file, { hideMenu = true, keepMode = false } = {})
         navButtons.style.display = 'none';
         modeButtons.style.display = 'none';
     }
+    syncGpSheetScale(getGpDisplayScalePercent()); // the zoom control's range follows the file just opened
     window.dispatchEvent(new CustomEvent('majestictab:file-loaded', { detail: { file, converted: fileToLoad } }));
 }
 

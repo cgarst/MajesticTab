@@ -4,9 +4,11 @@ import { decodeText } from '../utils/decodeText.js';
 import { groupBlocks, paginate, createChordLyricSegments } from './textBlocks.js';
 
 const PAGE_PADDING = 20;
-const MIN_TEXT_FIT = 0.4; // smallest share of the normal text size a tab is shrunk to
-const MIN_TEXT_PX = 9; // and never below this size on screen: a WebView stops shrinking text at about 8px, so a smaller
-// scale only cut the lines off at the page edge
+let scrollFit = 1, scrollBase = 1;
+let textMaxScalePercent = null; // page mode
+let textMaxScrollPercent = null; // scroll mode
+/** Largest zoom % at which the open text tab still fits its page (null: no limit below the slider's own). */
+export function getTextMaxScalePercent(pageMode = true) { return pageMode ? textMaxScalePercent : textMaxScrollPercent; }
 
 /**
  * Process text content into either continuous mode or pages
@@ -41,6 +43,8 @@ export async function processText(file) {
 
         // Create pages for page mode
         const pages = createPaginatedPages(allProcessedLines, blocks);
+        // Scroll mode: shrink to the width (24px padding and a 1px border a side, at most 1200px wide) so nothing is cut off
+        if (scrollFit < 1) fullContent.style.setProperty('--text-scale', String(+(scrollBase * scrollFit).toFixed(4)));
 
         return {
             fullContent,
@@ -123,15 +127,22 @@ function createPaginatedPages(processedLines, blocks) {
     // When even one page is narrower than the text (a phone), the text shrinks to fit instead of being cut off.
     // Monospace text scales linearly, so scale the text part of the width; stop at a size that is still legible.
     const baseScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-scale')) || 1;
-    const minFit = Math.min(1, Math.max(MIN_TEXT_FIT, MIN_TEXT_PX / (14 * baseScale)));
     let fit = 1;
     if (pagesPerView === 1 && naturalWidth > widthPerPage(1)) {
         const chrome = PAGE_PADDING * 2 + PAGE_BORDER;
-        fit = Math.max(minFit, Math.min(1, ((widthPerPage(1) - chrome) / (naturalWidth - chrome)) * 0.99));
+        fit = Math.min(1, ((widthPerPage(1) - chrome) / (naturalWidth - chrome)) * 0.99);
     }
     // A block (a staff system) is never split, so one taller than a page shrinks the text until it fits.
     const maxHeight = pageHeight - PAGE_PADDING * 2;
-    if (tallestBlock * fit > maxHeight) fit = Math.max(minFit, (maxHeight / tallestBlock) * 0.99);
+    if (tallestBlock * fit > maxHeight) fit = (maxHeight / tallestBlock) * 0.99;
+    // No legibility floor: a floor cut the text off at the page edge. The zoom control stops at the size that fits.
+    fit = Math.max(0.1, fit);
+    const scrollAvail = Math.min(outputWidth, 1200) - 50;
+    const textPart = Math.max(1, naturalWidth - PAGE_PADDING * 2 - PAGE_BORDER);
+    scrollFit = Math.max(0.1, Math.min(1, (scrollAvail / textPart) * 0.99));
+    scrollBase = baseScale;
+    textMaxScrollPercent = scrollFit < 1 ? Math.max(10, Math.floor(baseScale * scrollFit * 100)) : null;
+    textMaxScalePercent = fit < 1 ? Math.max(10, Math.floor(baseScale * fit * 100)) : null;
     const fitScale = String(+(baseScale * fit).toFixed(4));
     const fittedNatural = Math.ceil((naturalWidth - PAGE_PADDING * 2 - PAGE_BORDER) * fit) + PAGE_PADDING * 2 + PAGE_BORDER;
     // A page is only as wide as its text (never wider than its share of the area), so no empty strip sits beside it.

@@ -47,8 +47,9 @@ export function setIsSteamDeck(val) {
  * @returns {string} 'page' or 'continuous'
  */
 export function getDefaultView(fileType) {
+    if (fileType === 'txt') return 'continuous';
     if (isSteamDeck()) return 'page';
-    return fileType === 'pdf' || fileType === 'txt' ? 'page' : 'continuous';
+    return fileType === 'pdf' ? 'page' : 'continuous';
 }
 
 /**

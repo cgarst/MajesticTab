@@ -2444,7 +2444,9 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
   body.phone-reader:not(.library-view-active) #navButtons #prevPage, body.phone-reader:not(.library-view-active) #navButtons #nextPage { flex: 0 0 32px; width: 32px; min-width: 32px; padding-inline: 0 !important; }
   body.phone-reader:not(.library-view-active) #navButtons #pageIndicator { flex: 1 1 0; min-width: 0; width: auto; padding: 0; text-align: center; font-size: 13px; }
   /* A range such as "1-2 of 8" is wider than the 24px left between the arrows: it takes its own line above them */
-  body.phone-reader:not(.library-view-active) #navButtons { flex-wrap: wrap; justify-content: space-between; }
+  /* The row is as tall as its 44px arrows, so the View button below never sits under them */
+  body.phone-reader:not(.library-view-active) #navButtons { flex-wrap: wrap; justify-content: space-between; min-height: 44px; height: auto; flex: none; }
+  body.phone-reader:not(.library-view-active) #navButtons .btn { height: 44px; }
   body.phone-reader:not(.library-view-active) #navButtons #pageIndicator { order: -1; flex: 1 0 100%; text-align: left; padding-left: 8px; }
   /* Right side: keep the score, the strip and the fretboard clear of a camera cutout or the Dynamic Island (the left is the rail's) */
   body.phone-reader:not(.library-view-active) #mainContent { padding-right: env(safe-area-inset-right, 0px) !important; }
@@ -2463,8 +2465,9 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
   body.phone-reader:not(.library-view-active) #mainContent { padding-top: env(safe-area-inset-top, 0px) !important; padding-left: var(--reader-rail-w) !important; }
   body.phone-reader:not(.library-view-active):has(#output.continuous-mode) #mainContent { padding-top: 0 !important; }
   body.phone-reader:not(.library-view-active) #output.continuous-mode { padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important; }
-  body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-left: var(--reader-rail-w); width: auto !important; }
-  body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { padding-left: 8px; }
+  /* The strip's background runs to the screen's left edge, under the rail; its content starts after the rail */
+  body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-left: 0; width: 100% !important; }
+  body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { padding-left: calc(var(--reader-rail-w) + 8px); }
   body.phone-reader:not(.library-view-active) .fretboard-dock { left: var(--reader-rail-w) !important; width: auto !important; }
 }
 /* Short landscape phone, continued: the strip is one row (the screen is short), the fretboard header is compact, and
