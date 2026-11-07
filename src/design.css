@@ -1611,7 +1611,8 @@ body.fretboard-open {
   .setpage {
     padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px)) !important;
   }
-  /* Classical tab scrolls its own list, so the list runs down to the tab bar (the pane reaches 16px under the bar) */
+  /* Classical tab scrolls its own list, so the list runs down to the tab bar. The pane already reaches 8px under the
+     bar, and the bar covers the safe area, so the pane's bottom padding is exactly those 8px (no safe-area inset) */
   .tools-shell .setpage:has(.classtab-tool-embedded) {
     padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)) !important;
   }
