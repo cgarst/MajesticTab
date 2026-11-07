@@ -2135,6 +2135,11 @@ canvas {
   white-space: pre;
 }
 
+/* A blank line in the source keeps one line of height, so the gap between staff systems survives. */
+.text-gap {
+  min-height: 1.5em;
+}
+
 .text-content {
   width: 100%;
   max-width: 1200px;

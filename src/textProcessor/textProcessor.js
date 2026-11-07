@@ -1,5 +1,6 @@
 // textProcessor.js
 import { setTextPagesPerView, getLandscapePageLayout } from '../utils/viewModeUtils.js';
+import { groupBlocks, paginate } from './textBlocks.js';
 
 const PAGE_PADDING = 20;
 const MIN_TEXT_FIT = 0.4; // smallest share of the normal text size a tab is shrunk to
@@ -39,220 +40,24 @@ function createChordLyricSegments(chordLine, lyricLine) {
 export async function processText(file) {
     try {
         const text = await file.text();
+        const lines = text.replace(/\r\n?/g, '\n').split('\n');
 
-        // First identify [Section] markers and split while preserving them
-        const sectionMarkerRegex = /^\[.*?\]$/m;
-        const lines = text.split('\n');
-        let contentSections = [];
-        let currentSection = [];
-        
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            if (sectionMarkerRegex.test(line)) {
-                // Add previous section if it exists
-                if (currentSection.length > 0) {
-                    contentSections.push(currentSection.join('\n'));
-                }
-                // Start new section with the [Section] marker
-                currentSection = [line];
-            } else {
-                currentSection.push(line);
-            }
-        }
-        
-        // Add the last section
-        if (currentSection.length > 0) {
-            contentSections.push(currentSection.join('\n'));
-        }
-        
-        // If no sections were found, treat the whole text as one section
-        if (contentSections.length === 0) {
-            // First identify tab notation sections
-            const lines = text.split('\n');
-            let tabSections = [];
-            let currentTab = [];
-            let startIdx = -1;
+        // A page may only break between blocks: a staff system (ruler, strings, marks) is one block, never split.
+        const blocks = groupBlocks(lines);
+        const allProcessedLines = blocks.map(block => buildBlockElement(lines, block));
 
-            const isTabLine = line => line.match(/^[eEBGDAa]\|[-\\\/\d\s|~\(\)]*\|?$/);
-            const isPartOfTab = line => isTabLine(line) || line.trim().startsWith('|') || line.includes('x');
-            
-            for (let i = 0; i < lines.length; i++) {
-                const currentLine = lines[i].trim();
-                const nextLine = lines[i + 1]?.trim();
-                const isHeaderForTab = currentLine && nextLine && isTabLine(nextLine);
-                
-                if (!currentTab.length && (isHeaderForTab || isTabLine(currentLine))) {
-                    // Start new tab section
-                    startIdx = i;
-                    currentTab = [lines[i]];
-                } else if (currentTab.length > 0) {
-                    currentTab.push(lines[i]);
-                    
-                    // Check if we're at the end of the tab section
-                    const isLastLine = !nextLine || !isPartOfTab(nextLine);
-                    
-                    if (isPartOfTab(currentLine) && isLastLine) {
-                        tabSections.push({
-                            start: startIdx,
-                            end: i,
-                            content: currentTab
-                        });
-                        currentTab = [];
-                        startIdx = -1;
-                    }
-                }
-            }
+        // Each block (a line, a staff system, a chord-and-lyric line) is numbered so sync points can name it.
+        // Gaps carry no id: nothing to sync to.
+        allProcessedLines.forEach((el, i) => { if (blocks[i].kind !== 'blank') el.dataset.block = String(i); });
 
-            // Now split by double newlines while preserving tab sections
-            contentSections = [];
-            let currentSection = [];
-            let skipUntil = -1;
-
-            for (let i = 0; i < lines.length; i++) {
-                // Skip lines that are part of a previously added tab section
-                if (i <= skipUntil) continue;
-                
-                const tabSection = tabSections.find(s => i === s.start);
-                
-                if (tabSection) {
-                    // If we have accumulated non-tab content, add it as a section
-                    if (currentSection.length > 0) {
-                        contentSections.push(currentSection.join('\n'));
-                        currentSection = [];
-                    }
-                    // Add the tab section as its own section
-                    contentSections.push(tabSection.content.join('\n'));
-                    skipUntil = tabSection.end;
-                } else {
-                    const line = lines[i];
-                    if (line.trim() === '' && lines[i + 1]?.trim() === '') {
-                        if (currentSection.length > 0) {
-                            contentSections.push(currentSection.join('\n'));
-                            currentSection = [];
-                        }
-                        i++; // Skip the second blank line
-                    } else {
-                        currentSection.push(line);
-                    }
-                }
-            }
-
-            if (currentSection.length > 0) {
-                contentSections.push(currentSection.join('\n'));
-            }
-        }
-        
         // Create the full content element for continuous mode
         const fullContent = document.createElement('div');
         fullContent.className = 'text-content';
         fullContent.tabIndex = 0; // Make focusable for keyboard navigation
-
-        // Process each section
-        let allProcessedLines = [];
-        contentSections.forEach((section, index) => {
-            if (index > 0) {
-                // Add a minimal separator line between sections (except the first)
-                const sectionSeparator = document.createElement('div');
-                sectionSeparator.className = 'section-separator';
-                allProcessedLines.push(sectionSeparator);
-            }
-            
-            // Split section into lines
-            const lines = section.split('\n');
-            const isTabLine = line => line.trim().match(/^[eEBGDAa]\|[-\\\/\d\s|~\(\)]*\|?$/);
-            const chordTokenRegex = /^[A-G][#b]?(?:maj|min|dim|aug|sus|m|M)?\d*(?:\/[A-G][#b]?)?$/;
-            const isChordLine = line => {
-                const tokens = line.trim().split(/\s+/);
-                return tokens[0] !== '' && tokens.every(t => chordTokenRegex.test(t));
-            };
-            let tabContainer = null;
-            
-            for (let i = 0; i < lines.length; i++) {
-                const line = lines[i];
-                const nextLine = lines[i + 1];
-
-                // Check for chord-lyric pair first
-                if (isChordLine(line) && nextLine && !isTabLine(nextLine) && !isTabLine(line)) {
-                    // Create a wrapper for chord-lyric pair
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'chord-lyric-line';
-                    wrapper.className = 'chord-lyric-line';
-
-                    // Split into chord-lyric segments
-                    const segments = createChordLyricSegments(line, nextLine);
-                    segments.forEach(segment => {
-                        const segmentDiv = document.createElement('div');
-                        segmentDiv.className = 'chord-lyric-segment';
-                        segmentDiv.className = 'chord-lyric-segment';
-
-                        const chordSpan = document.createElement('span');
-                        chordSpan.textContent = segment.chord;
-                        chordSpan.className = 'chord-lyric-chord';
-
-                        const lyricSpan = document.createElement('span');
-                        lyricSpan.textContent = segment.lyric;
-
-                        segmentDiv.appendChild(chordSpan);
-                        segmentDiv.appendChild(lyricSpan);
-                        wrapper.appendChild(segmentDiv);
-                    });
-
-                    if (tabContainer) {
-                        allProcessedLines.push(tabContainer);
-                        tabContainer = null;
-                    }
-                    allProcessedLines.push(wrapper);
-                    i++; // Skip the lyric line since we've processed it
-                    continue;
-                }
-
-                // Create div for current line
-                const textDiv = document.createElement('div');
-                textDiv.className = 'text-line';
-                textDiv.textContent = line;
-
-                // If this is a header (next line is a tab) or a tab line, 
-                // start/continue a tab section
-                if (nextLine && isTabLine(nextLine) || isTabLine(line) || 
-                    (tabContainer && (line.trim().startsWith('|') || line.includes('x')))) {
-                    if (!tabContainer) {
-                        tabContainer = document.createElement('div');
-                        tabContainer.className = 'tab-section-container';
-                    }
-                    tabContainer.appendChild(textDiv);
-
-                    // If this is the last line of the tab section
-                    if (!nextLine || 
-                        (!isTabLine(nextLine) && 
-                         !nextLine.trim().startsWith('|') && 
-                         !nextLine.includes('x'))) {
-                        allProcessedLines.push(tabContainer);
-                        tabContainer = null;
-                    }
-                } else {
-                    if (tabContainer) {
-                        allProcessedLines.push(tabContainer);
-                        tabContainer = null;
-                    }
-                    allProcessedLines.push(textDiv);
-                }
-            }
-
-            // Add any remaining tab container
-            if (tabContainer) {
-                allProcessedLines.push(tabContainer);
-            }
-        });
-
-        // Each block (a line, a staff system, a chord-and-lyric line) is numbered so sync points can name it
-        allProcessedLines.forEach((el, i) => { if (el.className !== 'section-separator') el.dataset.block = String(i); });
-
-        // Add all processed lines to the full content
         allProcessedLines.forEach(line => fullContent.appendChild(line.cloneNode(true)));
 
         // Set up focus handling and make sure it's keyboard-navigable
         fullContent.setAttribute('role', 'document');
-        fullContent.tabIndex = 0;
 
         // Focus after content is added and rendered
         requestAnimationFrame(() => {
@@ -260,7 +65,7 @@ export async function processText(file) {
         });
 
         // Create pages for page mode
-        const pages = createPaginatedPages(allProcessedLines);
+        const pages = createPaginatedPages(allProcessedLines, blocks);
 
         return {
             fullContent,
@@ -272,7 +77,42 @@ export async function processText(file) {
     }
 }
 
-function createPaginatedPages(processedLines) {
+function textLine(line, extraClass) {
+    const div = document.createElement('div');
+    div.className = extraClass ? `text-line ${extraClass}` : 'text-line';
+    div.textContent = line;
+    return div;
+}
+
+function buildBlockElement(lines, block) {
+    if (block.kind === 'blank') return textLine('', 'text-gap');
+    if (block.kind === 'system') {
+        const container = document.createElement('div');
+        container.className = 'tab-section-container';
+        for (let i = block.start; i <= block.end; i++) container.appendChild(textLine(lines[i]));
+        return container;
+    }
+    if (block.kind === 'chord') {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'chord-lyric-line';
+        createChordLyricSegments(lines[block.start], lines[block.end]).forEach(segment => {
+            const segmentDiv = document.createElement('div');
+            segmentDiv.className = 'chord-lyric-segment';
+            const chordSpan = document.createElement('span');
+            chordSpan.textContent = segment.chord;
+            chordSpan.className = 'chord-lyric-chord';
+            const lyricSpan = document.createElement('span');
+            lyricSpan.textContent = segment.lyric;
+            segmentDiv.appendChild(chordSpan);
+            segmentDiv.appendChild(lyricSpan);
+            wrapper.appendChild(segmentDiv);
+        });
+        return wrapper;
+    }
+    return textLine(lines[block.start]);
+}
+
+function createPaginatedPages(processedLines, blocks) {
     const pages = [];
     // #output reserves 80px at the bottom; the container and the wrapper
     // each add vertical padding and the wrapper adds a 1px border.
@@ -297,6 +137,7 @@ function createPaginatedPages(processedLines) {
     processedLines.forEach(el => probe.appendChild(el.cloneNode(true)));
     document.body.appendChild(probe);
     const naturalWidth = Math.ceil(probe.scrollWidth) + PAGE_PADDING * 2 + PAGE_BORDER;
+    const tallestBlock = Math.max(1, ...[...probe.children].map(c => c.offsetHeight));
     document.body.removeChild(probe);
     const MAX_PAGES = getLandscapePageLayout() === 'single' ? 1 : 6;
     let pagesPerView = 1;
@@ -311,6 +152,9 @@ function createPaginatedPages(processedLines) {
         const chrome = PAGE_PADDING * 2 + PAGE_BORDER;
         fit = Math.max(MIN_TEXT_FIT, Math.min(1, ((widthPerPage(1) - chrome) / (naturalWidth - chrome)) * 0.99));
     }
+    // A block (a staff system) is never split, so one taller than a page shrinks the text until it fits.
+    const maxHeight = pageHeight - PAGE_PADDING * 2;
+    if (tallestBlock * fit > maxHeight) fit = Math.max(MIN_TEXT_FIT, (maxHeight / tallestBlock) * 0.99);
     const baseScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-scale')) || 1;
     const fitScale = String(+(baseScale * fit).toFixed(4));
     const fittedNatural = Math.ceil((naturalWidth - PAGE_PADDING * 2 - PAGE_BORDER) * fit) + PAGE_PADDING * 2 + PAGE_BORDER;
@@ -324,11 +168,12 @@ function createPaginatedPages(processedLines) {
     measureDiv.style.width = `${availableWidth - PAGE_PADDING * 2 - PAGE_BORDER}px`;
     document.body.appendChild(measureDiv);
     
-    function measureContentHeight(elements) {
+    // Each block is measured once; blocks stack without margins, so heights add up.
+    const heights = processedLines.map(el => {
         measureDiv.innerHTML = '';
-        elements.forEach(el => measureDiv.appendChild(el.cloneNode(true)));
+        measureDiv.appendChild(el.cloneNode(true));
         return measureDiv.offsetHeight;
-    }
+    });
 
     // Create page function
     function createNewPage(elements) {
@@ -347,25 +192,9 @@ function createPaginatedPages(processedLines) {
         return pageWrapper;
     }
 
-    let currentElements = [];
-    const maxHeight = pageHeight - PAGE_PADDING * 2;
-
-    for (const element of processedLines) {
-        const potentialElements = [...currentElements, element];
-        const height = measureContentHeight(potentialElements);
-
-        if (height > maxHeight && currentElements.length > 0) {
-            pages.push(createNewPage(currentElements));
-            currentElements = [element];
-        } else {
-            currentElements = potentialElements;
-        }
-    }
-
-    // Add any remaining content as the last page
-    if (currentElements.length > 0) {
-        pages.push(createNewPage(currentElements));
-    }
+    paginate(blocks, heights, maxHeight).forEach(indices => {
+        pages.push(createNewPage(indices.map(i => processedLines[i])));
+    });
 
     document.body.removeChild(measureDiv);
     return pages;
