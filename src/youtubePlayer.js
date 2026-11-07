@@ -542,7 +542,7 @@ function showNoVideoPrompt() {
     }
     if (loadingIndicator) loadingIndicator.style.setProperty('display', 'none', 'important');
     updatePanelTitle();
-    if (title) title.textContent = 'No video attached. Search YouTube, or paste a link below.';
+    if (title) title.textContent = 'No video attached.';
     if (retry) retry.hidden = true;
     if (prompt) prompt.style.setProperty('display', 'flex', 'important');
     updateRemoveVideoBtn();

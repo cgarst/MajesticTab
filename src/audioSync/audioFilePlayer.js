@@ -309,6 +309,8 @@ async function finishAdd(meta) {
         return;
     }
     setStatus('');
+    // The Original recording row and the empty-state line in the panel read this attachment
+    window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
 }
 
 async function toggleExcluded(file) {
