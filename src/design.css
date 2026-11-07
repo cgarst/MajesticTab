@@ -814,7 +814,7 @@ body.practice-open #output { padding-right: 416px !important; }
 .pane-head-title, .artist-head-title { padding: 4px 20px 8px; }
 .pane-head-title h2, .artist-head-title h2 { margin: 0; font: 700 24px/1.2 var(--font-display, inherit); color: var(--ink); letter-spacing: -0.01em; }
 @media (max-width: 576px) {
-  .pane-head-title, .artist-head-title { padding: 2px 12px 6px; }
+  .pane-head-title, .artist-head-title { padding: 2px 20px 6px; }
   .pane-head-title h2, .artist-head-title h2 { font-size: 20px; }
 }
 @media (min-width: 1000px) {
@@ -1744,7 +1744,6 @@ body.fretboard-open {
 .pinned-group-card[aria-current="true"]::before { content: ""; position: absolute; left: 8px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
 @media (hover: hover) { .pinned-group-card:hover { background: var(--s2) !important; } }
 .pinned-group-glyph { width: 40px; height: 40px; border-radius: var(--r); display: grid; place-items: center; background: var(--s3); color: var(--ink); flex: none; }
-@media (max-width: 576px) { .pinned-group-card { padding-inline: 16px !important; } }
 /* Pinned songs list: ordinary rows, no accent bar, no bullet where there is no track number */
 .library-song-rowwrap.library-song-row-pinned { border-left: 0 !important; box-shadow: none !important; }
 .library-song-rowwrap, #libSongsList { min-width: 0; max-width: 100%; }
