@@ -4210,9 +4210,11 @@ body.rec-strip-on:has(#mobileYtToggleBtn.active-audio-mode) .page-strip { displa
 body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { display: block !important; }
 /* Tab text: where the recording is, and what is pinned while tapping */
 /* The block you just tapped while syncing. When following, the reading line shows the position instead. */
-.ts-tapping .ts-current { background: var(--s2); box-shadow: inset 3px 0 0 var(--hue); }
+/* The tab text sits on paper (--sheet-bg), not on the app ground, so a ground tone (--s2) painted an opaque dark bar over
+   the text. A tint of the playhead color or of the paper's own ink stays readable on any paper. */
+.ts-tapping .ts-current { background: color-mix(in srgb, var(--hue) 16%, transparent); box-shadow: inset 3px 0 0 var(--hue); }
 .ts-tapping [data-block] { cursor: pointer; }
-.ts-tapping [data-block]:hover { background: var(--s1); }
+.ts-tapping [data-block]:hover { background: color-mix(in srgb, var(--sheet-text, currentColor) 8%, transparent); }
 .ts-pinned { box-shadow: inset 3px 0 0 var(--ink2); }
 .ts-pinned.ts-current { box-shadow: inset 3px 0 0 var(--hue); }
 /* Reading marker: a solid playhead-colored triangle at the left edge of the tab, level with where the recording puts the
