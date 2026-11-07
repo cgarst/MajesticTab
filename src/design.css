@@ -1604,16 +1604,18 @@ body.fretboard-open {
   /* Settings fills the screen down to the mobile bottom tab bar */
   html body.settings-as-page.library-view-active #fileMenu {
     top: 0 !important;
-    bottom: calc(56px + env(safe-area-inset-bottom, 0px)) !important;
+    /* The tab bar is taller than 56px (top padding + tab + safe area), so stopping at 56px left a few px of the page
+       behind showing above it. Run 16px under the opaque bar instead. */
+    bottom: calc(40px + env(safe-area-inset-bottom, 0px)) !important;
     height: auto !important;
   }
   .setpage {
-    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
   }
   /* Classical tab scrolls its own list, so the list runs down to the tab bar. The pane already reaches 8px under the
      bar, and the bar covers the safe area, so the pane's bottom padding is exactly those 8px (no safe-area inset) */
   .tools-shell .setpage:has(.classtab-tool-embedded) {
-    padding-bottom: 8px !important;
+    padding-bottom: 24px !important;
   }
   .library-search-bar { height: 44px !important; }
   .library-search-bar .search-input { font-size: 16px !important; /* 16px stops iOS zooming the page on focus */ }
