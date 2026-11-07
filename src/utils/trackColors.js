@@ -3,7 +3,7 @@
 
 const STORAGE_KEY_TAB_COLORS = 'majestictab_tab_track_colors';
 
-// Six well-separated hues (Okabe-Ito style, safe for common color blindness). A track's color is keyed to its
+// Ten well-separated hues (Okabe-Ito style, safe for common color blindness). A track's color is keyed to its
 // score track index, so it never changes when other tracks are shown or hidden.
 //   sheet: color handed to AlphaTab (tuned for light paper); dark: swapped in by CSS on dark sheets and used
 //   by the fretboard/track list; end: second stop of the fretboard gradient.
@@ -13,7 +13,12 @@ const TRACK_HUES = [
     { sheet: '#08795A', dark: '#3DDC97', end: '#2BC4C4' },
     { sheet: '#C2307A', dark: '#FF6FB5', end: '#FF6B8B' },
     { sheet: '#7B4BD6', dark: '#B596FF', end: '#E08CFF' },
-    { sheet: '#8A7000', dark: '#FFD84D', end: '#FFB347' }
+    { sheet: '#8A7000', dark: '#FFD84D', end: '#FFB347' },
+    // Four more so a score with seven to ten tracks (an 8-string guitar part, a band) never repeats a color
+    { sheet: '#0B7285', dark: '#4DD9E8', end: '#4DA3FF' },
+    { sheet: '#B3261E', dark: '#FF7B72', end: '#FF9D6B' },
+    { sheet: '#4D7C0F', dark: '#B7E34D', end: '#6FD94D' },
+    { sheet: '#475569', dark: '#A8B8CC', end: '#8FA3BF' }
 ];
 
 export const TRACK_COLORS = TRACK_HUES.map(h => ({ color: h.dark, end: h.end }));
