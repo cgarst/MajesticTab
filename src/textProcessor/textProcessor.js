@@ -5,6 +5,7 @@ import { groupBlocks, paginate, createChordLyricSegments } from './textBlocks.js
 
 const PAGE_PADDING = 20;
 let scrollFit = 1, scrollBase = 1;
+const MIN_TEXT_PX = 9; // a WebView stops shrinking text at about 8px, so a smaller size only cuts lines off at the edge; wider text scrolls sideways instead
 let textMaxScalePercent = null; // page mode
 let textMaxScrollPercent = null; // scroll mode
 /** Largest zoom % at which the open text tab still fits its page (null: no limit below the slider's own). */
@@ -135,14 +136,15 @@ function createPaginatedPages(processedLines, blocks) {
     // A block (a staff system) is never split, so one taller than a page shrinks the text until it fits.
     const maxHeight = pageHeight - PAGE_PADDING * 2;
     if (tallestBlock * fit > maxHeight) fit = (maxHeight / tallestBlock) * 0.99;
-    // No legibility floor: a floor cut the text off at the page edge. The zoom control stops at the size that fits.
-    fit = Math.max(0.1, fit);
+    // The zoom control stops at the size that fits, or at the smallest legible size (see MIN_TEXT_PX).
+    const minFit = Math.min(1, MIN_TEXT_PX / (14 * baseScale));
+    fit = Math.max(minFit, fit);
     const scrollAvail = Math.min(outputWidth, 1200) - 50;
     const textPart = Math.max(1, naturalWidth - PAGE_PADDING * 2 - PAGE_BORDER);
-    scrollFit = Math.max(0.1, Math.min(1, (scrollAvail / textPart) * 0.99));
+    scrollFit = Math.max(Math.min(1, MIN_TEXT_PX / (14 * baseScale)), Math.min(1, (scrollAvail / textPart) * 0.99));
     scrollBase = baseScale;
-    textMaxScrollPercent = scrollFit < 1 ? Math.max(10, Math.floor(baseScale * scrollFit * 100)) : null;
-    textMaxScalePercent = fit < 1 ? Math.max(10, Math.floor(baseScale * fit * 100)) : null;
+    textMaxScrollPercent = scrollFit < 1 ? Math.floor(baseScale * scrollFit * 100) : null;
+    textMaxScalePercent = fit < 1 ? Math.floor(baseScale * fit * 100) : null;
     const fitScale = String(+(baseScale * fit).toFixed(4));
     const fittedNatural = Math.ceil((naturalWidth - PAGE_PADDING * 2 - PAGE_BORDER) * fit) + PAGE_PADDING * 2 + PAGE_BORDER;
     // A page is only as wide as its text (never wider than its share of the area), so no empty strip sits beside it.

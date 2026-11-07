@@ -2026,6 +2026,9 @@ body.fretboard-open .mobile-playback-dock {
   overflow: hidden;
 }
 
+/* A text page's line wider than the screen at the smallest legible size scrolls sideways */
+.pageWrapper[role="document"] { overflow-x: auto; overflow-y: hidden; }
+
 /* Text pages must fit inside the container so pagination matches what is visible */
 .pageContainer > .pageWrapper {
   min-height: 0;
@@ -2119,6 +2122,7 @@ canvas {
   border-radius: 6px;
   font-size: calc(14px * var(--text-scale, 1));
   user-select: none;
+  overflow-x: auto; /* a line wider than the screen at the smallest legible size scrolls sideways */
 }
 
 .measure-div {

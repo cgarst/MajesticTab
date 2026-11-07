@@ -67,6 +67,7 @@ export function renderTextPage(output, pageModeChecked) {
         if (textState.fullContent) {
             // Create a wrapper just like PDF does
             const wrapper = document.createElement('div');
+            wrapper.style.cssText = 'width:100%;min-width:0'; // as wide as the screen, never as wide as the longest line
             const content = textState.fullContent.cloneNode(true);
             wrapper.appendChild(content);
             output.appendChild(wrapper);
