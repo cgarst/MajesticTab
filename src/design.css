@@ -2543,7 +2543,8 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .setlists-view > .title-row h2 { font: 700 44px/1.02 var(--font-display); letter-spacing: -.01em; margin: 0; color: var(--ink); }
 .setlists-view > .title-row p { margin: 6px 0 0; color: var(--ink2); font-size: 14px; }
 @media (max-width: 899px) { .setlists-view > .title-row h2 { font-size: 36px; } }
-.tools-shell { height: calc(100% + 52px); margin: -20px -20px -32px; }
+/* The page body pads its bottom by max(inset + 1.25rem, 2rem); the shell cancels all of it, so a landscape phone's home inset leaves no gap */
+.tools-shell { --body-pb: max(calc(env(safe-area-inset-bottom, 0px) + 1.25rem), 2rem); height: calc(100% + 20px + var(--body-pb)); margin: -20px -20px calc(-1 * var(--body-pb)); }
 /* The phone page body is padded 12px / 8px, so this lands Tools exactly where Settings sits (title and rows 16px in) */
 @media (max-width: 576px) { .tools-shell { height: calc(100% + 44px); margin: 0 -8px -32px; } }
 .tools-shell .setpage { max-width: none; }
