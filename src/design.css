@@ -4248,3 +4248,11 @@ body.score-cursor-hidden .gp-page-cursor-beat {
 /* A MIDI file as the sound source has no bars to loop (its player holds a one-bar placeholder) */
 body.midi-synth-source #dockLoopBtn,
 body.midi-synth-source .mb-3:has(#synthLoopSwitch) { display: none !important; }
+
+/* PDF pages: the page box is exactly the page. It was 100% of its share of the row, so a page narrower than its
+   share (two portrait pages side by side on a landscape phone) sat in a wide box with extra margin each side. */
+.pageContainer > .pageWrapper:has(> canvas) { width: auto !important; max-width: none !important; flex: 0 0 auto; }
+
+/* The page number is a div inside .pageWrapper, so ".pageWrapper > div" (20px padding, full width, flex: 1) gave it a
+   full-width box and a large label over the page. It is a small label in the corner. */
+.pageWrapper > .pageNumber { width: auto; flex: none; padding: 2px 6px; font: 11px/1.3 system-ui, sans-serif; left: auto; top: auto; }
