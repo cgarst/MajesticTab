@@ -2180,6 +2180,8 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 #synthAudioSyncSection:has(#synthAudioSyncSwitch:disabled) { display: none; }
 /* Flat text rows on the 56px pitch (not stacked filled buttons); one tone step on hover */
 #scoreOptionsSaveGroup .btn { background: transparent !important; border: 0 !important; color: var(--ink) !important; justify-content: flex-start !important; padding-inline: 12px !important; border-radius: var(--r-control) !important; min-height: 56px; }
+/* Not Bootstrap's d-flex (it is !important and beat the inline display:none that hides actions that do not apply) */
+#scoreOptionsSaveGroup .btn { display: flex; align-items: center; }
 #scoreOptionsSaveGroup .btn:hover { background: var(--s2) !important; }
 #scoreOptionsSaveGroup .btn i { display: none; }
 .top-bar-song-btn.active { background: transparent !important; }
