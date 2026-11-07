@@ -8,6 +8,10 @@
 // Points are stored with the existing sync store (so they back up and sync like any others), under the song key
 // "text:<song key>" so the score follower and editor never see them. A point is { barIndex: unit, occurrence: 0, pos: 0,
 // timeMs } where unit is the block number (text) or the page's index in the PDF.
+//
+// Repeats: points are ordered by time, not by position, so a point that names an earlier unit than the one before it is a
+// jump back (a repeat sign, a D.S., a second verse on the first page). Tapping an earlier page or line while the
+// recording plays is how one is made; the strip marks those points and the Edit list names them.
 
 import { jamYouTubeControl, onYouTubeEvent, playerState, getSongKey } from '../youtubePlayer.js';
 import { createYouTubeSource } from '../audioSync/mediaSource.js';
@@ -19,7 +23,7 @@ import { loadRecord, saveRecord } from '../audioSync/syncStore.js';
 import { getScrubState, applyScrubValue } from '../utils/pageScrubber.js';
 import { makeId, formatTime } from '../audioSync/syncEdit.js';
 import { showToast } from '../utils/toast.js';
-import { positionAt, followTarget, glide } from './readingLine.js';
+import { positionAt, backJumps, followTarget, glide } from './readingLine.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -92,7 +96,8 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         <i class="rec-fill"></i><span class="rec-marks"></span>
       </div>
       <span class="rec-status" role="status"></span>
-      <span class="rec-actions"></span>`;
+      <span class="rec-actions"></span>
+      <div class="rec-points" hidden></div>`;
     pageStrip.before(strip);
     const timeEl = strip.querySelector('.rec-time');
     const track = strip.querySelector('.rec-track');
@@ -100,6 +105,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     const marksEl = strip.querySelector('.rec-marks');
     const statusEl = strip.querySelector('.rec-status');
     const actionsEl = strip.querySelector('.rec-actions');
+    const pointsEl = strip.querySelector('.rec-points');
 
     let rec = null;
     let points = [];
@@ -109,6 +115,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     let lastUnit = null;
     let drawnKey = '';
     let clearArmed = false;
+    let listOpen = false;
     let clearTimer = 0;
 
     const textKey = () => `text:${getSongKey()}`;
@@ -206,7 +213,11 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         // A tap within half a second of an older point replaces it
         writePoints([...points.filter((p) => Math.abs(p.timeMs - timeMs) > 500), point]);
         history.push(point.id);
+        const ids = unitIds();
+        const before = [...points].reverse().find((p) => p.timeMs < timeMs && ids.indexOf(p.barIndex) >= 0);
+        const goesBack = !isStart && before && ids.indexOf(unit) < ids.indexOf(before.barIndex);
         if (isStart) lastTapText = `Start set. Now tap each ${unitWord()} as you hear it`;
+        else if (goesBack) lastTapText = `Back to ${unitLabel(unit, ids)} at ${fmtTime(timeMs)}`;
         else lastTapText = isPdf(getCurrentFile()) ? `Page ${unit + 1} at ${fmtTime(timeMs)}` : `Pinned at ${fmtTime(timeMs)}`;
         markCurrent(unit);
         drawn(true);
@@ -228,6 +239,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         output.querySelectorAll('.ts-pinned').forEach((n) => n.classList.remove('ts-pinned'));
         markCurrent(null);
         lastUnit = null;
+        listOpen = false;
         drawn(true);
     }
     function undo() {
@@ -261,6 +273,21 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         else if (act === 'done') stopTapping();
         else if (act === 'undo') undo();
         else if (act === 'clear') clearAll();
+        else if (act === 'points') { listOpen = !listOpen; drawn(true); }
+    });
+    pointsEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-point]');
+        if (!btn || !rec) return;
+        const p = points.find((q) => q.id === btn.dataset.point);
+        if (!p) return;
+        if (btn.dataset.do === 'remove') {
+            history = history.filter((id) => id !== p.id);
+            writePoints(points.filter((q) => q.id !== p.id));
+            lastTapText = 'Removed a point';
+        } else {
+            rec.source.seek(Math.max(0, p.timeMs + latency()));
+        }
+        drawn(true);
     });
 
     // -- Strip
@@ -270,21 +297,45 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
     }
 
+    /** The words a text block starts with, found even when its page is not the one on screen. */
+    function blockText(unit) {
+        const roots = getConfig().textState?.pages?.length ? getConfig().textState.pages : [output];
+        for (const r of roots) {
+            const el = r.querySelector?.(`[data-block="${unit}"]`);
+            if (el) return el.textContent.replace(/\s+/g, ' ').trim();
+        }
+        return '';
+    }
+
+    /** What a point names, in the player's terms: "Page 3" for a PDF, the first words of the line for a text tab. Block
+     *  numbers count blocks the player never sees (a title, blank lines), so they are not shown. */
+    function unitLabel(unit, ids = unitIds()) {
+        const r = ids.indexOf(unit);
+        if (isPdf(getCurrentFile())) return `Page ${r >= 0 ? r + 1 : '?'}`;
+        const text = blockText(unit);
+        if (!text) return r >= 0 ? `Line ${r + 1}` : 'Line';
+        return `\u201c${text.length > 26 ? `${text.slice(0, 26).trimEnd()}\u2026` : text}\u201d`;
+    }
+
     /** Rebuilds the status text, actions and tick marks. `force` redraws even when nothing seems to have changed. */
     function drawn(force = false) {
-        const key = `${clearArmed}|${rec?.label}|${points.length}|${tapping}|${lastTapText}|${durationOf(rec || { source: {} })}`;
+        const key = `${clearArmed}|${rec?.label}|${points.length}|${tapping}|${listOpen}|${lastTapText}|${durationOf(rec || { source: {} })}`;
         if (!force && key === drawnKey) return;
         drawnKey = key;
         strip.classList.toggle('is-synced', points.length > 0);
         strip.classList.toggle('is-tapping', tapping);
         const word = unitWord();
+        const ids = points.length ? unitIds() : [];
+        const backs = backJumps(points, ids);
         if (tapping) {
             statusEl.textContent = lastTapText || (points.length ? `Tap the ${word} you hear` : `Tap the ${word} where the song starts`);
-            actionsEl.innerHTML = `<button type="button" class="ct-text" data-act="undo" ${history.length ? '' : 'disabled'}>Undo</button>`
+            actionsEl.innerHTML = `<button type="button" class="ct-text" data-act="points" aria-expanded="${listOpen}" ${points.length ? '' : 'disabled'}>Points</button>`
+                + `<button type="button" class="ct-text" data-act="undo" ${history.length ? '' : 'disabled'}>Undo</button>`
                 + `<button type="button" class="ct-text" data-act="clear" ${points.length ? '' : 'disabled'}>${clearArmed ? 'Press again to clear' : 'Clear'}</button>`
                 + '<button type="button" class="ct-text rec-done" data-act="done">Done</button>';
         } else if (points.length) {
-            statusEl.textContent = `Synced · ${points.length} ${points.length === 1 ? 'point' : 'points'}`;
+            statusEl.textContent = `Synced · ${points.length} ${points.length === 1 ? 'point' : 'points'}`
+                + (backs.size ? ` · ${backs.size} ${backs.size === 1 ? 'repeat' : 'repeats'}` : '');
             actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Edit</button>';
         } else {
             statusEl.textContent = 'Not synced';
@@ -299,7 +350,28 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             for (const p of points) {
                 const t = document.createElement('i');
                 t.style.left = `${Math.min(100, (p.timeMs / dur) * 100)}%`;
+                if (backs.has(p.id)) t.className = 'is-back';
                 marksEl.appendChild(t);
+            }
+        }
+        // The Edit list: when each point lands, where it puts the reader, and which ones are repeats
+        const showList = tapping && listOpen && points.length > 0;
+        pointsEl.hidden = !showList;
+        pointsEl.replaceChildren();
+        if (showList) {
+            for (const p of points) {
+                const row = document.createElement('div');
+                row.className = 'rec-point';
+                const where = ids.indexOf(p.barIndex) >= 0 ? unitLabel(p.barIndex, ids) : `A ${word} that is gone`;
+                row.innerHTML = '<button type="button" class="ct-text rec-point-go" data-do="seek"></button><span class="rec-point-note"></span>'
+                    + '<button type="button" class="ct-text" data-do="remove">Remove</button>';
+                const go = row.querySelector('.rec-point-go');
+                go.textContent = `${fmtTime(p.timeMs)} · ${where}`;
+                go.setAttribute('aria-label', `Play from ${fmtTime(p.timeMs)}, ${where}`);
+                row.querySelector('.rec-point-note').textContent = backs.has(p.id) ? 'Repeat' : '';
+                for (const b of row.querySelectorAll('button')) b.dataset.point = p.id;
+                row.querySelector('[data-do="remove"]').setAttribute('aria-label', `Remove the point at ${fmtTime(p.timeMs)}`);
+                pointsEl.appendChild(row);
             }
         }
     }

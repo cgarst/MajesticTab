@@ -1,7 +1,7 @@
 // Run with: node --test tests/readingLine.test.mjs
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { positionAt, followTarget, glide } from '../src/textSync/readingLine.js';
+import { positionAt, backJumps, followTarget, glide } from '../src/textSync/readingLine.js';
 
 const units = [0, 1, 2, 4, 5]; // 3 is a separator with no id
 const pts = [
@@ -34,10 +34,30 @@ test('after the last point the line crosses that unit over the time left, then r
     assert.equal(positionAt(pts, units, 12000), 4); // no recording length: stays at the start
 });
 
-test('a point that names an unknown unit is ignored, a point that goes backwards holds', () => {
+test('a point that names an unknown unit is ignored', () => {
     assert.equal(positionAt([{ barIndex: 99, timeMs: 0 }], units, 100), null);
-    const back = [{ barIndex: 4, timeMs: 0 }, { barIndex: 1, timeMs: 1000 }];
-    assert.equal(positionAt(back, units, 500), 3);
+});
+
+test('a repeat: the line reads on through its unit, then jumps back at the point', () => {
+    const back = [{ barIndex: 4, timeMs: 0 }, { barIndex: 1, timeMs: 1000 }, { barIndex: 2, timeMs: 3000 }];
+    assert.equal(positionAt(back, units, 0), 3);
+    assert.equal(positionAt(back, units, 500), 3.5);
+    assert.ok(positionAt(back, units, 999) < 4);   // never crosses into the next unit
+    assert.equal(positionAt(back, units, 1000), 1); // the jump
+    assert.equal(positionAt(back, units, 2000), 1.5);
+    // a long stretch before the jump: the unit finishes in 20 s, then the line rests at its end
+    const long = [{ barIndex: 4, timeMs: 0 }, { barIndex: 0, timeMs: 60000 }];
+    assert.ok(positionAt(long, units, 30000) > 3.99 && positionAt(long, units, 30000) < 4);
+    assert.equal(positionAt(long, units, 60000), 0);
+});
+
+test('backJumps names the points that return to an earlier unit', () => {
+    const list = [
+        { id: 'a', barIndex: 0, timeMs: 0 }, { id: 'b', barIndex: 2, timeMs: 1000 },
+        { id: 'c', barIndex: 0, timeMs: 2000 }, { id: 'd', barIndex: 99, timeMs: 2500 }, { id: 'e', barIndex: 2, timeMs: 3000 }
+    ];
+    assert.deepEqual([...backJumps(list, units)], ['c']);
+    assert.equal(backJumps([], units).size, 0);
 });
 
 test('the page follows only when the line leaves the comfortable band', () => {

@@ -13,6 +13,23 @@ export function rankOf(unitIds, unit) {
 }
 
 /**
+ * The ids of the points that jump back to a unit earlier in the tab than the point before them (a repeat), points sorted
+ * by time. Points naming an unknown unit are skipped.
+ * @returns {Set<any>} the `id` of each such point
+ */
+export function backJumps(points, unitIds) {
+    const out = new Set();
+    let prev = -1;
+    for (const p of points) {
+        const r = rankOf(unitIds, p.barIndex);
+        if (r < 0) continue;
+        if (prev >= 0 && r < prev) out.add(p.id);
+        prev = r;
+    }
+    return out;
+}
+
+/**
  * The reading position at `timeMs`.
  * @param {{barIndex:number,timeMs:number}[]} points sorted by timeMs
  * @param {number[]} unitIds every unit in reading order
@@ -33,7 +50,13 @@ export function positionAt(points, unitIds, timeMs, endMs = null) {
     const b = usable[i + 1];
     if (b) {
         const span = b.t - a.t;
-        if (span <= 0 || b.rank <= a.rank) return a.rank; // a point that goes back: hold until the clock reaches it
+        if (span <= 0) return a.rank;
+        if (b.rank <= a.rank) {
+            // A repeat: the next point goes back. The player keeps reading on through this unit (at most 20 s, as past the
+            // last point) and the line jumps back when the clock reaches the point.
+            const room = Math.min(20000, span);
+            return a.rank + Math.min(0.999, (timeMs - a.t) / room);
+        }
         return a.rank + (b.rank - a.rank) * ((timeMs - a.t) / span);
     }
     // Past the last point: move through that unit over the time that is left, at most 20 s, then rest at its end

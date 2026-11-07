@@ -1746,7 +1746,9 @@ export function detachAlphaTabApi() {
 
     clearSynthHighlights();
     fretboardController.onScoreClosed();
-    toggleSynthPanel(false);
+    // A text or PDF tab keeps the panel: it holds the link a MIDI file action, and a re-layout of the page (opening the sheet
+    // narrows it) detaches and reattaches the player under it
+    if (!document.body.classList.contains('midi-synth-none') && !document.body.classList.contains('midi-synth-source')) toggleSynthPanel(false);
     hideSynthPlayer();
     updateSynthUI();
 }

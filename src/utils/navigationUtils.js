@@ -1029,8 +1029,10 @@ export function updateGlobalAudioControls() {
     }
 
     // Whichever sound the transport will use is shown as selected before anything plays
+    const synthIsAvailable = isSynthAvailable();
     if (!synthBtn?.classList.contains('active-audio-mode') && !realAudioBtn?.classList.contains('active-audio-mode')) {
-        const useReal = isRealAudioVisible && (!isSynthVisible || (isRealAudioAvailable() && songHasSyncPoints(getSongKey())));
+        // A synth button with no player behind it (a text or PDF tab with no MIDI linked yet) is not a sound to default to
+        const useReal = isRealAudioVisible && (!isSynthVisible || !synthIsAvailable || (isRealAudioAvailable() && songHasSyncPoints(getSongKey())));
         setActiveAudioMode(useReal ? 'real' : 'synth');
     }
 

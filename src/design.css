@@ -2513,6 +2513,8 @@ body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guita
 body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.btn, button, .rbtn):not(.form-check-input) { padding-block: 4px !important; }
 body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(label, p, small, .text-muted, span, div) { line-height: 1.25; }
 body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.form-check-input, .theme-switch) { transform: scale(.8); }
+/* Switches in these panels (YouTube | Local audio, the View pairs) hold buttons that are 34px tall here; the base group has a fixed 30 to 35px height, which left the selected button taller than its track */
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .hud-pill-group { height: auto !important; }
 body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mixer-toggle, .track-mix-toggles .mixer-toggle) { min-width: 34px !important; width: 34px !important; height: 34px !important; }
 body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) [class*="gap-"], body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .view-screen-pair { gap: 6px !important; }
 body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mb-3, .my-3, .py-3) { margin-bottom: 8px !important; }
@@ -2535,6 +2537,14 @@ body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guita
   body.phone-reader:not(.library-view-active) .rec-time { font-size: 11px; }
   body.phone-reader:not(.library-view-active) .rec-status { font-size: 11px; }
 }
+/* While tapping points the strip carries a status line and up to four actions, more than one row holds on a phone: time and
+   track on the first row, the status on the second, the actions (Points, Undo, Clear, Done) on the third, right-aligned. */
+body.phone-reader:not(.library-view-active) .rec-strip.is-tapping { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0 10px; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-tapping .rec-time { grid-column: 1; grid-row: 1; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-tapping .rec-track { grid-column: 2; grid-row: 1; min-width: 0; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-tapping .rec-status { grid-column: 1 / -1; grid-row: 2; white-space: normal; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-tapping .rec-actions { grid-column: 1 / -1; grid-row: 3; justify-self: end; }
+body.phone-reader:not(.library-view-active) .rec-strip.is-tapping .rec-points { grid-column: 1 / -1; grid-row: 4; }
 @media (prefers-reduced-motion: reduce) { body.phone-reader:not(.library-view-active) #topBar, body.phone-reader .panel-volume { transition: none !important; } }
 
 /* Song, Tracks: visible keyboard focus and 44px targets on touch */
@@ -4240,6 +4250,17 @@ body > #controllerHelpModal { display: none; }
 .rec-actions { display: inline-flex; gap: 2px; flex: none; }
 .rec-actions .ct-text[disabled] { opacity: .4; pointer-events: none; }
 .rec-actions .rec-done { color: var(--ink); }
+/* A point that jumps back to an earlier page or line (a repeat): a wider, full-ink tick on the track */
+.rec-marks i.is-back { width: 4px; margin-left: -2px; opacity: 1; }
+/* Edit list: one flat row per point, time and place on the left, Remove on the right */
+.rec-points { flex: 0 0 100%; max-height: 132px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 2px; }
+.rec-points[hidden] { display: none; }
+.rec-point { display: flex; align-items: center; gap: 8px; min-height: 32px; border-radius: var(--r-control); }
+.rec-point:hover { background: var(--s1); }
+.rec-point-go { flex: none; font-variant-numeric: tabular-nums; }
+.rec-point-note { flex: 1 1 auto; min-width: 0; font: 500 13px system-ui, sans-serif; color: var(--ink2); }
+@media (max-width: 576px) { .rec-points { grid-column: 1 / -1; grid-row: 3; } }
+@media (pointer: coarse) { .rec-point { min-height: 44px; } }
 .rec-track:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 /* Phone width: the strip is two deliberate rows, not a wrap. Row one is the time and the track; row two is the status on
    the left and the actions on the right, so the links never drop under the track with empty space beside them. */
@@ -4291,6 +4312,9 @@ body.score-cursor-hidden .gp-page-cursor-beat {
 }
 
 /* A MIDI file as the sound source has no bars to loop (its player holds a one-bar placeholder) */
+/* A text or PDF tab with no MIDI linked: the Synth panel offers only the link action */
+body.midi-synth-none #synthDropdownPanel .synth-panel-body > :not(#synthMidiSection) { display: none !important; }
+body.midi-synth-none #synthMidiRemoveBtn { display: none !important; }
 body.midi-synth-source #dockLoopBtn,
 body.midi-synth-source .mb-3:has(#synthLoopSwitch) { display: none !important; }
 

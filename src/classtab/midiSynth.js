@@ -5,7 +5,8 @@
 
 import { readMidiFile } from './midiReader.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
-import { attachAlphaTabApi, showSynthPlayer, detachAlphaTabApi } from '../gpProcessor/gpPlayer.js';
+import { setActiveAudioMode } from '../utils/navigationUtils.js';
+import { attachAlphaTabApi, showSynthPlayer, hideSynthPlayer, detachAlphaTabApi, getPlayerContext, isSynthPlaying, synthPlayerState } from '../gpProcessor/gpPlayer.js';
 import { saveAudioFile, getAudioFile, putAudioRecord, unlinkAudioFile } from '../audioSync/audioFileStore.js';
 import { getSongById } from '../libraryStore.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
@@ -126,11 +127,25 @@ async function bytesFor(file) {
 const isTextOrPdf = (file) => /\.(txt|pdf)$/i.test(file?.name || '');
 const $ = (id) => document.getElementById(id);
 
+// A text or PDF tab always offers Synth beside Original, even before a MIDI file is linked: pressing it opens a panel whose
+// only action is to link one. `bare` is true while the button is shown on that promise alone.
+let bare = false;
+
 function showLinkUi(file) {
     const eligible = isTextOrPdf(file);
     const linked = midiSynthActive;
     // The MIDI file's player holds a one-bar placeholder score, so bar loops mean nothing: design.css hides them
     document.body.classList.toggle('midi-synth-source', linked);
+    if (eligible && !linked) {
+        bare = true;
+        showSynthPlayer();
+    } else if (bare && !linked && !getPlayerContext().api) {
+        bare = false;
+        hideSynthPlayer();
+    } else if (!eligible || linked) {
+        bare = false;
+    }
+    document.body.classList.toggle('midi-synth-none', eligible && !linked);
     // A text or PDF tab always gets the section: link a MIDI file when none is linked, replace or remove it when one is
     if ($('synthMidiSection')) $('synthMidiSection').style.display = eligible || linked ? '' : 'none';
     if ($('synthMidiNote')) $('synthMidiNote').textContent = linked ? "Plays the MIDI file. It isn't synced to the tab." : 'Link a MIDI file to hear this tab. It isn\'t synced to the tab.';
@@ -146,6 +161,10 @@ export async function attachSynthMidiForFile(file, getCurrent) {
     if (!isTextOrPdf(file)) return;
     try {
         const bytes = await bytesFor(file);
+        // No MIDI to play: the tab opens on Original, which is where its recording and sync points are. Synth stays one press
+        // away, and opens the panel that links a MIDI file. Opening that panel re-lays-out the page and runs this again, so it
+        // leaves the choice alone while the panel is open.
+        if (!bytes && getCurrent() === file && !isSynthPlaying() && !synthPlayerState.isOpen) setActiveAudioMode('real');
         if (!bytes || getCurrent() !== file) return;
         await attachMidiSynth(bytes);
         ownFile = file;
