@@ -108,6 +108,27 @@ export function initSlidingPills() {
     });
     observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
 
+    // A segment can become active without a click on it (code switching a source, a panel re-rendering): follow the
+    // class on the segments themselves. Only the buttons are watched, so moving the pill does not trigger this again.
+    const watched = new WeakSet();
+    const segmentObserver = new MutationObserver((records) => {
+        const groups = new Set(records.map((r) => r.target.closest?.('.hud-pill-group')).filter(Boolean));
+        groups.forEach((g) => requestAnimationFrame(() => updateSlidingPill(g)));
+    });
+    const watchSegments = () => {
+        document.querySelectorAll('.hud-pill-group').forEach((g) => {
+            if (!isSegmentedGroup(g)) return;
+            g.querySelectorAll(':scope > .btn, :scope > label').forEach((b) => {
+                if (watched.has(b)) return;
+                watched.add(b);
+                segmentObserver.observe(b, { attributes: true, attributeFilter: ['class', 'aria-checked', 'aria-pressed'] });
+            });
+        });
+    };
+    watchSegments();
+    document.addEventListener('DOMContentLoaded', watchSegments);
+    window.addEventListener('load', watchSegments);
+
     // Handle window resize
     window.addEventListener('resize', () => {
         requestAnimationFrame(() => refreshAllSlidingPills(document, true));
