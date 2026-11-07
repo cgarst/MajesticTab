@@ -54,6 +54,7 @@ STORES = {
         "final": (1080, 1920),  # Play phone: 9:16, each side 320-3840 px, max 2:1
         "out": "../../fastlane/metadata/android/en-US/images/phoneScreenshots",
         "tab_scale": 50,  # sheet zoom (%), so a phone shows several bars instead of a couple
+        "safe_area": {"top": 32},  # status bar and punch-hole camera, drawn by device_html
     },
     # Play tablet and Chromebook/desktop shots: landscape 16:9 (how a tab stand is used), each side 320-3840 px. Same `play` build as the phone.
     "play-tablet-7": {
@@ -116,6 +117,7 @@ STORES = {
         "root_classes": ["tauri-ios"],
         # iOS is always a full-screen app, so the Fullscreen button must not appear anywhere.
         "no_fullscreen": True,
+        "safe_area": {"top": 62, "bottom": 34},  # Dynamic Island and home indicator on a 16 Pro Max
     },
     "msstore": {
         "device": "laptop",
@@ -166,8 +168,33 @@ class _Quiet(http.server.SimpleHTTPRequestHandler):
         pass
 
 
+_SAFE_ENV = re.compile(r"env\(\s*safe-area-inset-(top|right|bottom|left)\s*(?:,[^()]*)?\)")
+
+
 class _ChannelHandler(_Quiet):
-    """Serve the prepared channel frontend at /src/ (as the native shell does at /) and fixtures at /tests/."""
+    """Serve the prepared channel frontend at /src/ (as the native shell does at /) and fixtures at /tests/.
+
+    Playwright cannot set env(safe-area-inset-*), so when the store has a `safe_area` the served CSS/HTML/JS has each
+    env() replaced by that many pixels. The app then reserves the room a real phone's camera or Dynamic Island takes."""
+    safe_area = None
+
+    def do_GET(self):
+        rel = urllib.parse.urlsplit(self.path).path
+        if self.safe_area and rel.startswith("/src/") and rel.endswith((".css", ".html", ".js", ".mjs")) or (self.safe_area and rel in ("/src", "/src/")):
+            target = Path(self.translate_path(self.path))
+            if target.is_dir():
+                target = target / "index.html"
+            if target.is_file():
+                text = _SAFE_ENV.sub(lambda m: f"{self.safe_area.get(m.group(1), 0)}px", target.read_text(encoding="utf-8"))
+                body = text.encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", self.guess_type(str(target)))
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+        super().do_GET()
+
     def translate_path(self, path):
         rel = urllib.parse.urlsplit(path).path
         if rel.startswith("/src/") or rel == "/src":
@@ -175,12 +202,13 @@ class _ChannelHandler(_Quiet):
         return super().translate_path(path)
 
 
-def start_channel_server():
+def start_channel_server(safe_area=None):
     sock = socket.socket()
     sock.bind(("127.0.0.1", 0))
     port = sock.getsockname()[1]
     sock.close()
-    httpd = _Server(("127.0.0.1", port), functools.partial(_ChannelHandler, directory=str(ROOT)))
+    handler = type("_SafeChannelHandler", (_ChannelHandler,), {"safe_area": safe_area})
+    httpd = _Server(("127.0.0.1", port), functools.partial(handler, directory=str(ROOT)))
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd, f"http://127.0.0.1:{port}"
 
@@ -531,7 +559,7 @@ def run_store(args, name):
     if not args.no_prepare and _prepared != channel:
         prepare_channel_frontend(channel)
         _prepared = channel
-    httpd, base = start_channel_server()
+    httpd, base = start_channel_server(store.get("safe_area"))
     print(f"[{channel}] capabilities: {json.dumps(cfg)}")
     try:
         with sync_playwright() as p:
