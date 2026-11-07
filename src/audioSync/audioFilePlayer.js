@@ -386,9 +386,9 @@ function render() {
         actions: [
             actionButton(
                 f.excludeFromBackup ? 'Kept out of backups and sync. Click to include it.' : 'Included in backups and sync. Click to keep it out.',
-                f.excludeFromBackup ? 'bi-cloud-slash' : 'bi-cloud-check', null, () => toggleExcluded(f)
+                null, f.excludeFromBackup ? 'Local only' : 'In backups', () => toggleExcluded(f), 'rec-text-btn'
             ),
-            actionButton('Remove this file', 'bi-trash', null, () => removeFile(f.id))
+            actionButton('Remove this file', null, 'Remove', () => removeFile(f.id), 'rec-text-btn')
         ]
     }));
     for (const m of state.missing) {
