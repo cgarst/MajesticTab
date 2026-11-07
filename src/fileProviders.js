@@ -234,7 +234,9 @@ export const LocalFileProvider = {
     open(options = {}) {
         const input = document.createElement('input');
         input.type = 'file';
-        input.accept = '.pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt';
+        // Android's picker turns accept into MIME types; Guitar Pro extensions have none, so it greys those files out.
+        // Leave the filter off there: the picked file is checked by its name and content afterwards.
+        if (!/Android/i.test(navigator.userAgent)) input.accept = '.pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt';
         input.style.position = 'fixed';
         input.style.top = '-9999px';
         input.style.left = '-9999px';

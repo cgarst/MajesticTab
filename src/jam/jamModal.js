@@ -597,7 +597,8 @@ export function createJamModal(manager, { updateSetting }) {
         if (t.id === 'jamShareSongBtn') {
             const input = document.createElement('input');
             input.type = 'file';
-            input.accept = JAM_SONG_EXTENSIONS.map((ext) => `.${ext}`).join(',');
+            // Android's picker greys out extensions it has no MIME type for (Guitar Pro), so no filter there
+            if (!/Android/i.test(navigator.userAgent)) input.accept = JAM_SONG_EXTENSIONS.map((ext) => `.${ext}`).join(',');
             input.onchange = () => { if (input.files?.[0]) client?.openSongAsController(input.files[0]); };
             input.click();
             return;
