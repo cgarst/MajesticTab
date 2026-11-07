@@ -5,6 +5,8 @@ import { groupBlocks, paginate, createChordLyricSegments } from './textBlocks.js
 
 const PAGE_PADDING = 20;
 const MIN_TEXT_FIT = 0.4; // smallest share of the normal text size a tab is shrunk to
+const MIN_TEXT_PX = 9; // and never below this size on screen: a WebView stops shrinking text at about 8px, so a smaller
+// scale only cut the lines off at the page edge
 
 /**
  * Process text content into either continuous mode or pages
@@ -120,15 +122,16 @@ function createPaginatedPages(processedLines, blocks) {
     setTextPagesPerView(pagesPerView);
     // When even one page is narrower than the text (a phone), the text shrinks to fit instead of being cut off.
     // Monospace text scales linearly, so scale the text part of the width; stop at a size that is still legible.
+    const baseScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-scale')) || 1;
+    const minFit = Math.min(1, Math.max(MIN_TEXT_FIT, MIN_TEXT_PX / (14 * baseScale)));
     let fit = 1;
     if (pagesPerView === 1 && naturalWidth > widthPerPage(1)) {
         const chrome = PAGE_PADDING * 2 + PAGE_BORDER;
-        fit = Math.max(MIN_TEXT_FIT, Math.min(1, ((widthPerPage(1) - chrome) / (naturalWidth - chrome)) * 0.99));
+        fit = Math.max(minFit, Math.min(1, ((widthPerPage(1) - chrome) / (naturalWidth - chrome)) * 0.99));
     }
     // A block (a staff system) is never split, so one taller than a page shrinks the text until it fits.
     const maxHeight = pageHeight - PAGE_PADDING * 2;
-    if (tallestBlock * fit > maxHeight) fit = Math.max(MIN_TEXT_FIT, (maxHeight / tallestBlock) * 0.99);
-    const baseScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-scale')) || 1;
+    if (tallestBlock * fit > maxHeight) fit = Math.max(minFit, (maxHeight / tallestBlock) * 0.99);
     const fitScale = String(+(baseScale * fit).toFixed(4));
     const fittedNatural = Math.ceil((naturalWidth - PAGE_PADDING * 2 - PAGE_BORDER) * fit) + PAGE_PADDING * 2 + PAGE_BORDER;
     // A page is only as wide as its text (never wider than its share of the area), so no empty strip sits beside it.

@@ -4290,3 +4290,6 @@ body.phone-reader #screenRow { display: none !important; }
    and in portrait the sheet keeps one height whichever source is shown, so it does not jump when you switch. */
 #ytDropdownPanel #realAudioSourcePills { background: var(--s1) !important; }
 @media (orientation: portrait) { body.phone-reader #ytDropdownPanel { height: 40vh !important; } }
+
+/* Text pages: a line wider than the page at the smallest legible size scrolls sideways instead of being cut off */
+.pageContainer > .pageWrapper:has(.text-line) { overflow-x: auto; overflow-y: hidden; }
