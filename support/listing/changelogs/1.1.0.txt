@@ -1,0 +1,5 @@
+- New look: flat design, Slate Blue theme and icon, side rail and phone tab bar, Settings, Tools, Setlists and Tunings as pages
+- Reader: View, Practice, Tracks, Guitar and Tools buttons, bar ruler, Reading mode, phone and landscape layouts, fretboard dock
+- Sync tabs to your own audio files or YouTube: tap to sync, edit points, text and PDF tabs
+- Search all artists and albums, download whole albums, and a built-in browser with ad blocking
+- Metronome tool, WebDAV sync, note spacing
