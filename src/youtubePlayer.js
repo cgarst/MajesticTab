@@ -199,6 +199,8 @@ export function playPauseYouTube() {
     if (iframe.dataset.loaded !== 'true' && !playerState.isPlaying && hasSavedVideo()) {
         loadCurrentTrack(true, { source: 'user' });
         revealUntilPlaying();
+        // The embed has to be visible only until it plays; then the sheet goes away and the tab is back in view
+        closePanelWhenPlaying();
         updatePlaybackControls();
         return true;
     }
