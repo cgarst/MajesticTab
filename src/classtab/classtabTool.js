@@ -6,7 +6,7 @@
 import {
     getCatalogRecord, installArchive, readArchiveEntry, onArchiveChange, ClasstabError
 } from './archive.js';
-import { canDownloadArchive, downloadArchive, readLocalZip, CLASSTAB_HOME } from './download.js';
+import { canDownloadArchive, downloadArchive, readLocalZip, CLASSTAB_HOME, CLASSTAB_ZIP_URL } from './download.js';
 import { composerList, browse, pieceFacts, composerHeading, formatUpdated, passesFilters, nameParts, FILTERS, MORE_FILTERS } from './catalog.js';
 import { resolvePins, isPiecePinned, isComposerPinned, togglePiecePin, toggleComposerPin } from './pins.js';
 import { showToast } from '../utils/toast.js';
@@ -39,7 +39,7 @@ async function openExternal(url) {
 
 /** The credit line, always under the title. */
 const creditHtml = () =>
-    `<p class="ct-credit">Tabs and MIDI files from Classtab, a free archive of classical guitar tabs. <a href="${CLASSTAB_HOME}" data-ct-home>Visit classtab.org</a></p>`;
+    `<p class="ct-credit">Tabs and MIDI files from <a href="${CLASSTAB_HOME}" data-ct-home>classtab.org</a>, a free archive of classical guitar tabs.</p>`;
 
 /** Save the piece's first video as the song's Original source (the same saved choice the video panel reads). */
 export async function linkOriginalVideo(songKey, piece) {
@@ -227,7 +227,6 @@ export function renderClasstabTool(container, { onBack } = {}) {
         const native = canDownloadArchive();
         root.innerHTML = `
         <header class="ct-head">
-          <h2 class="ct-title">Classical tab</h2>
           ${creditHtml()}
           <p class="ct-sub">About 3,800 pieces by 600 composers. Downloads once, then works offline.</p>
         </header>
@@ -238,7 +237,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
         : '<button type="button" class="btn btn-sm btn-theme-primary" data-act="choose">Choose ZIP file</button>'}
         </div>
         ${state.message ? `<p class="ct-note" role="status">${esc(state.message)}</p>` : ''}${state.error ? `<p class="ct-error" role="alert">${esc(state.error)}</p>` : ''}
-        <p class="ct-sub">${native ? 'About 14 MB. From classtab.org.' : 'Download the ZIP from classtab.org in your browser, then choose it here.'} Not part of your backup.</p>`}`;
+        <p class="ct-sub">${native ? `About 14 MB. From <a href="${CLASSTAB_HOME}" data-ct-home>classtab.org</a>.` : `<a href="${CLASSTAB_ZIP_URL}" data-ct-zip>Download the ZIP</a> in your browser, then choose it here.`} Not part of your backup.</p>`}`;
     }
 
     function pieceRow(m, showComposer) {
@@ -293,9 +292,8 @@ export function renderClasstabTool(container, { onBack } = {}) {
         const moreOn = MORE_FILTERS.some((f) => state.filters.has(f.id));
         root.innerHTML = `
         <header class="ct-head">
-          <h2 class="visually-hidden">Classical tab</h2>
           <div class="ct-head-row">
-            <p class="ct-sub ct-facts">${plural(total, 'piece', 'pieces')} · <span class="ct-credit-long">Tabs and MIDI files from </span><a href="${CLASSTAB_HOME}" data-ct-home>Classtab</a><span class="ct-credit-long">, a free archive of classical guitar tabs · updated ${formatUpdated(state.rec.updatedAt)}</span></p>
+            <p class="ct-sub ct-facts">${plural(total, 'piece', 'pieces')} · <span class="ct-credit-long">Tabs and MIDI files from </span><a href="${CLASSTAB_HOME}" data-ct-home>classtab.org</a><span class="ct-credit-long">, a free archive of classical guitar tabs · updated ${formatUpdated(state.rec.updatedAt)}</span></p>
             ${state.job ? '' : `<button type="button" class="ct-text" data-act="update">${updateArmed ? 'Press again to replace the library (your songs stay)' : 'Update archive'}</button>`}
           </div>
         </header>
@@ -376,6 +374,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
 
     root.addEventListener('click', async (e) => {
         if (e.target.closest('[data-ct-home]')) { e.preventDefault(); openExternal(CLASSTAB_HOME); return; }
+        if (e.target.closest('[data-ct-zip]')) { e.preventDefault(); openExternal(CLASSTAB_ZIP_URL); return; }
         const filter = e.target.closest('[data-filter]');
         if (filter) {
             const id = filter.dataset.filter;

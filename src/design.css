@@ -4070,9 +4070,8 @@ body > #controllerHelpModal { display: none; }
 .ct-root { display: flex; flex-direction: column; gap: 12px; min-height: 0; height: 100%; max-width: 1040px; }
 .ct-head { display: flex; flex-direction: column; gap: 4px; }
 .ct-head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
-.ct-title { margin: 0; font-family: var(--font-display); font-size: 2rem; font-weight: 600; color: var(--ink); }
 .ct-credit, .ct-sub, .ct-note, .ct-error, .ct-empty { margin: 0; font-size: 13px; color: var(--ink2); }
-.ct-credit a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.ct-credit a, .ct-sub a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
 .ct-error { color: var(--danger, #f87171); }
 .ct-empty { padding: 14px; }
 .ct-start { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
@@ -4114,7 +4113,6 @@ body > #controllerHelpModal { display: none; }
   .ct-cols[data-pane="composers"] .ct-pieces { display: none; }
   .ct-cols[data-pane="pieces"] .ct-composers { display: none; }
   .ct-cols[data-pane="pieces"] .ct-back { display: inline-flex; align-items: center; gap: 4px; }
-  .ct-title { font-size: 1.6rem; }
   /* One pane: the whole page scrolls, so the search and filters move away with the list like in the library */
   .ct-root { overflow-y: auto; overscroll-behavior: contain; }
   .ct-root > * { flex-shrink: 0; }
