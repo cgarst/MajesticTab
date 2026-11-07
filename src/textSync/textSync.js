@@ -463,7 +463,9 @@ export function initTextSync({ getConfig, getCurrentFile }) {
             drawnKey = '';
             markCurrent(null);
         }
-        const next = eligible ? activeRecording(file) : null;
+        let next = eligible ? activeRecording(file) : null;
+        // With Synth selected, a video or audio file is not what plays, so it gets no recording bar and the page strip stays
+        if (next && next.source !== midiSource && $('mobileSynthToggleBtn')?.classList.contains('active-audio-mode')) next = null;
         const sameMedia = next && rec && next.source === rec.source && JSON.stringify(next.media) === JSON.stringify(rec.media);
         if (!sameMedia) {
             if (tapping) stopTapping();
