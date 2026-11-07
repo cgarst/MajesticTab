@@ -4276,3 +4276,12 @@ body.phone-reader #screenRow { display: none !important; }
 /* A row with a switch keeps the switch at the row's trailing edge on a phone, level with the label, instead of wrapping
    it onto its own line under the description (the 100% width rule above is for rows with several buttons). */
 @media (max-width: 899px) { .srow:has(.form-switch) { flex-wrap: nowrap; } .srow .sc:has(.form-switch) { width: auto; } }
+
+/* Library home on a phone: the Resume card is one compact row (title, where you stopped, the one action), not 40% of the
+   first screen. The cover and the mini ruler are for wider screens; the title may truncate on its own line. */
+@media (max-width: 640px) {
+  .resume-card { grid-template-columns: 1fr auto; padding: 12px 16px; }
+  .resume-card .resume-cover, .resume-card .ruler { display: none; }
+  .resume-btn { grid-column: auto; }
+  .resume-title { font-size: 24px; }
+}

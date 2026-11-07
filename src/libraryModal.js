@@ -1581,11 +1581,10 @@ async function renderLibraryBrowseView(container) {
                     resumeHtml = `<div class="resume-card" id="libResumeCard">
                       <img class="resume-cover" alt="" src="${getSynchronousCachedArtUrl(last.coverUrl) || last.coverUrl || getPlaceholderCoverSvg(last.artist || name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(last.artist || name)}'">
                       <div class="resume-meta">
-                        <div class="resume-kicker">Pick up where you left off</div>
                         <h2 class="resume-title">${escapeHtml(name)}</h2>
                         <div class="resume-sub tnum">${escapeHtml(subText)}Bar <span data-bar>${lastBar}</span> of ${totalBars}</div>
                       </div>
-                      <button type="button" class="btn btn-theme-primary resume-btn" id="libResumeBtn"><i class="bi-play"></i> Resume</button>
+                      <button type="button" class="btn btn-theme-primary resume-btn" id="libResumeBtn">Resume</button>
                       ${rulerHtml}
                     </div>`;
                 }
