@@ -93,7 +93,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     strip.innerHTML = `
       <span class="rec-time" aria-hidden="true">0:00</span>
       <div class="rec-track" role="slider" tabindex="0" aria-label="Recording position">
-        <i class="rec-fill"></i><span class="rec-marks"></span>
+        <span class="rec-marks"></span><i class="rec-fill"></i><i class="rec-head"></i>
       </div>
       <span class="rec-status" role="status"></span>
       <span class="rec-actions"></span>
@@ -103,6 +103,7 @@ export function initTextSync({ getConfig, getCurrentFile }) {
     const track = strip.querySelector('.rec-track');
     const fill = strip.querySelector('.rec-fill');
     const marksEl = strip.querySelector('.rec-marks');
+    const head = strip.querySelector('.rec-head');
     const statusEl = strip.querySelector('.rec-status');
     const actionsEl = strip.querySelector('.rec-actions');
     const pointsEl = strip.querySelector('.rec-points');
@@ -347,7 +348,13 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         const dur = rec && durationOf(rec);
         marksEl.replaceChildren();
         if (dur) {
-            for (const p of points) {
+            // At most one tick per 4px of track, so many points do not paint it solid; a repeat jump always shows
+            const width = (strip.querySelector('.rec-track')?.clientWidth) || 160;
+            let lastPx = -Infinity;
+            for (const p of [...points].sort((a, b) => a.timeMs - b.timeMs)) {
+                const px = Math.min(1, p.timeMs / dur) * width;
+                if (px - lastPx < 4 && !backs.has(p.id)) continue;
+                lastPx = px;
                 const t = document.createElement('i');
                 t.style.left = `${Math.min(100, (p.timeMs / dur) * 100)}%`;
                 if (backs.has(p.id)) t.className = 'is-back';
@@ -562,7 +569,9 @@ export function initTextSync({ getConfig, getCurrentFile }) {
         const t = rec.source.getTimeMs() || 0;
         const dur = durationOf(rec);
         timeEl.textContent = dur ? `${fmtTime(t)} / ${fmtTime(dur)}` : fmtTime(t);
-        fill.style.transform = `scaleX(${dur ? Math.min(1, t / dur) : 0})`;
+        const frac = dur ? Math.min(1, t / dur) : 0;
+        fill.style.transform = `scaleX(${frac})`;
+        if (head) head.style.left = `${frac * 100}%`;
         drawn();
         // The reading line shows where the recording puts the reader, and the tab follows it (see frame below)
         if (points.length && !tapping) ensureFrame(); else hideLine();

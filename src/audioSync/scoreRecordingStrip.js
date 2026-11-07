@@ -35,7 +35,7 @@ export function initScoreRecordingStrip() {
     strip.innerHTML = `
       <span class="rec-time" aria-hidden="true">0:00</span>
       <div class="rec-track" role="slider" tabindex="0" aria-label="Recording position">
-        <i class="rec-fill"></i><span class="rec-marks"></span>
+        <span class="rec-marks"></span><i class="rec-fill"></i><i class="rec-head"></i>
       </div>
       <span class="rec-status" role="status"></span>
       <span class="rec-actions"></span>`;
@@ -43,6 +43,7 @@ export function initScoreRecordingStrip() {
     const timeEl = strip.querySelector('.rec-time');
     const track = strip.querySelector('.rec-track');
     const fill = strip.querySelector('.rec-fill');
+    const head = strip.querySelector('.rec-head');
     const marksEl = strip.querySelector('.rec-marks');
     const statusEl = strip.querySelector('.rec-status');
     const actionsEl = strip.querySelector('.rec-actions');
@@ -100,7 +101,14 @@ export function initScoreRecordingStrip() {
         else actionsEl.innerHTML = '<button type="button" class="ct-text" data-act="sync">Add points</button>';
         marksEl.replaceChildren();
         if (dur) {
-            for (const p of points) {
+            // A tab with hundreds of points would paint the whole track solid and hide the position: draw at most one
+            // tick per 4px of track
+            const width = track.clientWidth || 160;
+            let lastPx = -Infinity;
+            for (const p of [...points].sort((a, b) => a.timeMs - b.timeMs)) {
+                const px = Math.min(1, p.timeMs / dur) * width;
+                if (px - lastPx < 4) continue;
+                lastPx = px;
                 const t = document.createElement('i');
                 t.style.left = `${Math.min(100, (p.timeMs / dur) * 100)}%`;
                 marksEl.appendChild(t);
@@ -149,8 +157,11 @@ export function initScoreRecordingStrip() {
             recKey = nextKey;
             refresh();
         }
-        strip.hidden = !rec;
-        document.body.classList.toggle('score-rec-strip-on', Boolean(rec));
+        // The bar takes its place as soon as Original has a recording attached, not when the player has loaded it:
+        // showing it on the first beat of play pushed the score and the dock up by the bar's height.
+        const reserved = Boolean(rec) || (!hidden && Boolean(getActiveMedia()));
+        strip.hidden = !reserved;
+        document.body.classList.toggle('score-rec-strip-on', reserved);
         // A recording with no sync points can't be followed, so the score shows no cursor
         // Before its player has loaded the recording is not "active" yet, but it is attached: judge it by its saved points
         let noPoints = Boolean(rec) && points.length === 0;
@@ -163,7 +174,9 @@ export function initScoreRecordingStrip() {
         const t = rec.source.getTimeMs() || 0;
         const dur = durationOf(rec);
         timeEl.textContent = dur ? `${fmtTime(t)} / ${fmtTime(dur)}` : fmtTime(t);
-        fill.style.transform = `scaleX(${dur ? Math.min(1, t / dur) : 0})`;
+        const frac = dur ? Math.min(1, t / dur) : 0;
+        fill.style.transform = `scaleX(${frac})`;
+        head.style.left = `${frac * 100}%`;
         draw();
     }
     setInterval(tick, 150);

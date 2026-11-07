@@ -3035,7 +3035,7 @@ function attachModalHandlers(modal, options = {}) {
                 restoreAudio: restoreAudioChoice,
                 onProgress: (current, total) => {
                     if (total > 0) {
-                        showTaskProgress(restoreStatusAlert, { label: 'Restoring tabs…', detail: `${current} of ${total}`, value: (current / total) * 100 });
+                        showTaskProgress(restoreStatusAlert, { label: 'Restoring files…', detail: `${current} of ${total}`, value: (current / total) * 100 });
                     }
                 }
             });

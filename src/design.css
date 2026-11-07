@@ -164,7 +164,7 @@ body {
 }
 @media (max-width: 576px) {
   body.library-view-active .library-bottom-nav {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     background: var(--bg-elevated);
     box-shadow: none;
   }
@@ -360,6 +360,7 @@ body:not(.library-view-active) .breadcrumb-divider { display: none; }
 #mainContent { background: var(--ground); padding-left: 0 !important; padding-right: 0 !important; }
 #output {
   background: var(--ground);
+  scrollbar-gutter: stable; /* a panel that shortens the view must not add a scrollbar that narrows the paper */
   padding-top: 12px !important;
   padding-bottom: 16px !important;
   padding-left: max(16px, env(safe-area-inset-left, 0px)) !important;
@@ -1721,6 +1722,10 @@ body.fretboard-open {
 .library-song-row .sub .chip i { display: none; }
 .library-song-row .sub .chip + .chip::before, .library-song-row .sub .album-label + .chip::before { content: "\00b7"; margin-right: 8px; }
 .library-song-row .sub .chip.text-muted { opacity: 1 !important; }
+/* On a narrow row the artist and album keep a readable share and the tuning gives way first. Before, the label shrank
+   to nothing and left only the separators ("· 7-String Standard · ·"). */
+.library-song-row .sub .album-label { flex: 0 1 auto; min-width: min(12ch, 45%); overflow: hidden; text-overflow: ellipsis; }
+.library-song-row .sub .chip { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .library-song-rowwrap.library-song-row-pinned { border-left: 0; }
 
 /* Pinned songs: ordinary rows under a heading, no outline or accent bar */
@@ -4247,14 +4252,16 @@ body > #controllerHelpModal { display: none; }
 .rec-fill { position: absolute; inset: 0; transform-origin: 0 50%; transform: scaleX(0); background: var(--ink2); opacity: .55; display: block; }
 .rec-strip.is-synced .rec-fill { background: var(--hue); opacity: 1; }
 .rec-marks { position: absolute; inset: 0; pointer-events: none; }
-.rec-marks i { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--ink); opacity: .6; }
+.rec-marks i { position: absolute; bottom: 0; height: 3px; width: 1px; background: var(--ink); opacity: .5; } /* ticks sit on the track's lower edge so the position stays readable */
+.rec-fill { z-index: 1; }
+.rec-head { position: absolute; z-index: 2; top: 0; bottom: 0; width: 3px; margin-left: -1.5px; background: var(--ink); }
 .rec-status { flex: none; font: 500 13px system-ui, sans-serif; color: var(--ink2); }
 .rec-strip.is-synced .rec-status, .rec-strip.is-tapping .rec-status { color: var(--ink); }
 .rec-actions { display: inline-flex; gap: 2px; flex: none; }
 .rec-actions .ct-text[disabled] { opacity: .4; pointer-events: none; }
 .rec-actions .rec-done { color: var(--ink); }
 /* A point that jumps back to an earlier page or line (a repeat): a wider, full-ink tick on the track */
-.rec-marks i.is-back { width: 4px; margin-left: -2px; opacity: 1; }
+.rec-marks i.is-back { width: 2px; height: 8px; opacity: 1; }
 /* Edit list: one flat row per point, time and place on the left, Remove on the right */
 .rec-points { flex: 0 0 100%; max-height: 132px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 2px; }
 .rec-points[hidden] { display: none; }

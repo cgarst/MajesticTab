@@ -877,7 +877,11 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     const outputRect = output.getBoundingClientRect();
     // Part of the view that lies under the top inset (Dynamic Island, status bar) is not usable for the cursor
     const safe = readSafeInsets();
-    const safeTop = Math.max(0, safe.top - outputRect.top);
+    // On a phone the top bar overlays the score (the score scrolls under it), so it is part of the unusable strip too.
+    // Without it a cursor could sit half hidden under the bar and never be scrolled back into view.
+    const topBarEl = document.getElementById('topBar');
+    const topBarBottom = (topBarEl && getComputedStyle(topBarEl).display !== 'none') ? topBarEl.getBoundingClientRect().bottom : 0;
+    const safeTop = Math.max(0, Math.max(safe.top, topBarBottom) - outputRect.top);
     const TOP_PADDING = 12 + safeTop;
 
     // 1. Staff system bounds lookup from renderer
@@ -1067,6 +1071,24 @@ function setCursorX(cursor, x) {
 }
 
 /**
+ * The vertical extent of the staff group of one master bar: the union of its per-track bars' visual bounds
+ * (top line of the first drawn staff to the bottom line of the last). Null when the bounds are not available.
+ */
+export function staffGroupBounds(masterBounds) {
+    const bars = masterBounds?.bars;
+    if (!bars?.length) return null;
+    let top = Infinity;
+    let bottom = -Infinity;
+    for (const b of bars) {
+        const v = b.visualBounds;
+        if (!v || !(v.h > 0)) continue;
+        top = Math.min(top, v.y);
+        bottom = Math.max(bottom, v.y + v.h);
+    }
+    return bottom > top ? { y: top, h: bottom - top } : null;
+}
+
+/**
  * Create a custom cursor handler for AlphaTab in Scroll and Page Modes
  * - Suppresses the whole-measure highlight box
  * - Replaces the beat line with a Line Reader tool shape
@@ -1207,7 +1229,7 @@ export function createCustomCursorHandler(api) {
             visibleBlock._cachedStaffHeight = staffHeight;
         }
 
-        const lineBounds = masterBounds.lineAlignedBounds || masterBounds.visualBounds;
+        const lineBounds = staffGroupBounds(masterBounds) || masterBounds.lineAlignedBounds || masterBounds.visualBounds;
         const sysRealY = sysBounds?.y ?? 0;
         const defaultBarY = svgTopOffset + ((lineBounds?.y ?? 0) - sysRealY);
         const barY = (staffTopY !== null && staffTopY !== undefined) ? staffTopY : defaultBarY;
@@ -1315,9 +1337,12 @@ export function createCustomCursorHandler(api) {
             }
 
             const masterBounds = beatBounds?.barBounds?.masterBarBounds;
-            // Use lineAlignedBounds to strictly bound to physical staff lines
-            const lineBounds = masterBounds?.lineAlignedBounds 
-                || masterBounds?.visualBounds 
+            // The staff group: every drawn track's bar in this system, from the top staff line to the bottom one.
+            // AlphaTab's lineAlignedBounds is not that (on some scores it is 22 to 40 px tall and sits low, which left
+            // the cursor short, worst on the first system), so it is only the fallback.
+            const lineBounds = staffGroupBounds(masterBounds)
+                || masterBounds?.lineAlignedBounds
+                || masterBounds?.visualBounds
                 || beatBounds?.barBounds?.visualBounds;
 
             if (lineBounds) {

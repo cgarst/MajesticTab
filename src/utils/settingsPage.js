@@ -171,6 +171,15 @@ export function initSettingsPage() {
     if (!panel || !body || panel.dataset.pageBuilt) return;
     panel.dataset.pageBuilt = '1';
 
+    // While Settings is the open destination the library page under it is not reachable: out of the keyboard order and
+    // the accessibility tree (a screen reader otherwise walks the Tools or Library rows behind Settings)
+    const libraryPageEl = $('libraryPage');
+    if (libraryPageEl && typeof MutationObserver !== 'undefined') {
+        const syncBehind = () => { libraryPageEl.inert = panel.classList.contains('show'); };
+        new MutationObserver(syncBehind).observe(panel, { attributes: true, attributeFilter: ['class'] });
+        syncBehind();
+    }
+
     // ---- gather the controls from the static markup before it is replaced by the page ----
     const take = (id) => $(id);
     const instrumentGroup = take('instrumentModeGuitar')?.closest('.hud-pill-group');

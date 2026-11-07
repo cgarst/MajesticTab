@@ -976,7 +976,7 @@ async function renderLibraryBrowseView(container) {
     const headerHtml = `
     <div class="library-page-container ${inTunings ? 'tunings-view' : ''}">
       ${libraryHeaderHtml({
-        activeTab: inTunings ? 'tunings' : 'library',
+        activeTab: 'library',
         searchId: 'libFilterInput',
         clearId: 'libFilterClearBtn',
         placeholder: inTunings
@@ -1552,6 +1552,15 @@ async function renderLibraryBrowseView(container) {
                 </span>
                 <i class="bi-chevron-right text-muted flex-shrink-0"></i>
               </button>` : '';
+            const tuningsRowHtml = `
+              <button type="button" class="library-card pinned-group-card" id="libTuningsGroupBtn">
+                <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-sliders"></i></span>
+                <span class="min-w-0 flex-grow-1 text-start">
+                  <span class="d-block fw-bold text-white">Tunings</span>
+                  <span class="d-block small text-muted">Browse songs by guitar and bass tuning</span>
+                </span>
+                <i class="bi-chevron-right text-muted flex-shrink-0"></i>
+              </button>`;
             const pinnedGroupHtml = pinnedSongs.length > 0 ? `
               <button type="button" class="library-card pinned-group-card" id="libPinnedGroupBtn" ${pinnedActive ? 'aria-current="true"' : ''}>
                 <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-pin-angle-fill"></i></span>
@@ -1564,7 +1573,7 @@ async function renderLibraryBrowseView(container) {
 
             toolbarHtml = libraryListToolbarHtml({
                 leftHtml: collectionSelectHtml,
-                count: `${artists.length} ${artists.length === 1 ? 'artist' : 'artists'}`,
+                count: (() => { const n = artists.filter(a => !a.isCustom).length; return `${n} ${n === 1 ? 'artist' : 'artists'}`; })(), // Custom Music is not one of the artists, as in the list's own count
                 actionsHtml: toolbarActionsHtml
             });
 
@@ -1598,6 +1607,7 @@ async function renderLibraryBrowseView(container) {
             <section class="pane list" aria-label="Artists">
               ${pinnedGroupHtml}
               ${recentsGroupHtml}
+              ${tuningsRowHtml}
               ${customGroup.map(artistCardHtml).join('')}
               <h3 class="pane-head"><span>Artists</span><span class="tnum">${regularArtists.length}</span></h3>
               <div class="pane-scroll">
@@ -1830,6 +1840,9 @@ async function renderLibraryBrowseView(container) {
         renderLibraryBrowseView(container);
     });
 
+    // Tunings: a Browse by choice inside Library
+    container.querySelector('#libTuningsGroupBtn')?.addEventListener('click', () => goLibraryTab('tunings'));
+
     // Recents group
     container.querySelector('#libRecentsGroupBtn')?.addEventListener('click', () => {
         pushLibraryNavigationState();
@@ -2035,7 +2048,7 @@ const LIBRARY_TABS = [
 // Desktop view switcher shared by every library page header (phones use the bottom nav instead)
 export function libraryViewSwitchHtml(activeTab = null) {
     return `<div class="hud-pill-group lib-view-switch" role="group" aria-label="Library views">
-      ${LIBRARY_TABS.map(t => `<button type="button" class="btn btn-sm ${t.id === activeTab ? 'active' : ''}" data-lib-tab="${t.id}" title="${t.title}"><i class="${t.icon}"></i><span class="lib-view-switch-label">${t.label}</span></button>`).join('')}
+      ${LIBRARY_TABS.filter(t => t.id !== 'tunings').map(t => `<button type="button" class="btn btn-sm ${t.id === activeTab ? 'active' : ''}" data-lib-tab="${t.id}" title="${t.title}"><i class="${t.icon}"></i><span class="lib-view-switch-label">${t.label}</span></button>`).join('')}
     </div>`;
 }
 
@@ -2193,7 +2206,7 @@ export function bindListFilter(container, { inputId, clearId, rowSelector, empty
 }
 
 function getActiveLibraryTab() {
-    if (activeView === 'library') return libraryBrowseMode === 'tunings' ? 'tunings' : 'library';
+    if (activeView === 'library') return 'library'; // the Tunings browse is still the Library destination
     return activeView === 'setlists' || activeView === 'recents' || activeView === 'tools' ? activeView : null;
 }
 
@@ -2229,14 +2242,14 @@ function syncLibraryBottomNav() {
     let nav = document.getElementById('libraryBottomNav');
     if (!nav) {
         const tabHtml = (t) => `<button type="button" class="library-nav-tab" data-lib-tab="${t.id}" title="${t.title}"><i class="${t.icon}"></i><span>${t.label}</span></button>`;
-        const [lib, setlists, tools, tunings] = LIBRARY_TABS;
+        const [lib, setlists, tools] = LIBRARY_TABS; // Tunings is a Browse by row inside Library, not a destination
         nav = document.createElement('nav');
         nav.id = 'libraryBottomNav';
         nav.className = 'library-bottom-nav';
         nav.setAttribute('aria-label', 'Library');
         nav.setAttribute('data-tauri-drag-region', '');
         // Phones: bottom tab bar. Wide windows: left rail (CSS). Settings sits last; Add music stays in each list's toolbar.
-        nav.innerHTML = `${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tunings)}${tabHtml(tools)}
+        nav.innerHTML = `${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tools)}
           <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
             const tab = e.target.closest('[data-lib-tab]');
