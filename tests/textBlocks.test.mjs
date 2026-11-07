@@ -4,7 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { groupBlocks, paginate, isStaffLine, isRulerLine } from '../src/textProcessor/textBlocks.js';
+import { groupBlocks, paginate, isStaffLine, isRulerLine, createChordLyricSegments } from '../src/textProcessor/textBlocks.js';
 
 // Synthetic, in the shape of a classtab file: heading, ruler, six strings, marks below, blank line, marks above the next ruler.
 const sample = [
@@ -91,4 +91,21 @@ test('whole archive: no string line starts a block of its own inside a staff run
         checked++;
     }
     assert.ok(checked > 0);
+});
+
+test('chord names are cut whole, with extensions and slash chords', () => {
+    const chords = (l) => createChordLyricSegments(l, ' '.repeat(l.length)).map(s => s.chord).filter(Boolean);
+    assert.deepEqual(chords('Amaj7 Dsus4 F#m C/G Am7b5 Cdim Bb G7'), ['Amaj7', 'Dsus4', 'F#m', 'C/G', 'Am7b5', 'Cdim', 'Bb', 'G7']);
+});
+
+test('lyric before the first chord and past the last chord is kept', () => {
+    assert.deepEqual(createChordLyricSegments('    Am', 'hello there'), [
+        { chord: '', lyric: 'hell' },
+        { chord: 'Am', lyric: 'o there' }
+    ]);
+    // chord line wider than its lyric: no throw, no reversed slice
+    assert.deepEqual(createChordLyricSegments('C      G', 'hi'), [
+        { chord: 'C', lyric: 'hi' },
+        { chord: 'G', lyric: '' }
+    ]);
 });

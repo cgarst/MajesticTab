@@ -16,7 +16,10 @@
 
 const STAFF = /^\s*[A-Ga-g][#b]?\s*\|[|*\d\s]*-/;       // "e|--", "Eb |-", "D||---", "G|*----"
 const RULER = /^\s*\d{0,4}[\s.]*\|[^|]*\|/;                 // "5  |   .   |   ." or "0   .  |  .  |"
-const CHORD_TOKEN = /^[A-G][#b]?(?:maj|min|dim|aug|sus|m|M)?\d*(?:\/[A-G][#b]?)?$/;
+// One chord definition for classifying a line and for cutting it into chords (longer suffixes before "m").
+const CHORD_SRC = '[A-G][#b]?(?:maj|min|dim|aug|sus|add|m|M)?\\d*(?:[#b]\\d+)*(?:\\/[A-G][#b]?)?';
+const CHORD_TOKEN = new RegExp(`^${CHORD_SRC}$`);
+const chordRegexGlobal = () => new RegExp(CHORD_SRC, 'g');
 
 export const isStaffLine = (line) => STAFF.test(line);
 export const isRulerLine = (line) => !STAFF.test(line) && RULER.test(line);
@@ -24,6 +27,20 @@ export const isBlank = (line) => line.trim() === '';
 export function isChordLine(line) {
     const tokens = line.trim().split(/\s+/);
     return tokens[0] !== '' && tokens.every((t) => CHORD_TOKEN.test(t));
+}
+
+/** Cuts a chord line over its lyric line into { chord, lyric } segments, one per chord. */
+export function createChordLyricSegments(chordLine, lyricLine) {
+    const found = [...chordLine.matchAll(chordRegexGlobal())].map(m => ({ pos: m.index, chord: m[0] }));
+    const end = Math.max(chordLine.length, lyricLine.length);
+    const segments = [];
+    // lyric before the first chord keeps its own chordless segment
+    if (found.length && found[0].pos > 0) segments.push({ chord: '', lyric: lyricLine.substring(0, found[0].pos) });
+    found.forEach((c, i) => {
+        const stop = i + 1 < found.length ? found[i + 1].pos : end;
+        segments.push({ chord: c.chord, lyric: lyricLine.substring(c.pos, stop) });
+    });
+    return segments;
 }
 
 const MAX_ABOVE = 2;   // lines directly above the ruler that travel with the system (a mark line, a short heading)

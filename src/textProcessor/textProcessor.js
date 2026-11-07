@@ -1,38 +1,9 @@
 // textProcessor.js
 import { setTextPagesPerView, getLandscapePageLayout } from '../utils/viewModeUtils.js';
-import { groupBlocks, paginate } from './textBlocks.js';
+import { groupBlocks, paginate, createChordLyricSegments } from './textBlocks.js';
 
 const PAGE_PADDING = 20;
 const MIN_TEXT_FIT = 0.4; // smallest share of the normal text size a tab is shrunk to
-
-function createChordLyricSegments(chordLine, lyricLine) {
-    const segments = [];
-    const chordPositions = [];
-    let match;
-    const chordRegex = /[A-G][m|maj|dim|aug|sus|#|b]?\d*/g;
-    
-    while ((match = chordRegex.exec(chordLine)) !== null) {
-        chordPositions.push({
-            pos: match.index,
-            chord: match[0]
-        });
-    }
-
-    // Add a final position marker
-    chordPositions.push({ pos: lyricLine.length });
-
-    // Create segments based on chord positions
-    for (let i = 0; i < chordPositions.length - 1; i++) {
-        const start = chordPositions[i].pos;
-        const end = chordPositions[i + 1].pos;
-        const chord = chordPositions[i].chord || '';
-        const lyric = lyricLine.substring(start, end);
-
-        segments.push({ chord, lyric });
-    }
-
-    return segments;
-}
 
 /**
  * Process text content into either continuous mode or pages
