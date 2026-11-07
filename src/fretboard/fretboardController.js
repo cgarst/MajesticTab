@@ -7,6 +7,12 @@ import { getAudioSyncSession } from '../audioSync/audioSyncController.js';
 import { TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
 
 const STORAGE_KEY_OPEN = 'majestictab_fretboard_open';
+// A short landscape phone has no room for the fretboard under the tab: start it compacted there
+// unless the player has chosen (the stored value is only written by their own toggle).
+const SHORT_LANDSCAPE_PHONE_QUERY = '(pointer: coarse) and (orientation: landscape) and (max-height: 500px)';
+function defaultOpen() {
+    try { return !window.matchMedia(SHORT_LANDSCAPE_PHONE_QUERY).matches; } catch (_) { return true; }
+}
 const STORAGE_KEY_MODE = 'majestictab_fretboard_display_mode';
 const STORAGE_KEY_LH = 'majestictab_fretboard_left_handed';
 const STORAGE_KEY_FLIP = 'majestictab_fretboard_flip_strings';
@@ -43,7 +49,8 @@ class FretboardController {
         // Restore saved preferences
         try {
             // Open unless the player compacted it: there is no other switch for it
-            this.isOpen = localStorage.getItem(STORAGE_KEY_OPEN) !== 'false';
+            const storedOpen = localStorage.getItem(STORAGE_KEY_OPEN);
+            this.isOpen = storedOpen === null ? defaultOpen() : storedOpen !== 'false';
             const savedMode = localStorage.getItem(STORAGE_KEY_MODE);
             this.displayMode = savedMode === 'frets' ? 'frets' : 'notes';
             this.isLeftHanded = localStorage.getItem(STORAGE_KEY_LH) === 'true';
@@ -135,6 +142,16 @@ class FretboardController {
         });
         window.addEventListener('resize', () => {
             this.syncDockBtnSlot();
+        });
+        // Rotating follows the default until the player has made their own choice
+        window.matchMedia?.(SHORT_LANDSCAPE_PHONE_QUERY).addEventListener?.('change', () => {
+            let chosen = true;
+            try { chosen = localStorage.getItem(STORAGE_KEY_OPEN) !== null; } catch (_) {}
+            if (!chosen) {
+                this.toggle(defaultOpen());
+                // toggle() stores its state; an automatic change is not the player's choice
+                try { localStorage.removeItem(STORAGE_KEY_OPEN); } catch (_) {}
+            }
         });
     }
 
