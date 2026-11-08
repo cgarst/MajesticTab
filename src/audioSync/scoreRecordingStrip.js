@@ -37,8 +37,7 @@ export function initScoreRecordingStrip() {
       <div class="rec-track" role="slider" tabindex="0" aria-label="Recording position">
         <span class="rec-marks"></span><i class="rec-fill"></i><i class="rec-head"></i>
       </div>
-      <span class="rec-status" role="status"></span>
-      <span class="rec-actions"></span>`;
+      <span class="rec-end"><span class="rec-status" role="status"></span><span class="rec-actions"></span></span>`;
     slot.prepend(strip);
     const timeEl = strip.querySelector('.rec-time');
     const track = strip.querySelector('.rec-track');
