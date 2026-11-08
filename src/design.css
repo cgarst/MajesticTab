@@ -4320,6 +4320,13 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
 @media (min-width: 641px) and (max-width: 899px) {
   body:not(.phone-reader) .dock-src .audio-sfx { display: none; }
 }
+/* Text and PDF tabs, tablet width: the bar stays on one row (the old wrap dropped Add points under the status and made the dock taller).
+   While tapping or editing points it wraps as before. */
+@media (min-width: 641px) {
+  body:not(.phone-reader) #recordingStrip:not(.is-tapping):not(:has(.rec-points:not([hidden]))) { flex-wrap: nowrap; }
+  body:not(.phone-reader) #recordingStrip:not(.is-tapping) .rec-track { flex: 1 1 0; min-width: 60px; }
+  body:not(.phone-reader) #recordingStrip:not(.is-tapping) .rec-status { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 /* Tab text: where the recording is, and what is pinned while tapping */
 /* The block you just tapped while syncing. When following, the reading line shows the position instead. */
 /* The tab text sits on paper (--sheet-bg), not on the app ground, so a ground tone (--s2) painted an opaque dark bar over
