@@ -870,6 +870,10 @@ body.practice-open #output { padding-right: 416px !important; }
 .library-page-container { grid-template-columns: minmax(0, 1fr) minmax(148px, auto); }
 .library-list-toolbar > div:last-child { display: flex; justify-content: flex-start; min-width: 0; }
 .library-list-toolbar .library-toolbar-actions { justify-content: flex-start; }
+/* Library: Sync sits at the right edge of the page, in line with the actions below it (Setlists keeps its action at the left of its column) */
+.library-page-container:not(.setlists-view):not(.tunings-view) > .library-list-toolbar > div:last-child,
+.library-page-container:not(.setlists-view):not(.tunings-view) > .library-list-toolbar .library-toolbar-actions { justify-content: flex-end; }
+@media (min-width: 1000px) { .library-page-container:not(.setlists-view):not(.tunings-view) > .library-list-toolbar > div:last-child { margin-right: -20px; } }
 .library-list-toolbar .btn { min-height: 36px; }
 .library-list-toolbar .btn.btn-theme-primary, .library-list-toolbar .btn.btn-theme-primary:hover:not(:disabled) { padding: 0 14px; border-radius: var(--r-control) !important; }
 @media (pointer: coarse) { .library-list-toolbar .btn { min-height: 44px; } }
@@ -961,15 +965,15 @@ body.library-view-active .app-page { --page-top: 0px; }
 .sethead .sethead-section { display: none; margin: 0; font: 700 20px/1.2 var(--font-display); color: var(--ink); letter-spacing: -.01em; }
 .sethead .setback { display: none; }
 /* Page title: the one visible h1 on Tools and Settings (the rail names the destination, but the page should too) */
-.setshell > h1.visually-hidden {
+.setshell > h1.set-title {
   position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; clip-path: none; white-space: normal;
   flex: none; padding: 22px 28px 10px; font: 700 32px/1.1 var(--font-display); letter-spacing: -.01em; color: var(--ink);
   user-select: none; -webkit-user-select: none;
 }
 @media (max-width: 899px) {
-  .setshell > h1.visually-hidden { padding: max(calc(env(safe-area-inset-top, 0px) + 12px), 20px) max(env(safe-area-inset-right, 0px), 16px) 0 max(env(safe-area-inset-left, 0px), 16px); }
-  .setshell[data-pane="page"] > h1.visually-hidden,
-  .setshell:has(.setwrap[data-pane="page"]) > h1.visually-hidden { display: none; }
+  .setshell > h1.set-title { padding: max(calc(env(safe-area-inset-top, 0px) + 12px), 20px) max(env(safe-area-inset-right, 0px), 16px) 0 max(env(safe-area-inset-left, 0px), 16px); }
+  .setshell[data-pane="page"] > h1.set-title,
+  .setshell:has(.setwrap[data-pane="page"]) > h1.set-title { display: none; }
 }
 .setwrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
 @media (min-width: 900px) {
@@ -2645,6 +2649,41 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 /* The phone page body is padded 12px / 8px, so this lands Tools exactly where Settings sits (title and rows 16px in) */
 @media (max-width: 576px) { .tools-shell { height: calc(100% + 44px); margin: 0 -8px -32px; } }
 .tools-shell .setpage { max-width: none; }
+
+/* Tools is an instrument rack, not a settings list: rows grouped by purpose (a gap, no heading), a plain readout of real
+   state on the right, no icons; the open tool fills the stage beside the list. */
+.tools-shell .setnav { gap: 0; padding-top: 8px; padding-bottom: 24px; }
+.tools-shell .setgroup { display: flex; flex-direction: column; gap: 2px; }
+.tools-shell .setgroup + .setgroup { margin-top: 20px; }
+.tools-shell .setnav button { min-height: 56px; padding: 8px 12px 8px 20px; color: var(--ink); }
+.tools-shell .setnav button .tool-name { flex: 1; min-width: 0; font-size: 16px; font-weight: 500; }
+.tools-shell .setnav button .tool-read { flex: 0 1 auto; color: var(--ink2); font-size: 14px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tools-shell .setnav button .tool-read:empty { display: none; }
+.tools-shell .tool-stage-title { display: none; }
+@media (min-width: 900px) {
+  .tools-shell .setnav button[aria-current="true"]::before { left: 8px; }
+  .tools-shell .setpage { padding: 28px 44px 44px; }
+  .tools-shell .tool-stage-title { display: block; margin: 0 0 22px; font: 700 40px/1 var(--font-display); color: var(--ink); }
+  .tools-shell .tool-pane-host > .tool-embedded { align-items: flex-start; justify-content: flex-start; animation: tools-stage-in var(--dur-base) var(--ease-out) both; }
+}
+/* One surface pattern for the Tools and Settings pages: the list is a column on the ground, the detail beside it is the
+   page (--s1), and a selected or hovered row takes one tone step. */
+@media (min-width: 900px) {
+  .setshell { --set-col: 260px; }
+  .tools-shell { --set-col: 300px; }
+  /* The page title belongs to the list column only: the shell is a two-column grid, so the detail pane starts at the top */
+  .setshell { display: grid; grid-template-columns: var(--set-col) minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .setshell > .setwrap { display: contents; }
+  .setshell > h1.set-title { grid-column: 1; grid-row: 1; background: var(--ground); }
+  .setshell .setnav { grid-column: 1; grid-row: 2; min-height: 0; }
+  .setshell .setpage { grid-column: 2; grid-row: 1 / span 2; min-height: 0; }
+  .setshell .setnav { background: var(--ground); }
+  .setshell .setnav button:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 5%, var(--ground)); }
+  .setshell .setnav button[aria-current="true"] { background: color-mix(in srgb, var(--ink) 9%, var(--ground)); }
+  .setshell .setpage { background: var(--s1); }
+}
+@keyframes tools-stage-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .tools-shell .tool-pane-host > .tool-embedded { animation: none; } }
 .tool-pane-host:empty::before { content: 'Choose a tool.'; color: var(--ink2); font-size: 14px; }
 .theme-modal-backdrop.tool-embedded { position: static; inset: auto; z-index: auto; background: transparent; padding: 0; height: auto; display: block; }
 .theme-modal-backdrop.tool-embedded[style*="display: none"] { display: none; }
@@ -2948,6 +2987,8 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .metro-play:focus-visible, .metro-ghost:focus-visible, .metro-step:focus-visible, .metro-range:focus-visible, .metro-option:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
 #metronomeModal .theme-modal-close-btn i { display: inline-block !important; }
 .theme-modal-backdrop.tool-embedded .metronome-modal-card { max-width: 520px; }
+#latencyModal.tool-embedded .theme-modal-card { max-width: 520px; }
+#latencyModal.tool-embedded .border-top { border-top: 0 !important; margin-top: 8px !important; }
 @media (prefers-reduced-motion: reduce) { .metro-mark, .metro-beat, .metro-step { transition: none; } }
 
 /* Library and Setlists glyphs from the Reimagined mockup (stroked, drawn as masks so they take currentColor and the icon font size) */

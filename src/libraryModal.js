@@ -26,8 +26,10 @@ import { detectFileMetadata, getTuningInfo, setCustomTuningName, isTuningMatchin
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
-import { scoreOptionsState, pauseSynthPlayer } from './gpProcessor/gpPlayer.js';
+import { scoreOptionsState, pauseSynthPlayer, getAudioLatencyMs } from './gpProcessor/gpPlayer.js';
 import { pauseYouTube } from './youtubePlayer.js';
+import { metronome } from './metronome/metronome.js';
+import { pitchCraftTuner } from './tuner/tuner.js';
 import { fretboardController } from './fretboard/fretboardController.js';
 import { updateUrl, clearUrl } from './utils/urlRouter.js';
 import { gamepadManager } from './utils/gamepadManager.js';
@@ -4467,21 +4469,51 @@ function addTabProviderItemsHtml(buttonClass, attrs = '') {
     }).join('');
 }
 
-// Tools page: laid out like Settings. Chords, Scales, Circle of fifths, Tuner, Metronome, Jam, Classical tab and Open file render in the page.
+// Tools page: a rack of instruments. Rows are grouped by what they are for (a gap, no heading) and carry a plain readout
+// of real state where there is some; the open tool fills a stage beside the list. Chords, Scales, Circle of fifths, Tuner,
+// Metronome, Jam, Classical tab and Open file render in the page.
 function renderToolsView(container) {
     const $ = (id) => document.getElementById(id);
+    // A readout is a plain note of real state on the right of a row; a tool with nothing real to say has none.
+    const stored = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
+    const chordsReadout = () => {
+        const parts = [];
+        const strings = parseInt(stored('majestictab_string_count'), 10);
+        const offset = parseInt(stored('majestictab_tuning_offset'), 10);
+        const capo = parseInt(stored('majestictab_capo'), 10);
+        if (strings === 7 || strings === 8) parts.push(`${strings} strings`);
+        if (capo > 0) parts.push(`Capo ${capo}`);
+        if (Number.isInteger(offset) && offset !== 0) parts.push(`${offset > 0 ? '+' : '\u2212'}${Math.abs(offset)} semitones`);
+        return parts.join(' \u00b7 ');
+    };
+    const tunerReadout = () => {
+        const letters = (pitchCraftTuner?.selectedInstrument?.tuning || []).map((n) => String(n).replace(/\d/g, '')).join(' ');
+        return letters === 'E A D G B E' ? 'Standard' : letters;
+    };
+    const jamReadout = () => {
+        if (!$('jamToggleBtn')?.classList.contains('jam-active')) return '';
+        const full = ($('jamStatusLabel')?.textContent || '').trim();
+        return full.startsWith('Hosting') ? full.replace('Hosting', 'Host') : full.split(' \u00b7 ')[0];
+    };
+    const classtabReadout = () => {
+        try {
+            const v = JSON.parse(stored('majestictab_classtab_pins') || 'null');
+            const n = (Array.isArray(v?.composers) ? v.composers.length : 0) + (Array.isArray(v?.pieces) ? v.pieces.length : 0);
+            return n > 0 ? `${n} pinned` : '';
+        } catch { return ''; }
+    };
     const tools = [
-        { id: 'chords', title: 'Chord library', icon: '<i class="bi-grid-3x3-gap" aria-hidden="true"></i>' },
-        { id: 'scales', title: 'Scales', icon: '<i class="bi-soundwave" aria-hidden="true"></i>' },
-        { id: 'circle', title: 'Circle of fifths', icon: '<i class="bi-circle-half" aria-hidden="true"></i>' },
-        { id: 'tuner', title: 'Tuner', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 12v9"/><circle cx="12" cy="21" r="1.5"/><path d="M7 3v6a5 5 0 0 0 10 0V3"/></svg>' },
-        { id: 'metronome', title: 'Metronome', icon: '<i class="bi-stopwatch" aria-hidden="true"></i>' },
-        // Not a section: it is a dialog that applies to every sound in the app
-        { id: 'latency', title: 'Audio latency', icon: '<i class="bi-bluetooth" aria-hidden="true"></i>', open: () => $('latencyModalBtn')?.click() }
+        { id: 'chords', group: 'reference', title: 'Chord library', readout: chordsReadout },
+        { id: 'scales', group: 'reference', title: 'Scales' },
+        { id: 'circle', group: 'reference', title: 'Circle of fifths' },
+        { id: 'tuner', group: 'play', title: 'Tuner', readout: tunerReadout },
+        { id: 'metronome', group: 'play', title: 'Metronome', readout: () => `${metronome.bpm} bpm`, watch: ['metroBpm'] }
     ];
-    if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', title: 'Jam', icon: '<i class="bi-people-fill" aria-hidden="true"></i>' });
-    tools.push({ id: 'classtab', title: 'Classical tab', icon: '<i class="bi-music-note-list" aria-hidden="true"></i>' });
-    tools.push({ id: 'openfile', title: 'Open file', icon: '<i class="bi-folder2-open" aria-hidden="true"></i>' });
+    if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'play', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
+    tools.push({ id: 'classtab', group: 'files', title: 'Classical tab', readout: classtabReadout });
+    tools.push({ id: 'openfile', group: 'files', title: 'Open file' });
+    // Applies to every sound in the app; in a song the same panel opens as a dialog from the reader's Tools menu
+    tools.push({ id: 'latency', group: 'system', title: 'Audio latency', readout: () => { const ms = getAudioLatencyMs(); return ms > 0 ? `${ms} ms` : 'Off'; }, watch: ['latencyModalBadge'] });
     renderToolsPage(container, { tools, escapeHtml });
 }
 

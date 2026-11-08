@@ -1,12 +1,13 @@
 // toolsPage.js
-// The Tools destination, laid out like the Settings page: a title, a list of tools, and the chosen
-// tool rendered in place beside it (below the list on phones). The Chord library, Scales, Circle of fifths, Tuner, Metronome and Jam
+// The Tools destination: a title, a list of tools grouped by purpose with a readout of real state on the right of a row,
+// and the chosen tool rendered on a stage beside it (replacing the list on phones). The Chord library, Scales, Circle of fifths, Tuner, Metronome and Jam
 // keep their own screens; they are moved into the page instead of opening over it.
 
 const $ = (id) => document.getElementById(id);
 let embedded = null; // { id, el }
 let refTabHandler = null;
 let pendingTool = null;
+let readObservers = [];
 let resumeTool = null; // the tool that was open when the reader took the screen
 
 /** The next Tools page that is drawn opens on this tool (used by the library search to land in Classical tab). */
@@ -21,7 +22,8 @@ function hostOf(id) {
         reference: () => $('referenceModal'),
         tuner: () => $('tunerModal'),
         metronome: () => $('metronomeModal'),
-        jam: () => $('jamModal')
+        jam: () => $('jamModal'),
+        latency: () => $('latencyModal')
     }[id]?.() || null;
 }
 
@@ -50,6 +52,7 @@ export async function releaseEmbeddedTools(keep = false) {
         else if (id === 'tuner') (await import('../tuner/tuner.js')).closeTunerModal();
         else if (id === 'metronome') (await import('../metronome/metronome.js')).closeMetronomeModal();
         else if (id === 'jam' && el.style.display === 'flex') $('jamToggleBtn')?.click();
+        else if (id === 'latency') (await import('../gpProcessor/mixerPanel.js')).closeModal('latencyModal');
     } catch { /* the tool is already gone */ }
     el.classList.remove('tool-embedded');
     el.style.display = 'none';
@@ -84,6 +87,7 @@ async function openTool(id, pane) {
     else if (id === 'tuner') $('tunerToggleBtn')?.click();
     else if (id === 'metronome') $('metronomeToggleBtn')?.click();
     else if (id === 'jam') { if ($('jamModal')?.style.display !== 'flex') $('jamToggleBtn')?.click(); }
+    else if (id === 'latency') $('latencyModalBtn')?.click();
     const el = hostOf(id);
     if (!el) return;
     el.classList.add('tool-embedded');
@@ -93,23 +97,34 @@ async function openTool(id, pane) {
     embedded = { id, el };
 }
 
+/** Tools in the order given, split into runs that share a group (the gap between runs is the only separator). */
+function groupTools(tools) {
+    const out = [];
+    for (const t of tools) {
+        const g = out.find((x) => x[0].group === t.group);
+        if (g) g.push(t); else out.push([t]);
+    }
+    return out;
+}
+
 export function renderToolsPage(container, { tools, escapeHtml }) {
     // resumeTool stays until the player leaves Tools on purpose (forgetResume), so a second draw cannot lose it
     if (!pendingTool && resumeTool) pendingTool = resumeTool;
     releaseEmbeddedTools();
     container.innerHTML = `
     <div class="setshell tools-shell" data-pane="list">
-      <h1 class="visually-hidden">Tools</h1>
+      <h1 class="set-title">Tools</h1>
       <div class="sethead" data-tauri-drag-region>
         <button type="button" class="setback btn btn-sm" aria-label="Back to Tools"><i class="bi-chevron-left" aria-hidden="true"></i> <span>Tools</span></button>
         <h2 class="sethead-section" data-tauri-drag-region></h2>
       </div>
       <div class="setwrap" data-pane="list">
         <nav class="setnav" aria-label="Tools">
-          ${tools.map((t) => `<button type="button" data-tool="${t.id}" ${t.disabled ? 'disabled aria-disabled="true"' : ''} aria-current="false">
-            ${t.icon || ''}<span>${escapeHtml(t.title)}</span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>`).join('')}
+          ${groupTools(tools).map((g) => `<div class="setgroup" role="group">${g.map((t) => `<button type="button" data-tool="${t.id}" ${t.disabled ? 'disabled aria-disabled="true"' : ''} aria-current="false">
+            <span class="tool-name">${escapeHtml(t.title)}</span><span class="tool-read" data-read="${t.id}">${escapeHtml(t.readout?.() || '')}</span><i class="bi-chevron-right chev" aria-hidden="true"></i></button>`).join('')}</div>`).join('')}
         </nav>
         <div class="setpage tool-pane">
+          <h2 class="tool-stage-title"></h2>
           <div class="tool-pane-host"></div>
         </div>
       </div>
@@ -119,7 +134,8 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
     const nav = container.querySelector('.setnav');
     const host = container.querySelector('.tool-pane-host');
     const back = container.querySelector('.setback');
-    const sectionTitle = container.querySelector('.sethead-section');
+    const sectionTitles = container.querySelectorAll('.sethead-section, .tool-stage-title');
+    const setTitle = (text) => sectionTitles.forEach((el) => { el.textContent = text; });
     const wide = () => window.matchMedia('(min-width: 900px)').matches;
 
     async function select(id) {
@@ -127,22 +143,40 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         if (!tool) return;
         if (tool.open) { await releaseEmbeddedTools(); tool.open(); return; } // not a section: it works on the song
         if (id !== resumeTool) forgetResume();
-        if (sectionTitle) sectionTitle.textContent = tool.title;
+        setTitle(tool.title);
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.tool === id)));
         wrap.dataset.pane = 'page';
         shell.dataset.pane = 'page';
         wrap.dataset.tool = id;
         shell.dataset.tool = id;
         await openTool(id, host);
+        refreshReadouts();
         if (id === 'classtab') import('./urlRouter.js').then((m) => m.updateUrl('classtab')).catch(() => {});
     }
+    // Readouts follow real state: re-read them when a tool's own readout element changes, after any click or change inside the
+    // open tool, and whenever the tool changes
+    const refreshReadouts = () => nav.querySelectorAll('[data-read]').forEach((el) => {
+        const t = tools.find((x) => x.id === el.dataset.read);
+        const text = t?.readout?.() || '';
+        if (el.textContent !== text) el.textContent = text;
+    });
+    readObservers.forEach((o) => o.disconnect());
+    readObservers = [];
+    tools.forEach((t) => (t.watch || []).forEach((id) => {
+        const src = $(id);
+        if (!src) return;
+        const o = new MutationObserver(refreshReadouts);
+        o.observe(src, { childList: true, characterData: true, subtree: true });
+        readObservers.push(o);
+    }));
+    ['click', 'change', 'input'].forEach((type) => host.addEventListener(type, () => setTimeout(refreshReadouts, 0)));
     // A chord chosen on the circle of fifths opens the Chord library: keep the list in step
     if (refTabHandler) document.removeEventListener('reference-tab', refTabHandler);
     refTabHandler = (e) => {
         if (embedded && REFERENCE_TOOLS.includes(embedded.id) && nav.isConnected) {
             embedded.id = e.detail;
             const t = tools.find((x) => x.id === e.detail);
-            if (t && sectionTitle) sectionTitle.textContent = t.title;
+            if (t) setTitle(t.title);
             nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', String(b.dataset.tool === e.detail)));
         }
     };
@@ -157,6 +191,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         shell.dataset.pane = 'list';
         nav.querySelectorAll('button').forEach((b) => b.setAttribute('aria-current', 'false'));
         await releaseEmbeddedTools();
+        refreshReadouts();
         import('./urlRouter.js').then((m) => m.updateUrl('tools')).catch(() => {});
     });
     // Let the page (title and list) paint first: the chord library draws hundreds of diagrams

@@ -204,8 +204,8 @@ export function initSettingsPage() {
     // ---- build the page ----
     const shell = el('div', 'setshell');
     shell.dataset.pane = 'list';
-    // The page's one h1: the rail already names the destination, so it is hidden but kept for screen readers
-    const pageTitle = el('h1', 'visually-hidden', 'Settings');
+    // The page's one h1, shown at the top like Tools
+    const pageTitle = el('h1', 'set-title', 'Settings');
     shell.appendChild(pageTitle);
     const head = el('div', 'sethead');
     head.setAttribute('data-tauri-drag-region', '');
