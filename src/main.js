@@ -1,5 +1,4 @@
 // main.js
-import { settingsPanel } from './utils/settingsPanel.js';
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { canvasSize, getActiveLazy, disposeActiveLazy } from './pdfProcessor/lazyPages.js';
 // @googleDrive:begin
@@ -335,24 +334,6 @@ const navButtons = document.getElementById('navButtons');
 const modeButtons = document.getElementById('modeButtons');
 const pageModeRadio = document.getElementById('pageModeRadio');
 const continuousModeRadio = document.getElementById('continuousModeRadio');
-const fileMenu = settingsPanel;
-
-// ` / ~ toggles the settings menu (unless typing or another modal is open)
-window.addEventListener('keydown', (e) => {
-    if (e.code !== 'Backquote' || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
-    const el = document.activeElement;
-    const isTyping = el && (
-        (el.tagName === 'INPUT' && !['radio', 'checkbox', 'button', 'submit', 'range'].includes(el.type)) ||
-        el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable
-    );
-    if (isTyping) return;
-    e.preventDefault();
-    if (fileMenu.isOpen()) {
-        fileMenu.hide();
-    } else if (!document.body.classList.contains('modal-open')) {
-        fileMenu.show();
-    }
-});
 
 const output = document.getElementById('output');
 const progressContainer = document.getElementById('progressContainer');
@@ -422,8 +403,8 @@ function setupPinchToZoom() {
     let wheelDeltaAccumulator = 0;
 
     const isInteractiveOverlayOpen = (e) => {
-        if (isLibraryOpen() || document.querySelector('.modal.show, .settings-page.show')) return true;
-        if (e && e.target && e.target.closest && e.target.closest('.modal, .settings-page, input, textarea, select')) return true;
+        if (isLibraryOpen() || document.querySelector('.modal.show')) return true;
+        if (e && e.target && e.target.closest && e.target.closest('.modal, input, textarea, select')) return true;
         return false;
     };
 
@@ -1011,13 +992,6 @@ async function initApp() {
         }
     }
 
-    if (urlParams.has('drawer')) {
-        fileMenu.show();
-    }
-    if (urlParams.has('modal')) {
-        import('./themeEngine.js').then(m => m.openThemeSettings());
-    }
-
     // Create navigation config with getters for dynamic values
     const getNavigationConfig = () => ({
         output,
@@ -1250,9 +1224,6 @@ export function recordFileToRecents(file) {
 }
 
 export async function loadFile(file, { hideMenu = true, keepMode = false } = {}) {
-    if (hideMenu) {
-        fileMenu.hide();
-    }
     currentFile = file;
     if (!file.addedAt) {
         file.addedAt = file.lastModified || Date.now();
@@ -1487,9 +1458,6 @@ export function hideLoadingBar() {
     hideProgress(progressContainer, progressBar);
 }
 
-export function hideFileMenu() {
-    fileMenu.hide();
-}
 
 export function getCurrentFile() {
     return currentFile;

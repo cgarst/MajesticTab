@@ -2,7 +2,6 @@
 // Cross-platform game controller manager for MajesticTab (Web, Tauri Linux / Steam Deck, Windows, macOS).
 // Uses the W3C Gamepad API with standard XInput / Xbox / Steam Deck controller layout.
 
-import { settingsPanel } from './settingsPanel.js';
 import { showToast } from './toast.js';
 import { isTvMode } from '../tvMode.js';
 import { getDefaultGpDisplayScalePercent } from '../gpProcessor/gpProcessor.js';
@@ -150,12 +149,6 @@ class GamepadManager {
                 this.applyNavFocusClass(e.target);
             }
         });
-
-        // Setup close button on Controller Help Modal
-
-        // Top bar pill trigger
-        const pillBtn = document.getElementById('controllerHelpBtn');
-        pillBtn?.addEventListener('click', () => this.toggleHelpModal('gamepad'));
 
         // Keyboard / Game Controller tab switcher
         document.querySelectorAll('input[name="controlsTabRadio"]').forEach(radio => {
@@ -352,23 +345,12 @@ class GamepadManager {
         this.lastInputWasNavigation = true;
 
         const isModalOpen = this.isAnyModalOpen();
-        const isHelpOpen = this.isHelpModalOpen();
         const isLibOpen = this.isLibraryViewOpen();
-
-        // If Help modal is open, B or Y or View dismisses it
-        if (isHelpOpen) {
-            if (buttonIndex === GamepadButton.B || buttonIndex === GamepadButton.Y || buttonIndex === GamepadButton.VIEW) {
-                this.closeHelpModal();
-                return;
-            }
-        }
 
         switch (buttonIndex) {
             case GamepadButton.Y:
                 // Primary requested feature: Toggle Top Bar HUD in score mode
-                if (isHelpOpen) {
-                    this.closeHelpModal();
-                } else if (!isLibOpen && !isModalOpen) {
+                if (!isLibOpen && !isModalOpen) {
                     this.toggleTopBar();
                 } else if (isLibOpen) {
                     // In Library mode, Y toggles Top Bar
@@ -438,13 +420,9 @@ class GamepadManager {
     handleButtonRelease(buttonIndex, pressedAt, now) {
         const duration = now - pressedAt;
 
-        // View (Back/Select): Long press (>400ms) opens Help Diagram; Quick tap cycles audio source
+        // View (Back/Select): a tap cycles the audio source
         if (buttonIndex === GamepadButton.VIEW) {
-            if (duration >= 400) {
-                this.toggleHelpModal('gamepad');
-            } else {
-                this.cycleAudioSource();
-            }
+            this.cycleAudioSource();
         }
     }
 
@@ -989,9 +967,6 @@ class GamepadManager {
         const songTitleBtn = document.getElementById('topBarSongTitleBtn');
         if (songTitleBtn) {
             songTitleBtn.click();
-        } else {
-            // Settings is a page in the library navigation
-            document.getElementById('libraryNavSettingsBtn')?.click();
         }
     }
 
@@ -1043,10 +1018,6 @@ class GamepadManager {
         // 1b. The library's tab picker (add, choose or manage a song's tabs)
         const tabPicker = document.querySelector('.tabpick:not(.is-closing)');
         if (tabPicker && this.isElementVisible(tabPicker)) return tabPicker;
-
-        // 2. If an offcanvas drawer is open (Menu / Settings)
-        const openOffcanvas = document.querySelector('.settings-page.show');
-        if (openOffcanvas && this.isElementVisible(openOffcanvas)) return openOffcanvas;
 
         // 3. If a theme modal is open (e.g. Colorway finish picker, Controller guide, Tuner, etc.)
         const openBackdrops = Array.from(document.querySelectorAll('.theme-modal-backdrop'))
@@ -1399,8 +1370,7 @@ class GamepadManager {
             .some(el => (el.classList.contains('show') || el.style.display === 'flex' || el.style.display === 'block') && this.isElementVisible(el));
         if (openBackdrops) return true;
 
-        const openOffcanvas = document.querySelector('.settings-page.show');
-        return !!(openOffcanvas && this.isElementVisible(openOffcanvas));
+        return false;
     }
 
     isAnyModalOpen() {
@@ -1418,8 +1388,8 @@ class GamepadManager {
 
     /** The controls reference is the Controls section of the Settings page. */
     isHelpModalOpen() {
-        const wrap = document.querySelector('#fileMenu .setwrap');
-        return Boolean(settingsPanel.isOpen() && wrap && wrap.dataset.section === 'controls' && wrap.dataset.pane === 'page');
+        const wrap = document.querySelector('#libraryModalContent .setwrap');
+        return Boolean(wrap && wrap.dataset.section === 'controls' && wrap.dataset.pane === 'page');
     }
 
     isLibraryViewOpen() {
@@ -1438,25 +1408,6 @@ class GamepadManager {
         if (radio) radio.checked = true;
     }
 
-    openHelpModal(tab) {
-        const panel = document.getElementById('fileMenu');
-        if (!panel) return;
-        this.setControlsTab(tab || this.controllerModal?.dataset.controlsTab || 'keyboard');
-        settingsPanel.show();
-        panel.dispatchEvent(new CustomEvent('settings:section', { detail: 'controls' }));
-    }
-
-    closeHelpModal() {
-        settingsPanel.hide();
-    }
-
-    toggleHelpModal(tab) {
-        if (this.isHelpModalOpen()) {
-            this.closeHelpModal();
-        } else {
-            this.openHelpModal(tab);
-        }
-    }
 }
 
 // Singleton instance

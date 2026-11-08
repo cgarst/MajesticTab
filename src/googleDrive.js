@@ -1,5 +1,5 @@
 // googleDrive.js
-import { loadFile, hideFileMenu } from './main.js';
+import { loadFile } from './main.js';
 import { saveStoredFile } from './fileStore.js';
 import { showToast } from './utils/toast.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
@@ -652,7 +652,6 @@ export function setupDrivePicker() {
     const loadBtn = document.getElementById('loadFromDriveBtn');
     if (loadBtn) {
         loadBtn.addEventListener('click', async () => {
-            hideFileMenu();
             const { openFromProvider } = await import('./fileProviders.js');
             await openFromProvider('google-drive');
         });

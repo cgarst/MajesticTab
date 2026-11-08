@@ -2,7 +2,7 @@
 // Artwork-rich MusicBrainz-powered Tab Library Page aligned to themes.
 
 import { initNativeTabBar, setNativeTabActive } from './nativeTabBar.js';
-import { settingsPanel } from './utils/settingsPanel.js';
+import { mountSettingsPage, parkSettingsPage } from './utils/settingsPage.js';
 import {
     getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
     getSongsByCollection, saveSongToLibrary, addAlbumToLibrary, deleteSongFromLibrary,
@@ -99,7 +99,7 @@ import { closeToolsMenu } from './utils/toolsMenu.js';
 import { closeAllReaderPanels } from './utils/readerPanels.js';
 import { renderToolsPage, releaseEmbeddedTools, forgetResume } from './utils/toolsPage.js';
 
-let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools'
+let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools', 'settings'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
 let libraryBrowseMode = 'artists'; // 'artists' | 'tunings'
 let activeLibraryPane = 'list'; // 'list' | 'songs'
@@ -341,7 +341,7 @@ export async function handleBack() {
                 await renderView();
                 return true;
             }
-        } else if (activeView === 'recents' || activeView === 'openFile' || activeView === 'setlists' || activeView === 'tools') {
+        } else if (activeView === 'recents' || activeView === 'openFile' || activeView === 'setlists' || activeView === 'tools' || activeView === 'settings') {
             if (viewHistory.length > 0) {
                 const prev = viewHistory.pop();
                 activeView = prev.view || 'library';
@@ -513,6 +513,7 @@ export function closeLibraryModal(force = false) {
 
     if (force === true || currentOpen) {
         releaseEmbeddedTools(true);
+        parkSettingsPage();
         if (page) page.style.display = 'none';
         // Drop the hidden library's DOM: covers still loading (or retrying 500s from the art server) are cancelled, and
         // nothing keeps requesting art while a tab is open. Opening the library renders it again.
@@ -889,6 +890,12 @@ async function renderView() {
 
 async function renderViewContent(content) {
     if (activeView !== 'tools') { releaseEmbeddedTools(); forgetResume(); }
+    // Settings is a view like Tools. Its page is built once and moved in here, so it is parked before anything else draws
+    parkSettingsPage();
+    if (activeView === 'settings') {
+        mountSettingsPage(content);
+        return;
+    }
     if (activeView === 'library') {
         await renderLibraryBrowseView(content);
     } else if (activeView === 'recents') {
@@ -1027,7 +1034,7 @@ async function renderLibraryBrowseView(container) {
                 const { openBackupModal } = await import('./backupRestore.js');
                 await openBackupModal('restore');
             } catch (_) {
-                settingsPanel.show();
+                switchView('settings');
             }
         });
         return;
@@ -2207,7 +2214,7 @@ export function bindListFilter(container, { inputId, clearId, rowSelector, empty
 
 function getActiveLibraryTab() {
     if (activeView === 'library') return 'library'; // the Tunings browse is still the Library destination
-    return activeView === 'setlists' || activeView === 'recents' || activeView === 'tools' ? activeView : null;
+    return activeView === 'setlists' || activeView === 'recents' || activeView === 'tools' || activeView === 'settings' ? activeView : null;
 }
 
 // Shared by the desktop view switcher and the phone bottom nav
@@ -2215,7 +2222,7 @@ export async function goLibraryTab(tab) {
     // Choosing a destination always starts it fresh: a search typed there is cleared
     libraryFilterQuery = '';
     searchSubView = null;
-    if (tab === 'setlists' || tab === 'recents' || tab === 'tools') {
+    if (tab === 'setlists' || tab === 'recents' || tab === 'tools' || tab === 'settings') {
         if (activeView !== tab) await switchView(tab);
         else { activeLibraryPane = 'list'; await renderLibraryModal(); }
         return;
@@ -2250,54 +2257,26 @@ function syncLibraryBottomNav() {
         nav.setAttribute('data-tauri-drag-region', '');
         // Phones: bottom tab bar. Wide windows: left rail (CSS). Settings sits last; Add music stays in each list's toolbar.
         nav.innerHTML = `${tabHtml(lib)}${tabHtml(setlists)}${tabHtml(tools)}
-          <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings" aria-controls="fileMenu"><i class="bi-gear"></i><span>Settings</span></button>`;
+          <button type="button" class="library-nav-tab library-nav-settings" id="libraryNavSettingsBtn" title="Settings"><i class="bi-gear"></i><span>Settings</span></button>`;
         nav.addEventListener('click', (e) => {
-            const tab = e.target.closest('[data-lib-tab]');
-            if (tab) {
-                // Settings is a page beside the rail: leaving it for another destination closes it. Render the
-                // destination first, under Settings, so closing it shows that screen and not the one beneath.
-                closeToolsMenu();
-                const settingsWasOpen = isSettingsPageOpen();
-                const going = goLibraryTab(tab.dataset.libTab);
-                if (settingsWasOpen) going.then(closeSettingsPage, closeSettingsPage);
-                return going;
-            }
-            if (e.target.closest('#libraryNavSettingsBtn')) {
-                const panel = document.getElementById('fileMenu');
-                if (panel) {
-                    // Opened from the navigation, Settings is a page: it fills the content area beside the rail
-                    if (!panel.dataset.pageHooked) {
-                        panel.dataset.pageHooked = '1';
-                        panel.addEventListener('settings:shown', syncLibraryBottomNav);
-                        panel.addEventListener('settings:hidden', syncLibraryBottomNav);
-                    }
-                    closeToolsMenu();
-                    // A destination, not a switch: tapping it again stays on Settings
-                    settingsPanel.show();
-                    syncLibraryBottomNav();
-                }
-            }
+            // Settings is a destination like the rest: one path, and the view decides what is on screen
+            const tab = e.target.closest('[data-lib-tab], #libraryNavSettingsBtn');
+            if (!tab) return;
+            closeToolsMenu();
+            return goLibraryTab(tab.id === 'libraryNavSettingsBtn' ? 'settings' : tab.dataset.libTab);
         });
         document.body.appendChild(nav);
     }
-    // While the Settings page is open it is the one current destination, not the tab underneath it
-    const settingsOpen = isSettingsPageOpen();
-    const active = settingsOpen ? null : getActiveLibraryTab();
+    // One current destination, Settings included
+    const active = getActiveLibraryTab();
     nav.querySelectorAll('[data-lib-tab]').forEach(b => b.classList.toggle('active', b.dataset.libTab === active));
     const settingsBtn = nav.querySelector('#libraryNavSettingsBtn');
+    const settingsOpen = active === 'settings';
     settingsBtn?.classList.toggle('active', settingsOpen);
     if (settingsBtn) settingsOpen ? settingsBtn.setAttribute('aria-current', 'page') : settingsBtn.removeAttribute('aria-current');
     // The iOS app shows the system tab bar in its place (iOS 26 and later); this keeps it on the same destination
     initNativeTabBar();
-    setNativeTabActive(settingsOpen ? 'settings' : active);
-}
-
-function isSettingsPageOpen() {
-    return document.body.classList.contains('settings-as-page') && document.getElementById('fileMenu')?.classList.contains('show');
-}
-
-function closeSettingsPage() {
-    settingsPanel.hide();
+    setNativeTabActive(active);
 }
 
 function bindLibraryToolbarEvents(container) {

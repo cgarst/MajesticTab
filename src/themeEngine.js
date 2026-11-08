@@ -279,15 +279,6 @@ export function renderThemeModalGrid(activeThemeId = getCurrentTheme()) {
   });
 }
 
-/** Open Settings on the Appearance section, where the themes live. */
-export async function openThemeSettings() {
-  const panel = document.getElementById('fileMenu');
-  if (!panel) return;
-  const { settingsPanel } = await import('./utils/settingsPanel.js');
-  settingsPanel.show();
-  panel.dispatchEvent(new CustomEvent('settings:section', { detail: 'appearance' }));
-}
-
 export function initTheming() {
   refreshAppearance();
   // Setup sheet mode radio change listeners

@@ -93,9 +93,7 @@ function searchInput() {
 let lastSearch = '';
 function syncSearch() {
     if (state !== 'on') return;
-    // A full page (Settings) covers the library; its hidden search field must not show through as a native one
-    const coveredByPage = Boolean(document.querySelector('.app-page.show'));
-    const input = wantVisible && !coveredByPage ? searchInput() : null;
+    const input = wantVisible ? searchInput() : null;
     const visible = Boolean(input);
     document.body.classList.toggle('native-search', visible);
     const args = { visible, placeholder: input?.placeholder || 'Search', text: input?.value || '' };

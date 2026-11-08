@@ -1166,7 +1166,7 @@ export async function getSettingsDataHost(tab) {
     }
     const navBtn = document.getElementById('libraryNavSettingsBtn');
     if (!navBtn) return null;
-    if (!document.body.classList.contains('settings-as-page')) {
+    if (!document.querySelector('#libraryModalContent .setshell.settings-page')) {
         navBtn.click();
         await wait(450);
     }

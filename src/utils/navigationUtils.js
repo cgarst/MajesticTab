@@ -1,5 +1,4 @@
 // navigationUtils.js
-import { settingsPanel } from './settingsPanel.js';
 import { showToast } from './toast.js';
 import { isIOSDevice } from './iosAudioUnlock.js';
 import { scrollByViewport } from './scrollUtils.js';
@@ -489,12 +488,8 @@ export function performAppBack(getConfig = null) {
         return true;
     }
 
-    const openModal = document.querySelector('.modal.show, .settings-page.show');
+    const openModal = document.querySelector('.modal.show');
     if (openModal) {
-        if (openModal.classList.contains('settings-page')) {
-            settingsPanel.hide();
-            return true;
-        }
         const closeBtn = openModal.querySelector('[data-bs-dismiss="modal"], .btn-close, .theme-modal-close-btn');
         if (closeBtn) {
             closeBtn.click();
@@ -625,11 +620,6 @@ export function setupSystemBackNavigation(getConfig) {
                 return;
             }
             const handled = handleBack();
-            if (!handled) {
-                // Nothing left to go back to (e.g. iOS PWA edge swipe at the library root):
-                // reveal settings instead of letting the gesture leave the app.
-                settingsPanel.show();
-            }
             // Re-arm the guard entry so the next back gesture is also caught
             if (handled || !window.history.state?.depth) {
                 try {

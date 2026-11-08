@@ -16,7 +16,12 @@ import {
     openTabDownloader
 } from '../tabDownloader.js';
 import { showToast } from './toast.js';
-import { hide as hideSettings } from './settingsPanel.js';
+
+// The downloader opens over the library, not over Settings: step back out of the Settings view first
+async function hideSettings() {
+    const { handleBack, getActiveLibraryView } = await import('../libraryModal.js');
+    if (getActiveLibraryView() === 'settings') await handleBack();
+}
 
 function el(tag, className, html) {
     const node = document.createElement(tag);
@@ -289,7 +294,7 @@ function makeProvidersGroup() {
                 const testProviderBtn = el('button', 'btn btn-theme-outline btn-sm', 'Test');
                 testProviderBtn.type = 'button';
                 testProviderBtn.title = 'Test this provider in the in-app browser';
-                testProviderBtn.addEventListener('click', () => {
+                testProviderBtn.addEventListener('click', async () => {
                     let uVal = urlInput.value.trim() || src.urlTemplate;
                     if (uVal && !/^https?:\/\//i.test(uVal)) uVal = 'https://' + uVal;
                     const draft = {
@@ -305,7 +310,7 @@ function makeProvidersGroup() {
                     else all.push(draft);
                     saveSources(all);
                     renderDownloaderTabs();
-                    hideSettings();
+                    await hideSettings();
                     openTabDownloader({
                         targetSourceId: draft.id,
                         query: draft.queryFormat === 'song_only' ? 'Duo No 2 In G Major' : 'Carulli Duo No 2 In G Major'
@@ -441,8 +446,8 @@ function makeTestSearchGroup() {
     const testBtn = el('button', 'btn btn-sm srow-ghost srow-hit', 'Test');
     testBtn.type = 'button';
     testBtn.setAttribute('aria-label', 'Test web search');
-    testBtn.addEventListener('click', () => {
-        hideSettings();
+    testBtn.addEventListener('click', async () => {
+        await hideSettings();
         openTabDownloader({ query: 'Carulli Duo No 2 In G Major' });
     });
 

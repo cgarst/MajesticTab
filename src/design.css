@@ -125,7 +125,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .theme-modal-card, .theme-modal-backdrop, .dropdown-menu, .tools-menu, .popover-pop { animation: none !important; }
-  .form-switch .form-check-input, .app-page { transition: none !important; }
+  .form-switch .form-check-input { transition: none !important; }
   .btn-theme-primary:active:not(:disabled),
   .btn-theme-outline:active:not(:disabled),
   .theme-control-btn:active:not(:disabled),
@@ -943,20 +943,8 @@ body.practice-open #output { padding-right: 416px !important; }
 /* ==========================================================================
    Settings: a page. Big title, section list, grouped rows (title, help, control).
    ========================================================================== */
-/* One shell for the pages that fill the content area beside the rail (Settings; Tools and the library fill the same area in the document flow).
-   It is placed with all four insets, never a height, so it always reaches the bottom edge of the screen on iOS and nothing under it shows.
-   Settings opens and closes in place (src/utils/settingsPanel.js). */
-.app-page {
-  --page-top: var(--topbar-h, 52px); --page-left: 0px;
-  position: fixed; inset: var(--page-top) 0 0 var(--page-left); z-index: 1030; display: none; flex-direction: column; outline: 0;
-  background: var(--s1); border: 0; box-shadow: none; color: var(--ink); overflow: hidden;
-}
-.app-page.show { display: flex; }
-body.library-view-active .app-page { --page-top: 0px; }
-/* Windows keeps the 20px drag strip above the page, like the other library pages */
-.tauri-windows body.library-view-active .app-page { --page-top: 20px; }
-@media (min-width: 577px) { body.library-view-active .app-page { --page-left: calc(76px + env(safe-area-inset-left, 0px)); } }
-@media (min-width: 1000px) { body.library-view-active .app-page { --page-left: 212px; } }
+/* Settings and Tools are library views: the page is drawn in the library's content area (src/utils/settingsPage.js, toolsPage.js).
+   #fileMenu only parks Settings' built page while another view shows. */
 .page-body { flex: 1; min-height: 0; padding: 0; display: block; overflow: hidden; }
 .setshell { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .sethead { padding: 22px 28px 6px; flex: none; user-select: none; -webkit-user-select: none; }
@@ -1680,14 +1668,6 @@ body.fretboard-open {
    score (Settings is in the tab bar), and the Settings page needs the whole screen. */
 @media (max-width: 576px) {
   body.library-view-active #topBar { display: none !important; }
-  /* Settings fills the screen down to the mobile bottom tab bar */
-  html body.settings-as-page.library-view-active #fileMenu {
-    top: 0 !important;
-    /* The tab bar is taller than 56px (top padding + tab + safe area), so stopping at 56px left a few px of the page
-       behind showing above it. Run 16px under the opaque bar instead. */
-    bottom: calc(40px + env(safe-area-inset-bottom, 0px)) !important;
-    height: auto !important;
-  }
   .setpage {
     padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
   }
@@ -2647,9 +2627,9 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 .setlists-view > .title-row p { margin: 6px 0 0; color: var(--ink2); font-size: 14px; }
 @media (max-width: 899px) { .setlists-view > .title-row h2 { font-size: 36px; } }
 /* The page body pads its bottom by max(inset + 1.25rem, 2rem); the shell cancels all of it, so a landscape phone's home inset leaves no gap */
-.tools-shell { --body-pb: max(calc(env(safe-area-inset-bottom, 0px) + 1.25rem), 2rem); height: calc(100% + 20px + var(--body-pb)); margin: -20px -20px calc(-1 * var(--body-pb)); }
+.setshell { --body-pb: max(calc(env(safe-area-inset-bottom, 0px) + 1.25rem), 2rem); height: calc(100% + 20px + var(--body-pb)); margin: -20px -20px calc(-1 * var(--body-pb)); }
 /* The phone page body is padded 12px / 8px, so this lands Tools exactly where Settings sits (title and rows 16px in) */
-@media (max-width: 576px) { .tools-shell { height: calc(100% + 44px); margin: 0 -8px -32px; } }
+@media (max-width: 576px) { .setshell { height: calc(100% + 44px); margin: 0 -8px -32px; } }
 .tools-shell .setpage { max-width: none; }
 
 /* Tools is an instrument rack, not a settings list: rows grouped by purpose (a gap, no heading), a plain readout of real
@@ -4497,18 +4477,12 @@ body.phone-reader #screenRow { display: none !important; }
 body.native-tabbar .library-bottom-nav { display: none !important; }
 /* Wider than a phone (the iPhone Duo's strip layouts): the native rail replaces the web rail, so the page keeps no room for it */
 body.native-tabbar { --rail-w: 0px; }
-/* Full pages such as Settings start where the web rail ended; with the native rail they use the room the rail actually takes, on its side */
-body.native-tabbar.library-view-active .app-page {
-  --page-left: max(env(safe-area-inset-left, 0px), var(--native-rail-left, 0px));
-  right: max(env(safe-area-inset-right, 0px), var(--native-rail-right, 0px));
-}
 body.native-tabbar.library-view-active #libraryPage {
   padding-left: max(env(safe-area-inset-left, 0px), var(--native-rail-left, 0px));
   padding-right: max(env(safe-area-inset-right, 0px), var(--native-rail-right, 0px));
 }
 /* The horizontal bar overlays the page at every width, so pages reserve its height; the side rail is already a safe-area inset */
 html:not(.native-vertical) body.native-tabbar.library-view-active .library-page-body { padding-bottom: calc(var(--native-tabbar-h, 83px) + 1rem) !important; }
-html:not(.native-vertical) body.native-tabbar.settings-as-page.library-view-active #fileMenu { bottom: 0 !important; }
 html:not(.native-vertical) body.native-tabbar .setpage { padding-bottom: calc(var(--native-tabbar-h, 83px) + 16px) !important; }
 html:not(.native-vertical) body.native-tabbar .tools-shell .setpage:has(.classtab-tool-embedded) { padding-bottom: calc(var(--native-tabbar-h, 83px) + 8px) !important; }
 

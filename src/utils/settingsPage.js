@@ -171,15 +171,6 @@ export function initSettingsPage() {
     if (!panel || !body || panel.dataset.pageBuilt) return;
     panel.dataset.pageBuilt = '1';
 
-    // While Settings is the open destination the library page under it is not reachable: out of the keyboard order and
-    // the accessibility tree (a screen reader otherwise walks the Tools or Library rows behind Settings)
-    const libraryPageEl = $('libraryPage');
-    if (libraryPageEl && typeof MutationObserver !== 'undefined') {
-        const syncBehind = () => { libraryPageEl.inert = panel.classList.contains('show'); };
-        new MutationObserver(syncBehind).observe(panel, { attributes: true, attributeFilter: ['class'] });
-        syncBehind();
-    }
-
     // ---- gather the controls from the static markup before it is replaced by the page ----
     const take = (id) => $(id);
     const instrumentGroup = take('instrumentModeGuitar')?.closest('.hud-pill-group');
@@ -202,7 +193,7 @@ export function initSettingsPage() {
     const deleteAll = take('deleteAllDataBtn');
 
     // ---- build the page ----
-    const shell = el('div', 'setshell');
+    const shell = el('div', 'setshell settings-page');
     shell.dataset.pane = 'list';
     // The page's one h1, shown at the top like Tools
     const pageTitle = el('h1', 'set-title', 'Settings');
@@ -479,6 +470,7 @@ export function initSettingsPage() {
     // What is left of the markup it was taken from (the controls above now live in the rows)
     body.querySelectorAll(':scope > *').forEach((n) => n.remove());
     body.appendChild(shell);
+    parking = body;
 
     // The Updates entry shows only while the update card is there and visible
     const updatesNav = nav.querySelector('button[data-section="updates"]');
@@ -508,8 +500,6 @@ export function initSettingsPage() {
         const b = e.target.closest('button[data-section]');
         if (b) show(b.dataset.section, { focus: true });
     });
-    // Other code can open a section: panel.dispatchEvent(new CustomEvent('settings:section', { detail: 'appearance' }))
-    panel.addEventListener('settings:section', (e) => show(e.detail, { focus: true }));
     back.addEventListener('click', () => {
         wrap.dataset.pane = 'list';
         shell.dataset.pane = 'list';
@@ -528,11 +518,33 @@ export function initSettingsPage() {
         }
     });
 
-    // Settings is a page wherever it opens from
-    panel.addEventListener('settings:show', () => {
-        if (!wide()) {
-            wrap.dataset.pane = 'list';
-            shell.dataset.pane = 'list';
+    // Entering Settings on a narrow screen starts on the section list
+    built = {
+        shell,
+        resetToList() {
+            if (!wide()) {
+                wrap.dataset.pane = 'list';
+                shell.dataset.pane = 'list';
+            }
         }
-    });
+    };
+}
+
+// Settings is a library view (see libraryModal.js). The page is built once, because its controls keep their state and
+// listeners; it is mounted into the library's content area while Settings is the destination and parked, hidden, in
+// #fileMenu otherwise, where the rest of the app can still find its controls by id.
+let built = null;
+let parking = null;
+
+/** Show the Settings page inside `container` (the library's content area). */
+export function mountSettingsPage(container) {
+    if (!built) return;
+    built.resetToList();
+    container.replaceChildren(built.shell);
+}
+
+/** Take the Settings page out of the library's content area, before that area is redrawn or emptied. */
+export function parkSettingsPage() {
+    if (!built || !parking || built.shell.parentElement === parking) return;
+    parking.appendChild(built.shell);
 }
