@@ -139,7 +139,7 @@ async function renderSetlistsPage(container, onBack) {
 
     const listPaneHtml = `
       <section class="pane list" aria-label="Setlists">
-        <h3 class="pane-head"><span>Setlists</span></h3>
+        <h3 class="pane-head"><span>Setlists <span class="tnum">(${setlists.length})</span></span></h3>
         <div class="pane-scroll">
           <div class="library-artists-grid" id="setlistsList">
             ${setlists.map(cardHtml).join('')}

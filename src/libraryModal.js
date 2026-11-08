@@ -1141,7 +1141,7 @@ async function renderLibraryBrowseView(container) {
             const listPaneHtml = `
               <section class="pane list" aria-label="Tunings">
                 ${groupByRowHtml(tuningArtistSelectHtml)}
-                <h3 class="pane-head"><span>Tunings</span></h3>
+                <h3 class="pane-head"><span>Tunings <span class="tnum">(${tuningGroups.length})</span></span></h3>
                 <div class="pane-scroll">
                   <div class="library-artists-grid" id="libTuningsList">
                     ${tuningGroups.map(cardHtml).join('')}
@@ -1608,7 +1608,7 @@ async function renderLibraryBrowseView(container) {
               ${pinnedGroupHtml}
               ${recentsGroupHtml}
               ${customGroup.map(artistCardHtml).join('')}
-              <h3 class="pane-head"><span>Artists</span></h3>
+              <h3 class="pane-head"><span>Artists <span class="tnum">(${regularArtists.length})</span></span></h3>
               <div class="pane-scroll">
                 <div class="library-artists-grid" id="libArtistsGrid">
                   ${regularArtists.map(artistCardHtml).join('')}
@@ -2150,10 +2150,10 @@ export function bindTwoPaneFilter(container, { inputId, clearId, key, cardSelect
         const cards = [...container.querySelectorAll(cardSelector)];
         cards.forEach(card => card.classList.toggle('lib-filter-hidden', Boolean(q) && !(card.dataset.search || '').includes(q)));
         const visible = cards.filter(c => !c.classList.contains('lib-filter-hidden'));
-        const count = container.querySelector('.library-list-toolbar > div:first-child > span.small');
+        const count = container.querySelector('.pane.list .pane-head .tnum');
         if (count) {
             if (count.dataset.total === undefined) count.dataset.total = count.textContent;
-            count.textContent = q ? count.dataset.total.replace(/^\d+/, String(visible.length)) : count.dataset.total;
+            count.textContent = q ? `(${visible.length})` : count.dataset.total;
         }
         const current = cards.find(c => c.getAttribute('aria-current') === 'true');
         if (q && current && current.classList.contains('lib-filter-hidden') && visible.length) { visible[0].click(); return; }
