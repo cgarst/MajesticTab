@@ -955,6 +955,17 @@ body.library-view-active .app-page { --page-top: 0px; }
 .sethead p { margin: 6px 0 0; color: var(--ink2); font-size: 14px; }
 .sethead .sethead-section { display: none; margin: 0; font: 700 20px/1.2 var(--font-display); color: var(--ink); letter-spacing: -.01em; }
 .sethead .setback { display: none; }
+/* Page title: the one visible h1 on Tools and Settings (the rail names the destination, but the page should too) */
+.setshell > h1.visually-hidden {
+  position: static; width: auto; height: auto; margin: 0; overflow: visible; clip: auto; clip-path: none; white-space: normal;
+  flex: none; padding: 22px 28px 10px; font: 700 32px/1.1 var(--font-display); letter-spacing: -.01em; color: var(--ink);
+  user-select: none; -webkit-user-select: none;
+}
+@media (max-width: 899px) {
+  .setshell > h1.visually-hidden { padding: max(calc(env(safe-area-inset-top, 0px) + 12px), 20px) max(env(safe-area-inset-right, 0px), 16px) 0 max(env(safe-area-inset-left, 0px), 16px); }
+  .setshell[data-pane="page"] > h1.visually-hidden,
+  .setshell:has(.setwrap[data-pane="page"]) > h1.visually-hidden { display: none; }
+}
 .setwrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr; }
 @media (min-width: 900px) {
   .setwrap { grid-template-columns: 260px minmax(0, 1fr); }
@@ -969,7 +980,7 @@ body.library-view-active .app-page { --page-top: 0px; }
     padding-right: max(env(safe-area-inset-right, 0px), 16px);
   }
   .setnav {
-    padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 16px) !important;
+    padding-top: 8px !important; /* the page title above carries the safe-area inset */
     padding-left: max(env(safe-area-inset-left, 0px), 16px) !important;
     padding-right: max(env(safe-area-inset-right, 0px), 16px) !important;
   }
