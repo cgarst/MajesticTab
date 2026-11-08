@@ -4452,11 +4452,24 @@ html:not(.native-vertical) body.native-tabbar .tools-shell .setpage:has(.classta
    in the DOM, hidden, because it holds the search logic */
 body.native-search .library-search-box { display: none !important; }
 /* ...and it floats at the top of the window, so the page starts below it */
-body.native-search .library-page-container { padding-top: var(--native-search-top, 0px) !important; }
+body.native-search.library-view-active .library-page-body { padding-top: 0 !important; }
+body.native-search .library-page-container { padding-top: calc(var(--native-search-top, 0px) - 4px) !important; }
 
 /* iPhone Duo and other devices whose system keeps its status in a vertical strip at the screen edge (see nativeTabBar.js):
    the reader's top bar stays clear of it, as the library's rail does */
 html.native-vertical body:not(.library-view-active) { --wc-r: max(calc(var(--native-rail-right, 0px) - 12px), 0px); }
+
+/* iPhone Duo held upright: the system's status cluster takes the top-right corner of the top band. The reader's top bar is two rows:
+   back and the song title/menu in the first, left of the cluster; View through Tools and the page buttons in the second. */
+html.native-status-corner body:not(.library-view-active):not(.phone-reader) #topBar {
+  display: grid; grid-template-columns: minmax(0, 1fr) !important; grid-template-rows: auto auto; align-items: center; row-gap: 0;
+  padding-top: 28px;
+}
+html.native-status-corner body:not(.library-view-active):not(.phone-reader) #brandSection { padding-right: var(--native-status-r, 0px); min-height: 44px; }
+html.native-status-corner body:not(.library-view-active):not(.phone-reader) #rightSection { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; min-width: 0; width: 100%; }
+html.native-status-corner body:not(.library-view-active):not(.phone-reader) #navButtons { margin-left: auto; }
+/* Reading mode takes the whole bar out of the layout (it is taller than the 56px style.css assumes), so the page starts at the top */
+html.native-status-corner body:not(.library-view-active):not(.phone-reader) #topBar.hud-hidden:not(.hud-transient) { margin-top: calc(-1 * var(--topbar-h, 114px)); }
 
 /* Bottom dock on a device whose system bars live at the screen's side (iPhone Duo): there is no bottom bar under the dock, so it keeps
    only a part of the home-indicator inset instead of leaving the whole of it as empty space */

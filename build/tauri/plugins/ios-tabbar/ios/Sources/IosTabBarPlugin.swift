@@ -132,6 +132,7 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
     private var verticalEdge = 0 // 0 none, 1 leading, 2 trailing (UIVerticalBarEdge)
     private var lastInset: CGFloat = -1
     private var lastTop: CGFloat = -1
+    private var lastCorner: CGFloat = -1
     private var sideReserved: (left: CGFloat, right: CGFloat) = (0, 0)
     private var lastSide: (left: CGFloat, right: CGFloat) = (-1, -1)
 
@@ -159,6 +160,7 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
             // ...and hears every value again (its CSS variables start empty), so nothing is skipped as unchanged
             self.lastInset = -1
             self.lastTop = -1
+            self.lastCorner = -1
             self.lastSide = (-1, -1)
             self.verticalEdge = -1
             if self.bar == nil { self.makeChrome(in: window) }
@@ -414,7 +416,14 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
         // (phones, iPads) the status spans the band, so the field goes below it.
         let statusCorner = !vertical && window.bounds.width >= 600 && window.safeAreaInsets.top >= 70
         let statusClear: CGFloat = 130
-        let topConstant: CGFloat = statusCorner ? 28 : max(window.safeAreaInsets.top, statusBottom) + 8
+        // The page keeps its own top row clear of the cluster too (the reader's top bar)
+        let corner: CGFloat = statusCorner ? statusClear : 0
+        if corner != lastCorner {
+            lastCorner = corner
+            try? channel?.send(["type": "corner", "value": Double(corner)])
+        }
+        // (the rail's strip carries the status in landscape, so the band above the content is free there too)
+        let topConstant: CGFloat = (statusCorner || vertical) ? 28 : max(window.safeAreaInsets.top, statusBottom) + 8
         if !vertical {
             let trailing: CGFloat = statusCorner ? -statusClear : -16
             if searchTrailing?.constant != trailing { searchTrailing?.constant = trailing }

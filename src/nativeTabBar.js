@@ -30,6 +30,11 @@ function onEvent(msg) {
     if (!msg) return;
     if (msg.type === 'height') {
         document.documentElement.style.setProperty('--native-tabbar-h', `${Math.round(msg.value)}px`);
+    } else if (msg.type === 'corner') {
+        // The system's status cluster sits in the top-right corner (iPhone Duo upright); the reader's top bar stays left of it
+        const width = Math.round(Number(msg.value));
+        document.documentElement.classList.toggle('native-status-corner', width > 0);
+        document.documentElement.style.setProperty('--native-status-r', `${width}px`);
     } else if (msg.type === 'top') {
         // Room the native search field takes at the top of the window (0 when it is hidden)
         document.documentElement.style.setProperty('--native-search-top', `${Math.round(msg.value)}px`);
