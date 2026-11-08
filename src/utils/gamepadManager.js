@@ -7,6 +7,7 @@ import { isTvMode } from '../tvMode.js';
 import { getDefaultGpDisplayScalePercent } from '../gpProcessor/gpProcessor.js';
 import { performAppBack } from './navigationUtils.js';
 import { isPhoneReader } from './viewModeUtils.js';
+import { isTabletop } from '../foldState.js';
 
 // Controller configuration constants
 // Reading mode is remembered across sessions on phones
@@ -696,6 +697,8 @@ class GamepadManager {
 
         const phone = isPhoneReader();
         const nextHidden = forceState !== null ? forceState : !this.isHudHidden;
+        // iPhone Duo with the crease across: the bottom half is the controls, so there is nothing to hide
+        if (nextHidden && isTabletop()) return;
         this.isHudHidden = nextHidden;
         const mobileDock = document.getElementById('mobilePlaybackDock');
         document.body.classList.toggle('reading-mode', nextHidden);

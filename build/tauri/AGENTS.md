@@ -37,6 +37,14 @@ Use this only for native-shell issues (window, titlebar, plugins, Rust commands,
   2. Open Safari and go to menu **Develop -> iPhone 17 (Simulator) -> MajesticTab** (or the target page title/URL, such as `localhost`).
   3. Once Web Inspector opens, inspect elements, evaluate scripts in the console, view CSS rules, and monitor network requests inside the simulator's WKWebViews.
 
+## iPhone Duo fold (`plugins/ios-fold`)
+
+- The plugin (`start`, `stop`) streams `{type: "fold", pose, hinge, angle, x, y, w, h, winW, winH}` over a channel to `src/foldState.js`, which owns the layout side (see the iPhone Duo bullet in the root `AGENTS.md`). Poses: `none` (no fold, or iOS before 27.1), `flat` (inactive fold region), `tabletop` (active region wider than tall), `book` (taller than wide). Frames are window points, which are CSS pixels. Needs the iOS 27.1 SDK and a Duo runtime (Xcode 27.2 has `iPhone Duo` simulators).
+- Hinge status is the system's: never derive it from the angle. A flat device's fold region is inactive, so the query passes `.includeInactive`. The plugin sends nothing for a repeat, and an angle change alone is not sent.
+- Build and install as in iOS Simulator above, on the Duo device (`xcrun simctl list devices | grep Duo`). `simctl` cannot move the hinge: fold the device from Simulator.app, then read the state through the debug bridge: `curl -s --data-binary '(() => ({pose: document.documentElement.dataset.foldPose, top: getComputedStyle(document.documentElement).getPropertyValue("--fold-top"), h: getComputedStyle(document.documentElement).getPropertyValue("--fold-h")}))()' http://127.0.0.1:9555/eval`. The pose appears about 300ms after the fold stops. It is `undefined` until the first change from `none`.
+- Without the device, drive the same layouts in a browser with `?fold=tabletop` or `?fold=book` (see `src/foldState.js`).
+- The iOS build may rewrite `plugins/ios-tabbar/ios/Sources/IosTabBarPlugin.swift` in the working tree; check `git status` after a simulator build and do not commit that change by accident.
+
 ## In-app updates
 
 - `src/updater.js` decides whether a newer build exists (GitHub Releases, `stable` or `canary` channel). Windows and macOS then install it with `tauri-plugin-updater` (`src-tauri/src/self_update.rs`, command `install_update`); Android downloads the APK and opens the system installer (`AndroidUpdater` in `android-MainActivity.kt`); Flatpak and iOS fall back to opening the download page.

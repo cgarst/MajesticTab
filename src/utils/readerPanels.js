@@ -8,10 +8,18 @@
 //
 // Each panel module keeps its own contents and placement; this file owns the open state and the motion.
 
+import { isTabletop } from '../foldState.js';
+
 const EXIT_MS = 150;
 const timers = new WeakMap();
 
 const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/**
+ * Whether a tap outside an open panel closes it. In tabletop (iPhone Duo, crease across) the panels live in the bottom half and
+ * never cover the score, so a tap on the score (turning a page, placing the cursor) must leave them open.
+ */
+export function outsideTapCloses() { return !isTabletop(); }
 
 /** True while the panel is on screen and not on its way out */
 export function isShown(el) {
@@ -71,6 +79,12 @@ const PANELS = [
     { button: 'ytToggleBtn', panel: 'ytDropdownPanel', close: click('ytPanelCloseBtn') },
     { button: 'dockVolumeBtn', panel: null, close: click('dockVolumeBtn') }
 ];
+
+/** True when any reader panel is open (tabletop keeps one open in the bottom half) */
+export function anyReaderPanelOpen() {
+    return PANELS.some((p) => (p.panel ? isShown(document.getElementById(p.panel))
+        : document.getElementById(p.button)?.getAttribute('aria-expanded') === 'true'));
+}
 
 /** Close every open reader panel (the library has no reader chrome). */
 export function closeAllReaderPanels() {

@@ -1,6 +1,6 @@
 import { loadGuitarPro, GP_DISPLAY_SCALE, GP_STRETCH_FORCE, getActiveInstrumentTracks, getGpNotationMode, getGpStaveProfile, saveHiddenTracks } from './gpProcessor.js';
 import { hideLoadingBar } from '../main.js';
-import { getPagesPerView } from '../utils/viewModeUtils.js';
+import { getPagesPerView, pageGapPx } from '../utils/viewModeUtils.js';
 import { enableContinuousScrollTracking } from '../utils/scrollUtils.js';
 import { createPageWrapper, createPageContainer, clearOutput, updatePageIndicator, updateScrollIndicator } from '../utils/renderUtils.js';
 import { updateSongForYouTube } from '../youtubePlayer.js';
@@ -118,7 +118,7 @@ export async function loadGP(file, output, pageModeRadio, continuousModeRadio, d
     const pagesPerView = getPagesPerView(true);
     // Page width = (viewport - container padding - gaps) / pages, minus wrapper border and horizontal padding
         const wrapperPadX = window.innerWidth <= 576 ? 2 : window.innerWidth < 768 ? 4 : 8;
-        const targetWidth = Math.floor((window.innerWidth - (window.innerWidth <= 576 ? 4 : 20) - 10 * (pagesPerView - 1)) / pagesPerView) - 2 - wrapperPadX * 2;
+        const targetWidth = Math.floor((window.innerWidth - (window.innerWidth <= 576 ? 4 : 20) - pageGapPx() * (pagesPerView - 1)) / pagesPerView) - 2 - wrapperPadX * 2;
 
     container.style.width = isPageMode ? `${targetWidth}px` : '100%';
     container.style.height = isPageMode ? '100%' : 'auto';

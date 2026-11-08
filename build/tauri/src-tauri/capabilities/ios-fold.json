@@ -1,0 +1,11 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "ios-fold",
+  "description": "Fold and hinge state for the iPhone Duo (iOS only)",
+  "windows": ["main"],
+  "platforms": ["iOS"],
+  "permissions": [
+    "ios-fold:allow-start",
+    "ios-fold:allow-stop"
+  ]
+}

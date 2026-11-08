@@ -10,7 +10,7 @@ import { updateGlobalAudioControls } from './navigationUtils.js';
 
 const LEGACY_KEYS = ['majestictab.pinnedTool', 'majestictab.playbackDock'];
 
-import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
+import { showPanel, hidePanel, isShown, placePanel, outsideTapCloses } from './readerPanels.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -102,7 +102,7 @@ export function initToolsMenu() {
     });
 
     document.addEventListener('pointerdown', (e) => {
-        if (!isOpen()) return;
+        if (!isOpen() || !outsideTapCloses()) return;
         if (menu.contains(e.target)) return;
         if (toggleBtn?.contains(e.target)) return;
         if (activeTriggerBtn?.contains(e.target)) return;

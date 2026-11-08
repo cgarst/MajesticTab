@@ -2461,6 +2461,7 @@ dependencies = [
  "tauri-plugin-fs",
  "tauri-plugin-google-auth",
  "tauri-plugin-http",
+ "tauri-plugin-ios-fold",
  "tauri-plugin-ios-tabbar",
  "tauri-plugin-oauth",
  "tauri-plugin-opener",
@@ -4609,6 +4610,14 @@ dependencies = [
  "tokio",
  "url",
  "urlpattern",
+]
+
+[[package]]
+name = "tauri-plugin-ios-fold"
+version = "0.1.0"
+dependencies = [
+ "tauri",
+ "tauri-plugin",
 ]
 
 [[package]]

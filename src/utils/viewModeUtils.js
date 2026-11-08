@@ -1,6 +1,7 @@
 import { enableContinuousScrollTracking, disableContinuousScrollTracking } from './scrollUtils.js';
 import { getDefaultLandscapePageLayout } from './platformUtils.js';
 import { canvasSize, getActiveLazy } from '../pdfProcessor/lazyPages.js';
+import { isTabletop, isBook, getFold } from '../foldState.js';
 
 /**
  * Get current landscape page layout preference ('dual' or 'single')
@@ -24,7 +25,12 @@ export function getPagesPerView(fileType) {
     return layoutPagesPerView();
 }
 
+// The gap between two pages: the crease itself in book pose (one page on each half), 10px otherwise
+export function pageGapPx() { return isBook() ? Math.max(10, getFold().w) : 10; }
+
 function layoutPagesPerView() {
+    // iPhone Duo folded like a book: one page on each half
+    if (isBook()) return 2;
     const aspectRatio = window.innerWidth / window.innerHeight;
     // Show 1 page when 4:3 or narrower; 2-page mode kicks in only when wider than 4:3
     if (aspectRatio <= (4 / 3)) {
@@ -42,7 +48,8 @@ function layoutPagesPerView() {
 
 // The reader chrome is "phone-sized" below 641px wide, or on a short landscape phone
 export const PHONE_READER_QUERY = '(max-width: 640px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px)';
-export function isPhoneReader() { return window.matchMedia(PHONE_READER_QUERY).matches; }
+// Tabletop (an iPhone Duo folded with the crease across) uses the phone reader chrome too: score above, controls below
+export function isPhoneReader() { return window.matchMedia(PHONE_READER_QUERY).matches || isTabletop(); }
 // Phone page mode: the whole area turns pages, the left half back and the right half forward. No tap moves a bar.
 export function phoneTapZone(clientX, _clientY, rect) {
     return (clientX - rect.left) / Math.max(1, rect.width) < 0.5 ? 'prev' : 'next';

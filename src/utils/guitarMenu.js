@@ -10,7 +10,7 @@ import { getTabAdaptPref, getSongGuitar, setSongGuitar, hasTemporaryAdapt, findA
 import { getOverride, setOverride } from './sessionOverrides.js';
 import { showToast } from './toast.js';
 
-import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
+import { showPanel, hidePanel, isShown, placePanel, outsideTapCloses } from './readerPanels.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -147,7 +147,7 @@ export function initGuitarMenu() {
     }
     btn.addEventListener('pointerdown', (e) => e.stopPropagation());
     btn.addEventListener('click', (e) => { e.stopPropagation(); if (isOpen()) close(); else open(); });
-    document.addEventListener('pointerdown', (e) => { if (isOpen() && !menu.contains(e.target) && !btn.contains(e.target)) close(); });
+    document.addEventListener('pointerdown', (e) => { if (outsideTapCloses() && isOpen() && !menu.contains(e.target) && !btn.contains(e.target)) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) { close(); btn.focus(); } });
     window.addEventListener('resize', () => { if (isOpen()) place(); });
 

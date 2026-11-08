@@ -2437,6 +2437,7 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
 /* Short landscape phone: the top becomes a side rail (back, song name, the five words); Reading mode removes it and
    leaves the slim strip */
 @media (min-width: 641px) {
+  :where(html:not(.duo-tabletop)) {
   body.phone-reader:not(.library-view-active) { --reader-rail-w: calc(92px + env(safe-area-inset-left, 0px)); --strip-inset: 0px; }
   body.phone-reader.reading-mode:not(.library-view-active) { --reader-rail-w: env(safe-area-inset-left, 0px); --strip-inset: 0px; }
   body.phone-reader:not(.library-view-active) #topBar { right: auto; bottom: 0; width: var(--reader-rail-w); flex-direction: column; flex-wrap: nowrap; align-items: stretch; padding: 4px 4px 4px max(env(safe-area-inset-left, 0px), 4px) !important; }
@@ -2486,10 +2487,12 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
   body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-left: 0; width: 100% !important; }
   body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { padding-left: calc(var(--reader-rail-w) + 8px); }
   body.phone-reader:not(.library-view-active) .fretboard-dock { left: var(--reader-rail-w) !important; width: auto !important; }
+  }
 }
 /* Short landscape phone, continued: the strip is one row (the screen is short), the fretboard header is compact, and
    sheets are side panels (a bottom sheet would sit under the fretboard and leave no score) */
 @media (min-width: 641px) {
+  :where(html:not(.duo-tabletop)) {
   body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { grid-template-areas: "a r c"; grid-template-columns: auto minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; }
   body.phone-reader:not(.library-view-active) .dock-tools { grid-area: c; grid-column: auto; grid-row: auto; }
   body.phone-reader:not(.library-view-active) .dock-src { margin-inline: 0; transform: none; }
@@ -2513,6 +2516,7 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
   body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel {
     left: auto !important; right: env(safe-area-inset-right, 0px) !important; top: 0 !important; bottom: var(--dock-h, 0px) !important; width: min(320px, 50vw) !important;
     max-height: none !important; z-index: 1060 !important; border-radius: var(--r-lg) 0 0 var(--r-lg) !important;
+  }
   }
 }
 /* Sound panels: the header stays, only the body scrolls (the panel itself scrolling as well made two nested scrollers) */
@@ -4518,3 +4522,27 @@ html.native-vertical body:not(.library-view-active):not(.phone-reader) .mobile-p
 /* The fretboard sits above the bottom dock, which already clears the home indicator, so it keeps only a small pad of its own
    (its full inset showed as an empty band between the strings and the controls on tablets and foldables) */
 body:not(.library-view-active):not(.dock-off) .fretboard-dock { padding-bottom: 6px; }
+
+/* ==========================================================================
+   Tabletop: an iPhone Duo folded with the crease across (src/foldState.js sets html.duo-tabletop, --fold-top and --fold-h).
+   The score fills the top half, the crease stays empty, and everything you touch is in the bottom half: the strip, the
+   five words, and the sheets (which open upward from the strip and stop at the crease, so the score is never covered).
+   The phone reader chrome does the rest (src/utils/narrowAlias.js restates its narrow-screen rules for this pose).
+   Reading mode does not exist here: the bottom half is the controls.
+   ========================================================================== */
+html.duo-tabletop body.phone-reader:not(.library-view-active) {
+  --dt-controls-top: calc(var(--fold-top, 50dvh) + var(--fold-h, 0px));
+}
+html.duo-tabletop body.phone-reader:not(.library-view-active) #mainContent {
+  flex: none; height: var(--fold-top, 50dvh); min-height: 0;
+}
+/* the transport sits at the bottom of the controls half; the empty tone between it and the crease is where the panels open */
+html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-top: auto; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) {
+  max-height: calc(100dvh - var(--dt-controls-top) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - var(--fretboard-effective-h, 0px) - 8px) !important;
+}
+html.duo-tabletop #readingDockBtn, html.duo-tabletop #readingToggleBtn { display: none !important; }
+
+/* Book (iPhone Duo folded with the crease up and down): two pages, one on each half, with the crease between them.
+   foldState.js sets html.duo-book and --fold-left / --fold-w. The normal reader chrome stays (the width is a regular one). */
+html.duo-book .gp-page-container { gap: var(--fold-w, 10px); padding-inline: 0; }

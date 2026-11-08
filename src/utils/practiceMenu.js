@@ -4,7 +4,8 @@
 // handlers are untouched); this file moves them here. Speed acts on whichever sound is playing: the synth, or a recording.
 // The dock keeps the transport, the Synth | Recording switch and a Volume popover.
 
-import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
+import { showPanel, hidePanel, isShown, placePanel, outsideTapCloses } from './readerPanels.js';
+import { isTabletop } from '../foldState.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -69,7 +70,7 @@ export function initPracticeMenu() {
     }
     btn.addEventListener('pointerdown', (e) => e.stopPropagation());
     btn.addEventListener('click', (e) => { e.stopPropagation(); if (isOpen()) close(); else open(); });
-    document.addEventListener('pointerdown', (e) => { if (isOpen() && !menu.contains(e.target) && !btn.contains(e.target)) close(); });
+    document.addEventListener('pointerdown', (e) => { if (outsideTapCloses() && isOpen() && !menu.contains(e.target) && !btn.contains(e.target)) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) { close(); btn.focus(); } });
     window.addEventListener('resize', () => { if (isOpen()) place(); });
 
@@ -145,7 +146,7 @@ function initVolumePopover() {
     const phone = window.matchMedia('(max-width: 640px), (pointer: coarse) and (orientation: landscape) and (max-height: 500px)');
     const panelBody = (id, sel) => document.querySelector(`#${id} ${sel}`);
     const placeVolume = () => {
-        if (!phone.matches) { if (section.parentNode !== pop) pop.append(section); return; }
+        if (!phone.matches && !isTabletop()) { if (section.parentNode !== pop) pop.append(section); return; }
         const yt = $('ytDropdownPanel');
         const ytOpen = yt && yt.style.display !== 'none' && getComputedStyle(yt).display !== 'none';
         const host = ytOpen ? panelBody('ytDropdownPanel', '.yt-panel-body') : panelBody('synthDropdownPanel', '.synth-panel-body');
@@ -158,6 +159,7 @@ function initVolumePopover() {
         if (el) new MutationObserver(placeVolume).observe(el, { attributes: true, attributeFilter: ['style', 'class'] });
     });
     phone.addEventListener?.('change', placeVolume);
+    window.addEventListener('foldchange', placeVolume);
     placeVolume();
 
     let open = false;

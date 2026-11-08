@@ -589,6 +589,10 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
     #[cfg(target_os = "ios")]
     let builder = builder.plugin(tauri_plugin_ios_tabbar::init());
 
+    // Fold and hinge state for the iPhone Duo (tabletop mode); see plugins/ios-fold.
+    #[cfg(target_os = "ios")]
+    let builder = builder.plugin(tauri_plugin_ios_fold::init());
+
     #[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 

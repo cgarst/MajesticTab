@@ -69,6 +69,7 @@ block2 = "0.6"
 
 [target.'cfg(target_os = "ios")'.dependencies]
 tauri-plugin-ios-tabbar = { path = "../plugins/ios-tabbar" }
+tauri-plugin-ios-fold = { path = "../plugins/ios-fold" }
 objc2-ui-kit = { version = "0.3", features = ["UIColor", "UIView", "UIViewController", "UIScrollView"] }
 objc2-foundation = { version = "0.3", features = ["NSString", "NSURL", "NSFileManager", "NSURLRequest", "NSGeometry"] }
 block2 = "0.6"

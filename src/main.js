@@ -63,6 +63,10 @@ import { initSettingsPage } from './utils/settingsPage.js';
 import { initSlidingPills } from './utils/slidingPill.js';
 import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
 import { initNativeTabBar } from './nativeTabBar.js';
+import { initFoldState } from './foldState.js';
+import { initNarrowAlias } from './utils/narrowAlias.js';
+import { initTabletopDock } from './utils/tabletopDock.js';
+import { initBookMode } from './utils/bookMode.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
 initIOSAudioUnlock();
@@ -82,8 +86,18 @@ if (isIOSDevice()) {
         // The system tab bar belongs to the library; starting it here (not when the library first renders) lets it hear
         // that a page with a score open wants none
         initNativeTabBar();
+        // iPhone Duo: where the fold is and which way it runs, for tabletop and book layouts
+        initFoldState();
     }
 }
+// Plain browser: ?fold=tabletop or ?fold=book drives the same layouts without the device
+if (!window.__TAURI__ && new URLSearchParams(window.location.search).has('fold')) initFoldState();
+
+// Tabletop (iPhone Duo): the phone reader's narrow-screen rules, switched on by the fold instead of the width
+initNarrowAlias();
+initTabletopDock();
+// Book pose (iPhone Duo): Page mode with two pages, one per half, until the fold opens flat
+initBookMode();
 
 // Handle window resizing 
 let resizeTimeout;

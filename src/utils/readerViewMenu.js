@@ -6,7 +6,8 @@
 
 import { gamepadManager, READING_MODE_KEY } from './gamepadManager.js';
 import { PHONE_READER_QUERY } from './viewModeUtils.js';
-import { showPanel, hidePanel, isShown, placePanel } from './readerPanels.js';
+import { isTabletop } from '../foldState.js';
+import { showPanel, hidePanel, isShown, placePanel, outsideTapCloses } from './readerPanels.js';
 const $ = (id) => document.getElementById(id);
 
 export function initReaderViewMenu() {
@@ -44,7 +45,7 @@ export function initReaderViewMenu() {
         if (isOpen()) close(); else open();
     });
     document.addEventListener('pointerdown', (event) => {
-        if (isOpen() && !menu.contains(event.target) && !toggleBtn.contains(event.target)) close();
+        if (outsideTapCloses() && isOpen() && !menu.contains(event.target) && !toggleBtn.contains(event.target)) close();
     });
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && isOpen()) { close(); toggleBtn.focus(); }
@@ -74,7 +75,7 @@ function initTracksMenu() {
     function close() { if (!isOpen()) return; hidePanel(menu); btn.setAttribute('aria-expanded', 'false'); }
     btn.addEventListener('pointerdown', (e) => e.stopPropagation());
     btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.disabled) return; if (isOpen()) close(); else open(); });
-    document.addEventListener('pointerdown', (e) => { if (isOpen() && !menu.contains(e.target) && !btn.contains(e.target)) close(); });
+    document.addEventListener('pointerdown', (e) => { if (outsideTapCloses() && isOpen() && !menu.contains(e.target) && !btn.contains(e.target)) close(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) { close(); btn.focus(); } });
     window.addEventListener('resize', () => { if (isOpen()) place(); });
 
@@ -384,20 +385,32 @@ function initPhoneChrome() {
     // body.phone-reader switches on the phone layout in design.css (the same query as isPhoneReader)
     const mq = window.matchMedia(PHONE_READER_QUERY);
     const syncPhoneClass = () => {
-        document.body.classList.toggle('phone-reader', mq.matches);
+        document.body.classList.toggle('phone-reader', mq.matches || isTabletop());
     };
     // Portrait phone: the five words live in the bottom row, outside the (transformed) top bar
     const portraitMq = window.matchMedia('(max-width: 640px)');
     const placeTabs = () => {
         const zone = $('topFlexZone');
         if (!zone) return;
-        if (portraitMq.matches) { if (zone.parentNode !== document.body) document.body.appendChild(zone); }
+        if (portraitMq.matches || isTabletop()) { if (zone.parentNode !== document.body) document.body.appendChild(zone); }
         else if (zone.parentNode === document.body) $('rightSection')?.insertBefore(zone, $('navButtons'));
     };
     syncPhoneClass();
     placeTabs();
     mq.addEventListener?.('change', () => { syncPhoneClass(); placeTabs(); });
     portraitMq.addEventListener?.('change', placeTabs);
+    // An iPhone Duo folded with the crease across uses the same chrome. Reading mode does not exist there (the bottom half
+    // is the controls), so a fold that arrives while it is on turns it off without touching what a phone remembers.
+    window.addEventListener('foldchange', () => {
+        if (isTabletop() && document.body.classList.contains('reading-mode')) {
+            let remembered = null;
+            try { remembered = localStorage.getItem(READING_MODE_KEY); } catch { /* storage blocked */ }
+            gamepadManager.toggleTopBar(false, { silent: true });
+            try { if (remembered !== null) localStorage.setItem(READING_MODE_KEY, remembered); } catch { /* storage blocked */ }
+        }
+        syncPhoneClass();
+        placeTabs();
+    });
 
     // Restore Reading mode on phones (silently: the score has not loaded yet, so there is nothing to refit)
     try { if (narrow() && localStorage.getItem(READING_MODE_KEY) === '1') gamepadManager.toggleTopBar(true, { silent: true }); } catch { /* storage blocked */ }
