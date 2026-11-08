@@ -4291,6 +4291,8 @@ body.rec-strip-on:has(#mobileYtToggleBtn.active-audio-mode) .page-strip { displa
 body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { display: block !important; }
 /* The status and actions share one wrapper; it is invisible to the layouts above and only the wide dock below uses it */
 .rec-end { display: contents; }
+/* A long state ("Check bar 12 · 148 points from the host") shortens with an ellipsis; it never pushes Add points off the bar */
+.rec-end > .rec-status { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Wide dock (tablet, desktop and the short landscape phone): the recording bar and the bar ruler are two rows of one grid, with
    the play buttons spanning both and the Bar / tempo / sound cluster on the ruler row. The sync state and Add points take the
    free corner above that cluster, so the progress track gets the width the old single column left empty. */
