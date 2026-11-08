@@ -154,6 +154,13 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
             self.channel = args.onEvent
             self.items = args.items
             self.keys = args.items.map { $0.key }
+            // A page that (re)connects starts with no chrome; it says what it wants next (a reload while a score is open must not keep the library's bar)
+            self.webHidden = true
+            self.searchWanted = false
+            // ...and hears every value again (its CSS variables start empty), so nothing is skipped as unchanged
+            self.lastInset = -1
+            self.lastSide = (-1, -1)
+            self.verticalEdge = -1
             if self.bar == nil { self.makeChrome(in: window) }
             self.fillItems()
             self.selectItem(args.selected ?? 0)

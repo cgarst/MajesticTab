@@ -63,6 +63,7 @@ import { initScoreRecordingStrip } from './audioSync/scoreRecordingStrip.js';
 import { initSettingsPage } from './utils/settingsPage.js';
 import { initSlidingPills } from './utils/slidingPill.js';
 import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
+import { initNativeTabBar } from './nativeTabBar.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
 initIOSAudioUnlock();
@@ -79,6 +80,9 @@ if (isIOSDevice()) {
         try {
             window.__TAURI__?.core?.invoke('configure_ios_main_window').catch(() => {});
         } catch (_) {}
+        // The system tab bar belongs to the library; starting it here (not when the library first renders) lets it hear
+        // that a page with a score open wants none
+        initNativeTabBar();
     }
 }
 

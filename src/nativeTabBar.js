@@ -38,6 +38,7 @@ function onEvent(msg) {
         root.setProperty('--native-rail-right', `${Math.round(Number(msg.right))}px`);
     } else if (msg.type === 'mode') {
         verticalMode = msg.vertical === '1';
+        document.documentElement.classList.toggle('native-vertical', verticalMode);
         refresh();
     } else if (msg.type === 'search') {
         // The web field keeps the logic (filtering, catalogue lookups, clear); the native field only types into it
@@ -85,7 +86,9 @@ function searchInput() {
 let lastSearch = '';
 function syncSearch() {
     if (state !== 'on') return;
-    const input = wantVisible ? searchInput() : null;
+    // A full page (Settings) covers the library; its hidden search field must not show through as a native one
+    const coveredByPage = Boolean(document.querySelector('.app-page.show'));
+    const input = wantVisible && !coveredByPage ? searchInput() : null;
     const visible = Boolean(input);
     document.body.classList.toggle('native-search', visible);
     const args = { visible, placeholder: input?.placeholder || 'Search', text: input?.value || '' };
@@ -123,6 +126,7 @@ async function start() {
         const result = await invoke('configure', { items: TABS, selected: index, minMajor: MIN_IOS_MAJOR, onEvent: channel });
         state = result?.supported ? 'on' : 'unsupported';
         verticalMode = Boolean(result?.vertical);
+        document.documentElement.classList.toggle('native-vertical', verticalMode);
     } catch (err) {
         console.warn('Native tab bar unavailable:', err);
         state = 'unsupported';
@@ -139,8 +143,9 @@ async function start() {
 
 function refresh() {
     wantVisible = currentlyWanted();
-    // Started on any library page, not only a wanted one: a wide layout learns from the native side that it is vertical
-    if (state === 'idle' && document.body.classList.contains('library-view-active')) start().then(refresh);
+    // Started on any page, not only a library one: the native side must hear that this page wants no bar (a score is open),
+    // and a wide layout learns from it whether the system keeps its bars in a vertical strip
+    if (state === 'idle') start().then(refresh);
     else refreshAll();
 }
 

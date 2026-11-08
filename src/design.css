@@ -4292,28 +4292,26 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
 .rec-end { display: contents; }
 /* A long state ("Check bar 12 · 148 points from the host") shortens with an ellipsis; it never pushes Add points off the bar */
 .rec-end > .rec-status { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Wide dock (tablet, desktop and the short landscape phone): the recording bar and the bar ruler are two rows of one grid, with
-   the play buttons spanning both and the Bar / tempo / sound cluster on the ruler row. The sync state and Add points take the
-   free corner above that cluster, so the progress track gets the width the old single column left empty. */
+/* Wide dock (tablet, desktop, a foldable's inner display and the short landscape phone), with a recording attached: two rows beside
+   the play buttons. The recording bar (time, track, sync state, Add points) is one row that stretches from the play buttons to
+   the right edge; under it sit the bar ruler, the Bar and tempo readouts and the sound switch and toggles. */
 @media (min-width: 641px) {
   body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .mobile-playback-dock-inner:has(#scoreRecStrip:not([hidden])) {
-    grid-template-columns: auto auto minmax(0, 1fr) auto auto auto; grid-template-areas: none; align-items: center;
+    grid-template-columns: auto minmax(0, 1fr) auto auto auto; grid-template-areas: none; align-items: center;
   }
-  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-ruler:has(#scoreRecStrip:not([hidden])),
-  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #scoreRecStrip:not(.is-tapping) { display: contents !important; }
+  /* The ruler's wrapper steps aside so the recording bar and the ruler are grid items of their own */
+  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-ruler:has(#scoreRecStrip:not([hidden])) { display: contents !important; }
   body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-tr:has(~ .dock-ruler #scoreRecStrip:not([hidden])) { grid-column: 1; grid-row: 1 / span 2; }
-  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #scoreRecStrip .rec-time { grid-column: 2; grid-row: 1; min-width: 0; }
-  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #scoreRecStrip .rec-track { grid-column: 3; grid-row: 1; min-width: 0; }
-  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #scoreRecStrip .rec-end {
-    display: flex; align-items: center; justify-content: flex-end; gap: 12px; grid-column: 4 / -1; grid-row: 1; min-width: 0;
-  }
+  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #scoreRecStrip:not(.is-tapping) { grid-column: 2 / -1; grid-row: 1; min-width: 0; margin-bottom: 0; }
+  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #scoreRecStrip .rec-track { min-width: 0; }
+  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #scoreRecStrip .rec-end { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex: 0 1 auto; min-width: 0; }
   body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #scoreRecStrip .rec-status { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #barRuler { grid-column: 2 / 4; grid-row: 2; min-width: 0; }
-  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-time { grid-column: 4; grid-row: 2; }
-  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-bpm { grid-column: 5; grid-row: 2; }
-  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-tools { grid-column: 6; grid-row: 2; }
-  /* The short landscape phone hides the Bar and tempo readouts: the cluster takes the fourth column and the corner above it */
-  body.phone-reader.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-tools { grid-column: 4 / -1; justify-self: end; }
+  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) #barRuler { grid-column: 2; grid-row: 2; min-width: 0; }
+  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-time { grid-column: 3; grid-row: 2; }
+  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-bpm { grid-column: 4; grid-row: 2; }
+  body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-tools { grid-column: 5; grid-row: 2; }
+  /* The short landscape phone hides the Bar and tempo readouts: the cluster takes their columns */
+  body.phone-reader.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-tools { grid-column: 3 / -1; justify-self: end; }
 }
 /* Tablet and narrow desktop: "Synth audio | Original audio" shortens to "Synth | Original" so the progress bars keep their width */
 @media (min-width: 641px) and (max-width: 899px) {
@@ -4425,6 +4423,11 @@ body.phone-reader #screenRow { display: none !important; }
 body.native-tabbar .library-bottom-nav { display: none !important; }
 /* Wider than a phone (the iPhone Duo's strip layouts): the native rail replaces the web rail, so the page keeps no room for it */
 body.native-tabbar { --rail-w: 0px; }
+/* Full pages such as Settings start where the web rail ended; with the native rail they use the room the rail actually takes, on its side */
+body.native-tabbar.library-view-active .app-page {
+  --page-left: max(env(safe-area-inset-left, 0px), var(--native-rail-left, 0px));
+  right: max(env(safe-area-inset-right, 0px), var(--native-rail-right, 0px));
+}
 body.native-tabbar.library-view-active #libraryPage {
   padding-left: max(env(safe-area-inset-left, 0px), var(--native-rail-left, 0px));
   padding-right: max(env(safe-area-inset-right, 0px), var(--native-rail-right, 0px));
@@ -4439,3 +4442,17 @@ body.native-tabbar.library-view-active #libraryPage {
 /* The native search field (see nativeTabBar.js) stands in for the page's own while it is shown; the web field stays
    in the DOM, hidden, because it holds the search logic */
 body.native-search .library-search-box { display: none !important; }
+
+/* iPhone Duo and other devices whose system keeps its status in a vertical strip at the screen edge (see nativeTabBar.js):
+   the reader's top bar stays clear of it, as the library's rail does */
+html.native-vertical body:not(.library-view-active) { --wc-r: max(calc(var(--native-rail-right, 0px) - 12px), 0px); }
+
+/* Bottom dock on a device whose system bars live at the screen's side (iPhone Duo): there is no bottom bar under the dock, so it keeps
+   only a part of the home-indicator inset instead of leaving the whole of it as empty space */
+html.native-vertical body:not(.library-view-active):not(.phone-reader) .mobile-playback-dock-inner {
+  padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px) * 0.4);
+}
+
+/* The fretboard sits above the bottom dock, which already clears the home indicator, so it keeps only a small pad of its own
+   (its full inset showed as an empty band between the strings and the controls on tablets and foldables) */
+body:not(.library-view-active):not(.dock-off) .fretboard-dock { padding-bottom: 6px; }
