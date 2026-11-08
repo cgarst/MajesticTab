@@ -185,7 +185,7 @@ export function pushLibraryNavigationState() {
 export function canGoBack() {
     if (searchSubView) return true;
     if (activeView === 'library') {
-        if (libraryBrowseMode === 'tunings') return activeLibraryPane === 'songs' || viewHistory.length > 0;
+        if (libraryBrowseMode === 'tunings') return activeLibraryPane === 'songs';
         if (selectedFolderPath.length > 0) return true;
         if (selectedAlbum) return true;
         if (window.innerWidth < 1000) {
@@ -969,21 +969,24 @@ async function renderLibraryBrowseView(container) {
 
     // Top Library Body Toolbar (Collection Selector + Mode Selector + Universal Search/Filter + Add Music)
     const inTunings = libraryBrowseMode === 'tunings';
-    const collectionSelectHtml = collections.length > 1 ? `<div class="collection-pill-group">
+    const collectionSelectOnlyHtml = collections.length > 1 ? `<div class="collection-pill-group">
         <select class="theme-select collection-select-input" id="libCollectionSelect" title="Select Collection" aria-label="Select Collection">
           ${collections.map(c => `<option value="${c.id}" ${c.id === activeCollectionId ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}
         </select>
       </div>` : '';
+    const groupByRowHtml = (extraHtml = '') => artists.length === 0 ? '' : `<div class="lib-groupby-row"><div class="hud-pill-group lib-groupby" role="group" aria-label="Group by">
+        <button type="button" class="btn btn-sm ${inTunings ? '' : 'active'}" data-lib-groupby="artists" aria-pressed="${!inTunings}">Artists</button>
+        <button type="button" class="btn btn-sm ${inTunings ? 'active' : ''}" data-lib-groupby="tunings" aria-pressed="${inTunings}">Tunings</button>
+      </div>${extraHtml}${syncBtnHtml}</div>`;
+    const collectionSelectHtml = collectionSelectOnlyHtml;
     const headerHtml = `
     <div class="library-page-container ${inTunings ? 'tunings-view' : ''}">
       ${libraryHeaderHtml({
         activeTab: 'library',
         searchId: 'libFilterInput',
         clearId: 'libFilterClearBtn',
-        placeholder: inTunings
-            ? 'Search tunings...'
-            : 'Search your library',
-        searchLabel: inTunings ? 'Search tunings' : 'Search library'
+        placeholder: 'Search your library',
+        searchLabel: 'Search library'
     })}
     `;
 
@@ -1033,7 +1036,30 @@ async function renderLibraryBrowseView(container) {
     let bodyHtml = '';
     let toolbarHtml = '';
     const syncBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action" id="libSyncBtn" title="Sync your library with your backup location">Sync</button>`;
-    const toolbarActionsHtml = `<div class="library-toolbar-actions d-flex align-items-center gap-2">${syncBtnHtml}</div>`;
+    const toolbarActionsHtml = ''; // Sync lives in the Group by row, beside the switch
+
+    // The resume card is the same whichever way the library is grouped
+    let resumeHtml = '';
+    try {
+        const [last] = await getRecents(1);
+        if (last) {
+            const name = last.songTitle || last.name || 'Untitled';
+            const lastBar = Number(last.lastBar) || 1;
+            const totalBars = Number(last.totalBars) || 32;
+            const subParts = [last.artist, last.album].filter(Boolean);
+            const subText = subParts.length > 0 ? `${subParts.join(', ')}. ` : '';
+            const rulerHtml = renderMiniBarRulerHtml(lastBar, totalBars);
+            resumeHtml = `<div class="resume-card" id="libResumeCard">
+              <img class="resume-cover" alt="" src="${getSynchronousCachedArtUrl(last.coverUrl) || last.coverUrl || getPlaceholderCoverSvg(last.artist || name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(last.artist || name)}'">
+              <div class="resume-meta">
+                <h2 class="resume-title">${escapeHtml(name)}</h2>
+                <div class="resume-sub tnum">${escapeHtml(subText)}Bar <span data-bar>${lastBar}</span> of ${totalBars}</div>
+              </div>
+              <button type="button" class="btn btn-theme-primary resume-btn" id="libResumeBtn">Resume</button>
+              ${rulerHtml}
+            </div>`;
+        }
+    } catch (_) { resumeHtml = ''; }
 
     // ==========================================
     // A. TUNINGS BROWSE MODE
@@ -1066,7 +1092,7 @@ async function renderLibraryBrowseView(container) {
         if (tuningGroups.length === 0) {
             toolbarHtml = libraryListToolbarHtml({
                 leftHtml: collectionSelectHtml,
-                actionsHtml: tuningArtistSelectHtml,
+                actionsHtml: toolbarActionsHtml,
                 count: '0 tunings'
             });
             bodyHtml = `
@@ -1090,7 +1116,7 @@ async function renderLibraryBrowseView(container) {
 
             toolbarHtml = libraryListToolbarHtml({
                 leftHtml: collectionSelectHtml,
-                actionsHtml: tuningArtistSelectHtml,
+                actionsHtml: toolbarActionsHtml,
                 count: `${tuningGroups.length} ${tuningGroups.length === 1 ? 'tuning' : 'tunings'}`
             });
 
@@ -1114,6 +1140,7 @@ async function renderLibraryBrowseView(container) {
 
             const listPaneHtml = `
               <section class="pane list" aria-label="Tunings">
+                ${groupByRowHtml(tuningArtistSelectHtml)}
                 <h3 class="pane-head"><span>Tunings</span><span class="tnum">${tuningGroups.length}</span></h3>
                 <div class="pane-scroll">
                   <div class="library-artists-grid" id="libTuningsList">
@@ -1148,7 +1175,8 @@ async function renderLibraryBrowseView(container) {
               </section>`;
 
             bodyHtml = `
-            <div class="tunings-body">
+            <div class="collection-root-view tunings-body">
+              ${resumeHtml}
               <div class="panes" data-pane="${activeLibraryPane}">
                 ${listPaneHtml}
                 ${songsPaneHtml}
@@ -1553,15 +1581,6 @@ async function renderLibraryBrowseView(container) {
                 </span>
                 <i class="bi-chevron-right text-muted flex-shrink-0"></i>
               </button>` : '';
-            const tuningsRowHtml = `
-              <button type="button" class="library-card pinned-group-card" id="libTuningsGroupBtn">
-                <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-sliders"></i></span>
-                <span class="min-w-0 flex-grow-1 text-start">
-                  <span class="d-block fw-bold text-white">Tunings</span>
-                  <span class="d-block small text-muted">Browse songs by guitar and bass tuning</span>
-                </span>
-                <i class="bi-chevron-right text-muted flex-shrink-0"></i>
-              </button>`;
             const pinnedGroupHtml = pinnedSongs.length > 0 ? `
               <button type="button" class="library-card pinned-group-card" id="libPinnedGroupBtn" ${pinnedActive ? 'aria-current="true"' : ''}>
                 <span class="pinned-group-glyph" aria-hidden="true"><i class="bi-pin-angle-fill"></i></span>
@@ -1578,27 +1597,6 @@ async function renderLibraryBrowseView(container) {
                 actionsHtml: toolbarActionsHtml
             });
 
-            let resumeHtml = '';
-            try {
-                const [last] = await getRecents(1);
-                if (last) {
-                    const name = last.songTitle || last.name || 'Untitled';
-                    const lastBar = Number(last.lastBar) || 1;
-                    const totalBars = Number(last.totalBars) || 32;
-                    const subParts = [last.artist, last.album].filter(Boolean);
-                    const subText = subParts.length > 0 ? `${subParts.join(', ')}. ` : '';
-                    const rulerHtml = renderMiniBarRulerHtml(lastBar, totalBars);
-                    resumeHtml = `<div class="resume-card" id="libResumeCard">
-                      <img class="resume-cover" alt="" src="${getSynchronousCachedArtUrl(last.coverUrl) || last.coverUrl || getPlaceholderCoverSvg(last.artist || name)}" onerror="this.onerror=null; this.src='${getPlaceholderCoverSvg(last.artist || name)}'">
-                      <div class="resume-meta">
-                        <h2 class="resume-title">${escapeHtml(name)}</h2>
-                        <div class="resume-sub tnum">${escapeHtml(subText)}Bar <span data-bar>${lastBar}</span> of ${totalBars}</div>
-                      </div>
-                      <button type="button" class="btn btn-theme-primary resume-btn" id="libResumeBtn">Resume</button>
-                      ${rulerHtml}
-                    </div>`;
-                }
-            } catch (_) { resumeHtml = ''; }
 
             // Custom Music sits with Pinned songs above the artists; it is not one of the artists
             const customGroup = artists.filter(a => a.isCustom);
@@ -1606,9 +1604,9 @@ async function renderLibraryBrowseView(container) {
             const artistCardHtml = (artist) => ((pinnedActive || recentsActive) ? renderArtistCard(artist).replace(' aria-current="true"', '') : renderArtistCard(artist));
             const listPaneHtml = `
             <section class="pane list" aria-label="Artists">
+              ${groupByRowHtml()}
               ${pinnedGroupHtml}
               ${recentsGroupHtml}
-              ${tuningsRowHtml}
               ${customGroup.map(artistCardHtml).join('')}
               <h3 class="pane-head"><span>Artists</span><span class="tnum">${regularArtists.length}</span></h3>
               <div class="pane-scroll">
@@ -1697,7 +1695,7 @@ async function renderLibraryBrowseView(container) {
         }
     }
 
-    if (!toolbarHtml) toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml, actionsHtml: tuningArtistSelectHtml });
+    if (!toolbarHtml) toolbarHtml = libraryListToolbarHtml({ leftHtml: collectionSelectHtml, actionsHtml: toolbarActionsHtml });
     container.innerHTML = headerHtml + toolbarHtml + `
       <div id="libBrowseContent">${bodyHtml}</div>
       <div id="libFilteredSearchResults" style="display: none;"></div>
@@ -1841,8 +1839,6 @@ async function renderLibraryBrowseView(container) {
         renderLibraryBrowseView(container);
     });
 
-    // Tunings: a Browse by choice inside Library
-    container.querySelector('#libTuningsGroupBtn')?.addEventListener('click', () => goLibraryTab('tunings'));
 
     // Recents group
     container.querySelector('#libRecentsGroupBtn')?.addEventListener('click', () => {
@@ -2313,6 +2309,19 @@ function bindLibraryToolbarEvents(container) {
         renderLibraryBrowseView(container);
     });
 
+    // Group by: Artists or Tunings, two ways to slice the same library (no history entry, no back step)
+    container.querySelectorAll('[data-lib-groupby]').forEach(btn => btn.addEventListener('click', () => {
+        const wantTunings = btn.dataset.libGroupby === 'tunings';
+        if ((libraryBrowseMode === 'tunings') === wantTunings) return;
+        libraryBrowseMode = wantTunings ? 'tunings' : 'artists';
+        libraryFilterQuery = '';
+        tuningsArtistFilter = '';
+        activeLibraryPane = 'list';
+        selectedTuning = null;
+        updateUrl(wantTunings ? 'tunings' : 'library', null, false);
+        renderLibraryBrowseView(container);
+    }));
+
     container.querySelector('#libTuningArtistSelect')?.addEventListener('change', (e) => {
         tuningsArtistFilter = e.target.value;
         renderLibraryBrowseView(container);
@@ -2393,15 +2402,16 @@ function renderAlbumCard(album, artistName = '') {
     `;
 }
 
+// Text a song's tunings answer to in search: the tuning's name, its notes and its key
+function songTuningSearchText(song) {
+    const keys = new Set([song.tuning, ...(Array.isArray(song.tunings) ? song.tunings : []), ...((song.tabOptions || []).flatMap(t => [t.tuning, ...(Array.isArray(t.tunings) ? t.tunings : [])]))].filter(Boolean));
+    return [...keys].map(k => { const info = getTuningInfo(k); return [k, info?.displayName, info?.notes, info?.key].filter(Boolean).join(' '); }).join(' ').toLowerCase();
+}
+
 function setupLibraryFilter(container, context = {}) {
     const filterInput = container.querySelector('#libFilterInput');
     const clearBtn = container.querySelector('#libFilterClearBtn');
     if (!filterInput) return;
-
-    if (libraryBrowseMode === 'tunings' && !context.selectedAlbum) {
-        bindTwoPaneFilter(container, { inputId: 'libFilterInput', clearId: 'libFilterClearBtn', key: 'tunings', cardSelector: '.tuning-card', rowSelector: '.pane.songs .library-song-row' });
-        return;
-    }
 
     const browseContent = container.querySelector('#libBrowseContent');
     const filterResults = container.querySelector('#libFilteredSearchResults');
@@ -2824,7 +2834,7 @@ function setupLibraryFilter(container, context = {}) {
                     if (isHideNoTabSongsEnabled() && !songHasTabs(s)) continue;
                     const titleMatch = (s.title || '').toLowerCase().includes(query);
                     const artistMatch = (art.name || '').toLowerCase().includes(query);
-                    const tabMatch = s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query));
+                    const tabMatch = (s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query))) || songTuningSearchText(s).includes(query);
                     if (titleMatch || artistMatch || tabMatch) {
                         matchingSongs.push(songObj);
                     }
@@ -2840,7 +2850,7 @@ function setupLibraryFilter(container, context = {}) {
                             if (isHideNoTabSongsEnabled() && !songHasTabs(s)) continue;
                             const titleMatch = (s.title || '').toLowerCase().includes(query);
                             const artistMatch = (art.name || '').toLowerCase().includes(query);
-                            const tabMatch = s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query));
+                            const tabMatch = (s.tabOptions && s.tabOptions.some(t => (t.name || '').toLowerCase().includes(query))) || songTuningSearchText(s).includes(query);
                             if (titleMatch || artistMatch || tabMatch) {
                                 matchingSongs.push(songObj);
                             }

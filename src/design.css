@@ -874,33 +874,43 @@ body.practice-open #output { padding-right: 416px !important; }
 .library-list-toolbar .btn.btn-theme-primary, .library-list-toolbar .btn.btn-theme-primary:hover:not(:disabled) { padding: 0 14px; border-radius: var(--r-control) !important; }
 @media (pointer: coarse) { .library-list-toolbar .btn { min-height: 44px; } }
 
-/* Filters in the toolbar (collection, artist) are text actions with a chevron, not pills */
-.library-list-toolbar .collection-pill-group {
+/* Group by (Artists | Tunings): a real switch at the top of the list pane, directly above the rows it regroups.
+   style.css fixes .hud-pill-group at 35px, shorter than a touch-size button, so the box grows with its buttons. */
+.lib-groupby-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 4px 20px 12px; }
+.lib-groupby { height: auto; }
+.lib-groupby-row .lib-ghost-action { margin-left: auto; }
+.lib-groupby .btn { height: auto; min-height: 36px; }
+@media (pointer: coarse) { .lib-groupby .btn { min-height: 44px; } }
+
+/* Filters in the toolbar and the Group by row (collection, artist) are text actions with a chevron, not pills */
+:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group {
   position: relative; display: flex; flex: 1 1 auto; min-width: 0; max-width: 100%;
   background: transparent; border: 0; box-shadow: none; border-radius: var(--r-control); overflow: visible;
   transition: background-color var(--dur-fast) var(--ease-out);
 }
-.library-list-toolbar .collection-pill-group::after {
+:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group::after {
   content: ""; position: absolute; right: 10px; top: 50%; width: 11px; height: 11px; margin-top: -5px; pointer-events: none;
   background: var(--ink2);
   -webkit-mask: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e") center / contain no-repeat;
 }
-.library-list-toolbar .collection-pill-group .collection-select-input,
-.library-list-toolbar .collection-pill-group .collection-select-input:hover,
-.library-list-toolbar .collection-pill-group .collection-select-input:focus {
+:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input,
+:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input:hover,
+:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input:focus {
   background-image: none !important; color: var(--ink2) !important; font: 500 14px/1.2 system-ui, sans-serif !important;
   min-height: 36px; min-width: 0 !important; max-width: none !important; width: 100%; padding: 0 30px 0 12px !important;
   text-overflow: ellipsis; border-radius: var(--r-control) !important;
 }
-.library-list-toolbar .collection-pill-group:focus-within { box-shadow: none; outline: 2px solid var(--ink); outline-offset: 2px; }
-.library-list-toolbar .collection-pill-group:focus-within .collection-select-input { color: var(--ink) !important; }
+:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group:focus-within { box-shadow: none; outline: 2px solid var(--ink); outline-offset: 2px; }
+:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group:focus-within .collection-select-input { color: var(--ink) !important; }
 @media (hover: hover) and (pointer: fine) {
-  .library-list-toolbar .collection-pill-group:hover { background: var(--s2); box-shadow: none; }
-  .library-list-toolbar .collection-pill-group:hover .collection-select-input { color: var(--ink) !important; }
-  .library-list-toolbar .collection-pill-group:hover::after { background: var(--ink); }
+  :is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group:hover { background: var(--s2); box-shadow: none; }
+  :is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group:hover .collection-select-input { color: var(--ink) !important; }
+  :is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group:hover::after { background: var(--ink); }
 }
-@media (pointer: coarse) { .library-list-toolbar .collection-pill-group .collection-select-input { min-height: 44px; } }
+@media (pointer: coarse) { :is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input { min-height: 44px; } }
+/* In the Group by row the artist filter keeps its own width and Sync stays at the right edge */
+.lib-groupby-row .collection-pill-group { flex: 0 1 auto; min-width: 160px; }
 
 /* Phones: search takes the whole first row on every page; the second row holds the count and filter on the left and the one action on the right */
 @media (max-width: 576px) {
@@ -4432,16 +4442,17 @@ body.native-tabbar.library-view-active #libraryPage {
   padding-left: max(env(safe-area-inset-left, 0px), var(--native-rail-left, 0px));
   padding-right: max(env(safe-area-inset-right, 0px), var(--native-rail-right, 0px));
 }
-@media (max-width: 576px) {
-  body.native-tabbar.library-view-active .library-page-body { padding-bottom: calc(var(--native-tabbar-h, 83px) + 1rem) !important; }
-  html body.native-tabbar.settings-as-page.library-view-active #fileMenu { bottom: 0 !important; }
-  body.native-tabbar .setpage { padding-bottom: calc(var(--native-tabbar-h, 83px) + 16px) !important; }
-  body.native-tabbar .tools-shell .setpage:has(.classtab-tool-embedded) { padding-bottom: calc(var(--native-tabbar-h, 83px) + 8px) !important; }
-}
+/* The horizontal bar overlays the page at every width, so pages reserve its height; the side rail is already a safe-area inset */
+html:not(.native-vertical) body.native-tabbar.library-view-active .library-page-body { padding-bottom: calc(var(--native-tabbar-h, 83px) + 1rem) !important; }
+html:not(.native-vertical) body.native-tabbar.settings-as-page.library-view-active #fileMenu { bottom: 0 !important; }
+html:not(.native-vertical) body.native-tabbar .setpage { padding-bottom: calc(var(--native-tabbar-h, 83px) + 16px) !important; }
+html:not(.native-vertical) body.native-tabbar .tools-shell .setpage:has(.classtab-tool-embedded) { padding-bottom: calc(var(--native-tabbar-h, 83px) + 8px) !important; }
 
 /* The native search field (see nativeTabBar.js) stands in for the page's own while it is shown; the web field stays
    in the DOM, hidden, because it holds the search logic */
 body.native-search .library-search-box { display: none !important; }
+/* ...and it floats at the top of the window, so the page starts below it */
+body.native-search .library-page-container { padding-top: var(--native-search-top, 0px) !important; }
 
 /* iPhone Duo and other devices whose system keeps its status in a vertical strip at the screen edge (see nativeTabBar.js):
    the reader's top bar stays clear of it, as the library's rail does */

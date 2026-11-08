@@ -9,13 +9,12 @@ import UIKit
 // flat.
 //
 // Two shapes:
-//  - a horizontal UITabBar along the bottom (phones, and the iPhone Duo's inner display in portrait);
-//  - a vertical glass rail in the strip the system reserves for a vertical bar (iPhone Duo: outer display, and the
-//    inner display in landscape). iOS only adapts bars it builds itself (UITabBarController and friends), and a
+//  - a horizontal UITabBar along the bottom (phones, iPads, and the iPhone Duo in portrait);
+//  - a vertical glass rail in the strip the system reserves for a vertical bar (iPhone Duo in landscape). iOS only adapts bars it builds itself (UITabBarController and friends), and a
 //    UITabBar added by hand stays horizontal, so the rail is our own stack of buttons on a UIGlassEffect. Which one
 //    applies is read from `traitCollection.verticalBarEdge` (iOS 27.1), never from a device name.
 //
-// The library search field sits beside them (above the horizontal bar, or beside the rail) and mirrors the web field.
+// The library search field sits at the top of the window and mirrors the web field.
 
 struct TabItem: Decodable {
     let key: String
@@ -126,13 +125,13 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
 
     private var search: ReportingSearchBar?
     private var searchWanted = false
-    private var searchAboveBar: NSLayoutConstraint?
-    private var searchAboveWindow: NSLayoutConstraint?
+    private var searchTop: NSLayoutConstraint?
     private var searchLeading: NSLayoutConstraint?
     private var searchTrailing: NSLayoutConstraint?
 
     private var verticalEdge = 0 // 0 none, 1 leading, 2 trailing (UIVerticalBarEdge)
     private var lastInset: CGFloat = -1
+    private var lastTop: CGFloat = -1
     private var sideReserved: (left: CGFloat, right: CGFloat) = (0, 0)
     private var lastSide: (left: CGFloat, right: CGFloat) = (-1, -1)
 
@@ -159,6 +158,7 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
             self.searchWanted = false
             // ...and hears every value again (its CSS variables start empty), so nothing is skipped as unchanged
             self.lastInset = -1
+            self.lastTop = -1
             self.lastSide = (-1, -1)
             self.verticalEdge = -1
             if self.bar == nil { self.makeChrome(in: window) }
@@ -293,18 +293,13 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
 
         let leading = field.leadingAnchor.constraint(equalTo: window.leadingAnchor, constant: 16)
         let trailing = field.trailingAnchor.constraint(equalTo: window.trailingAnchor, constant: -16)
-        // Above the horizontal bar, or on the window's bottom edge when the rail is at the side
-        let aboveBar = field.bottomAnchor.constraint(equalTo: (bar ?? UITabBar()).topAnchor, constant: -8)
-        let aboveWindow = field.bottomAnchor.constraint(equalTo: window.safeAreaLayoutGuide.bottomAnchor, constant: -8)
-        aboveWindow.isActive = false
-        // Never under the keyboard
-        let aboveKeyboard = field.bottomAnchor.constraint(lessThanOrEqualTo: window.keyboardLayoutGuide.topAnchor, constant: -8)
-        NSLayoutConstraint.activate([leading, trailing, aboveBar, aboveKeyboard])
+        // At the top of the window, below the status area (relayout sets the constant)
+        let top = field.topAnchor.constraint(equalTo: window.topAnchor, constant: 8)
+        NSLayoutConstraint.activate([leading, trailing, top])
         self.search = field
         self.searchLeading = leading
         self.searchTrailing = trailing
-        self.searchAboveBar = aboveBar
-        self.searchAboveWindow = aboveWindow
+        self.searchTop = top
     }
 
     private func fillItems() {
@@ -375,7 +370,10 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
     // Picks the bar for the current pose and places everything; cheap to call often
     func relayout() {
         guard let bar = bar, let window = bar.superview as? UIWindow else { return }
-        let edge = systemVerticalEdge(window)
+        // The side rail only where the system wants one AND the window is landscape; in portrait (the Duo's inner or outer
+        // display held upright) the horizontal bar is used, as on any iPhone
+        let landscape = window.bounds.width > window.bounds.height
+        let edge = landscape ? systemVerticalEdge(window) : 0
         let vertical = edge != 0
         if edge != verticalEdge {
             verticalEdge = edge
@@ -410,8 +408,18 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
             if searchTrailing?.constant != -16 { searchTrailing?.constant = -16 }
             if searchLeading?.constant != 16 { searchLeading?.constant = 16 }
         }
-        if searchAboveBar?.isActive != !vertical { searchAboveBar?.isActive = !vertical }
-        if searchAboveWindow?.isActive != vertical { searchAboveWindow?.isActive = vertical }
+        let statusBottom = window.windowScene?.statusBarManager?.statusBarFrame.maxY ?? 0
+        // A wide window with a tall top inset (the iPhone Duo held upright) keeps its status as a cluster in the top-right
+        // corner of that band and reports no inset for it: the field sits in the band, left of the cluster. Elsewhere
+        // (phones, iPads) the status spans the band, so the field goes below it.
+        let statusCorner = !vertical && window.bounds.width >= 600 && window.safeAreaInsets.top >= 70
+        let statusClear: CGFloat = 130
+        let topConstant: CGFloat = statusCorner ? 28 : max(window.safeAreaInsets.top, statusBottom) + 8
+        if !vertical {
+            let trailing: CGFloat = statusCorner ? -statusClear : -16
+            if searchTrailing?.constant != trailing { searchTrailing?.constant = trailing }
+        }
+        if searchTop?.constant != topConstant { searchTop?.constant = topConstant }
 
         let showSearch = searchWanted && !webHidden
         if search?.isHidden != !showSearch {
@@ -428,10 +436,14 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
         guard let bar = bar, let window = bar.superview else { return }
         var top = window.bounds.height
         if !bar.isHidden { top = min(top, bar.frame.minY) }
-        if let search = search, !search.isHidden { top = min(top, search.frame.minY - 8) }
         if sideReserved != lastSide {
             lastSide = sideReserved
             try? channel?.send(["type": "side", "left": String(Double(sideReserved.left)), "right": String(Double(sideReserved.right))])
+        }
+        let searchBottom: CGFloat = (search != nil && !search!.isHidden) ? search!.frame.maxY + 8 : 0
+        if abs(searchBottom - lastTop) > 0.5 {
+            lastTop = searchBottom
+            try? channel?.send(["type": "top", "value": Double(searchBottom)])
         }
         let inset = window.bounds.height - top
         if abs(inset - lastInset) > 0.5 {

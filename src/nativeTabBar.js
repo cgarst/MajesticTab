@@ -7,7 +7,6 @@
 // navigation, Settings and the "leave Settings" handling stay in one place (libraryModal.js).
 
 const MIN_IOS_MAJOR = 26;
-const PHONE_QUERY = '(max-width: 576px)';
 const TABS = [
     { key: 'library', title: 'Library', symbol: 'books.vertical' },
     { key: 'setlists', title: 'Setlists', symbol: 'music.note.list' },
@@ -31,6 +30,9 @@ function onEvent(msg) {
     if (!msg) return;
     if (msg.type === 'height') {
         document.documentElement.style.setProperty('--native-tabbar-h', `${Math.round(msg.value)}px`);
+    } else if (msg.type === 'top') {
+        // Room the native search field takes at the top of the window (0 when it is hidden)
+        document.documentElement.style.setProperty('--native-search-top', `${Math.round(msg.value)}px`);
     } else if (msg.type === 'side') {
         // Room the vertical rail takes at the screen's left or right edge (0 when the bar is horizontal)
         const root = document.documentElement.style;
@@ -111,10 +113,10 @@ function refreshAll() {
     syncSearch();
 }
 
-// The native bar belongs to the library, on phones and wherever the system wants a vertical bar (the iPhone Duo's
-// outer display and its inner display in landscape, which are wider than a phone). Wide layouts keep the web rail.
+// The native bar belongs to the library at every width (phones, iPads, the iPhone Duo in portrait): the system bottom
+// bar, as on a regular iPhone. Only where the system wants a vertical bar (the Duo in landscape) is it a side rail.
 function currentlyWanted() {
-    return document.body.classList.contains('library-view-active') && (window.matchMedia(PHONE_QUERY).matches || verticalMode);
+    return document.body.classList.contains('library-view-active');
 }
 
 async function start() {
@@ -166,7 +168,6 @@ export function initNativeTabBar() {
     const themeChanged = new MutationObserver(syncAppearance);
     themeChanged.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });
     themeChanged.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] });
-    window.matchMedia(PHONE_QUERY).addEventListener('change', refresh);
     refresh();
 }
 
