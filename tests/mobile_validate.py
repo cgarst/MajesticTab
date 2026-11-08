@@ -109,7 +109,9 @@ async def main():
         await step('Settings -> Tools', tap(nav('tools')), 'tools-shell')
         await step('Tools -> Settings', tap(S), 'settings')
         await step('Settings -> Setlists', tap(nav('setlists')), 'setlists-view')
-        await step('Setlists -> Tunings', tap(nav('tunings')), 'tunings-view')
+        await step('Setlists -> Library', tap(nav('library')), 'collection-root-view')
+        # Tunings is a Browse by row inside Library, not a rail or tab-bar destination
+        await step('Library -> Tunings', tap('#libTuningsGroupBtn'), 'tunings-view')
         await step('Tunings -> Settings', tap(S), 'settings')
         await step('Settings -> Library', tap(nav('library')), 'collection-root-view')
         await step('Library -> Tools', tap(nav('tools')), 'tools-shell')
