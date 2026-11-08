@@ -509,12 +509,15 @@
   min-width: 0;
 }
 
-/* Wide layout: tuning controls on the left, live readout on the right */
+/* Wide layout: tuning controls on the left, live readout on the right. It follows the width the tool actually has (a dialog,
+   or the stage on the Tools page), not the window. */
+.tuner-modal-card { container: tool / inline-size; }
 @media (min-width: 768px) {
   .tuner-modal-card {
     max-width: 920px;
   }
-
+}
+@container tool (min-width: 640px) {
   .tuner-modal-body {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -522,7 +525,9 @@
     gap: 1.25rem;
   }
 
+  /* The live readout leads on the left, as the pulse does in the metronome; the tuning controls sit beside it */
   .tuner-display-card {
+    order: -1;
     position: sticky;
     top: 0;
   }

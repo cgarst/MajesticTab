@@ -14,7 +14,6 @@ const BASE_INSTRUMENTS = [
         id: "guitar",
         name: "Guitar",
         tuning: ["E2", "A2", "D3", "G3", "B3", "E4"],
-        color: "#FF6B35",
         description: "Standard 6-string tuning (E A D G B E)",
         strings: 6,
         type: "guitar"
@@ -23,7 +22,6 @@ const BASE_INSTRUMENTS = [
         id: "bass",
         name: "Bass",
         tuning: ["E1", "A1", "D2", "G2"],
-        color: "#7B2FF7",
         description: "Standard 4-string bass tuning (E A D G)",
         strings: 4,
         type: "bass"
@@ -32,7 +30,6 @@ const BASE_INSTRUMENTS = [
         id: "ukulele",
         name: "Ukulele",
         tuning: ["G4", "C4", "E4", "A4"],
-        color: "#00C9A7",
         description: "Standard GCEA tuning",
         strings: 4,
         type: "ukulele"
@@ -41,7 +38,6 @@ const BASE_INSTRUMENTS = [
         id: "banjo",
         name: "Banjo",
         tuning: ["G4", "D3", "G3", "B3", "D4"],
-        color: "#2D9CDB",
         description: "Open G tuning",
         strings: 5,
         type: "banjo"
@@ -50,7 +46,6 @@ const BASE_INSTRUMENTS = [
         id: "mandolin",
         name: "Mandolin",
         tuning: ["G3", "D4", "A4", "E5"],
-        color: "#F2C94C",
         description: "Standard G D A E tuning",
         strings: 4,
         type: "mandolin"
@@ -59,7 +54,6 @@ const BASE_INSTRUMENTS = [
         id: "violin",
         name: "Violin",
         tuning: ["G3", "D4", "A4", "E5"],
-        color: "#C4375B",
         description: "Standard G D A E tuning",
         strings: 4,
         type: "violin"
@@ -68,7 +62,6 @@ const BASE_INSTRUMENTS = [
         id: "viola",
         name: "Viola",
         tuning: ["C3", "G3", "D4", "A4"],
-        color: "#9B51E0",
         description: "Standard C G D A tuning",
         strings: 4,
         type: "viola"
@@ -77,7 +70,6 @@ const BASE_INSTRUMENTS = [
         id: "cello",
         name: "Cello",
         tuning: ["C2", "G2", "D3", "A3"],
-        color: "#E8871E",
         description: "Standard C G D A tuning",
         strings: 4,
         type: "cello"
@@ -86,7 +78,6 @@ const BASE_INSTRUMENTS = [
         id: "chromatic",
         name: "Chromatic",
         tuning: [],
-        color: "#56CCF2",
         description: "All pitches & octaves, any instrument",
         strings: 0,
         type: "chromatic"
@@ -381,7 +372,6 @@ class PitchCraftTunerController {
                     id: `track-tuning-${track.index ?? trackIdx}-${sIdx}`,
                     name: allTracks.length > 1 ? `${trackName}: ${formattedTuningName}` : `Track: ${formattedTuningName}`,
                     tuning: stringNotes,
-                    color: isBass ? '#7B2FF7' : '#10b981',
                     description: `${trackName} tuning (${stringNotes.join(' ')})`,
                     strings: stringNotes.length,
                     type: isBass ? 'bass' : 'guitar',
@@ -520,7 +510,6 @@ class PitchCraftTunerController {
                 id: `lib-tuning-${g.key}`,
                 name: g.name || g.notes,
                 tuning: strings,
-                color: isBass ? '#7B2FF7' : '#FF6B35',
                 description: `${g.songs.length} ${g.songs.length === 1 ? 'song' : 'songs'} in library (${strings.join(' ')})`,
                 strings: strings.length,
                 type: isBass ? 'bass' : 'guitar',
@@ -538,7 +527,6 @@ class PitchCraftTunerController {
                     id: `default-tuning-${d.strings.length}-${d.name}`,
                     name: d.name,
                     tuning: d.strings,
-                    color: '#FF6B35',
                     description: `${d.strings.length}-string ${d.name} (${d.strings.join(' ')})`,
                     strings: d.strings.length,
                     type: 'guitar',
@@ -858,7 +846,12 @@ class PitchCraftTunerController {
 
         // Needle position (-50 to +50 cents mapped to 0% to 100%)
         const clampedCents = Math.max(-50, Math.min(50, noteInfo.cents));
-        needle.style.left = `${50 + clampedCents}%`;
+        needle.style.setProperty('--needle', `${clampedCents}%`);
+        const meter = document.getElementById('tunerCentsMeter');
+        if (meter) {
+            meter.setAttribute('aria-valuenow', String(noteInfo.cents));
+            meter.setAttribute('aria-valuetext', `${Math.abs(noteInfo.cents)} cents ${noteInfo.cents > 0 ? 'sharp' : noteInfo.cents < 0 ? 'flat' : 'in tune'}`);
+        }
 
         // Note and Octave
         noteEl.textContent = noteInfo.note;
@@ -880,7 +873,7 @@ class PitchCraftTunerController {
             statusClass = 'tuner-status-off';
         }
 
-        // The needle is the playhead: it keeps the one hue. In tune is said in words and on the big note.
+        // The needle is the playhead: it keeps the one hue. In tune is said in words, never by color alone.
         noteEl.classList.toggle('is-in-tune', statusClass === 'tuner-status-in-tune');
         noteEl.classList.remove('is-idle');
 
@@ -903,7 +896,10 @@ class PitchCraftTunerController {
         const centsEl = document.getElementById('tunerCentsReadout');
 
         if (needle) {
-            needle.style.left = '50%';
+            needle.style.setProperty('--needle', '0%');
+            const meter = document.getElementById('tunerCentsMeter');
+            meter?.setAttribute('aria-valuenow', '0');
+            meter?.setAttribute('aria-valuetext', 'No note');
         }
         if (noteEl) { noteEl.textContent = '—'; noteEl.classList.remove('is-in-tune'); noteEl.classList.add('is-idle'); }
         if (octaveEl) octaveEl.textContent = '';
@@ -970,11 +966,10 @@ class PitchCraftTunerController {
           <!-- Active Instrument Details & String Reference Row -->
           <div class="tuner-instrument-banner">
             <div class="tuner-banner-meta">
-              <div class="tuner-banner-title">
+              ${(libraryActive && !inst.isTrackTuning) ? '' : `<div class="tuner-banner-title">
                 ${inst.name}
                 ${inst.isTrackTuning ? '<span class="tuner-active-note">Active track</span>' : ''}
-              </div>
-              <div class="tuner-banner-subtitle">${String(inst.description).replace(/\s*\([^)]*\)\s*$/, '')}</div>
+              </div>`}
               <div class="tuner-strings-row" style="--n: ${inst.tuning ? inst.tuning.length : 0};">
                 ${stringsHtml}
               </div>
@@ -1000,7 +995,7 @@ class PitchCraftTunerController {
             </div>
 
             <!-- Cents Meter Bar -->
-            <div class="tuner-cents-meter" id="tunerCentsMeter" role="meter" aria-label="Tuning Cents Meter">
+            <div class="tuner-cents-meter" id="tunerCentsMeter" role="meter" aria-label="Tuning offset in cents" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0" aria-valuetext="No note">
               <div class="tuner-center-target"></div>
               <div class="tuner-green-zone"></div>
               <div class="tuner-needle" id="tunerNeedle"></div>

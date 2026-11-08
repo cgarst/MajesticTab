@@ -1898,7 +1898,7 @@ body.fretboard-open {
 .ref-filter-row { display: flex; flex-wrap: wrap; gap: 12px 32px; align-items: flex-end; margin-bottom: 20px; }
 .ref-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .ref-page-container .ref-select.form-select {
-  min-height: 36px; padding: 0 36px 0 12px !important; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--ref-rest) !important; color: var(--ink) !important; font-size: 14px; box-shadow: none !important;
+  min-height: 44px; padding: 0 36px 0 12px !important; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--ref-rest) !important; color: var(--ink) !important; font-size: 14px; box-shadow: none !important;
 }
 .ref-result-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 .ref-count { font-size: 13px; color: var(--ink2); }
@@ -1956,7 +1956,7 @@ body.fretboard-open {
 .tuner-selector-row { align-items: center; gap: 8px 24px; }
 .tuner-selector-label, .tuner-calib-group label { text-transform: none !important; letter-spacing: 0 !important; font-size: 13px !important; font-weight: 400 !important; color: var(--ink2) !important; }
 .tuner-modal-body select.tuner-other-select.form-select, .tuner-calib-select {
-  min-height: 36px; padding: 0 36px 0 12px !important; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--ref-rest) !important; color: var(--ink) !important; font-size: 14px !important; box-shadow: none !important;
+  min-height: 44px; padding: 0 36px 0 12px !important; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--ref-rest) !important; color: var(--ink) !important; font-size: 14px !important; box-shadow: none !important;
 }
 .tuner-modal-body select.tuner-other-select.active { background-color: var(--ref-on) !important; background-image: none !important; color: var(--ink) !important; font-weight: 600; }
 .tuner-calib-select { padding-right: 12px !important; }
@@ -1976,11 +1976,13 @@ body.fretboard-open {
 .tuner-cents-meter { background: var(--ref-on); border: 0; height: 12px; border-radius: 6px; }
 .tuner-green-zone { background: color-mix(in srgb, var(--ink) 28%, var(--ref-on)); }
 .tuner-center-target { background: var(--ink); box-shadow: none; }
-.tuner-needle { background: var(--hue) !important; box-shadow: none !important; width: 6px; border-radius: 3px; transition: left var(--dur-fast) var(--ease-out); }
+/* The needle spans the meter and slides with transform (1% of its width = 1 cent); its visible bar is the ::after */
+.tuner-cents-meter .tuner-needle { left: 0; width: 100%; background: none !important; box-shadow: none !important; border-radius: 0; transform: translateX(var(--needle, 0%)); transition: transform var(--dur-fast) var(--ease-out); will-change: transform; }
+.tuner-cents-meter .tuner-needle::after { content: ''; position: absolute; left: 50%; top: 0; bottom: 0; width: 6px; margin-left: -3px; border-radius: 3px; background: var(--hue); }
 .tuner-tick { background: color-mix(in srgb, var(--ink) 25%, transparent); }
 .tuner-tick.is-major { background: color-mix(in srgb, var(--ink) 40%, transparent); }
-.tuner-big-note { font-family: var(--font-display) !important; font-weight: 700; font-size: 6rem; letter-spacing: -.01em; text-shadow: none; transition: color var(--dur-fast) var(--ease-out); }
-.tuner-big-note.is-in-tune { color: var(--hue); }
+.tuner-big-note { font-family: var(--font-display) !important; font-weight: 700; font-size: 5rem; letter-spacing: -.01em; text-shadow: none; transition: color var(--dur-fast) var(--ease-out); }
+.tuner-big-note.is-in-tune { color: var(--ink); }
 .tuner-big-note.is-idle { color: var(--ink2); opacity: .5; }
 .tuner-big-octave { font-family: var(--font-display) !important; font-weight: 700; font-size: 2rem; color: var(--ink2); }
 .tuner-freq-readout, .tuner-cents-readout { font-family: inherit !important; font-variant-numeric: tabular-nums; font-size: 14px; color: var(--ink2); }
@@ -1991,7 +1993,7 @@ body.fretboard-open {
 .tuner-vol-bar.is-active { background: var(--ink); box-shadow: none; }
 .tuner-mic-btn { min-height: 44px; padding: 0 28px; border-radius: var(--r-control) !important; letter-spacing: 0 !important; font-size: 15px; font-weight: 600; box-shadow: none !important; }
 .tuner-mic-btn.is-listening { background: var(--ref-on) !important; background-image: none !important; color: var(--ink) !important; border-color: transparent !important; box-shadow: none !important; }
-@media (max-width: 576px) { .tuner-big-note { font-size: 4.5rem; } .tuner-big-octave { font-size: 1.6rem; } }
+@media (max-width: 576px) { .tuner-big-note, .metro-bpm { font-size: 4.5rem; } .tuner-big-octave { font-size: 1.6rem; } }
 @media (prefers-reduced-motion: reduce) { .tuner-needle, .tuner-big-note { transition: none; } }
 .fretboard-close-btn i, #tunerModal .theme-modal-close-btn i, #referenceModal .theme-modal-close-btn i { display: inline-block !important; }
 .fretboard-panel .btn:not(.fretboard-close-btn), #fretboardDock .btn:not(.fretboard-close-btn) { background: transparent !important; border: 0 !important; color: var(--ink2) !important; }
@@ -2945,9 +2947,13 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
    beat that is sounding (the playhead). Based on The Minimal Metronome by Zane Helton (MIT).
    ========================================================================== */
 .metronome-modal-card { max-width: 480px; width: 95%; max-height: 90dvh; display: flex; flex-direction: column; overflow: hidden; backdrop-filter: none; -webkit-backdrop-filter: none; box-shadow: none; }
-.metronome-body { display: flex; flex-direction: column; gap: 20px; padding: 20px; overflow-y: auto; overscroll-behavior: contain; --metro-rest: color-mix(in srgb, var(--ink) 6%, var(--ground)); --metro-on: color-mix(in srgb, var(--ink) 13%, var(--ground)); }
-.metronome-body > * { flex-shrink: 0; }
-.metro-stage { position: relative; height: 140px; border-radius: var(--r-card); background: var(--metro-rest); overflow: hidden; }
+.metronome-body { display: flex; flex-direction: column; gap: 20px; padding: 20px; overflow-y: auto; overscroll-behavior: contain; --ref-rest: color-mix(in srgb, var(--ink) 6%, var(--ground)); --ref-on: color-mix(in srgb, var(--ink) 13%, var(--ground)); }
+.metro-main, .metro-side { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.metro-main > *, .metro-side > * { flex-shrink: 0; }
+/* Like the tuner, two columns when the tool has the width (the stage on the Tools page): the pulse on the left, the pattern and options on the right */
+.metronome-modal-card { container: tool / inline-size; }
+@container tool (min-width: 640px) { .metronome-body { flex-direction: row; align-items: flex-start; gap: 40px; } .metro-main, .metro-side { flex: 1 1 0; } }
+.metro-stage { position: relative; height: 140px; border-radius: var(--r-card); background: var(--ref-rest); overflow: hidden; }
 .metro-arm { position: absolute; left: calc(50% - 2px); top: 28px; bottom: 0; width: 4px; border-radius: 2px; background: var(--ink2); transform-origin: 50% 100%; transform: rotate(0); will-change: transform; }
 .metro-mark { position: absolute; left: calc(50% - 6px); top: 10px; width: 12px; height: 12px; border-radius: 50%; background: var(--hue); opacity: 0; transition: opacity var(--dur-fast) var(--ease-out); }
 .metro-mark.is-lit { opacity: 1; transition: none; }
@@ -2955,13 +2961,13 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .metro-tempo { display: flex; align-items: baseline; gap: 8px; min-width: 150px; justify-content: center; }
 .metro-bpm { font-family: var(--font-display); font-weight: 700; font-size: 5rem; line-height: 1; font-variant-numeric: tabular-nums; color: var(--ink); }
 .metro-unit { font-size: 14px; color: var(--ink2); }
-.metro-step { width: 44px; height: 44px; border: 0; border-radius: var(--r-control); background: var(--metro-rest); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; transition: transform var(--dur-fast) var(--ease-out); }
+.metro-step { width: 44px; height: 44px; border: 0; border-radius: var(--r-control); background: var(--ref-rest); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; transition: transform var(--dur-fast) var(--ease-out); }
 .metro-step:active { transform: translateY(1px); }
 .tauri-ios .metro-step:active { transform: scale(.96); }
-@media (hover: hover) { .metro-step:hover, .metro-ghost:hover { background: var(--metro-on) !important; } }
+@media (hover: hover) { .metro-step:hover, .metro-ghost:hover { background: var(--ref-on) !important; } }
 .metro-range { width: 100%; accent-color: var(--ink2); min-height: 24px; }
 .metro-beats { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; min-height: 14px; }
-.metro-beat { width: 12px; height: 12px; border-radius: 50%; background: var(--metro-on); transition: background-color var(--dur-fast) var(--ease-out); }
+.metro-beat { width: 12px; height: 12px; border-radius: 50%; background: var(--ref-on); transition: background-color var(--dur-fast) var(--ease-out); }
 .metro-beat.is-downbeat { background: color-mix(in srgb, var(--ink) 28%, var(--ground)); }
 .metro-beat.is-current { background: var(--hue); }
 .metro-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; }
@@ -2972,21 +2978,22 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .metro-parts-head { font-size: 13px; color: var(--ink2); padding: 0 12px; }
 .metro-pattern { display: flex; flex-direction: column; gap: 2px; }
 .metro-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 56px; padding: 6px 12px; border-radius: var(--r-control); transition: background-color var(--dur-fast) var(--ease-out); }
-.metro-row.is-current { background: var(--metro-rest); }
+.metro-row.is-current { background: var(--ref-rest); }
 .metro-row [data-remove] { margin-left: auto; }
 .metro-part-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .metro-ghost:disabled { opacity: .4; cursor: default; }
-.metro-field.form-select, .library-page-view select.form-select.metro-field { width: 76px; min-height: 44px; padding: 0 26px 0 12px !important; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--metro-rest) !important; background-position: right 8px center !important; color: var(--ink) !important; font-size: 15px; font-variant-numeric: tabular-nums; text-align: left; text-align-last: left; box-shadow: none !important; }
-@media (hover: hover) { .metro-field:hover, .library-page-view select.form-select.metro-field:hover { background-color: var(--metro-on) !important; } }
+.metro-field.form-select, .library-page-view select.form-select.metro-field { width: 76px; min-height: 44px; padding: 0 26px 0 12px !important; border: 0 !important; border-radius: var(--r-control) !important; background-color: var(--ref-rest) !important; background-position: right 8px center !important; color: var(--ink) !important; font-size: 15px; font-variant-numeric: tabular-nums; text-align: left; text-align-last: left; box-shadow: none !important; }
+@media (hover: hover) { .metro-field:hover, .library-page-view select.form-select.metro-field:hover { background-color: var(--ref-on) !important; } }
 .metro-field:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .metro-options { display: flex; flex-direction: column; gap: 2px; }
 .metro-option { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 8px 12px; border-radius: var(--r-control); cursor: pointer; color: var(--ink); font-size: 15px; }
 .metro-option small { display: block; font-size: 12px; color: var(--ink2); }
-@media (hover: hover) { .metro-option:hover { background: var(--metro-rest); } }
+@media (hover: hover) { .metro-option:hover { background: var(--ref-rest); } }
 .metro-help { font-size: 12px; color: var(--ink2); }
 .metro-play:focus-visible, .metro-ghost:focus-visible, .metro-step:focus-visible, .metro-range:focus-visible, .metro-option:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
 #metronomeModal .theme-modal-close-btn i { display: inline-block !important; }
-.theme-modal-backdrop.tool-embedded .metronome-modal-card { max-width: 520px; }
+.theme-modal-backdrop.tool-embedded .metronome-modal-card { max-width: none; width: 100%; }
+.theme-modal-backdrop.tool-embedded .metronome-body { padding: 0; }
 #latencyModal.tool-embedded .theme-modal-card { max-width: 520px; }
 #latencyModal.tool-embedded .border-top { border-top: 0 !important; margin-top: 8px !important; }
 @media (prefers-reduced-motion: reduce) { .metro-mark, .metro-beat, .metro-step { transition: none; } }
