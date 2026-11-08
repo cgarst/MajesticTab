@@ -359,14 +359,12 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
 
     // The system's choice of bar edge: 0 none (horizontal bar), 1 leading, 2 trailing. iOS 27.1 and later.
     private func systemVerticalEdge(_ window: UIWindow) -> Int {
-        if #available(iOS 27.1, *) {
-            switch window.traitCollection.verticalBarEdge {
-            case .leading: return 1
-            case .trailing: return 2
-            default: return 0
-            }
-        }
-        return 0
+        // Read through the Objective-C runtime so this compiles on SDKs older than 27.1 (a direct property access
+        // fails to build there, and #available only guards at run time). Raw values: 0 none, 1 leading, 2 trailing.
+        let traits = window.traitCollection
+        guard traits.responds(to: NSSelectorFromString("verticalBarEdge")),
+              let raw = traits.value(forKey: "verticalBarEdge") as? Int else { return 0 }
+        return (raw == 1 || raw == 2) ? raw : 0
     }
 
     // Picks the bar for the current pose and places everything; cheap to call often
