@@ -81,7 +81,7 @@ async function renderSetlistsPage(container, onBack) {
     });
     const toolbarHtml = libraryListToolbarHtml({
         count: `${setlists.length} ${setlists.length === 1 ? 'setlist' : 'setlists'}`,
-        actionsHtml: newBtnHtml
+        actionsHtml: setlist ? '' : newBtnHtml // with setlists, the button sits where the library's Artists | Tunings switch is
     });
 
     if (!setlist) {
@@ -139,6 +139,7 @@ async function renderSetlistsPage(container, onBack) {
 
     const listPaneHtml = `
       <section class="pane list" aria-label="Setlists">
+        <div class="lib-groupby-row">${newBtnHtml}</div>
         <h3 class="pane-head"><span>Setlists <span class="tnum">(${setlists.length})</span></span></h3>
         <div class="pane-scroll">
           <div class="library-artists-grid" id="setlistsList">

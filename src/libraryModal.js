@@ -1035,8 +1035,9 @@ async function renderLibraryBrowseView(container) {
     let breadcrumbHtml = '';
     let bodyHtml = '';
     let toolbarHtml = '';
-    const syncBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action" id="libSyncBtn" title="Sync your library with your backup location">Sync</button>`;
-    const toolbarActionsHtml = ''; // Sync lives in the Group by row, beside the switch
+    // Desktop: Sync sits in the toolbar beside the search. Phones: it sits in the Group by row. CSS shows one of the two.
+    const syncBtnHtml = `<button type="button" class="btn btn-sm lib-ghost-action lib-sync-row" data-lib-sync title="Sync your library with your backup location">Sync</button>`;
+    const toolbarActionsHtml = `<div class="library-toolbar-actions d-flex align-items-center gap-2"><button type="button" class="btn btn-sm lib-ghost-action lib-sync-toolbar" data-lib-sync title="Sync your library with your backup location">Sync</button></div>`;
 
     // The resume card is the same whichever way the library is grouped
     let resumeHtml = '';
@@ -2327,7 +2328,7 @@ function bindLibraryToolbarEvents(container) {
         renderLibraryBrowseView(container);
     });
 
-    container.querySelector('#libSyncBtn')?.addEventListener('click', () => import('./syncUi.js').then(m => m.openSyncModal()));
+    container.querySelectorAll('[data-lib-sync]').forEach(b => b.addEventListener('click', () => import('./syncUi.js').then(m => m.openSyncModal())));
 }
 
 // "5 songs", "1 album": count plus its unit, lowercase, plural unless exactly 1

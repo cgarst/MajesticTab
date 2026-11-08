@@ -873,6 +873,8 @@ body.practice-open #output { padding-right: 416px !important; }
 .library-list-toolbar .btn { min-height: 36px; }
 .library-list-toolbar .btn.btn-theme-primary, .library-list-toolbar .btn.btn-theme-primary:hover:not(:disabled) { padding: 0 14px; border-radius: var(--r-control) !important; }
 @media (pointer: coarse) { .library-list-toolbar .btn { min-height: 44px; } }
+/* Setlists with a list: the action lives in the list pane, so the search takes the whole row */
+.library-page-container.setlists-view:has(> .library-list-toolbar > div:last-child:empty) { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
 
 /* Group by (Artists | Tunings): a real switch at the top of the list pane, directly above the rows it regroups.
    style.css fixes .hud-pill-group at 35px, shorter than a touch-size button, so the box grows with its buttons. */
@@ -911,6 +913,9 @@ body.practice-open #output { padding-right: 416px !important; }
 @media (pointer: coarse) { :is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input { min-height: 44px; } }
 /* In the Group by row the artist filter keeps its own width and Sync stays at the right edge */
 .lib-groupby-row .collection-pill-group { flex: 0 1 auto; min-width: 160px; }
+/* Sync: in the toolbar beside the search on desktop, in the Group by row on phones */
+.lib-sync-row { display: none; }
+@media (max-width: 576px) { .lib-sync-row { display: inline-block; } .lib-sync-toolbar { display: none; } }
 
 /* Phones: search takes the whole first row on every page; the second row holds the count and filter on the left and the one action on the right */
 @media (max-width: 576px) {
