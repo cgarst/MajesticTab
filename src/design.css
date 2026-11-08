@@ -4200,7 +4200,7 @@ body > #controllerHelpModal { display: none; }
 @media (prefers-reduced-motion: reduce) { .ct-text, .ct-filter { transition: none; } }
 
 /* Classical tab matches the library: two-line rows (bold title, grey line), a column heading with its count,
-   a chevron and the ink dot on the chosen composer, and the row action in plain sight. No artwork. */
+   a chevron and the ink dot on the chosen composer, and adding a piece in the row menu. No artwork. */
 .ct-colhead { display: flex; justify-content: space-between; padding: 8px 12px; font-size: 13px; color: var(--ink2); }
 .ct-comp { position: relative; min-height: 56px; padding: 6px 8px 6px 20px; gap: 12px; }
 .ct-comp-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
@@ -4218,13 +4218,12 @@ body > #controllerHelpModal { display: none; }
 .ct-comp .chev { color: var(--ink2); opacity: .6; font-size: .9rem; }
 .ct-comp[aria-current="true"]::before { content: ''; position: absolute; left: 7px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
 .ct-row { min-height: 56px; border-radius: 0; }
+/* Rows use content-visibility: auto, which clips what sticks out of the row: the row whose menu is open must not be clipped, and stacks above its neighbours */
+.ct-row-open { content-visibility: visible; z-index: 6; }
 .ct-row:hover { background: var(--s2); }
 .ct-open { padding: 6px 12px 6px 20px; border-radius: 0; gap: 2px; }
 .ct-row-title { font-weight: 600; font-size: 14.5px; line-height: 1.25; }
 .ct-row-meta { font-size: 12px; line-height: 1.2; }
-.ct-add, .ct-inlib { flex-shrink: 0; font-size: 14px; white-space: nowrap; }
-.ct-inlib { color: var(--ink2); padding: 0 10px; }
-@media (max-width: 576px) { .ct-add, .ct-inlib { display: none; } }
 
 /* Tools fill the height of the page. The pane is a column and the host grows into it; a tool that has its own
    scrolling lists (Classical tab) is held to the pane's height instead of growing past it. */

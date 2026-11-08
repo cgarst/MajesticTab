@@ -244,16 +244,16 @@ export function renderClasstabTool(container, { onBack } = {}) {
         const c = state.rec.composers[m.composer];
         const p = m.piece;
         const facts = pieceFacts(p);
-        const meta = [showComposer ? c.name : '', ...facts].filter(Boolean).join(' · ');
         const key = `${m.composer}:${p.tab_url}`;
         const mine = state.inLibrary.has(p.tab_url);
+        // Adding is in the row's menu; a piece already added says so in its grey line
+        const meta = [showComposer ? c.name : '', ...facts, mine ? 'In your library' : ''].filter(Boolean).join(' · ');
         const pinned = isPiecePinned(c.name, p.title);
-        return `<div class="ct-row" role="listitem" data-key="${esc(key)}">
+        return `<div class="ct-row${state.menuFor === key ? ' ct-row-open' : ''}" role="listitem" data-key="${esc(key)}">
           <button type="button" class="ct-open" data-act="open" data-key="${esc(key)}">
             <span class="ct-row-title">${esc(p.title)}</span>
             <span class="ct-row-meta">${esc(meta)}</span>
           </button>
-          ${mine ? '<span class="ct-inlib">In your library</span>' : `<button type="button" class="ct-text ct-add" data-act="add" data-key="${esc(key)}">Add to library</button>`}
           <button type="button" class="ct-pin" data-act="pin" data-key="${esc(key)}" aria-pressed="${pinned}" aria-label="${pinned ? 'Unpin' : 'Pin'} ${esc(p.title)}"><i class="bi-pin-angle${pinned ? '-fill' : ''}" aria-hidden="true"></i></button>
           <button type="button" class="ct-more" data-act="menu" data-key="${esc(key)}" aria-label="More for ${esc(p.title)}" aria-haspopup="menu" aria-expanded="${state.menuFor === key}">⋯</button>
           ${state.menuFor === key ? `<div class="ct-menu" role="menu">
