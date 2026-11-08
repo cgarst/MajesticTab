@@ -4417,3 +4417,16 @@ body.phone-reader #screenRow { display: none !important; }
 
 /* Restore: a phone has nothing to drop a file on */
 @media (pointer: coarse) { .restore-drop-hint { display: none; } }
+
+/* ---------- iOS 26 system tab bar ----------
+   On iOS 26 and later the app shows the system tab bar (Liquid Glass, drawn by the OS, see nativeTabBar.js) in place
+   of the HTML one. It overlays the page, so pages reserve its height, reported by the native side. Only this system
+   chrome is glass; everything the web draws stays flat. If the native bar fails or is unavailable the class is never
+   set and the HTML bar stays. */
+body.native-tabbar .library-bottom-nav { display: none !important; }
+@media (max-width: 576px) {
+  body.native-tabbar.library-view-active .library-page-body { padding-bottom: calc(var(--native-tabbar-h, 83px) + 1rem) !important; }
+  html body.native-tabbar.settings-as-page.library-view-active #fileMenu { bottom: 0 !important; }
+  body.native-tabbar .setpage { padding-bottom: calc(var(--native-tabbar-h, 83px) + 16px) !important; }
+  body.native-tabbar .tools-shell .setpage:has(.classtab-tool-embedded) { padding-bottom: calc(var(--native-tabbar-h, 83px) + 8px) !important; }
+}

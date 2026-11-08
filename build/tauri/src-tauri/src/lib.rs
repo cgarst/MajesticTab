@@ -585,6 +585,10 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
     #[cfg(feature = "google-auth")]
     let builder = builder.plugin(tauri_plugin_google_auth::init());
 
+    // System tab bar for the library destinations (Liquid Glass on iOS 26 and later); see plugins/ios-tabbar.
+    #[cfg(target_os = "ios")]
+    let builder = builder.plugin(tauri_plugin_ios_tabbar::init());
+
     #[cfg(all(feature = "self-update", not(any(target_os = "android", target_os = "ios"))))]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
 

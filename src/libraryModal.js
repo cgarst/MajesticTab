@@ -1,6 +1,7 @@
 // libraryModal.js
 // Artwork-rich MusicBrainz-powered Tab Library Page aligned to themes.
 
+import { initNativeTabBar, setNativeTabActive } from './nativeTabBar.js';
 import { settingsPanel } from './utils/settingsPanel.js';
 import {
     getCollections, getLibraryHierarchy, getLibraryTuningsHierarchy,
@@ -2287,6 +2288,9 @@ function syncLibraryBottomNav() {
     const settingsBtn = nav.querySelector('#libraryNavSettingsBtn');
     settingsBtn?.classList.toggle('active', settingsOpen);
     if (settingsBtn) settingsOpen ? settingsBtn.setAttribute('aria-current', 'page') : settingsBtn.removeAttribute('aria-current');
+    // The iOS app shows the system tab bar in its place (iOS 26 and later); this keeps it on the same destination
+    initNativeTabBar();
+    setNativeTabActive(settingsOpen ? 'settings' : active);
 }
 
 function isSettingsPageOpen() {
