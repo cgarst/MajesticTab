@@ -4526,21 +4526,84 @@ body:not(.library-view-active):not(.dock-off) .fretboard-dock { padding-bottom: 
 /* ==========================================================================
    Tabletop: an iPhone Duo folded with the crease across (src/foldState.js sets html.duo-tabletop, --fold-top and --fold-h).
    The score fills the top half, the crease stays empty, and everything you touch is in the bottom half: the strip, the
-   five words, and the sheets (which open upward from the strip and stop at the crease, so the score is never covered).
+   five words, and the sheets (which open over the song row, from the strip up to the crease, so the score is never covered).
    The phone reader chrome does the rest (src/utils/narrowAlias.js restates its narrow-screen rules for this pose).
+   The top bar (back, song name, page buttons) sits in the bottom half too. Nothing is open until a word is pressed.
    Reading mode does not exist here: the bottom half is the controls.
    ========================================================================== */
 html.duo-tabletop body.phone-reader:not(.library-view-active) {
   --dt-controls-top: calc(var(--fold-top, 50dvh) + var(--fold-h, 0px));
+  --dt-target: 56px;                                  /* every press target in this pose */
+  --tabs-h: calc(var(--dt-target) + env(safe-area-inset-bottom, 0px));
+  --reader-bottom-nav-h: var(--tabs-h);
+  padding-bottom: var(--tabs-h) !important;
 }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #mainContent {
-  flex: none; height: var(--fold-top, 50dvh); min-height: 0;
+  flex: none; height: var(--fold-top, 50dvh); min-height: 0; padding-top: env(safe-area-inset-top, 0px) !important;
 }
-/* the transport sits at the bottom of the controls half; the empty tone between it and the crease is where the panels open */
+html.duo-tabletop body.phone-reader:not(.library-view-active) #output.continuous-mode { padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important; }
+/* the transport sits at the bottom of the controls half, over the five words */
 html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-top: auto; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) {
-  max-height: calc(100dvh - var(--dt-controls-top) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - var(--fretboard-effective-h, 0px) - 8px) !important;
+
+/* The top bar (back, song name, page buttons) moves down into the controls half: one row at its top, under the crease.
+   It stays in view; a sheet opens below it, down to the transport. */
+html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar {
+  top: var(--dt-controls-top); bottom: auto; z-index: 1040;
+  flex-wrap: nowrap; padding: 0 max(env(safe-area-inset-right, 0px), 8px) 0 max(env(safe-area-inset-left, 0px), 8px) !important;
+  background: var(--s1) !important; min-height: var(--dt-target);
 }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #brandSection { min-height: var(--dt-target); gap: 4px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #topBarBackToLibraryBtn,
+html.duo-tabletop body.phone-reader:not(.library-view-active) #navButtons .btn { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target); min-height: var(--dt-target); }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn { min-height: var(--dt-target); height: var(--dt-target); }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { font-size: 18px; }
+
+/* The five words, the transport and the strip: large targets with room between them */
+html.duo-tabletop body.phone-reader:not(.library-view-active) #topFlexZone .btn { min-height: var(--dt-target); font-size: 16px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock { bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; }
+/* The fretboard is always shown here (fretboardController.js) and fills the band between the song row and the strip. The
+   score half keeps its size: the dock's height must not feed the score's own fretboard-open sizing. */
+html.duo-tabletop body.phone-reader:not(.library-view-active) { --fretboard-effective-h: 0px !important; }
+html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #output:not(.continuous-mode) { height: 100% !important; max-height: 100% !important; padding-bottom: 4px !important; }
+html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #output.continuous-mode { padding-bottom: 24px !important; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock {
+  top: calc(var(--dt-controls-top) + var(--dt-target)); bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; height: auto;
+  display: flex; flex-direction: column; padding-bottom: 0; z-index: 1030;
+}
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock-header { flex: none; padding: 0 12px; height: 56px; min-height: 0; flex-wrap: nowrap; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper { flex: 1 1 auto; min-height: 0; display: flex; padding: 0 0 4px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper > * { flex: 1 1 auto; min-height: 0; }
+html.duo-tabletop #fretboardDockBtn, html.duo-tabletop #fretboardCloseBtn { display: none !important; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock :is(button, .btn, .fb-track) { min-height: 48px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-mode-pills { height: 48px !important; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fb-track { font-size: 16px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { gap: 4px 8px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #mobileRewindBtn,
+html.duo-tabletop body.phone-reader:not(.library-view-active) #mobilePlayPauseBtn { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target); }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #fretboardDockBtn { width: var(--dt-target) !important; min-width: var(--dt-target) !important; height: var(--dt-target); }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-src .rbtn { min-height: 48px; height: 48px; padding-inline: 14px; font-size: 15px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-src .rbtn::after { top: -4px; bottom: -4px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(.ruler, .ruler svg, .ruler-labels, .page-strip-track) { height: 40px; }
+
+/* Sheets cover the whole bottom half, from the crease to the bottom edge: the song row, the strip and the five words
+   are under them. The sheet has its own Done button (tabletopSheet.js); the same height and top edge for every one. */
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) {
+  top: var(--dt-controls-top) !important; bottom: 0 !important; height: auto !important; max-height: none !important;
+  padding: calc(var(--dt-target) + 8px) 16px calc(16px + env(safe-area-inset-bottom, 0px)) !important;
+  z-index: 1060; border-radius: 0 !important; overscroll-behavior: contain;
+}
+#tabletopSheetDone { display: none; }
+html.duo-tabletop.dt-sheet-open #tabletopSheetDone {
+  display: inline-flex; align-items: center; justify-content: center; position: fixed; z-index: 1061;
+  top: calc(var(--dt-controls-top) + 4px); right: max(env(safe-area-inset-right, 0px), 8px); min-width: 96px; height: var(--dt-target);
+  padding: 0 20px; border: 0; border-radius: var(--r-control); background: var(--s2); color: var(--ink); font-size: 16px; font-weight: 600;
+}
+html.duo-tabletop.dt-sheet-open #tabletopSheetDone:active { transform: translateY(1px); }
+html.duo-tabletop.dt-sheet-open #tabletopSheetDone:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* Controls inside a sheet */
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(button, .btn, [role="tab"], [role="radio"], select) { min-height: var(--dt-target) !important; height: auto; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #practiceMenu :is(#practiceSlower, #practiceFaster, #synthLoopStartMinusBtn, #synthLoopStartPlusBtn, #synthLoopEndMinusBtn, #synthLoopEndPlusBtn) { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target) !important; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #tracksMenu) .form-check-input { font-size: 30px; }
 html.duo-tabletop #readingDockBtn, html.duo-tabletop #readingToggleBtn { display: none !important; }
 
 /* Book (iPhone Duo folded with the crease up and down): two pages, one on each half, with the crease between them.

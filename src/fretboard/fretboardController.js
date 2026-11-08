@@ -1,6 +1,7 @@
 // fretboardController.js
 // Controller coordinating AlphaTab events, multi-track note aggregation, layout, and virtual fretboard rendering
 import { FretboardView } from './fretboardView.js';
+import { isTabletop } from '../foldState.js';
 import { formatTuningFromMidi } from '../utils/tuningUtils.js';
 import { getTrackedAudioContext } from '../utils/iosAudioUnlock.js';
 import { getAudioSyncSession } from '../audioSync/audioSyncController.js';
@@ -146,6 +147,12 @@ class FretboardController {
         window.addEventListener('resize', () => {
             this.syncDockBtnSlot();
         });
+        // Folding into tabletop shows it; unfolding restores the choice the player had
+        window.addEventListener('foldchange', () => {
+            this.toggle(isLandscapePhone() ? false : portraitOpen());
+            this.view?.rerender();
+            if (this.lastBeatNotes?.length) this.view?.updateActiveNotes(this.lastBeatNotes, this.displayMode);
+        });
         // Turning the phone: landscape compacts the fretboard, upright restores the portrait choice
         window.matchMedia?.(SHORT_LANDSCAPE_PHONE_QUERY).addEventListener?.('change', () => {
             this.toggle(isLandscapePhone() ? false : portraitOpen());
@@ -173,11 +180,13 @@ class FretboardController {
             return;
         }
 
-        this.isOpen = (forceState !== undefined) ? Boolean(forceState) : !this.isOpen;
+        // iPhone Duo tabletop: the fretboard fills the band under the song row and is always shown, so nothing closes it
+        const pinned = isTabletop();
+        this.isOpen = pinned ? true : (forceState !== undefined) ? Boolean(forceState) : !this.isOpen;
 
         try {
-            // Only a portrait choice is remembered; landscape's compacting is automatic
-            if (!isLandscapePhone()) localStorage.setItem(STORAGE_KEY_OPEN, String(this.isOpen));
+            // Only a portrait choice is remembered; landscape's compacting and the tabletop pin are automatic
+            if (!pinned && !isLandscapePhone()) localStorage.setItem(STORAGE_KEY_OPEN, String(this.isOpen));
         } catch (_) {}
 
         this.syncUIState();

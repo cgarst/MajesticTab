@@ -65,7 +65,7 @@ import { initUrlRouter, getRouteFromUrl } from './utils/urlRouter.js';
 import { initNativeTabBar } from './nativeTabBar.js';
 import { initFoldState } from './foldState.js';
 import { initNarrowAlias } from './utils/narrowAlias.js';
-import { initTabletopDock } from './utils/tabletopDock.js';
+import { initTabletopSheet } from './utils/tabletopSheet.js';
 import { initBookMode } from './utils/bookMode.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
@@ -95,7 +95,8 @@ if (!window.__TAURI__ && new URLSearchParams(window.location.search).has('fold')
 
 // Tabletop (iPhone Duo): the phone reader's narrow-screen rules, switched on by the fold instead of the width
 initNarrowAlias();
-initTabletopDock();
+// Tabletop: a sheet covers the whole bottom half and carries its own Done button
+initTabletopSheet();
 // Book pose (iPhone Duo): Page mode with two pages, one per half, until the fold opens flat
 initBookMode();
 
