@@ -8,6 +8,7 @@
     "ios-tabbar:allow-configure",
     "ios-tabbar:allow-select",
     "ios-tabbar:allow-visibility",
-    "ios-tabbar:allow-appearance"
+    "ios-tabbar:allow-appearance",
+    "ios-tabbar:allow-search"
   ]
 }

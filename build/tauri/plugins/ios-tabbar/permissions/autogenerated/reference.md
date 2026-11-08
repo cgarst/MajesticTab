@@ -62,6 +62,32 @@ Denies the configure command without any pre-configured scope.
 <tr>
 <td>
 
+`ios-tabbar:allow-search`
+
+</td>
+<td>
+
+Enables the search command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
+`ios-tabbar:deny-search`
+
+</td>
+<td>
+
+Denies the search command without any pre-configured scope.
+
+</td>
+</tr>
+
+<tr>
+<td>
+
 `ios-tabbar:allow-select`
 
 </td>

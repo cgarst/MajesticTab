@@ -3,10 +3,19 @@ import SwiftRs
 import Tauri
 import UIKit
 
-// The system tab bar for the library destinations. It is a plain UITabBar with the default appearance, which
-// the iOS 26 SDK draws as Liquid Glass and earlier systems draw as the standard bar; nothing here restyles it,
-// and no private API is used. It overlays the web view, so the web layer reserves room for it using the height
-// reported here. Only the system's own chrome is glass: the web content stays flat.
+// The system chrome for the library destinations, drawn natively so iOS 26 draws it as Liquid Glass. Public UIKit
+// only (UITabBar, UISearchBar, UIGlassEffect); nothing is restyled with private API. It overlays the web view, so the
+// web layer reserves room for it using the inset reported here. Only this system chrome is glass: web content stays
+// flat.
+//
+// Two shapes:
+//  - a horizontal UITabBar along the bottom (phones, and the iPhone Duo's inner display in portrait);
+//  - a vertical glass rail in the strip the system reserves for a vertical bar (iPhone Duo: outer display, and the
+//    inner display in landscape). iOS only adapts bars it builds itself (UITabBarController and friends), and a
+//    UITabBar added by hand stays horizontal, so the rail is our own stack of buttons on a UIGlassEffect. Which one
+//    applies is read from `traitCollection.verticalBarEdge` (iOS 27.1), never from a device name.
+//
+// The library search field sits beside them (above the horizontal bar, or beside the rail) and mirrors the web field.
 
 struct TabItem: Decodable {
     let key: String
@@ -28,6 +37,12 @@ struct SelectArgs: Decodable {
 struct AppearanceArgs: Decodable {
     let dark: Bool
     let tint: String? // #RRGGBB for the selected item (the app's ink colour)
+}
+
+struct SearchArgs: Decodable {
+    let visible: Bool
+    let placeholder: String?
+    let text: String?
 }
 
 struct VisibilityArgs: Decodable {
@@ -54,10 +69,74 @@ final class ReportingTabBar: UITabBar {
     }
 }
 
-class IosTabBarPlugin: Plugin, UITabBarDelegate {
-    private var bar: ReportingTabBar?
+final class ReportingSearchBar: UISearchBar {
+    var onLayout: (() -> Void)?
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onLayout?()
+    }
+}
+
+// Spans the window, draws nothing and takes no touches; it only hears about size, safe-area and trait changes
+// (rotation, folding the device, Split View) so the layout can follow the system's choice of bar.
+final class LayoutProbe: UIView {
+    var onChange: (() -> Void)?
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        isUserInteractionEnabled = false
+        isHidden = false
+        backgroundColor = .clear
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        onChange?()
+    }
+
+    override func safeAreaInsetsDidChange() {
+        super.safeAreaInsetsDidChange()
+        onChange?()
+    }
+
+    override func traitCollectionDidChange(_ previous: UITraitCollection?) {
+        super.traitCollectionDidChange(previous)
+        onChange?()
+    }
+}
+
+class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
+    private var items: [TabItem] = []
     private var keys: [String] = []
     private var channel: Channel?
+    private var selectedIndex = -1
+    private var webHidden = true // the web layer's wish: hidden outside the library and on wide layouts
+    private var dark = true
+    private var tintHex: String?
+
+    private var bar: ReportingTabBar?
+    private var rail: UIVisualEffectView?
+    private var railButtons: [UIButton] = []
+    private var railWidth: NSLayoutConstraint?
+    private var railRight: NSLayoutConstraint?
+    private var railLeft: NSLayoutConstraint?
+    private var probe: LayoutProbe?
+
+    private var search: ReportingSearchBar?
+    private var searchWanted = false
+    private var searchAboveBar: NSLayoutConstraint?
+    private var searchAboveWindow: NSLayoutConstraint?
+    private var searchLeading: NSLayoutConstraint?
+    private var searchTrailing: NSLayoutConstraint?
+
+    private var verticalEdge = 0 // 0 none, 1 leading, 2 trailing (UIVerticalBarEdge)
+    private var lastInset: CGFloat = -1
+    private var sideReserved: (left: CGFloat, right: CGFloat) = (0, 0)
+    private var lastSide: (left: CGFloat, right: CGFloat) = (-1, -1)
+
+    // MARK: - Commands
 
     @objc public func configure(_ invoke: Invoke) throws {
         let args = try invoke.parseArgs(ConfigureArgs.self)
@@ -73,23 +152,20 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate {
                 return
             }
             self.channel = args.onEvent
-            let bar = self.bar ?? self.makeBar(in: window)
+            self.items = args.items
             self.keys = args.items.map { $0.key }
-            bar.items = args.items.enumerated().map { index, item in
-                let tabItem = UITabBarItem(title: item.title, image: UIImage(systemName: item.symbol), tag: index)
-                tabItem.accessibilityLabel = item.title
-                return tabItem
-            }
-            self.select(args.selected ?? 0, on: bar)
-            bar.reportAgain()
-            invoke.resolve(["supported": true, "major": major])
+            if self.bar == nil { self.makeChrome(in: window) }
+            self.fillItems()
+            self.selectItem(args.selected ?? 0)
+            self.relayout()
+            invoke.resolve(["supported": true, "major": major, "vertical": self.verticalEdge != 0])
         }
     }
 
     @objc public func select(_ invoke: Invoke) throws {
         let args = try invoke.parseArgs(SelectArgs.self)
         DispatchQueue.main.async { [weak self] in
-            if let bar = self?.bar { self?.select(args.index, on: bar) }
+            self?.selectItem(args.index)
             invoke.resolve()
         }
     }
@@ -97,8 +173,8 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate {
     @objc public func visibility(_ invoke: Invoke) throws {
         let args = try invoke.parseArgs(VisibilityArgs.self)
         DispatchQueue.main.async { [weak self] in
-            self?.bar?.isHidden = args.hidden
-            self?.bar?.reportAgain()
+            self?.webHidden = args.hidden
+            self?.relayout()
             invoke.resolve()
         }
     }
@@ -109,41 +185,48 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate {
         DispatchQueue.main.async { [weak self] in
             self?.dark = args.dark
             self?.tintHex = args.tint
-            if let bar = self?.bar { self?.applyAppearance(to: bar) }
+            self?.applyAppearance()
             invoke.resolve()
         }
     }
 
-    private var dark = true
-    private var tintHex: String?
-
-    private func applyAppearance(to bar: UITabBar) {
-        bar.overrideUserInterfaceStyle = dark ? .dark : .light
-        if let hex = tintHex, hex.count == 7, let value = UInt32(hex.dropFirst(), radix: 16) {
-            bar.tintColor = UIColor(
-                red: CGFloat((value >> 16) & 0xFF) / 255,
-                green: CGFloat((value >> 8) & 0xFF) / 255,
-                blue: CGFloat(value & 0xFF) / 255,
-                alpha: 1)
+    // The library's search field. The web keeps the real field and its logic; this one mirrors its text in both
+    // directions (the `search` event) and is hidden when the page has no search.
+    @objc public func search(_ invoke: Invoke) throws {
+        let args = try invoke.parseArgs(SearchArgs.self)
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.searchWanted = args.visible
+            if args.visible, self.search == nil, let window = self.bar?.superview as? UIWindow { self.makeSearch(in: window) }
+            if let search = self.search {
+                if let placeholder = args.placeholder, search.placeholder != placeholder { search.placeholder = placeholder }
+                if let text = args.text, search.text != text, !search.searchTextField.isFirstResponder { search.text = text }
+            }
+            self.relayout()
+            invoke.resolve()
         }
     }
 
-    private func select(_ index: Int, on bar: UITabBar) {
-        if let items = bar.items, index >= 0, index < items.count {
-            bar.selectedItem = items[index]
-        } else {
-            bar.selectedItem = nil
-        }
-    }
+    // MARK: - Building
 
-    private func makeBar(in window: UIWindow) -> ReportingTabBar {
+    private func makeChrome(in window: UIWindow) {
+        let probe = LayoutProbe()
+        probe.translatesAutoresizingMaskIntoConstraints = false
+        probe.onChange = { [weak self] in self?.relayout() }
+        window.addSubview(probe)
+        NSLayoutConstraint.activate([
+            probe.leadingAnchor.constraint(equalTo: window.leadingAnchor),
+            probe.trailingAnchor.constraint(equalTo: window.trailingAnchor),
+            probe.topAnchor.constraint(equalTo: window.topAnchor),
+            probe.bottomAnchor.constraint(equalTo: window.bottomAnchor),
+        ])
+        self.probe = probe
+
         let bar = ReportingTabBar()
         bar.delegate = self
         bar.translatesAutoresizingMaskIntoConstraints = false
-        bar.onHeight = { [weak self] height in
-            self?.channel?.send(["type": "height", "value": Double(height)])
-        }
-        applyAppearance(to: bar)
+        bar.isHidden = true
+        bar.onHeight = { [weak self] _ in self?.reportInset() }
         window.addSubview(bar)
         NSLayoutConstraint.activate([
             bar.leadingAnchor.constraint(equalTo: window.leadingAnchor),
@@ -151,7 +234,256 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate {
             bar.bottomAnchor.constraint(equalTo: window.bottomAnchor),
         ])
         self.bar = bar
-        return bar
+
+        makeRail(in: window)
+        applyAppearance()
+    }
+
+    private func makeRail(in window: UIWindow) {
+        let effect: UIVisualEffect
+        if #available(iOS 26.0, *) {
+            effect = UIGlassEffect()
+        } else {
+            effect = UIBlurEffect(style: .systemThinMaterial)
+        }
+        let rail = UIVisualEffectView(effect: effect)
+        rail.translatesAutoresizingMaskIntoConstraints = false
+        rail.isHidden = true
+        rail.layer.cornerRadius = 32
+        rail.layer.cornerCurve = .continuous
+        rail.clipsToBounds = true
+        window.addSubview(rail)
+
+        let width = rail.widthAnchor.constraint(equalToConstant: 72)
+        let right = rail.trailingAnchor.constraint(equalTo: window.trailingAnchor, constant: -6)
+        let left = rail.leadingAnchor.constraint(equalTo: window.leadingAnchor, constant: 6)
+        NSLayoutConstraint.activate([
+            width,
+            right,
+            rail.bottomAnchor.constraint(equalTo: window.safeAreaLayoutGuide.bottomAnchor, constant: -6),
+        ])
+        left.isActive = false
+        self.rail = rail
+        self.railWidth = width
+        self.railRight = right
+        self.railLeft = left
+    }
+
+    private func makeSearch(in window: UIWindow) {
+        let field = ReportingSearchBar()
+        field.delegate = self
+        field.searchBarStyle = .minimal
+        field.autocapitalizationType = .none
+        field.autocorrectionType = .no
+        field.returnKeyType = .search
+        field.translatesAutoresizingMaskIntoConstraints = false
+        field.isHidden = true
+        field.overrideUserInterfaceStyle = dark ? .dark : .light
+        // On a wide screen (a foldable, an iPad) UIKit would cap the field at a readable width; it should span like the tab bar
+        if #available(iOS 17.0, *) { field.traitOverrides.horizontalSizeClass = .compact }
+        field.onLayout = { [weak self] in self?.reportInset() }
+        window.addSubview(field)
+
+        let leading = field.leadingAnchor.constraint(equalTo: window.leadingAnchor, constant: 16)
+        let trailing = field.trailingAnchor.constraint(equalTo: window.trailingAnchor, constant: -16)
+        // Above the horizontal bar, or on the window's bottom edge when the rail is at the side
+        let aboveBar = field.bottomAnchor.constraint(equalTo: (bar ?? UITabBar()).topAnchor, constant: -8)
+        let aboveWindow = field.bottomAnchor.constraint(equalTo: window.safeAreaLayoutGuide.bottomAnchor, constant: -8)
+        aboveWindow.isActive = false
+        // Never under the keyboard
+        let aboveKeyboard = field.bottomAnchor.constraint(lessThanOrEqualTo: window.keyboardLayoutGuide.topAnchor, constant: -8)
+        NSLayoutConstraint.activate([leading, trailing, aboveBar, aboveKeyboard])
+        self.search = field
+        self.searchLeading = leading
+        self.searchTrailing = trailing
+        self.searchAboveBar = aboveBar
+        self.searchAboveWindow = aboveWindow
+    }
+
+    private func fillItems() {
+        bar?.items = items.enumerated().map { index, item in
+            let tabItem = UITabBarItem(title: item.title, image: UIImage(systemName: item.symbol), tag: index)
+            tabItem.accessibilityLabel = item.title
+            return tabItem
+        }
+        guard let rail = rail else { return }
+        let stack = UIStackView()
+        stack.axis = .vertical
+        stack.spacing = 4
+        stack.alignment = .fill
+        stack.distribution = .fillEqually
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        railButtons = items.enumerated().map { index, item in
+            var config = UIButton.Configuration.plain()
+            config.image = UIImage(systemName: item.symbol)
+            config.title = item.title
+            config.imagePlacement = .top
+            config.imagePadding = 3
+            config.contentInsets = NSDirectionalEdgeInsets(top: 8, leading: 2, bottom: 8, trailing: 2)
+            config.titleTextAttributesTransformer = UIConfigurationTextAttributesTransformer { attrs in
+                var next = attrs
+                next.font = UIFont.systemFont(ofSize: 10, weight: .semibold)
+                return next
+            }
+            config.background.cornerRadius = 22
+            let button = UIButton(configuration: config)
+            button.tag = index
+            button.accessibilityLabel = item.title
+            button.addAction(UIAction { [weak self] _ in self?.userSelected(index) }, for: .touchUpInside)
+            button.configurationUpdateHandler = { [weak self] b in
+                var c = b.configuration
+                let tint = self?.tintColor() ?? .label
+                c?.baseForegroundColor = b.isSelected ? tint : UIColor.secondaryLabel
+                c?.background.backgroundColor = b.isSelected ? tint.withAlphaComponent(0.16) : .clear
+                b.configuration = c
+            }
+            button.heightAnchor.constraint(greaterThanOrEqualToConstant: 56).isActive = true
+            stack.addArrangedSubview(button)
+            return button
+        }
+        rail.contentView.subviews.forEach { $0.removeFromSuperview() }
+        rail.contentView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: rail.contentView.topAnchor, constant: 8),
+            stack.bottomAnchor.constraint(equalTo: rail.contentView.bottomAnchor, constant: -8),
+            stack.leadingAnchor.constraint(equalTo: rail.contentView.leadingAnchor, constant: 6),
+            stack.trailingAnchor.constraint(equalTo: rail.contentView.trailingAnchor, constant: -6),
+        ])
+    }
+
+    // MARK: - Layout
+
+    // The system's choice of bar edge: 0 none (horizontal bar), 1 leading, 2 trailing. iOS 27.1 and later.
+    private func systemVerticalEdge(_ window: UIWindow) -> Int {
+        if #available(iOS 27.1, *) {
+            switch window.traitCollection.verticalBarEdge {
+            case .leading: return 1
+            case .trailing: return 2
+            default: return 0
+            }
+        }
+        return 0
+    }
+
+    // Picks the bar for the current pose and places everything; cheap to call often
+    func relayout() {
+        guard let bar = bar, let window = bar.superview as? UIWindow else { return }
+        let edge = systemVerticalEdge(window)
+        let vertical = edge != 0
+        if edge != verticalEdge {
+            verticalEdge = edge
+            try? channel?.send(["type": "mode", "vertical": vertical ? "1" : "0"])
+        }
+        let barHidden = webHidden || vertical
+        if bar.isHidden != barHidden { bar.isHidden = barHidden; bar.reportAgain() }
+        let railHidden = webHidden || !vertical
+        if rail?.isHidden != railHidden { rail?.isHidden = railHidden }
+
+        if vertical {
+            // The strip is the safe-area inset on the bar's physical side (the bar keeps its side in right-to-left)
+            let ltr = window.effectiveUserInterfaceLayoutDirection == .leftToRight
+            let onRight = (edge == 2) == ltr
+            let strip = max(onRight ? window.safeAreaInsets.right : window.safeAreaInsets.left, 0)
+            // A fixed width: the system does not always reserve its strip for our window (the inner display in landscape
+            // reports none), so the rail and everything beside it are sized from the rail itself
+            let width = max(72, strip - 12)
+            let reserved = max(strip, width + 6)
+            if railWidth?.constant != width { railWidth?.constant = width }
+            if railRight?.isActive != onRight { railRight?.isActive = onRight }
+            if railLeft?.isActive != !onRight { railLeft?.isActive = !onRight }
+            // Search stays clear of the strip
+            let margin: CGFloat = 16
+            let trailing = onRight ? -(reserved + margin) : -margin
+            let leading = onRight ? margin : reserved + margin
+            sideReserved = (onRight ? 0 : reserved, onRight ? reserved : 0)
+            if searchTrailing?.constant != trailing { searchTrailing?.constant = trailing }
+            if searchLeading?.constant != leading { searchLeading?.constant = leading }
+        } else {
+            sideReserved = (0, 0)
+            if searchTrailing?.constant != -16 { searchTrailing?.constant = -16 }
+            if searchLeading?.constant != 16 { searchLeading?.constant = 16 }
+        }
+        if searchAboveBar?.isActive != !vertical { searchAboveBar?.isActive = !vertical }
+        if searchAboveWindow?.isActive != vertical { searchAboveWindow?.isActive = vertical }
+
+        let showSearch = searchWanted && !webHidden
+        if search?.isHidden != !showSearch {
+            search?.isHidden = !showSearch
+            if !showSearch { search?.searchTextField.resignFirstResponder() }
+        }
+        applyAppearance()
+        reportInset()
+    }
+
+    // Space the page reserves at the bottom: the horizontal bar and the search field above it, or just the search
+    // field when the rail is at the side (the side strip is already a safe-area inset the page honours)
+    func reportInset() {
+        guard let bar = bar, let window = bar.superview else { return }
+        var top = window.bounds.height
+        if !bar.isHidden { top = min(top, bar.frame.minY) }
+        if let search = search, !search.isHidden { top = min(top, search.frame.minY - 8) }
+        if sideReserved != lastSide {
+            lastSide = sideReserved
+            try? channel?.send(["type": "side", "left": String(Double(sideReserved.left)), "right": String(Double(sideReserved.right))])
+        }
+        let inset = window.bounds.height - top
+        if abs(inset - lastInset) > 0.5 {
+            lastInset = inset
+            try? channel?.send(["type": "height", "value": Double(inset)])
+        }
+    }
+
+    // MARK: - Selection and appearance
+
+    private func selectItem(_ index: Int) {
+        selectedIndex = index
+        if let tabItems = bar?.items, index >= 0, index < tabItems.count {
+            bar?.selectedItem = tabItems[index]
+        } else {
+            bar?.selectedItem = nil
+        }
+        for (i, button) in railButtons.enumerated() {
+            button.isSelected = i == index
+            button.accessibilityTraits = i == index ? [.button, .selected] : [.button]
+        }
+    }
+
+    private func userSelected(_ index: Int) {
+        guard index >= 0, index < keys.count else { return }
+        selectItem(index)
+        try? channel?.send(["type": "selected", "key": keys[index], "index": String(index)])
+    }
+
+    private func tintColor() -> UIColor? {
+        guard let hex = tintHex, hex.count == 7, let value = UInt32(hex.dropFirst(), radix: 16) else { return nil }
+        return UIColor(
+            red: CGFloat((value >> 16) & 0xFF) / 255,
+            green: CGFloat((value >> 8) & 0xFF) / 255,
+            blue: CGFloat(value & 0xFF) / 255,
+            alpha: 1)
+    }
+
+    private func applyAppearance() {
+        let style: UIUserInterfaceStyle = dark ? .dark : .light
+        bar?.overrideUserInterfaceStyle = style
+        rail?.overrideUserInterfaceStyle = style
+        search?.overrideUserInterfaceStyle = style
+        if let tint = tintColor() { bar?.tintColor = tint }
+        railButtons.forEach { $0.setNeedsUpdateConfiguration() }
+    }
+
+    // MARK: - Delegates
+
+    func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
+        userSelected(item.tag)
+    }
+
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        try? channel?.send(["type": "search", "text": searchText])
+    }
+
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        searchBar.resignFirstResponder()
     }
 
     private func keyWindow() -> UIWindow? {
@@ -161,11 +493,6 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate {
             if let first = windowScene.windows.first { return first }
         }
         return nil
-    }
-
-    func tabBar(_ tabBar: UITabBar, didSelect item: UITabBarItem) {
-        guard item.tag >= 0, item.tag < keys.count else { return }
-        channel?.send(["type": "selected", "key": keys[item.tag], "index": item.tag])
     }
 }
 

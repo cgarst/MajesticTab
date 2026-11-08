@@ -4423,9 +4423,19 @@ body.phone-reader #screenRow { display: none !important; }
    chrome is glass; everything the web draws stays flat. If the native bar fails or is unavailable the class is never
    set and the HTML bar stays. */
 body.native-tabbar .library-bottom-nav { display: none !important; }
+/* Wider than a phone (the iPhone Duo's strip layouts): the native rail replaces the web rail, so the page keeps no room for it */
+body.native-tabbar { --rail-w: 0px; }
+body.native-tabbar.library-view-active #libraryPage {
+  padding-left: max(env(safe-area-inset-left, 0px), var(--native-rail-left, 0px));
+  padding-right: max(env(safe-area-inset-right, 0px), var(--native-rail-right, 0px));
+}
 @media (max-width: 576px) {
   body.native-tabbar.library-view-active .library-page-body { padding-bottom: calc(var(--native-tabbar-h, 83px) + 1rem) !important; }
   html body.native-tabbar.settings-as-page.library-view-active #fileMenu { bottom: 0 !important; }
   body.native-tabbar .setpage { padding-bottom: calc(var(--native-tabbar-h, 83px) + 16px) !important; }
   body.native-tabbar .tools-shell .setpage:has(.classtab-tool-embedded) { padding-bottom: calc(var(--native-tabbar-h, 83px) + 8px) !important; }
 }
+
+/* The native search field (see nativeTabBar.js) stands in for the page's own while it is shown; the web field stays
+   in the DOM, hidden, because it holds the search logic */
+body.native-search .library-search-box { display: none !important; }
