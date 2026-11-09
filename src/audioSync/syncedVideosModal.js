@@ -50,10 +50,10 @@ function updateDeleteButton() {
         btn.disabled = selectedCount === 0;
         if (deleteConfirmPending) {
             btn.textContent = `Confirm delete (${selectedCount})`;
-            btn.classList.add('btn-danger');
+            btn.classList.add('is-confirming');
         } else {
             btn.textContent = selectedCount > 0 ? `Delete selected (${selectedCount})` : 'Delete selected';
-            btn.classList.remove('btn-danger');
+            btn.classList.remove('is-confirming');
         }
     }
 }
@@ -112,7 +112,7 @@ export function openManageSyncedVideosModal() {
                         <span class="text-white-50 small">· ${v.count} sync points</span>
                         ${isCurrent ? '<span class="badge bg-secondary small py-0 px-1">active</span>' : ''}
                     </div>
-                    <div class="small text-muted text-truncate mt-0.5">${originText}</div>
+                    <div class="small text-muted text-truncate mt-1">${originText}</div>
                 </div>
                 <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-theme-icon text-muted flex-shrink-0" title="Watch on YouTube" aria-label="Watch on YouTube">
                     <i class="bi-box-arrow-up-right"></i>
@@ -185,7 +185,7 @@ export async function openCopySyncedVideoModal() {
                         <span class="fw-semibold text-white">${escapeHtml(name)}</span>
                         <span class="text-white-50 small">· ${v.count} sync points</span>
                     </div>
-                    <div class="small text-muted text-truncate mt-0.5">${originText}</div>
+                    <div class="small text-muted text-truncate mt-1">${originText}</div>
                 </div>
                 <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-theme-icon text-muted flex-shrink-0" title="Watch on YouTube" aria-label="Watch on YouTube">
                     <i class="bi-box-arrow-up-right"></i>

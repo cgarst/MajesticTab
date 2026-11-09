@@ -564,6 +564,20 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   background-image: radial-gradient(circle at center, var(--on-action, #fff) 0 10.5px, transparent 11px) !important;
 }
 .form-switch { padding-left: 0 !important; min-height: 0; }
+
+/* Checkboxes and radios outside a switch: tone fill, no outline, the action color when on (replaces Bootstrap's blue) */
+.form-check-input:not(.theme-switch)[type="checkbox"], .form-check-input:not(.theme-switch)[type="radio"] {
+  width: 18px; height: 18px; margin-top: 0; border: 0 !important; background-color: var(--s3);
+  cursor: pointer; flex: none; box-shadow: none;
+}
+.form-check-input:not(.theme-switch)[type="checkbox"] { border-radius: 4px; }
+.form-check-input:not(.theme-switch)[type="checkbox"]:checked, .form-check-input:not(.theme-switch)[type="checkbox"]:indeterminate,
+.form-check-input:not(.theme-switch)[type="radio"]:checked { background-color: var(--action); }
+.form-check-input:not(.theme-switch)[type="checkbox"]:focus-visible, .form-check-input:not(.theme-switch)[type="radio"]:focus-visible {
+  box-shadow: 0 0 0 0.2rem var(--accent-primary-alpha); outline: 0;
+}
+/* Delete confirmation: the second press */
+.btn-theme-danger.is-confirming { background: var(--danger) !important; color: var(--on-action, #fff) !important; }
 .form-switch .form-check-label { cursor: pointer; }
 
 /* ---------- This song: popover from the title; tracks as color bar, name and tuning, Only, toggle ---------- */
@@ -675,8 +689,8 @@ body.practice-open #output { padding-right: 416px !important; }
 .slot .t span { display: block; font-size: 12px; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .chip { display: inline-flex; align-items: center; height: 22px; padding: 0 8px; border-radius: 11px; background: var(--s2); color: var(--ink2); font-size: 12px; font-weight: 500; white-space: nowrap; flex: none; }
 .chip.ok { background: color-mix(in srgb, var(--hue) 22%, var(--s2)); color: var(--ink); }
-.chip.warn { background: color-mix(in srgb, #f59e0b 24%, var(--s2)); color: #fbbf24; }
-.chip.hot { background: color-mix(in srgb, #f59e0b 22%, var(--s2)); color: #fbbf24; }
+.chip.warn { background: color-mix(in srgb, var(--warn) 24%, var(--s2)); color: var(--warn); }
+.chip.hot { background: color-mix(in srgb, var(--warn) 22%, var(--s2)); color: var(--warn); }
 
 /* Setlists & flat library rows */
 .setrow .num {
@@ -1556,7 +1570,7 @@ body.fretboard-open {
 }
 @media (hover: hover) { .library-song-rowwrap:hover { background: var(--s2) !important; } }
 .library-song-rowwrap.library-song-row-pinned {
-  border-left: 2px solid #f59e0b;
+  border-left: 2px solid var(--warn);
 }
 
 .library-song-rowwrap .song-row-container {
