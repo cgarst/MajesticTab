@@ -403,6 +403,13 @@ function initPhoneChrome() {
         placeTabs();
     });
 
+    // The first render of a file is sized before the bars have settled, so a PDF page sat 9px under the top row
+    // until something resized the window: refit once the file has drawn
+    window.addEventListener('majestictab:file-loaded', () => {
+        if (!body.classList.contains('phone-reader')) return;
+        for (const ms of [300, 1000]) setTimeout(() => window.dispatchEvent(new Event('resize')), ms);
+    });
+
     // Restore Reading mode on phones (silently: the score has not loaded yet, so there is nothing to refit)
     try { if (narrow() && localStorage.getItem(READING_MODE_KEY) === '1') gamepadManager.toggleTopBar(true, { silent: true }); } catch { /* storage blocked */ }
 
