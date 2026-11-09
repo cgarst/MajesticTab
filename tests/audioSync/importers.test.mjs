@@ -87,7 +87,7 @@ test('only the lists that fit the score are offered', () => {
 
 test('a list longer than the score is refused with the counts, not a crash', () => {
     const times = Array.from({ length: 8 }, (_, i) => i * 1000);
-    const bars = playedBars([0, 1, 2, 3]);
+    const bars = playedBars([0, 1, 2, 3]).map(b => ({ ...b, seconds: 1 }));
     assert.throws(() => placeBarTimes(times, bars), /8 bars.*plays 4/);
     assert.throws(() => setsFittingScore([{ label: 'a', barTimesMs: times }], bars), /lists of 8 bars.*plays 4/);
 });
