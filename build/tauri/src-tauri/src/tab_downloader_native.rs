@@ -1436,6 +1436,7 @@ pub fn tab_downloader_is_debug_tools_enabled() -> bool {
     }
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios", test))]
 pub fn regex_escape_domain(domain: &str) -> String {
     let mut escaped = String::with_capacity(domain.len() * 2);
     for ch in domain.chars() {
@@ -1450,6 +1451,7 @@ pub fn regex_escape_domain(domain: &str) -> String {
     escaped
 }
 
+#[cfg(any(target_os = "macos", target_os = "ios", test))]
 pub fn generate_webkit_rules_json(hosts: &[String]) -> String {
     let mut rules = Vec::new();
     let chunk_size = 50;
@@ -1642,6 +1644,11 @@ pub fn tab_downloader_set_adblock_rules(
     #[cfg(any(target_os = "macos", target_os = "ios"))]
     {
         apply_webkit_adblock_rules(&app, enabled, &hosts);
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "ios")))]
+    {
+        // Content rule lists are WebKit-only; other platforms block through `blocked_hosts`.
+        let _ = &app;
     }
 
     Ok(())

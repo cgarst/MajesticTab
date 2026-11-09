@@ -316,9 +316,12 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
         const ws = getComputedStyle(wrapper);
         const avail = wrapper.clientWidth - (parseFloat(ws.paddingLeft) || 0) - (parseFloat(ws.paddingRight) || 0);
         const sc = avail / canvasSize(canvas).w;
-        win.style.cssText = `overflow:hidden;box-sizing:content-box;padding:0;flex:none;width:${avail}px;height:${page.srcH * sc}px;margin:0 auto`;
+        // The window shows the whole page and opens at this band, so a staff the cut ran through can be scrolled into view
+        const viewH = Math.min(canvasSize(canvas).h * sc, box.wrapperHeight - PAGE_PADDING);
+        win.style.cssText = `overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;box-sizing:content-box;padding:0;flex:none;width:${avail}px;height:${viewH}px;margin:0 auto`;
         canvas.style.width = `${avail}px`;
-        canvas.style.marginTop = `${-page.srcY * sc}px`;
+        canvas.style.marginTop = '0';
+        win.scrollTop = page.srcY * sc;
     }
 
     if (onPageRendered) {

@@ -103,6 +103,9 @@ initTabletopLayout();
 // Book pose (iPhone Duo): Page mode with two pages, one per half, until the fold opens flat
 initBookMode();
 
+// The fold pose arrives after the window has its size (the window itself does not resize): lay the open file out again
+window.addEventListener('foldchange', () => setTimeout(() => window.dispatchEvent(new Event('resize')), 350));
+
 // Handle window resizing 
 let resizeTimeout;
 window.addEventListener('resize', () => {
