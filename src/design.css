@@ -108,6 +108,10 @@ body {
 /* Desktop shells: the scrim dims the whole window, title bar included. The card stays clear of the traffic lights / caption buttons through padding, and the Windows buttons float above the scrim. */
 .tauri-macos .theme-modal-backdrop, .tauri-windows .theme-modal-backdrop { top: 0; height: 100vh; padding: calc(50px + 0.75rem) 1rem 1rem; }
 .tauri-windows #winControls { z-index: 2001; }
+/* Tool modals opened from the reader's Tools menu share one place on phones: top-aligned, always below the top safe-area inset (Dynamic Island), one width and one height limit. */
+body.phone-reader :is(#referenceModal, #tunerModal, #metronomeModal, #latencyModal, #jamModal):not(.tool-embedded) { align-items: flex-start; padding: calc(env(safe-area-inset-top, 0px) + 8px) max(env(safe-area-inset-right, 0px), 12px) max(env(safe-area-inset-bottom, 0px), 12px) max(env(safe-area-inset-left, 0px), 12px); }
+body.phone-reader :is(#referenceModal, #tunerModal, #metronomeModal, #latencyModal, #jamModal):not(.tool-embedded) .theme-modal-card { width: 100%; max-width: none; max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 20px); }
+body.phone-reader #referenceModal:not(.tool-embedded) .reference-modal-card { height: auto; }
 @keyframes scrimOut { to { opacity: 0; } }
 @keyframes modalScaleDown { to { opacity: 0; transform: scale(0.97); } }
 

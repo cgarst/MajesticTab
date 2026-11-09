@@ -1290,7 +1290,6 @@ function ensureReferenceModal() {
       <section class="theme-modal-card reference-modal-card">
         <header class="theme-modal-header">
           <div class="theme-modal-title-group">
-            <div class="brand-btn p-2 theme-modal-icon" style="width: 36px; height: 36px;"><i class="bi-journal-bookmark fs-5"></i></div>
             <div class="theme-modal-titles">
               <h2 class="theme-modal-title mb-0 fs-6 fw-bold text-white" id="referenceModalTitle">Chord library</h2>
               <div class="small text-white-50" id="referenceModalSubtitle">Voicings for any tuning and capo</div>
