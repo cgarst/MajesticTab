@@ -2551,7 +2551,8 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
   /* Right side: keep the score, the strip and the fretboard clear of a camera cutout or the Dynamic Island (the left is the rail's) */
   body.phone-reader:not(.library-view-active) #mainContent { padding-right: env(safe-area-inset-right, 0px) !important; }
   body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { padding-right: max(8px, env(safe-area-inset-right, 0px)); }
-  body.phone-reader:not(.library-view-active) .fretboard-dock { right: env(safe-area-inset-right, 0px) !important; }
+  /* The fretboard runs to the screen's right edge, like the strip below it; its content stays clear of the cutout */
+  body.phone-reader:not(.library-view-active) .fretboard-dock { right: 0 !important; padding-right: env(safe-area-inset-right, 0px); }
   body.phone-reader:not(.library-view-active) #brandSection { flex: none; min-height: 0; flex-direction: column; align-items: stretch; }
   body.phone-reader:not(.library-view-active) #songBreadcrumb { flex-direction: column; align-items: stretch !important; gap: 0; }
   body.phone-reader:not(.library-view-active) .top-bar-song-btn { height: auto; min-height: 44px; text-align: left; padding: 0 8px; }
