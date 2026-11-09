@@ -390,6 +390,7 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
         let railHidden = webHidden || !vertical
         if rail?.isHidden != railHidden { rail?.isHidden = railHidden }
 
+        var barTrailing: CGFloat = -16
         if vertical {
             // The strip is the safe-area inset on the bar's physical side (the bar keeps its side in right-to-left)
             let ltr = window.effectiveUserInterfaceLayoutDirection == .leftToRight
@@ -411,8 +412,15 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
             if searchLeading?.constant != leading { searchLeading?.constant = leading }
         } else {
             sideReserved = (0, 0)
-            if searchTrailing?.constant != -16 { searchTrailing?.constant = -16 }
-            if searchLeading?.constant != 16 { searchLeading?.constant = 16 }
+            // Wider than a phone held upright (a phone in landscape): the page keeps the side safe areas and its own 20pt
+            // gutter (design.css, `#libraryPage` and `.library-page-container`), so the field matches the rows' edges
+            // instead of running to the window edge. Upright it keeps 16.
+            let wide = window.bounds.width > 576
+            let leading: CGFloat = wide ? window.safeAreaInsets.left + max(window.safeAreaInsets.left, 20) : 16
+            let trailing: CGFloat = wide ? -(window.safeAreaInsets.right + max(window.safeAreaInsets.right, 20)) : -16
+            barTrailing = trailing
+            if searchTrailing?.constant != trailing { searchTrailing?.constant = trailing }
+            if searchLeading?.constant != leading { searchLeading?.constant = leading }
         }
         let statusBottom = window.windowScene?.statusBarManager?.statusBarFrame.maxY ?? 0
         // A wide window with a tall top inset (the iPhone Duo held upright) keeps its status as a cluster in the top-right
@@ -429,7 +437,7 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
         // (the rail's strip carries the status in landscape, so the band above the content is free there too)
         let topConstant: CGFloat = (statusCorner || vertical) ? 28 : max(window.safeAreaInsets.top, statusBottom) + 8
         if !vertical {
-            let trailing: CGFloat = statusCorner ? -statusClear : -16
+            let trailing: CGFloat = statusCorner ? -statusClear : barTrailing
             if searchTrailing?.constant != trailing { searchTrailing?.constant = trailing }
         }
         searchBandTop = topConstant
