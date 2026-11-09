@@ -2297,8 +2297,10 @@ body.phone-reader:not(.library-view-active) #topFlexZone { order: 3; flex: 0 0 1
   body.phone-reader:not(.library-view-active) { --tabs-h: calc(48px + env(safe-area-inset-bottom, 0px)); --reader-bottom-nav-h: var(--tabs-h); padding-bottom: var(--tabs-h) !important; }
   body.phone-reader.reading-mode:not(.library-view-active) { --tabs-h: 0px; }
   body.phone-reader:not(.library-view-active) > #topFlexZone {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1055; min-height: var(--tabs-h); padding: 0 4px env(safe-area-inset-bottom, 0px); background: var(--s1);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 1055; min-height: var(--tabs-h); padding: 0 4px; background: var(--s1);
   }
+  /* the home-indicator inset is inside each word, so a pressed or selected word's tone runs to the screen edge */
+  body.phone-reader:not(.library-view-active) > #topFlexZone .btn { min-height: var(--tabs-h); padding-bottom: env(safe-area-inset-bottom, 0px) !important; box-sizing: border-box; align-items: center; }
   body.phone-reader.reading-mode:not(.library-view-active) > #topFlexZone { display: none; }
   /* The five words below the strip clear the home indicator; without them (Reading mode) the strip does */
   body.phone-reader:not(.library-view-active) { --strip-inset: 0px; }
@@ -4559,7 +4561,7 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn 
 html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { font-size: 18px; }
 
 /* The five words, the transport and the strip: large targets with room between them */
-html.duo-tabletop body.phone-reader:not(.library-view-active) #topFlexZone .btn { min-height: var(--dt-target); font-size: 16px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #topFlexZone .btn { min-height: var(--tabs-h); font-size: 16px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock { bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; }
 /* One tone from the crease down: the song row, the strip and the five words are all --s1, so where there is no fretboard (PDF,
    text, MIDI) the empty band is the same tone and reads as rest, not as a missing block */
