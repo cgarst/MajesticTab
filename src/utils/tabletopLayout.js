@@ -26,14 +26,18 @@ function measure() {
     const dock = document.querySelector('.mobile-playback-dock');
     const fb = document.getElementById('fretboardDock');
     if (!bar || !words || !dock) return;
-    const fbShown = visible(fb) && document.body.classList.contains('fretboard-open');
+    // The video sheet takes the fretboard's band; lowered to its peek, the fretboard returns above it
+    const sheetOn = document.body.classList.contains('yt-sheet-open');
+    const sheetPeek = document.body.classList.contains('yt-sheet-peek');
+    const sheetH = sheetOn ? (parseFloat(getComputedStyle(root).getPropertyValue('--yt-sheet-h')) || 0) : 0;
+    const fbShown = visible(fb) && document.body.classList.contains('fretboard-open') && (!sheetOn || sheetPeek);
     const top = bar.getBoundingClientRect().top;           // the song row starts at the hinge's lower edge
     const bottom = words.getBoundingClientRect().top;      // the five words start here
     // The strip's own row gap (ruler to buttons) is one of the shared gaps, so it is not part of what the strip needs
     const inner = dock.querySelector('.mobile-playback-dock-inner');
     const rowGap = inner ? (parseFloat(getComputedStyle(inner).rowGap) || 0) : 0;
-    const used = bar.offsetHeight + (fbShown ? fb.offsetHeight : 0) + (visible(dock) ? dock.offsetHeight - rowGap : 0);
-    const gaps = fbShown ? 4 : 3;
+    const used = bar.offsetHeight + (fbShown ? fb.offsetHeight : 0) + sheetH + (visible(dock) ? dock.offsetHeight - rowGap : 0);
+    const gaps = 3 + (fbShown ? 1 : 0) + (sheetOn ? 1 : 0);
     const slack = Math.max(8, Math.floor((bottom - top - used) / gaps));
     root.style.setProperty('--dt-slack', `${slack}px`);
 }

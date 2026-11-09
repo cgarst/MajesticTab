@@ -207,7 +207,12 @@ function initPracticePanels() {
             root.setProperty('--dock-own-h', `${own}px`);
             root.setProperty('--strip-h', `${stripH}px`);
             root.setProperty('--dock-h', `${own + stripH}px`);
+            // Where the Synth | Original switch starts, from the bottom of the screen: the sound panels open from it
+            const src = dock.querySelector('.dock-src');
+            const srcTop = src?.getBoundingClientRect().top;
+            if (srcTop) root.setProperty('--src-top', `${Math.max(0, Math.round(window.innerHeight - srcTop))}px`);
         };
+        window.addEventListener('resize', syncDock);
         const ro = new ResizeObserver(syncDock);
         ro.observe(dock);
         if (strip) ro.observe(strip);

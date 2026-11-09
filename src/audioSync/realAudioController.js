@@ -9,14 +9,15 @@
 
 import {
     applySyncedDefaults, renderSyncedVideos,
-    getSongKey, playerState, jamYouTubeControl, onYouTubeEvent, isYouTubeAvailable, isYouTubePlaying, playPauseYouTube,
-    pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode
+    getSongKey, playerState, getVideoInfo, jamYouTubeControl, onYouTubeEvent, isYouTubeAvailable, isYouTubePlaying, playPauseYouTube,
+    pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode, toggleYouTubePanel
 } from '../youtubePlayer.js';
 import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
     rewindAudioFile10Seconds, setAudioFileRate, setAudioFileSlot, renderAudioFile, getLocalRecording
 } from './audioFilePlayer.js';
 import { createYouTubeSource } from './mediaSource.js';
+import { closeSheet } from '../ytSheet.js';
 import { updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import {
     loadRecord, SYNC_CHANGED_EVENT, setSlotMediaResolver,
@@ -206,8 +207,9 @@ export function updateRecordingSlots() {
 
         const rec = songKey ? loadRecord(songKey, media) : null;
         const srcType = media.kind === 'youtube' ? 'YouTube' : 'This device';
-        const title = playerState.title || (media.kind === 'youtube' ? 'YouTube Video' : 'Audio File');
-        srcLine.textContent = `${srcType} · ${title}`;
+        const found = media.kind === 'youtube' ? getVideoInfo(media.videoId) : null;
+        const title = found?.title || playerState.title || (media.kind === 'youtube' ? 'YouTube Video' : 'Audio File');
+        srcLine.textContent = found?.author ? `${srcType} · ${title} · ${found.author}` : `${srcType} · ${title}`;
 
         if (!rec || !rec.points?.length) {
             chip.className = 'chip';
@@ -263,6 +265,7 @@ export function updateRealAudioPanelView() {
 
     // Render local file view if local section is visible
     if (isLocal) {
+        closeSheet(); // the video sheet belongs to YouTube playback: a local file has no video (closing pauses)
         renderAudioFile();
     }
 
@@ -320,6 +323,8 @@ export function isRealAudioPlaying() {
 let countingIn = null;
 
 export function playPauseRealAudio() {
+    // The Original panel and the video are never shown together: playing closes the panel (YouTube then opens its sheet)
+    if (playerState.isOpen) toggleYouTubePanel(false);
     if (countingIn) { clearTimeout(countingIn); countingIn = null; return; }
     // With sync data and the count-in on, a bar of clicks at the recording's tempo comes before it starts
     if (synthPlayerState.countInEnabled && !isRealAudioPlaying()) {
@@ -383,6 +388,12 @@ export function initRealAudioController() {
         e.stopPropagation();
         switchRealAudioSource('local');
     });
+
+    // The player reports a video's title and channel once it has loaded: the slot rows name the video
+    onYouTubeEvent((e) => { if (e.type === 'info') updateRecordingSlots(); });
+
+    // Opening the Original panel pauses what is playing (a local file as well as YouTube)
+    window.addEventListener('original-panel-open', () => pauseAudioFile());
 
     // Track Slot radio buttons
     $('ytTrackOriginal')?.addEventListener('change', () => {

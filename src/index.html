@@ -680,6 +680,44 @@
 </div>
 
 <!-- Collapsible Real Audio Panel (Consolidated YouTube & Local Audio) -->
+<!-- Video sheet: the YouTube player, on the screen whenever Original plays from YouTube (see src/ytSheet.js).
+     Rows: the grabber, the video. Nothing is drawn over the video. -->
+<section id="ytSheet" class="yt-sheet" role="region" aria-label="Video" data-state="hidden" inert>
+  <div class="yt-sheet-head">
+    <button type="button" class="yt-sheet-grab" id="ytSheetGrab" aria-expanded="false" aria-controls="ytPlayerWrapper" aria-label="Video, shown. Press to lower it"><span class="yt-sheet-grip" aria-hidden="true"></span></button>
+    <!-- Tabletop only (iPhone Duo folded): the controls half shows the fretboard or the video; the fretboard leaves the video's peek -->
+    <div class="yt-sheet-switch" role="group" aria-label="Show in this half">
+      <button type="button" class="btn rec-text-btn" data-yt-show="video" aria-pressed="true">Video</button>
+      <button type="button" class="btn rec-text-btn" data-yt-show="fretboard" aria-pressed="false">Fretboard</button>
+    </div>
+  </div>
+  <div class="yt-sheet-video">
+      <div id="ytPlayerWrapper" class="yt-iframe-wrapper ">
+        <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe>
+        
+        <!-- Loading Indicator with Cancel Button -->
+        <div id="ytLoadingIndicator" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
+          <div class="spinner-border mb-2" role="status" style="width: 1.85rem; height: 1.85rem; border-width: 0.18em;">
+            <span class="visually-hidden">Searching YouTube…</span>
+          </div>
+          <div class="small fw-bold text-white mb-1">Searching YouTube…</div>
+          <div class="text-muted text-truncate px-3 mb-2" id="ytLoadingQueryText" style="font-size: 0.72rem; max-width: 100%;"></div>
+          <button type="button" class="btn btn-sm rec-text-btn mt-1" id="ytCancelSearchBtn">Cancel search</button>
+        </div>
+
+        <!-- Manual Search / Fallback Prompt -->
+        <div id="ytPlaceholderPrompt" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
+          <div class="small fw-semibold text-white mb-1" id="ytPromptTitle">Find the video on YouTube</div>
+          <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link in the Original panel</div>
+          <div class="d-flex flex-wrap gap-2 justify-content-center mb-1">
+            <button type="button" class="btn btn-sm rec-text-btn" id="ytRetrySearchBtn" hidden>Try again</button>
+            <a class="btn btn-sm rec-text-btn" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer">Search on YouTube</a>
+          </div>
+        </div>
+      </div>
+  </div>
+</section>
+
 <div id="ytDropdownPanel" class="yt-panel" style="display: none;">
   <div class="yt-panel-header">
     <div class="d-flex align-items-center text-truncate me-2">
@@ -749,44 +787,30 @@
 
     <!-- YouTube Sub-View -->
     <div id="realAudioYtSection">
-      <div class="yt-query-bar mb-3">
-        <div class="input-group input-group-sm yt-query-group">
-          <input type="text" id="ytSearchQueryInput" class="form-control yt-query-input" placeholder="YouTube search…" aria-label="YouTube search" autocomplete="off" spellcheck="false" title="Override YouTube search query">
-          <button class="btn rec-text-btn yt-query-btn" id="ytRedoSearchBtn" type="button" title="Redo search with this query">Search</button>
-          <button class="btn rec-text-btn yt-query-reset-btn" id="ytResetQueryBtn" type="button" title="Reset to default song query" aria-label="Reset search" style="display: none;"><i class="bi-x-lg" aria-hidden="true"></i></button>
-        </div>
-      </div>
-      <div id="ytPlayerWrapper" class="yt-iframe-wrapper ratio ratio-16x9 mb-3">
-        <iframe id="ytIframe" src="" title="YouTube audio player" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen playsinline referrerpolicy="strict-origin-when-cross-origin"></iframe>
-        
-        <!-- Loading Indicator with Cancel Button -->
-        <div id="ytLoadingIndicator" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
-          <div class="spinner-border mb-2" role="status" style="width: 1.85rem; height: 1.85rem; border-width: 0.18em;">
-            <span class="visually-hidden">Searching YouTube…</span>
-          </div>
-          <div class="small fw-bold text-white mb-1">Searching YouTube…</div>
-          <div class="text-muted text-truncate px-3 mb-2" id="ytLoadingQueryText" style="font-size: 0.72rem; max-width: 100%;"></div>
-          <button type="button" class="btn btn-sm rec-text-btn mt-1" id="ytCancelSearchBtn">Cancel search</button>
-        </div>
-
-        <!-- Manual Search / Fallback Prompt -->
-        <div id="ytPlaceholderPrompt" class="yt-state-card d-flex flex-column justify-content-center align-items-center p-3 text-center" style="display:none !important;">
-          <div class="small fw-semibold text-white mb-1" id="ytPromptTitle">Find the video on YouTube</div>
-          <div class="text-muted mb-2" style="font-size: 0.73rem;">Paste a link below</div>
-          <div class="d-flex flex-wrap gap-2 justify-content-center mb-1">
-            <button type="button" class="btn btn-sm rec-text-btn" id="ytRetrySearchBtn" hidden>Try again</button>
-            <a class="btn btn-sm rec-text-btn" id="ytSearchExternalBtn" href="#" target="_blank" rel="noopener noreferrer">Search on YouTube</a>
+      <!-- Add a video: one field. A link or video ID is added as it is; anything else is a search whose first match is added. -->
+      <div class="yt-add" role="group" aria-labelledby="ytAddLabel">
+        <div class="rec-label small mb-1" id="ytAddLabel">Add a video</div>
+        <div class="yt-query-bar mb-1">
+          <div class="input-group input-group-sm yt-query-group">
+            <input type="text" id="ytSearchQueryInput" class="form-control yt-query-input" placeholder="Search YouTube or paste a link" aria-label="Search YouTube or paste a YouTube link, to add a video" aria-describedby="ytAddHint" autocomplete="off" spellcheck="false">
+            <button class="btn rec-text-btn yt-query-btn" id="ytRedoSearchBtn" type="button" title="Add the video from this link, or the first match for this search">Add</button>
+            <button class="btn rec-text-btn yt-query-reset-btn" id="ytResetQueryBtn" type="button" title="Reset to the song's own search" aria-label="Reset search" style="display: none;"><i class="bi-x-lg" aria-hidden="true"></i></button>
+            <a class="btn rec-text-btn yt-ext-btn" id="ytExternalLink" href="#" target="_blank" title="Open this search on YouTube" aria-label="Open this search on YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right" aria-hidden="true"></i></a>
           </div>
         </div>
+        <p class="small text-muted mb-3" id="ytAddHint">Search by song or paste a link: either adds the video to the list below, where it keeps its own sync points.</p>
       </div>
-      <div id="ytSyncedVideos" class="mb-3" hidden>
-        <div class="d-flex align-items-center justify-content-between mb-1">
-          <label class="small text-white-50 mb-0" for="ytSyncedSelect">Synced video</label>
-          <button type="button" class="btn btn-link p-0 text-decoration-none small text-white-50" id="ytManageSyncedBtn" title="Manage and delete synced videos for this tab">Manage…</button>
-        </div>
-        <select id="ytSyncedSelect" class="form-select form-select-sm" aria-label="Synced video for this recording"></select>
+      <!-- Videos picked or played for this recording: switch between them, each keeps its own sync points -->
+      <div id="ytVideoSection" class="mb-3" hidden>
+        <div class="rec-label small mb-1" id="ytVideoListLabel">Videos for this recording</div>
+        <div id="ytVideoList" class="rec-slots" role="radiogroup" aria-labelledby="ytVideoListLabel"></div>
         <div id="ytSyncedOriginInfo" class="small text-muted mt-1" hidden></div>
-        <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="ytCopyFromOtherTabBtn" hidden>Copy sync from another tab…</button>
+        <button type="button" class="btn btn-sm rec-text-btn mt-1" id="ytCopyBetweenBtn" hidden aria-expanded="false" aria-controls="ytCopyPicker">Copy sync points from another video…</button>
+        <div id="ytCopyPicker" class="mt-1" hidden>
+          <p class="small text-muted mb-1">The times are copied as they are. Use it for the same recording uploaded twice, then adjust in Sync points.</p>
+          <div id="ytCopyPickerList" class="rec-slots" role="group" aria-label="Copy sync points from"></div>
+        </div>
+        <button type="button" class="btn btn-sm rec-text-btn" id="ytCopyFromOtherTabBtn" hidden>Copy sync points from another tab…</button>
       </div>
       <div id="ytSyncRow" class="mb-3 rec-sync-proxy" hidden>
         <div class="d-flex align-items-center justify-content-between gap-2">
@@ -795,12 +819,9 @@
         </div>
         <button type="button" class="btn btn-sm btn-theme-outline w-100 mt-2" id="ytSyncTapBtn" hidden title="Play the recording and tap each bar of the tab as you hear it">Tap to Sync</button>
       </div>
-      <div class="input-group input-group-sm yt-search-group">
-        <input type="text" id="ytSearchInput" class="form-control" placeholder="Paste a YouTube link or video ID…" aria-label="YouTube link or video ID">
-        <button class="btn rec-text-btn yt-play-btn" id="ytSearchBtn" type="button" title="Load video">Play</button>
-        <a class="btn rec-text-btn yt-ext-btn" id="ytExternalLink" href="#" target="_blank" title="Open search in YouTube" aria-label="Open search in YouTube" rel="noopener noreferrer"><i class="bi-box-arrow-up-right" aria-hidden="true"></i></a>
+      <div class="yt-danger-row">
+        <button type="button" class="btn btn-sm rec-text-btn" id="ytEditVideosBtn" hidden aria-pressed="false">Remove videos…</button>
       </div>
-      <button type="button" class="btn btn-sm rec-text-btn mt-2" id="ytRemoveVideoBtn" hidden>Remove video</button>
     </div>
 
     <!-- Local Audio Sub-View -->

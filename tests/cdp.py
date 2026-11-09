@@ -8,7 +8,7 @@ Usage:
   python3 tests/cdp.py screenshot [path]        # default /tmp/screenshot.png
   python3 tests/cdp.py targets                  # list page targets
 
-Env: CDP_PORT (default 9333). CDP_URL_FILTER picks the page whose URL contains it (default "localhost"). CDP_VIEWPORT=390x844 emulates a phone viewport for the command. Requires `pip3 install websockets`.
+Env: CDP_PORT (default 9333). CDP_URL_FILTER picks the page whose URL contains it (default "localhost"). CDP_VIEWPORT=390x844 emulates a phone viewport for the command (CDP_MOBILE=0 for a desktop one). Requires `pip3 install websockets`.
 """
 import asyncio, base64, json, os, sys, urllib.request
 
@@ -45,7 +45,7 @@ async def main():
         if os.environ.get("CDP_VIEWPORT"):
             w, h = map(int, os.environ["CDP_VIEWPORT"].split("x"))
             await call(ws, "Emulation.setDeviceMetricsOverride", {
-                "width": w, "height": h, "deviceScaleFactor": 2, "mobile": True})
+                "width": w, "height": h, "deviceScaleFactor": 2, "mobile": os.environ.get("CDP_MOBILE", "1") != "0"})
         if cmd == "eval":
             r = await call(ws, "Runtime.evaluate", {
                 "expression": sys.argv[2], "returnByValue": True, "awaitPromise": True})

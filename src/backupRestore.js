@@ -141,7 +141,7 @@ export function collectAllSettings() {
     const gpTabStrings = {};
     for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && k.startsWith('yt_track_')) {
+        if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_'))) {
             ytCache[k] = localStorage.getItem(k);
         } else if (k && k.startsWith('gp_tab_strings_')) {
             gpTabStrings[k] = localStorage.getItem(k);
@@ -615,7 +615,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && k.startsWith('yt_track_')) keysToRemove.push(k);
+            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_'))) keysToRemove.push(k);
         }
         for (const k of keysToRemove) localStorage.removeItem(k);
         clearAudioSync();
@@ -864,7 +864,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && k.startsWith('yt_track_')) keysToRemove.push(k);
+            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_'))) keysToRemove.push(k);
         }
         for (const k of keysToRemove) localStorage.removeItem(k);
         clearAudioSync();
@@ -1003,7 +1003,7 @@ export async function deleteAllAppData() {
     const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && (k.startsWith('yt_track_') || k.startsWith('tab_downloader_'))) {
+        if (k && ((k.startsWith('yt_track_') || k.startsWith('yt_videos_')) || k.startsWith('tab_downloader_'))) {
             keysToRemove.push(k);
         }
     }
@@ -1028,7 +1028,7 @@ export async function clearAppCache() {
         const ytKeys = [];
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && k.startsWith('yt_track_')) ytKeys.push(k);
+            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_'))) ytKeys.push(k);
         }
         totalCleared += ytKeys.length;
         ytKeys.forEach(k => localStorage.removeItem(k));

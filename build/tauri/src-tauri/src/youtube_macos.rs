@@ -17,7 +17,7 @@ window.addEventListener('message', (event) => {
   try {
     let data = event.data;
     if (typeof data === 'string') data = JSON.parse(data);
-    if (!data || (data.event !== 'infoDelivery' && data.event !== 'onStateChange')) return;
+    if (!data || (data.event !== 'infoDelivery' && data.event !== 'initialDelivery' && data.event !== 'onStateChange')) return;
     window.__TAURI__?.event.emit('youtube-player-state', data).catch(() => {});
   } catch {}
 });
@@ -128,11 +128,7 @@ pub fn install(app: &mut App<Wry>) -> tauri::Result<()> {
     )?;
     player.with_webview(|platform| unsafe {
         let webview = &*platform.inner().cast::<WKWebView>();
-        webview.setWantsLayer(true);
-        if let Some(layer) = webview.layer() {
-            layer.setCornerRadius(11.0);
-            layer.setMasksToBounds(true);
-        }
+        // Square corners: the video sheet is a flat strip under its grabber, so the view is not rounded
         let ua = NSString::from_str(SAFARI_USER_AGENT);
         webview.setCustomUserAgent(Some(&ua));
         let html = NSString::from_str(PLAYER_HTML);
@@ -159,7 +155,7 @@ pub fn youtube_player_update(
     width: f64,
     height: f64,
     visible: bool,
-    keep_alive: bool,
+    full_height: f64,
 ) -> Result<(), String> {
     let player = app
         .get_webview(PLAYER_LABEL)
@@ -177,18 +173,13 @@ pub fn youtube_player_update(
         return Ok(());
     }
 
+    // The player is never parked off-screen or shrunk to a dot: a player that is not on the screen the
+    // user is viewing must not play. When the page says it is not shown, it is paused and hidden.
     if !visible || width <= 0.0 || height <= 0.0 {
-        if keep_alive {
-            player
-                .set_position(LogicalPosition::new(-10000.0, -10000.0))
-                .map_err(|error| error.to_string())?;
-            player
-                .set_size(LogicalSize::new(1.0, 1.0))
-                .map_err(|error| error.to_string())?;
-            player.show().map_err(|error| error.to_string())?;
-        } else {
-            player.hide().map_err(|error| error.to_string())?;
-        }
+        player
+            .eval("window.ytCommand({event:'command',func:'pauseVideo',args:[]});")
+            .map_err(|error| error.to_string())?;
+        player.hide().map_err(|error| error.to_string())?;
         return Ok(());
     }
 
@@ -197,6 +188,10 @@ pub fn youtube_player_update(
         .map_err(|error| error.to_string())?;
     player
         .set_size(LogicalSize::new(width, height))
+        .map_err(|error| error.to_string())?;
+    // A peek shows the top slice: the view is as tall as the slice, the player inside keeps its full height.
+    player
+        .eval(&format!("window.ytFit && window.ytFit({});", if full_height > height { full_height } else { 0.0 }))
         .map_err(|error| error.to_string())?;
 
     let valid_video_id = video_id.len() == 11

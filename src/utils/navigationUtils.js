@@ -7,10 +7,10 @@ import { clearOutput } from './renderUtils.js';
 import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
 import { gamepadManager } from './gamepadManager.js';
 import { stepSetlist } from '../setlistPlayer.js';
-import { isYouTubeAvailable, rewindYouTubeToBeginning, toggleYouTubePanel, getSongKey } from '../youtubePlayer.js';
+import { isYouTubeAvailable, rewindYouTubeToBeginning, toggleYouTubePanel, getSongKey, scheduleOriginalVideo } from '../youtubePlayer.js';
 import { songHasSyncPoints } from '../audioSync/syncStore.js';
 import {
-    isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds
+    isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds, getRealAudioActiveSource
 } from '../audioSync/realAudioController.js';
 
 // Navigation action constants
@@ -1199,11 +1199,16 @@ export const setupGlobalRewindButton = setupGlobalAudioControls;
  * @param {'synth'|'youtube'|'audio'|'real'|null} mode
  */
 export function setActiveAudioMode(mode) {
+    // The video sheet belongs to Original playing from YouTube: the Synth (or a local file) closes it, which pauses
+    if (mode === 'synth' || mode === 'audio') scheduleOriginalVideo(false);
     const isReal = mode === 'youtube' || mode === 'audio' || mode === 'real';
     document.getElementById('synthToggleBtn')?.classList.toggle('active-audio-mode', mode === 'synth');
     document.getElementById('mobileSynthToggleBtn')?.classList.toggle('active-audio-mode', mode === 'synth');
     document.getElementById('ytToggleBtn')?.classList.toggle('active-audio-mode', isReal);
     document.getElementById('mobileYtToggleBtn')?.classList.toggle('active-audio-mode', isReal);
+    // Selecting Original shows its video (YouTube source, a video already known) without waiting for play. Deferred so a
+    // song that is still being set up (the player resets itself after this call) has finished.
+    if (isReal && mode !== 'audio' && getRealAudioActiveSource() === 'youtube') scheduleOriginalVideo(true);
     // iOS ignores volume on media elements and the YouTube embed, so the master slider only reaches the synth there
     const slider = document.getElementById('synthVolumeSlider');
     if (slider) {

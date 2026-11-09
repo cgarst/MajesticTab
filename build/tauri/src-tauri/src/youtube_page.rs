@@ -25,6 +25,16 @@ pub const PLAYER_HTML: &str = r##"<!doctype html>
             player.src = embedUrl.href;
         };
 
+        // A peek shows the top slice of the player: the view is shorter than the player, which keeps its full
+        // height (so its viewport is never smaller than the player needs) and sits at the top of the view.
+        window.ytFit = (fullHeight) => {
+            if (fullHeight > 0) {
+                player.style.cssText = 'position:absolute;left:0;top:0;width:100%;height:' + fullHeight + 'px';
+            } else {
+                player.style.cssText = '';
+            }
+        };
+
         window.ytCommand = (message) => {
             const serialized = typeof message === 'string' ? message : JSON.stringify(message);
             if (playerReady && player.contentWindow) {
@@ -49,7 +59,7 @@ pub const PLAYER_HTML: &str = r##"<!doctype html>
                 try { data = JSON.parse(data); } catch { return; }
             }
             if (event.source !== player.contentWindow) return;
-            if (data?.event === 'infoDelivery' || data?.event === 'onStateChange') {
+            if (data?.event === 'infoDelivery' || data?.event === 'initialDelivery' || data?.event === 'onStateChange') {
                 window.postMessage(data, '*');
             }
         });

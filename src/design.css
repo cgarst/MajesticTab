@@ -673,7 +673,6 @@ body.practice-open #output { padding-right: 416px !important; }
   background: var(--s1) !important; border: 0 !important; border-radius: var(--r) !important; color: var(--ink) !important; min-height: 52px;
 }
 .btn-check:checked + .yt-mode-btn { background: var(--s3) !important; }
-#ytDropdownPanel #ytPlayerWrapper { border-radius: var(--r); overflow: hidden; }
 #synthDropdownPanel .btn-group > .btn.active, #ytDropdownPanel .btn-group > .btn.active, #realAudioRates .btn.active { background: var(--s3) !important; color: var(--ink) !important; }
 
 /* Practice panel recording slots & sync follow card */
@@ -2613,10 +2612,6 @@ body.phone-reader #synthDropdownPanel .synth-panel-header, body.phone-reader #yt
 body.phone-reader #synthDropdownPanel .synth-panel-body, body.phone-reader #ytDropdownPanel .yt-panel-body {
   flex: 1 1 auto !important; min-height: 0; overflow-y: auto !important; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
 }
-/* The video keeps its 16:9 shape but not the whole sheet width: a full-width player is too tall on a portrait phone */
-@media (max-width: 640px) {
-  body.phone-reader #ytDropdownPanel #ytPlayerWrapper { max-width: 240px; margin-inline: auto; }
-}
 /* Phone panels are denser (portrait sheets and landscape side panels): the screen is small, so type, rows and controls are about 20% smaller */
 body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) { font-size: 13px; padding: 10px 12px !important; }
 body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(h1, h2, h3, .tracks-title, .rpanel-title, #synthPanelTitle::before) { font-size: 15px !important; padding-block: 0 6px; }
@@ -2955,8 +2950,6 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 #ytDropdownPanel .input-group > .form-control { flex: 1; min-width: 0; }
 #ytDropdownPanel .input-group > .btn { border: 0 !important; margin: 0 !important; border-radius: var(--r) !important; display: inline-flex; align-items: center; }
 /* No outlines on the video, its states, the waveform or the file rows */
-#ytDropdownPanel #ytPlayerWrapper { border: 0 !important; background: var(--s1) !important; }
-#ytDropdownPanel .yt-state-card { background: var(--s1) !important; border: 0 !important; }
 #ytDropdownPanel .af-wave { border: 0 !important; background: var(--s1) !important; border-radius: var(--r); }
 #ytDropdownPanel .af-file-row { border: 0 !important; background: var(--s1) !important; }
 #ytDropdownPanel .af-file-row.is-selected { background: var(--s3) !important; }
@@ -4800,3 +4793,98 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 #pinchScaleReadout[data-cap="max"] .pinch-scale-fill, #pinchScaleReadout[data-cap="min"] .pinch-scale-fill { background: var(--ink); }
 #pinchScaleReadout .pinch-scale-value { font-weight: 600; min-width: 5.5em; text-align: right; font-variant-numeric: tabular-nums; }
 @media (prefers-reduced-motion: reduce) { #pinchScaleReadout, #pinchScaleReadout.is-shown { transition: none; } }
+
+
+/* ===== Video sheet (src/ytSheet.js) =====
+   The YouTube player lives here, not in the Original panel: it must be on the screen while it plays. It opens when
+   YouTube starts playing and overlaps the page (the page never reflows for it). The person can push it down to a peek:
+   the whole sheet moves down by --yt-d and is clipped by the same amount at the bottom, where it would pass over the
+   strip, so the top slice of the video stays on the screen. Rows: grabber, video. Nothing of ours is drawn over the video. */
+.yt-sheet {
+  --yt-d: 0px; --yt-h: 200px; --yt-w: 356px; --yt-grab-h: 28px;
+  position: fixed; z-index: 1047; right: 16px; width: min(var(--yt-w), 100%); /* above the fretboard dock (1040), whose slide would otherwise pass over the video; below the panels (1050+) */
+  bottom: calc(var(--dock-h, 0px) + var(--fretboard-effective-h, 0px));
+  pointer-events: none;
+  opacity: 0; visibility: hidden; translate: 0 24px;
+  transform: translateY(var(--yt-d)); clip-path: inset(0 0 var(--yt-d) 0);
+  transition: opacity var(--dur-fast) var(--ease-out), translate var(--dur-fast) var(--ease-out), transform var(--dur-base) var(--ease-out),
+              clip-path var(--dur-base) var(--ease-out), visibility 0s linear var(--dur-fast);
+}
+.yt-sheet.is-shown {
+  opacity: 1; visibility: visible; translate: 0 0; pointer-events: auto;
+  transition: opacity var(--dur-base) var(--ease-out), translate var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out),
+              clip-path var(--dur-base) var(--ease-out), visibility 0s;
+}
+.yt-sheet.is-dragging { transition: none; }
+@media (pointer: coarse) { .yt-sheet { --yt-grab-h: 44px; } }
+.yt-sheet-head { display: flex; align-items: center; height: var(--yt-grab-h); background: var(--s2); border-radius: var(--r-lg) var(--r-lg) 0 0; }
+.yt-sheet-grab {
+  flex: 1; display: flex; align-items: center; justify-content: center; height: 100%; padding: 0; border: 0; cursor: grab;
+  background: transparent; touch-action: none;
+}
+.yt-sheet-grab:active { cursor: grabbing; }
+.yt-sheet-grip { width: 36px; height: 4px; border-radius: 2px; background: var(--ink2); }
+.yt-sheet-grab:focus-visible { outline: 2px solid var(--ink); outline-offset: -4px; }
+.yt-sheet-video { position: relative; height: var(--yt-h); background: var(--s1); }
+.yt-sheet .yt-iframe-wrapper { position: absolute; inset: 0; background: var(--s1); border: 0; border-radius: 0; overflow: hidden; }
+.yt-sheet .yt-iframe-wrapper > iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.yt-sheet .yt-state-card { background: var(--s1); border: 0; color: var(--ink); }
+.yt-sheet .yt-state-card .text-muted { color: var(--ink2) !important; }
+
+/* Desktop: the minimum-size player at the right, over the page. The panels end above it,
+   so nothing covers the video. */
+body.yt-sheet-open:not(.phone-reader) :is(#synthDropdownPanel, #ytDropdownPanel) { bottom: calc(var(--dock-h, 0px) + var(--yt-sheet-h, 0px) + var(--fretboard-effective-h, 0px) + 12px) !important; }
+
+/* Phone, portrait: full width above the fretboard and the five words, and every sheet that opens stays above it */
+@media (max-width: 640px) {
+  body.phone-reader .yt-sheet { left: 0; right: 0; margin-inline: auto; width: min(var(--yt-w), 100%); border-radius: var(--r-lg) var(--r-lg) 0 0;
+    bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px) + var(--fretboard-effective-h, 0px)); }
+  body.phone-reader.yt-sheet-open :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #synthDropdownPanel, #ytDropdownPanel) {
+    bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px) + var(--fretboard-effective-h, 0px) + var(--yt-sheet-h, 0px)) !important;
+    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - var(--fretboard-effective-h, 0px) - var(--yt-sheet-h, 0px) - 12px) !important;
+  }
+  body.phone-reader.yt-sheet-open #scoreOptionsDropdownPanel {
+    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - var(--fretboard-effective-h, 0px) - var(--yt-sheet-h, 0px) - 12px) !important;
+  }
+}
+/* Short landscape phone: a column on the right, at least 200 high for the video, with the right-hand panels beside it */
+@media (orientation: landscape) and (max-height: 500px) {
+  body.phone-reader .yt-sheet { left: auto; right: env(safe-area-inset-right, 0px); margin-inline: 0; width: min(var(--yt-w), 100%); bottom: var(--dock-h, 0px); }
+  body.phone-reader.yt-sheet-open :is(#synthDropdownPanel, #ytDropdownPanel) { right: calc(env(safe-area-inset-right, 0px) + var(--yt-sheet-w, 356px)) !important; bottom: var(--dock-h, 0px) !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .yt-sheet, .yt-sheet.is-shown { transition: none; translate: 0 0; }
+}
+
+/* Tabletop (iPhone Duo folded, crease across): the video sheet takes the fretboard's band, above the strip. With Video chosen the
+   fretboard steps aside; with Fretboard chosen (the switch in the sheet's bar) the sheet is lowered to its peek and the fretboard sits
+   above it. Panels end above the sheet. The switch shows only where there is a fretboard (a Guitar Pro song). */
+.yt-sheet-switch { display: none; flex: none; gap: 4px; padding-right: 8px; }
+.yt-sheet-switch .btn { min-height: 44px; color: var(--ink2); background: transparent; border: 0; border-radius: var(--r-control); }
+.yt-sheet-switch .btn[aria-pressed="true"] { background: var(--s3); color: var(--ink); }
+html.duo-tabletop body.phone-reader.fretboard-open:not(.reading-mode):not(.library-view-active) .yt-sheet-switch { display: inline-flex; }
+html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) .yt-sheet {
+  left: 0; right: 0; margin-inline: auto; width: min(var(--yt-w), 100%); z-index: 1032;
+  bottom: calc(var(--dock-h, 0px) + var(--tabs-h) + var(--dt-slack, 0px) * 2);
+}
+html.duo-tabletop body.phone-reader.yt-sheet-open:not(.yt-sheet-peek):not(.reading-mode):not(.library-view-active) .fretboard-dock { display: none !important; }
+html.duo-tabletop body.phone-reader.yt-sheet-peek:not(.reading-mode):not(.library-view-active) .fretboard-dock {
+  bottom: calc(var(--dock-h, 0px) + var(--tabs-h) + var(--yt-sheet-h, 0px) + var(--dt-slack, 0px) * 3) !important;
+}
+html.duo-tabletop body.phone-reader.yt-sheet-open:not(.reading-mode):not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) {
+  bottom: calc(var(--dock-h, 0px) + var(--tabs-h) + var(--yt-sheet-h, 0px) + var(--dt-slack, 0px) * 2) !important;
+}
+
+/* The library has no reader chrome: the video sheet is never shown there */
+body.library-view-active .yt-sheet { display: none !important; }
+
+/* Remembered videos (Original panel): rows like the Recording and Backing rows; in removal mode each carries its own Remove */
+.vrow { display: flex; gap: 6px; align-items: stretch; }
+.vrow .slot { flex: 1; min-width: 0; text-align: left; }
+.vrow-remove { flex: none; align-self: center; color: var(--danger) !important; background: transparent !important; border: 0 !important; min-height: 44px; max-width: 45%; text-align: right; white-space: normal; }
+.vrow-remove.is-armed { font-weight: 600; }
+.vrow-copy.is-armed .t b { color: var(--danger); }
+.yt-danger-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.yt-danger-row .rec-text-btn { color: var(--danger) !important; }
+
+.vrow .slot .t b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

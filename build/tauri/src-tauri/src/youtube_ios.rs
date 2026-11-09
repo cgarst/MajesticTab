@@ -46,10 +46,6 @@ unsafe fn create_player(main: *mut AnyObject) -> *mut AnyObject {
     let _: () = msg_send![webview, setBackgroundColor: &*black];
     let _: () = msg_send![webview, setInspectable: true];
     let _: () = msg_send![webview, setClipsToBounds: true];
-    let layer: *mut AnyObject = msg_send![webview, layer];
-    if !layer.is_null() {
-        let _: () = msg_send![layer, setCornerRadius: 11.0f64];
-    }
     let scroll_view: *mut AnyObject = msg_send![webview, scrollView];
     if !scroll_view.is_null() {
         let _: () = msg_send![scroll_view, setScrollEnabled: false];
@@ -119,7 +115,7 @@ pub fn youtube_player_update(
     width: f64,
     height: f64,
     visible: bool,
-    keep_alive: bool,
+    full_height: f64,
 ) -> Result<(), String> {
     if !video_id.is_empty()
         && !(video_id.len() == 11
@@ -150,23 +146,22 @@ pub fn youtube_player_update(
             return;
         }
 
+        // Never parked off-screen or shrunk to a dot: not shown means paused and hidden.
         if !visible || width <= 0.0 || height <= 0.0 {
-            if keep_alive {
-                let frame = NSRect::new(NSPoint::new(-10000.0, -10000.0), NSSize::new(1.0, 1.0));
-                let _: () = msg_send![player, setFrame: frame];
-                let _: () = msg_send![player, setHidden: false];
-            } else {
-                let _: () = msg_send![player, setHidden: true];
-            }
-        } else {
-            let main_frame: NSRect = msg_send![main_view, frame];
-            let frame = NSRect::new(
-                NSPoint::new(main_frame.origin.x + left, main_frame.origin.y + top),
-                NSSize::new(width, height),
-            );
-            let _: () = msg_send![player, setFrame: frame];
-            let _: () = msg_send![player, setHidden: false];
+            eval(player, "window.ytCommand({event:'command',func:'pauseVideo',args:[]});");
+            let _: () = msg_send![player, setHidden: true];
+            return;
         }
+        let main_frame: NSRect = msg_send![main_view, frame];
+        let frame = NSRect::new(
+            NSPoint::new(main_frame.origin.x + left, main_frame.origin.y + top),
+            NSSize::new(width, height),
+        );
+        let _: () = msg_send![player, setFrame: frame];
+        let _: () = msg_send![player, setHidden: false];
+        // A peek shows the top slice: the view is as tall as the slice, the player inside keeps its full height.
+        let fit = if full_height > height { full_height } else { 0.0 };
+        eval(player, &format!("window.ytFit && window.ytFit({fit});"));
 
         let mut current = state.video_id.lock().unwrap();
         if current.as_deref() != Some(video_id.as_str()) {
