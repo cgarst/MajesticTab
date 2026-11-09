@@ -245,6 +245,7 @@ body.library-view-active #viewPill { display: none; }
 @media (prefers-reduced-motion: reduce) {
   .theme-toast, .theme-toast-hiding, .theme-toast-action, .theme-toast-close { transition: none; }
   #libraryPage, #barRuler { animation: none !important; }
+  .ruler-tip { transition: none; }
 }
 
 
@@ -265,6 +266,14 @@ body.library-view-active #viewPill { display: none; }
   --r: var(--r-control);
   --r-sm: 6px;
   --r-lg: var(--r-card);
+  /* Section families on the bar ruler: six hues, the same in every theme and every file, so a chorus looks like a
+     chorus. A block keeps its surface's own lightness (text contrast is unchanged) and takes the hue at low chroma. */
+  --sec-verse: 200;
+  --sec-chorus: 350;
+  --sec-bridge: 125;
+  --sec-solo: 60;
+  --sec-bookend: 285;
+  --sec-instrumental: 245;
 }
 .tauri-macos, .tauri-ios { --r-control: 10px; --r-card: 12px; }
 .tauri-windows { --r-control: 6px; --r-card: 8px; }
@@ -307,6 +316,7 @@ body { font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica 
   min-height: 30px; padding: 6px 12px; font-size: 13px; font-weight: 500; box-shadow: none !important;
   transition: color var(--dur-fast) ease-in-out;
 }
+.hud-pill-group .btn[hidden] { display: none !important; }
 .hud-pill-group .btn.active, .hud-pill-group .btn-check:checked + .btn, #topBar .hud-pill-group .btn.active,
 #topBar .hud-pill-group .btn-check:checked + .btn {
   background: var(--s3) !important; color: var(--ink) !important; box-shadow: none !important;
@@ -316,7 +326,6 @@ body { font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica 
 .hud-pill-group.has-sliding-pill #topBar .hud-pill-group .btn.active,
 .hud-pill-group.has-sliding-pill #topBar .hud-pill-group .btn-check:checked + .btn {
   background: transparent !important;
-.hud-pill-group .btn[hidden] { display: none !important; }
 }
 .hud-pill-group .hud-sliding-pill {
   position: absolute;
@@ -419,8 +428,9 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .dock-tr { display: flex; align-items: center; gap: 6px; }
 .dock-ruler { min-width: 0; }
 .dock-time { font: 500 13px system-ui, sans-serif; color: var(--ink2); white-space: nowrap; min-width: 0; text-align: right; }
-.dock-time b { font: 700 22px/1 var(--font-display); color: var(--ink); }
-.dock-section { font: 700 17px/1 var(--font-display); color: var(--ink); letter-spacing: -0.01em; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: -2px; display: inline-block; margin-right: 4px; }
+/* The readout reserves room for the song's widest bar number (--bar-digits is set when the song loads), so the ruler beside it keeps one length */
+.dock-time { min-width: calc(30px + var(--bar-digits, 2) * 13px); }
+.dock-time b { font: 700 22px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; }
 .dock-bpm { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.1; padding: 0 8px; font-size: 12px; color: var(--ink2); }
 .dock-bpm b { font: 700 26px/1 var(--font-display); color: var(--ink); font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
 .dock-tools { display: flex; align-items: center; gap: 4px; }
@@ -467,14 +477,40 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .ruler[hidden] { display: none; }
 .ruler[data-lane="1"] { height: 54px; }
 .ruler:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
-.ruler .fill { position: absolute; inset: 0; background: var(--s3); transform-origin: 0 50%; transform: scaleX(0); will-change: transform; }
+/* The ruler is a row of section blocks with a 2px gap (real transparency); each block carries its own played fill */
+#barRuler { background: transparent; }
+.ruler-segs { position: absolute; inset: 0; }
+.ruler-segs .seg { position: absolute; top: 0; bottom: 0; }
+.ruler-segs .seg-body { position: absolute; top: 0; bottom: 0; left: 1px; right: 1px; background: var(--s2); overflow: hidden; }
+.ruler-segs .seg:first-child .seg-body { left: 0; }
+.ruler-segs .seg:last-child .seg-body { right: 0; }
+.ruler-segs .seg.tight .seg-body { left: 0; right: 0; }
+/* A block that is a known kind of section takes its family's hue on its ground and on its played fill */
+.ruler-segs .seg[data-family="verse"] { --h: var(--sec-verse); }
+.ruler-segs .seg[data-family="chorus"] { --h: var(--sec-chorus); }
+.ruler-segs .seg[data-family="bridge"] { --h: var(--sec-bridge); }
+.ruler-segs .seg[data-family="solo"] { --h: var(--sec-solo); }
+.ruler-segs .seg[data-family="bookend"] { --h: var(--sec-bookend); }
+.ruler-segs .seg[data-family="instrumental"] { --h: var(--sec-instrumental); }
+.ruler-segs .seg[data-family] .seg-body { background: color-mix(in oklab, oklch(0.62 0.12 var(--h)) 18%, var(--s2)); }
+.ruler-segs .seg[data-family] .seg-fill { background: color-mix(in oklab, oklch(0.62 0.12 var(--h)) 26%, var(--s3)); }
+@supports (color: oklch(from red l c h)) {
+  .ruler-segs .seg[data-family] .seg-body { background: oklch(from var(--s2) l 0.055 var(--h)); }
+  .ruler-segs .seg[data-family] .seg-fill { background: oklch(from var(--s3) l 0.065 var(--h)); }
+}
+.ruler-segs .seg-fill { position: absolute; inset: 0; background: var(--s3); transform-origin: 0 50%; transform: scaleX(0); will-change: transform; }
+.ruler-segs .seg-label { position: absolute; left: 5px; right: 3px; top: 2px; font: 600 11px/14px system-ui, sans-serif; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ruler-segs .seg-label.is-current .seg-main { color: var(--ink); }
+.ruler-segs .seg-sub { font-weight: 500; }
+/* Where the playhead is, in words, while it is being moved: it floats, so it may carry a shadow */
+.ruler-tip { position: absolute; left: 0; bottom: calc(100% + 10px); z-index: 3; padding: 6px 10px; background: var(--s1); color: var(--ink); border-radius: var(--r-control); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28); font: 600 13px/1.2 system-ui, sans-serif; white-space: nowrap; pointer-events: none; opacity: 0; will-change: opacity; transition: opacity var(--dur-fast) var(--ease-out); }
+.ruler-tip.is-on { opacity: 1; }
 .ruler .loop { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--hue) 22%, transparent); border-inline: 2px solid var(--hue); display: none; }
 .ruler[data-loop="1"] .loop { display: block; }
 .ruler svg { position: absolute; left: 0; top: 0; width: 100%; height: 44px; }
 .ruler svg path { stroke: var(--ink2); stroke-opacity: .6; stroke-width: 1; fill: none; vector-effect: non-scaling-stroke; }
 .ruler-labels { position: absolute; inset: 0 0 auto 0; height: 44px; pointer-events: none; }
 .ruler-labels em { position: absolute; top: 18px; transform: translateX(4px); font: 500 10px system-ui, sans-serif; color: var(--ink2); font-style: normal; font-variant-numeric: tabular-nums; }
-.ruler-labels .mk { position: absolute; top: 2px; transform: translateX(4px); font: 600 10px system-ui, sans-serif; color: var(--ink); white-space: nowrap; }
 .ruler .head { position: absolute; top: 0; bottom: 0; left: 0; width: 0; will-change: transform; pointer-events: none; }
 .ruler .head::before { content: ''; position: absolute; left: -1px; top: 0; bottom: 0; width: 3px; background: var(--hue); }
 .ruler .head::after { content: ''; position: absolute; left: -7px; top: -1px; width: 15px; height: 14px; background: var(--hue); clip-path: polygon(0 0, 100% 0, 50% 100%); }
@@ -500,7 +536,6 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 
 /* Medium width (tablet / narrow desktop): tighten dock spacing so the bar number and bpm never collide */
 @media (max-width: 899px) {
-  .dock-section { max-width: 110px; }
   .dock-bpm { padding: 0 4px; }
 }
 @media (min-width: 641px) and (max-width: 899px) {
@@ -874,6 +909,7 @@ body.practice-open #output { padding-right: 416px !important; }
 .resume-btn { min-height: 44px; padding: 0 20px; font-size: 15px; }
 .resume-card .ruler { grid-column: 1 / -1; margin-top: 14px; }
 .ruler.mini { height: 28px; overflow: visible; }
+.ruler.mini .fill { position: absolute; inset: 0; background: var(--s3); transform-origin: 0 50%; transform: scaleX(0); }
 .ruler.mini .fill-clip { position: absolute; inset: 0; overflow: hidden; border-radius: var(--r-sm); }
 .ruler.mini .head { z-index: 2; }
 .ruler.mini svg { height: 28px; }
@@ -2416,8 +2452,7 @@ body.phone-reader:not(.library-view-active) .dock-ruler { grid-area: r; }
 body.phone-reader:not(.library-view-active) .dock-tr { grid-area: a; gap: 0; }
 /* No bar number on a phone: the playhead on the track shows where you are, and the controls get the room */
 body.phone-reader:not(.library-view-active) .dock-time { display: none !important; }
-body.phone-reader:not(.library-view-active) .dock-section, body.phone-reader:not(.library-view-active) .dock-bpm, body.phone-reader:not(.library-view-active) #dockMetroBtn, body.phone-reader:not(.library-view-active) #dockVolumeBtn { display: none !important; }
-body.phone-reader:not(.library-view-active) #dockBarPrefix { display: inline; }
+body.phone-reader:not(.library-view-active) .dock-bpm, body.phone-reader:not(.library-view-active) #dockMetroBtn, body.phone-reader:not(.library-view-active) #dockVolumeBtn { display: none !important; }
 /* The sound switch sits midway between the play button and the fretboard button; the two icon buttons stay together at the right */
 body.phone-reader:not(.library-view-active) .dock-tools { grid-column: 2 / 4; grid-row: 2; gap: 2px; min-width: 0; }
 /* auto margins centre the boxes; the fretboard glyph sits about 10px inside its box, so nudge 5px to even the visible gaps */

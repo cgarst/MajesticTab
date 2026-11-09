@@ -1,12 +1,13 @@
 // barRuler.js
 // The reader's transport: a bar ruler in the bottom dock. It shows how a player thinks about position (bar
-// numbers and the song's own sections), not minutes. Section names come from the file's marks
-// (songSections.js); a file with no usable marks shows bar numbers only. Under the numbers a coverage lane shows
+// numbers and the song's own sections), not minutes. The song's sections are the ruler's segments, each named
+// inside itself (marks from songSections.js); a file with no usable marks is one plain segment with bar numbers.
+// The dock never names the section, so the ruler's length does not change through a song. Under the numbers a coverage lane shows
 // which bars follow a synced recording. Drag to seek; the dock's loop button loops the current part.
 // It never draws notation; AlphaTab owns that.
 
 import { notePlaybackBar, onTransportEvent, getPlayerContext, getMidiTickLookup, synthPlayerState, applyLoopSettings, updateSynthUI, toggleMetronome, followSeekToBar } from './gpPlayer.js';
-import { deriveSections, partAtBar, DEFAULT_MIN_BARS } from './songSections.js';
+import { deriveSections, partAtBar, buildSegments, segmentIndexAtBar, movementNumeral, MIN_BLOCK_PX, DEFAULT_MIN_BARS } from './songSections.js';
 import { buildScoreTimeline, playedBarsFromLookup, tickToPosition, tickToScoreMs, tempoAtScoreMs } from '../audioSync/scorePositions.js';
 import { buildTimelineModel } from '../audioSync/timelineModel.js';
 import { listRecords, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
@@ -41,13 +42,14 @@ export function initBarRuler() {
     ruler.setAttribute('aria-valuemin', '1');
     ruler.innerHTML = `
       <div class="ruler-clip">
-        <div class="fill" id="rulerFill"></div>
+        <div class="ruler-segs" id="rulerSegs" aria-hidden="true"></div>
         <div class="loop" id="rulerLoop"></div>
         <svg id="rulerTicks" preserveAspectRatio="none" aria-hidden="true"></svg>
         <div class="ruler-labels" id="rulerLabels" aria-hidden="true"></div>
         <div class="ruler-lane" id="rulerLane" hidden></div>
       </div>
-      <div class="head" id="rulerHead"></div>`;
+      <div class="head" id="rulerHead"></div>
+      <div class="ruler-tip" id="rulerTip" aria-hidden="true"></div>`;
     slot.appendChild(ruler);
 
     const $ = (id) => document.getElementById(id);
@@ -55,13 +57,17 @@ export function initBarRuler() {
     let model = null; // { total, parts, marks, timeline, score }
     let current = { bar: 1, pos: 0 };
     let marksPanel = null;
+    let segEls = []; // { body, fill, label, seg, filled }
+    let currentSeg = -1;
+    let currentPartName = null;
+    let tipTimer = 0;
 
     function buildModel() {
         const { score } = getPlayerContext();
         const masterBars = score?.masterBars;
         if (!masterBars?.length) { model = null; return; }
         const { parts, marks } = deriveSections(masterBars, { minBars: readMinBars() });
-        model = { total: masterBars.length, parts, marks, timeline: null, score };
+        model = { total: masterBars.length, parts, marks, segments: [], timeline: null, score };
     }
 
     function ensureTimeline() {
@@ -89,7 +95,10 @@ export function initBarRuler() {
         syncDockTimeVisibility();
         const { total } = model;
         ruler.setAttribute('aria-valuemax', String(total));
+        // The dock's bar readout reserves room for the song's widest bar number, so the ruler never changes length
+        dock?.style.setProperty('--bar-digits', String(String(total).length));
         drawTicks();
+        drawSegments();
         drawLabels();
         renderSyncLane();
         updateLoop();
@@ -118,33 +127,168 @@ export function initBarRuler() {
         model.major = major;
     }
 
+    // Text fitting: a label is cut at a word boundary and never shrinks to a stray letter. Measured with the
+    // label's own font, so what fits here fits on screen.
+    const measure = (() => {
+        let ctx = null;
+        return (text) => {
+            try {
+                ctx = ctx || document.createElement('canvas').getContext('2d');
+                ctx.font = '600 11px system-ui, sans-serif';
+                return ctx.measureText(text).width;
+            } catch (_) { return text.length * 6.5; }
+        };
+    })();
+    const LABEL_PAD = 10; // 5px in, 3px out, the 2px gap
+    const MIN_LABEL_CHARS = 4;
+
+    // Cut at a word boundary, never to a stray letter. Returns '' when nothing readable fits.
+    function fitWords(text, avail) {
+        if (!text || avail < 24) return '';
+        if (measure(text) <= avail) return text;
+        const words = text.split(' ');
+        if (words.length > 1) {
+            // A trailing number or numeral ("Chorus II") goes without an ellipsis; anything else is cut with one
+            let onlyNumbers = true;
+            while (words.length > 1) {
+                if (!/^(\d+|[ivx]+)$/i.test(words.pop())) onlyNumbers = false;
+                const head = words.join(' ').replace(/[\s:,\u00b7-]+$/, '');
+                if (head.length < MIN_LABEL_CHARS) continue;
+                if (onlyNumbers && measure(head) <= avail) return head;
+                const cut = `${head}\u2026`;
+                if (measure(cut) <= avail) return cut;
+            }
+            return '';
+        }
+        // One long word: cut it by letters, but only when enough of it survives to read
+        let t = text;
+        while (t.length > MIN_LABEL_CHARS && measure(`${t}\u2026`) > avail) t = t.slice(0, -1);
+        return t.length >= MIN_LABEL_CHARS && measure(`${t}\u2026`) <= avail ? `${t}\u2026` : '';
+    }
+
+    // A block's name in the room it has: the whole name, a word-boundary cut, or for a numbered movement its
+    // numeral ("IV"), which is how the file itself numbers it
+    function fitLabel(text, px) {
+        const avail = px - LABEL_PAD;
+        const words = fitWords(text, avail);
+        if (words) return words;
+        const numeral = movementNumeral(text);
+        return numeral && measure(numeral) <= avail ? numeral : '';
+    }
+
+    // "Movement \u00b7 section" for a bar: the block's own name and the part the bar is in (either may be missing)
+    function placeAt(bar) {
+        const seg = model.segments[segmentIndexAtBar(model.segments, bar)];
+        const part = partAtBar(model.parts, bar);
+        const partName = part && part.name && part.name !== 'Start' ? part.name : '';
+        const title = seg?.title || '';
+        if (title && partName && partName !== title) return { title, sub: partName };
+        return { title: title || partName, sub: '' };
+    }
+
+    // One block per section (one plain block when the file names none). At most one level is drawn for the
+    // ruler's width (songSections.buildSegments); the 2px gap between blocks is real transparency, and each
+    // block carries its own played fill so the gap stays clean.
+    function drawSegments() {
+        const box = $('rulerSegs');
+        box.innerHTML = '';
+        segEls = [];
+        currentSeg = -1;
+        currentPartName = null;
+        const width = ruler.clientWidth || 600;
+        model.segments = buildSegments(model.parts, model.total, width);
+        const segments = model.segments.length ? model.segments : [{ start: 0, width: 1, title: '' }];
+        segments.forEach((seg) => {
+            const px = seg.width * width;
+            const el = document.createElement('div');
+            el.className = 'seg';
+            el.style.left = `${seg.start * 100}%`;
+            el.style.width = `${seg.width * 100}%`;
+            if (px < MIN_BLOCK_PX) el.classList.add('tight'); // too narrow to carry a gap: it is a colour, not a block
+            if (seg.family) el.dataset.family = seg.family;
+            const body = document.createElement('div');
+            body.className = 'seg-body';
+            const fill = document.createElement('div');
+            fill.className = 'seg-fill';
+            body.appendChild(fill);
+            let label = null;
+            let main = null;
+            let sub = null;
+            if (model.segments.length) {
+                label = document.createElement('span');
+                label.className = 'seg-label';
+                main = document.createElement('span');
+                main.className = 'seg-main';
+                sub = document.createElement('span');
+                sub.className = 'seg-sub';
+                label.append(main, sub);
+                main.textContent = fitLabel(seg.title, px);
+                body.appendChild(label);
+            }
+            el.appendChild(body);
+            box.appendChild(el);
+            segEls.push({ el, fill, label, main, sub, seg, px, filled: -1 });
+        });
+    }
+
+    // The block the playhead is in says where it is, to the part: "Movement \u00b7 section" in the room it has
+    function updateCurrentLabel(at) {
+        const e = segEls[at];
+        if (!e?.label) return;
+        const { title, sub } = placeAt(current.bar);
+        const avail = e.px - LABEL_PAD;
+        const set = (main, rest = '') => { e.main.textContent = main; e.sub.textContent = rest; };
+        if (sub && title) {
+            // Whole movement and section, else the movement's numeral and the section, else the section alone
+            const numeral = movementNumeral(title);
+            const tries = [[title, ` \u00b7 ${sub}`], ...(numeral ? [[numeral, ` \u00b7 ${sub}`]] : [])];
+            for (const [m, r] of tries) {
+                if (measure(m + r) <= avail) { set(m, r); return; }
+            }
+            set(fitWords(sub, avail) || fitLabel(title, e.px));
+            return;
+        }
+        set(fitLabel(title || sub, e.px));
+    }
+
+    // Bar numbers on the major steps (1, then every `major`), in their own row under the names
     function drawLabels() {
-        const { total, parts, major } = model;
+        const { total, major } = model;
         const box = $('rulerLabels');
         box.innerHTML = '';
-        const width = ruler.clientWidth || 600;
-        // Bar numbers on the major steps (1, then every `major`)
         for (let b = 1; b <= total; b += (b === 1 ? (major > 1 ? major - 1 : 1) : major)) {
             const em = document.createElement('em');
             em.textContent = String(b);
             em.style.left = `${((b - 1) / total) * 100}%`;
             box.appendChild(em);
         }
-        // Section names, hidden when the next section starts too close
-        parts.forEach((p, i) => {
-            const x = ((p.startBar - 1) / total) * width;
-            const nextX = i + 1 < parts.length ? ((parts[i + 1].startBar - 1) / total) * width : width;
-            const room = nextX - x;
-            let text = '';
-            if (room >= p.name.length * 6.4 + 10) text = p.name;
-            else if (room >= p.short.length * 7 + 8) text = p.short;
-            if (!text) return;
-            const mk = document.createElement('span');
-            mk.className = 'mk';
-            mk.textContent = text;
-            mk.style.left = `${((p.startBar - 1) / total) * 100}%`;
-            box.appendChild(mk);
-        });
+    }
+
+    // ---- the scrub readout: where the playhead is, in words, while the person moves it -----------------------
+
+    function updateTip() {
+        const tip = $('rulerTip');
+        if (!model || !tip) return;
+        const { title, sub } = placeAt(current.bar);
+        tip.textContent = [title, sub, `${title || sub ? 'bar' : 'Bar'} ${current.bar}`].filter(Boolean).join(' \u00b7 ');
+        const w = ruler.clientWidth || 0;
+        const half = (tip.offsetWidth || 0) / 2;
+        const frac = Math.min(1, Math.max(0, (current.bar - 1 + current.pos) / model.total));
+        const x = Math.min(Math.max(frac * w, half), Math.max(half, w - half));
+        tip.style.transform = `translate3d(${x.toFixed(1)}px,0,0) translateX(-50%)`;
+    }
+
+    function showTip() {
+        const tip = $('rulerTip');
+        if (!tip || !model) return;
+        clearTimeout(tipTimer);
+        tip.classList.add('is-on');
+        updateTip();
+    }
+
+    function holdTip() {
+        clearTimeout(tipTimer);
+        tipTimer = setTimeout(() => $('rulerTip')?.classList.remove('is-on'), 600);
     }
 
     function updateHead() {
@@ -154,27 +298,37 @@ export function initBarRuler() {
         const frac = Math.min(1, Math.max(0, (current.bar - 1 + current.pos) / total));
         const w = ruler.clientWidth || 0;
         $('rulerHead').style.transform = `translate3d(${(frac * w).toFixed(1)}px,0,0)`;
-        $('rulerFill').style.transform = `scaleX(${frac.toFixed(4)})`;
-        ruler.setAttribute('aria-valuenow', String(current.bar));
-        const part = partAtBar(parts, current.bar);
-        ruler.setAttribute('aria-valuetext', part ? `${part.name}, bar ${current.bar} of ${total}` : `Bar ${current.bar} of ${total}`);
-        const secEl = $('dockSection');
-        const prefixEl = $('dockBarPrefix');
-        if (secEl) {
-            if (part && part.name && part.name !== 'Start') {
-                secEl.textContent = `${part.name}, `;
-                secEl.title = part.name;
-                secEl.style.display = '';
-                if (prefixEl) prefixEl.textContent = 'bar ';
-            } else {
-                secEl.textContent = '';
-                secEl.title = '';
-                secEl.style.display = 'none';
-                if (prefixEl) prefixEl.textContent = 'Bar ';
-            }
+        for (const e of segEls) {
+            const f = Math.min(1, Math.max(0, (frac - e.seg.start) / e.seg.width));
+            const q = Math.round(f * 1000);
+            if (q === e.filled) continue;
+            e.filled = q;
+            e.fill.style.transform = `scaleX(${(q / 1000).toFixed(3)})`;
         }
+        const at = model.segments.length ? segmentIndexAtBar(model.segments, current.bar) : -1;
+        const part = partAtBar(parts, current.bar);
+        const partName = part?.name || '';
+        if (at !== currentSeg || partName !== currentPartName) {
+            const old = segEls[currentSeg];
+            if (old?.label && currentSeg !== at) {
+                old.label.classList.remove('is-current');
+                old.main.textContent = fitLabel(old.seg.title, old.px);
+                old.sub.textContent = '';
+            }
+            if (at >= 0) {
+                segEls[at]?.label?.classList.add('is-current');
+                updateCurrentLabel(at);
+            }
+            currentSeg = at;
+            currentPartName = partName;
+        }
+        ruler.setAttribute('aria-valuenow', String(current.bar));
+        const place = placeAt(current.bar);
+        const placeText = [place.title, place.sub].filter(Boolean).join(', ');
+        ruler.setAttribute('aria-valuetext', placeText ? `${placeText}, bar ${current.bar} of ${total}` : `Bar ${current.bar} of ${total}`);
         const barEl = $('dockBar');
         if (barEl && barEl.textContent !== String(current.bar)) barEl.textContent = String(current.bar);
+        if ($('rulerTip')?.classList.contains('is-on')) updateTip();
         const loopBtn = $('dockLoopBtn');
         if (loopBtn) {
             const target = loopTarget();
@@ -271,6 +425,7 @@ export function initBarRuler() {
         dragging = true;
         ruler.setPointerCapture?.(ev.pointerId);
         seekToBar(barFromPointer(ev));
+        showTip();
     });
     ruler.addEventListener('pointermove', (ev) => {
         if (!dragging || !model) return;
@@ -278,7 +433,7 @@ export function initBarRuler() {
         const bar = barFromPointer(ev);
         if (bar !== current.bar) seekToBar(bar);
     });
-    const stopDrag = () => { dragging = false; };
+    const stopDrag = () => { if (dragging) holdTip(); dragging = false; };
     ruler.addEventListener('pointerup', stopDrag);
     ruler.addEventListener('pointercancel', stopDrag);
     ruler.addEventListener('keydown', (ev) => {
@@ -288,6 +443,8 @@ export function initBarRuler() {
         ev.preventDefault();
         ev.stopPropagation();
         seekToBar(Math.min(model.total, Math.max(1, current.bar + delta)));
+        showTip();
+        holdTip();
     });
 
     // ---- dock buttons -------------------------------------------------------------------------------------
@@ -368,10 +525,6 @@ export function initBarRuler() {
             if (total) $('dockBpm').textContent = String(Math.round(total * (synthPlayerState.playbackSpeed || 1)));
         } else if (e.type === 'detached') {
             model = null;
-            const secEl = $('dockSection');
-            if (secEl) { secEl.textContent = ''; secEl.title = ''; secEl.style.display = 'none'; }
-            const prefixEl = $('dockBarPrefix');
-            if (prefixEl) prefixEl.textContent = 'Bar ';
             render();
         } else if (e.type === 'position') {
             if (!model) return;
@@ -397,4 +550,15 @@ export function initBarRuler() {
     });
 
     window.addEventListener('resize', () => { syncDockTimeVisibility(); if (model) { buildModel(); render(); } });
+    // The ruler also changes width without the window changing (Reading mode narrows the bar), and the playhead
+    // is placed in pixels, so redraw whenever its own width changes
+    if (typeof ResizeObserver === 'function') {
+        let lastW = 0;
+        new ResizeObserver(() => {
+            const w = ruler.clientWidth;
+            if (!w || w === lastW) return;
+            lastW = w;
+            if (model) render();
+        }).observe(ruler);
+    }
 }

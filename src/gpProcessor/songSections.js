@@ -6,6 +6,8 @@
 // Sections are never invented. A label is read from the file, derived from the file's own
 // letters or numbers, or an honest ordinal. A file with no usable boundary gives no parts.
 
+import { sectionKind } from './sectionKinds.js';
+
 export const DEFAULT_MIN_BARS = 4;
 
 const SHORTHAND = {
@@ -192,4 +194,86 @@ export function deriveSections(masterBars, options = {}) {
 /** The part that contains a 1-based bar, or null. */
 export function partAtBar(parts, bar) {
     return parts.find((p) => bar >= p.startBar && bar <= p.endBar) || null;
+}
+
+// A numbered movement: "I: The Crimson Sunrise", "II. Innocence", "3) Finale"
+const MOVEMENT = /^(?:[IVX]{1,6}|\d{1,2})\s*[:.)]\s*\S/;
+
+/** The numeral of a numbered movement ("IV" of "IV: The Darkest Of Winters"), or ''. */
+export function movementNumeral(name) {
+    const m = String(name || '').match(/^([IVX]{1,6}|\d{1,2})\s*[:.)]\s*\S/);
+    return m ? m[1] : '';
+}
+
+/** Smallest block the ruler draws (px); a part narrower than this joins its neighbour. */
+export const MIN_BLOCK_PX = 24;
+
+/**
+ * The ruler's blocks, as fractions of the song's bars. One level is shown at a time:
+ * - a file with numbered movements (three or more) shows the movements, and the parts inside each one
+ *   belong to its block;
+ * - any other file shows its parts;
+ * - a block narrower than `minPx` at `widthPx` joins its neighbour (the first joins the next), so a narrow
+ *   ruler shows fewer, larger blocks and never a crowd of slivers.
+ * `title` is what the block is called: the movement, the part, or '' for the lead-in and for blocks that
+ * merged several parts. `family` is the kind of section it is (sectionKinds.js), or '' when its name does not say
+ * (a movement holds many kinds, so it has none). Empty when the file has no parts, which leaves the ruler plain.
+ */
+export function buildSegments(parts, total, widthPx = Infinity, minPx = MIN_BLOCK_PX) {
+    if (!parts?.length || !(total > 0)) return [];
+    const isMovement = (p) => MOVEMENT.test(p.name || '');
+    const byMovement = parts.filter(isMovement).length >= 3;
+    const titleOf = (p) => (p.name && p.name !== 'Start' ? p.name : '');
+    let groups = [];
+    for (const p of parts) {
+        const last = groups[groups.length - 1];
+        if (byMovement && last && !isMovement(p)) {
+            last.endBar = p.endBar;
+            continue;
+        }
+        const movement = byMovement && isMovement(p);
+        groups.push({ startBar: p.startBar, endBar: p.endBar, title: titleOf(p), keep: movement, family: movement ? '' : (sectionKind(p.name)?.family || '') });
+    }
+    // A block narrower than minPx joins a neighbour only when that loses nothing: a sliver that is the same kind of
+    // section as its neighbour becomes one run, and a sliver whose name says no kind is absorbed. A sliver of a
+    // different kind stays its own (narrow, gapless) block, so a narrow ruler is a colour map of the song, not a
+    // few anonymous lumps. Movements, which have no kind, join as before.
+    const px = (g) => ((g.endBar - g.startBar + 1) / total) * widthPx;
+    const join = (a, g) => {
+        const gLeft = g.startBar < a.startBar;
+        a.startBar = Math.min(a.startBar, g.startBar);
+        a.endBar = Math.max(a.endBar, g.endBar);
+        if (gLeft) { a.title = g.title || a.title; a.keep = g.keep || a.keep; }
+        if (!g.family || g.family === a.family) { /* the neighbour's kind stands */ } else a.family = '';
+    };
+    for (let i = 0; i < groups.length && groups.length > 1;) {
+        const g = groups[i];
+        if (px(g) >= minPx) { i++; continue; }
+        const prev = groups[i - 1];
+        const next = groups[i + 1];
+        let into = -1;
+        if (g.family) {
+            if (prev && prev.family === g.family) into = i - 1;
+            else if (next && next.family === g.family) into = i + 1;
+        } else if (next && !next.family) into = i + 1; // a run of unnamed slivers gathers up to a block's width
+        else into = prev ? i - 1 : i + 1;
+        if (into < 0) { i++; continue; }
+        join(groups[into], g);
+        groups.splice(i, 1);
+        i = Math.max(0, Math.min(i, into) - 1);
+    }
+    return groups.map((g) => ({
+        startBar: g.startBar,
+        endBar: g.endBar,
+        start: (g.startBar - 1) / total,
+        width: (g.endBar - g.startBar + 1) / total,
+        title: g.title,
+        label: g.title,
+        family: g.family
+    }));
+}
+
+/** The index of the segment holding a 1-based bar, or -1. */
+export function segmentIndexAtBar(segments, bar) {
+    return segments.findIndex((s) => bar >= s.startBar && bar <= s.endBar);
 }
