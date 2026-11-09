@@ -124,14 +124,18 @@ function createPaginatedPages(processedLines, blocks) {
     for (let n = 2; n <= MAX_PAGES; n++) {
         if (widthPerPage(n) >= naturalWidth) pagesPerView = n; else break;
     }
+    // A landscape screen too narrow for two natural-size pages still gets two when the text can shrink to a legible size.
+    const chrome = PAGE_PADDING * 2 + PAGE_BORDER;
+    const MIN_TWO_PAGE_FIT = 0.5;
+    if (pagesPerView === 1 && MAX_PAGES > 1 && window.innerWidth / window.innerHeight > 4 / 3
+        && ((widthPerPage(2) - chrome) / Math.max(1, naturalWidth - chrome)) * 0.99 >= MIN_TWO_PAGE_FIT) pagesPerView = 2;
     setTextPagesPerView(pagesPerView);
     // When even one page is narrower than the text (a phone), the text shrinks to fit instead of being cut off.
     // Monospace text scales linearly, so scale the text part of the width; stop at a size that is still legible.
     const baseScale = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--text-scale')) || 1;
     let fit = 1;
-    if (pagesPerView === 1 && naturalWidth > widthPerPage(1)) {
-        const chrome = PAGE_PADDING * 2 + PAGE_BORDER;
-        fit = Math.min(1, ((widthPerPage(1) - chrome) / (naturalWidth - chrome)) * 0.99);
+    if (naturalWidth > widthPerPage(pagesPerView)) {
+        fit = Math.min(1, ((widthPerPage(pagesPerView) - chrome) / (naturalWidth - chrome)) * 0.99);
     }
     // A block (a staff system) is never split, so one taller than a page shrinks the text until it fits.
     const maxHeight = pageHeight - PAGE_PADDING * 2;

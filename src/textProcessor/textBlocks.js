@@ -14,7 +14,7 @@
 //       mf       2                     <- dynamics and fingering below
 //                3
 
-const STAFF = /^\s*[A-Ga-g][#b]?\s*\|[|*\d\s]*-/;       // "e|--", "Eb |-", "D||---", "G|*----"
+const STAFF = /^\s*[A-Ga-g][#b]?\s*(?:\|[|*\d\s]*|:)-/;  // "e|--", "Eb |-", "D||---", "G|*----", "e:---" (colon after the string name)
 const RULER = /^\s*\d{0,4}[\s.]*\|[^|]*\|/;                 // "5  |   .   |   ." or "0   .  |  .  |"
 // One chord definition for classifying a line and for cutting it into chords (longer suffixes before "m").
 const CHORD_SRC = '[A-G][#b]?(?:maj|min|dim|aug|sus|add|m|M)?\\d*(?:[#b]\\d+)*(?:\\/[A-G][#b]?)?';
