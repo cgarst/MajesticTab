@@ -4568,22 +4568,26 @@ html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #ou
 html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #output.continuous-mode { padding-bottom: 24px !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock {
   top: calc(var(--dt-controls-top) + var(--dt-target)); bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; height: auto;
-  display: flex; flex-direction: column; padding-bottom: 0; z-index: 1030;
+  flex-direction: column; padding-bottom: 0; z-index: 1030;
 }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock-header { flex: none; padding: 0 12px; height: 56px; min-height: 0; flex-wrap: nowrap; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper { flex: 1 1 auto; min-height: 0; display: flex; padding: 0 0 4px; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper > * { flex: 1 1 auto; min-height: 0; }
+/* the controller sets display inline, so the flex layout needs !important (and must not show a hidden dock) */
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock:not(.is-hidden) { display: flex !important; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock-header { flex: none; padding: 0 12px; height: 48px; min-height: 0; flex-wrap: nowrap; }
+/* The neck takes whatever height is left and scales to it (the SVG keeps its proportions), so it is never clipped or overlapped */
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper { flex: 1 1 0; min-height: 0; position: relative; padding: 0; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #fretboardSvgContainer { position: absolute; inset: 0 8px 2px; height: auto; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #fretboardSvgContainer svg { width: 100%; height: 100%; display: block; }
 html.duo-tabletop #fretboardDockBtn, html.duo-tabletop #fretboardCloseBtn { display: none !important; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock :is(button, .btn, .fb-track) { min-height: 48px; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-mode-pills { height: 48px !important; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock :is(button, .btn, .fb-track) { min-height: 44px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-mode-pills { height: 44px !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fb-track { font-size: 16px; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { gap: 4px 8px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { gap: 2px 8px; padding-top: 2px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #mobileRewindBtn,
 html.duo-tabletop body.phone-reader:not(.library-view-active) #mobilePlayPauseBtn { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target); }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #fretboardDockBtn { width: var(--dt-target) !important; min-width: var(--dt-target) !important; height: var(--dt-target); }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-src .rbtn { min-height: 48px; height: 48px; padding-inline: 14px; font-size: 15px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-src .rbtn::after { top: -4px; bottom: -4px; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) :is(.ruler, .ruler svg, .ruler-labels, .page-strip-track) { height: 40px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(.ruler, .ruler svg, .ruler-labels, .page-strip-track) { height: 32px; }
 
 /* Sheets cover the whole bottom half, from the crease to the bottom edge: the song row, the strip and the five words
    are under them. The sheet has its own Done button (tabletopSheet.js); the same height and top edge for every one. */

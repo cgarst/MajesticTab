@@ -143,7 +143,7 @@ export class FretboardView {
 
         this.lastNeckOptions = { stringCount, tuning, capo, isLeftHanded, isFlipped, displayMode };
         // Compute geometry. iPhone Duo tabletop gives the board the whole band under the song row, so the strings sit further apart
-        const gapScale = document.documentElement.classList.contains('duo-tabletop') ? 2.0 : 1;
+        const gapScale = document.documentElement.classList.contains('duo-tabletop') ? 1.7 : 1;
         const stringGap = (this.stringCount <= 5 ? 20 : (this.stringCount === 6 ? 17 : 14)) * gapScale;
         this.neckHeight = (this.stringCount - 1) * stringGap;
         const topMargin = 27; // the pick resting on string 1 reaches about 26px above it (23px body plus the overshoot)
