@@ -4556,10 +4556,23 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar {
 }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #brandSection { min-height: var(--dt-target); gap: 4px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #topBarBackToLibraryBtn,
-html.duo-tabletop body.phone-reader:not(.library-view-active) #navButtons .btn { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target); min-height: var(--dt-target); }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar #navButtons .btn { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target); min-height: var(--dt-target); }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn { min-height: var(--dt-target); height: var(--dt-target); }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { font-size: 18px; }
 
+/* The rows swap (tabletopRows.js): Synth | Original goes up into the song row, the page buttons come down beside restart and play. */
+html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar .dock-src { order: 2; flex: none; margin: 0 0 0 8px; transform: none; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar .dock-src .audio-sfx { display: none; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar .dock-src .rbtn { min-height: 48px; height: 48px; padding-inline: 14px; font-size: 15px; }
+/* the transport row: restart, play and the page buttons share it, 64px tall, the page buttons wide */
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools { grid-column: 2 / 4; justify-content: flex-end; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons { display: flex !important; align-items: center; gap: 8px; margin: 0; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons #pageIndicator { display: none; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons .btn { width: 96px; min-width: 96px; height: 64px; min-height: 64px; font-size: 22px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#mobileRewindBtn, #mobilePlayPauseBtn) { width: 64px; min-width: 64px; height: 64px; }
+/* a real control shows its shape: restart and the page buttons take one tone step (play is the one primary) */
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#mobileRewindBtn, .dock-tools #navButtons .btn) { background: var(--s2) !important; border-radius: var(--r-control) !important; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#mobileRewindBtn, .dock-tools #navButtons .btn):active { background: var(--s3) !important; }
 /* The five words, the transport and the strip: large targets with room between them */
 html.duo-tabletop body.phone-reader:not(.library-view-active) #topFlexZone .btn { min-height: var(--tabs-h); font-size: 16px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock { bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; }
@@ -4586,9 +4599,7 @@ html.duo-tabletop #fretboardDockBtn, html.duo-tabletop #fretboardCloseBtn { disp
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock :is(button, .btn, .fb-track) { min-height: 44px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-mode-pills { height: 44px !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fb-track { font-size: 16px; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { gap: 2px 8px; padding-top: 2px; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) #mobileRewindBtn,
-html.duo-tabletop body.phone-reader:not(.library-view-active) #mobilePlayPauseBtn { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target); }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { gap: 6px 8px; padding-top: 2px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #fretboardDockBtn { width: var(--dt-target) !important; min-width: var(--dt-target) !important; height: var(--dt-target); }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-src .rbtn { min-height: 48px; height: 48px; padding-inline: 14px; font-size: 15px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-src .rbtn::after { top: -4px; bottom: -4px; }

@@ -66,6 +66,7 @@ import { initNativeTabBar } from './nativeTabBar.js';
 import { initFoldState } from './foldState.js';
 import { initNarrowAlias } from './utils/narrowAlias.js';
 import { initTabletopSheet } from './utils/tabletopSheet.js';
+import { initTabletopRows } from './utils/tabletopRows.js';
 import { initBookMode } from './utils/bookMode.js';
 
 // Initialize iOS audio unlock and session configuration as early as possible
@@ -97,6 +98,8 @@ if (!window.__TAURI__ && new URLSearchParams(window.location.search).has('fold')
 initNarrowAlias();
 // Tabletop: a sheet covers the whole bottom half and carries its own Done button
 initTabletopSheet();
+// Tabletop: page buttons beside play, Synth | Original in the song row
+initTabletopRows();
 // Book pose (iPhone Duo): Page mode with two pages, one per half, until the fold opens flat
 initBookMode();
 
