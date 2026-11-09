@@ -4568,12 +4568,12 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn 
 html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { font-size: 18px; }
 
 /* One row of large keys (tabletopRows.js moves the page buttons in): restart, play, Synth | Original, previous, next. All 64px tall. */
-html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-src { flex: 1 1 0; min-width: 0; margin: 0 8px; transform: none; height: 64px; padding: 2px; align-items: stretch; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-src { flex: 1 1 0; min-width: 0; margin: 0; transform: none; height: 64px; padding: 2px; align-items: stretch; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-src .rbtn { flex: 1 1 0; min-height: 60px; height: 60px; padding-inline: 8px; font-size: 16px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-src .rbtn::after { top: -2px; bottom: -2px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-src .audio-sfx { display: none; }
 /* the transport row: restart, play and the page buttons share it, 64px tall, the page buttons wide */
-html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools { grid-column: 2 / 4; justify-content: flex-end; align-items: center; min-width: 0; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools { grid-column: 2 / 4; justify-content: flex-end; align-items: center; min-width: 0; gap: 8px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons { display: flex !important; align-items: center; gap: 8px; margin: 0; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons #pageIndicator { display: none; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons .btn { width: 76px; min-width: 76px; height: 64px; min-height: 64px; font-size: 22px; }
@@ -4640,7 +4640,7 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) #practiceMenu :is(
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #tracksMenu) .form-check-input { font-size: 30px; }
 html.duo-tabletop #readingToggleBtn { display: none !important; }
 /* Reading mode is the open-book button at the end of the transport row, the same control as on a portrait phone */
-html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #readingDockBtn { display: inline-flex !important; flex: 0 0 64px; width: 64px !important; min-width: 64px !important; height: 64px !important; min-height: 64px; margin-left: 8px; padding: 0 !important; align-items: center; justify-content: center; background: var(--s2) !important; border-radius: var(--r-control) !important; font-size: 1.6rem; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #readingDockBtn { display: inline-flex !important; flex: 0 0 64px; width: 64px !important; min-width: 64px !important; height: 64px !important; min-height: 64px; margin: 0; padding: 0 !important; align-items: center; justify-content: center; background: var(--s2) !important; border-radius: var(--r-control) !important; font-size: 1.6rem; }
 /* Reading mode: one row, play, the progress track, the toggle */
 html.duo-tabletop body.phone-reader.reading-mode:not(.library-view-active) .mobile-playback-dock-inner { display: flex; align-items: center; gap: 8px; padding: 0 16px; }
 html.duo-tabletop body.phone-reader.reading-mode:not(.library-view-active) :is(.dock-tr, .dock-ruler, .dock-tools) { grid-column: auto; grid-row: auto; margin: 0; }
@@ -4659,3 +4659,7 @@ html.duo-book .gp-page-container { gap: var(--fold-w, 10px); padding-inline: 0; 
    On Windows it sits under the caption buttons; on macOS the traffic lights are native and draw above it. */
 #readingDragStrip { display: none; }
 html:is(.tauri-macos, .tauri-windows) body.reading-mode:not(.library-view-active):not(.phone-reader) #readingDragStrip { display: block; position: fixed; top: 0; left: 0; right: 0; height: 20px; z-index: 1000; background: transparent; }
+
+/* The transport row: every gap between its keys is the same 8px, as at the edges */
+html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { column-gap: 8px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tr { gap: 8px; }
