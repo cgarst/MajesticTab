@@ -9,7 +9,7 @@ import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
-import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning, recoverAudioContexts, endSynthContextCapture, forgetSynthContexts, onSynthContextState, isSynthContextDead, getSynthAudioContext } from '../utils/iosAudioUnlock.js';
+import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning, recoverAudioContexts, endSynthContextCapture, forgetSynthContexts, onSynthContextState, isSynthContextDead } from '../utils/iosAudioUnlock.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { deriveSections, DEFAULT_MIN_BARS } from './songSections.js';
@@ -1962,17 +1962,14 @@ onSynthContextState((state) => {
 });
 
 // Playback that says "playing" while the tick does not move means the synth is dead in a way no state event reported
-// (a worker that stopped, a clock that froze). Checked after every Play press.
+// (a worker that stopped). Checked after every Play press. Only the tick is judged: a context's own clock is not a
+// reliable signal (the one found can be idle while another drives the output, and it reads 0 for a while on a fresh page).
 async function watchPlaybackStall(api) {
     if (!synthPlayerState.isReady) return;
     const tick = api.tickPosition;
-    const ctx = getSynthAudioContext();
-    const ctxTime = ctx ? ctx.currentTime : 0;
     await new Promise((r) => setTimeout(r, 1800));
     if (api !== currentApi || !synthPlayerState.isPlaying || document.hidden) return;
-    const stuckTick = Math.abs(api.tickPosition - tick) < 20;
-    const stuckClock = ctx && ctx.state === 'running' && ctx.currentTime - ctxTime < 0.2;
-    if (stuckTick || stuckClock) rebuildDeadSynth(stuckClock ? 'audio clock stopped' : 'playback stalled', { resume: true });
+    if (Math.abs(api.tickPosition - tick) < 20) rebuildDeadSynth('playback stalled', { resume: true });
 }
 
 // After a play press, check the AudioContext really runs. A context that stays suspended or
