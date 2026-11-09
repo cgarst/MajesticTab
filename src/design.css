@@ -4099,7 +4099,8 @@ body > #controllerHelpModal { display: none; }
   .setpage { padding-top: 24px; }
 }
 @media (max-width: 899px) {
-  .setnav { padding-top: max(calc(env(safe-area-inset-top, 0px) + 16px), 24px) !important; }
+  /* The list sits under the page title, which already carries the safe-area inset */
+  .setnav { padding-top: 8px !important; }
   .setshell[data-pane="page"] .setpage,
   .setshell:has(.setwrap[data-pane="page"]) .setpage { padding-top: 16px; }
 }

@@ -37,7 +37,9 @@ function onEvent(msg) {
         document.documentElement.style.setProperty('--native-status-r', `${width}px`);
     } else if (msg.type === 'top') {
         // Room the native search field takes at the top of the window (0 when it is hidden)
-        document.documentElement.style.setProperty('--native-search-top', `${Math.round(msg.value)}px`);
+        const top = Math.round(msg.value);
+        if (top > 0) lastSearchTop = top;
+        document.documentElement.style.setProperty('--native-search-top', `${top}px`);
     } else if (msg.type === 'side') {
         // Room the vertical rail takes at the screen's left or right edge (0 when the bar is horizontal)
         const root = document.documentElement.style;
@@ -90,11 +92,17 @@ function searchInput() {
     return document.querySelector('.library-page-view .library-search-bar .search-input:not([disabled])');
 }
 
+let lastSearchTop = 0;
 let lastSearch = '';
 function syncSearch() {
     if (state !== 'on') return;
     const input = wantVisible ? searchInput() : null;
     const visible = Boolean(input);
+    // The native field reports its height a moment after it shows. Until then the page would pad by 0 and the content
+    // would sit under the field for a frame, then jump down; the field's height does not change, so reuse the last one.
+    if (visible && lastSearchTop > 0 && !document.body.classList.contains('native-search')) {
+        document.documentElement.style.setProperty('--native-search-top', `${lastSearchTop}px`);
+    }
     document.body.classList.toggle('native-search', visible);
     const args = { visible, placeholder: input?.placeholder || 'Search', text: input?.value || '' };
     const key = JSON.stringify(args);
