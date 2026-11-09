@@ -2,7 +2,6 @@ import Foundation
 import SwiftRs
 import Tauri
 import UIKit
-import ObjectiveC
 
 // Fold and hinge state for the iPhone Duo (iOS 27.1 and later), handed to the web layer because WKWebView does not
 // expose Device Posture or Viewport Segments. Public UIKit only: the division region (`reservedRegions`) says where the
@@ -73,13 +72,24 @@ public class IosFoldPlugin: Plugin {
                 probe.onLayout = { [weak self] in self?.report() }
                 window.addSubview(probe)
                 window.sendSubviewToBack(probe)
-                guard let interaction = self.makeHingeInteraction() else {
-                    probe.removeFromSuperview()
-                    invoke.resolve(["supported": false])
-                    return
+                let interaction = UIHingeInteraction { [weak self] _, update in
+                    guard let self = self else { return }
+                    if let hinge = update.hinge {
+                        switch hinge.status {
+                        case .closed: self.hingeStatus = "closed"
+                        case .partiallyOpen: self.hingeStatus = "partial"
+                        case .fullyOpen: self.hingeStatus = "open"
+                        default: self.hingeStatus = "unknown"
+                        }
+                        self.hingeAngle = Double(hinge.angle) * 180 / .pi
+                    } else {
+                        self.hingeStatus = "unknown"
+                        self.hingeAngle = -1
+                    }
+                    self.report()
                 }
                 probe.addInteraction(interaction)
-                self.interaction = interaction as AnyObject
+                self.interaction = interaction
                 self.probe = probe
             }
             self.report()
@@ -103,11 +113,12 @@ public class IosFoldPlugin: Plugin {
     // nothing for a repeat, and a hinge angle change alone (no new frame, same status) is not worth a message.
     private func report() {
         guard #available(iOS 27.1, *), let probe = probe, probe.window != nil else { return }
+        let regions = probe.reservedRegions(kind: .division, options: [.includeInactive])
         var pose = "none"
         var frame = CGRect.zero
-        if let region = divisionRegion(of: probe) {
+        if let region = regions.first {
             frame = region.frame
-            if !region.active {
+            if !region.isActive {
                 pose = "flat"
             } else {
                 pose = frame.width > frame.height ? "tabletop" : "book"
@@ -126,50 +137,6 @@ public class IosFoldPlugin: Plugin {
             "x": n(frame.minX), "y": n(frame.minY), "w": n(frame.width), "h": n(frame.height),
             "winW": n(bounds.width), "winH": n(bounds.height)
         ])
-    }
-
-    // The 27.1 APIs are reached through the Objective-C runtime so this compiles on SDKs older than 27.1 (direct use
-    // fails to build there, and #available only guards at run time). Selectors and keys are the public header names.
-    private func makeHingeInteraction() -> UIInteraction? {
-        guard let cls = NSClassFromString("UIHingeInteraction") as? NSObject.Type else { return nil }
-        let sel = NSSelectorFromString("initWithUpdateHandler:")
-        guard let method = class_getInstanceMethod(cls, sel) else { return nil }
-        typealias Handler = @convention(block) (AnyObject, AnyObject) -> Void
-        typealias Init = @convention(c) (AnyObject, Selector, Handler) -> AnyObject
-        let initialize = unsafeBitCast(method_getImplementation(method), to: Init.self)
-        let handler: Handler = { [weak self] _, update in
-            guard let self = self else { return }
-            if let hinge = (update as? NSObject)?.value(forKey: "hinge") as? NSObject {
-                // UIHingeStatus: 0 unknown, 1 closed, 2 partially open, 3 fully open
-                switch (hinge.value(forKey: "status") as? Int) ?? 0 {
-                case 1: self.hingeStatus = "closed"
-                case 2: self.hingeStatus = "partial"
-                case 3: self.hingeStatus = "open"
-                default: self.hingeStatus = "unknown"
-                }
-                self.hingeAngle = ((hinge.value(forKey: "angle") as? Double) ?? 0) * 180 / .pi
-            } else {
-                self.hingeStatus = "unknown"
-                self.hingeAngle = -1
-            }
-            self.report()
-        }
-        guard let allocated = (cls as AnyObject).perform(NSSelectorFromString("alloc"))?.takeUnretainedValue() else { return nil }
-        return initialize(allocated, sel, handler) as? UIInteraction
-    }
-
-    // First division region of the view, active or not (UIViewReservedRegionQueryOptionsIncludeInactive is 1)
-    private func divisionRegion(of view: UIView) -> (frame: CGRect, active: Bool)? {
-        let sel = NSSelectorFromString("reservedRegionsOfKind:options:")
-        guard view.responds(to: sel),
-              let kindCls = NSClassFromString("UIViewReservedRegionKind") as? NSObject.Type,
-              let kind = kindCls.perform(NSSelectorFromString("divisionRegionKind"))?.takeUnretainedValue(),
-              let method = class_getInstanceMethod(UIView.self, sel) else { return nil }
-        typealias Query = @convention(c) (AnyObject, Selector, AnyObject, UInt) -> NSArray
-        let query = unsafeBitCast(method_getImplementation(method), to: Query.self)
-        guard let region = query(view, sel, kind, 1).firstObject as? NSObject,
-              let frame = region.value(forKey: "frame") as? CGRect else { return nil }
-        return (frame, (region.value(forKey: "active") as? Bool) ?? false)
     }
 
     private func keyWindow() -> UIWindow? {
