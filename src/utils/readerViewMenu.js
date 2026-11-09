@@ -105,12 +105,10 @@ function arrangeViewOptions(root) {
     };
     relabel(paper, 'Paper');
     relabel(landscape, 'Pages shown in landscape');
-    relabel(advance, 'A page turn advances');
-    const lowercasePages = (group) => group?.querySelectorAll('.btn-check + label').forEach((l) => {
-        l.textContent = l.textContent.replace(/\s+/g, ' ').trim().replace('Pages', 'pages').replace('Page', 'page');
-    });
-    lowercasePages(landscape);
-    lowercasePages(advance);
+    relabel(advance, 'Page turn');
+    [landscape, advance].forEach((group) => group?.querySelectorAll('.btn-check + label').forEach((l) => {
+        l.textContent = l.textContent.trim();
+    }));
     paper?.querySelectorAll('.btn-check + label').forEach((l) => { l.textContent = l.textContent.trim(); });
 
     // Size: the label row carries the value
