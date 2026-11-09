@@ -1836,7 +1836,9 @@ export async function openTabDownloader(options = {}) {
     }
     try { window.MajesticDownloaderNative?.setTopInsetPx?.(Math.round(barHeight * (window.devicePixelRatio || 1))); } catch {}
 
-    const targetUrl = buildSearchUrl(activeSource, currentSearchQuery);
+    // A page address (Open file > From URL) opens that page; otherwise the source's search for the query
+    const startUrl = /^https?:\/\//i.test(options.startUrl || '') ? options.startUrl : '';
+    const targetUrl = startUrl || buildSearchUrl(activeSource, currentSearchQuery);
     currentDownloaderUrl = targetUrl;
     showLoadingInUrlBar(activeSource.name);
 

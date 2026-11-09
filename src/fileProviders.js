@@ -426,13 +426,20 @@ export const UrlFileProvider = {
     }
 };
 
+/** True when the address path ends in a tab file extension, so it can be fetched as a file. */
+function looksLikeTabFileUrl(url) {
+    try { return /\.(gp[345x]?|pdf|txt|mtab)$/i.test(new URL(url).pathname); } catch { return false; }
+}
+
 async function openTabFromUrl(text, options = {}) {
     try {
         // A link to a score page opens the downloader with a banner; the user sends the address on.
         const pageUrl = unwrapRedirectUrl((text || '').trim());
-        if (isNativeDownloader() && isWsaTabUrl(pageUrl)) {
-            await openTabDownloader(options);
-            offerWsaUrlBanner(pageUrl);
+        // An address that is not itself a tab file is a page: browse it in the downloader, which offers to send tab-site
+        // pages on (the banner below, and again whenever the page changes)
+        if (isNativeDownloader() && /^https?:\/\//i.test(pageUrl) && !looksLikeTabFileUrl(pageUrl)) {
+            await openTabDownloader({ ...options, startUrl: pageUrl });
+            if (isWsaTabUrl(pageUrl)) offerWsaUrlBanner(pageUrl);
             return;
         }
         showToast('Fetching...', 'info', 1500);
