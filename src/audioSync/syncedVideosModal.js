@@ -167,8 +167,8 @@ export async function openCopySyncedVideoModal() {
         if (emptyEl) emptyEl.hidden = true;
 
         siblings.forEach(v => {
-            const same = siblings.filter(o => o.kind === v.kind);
-            const name = v.kind.charAt(0).toUpperCase() + v.kind.slice(1) + (same.length > 1 ? ` ${same.indexOf(v) + 1}` : '');
+            const same = siblings.filter(o => o.kind === v.kind && !o.isLocal);
+            const name = v.isLocal ? v.name : v.kind.charAt(0).toUpperCase() + v.kind.slice(1) + (same.length > 1 ? ` ${same.indexOf(v) + 1}` : '');
 
             const siteText = v.originSourceWebsite ? ` · Source: ${escapeHtml(v.originSourceWebsite)}` : '';
             const originText = `From tab: <b class="text-white">${escapeHtml(v.originTabName)}</b>${siteText}`;
@@ -178,7 +178,7 @@ export async function openCopySyncedVideoModal() {
             row.setAttribute('role', 'listitem');
             row.innerHTML = `
                 <div class="form-check mb-0 flex-shrink-0">
-                    <input type="radio" name="copySyncedItemRadio" class="form-check-input copy-synced-item-radio" value="${escapeHtml(v.videoId)}" aria-label="Select ${escapeHtml(name)}">
+                    <input type="radio" name="copySyncedItemRadio" class="form-check-input copy-synced-item-radio" value="${escapeHtml(v.mediaKey)}" aria-label="Select ${escapeHtml(name)}">
                 </div>
                 <div class="flex-grow-1 min-w-0">
                     <div class="d-flex align-items-center gap-2">
@@ -187,14 +187,14 @@ export async function openCopySyncedVideoModal() {
                     </div>
                     <div class="small text-muted text-truncate mt-1">${originText}</div>
                 </div>
-                <a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-theme-icon text-muted flex-shrink-0" title="Watch on YouTube" aria-label="Watch on YouTube">
+                ${v.isLocal ? '' : `<a href="https://www.youtube.com/watch?v=${encodeURIComponent(v.videoId)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-theme-icon text-muted flex-shrink-0" title="Watch on YouTube" aria-label="Watch on YouTube">
                     <i class="bi-box-arrow-up-right"></i>
-                </a>
+                </a>`}
             `;
 
             const radio = row.querySelector('.copy-synced-item-radio');
             radio.addEventListener('change', () => {
-                selectedCopyVideoId = v.videoId;
+                selectedCopyVideoId = v.mediaKey;
                 if (confirmBtn) confirmBtn.disabled = false;
                 listEl.querySelectorAll('.synced-video-row').forEach(r => r.classList.remove('is-selected'));
                 row.classList.add('is-selected');
@@ -222,9 +222,9 @@ export function initSyncedVideosModals() {
         openManageSyncedVideosModal();
     });
 
-    document.getElementById('ytCopyFromOtherTabBtn')?.addEventListener('click', () => {
-        openCopySyncedVideoModal();
-    });
+    for (const id of ['ytCopyFromOtherTabBtn', 'afCopyFromOtherTabBtn']) {
+        document.getElementById(id)?.addEventListener('click', () => openCopySyncedVideoModal());
+    }
 
     // Close buttons
     document.getElementById('manageSyncedVideosModalCloseBtn')?.addEventListener('click', () => {
@@ -291,7 +291,7 @@ export function initSyncedVideosModals() {
         if (!selectedCopyVideoId) return;
 
         const siblings = await getSiblingSyncedVideos();
-        const target = siblings.find(v => v.videoId === selectedCopyVideoId);
+        const target = siblings.find(v => v.mediaKey === selectedCopyVideoId);
         if (!target) return;
 
         const success = copySyncedVideoFromSibling(target);

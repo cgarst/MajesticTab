@@ -923,7 +923,7 @@ export function getSyncedVideos() {
 export async function getSiblingSyncedVideos() {
     const own = getSongKey() || '';
     if (!playerState.librarySongId) return [];
-    const ownVideos = getSyncedVideos();
+    const ownRecords = listRecords(own);
     const siblingEntries = [];
 
     // From remembered score keys
@@ -958,13 +958,18 @@ export async function getSiblingSyncedVideos() {
 
         const records = listRecords(sib.key);
         for (const r of records) {
-            if (r.media?.kind === 'youtube' && r.points?.length) {
-                if (ownVideos.some(o => o.videoId === r.media.videoId)) continue;
-                if (out.some(o => o.videoId === r.media.videoId)) continue;
+            const rKey = mediaKey(r.media);
+            if (rKey && r.points?.length) {
+                if (ownRecords.some(o => mediaKey(o.media) === rKey)) continue;
+                if (out.some(o => o.mediaKey === rKey)) continue;
+                const isLocal = r.media.kind === 'local';
 
                 out.push({
-                    videoId: r.media.videoId,
-                    kind: /feature (\w+)/.exec(r.media.label || '')?.[1] || 'original',
+                    mediaKey: rKey,
+                    isLocal,
+                    name: isLocal ? (r.media.name || 'Audio file') : '',
+                    videoId: isLocal ? null : r.media.videoId,
+                    kind: isLocal ? 'original' : (/feature (\w+)/.exec(r.media.label || '')?.[1] || 'original'),
                     label: r.media.label || '',
                     count: r.points.length,
                     media: r.media,
@@ -998,8 +1003,19 @@ export function copySyncedVideoFromSibling(siblingVideo) {
     };
     const record = saveRecord(getSongKey(), media, siblingVideo.points);
     if (record) {
-        window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
-        bindSyncedVideo(siblingVideo.videoId);
+        if (siblingVideo.isLocal) {
+            // The file itself is shared: link it to this song so it plays here when it is on this device
+            import('./audioSync/audioFileStore.js')
+                .then(({ linkAudioFile }) => linkAudioFile(media.audioId, getSongKey()))
+                .catch(() => { /* not on this device: it shows as a file to relink */ })
+                .finally(() => {
+                    window.dispatchEvent(new CustomEvent('audiofiles:changed'));
+                    window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+                });
+        } else {
+            window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
+            bindSyncedVideo(siblingVideo.videoId);
+        }
         return true;
     }
     return false;

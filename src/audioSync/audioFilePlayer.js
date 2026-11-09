@@ -4,7 +4,7 @@
 // audio mode next to the synth and YouTube. Files are kept on the device (audioFileStore.js), keyed to the song, and a
 // sync record remembers each file's name, length and fingerprint so a missing file can be relinked.
 
-import { getSongKey, getVideoInfo, lookupVideoInfo, pauseYouTube, onYouTubeEvent, toggleYouTubePanel } from '../youtubePlayer.js';
+import { getSongKey, getSiblingSyncedVideos, getVideoInfo, lookupVideoInfo, pauseYouTube, onYouTubeEvent, toggleYouTubePanel } from '../youtubePlayer.js';
 import { pauseSynthPlayer, clearSynthHighlights, onTransportEvent } from '../gpProcessor/gpPlayer.js';
 import { setActiveAudioMode, updateGlobalAudioControls } from '../utils/navigationUtils.js';
 import { createLocalAudioSource } from './localAudioSource.js';
@@ -492,6 +492,11 @@ function render() {
             return row;
         }));
     }
+
+    getSiblingSyncedVideos().then((sibs) => {
+        const btn = $('afCopyFromOtherTabBtn');
+        if (btn) btn.hidden = sibs.length === 0;
+    }).catch(() => {});
 
     const loaded = Boolean(state.source);
     if ($('afPlayer')) $('afPlayer').hidden = !loaded;
