@@ -4561,6 +4561,9 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn 
 /* The five words, the transport and the strip: large targets with room between them */
 html.duo-tabletop body.phone-reader:not(.library-view-active) #topFlexZone .btn { min-height: var(--dt-target); font-size: 16px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock { bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; }
+/* One tone from the crease down: the song row, the strip and the five words are all --s1, so where there is no fretboard (PDF,
+   text, MIDI) the empty band is the same tone and reads as rest, not as a missing block */
+html.duo-tabletop body.phone-reader:not(.library-view-active) { background: var(--s1) !important; }
 /* The fretboard is always shown here (fretboardController.js) and fills the band between the song row and the strip. The
    score half keeps its size: the dock's height must not feed the score's own fretboard-open sizing. */
 html.duo-tabletop body.phone-reader:not(.library-view-active) { --fretboard-effective-h: 0px !important; }
