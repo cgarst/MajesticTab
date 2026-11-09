@@ -4383,6 +4383,45 @@ body > #controllerHelpModal { display: none; }
 .ct-row-title { font-weight: 600; font-size: 14.5px; line-height: 1.25; }
 .ct-row-meta { font-size: 12px; line-height: 1.2; }
 
+/* Backing tracks (Tools): the StemDeck address, one option, then the songs as flat rows with their outcome at the right */
+.sd-root { display: flex; flex-direction: column; gap: 12px; max-width: 760px; padding-bottom: 24px; }
+.sd-conn { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; min-height: 44px; }
+.sd-addr { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 14px; color: var(--ink2); }
+.sd-addr-input { width: 210px; min-height: 36px; padding: 0 12px; border: 0; border-radius: var(--r-control); background: var(--s2); color: var(--ink); font-size: 14px; }
+.sd-addr-input::placeholder { color: var(--ink2); opacity: .7; }
+.sd-addr-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
+.sd-conn-text { font-size: 14px; color: var(--ink2); }
+.sd-conn-text[data-kind="ok"] { color: var(--ink); }
+.sd-conn-text[data-kind="down"] { color: var(--danger); }
+.sd-help { max-width: 62ch; }
+.sd-option, .sd-row { display: flex; align-items: center; gap: 14px; min-height: 56px; margin: 0; padding: 6px 12px; border-radius: var(--r-control); cursor: pointer; transition: background-color var(--dur-fast); }
+@media (hover: hover) { .sd-option:hover, .sd-row:hover { background: var(--s1); } }
+.sd-option .form-check-input, .sd-row .form-check-input { flex-shrink: 0; margin: 0; }
+.sd-row:has(.form-check-input:disabled), .sd-option:has(.form-check-input:disabled) { cursor: default; }
+.sd-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.sd-row-title { font-size: 14.5px; font-weight: 600; line-height: 1.25; color: var(--ink); overflow-wrap: anywhere; }
+.sd-option .sd-row-title { font-weight: 400; }
+.sd-row-meta { font-size: 12px; line-height: 1.3; color: var(--ink2); overflow-wrap: anywhere; }
+.sd-row-state { flex-shrink: 0; max-width: 45%; margin-left: 8px; font-size: 13px; color: var(--ink2); text-align: right; }
+.sd-row-state:empty { display: none; }
+.sd-row-state[data-kind="done"] { color: var(--ink); }
+.sd-row-state[data-kind="error"] { color: var(--danger); }
+.sd-listhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 0 12px; font-size: 13px; color: var(--ink2); }
+.sd-listhead-actions { display: flex; gap: 8px; }
+.sd-list { display: flex; flex-direction: column; }
+.sd-list .sd-row { content-visibility: auto; contain-intrinsic-size: auto 56px; }
+.sd-empty { padding: 14px 12px; }
+.sd-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; min-height: 44px; padding-left: 12px; }
+.sd-progress { font-size: 14px; color: var(--ink); }
+.sd-root .ct-text:disabled { opacity: .5; cursor: default; }
+@media (pointer: coarse) { .sd-addr-input { min-height: 44px; } }
+@media (max-width: 576px) {
+  .sd-addr { flex-direction: column; align-items: flex-start; gap: 4px; flex: 1 1 100%; }
+  .sd-addr-input { width: 100%; }
+  .sd-row-state { max-width: 38%; }
+}
+@media (prefers-reduced-motion: reduce) { .sd-option, .sd-row { transition: none; } }
+
 /* Tools fill the height of the page. The pane is a column and the host grows into it; a tool that has its own
    scrolling lists (Classical tab) is held to the pane's height instead of growing past it. */
 .tools-shell .tool-pane { display: flex; flex-direction: column; }

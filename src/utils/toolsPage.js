@@ -1,7 +1,8 @@
 // toolsPage.js
 // The Tools destination: a title, a list of tools grouped by purpose with a readout of real state on the right of a row,
 // and the chosen tool rendered on a stage beside it (replacing the list on phones). The Chord library, Scales, Circle of fifths, Tuner, Metronome and Jam
-// keep their own screens; they are moved into the page instead of opening over it.
+// keep their own screens; they are moved into the page instead of opening over it. Classical tab, Open file and Backing
+// tracks (native apps only) are drawn straight into the page.
 
 const $ = (id) => document.getElementById(id);
 let embedded = null; // { id, el }
@@ -42,7 +43,7 @@ export async function releaseEmbeddedTools(keep = false) {
     if (!embedded) return;
     const { id, el, dispose } = embedded;
     embedded = null;
-    if (id === 'openfile' || id === 'classtab') {
+    if (id === 'openfile' || id === 'classtab' || id === 'stemdeck') {
         dispose?.(keep);
         el.remove();
         return;
@@ -83,6 +84,14 @@ async function openTool(id, pane) {
         el.className = 'tool-embedded classtab-tool-embedded';
         pane.appendChild(el);
         embedded = { id, el, dispose: renderClasstabTool(el) };
+        return;
+    }
+    if (id === 'stemdeck') {
+        const { renderStemdeckTool } = await import('../stemdeck/stemdeckTool.js');
+        const el = document.createElement('div');
+        el.className = 'tool-embedded stemdeck-tool-embedded';
+        pane.appendChild(el);
+        embedded = { id, el, dispose: renderStemdeckTool(el) };
         return;
     }
     if (REFERENCE_TOOLS.includes(id)) (await import('../referenceLibrary.js')).openReferenceModal(id);

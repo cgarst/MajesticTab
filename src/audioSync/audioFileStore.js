@@ -2,7 +2,8 @@
 // On-device storage for audio files the user syncs a score to. Kept in its own IndexedDB database so these large
 // blobs stay apart from the tab library (fileStore.js) and its backup and wipe code. Records:
 //   { id, name, type, size, durationMs, fingerprint, peaks (Uint8Array|null), songKeys: [string], savedAt,
-//     excludeFromBackup (true to keep it out of backups and sync), data (ArrayBuffer) }
+//     excludeFromBackup (true to keep it out of backups and sync),
+//     generatedFrom ({ tool, sourceId } when the app made the file from another one, such as a backing track), data (ArrayBuffer) }
 // The audio is kept as an ArrayBuffer, which every platform webview can store (Blob support in IndexedDB is not
 // uniform).
 
@@ -67,7 +68,7 @@ const stripData = ({ data, ...meta }) => meta;
  * the song) instead of saved twice. `info` carries what the caller measured: `{ durationMs, peaks }`.
  * Returns the metadata record (no audio).
  */
-export async function saveAudioFile({ name, type, data, songKey, durationMs = null, peaks = null, id = null }) {
+export async function saveAudioFile({ name, type, data, songKey, durationMs = null, peaks = null, id = null, generatedFrom = null }) {
     if (data.byteLength > MAX_AUDIO_BYTES) throw new Error('That audio file is too large');
     const fingerprint = await fingerprintOf(data);
     const existing = (await listAudioFiles()).find(r => r.fingerprint === fingerprint && r.size === data.byteLength);
@@ -79,6 +80,7 @@ export async function saveAudioFile({ name, type, data, songKey, durationMs = nu
         id: id || newAudioId(), name, type: type || 'audio/mpeg', size: data.byteLength, durationMs, fingerprint,
         peaks: peaks || null, songKeys: songKey ? [songKey] : [], savedAt: Date.now(), data
     };
+    if (generatedFrom) record.generatedFrom = generatedFrom;
     await request('readwrite', s => s.put(record));
     return stripData(record);
 }

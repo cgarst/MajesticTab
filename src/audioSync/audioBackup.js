@@ -71,6 +71,8 @@ export function audioManifestEntry(meta, blobHash) {
         fingerprint: meta.fingerprint || '',
         songKeys: meta.songKeys || [],
         savedAt: meta.savedAt || Date.now(),
+        // Set on a file the app made from another one (a backing track), so a restore still knows it may replace it
+        ...(meta.generatedFrom ? { generatedFrom: meta.generatedFrom } : {}),
         blob: blobHash
     };
 }
@@ -153,6 +155,7 @@ export async function restoreAudioEntry(item, { wipe = false } = {}) {
         peaks: null, // rebuilt when the file is opened
         songKeys: item.songKeys || [],
         savedAt: item.savedAt || Date.now(),
+        ...(item.generatedFrom ? { generatedFrom: item.generatedFrom } : {}),
         data
     });
     window.dispatchEvent(new CustomEvent(AUDIO_FILES_CHANGED_EVENT));

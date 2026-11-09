@@ -98,6 +98,8 @@ document.addEventListener('shown.bs.dropdown', (e) => {
 import { closeToolsMenu } from './utils/toolsMenu.js';
 import { closeAllReaderPanels } from './utils/readerPanels.js';
 import { renderToolsPage, releaseEmbeddedTools, forgetResume } from './utils/toolsPage.js';
+import { hasStemDeckSupport } from './stemdeck/stemdeckClient.js';
+import { stemdeckReadout } from './stemdeck/stemdeckTool.js';
 
 let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools', 'settings'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -4550,15 +4552,19 @@ function renderToolsView(container) {
         if (!classtabUnsub) classtabUnsub = m.onArchiveChange(() => { m.getCatalogRecord().then(set); });
     }).catch(() => {});
     const tools = [
+        { id: 'openfile', group: 'files', title: 'Open file' },
+        { id: 'classtab', group: 'files', title: 'Classical tab browser', readout: classtabReadout }
+    ];
+    // Sends local audio to the StemDeck app on this computer or network; the web build cannot reach it
+    if (hasStemDeckSupport()) tools.push({ id: 'stemdeck', group: 'files', title: 'Backing tracks', readout: stemdeckReadout });
+    tools.push(
         { id: 'chords', group: 'reference', title: 'Chord library', readout: chordsReadout },
         { id: 'scales', group: 'reference', title: 'Scales' },
         { id: 'circle', group: 'reference', title: 'Circle of fifths' },
         { id: 'tuner', group: 'play', title: 'Tuner', readout: tunerReadout },
         { id: 'metronome', group: 'play', title: 'Metronome', readout: () => `${metronome.bpm} bpm`, watch: ['metroBpm'] }
-    ];
+    );
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'play', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
-    tools.push({ id: 'classtab', group: 'files', title: 'Classical tab browser', readout: classtabReadout });
-    tools.push({ id: 'openfile', group: 'files', title: 'Open file' });
     // Applies to every sound in the app; in a song the same panel opens as a dialog from the reader's Tools menu
     tools.push({ id: 'latency', group: 'system', title: 'Audio latency', readout: () => { const ms = getAudioLatencyMs(); return ms > 0 ? `${ms} ms` : 'Off'; }, watch: ['latencyModalBadge'] });
     renderToolsPage(container, { tools, escapeHtml });
