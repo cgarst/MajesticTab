@@ -4356,6 +4356,8 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
    the play buttons. The recording bar (time, track, sync state, Add points) is one row that stretches from the play buttons to
    the right edge; under it sit the bar ruler, the Bar and tempo readouts and the sound switch and toggles. */
 @media (min-width: 641px) {
+  /* tabletop (a foldable's inner display is this wide, but the folded pose uses the phone dock) keeps the recording bar above the ruler */
+  :where(html:not(.duo-tabletop)) {
   body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .mobile-playback-dock-inner:has(#scoreRecStrip:not([hidden])) {
     grid-template-columns: auto minmax(0, 1fr) auto auto auto; grid-template-areas: none; align-items: center;
   }
@@ -4372,6 +4374,7 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
   body.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-tools { grid-column: 5; grid-row: 2; }
   /* The short landscape phone hides the Bar and tempo readouts: the cluster takes their columns */
   body.phone-reader.score-rec-strip-on:not(.reading-mode):not(.library-view-active) .dock-tools { grid-column: 3 / -1; justify-self: end; }
+  }
 }
 /* Tablet and narrow desktop: "Synth audio | Original audio" shortens to "Synth | Original" so the progress bars keep their width */
 @media (min-width: 641px) and (max-width: 899px) {
@@ -4547,7 +4550,7 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) #mainContent {
 }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #output.continuous-mode { padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important; }
 /* the transport sits at the bottom of the controls half, over the five words */
-html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-top: auto; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-top: auto; margin-bottom: var(--dt-slack, 0px); }
 
 /* The top bar (back, song name, page buttons) moves down into the controls half: one row at its top, under the crease.
    It stays in view; a sheet opens below it, down to the transport. */
@@ -4600,7 +4603,7 @@ html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #ou
 /* The fretboard keeps its drawn proportions: the dock is as tall as its track labels plus the board, sits just above the strip,
    and the spare height of the controls half is left between the song row and the dock. */
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock {
-  top: auto; bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; height: auto; padding-bottom: 0; z-index: 1030;
+  top: auto; bottom: calc(var(--dock-h, 0px) + var(--tabs-h) + var(--dt-slack, 0px) * 2) !important; height: auto; padding-bottom: 0; z-index: 1030;
 }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock-header { padding: 0 12px; height: 48px; min-height: 0; flex-wrap: nowrap; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper { padding: 0 8px 4px; }
