@@ -2218,7 +2218,7 @@ body.fretboard-open {
 .bar-btn-label { font-size: 14px; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
 #topFlexZone .btn, #toolsToggleBtn { padding-inline: 12px !important; }
 #topFlexZone .btn.active, #topFlexZone .btn[aria-expanded="true"] { background: var(--s2) !important; color: var(--ink) !important; }
-#guitarToggleBtn:disabled { opacity: 0.4; }
+#soundToggleBtn:disabled, #guitarToggleBtn:disabled { opacity: 0.4; }
 /* The title is a plain label. Its old button role stays for code that clicks it. */
 .top-bar-song-btn { cursor: pointer; }
 .top-bar-song-btn.is-static, .top-bar-song-btn.disabled { pointer-events: none; cursor: default; }
@@ -2513,7 +2513,7 @@ body.phone-reader:not(.library-view-active) #output.continuous-mode:has(.pageWra
 /* View does not repeat the toggle; the strip has it */
 #readingCell { display: none !important; }
 
-/* Sheets (View, Practice, Tracks, Guitar, Tools, Song, Synth, Original) rise from the bottom, above the strip, and are as tall as the space
+/* Sheets (View, Practice, Sound, Guitar, Tools, Song, Synth, Original) rise from the bottom, above the strip, and are as tall as the space
    under the top row allows, so they rarely need scrolling. The fretboard stays behind them: a sheet covers it rather than stopping above it. */
 body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu,
 body.phone-reader #scoreOptionsDropdownPanel, body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel {
@@ -2706,7 +2706,7 @@ body.phone-reader:not(.library-view-active) .rec-strip.is-tapping .rec-points { 
 /* Phones: the library has no reader controls (the reader's five words and page buttons belong to a song) */
 @media (max-width: 640px) { body.library-view-active #topFlexZone { display: none !important; } }
 /* View, Practice, Tracks, Guitar and Tools belong to an open song, at every width. The library reaches Tools from the rail. */
-body.library-view-active #viewPill, body.library-view-active #practicePill, body.library-view-active #guitarPill, body.library-view-active #toolsPill { display: none !important; }
+body.library-view-active #viewPill, body.library-view-active #practicePill, body.library-view-active #soundPill, body.library-view-active #guitarPill, body.library-view-active #toolsPill { display: none !important; }
 
 /* Tools page: flat rows on a 56px pitch, the same left edge as Setlists and Library */
 .tools-view .tools-page-list { display: flex; flex-direction: column; }

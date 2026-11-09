@@ -12,6 +12,7 @@ const $ = (id) => document.getElementById(id);
 
 export function initReaderViewMenu() {
     initPhoneChrome();
+    initSoundButton();
     arrangeSongPanel();
     initPracticePanels();
     const toggleBtn = $('viewToggleBtn');
@@ -52,6 +53,47 @@ export function initReaderViewMenu() {
     window.addEventListener('resize', () => { if (isOpen()) place(); });
 }
 
+
+// ---- Sound: the labelled button opens the settings of the sound selected in the dock (Synth audio or Original audio).
+// The two panels keep their own contents and chrome; this only chooses which one the word opens, and the dock's switch
+// decides the selection.
+function initSoundButton() {
+    const btn = $('soundToggleBtn');
+    const synthPanel = $('synthDropdownPanel');
+    const originalPanel = $('ytDropdownPanel');
+    const synthSwitch = $('mobileSynthToggleBtn');
+    const originalSwitch = $('mobileYtToggleBtn');
+    if (!btn || !synthPanel || !originalPanel) return;
+
+    const visible = (el) => Boolean(el) && el.style.display !== 'none';
+    const selected = () => {
+        if (originalSwitch?.classList.contains('active-audio-mode')) return 'original';
+        if (synthSwitch?.classList.contains('active-audio-mode')) return 'synth';
+        return visible(synthSwitch) ? 'synth' : 'original';
+    };
+
+    btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (btn.disabled) return;
+        const original = selected() === 'original';
+        const panel = original ? originalPanel : synthPanel;
+        // Each panel opens and closes through its own button and close control (they also pause the other sound)
+        if (isShown(panel)) $(original ? 'ytPanelCloseBtn' : 'synthPanelCloseBtn')?.click();
+        else $(original ? 'ytToggleBtn' : 'synthToggleBtn')?.click();
+    });
+
+    const sync = () => {
+        const available = visible(synthSwitch) || visible(originalSwitch);
+        btn.disabled = !available;
+        btn.title = available ? 'Sound: settings for the selected sound, Synth or Original' : 'Sound: nothing to play for this file';
+        btn.setAttribute('aria-expanded', String(isShown(synthPanel) || isShown(originalPanel)));
+    };
+    const watch = (el, filter) => { if (el) new MutationObserver(sync).observe(el, { attributes: true, attributeFilter: filter }); };
+    [synthSwitch, originalSwitch].forEach((el) => watch(el, ['style', 'class']));
+    [synthPanel, originalPanel].forEach((el) => watch(el, ['style', 'class']));
+    sync();
+}
 
 // The View menu reads: Size, Note spacing, Paper, Layout, Notation, Tracks (with Color by track, only when the file has
 // more than one track to show), pages shown in landscape, page turn.

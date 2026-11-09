@@ -4,10 +4,10 @@ import { isIOSDevice } from './iosAudioUnlock.js';
 import { scrollByViewport } from './scrollUtils.js';
 import { switchToContinuous, switchToPageMode, getPagesPerView, isPhoneReader, phoneTapZone } from './viewModeUtils.js';
 import { clearOutput } from './renderUtils.js';
-import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel } from '../gpProcessor/gpPlayer.js';
+import { playPauseSynth, pauseSynthPlayer, isSynthAvailable, isSynthPlaying, clearSynthHighlights, rewindSynth, rewindSynth10Seconds, toggleSynthNoGuitars, toggleMetronome, toggleCountIn, adjustPlaybackSpeed, toggleSynthPanel, toggleScoreOptionsPanel, synthPlayerState } from '../gpProcessor/gpPlayer.js';
 import { gamepadManager } from './gamepadManager.js';
 import { stepSetlist } from '../setlistPlayer.js';
-import { isYouTubeAvailable, rewindYouTubeToBeginning, toggleYouTubePanel, getSongKey, scheduleOriginalVideo } from '../youtubePlayer.js';
+import { isYouTubeAvailable, rewindYouTubeToBeginning, toggleYouTubePanel, getSongKey, scheduleOriginalVideo, pauseYouTube, playerState } from '../youtubePlayer.js';
 import { songHasSyncPoints } from '../audioSync/syncStore.js';
 import {
     isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds, getRealAudioActiveSource, applyEmbeddedAudioMode
@@ -1177,22 +1177,41 @@ export function setupGlobalAudioControls() {
         handleGlobalPlayPause();
     });
 
-    // Synth | Recording is a switch in the dock. Pressing either one switches to that sound and opens its panel;
-    // pressing it again closes the panel.
+    // Synth | Original is a switch in the dock: pressing one selects that sound. Its settings are in the Sound panel
+    // (the Sound word), which shows whichever of the two is selected.
     mobileSynthBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
-        document.getElementById('synthToggleBtn')?.click();
+        selectSound('synth');
     });
 
     mobileRealAudioBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
-        document.getElementById('ytToggleBtn')?.click();
+        selectSound('original');
     });
 
     updateGlobalAudioControls();
 }
 
 export const setupGlobalRewindButton = setupGlobalAudioControls;
+
+/**
+ * Select the Synth or Original sound without opening its settings. The other one stops. When a sound panel is already
+ * open it follows the selection (the Sound panel shows the selected sound), and Original with nothing set up yet opens
+ * its panel, since there is no video or file to show until one is added there.
+ */
+export function selectSound(kind) {
+    const panelOpen = synthPlayerState.isOpen || playerState.isOpen;
+    if (kind === 'synth') {
+        if (panelOpen) { toggleSynthPanel(true); return; }
+        setActiveAudioMode('synth');
+        pauseYouTube();
+        return;
+    }
+    if (panelOpen || !isRealAudioAvailable()) { toggleYouTubePanel(true); return; }
+    setActiveAudioMode('youtube');
+    pauseSynthPlayer();
+    clearSynthHighlights();
+}
 
 /**
  * Highlight the active audio mode toggle button (Synth or Real Audio)
