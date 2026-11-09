@@ -40,7 +40,7 @@ env:
 
 jobs:
   build:
-    runs-on: ${{ fromJSON('{"play":"ubuntu-latest","fdroid":"ubuntu-latest","appstore-ios":"macos-latest","appstore-mac":"macos-latest","msstore":"windows-latest"}')[inputs.channel] }}
+    runs-on: ${{ fromJSON('{"play":"ubuntu-latest","fdroid":"ubuntu-latest","appstore-ios":"xcode-27","appstore-mac":"macos-latest","msstore":"windows-latest"}')[inputs.channel] }}
     env:
       TARGET: ${{ fromJSON('{"play":"android","fdroid":"android","appstore-ios":"ios","appstore-mac":"macos","msstore":"windows"}')[inputs.channel] }}
     steps:

@@ -188,7 +188,8 @@ jobs:
           if-no-files-found: error
 
   ios:
-    runs-on: macos-latest
+    # xcode-27 image: iOS 27.1 SDK for the fold plugin (macos-latest ships Xcode 26)
+    runs-on: xcode-27
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
