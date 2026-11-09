@@ -4536,6 +4536,7 @@ body:not(.library-view-active):not(.dock-off) .fretboard-dock { padding-bottom: 
 html.duo-tabletop body.phone-reader:not(.library-view-active) {
   --dt-controls-top: calc(var(--fold-top, 50dvh) + var(--fold-h, 0px));
   --dt-target: 56px;                                  /* every press target in this pose */
+  --dt-gap: 10px;                                     /* air between the rows of the controls half */
   --tabs-h: calc(48px + env(safe-area-inset-bottom, 0px) * 0.6);   /* the words hug the bottom, so the bar is shorter than the full inset */
   --reader-bottom-nav-h: var(--tabs-h);
   padding-bottom: var(--tabs-h) !important;
@@ -4550,7 +4551,7 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-d
 /* The top bar (back, song name, page buttons) moves down into the controls half: one row at its top, under the crease.
    It stays in view; a sheet opens below it, down to the transport. */
 html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar {
-  top: var(--dt-controls-top); bottom: auto; z-index: 1040;
+  top: calc(var(--dt-controls-top) + var(--dt-gap)); bottom: auto; z-index: 1040;
   flex-wrap: nowrap; padding: 0 max(env(safe-area-inset-right, 0px), 8px) 0 max(env(safe-area-inset-left, 0px), 8px) !important;
   background: var(--s1) !important; min-height: var(--dt-target);
 }
@@ -4560,12 +4561,13 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar #navButton
 html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn { min-height: var(--dt-target); height: var(--dt-target); }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { font-size: 18px; }
 
-/* The rows swap (tabletopRows.js): Synth | Original goes up into the song row, the page buttons come down beside restart and play. */
-html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar .dock-src { order: 2; flex: none; margin: 0 0 0 8px; transform: none; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar .dock-src .audio-sfx { display: none; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar .dock-src .rbtn { min-height: 48px; height: 48px; padding-inline: 14px; font-size: 15px; }
+/* One row of large keys (tabletopRows.js moves the page buttons in): restart, play, Synth | Original, previous, next. All 64px tall. */
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-src { flex: 1 1 0; min-width: 0; margin: 0 8px; transform: none; height: 64px; padding: 2px; align-items: stretch; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-src .rbtn { flex: 1 1 0; min-height: 60px; height: 60px; padding-inline: 8px; font-size: 16px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-src .rbtn::after { top: -2px; bottom: -2px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-src .audio-sfx { display: none; }
 /* the transport row: restart, play and the page buttons share it, 64px tall, the page buttons wide */
-html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools { grid-column: 2 / 4; justify-content: flex-end; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools { grid-column: 2 / 4; justify-content: flex-end; align-items: center; min-width: 0; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons { display: flex !important; align-items: center; gap: 8px; margin: 0; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons #pageIndicator { display: none; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons .btn { width: 96px; min-width: 96px; height: 64px; min-height: 64px; font-size: 22px; }
@@ -4593,7 +4595,7 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) { --fretboard-effe
 html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #output:not(.continuous-mode) { height: 100% !important; max-height: 100% !important; padding-bottom: 4px !important; }
 html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #output.continuous-mode { padding-bottom: 24px !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock {
-  top: calc(var(--dt-controls-top) + var(--dt-target)); bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; height: auto;
+  top: calc(var(--dt-controls-top) + var(--dt-target) + var(--dt-gap) * 2); bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; height: auto;
   flex-direction: column; padding-bottom: 0; z-index: 1030;
 }
 /* the controller sets display inline, so the flex layout needs !important (and must not show a hidden dock) */
@@ -4607,27 +4609,18 @@ html.duo-tabletop #fretboardDockBtn, html.duo-tabletop #fretboardCloseBtn { disp
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock :is(button, .btn, .fb-track) { min-height: 44px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-mode-pills { height: 44px !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fb-track { font-size: 16px; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { gap: 6px 8px; padding-top: 2px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock-inner { gap: var(--dt-gap) 8px; padding-top: 2px; padding-bottom: var(--dt-gap); }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #fretboardDockBtn { width: var(--dt-target) !important; min-width: var(--dt-target) !important; height: var(--dt-target); }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-src .rbtn { min-height: 48px; height: 48px; padding-inline: 14px; font-size: 15px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-src .rbtn::after { top: -4px; bottom: -4px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(.ruler, .ruler svg, .ruler-labels, .page-strip-track) { height: 32px; }
 
-/* Sheets cover the whole bottom half, from the crease to the bottom edge: the song row, the strip and the five words
-   are under them. The sheet has its own Done button (tabletopSheet.js); the same height and top edge for every one. */
+/* Sheets cover everything in the bottom half except the five words, which stay visible: the selected word closes its sheet.
+   Same height and top edge for every one, scrolling inside. */
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) {
-  top: var(--dt-controls-top) !important; bottom: 0 !important; height: auto !important; max-height: none !important;
-  padding: calc(var(--dt-target) + 8px) 16px calc(16px + env(safe-area-inset-bottom, 0px)) !important;
-  z-index: 1060; border-radius: 0 !important; overscroll-behavior: contain;
+  top: var(--dt-controls-top) !important; bottom: var(--tabs-h) !important; height: auto !important; max-height: none !important;
+  padding: 12px 16px 16px !important; z-index: 1050; border-radius: 0 !important; overscroll-behavior: contain;
 }
-#tabletopSheetDone { display: none; }
-html.duo-tabletop.dt-sheet-open #tabletopSheetDone {
-  display: inline-flex; align-items: center; justify-content: center; position: fixed; z-index: 1061;
-  top: calc(var(--dt-controls-top) + 4px); right: max(env(safe-area-inset-right, 0px), 8px); min-width: 96px; height: var(--dt-target);
-  padding: 0 20px; border: 0; border-radius: var(--r-control); background: var(--s2); color: var(--ink); font-size: 16px; font-weight: 600;
-}
-html.duo-tabletop.dt-sheet-open #tabletopSheetDone:active { transform: translateY(1px); }
-html.duo-tabletop.dt-sheet-open #tabletopSheetDone:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 /* Controls inside a sheet */
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(button, .btn, [role="tab"], [role="radio"], select) { min-height: var(--dt-target) !important; height: auto; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #practiceMenu :is(#practiceSlower, #practiceFaster, #synthLoopStartMinusBtn, #synthLoopStartPlusBtn, #synthLoopEndMinusBtn, #synthLoopEndPlusBtn) { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target) !important; }

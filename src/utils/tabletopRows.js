@@ -1,41 +1,26 @@
 // tabletopRows.js
-// iPhone Duo folded with the crease across: the two rows nearest the thumb swap their usual contents. The page buttons
-// (previous, next) move down beside restart and play, where they are pressed most, and the Synth | Original switch moves
-// up into the song row. Unfolding puts both back where they were. The elements move; nothing is cloned, so every
-// listener and id stays as it is.
+// iPhone Duo folded with the crease across: the page buttons (previous, next) move out of the song row and down into the
+// transport row, after the Synth | Original switch, so restart, play, the sound switch and the page buttons are one row of
+// large keys under the thumb. Unfolding puts them back. The element moves; it is not cloned, so every listener and id stays.
 
 import { isTabletop } from '../foldState.js';
 
-let marks = null; // where each element lives outside tabletop
-
-function parts() {
-    return {
-        nav: document.getElementById('navButtons'),
-        src: document.querySelector('.dock-src'),
-        bar: document.getElementById('topBar'),
-        brand: document.getElementById('brandSection'),
-        tools: document.querySelector('.dock-tools')
-    };
-}
+let mark = null; // where the page buttons live outside tabletop
 
 function swapIn() {
-    const { nav, src, bar, brand, tools } = parts();
-    if (marks || !nav || !src || !bar || !brand || !tools) return;
-    marks = {
-        nav: { parent: nav.parentNode, next: nav.nextSibling },
-        src: { parent: src.parentNode, next: src.nextSibling }
-    };
-    tools.insertBefore(nav, tools.firstChild);
-    brand.after(src);
+    const nav = document.getElementById('navButtons');
+    const src = document.querySelector('.dock-src');
+    if (mark || !nav || !src) return;
+    mark = { parent: nav.parentNode, next: nav.nextSibling };
+    src.after(nav);
     document.documentElement.classList.add('dt-rows-swapped');
 }
 
 function swapOut() {
-    if (!marks) return;
-    const { nav, src } = parts();
-    if (nav) marks.nav.parent.insertBefore(nav, marks.nav.next && marks.nav.next.parentNode === marks.nav.parent ? marks.nav.next : null);
-    if (src) marks.src.parent.insertBefore(src, marks.src.next && marks.src.next.parentNode === marks.src.parent ? marks.src.next : null);
-    marks = null;
+    if (!mark) return;
+    const nav = document.getElementById('navButtons');
+    if (nav) mark.parent.insertBefore(nav, mark.next && mark.next.parentNode === mark.parent ? mark.next : null);
+    mark = null;
     document.documentElement.classList.remove('dt-rows-swapped');
 }
 
