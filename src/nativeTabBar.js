@@ -56,6 +56,9 @@ function onEvent(msg) {
             input.value = msg.text;
             input.dispatchEvent(new Event('input', { bubbles: true }));
         }
+    } else if (msg.type === 'submit') {
+        // The return key on the native field: the page's own form (Open file's web search) runs as if submitted
+        searchInput()?.form?.requestSubmit();
     } else if (msg.type === 'selected') {
         // Same path as a tap on the HTML bar
         const selector = msg.key === 'settings' ? '#libraryNavSettingsBtn' : `[data-lib-tab="${msg.key}"]`;
@@ -88,8 +91,21 @@ function syncAppearance() {
 }
 
 // The library's search field (the page has one on Library and Setlists, none inside an open pane or on Tools)
+// (or the Classical tab's list and Open file's web search inside a Tools pane)
 function searchInput() {
-    return document.querySelector('.library-page-view .library-search-bar .search-input:not([disabled])');
+    return document.querySelector('.library-page-view .library-search-bar .search-input:not([disabled]), .classtab-tool-embedded .ct-search:not([disabled])');
+}
+
+// Inside a Tools pane the native field sits where the page's own field is, under the pane's header, instead of in the
+// top band. The page's field keeps its space (design.css hides it with visibility) and the native one is laid over it.
+// Returns null outside a pane, and 'hidden' once the page has scrolled the field up under the header.
+function paneSearchY(input) {
+    const host = input.closest('.tool-pane-host');
+    if (!host) return null;
+    const box = input.closest('.library-search-box') || input;
+    const rect = box.getBoundingClientRect();
+    if (rect.height === 0) return 'hidden';
+    return rect.top < host.getBoundingClientRect().top - 4 ? 'hidden' : Math.round(rect.top);
 }
 
 let lastSearchTop = 0;
@@ -97,7 +113,9 @@ let lastSearch = '';
 function syncSearch() {
     if (state !== 'on') return;
     const input = wantVisible ? searchInput() : null;
-    const visible = Boolean(input);
+    const y = input ? paneSearchY(input) : null;
+    const visible = Boolean(input) && y !== 'hidden';
+    document.body.classList.toggle('native-search-pane', Boolean(input) && y !== null);
     // The native field reports its height a moment after it shows. Until then the page would pad by 0 and the content
     // would sit under the field for a frame, then jump down; the field's height does not change, so reuse the last one.
     if (visible && lastSearchTop > 0 && !document.body.classList.contains('native-search')) {
@@ -105,6 +123,7 @@ function syncSearch() {
     }
     document.body.classList.toggle('native-search', visible);
     const args = { visible, placeholder: input?.placeholder || 'Search', text: input?.value || '' };
+    if (typeof y === 'number') args.y = y;
     const key = JSON.stringify(args);
     if (key === lastSearch) return;
     lastSearch = key;
@@ -175,6 +194,12 @@ export function initNativeTabBar() {
         if (frame || state !== 'on' || !document.body.classList.contains('library-view-active')) return;
         frame = requestAnimationFrame(() => { frame = 0; syncSearch(); });
     }).observe(document.body, { childList: true, subtree: true });
+    // A pane's field follows the page's own as it scrolls
+    let scrollFrame = 0;
+    document.addEventListener('scroll', () => {
+        if (scrollFrame || state !== 'on' || !document.body.classList.contains('native-search-pane')) return;
+        scrollFrame = requestAnimationFrame(() => { scrollFrame = 0; syncSearch(); });
+    }, { capture: true, passive: true });
     // A theme change sets data-theme (and classes) on the root or body
     const themeChanged = new MutationObserver(syncAppearance);
     themeChanged.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class', 'style'] });

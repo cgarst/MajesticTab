@@ -42,6 +42,7 @@ struct SearchArgs: Decodable {
     let visible: Bool
     let placeholder: String?
     let text: String?
+    let y: Double? // where the field's top edge sits, in points from the top of the window (a Tools pane); nil = the top band
 }
 
 struct VisibilityArgs: Decodable {
@@ -126,6 +127,8 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
     private var search: ReportingSearchBar?
     private var searchWanted = false
     private var searchTop: NSLayoutConstraint?
+    private var searchY: CGFloat?
+    private var searchBandTop: CGFloat = 8
     private var searchLeading: NSLayoutConstraint?
     private var searchTrailing: NSLayoutConstraint?
 
@@ -206,6 +209,7 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.searchWanted = args.visible
+            self.searchY = args.y.map { CGFloat($0) }
             if args.visible, self.search == nil, let window = self.bar?.superview as? UIWindow { self.makeSearch(in: window) }
             if let search = self.search {
                 if let placeholder = args.placeholder, search.placeholder != placeholder { search.placeholder = placeholder }
@@ -428,7 +432,10 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
             let trailing: CGFloat = statusCorner ? -statusClear : -16
             if searchTrailing?.constant != trailing { searchTrailing?.constant = trailing }
         }
-        if searchTop?.constant != topConstant { searchTop?.constant = topConstant }
+        searchBandTop = topConstant
+        // Inside a Tools pane the field sits where the page's own field is, below the pane's header
+        let placed = searchY ?? topConstant
+        if searchTop?.constant != placed { searchTop?.constant = placed }
 
         let showSearch = searchWanted && !webHidden
         if search?.isHidden != !showSearch {
@@ -449,7 +456,8 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
             lastSide = sideReserved
             try? channel?.send(["type": "side", "left": String(Double(sideReserved.left)), "right": String(Double(sideReserved.right))])
         }
-        let searchBottom: CGFloat = (search != nil && !search!.isHidden) ? search!.frame.maxY + 8 : 0
+        // The page pads for the field's place in the top band; a pane places it itself, so this ignores its offset
+        let searchBottom: CGFloat = (search != nil && !search!.isHidden) ? searchBandTop + search!.frame.height + 8 : 0
         if abs(searchBottom - lastTop) > 0.5 {
             lastTop = searchBottom
             try? channel?.send(["type": "top", "value": Double(searchBottom)])
@@ -511,6 +519,7 @@ class IosTabBarPlugin: Plugin, UITabBarDelegate, UISearchBarDelegate {
     }
 
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        try? channel?.send(["type": "submit"])
         searchBar.resignFirstResponder()
     }
 

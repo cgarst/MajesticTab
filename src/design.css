@@ -4596,6 +4596,7 @@ body.native-search .library-page-container { padding-top: calc(var(--native-sear
 body.native-search .tool-pane-host .library-page-container { padding-top: 12px !important; }
 body.native-search .tool-pane-host .library-search-box { display: flex !important; visibility: hidden; }
 body.native-search .tool-pane-host .library-search-box * { visibility: hidden; }
+body.native-search .tool-pane-host .library-search-box .btn { display: none; }
 body.native-search .classtab-tool-embedded .ct-search { visibility: hidden; }
 
 /* iPhone Duo and other devices whose system keeps its status in a vertical strip at the screen edge (see nativeTabBar.js):
