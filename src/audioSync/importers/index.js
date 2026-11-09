@@ -66,15 +66,23 @@ function barsForCount(count, playedBars) {
  * different count means a different bar structure, and every point after the difference would land on the wrong bar.
  * Two exceptions: a list with one time per score bar (repeats not expanded) is placed on each bar's first pass, and
  * `info.firstPassOnly` says so; and a shorter list whose times follow the start of the score (see fitsScoreStart),
- * where `covered` reports how many bars got points.
+ * where `covered` reports how many bars got points; and a longer list, which is read from the first bar with `extra`
+ * reporting how many trailing times were left out.
  * @param {number[]} barTimesMs
  * @param {Array<{barIndex:number, occurrence:number, seconds?:number|null}>} playedBars the score's bars in play order
- * @param {{covered?: number, firstPassOnly?: boolean}} [info] receives `covered` or `firstPassOnly` when the list does not cover every played bar
+ * @param {{covered?: number, firstPassOnly?: boolean, extra?: number}} [info] receives `covered`, `firstPassOnly` or `extra` when the list does not match every played bar
  * @returns {Array<{barIndex:number, occurrence:number, pos:number, timeMs:number}>}
  */
 export function placeBarTimes(barTimesMs, playedBars, info = null) {
     let target = barsForCount(barTimesMs.length, playedBars);
     const partial = !target && barTimesMs.length < playedBars.length && fitsScoreStart(barTimesMs, playedBars);
+    // A longer list is read from the first bar: the score's bars get the first times, the rest are left out
+    const longer = !target && playedBars.length > 0 && barTimesMs.length > playedBars.length;
+    if (longer) {
+        if (info) info.extra = barTimesMs.length - playedBars.length;
+        barTimesMs = barTimesMs.slice(0, playedBars.length);
+        target = playedBars;
+    }
     if (!target && !partial) {
         const once = firstPassBars(playedBars).length;
         const plays = once !== playedBars.length ? ` (${once} without its repeats)` : '';
@@ -93,8 +101,8 @@ export function placeBarTimes(barTimesMs, playedBars, info = null) {
 }
 
 /** A set as points, whichever form it came in. */
-export function setToPoints(set, playedBars) {
-    return set.points || placeBarTimes(set.barTimesMs, playedBars);
+export function setToPoints(set, playedBars, info = null) {
+    return set.points || placeBarTimes(set.barTimesMs, playedBars, info);
 }
 
 /**
@@ -102,7 +110,7 @@ export function setToPoints(set, playedBars) {
  * those are offered, and when none do the error says what was found.
  */
 export function setsFittingScore(sets, playedBars) {
-    const fitting = sets.filter(s => s.points || barsForCount(s.barTimesMs.length, playedBars) || fitsScoreStart(s.barTimesMs, playedBars));
+    const fitting = sets.filter(s => s.points || barsForCount(s.barTimesMs.length, playedBars) || fitsScoreStart(s.barTimesMs, playedBars) || (playedBars.length > 0 && s.barTimesMs.length > playedBars.length));
     if (fitting.length) return fitting;
     const counts = [...new Set(sets.map(s => s.barTimesMs.length))].join(', ');
     const once = firstPassBars(playedBars).length;

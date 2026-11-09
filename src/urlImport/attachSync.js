@@ -74,15 +74,19 @@ export async function attachSyncSets(sets, { songKey = null, bars = null } = {})
     if (!playedBars.length) return { saved: [], skipped: ['The score was not ready, so no sync points were added'] };
     let covered = 0;
     let firstPassOnly = false;
+    let extra = 0;
     const { placed, skipped } = placeSyncSets(sets, times => {
         const info = {};
         const points = placeBarTimes(times, playedBars, info);
         covered = info.covered || 0;
         firstPassOnly = !!info.firstPassOnly;
+        extra = info.extra || 0;
         return points;
     });
     // Only the start of the score had times: say so, so the missing last bars are not a surprise
     if (covered) for (const p of placed) p.label = `${p.label} (bars 1-${covered} of ${playedBars.length})`;
+    // A longer list: read from the first bar, so say how many times were left over (the end may not line up)
+    if (extra) for (const p of placed) p.label = `${p.label} (list has ${extra} more bars than the score; read from bar 1)`;
     if (firstPassOnly) for (const p of placed) p.label = `${p.label} (repeats not synced)`;
     const targetKey = songKey || getSongKey();
     for (const { videoId, points, label } of placed) {

@@ -291,9 +291,11 @@ export function initAudioSyncEditor() {
     function showUrlSet(index) {
         const status = $('syncImportStatus');
         try {
-            const incoming = setToPoints(urlSets[index], playedBars());
+            const info = {};
+            const incoming = setToPoints(urlSets[index], playedBars(), info);
             $('syncImportText').value = toAlphaTexSync(incoming);
-            status.textContent = `${incoming.length} points ready. Choose Replace Points or Add to Points.`;
+            const more = info.extra ? ` The list has ${info.extra} more bars than the score, so it was read from bar 1 and the last ${info.extra} were left out.` : '';
+            status.textContent = `${incoming.length} points ready.${more} Choose Replace Points or Add to Points.`;
         } catch (e) {
             $('syncImportText').value = '';
             status.textContent = e.message;
