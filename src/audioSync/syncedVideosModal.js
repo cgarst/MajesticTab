@@ -110,7 +110,7 @@ export function openManageSyncedVideosModal() {
                     <div class="d-flex align-items-center gap-2">
                         <span class="fw-semibold text-white">${escapeHtml(name)}</span>
                         <span class="text-white-50 small">· ${v.count} sync points</span>
-                        ${isCurrent ? '<span class="badge bg-secondary small py-0 px-1">active</span>' : ''}
+                        ${isCurrent ? '<span class="text-white-50 small">· active</span>' : ''}
                     </div>
                     <div class="small text-muted text-truncate mt-1">${originText}</div>
                 </div>

@@ -235,7 +235,7 @@ export function renderBookmarksList() {
             const rightWrapper = document.createElement('div');
             rightWrapper.className = 'd-flex align-items-center gap-1 flex-shrink-0 ms-2';
             rightWrapper.innerHTML = `
-                <span class="badge bg-secondary-subtle text-muted" style="font-size: 0.68rem;">p. ${bm.pageIndex + 1}</span>
+                <span class="small text-muted">p. ${bm.pageIndex + 1}</span>
                 <button type="button" class="btn btn-sm pdf-bookmark-delete-btn pdf-bookmark-edit-btn" title="Rename bookmark">
                     <i class="bi-pencil" style="font-size: 0.72rem;"></i>
                 </button>
@@ -324,7 +324,7 @@ export function renderBookmarksList() {
 
             const rightWrapper = document.createElement('div');
             rightWrapper.className = 'd-flex align-items-center gap-1 flex-shrink-0 ms-2';
-            rightWrapper.innerHTML = `<span class="badge bg-secondary-subtle text-muted" style="font-size: 0.68rem;">p. ${item.pageIndex + 1}</span>`;
+            rightWrapper.innerHTML = `<span class="small text-muted">p. ${item.pageIndex + 1}</span>`;
 
             itemEl.appendChild(targetWrapper);
             itemEl.appendChild(rightWrapper);

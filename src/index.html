@@ -400,7 +400,7 @@
     <div class="mb-3" id="scoreOptionsStringCountSection" style="display: none;">
       <div class="d-flex align-items-center justify-content-between mb-1">
         <label class="form-label small mb-0 fw-semibold text-muted">Strings:</label>
-        <span class="badge badge-theme-secondary py-0 px-1" style="font-size: 0.65rem;" id="scoreCurrentStringsBadge">6-String</span>
+        <span class="badge-theme-secondary" id="scoreCurrentStringsBadge">6-String</span>
       </div>
       <div class="hud-pill-group w-100" role="group" aria-label="Strings" id="scoreOptionsStringCountPills">
         <input type="radio" class="btn-check" name="synthStringCountRadio" id="synthStringCountNative" value="native" autocomplete="off" checked>
@@ -417,7 +417,7 @@
       <div class="d-flex align-items-center justify-content-between mb-1">
         <label class="form-label small mb-0 fw-semibold text-muted" for="adaptEnableSwitch">Tuning:</label>
         <div class="d-flex align-items-center gap-2">
-          <span class="badge badge-theme-secondary py-0 px-1" style="font-size: 0.65rem; display: none;" id="adaptStateBadge">Adapted</span>
+          <span class="badge-theme-secondary" style="display: none;" id="adaptStateBadge">Adapted</span>
           <div class="form-check form-switch mb-0">
             <input class="form-check-input theme-switch" type="checkbox" id="adaptEnableSwitch">
           </div>
@@ -518,7 +518,7 @@
     <div class="pdf-bookmarks-section">
       <div class="d-flex align-items-center justify-content-between mb-2">
         <label class="form-label small mb-0 fw-semibold text-muted">Bookmarks & Table of Contents</label>
-        <span class="badge bg-secondary-subtle text-muted" id="pdfBookmarkCount" style="font-size: 0.7rem;">0</span>
+        <span class="small text-muted" id="pdfBookmarkCount">0</span>
       </div>
       <div id="pdfBookmarksList" class="d-flex flex-column gap-1" style="max-height: 320px; overflow-y: auto;">
         <!-- Dynamically rendered bookmarks -->

@@ -1739,6 +1739,12 @@ body.fretboard-open {
 }
 .badge-theme-warning, .badge-no-tab { color: var(--warn) !important; }
 .album-year-badge { display: none !important; }
+/* Safety net: a Bootstrap .badge or the Experimental tag never draws a pill; it reads as grey text */
+.badge, .settings-beta-badge {
+  background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+  padding: 0 !important; font-size: 12px !important; font-weight: 400 !important; letter-spacing: 0; text-transform: none; color: var(--ink2) !important;
+}
+.settings-beta-badge::before { content: "\00b7"; margin-right: 6px; }
 
 /* Library rows carry their meta as plain text */
 .library-song-row .sub .chip, .library-song-row .sub .chip.hot, .library-song-row .sub .chip.sec {

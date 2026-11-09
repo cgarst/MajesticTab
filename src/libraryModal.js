@@ -1324,7 +1324,7 @@ async function renderLibraryBrowseView(container) {
                 </div>
               </div>
               <div class="d-flex align-items-center gap-2 flex-shrink-0">
-                <span class="badge badge-theme-secondary d-none d-sm-inline-flex py-1 px-2" style="font-size: 0.72rem;">
+                <span class="badge-theme-secondary d-none d-sm-inline-flex">
                   ${isCustomArtist
                     ? `${currentSubfolders.length > 0 ? `${formatCount(currentSubfolders.length, 'folder')} · ` : ''}${formatBooksSongsLabel(currentBooks, currentSongs.length + currentSubfolders.reduce((acc, f) => acc + f.songsCount, 0))}`
                   : currentSubfolders.length > 0 && currentSongs.length > 0
@@ -3391,7 +3391,7 @@ function renderAlbumSongsList(songs, options = {}) {
           <div class="library-disc-header d-flex align-items-center gap-2 py-2 px-3 mb-2">
             <i class="bi-disc text-accent"></i>
             <span class="fw-bold small text-white text-uppercase" style="letter-spacing: 0.04em; font-size: 0.78rem;">${headerText}</span>
-            <span class="badge badge-theme-secondary py-0 px-2 ms-auto text-muted font-monospace" style="font-size:0.68rem;">${grp.songs.length} ${grp.songs.length === 1 ? 'Track' : 'Tracks'}</span>
+            <span class="badge-theme-secondary ms-auto text-muted">${grp.songs.length} ${grp.songs.length === 1 ? 'Track' : 'Tracks'}</span>
           </div>
           <div class="d-flex flex-column gap-2">
             ${grp.songs.map(song => renderSongRow(song, options)).join('')}

@@ -485,7 +485,7 @@
         const fileItem = document.createElement('div');
         fileItem.className = 'file-item';
         const pageBadge = (file.startPage && file.endPage)
-          ? `<span class="badge badge-theme-warning ms-2" style="font-size:0.7rem;">pp. ${file.startPage}-${file.endPage}</span>`
+          ? `<span class="small text-muted ms-2">pp. ${file.startPage}-${file.endPage}</span>`
           : '';
         const nameText = escapeHtml(file.displayName || file.name);
         fileItem.innerHTML = `
