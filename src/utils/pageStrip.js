@@ -14,6 +14,10 @@ export function initPageStrip(getConfig) {
     let marks = [];
     let drawn = { total: -1, continuous: null };
     let dragging = false;
+    // Page turns on the strip show at once and the page itself renders once, for the last target, after the taps stop.
+    // Rendering a page is slow, so taps made faster than it renders would otherwise each wait for a render.
+    let pending = null;
+    let applyTimer = 0;
 
     // The strip takes the ruler's place in the dock, like the bar ruler on Guitar Pro files, so the bottom is one strip on
     // every platform (on a phone it is the thin row above the controls).
@@ -74,6 +78,7 @@ export function initPageStrip(getConfig) {
     function render() {
         const cfg = getConfig();
         const state = (!isScore() && cfg.currentFile) ? getScrubState(cfg) : null;
+        if (state && pending !== null && !state.continuous) state.value = Math.max(state.min, Math.min(state.max, pending));
         const show = Boolean(state) && (state.continuous || state.total > 1) && !document.body.classList.contains('library-view-active');
         strip.hidden = !show;
         document.body.classList.toggle('page-strip-on', show);
@@ -101,9 +106,22 @@ export function initPageStrip(getConfig) {
         const cfg = getConfig();
         const state = getScrubState(cfg);
         if (!state) return;
-        applyScrubValue(cfg, state, Math.max(state.min, Math.min(state.max, v)));
+        const target = Math.max(state.min, Math.min(state.max, v));
+        if (state.continuous) { applyScrubValue(cfg, state, target); render(); return; }
+        pending = target;
         render();
+        clearTimeout(applyTimer);
+        applyTimer = setTimeout(() => {
+            const goal = pending;
+            const cur = getConfig();
+            const st = getScrubState(cur);
+            if (st && goal !== null) applyScrubValue(cur, st, Math.max(st.min, Math.min(st.max, goal)));
+            pending = null;
+            render();
+        }, 80);
     }
+    // Where the next relative step starts from: the page already shown on the strip, not the one last rendered
+    const baseValue = (state) => (pending !== null && !state.continuous ? pending : state.value);
     track.addEventListener('pointerdown', (e) => {
         const state = getScrubState(getConfig());
         if (!state) return;
@@ -124,7 +142,7 @@ export function initPageStrip(getConfig) {
         if (!state) return;
         const step = state.continuous ? 5 : 1;
         const map = { ArrowLeft: -step, ArrowDown: -step, ArrowRight: step, ArrowUp: step, PageUp: -step * 5, PageDown: step * 5 };
-        if (e.key in map) { e.preventDefault(); e.stopPropagation(); jump(state.value + map[e.key]); }
+        if (e.key in map) { e.preventDefault(); e.stopPropagation(); jump(baseValue(state) + map[e.key]); }
         else if (e.key === 'Home') { e.preventDefault(); jump(state.min); }
         else if (e.key === 'End') { e.preventDefault(); jump(state.max); }
     });
