@@ -1,9 +1,10 @@
 // tabletopLayout.js
 // iPhone Duo folded with the crease across: the controls half holds, top down, the song row, the fretboard, the strip
 // (progress, and the recording bar when Original is selected) with the transport, and the five words. Whatever height
-// those do not need is shared equally between them, so nothing is crowded and nothing floats alone. This measures the
-// spare height and publishes the share as --dt-slack (each gap); design.css places the fretboard and the strip with it.
-// Without a fretboard (PDF, text, MIDI) there are two gaps instead of three.
+// those do not need is shared equally between them, so nothing is crowded and nothing floats alone: the gaps run title row,
+// fretboard, ruler, buttons, five words (four gaps; the ruler-to-buttons one sits inside the strip). This measures the spare
+// height and publishes the share as --dt-slack (each gap); design.css places the fretboard and the strip with it.
+// Without a fretboard (PDF, text, MIDI) there are three gaps instead of four.
 
 import { isTabletop } from '../foldState.js';
 
@@ -28,8 +29,11 @@ function measure() {
     const fbShown = visible(fb) && document.body.classList.contains('fretboard-open');
     const top = bar.getBoundingClientRect().top;           // the song row starts at the hinge's lower edge
     const bottom = words.getBoundingClientRect().top;      // the five words start here
-    const used = bar.offsetHeight + (fbShown ? fb.offsetHeight : 0) + (visible(dock) ? dock.offsetHeight : 0);
-    const gaps = fbShown ? 3 : 2;
+    // The strip's own row gap (ruler to buttons) is one of the shared gaps, so it is not part of what the strip needs
+    const inner = dock.querySelector('.mobile-playback-dock-inner');
+    const rowGap = inner ? (parseFloat(getComputedStyle(inner).rowGap) || 0) : 0;
+    const used = bar.offsetHeight + (fbShown ? fb.offsetHeight : 0) + (visible(dock) ? dock.offsetHeight - rowGap : 0);
+    const gaps = fbShown ? 4 : 3;
     const slack = Math.max(8, Math.floor((bottom - top - used) / gaps));
     root.style.setProperty('--dt-slack', `${slack}px`);
 }
