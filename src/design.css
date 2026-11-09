@@ -4570,6 +4570,12 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navBu
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons #pageIndicator { display: none; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons .btn { width: 96px; min-width: 96px; height: 64px; min-height: 64px; font-size: 22px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#mobileRewindBtn, #mobilePlayPauseBtn) { width: 64px; min-width: 64px; height: 64px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tr { gap: 8px; }
+/* Play is the one primary: the same rounded key as its neighbours, filled with the action color, not the brand pick */
+html.duo-tabletop body.phone-reader:not(.library-view-active) #mobilePlayPauseBtn { width: 96px; min-width: 96px; background: var(--action) !important; border-radius: var(--r-control) !important; transition: transform var(--dur-fast) var(--ease-out); }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #mobilePlayPauseBtn svg.pk { display: none; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #mobilePlayPauseBtn i { margin-top: 0; font-size: 2.25rem; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #mobilePlayPauseBtn:active { transform: translateY(1px); }
 /* a real control shows its shape: restart and the page buttons take one tone step (play is the one primary) */
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#mobileRewindBtn, .dock-tools #navButtons .btn) { background: var(--s2) !important; border-radius: var(--r-control) !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#mobileRewindBtn, .dock-tools #navButtons .btn):active { background: var(--s3) !important; }
