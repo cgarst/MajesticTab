@@ -4624,6 +4624,13 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #pr
   top: var(--dt-controls-top) !important; bottom: var(--tabs-h) !important; height: auto !important; max-height: none !important;
   padding: 12px 16px 16px !important; z-index: 1050; border-radius: 0 !important; overscroll-behavior: contain;
 }
+/* The close X in a panel's header (Song, the sound panels): a real 56px target with a visible mark, since these panels are
+   opened from a row they now cover and have no highlighted word to press again */
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(.synth-panel-header, .yt-panel-header) .brand-btn {
+  width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target); padding: 0 !important; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--ink) !important; background: var(--s2) !important; border-radius: var(--r-control) !important; flex: none;
+}
+html.duo-tabletop body.phone-reader:not(.library-view-active) :is(.synth-panel-header, .yt-panel-header) .brand-btn i { display: inline-block !important; font-size: 1.1rem !important; }
 /* Controls inside a sheet */
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(button, .btn, [role="tab"], [role="radio"], select) { min-height: var(--dt-target) !important; height: auto; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #practiceMenu :is(#practiceSlower, #practiceFaster, #synthLoopStartMinusBtn, #synthLoopStartPlusBtn, #synthLoopEndMinusBtn, #synthLoopEndPlusBtn) { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target) !important; }
