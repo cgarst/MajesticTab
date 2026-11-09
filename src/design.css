@@ -2372,6 +2372,8 @@ body.phone-reader:not(.library-view-active) #topFlexZone { order: 3; flex: 0 0 1
   /* the home-indicator inset is the bar's own padding, outside the words, so a pressed or selected word's tone is a normal 48px key (tabletop keeps its own) */
   :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) > #topFlexZone { padding-bottom: env(safe-area-inset-bottom, 0px); }
   :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) > #topFlexZone .btn { min-height: 48px; padding-bottom: 0 !important; box-sizing: border-box; align-items: center; }
+  /* square top corners, so the selected word joins the sheet that now opens right above it (as in tabletop) */
+  :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) > #topFlexZone .btn { border-radius: 0 0 var(--r-control) var(--r-control) !important; }
   body.phone-reader.reading-mode:not(.library-view-active) > #topFlexZone { display: none; }
   /* The five words below the strip clear the home indicator; without them (Reading mode) the strip does */
   body.phone-reader:not(.library-view-active) { --strip-inset: 0px; }
