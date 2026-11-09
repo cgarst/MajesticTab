@@ -8,7 +8,7 @@
 //
 // Each panel module keeps its own contents and placement; this file owns the open state and the motion.
 
-import { isTabletop } from '../foldState.js';
+import { isTabletopLayout } from '../foldState.js';
 
 const EXIT_MS = 150;
 const timers = new WeakMap();
@@ -19,7 +19,7 @@ const reduced = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').ma
  * Whether a tap outside an open panel closes it. In tabletop (iPhone Duo, crease across) the panels live in the bottom half and
  * never cover the score, so a tap on the score (turning a page, placing the cursor) must leave them open.
  */
-export function outsideTapCloses() { return !isTabletop(); }
+export function outsideTapCloses() { return !isTabletopLayout(); }
 
 /** True while the panel is on screen and not on its way out */
 export function isShown(el) {

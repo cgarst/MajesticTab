@@ -6,7 +6,7 @@
 // height and publishes the share as --dt-slack (each gap); design.css places the fretboard and the strip with it.
 // Without a fretboard (PDF, text, MIDI) there are three gaps instead of four.
 
-import { isTabletop } from '../foldState.js';
+import { isTabletopLayout } from '../foldState.js';
 
 let queued = 0;
 
@@ -17,7 +17,7 @@ function visible(el) {
 function measure() {
     queued = 0;
     const root = document.documentElement;
-    if (!isTabletop() || document.body.classList.contains('library-view-active')) {
+    if (!isTabletopLayout() || document.body.classList.contains('library-view-active')) {
         root.style.removeProperty('--dt-slack');
         return;
     }

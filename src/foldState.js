@@ -36,6 +36,10 @@ export function getFold() {
 export function isTabletop() {
     return applied.pose === 'tabletop';
 }
+// The tabletop layout (score above, controls below). Reading mode leaves it for the ordinary phone reading view.
+export function isTabletopLayout() {
+    return applied.pose === 'tabletop' && !document.body.classList.contains('reading-mode');
+}
 export function isBook() {
     return applied.pose === 'book';
 }

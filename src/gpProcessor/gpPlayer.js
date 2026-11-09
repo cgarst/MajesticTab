@@ -868,7 +868,7 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     const isFretboardOpen = document.body.classList.contains('fretboard-open') && fretboardDock && fretboardDock.style.display !== 'none';
     // iPhone Duo tabletop: the score has the top half to itself. The fretboard and the top bar are in the bottom half,
     // so neither covers any of the view, and the visible height is the score's own (#output ends at the crease).
-    const tabletop = document.documentElement.classList.contains('duo-tabletop');
+    const tabletop = document.documentElement.classList.contains('duo-tabletop') && !document.body.classList.contains('reading-mode');
     const fretboardHeight = (isFretboardOpen && !tabletop) ? (fretboardDock.offsetHeight || 165) : 0;
 
     const viewportHeight = output.clientHeight;

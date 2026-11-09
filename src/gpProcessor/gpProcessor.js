@@ -381,7 +381,7 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
             // may not have taken the score yet on the first draw, so it is tried again a little later.
             let openedAtCursor = false;
             api.postRenderFinished.on(() => {
-                if (openedAtCursor || !document.documentElement.classList.contains('duo-tabletop')) return;
+                if (openedAtCursor || !(document.documentElement.classList.contains('duo-tabletop') && !document.body.classList.contains('reading-mode'))) return;
                 for (const delay of [80, 400, 1200]) {
                     setTimeout(() => {
                         if (openedAtCursor) return;

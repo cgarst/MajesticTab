@@ -67,10 +67,10 @@ export function updateScrollIndicator(indicator, container, totalItems) {
 
 const PAGE_PADDING_DEFAULT = 20;
 // Folded Duo: the page starts at the top of the score half, with no gap above it
-const pagePad = () => (document.documentElement.classList.contains('duo-tabletop') ? 0 : PAGE_PADDING_DEFAULT);
+const pagePad = () => (document.documentElement.classList.contains('duo-tabletop') && !document.body.classList.contains('reading-mode') ? 0 : PAGE_PADDING_DEFAULT);
 
 /** The iPhone Duo folded on its crease: the score half is wide and short, so a tall page is read in bands. */
-const inTabletop = () => document.documentElement.classList.contains('duo-tabletop');
+const inTabletop = () => document.documentElement.classList.contains('duo-tabletop') && !document.body.classList.contains('reading-mode');
 
 /**
  * A y near `target` (source pixels) where the canvas has a blank row, so a band never cuts through a line of tab.

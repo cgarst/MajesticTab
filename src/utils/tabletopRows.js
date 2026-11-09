@@ -3,7 +3,7 @@
 // transport row, after the Synth | Original switch, so restart, play, the sound switch and the page buttons are one row of
 // large keys under the thumb. Unfolding puts them back. The element moves; it is not cloned, so every listener and id stays.
 
-import { isTabletop } from '../foldState.js';
+import { isTabletopLayout } from '../foldState.js';
 
 let mark = null; // where the page buttons live outside tabletop
 
@@ -25,7 +25,7 @@ function swapOut() {
 }
 
 function sync() {
-    if (isTabletop() && !document.body.classList.contains('library-view-active')) swapIn();
+    if (isTabletopLayout() && !document.body.classList.contains('library-view-active')) swapIn();
     else swapOut();
 }
 
