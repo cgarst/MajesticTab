@@ -2,16 +2,13 @@
 // The reader's transport: a bar ruler in the bottom dock. It shows how a player thinks about position (bar
 // numbers and the song's own sections), not minutes. The song's sections are the ruler's segments, each named
 // inside itself (marks from songSections.js); a file with no usable marks is one plain segment with bar numbers.
-// The dock never names the section, so the ruler's length does not change through a song. Under the numbers a coverage lane shows
-// which bars follow a synced recording. Drag to seek; the dock's loop button loops the current part.
+// The dock never names the section, so the ruler's length does not change through a song. Sync points are not drawn here: the recording bar has them.
+// Drag to seek; the dock's loop button loops the current part.
 // It never draws notation; AlphaTab owns that.
 
 import { notePlaybackBar, onTransportEvent, getPlayerContext, getMidiTickLookup, synthPlayerState, applyLoopSettings, updateSynthUI, toggleMetronome, followSeekToBar } from './gpPlayer.js';
 import { deriveSections, partAtBar, buildSegments, segmentIndexAtBar, movementNumeral, MIN_BLOCK_PX, DEFAULT_MIN_BARS } from './songSections.js';
 import { buildScoreTimeline, playedBarsFromLookup, tickToPosition, tickToScoreMs, tempoAtScoreMs } from '../audioSync/scorePositions.js';
-import { buildTimelineModel } from '../audioSync/timelineModel.js';
-import { listRecords, SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
-import { getSongKey } from '../youtubePlayer.js';
 import { getAudioSyncSession } from '../audioSync/audioSyncController.js';
 
 const MIN_BARS_KEY = 'majestictab.sectionMinBars';
@@ -46,7 +43,6 @@ export function initBarRuler() {
         <div class="loop" id="rulerLoop"></div>
         <svg id="rulerTicks" preserveAspectRatio="none" aria-hidden="true"></svg>
         <div class="ruler-labels" id="rulerLabels" aria-hidden="true"></div>
-        <div class="ruler-lane" id="rulerLane" hidden></div>
       </div>
       <div class="head" id="rulerHead"></div>
       <div class="ruler-tip" id="rulerTip" aria-hidden="true"></div>`;
@@ -100,7 +96,6 @@ export function initBarRuler() {
         drawTicks();
         drawSegments();
         drawLabels();
-        renderSyncLane();
         updateLoop();
         updateHead();
         $('barRulerInfoBtn')?.toggleAttribute('hidden', !model.marks.length);
@@ -349,52 +344,6 @@ export function initBarRuler() {
         el.style.left = `${((s - 1) / model.total) * 100}%`;
         el.style.width = `${((e - s + 1) / model.total) * 100}%`;
     }
-
-    // Sync coverage in the bottom lane: solid where bars follow the recording, dashed where they do not, a notch
-    // per point, amber for a point that looks wrong. Read from the song's newest sync record.
-    function renderSyncLane() {
-        const lane = $('rulerLane');
-        lane.innerHTML = '';
-        lane.hidden = true;
-        ruler.dataset.lane = '0';
-        if (!model) return;
-        let record = null;
-        try { record = listRecords(getSongKey() || '')[0] || null; } catch (_) { record = null; }
-        ensureTimeline();
-        if (!record || !model.timeline) return;
-        const bars = model.timeline.bars;
-        const toMaster = (f) => {
-            const i = Math.min(bars.length - 1, Math.max(0, Math.floor(f)));
-            return Math.min(1, (bars[i].barIndex + (f - i)) / model.total);
-        };
-        const view = buildTimelineModel({ timeline: model.timeline, points: record.points, axis: 'bars' });
-        const total = view.totalBars || bars.length;
-        const base = document.createElement('div');
-        base.className = 'lane-base';
-        lane.appendChild(base);
-        for (const g of view.gaps) {
-            const el = document.createElement('div');
-            el.className = 'lane-gap';
-            const x0 = toMaster(g.x0 * total);
-            const x1 = g.x1 >= 1 ? 1 : toMaster(g.x1 * total);
-            el.style.left = `${x0 * 100}%`;
-            el.style.width = `${Math.max(0, x1 - x0) * 100}%`;
-            lane.appendChild(el);
-        }
-        for (const m of view.markers) {
-            const el = document.createElement('div');
-            el.className = `lane-point${m.flag ? ' is-flagged' : ''}`;
-            el.style.left = `${toMaster(m.barFraction) * 100}%`;
-            lane.appendChild(el);
-        }
-        const flagged = view.markers.filter((m) => m.flag).length;
-        lane.title = `Recording synced: ${view.markers.length} point${view.markers.length === 1 ? '' : 's'}`
-            + (view.gaps.length ? `, ${view.gaps.length} unsynced stretch${view.gaps.length === 1 ? '' : 'es'}` : '')
-            + (flagged ? `, ${flagged} to check` : '');
-        lane.hidden = false;
-        ruler.dataset.lane = '1';
-    }
-    window.addEventListener(SYNC_CHANGED_EVENT, () => { if (model) { renderSyncLane(); } });
 
     // ---- seek -----------------------------------------------------------------------------------------------
 

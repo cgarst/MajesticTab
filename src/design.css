@@ -475,7 +475,6 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .ruler:not(.mini) .head { z-index: 2; }
 .ruler:not(.mini) .head::after { top: -5px; }
 .ruler[hidden] { display: none; }
-.ruler[data-lane="1"] { height: 54px; }
 .ruler:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
 /* A slider focused by a press (utils/pointerFocus.js) shows no ring: Space and the arrows must not draw it */
 [role="slider"][data-pointer-focus]:focus-visible { outline: none !important; }
@@ -516,12 +515,6 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .ruler .head { position: absolute; top: 0; bottom: 0; left: 0; width: 0; will-change: transform; pointer-events: none; }
 .ruler .head::before { content: ''; position: absolute; left: -1px; top: 0; bottom: 0; width: 3px; background: var(--hue); }
 .ruler .head::after { content: ''; position: absolute; left: -7px; top: -1px; width: 15px; height: 14px; background: var(--hue); clip-path: polygon(0 0, 100% 0, 50% 100%); }
-.ruler-lane { position: absolute; left: 0; right: 0; bottom: 0; height: 10px; background: var(--s1); }
-.ruler-lane[hidden] { display: none; }
-.lane-base { position: absolute; inset: 3px 0; background: color-mix(in srgb, var(--hue) 60%, var(--s2)); }
-.lane-gap { position: absolute; top: 0; bottom: 0; background: var(--s1); border: 1px dashed color-mix(in srgb, var(--ink2) 70%, transparent); }
-.lane-point { position: absolute; top: 1px; bottom: 1px; width: 2px; margin-left: -1px; background: var(--hue); }
-.lane-point.is-flagged { background: var(--warn, #e9b44c); }
 
 /* ---------- More menu and popovers share the mockup's popover look ---------- */
 .tools-menu, .view-menu, .guitar-menu, .more-menu, .score-options-panel, .synth-panel, .yt-panel, .pdf-bookmarks-panel {
@@ -2455,8 +2448,7 @@ body.phone-reader:not(.library-view-active) #mobileRewindBtn, body.phone-reader:
 body.phone-reader:not(.library-view-active) #fretboardDockBtn, body.phone-reader:not(.library-view-active) #readingDockBtn { display: inline-flex; width: 44px !important; min-width: 44px !important; height: 44px; align-items: center; justify-content: center; }
 body.phone-reader:not(.library-view-active) #fretboardDockBtn[style*="display: none"] { display: none !important; }
 body.phone-reader:not(.library-view-active) .ruler { height: 28px; }
-body.phone-reader:not(.library-view-active) .ruler[data-lane="1"] { height: 38px; }
-body.phone-reader:not(.library-view-active) .ruler svg, body.phone-reader:not(.library-view-active) .ruler-labels { height: 28px; }
+body.phone-reader:not(.library-view-active) body.phone-reader:not(.library-view-active) .ruler svg, body.phone-reader:not(.library-view-active) .ruler-labels { height: 28px; }
 body.phone-reader:not(.library-view-active) .ruler-labels em { display: none; }
 body.phone-reader:not(.library-view-active) .page-strip-track { height: 28px; }
 body.phone-reader:not(.library-view-active) .page-strip-marks { display: none; }
