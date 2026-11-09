@@ -4328,6 +4328,8 @@ body > #controllerHelpModal { display: none; }
   .ct-root > * { flex-shrink: 0; }
   .ct-cols { flex: none; display: block; }
   .ct-composers, .ct-pieces { overflow: visible; }
+  /* The search stays pinned at the top of the pane while the list scrolls (the native field follows it) */
+  .ct-search { position: sticky; top: 0; z-index: 3; }
 }
 @media (pointer: coarse) { .ct-filter { min-height: 44px; } .ct-text { min-height: 44px; } }
 /* Browse header: one row (what it is, then Update archive) so the list starts high on a phone. The screen's title is
