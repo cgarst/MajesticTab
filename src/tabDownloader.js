@@ -1525,6 +1525,8 @@ export function showTabDownloaderBar(isDebugToolsEnabled = false) {
 
     const bar = document.getElementById('tabDownloaderBar');
     if (bar) bar.style.display = 'flex';
+    // The native tab bar and search field belong to the library; nativeTabBar.js hides them while the browser is up
+    document.body.classList.add('downloader-active');
 
     // Update target context row (Single Song Context vs Album Batch Stepper)
     const targetRow = document.getElementById('downloaderTargetRow');
@@ -1617,6 +1619,7 @@ export function hideTabDownloaderBar() {
 
     const bar = document.getElementById('tabDownloaderBar');
     if (bar) bar.style.display = 'none';
+    document.body.classList.remove('downloader-active');
 
     const topBar = document.getElementById('topBar');
     if (topBar) topBar.style.display = '';

@@ -146,7 +146,7 @@ function refreshAll() {
 // The native bar belongs to the library at every width (phones, iPads, the iPhone Duo in portrait): the system bottom
 // bar, as on a regular iPhone. Only where the system wants a vertical bar (the Duo in landscape) is it a side rail.
 function currentlyWanted() {
-    return document.body.classList.contains('library-view-active');
+    return document.body.classList.contains('library-view-active') && !document.body.classList.contains('downloader-active');
 }
 
 async function start() {
