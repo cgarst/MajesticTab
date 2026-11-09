@@ -105,7 +105,14 @@ function paneSearchY(input) {
     const box = input.closest('.library-search-box') || input;
     const rect = box.getBoundingClientRect();
     if (rect.height === 0) return 'hidden';
-    return rect.top < host.getBoundingClientRect().top - 4 ? 'hidden' : Math.round(rect.top);
+    // Pulling down at the top rubber-bands the scroller (scrollTop goes negative on iOS), which carries the page's
+    // field down with it. The field stays with the header, so take that overscroll back out.
+    let bounce = 0;
+    for (let el = input.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+        if (el.scrollTop < 0) bounce += el.scrollTop;
+    }
+    const top = rect.top + bounce;
+    return top < host.getBoundingClientRect().top - 4 ? 'hidden' : Math.round(top);
 }
 
 let lastSearchTop = 0;

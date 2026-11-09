@@ -115,8 +115,14 @@ function setVideoId(videoId, source) {
 }
 
 function reportYouTubeState(state) {
+    const wasBuffering = reportedState === 3;
     reportedState = state;
-    if (state === 3) return; // buffering: keep the previous playing / paused state
+    if (state === 3) {
+        // buffering: keep the previous playing / paused state, but tell audio sync, which holds the cursor until
+        // the clock is real again (a seek buffers)
+        emitYouTubeEvent('state', { playing: reportedPlaying, buffering: true, timeSec: currentYouTubeTime() });
+        return;
+    }
     const playing = state === 1;
     if (playing) iframePlayed = true;
     if (playing) rememberCurrentVideo();
@@ -128,6 +134,9 @@ function reportYouTubeState(state) {
     }
     if (playing !== reportedPlaying) {
         reportedPlaying = playing;
+        emitYouTubeEvent('state', { playing, timeSec: playerState.currentTime });
+    } else if (wasBuffering) {
+        // Buffering ended with no change of state: the cursor was held while it lasted, so let it go on
         emitYouTubeEvent('state', { playing, timeSec: playerState.currentTime });
     }
 }
