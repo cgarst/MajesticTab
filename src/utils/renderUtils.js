@@ -65,7 +65,9 @@ export function updateScrollIndicator(indicator, container, totalItems) {
     indicator.textContent = `${Math.round(scrollPercent)}%`;
 }
 
-const PAGE_PADDING = 20;
+const PAGE_PADDING_DEFAULT = 20;
+// Folded Duo: the page starts at the top of the score half, with no gap above it
+const pagePad = () => (document.documentElement.classList.contains('duo-tabletop') ? 0 : PAGE_PADDING_DEFAULT);
 
 /** The iPhone Duo folded on its crease: the score half is wide and short, so a tall page is read in bands. */
 const inTabletop = () => document.documentElement.classList.contains('duo-tabletop');
@@ -163,7 +165,7 @@ function pageBox() {
 export function layoutPages(condensedCanvases) {
     const pages = [];
     const { wrapperHeight, width, wrapPadH } = pageBox();
-    const pageHeight = wrapperHeight - PAGE_PADDING;
+    const pageHeight = wrapperHeight - pagePad();
     const pageWidth = width;
     const pagesPerView = getPagesPerView('pdf');
     const pageGap = 10; // Gap between canvases on the same page
@@ -277,7 +279,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
         wrapper.className = 'pageWrapper';
         wrapper.style.width = `${box.width / pagesPerView}px`;
         wrapper.style.height = `${box.wrapperHeight}px`;
-        wrapper.style.paddingTop = `${PAGE_PADDING}px`;
+        wrapper.style.paddingTop = `${pagePad()}px`;
         wrapper.style.boxSizing = 'border-box';
 
         pageSet.forEach((page, idx) => {
@@ -317,7 +319,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
         const avail = wrapper.clientWidth - (parseFloat(ws.paddingLeft) || 0) - (parseFloat(ws.paddingRight) || 0);
         const sc = avail / canvasSize(canvas).w;
         // The window shows the whole page and opens at this band, so a staff the cut ran through can be scrolled into view
-        const viewH = Math.min(canvasSize(canvas).h * sc, box.wrapperHeight - PAGE_PADDING);
+        const viewH = Math.min(canvasSize(canvas).h * sc, box.wrapperHeight - pagePad());
         win.style.cssText = `overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;box-sizing:content-box;padding:0;flex:none;width:${avail}px;height:${viewH}px;margin:0 auto`;
         canvas.style.width = `${avail}px`;
         canvas.style.marginTop = '0';

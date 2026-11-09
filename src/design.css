@@ -4546,8 +4546,11 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) {
   padding-bottom: var(--tabs-h) !important;
 }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #mainContent {
-  flex: none; height: var(--fold-top, 50dvh); min-height: 0; padding-top: env(safe-area-inset-top, 0px) !important;
+  flex: none; height: var(--fold-top, 50dvh); min-height: 0; padding-top: 0 !important;
 }
+/* The page fills the score half from its top edge to the fold line (PDF and text pages) */
+html.duo-tabletop body.phone-reader:not(.library-view-active) #output:not(.continuous-mode) { padding-top: 0 !important; padding-bottom: 0 !important; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #output:not(.continuous-mode) .pageContainer { padding-top: 0 !important; padding-bottom: 0 !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #output.continuous-mode { padding-top: calc(env(safe-area-inset-top, 0px) + 12px) !important; }
 /* the transport sits at the bottom of the controls half, over the five words */
 html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-dock { margin-top: auto; margin-bottom: var(--dt-slack, 0px); }
