@@ -46,5 +46,7 @@ function sync() {
 
 export function initTabletopRows() {
     window.addEventListener('foldchange', sync);
+    // On the device the pose arrives while the library is showing, so the reader opening is what decides too
+    new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'] });
     sync();
 }
