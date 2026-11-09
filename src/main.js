@@ -1,5 +1,6 @@
 // main.js
 import './utils/pointerFocus.js';
+import './utils/functionKeyGuard.js';
 import { processPDF } from './pdfProcessor/pdfProcessor.js';
 import { canvasSize, getActiveLazy, disposeActiveLazy } from './pdfProcessor/lazyPages.js';
 // @googleDrive:begin

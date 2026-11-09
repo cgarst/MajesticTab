@@ -1436,7 +1436,7 @@ async function renderLibraryBrowseView(container) {
                             <span>Tracklist</span>
                           </button>
                           <div class="dropdown">
-                            <button class="btn btn-sm btn-theme-outline py-1 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach tab or book to album">
+                            <button class="btn btn-sm btn-theme-outline py-1 px-2 dropdown-toggle d-flex align-items-center gap-1" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Attach tab or book to album">
                               <span>Album tab</span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
@@ -1537,7 +1537,7 @@ async function renderLibraryBrowseView(container) {
                          </span>
                        `).join('')}
                       <div class="dropdown flex-shrink-0">
-                        <button class="btn btn-sm btn-theme-outline dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Attach a whole-book PDF to this folder">Add book</button>
+                        <button class="btn btn-sm btn-theme-outline dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Attach a whole-book PDF to this folder">Add book</button>
                         <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
                           ${addTabProviderItemsHtml('import-album-tab-btn')}
                         </ul>
@@ -3372,7 +3372,7 @@ function renderSongRow(song, options = {}) {
             <i class="bi-pin-angle${isPinned ? '-fill' : ''}"></i>
           </button>
           ${hasMenu ? `<div class="dropdown">
-            <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" title="Song options" aria-label="Song options">
+            <button class="btn btn-sm btn-theme-icon text-muted dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" title="Song options" aria-label="Song options">
               <i class="bi-three-dots"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end theme-dropdown-menu">
