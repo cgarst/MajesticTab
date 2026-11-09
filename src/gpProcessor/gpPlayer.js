@@ -866,7 +866,10 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
 
     const fretboardDock = document.getElementById('fretboardDock');
     const isFretboardOpen = document.body.classList.contains('fretboard-open') && fretboardDock && fretboardDock.style.display !== 'none';
-    const fretboardHeight = isFretboardOpen ? (fretboardDock.offsetHeight || 165) : 0;
+    // iPhone Duo tabletop: the score has the top half to itself. The fretboard and the top bar are in the bottom half,
+    // so neither covers any of the view, and the visible height is the score's own (#output ends at the crease).
+    const tabletop = document.documentElement.classList.contains('duo-tabletop');
+    const fretboardHeight = (isFretboardOpen && !tabletop) ? (fretboardDock.offsetHeight || 165) : 0;
 
     const viewportHeight = output.clientHeight;
     if (viewportHeight <= 0) return;
@@ -880,7 +883,7 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     // On a phone the top bar overlays the score (the score scrolls under it), so it is part of the unusable strip too.
     // Without it a cursor could sit half hidden under the bar and never be scrolled back into view.
     const topBarEl = document.getElementById('topBar');
-    const topBarBottom = (topBarEl && getComputedStyle(topBarEl).display !== 'none') ? topBarEl.getBoundingClientRect().bottom : 0;
+    const topBarBottom = (!tabletop && topBarEl && getComputedStyle(topBarEl).display !== 'none') ? topBarEl.getBoundingClientRect().bottom : 0;
     const safeTop = Math.max(0, Math.max(safe.top, topBarBottom) - outputRect.top);
     const TOP_PADDING = 12 + safeTop;
 
@@ -946,7 +949,7 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
 
     // 3. Occlusion and read-ahead checks
     const isAboveTop = visualTop < safeTop || (hasValidCursor && cursorVisualTop < safeTop);
-    const isHidingBehindFretboard = isFretboardOpen && (Math.max(visualBottom, cursorVisualBottom) > (visibleViewportHeight - 16));
+    const isHidingBehindFretboard = isFretboardOpen && !tabletop && (Math.max(visualBottom, cursorVisualBottom) > (visibleViewportHeight - 16));
     // A seek (the ruler) brings the bar into view the way playback would, even while paused
     const isBelowThreshold = (playbackActive() || bringIntoView) && (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60)));
 
