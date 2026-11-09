@@ -316,6 +316,7 @@ body { font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica 
 .hud-pill-group.has-sliding-pill #topBar .hud-pill-group .btn.active,
 .hud-pill-group.has-sliding-pill #topBar .hud-pill-group .btn-check:checked + .btn {
   background: transparent !important;
+.hud-pill-group .btn[hidden] { display: none !important; }
 }
 .hud-pill-group .hud-sliding-pill {
   position: absolute;
@@ -2280,7 +2281,6 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 .song-row-btn span { display: flex; flex-direction: column; gap: 2px; }
 .song-row-btn small { color: var(--ink2); font-size: 12px; font-weight: 400; }
 .score-options-group .song-row-btn + * { margin-top: 10px; }
-#synthAudioSyncSection:has(#synthAudioSyncSwitch:disabled) { display: none; }
 /* Flat text rows on the 56px pitch (not stacked filled buttons); one tone step on hover */
 #scoreOptionsSaveGroup .btn { background: transparent !important; border: 0 !important; color: var(--ink) !important; justify-content: flex-start !important; padding-inline: 12px !important; border-radius: var(--r-control) !important; min-height: 56px; }
 /* Not Bootstrap's d-flex (it is !important and beat the inline display:none that hides actions that do not apply) */

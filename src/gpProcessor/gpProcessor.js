@@ -295,9 +295,9 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
             tempApi.destroy();
 
             // Step 4: re-create API with filtered tracks and SoundFont synth / backing track player
-            const initialPlayerMode = hasAudioSync
-                ? alphaTab.PlayerMode.EnabledBackingTrack
-                : alphaTab.PlayerMode.EnabledSynthesizer;
+            // Synth always means the synthesizer. A file's embedded audio is not one of the Original sources and
+            // the switch that chose it is gone, so using the backing track here left it playing under Synth.
+            const initialPlayerMode = alphaTab.PlayerMode.EnabledSynthesizer;
 
             if (getGpDensity() === 'auto') {
                 GP_STRETCH_FORCE = getEffectiveGpStretchForce('auto');

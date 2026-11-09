@@ -596,32 +596,9 @@ export function updateSynthUI() {
         }
     });
 
-    // Update Embedded Audio Sync switch and description
-    const audioSyncSection = document.getElementById('synthAudioSyncSection');
-    const audioSyncSwitch = document.getElementById('synthAudioSyncSwitch');
-    const audioSyncDesc = document.getElementById('synthAudioSyncDesc');
     const trackModeContainer = document.getElementById('synthTrackModeContainer');
     const trackModeRadios = document.querySelectorAll('input[name="synthTrackMode"]');
 
-    if (audioSyncSwitch) {
-        audioSyncSwitch.disabled = !synthPlayerState.audioSyncAvailable || !hasScore;
-        audioSyncSwitch.checked = synthPlayerState.audioSyncAvailable && synthPlayerState.audioSyncEnabled;
-    }
-    if (audioSyncSection) {
-        if (synthPlayerState.audioSyncAvailable && hasScore) {
-            audioSyncSection.classList.remove('opacity-50');
-            if (audioSyncDesc) {
-                audioSyncDesc.textContent = synthPlayerState.audioSyncEnabled
-                    ? 'Guitar Pro 8 synced audio track active'
-                    : 'SoundFont MIDI synthesizer active';
-            }
-        } else {
-            audioSyncSection.classList.add('opacity-50');
-            if (audioSyncDesc) {
-                audioSyncDesc.textContent = 'Not provided in this tab';
-            }
-        }
-    }
     if (trackModeContainer) {
         if (synthPlayerState.audioSyncAvailable && synthPlayerState.audioSyncEnabled) {
             trackModeContainer.classList.add('opacity-50');
@@ -1448,7 +1425,8 @@ function applyPlayerState(api, state) {
     if (state === 1) {
         synthPlayerState.hasPlayed = true;
         pauseYouTube();
-        setActiveAudioMode('synth');
+        // The file's embedded audio is an Original source: playing it leaves Original selected
+        setActiveAudioMode(synthPlayerState.audioSyncEnabled ? 'real' : 'synth');
         enableIOSAudioPlayback();
         // Starting playback re-anchors the view on the cursor, even if the user scrolled away while paused
         userScrollingUntil = 0;
@@ -1583,6 +1561,7 @@ export function attachAlphaTabApi(api, opts = {}) {
 
     const hasAudioSync = Boolean(currentScore?.backingTrack?.rawAudioFile);
     synthPlayerState.audioSyncAvailable = hasAudioSync;
+    window.dispatchEvent(new CustomEvent('majestictab:embedded-audio'));
     synthPlayerState.audioSyncEnabled = hasAudioSync && (
         api.settings?.player?.playerMode === alphaTab.PlayerMode.EnabledBackingTrack ||
         api.settings?.player?.playerMode === alphaTab.PlayerMode.EnabledAutomatic
@@ -1804,6 +1783,7 @@ export function detachAlphaTabApi() {
     synthPlayerState.soundFontLoaded = false;
     synthPlayerState.audioSyncAvailable = false;
     synthPlayerState.audioSyncEnabled = false;
+    window.dispatchEvent(new CustomEvent('majestictab:embedded-audio'));
     synthPlayerState.currentTime = 0;
     synthPlayerState.endTime = 0;
 
@@ -2661,11 +2641,6 @@ export function initSynthPlayer() {
 
     countInSwitch?.addEventListener('change', (e) => {
         toggleCountIn(e.target.checked);
-    });
-
-    const audioSyncSwitch = document.getElementById('synthAudioSyncSwitch');
-    audioSyncSwitch?.addEventListener('change', (e) => {
-        setAudioSyncEnabled(e.target.checked);
     });
 
     trackModeRadios.forEach(radio => {

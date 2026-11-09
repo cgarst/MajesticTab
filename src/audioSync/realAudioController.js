@@ -25,7 +25,9 @@ import {
 } from './syncStore.js';
 import { buildTimelineModel } from './timelineModel.js';
 import { playedBarsFromLookup, buildScoreTimeline } from './scorePositions.js';
-import { getMidiTickLookup, synthPlayerState, playClick } from '../gpProcessor/gpPlayer.js';
+import {
+    getMidiTickLookup, synthPlayerState, playClick, setAudioSyncEnabled, playPauseSynth, rewindSynth10Seconds
+} from '../gpProcessor/gpPlayer.js';
 import { getAudioSyncSession } from './audioSyncController.js';
 
 const SLOT_SOURCE_KEY = (songKey, slot) => `real_audio_source_${encodeURIComponent(String(songKey).toLowerCase())}_${slot}`;
@@ -42,14 +44,40 @@ const $ = (id) => document.getElementById(id);
  * Returns the preferred source for the given slot ('youtube' or 'local').
  * Defaults to 'youtube' initially for any fresh song/slot.
  */
+/** True when the open Guitar Pro file carries its own audio track (an Original source, not part of the Synth). */
+export function hasEmbeddedAudio() {
+    return Boolean(synthPlayerState.audioSyncAvailable);
+}
+
 export function getSlotSource(slot = state.slot) {
     const songKey = getSongKey();
     if (!songKey) return 'youtube';
+    const embedded = slot === 'original' && hasEmbeddedAudio();
     try {
         const val = localStorage.getItem(SLOT_SOURCE_KEY(songKey, slot));
         if (val === 'local' || val === 'youtube') return val;
+        if (val === 'embedded' && embedded) return val;
+        // Nothing chosen yet: the file's own audio is the recording unless a video or file is already attached
+        if (embedded) {
+            const key = encodeURIComponent(String(songKey).toLowerCase());
+            const attached = localStorage.getItem(`yt_track_${key}_${slot}`)
+                || localStorage.getItem(`audio_file_${key}_${slot}`)
+                || localStorage.getItem(`audio_file_last_${key}`);
+            if (!attached) return 'embedded';
+        }
     } catch { /* optional */ }
     return 'youtube';
+}
+
+/**
+ * The file's embedded audio plays through the score player (AlphaTab's backing-track mode), so it is on exactly
+ * while Original is the selected sound and its source is "In the file"; the Synth, or any other source, turns it off.
+ * `originalSelected` is passed by the caller that just changed the sound.
+ */
+export function applyEmbeddedAudioMode(originalSelected = $('ytToggleBtn')?.classList.contains('active-audio-mode')) {
+    if (!hasEmbeddedAudio()) return;
+    const wanted = Boolean(originalSelected) && getRealAudioActiveSource() === 'embedded';
+    if (wanted !== synthPlayerState.audioSyncEnabled) setAudioSyncEnabled(wanted);
 }
 
 /**
@@ -73,25 +101,26 @@ export function getRealAudioActiveSource() {
 export function updateRealAudioDockIcon() {
     const activeSource = getRealAudioActiveSource();
     const isLocal = activeSource === 'local';
+    const isEmbedded = activeSource === 'embedded';
     const slotLabel = state.slot === 'backing' ? 'backing track' : 'original song';
-    const attached = Boolean(getMediaForSlot(state.slot));
+    const attached = isEmbedded || Boolean(getMediaForSlot(state.slot));
 
     const desktopBtn = $('ytToggleBtn');
     const mobileBtn = $('mobileYtToggleBtn');
     const badgeIcon = $('realAudioBadgeIcon');
     const titleEl = $('realAudioPanelTitle');
 
-    const iconClass = isLocal ? 'bi-file-earmark-music' : 'bi-youtube';
+    const iconClass = (isLocal || isEmbedded) ? 'bi-file-earmark-music' : 'bi-youtube';
     const titleText = attached
-        ? `Original audio: ${isLocal ? 'local file' : 'YouTube'} (${slotLabel})`
+        ? `Original audio: ${isEmbedded ? 'in the file' : isLocal ? 'local file' : 'YouTube'} (${slotLabel})`
         : 'Original audio, not set up';
 
     for (const btn of [desktopBtn, mobileBtn]) {
         if (!btn) continue;
         btn.title = titleText;
         btn.setAttribute('aria-label', titleText);
-        btn.classList.toggle('btn-source-local', isLocal);
-        btn.classList.toggle('btn-source-youtube', !isLocal);
+        btn.classList.toggle('btn-source-local', isLocal || isEmbedded);
+        btn.classList.toggle('btn-source-youtube', !isLocal && !isEmbedded);
         const icon = btn.querySelector('i');
         if (icon) {
             icon.className = iconClass;
@@ -113,6 +142,10 @@ export function setRealAudioRate(rate) {
     state.rate = rate;
     setYouTubePlaybackRate(rate);
     setAudioFileRate(rate);
+    if (getRealAudioActiveSource() === 'embedded' && synthPlayerState.audioSyncEnabled) {
+        synthPlayerState.playbackSpeed = rate;
+        try { (window.gpApi || window.gpState?.canvases?.[0]?.api).playbackSpeed = rate; } catch { /* not ready */ }
+    }
 
     document.querySelectorAll('#realAudioRates [data-rate]').forEach((b) => {
         b.classList.toggle('active', Math.abs(Number(b.dataset.rate) - rate) < 0.01);
@@ -169,6 +202,7 @@ export function getActiveMedia() {
 }
 
 export function getActiveRecording() {
+    if (getRealAudioActiveSource() === 'embedded') return null; // already aligned to the score: nothing to sync
     if (!getMediaForSlot(state.slot)) return null;
     if (getRealAudioActiveSource() === 'local') {
         const local = getLocalRecording();
@@ -186,7 +220,7 @@ export function updateRecordingSlots() {
 
     updateRealAudioDockIcon();
     const emptyHint = $('realAudioEmptyHint');
-    if (emptyHint) emptyHint.hidden = Boolean(getMediaForSlot('original') || getMediaForSlot('backing'));
+    if (emptyHint) emptyHint.hidden = Boolean(getMediaForSlot('original') || getMediaForSlot('backing')) || getRealAudioActiveSource() === 'embedded';
 
     // Update the two slot rows
     ['original', 'backing'].forEach(slot => {
@@ -196,6 +230,13 @@ export function updateRecordingSlots() {
         if (!row || !srcLine || !chip) return;
 
         row.setAttribute('aria-checked', state.slot === slot ? 'true' : 'false');
+
+        if (slot === 'original' && getSlotSource(slot) === 'embedded') {
+            srcLine.textContent = 'Guitar Pro file · audio stored in the file';
+            chip.className = 'chip ok';
+            chip.textContent = 'Synced';
+            return;
+        }
 
         const media = getMediaForSlot(slot);
         if (!media) {
@@ -241,18 +282,24 @@ export function updateRecordingSlots() {
 export function updateRealAudioPanelView() {
     const activeSource = getRealAudioActiveSource();
     const isLocal = activeSource === 'local';
+    const isEmbedded = activeSource === 'embedded';
 
     const ytSection = $('realAudioYtSection');
     const localSection = $('realAudioLocalSection');
 
-    if (ytSection) ytSection.hidden = isLocal;
+    if (ytSection) ytSection.hidden = isLocal || isEmbedded;
     if (localSection) localSection.hidden = !isLocal;
 
     // Update source toggle pills
     const ytPill = $('realAudioSourceYt');
     const localPill = $('realAudioSourceLocal');
-    if (ytPill) ytPill.classList.toggle('active', !isLocal);
+    const embeddedPill = $('realAudioSourceEmbedded');
+    if (ytPill) ytPill.classList.toggle('active', !isLocal && !isEmbedded);
     if (localPill) localPill.classList.toggle('active', isLocal);
+    if (embeddedPill) {
+        embeddedPill.hidden = !(hasEmbeddedAudio() && state.slot === 'original');
+        embeddedPill.classList.toggle('active', isEmbedded);
+    }
 
     // Update track mode radio checks
     const origRadio = $('ytTrackOriginal');
@@ -295,16 +342,16 @@ export function switchRealAudioSlot(slot) {
  * Handle user switching between YouTube and Local Audio sources.
  */
 export function switchRealAudioSource(source) {
-    if (source !== 'youtube' && source !== 'local') return;
+    if (source !== 'youtube' && source !== 'local' && source !== 'embedded') return;
+    if (source === 'embedded' && !hasEmbeddedAudio()) return;
 
     // Pause whichever was currently playing before swapping
-    if (source === 'local') {
-        pauseYouTube();
-    } else {
-        pauseAudioFile();
-    }
+    pauseYouTube();
+    pauseAudioFile();
 
     setSlotSource(source, state.slot);
+    if (source === 'embedded') closeSheet(); // the file's audio has no video (closing pauses)
+    applyEmbeddedAudioMode();
     updateRealAudioPanelView();
     setRealAudioRate(state.rate);
     updateGlobalAudioControls();
@@ -313,11 +360,13 @@ export function switchRealAudioSource(source) {
 // --- Transport Delegation -----------------------------------------------------------------------------------------
 
 export function isRealAudioAvailable() {
-    return getRealAudioActiveSource() === 'local' ? isAudioFileAvailable() : isYouTubeAvailable();
+    const source = getRealAudioActiveSource();
+    if (source === 'embedded') return hasEmbeddedAudio();
+    return source === 'local' ? isAudioFileAvailable() : isYouTubeAvailable();
 }
 
 export function isRealAudioPlaying() {
-    return isYouTubePlaying() || isAudioFilePlaying();
+    return isYouTubePlaying() || isAudioFilePlaying() || Boolean(synthPlayerState.audioSyncEnabled && synthPlayerState.isPlaying);
 }
 
 let countingIn = null;
@@ -326,6 +375,8 @@ export function playPauseRealAudio() {
     // The Original panel and the video are never shown together: playing closes the panel (YouTube then opens its sheet)
     if (playerState.isOpen) toggleYouTubePanel(false);
     if (countingIn) { clearTimeout(countingIn); countingIn = null; return; }
+    // The file's own audio is played by the score player, which has its own count-in
+    if (getRealAudioActiveSource() === 'embedded') { startRealAudio(); return; }
     // With sync data and the count-in on, a bar of clicks at the recording's tempo comes before it starts
     if (synthPlayerState.countInEnabled && !isRealAudioPlaying()) {
         const plan = getAudioSyncSession()?.usable?.() ? getAudioSyncSession().countInPlan?.() : null;
@@ -345,7 +396,10 @@ export function playPauseRealAudio() {
 }
 
 function startRealAudio() {
-    if (getRealAudioActiveSource() === 'local') {
+    if (getRealAudioActiveSource() === 'embedded') {
+        applyEmbeddedAudioMode(true);
+        playPauseSynth();
+    } else if (getRealAudioActiveSource() === 'local') {
         playPauseAudioFile();
     } else {
         playPauseYouTube();
@@ -353,7 +407,9 @@ function startRealAudio() {
 }
 
 export function rewindRealAudio10Seconds() {
-    if (getRealAudioActiveSource() === 'local') {
+    if (getRealAudioActiveSource() === 'embedded') {
+        rewindSynth10Seconds();
+    } else if (getRealAudioActiveSource() === 'local') {
         rewindAudioFile10Seconds();
     } else {
         rewindYouTube10Seconds();
@@ -370,6 +426,7 @@ export function updateSongForRealAudio() {
     updateRealAudioDockIcon();
     setRealAudioRate(1);
     updateGlobalAudioControls();
+    applyEmbeddedAudioMode();
 }
 
 /**
@@ -388,6 +445,13 @@ export function initRealAudioController() {
         e.stopPropagation();
         switchRealAudioSource('local');
     });
+    $('realAudioSourceEmbedded')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        switchRealAudioSource('embedded');
+    });
+
+    // Whether the open file carries audio is known only once its player is set up (and is false again when it closes)
+    window.addEventListener('majestictab:embedded-audio', () => { updateRealAudioPanelView(); updateGlobalAudioControls(); });
 
     // The player reports a video's title and channel once it has loaded: the slot rows name the video
     onYouTubeEvent((e) => { if (e.type === 'info') updateRecordingSlots(); });

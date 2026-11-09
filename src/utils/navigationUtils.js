@@ -10,7 +10,7 @@ import { stepSetlist } from '../setlistPlayer.js';
 import { isYouTubeAvailable, rewindYouTubeToBeginning, toggleYouTubePanel, getSongKey, scheduleOriginalVideo } from '../youtubePlayer.js';
 import { songHasSyncPoints } from '../audioSync/syncStore.js';
 import {
-    isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds, getRealAudioActiveSource
+    isRealAudioAvailable, isRealAudioPlaying, playPauseRealAudio, rewindRealAudio10Seconds, getRealAudioActiveSource, applyEmbeddedAudioMode
 } from '../audioSync/realAudioController.js';
 
 // Navigation action constants
@@ -1209,6 +1209,8 @@ export function setActiveAudioMode(mode) {
     // Selecting Original shows its video (YouTube source, a video already known) without waiting for play. Deferred so a
     // song that is still being set up (the player resets itself after this call) has finished.
     if (isReal && mode !== 'audio' && getRealAudioActiveSource() === 'youtube') scheduleOriginalVideo(true);
+    // The file's embedded audio is on only while Original is selected and its source is "In the file"
+    applyEmbeddedAudioMode(isReal);
     // iOS ignores volume on media elements and the YouTube embed, so the master slider only reaches the synth there
     const slider = document.getElementById('synthVolumeSlider');
     if (slider) {

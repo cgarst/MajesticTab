@@ -252,11 +252,6 @@ function arrangeSongPanel() {
         soundRow.before(hear);
     }
 
-    // Recording and sync live with the Recording button in the dock: the embedded-audio sync switch moves into its panel
-    const audioSync = $('synthAudioSyncSection');
-    const recBody = document.querySelector('#ytDropdownPanel .yt-panel-body');
-    if (audioSync && recBody) recBody.appendChild(audioSync);
-
     // Section marks: what the ruler's labels were read from (only when the file has marks)
     const marksBtn = document.createElement('button');
     marksBtn.type = 'button';
