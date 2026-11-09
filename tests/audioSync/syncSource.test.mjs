@@ -68,6 +68,20 @@ test('song pages under /a/wsa/ resolve the latest revision, then read the point 
     assert.match(seen.at(-1), /\/436828\/5\/list$/);
 });
 
+test('with no revision given, older versions are tried when the newest has no points', async () => {
+    const seen = [];
+    const fetchText = serving({
+        'https://example.org/api/meta/9/revisions': JSON.stringify([{ revisionId: 3 }, { revisionId: 7 }, { revisionId: 5 }]),
+        'https://example.org/api/video-points/9/7/list': '[]',
+        'https://example.org/api/video-points/9/5/list': JSON.stringify([{ videoId: 'abc', points: [0, 2, 4] }]),
+    }, seen);
+    const sets = await loadFromUrl('https://example.org/a/wsa/x-tab-s9', fetchText);
+    assert.equal(sets.length, 1);
+    assert.match(seen.at(-1), /\/9\/5\/list$/);
+    const none = serving({ 'https://example.org/api/meta/9/revisions': '[{"revisionId":1}]', 'https://example.org/api/video-points/9/1/list': '[]' });
+    await assert.rejects(loadFromUrl('https://example.org/a/wsa/x-tab-s9', none), /No sync points/);
+});
+
 test('other paths are not treated as song pages', async () => {
     const seen = [];
     await loadFromUrl('https://example.org/other/some-song-s436828', serving({ 'https://example.org/other/some-song-s436828': '[]' }, seen)).catch(() => {});

@@ -91,6 +91,7 @@ export function detectSets(text) {
         const sets = format.read(body);
         if (sets) return sets;
     }
+    if (/^\s*(\[\s*\]|\{\s*\}|null)\s*$/.test(body)) throw new Error('That address has no sync points yet.');
     if (/^\s*<(!doctype|html)/i.test(body)) {
         throw new Error('That address is a web page. Use the address of the data itself: sync text, a JSON export, or JSON that lists the start time of each bar.');
     }

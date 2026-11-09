@@ -1,6 +1,11 @@
 // importers/builtinSource.js
 // Reads point lists from pages whose path starts with /a/wsa/.
 
+import { detectSets } from './detect.js';
+
+const MAX_REVISIONS = 4;
+const hasSets = (text) => { try { return detectSets(text).length > 0; } catch { return false; } };
+
 const SONG_ID = /(?:-|\/)s(\d+)(?=\/|$)/;
 
 export const builtinSource = {
@@ -11,17 +16,23 @@ export const builtinSource = {
         const u = new URL(url);
         const song = SONG_ID.exec(u.pathname)[1];
         const revisions = [...u.pathname.matchAll(/(?:\/|\.\.\.)r(\d+)/g)].map(m => m[1]);
-        let revision = revisions.length ? revisions[revisions.length - 1] : null;
-        let used = 0;
-        if (!revision) {
-            if (responses.length === used) return { fetch: [`${u.origin}/api/meta/${song}/revisions`] };
-            let list;
-            try { list = JSON.parse(responses[used]); } catch { list = null; }
-            revision = String(list?.[0]?.revisionId || '');
-            used++;
-            if (!revision) throw new Error('Could not find the latest revision of that song.');
+        const revision = revisions.length ? revisions[revisions.length - 1] : null;
+        if (revision) {
+            if (!responses.length) return { fetch: [`${u.origin}/api/video-points/${song}/${revision}/list`] };
+            return { text: responses[0] };
         }
-        if (responses.length === used) return { fetch: [`${u.origin}/api/video-points/${song}/${revision}/list`] };
-        return { text: responses[used] };
+        if (!responses.length) return { fetch: [`${u.origin}/api/meta/${song}/revisions`] };
+        let list;
+        try { list = JSON.parse(responses[0]); } catch { list = null; }
+        // Newest first, whatever the order served: the points are often only on an older version of the tab
+        const ids = (Array.isArray(list) ? list : [])
+            .map(r => String(r?.revisionId ?? '')).filter(Boolean)
+            .sort((a, b) => Number(b) - Number(a)).slice(0, MAX_REVISIONS);
+        if (!ids.length) throw new Error('Could not find the latest revision of that song.');
+        for (let k = 0; k < ids.length; k++) {
+            if (responses.length === 1 + k) return { fetch: [`${u.origin}/api/video-points/${song}/${ids[k]}/list`] };
+            if (hasSets(responses[1 + k])) return { text: responses[1 + k] };
+        }
+        throw new Error('No sync points have been added to this tab (or its recent versions) yet.');
     }
 };
