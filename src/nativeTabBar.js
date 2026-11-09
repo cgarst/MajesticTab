@@ -145,8 +145,15 @@ function refreshAll() {
 
 // The native bar belongs to the library at every width (phones, iPads, the iPhone Duo in portrait): the system bottom
 // bar, as on a regular iPhone. Only where the system wants a vertical bar (the Duo in landscape) is it a side rail.
+// A dialog floating over the library (the From URL box, the S3 and WebDAV browsers, the Drive picker): the glass bar and
+// field are native views above the page, so they would sit on top of it. Embedded Tools panes are not floating.
+const FLOATING_DIALOG = '.theme-modal-backdrop:not(.tool-embedded):not(.is-closing), .picker-dialog, .picker-dialog-bg';
+function dialogOpen() {
+    return Array.from(document.querySelectorAll(FLOATING_DIALOG)).some(el => el.style.display !== 'none' && el.getClientRects().length > 0);
+}
+
 function currentlyWanted() {
-    return document.body.classList.contains('library-view-active') && !document.body.classList.contains('downloader-active');
+    return document.body.classList.contains('library-view-active') && !document.body.classList.contains('downloader-active') && !dialogOpen();
 }
 
 async function start() {
@@ -188,6 +195,8 @@ export function initNativeTabBar() {
     initNativeTabBar.done = true;
     // The bar belongs to the library: the reader, the downloader and wide layouts (the rail) hide it
     new MutationObserver(refresh).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+    // Dialogs are added to and removed from the body itself
+    new MutationObserver(refresh).observe(document.body, { childList: true });
     // The page re-renders its search field when the destination changes, so look again (once per frame)
     let frame = 0;
     new MutationObserver(() => {
