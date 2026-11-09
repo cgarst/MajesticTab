@@ -2,7 +2,7 @@
 // Controller coordinating AlphaTab events, multi-track note aggregation, layout, and virtual fretboard rendering
 import { FretboardView } from './fretboardView.js';
 import { isTabletop } from '../foldState.js';
-import { formatTuningFromMidi } from '../utils/tuningUtils.js';
+import { formatTuningFromMidi, getCurrentHiddenTunings, tuningKeyOf } from '../utils/tuningUtils.js';
 import { getTrackedAudioContext } from '../utils/iosAudioUnlock.js';
 import { getAudioSyncSession } from '../audioSync/audioSyncController.js';
 import { TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
@@ -146,6 +146,10 @@ class FretboardController {
         });
         window.addEventListener('resize', () => {
             this.syncDockBtnSlot();
+        });
+        // A tuning hidden or shown in the Song menu changes the badge
+        document.addEventListener('tunings:hidden-changed', () => {
+            if (this.visibleTracks?.length) this.updateNeckInstrument(this.visibleTracks[0]);
         });
         // Folding into tabletop shows it; unfolding restores the choice the player had
         window.addEventListener('foldchange', () => {
@@ -435,11 +439,14 @@ class FretboardController {
 
         if (tuningBadgeEl) {
             // List every distinct tuning among visible pitched tracks, primary first
+            // A tuning this song hides (Song menu, Tuning) is left out; with all of them hidden the primary track's shows
+            const hiddenKeys = getCurrentHiddenTunings();
             const labels = [];
             for (const t of this.visibleTracks) {
                 const raw = this.getTrackTunings(t);
                 if (!raw) continue;
                 const label = formatTuningFromMidi(raw) || `${raw.length}-String`;
+                if (hiddenKeys.size && hiddenKeys.has(tuningKeyOf(label) || label)) continue;
                 if (!labels.includes(label)) labels.push(label);
             }
             const formatted = labels.length > 0 ? labels.join(' · ') : formatTuningFromMidi(this.tuning);

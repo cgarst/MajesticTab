@@ -4501,11 +4501,14 @@ body.phone-reader:not(.library-view-active):not(.page-strip-on) #navButtons #pag
    playhead color on the paper. Not on a dark sheet, where multiplying would make it vanish. */
 body:not(.sheet-mode-dark) .gp-reader-cursor svg { mix-blend-mode: multiply; }
 
-/* Portrait phone: a panel takes at most 40% of the screen height and scrolls inside, so the tab stays in view above it
-   (View had 62% and left about 50px of tab). Landscape panels are side panels and keep their own limits. */
+/* Portrait phone: a panel is tall enough to show its contents without scrolling (it was 40%, which made every sheet scroll),
+   up to 72% of the screen, and never under the top row. The tab stays in view above it. Landscape panels are side panels and
+   keep their own limits. */
 @media (orientation: portrait) {
   body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu, body.phone-reader #tracksMenu,
-  body.phone-reader #scoreOptionsDropdownPanel, body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel { max-height: 40vh !important; }
+  body.phone-reader #scoreOptionsDropdownPanel, body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel {
+    max-height: min(72vh, calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - 12px)) !important;
+  }
 }
 
 /* Phone: the View sheet's Screen row (Fullscreen, Reading mode) is not needed. The phone has no fullscreen toggle to
@@ -4528,7 +4531,7 @@ body.phone-reader #screenRow { display: none !important; }
 /* Original audio panel: the Source switch reads as a switch (its own darker track), not one filled word beside bright text,
    and in portrait the sheet keeps one height whichever source is shown, so it does not jump when you switch. */
 #ytDropdownPanel #realAudioSourcePills { background: var(--s1) !important; }
-@media (orientation: portrait) { body.phone-reader #ytDropdownPanel { height: 40vh !important; } }
+@media (orientation: portrait) { body.phone-reader #ytDropdownPanel { height: min(60vh, calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - 12px)) !important; } }
 /* Text pages are scaled to the page width, so they never scroll sideways */
 /* Text pages: a line wider than the page at the smallest legible size scrolls sideways instead of being cut off */
 .pageContainer > .pageWrapper:has(.text-line) { overflow-x: hidden; overflow-y: hidden; }

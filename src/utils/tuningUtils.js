@@ -42,6 +42,8 @@ export const KNOWN_TUNINGS = [
     { name: '6-String Bass (B E A D G C)', shortName: '6-String Bass', midi: [48, 43, 38, 33, 28, 23], strings: ['C3', 'G2', 'D2', 'A1', 'E1', 'B0'] },
 ];
 
+// Note-string tunings that have a name but are not offered for adapting a Guitar Pro tab (key is the notes, low to high)
+const NAMED_NOTE_TUNINGS = { 'EADF#BE': 'Lute tuning' };
 export const CUSTOM_TUNINGS_STORAGE_KEY = 'majestictab_custom_tuning_names';
 export const INSTRUMENT_MODE_STORAGE_KEY = 'majestictab_instrument_mode';
 
@@ -161,6 +163,73 @@ export function setCustomTuningName(tuningKey, name) {
     } catch (e) {
         console.warn('Could not save custom tuning name:', e);
     }
+}
+
+// ---- Per-song hidden tunings ------------------------------------------------------------------------------------------
+// A song can hide a tuning from labels and from Browse by tunings (a track that is not really a guitar can report a
+// strange 10-string tuning). The song keeps the detected tuning in `song.tunings`; `song.hiddenTunings` is only a
+// filter on top, so a rescan that re-detects the tuning does not bring it back into view.
+
+/** The stable key of a tuning name or note string (the same key Browse by tunings groups by), or null. */
+export function tuningKeyOf(tuning) {
+    return getTuningInfo(tuning)?.key || null;
+}
+
+export function getHiddenTuningKeys(song) {
+    return new Set((Array.isArray(song?.hiddenTunings) ? song.hiddenTunings : []).filter((k) => typeof k === 'string' && k));
+}
+
+export function isTuningHiddenForSong(song, tuning) {
+    const hidden = getHiddenTuningKeys(song);
+    if (hidden.size === 0) return false;
+    const key = tuningKeyOf(tuning);
+    return Boolean(key) && hidden.has(key);
+}
+
+/** The song's tunings (or `list`) with the ones this song hides taken out. */
+export function visibleTuningsForSong(song, list = song?.tunings) {
+    const tunings = Array.isArray(list) ? list : [];
+    if (getHiddenTuningKeys(song).size === 0) return tunings;
+    return tunings.filter((t) => !isTuningHiddenForSong(song, t));
+}
+
+/** Every distinct tuning a song holds (song and tab level), one entry per key, in the order found. */
+export function allSongTunings(song) {
+    const out = [];
+    const seen = new Set();
+    const add = (t) => {
+        if (!t || typeof t !== 'string') return;
+        const key = tuningKeyOf(t) || t;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(t);
+    };
+    for (const t of (Array.isArray(song?.tunings) ? song.tunings : [])) add(t);
+    for (const tab of (song?.tabOptions || [])) {
+        for (const t of (Array.isArray(tab.tunings) && tab.tunings.length ? tab.tunings : [tab.tuning])) add(t);
+    }
+    return out;
+}
+
+// The tuning keys the open song hides, kept here so the reader (the fretboard's tuning badge) can read them without
+// asking the library. The Song menu's Tuning row sets it whenever a song opens or the choice changes.
+let currentHiddenTunings = new Set();
+
+export function getCurrentHiddenTunings() {
+    return currentHiddenTunings;
+}
+
+export function setCurrentHiddenTunings(keys) {
+    const next = new Set(keys || []);
+    const same = next.size === currentHiddenTunings.size && [...next].every((k) => currentHiddenTunings.has(k));
+    currentHiddenTunings = next;
+    if (!same && typeof document !== 'undefined') document.dispatchEvent(new CustomEvent('tunings:hidden-changed'));
+}
+
+/** A tuning name with the name the user may have given it, or '' when this song hides it. */
+export function visibleTuningLabel(song, tuning) {
+    if (!tuning || isTuningHiddenForSong(song, tuning)) return '';
+    return getTuningInfo(tuning)?.displayName || tuning;
 }
 
 function noteToPitchClass(noteStr) {
@@ -283,7 +352,7 @@ export function getTuningInfo(tuningInput) {
         }
 
         const customName = getCustomTuningName(key);
-        const inferredName = noteArr.length === 4 ? `Bass (${notes})` : (noteArr.length > 6 ? `${noteArr.length}-String (${notes})` : notes);
+        const inferredName = NAMED_NOTE_TUNINGS[key] || (noteArr.length === 4 ? `Bass (${notes})` : (noteArr.length > 6 ? `${noteArr.length}-String (${notes})` : notes));
         return {
             key,
             notes,
@@ -906,7 +975,23 @@ export async function detectFileMetadata(fileOrData, fileName = '') {
     };
 
     if (!isGp || !fileOrData) {
-        return fallback;
+        // PDF and text tabs carry no tuning in the file. Take the best the data gives: the classical archive's flag,
+        // the tab's own header text, then the file name (see tabTuningMeta.js).
+        try {
+            let headerText = '';
+            if (ext === 'txt' && typeof fileOrData?.slice === 'function' && typeof Blob !== 'undefined' && fileOrData instanceof Blob) {
+                headerText = await fileOrData.slice(0, 6000).text();
+            }
+            const { resolveTabTuning } = await import('./tabTuningMeta.js');
+            const { tuning, source } = resolveTabTuning({ classtabFlag: fileOrData?.classtabTuning, headerText, fileName: name });
+            if (tuning) {
+                const strings = tuning.includes('8-String') ? 8 : tuning.includes('7-String') ? 7 : (getTuningInfo(tuning)?.stringCount || 6);
+                return { ...fallback, tunings: [tuning], primaryTuning: tuning, tuning, stringCount: strings, tuningSource: source };
+            }
+        } catch (e) {
+            console.warn('Could not read tuning for tab:', e);
+        }
+        return { ...fallback, tuningSource: fallback.primaryTuning ? 'filename' : null };
     }
 
     try {

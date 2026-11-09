@@ -3,7 +3,8 @@
 
 import { getAllSetlists, clearAllSetlists, importSetlists, putSetlistRecord, deleteSetlist } from './setlistStore.js';
 import { getDB, STORE_SONGS, STORE_COLLECTIONS, STORE_RECENTS, saveStoredFile, getStoredFile, getAllStoredFiles, deleteStoredFile } from './fileStore.js';
-import { detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode } from './utils/tuningUtils.js';
+import { detectFileMetadata, getTuningInfo, getTuningCategory, isTuningMatchingInstrument, getInstrumentMode, tuningKeyOf, visibleTuningsForSong } from './utils/tuningUtils.js';
+import { canReplaceTuning } from './utils/tabTuningMeta.js';
 import { getAlbumTracks, searchMusicBrainz, fetchMusicBrainz, getCoverArtUrl, isDvdOrBlurayMedium, isVinylOrTapeMedium, filterInstrumentalBonusDiscs } from './musicbrainz.js';
 
 export const DEFAULT_COLLECTION_ID = 'default';
@@ -374,7 +375,8 @@ export async function getLibraryTuningsHierarchy(collectionId = DEFAULT_COLLECTI
             : (song.tabOptions?.flatMap(t => Array.isArray(t.tunings) && t.tunings.length > 0 ? t.tunings : (t.tuning ? [t.tuning] : [])).filter(Boolean) || (song.tuning ? [song.tuning] : []));
 
         // Filter out 'Untuned / Other' or empty / null values and tunings not matching active instrument mode
-        const validTunings = tunings.filter(t => t && typeof t === 'string' && t.trim() && t !== 'Untuned / Other' && t.toLowerCase() !== 'untuned' && isTuningMatchingInstrument(t, instrumentMode));
+        // A tuning this song hides takes no part in the groups
+        const validTunings = visibleTuningsForSong(song, tunings).filter(t => t && typeof t === 'string' && t.trim() && t !== 'Untuned / Other' && t.toLowerCase() !== 'untuned' && isTuningMatchingInstrument(t, instrumentMode));
 
         for (const rawTuning of validTunings) {
             const info = getTuningInfo(rawTuning);
@@ -458,6 +460,7 @@ export async function saveSongToLibrary(songData, collectionId = DEFAULT_COLLECT
         recordingMbid: songData.recordingMbid || null,
         coverUrl: songData.coverUrl || null,
         tunings: Array.isArray(songData.tunings) ? songData.tunings : [],
+        hiddenTunings: Array.isArray(songData.hiddenTunings) ? songData.hiddenTunings : [],
         stringCount: songData.stringCount || null,
         tabOptions: Array.isArray(songData.tabOptions) ? songData.tabOptions : [],
         defaultTabId: songData.defaultTabId || null,
@@ -612,6 +615,7 @@ export async function addTabOptionToSong(songId, tabOption) {
         driveFileId: tabOption.driveFileId || null,
         tuning: tabOption.tuning || null,
         tunings: Array.isArray(tabOption.tunings) ? tabOption.tunings : (tabOption.tuning ? [tabOption.tuning] : []),
+        tuningSource: tabOption.tuningSource || null,
         stringCount,
         fileType: tabOption.fileType || 'gp',
         startPage: (tabOption.startPage !== undefined && tabOption.startPage !== null) ? parseInt(tabOption.startPage, 10) : null,
@@ -685,6 +689,7 @@ export async function updateTabOptionOnSong(songId, tabOptionId, updates = {}) {
     if (updates.relativePath !== undefined) tab.relativePath = updates.relativePath;
     if (updates.tuning !== undefined) tab.tuning = updates.tuning;
     if (updates.tunings !== undefined) tab.tunings = updates.tunings;
+    if (updates.tuningSource !== undefined) tab.tuningSource = updates.tuningSource;
     if (updates.fileType !== undefined) tab.fileType = updates.fileType;
     if (updates.providerId !== undefined) tab.providerId = updates.providerId;
     if (updates.preferredStringCount !== undefined) tab.preferredStringCount = updates.preferredStringCount;
@@ -730,9 +735,75 @@ export async function removeTabOptionFromSong(songId, tabOptionId) {
     if (song.defaultTabId === tabOptionId) {
         song.defaultTabId = song.tabOptions[0]?.id || null;
     }
-    song.tunings = Array.from(new Set(song.tabOptions.flatMap(t => Array.isArray(t.tunings) && t.tunings.length > 0 ? t.tunings : (t.tuning ? [t.tuning] : []))));
+    recomputeSongTunings(song);
     await saveSongToLibrary(song, song.collectionId);
     if (removedFileId) await deleteOrphanedStoredFiles([removedFileId]);
+}
+
+/** The song's tunings are those of its tabs, one entry each. */
+function recomputeSongTunings(song) {
+    song.tunings = Array.from(new Set((song.tabOptions || []).flatMap(t => Array.isArray(t.tunings) && t.tunings.length > 0 ? t.tunings : (t.tuning ? [t.tuning] : []))));
+}
+
+/**
+ * The player sets (or clears, with null) the tuning a PDF or text tab was written for. It is theirs from then on:
+ * no rescan or import replaces it.
+ */
+export async function setTabTuning(songId, tabId, tuning) {
+    const song = await getSongById(songId);
+    const tab = song?.tabOptions?.find(t => t.id === tabId);
+    if (!tab) return false;
+    const value = typeof tuning === 'string' && tuning.trim() ? tuning.trim() : null;
+    tab.tuning = value;
+    tab.tunings = value ? [value] : [];
+    tab.tuningSource = 'user';
+    if (value) {
+        const strings = getTuningInfo(value)?.stringCount;
+        if (strings) tab.stringCount = strings;
+    }
+    if (!song.tuning || song.defaultTabId === tab.id) song.tuning = value;
+    recomputeSongTunings(song);
+    await saveSongToLibrary(song, song.collectionId);
+    window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    return true;
+}
+
+/** Recents keep a copy of the song's tunings; they also keep its hidden ones, so a row reads the same as the song. */
+async function copyHiddenTuningsToRecents(song) {
+    try {
+        const db = await getDB();
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction(STORE_RECENTS, 'readwrite');
+            const store = tx.objectStore(STORE_RECENTS);
+            const req = store.getAll();
+            req.onsuccess = () => {
+                for (const r of req.result || []) {
+                    if (r.librarySongId === song.id) store.put({ ...r, hiddenTunings: song.hiddenTunings || [] });
+                }
+            };
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => reject(tx.error);
+        });
+    } catch (e) {
+        console.warn('[copyHiddenTuningsToRecents] failed:', e);
+    }
+}
+
+/**
+ * Hide a tuning from this song's labels and from Browse by tunings, or show it again. The tuning stays on the song;
+ * only what the library displays changes. Returns the song's hidden keys, or null when the song is missing.
+ */
+export async function setSongTuningHidden(songId, tuning, hidden) {
+    const song = await getSongById(songId);
+    const key = tuningKeyOf(tuning) || (typeof tuning === 'string' ? tuning : null);
+    if (!song || !key) return null;
+    const keys = new Set(Array.isArray(song.hiddenTunings) ? song.hiddenTunings : []);
+    if (hidden) keys.add(key); else keys.delete(key);
+    song.hiddenTunings = [...keys];
+    await saveSongToLibrary(song, song.collectionId);
+    await copyHiddenTuningsToRecents(song);
+    window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    return song.hiddenTunings;
 }
 
 // -----------------------------------------------------------------------------
@@ -867,14 +938,17 @@ export async function mapOpenFileToSong(file, songId, tabName, providerId = 'loc
     }
 
     const meta = await detectFileMetadata(file, file.name);
+    // A tuning the player set in the Song menu while the tab was not yet in the library is theirs, and wins
+    const chosen = file.tabTuning && typeof file.tabTuning === 'object' ? file.tabTuning : null;
     const tabOption = {
         id: `tab_${Date.now()}`,
         name: tabName || file.name,
         providerId,
         relativePath: relativePath || file.name,
         fileStoreId: stored.id,
-        tuning: meta.primaryTuning,
-        tunings: meta.tunings,
+        tuning: chosen ? (chosen.tuning || null) : meta.primaryTuning,
+        tunings: chosen ? (chosen.tuning ? [chosen.tuning] : []) : meta.tunings,
+        tuningSource: chosen ? 'user' : (meta.tuningSource || null),
         stringCount: meta.stringCount,
         fileType: file.name.split('.').pop().toLowerCase(),
         sourceUrl: file.sourceUrl || null,
@@ -1084,6 +1158,7 @@ export async function addRecentOpened(fileInfo) {
         tuning: fileInfo.tuning || null,
         stringCount: fileInfo.stringCount || null,
         tunings: Array.isArray(fileInfo.tunings) ? fileInfo.tunings : (fileInfo.tuning ? [fileInfo.tuning] : []),
+        hiddenTunings: Array.isArray(fileInfo.hiddenTunings) ? fileInfo.hiddenTunings : [],
         openedAt: Date.now()
     };
 
@@ -1560,19 +1635,27 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                         const stored = await getStoredFile(tab.fileStoreId);
                         if (stored && stored.file) {
                             const meta = await detectFileMetadata(stored.file, stored.file.name || tab.name);
-                            if (meta.primaryTuning && tab.tuning !== meta.primaryTuning) {
+                            // PDF and text tabs report a tuning source. A stronger source (the player's own choice, the
+                            // classical archive) is never replaced by a weaker one; Guitar Pro tabs always follow the file.
+                            const fromData = meta.tuningSource !== undefined;
+                            const tuningOpen = !fromData || Boolean(meta.primaryTuning && (!tab.tuning || canReplaceTuning(tab.tuningSource, meta.tuningSource)));
+                            if (tuningOpen && meta.primaryTuning && tab.tuning !== meta.primaryTuning) {
                                 tab.tuning = meta.primaryTuning;
                                 changed = true;
                             }
-                            if (meta.stringCount && tab.stringCount !== meta.stringCount) {
+                            if (tuningOpen && fromData && meta.tuningSource && tab.tuningSource !== meta.tuningSource) {
+                                tab.tuningSource = meta.tuningSource;
+                                changed = true;
+                            }
+                            if (meta.stringCount && tab.stringCount !== meta.stringCount && tab.tuningSource !== 'user') {
                                 tab.stringCount = meta.stringCount;
                                 changed = true;
                             }
-                            if (Array.isArray(meta.tunings) && meta.tunings.length > 0) {
+                            if (tuningOpen && Array.isArray(meta.tunings) && meta.tunings.length > 0) {
                                 tab.tunings = meta.tunings;
                                 changed = true;
                             }
-                            if (!song.tuning || tab.isDefault) {
+                            if (tuningOpen && (!song.tuning || tab.isDefault)) {
                                 if (meta.primaryTuning && song.tuning !== meta.primaryTuning) {
                                     song.tuning = meta.primaryTuning;
                                     changed = true;
@@ -1582,7 +1665,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                                 song.stringCount = meta.stringCount;
                                 changed = true;
                             }
-                            if (Array.isArray(meta.tunings) && meta.tunings.length > 0) {
+                            if (tuningOpen && Array.isArray(meta.tunings) && meta.tunings.length > 0) {
                                 if (!Array.isArray(song.tunings)) song.tunings = [];
                                 for (const t of meta.tunings) {
                                     if (t && !song.tunings.includes(t)) {
@@ -1599,6 +1682,7 @@ export async function reloadAllLibraryMetadata({ onProgress = () => {}, signal =
                     const meta = await detectFileMetadata(null, tab.name);
                     if (meta.primaryTuning && !tab.tuning) {
                         tab.tuning = meta.primaryTuning;
+                        if (meta.tuningSource) tab.tuningSource = meta.tuningSource;
                         changed = true;
                     }
                     if (meta.stringCount && !tab.stringCount) {

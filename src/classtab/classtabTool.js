@@ -62,6 +62,8 @@ export async function pieceFile(piece, composer) {
     const file = new File([bytes], piece.tab_url, { type: 'text/plain' });
     file.sourceWebsite = CLASSTAB_SOURCE;
     file.classtabTab = piece.tab_url;
+    // The archive's own flag for the piece (drop D, lute tuning, other tuning); tabTuningMeta.js turns it into a tuning
+    if (piece.tuning) file.classtabTuning = piece.tuning;
     // The reader shows the catalog's names, not the archive's file name
     if (piece.midi_urls?.length) file.synthMidiLoader = () => readArchiveEntry(piece.midi_urls[0]);
     file.songTitle = piece.title;
@@ -90,9 +92,11 @@ export async function addPieceToLibrary(piece, composer) {
         return false;
     }
     const { saveSongToLibrary, mapOpenFileToSong } = await import('../libraryStore.js');
-    const tuning = piece.tuning === 'drop D' ? ['Drop D'] : [];
+    // The archive's flag, then the tab's own header, give the tuning (an "other tuning" piece stays not set)
+    const { detectFileMetadata } = await import('../utils/tuningUtils.js');
+    const meta = await detectFileMetadata(file, file.name).catch(() => null);
     const song = await saveSongToLibrary({
-        title: piece.title, artist: composer.name, album: 'Classical tab', isCustom: true, tunings: tuning, stringCount: 6
+        title: piece.title, artist: composer.name, album: 'Classical tab', isCustom: true, tunings: meta?.tunings || [], stringCount: meta?.stringCount || 6
     });
     await mapOpenFileToSong(file, song.id, piece.title);
     await linkOriginalVideo(`${composer.name} - ${piece.title}`, piece);

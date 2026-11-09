@@ -22,7 +22,7 @@ import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { renderOpenFileView } from './openFileModal.js';
 import { renderSetlistsView, openAddToSetlistModal } from './setlistUi.js';
-import { detectFileMetadata, getTuningInfo, setCustomTuningName, isTuningMatchingInstrument } from './utils/tuningUtils.js';
+import { detectFileMetadata, getTuningInfo, setCustomTuningName, isTuningMatchingInstrument, visibleTuningsForSong, visibleTuningLabel } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
@@ -2852,7 +2852,7 @@ function setupLibraryFilter(container, context = {}) {
             <div class="search-stream-list" id="libLocalSearchResultsList">
               ${matchingSongs.slice(0, 10).map(s => {
                 const hasTabs = songHasTabs(s);
-                const tuningDisplay = s.tabOptions?.[0]?.tuning || s.tuning || '';
+                const tuningDisplay = visibleTuningLabel(s, s.tabOptions?.[0]?.tuning || s.tuning || '');
                 return `
                 <div class="search-stream-row is-navigable" data-type="local-song" data-song-id="${s.id}" tabindex="0">
                   ${hasTabs ? `
@@ -3218,7 +3218,7 @@ async function toggleSongTabsPicker(anchor, songId, mode, { forceOpen = false } 
         canEditRange: true,
         isSynced: (t) => songHasSyncPoints(t.name) || Boolean(t.syncedAudio),
         tabMeta: (t) => {
-            const tuning = (t.tuning && isTuningMatchingInstrument(t.tuning)) ? (getTuningInfo(t.tuning)?.displayName || t.tuning) : '';
+            const tuning = (t.tuning && isTuningMatchingInstrument(t.tuning)) ? visibleTuningLabel(song, t.tuning) : '';
             return [(t.startPage && t.endPage) ? formatPageRange(t.startPage, t.endPage) : '', tuning].filter(Boolean).join(' \u00b7 ');
         },
         on: {
@@ -3238,7 +3238,7 @@ function renderSongRow(song, options = {}) {
     const pdfPagesNoun = selectedArtist?.isCustom ? 'Book' : 'Album';
     const tabOptions = Array.isArray(song.tabOptions) ? song.tabOptions : [];
     const hasTabs = tabOptions.length > 0;
-    const tunings = (Array.isArray(song.tunings) ? song.tunings : []).filter(t => isTuningMatchingInstrument(t));
+    const tunings = visibleTuningsForSong(song, Array.isArray(song.tunings) ? song.tunings : []).filter(t => isTuningMatchingInstrument(t));
     const durationText = formatTrackDuration(song.length);
     const isPinned = Boolean(song.pinned);
     const defaultTabId = song.defaultTabId || (tabOptions[0]?.id || null);
@@ -3986,6 +3986,7 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
             file.album = song.album;
             file.coverUrl = song.coverUrl;
             file.tunings = song.tunings;
+            file.hiddenTunings = song.hiddenTunings || [];
             file.startPage = (tabOption.startPage !== undefined && tabOption.startPage !== null) ? parseInt(tabOption.startPage, 10) : null;
             file.endPage = (tabOption.endPage !== undefined && tabOption.endPage !== null) ? parseInt(tabOption.endPage, 10) : null;
             file.tabId = tabOption.id;
@@ -4023,6 +4024,7 @@ async function loadSongTab(song, tabOption, setlistContext = {}) {
                 album: song.album,
                 coverUrl: song.coverUrl,
                 tunings: song.tunings,
+                hiddenTunings: song.hiddenTunings || [],
                 preferredStringCount: tabOption.preferredStringCount || null
             });
             return true;
@@ -4498,7 +4500,7 @@ function renderToolsView(container) {
 
 function recentRowHtml(r) {
             const cover = getSynchronousCachedArtUrl(r.coverUrl) || r.coverUrl || getPlaceholderCoverSvg(r.songTitle || r.name);
-            const tunings = (Array.isArray(r.tunings) ? r.tunings : []).filter(t => isTuningMatchingInstrument(t));
+            const tunings = visibleTuningsForSong({ hiddenTunings: r.hiddenTunings }, Array.isArray(r.tunings) ? r.tunings : []).filter(t => isTuningMatchingInstrument(t));
             const timeAgo = formatTimeAgo(r.openedAt);
 
             const tabLabel = r.tabName || r.fileName || ((r.name && r.name !== r.songTitle) ? r.name : '');

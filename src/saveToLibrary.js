@@ -4,7 +4,7 @@
 import { getCurrentFile } from './main.js';
 import { getCollections, saveSongToLibrary, mapOpenFileToSong, DEFAULT_COLLECTION_ID } from './libraryStore.js';
 import { searchMusicBrainz, getPlaceholderCoverSvg } from './musicbrainz.js';
-import { detectFileMetadata } from './utils/tuningUtils.js';
+import { detectFileMetadata, getTuningInfo } from './utils/tuningUtils.js';
 import { showToast } from './utils/toast.js';
 
 function escapeHtml(str) {
@@ -27,6 +27,13 @@ export async function openSaveToLibraryModal(file) {
         detectFileMetadata(file, file.name).catch(() => null)
     ]);
     const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    // The tuning the tab is saved with: the one the player set in the Song menu, else what the data gives
+    const chosenTuning = file.tabTuning && typeof file.tabTuning === 'object' ? file.tabTuning : null;
+    const savedTunings = chosenTuning ? (chosenTuning.tuning ? [chosenTuning.tuning] : []) : (meta?.tunings || []);
+    const tuningSourceText = { classtab: 'from the classical archive', header: 'from the tab\'s header', filename: 'from the file name' }[meta?.tuningSource] || '';
+    const tuningLine = savedTunings.length
+        ? `${savedTunings.map((t) => getTuningInfo(t)?.displayName || t).join(', ')}${chosenTuning ? '' : (tuningSourceText ? `, ${tuningSourceText}` : '')}`
+        : '';
 
     let modal = document.getElementById('saveToLibraryModal');
     if (!modal) {
@@ -79,6 +86,7 @@ export async function openSaveToLibraryModal(file) {
               <input type="text" class="form-control form-control-sm" id="saveToLibraryAlbum" value="${escapeHtml(meta?.album || '')}" autocomplete="off">
             </div>
           </div>
+          ${tuningLine ? `<div class="small text-muted" id="saveToLibraryTuningLine">Tuning \u00b7 ${escapeHtml(tuningLine)}.${/\.(gp[345x]?)$/i.test(file.name) ? '' : ' Change it in the Song menu.'}</div>` : ''}
           ${collections.length > 1 ? `
           <div>
             <label class="form-label small text-white-50 mb-1 fw-semibold" for="saveToLibraryCollection">Collection</label>
@@ -199,7 +207,8 @@ export async function openSaveToLibraryModal(file) {
             const song = await saveSongToLibrary({
                 ...songData,
                 isCustom,
-                tunings: meta?.tunings || [],
+                tunings: savedTunings,
+                hiddenTunings: Array.isArray(file.hiddenTunings) ? file.hiddenTunings : [],
                 stringCount: meta?.stringCount || null
             }, collectionId);
             const { tabOption } = await mapOpenFileToSong(file, song.id, file.name);

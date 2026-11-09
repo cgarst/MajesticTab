@@ -55,6 +55,7 @@ import { initMetronome } from './metronome/metronome.js';
 import { initToolsMenu } from './utils/toolsMenu.js';
 import { initReaderViewMenu } from './utils/readerViewMenu.js';
 import { initGuitarMenu } from './utils/guitarMenu.js';
+import { initSongTuningMenu } from './utils/songTuningMenu.js';
 import { initPracticeMenu } from './utils/practiceMenu.js';
 import { initReaderPanels } from './utils/readerPanels.js';
 import { initBarRuler } from './gpProcessor/barRuler.js';
@@ -909,6 +910,7 @@ async function initApp() {
 
     document.getElementById('libraryToggleBtn')?.addEventListener('click', () => {
         if (isLibraryOpen() && getCurrentFile()) {
+    initSongTuningMenu();
             closeLibraryModal();
         } else {
             openLibraryModal('library');
@@ -1238,6 +1240,7 @@ export function recordFileToRecents(file) {
         addRecentOpened(buildRecentPayload(detectedTuning, null, detectedTuning ? [detectedTuning] : [])).then(recent => {
             if (recent?.librarySongId && !file.librarySongId) {
                 file.librarySongId = recent.librarySongId;
+        hiddenTunings: Array.isArray(file.hiddenTunings) ? file.hiddenTunings : [],
                 file.tabId = file.tabId || recent.tabId;
             }
         }).catch(() => {});

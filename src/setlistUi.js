@@ -10,6 +10,7 @@ import { getPlaceholderCoverSvg, hydrateCachedImages, getSynchronousCachedArtUrl
 import { playSetlist } from './setlistPlayer.js';
 import { openThemedInputModal, libraryHeaderHtml, libraryListToolbarHtml, libraryEmptyStateHtml, libraryPaneHeadHtml, bindTwoPaneFilter } from './libraryModal.js';
 import { getCurrentFile } from './main.js';
+import { visibleTuningsForSong, visibleTuningLabel, isTuningHiddenForSong } from './utils/tuningUtils.js';
 import { showToast } from './utils/toast.js';
 import { gamepadManager } from './utils/gamepadManager.js';
 
@@ -110,7 +111,7 @@ async function renderSetlistsPage(container, onBack) {
             if (sec > 10000) sec = Math.round(sec / 1000);
             totSec += sec;
         }
-        const t = s?.tunings?.[0] || s?.tuning || (s?.tabOptions?.[0]?.tuning) || 'Standard';
+        const t = visibleTuningsForSong(s, s?.tunings)[0] || (s?.tuning && !isTuningHiddenForSong(s, s.tuning) ? s.tuning : '') || (s?.tabOptions?.[0]?.tuning && !isTuningHiddenForSong(s, s.tabOptions[0].tuning) ? s.tabOptions[0].tuning : '') || 'Standard';
         if (t) tuningsList.push(t);
     });
     const tuningChanges = Math.max(0, new Set(tuningsList).size - 1);
@@ -153,7 +154,7 @@ async function renderSetlistsPage(container, onBack) {
           ${setlist.items.map((item, idx) => {
               const song = songs[idx];
               const tab = song?.tabOptions?.find(t => t.id === item.tabId);
-              const tuning = tab?.tuning || song?.tunings?.[0] || song?.tuning || '';
+              const tuning = visibleTuningLabel(song, tab?.tuning || visibleTuningsForSong(song, song?.tunings)[0] || song?.tuning || '');
               const dur = formatTrackDuration(song?.length);
               const metaLine = [song?.artist || '', tuning].filter(Boolean).join(' \u00b7 ');
               return `
