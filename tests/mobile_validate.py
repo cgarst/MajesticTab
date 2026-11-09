@@ -96,7 +96,8 @@ async def main():
             states = [start]
             for _, k in await pg.evaluate('window.__fl'):
                 if k != states[-1]: states.append(k)
-            ok = len(states) <= 2 and expect_end in states[-1]
+            # Settings draws in #fileMenu, outside the library content, so the sampler sees an empty library there
+            ok = len(states) <= 2 and (expect_end in states[-1] or (expect_end == 'settings' and states[-1] == 'lib:empty'))
             ov = await pg.evaluate(OVERFLOW)
             if ov['scrollW'] > ov['innerW'] + 1: ok = False; problems.append(f'{label}: page scrolls sideways ({ov})')
             print(('ok   ' if ok else 'FLASH'), label, '::', ' -> '.join(states))
@@ -111,7 +112,7 @@ async def main():
         await step('Settings -> Setlists', tap(nav('setlists')), 'setlists-view')
         await step('Setlists -> Library', tap(nav('library')), 'collection-root-view')
         # Tunings is a Browse by row inside Library, not a rail or tab-bar destination
-        await step('Library -> Tunings', tap('#libTuningsGroupBtn'), 'tunings-view')
+        await step('Library -> Tunings', tap('[data-lib-groupby=tunings]'), 'tunings-view')
         await step('Tunings -> Settings', tap(S), 'settings')
         await step('Settings -> Library', tap(nav('library')), 'collection-root-view')
         await step('Library -> Tools', tap(nav('tools')), 'tools-shell')
