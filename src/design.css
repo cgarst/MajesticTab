@@ -4573,7 +4573,7 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools .dock-
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools { grid-column: 2 / 4; justify-content: flex-end; align-items: center; min-width: 0; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons { display: flex !important; align-items: center; gap: 8px; margin: 0; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons #pageIndicator { display: none; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons .btn { width: 96px; min-width: 96px; height: 64px; min-height: 64px; font-size: 22px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #navButtons .btn { width: 76px; min-width: 76px; height: 64px; min-height: 64px; font-size: 22px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#mobileRewindBtn, #mobilePlayPauseBtn) { width: 64px; min-width: 64px; height: 64px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tr { gap: 8px; }
 /* Play is the one primary: the same rounded key as its neighbours, filled with the action color, not the brand pick */
@@ -4635,8 +4635,24 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) :is(.synth-panel-h
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(button, .btn, [role="tab"], [role="radio"], select) { min-height: var(--dt-target) !important; height: auto; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #practiceMenu :is(#practiceSlower, #practiceFaster, #synthLoopStartMinusBtn, #synthLoopStartPlusBtn, #synthLoopEndMinusBtn, #synthLoopEndPlusBtn) { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target) !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #tracksMenu) .form-check-input { font-size: 30px; }
-html.duo-tabletop #readingDockBtn, html.duo-tabletop #readingToggleBtn { display: none !important; }
+html.duo-tabletop #readingToggleBtn { display: none !important; }
+/* Reading mode is the open-book button at the end of the transport row, the same control as on a portrait phone */
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #readingDockBtn { display: inline-flex !important; flex: 0 0 64px; width: 64px !important; min-width: 64px !important; height: 64px !important; min-height: 64px; margin-left: 8px; padding: 0 !important; align-items: center; justify-content: center; background: var(--s2) !important; border-radius: var(--r-control) !important; font-size: 1.6rem; }
+/* Reading mode: one row, play, the progress track, the toggle */
+html.duo-tabletop body.phone-reader.reading-mode:not(.library-view-active) .mobile-playback-dock-inner { display: flex; align-items: center; gap: 8px; padding: 0 16px; }
+html.duo-tabletop body.phone-reader.reading-mode:not(.library-view-active) :is(.dock-tr, .dock-ruler, .dock-tools) { grid-column: auto; grid-row: auto; margin: 0; }
+html.duo-tabletop body.phone-reader.reading-mode:not(.library-view-active) .dock-ruler { flex: 1 1 0; min-width: 0; order: 2; }
+html.duo-tabletop body.phone-reader.reading-mode:not(.library-view-active) .dock-tr { order: 1; flex: none; }
+html.duo-tabletop body.phone-reader.reading-mode:not(.library-view-active) .dock-tools { order: 3; flex: none; }
+/* Reading mode keeps play, the progress track and this button; the tap zones turn pages */
+html.duo-tabletop body.phone-reader.reading-mode:not(.library-view-active) .dock-tools #navButtons { display: none !important; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .dock-tools #readingDockBtn[aria-pressed="true"] { background: var(--s3) !important; }
 
 /* Book (iPhone Duo folded with the crease up and down): two pages, one on each half, with the crease between them.
    foldState.js sets html.duo-book and --fold-left / --fold-w. The normal reader chrome stays (the width is a regular one). */
 html.duo-book .gp-page-container { gap: var(--fold-w, 10px); padding-inline: 0; }
+
+/* Reading mode on macOS and Windows: the top bar is gone, so a thin invisible strip along the top keeps the window draggable (double-click maximizes).
+   On Windows it sits under the caption buttons; on macOS the traffic lights are native and draw above it. */
+#readingDragStrip { display: none; }
+html:is(.tauri-macos, .tauri-windows) body.reading-mode:not(.library-view-active):not(.phone-reader) #readingDragStrip { display: block; position: fixed; top: 0; left: 0; right: 0; height: 20px; z-index: 1000; background: transparent; }

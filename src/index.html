@@ -351,6 +351,9 @@
   </div>
 </nav>
 
+<!-- Reading mode on macOS and Windows hides the top bar; this thin strip keeps a window grab area (shown only then, see design.css) -->
+<div id="readingDragStrip" data-tauri-drag-region aria-hidden="true"></div>
+
 <!-- Windows native shell: custom window controls (shown via .tauri-windows) -->
 <div id="winControls" role="group" aria-label="Window controls">
   <button type="button" class="win-ctrl-btn" id="winMinBtn" title="Minimize" aria-label="Minimize"><i class="bi-dash-lg"></i></button>

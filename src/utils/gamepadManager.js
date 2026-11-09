@@ -697,8 +697,6 @@ class GamepadManager {
 
         const phone = isPhoneReader();
         const nextHidden = forceState !== null ? forceState : !this.isHudHidden;
-        // iPhone Duo with the crease across: the bottom half is the controls, so there is nothing to hide
-        if (nextHidden && isTabletop()) return;
         this.isHudHidden = nextHidden;
         const mobileDock = document.getElementById('mobilePlaybackDock');
         document.body.classList.toggle('reading-mode', nextHidden);

@@ -67,6 +67,59 @@ export function updateScrollIndicator(indicator, container, totalItems) {
 
 const PAGE_PADDING = 20;
 
+/** The iPhone Duo folded on its crease: the score half is wide and short, so a tall page is read in bands. */
+const inTabletop = () => document.documentElement.classList.contains('duo-tabletop');
+
+/**
+ * A y near `target` (source pixels) where the canvas has a blank row, so a band never cuts through a line of tab.
+ * A canvas whose pixels are not loaded yet (lazy page) or cannot be read gets the plain target.
+ */
+function findBlankRow(canvas, target, reach) {
+    try {
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const w = canvas.width, h = canvas.height;
+        if (!ctx || !w || !h) return target;
+        const lo = Math.max(1, Math.floor(target - reach)), hi = Math.min(h - 1, Math.ceil(target + reach));
+        if (hi <= lo) return target;
+        const data = ctx.getImageData(0, lo, w, hi - lo).data;
+        const rowBlank = (r) => {
+            const o = r * w * 4;
+            for (let x = 0; x < w; x++) {
+                const i = o + x * 4;
+                if (data[i + 3] > 8 && (data[i] < 200 || data[i + 1] < 200 || data[i + 2] < 200)) return false;
+            }
+            return true;
+        };
+        // The blank run closest to the target; cut through its middle
+        let best = null;
+        let runStart = -1;
+        for (let r = 0; r <= hi - lo; r++) {
+            const blank = r < hi - lo && rowBlank(r);
+            if (blank && runStart < 0) runStart = r;
+            if (!blank && runStart >= 0) {
+                const mid = lo + (runStart + r) / 2;
+                if (best === null || Math.abs(mid - target) < Math.abs(best - target)) best = mid;
+                runStart = -1;
+            }
+        }
+        return best === null ? target : Math.round(best);
+    } catch {
+        return target;
+    }
+}
+
+/** Cut a canvas that is taller than one view (at full width) into near-equal bands, each [srcY, srcY + srcH). */
+function bandsFor(canvas, canvasH, scale, pageHeight) {
+    const n = Math.max(2, Math.ceil((canvasH * scale) / pageHeight));
+    const step = canvasH / n;
+    const cuts = [0];
+    for (let k = 1; k < n; k++) cuts.push(findBlankRow(canvas, k * step, step * 0.2));
+    cuts.push(canvasH);
+    const bands = [];
+    for (let k = 0; k < n; k++) bands.push({ srcY: cuts[k], srcH: cuts[k + 1] - cuts[k] });
+    return bands;
+}
+
 /**
  * Size of the box a page may use, measured from the real #output area (below the top bar,
  * above the dock or fretboard) and the page container's own padding, so a page never runs
@@ -76,7 +129,7 @@ function pageBox() {
     const output = document.getElementById('output');
     const outH = output?.clientHeight || (window.innerHeight - 80);
     const outW = output?.clientWidth || window.innerWidth;
-    let padV = 40, padH = 40;
+    let padV = 40, padH = 40, wrapPadH = 0;
     if (output) {
         const probe = document.createElement('div');
         probe.className = 'pageContainer';
@@ -86,9 +139,18 @@ function pageBox() {
         padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
         padH = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0);
         probe.remove();
+        // The page wrapper pads its own sides too: a page at the full width must fit inside that
+        const wprobe = document.createElement('div');
+        wprobe.className = 'pageWrapper';
+        wprobe.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;width:0;height:0;min-height:0';
+        output.appendChild(wprobe);
+        const ws = getComputedStyle(wprobe);
+        wrapPadH = (parseFloat(ws.paddingLeft) || 0) + (parseFloat(ws.paddingRight) || 0)
+            + (parseFloat(ws.borderLeftWidth) || 0) + (parseFloat(ws.borderRightWidth) || 0);
+        wprobe.remove();
     }
     // 2px for the wrapper border
-    return { wrapperHeight: Math.max(100, Math.floor(outH - padV - 2)), width: Math.max(100, outW - padH) };
+    return { wrapperHeight: Math.max(100, Math.floor(outH - padV - 2)), width: Math.max(100, outW - padH), wrapPadH };
 }
 
 /**
@@ -100,11 +162,12 @@ function pageBox() {
  */
 export function layoutPages(condensedCanvases) {
     const pages = [];
-    const { wrapperHeight, width } = pageBox();
+    const { wrapperHeight, width, wrapPadH } = pageBox();
     const pageHeight = wrapperHeight - PAGE_PADDING;
     const pageWidth = width;
     const pagesPerView = getPagesPerView('pdf');
     const pageGap = 10; // Gap between canvases on the same page
+    const tabletop = inTabletop();
 
     // Don't try to layout if we don't have any canvases
     if (condensedCanvases.length === 0) {
@@ -122,6 +185,15 @@ export function layoutPages(condensedCanvases) {
         // Initial scale based on width
         let scale = pageWidth / canvasW / pagesPerView;
         let scaledHeight = canvasH * scale;
+
+        // Folded Duo: keep the width-fit size and read the page in bands (a page turn moves one band)
+        if (tabletop && scaledHeight > pageHeight * 1.05) {
+            scale = (pageWidth - wrapPadH) / canvasW;
+            scaledHeight = canvasH * scale;
+            if (currentPage.length > 0) { pages.push(currentPage); currentPage = []; usedHeight = 0; }
+            for (const band of bandsFor(canvas, canvasH, scale, pageHeight)) pages.push([{ canvas, scale, ...band }]);
+            continue;
+        }
 
         // If this canvas is taller than the page, scale it to fit
         if (scaledHeight > pageHeight) {
@@ -196,6 +268,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
     const pagesPerView = getPagesPerView('pdf');
     const box = pageBox();
     
+    const bandJobs = [];
     for (let i = 0; i < pagesPerView; i++) {
         const pageSet = pages[startIndex + i];
         if (!pageSet) break;
@@ -211,10 +284,21 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
             const canvas = page.canvas;
             canvas.style.width = `${canvasSize(canvas).w * page.scale}px`;
             canvas.style.height = 'auto';
-            if (idx > 0) {
-                canvas.style.marginTop = '10px'; // Add gap between canvases
+            canvas.style.marginTop = idx > 0 ? '10px' : ''; // Add gap between canvases
+            if (page.srcH) {
+                // One band of a tall page: a window onto the canvas, sized below once the wrapper is in the page
+                const win = document.createElement('div');
+                win.className = 'pageBand';
+                canvas.style.maxWidth = 'none';
+                canvas.style.display = 'block';
+                win.appendChild(canvas);
+                bandJobs.push({ win, canvas, wrapper, page });
+                wrapper.appendChild(win);
+            } else {
+                canvas.style.display = '';
+                canvas.style.maxWidth = '';
+                wrapper.appendChild(canvas);
             }
-            wrapper.appendChild(canvas);
         });
 
         const pageNumber = document.createElement('div');
@@ -227,7 +311,16 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
 
     outerContainer.appendChild(container);
     output.appendChild(outerContainer);
-    
+
+    for (const { win, canvas, wrapper, page } of bandJobs) {
+        const ws = getComputedStyle(wrapper);
+        const avail = wrapper.clientWidth - (parseFloat(ws.paddingLeft) || 0) - (parseFloat(ws.paddingRight) || 0);
+        const sc = avail / canvasSize(canvas).w;
+        win.style.cssText = `overflow:hidden;box-sizing:content-box;padding:0;flex:none;width:${avail}px;height:${page.srcH * sc}px;margin:0 auto`;
+        canvas.style.width = `${avail}px`;
+        canvas.style.marginTop = `${-page.srcY * sc}px`;
+    }
+
     if (onPageRendered) {
         onPageRendered();
     }

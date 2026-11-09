@@ -399,15 +399,8 @@ function initPhoneChrome() {
     placeTabs();
     mq.addEventListener?.('change', () => { syncPhoneClass(); placeTabs(); });
     portraitMq.addEventListener?.('change', placeTabs);
-    // An iPhone Duo folded with the crease across uses the same chrome. Reading mode does not exist there (the bottom half
-    // is the controls), so a fold that arrives while it is on turns it off without touching what a phone remembers.
+    // An iPhone Duo folded with the crease across uses the same chrome, Reading mode included
     window.addEventListener('foldchange', () => {
-        if (isTabletop() && document.body.classList.contains('reading-mode')) {
-            let remembered = null;
-            try { remembered = localStorage.getItem(READING_MODE_KEY); } catch { /* storage blocked */ }
-            gamepadManager.toggleTopBar(false, { silent: true });
-            try { if (remembered !== null) localStorage.setItem(READING_MODE_KEY, remembered); } catch { /* storage blocked */ }
-        }
         syncPhoneClass();
         placeTabs();
     });
