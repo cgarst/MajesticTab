@@ -1380,8 +1380,8 @@ body.fretboard-open {
   width: 18px !important;
   height: 18px !important;
   margin: 0 !important;
-  border: 1px solid var(--border-subtle) !important;
-  background-color: var(--s2) !important;
+  border: 0 !important;
+  background-color: var(--s3) !important;
   cursor: pointer;
   flex: none;
 }
@@ -1396,7 +1396,6 @@ body.fretboard-open {
 #manageSyncedSelectAll:checked,
 #manageSyncedSelectAll:indeterminate {
   background-color: var(--action) !important;
-  border-color: var(--action) !important;
 }
 #ytSyncedOriginInfo {
   font-size: 12px;
@@ -4573,6 +4572,11 @@ body.native-search .library-search-box { display: none !important; }
 /* ...and it floats at the top of the window, so the page starts below it */
 body.native-search.library-view-active .library-page-body { padding-top: 0 !important; }
 body.native-search .library-page-container { padding-top: calc(var(--native-search-top, 0px) - 4px) !important; }
+/* Inside a Tools pane (Open file, Classical tab) it is laid over the page's own field, which keeps its space but is not drawn */
+body.native-search .tool-pane-host .library-page-container { padding-top: 12px !important; }
+body.native-search .tool-pane-host .library-search-box { display: flex !important; visibility: hidden; }
+body.native-search .tool-pane-host .library-search-box * { visibility: hidden; }
+body.native-search .classtab-tool-embedded .ct-search { visibility: hidden; }
 
 /* iPhone Duo and other devices whose system keeps its status in a vertical strip at the screen edge (see nativeTabBar.js):
    the reader's top bar stays clear of it, as the library's rail does */
