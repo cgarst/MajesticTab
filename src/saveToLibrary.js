@@ -26,7 +26,9 @@ export async function openSaveToLibraryModal(file) {
         getCollections(),
         detectFileMetadata(file, file.name).catch(() => null)
     ]);
-    const baseName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+    const isClassical = Boolean(file.classtabTab);
+    // A classical piece's file name is the archive's lowercase path; its title keeps the catalog's case
+    const baseName = isClassical && file.songTitle ? file.songTitle : file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
     // The tuning the tab is saved with: the one the player set in the Song menu, else what the data gives
     const chosenTuning = file.tabTuning && typeof file.tabTuning === 'object' ? file.tabTuning : null;
     const savedTunings = chosenTuning ? (chosenTuning.tuning ? [chosenTuning.tuning] : []) : (meta?.tunings || []);
@@ -62,9 +64,9 @@ export async function openSaveToLibraryModal(file) {
       <form id="saveToLibraryForm">
         <div class="theme-modal-body p-3 d-flex flex-column gap-3">
           <div class="hud-pill-group w-100" role="group" aria-label="Save as">
-            <input type="radio" class="btn-check" name="saveToLibraryKind" id="saveToLibraryKindSong" value="song" autocomplete="off" checked>
+            <input type="radio" class="btn-check" name="saveToLibraryKind" id="saveToLibraryKindSong" value="song" autocomplete="off"${isClassical ? '' : ' checked'}>
             <label class="btn btn-sm" for="saveToLibraryKindSong" style="flex: 1;"><i class="bi-music-note me-1"></i>Song</label>
-            <input type="radio" class="btn-check" name="saveToLibraryKind" id="saveToLibraryKindCustom" value="custom" autocomplete="off">
+            <input type="radio" class="btn-check" name="saveToLibraryKind" id="saveToLibraryKindCustom" value="custom" autocomplete="off"${isClassical ? ' checked' : ''}>
             <label class="btn btn-sm" for="saveToLibraryKindCustom" style="flex: 1;"><i class="bi-journal-text me-1"></i>Custom Song</label>
           </div>
           <div id="saveToLibrarySongFields" class="d-flex flex-column gap-2">
@@ -79,7 +81,7 @@ export async function openSaveToLibraryModal(file) {
             </div>
             <div>
               <label class="form-label small text-white-50 mb-1 fw-semibold" for="saveToLibraryArtist">Artist</label>
-              <input type="text" class="form-control form-control-sm" id="saveToLibraryArtist" value="${escapeHtml(meta?.artist || '')}" placeholder="Custom Music" autocomplete="off">
+              <input type="text" class="form-control form-control-sm" id="saveToLibraryArtist" value="${escapeHtml(isClassical ? '' : (meta?.artist || ''))}" placeholder="Custom Music" autocomplete="off">
             </div>
             <div>
               <label class="form-label small text-white-50 mb-1 fw-semibold" for="saveToLibraryAlbum">Folder (Optional)</label>
@@ -211,7 +213,7 @@ export async function openSaveToLibraryModal(file) {
                 hiddenTunings: Array.isArray(file.hiddenTunings) ? file.hiddenTunings : [],
                 stringCount: meta?.stringCount || null
             }, collectionId);
-            const { tabOption } = await mapOpenFileToSong(file, song.id, file.name);
+            const { tabOption } = await mapOpenFileToSong(file, song.id, isClassical && file.songTitle ? file.songTitle : file.name);
             file.librarySongId = song.id;
             file.tabId = tabOption.id;
             closeModal();
