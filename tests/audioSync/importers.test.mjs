@@ -85,6 +85,13 @@ test('only the lists that fit the score are offered', () => {
     assert.throws(() => setsFittingScore([sets[0]], playedBars([0, 1, 2])), /lists of 2 bars.*plays 3/);
 });
 
+test('a list longer than the score is refused with the counts, not a crash', () => {
+    const times = Array.from({ length: 8 }, (_, i) => i * 1000);
+    const bars = playedBars([0, 1, 2, 3]);
+    assert.throws(() => placeBarTimes(times, bars), /8 bars.*plays 4/);
+    assert.throws(() => setsFittingScore([{ label: 'a', barTimesMs: times }], bars), /lists of 8 bars.*plays 4/);
+});
+
 test('a list with one repeated time is still bar times', () => {
     const times = Array.from({ length: 40 }, (_, i) => i * 2 + 1);
     times[21] = times[20];

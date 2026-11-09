@@ -32,7 +32,8 @@ const MAX_PREFIX_ERROR = 0.12;
  */
 function fitsScoreStart(barTimesMs, playedBars) {
     const n = barTimesMs.length;
-    if (n < 3 || n < playedBars.length * MIN_PREFIX_SHARE) return false;
+    // Only a shorter list can be the start of the score; a longer one has no bar for its last times
+    if (n < 3 || n >= playedBars.length || n < playedBars.length * MIN_PREFIX_SHARE) return false;
     let error = 0;
     let length = 0;
     for (let i = 0; i < n - 1; i++) {
