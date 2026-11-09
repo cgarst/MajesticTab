@@ -4387,6 +4387,9 @@ body > #controllerHelpModal { display: none; }
 .tools-shell .tool-pane:has(.classtab-tool-embedded) { overflow: hidden; padding-bottom: 12px; }
 .tools-shell .tool-pane:has(.classtab-tool-embedded) .tool-pane-host { flex: 1 1 0; min-height: 0; }
 .tools-shell .tool-pane-host > .classtab-tool-embedded { flex: 1 1 0; min-height: 0; height: auto; }
+/* The tool scrolls its own list, so the library page behind it must not scroll: the shell is a few px taller than the page
+   (and much taller under the native bar), and a scroll chained out of the list on iOS would slide the whole header up */
+.library-page-body:has(.classtab-tool-embedded) { overflow: hidden; overflow: clip; overscroll-behavior: none; }
 
 /* The line between composers and pieces, as between artists and songs in the library */
 @media (min-width: 900px) {
