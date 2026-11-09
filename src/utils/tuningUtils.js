@@ -261,6 +261,53 @@ function arePitchClassesEqual(arr1, arr2) {
     return true;
 }
 
+// Note names in a search query as pitch classes, or [] when the text is not only notes ("DADGAD", "D A D G A D", "Bb Eb").
+// A compact "b" is ambiguous (flat or the note B), so every reading is returned.
+function queryNoteReadings(text) {
+    const q = text.replace(/♯/g, '#').replace(/♭/g, 'b').replace(/[\s,-]+/g, ' ').trim();
+    if (!q || /[^a-gA-G#b ]/.test(q)) return [];
+    const readings = [];
+    const walk = (words, wi, acc) => {
+        if (wi === words.length) { readings.push(acc); return; }
+        const word = words[wi];
+        const eat = (i, cur) => {
+            if (i === word.length) { walk(words, wi + 1, cur); return; }
+            const ch = word[i];
+            const pc = /[A-Ga-g]/.test(ch) ? noteToPitchClass(ch.toUpperCase()) : null;
+            if (pc === null) return;
+            eat(i + 1, [...cur, pc]);
+            const nx = word[i + 1];
+            if (nx === '#' || nx === 'b') {
+                const pc2 = noteToPitchClass(ch.toUpperCase() + nx);
+                if (pc2 !== null) eat(i + 2, [...cur, pc2]);
+            }
+        };
+        eat(0, acc);
+    };
+    walk(q.split(' '), 0, []);
+    return readings;
+}
+
+/**
+ * Whether a tuning group ({ name, defaultName, notes, key }) answers a search query: by name ("Drop D", "open g"),
+ * or by notes with or without spaces ("D A D G A D", "DADGAD", "C# F# B E G# C#"), enharmonics included.
+ * A note query needs three notes and matches a run of the tuning's strings, so "DADG" finds Drop D too.
+ */
+export function tuningMatchesQuery(group, query) {
+    const q = String(query || '').trim().toLowerCase();
+    if (!group || !q) return false;
+    if ([group.name, group.defaultName].some(n => n && String(n).toLowerCase().includes(q))) return true;
+    const tuningPcs = String(group.notes || group.key || '').match(/[A-G](?:#|b)?/g)?.map(noteToPitchClass);
+    if (!tuningPcs || tuningPcs.some(p => p === null)) return false;
+    return queryNoteReadings(String(query).trim()).some(r => {
+        if (r.length < 3 || r.length > tuningPcs.length) return false;
+        for (let i = 0; i + r.length <= tuningPcs.length; i++) {
+            if (r.every((p, j) => p === tuningPcs[i + j])) return true;
+        }
+        return false;
+    });
+}
+
 /**
  * Returns structured tuning metadata: canonical key (e.g. EADGBE), notes (e.g. E A D G B E),
  * default name, display name (with user override), and string count.

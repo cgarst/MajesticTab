@@ -22,7 +22,7 @@ import { loadFile, getCurrentFile } from './main.js';
 import { openFromProvider, getFileProviders } from './fileProviders.js';
 import { renderOpenFileView } from './openFileModal.js';
 import { renderSetlistsView, openAddToSetlistModal } from './setlistUi.js';
-import { detectFileMetadata, getTuningInfo, setCustomTuningName, isTuningMatchingInstrument, visibleTuningsForSong, visibleTuningLabel } from './utils/tuningUtils.js';
+import { detectFileMetadata, getTuningInfo, tuningMatchesQuery, setCustomTuningName, isTuningMatchingInstrument, visibleTuningsForSong, visibleTuningLabel } from './utils/tuningUtils.js';
 import { updateGlobalAudioControls } from './utils/navigationUtils.js';
 import { isSupportedTabFile, canAcceptTabDrop } from './utils/fileHandlingUtils.js';
 import { showToast } from './utils/toast.js';
@@ -2880,6 +2880,8 @@ function setupLibraryFilter(container, context = {}) {
           `}
         </div>
 
+        <div class="search-stream-section" id="libTuningSearch" hidden></div>
+
         <div class="search-stream-section" id="libClasstabSearch" hidden></div>
 
         <div class="search-catalog-status-slot" id="libSearchCatalogStatus">
@@ -2891,6 +2893,16 @@ function setupLibraryFilter(container, context = {}) {
 
         filterResults.innerHTML = html;
 
+        renderTuningSearchSection(filterResults.querySelector('#libTuningSearch'), rawQuery, (key) => {
+            pushLibraryNavigationState();
+            libraryBrowseMode = 'tunings';
+            selectedTuning = key;
+            tuningsArtistFilter = '';
+            activeLibraryPane = 'songs';
+            libraryFilterQuery = '';
+            updateUrl('tunings', null, false);
+            renderLibraryBrowseView(container);
+        });
         renderClasstabSearchSection(filterResults.querySelector('#libClasstabSearch'), rawQuery);
 
         // Wire song row play actions
@@ -2982,6 +2994,35 @@ function setupLibraryFilter(container, context = {}) {
         filterInput.value = libraryFilterQuery;
         runLocalFilter();
     }
+}
+
+// Tuning results in the library search: tunings in the library by name or notes ("Drop D", "DADGAD", "D A D G A D"); a row opens it in Tunings
+async function renderTuningSearchSection(slot, rawQuery, openTuning) {
+    if (!slot) return;
+    let groups;
+    try {
+        groups = (await getLibraryTuningsHierarchy(activeCollectionId)).tunings || [];
+    } catch { return; }
+    if (!slot.isConnected) return;
+    if (isHideNoTabSongsEnabled()) groups = groups.map(g => ({ ...g, songs: (g.songs || []).filter(songHasTabs) })).filter(g => g.songs.length > 0);
+    const hits = groups.filter(g => tuningMatchesQuery(g, rawQuery)).slice(0, 8);
+    if (!hits.length) return;
+    slot.innerHTML = `
+      <div class="search-stream-section-title"><span>Tunings</span><span class="search-stream-count">· ${hits.length}</span></div>
+      <div class="search-stream-list">
+        ${hits.map((g, i) => `<div class="search-stream-row is-navigable" data-tuning-hit="${i}" tabindex="0">
+          <div class="search-row-meta min-w-0 flex-grow-1"><div class="search-row-title text-truncate">${escapeHtml(g.name || g.notes)}</div>
+          <div class="search-row-sub text-truncate">${escapeHtml(g.notes || '')} · ${formatCount(g.songs.length, 'song')}</div></div>
+          <button type="button" class="btn btn-sm lib-ghost-action flex-shrink-0 ms-2" data-tuning-hit="${i}">Open</button></div>`).join('')}
+      </div>`;
+    slot.hidden = false;
+    slot.addEventListener('click', (e) => {
+        const el = e.target.closest('[data-tuning-hit]');
+        if (el) openTuning(hits[Number(el.dataset.tuningHit)].key);
+    });
+    slot.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.matches('.search-stream-row')) e.target.click();
+    });
 }
 
 // Classical tab results in the library search: pieces and composers from the installed archive (nothing when there is none)
