@@ -4537,7 +4537,7 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) {
   --dt-controls-top: calc(var(--fold-top, 50dvh) + var(--fold-h, 0px));
   --dt-target: 56px;                                  /* every press target in this pose */
   --dt-gap: 10px;                                     /* air between the rows of the controls half */
-  --tabs-h: calc(48px + env(safe-area-inset-bottom, 0px) * 0.6);   /* the words hug the bottom, so the bar is shorter than the full inset */
+  --tabs-h: calc(2 * (max(14px, env(safe-area-inset-bottom, 0px) * 0.47) + 9px));   /* the label sits 14px or more above the edge (clear of the home indicator) and is centered in its button, so the button is twice that to the label's center */
   --reader-bottom-nav-h: var(--tabs-h);
   padding-bottom: var(--tabs-h) !important;
 }
@@ -4586,7 +4586,7 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) :is(#mobileRewindB
 html.duo-tabletop body.phone-reader:not(.library-view-active) > #topFlexZone .btn { border-radius: 0 0 var(--r-control) var(--r-control) !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) > #topFlexZone .btn:is([aria-expanded="true"], .active) { background: var(--s2) !important; }
 /* the labels hug the bottom edge, clear of the home indicator */
-html.duo-tabletop body.phone-reader:not(.library-view-active) > #topFlexZone .btn { align-items: flex-end; padding-bottom: max(14px, calc(env(safe-area-inset-bottom, 0px) * 0.47)) !important; font-size: 16px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) > #topFlexZone .btn { align-items: center; padding-bottom: 4px !important; font-size: 16px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) #topFlexZone .btn { min-height: var(--tabs-h); font-size: 16px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock { bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; }
 /* One tone from the crease down: the song row, the strip and the five words are all --s1, so where there is no fretboard (PDF,
