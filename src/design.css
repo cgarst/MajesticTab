@@ -4592,22 +4592,19 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock { 
 /* One tone from the crease down: the song row, the strip and the five words are all --s1, so where there is no fretboard (PDF,
    text, MIDI) the empty band is the same tone and reads as rest, not as a missing block */
 html.duo-tabletop body.phone-reader:not(.library-view-active) { background: var(--s1) !important; }
-/* The fretboard is always shown here (fretboardController.js) and fills the band between the song row and the strip. The
+/* The fretboard is always shown here (fretboardController.js), just above the strip. The
    score half keeps its size: the dock's height must not feed the score's own fretboard-open sizing. */
 html.duo-tabletop body.phone-reader:not(.library-view-active) { --fretboard-effective-h: 0px !important; }
 html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #output:not(.continuous-mode) { height: 100% !important; max-height: 100% !important; padding-bottom: 4px !important; }
 html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #output.continuous-mode { padding-bottom: 24px !important; }
+/* The fretboard keeps its drawn proportions: the dock is as tall as its track labels plus the board, sits just above the strip,
+   and the spare height of the controls half is left between the song row and the dock. */
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock {
-  top: calc(var(--dt-controls-top) + var(--dt-row) + var(--dt-gap)); bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; height: auto;
-  flex-direction: column; padding-bottom: 0; z-index: 1030;
+  top: auto; bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; height: auto; padding-bottom: 0; z-index: 1030;
 }
-/* the controller sets display inline, so the flex layout needs !important (and must not show a hidden dock) */
-html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock:not(.is-hidden) { display: flex !important; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock-header { flex: none; padding: 0 12px; height: 48px; min-height: 0; flex-wrap: nowrap; }
-/* The neck takes whatever height is left and scales to it (the SVG keeps its proportions), so it is never clipped or overlapped */
-html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper { flex: 1 1 0; min-height: 0; position: relative; padding: 0; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) #fretboardSvgContainer { position: absolute; inset: 0 8px 2px; height: auto; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) #fretboardSvgContainer svg { width: 100%; height: 100%; display: block; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock-header { padding: 0 12px; height: 48px; min-height: 0; flex-wrap: nowrap; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-neck-wrapper { padding: 0 8px 4px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #fretboardSvgContainer svg { width: 100%; height: auto; display: block; }
 html.duo-tabletop #fretboardDockBtn, html.duo-tabletop #fretboardCloseBtn { display: none !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock :is(button, .btn, .fb-track) { min-height: 44px; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-mode-pills { height: 44px !important; }

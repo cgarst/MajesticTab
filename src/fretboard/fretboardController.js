@@ -150,8 +150,6 @@ class FretboardController {
         // Folding into tabletop shows it; unfolding restores the choice the player had
         window.addEventListener('foldchange', () => {
             this.toggle(isLandscapePhone() ? false : portraitOpen());
-            this.view?.rerender();
-            if (this.lastBeatNotes?.length) this.view?.updateActiveNotes(this.lastBeatNotes, this.displayMode);
         });
         // Turning the phone: landscape compacts the fretboard, upright restores the portrait choice
         window.matchMedia?.(SHORT_LANDSCAPE_PHONE_QUERY).addEventListener?.('change', () => {
