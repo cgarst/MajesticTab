@@ -2996,7 +2996,7 @@ async function renderClasstabSearchSection(slot, rawQuery) {
     const nameHtml = (name) => { const p = nameParts(name); return `${escapeHtml(p.before)}${p.key ? `<b>${escapeHtml(p.key)}</b>` : ''}${escapeHtml(p.after)}`; };
     const pin = (on) => (on ? '<i class="bi-pin-angle-fill" aria-label="Pinned"></i> ' : '');
     slot.innerHTML = `
-      <div class="search-stream-section-title"><span>Classical tab</span><span class="search-stream-count">· ${res.total.toLocaleString()}</span></div>
+      <div class="search-stream-section-title"><span>Classical tab browser</span><span class="search-stream-count">· ${res.total.toLocaleString()}</span></div>
       <div class="search-stream-list">
         ${res.composers.map((c) => `<div class="search-stream-row is-navigable" data-ct-composer="${escapeHtml(c.name)}" tabindex="0">
           <div class="search-row-meta min-w-0 flex-grow-1"><div class="search-row-title text-truncate">${pin(c.pinned)}${nameHtml(c.name)}</div>
@@ -4491,7 +4491,7 @@ function renderToolsView(container) {
         { id: 'metronome', group: 'play', title: 'Metronome', readout: () => `${metronome.bpm} bpm`, watch: ['metroBpm'] }
     ];
     if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'play', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
-    tools.push({ id: 'classtab', group: 'files', title: 'Classical tab', readout: classtabReadout });
+    tools.push({ id: 'classtab', group: 'files', title: 'Classical tab browser', readout: classtabReadout });
     tools.push({ id: 'openfile', group: 'files', title: 'Open file' });
     // Applies to every sound in the app; in a song the same panel opens as a dialog from the reader's Tools menu
     tools.push({ id: 'latency', group: 'system', title: 'Audio latency', readout: () => { const ms = getAudioLatencyMs(); return ms > 0 ? `${ms} ms` : 'Off'; }, watch: ['latencyModalBadge'] });

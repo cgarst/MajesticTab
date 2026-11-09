@@ -1,5 +1,5 @@
 // classtab/classtabTool.js
-// The Classical tab page in Tools: a front end for the Classtab archive the user downloads (or supplies) once.
+// The Classical tab browser page in Tools: a front end for the Classtab archive the user downloads (or supplies) once.
 // No archive yet: a short explanation and the one primary action. With an archive: composers on the left, pieces on the
 // right (one list at a time on phones), search and filters. Opening a piece reads it out of the stored ZIP.
 
@@ -188,7 +188,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
             state.inLibrary = await libraryTabNames();
             state.message = res.first
                 ? '' // the piece count is already in the header
-                : `Classical tab updated · ${res.added} new, ${res.changed} changed`;
+                : `Classical tab browser updated · ${res.added} new, ${res.changed} changed`;
         } catch (e) {
             if (e?.code !== 'cancelled') state.error = e instanceof ClasstabError ? e.message : "Couldn't read that archive.";
         }
