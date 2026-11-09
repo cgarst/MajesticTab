@@ -2875,8 +2875,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 
 /* One status dot: a setting is on that you cannot see (the active-item inlay dot, the only color on these buttons) */
 #guitarToggleBtn.is-adapted .bar-btn-label::after, #practiceToggleBtn.has-state .bar-btn-label::after,
-#toolsToggleBtn.has-pad .bar-btn-label::after, #toolsToggleBtn.has-jam .bar-btn-label::after,
-.dock-src .rbtn.active-audio-mode.active .audio-src-label::after {
+#toolsToggleBtn.has-pad .bar-btn-label::after, #toolsToggleBtn.has-jam .bar-btn-label::after {
   content: ''; display: inline-block; width: 6px; height: 6px; margin-left: 7px; border-radius: 50%; background: var(--hue); vertical-align: middle;
 }
 .tools-status-dot { display: none !important; }
