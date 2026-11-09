@@ -4536,6 +4536,7 @@ body:not(.library-view-active):not(.dock-off) .fretboard-dock { padding-bottom: 
 html.duo-tabletop body.phone-reader:not(.library-view-active) {
   --dt-controls-top: calc(var(--fold-top, 50dvh) + var(--fold-h, 0px));
   --dt-target: 56px;                                  /* every press target in this pose */
+  --dt-row: 48px;                                     /* the song row: shorter than the keys, so the title sits close under the hinge */
   --dt-gap: 10px;                                     /* air between the rows of the controls half */
   --tabs-h: calc(2 * (max(14px, env(safe-area-inset-bottom, 0px) * 0.47) + 9px));   /* the label sits 14px or more above the edge (clear of the home indicator) and is centered in its button, so the button is twice that to the label's center */
   --reader-bottom-nav-h: var(--tabs-h);
@@ -4551,14 +4552,13 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) .mobile-playback-d
 /* The top bar (back, song name, page buttons) moves down into the controls half: one row at its top, under the crease.
    It stays in view; a sheet opens below it, down to the transport. */
 html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar {
-  top: calc(var(--dt-controls-top) + var(--dt-gap)); bottom: auto; z-index: 1040;
+  top: var(--dt-controls-top); bottom: auto; z-index: 1040;
   flex-wrap: nowrap; padding: 0 max(env(safe-area-inset-right, 0px), 8px) 0 max(env(safe-area-inset-left, 0px), 8px) !important;
-  background: var(--s1) !important; min-height: var(--dt-target);
+  background: var(--s1) !important; min-height: var(--dt-row); height: var(--dt-row);
 }
-html.duo-tabletop body.phone-reader:not(.library-view-active) #brandSection { min-height: var(--dt-target); gap: 4px; }
-html.duo-tabletop body.phone-reader:not(.library-view-active) #topBarBackToLibraryBtn,
-html.duo-tabletop body.phone-reader:not(.library-view-active) #topBar #navButtons .btn { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target); min-height: var(--dt-target); }
-html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn { min-height: var(--dt-target); height: var(--dt-target); }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #brandSection { min-height: var(--dt-row); gap: 4px; }
+html.duo-tabletop body.phone-reader:not(.library-view-active) #topBarBackToLibraryBtn { width: var(--dt-row); min-width: var(--dt-row); height: var(--dt-row); min-height: var(--dt-row); }
+html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn { min-height: var(--dt-row); height: var(--dt-row); }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { font-size: 18px; }
 
 /* One row of large keys (tabletopRows.js moves the page buttons in): restart, play, Synth | Original, previous, next. All 64px tall. */
@@ -4598,7 +4598,7 @@ html.duo-tabletop body.phone-reader:not(.library-view-active) { --fretboard-effe
 html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #output:not(.continuous-mode) { height: 100% !important; max-height: 100% !important; padding-bottom: 4px !important; }
 html.duo-tabletop body.phone-reader.fretboard-open:not(.library-view-active) #output.continuous-mode { padding-bottom: 24px !important; }
 html.duo-tabletop body.phone-reader:not(.library-view-active) .fretboard-dock {
-  top: calc(var(--dt-controls-top) + var(--dt-target) + var(--dt-gap) * 2); bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; height: auto;
+  top: calc(var(--dt-controls-top) + var(--dt-row) + var(--dt-gap)); bottom: calc(var(--dock-h, 0px) + var(--tabs-h)) !important; height: auto;
   flex-direction: column; padding-bottom: 0; z-index: 1030;
 }
 /* the controller sets display inline, so the flex layout needs !important (and must not show a hidden dock) */
