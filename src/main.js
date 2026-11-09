@@ -948,6 +948,7 @@ async function initApp() {
     initToolsMenu();
     initReaderViewMenu();
     initGuitarMenu();
+    initSongTuningMenu();
     initPracticeMenu();
     initReaderPanels();
     initBarRuler();
@@ -963,7 +964,6 @@ async function initApp() {
 
     document.getElementById('libraryToggleBtn')?.addEventListener('click', () => {
         if (isLibraryOpen() && getCurrentFile()) {
-    initSongTuningMenu();
             closeLibraryModal();
         } else {
             openLibraryModal('library');
@@ -1278,6 +1278,7 @@ export function recordFileToRecents(file) {
         tuning: primaryTuning,
         stringCount: stringCount,
         tunings: tunings || [],
+        hiddenTunings: Array.isArray(file.hiddenTunings) ? file.hiddenTunings : [],
         preferredStringCount: file.preferredStringCount || null
     });
 
@@ -1293,7 +1294,6 @@ export function recordFileToRecents(file) {
         addRecentOpened(buildRecentPayload(detectedTuning, null, detectedTuning ? [detectedTuning] : [])).then(recent => {
             if (recent?.librarySongId && !file.librarySongId) {
                 file.librarySongId = recent.librarySongId;
-        hiddenTunings: Array.isArray(file.hiddenTunings) ? file.hiddenTunings : [],
                 file.tabId = file.tabId || recent.tabId;
             }
         }).catch(() => {});
