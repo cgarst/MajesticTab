@@ -477,6 +477,8 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .ruler[hidden] { display: none; }
 .ruler[data-lane="1"] { height: 54px; }
 .ruler:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
+/* A slider focused by a press (utils/pointerFocus.js) shows no ring: Space and the arrows must not draw it */
+[role="slider"][data-pointer-focus]:focus-visible { outline: none !important; }
 /* The ruler is a row of section blocks with a 2px gap (real transparency); each block carries its own played fill */
 #barRuler { background: transparent; }
 .ruler-segs { position: absolute; inset: 0; }

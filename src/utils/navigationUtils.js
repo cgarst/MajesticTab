@@ -311,7 +311,8 @@ export function setupKeyboardNavigation(getConfig) {
             }
             // Space plays and pauses unless the user is navigating the interface (Tab, arrows, controller) or something
             // blocks the score. A synth or options panel left open does not: its buttons are not Space targets.
-            const spaceIsPlayback = isSpace && !gamepadManager.lastInputWasNavigation
+            // A progress bar is a slider, not a button: Space on it is playback too
+            const spaceIsPlayback = isSpace && (!gamepadManager.lastInputWasNavigation || activeEl?.getAttribute?.('role') === 'slider')
                 && !gamepadManager.isLibraryViewOpen() && !gamepadManager.isBlockingOverlayOpen();
             if ((e.key === 'Enter' || isSpace) && !spaceIsPlayback) {
                 if (!e.defaultPrevented) {
