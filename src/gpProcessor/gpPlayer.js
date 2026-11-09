@@ -1,5 +1,6 @@
 // gpPlayer.js
 // In-app artificial instrument (SoundFont synthesizer) player for Guitar Pro files
+import { showToast } from '../utils/toast.js';
 import { setMasterVolume } from '../utils/masterVolume.js';
 import { clearOverrides } from '../utils/sessionOverrides.js';
 import { showPanel, hidePanel, placePanel } from '../utils/readerPanels.js';
@@ -8,7 +9,7 @@ import { gpState, renderGPPage, applyGpTrackSelection } from './gpHandler.js';
 import { getPagesPerView } from '../utils/viewModeUtils.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from '../utils/navigationUtils.js';
 import { getInstrumentMode, isTrackGuitar, isTrackBass } from '../utils/tuningUtils.js';
-import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning, recoverAudioContexts } from '../utils/iosAudioUnlock.js';
+import { enableIOSAudioPlayback, pauseIOSAudioPlayback, configureAudioSession, registerAudioContext, resumeTrackedAudioContexts, areTrackedAudioContextsRunning, recoverAudioContexts, endSynthContextCapture, forgetSynthContexts, onSynthContextState, isSynthContextDead, getSynthAudioContext } from '../utils/iosAudioUnlock.js';
 import { fretboardController } from '../fretboard/fretboardController.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { deriveSections, DEFAULT_MIN_BARS } from './songSections.js';
@@ -1468,6 +1469,14 @@ document.addEventListener('visibilitychange', async () => {
         resumeAfterBackground = Boolean(synthPlayerState.isPlaying);
         return;
     }
+    // iOS may have closed the synth's AudioContext while the app was away: it can never run again, so reopen the
+    // song now (the player is ready before Play is pressed) and carry on if it was playing
+    if (currentApi && isSynthContextDead()) {
+        const resume = resumeAfterBackground;
+        resumeAfterBackground = false;
+        rebuildDeadSynth('closed while away', { resume });
+        return;
+    }
     if (!resumeAfterBackground) {
         // Idle on return: get the context running now so the next Play press is not the first to find it dead
         if (currentApi) recoverAudioContexts().catch(() => {});
@@ -1603,6 +1612,7 @@ export function attachAlphaTabApi(api, opts = {}) {
     // Player Ready Event
     api.playerReady.on(() => {
         console.log('[Synth Player] Audio player is ready');
+        endSynthContextCapture(); // the contexts opened so far are the synth's; later ones (metronome, previews) are not
         synthPlayerState.isReady = true;
         // Apply existing preferences
         api.playbackSpeed = synthPlayerState.playbackSpeed;
@@ -1763,6 +1773,7 @@ export function playerKeptOnReset() { return keepPlayerOnReset; }
 
 export function detachAlphaTabApi() {
     pauseIOSAudioPlayback();
+    forgetSynthContexts();
     cancelCountIn();
     stopClickTimer();
     fileClicks = null;
@@ -1876,6 +1887,10 @@ function playPauseSynthLocal(forcePlay = false) {
         // Jam starts must not toggle: a pause issued moments earlier may not have reached the
         // synth worker yet, and playPause() would then pause instead of play.
         const wasPlaying = synthPlayerState.isPlaying;
+        if (!wasPlaying && isSynthContextDead()) {
+            rebuildDeadSynth('closed at Play', { resume: true });
+            return;
+        }
         if (!wasPlaying && !areTrackedAudioContextsRunning()) {
             // Back from the background the context is suspended/interrupted (or closed): wait for it before
             // starting, or AlphaTab plays into a dead output and Play seems to do nothing.
@@ -1897,11 +1912,75 @@ function playPauseSynthLocal(forcePlay = false) {
     }
 }
 
+// ---- A dead synth: noticed when it happens, not when Play is pressed ----
+// iOS can close the synth's AudioContext (long in the background, memory pressure). A closed context never runs again,
+// so resuming or reloading SoundFonts into it changes nothing: the song is reopened, which builds a new player.
+let lastSynthRebuild = 0;
+let synthRebuildTimes = [];
+
+function rebuildDeadSynth(reason, { resume = false } = {}) {
+    const api = currentApi;
+    if (!api) return;
+    const now = Date.now();
+    // One attempt at a time, and not in a loop if the new context dies as well
+    synthRebuildTimes = synthRebuildTimes.filter((t) => now - t < 60000);
+    if (now - lastSynthRebuild < 3000 || synthRebuildTimes.length >= 3) return;
+    lastSynthRebuild = now;
+    synthRebuildTimes.push(now);
+    const tick = api.tickPosition;
+    const wasPlaying = resume || synthPlayerState.isPlaying;
+    console.warn(`[Synth Player] Synth audio is dead (${reason}); reopening the song`);
+    synthPlayerState.isPlaying = false;
+    window.dispatchEvent(new CustomEvent('majestictab:synth-dead', { detail: { reason } }));
+    resumeOnNewPlayer(api, tick, wasPlaying);
+}
+
+async function resumeOnNewPlayer(oldApi, tick, wasPlaying) {
+    const start = performance.now();
+    while (performance.now() - start < 20000) {
+        await new Promise((r) => setTimeout(r, 100));
+        // The SoundFont loads after the player reports ready; the muted warm-up that follows puts the position back to 0
+        if (currentApi && currentApi !== oldApi && currentApi.isReadyForPlayback && !warmingUp) break;
+    }
+    const api = currentApi;
+    if (!api || api === oldApi || !api.isReadyForPlayback) return;
+    try { api.tickPosition = tick; } catch (_) { /* the position is a nicety */ }
+    // iOS will not start a new AudioContext without a touch, so playback is not restarted on its own: the song waits
+    // where it was and one press of Play continues. (A transport that "plays" into a dead context just freezes.)
+    if (wasPlaying) showToast('Audio was reset while the app was away. Press Play to continue.', 'info', 6000, 'synth-reset');
+}
+
+// The synth's context reports 'closed' / 'interrupted' the moment it happens, even in the background
+onSynthContextState((state) => {
+    if (!currentApi) return;
+    if (state === 'closed') {
+        // Hidden: the return check above reopens it; visible: do it now. A throwaway context closing at setup is not it.
+        if (!document.hidden && isSynthContextDead()) rebuildDeadSynth('closed', { resume: synthPlayerState.isPlaying });
+    } else if (state === 'interrupted' && !document.hidden && !synthPlayerState.isPlaying) {
+        recoverAudioContexts().catch(() => {});
+    }
+});
+
+// Playback that says "playing" while the tick does not move means the synth is dead in a way no state event reported
+// (a worker that stopped, a clock that froze). Checked after every Play press.
+async function watchPlaybackStall(api) {
+    if (!synthPlayerState.isReady) return;
+    const tick = api.tickPosition;
+    const ctx = getSynthAudioContext();
+    const ctxTime = ctx ? ctx.currentTime : 0;
+    await new Promise((r) => setTimeout(r, 1800));
+    if (api !== currentApi || !synthPlayerState.isPlaying || document.hidden) return;
+    const stuckTick = Math.abs(api.tickPosition - tick) < 20;
+    const stuckClock = ctx && ctx.state === 'running' && ctx.currentTime - ctxTime < 0.2;
+    if (stuckTick || stuckClock) rebuildDeadSynth(stuckClock ? 'audio clock stopped' : 'playback stalled', { resume: true });
+}
+
 // After a play press, check the AudioContext really runs. A context that stays suspended or
 // interrupted after backgrounding is retried on the next touch (the gesture handler resumes it);
 // if it still will not run, rebuild the synth (soundfont/worklet reload) once and play again.
 let audioRebuilding = false;
 async function verifySynthAudioAfterPlay(api) {
+    watchPlaybackStall(api).catch(() => {});
     if (audioRebuilding) return;
     const ok = await recoverAudioContexts();
     if (ok || api !== currentApi || !synthPlayerState.isPlaying) return;

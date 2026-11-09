@@ -12,6 +12,13 @@ let isAudioUnlocked = false;
 let isPlaybackActive = false;
 const trackedAudioContexts = new Set();
 
+// The synth's own AudioContext(s): the ones AlphaTab opens while the player is being built. The metronome, click
+// and preview contexts are tracked too, but only these decide whether Synth playback can work.
+const synthContexts = new Set();
+const synthStateListeners = new Set();
+let synthCaptureUntil = 0;
+
+
 /**
  * Detect if running on an iOS device (iPhone, iPad, iPod, or iPadOS with desktop Safari UA).
  */
@@ -161,6 +168,62 @@ export function areTrackedAudioContextsRunning() {
 }
 
 /**
+ * Call just before AlphaTab's player is built: AudioContexts created in the next few seconds (or until
+ * endSynthContextCapture) are the synth's own.
+ */
+export function beginSynthContextCapture(holdMs = 6000) {
+    synthCaptureUntil = Date.now() + holdMs;
+}
+
+export function endSynthContextCapture() {
+    synthCaptureUntil = 0;
+}
+
+function tagSynthContext(ctx) {
+    if (!ctx || synthContexts.has(ctx)) return;
+    synthContexts.add(ctx);
+    // 'closed' and 'interrupted' are reported the moment they happen, even while the app is in the background
+    ctx.addEventListener('statechange', () => {
+        for (const fn of synthStateListeners) {
+            try { fn(ctx.state, ctx); } catch (_) { /* a listener must not break the others */ }
+        }
+    });
+}
+
+/** Forget the synth's contexts (the player was destroyed; the next one opens its own). */
+export function forgetSynthContexts() {
+    synthContexts.clear();
+}
+
+/** Listen for state changes of the synth's context: fn(state, ctx). Returns an unsubscribe function. */
+export function onSynthContextState(fn) {
+    synthStateListeners.add(fn);
+    return () => synthStateListeners.delete(fn);
+}
+
+/**
+ * True when every context the synth opened is closed (iOS does this to a long-backgrounded page): none can run again.
+ * AlphaTab opens and closes a throwaway context of its own while it sets up, so one closed context is not enough.
+ */
+export function isSynthContextDead() {
+    let any = false;
+    for (const ctx of synthContexts) {
+        if (!ctx) continue;
+        any = true;
+        if (ctx.state !== 'closed') return false;
+    }
+    return any;
+}
+
+/** The synth's live context, or null (read-only, for the stall check). */
+export function getSynthAudioContext() {
+    for (const ctx of synthContexts) {
+        if (ctx && ctx.state !== 'closed') return ctx;
+    }
+    return null;
+}
+
+/**
  * Resume tracked contexts and wait briefly for them to report running. Resolves false when a
  * context stays suspended/interrupted (iOS needs a user gesture) so the caller can rebuild.
  */
@@ -250,6 +313,7 @@ export function initIOSAudioUnlock() {
             configureAudioSession();
             const ctx = new NativeAudioContext(...args);
             registerAudioContext(ctx);
+            if (Date.now() < synthCaptureUntil) tagSynthContext(ctx);
             return ctx;
         };
         WrappedAudioContext.prototype = NativeAudioContext.prototype;

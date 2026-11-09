@@ -7,6 +7,7 @@ import { fitScoreText } from '../utils/scoreTextFit.js';
 import { createCustomCursorHandler } from './gpPlayer.js';
 import { applySoundFontsToApi } from '../soundFontStore.js';
 import { applyProgramMapping } from '../soundFontProgramMap.js';
+import { beginSynthContextCapture } from '../utils/iosAudioUnlock.js';
 import { readGpSoundHints, applyGpSoundHints } from './gpSoundHints.js';
 import {
     getInstrumentMode,
@@ -302,6 +303,8 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
                 GP_STRETCH_FORCE = getEffectiveGpStretchForce('auto');
             }
 
+            // The AudioContext AlphaTab opens for the synth is tagged, so a closed or interrupted one is noticed on its own
+            beginSynthContextCapture();
             const api = new alphaTab.AlphaTabApi(container, {
                 core: { file, tracks: activeTrackIndices, enableLazyLoading: false },
                 player: {

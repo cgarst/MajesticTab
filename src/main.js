@@ -108,6 +108,13 @@ initBookMode();
 // The fold pose arrives after the window has its size (the window itself does not resize): lay the open file out again
 window.addEventListener('foldchange', () => setTimeout(() => window.dispatchEvent(new Event('resize')), 350));
 
+// The synth's audio died (iOS closed its AudioContext, which can never run again): reopening the song builds a new player
+window.addEventListener('majestictab:synth-dead', () => {
+    if (currentFile && isFileType(currentFile, ['gp', 'gp3', 'gp4', 'gp5', 'gpx']) && !document.body.classList.contains('library-view-active')) {
+        loadFile(currentFile, { hideMenu: false, keepMode: true });
+    }
+});
+
 // Handle window resizing 
 let resizeTimeout;
 window.addEventListener('resize', () => {
