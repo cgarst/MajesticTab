@@ -1468,7 +1468,11 @@ document.addEventListener('visibilitychange', async () => {
         resumeAfterBackground = Boolean(synthPlayerState.isPlaying);
         return;
     }
-    if (!resumeAfterBackground) return;
+    if (!resumeAfterBackground) {
+        // Idle on return: get the context running now so the next Play press is not the first to find it dead
+        if (currentApi) recoverAudioContexts().catch(() => {});
+        return;
+    }
     resumeAfterBackground = false;
     if (!currentApi) return;
 
@@ -1872,6 +1876,18 @@ function playPauseSynthLocal(forcePlay = false) {
         // Jam starts must not toggle: a pause issued moments earlier may not have reached the
         // synth worker yet, and playPause() would then pause instead of play.
         const wasPlaying = synthPlayerState.isPlaying;
+        if (!wasPlaying && !areTrackedAudioContextsRunning()) {
+            // Back from the background the context is suspended/interrupted (or closed): wait for it before
+            // starting, or AlphaTab plays into a dead output and Play seems to do nothing.
+            const api = currentApi;
+            recoverAudioContexts(600).then(() => {
+                if (api !== currentApi || synthPlayerState.isPlaying) return;
+                if (!forcePlay && synthPlayerState.countInEnabled && startCountIn()) return;
+                api.play();
+                verifySynthAudioAfterPlay(api);
+            }).catch((e) => console.error('[Synth Player] Play after recover error:', e));
+            return;
+        }
         if (!wasPlaying && !forcePlay && synthPlayerState.countInEnabled && startCountIn()) return;
         if (forcePlay) currentApi.play();
         else currentApi.playPause();

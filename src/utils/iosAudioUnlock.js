@@ -148,10 +148,16 @@ export function getTrackedAudioContext() {
  * True when every tracked AudioContext is running (or none exist).
  */
 export function areTrackedAudioContextsRunning() {
+    let live = 0;
+    let closed = 0;
     for (const ctx of trackedAudioContexts) {
-        if (ctx && ctx.state !== 'running' && ctx.state !== 'closed') return false;
+        if (!ctx) continue;
+        if (ctx.state === 'closed') { closed++; continue; }
+        live++;
+        if (ctx.state !== 'running') return false;
     }
-    return true;
+    // iOS can close the synth's context while the app is away; nothing live then means audio is dead
+    return !(closed > 0 && live === 0);
 }
 
 /**
