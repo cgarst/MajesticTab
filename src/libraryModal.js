@@ -1645,7 +1645,7 @@ async function renderLibraryBrowseView(container) {
                 <div class="artist-detail-view">
                   <div class="library-songs-list d-flex flex-column gap-2" id="libSongsList">
                     ${pinnedSongs.length > 0
-                      ? pinnedSongs.map(song => renderSongRow(song, { showArtistAlbum: true, showTrackNumber: false, showCover: true })).join('')
+                      ? pinnedSongs.map(song => renderSongRow(song, { showArtistAlbum: true, hideAlbum: true, showTrackNumber: false, showCover: true })).join('')
                       : `<div class="text-muted p-4 text-center">${isHideNoTabSongsEnabled() ? 'No pinned songs with tabs.' : 'No pinned songs.'}</div>`}
                   </div>
                 </div>
@@ -3300,14 +3300,17 @@ function renderSongRow(song, options = {}) {
     // The row's meta describes the song, not each tab: the default tab's tuning, and "+n" when other tabs differ
     const defaultTabOpt = tabOptions.find(t => t.id === defaultTabId) || tabOptions[0] || null;
     const defaultTuning = defaultTabOpt?.tuning && tunings.includes(defaultTabOpt.tuning) ? defaultTabOpt.tuning : null;
-    const shownTunings = tabOptions.length > 1 && defaultTuning ? [defaultTuning] : tunings;
+    const primaryTuning = defaultTuning || tunings[0] || null;
+    const shownTunings = primaryTuning ? [primaryTuning] : [];
     const hiddenTunings = tunings.length - shownTunings.length;
     const tuningChipsHtml = shownTunings.map(t => {
         const info = getTuningInfo(t);
         const label = info?.displayName || t;
         const isStandard = label.toLowerCase().includes('standard');
-        return `<span class="chip ${isStandard ? '' : 'hot'}">${escapeHtml(label)}</span>`;
-    }).join('') + (hiddenTunings > 0 ? `<span class="chip sec">+${hiddenTunings} more</span>` : '');
+        const more = hiddenTunings > 0 ? ` (+${hiddenTunings})` : '';
+        const title = hiddenTunings > 0 ? ` title="${hiddenTunings} other ${hiddenTunings === 1 ? 'tuning' : 'tunings'}"` : '';
+        return `<span class="chip ${isStandard ? '' : 'hot'}"${title}>${escapeHtml(label)}${more}</span>`;
+    }).join('');
 
     const pdfTab = (defaultTabOpt?.startPage && defaultTabOpt?.endPage) ? defaultTabOpt : tabOptions.find(t => t.startPage && t.endPage);
     const pdfChipHtml = pdfTab ? `<span class="chip sec">${formatPageRange(pdfTab.startPage, pdfTab.endPage)}</span>` : '';
@@ -3322,7 +3325,21 @@ function renderSongRow(song, options = {}) {
     ].filter(Boolean);
     const hasSyncPoints = songKeys.some(k => songHasSyncPoints(k));
     const isSynced = Boolean(hasSyncPoints || song.hasSyncedAudio || song.syncedAudioUrl || (song.tabOptions && song.tabOptions.some(t => t.syncedAudio)));
-    const syncDotHtml = isSynced ? `<span class="sync-dot"></span>` : '';
+    // File type and audio, as plain grey text: "GP5 · PDF", "Synth · Recording". Synth exists for Guitar Pro tabs only.
+    const tabFormat = (t) => {
+        if (t.isPdf || t.startPage || t.isAlbumRange) return 'PDF';
+        const ext = (t.fileType || ((t.name || '').includes('.') ? t.name.split('.').pop() : '')).toLowerCase();
+        if (ext === 'pdf') return 'PDF';
+        if (ext === 'txt') return 'Text';
+        if (/^(gp|gp[3-8]|gpx)$/.test(ext)) return 'GP';
+        return '';
+    };
+    const formats = [...new Set(tabOptions.map(tabFormat).filter(Boolean))];
+    const hasSynth = Boolean(song.synthMidi) || formats.some(f => f !== 'PDF' && f !== 'Text');
+    const audioLabels = [hasSynth ? 'Synth' : '', isSynced ? 'Recording' : ''].filter(Boolean);
+    const formatChipHtml = formats.length ? `<span class="chip sec song-format">${escapeHtml(formats.join(' / '))}</span>` : '';
+    const audioChipHtml = audioLabels.length ? `<span class="chip sec song-audio">${escapeHtml(audioLabels.join(' + '))}</span>` : '';
+    const syncDotHtml = '';
 
     return `
     <div class="rowwrap library-song-rowwrap ${isPinned ? 'library-song-row-pinned' : ''} ${!hasTabs ? 'no-tab' : ''}">
@@ -3333,9 +3350,11 @@ function renderSongRow(song, options = {}) {
           <span class="t">
             <b>${escapeHtml(song.title)}</b>
             <span class="sub">
-              ${options.showArtistAlbum ? ([song.artist, song.album].filter(Boolean).length ? `<span class="album-label text-truncate">${escapeHtml([song.artist, song.album].filter(Boolean).join(' · '))}</span>` : '') : (options.showAlbum && song.album ? `<span class="album-label text-truncate">${escapeHtml(song.album)}</span>` : '')}
+              ${options.showArtistAlbum ? ([song.artist, options.hideAlbum ? '' : song.album].filter(Boolean).length ? `<span class="album-label text-truncate">${escapeHtml([song.artist, options.hideAlbum ? '' : song.album].filter(Boolean).join(' · '))}</span>` : '') : (options.showAlbum && song.album ? `<span class="album-label text-truncate">${escapeHtml(song.album)}</span>` : '')}
               ${tuningChipsHtml}
               ${pdfChipHtml}
+              ${formatChipHtml}
+              ${audioChipHtml}
               ${multiTabsChipHtml}
               ${syncDotHtml}
             </span>
