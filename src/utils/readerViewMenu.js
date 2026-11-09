@@ -83,6 +83,21 @@ function initSoundButton() {
         else $(original ? 'ytToggleBtn' : 'synthToggleBtn')?.click();
     });
 
+    // Like the other menus: a press outside or Escape closes it. The Synth | Original switch is left alone, since it
+    // swaps the panel to the other sound.
+    const closeOpen = () => {
+        if (isShown(synthPanel)) $('synthPanelCloseBtn')?.click();
+        if (isShown(originalPanel)) $('ytPanelCloseBtn')?.click();
+    };
+    document.addEventListener('pointerdown', (e) => {
+        if (!outsideTapCloses() || !(isShown(synthPanel) || isShown(originalPanel))) return;
+        if (synthPanel.contains(e.target) || originalPanel.contains(e.target) || btn.contains(e.target) || e.target.closest('.dock-src')) return;
+        closeOpen();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && (isShown(synthPanel) || isShown(originalPanel))) { closeOpen(); btn.focus(); }
+    });
+
     const sync = () => {
         const available = visible(synthSwitch) || visible(originalSwitch);
         btn.disabled = !available;
@@ -95,7 +110,7 @@ function initSoundButton() {
     sync();
 }
 
-// The View menu reads: Size, Note spacing, Paper, Layout, Notation, Tracks (with Color by track, only when the file has
+// The View menu reads: Size, Note spacing, Paper, Layout, Notation, Tracks (Color by track above the list, only when the file has
 // more than one track to show), pages shown in landscape, page turn.
 // The four original groups keep their controls and ids; this only reorders and relabels them.
 function arrangeViewOptions(root) {
@@ -186,6 +201,10 @@ function arrangeViewOptions(root) {
             tracks.querySelector('.d-flex')?.after(note);
         }
         tracks.querySelector('label[for="tabTrackColorSwitch"]')?.setAttribute('title', 'Match the tab colors to the fretboard track colors');
+        // Color by track sits above the list it colors
+        const colorRow = tracks.querySelector('.form-check.form-switch');
+        const list = $('synthTrackList');
+        if (colorRow && list) { colorRow.classList.remove('mt-2'); colorRow.classList.add('mb-1'); list.before(colorRow); }
     }
 
     const density = $('gpDensitySection');
@@ -195,28 +214,8 @@ function arrangeViewOptions(root) {
 }
 
 
-// The Synth and Recording panels share one chrome: a right-hand "Practice" panel beside the score with a
-// Synth | Recording switch on top. Their controls and handlers are unchanged; this adds the switch, keeps the
-// score clear of the panel, and tracks the dock height so the panel stops above it.
+// Tracks the dock and top bar heights (--dock-h, --dock-own-h, --strip-h, --topbar-h) that the panels and the phone chrome stop at.
 function initPracticePanels() {
-    const panels = [
-        { id: 'synthDropdownPanel', which: 'synth' },
-        { id: 'ytDropdownPanel', which: 'recording' }
-    ];
-    const toggles = { synth: $('synthToggleBtn'), recording: $('ytToggleBtn') };
-    for (const { id, which } of panels) {
-        const panel = $(id);
-        if (!panel) continue;
-        new MutationObserver(updateOpen).observe(panel, { attributes: true, attributeFilter: ['style', 'class'] });
-    }
-    function updateOpen() {
-        const open = panels.some(({ id }) => { const el = $(id); return el && el.style.display !== 'none' && getComputedStyle(el).display !== 'none'; });
-        if (document.body.classList.contains('practice-open') === open) return;
-        document.body.classList.toggle('practice-open', open);
-        // The panel changes the width the pages sit in (see design.css), so text and PDF tabs re-fit their pages:
-        // the resize handler in main.js re-paginates them for the new width.
-        window.dispatchEvent(new Event('resize'));
-    }
     const dock = $('mobilePlaybackDock');
     if (dock && 'ResizeObserver' in window) {
         // --dock-h is the whole stack above the bottom row (transport, plus the page strip on PDF and text tabs);
@@ -229,10 +228,6 @@ function initPracticePanels() {
             root.setProperty('--dock-own-h', `${own}px`);
             root.setProperty('--strip-h', `${stripH}px`);
             root.setProperty('--dock-h', `${own + stripH}px`);
-            // Where the Synth | Original switch starts, from the bottom of the screen: the sound panels open from it
-            const src = dock.querySelector('.dock-src');
-            const srcTop = src?.getBoundingClientRect().top;
-            if (srcTop) root.setProperty('--src-top', `${Math.max(0, Math.round(window.innerHeight - srcTop))}px`);
         };
         window.addEventListener('resize', syncDock);
         const ro = new ResizeObserver(syncDock);

@@ -2535,35 +2535,10 @@ export function hideSynthPlayer() {
 
 export function updateSynthPanelPosition() {
     const panel = document.getElementById('synthDropdownPanel');
-    const toggleBtn = document.getElementById('synthToggleBtn');
     if (!panel || !synthPlayerState.isOpen) return;
-
-    const mobileDock = document.getElementById('mobilePlaybackDock');
-    const isMobileDockActive = window.innerWidth <= 576 || (mobileDock && window.getComputedStyle(mobileDock).display !== 'none');
-
-    if (isMobileDockActive && mobileDock) {
-        panel.classList.add('popup-from-bottom');
-        const dockRect = mobileDock.getBoundingClientRect();
-        const bottomOffset = dockRect.top > 0 ? Math.max(12, Math.round(window.innerHeight - dockRect.top + 8)) : 76;
-        panel.style.position = 'fixed';
-        panel.style.top = 'auto';
-        panel.style.bottom = `${bottomOffset}px`;
-        panel.style.left = '50%';
-        panel.style.transform = 'translateX(-50%)';
-        return;
-    }
-
+    // Like the other menus: under the Sound word (phones turn it into a sheet in CSS)
     panel.classList.remove('popup-from-bottom');
-    panel.style.bottom = 'auto';
-    if (!toggleBtn) return;
-    const rect = toggleBtn.getBoundingClientRect();
-    panel.style.position = 'fixed';
-    panel.style.top = `${rect.bottom + 8}px`;
-    const centerX = rect.left + rect.width / 2;
-    const halfPanelWidth = Math.min(185, (window.innerWidth - 24) / 2);
-    const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
-    panel.style.left = `${clampedLeft}px`;
-    panel.style.transform = 'translateX(-50%)';
+    placePanel(panel, document.getElementById('soundToggleBtn'));
 }
 
 /**

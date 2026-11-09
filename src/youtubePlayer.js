@@ -1,7 +1,7 @@
 // youtubePlayer.js
 // Collapsible YouTube / Backing Track player integrated into top bar
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel, isSynthPlaying } from './gpProcessor/gpPlayer.js';
-import { showPanel, hidePanel } from './utils/readerPanels.js';
+import { showPanel, hidePanel, placePanel } from './utils/readerPanels.js';
 import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
 import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
 import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistory.js';
@@ -129,7 +129,6 @@ function reportYouTubeState(state) {
     // Playing means on the screen. Anything that started the video without opening the sheet (a Jam host, sync) opens
     // it here. A late report right after the person closed it is ignored, since closing paused the video.
     if (playing && !isVideoShown() && performance.now() - sheetClosedAt > 2500) {
-        if (playerState.isOpen) toggleYouTubePanel(false); // playing takes the screen: the panel and the video are never shown together
         showSheet();
     }
     if (playing !== reportedPlaying) {
@@ -295,10 +294,10 @@ export function playPauseYouTube() {
 
 /**
  * Original is selected (for example when a song with a recording opens): its video is on the screen without waiting
- * for play. Only when a video is already known; the Original panel being open, or the video already shown, leaves it.
+ * for play. Only when a video is already known; the video already shown leaves it.
  */
 export function showOriginalVideo() {
-    if (playerState.isOpen || isVideoShown() || !hasSavedVideo()) return;
+    if (isVideoShown() || !hasSavedVideo()) return;
     loadCurrentTrack(false);
     showSheet();
 }
@@ -699,12 +698,6 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
         return;
     }
 
-    // The Original panel and the video are never shown together. A video picked or pasted while the panel is open only
-    // loads; pressing play closes the panel and opens the sheet. (A Jam host's play takes the screen from the panel.)
-    if (autoplay && playerState.isOpen) {
-        if (source === 'jam') toggleYouTubePanel(false);
-        else autoplay = false;
-    }
     // The video has to be on the screen while it plays, so playing opens the video sheet first (it also holds the
     // searching and not-found states of the player). Loading without playing leaves it closed.
     if (autoplay) showSheet();
@@ -1377,35 +1370,10 @@ function updatePanelTitle() {
 
 export function updateYouTubePanelPosition() {
     const panel = document.getElementById('ytDropdownPanel');
-    const toggleBtn = document.getElementById('ytToggleBtn');
     if (!panel || !playerState.isOpen) return;
-
-    const mobileDock = document.getElementById('mobilePlaybackDock');
-    const isMobileDockActive = window.innerWidth <= 576 || (mobileDock && window.getComputedStyle(mobileDock).display !== 'none');
-
-    if (isMobileDockActive && mobileDock) {
-        panel.classList.add('popup-from-bottom');
-        const dockRect = mobileDock.getBoundingClientRect();
-        const bottomOffset = dockRect.top > 0 ? Math.max(12, Math.round(window.innerHeight - dockRect.top + 8)) : 76;
-        panel.style.position = 'fixed';
-        panel.style.top = 'auto';
-        panel.style.bottom = `${bottomOffset}px`;
-        panel.style.left = '50%';
-        panel.style.transform = 'translateX(-50%)';
-        return;
-    }
-
+    // Like the other menus: under the Sound word (phones turn it into a sheet in CSS)
     panel.classList.remove('popup-from-bottom');
-    panel.style.bottom = 'auto';
-    if (!toggleBtn) return;
-    const rect = toggleBtn.getBoundingClientRect();
-    panel.style.position = 'fixed';
-    panel.style.top = `${rect.bottom + 8}px`;
-    const centerX = rect.left + rect.width / 2;
-    const halfPanelWidth = Math.min(190, (window.innerWidth - 24) / 2);
-    const clampedLeft = Math.max(halfPanelWidth + 12, Math.min(window.innerWidth - halfPanelWidth - 12, centerX));
-    panel.style.left = `${clampedLeft}px`;
-    panel.style.transform = 'translateX(-50%)';
+    placePanel(panel, document.getElementById('soundToggleBtn'));
 }
 
 /**
@@ -1430,13 +1398,7 @@ export function toggleYouTubePanel(forceState = null) {
         document.getElementById('pdfBookmarksPanelCloseBtn')?.click();
         pauseSynthPlayer();
         clearSynthHighlights();
-        // The Original panel and the video are never on the screen together: opening the panel pauses the audio and
-        // closes the video sheet. Pressing play closes the panel and, for YouTube, brings the sheet back.
-        sheetClosedAt = performance.now();
-        pauseYouTube();
-        closeSheet();
-        window.dispatchEvent(new Event('original-panel-open'));
-
+        // The panel draws over the video sheet and both stay, on every platform
         updateYouTubePanelPosition();
         showPanel(panel, 'block');
         if (chevron) {
@@ -1825,7 +1787,7 @@ export function initYouTubePlayer() {
         if (r && (r.width < 200 || r.height < 200)) console.warn('[YouTube] the player is smaller than 200 x 200:', Math.round(r.width), 'x', Math.round(r.height));
         if (r && r.width && r.height) {
             const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-            if (top && !wrap.contains(top)) console.warn('[YouTube] something covers the player:', top.id || top.className);
+            if (top && !wrap.contains(top) && !top.closest('.rpanel')) console.warn('[YouTube] something covers the player:', top.id || top.className);
         }
     }, 1000);
 

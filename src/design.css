@@ -664,28 +664,13 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 #scoreOptionsAdaptSection .form-check.form-switch { flex-direction: row-reverse; }
 
 /* ==========================================================================
-   Practice panel: the Synth and Recording panels as one right-hand panel beside the score
+   Sound panels (Synth audio, Original audio): menus like the others
    ========================================================================== */
+/* Placed by placePanel (readerPanels.js) like the other menus: under the Sound word, over the page, so the score never reflows.
+   Width and height come from the shared menu rule below; phones turn it into a sheet (body.phone-reader rules). */
 #synthDropdownPanel, #ytDropdownPanel {
-  position: fixed !important; top: var(--topbar-h, 52px) !important; right: 0 !important; left: auto !important;
-  bottom: var(--dock-h, 0px) !important;
-  width: 400px !important; max-width: 100% !important; height: auto !important; max-height: none !important; transform: none !important;
-  border-radius: var(--r-lg) 0 0 var(--r-lg) !important; z-index: 1085; overflow-y: auto; overflow-x: hidden;
-  background: var(--s2) !important; animation: practiceIn var(--dur-slow) var(--ease-out);
-  transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  z-index: 1085; overflow-y: auto; overflow-x: hidden; background: var(--s2) !important; border-radius: var(--r-lg) !important;
 }
-@keyframes practiceIn { from { opacity: 0; transform: translate3d(24px, 0, 0); } to { opacity: 1; transform: none; } }
-body.practice-open #output { padding-right: 416px !important; }
-@media (max-width: 900px) {
-  #synthDropdownPanel, #ytDropdownPanel {
-    top: auto !important; left: 0 !important; width: auto !important;
-    bottom: var(--dock-h, 0px) !important;
-    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - 24px) !important; height: auto !important;
-    border-radius: var(--r-lg) var(--r-lg) 0 0 !important; animation: sheetIn var(--dur-slow) var(--ease-out);
-  }
-  body.practice-open #output { padding-right: 16px !important; }
-}
-@keyframes sheetIn { from { transform: translate3d(0, 40px, 0); opacity: 0; } to { transform: none; opacity: 1; } }
 #synthDropdownPanel .synth-panel-header, #ytDropdownPanel .yt-panel-header {
   background: var(--s2) !important; border: 0 !important; padding: 14px 16px 6px; position: sticky; top: 0; z-index: 2;
 }
@@ -2911,7 +2896,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 /* The five top-bar menus are the same width and never taller than the space between the bar and the dock.
    Placement is one function (placePanel in readerPanels.js): under the button, right edges aligned, clamped to the window. */
 @media (min-width: 641px) {
-  #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel {
+  #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel {
     width: min(360px, calc(100vw - 16px)) !important; max-width: none;
     max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - 24px); overflow-y: auto; overflow-x: hidden;
   }
@@ -4863,9 +4848,7 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 .yt-sheet .yt-state-card { background: var(--s1); border: 0; color: var(--ink); }
 .yt-sheet .yt-state-card .text-muted { color: var(--ink2) !important; }
 
-/* Desktop: the minimum-size player at the right, over the page. The panels end above it,
-   so nothing covers the video. */
-body.yt-sheet-open:not(.phone-reader) :is(#synthDropdownPanel, #ytDropdownPanel) { bottom: calc(var(--dock-h, 0px) + var(--yt-sheet-h, 0px) + var(--fretboard-effective-h, 0px) + 12px) !important; }
+/* Desktop: the minimum-size player at the right, over the page. The menus (the sound panels included) open over it. */
 
 /* Phone, portrait: full width above the fretboard and the five words, and every sheet that opens stays above it */
 @media (max-width: 640px) {

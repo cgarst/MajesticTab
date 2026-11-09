@@ -10,7 +10,7 @@
 import {
     applySyncedDefaults, renderSyncedVideos,
     getSongKey, playerState, getVideoInfo, jamYouTubeControl, onYouTubeEvent, isYouTubeAvailable, isYouTubePlaying, playPauseYouTube,
-    pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode, toggleYouTubePanel
+    pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode
 } from '../youtubePlayer.js';
 import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
@@ -372,8 +372,6 @@ export function isRealAudioPlaying() {
 let countingIn = null;
 
 export function playPauseRealAudio() {
-    // The Original panel and the video are never shown together: playing closes the panel (YouTube then opens its sheet)
-    if (playerState.isOpen) toggleYouTubePanel(false);
     if (countingIn) { clearTimeout(countingIn); countingIn = null; return; }
     // The file's own audio is played by the score player, which has its own count-in
     if (getRealAudioActiveSource() === 'embedded') { startRealAudio(); return; }
@@ -455,9 +453,6 @@ export function initRealAudioController() {
 
     // The player reports a video's title and channel once it has loaded: the slot rows name the video
     onYouTubeEvent((e) => { if (e.type === 'info') updateRecordingSlots(); });
-
-    // Opening the Original panel pauses what is playing (a local file as well as YouTube)
-    window.addEventListener('original-panel-open', () => pauseAudioFile());
 
     // Track Slot radio buttons
     $('ytTrackOriginal')?.addEventListener('change', () => {
