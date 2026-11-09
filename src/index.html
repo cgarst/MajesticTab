@@ -108,7 +108,7 @@
       </div>
 
       <div id="viewPill" class="rbar-item" role="group" aria-label="View">
-        <button class="btn btn-sm rbtn" id="viewToggleBtn" type="button" title="View: layout, size, paper and notation" aria-haspopup="dialog" aria-expanded="false" aria-controls="viewMenu">
+        <button class="btn btn-sm rbtn" id="viewToggleBtn" type="button" title="View: layout, size, paper, notation and tracks" aria-haspopup="dialog" aria-expanded="false" aria-controls="viewMenu">
           <span class="bar-btn-label">View</span>
         </button>
       </div>
@@ -116,12 +116,6 @@
       <div id="practicePill" class="rbar-item" role="group" aria-label="Practice">
         <button class="btn btn-sm rbtn" id="practiceToggleBtn" type="button" title="Practice: speed, parts, loop and click" aria-haspopup="dialog" aria-expanded="false" aria-controls="practiceMenu">
           <span class="bar-btn-label">Practice</span>
-        </button>
-      </div>
-
-      <div id="tracksPill" class="rbar-item" role="group" aria-label="Tracks">
-        <button class="btn btn-sm rbtn" id="tracksToggleBtn" type="button" title="Tracks: which tracks to show and hear, and their levels" aria-haspopup="dialog" aria-expanded="false" aria-controls="tracksMenu">
-          <span class="bar-btn-label">Tracks</span>
         </button>
       </div>
 
@@ -153,9 +147,6 @@
 <div id="practiceMenu" class="tools-menu practice-menu" role="dialog" aria-label="Practice" style="display:none;"></div>
 
 <!-- Guitar: what is in your hands right now (temporary; not saved). Built by utils/guitarMenu.js -->
-<!-- Tracks: which tracks to show and hear. Built by utils/readerViewMenu.js -->
-<div id="tracksMenu" class="tools-menu tracks-menu" role="dialog" aria-label="Tracks" style="display:none;"></div>
-
 <div id="guitarMenu" class="tools-menu guitar-menu" role="dialog" aria-label="Guitar" style="display:none;"></div>
 
 <!-- View menu: how the score is shown while playing (size, paper, pages). Hosts #readerViewOptions, moved here by utils/readerViewMenu.js so its controls keep their ids. -->

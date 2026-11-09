@@ -2218,7 +2218,7 @@ body.fretboard-open {
 .bar-btn-label { font-size: 14px; font-weight: 600; letter-spacing: 0; white-space: nowrap; }
 #topFlexZone .btn, #toolsToggleBtn { padding-inline: 12px !important; }
 #topFlexZone .btn.active, #topFlexZone .btn[aria-expanded="true"] { background: var(--s2) !important; color: var(--ink) !important; }
-#tracksToggleBtn:disabled, #guitarToggleBtn:disabled { opacity: 0.4; }
+#guitarToggleBtn:disabled { opacity: 0.4; }
 /* The title is a plain label. Its old button role stays for code that clicks it. */
 .top-bar-song-btn { cursor: pointer; }
 .top-bar-song-btn.is-static, .top-bar-song-btn.disabled { pointer-events: none; cursor: default; }
@@ -2515,7 +2515,7 @@ body.phone-reader:not(.library-view-active) #output.continuous-mode:has(.pageWra
 
 /* Sheets (View, Practice, Tracks, Guitar, Tools, Song, Synth, Original) rise from the bottom, above the strip, and are as tall as the space
    under the top row allows, so they rarely need scrolling. The fretboard stays behind them: a sheet covers it rather than stopping above it. */
-body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu, body.phone-reader #tracksMenu,
+body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu,
 body.phone-reader #scoreOptionsDropdownPanel, body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel {
   position: fixed !important; left: var(--reader-rail-w) !important; right: 0 !important; top: auto !important; width: auto !important; max-width: none !important;
   bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px)) !important; transform: none !important;
@@ -2628,8 +2628,8 @@ body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #to
   body.phone-reader .rpanel { --rp-from: -24px 0; }
   /* The sound panels belong to the strip's Synth | Original switch, which sits on the right: they open on the right */
   body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel { --rp-from: 24px 0; }
-  body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) { width: min(320px, 50vw) !important; }
-  body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu, body.phone-reader #tracksMenu,
+  body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) { width: min(320px, 50vw) !important; }
+  body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu,
   body.phone-reader #scoreOptionsDropdownPanel {
     left: var(--reader-rail-w, 0px) !important; right: auto !important; top: 0 !important; bottom: var(--dock-h, 0px) !important; width: min(380px, 55vw) !important;
     max-height: none !important; z-index: 1060 !important; border-radius: 0 var(--r-lg) var(--r-lg) 0 !important;
@@ -2648,24 +2648,24 @@ body.phone-reader #synthDropdownPanel .synth-panel-body, body.phone-reader #ytDr
   flex: 1 1 auto !important; min-height: 0; overflow-y: auto !important; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y;
 }
 /* Phone panels are denser (portrait sheets and landscape side panels): the screen is small, so type, rows and controls are about 20% smaller */
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) { font-size: 13px; padding: 10px 12px !important; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(h1, h2, h3, .tracks-title, .rpanel-title, #synthPanelTitle::before) { font-size: 15px !important; padding-block: 0 6px; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.btn, button, .rbtn, .form-select, .form-control, select, input:not([type=range]):not([type=checkbox])) { min-height: 34px !important; font-size: 13px !important; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.btn, button, .rbtn):not(.form-check-input) { padding-block: 4px !important; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(label, p, small, .text-muted, span, div) { line-height: 1.25; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.form-check-input, .theme-switch) { transform: scale(.8); }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) { font-size: 13px; padding: 10px 12px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(h1, h2, h3, .rpanel-title, #synthPanelTitle::before) { font-size: 15px !important; padding-block: 0 6px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.btn, button, .rbtn, .form-select, .form-control, select, input:not([type=range]):not([type=checkbox])) { min-height: 34px !important; font-size: 13px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.btn, button, .rbtn):not(.form-check-input) { padding-block: 4px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(label, p, small, .text-muted, span, div) { line-height: 1.25; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.form-check-input, .theme-switch) { transform: scale(.8); }
 /* Switches in these panels (YouTube | Local audio, the View pairs) hold buttons that are 34px tall here; the base group has a fixed 30 to 35px height, which left the selected button taller than its track */
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .hud-pill-group { height: auto !important; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mixer-toggle, .track-mix-toggles .mixer-toggle) { min-width: 34px !important; width: 34px !important; height: 34px !important; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) [class*="gap-"], body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .view-screen-pair { gap: 6px !important; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mb-3, .my-3, .py-3) { margin-bottom: 8px !important; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-step { width: 34px; height: 34px; font-size: 18px; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-speed-value { font-size: 22px; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-presets { grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 6px; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-presets .btn { padding-inline: 0 !important; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.form-check.form-switch, .practice-menu .form-check.form-switch) { min-height: 34px !important; gap: 8px; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.d-flex.align-items-center.justify-content-between, #synthLoopSteppers) { min-height: 0; }
-body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mixer-toggle) { height: 34px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .hud-pill-group { height: auto !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mixer-toggle, .track-mix-toggles .mixer-toggle) { min-width: 34px !important; width: 34px !important; height: 34px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) [class*="gap-"], body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .view-screen-pair { gap: 6px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mb-3, .my-3, .py-3) { margin-bottom: 8px !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-step { width: 34px; height: 34px; font-size: 18px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-speed-value { font-size: 22px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-presets { grid-template-columns: repeat(6, 1fr); gap: 4px; margin-top: 6px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) .practice-presets .btn { padding-inline: 0 !important; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.form-check.form-switch, .practice-menu .form-check.form-switch) { min-height: 34px !important; gap: 8px; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.d-flex.align-items-center.justify-content-between, #synthLoopSteppers) { min-height: 0; }
+body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(.mixer-toggle) { height: 34px !important; }
 @media (max-width: 640px) {
   /* Recording bar (Original): one row, time, track, then the sync state and Add points to the right of the track, so the strip stays short */
   body.phone-reader:not(.library-view-active) .rec-strip { display: flex; flex-wrap: nowrap; align-items: center; gap: 0 10px; min-height: 28px; padding: 0; }
@@ -2700,13 +2700,13 @@ body.phone-reader:not(.library-view-active) .rec-strip.is-tapping .rec-points { 
 /* Reduced motion: the side panel and sheets, and the rail's inlay dot, appear without moving */
 @media (prefers-reduced-motion: reduce) {
   #synthDropdownPanel, #ytDropdownPanel, .library-bottom-nav .library-nav-tab.active::before { animation: none !important; }
-  #synthDropdownPanel, #ytDropdownPanel, #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel { transition: none !important; }
+  #synthDropdownPanel, #ytDropdownPanel, #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel { transition: none !important; }
 }
 
 /* Phones: the library has no reader controls (the reader's five words and page buttons belong to a song) */
 @media (max-width: 640px) { body.library-view-active #topFlexZone { display: none !important; } }
 /* View, Practice, Tracks, Guitar and Tools belong to an open song, at every width. The library reaches Tools from the rail. */
-body.library-view-active #viewPill, body.library-view-active #practicePill, body.library-view-active #tracksPill, body.library-view-active #guitarPill, body.library-view-active #toolsPill { display: none !important; }
+body.library-view-active #viewPill, body.library-view-active #practicePill, body.library-view-active #guitarPill, body.library-view-active #toolsPill { display: none !important; }
 
 /* Tools page: flat rows on a 56px pitch, the same left edge as Setlists and Library */
 .tools-view .tools-page-list { display: flex; flex-direction: column; }
@@ -2909,16 +2909,11 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 /* The five top-bar menus are the same width and never taller than the space between the bar and the dock.
    Placement is one function (placePanel in readerPanels.js): under the button, right edges aligned, clamped to the window. */
 @media (min-width: 641px) {
-  #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel {
+  #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel {
     width: min(360px, calc(100vw - 16px)) !important; max-width: none;
     max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - 24px); overflow-y: auto; overflow-x: hidden;
   }
 }
-
-/* Tracks menu */
-#tracksMenu { padding: 12px 14px 12px !important; }
-.tracks-title { font: 600 17px system-ui, sans-serif; color: var(--ink); padding: 4px 2px 10px; }
-#tracksMenu #synthTrackVisibilitySection { margin: 0 !important; }
 
 /* Only: a text button */
 .gp-track-row .gp-track-only-btn {
@@ -4575,7 +4570,7 @@ body:not(.sheet-mode-dark) .gp-reader-cursor svg { mix-blend-mode: multiply; }
    up to 72% of the screen, and never under the top row. The tab stays in view above it. Landscape panels are side panels and
    keep their own limits. */
 @media (orientation: portrait) {
-  body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu, body.phone-reader #tracksMenu,
+  body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu,
   body.phone-reader #scoreOptionsDropdownPanel, body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel {
     max-height: min(72vh, calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - 12px)) !important;
   }
@@ -4584,7 +4579,7 @@ body:not(.sheet-mode-dark) .gp-reader-cursor svg { mix-blend-mode: multiply; }
 /* Portrait phone: the five words' sheets open from their tab, over the strip (ruler and transport), as in tabletop, instead of
    stacking above the dock. The five words stay visible; Song and the sound panels keep their own places. */
 @media (orientation: portrait) {
-  :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu) {
+  :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu) {
     bottom: var(--reader-bottom-nav-h, 0px) !important;
     max-height: min(72vh, calc(100vh - var(--topbar-h, 52px) - var(--reader-bottom-nav-h, 0px) - 12px)) !important;
   }
@@ -4775,7 +4770,7 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 
 /* Sheets cover everything in the bottom half except the five words, which stay visible: the selected word closes its sheet.
    Same height and top edge for every one, scrolling inside. */
-html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) {
+html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) {
   top: var(--dt-controls-top) !important; bottom: var(--tabs-h) !important; height: auto !important; max-height: none !important;
   padding: 12px 16px 16px !important; z-index: 1050; border-radius: 0 !important; overscroll-behavior: contain;
 }
@@ -4787,9 +4782,9 @@ html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active)
 }
 html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) :is(.synth-panel-header, .yt-panel-header) .brand-btn i { display: inline-block !important; font-size: 1.1rem !important; }
 /* Controls inside a sheet */
-html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(button, .btn, [role="tab"], [role="radio"], select) { min-height: var(--dt-target) !important; height: auto; }
+html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) :is(button, .btn, [role="tab"], [role="radio"], select) { min-height: var(--dt-target) !important; height: auto; }
 html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) #practiceMenu :is(#practiceSlower, #practiceFaster, #synthLoopStartMinusBtn, #synthLoopStartPlusBtn, #synthLoopEndMinusBtn, #synthLoopEndPlusBtn) { width: var(--dt-target); min-width: var(--dt-target); height: var(--dt-target) !important; }
-html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #tracksMenu) .form-check-input { font-size: 30px; }
+html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu) .form-check-input { font-size: 30px; }
 html.duo-tabletop #readingToggleBtn { display: none !important; }
 /* Reading mode is the open-book button at the end of the transport row, the same control as on a portrait phone */
 html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) .dock-tools #readingDockBtn { display: inline-flex !important; flex: 0 0 64px; width: 64px !important; min-width: 64px !important; height: 64px !important; min-height: 64px; margin: 0; padding: 0 !important; align-items: center; justify-content: center; background: var(--s2) !important; border-radius: var(--r-control) !important; font-size: 1.6rem; }
@@ -4874,7 +4869,7 @@ body.yt-sheet-open:not(.phone-reader) :is(#synthDropdownPanel, #ytDropdownPanel)
 @media (max-width: 640px) {
   body.phone-reader .yt-sheet { left: 0; right: 0; margin-inline: auto; width: min(var(--yt-w), 100%); border-radius: var(--r-lg) var(--r-lg) 0 0;
     bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px) + var(--fretboard-effective-h, 0px)); }
-  body.phone-reader.yt-sheet-open :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #synthDropdownPanel, #ytDropdownPanel) {
+  body.phone-reader.yt-sheet-open :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #synthDropdownPanel, #ytDropdownPanel) {
     bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px) + var(--fretboard-effective-h, 0px) + var(--yt-sheet-h, 0px)) !important;
     max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - var(--fretboard-effective-h, 0px) - var(--yt-sheet-h, 0px) - 12px) !important;
   }
@@ -4906,7 +4901,7 @@ html.duo-tabletop body.phone-reader.yt-sheet-open:not(.yt-sheet-peek):not(.readi
 html.duo-tabletop body.phone-reader.yt-sheet-peek:not(.reading-mode):not(.library-view-active) .fretboard-dock {
   bottom: calc(var(--dock-h, 0px) + var(--tabs-h) + var(--yt-sheet-h, 0px) + var(--dt-slack, 0px) * 3) !important;
 }
-html.duo-tabletop body.phone-reader.yt-sheet-open:not(.reading-mode):not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) {
+html.duo-tabletop body.phone-reader.yt-sheet-open:not(.reading-mode):not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #scoreOptionsDropdownPanel, #synthDropdownPanel, #ytDropdownPanel) {
   bottom: calc(var(--dock-h, 0px) + var(--tabs-h) + var(--yt-sheet-h, 0px) + var(--dt-slack, 0px) * 2) !important;
 }
 

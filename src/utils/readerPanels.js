@@ -72,7 +72,6 @@ const PANELS = [
     { button: 'viewToggleBtn', panel: 'viewMenu', close: click('viewToggleBtn') },
     { button: 'practiceToggleBtn', panel: 'practiceMenu', close: click('practiceToggleBtn') },
     { button: 'topBarSongTitleBtn', panel: 'scoreOptionsDropdownPanel', close: click('scoreOptionsPanelCloseBtn') },
-    { button: 'tracksToggleBtn', panel: 'tracksMenu', close: click('tracksToggleBtn') },
     { button: 'guitarToggleBtn', panel: 'guitarMenu', close: click('guitarToggleBtn') },
     { button: 'toolsToggleBtn', panel: 'toolsMenu', close: click('toolsToggleBtn') },
     { button: 'synthToggleBtn', panel: 'synthDropdownPanel', close: click('synthPanelCloseBtn') },

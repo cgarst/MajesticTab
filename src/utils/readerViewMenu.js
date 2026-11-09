@@ -12,7 +12,6 @@ const $ = (id) => document.getElementById(id);
 
 export function initReaderViewMenu() {
     initPhoneChrome();
-    initTracksMenu();
     arrangeSongPanel();
     initPracticePanels();
     const toggleBtn = $('viewToggleBtn');
@@ -54,42 +53,8 @@ export function initReaderViewMenu() {
 }
 
 
-// ---- Tracks: the labelled button opens the track list (show, hear, levels, color). The Song menu (recording, section
-// marks, PDF, save and share) opens from the song's name in the top bar and is the original score options panel.
-function initTracksMenu() {
-    const btn = $('tracksToggleBtn');
-    const menu = $('tracksMenu');
-    const tracks = $('synthTrackVisibilitySection');
-    if (!btn || !menu || !tracks) return;
-
-    const head = document.createElement('div');
-    head.className = 'tracks-title';
-    head.textContent = 'Tracks';
-    const tracksLabel = tracks.querySelector('label.form-label');
-    if (tracksLabel) tracksLabel.textContent = 'Show and hear';
-    menu.replaceChildren(head, tracks);
-
-    const isOpen = () => isShown(menu);
-    const place = () => placePanel(menu, btn);
-    function open() { showPanel(menu); place(); btn.setAttribute('aria-expanded', 'true'); }
-    function close() { if (!isOpen()) return; hidePanel(menu); btn.setAttribute('aria-expanded', 'false'); }
-    btn.addEventListener('pointerdown', (e) => e.stopPropagation());
-    btn.addEventListener('click', (e) => { e.stopPropagation(); if (btn.disabled) return; if (isOpen()) close(); else open(); });
-    document.addEventListener('pointerdown', (e) => { if (outsideTapCloses() && isOpen() && !menu.contains(e.target) && !btn.contains(e.target)) close(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && isOpen()) { close(); btn.focus(); } });
-    window.addEventListener('resize', () => { if (isOpen()) place(); });
-
-    // The track list only exists for Guitar Pro files; the button follows it
-    const sync = () => {
-        const available = tracks.style.display !== 'none';
-        btn.disabled = !available;
-        if (!available) close();
-    };
-    new MutationObserver(sync).observe(tracks, { attributes: true, attributeFilter: ['style'] });
-    sync();
-}
-
-// The View menu reads: Size, Note spacing, Paper, Layout, Notation, pages shown in landscape, page turn.
+// The View menu reads: Size, Note spacing, Paper, Layout, Notation, Tracks (with Color by track, only when the file has
+// more than one track to show), pages shown in landscape, page turn.
 // The four original groups keep their controls and ids; this only reorders and relabels them.
 function arrangeViewOptions(root) {
     const groups = Array.from(root.children).filter((el) => el.tagName === 'DIV');
@@ -166,8 +131,23 @@ function arrangeViewOptions(root) {
     // Phones have the toggle in the bottom strip, so View does not repeat it
     $('readingCell')?.classList.add('desktop-only-control');
 
+    // Tracks: which tracks are drawn (remembered for the song) and Color by track. gpHandler shows the section only
+    // when the file has more than one; until then it stays hidden, so View never carries a dead control.
+    const tracks = $('synthTrackVisibilitySection');
+    if (tracks) {
+        const tl = tracks.querySelector('label.form-label');
+        if (tl) tl.textContent = 'Tracks';
+        if (!tracks.querySelector('.view-tracks-note')) {
+            const note = document.createElement('div');
+            note.className = 'view-tracks-note small text-muted mb-1';
+            note.textContent = 'Remembered for this song';
+            tracks.querySelector('.d-flex')?.after(note);
+        }
+        tracks.querySelector('label[for="tabTrackColorSwitch"]')?.setAttribute('title', 'Match the tab colors to the fretboard track colors');
+    }
+
     const density = $('gpDensitySection');
-    const order = [...windowRows, size, density, paper, layout, notation, landscape, advance].filter(Boolean);
+    const order = [...windowRows, size, density, paper, layout, notation, tracks, landscape, advance].filter(Boolean);
     root.innerHTML = '';
     order.forEach((el) => root.appendChild(el));
 }
@@ -362,18 +342,18 @@ function arrangeSongPanel() {
 
     const pdf = $('scoreOptionsPdfSection');
     const save = $('scoreOptionsSaveGroup');
-    // Notation, strings and tuning leave this panel: View and Guitar claim them. Until they do (they initialise after
+    // Notation and tracks leave this panel for View, strings and tuning for Guitar; each claims its own. Until they do (they initialise after
     // this), park them in the DOM so they stay reachable by id.
     const parking = document.createElement('div');
     parking.id = 'songPanelParking';
     parking.hidden = true;
-    ['scoreOptionsNotationStyleSection', 'scoreOptionsStringCountSection', 'scoreOptionsAdaptSection'].forEach((id) => { const n = $(id); if (n) parking.appendChild(n); });
+    ['scoreOptionsNotationStyleSection', 'scoreOptionsStringCountSection', 'scoreOptionsAdaptSection', 'synthTrackVisibilitySection'].forEach((id) => { const n = $(id); if (n) parking.appendChild(n); });
     document.body.appendChild(parking);
     body.replaceChildren(...[save, altGroup, pdf, marksGroup].filter(Boolean));
 }
 
 
-// ---- Phone: the top (back, song name, the five words) never moves on its own ----
+// ---- Phone: the top (back, song name, the four words) never moves on its own ----
 // Only Reading mode hides it. No scroll, timer, tap zone or playback event does.
 function initPhoneChrome() {
     const output = $('output');
@@ -385,7 +365,7 @@ function initPhoneChrome() {
     const syncPhoneClass = () => {
         document.body.classList.toggle('phone-reader', mq.matches || isTabletop());
     };
-    // Portrait phone: the five words live in the bottom row, outside the (transformed) top bar
+    // Portrait phone: the four words live in the bottom row, outside the (transformed) top bar
     const portraitMq = window.matchMedia('(max-width: 640px)');
     const placeTabs = () => {
         const zone = $('topFlexZone');
