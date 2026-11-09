@@ -172,7 +172,7 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
 
   if (pages.length === 0) return false;
 
-  const pdf = new jsPDF({ unit: 'px', format: 'a4', orientation: 'portrait' });
+  const pdf = new jsPDF({ unit: 'px', format: 'a4', orientation: 'portrait', compress: true });
   const pdfWidth = pdf.internal.pageSize.getWidth();
   const pdfHeight = pdf.internal.pageSize.getHeight();
 
@@ -199,8 +199,9 @@ async function exportGPToPDF(jsPDF, progressContainer, progressBar, filename) {
       pdf.addPage();
     }
 
+    // Without compress the PDF stores raw pixels (about 6.5 MB per page); deflate keeps it lossless and tiny.
     const imgData = canvas.toDataURL('image/png');
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
 
     if (progressBar) {
       const pct = Math.round(((p + 1) / pages.length) * 100);
@@ -357,7 +358,7 @@ async function saveOrSharePdf(pdf, filename) {
 }
 
 async function exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar, filename) {
-  const pdf = new jsPDF({ unit: 'px', format: 'a4', orientation: 'portrait' });
+  const pdf = new jsPDF({ unit: 'px', format: 'a4', orientation: 'portrait', compress: true });
   const A4_WIDTH = pdf.internal.pageSize.getWidth();
   const A4_HEIGHT = pdf.internal.pageSize.getHeight();
   let cursorY = 0;
@@ -377,7 +378,7 @@ async function exportPDFCanvases(canvases, jsPDF, progressContainer, progressBar
     }
 
     const imgData = canvas.toDataURL('image/png');
-    pdf.addImage(imgData, 'PNG', (A4_WIDTH - canvasWidth) / 2, cursorY, canvasWidth, canvasHeight);
+    pdf.addImage(imgData, 'PNG', (A4_WIDTH - canvasWidth) / 2, cursorY, canvasWidth, canvasHeight, undefined, 'FAST');
     cursorY += canvasHeight;
     if (lazyIndex != null) getActiveLazy()?.release(lazyIndex);
 
