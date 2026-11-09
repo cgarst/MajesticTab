@@ -4450,6 +4450,8 @@ function addTabProviderItemsHtml(buttonClass, attrs = '') {
     }).join('');
 }
 
+let classtabPieceCount = 0;
+let classtabUnsub = null;
 // Tools page: a rack of instruments. Rows are grouped by what they are for (a gap, no heading) and carry a plain readout
 // of real state where there is some; the open tool fills a stage beside the list. Chords, Scales, Circle of fifths, Tuner,
 // Metronome, Jam, Classical tab and Open file render in the page.
@@ -4476,13 +4478,17 @@ function renderToolsView(container) {
         const full = ($('jamStatusLabel')?.textContent || '').trim();
         return full.startsWith('Hosting') ? full.replace('Hosting', 'Host') : full.split(' \u00b7 ')[0];
     };
-    const classtabReadout = () => {
-        try {
-            const v = JSON.parse(stored('majestictab_classtab_pins') || 'null');
-            const n = (Array.isArray(v?.composers) ? v.composers.length : 0) + (Array.isArray(v?.pieces) ? v.pieces.length : 0);
-            return n > 0 ? `${n} pinned` : '';
-        } catch { return ''; }
-    };
+    // Pieces in the installed archive: the catalog is read asynchronously, so the row fills in once it arrives
+    const classtabReadout = () => (classtabPieceCount > 0 ? `${classtabPieceCount.toLocaleString()} pieces` : '');
+    import('./classtab/archive.js').then(async (m) => {
+        const set = async () => {
+            classtabPieceCount = (await m.getCatalogRecord())?.counts?.pieces || 0;
+            const el = document.querySelector('[data-read="classtab"]');
+            if (el) el.textContent = classtabReadout();
+        };
+        await set();
+        if (!classtabUnsub) classtabUnsub = m.onArchiveChange(() => { m.getCatalogRecord().then(set); });
+    }).catch(() => {});
     const tools = [
         { id: 'chords', group: 'reference', title: 'Chord library', readout: chordsReadout },
         { id: 'scales', group: 'reference', title: 'Scales' },
