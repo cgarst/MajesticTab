@@ -805,9 +805,9 @@
         <div class="rec-label small mb-1" id="ytVideoListLabel">Videos for this recording</div>
         <div id="ytVideoList" class="rec-slots" role="radiogroup" aria-labelledby="ytVideoListLabel"></div>
         <div id="ytSyncedOriginInfo" class="small text-muted mt-1" hidden></div>
-        <button type="button" class="btn btn-sm rec-text-btn mt-1" id="ytCopyBetweenBtn" hidden aria-expanded="false" aria-controls="ytCopyPicker">Copy sync points from another video…</button>
+        <button type="button" class="btn btn-sm rec-text-btn mt-1" id="ytCopyBetweenBtn" hidden aria-expanded="false" aria-controls="ytCopyPicker">Copy sync points from another video or file…</button>
         <div id="ytCopyPicker" class="mt-1" hidden>
-          <p class="small text-muted mb-1">The times are copied as they are. Use it for the same recording uploaded twice, then adjust in Sync points.</p>
+          <p class="small text-muted mb-1">The times are copied as they are. Use it for the same recording as a video or a file, then adjust in Sync points.</p>
           <div id="ytCopyPickerList" class="rec-slots" role="group" aria-label="Copy sync points from"></div>
         </div>
         <button type="button" class="btn btn-sm rec-text-btn" id="ytCopyFromOtherTabBtn" hidden>Copy sync points from another tab…</button>
@@ -826,12 +826,25 @@
 
     <!-- Local Audio Sub-View -->
     <div id="realAudioLocalSection" hidden>
-      <div id="afFileList" class="d-flex flex-column gap-2 mb-2"></div>
+      <!-- Files for this recording: switch between them, each keeps its own sync points -->
+      <div id="afFileSection" class="mb-3" hidden>
+        <div class="rec-label small mb-1" id="afFileListLabel">Files for this recording</div>
+        <div id="afFileList" class="rec-slots" role="radiogroup" aria-labelledby="afFileListLabel"></div>
+        <div id="afOriginInfo" class="small text-muted mt-1" hidden></div>
+        <button type="button" class="btn btn-sm rec-text-btn mt-1" id="afCopyBetweenBtn" hidden aria-expanded="false" aria-controls="afCopyPicker">Copy sync points from another file or video…</button>
+        <div id="afCopyPicker" class="mt-1" hidden>
+          <p class="small text-muted mb-1">The times are copied as they are. Use it for the same recording as a file or a video, then adjust in Sync points.</p>
+          <div id="afCopyPickerList" class="rec-slots" role="group" aria-label="Copy sync points from"></div>
+        </div>
+      </div>
       <div class="small text-white-50 mb-2" id="afJamNote" hidden>In a Jam session, guests do not hear this file. They follow the host's video or the synth.</div>
       <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
         <button type="button" class="btn btn-sm rec-text-btn" id="afChooseBtn">Choose audio file</button>
         <input type="file" id="afFileInput" accept="audio/*,.mp3,.m4a,.aac,.ogg,.opus,.wav,.flac" hidden>
         <span class="small text-white-50 text-truncate" id="afStatus" role="status"></span>
+      </div>
+      <div class="yt-danger-row mb-2">
+        <button type="button" class="btn btn-sm rec-text-btn" id="afEditFilesBtn" hidden aria-pressed="false">Remove files…</button>
       </div>
       <div id="afPlayer" hidden>
         <canvas id="afWave" class="af-wave mb-2" height="72" aria-label="Waveform. Click to seek."></canvas>

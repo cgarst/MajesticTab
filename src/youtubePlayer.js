@@ -3,7 +3,7 @@
 import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOptionsPanel, isSynthPlaying } from './gpProcessor/gpPlayer.js';
 import { showPanel, hidePanel } from './utils/readerPanels.js';
 import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
-import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
+import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
 import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistory.js';
 import { showToast } from './utils/toast.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
@@ -52,7 +52,7 @@ function captureVideoData(info) {
 // The title and channel come from YouTube's oEmbed page (works before the player has loaded, and on every platform; the
 // player's own report, above, fills in or corrects it). Remembered, so the panel can name the video offline.
 const infoLookups = new Set();
-async function lookupVideoInfo(videoId) {
+export async function lookupVideoInfo(videoId) {
     if (!videoId || videoInfo.has(videoId) || infoLookups.has(videoId)) return;
     try {
         const cached = JSON.parse(localStorage.getItem(`yt_info_${videoId}`) || 'null');
@@ -1130,6 +1130,7 @@ export function getVideoChoices(slot = playerState.trackMode) {
 const videoTitle = (id) => getVideoInfo(id)?.title || 'Loading…';
 const videoSubline = (id, count) => [getVideoInfo(id)?.author, count ? `Synced · ${count} ${count === 1 ? 'point' : 'points'}` : 'Not synced'].filter(Boolean).join(' · ');
 
+const songKeyNow = () => getSongKey();
 function disarm() { clearTimeout(armTimer); armedRemoval = null; armedCopy = null; }
 function arm(kind, id) {
     disarm();
@@ -1194,11 +1195,12 @@ export async function renderSyncedVideos() {
     if (originInfo) {
         const o = activeVideo?.origin;
         originInfo.hidden = !o;
-        originInfo.textContent = o ? (o.fromVideoId ? `Sync points copied from ${getVideoInfo(o.fromVideoId)?.title || 'another video'}` : `Copied from tab: ${o.fromTabName || o.fromSongKey || ''}`) : '';
+        originInfo.textContent = o ? (o.fromAudioId ? `Sync points copied from ${o.fromAudioName || 'an audio file'}` : o.fromVideoId ? `Sync points copied from ${getVideoInfo(o.fromVideoId)?.title || 'another video'}` : `Copied from tab: ${o.fromTabName || o.fromSongKey || ''}`) : '';
     }
 
     // Copy sync points between this tab's videos: into the current video, from another one that has points
-    const sources = getSyncedVideos().filter((v) => v.videoId !== current && v.count > 0);
+    // (from any recording of the song with points: another video or an audio file)
+    const sources = listRecords(songKeyNow()).filter((r) => r.points.length && mediaKey(r.media) !== `yt_${current}`);
     const copyBtn = document.getElementById('ytCopyBetweenBtn');
     const picker = document.getElementById('ytCopyPicker');
     const showCopy = Boolean(current) && sources.length > 0;
@@ -1208,31 +1210,37 @@ export async function renderSyncedVideos() {
     if (pickerList && picker && !picker.hidden) {
         pickerList.textContent = '';
         const mine = getSyncedVideos().find((v) => v.videoId === current);
-        sources.forEach((v) => {
+        sources.forEach((r) => {
+            const key = mediaKey(r.media);
+            const isLocal = r.media.kind === 'local';
             const row = document.createElement('button');
             row.type = 'button';
             row.className = 'slot vrow-copy';
-            row.dataset.copyFrom = v.videoId;
+            row.dataset.copyFrom = key;
             const t = document.createElement('span'); t.className = 't';
             const b = document.createElement('b');
-            b.textContent = armedCopy === v.videoId ? `Replace ${mine?.count || 0} sync points?` : videoTitle(v.videoId);
-            const sub = document.createElement('span'); sub.textContent = videoSubline(v.videoId, v.count);
+            b.textContent = armedCopy === key ? `Replace ${mine?.count || 0} sync points?` : (isLocal ? (r.media.name || 'Audio file') : videoTitle(r.media.videoId));
+            const sub = document.createElement('span');
+            sub.textContent = isLocal ? `Audio file · ${r.points.length} ${r.points.length === 1 ? 'point' : 'points'}` : videoSubline(r.media.videoId, r.points.length);
             t.append(b, sub);
             row.append(t);
-            if (armedCopy === v.videoId) row.classList.add('is-armed');
+            if (armedCopy === key) row.classList.add('is-armed');
             pickerList.appendChild(row);
-            if (!getVideoInfo(v.videoId)) lookupVideoInfo(v.videoId);
+            if (!isLocal && !getVideoInfo(r.media.videoId)) lookupVideoInfo(r.media.videoId);
         });
     }
 }
 
 /** Copies the sync points of one of this tab's videos onto the current one (the times are copied as they are). */
-function copyPointsBetweenVideos(fromVideoId) {
+function copyPointsBetweenVideos(fromKey) {
     const songKey = getSongKey();
     const toVideoId = localStorage.getItem(getStorageKey()) || playerState.currentVideoId;
-    const from = getSyncedVideos().find((v) => v.videoId === fromVideoId);
+    const from = listRecords(songKey).find((r) => mediaKey(r.media) === fromKey);
     if (!songKey || !toVideoId || !from) return;
-    const media = { kind: 'youtube', videoId: toVideoId, origin: { fromVideoId, fromSongKey: songKey, copiedAt: Date.now() } };
+    const origin = from.media.kind === 'local'
+        ? { fromAudioId: from.media.audioId, fromAudioName: from.media.name, fromSongKey: songKey, copiedAt: Date.now() }
+        : { fromVideoId: from.media.videoId, fromSongKey: songKey, copiedAt: Date.now() };
+    const media = { kind: 'youtube', videoId: toVideoId, origin };
     if (saveRecord(songKey, media, from.points)) {
         window.dispatchEvent(new CustomEvent(SYNC_CHANGED_EVENT));
         const picker = document.getElementById('ytCopyPicker');
