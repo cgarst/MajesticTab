@@ -60,11 +60,11 @@
   user-select: none;
 }
 
-.tuner-inst-chip:hover {
+@media (hover: hover) { .tuner-inst-chip:hover {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary, #ffffff);
   border-color: rgba(255, 255, 255, 0.2);
-}
+} }
 
 .tuner-inst-chip.active {
   background: var(--accent-gradient, linear-gradient(135deg, #6366f1, #8b5cf6));
@@ -199,11 +199,11 @@
   transition: all 0.15s ease;
 }
 
-.tuner-string-btn:hover {
+@media (hover: hover) { .tuner-string-btn:hover {
   background: rgba(255, 255, 255, 0.1);
   border-color: var(--accent-primary, #6366f1);
   transform: translateY(-1px);
-}
+} }
 
 .tuner-string-btn.active {
   background: var(--accent-primary, #6366f1);

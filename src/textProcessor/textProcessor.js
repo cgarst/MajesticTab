@@ -5,7 +5,7 @@ import { groupBlocks, paginate, createChordLyricSegments } from './textBlocks.js
 
 const PAGE_PADDING = 20;
 let scrollFit = 1, scrollBase = 1;
-const MIN_TEXT_PX = 8; // a WebView stops shrinking text at about 8px, so a smaller size only cuts lines off at the edge; wider text scrolls sideways instead
+const MIN_TEXT_PX = 2; // only a guard against a degenerate line; a text tab always shrinks to the width and never scrolls sideways
 let textMaxScalePercent = null; // page mode
 let textMaxScrollPercent = null; // scroll mode
 /** Largest zoom % at which the open text tab still fits its page (null: no limit below the slider's own). */

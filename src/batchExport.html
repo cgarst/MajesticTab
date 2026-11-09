@@ -48,10 +48,17 @@
       transition: all 0.2s ease;
       color: var(--text-muted);
     }
-    .drop-zone:hover, .drop-zone.dragover {
+    .drop-zone.dragover {
       border-color: var(--accent-primary);
       background: var(--bg-card-hover);
       color: var(--text-primary);
+    }
+    @media (hover: hover) {
+      .drop-zone:hover {
+        border-color: var(--accent-primary);
+        background: var(--bg-card-hover);
+        color: var(--text-primary);
+      }
     }
     .file-item {
       display: flex;

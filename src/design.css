@@ -54,15 +54,20 @@ body {
 #topBar.hud-hidden.hud-transient { box-shadow: none; }
 
 /* Buttons: flat fill, tone-step hover, no glow or lift */
-.btn-theme-primary,
-.btn-theme-primary:hover:not(:disabled) {
+.btn-theme-primary {
   background: var(--accent-primary) !important;
   border: 1px solid transparent !important;
   box-shadow: none;
   transform: none;
 }
-.btn-theme-primary:hover:not(:disabled) { filter: brightness(1.12); }
-.btn-theme-outline:hover:not(:disabled) { box-shadow: none; }
+@media (hover: hover) { .btn-theme-primary:hover:not(:disabled) {
+  background: var(--accent-primary) !important;
+  border: 1px solid transparent !important;
+  box-shadow: none;
+  transform: none;
+} }
+@media (hover: hover) { .btn-theme-primary:hover:not(:disabled) { filter: brightness(1.12); } }
+@media (hover: hover) { .btn-theme-outline:hover:not(:disabled) { box-shadow: none; } }
 .btn-theme-primary,
 .btn-theme-outline,
 .btn-theme-danger,
@@ -154,7 +159,7 @@ body {
   body.library-view-active .library-bottom-nav .library-nav-settings { margin-top: auto; }
   body.library-view-active #libraryPage { padding-left: var(--rail-w); }
   .library-bottom-nav .library-nav-tab { border-radius: var(--r-control); min-height: 56px; }
-  .library-bottom-nav .library-nav-tab:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+  @media (hover: hover) { .library-bottom-nav .library-nav-tab:hover { background: var(--bg-card-hover); color: var(--text-primary); } }
 }
 /* Active item: a flat dot in the second hue, no glow */
 .library-bottom-nav .library-nav-tab { position: relative; }
@@ -216,8 +221,9 @@ body.library-view-active #viewPill { display: none; }
 }
 .theme-toast-action { padding: 0 12px; color: var(--accent-text); font-weight: 700; font-size: 0.85rem; }
 .theme-toast-close { min-width: 32px; padding: 0; color: var(--ink2); font-size: 1.25rem; line-height: 1; }
-.theme-toast-action:hover, .theme-toast-close:hover { background: var(--s2); }
-.theme-toast-close:hover { color: var(--ink); }
+@media (hover: hover) { .theme-toast-action:hover,
+.theme-toast-close:hover { background: var(--s2); } }
+@media (hover: hover) { .theme-toast-close:hover { color: var(--ink); } }
 .theme-toast-action:active, .theme-toast-close:active { transform: scale(0.96); }
 .theme-toast-action:focus-visible, .theme-toast-close:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 @media (pointer: coarse) {
@@ -264,19 +270,25 @@ html, body { background: var(--ground) !important; }
 body { font: 15px/1.45 system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
 
 /* Buttons: tone steps, not borders. Primary is the action color, secondary is one step up, ghost is bare. */
-.btn-theme-primary, .btn-theme-primary:hover:not(:disabled) {
+.btn-theme-primary {
   background: var(--action) !important; color: var(--on-action, #fff) !important; border: 0 !important;
   border-radius: var(--r) !important; font-weight: 600;
 }
+@media (hover: hover) { .btn-theme-primary:hover:not(:disabled) {
+  background: var(--action) !important; color: var(--on-action, #fff) !important; border: 0 !important;
+  border-radius: var(--r) !important; font-weight: 600;
+} }
 .btn-theme-outline, .theme-control-btn {
   background: var(--s3) !important; color: var(--ink) !important; border: 0 !important;
   border-radius: var(--r) !important; font-weight: 600;
 }
-.btn-theme-outline:hover:not(:disabled), .theme-control-btn:hover:not(:disabled) {
+@media (hover: hover) { .btn-theme-outline:hover:not(:disabled),
+.theme-control-btn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--s3) 80%, var(--ink)) !important; color: var(--ink) !important;
-}
+} }
 .btn-theme-icon, .brand-btn { border: 0 !important; background: transparent !important; color: var(--ink2) !important; border-radius: var(--r) !important; box-shadow: none !important; }
-.btn-theme-icon:hover:not(:disabled), .brand-btn:hover { background: var(--s2) !important; color: var(--ink) !important; }
+@media (hover: hover) { .btn-theme-icon:hover:not(:disabled),
+.brand-btn:hover { background: var(--s2) !important; color: var(--ink) !important; } }
 .btn-theme-danger { background: color-mix(in srgb, var(--danger, #f87171) 18%, var(--s2)) !important; color: var(--danger, #f87171) !important; border: 0 !important; border-radius: var(--r) !important; }
 .btn-theme-success { background: color-mix(in srgb, var(--hue) 22%, var(--s2)) !important; color: var(--ink) !important; border: 0 !important; border-radius: var(--r) !important; }
 
@@ -335,7 +347,8 @@ body:not(.library-view-active) .breadcrumb-divider { display: none; }
 .top-bar-song-btn {
   background: transparent !important; border: 0 !important; box-shadow: none !important; border-radius: var(--r) !important; height: 40px; padding: 0 10px;
 }
-.top-bar-song-btn:hover, .top-bar-song-btn.active { background: var(--s2) !important; }
+ .top-bar-song-btn.active { background: var(--s2) !important; }
+@media (hover: hover) { .top-bar-song-btn:hover { background: var(--s2) !important; } }
 .top-bar-song-btn .song-title-glyph { display: none !important; }
 .top-bar-song-btn .breadcrumb-song-title {
   font-family: var(--font-display); font-weight: 700; font-size: 22px; letter-spacing: -0.005em; line-height: 1.1;
@@ -436,7 +449,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 .dock-marks[hidden] { display: none; }
 .dock-marks .mhead { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .dock-marks-close { flex-shrink: 0; display: inline-grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink2); cursor: pointer; }
-.dock-marks-close:hover { background: var(--s3); color: var(--ink); }
+@media (hover: hover) { .dock-marks-close:hover { background: var(--s3); color: var(--ink); } }
 .dock-marks-close:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 @media (pointer: coarse) { .dock-marks-close { width: 44px; height: 44px; } }
 
@@ -477,7 +490,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   display: flex !important; align-items: center; justify-content: flex-start !important; gap: 12px; width: 100%; min-height: 48px;
   padding: 8px 12px !important; background: transparent !important; text-align: left; font-weight: 500 !important; font-size: 15px;
 }
-.more-menu .btn:hover { background: var(--s3) !important; }
+@media (hover: hover) { .more-menu .btn:hover { background: var(--s3) !important; } }
 .more-menu .btn i { font-size: 1.1rem; width: 1.4rem; text-align: center; color: var(--ink2) !important; }
 
 /* Medium width (tablet / narrow desktop): tighten dock spacing so the bar number and bpm never collide */
@@ -527,7 +540,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
 #viewMenu .view-size-label { display: flex; justify-content: space-between; align-items: baseline; }
 #viewMenu #gpSheetScaleValue { font: 600 22px/1 system-ui, sans-serif; color: var(--ink) !important; }
 #viewMenu .view-more-settings { width: 100%; margin-top: 4px; color: var(--ink2); background: transparent; border: 0; min-height: 44px; font-weight: 500; }
-#viewMenu .view-more-settings:hover { color: var(--ink); background: var(--s3); }
+@media (hover: hover) { #viewMenu .view-more-settings:hover { color: var(--ink); background: var(--s3); } }
 #viewMenu input[type=range], .form-range { accent-color: var(--hue); }
 #gpSheetScaleMinus, #gpSheetScalePlus { width: 36px; height: 36px; padding: 0 !important; }
 #viewMenu .view-size-label { display: flex !important; }
@@ -582,7 +595,7 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
   display: flex !important; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 8px 12px !important;
   border-radius: var(--r) !important; background: transparent !important; border: 0 !important; color: var(--ink) !important; text-align: left;
 }
-.tools-item:hover, .tools-row > .btn:hover { background: var(--s3) !important; }
+@media (hover: hover) { .tools-item:hover, .tools-row > .btn:hover { background: var(--s3) !important; } }
 .tools-item-text span { font-weight: 500; font-size: 15px; color: var(--ink); }
 .tools-item-text small { font-size: 12px; color: var(--ink2); margin-top: 2px; }
 .tools-item kbd { margin-left: auto; font: 600 12px system-ui, sans-serif; color: var(--ink2); background: var(--s3); border: 0 !important; border-radius: 4px; padding: 2px 7px; }
@@ -599,9 +612,9 @@ body.fretboard-open .mobile-playback-dock { bottom: auto !important; }
    ========================================================================== */
 #synthDropdownPanel, #ytDropdownPanel {
   position: fixed !important; top: var(--topbar-h, 52px) !important; right: 0 !important; left: auto !important;
-  bottom: calc(var(--dock-h, 0px) + var(--fretboard-effective-h, 0px)) !important;
+  bottom: var(--dock-h, 0px) !important;
   width: 400px !important; max-width: 100% !important; height: auto !important; max-height: none !important; transform: none !important;
-  border-radius: var(--r-lg) 0 0 var(--r-lg) !important; z-index: 1030; overflow-y: auto; overflow-x: hidden;
+  border-radius: var(--r-lg) 0 0 var(--r-lg) !important; z-index: 1085; overflow-y: auto; overflow-x: hidden;
   background: var(--s2) !important; animation: practiceIn var(--dur-slow) var(--ease-out);
   transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
@@ -610,8 +623,8 @@ body.practice-open #output { padding-right: 416px !important; }
 @media (max-width: 900px) {
   #synthDropdownPanel, #ytDropdownPanel {
     top: auto !important; left: 0 !important; width: auto !important;
-    bottom: calc(var(--dock-h, 0px) + var(--fretboard-effective-h, 0px)) !important;
-    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--fretboard-effective-h, 0px) - 24px) !important; height: auto !important;
+    bottom: var(--dock-h, 0px) !important;
+    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - 24px) !important; height: auto !important;
     border-radius: var(--r-lg) var(--r-lg) 0 0 !important; animation: sheetIn var(--dur-slow) var(--ease-out);
   }
   body.practice-open #output { padding-right: 16px !important; }
@@ -652,7 +665,7 @@ body.practice-open #output { padding-right: 416px !important; }
   background: var(--s1); width: 100%; text-align: left; border: 0; transition: background-color var(--dur-fast) var(--ease-out);
   position: relative; cursor: pointer; color: var(--ink);
 }
-.slot:hover { background: var(--s3); }
+@media (hover: hover) { .slot:hover { background: var(--s3); } }
 .slot[aria-checked="true"] { background: var(--s3); }
 .slot .rd { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink2); display: grid; place-items: center; flex: none; }
 .slot[aria-checked="true"] .rd { border-color: var(--hue); }
@@ -673,9 +686,7 @@ body.practice-open #output { padding-right: 416px !important; }
   color: var(--ink2);
   flex: none;
 }
-.setrow.clickable:hover {
-  background: var(--s2);
-}
+@media (hover: hover) { .setrow.clickable:hover { background: var(--s2); } }
 .rowwrap {
   position: relative;
   display: flex;
@@ -861,7 +872,7 @@ body.practice-open #output { padding-right: 416px !important; }
 .library-list-toolbar > div:first-child > span.small { display: none; }
 /* Ghost text action beside the one primary action */
 .lib-ghost-action { min-height: 36px; padding: 0 12px; border: 0 !important; background: transparent !important; color: var(--ink2) !important; border-radius: var(--r-control) !important; font-weight: 500; box-shadow: none !important; white-space: nowrap; }
-.lib-ghost-action:hover:not(:disabled) { background: var(--s2) !important; color: var(--ink) !important; }
+@media (hover: hover) { .lib-ghost-action:hover:not(:disabled) { background: var(--s2) !important; color: var(--ink) !important; } }
 .lib-ghost-action:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 @media (pointer: coarse) { .lib-ghost-action { min-height: 44px; } }
 
@@ -875,7 +886,8 @@ body.practice-open #output { padding-right: 416px !important; }
 .library-page-container:not(.setlists-view):not(.tunings-view) > .library-list-toolbar .library-toolbar-actions { justify-content: flex-end; }
 @media (min-width: 1000px) { .library-page-container:not(.setlists-view):not(.tunings-view) > .library-list-toolbar > div:last-child { margin-right: -20px; } }
 .library-list-toolbar .btn { min-height: 36px; }
-.library-list-toolbar .btn.btn-theme-primary, .library-list-toolbar .btn.btn-theme-primary:hover:not(:disabled) { padding: 0 14px; border-radius: var(--r-control) !important; }
+.library-list-toolbar .btn.btn-theme-primary { padding: 0 14px; border-radius: var(--r-control) !important; }
+@media (hover: hover) { .library-list-toolbar .btn.btn-theme-primary:hover:not(:disabled) { padding: 0 14px; border-radius: var(--r-control) !important; } }
 @media (pointer: coarse) { .library-list-toolbar .btn { min-height: 44px; } }
 /* Setlists with a list: the action lives in the list pane, so the search takes the whole row */
 .library-page-container.setlists-view:has(> .library-list-toolbar > div:last-child:empty) { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
@@ -900,13 +912,16 @@ body.practice-open #output { padding-right: 416px !important; }
   -webkit-mask: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m4 6 4 4 4-4'/%3e%3c/svg%3e") center / contain no-repeat;
 }
-:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input,
-:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input:hover,
-:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input:focus {
+:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input,:is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input:focus {
   background-image: none !important; color: var(--ink2) !important; font: 500 14px/1.2 system-ui, sans-serif !important;
   min-height: 36px; min-width: 0 !important; max-width: none !important; width: 100%; padding: 0 30px 0 12px !important;
   text-overflow: ellipsis; border-radius: var(--r-control) !important;
 }
+@media (hover: hover) { :is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group .collection-select-input:hover {
+  background-image: none !important; color: var(--ink2) !important; font: 500 14px/1.2 system-ui, sans-serif !important;
+  min-height: 36px; min-width: 0 !important; max-width: none !important; width: 100%; padding: 0 30px 0 12px !important;
+  text-overflow: ellipsis; border-radius: var(--r-control) !important;
+} }
 :is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group:focus-within { box-shadow: none; outline: 2px solid var(--ink); outline-offset: 2px; }
 :is(.library-list-toolbar, .lib-groupby-row) .collection-pill-group:focus-within .collection-select-input { color: var(--ink) !important; }
 @media (hover: hover) and (pointer: fine) {
@@ -1030,10 +1045,10 @@ body.practice-open #output { padding-right: 416px !important; }
     flex-shrink: 0;
     transition: color var(--dur-fast), background-color var(--dur-fast);
   }
-  .setshell[data-pane="page"] .sethead .setback:hover,
-  .setshell:has(.setwrap[data-pane="page"]) .sethead .setback:hover {
+  @media (hover: hover) { .setshell[data-pane="page"] .sethead .setback:hover,
+.setshell:has(.setwrap[data-pane="page"]) .sethead .setback:hover {
     color: var(--ink);
-  }
+  } }
   .setshell[data-pane="page"] .sethead .setback:active,
   .setshell:has(.setwrap[data-pane="page"]) .sethead .setback:active {
     background: var(--s2);
@@ -1054,7 +1069,7 @@ body.practice-open #output { padding-right: 416px !important; }
 .setnav button i:first-child { font-size: 1.15rem; width: 1.5rem; text-align: center; }
 .setnav button span { flex: 1; }
 .setnav button .chev { opacity: .6; font-size: .9rem; }
-.setnav button:hover { color: var(--ink); }
+@media (hover: hover) { .setnav button:hover { color: var(--ink); } }
 .setnav button[aria-current="true"] { color: var(--ink); background: var(--s2); }
 @media (min-width: 900px) { .setnav button .chev { display: none; } .setnav button[aria-current="true"]::before { content: ''; position: absolute; left: -2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); } }
 /* Flat rows on the 56px pitch (they were filled tonal cards); a press takes one tone step */
@@ -1076,7 +1091,7 @@ body.practice-open #output { padding-right: 416px !important; }
 .srow .st span { display: block; font-size: 13px; color: var(--ink2); max-width: 48ch; }
 .srow .sc { flex: none; display: flex; gap: 8px; align-items: center; }
 .srow .srow-ghost { background: transparent; border: 0; box-shadow: none; color: var(--ink2); font-weight: 500; }
-.srow .srow-ghost:hover:not(:disabled) { background: var(--s3); color: var(--ink); }
+@media (hover: hover) { .srow .srow-ghost:hover:not(:disabled) { background: var(--s3); color: var(--ink); } }
 .fin-ctl { display: inline-flex; align-items: center; gap: 8px; }
 .fin-ctl #drawerThemeName { font-weight: 600; }
 .snote { margin: 8px 2px 0; font-size: 13px; color: var(--ink2); max-width: 52ch; }
@@ -1194,13 +1209,13 @@ body.practice-open #output { padding-right: 416px !important; }
   color: var(--ink);
   transition: background-color var(--dur-fast) var(--ease-out);
 }
-.win-ctrl-btn:hover {
+@media (hover: hover) { .win-ctrl-btn:hover {
   background: var(--s3);
-}
-.win-ctrl-close:hover {
+} }
+@media (hover: hover) { .win-ctrl-close:hover {
   background: #c42b1c !important;
   color: #fff !important;
-}
+} }
 
 /* Section chips in Practice panel */
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1219,7 +1234,7 @@ body.practice-open #output { padding-right: 416px !important; }
   justify-content: center;
   transition: background-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
 }
-.chipbtn:hover { background: var(--bg-card-hover, #333); }
+@media (hover: hover) { .chipbtn:hover { background: var(--bg-card-hover, #333); } }
 .chipbtn.on { background: var(--hue); color: #000; font-weight: 600; }
 
 /* Tunings flat rows */
@@ -1240,9 +1255,9 @@ body.practice-open #output { padding-right: 416px !important; }
   transition: background-color var(--dur-fast) var(--ease-out);
   text-align: left;
 }
-.tuning.tuning-card:hover {
+@media (hover: hover) { .tuning.tuning-card:hover {
   background: var(--s2);
-}
+} }
 .tuning .strings {
   display: flex;
   gap: 6px;
@@ -1260,9 +1275,9 @@ body.practice-open #output { padding-right: 416px !important; }
   position: relative;
   color: var(--ink);
 }
-.tuning.tuning-card:hover .strings span {
+@media (hover: hover) { .tuning.tuning-card:hover .strings span {
   background: var(--s3);
-}
+} }
 .tuning .strings span small {
   position: absolute;
   top: 3px;
@@ -1356,9 +1371,7 @@ body.fretboard-open {
   cursor: pointer;
   user-select: none;
 }
-.synced-video-row:hover {
-  background: var(--s2);
-}
+@media (hover: hover) { .synced-video-row:hover { background: var(--s2); } }
 .synced-video-row.is-selected {
   background: var(--s3);
 }
@@ -1433,10 +1446,10 @@ body.fretboard-open {
               border-color var(--dur-fast, 120ms) var(--ease-out, ease),
               transform var(--dur-fast, 120ms) var(--ease-out, ease);
 }
-.shelf-item:hover {
+@media (hover: hover) { .shelf-item:hover {
   background: var(--s3);
   border-color: rgba(255, 255, 255, 0.16);
-}
+} }
 .shelf-item:active {
   transform: translateY(1px);
 }
@@ -1542,9 +1555,7 @@ body.fretboard-open {
 .library-song-rowwrap:last-child {
   border-bottom: none;
 }
-.library-song-rowwrap:hover {
-  background: var(--s2) !important;
-}
+@media (hover: hover) { .library-song-rowwrap:hover { background: var(--s2) !important; } }
 .library-song-rowwrap.library-song-row-pinned {
   border-left: 2px solid #f59e0b;
 }
@@ -1629,12 +1640,6 @@ body.fretboard-open {
   flex: none !important;
   margin-left: auto;
   padding: 0 !important;
-}
-  color: var(--ink2);
-  min-width: 44px;
-  text-align: right;
-  flex: none;
-  margin-left: auto;
 }
 
 .library-song-rowwrap .song-actions {
@@ -1749,7 +1754,7 @@ body.fretboard-open {
 /* Album shelf: names in a row; the open album takes a tone step and the inlay dot */
 .discography-shelf { border-bottom: 0; }
 .shelf-item { background: transparent; border: 0; padding: 6px 12px 6px 6px; position: relative; }
-.shelf-item:hover { background: var(--s2); border-color: transparent; }
+@media (hover: hover) { .shelf-item:hover { background: var(--s2); border-color: transparent; } }
 .shelf-item.active { background: var(--s2); border-color: transparent; box-shadow: none; }
 .shelf-item.active::before { content: ""; position: absolute; left: 2px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--hue); }
 
@@ -1767,7 +1772,7 @@ body.fretboard-open {
 .library-tunings-grid { gap: 0; }
 .tuning.tuning-card { background: transparent; border: 0; border-radius: 0; padding: 14px 20px; }
 .tuning.tuning-card .edit-tuning-btn { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; font-size: 14px; min-height: 36px; }
-.tuning.tuning-card .edit-tuning-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+@media (hover: hover) { .tuning.tuning-card .edit-tuning-btn:hover { background: var(--s3) !important; color: var(--ink) !important; } }
 @media (max-width: 576px) { .tuning.tuning-card { padding-inline: 16px; } }
 
 /* Album shelf: artwork only. The title, year and track count are in the album header below. */
@@ -1782,7 +1787,10 @@ body.fretboard-open {
 .backup-stat-card, .restore-mode-card, .backup-provider-option, .drive-backup-item, .backup-dropzone, #restoreInspectionCard {
   background: var(--s2) !important; border: 0 !important; box-shadow: none !important;
 }
-.backup-stat-card:hover, .restore-mode-card:hover, .backup-provider-option:hover, .drive-backup-item:hover { background: var(--s3) !important; box-shadow: none !important; }
+@media (hover: hover) { .backup-stat-card:hover,
+.restore-mode-card:hover,
+.backup-provider-option:hover,
+.drive-backup-item:hover { background: var(--s3) !important; box-shadow: none !important; } }
 .restore-mode-card:has(input:checked) { background: var(--s3) !important; box-shadow: none !important; }
 .backup-dropzone.drag-over { background: var(--s3) !important; box-shadow: none !important; }
 .provider-mini-icon { background: var(--s3); border: 0; }
@@ -1793,7 +1801,7 @@ body.fretboard-open {
 /* Setlists: the page content spans the grid, rows are names and counts */
 .setlists-view .setrow .mono { display: none; }
 .setlists-view #toggleSetlistsEditBtn.btn-theme-outline { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; }
-.setlists-view #toggleSetlistsEditBtn.btn-theme-outline:hover { background: var(--s3) !important; color: var(--ink) !important; }
+@media (hover: hover) { .setlists-view #toggleSetlistsEditBtn.btn-theme-outline:hover { background: var(--s3) !important; color: var(--ink) !important; } }
 .setlists-view #toggleSetlistsEditBtn i { display: none; }
 .setlists-view .rowwrap .row { flex-wrap: nowrap; margin: 0; --bs-gutter-x: 0; padding-inline: 20px; }
 .setlists-view .rowwrap .row > * { width: auto; max-width: none; padding: 0; margin-top: 0; }
@@ -1822,18 +1830,20 @@ body.fretboard-open {
 .library-book-pdf-bar .btn-theme-outline, .pane-head .toggle-album-edit-btn {
   background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ink2) !important; font-weight: 500; font-size: 14px;
 }
-.library-book-pdf-bar .btn-theme-outline:hover, .pane-head .toggle-album-edit-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+@media (hover: hover) { .library-book-pdf-bar .btn-theme-outline:hover,
+.pane-head .toggle-album-edit-btn:hover { background: var(--s3) !important; color: var(--ink) !important; } }
 .pane-head .in-view-back-btn { color: var(--ink) !important; }
 .library-sticky-breadcrumbs .btn-theme-outline { background: transparent !important; border: 0 !important; color: var(--ink2) !important; }
 .theme-breadcrumb-btn { background: transparent !important; border: 0 !important; box-shadow: none !important; }
 @media (max-width: 576px) { .library-sticky-breadcrumbs, .library-book-pdf-bar { padding-inline: 16px !important; } }
 .library-book-pdf-bar { row-gap: 0 !important; column-gap: 14px !important; }
 .library-book-pdf-bar .btn { padding-inline: 0 !important; min-height: 40px; }
-.library-book-pdf-bar .btn:hover { background: transparent !important; text-decoration: underline; text-underline-offset: 3px; }
+@media (hover: hover) { .library-book-pdf-bar .btn:hover { background: transparent !important; text-decoration: underline; text-underline-offset: 3px; } }
 
 /* Setlist detail: a text way back, quiet actions, no notes in the rows */
 .setlists-view .theme-control-btn, .setlists-view #toggleSetlistEditBtn { background: transparent !important; border: 0 !important; color: var(--ink2) !important; font-weight: 500; }
-.setlists-view .theme-control-btn:hover, .setlists-view #toggleSetlistEditBtn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+@media (hover: hover) { .setlists-view .theme-control-btn:hover,
+.setlists-view #toggleSetlistEditBtn:hover { background: var(--s3) !important; color: var(--ink) !important; } }
 .setlists-view .setlist-add-songs { border: 0 !important; }
 
 /* Page titles and empty states are left aligned words, not centred glyphs */
@@ -1947,7 +1957,8 @@ body.fretboard-open {
 .tuner-banner-subtitle, .tuner-active-note, .tuner-chromatic-note { font-size: 13px; color: var(--ink2); margin-bottom: 12px; }
 .tuner-active-note { margin: 0; font-weight: 400; }
 .tuner-string-btn { background: var(--ref-rest) !important; border: 0 !important; border-radius: var(--r-control) !important; min-height: 56px; }
-.tuner-string-btn.active, .tuner-string-btn:hover { background: var(--ref-on) !important; }
+.tuner-string-btn.active { background: var(--ref-on) !important; }
+@media (hover: hover) { .tuner-string-btn:hover { background: var(--ref-on) !important; } }
 .tuner-string-note { font-size: 16px; font-weight: 700; color: var(--ink); }
 .tuner-string-hz { font-size: 12px; color: var(--ink2); font-family: inherit !important; font-variant-numeric: tabular-nums; }
 .tuner-string-btn:focus-visible, .tuner-mic-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -2070,22 +2081,23 @@ body.fretboard-open {
   border-radius: var(--r-control, 8px) !important;
   transition: background var(--dur-fast, 150ms) var(--ease-out);
 }
-.data-task-slot .backup-provider-option:hover, .data-task-slot .restore-mode-card:hover {
+@media (hover: hover) { .data-task-slot .backup-provider-option:hover,
+.data-task-slot .restore-mode-card:hover {
   background: color-mix(in srgb, var(--ink) 5%, transparent) !important;
-}
+} }
 /* The inspection card's own rule is more specific: keep its options flat like the other rows */
 .data-task-slot #restoreInspectionCard .restore-mode-card,
 .data-task-slot #restoreInspectionCard .restore-mode-card:has(input:checked) { background: transparent !important; }
-.data-task-slot #restoreInspectionCard .restore-mode-card:hover { background: color-mix(in srgb, var(--ink) 5%, transparent) !important; }
+@media (hover: hover) { .data-task-slot #restoreInspectionCard .restore-mode-card:hover { background: color-mix(in srgb, var(--ink) 5%, transparent) !important; } }
 .data-task-slot .backup-dropzone {
   background: transparent !important;
   border: 0 !important;
   border-radius: var(--r-control, 8px) !important;
   padding: 8px 0 16px !important;
 }
-.data-task-slot .backup-dropzone:hover {
+@media (hover: hover) { .data-task-slot .backup-dropzone:hover {
   background: transparent !important;
-}
+} }
 .data-task-slot .backup-dropzone.drag-over {
   background: color-mix(in srgb, var(--ink) 8%, var(--s3)) !important;
 }
@@ -2115,10 +2127,11 @@ body.fretboard-open {
   border-radius: var(--r-control, var(--r)) !important;
   font-weight: 500;
 }
-.data-task-slot .btn-theme-outline:hover:not(:disabled), .data-task-slot .theme-control-btn:hover:not(:disabled) {
+@media (hover: hover) { .data-task-slot .btn-theme-outline:hover:not(:disabled),
+.data-task-slot .theme-control-btn:hover:not(:disabled) {
   background: color-mix(in srgb, var(--ink) 18%, var(--s3)) !important;
   color: var(--ink) !important;
-}
+} }
 .data-task-slot .form-control {
   background-color: color-mix(in srgb, var(--ink) 6%, var(--s3)) !important;
   border: 0 !important;
@@ -2171,7 +2184,7 @@ body.fretboard-open {
 .guitar-menu .form-label { color: var(--ink2) !important; font-size: 13px; font-weight: 500 !important; }
 .guitar-menu-foot { display: flex; gap: 6px; justify-content: space-between; }
 .guitar-menu-action { background: transparent !important; border: 0 !important; color: var(--ink2) !important; padding: 8px 10px !important; border-radius: var(--r) !important; min-height: 40px; font-weight: 600; }
-.guitar-menu-action:hover:not(:disabled) { background: var(--s3) !important; color: var(--ink) !important; }
+@media (hover: hover) { .guitar-menu-action:hover:not(:disabled) { background: var(--s3) !important; color: var(--ink) !important; } }
 .guitar-menu-action:disabled { opacity: 0.4; }
 .guitar-menu .hud-pill-group { width: 100%; display: flex; }
 .guitar-menu .hud-pill-group .btn { flex: 1; text-align: center; justify-content: center; padding-inline: 4px; }
@@ -2245,9 +2258,38 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 #scoreOptionsSaveGroup .btn { background: transparent !important; border: 0 !important; color: var(--ink) !important; justify-content: flex-start !important; padding-inline: 12px !important; border-radius: var(--r-control) !important; min-height: 56px; }
 /* Not Bootstrap's d-flex (it is !important and beat the inline display:none that hides actions that do not apply) */
 #scoreOptionsSaveGroup .btn { display: flex; align-items: center; }
-#scoreOptionsSaveGroup .btn:hover { background: var(--s2) !important; }
+@media (hover: hover) { #scoreOptionsSaveGroup .btn:hover { background: var(--s2) !important; } }
 #scoreOptionsSaveGroup .btn i { display: none; }
 .top-bar-song-btn.active { background: transparent !important; }
+
+/* ---------- Song menu: Tuning ---------- */
+/* A flat row on the 56px pitch (value in grey beside its label); the list below it is rows with a switch, one tone step on hover */
+#scoreOptionsTuningGroup[hidden] { display: none; }
+#scoreOptionsTuningGroup { display: flex; flex-direction: column; gap: 4px; }
+.tuning-row { display: flex; align-items: center; width: 100%; min-height: 56px; padding: 0 12px; border: 0; background: transparent; color: var(--ink); text-align: left; border-radius: var(--r-control); transition: background var(--dur-fast) var(--ease-out); }
+@media (hover: hover) { .tuning-row:hover { background: var(--s2); } }
+.tuning-row[aria-expanded="true"] { background: var(--s2); }
+.tuning-row:focus-visible, .tuning-item:focus-within, .tuning-text-action:focus-visible { outline: 2px solid var(--ink2); outline-offset: -2px; }
+.tuning-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tuning-row-text small { color: var(--ink2); font-size: 12px; font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tuning-detail { display: flex; flex-direction: column; gap: 12px; padding: 4px 0 4px; }
+.tuning-detail[hidden] { display: none; }
+.tuning-change, .tuning-custom { display: flex; flex-direction: column; gap: 6px; padding: 0 12px; }
+.tuning-custom[hidden] { display: none; }
+.tuning-detail .form-select, .tuning-detail .form-control { background-color: var(--s3) !important; color: var(--ink) !important; border: 0 !important; border-radius: var(--r-control); min-height: 44px; }
+.tuning-custom-error { color: var(--ink2); font-size: 12px; }
+.tuning-custom-error[hidden] { display: none; }
+.tuning-list-title { padding: 0 12px; color: var(--ink2); font-size: 13px; font-weight: 500; }
+.tuning-list { display: flex; flex-direction: column; }
+.tuning-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 0 12px; border-radius: var(--r-control); cursor: pointer; color: var(--ink); transition: background var(--dur-fast) var(--ease-out); }
+@media (hover: hover) { .tuning-item:hover { background: var(--s2); } }
+.tuning-item.is-hidden .tuning-item-name { color: var(--ink2); }
+.tuning-item-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tuning-item .form-check { flex: none; display: flex; align-items: center; }
+.tuning-note { padding: 0 12px; color: var(--ink2); font-size: 12px; }
+.tuning-text-action { align-self: flex-start; min-height: 44px; padding: 0 12px; border: 0; background: transparent; color: var(--ink2); border-radius: var(--r-control); }
+@media (hover: hover) { .tuning-text-action:hover { background: var(--s2); color: var(--ink); } }
+@media (prefers-reduced-motion: reduce) { .tuning-row, .tuning-item { transition: none; } }
 
 /* ---------- Page strip (PDF and text tabs) ---------- */
 .page-strip { flex: none; width: 100%; background: var(--s1); padding: 12px 14px 8px; position: relative; z-index: 1045; }
@@ -2268,7 +2310,7 @@ body.page-strip-on .mobile-playback-dock-inner { grid-template-columns: auto 1fr
 .page-strip-track:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
 .page-strip-marks { position: relative; height: 26px; margin-top: 4px; }
 .page-strip-mark { position: absolute; top: 0; transform: translateX(-2px); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: transparent; border: 0; padding: 4px 6px; color: var(--ink2); font: 500 12px system-ui, sans-serif; min-height: 24px; border-radius: var(--r-sm); }
-.page-strip-mark:hover { background: var(--s2); color: var(--ink); }
+@media (hover: hover) { .page-strip-mark:hover { background: var(--s2); color: var(--ink); } }
 .page-strip-marks:empty { display: none; }
 
 /* ---------- Phone reader chrome ----------
@@ -2404,15 +2446,24 @@ body.phone-reader:not(.library-view-active) #output.continuous-mode { padding-bo
 /* View does not repeat the toggle; the strip has it */
 #readingCell { display: none !important; }
 
-/* Sheets (View, Practice, Tracks, Guitar, Tools, Song, Synth, Original) rise from the bottom, above the strip and the
-   fretboard, and stop short of the top so the tab stays visible */
+/* Sheets (View, Practice, Tracks, Guitar, Tools, Song, Synth, Original) rise from the bottom, above the strip, and are as tall as the space
+   under the top row allows, so they rarely need scrolling. The fretboard stays behind them: a sheet covers it rather than stopping above it. */
 body.phone-reader #viewMenu, body.phone-reader #practiceMenu, body.phone-reader #guitarMenu, body.phone-reader #toolsMenu, body.phone-reader #tracksMenu,
 body.phone-reader #scoreOptionsDropdownPanel, body.phone-reader #synthDropdownPanel, body.phone-reader #ytDropdownPanel {
   position: fixed !important; left: var(--reader-rail-w) !important; right: 0 !important; top: auto !important; width: auto !important; max-width: none !important;
-  bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px) + var(--fretboard-effective-h, 0px)) !important; transform: none !important;
-  max-height: min(62vh, calc(100vh - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - var(--fretboard-effective-h, 0px) - 24px)) !important;
+  bottom: calc(var(--dock-h, 0px) + var(--reader-bottom-nav-h, 0px)) !important; transform: none !important;
+  max-height: min(88vh, calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - 12px)) !important;
   overflow-y: auto; border-radius: var(--r-lg) var(--r-lg) 0 0 !important;
   transition: bottom 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+/* The Song menu opens from the song's name in the top row, so on a portrait phone it drops in from there (not up from the
+   bottom like the sheets that belong to the five words). As tall as the space allows, so it rarely needs scrolling. */
+@media (max-width: 640px) {
+  html:not(.duo-tabletop) body.phone-reader #scoreOptionsDropdownPanel {
+    top: var(--topbar-h, 52px) !important; bottom: auto !important; left: 0 !important; right: 0 !important;
+    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--reader-bottom-nav-h, 0px) - 12px) !important;
+    border-radius: 0 0 var(--r-lg) var(--r-lg) !important; --rp-from: 0 -40px;
+  }
 }
 body.phone-reader .dock-pop { left: 8px !important; right: 8px; width: auto; }
 body.phone-reader #topFlexZone .btn[aria-expanded="true"], body.phone-reader #topFlexZone .btn.active { background: var(--s2) !important; }
@@ -2596,7 +2647,7 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
 /* Tools page: flat rows on a 56px pitch, the same left edge as Setlists and Library */
 .tools-view .tools-page-list { display: flex; flex-direction: column; }
 .tools-page-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 56px; padding: 8px 12px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink); text-align: left; transition: background-color var(--dur-fast) var(--ease-out); }
-.tools-page-row:hover:not(:disabled) { background: var(--s1); }
+@media (hover: hover) { .tools-page-row:hover:not(:disabled) { background: var(--s1); } }
 .tools-page-row:active:not(:disabled) { background: var(--s2); }
 .tools-page-row:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .tools-page-row:disabled { opacity: .55; cursor: default; }
@@ -2666,7 +2717,7 @@ body.library-view-active #viewPill, body.library-view-active #practicePill, body
   .setshell .setnav { grid-column: 1; grid-row: 2; min-height: 0; }
   .setshell .setpage { grid-column: 2; grid-row: 1 / span 2; min-height: 0; }
   .setshell .setnav { background: var(--ground); }
-  .setshell .setnav button:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 5%, var(--ground)); }
+  @media (hover: hover) { .setshell .setnav button:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 5%, var(--ground)); } }
   .setshell .setnav button[aria-current="true"] { background: color-mix(in srgb, var(--ink) 9%, var(--ground)); }
   .setshell .setpage { background: var(--s1); }
 }
@@ -2796,7 +2847,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 @media (min-width: 641px) {
   #viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu, #scoreOptionsDropdownPanel {
     width: min(360px, calc(100vw - 16px)) !important; max-width: none;
-    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - var(--fretboard-effective-h, 0px) - 24px); overflow-y: auto; overflow-x: hidden;
+    max-height: calc(100vh - var(--topbar-h, 52px) - var(--dock-h, 0px) - 24px); overflow-y: auto; overflow-x: hidden;
   }
 }
 
@@ -2810,7 +2861,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
   font: 500 13px system-ui, sans-serif !important; letter-spacing: 0; line-height: 1.3; padding: 6px 12px !important; min-height: 32px;
   border: 0 !important; border-radius: var(--r) !important; background: transparent !important; color: var(--ink2) !important;
 }
-.gp-track-row .gp-track-only-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+@media (hover: hover) { .gp-track-row .gp-track-only-btn:hover { background: var(--s3) !important; color: var(--ink) !important; } }
 @media (pointer: coarse) { .gp-track-row .gp-track-only-btn { min-height: 44px; } }
 
 
@@ -2852,7 +2903,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
   background: transparent !important; border: 0 !important; box-shadow: none !important; color: var(--ink2) !important;
   font: 500 13px system-ui, sans-serif; padding: 6px 12px; min-height: 32px; border-radius: var(--r) !important; white-space: nowrap;
 }
-#ytDropdownPanel .rec-text-btn:hover { background: var(--s3) !important; color: var(--ink) !important; }
+@media (hover: hover) { #ytDropdownPanel .rec-text-btn:hover { background: var(--s3) !important; color: var(--ink) !important; } }
 #ytDropdownPanel .rec-text-btn:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
 /* The sync controls stay in the DOM (the sync card drives them); the card is the only place they show */
 #ytDropdownPanel .rec-sync-proxy { display: none !important; }
@@ -2906,7 +2957,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
   width: 100%; min-height: 44px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
   background: var(--s1) !important; color: var(--ink) !important; border: 0 !important; box-shadow: none; border-radius: var(--r-control); padding: 4px 8px;
 }
-#viewMenu .view-window-btn:hover { background: var(--s2) !important; }
+@media (hover: hover) { #viewMenu .view-window-btn:hover { background: var(--s2) !important; } }
 #viewMenu .view-window-btn.is-on { background: var(--s3) !important; }
 #viewMenu .view-window-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 #viewMenu .view-window-hint { color: var(--ink2); font-size: 11px; line-height: 1; }
@@ -3015,7 +3066,8 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 
 /* Matrix cells: a tone step shows the choice, not a colored button */
 .jam-matrix-cell.btn-theme-outline { background: var(--s3) !important; color: var(--ink) !important; border-radius: var(--r-control); }
-.jam-matrix-cell.btn-theme-primary, .jam-matrix-cell.btn-theme-primary:hover:not(:disabled) { background: var(--ink) !important; color: var(--ground) !important; border-radius: var(--r-control) !important; }
+.jam-matrix-cell.btn-theme-primary { background: var(--ink) !important; color: var(--ground) !important; border-radius: var(--r-control) !important; }
+@media (hover: hover) { .jam-matrix-cell.btn-theme-primary:hover:not(:disabled) { background: var(--ink) !important; color: var(--ground) !important; border-radius: var(--r-control) !important; } }
 
 /* The control-request card floats: shadow only, no border or glow */
 .jam-request-card { border: 0; box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.5); border-radius: var(--r-card); animation: popIn var(--dur-base) var(--ease-out); }
@@ -3064,14 +3116,14 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 
 /* Data rows in Settings: a verb on the right, the whole row is the target, one tone step while open */
 .srow-task, .srow:has(.srow-hit) { position: relative; }
-.srow-task:hover { background: var(--s3); }
+@media (hover: hover) { .srow-task:hover { background: var(--s3); } }
 .srow-task:has(button[aria-expanded="true"]) { background: var(--s3); }
 .srow-task:has(button:focus-visible) { outline: 2px solid var(--hue); outline-offset: -2px; }
 .srow .srow-hit { position: static; min-width: 64px; text-align: right; }
 .srow .srow-hit::after { content: ""; position: absolute; inset: 0; }
 .srow .srow-hit:focus-visible { outline: none; }
 .srow .srow-hit.is-danger { color: var(--danger) !important; }
-.srow .srow-hit:hover:not(:disabled) { background: transparent; }
+@media (hover: hover) { .srow .srow-hit:hover:not(:disabled) { background: transparent; } }
 @media (max-width: 899px) { .srow.srow-task { flex-wrap: nowrap; } .srow.srow-task .sc { width: auto; } .srow.srow-task .srow-hit { min-height: 44px; min-width: 56px; } }
 
 /* A data task opens as the rest of its row: same surface, same left edge, no page of its own */
@@ -3097,7 +3149,8 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   padding: 32px 20px; background: var(--s2); border: 0; border-radius: var(--r-card); box-shadow: none; cursor: pointer;
   transition: background var(--dur-fast) var(--ease-out);
 }
-.open-file-dropzone:hover, .open-file-dropzone.is-dragover { background: var(--s3); }
+ .open-file-dropzone.is-dragover { background: var(--s3); }
+@media (hover: hover) { .open-file-dropzone:hover { background: var(--s3); } }
 .open-file-dropzone:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .open-file-dropzone-title { font-size: 18px; font-weight: 600; line-height: 1.3; color: var(--ink); }
 .open-file-dropzone-sub { font-size: 13px; color: var(--ink2); }
@@ -3113,7 +3166,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   transition: background var(--dur-fast) var(--ease-out);
 }
 .open-file-provider-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex: none; }
-.open-file-provider-item:hover { background: var(--s2); }
+@media (hover: hover) { .open-file-provider-item:hover { background: var(--s2); } }
 .open-file-provider-item:active { background: var(--s3); }
 .open-file-provider-item:focus-visible { outline: 2px solid var(--ink); outline-offset: -2px; }
 .open-file-provider-text { display: flex; flex-direction: column; min-width: 0; }
@@ -3124,7 +3177,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 @media (prefers-reduced-motion: reduce) { .open-file-dropzone, .open-file-provider-item { transition: none; } }
 
 .open-file-back { grid-column: 1 / -1; justify-self: start; min-height: 36px; margin: 0 0 4px -8px; padding: 0 10px 0 6px; border: 0 !important; background: transparent !important; color: var(--ink2) !important; border-radius: var(--r-control) !important; font-weight: 500; box-shadow: none !important; }
-.open-file-back:hover { background: var(--s2) !important; color: var(--ink) !important; }
+@media (hover: hover) { .open-file-back:hover { background: var(--s2) !important; color: var(--ink) !important; } }
 .open-file-back:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 @media (pointer: coarse) { .open-file-back { min-height: 44px; } }
 
@@ -3217,10 +3270,10 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   padding: 0;
 }
 
-.downloader-nav-group .btn-theme-icon:hover:not(:disabled) {
+@media (hover: hover) { .downloader-nav-group .btn-theme-icon:hover:not(:disabled) {
   color: var(--ink) !important;
   background: var(--s3) !important;
-}
+} }
 
 .downloader-url-group {
   background: var(--s2) !important;
@@ -3249,10 +3302,10 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   border-radius: var(--r-control);
   transition: color var(--dur-fast), background-color var(--dur-fast);
 }
-.downloader-url-copy-btn:hover {
+@media (hover: hover) { .downloader-url-copy-btn:hover {
   color: var(--ink);
   background: var(--s3);
-}
+} }
 .downloader-url-copy-btn:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
@@ -3303,21 +3356,21 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   white-space: nowrap;
   transition: color var(--dur-fast), background-color var(--dur-fast), opacity var(--dur-fast);
 }
-.downloader-adblock-btn:hover {
+@media (hover: hover) { .downloader-adblock-btn:hover {
   color: var(--ink) !important;
   background: var(--s2) !important;
-}
+} }
 .downloader-adblock-btn.active,
 #downloaderAdblockBtn.active,
 #downloaderAdblockBtn[aria-pressed="true"] {
   color: var(--ink) !important;
   background: var(--s2) !important;
 }
-.downloader-adblock-btn.active:hover,
+@media (hover: hover) { .downloader-adblock-btn.active:hover,
 #downloaderAdblockBtn.active:hover,
 #downloaderAdblockBtn[aria-pressed="true"]:hover {
   background: var(--s3) !important;
-}
+} }
 .downloader-adblock-btn:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
@@ -3338,10 +3391,10 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   cursor: pointer;
   white-space: nowrap;
 }
-.downloader-sources-btn:hover {
+@media (hover: hover) { .downloader-sources-btn:hover {
   color: var(--ink) !important;
   background: var(--s2) !important;
-}
+} }
 .downloader-sources-btn:focus-visible {
   outline: 2px solid var(--ink);
   outline-offset: 1px;
@@ -3373,11 +3426,15 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   transition: color var(--dur-fast), background-color var(--dur-fast);
 }
 
-#downloaderSourcesMenu .downloader-source-menu-item:hover,
+
 #downloaderSourcesMenu .downloader-source-menu-item:focus {
   color: var(--ink) !important;
   background: var(--s3) !important;
 }
+@media (hover: hover) { #downloaderSourcesMenu .downloader-source-menu-item:hover {
+  color: var(--ink) !important;
+  background: var(--s3) !important;
+} }
 
 #downloaderSourcesMenu .downloader-source-menu-item.active {
   font-weight: 600;
@@ -3398,11 +3455,11 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   cursor: pointer;
   white-space: nowrap;
 }
-.downloader-close-btn:hover,
+@media (hover: hover) { .downloader-close-btn:hover,
 #downloaderCloseBtn:hover {
   color: var(--ink) !important;
   background: var(--s2) !important;
-}
+} }
 .downloader-close-btn:focus-visible,
 #downloaderCloseBtn:focus-visible {
   outline: 2px solid var(--ink);
@@ -3481,10 +3538,10 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
   border-radius: var(--r-control) !important;
 }
 
-.downloader-batch-skip-btn:hover {
+@media (hover: hover) { .downloader-batch-skip-btn:hover {
   color: var(--ink) !important;
   background: var(--s2) !important;
-}
+} }
 
 .srow-editor-slot {
   background: var(--s2);
@@ -3583,7 +3640,7 @@ body > #controllerHelpModal { display: none; }
 #syncModal .sync-hint { color: var(--ink2); font-size: 13px; margin: 6px 0 0; }
 #syncModal .sync-list { display: flex; flex-direction: column; gap: 2px; }
 #syncModal .sync-option { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; width: 100%; min-height: 56px; padding: 10px 14px; text-align: left; background: var(--s2); border: 0; border-radius: var(--r-control); color: var(--ink); }
-#syncModal .sync-option:hover { background: var(--s3); }
+@media (hover: hover) { #syncModal .sync-option:hover { background: var(--s3); } }
 #syncModal .sync-option:focus-visible, #syncModal .sync-text-action:focus-visible { outline: 2px solid var(--hue); outline-offset: 2px; }
 #syncModal .sync-option-title { font-weight: 600; }
 #syncModal .sync-option-text { color: var(--ink2); font-size: 13px; }
@@ -3593,7 +3650,7 @@ body > #controllerHelpModal { display: none; }
 #syncModal .sync-status { font-weight: 600; }
 #syncModal .sync-location { color: var(--ink2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #syncModal .sync-text-action { min-height: 32px; padding: 4px 10px; background: transparent; border: 0; border-radius: var(--r-control); color: var(--ink2); font-size: 13px; }
-#syncModal .sync-text-action:hover { background: var(--s2); color: var(--ink); }
+@media (hover: hover) { #syncModal .sync-text-action:hover { background: var(--s2); color: var(--ink); } }
 @media (pointer: coarse) { #syncModal .sync-text-action, #syncModal .btn { min-height: 44px; } }
 #syncModal .sync-counts { margin: 0 0 12px; color: var(--ink2); font-size: 14px; }
 #syncModal .sync-counts strong { color: var(--ink); font-weight: 600; }
@@ -3620,7 +3677,7 @@ body > #controllerHelpModal { display: none; }
 #syncModal.tool-embedded .sync-footer { padding: 8px 0 0; }
 #syncModal.tool-embedded .sync-subtitle { display: none; }
 #syncModal.tool-embedded .sync-option { background: transparent; border-radius: var(--r-control, 8px); transition: background var(--dur-fast, 150ms) var(--ease-out); }
-#syncModal.tool-embedded .sync-option:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+@media (hover: hover) { #syncModal.tool-embedded .sync-option:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); } }
 #syncModal.tool-embedded .sync-rows, #syncModal.tool-embedded .sync-danger-row { background: color-mix(in srgb, var(--ink) 5%, var(--s3)); border-radius: var(--r-control, 8px); }
 
 /* ==========================================================================
@@ -3665,7 +3722,7 @@ body > #controllerHelpModal { display: none; }
     transition: background var(--dur-fast, 150ms) ease;
 }
 
-.search-stream-row:hover,
+@media (hover: hover) { .search-stream-row:hover { background: var(--s2); } }
 .search-stream-row.is-selected {
     background: var(--s2);
 }
@@ -3777,10 +3834,10 @@ body > #controllerHelpModal { display: none; }
     line-height: 1;
 }
 
-.search-back-btn:hover {
+@media (hover: hover) { .search-back-btn:hover {
     background: var(--s2);
     color: var(--ink);
-}
+} }
 
 .search-back-btn:active {
     background: var(--s3);
@@ -3848,10 +3905,10 @@ body > #controllerHelpModal { display: none; }
     transition: background var(--dur-fast, 150ms) ease;
 }
 
-.downloader-batch-stepper-btn:hover {
+@media (hover: hover) { .downloader-batch-stepper-btn:hover {
     background: var(--s3);
     color: var(--ink);
-}
+} }
 
 /* The step label shrinks and truncates; Skip and Done stay on one line */
 .downloader-batch-stepper-btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
@@ -4206,13 +4263,13 @@ body > #controllerHelpModal { display: none; }
 .ct-start { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-top: 8px; }
 .ct-status { display: flex; align-items: center; gap: 16px; min-height: 44px; color: var(--ink); font-size: 14px; }
 .ct-text { background: transparent; border: 0; color: var(--ink2); font-size: 14px; padding: 6px 10px; min-height: 32px; border-radius: var(--r-control); cursor: pointer; transition: background-color var(--dur-fast), color var(--dur-fast); }
-.ct-text:hover { background: var(--s2); color: var(--ink); }
+@media (hover: hover) { .ct-text:hover { background: var(--s2); color: var(--ink); } }
 .ct-text:focus-visible, .ct-filter:focus-visible, .ct-comp:focus-visible, .ct-open:focus-visible, .ct-more:focus-visible, .ct-menu button:focus-visible, .ct-back:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .ct-search { width: 100%; min-height: 44px; padding: 0 14px; border: 0; border-radius: var(--r-control); background: var(--s2); color: var(--ink); font-size: 15px; }
 .ct-search::placeholder { color: var(--ink2); }
 .ct-filters { display: flex; flex-wrap: wrap; gap: 8px; }
 .ct-filter { min-height: 32px; padding: 0 12px; border: 0; border-radius: var(--r-control); background: var(--s1); color: var(--ink2); font-size: 13px; cursor: pointer; transition: background-color var(--dur-fast), color var(--dur-fast); }
-.ct-filter:hover { background: var(--s2); color: var(--ink); }
+@media (hover: hover) { .ct-filter:hover { background: var(--s2); color: var(--ink); } }
 .ct-filter[aria-pressed="true"] { background: var(--s3); color: var(--ink); }
 .ct-morewrap { position: relative; display: inline-block; }
 .ct-moremenu { position: absolute; z-index: 5; top: calc(100% + 4px); left: 0; display: flex; flex-direction: column; gap: 2px; padding: 6px; min-width: 160px; background: var(--s3); border-radius: var(--r-control); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
@@ -4221,22 +4278,22 @@ body > #controllerHelpModal { display: none; }
 .ct-cols { display: grid; grid-template-columns: minmax(180px, 280px) minmax(0, 1fr); gap: 16px; min-height: 0; flex: 1; }
 .ct-composers, .ct-pieces { min-height: 0; overflow: auto; }
 .ct-comp { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; padding: 0 12px; border: 0; border-radius: var(--r-control); background: transparent; color: var(--ink2); text-align: left; font-size: 14px; cursor: pointer; content-visibility: auto; contain-intrinsic-size: auto 44px; }
-.ct-comp:hover { background: var(--s1); color: var(--ink); }
+@media (hover: hover) { .ct-comp:hover { background: var(--s1); color: var(--ink); } }
 .ct-comp[aria-current="true"] { background: var(--s2); color: var(--ink); }
 .ct-count { color: var(--ink2); font-size: 13px; flex-shrink: 0; }
 .ct-pieces-title { margin: 4px 0 4px; font-family: var(--font-display); font-size: 1.5rem; font-weight: 600; color: var(--ink); }
 .ct-back { display: none; background: transparent; border: 0; color: var(--ink2); min-height: 44px; padding: 0 8px; cursor: pointer; }
 .ct-list { display: flex; flex-direction: column; margin-top: 8px; }
 .ct-row { position: relative; display: flex; align-items: center; min-height: 56px; content-visibility: auto; contain-intrinsic-size: auto 56px; border-radius: var(--r-control); }
-.ct-row:hover { background: var(--s1); }
+@media (hover: hover) { .ct-row:hover { background: var(--s1); } }
 .ct-open { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 2px; padding: 8px 12px; border: 0; background: transparent; text-align: left; color: var(--ink); cursor: pointer; border-radius: var(--r-control); }
 .ct-row-title { font-size: 15px; overflow-wrap: anywhere; }
 .ct-row-meta { font-size: 13px; color: var(--ink2); }
 .ct-more { flex-shrink: 0; width: 44px; min-height: 44px; margin-right: 4px; border: 0; background: transparent; color: var(--ink2); font-size: 18px; cursor: pointer; border-radius: var(--r-control); }
-.ct-more:hover { background: var(--s2); color: var(--ink); }
+@media (hover: hover) { .ct-more:hover { background: var(--s2); color: var(--ink); } }
 .ct-menu { position: absolute; z-index: 5; right: 8px; top: calc(100% - 8px); display: flex; flex-direction: column; min-width: 200px; padding: 6px; background: var(--s3); border-radius: var(--r-control); box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
 .ct-menu button { min-height: 40px; padding: 0 12px; border: 0; background: transparent; color: var(--ink); text-align: left; font-size: 14px; cursor: pointer; border-radius: var(--r-control); }
-.ct-menu button:hover { background: var(--s2); }
+@media (hover: hover) { .ct-menu button:hover { background: var(--s2); } }
 @media (max-width: 899px) {
   .ct-cols { grid-template-columns: minmax(0, 1fr); }
   .ct-cols[data-pane="composers"] .ct-pieces { display: none; }
@@ -4269,7 +4326,7 @@ body > #controllerHelpModal { display: none; }
 .ct-comp-name b, .ct-row-title .ct-comp-name b { font-weight: 700; }
 .ct-row-title .ct-comp-name { font-size: inherit; overflow: visible; white-space: normal; }
 .ct-pin { flex-shrink: 0; width: 44px; min-height: 44px; border: 0; background: transparent; color: var(--ink2); cursor: pointer; border-radius: var(--r-control); }
-.ct-pin:hover { background: var(--s2); color: var(--ink); }
+@media (hover: hover) { .ct-pin:hover { background: var(--s2); color: var(--ink); } }
 .ct-pin[aria-pressed="true"] { color: var(--ink); }
 .ct-pin:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 .ct-comprow { position: relative; }
@@ -4281,7 +4338,7 @@ body > #controllerHelpModal { display: none; }
 .ct-row { min-height: 56px; border-radius: 0; }
 /* Rows use content-visibility: auto, which clips what sticks out of the row: the row whose menu is open must not be clipped, and stacks above its neighbours */
 .ct-row-open { content-visibility: visible; z-index: 6; }
-.ct-row:hover { background: var(--s2); }
+@media (hover: hover) { .ct-row:hover { background: var(--s2); } }
 .ct-open { padding: 6px 12px 6px 20px; border-radius: 0; gap: 2px; }
 .ct-row-title { font-weight: 600; font-size: 14.5px; line-height: 1.25; }
 .ct-row-meta { font-size: 12px; line-height: 1.2; }
@@ -4326,7 +4383,7 @@ body > #controllerHelpModal { display: none; }
 .rec-points { flex: 0 0 100%; max-height: 132px; overflow-y: auto; overscroll-behavior: contain; padding: 4px 0 2px; }
 .rec-points[hidden] { display: none; }
 .rec-point { display: flex; align-items: center; gap: 8px; min-height: 32px; border-radius: var(--r-control); }
-.rec-point:hover { background: var(--s1); }
+@media (hover: hover) { .rec-point:hover { background: var(--s1); } }
 .rec-point-go { flex: none; font-variant-numeric: tabular-nums; }
 .rec-point-note { flex: 1 1 auto; min-width: 0; font: 500 13px system-ui, sans-serif; color: var(--ink2); }
 @media (max-width: 576px) { .rec-points { grid-column: 1 / -1; grid-row: 3; } }
@@ -4394,7 +4451,7 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
    the text. A tint of the playhead color or of the paper's own ink stays readable on any paper. */
 .ts-tapping .ts-current { background: color-mix(in srgb, var(--hue) 16%, transparent); box-shadow: inset 3px 0 0 var(--hue); }
 .ts-tapping [data-block] { cursor: pointer; }
-.ts-tapping [data-block]:hover { background: color-mix(in srgb, var(--sheet-text, currentColor) 8%, transparent); }
+@media (hover: hover) { .ts-tapping [data-block]:hover { background: color-mix(in srgb, var(--sheet-text, currentColor) 8%, transparent); } }
 .ts-pinned { box-shadow: inset 3px 0 0 var(--ink2); }
 .ts-pinned.ts-current { box-shadow: inset 3px 0 0 var(--hue); }
 /* Reading marker: a solid playhead-colored triangle at the left edge of the tab, level with where the recording puts the
@@ -4410,7 +4467,7 @@ body.rec-strip-on .dock-ruler:not(:has(.page-strip.in-dock)):has(.rec-strip) { d
 
 /* Link-style action inside the tap-to-sync toolbar */
 .sync-mode-bar .sm-link { background: transparent; border: 0; color: var(--ink2); font-size: 14px; padding: 6px 10px; min-height: 32px; border-radius: var(--r-control); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; transition: background-color var(--dur-fast), color var(--dur-fast); }
-.sync-mode-bar .sm-link:hover { background: var(--s3); color: var(--ink); }
+@media (hover: hover) { .sync-mode-bar .sm-link:hover { background: var(--s3); color: var(--ink); } }
 .sync-mode-bar .sm-link:focus-visible { outline: 2px solid var(--ink); outline-offset: 1px; }
 @media (pointer: coarse) { .sync-mode-bar .sm-link { min-height: 44px; } }
 
@@ -4472,9 +4529,9 @@ body.phone-reader #screenRow { display: none !important; }
    and in portrait the sheet keeps one height whichever source is shown, so it does not jump when you switch. */
 #ytDropdownPanel #realAudioSourcePills { background: var(--s1) !important; }
 @media (orientation: portrait) { body.phone-reader #ytDropdownPanel { height: 40vh !important; } }
-
+/* Text pages are scaled to the page width, so they never scroll sideways */
 /* Text pages: a line wider than the page at the smallest legible size scrolls sideways instead of being cut off */
-.pageContainer > .pageWrapper:has(.text-line) { overflow-x: auto; overflow-y: hidden; }
+.pageContainer > .pageWrapper:has(.text-line) { overflow-x: hidden; overflow-y: hidden; }
 
 /* Restore: a phone has nothing to drop a file on */
 @media (pointer: coarse) { .restore-drop-hint { display: none; } }
@@ -4494,7 +4551,13 @@ body.native-tabbar.library-view-active #libraryPage {
 /* The horizontal bar overlays the page at every width, so pages reserve its height; the side rail is already a safe-area inset */
 html:not(.native-vertical) body.native-tabbar.library-view-active .library-page-body { padding-bottom: calc(var(--native-tabbar-h, 83px) + 1rem) !important; }
 html:not(.native-vertical) body.native-tabbar .setpage { padding-bottom: calc(var(--native-tabbar-h, 83px) + 16px) !important; }
-html:not(.native-vertical) body.native-tabbar .tools-shell .setpage:has(.classtab-tool-embedded) { padding-bottom: calc(var(--native-tabbar-h, 83px) + 8px) !important; }
+/* The Classical tab list scrolls under the native bar like the library does: the shell runs to the bottom of the screen
+   and the list's own bottom padding keeps the last row clear of the bar */
+html:not(.native-vertical) body.native-tabbar .tools-shell .setpage:has(.classtab-tool-embedded) { padding-bottom: 0 !important; }
+html:not(.native-vertical) body.native-tabbar .classtab-tool-embedded .ct-root { padding-bottom: calc(var(--native-tabbar-h, 83px) + 16px); }
+@media (max-width: 576px) {
+  html:not(.native-vertical) body.native-tabbar .tools-shell:has(.classtab-tool-embedded) { height: calc(100% + 44px + var(--native-tabbar-h, 83px) - 28px); }
+}
 
 /* The native search field (see nativeTabBar.js) stands in for the page's own while it is shown; the web field stays
    in the DOM, hidden, because it holds the search logic */
