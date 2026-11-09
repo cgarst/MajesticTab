@@ -2913,7 +2913,7 @@ select.form-select[multiple], select.form-select[size]:not([size="1"]) { backgro
 .gp-track-item.is-muted .track-mix-name, .gp-track-item.is-muted .track-mix-sliders { opacity: .5; }
 @media (pointer: coarse) { .track-mix-toggles .mixer-toggle { min-width: 44px; width: 44px; height: 44px; } }
 @media (max-width: 640px) { .track-mix-sliders { grid-template-columns: 1fr; gap: 8px; } }
-.track-mix .gp-track-dot { box-shadow: none !important; }
+.track-chip-dot, .track-mix .gp-track-dot { box-shadow: none !important; }
 
 /* Desktop shells: the library has no top bar of its own. The rail carries the brand and Settings, so the bar
    shows nothing there but the way back to an open song. It stays as the drag strip and window-control clearance. */
