@@ -2249,7 +2249,8 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 .score-options-panel .synth-panel-body { display: flex; flex-direction: column; gap: 18px; }
 .score-options-panel .synth-panel-body > div { margin: 0 !important; }
 .score-options-group-title { color: var(--ink2); font-size: 13px; font-weight: 500; }
-.song-row-btn { display: flex !important; width: 100%; text-align: left; justify-content: flex-start !important; padding: 10px 12px !important; background: var(--s3) !important; border: 0 !important; color: var(--ink) !important; border-radius: var(--r) !important; min-height: 56px; }
+.song-row-btn { display: flex !important; width: 100%; text-align: left; justify-content: flex-start !important; padding: 10px 12px !important; background: transparent !important; border: 0 !important; color: var(--ink) !important; border-radius: var(--r-control) !important; min-height: 56px; }
+@media (hover: hover) { .song-row-btn:hover { background: var(--s3) !important; } }
 .song-row-btn span { display: flex; flex-direction: column; gap: 2px; }
 .song-row-btn small { color: var(--ink2); font-size: 12px; font-weight: 400; }
 .score-options-group .song-row-btn + * { margin-top: 10px; }
@@ -2258,7 +2259,7 @@ body:not(.library-view-active) .top-bar-song-btn .breadcrumb-song-title { max-wi
 #scoreOptionsSaveGroup .btn { background: transparent !important; border: 0 !important; color: var(--ink) !important; justify-content: flex-start !important; padding-inline: 12px !important; border-radius: var(--r-control) !important; min-height: 56px; }
 /* Not Bootstrap's d-flex (it is !important and beat the inline display:none that hides actions that do not apply) */
 #scoreOptionsSaveGroup .btn { display: flex; align-items: center; }
-@media (hover: hover) { #scoreOptionsSaveGroup .btn:hover { background: var(--s2) !important; } }
+@media (hover: hover) { #scoreOptionsSaveGroup .btn:hover { background: var(--s3) !important; } }
 #scoreOptionsSaveGroup .btn i { display: none; }
 .top-bar-song-btn.active { background: transparent !important; }
 

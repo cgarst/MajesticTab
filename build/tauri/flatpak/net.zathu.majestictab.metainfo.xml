@@ -61,6 +61,7 @@ __DESCRIPTION__
   <provides>
     <mediatype>application/x-guitar-pro</mediatype>
     <mediatype>application/x-gtp</mediatype>
+    <mediatype>application/x-majestictab-song</mediatype>
   </provides>
   <content_rating type="oars-1.1" />
   <releases>

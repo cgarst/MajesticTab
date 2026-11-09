@@ -65,6 +65,18 @@
 		<dict>
 			<key>CFBundleTypeExtensions</key>
 			<array>
+				<string>mtab</string>
+			</array>
+			<key>CFBundleTypeName</key>
+			<string>MajesticTab Song</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Default</string>
+		</dict>
+		<dict>
+			<key>CFBundleTypeExtensions</key>
+			<array>
 				<string>pdf</string>
 			</array>
 			<key>LSItemContentTypes</key>

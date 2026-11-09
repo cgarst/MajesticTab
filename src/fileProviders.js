@@ -14,6 +14,7 @@ import { isWsaTabUrl, unwrapRedirectUrl } from './utils/downloaderIntercept.js';
 import { addTabOptionToSong, addTabOptionToAlbum } from './libraryStore.js';
 import { detectFileMetadata } from './utils/tuningUtils.js';
 import { isSupportedTabFile } from './utils/fileHandlingUtils.js';
+import { isMtabFile, openMtab } from './mtab.js';
 import { showToast } from './utils/toast.js';
 
 const providers = new Map();
@@ -121,18 +122,28 @@ export async function saveToProvider(id, fileBlob, filename, options = {}) {
  * @param {File} file
  */
 export async function openLocalFile(file) {
+    if (isMtabFile(file)) return openMtabSafely(file);
     if (!(await isSupportedTabFile(file))) {
-        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+        showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mtab)`, 'warning');
         return;
     }
     await loadFile(file);
 }
 
+async function openMtabSafely(file) {
+    try {
+        await openMtab(file);
+    } catch (err) {
+        showToast(err?.message || 'Could not open that song file', 'error');
+    }
+}
+
 /** Attach or open a file the user picked, depending on what the caller asked for (song, album, callback or plain open). */
 async function handlePickedFile(file, options = {}) {
+    if (isMtabFile(file) && !options.onFileSelected && !options.songId && !options.targetSong?.id && !options.isAlbumTab) return openMtabSafely(file);
     if (typeof options.onFileSelected === 'function' || options.songId || options.targetSong?.id || options.isAlbumTab) {
         if (!(await isSupportedTabFile(file))) {
-            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mtab)`, 'warning');
             return;
         }
     }
@@ -236,7 +247,7 @@ export const LocalFileProvider = {
         input.type = 'file';
         // Android's picker turns accept into MIME types; Guitar Pro extensions have none, so it greys those files out.
         // Leave the filter off there: the picked file is checked by its name and content afterwards.
-        if (!/Android/i.test(navigator.userAgent)) input.accept = '.pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt';
+        if (!/Android/i.test(navigator.userAgent)) input.accept = '.pdf,.gp,.gp3,.gp4,.gp5,.gpx,.txt,.mtab';
         input.style.position = 'fixed';
         input.style.top = '-9999px';
         input.style.left = '-9999px';
@@ -431,7 +442,7 @@ async function openTabFromUrl(text, options = {}) {
         const { extractSourceWebsite } = await import('./tabDownloader.js');
         file.sourceWebsite = extractSourceWebsite(file.sourceUrl);
         if (!(await isSupportedTabFile(file))) {
-            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt)`, 'warning');
+            showToast(`"${file.name}" is not a supported tab file (.gp, .gp3, .gp4, .gp5, .gpx, .pdf, .txt, .mtab)`, 'warning');
             return;
         }
         await handlePickedFile(file, options);

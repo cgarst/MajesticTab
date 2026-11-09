@@ -28,8 +28,15 @@ mod youtube_ios;
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub struct OpenedFilePayload {
     pub name: String,
-    pub data: Vec<u8>,
+    /// The file's bytes. Empty for a song bundle (.mtab), which can hold hours of audio: it is handed over as `path`
+    /// and `size` and the page reads it piece by piece with `read_opened_file_range`.
+    pub data: Option<Vec<u8>>,
+    pub path: Option<String>,
+    pub size: u64,
 }
+
+/// Paths the operating system opened the app with; the only files `read_opened_file_range` will read.
+static OPENED_PATHS: Mutex<Vec<std::path::PathBuf>> = Mutex::new(Vec::new());
 
 pub struct OpenedFilesState(pub Mutex<Vec<OpenedFilePayload>>);
 
@@ -46,8 +53,21 @@ fn load_file_from_path_or_url(target: &str) -> Option<OpenedFilePayload> {
 
     if path.is_file() {
         let name = path.file_name()?.to_string_lossy().into_owned();
+        let size = std::fs::metadata(&path).ok()?.len();
+        let is_bundle = path
+            .extension()
+            .map_or(false, |e| e.eq_ignore_ascii_case("mtab"));
+        if is_bundle {
+            OPENED_PATHS.lock().ok()?.push(path.clone());
+            return Some(OpenedFilePayload {
+                name,
+                data: None,
+                path: Some(path.to_string_lossy().into_owned()),
+                size,
+            });
+        }
         let data = std::fs::read(&path).ok()?;
-        Some(OpenedFilePayload { name, data })
+        Some(OpenedFilePayload { name, data: Some(data), path: None, size })
     } else {
         None
     }
@@ -56,6 +76,26 @@ fn load_file_from_path_or_url(target: &str) -> Option<OpenedFilePayload> {
 #[tauri::command]
 fn get_opened_file(state: tauri::State<'_, OpenedFilesState>) -> Option<OpenedFilePayload> {
     state.0.lock().ok()?.pop()
+}
+
+/// Reads `len` bytes from `start` of a file the app was opened with (see `OPENED_PATHS`), as raw bytes.
+#[tauri::command]
+fn read_opened_file_range(path: String, start: u64, len: u64) -> Result<tauri::ipc::Response, String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let requested = std::path::PathBuf::from(&path);
+    let allowed = OPENED_PATHS
+        .lock()
+        .map_err(|_| "state unavailable".to_string())?
+        .iter()
+        .any(|p| *p == requested);
+    if !allowed {
+        return Err("That file was not opened with the app".into());
+    }
+    let mut file = std::fs::File::open(&requested).map_err(|e| e.to_string())?;
+    file.seek(SeekFrom::Start(start)).map_err(|e| e.to_string())?;
+    let mut buf = Vec::new();
+    file.take(len).read_to_end(&mut buf).map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(buf))
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -613,6 +653,7 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         jam::jam_client_send,
         jam::jam_client_disconnect,
         get_opened_file,
+        read_opened_file_range,
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         icloud::icloud_drive_root,
         self_update::update_install_mode,
@@ -662,6 +703,7 @@ P.prototype=W.prototype;['CONNECTING','OPEN','CLOSING','CLOSED'].forEach(functio
         jam::jam_client_send,
         jam::jam_client_disconnect,
         get_opened_file,
+        read_opened_file_range,
         #[cfg(any(target_os = "macos", target_os = "ios"))]
         icloud::icloud_drive_root,
         self_update::update_install_mode,

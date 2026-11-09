@@ -282,6 +282,11 @@ window.addEventListener('drop', async (e) => {
     if (!file) return;
 
     const ext = file.name.split('.').pop()?.toLowerCase();
+    if (ext === 'mtab') {
+        const { openLocalFile } = await import('./fileProviders.js');
+        await openLocalFile(file);
+        return;
+    }
     const { SUPPORTED_TAB_EXTENSIONS } = await import('./utils/fileHandlingUtils.js');
     if (!SUPPORTED_TAB_EXTENSIONS.includes(ext)) return;
 
@@ -823,27 +828,38 @@ async function checkNativeOpenedFiles() {
     if (window.__TAURI__?.event?.listen) {
         window.__TAURI__.event.listen('app-open-file', async (event) => {
             const opened = event.payload;
-            if (opened && opened.name && opened.data) {
-                const blob = new Blob([new Uint8Array(opened.data)]);
-                const file = new File([blob], opened.name, { type: blob.type || 'application/octet-stream' });
-                await loadFile(file);
-            }
+            await openNativePayload(opened);
         });
     }
 
     try {
         const opened = await window.__TAURI__.core.invoke('get_opened_file');
-        if (opened && opened.name && opened.data) {
-            const blob = new Blob([new Uint8Array(opened.data)]);
-            const file = new File([blob], opened.name, { type: blob.type || 'application/octet-stream' });
-            await loadFile(file);
-            return true;
-        }
+        if (await openNativePayload(opened)) return true;
     } catch (e) {
         console.warn('[Native Open] Failed to get opened file:', e);
     }
 
     return false;
+}
+
+// A file the operating system handed to the app: a song bundle opens with its recordings, anything else is a tab
+// Rust hands over a tab's bytes, but only the path and size of a song bundle (see read_opened_file_range)
+async function openNativePayload(opened) {
+    if (!opened?.name) return false;
+    if (opened.path && /\.mtab$/i.test(opened.name)) {
+        try {
+            const { openMtab, nativeMtabSource } = await import('./mtab.js');
+            await openMtab(nativeMtabSource(opened));
+        } catch (err) {
+            const { showToast } = await import('./utils/toast.js');
+            showToast(err?.message || 'Could not open that song file', 'error');
+        }
+        return true;
+    }
+    if (!opened.data) return false;
+    const blob = new Blob([new Uint8Array(opened.data)]);
+    await loadFile(new File([blob], opened.name, { type: blob.type || 'application/octet-stream' }));
+    return true;
 }
 
 // --- INITIALIZATION ---

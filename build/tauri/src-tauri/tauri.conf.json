@@ -55,6 +55,13 @@
         "mimeType": "application/x-guitar-pro"
       },
       {
+        "ext": ["mtab"],
+        "name": "MajesticTab Song",
+        "description": "MajesticTab song file: a tab with its recordings, sync points and tuning",
+        "role": "Viewer",
+        "mimeType": "application/x-majestictab-song"
+      },
+      {
         "ext": ["pdf"],
         "name": "PDF Document",
         "description": "Portable Document Format",

@@ -40,6 +40,14 @@
           </uap:FileTypeAssociation>
         </uap:Extension>
         <uap:Extension Category="windows.fileTypeAssociation">
+          <uap:FileTypeAssociation Name="majestictabsong">
+            <uap:DisplayName>MajesticTab Song</uap:DisplayName>
+            <uap:SupportedFileTypes>
+              <uap:FileType>.mtab</uap:FileType>
+            </uap:SupportedFileTypes>
+          </uap:FileTypeAssociation>
+        </uap:Extension>
+        <uap:Extension Category="windows.fileTypeAssociation">
           <uap:FileTypeAssociation Name="tabdocument">
             <uap:DisplayName>Tab Document</uap:DisplayName>
             <uap:SupportedFileTypes>

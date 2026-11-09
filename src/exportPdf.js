@@ -402,7 +402,29 @@ export async function exportSourceTabFile() {
   }
 
   const filename = currentFile.name || (currentFile.songTitle ? `${currentFile.songTitle}.tab` : 'tab_source');
+  return exportFileOut(currentFile, filename);
+}
 
+/** Exports the open song as a .mtab bundle: the tab plus its recordings, sync points and tuning. */
+export async function exportMtabFile() {
+  const currentFile = getCurrentFile();
+  if (!currentFile) {
+    showToast('No tab file is currently opened.', 'warning');
+    return false;
+  }
+  try {
+    const { buildMtab } = await import('./mtab.js');
+    const { blob, filename } = await buildMtab(currentFile);
+    return await exportFileOut(blob, filename);
+  } catch (err) {
+    console.warn('[Export] Could not build the song file:', err);
+    showToast('Could not build the song file.', 'error');
+    return false;
+  }
+}
+
+// Saves a file for the player: the native save dialog, the iOS share prompt, or a download
+async function exportFileOut(currentFile, filename) {
   if (isIOSDevice()) {
     const file = new File([currentFile], filename, { type: currentFile.type || 'application/octet-stream' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -443,6 +465,62 @@ export async function exportSourceTabFile() {
   return true;
 }
 
+// The platform's own share sheet, where the web view has one (Safari and WKWebView on Apple platforms, Edge and WebView2 on Windows).
+// Where it is missing the Share tab row stays hidden.
+export function canShareFiles() {
+  try {
+    if (typeof navigator === 'undefined' || typeof navigator.share !== 'function' || typeof navigator.canShare !== 'function') return false;
+    return navigator.canShare({ files: [new File(['x'], 'tab.txt', { type: 'text/plain' })] });
+  } catch {
+    return false;
+  }
+}
+
+async function shareFile(file, failureHint) {
+  try {
+    if (!navigator.canShare({ files: [file] })) {
+      showToast(`This device cannot share this kind of file. ${failureHint}`, 'warning');
+      return false;
+    }
+    await navigator.share({ files: [file], title: file.name });
+    return true;
+  } catch (err) {
+    if (err?.name === 'AbortError') return false;
+    console.warn('[Share] Native share failed:', err);
+    showToast(`Sharing failed. ${failureHint}`, 'warning');
+    return false;
+  }
+}
+
+/** Shares the open tab as it was opened. */
+export async function shareSourceTabFile() {
+  const currentFile = getCurrentFile();
+  if (!currentFile) {
+    showToast('No tab file is currently opened.', 'warning');
+    return false;
+  }
+  const filename = currentFile.name || (currentFile.songTitle ? `${currentFile.songTitle}.tab` : 'tab_source');
+  return shareFile(new File([currentFile], filename, { type: currentFile.type || 'application/octet-stream' }), 'Use Export source tab instead.');
+}
+
+/** Shares the open song as a .mtab bundle: the tab plus its recordings, sync points and tuning. */
+export async function shareMtabFile() {
+  const currentFile = getCurrentFile();
+  if (!currentFile) {
+    showToast('No tab file is currently opened.', 'warning');
+    return false;
+  }
+  try {
+    const { buildMtab } = await import('./mtab.js');
+    const { blob, filename } = await buildMtab(currentFile);
+    return await shareFile(new File([blob], filename, { type: blob.type }), 'Try again, or share the original file.');
+  } catch (err) {
+    console.warn('[Share] Could not build the song file:', err);
+    showToast('Could not build the song file.', 'error');
+    return false;
+  }
+}
+
 export function setupExportPDFButton() {
   const exportBtn = document.getElementById('exportPDFBtn');
   const exportSourceBtn = document.getElementById('exportSourceTabBtn');
@@ -453,6 +531,16 @@ export function setupExportPDFButton() {
     exportSourceBtn.addEventListener('click', () => {
       exportSourceTabFile();
     });
+  }
+  document.getElementById('exportMtabBtn')?.addEventListener('click', () => { exportMtabFile(); });
+
+  if (canShareFiles()) {
+    for (const [id, share] of [['shareSourceTabBtn', shareSourceTabFile], ['shareMtabBtn', shareMtabFile]]) {
+      const btn = document.getElementById(id);
+      if (!btn) continue;
+      btn.hidden = false;
+      btn.addEventListener('click', () => { share(); });
+    }
   }
 
   if (!exportBtn) return;
