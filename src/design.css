@@ -4345,6 +4345,8 @@ body > #controllerHelpModal { display: none; }
   .ct-credit-long { display: none; }
   .ct-filters { gap: 4px; }
   .ct-filter { padding: 0 10px; }
+  /* The More menu opens leftward from the button so it stays inside the screen (no sideways scroll) */
+  .ct-moremenu { left: auto; right: 0; }
 }
 @media (prefers-reduced-motion: reduce) { .ct-text, .ct-filter { transition: none; } }
 
