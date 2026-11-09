@@ -953,13 +953,26 @@ export function updateContinuousPlaybackScroll(currentTick, force = false, targe
     // A seek (the ruler) brings the bar into view the way playback would, even while paused
     const isBelowThreshold = (playbackActive() || bringIntoView) && (visualTop > (visibleViewportHeight * 0.60) || (hasValidCursor && cursorVisualTop > (visibleViewportHeight * 0.60)));
 
-    if (isAboveTop || isHidingBehindFretboard || isBelowThreshold) {
+    // Tabletop: the score is positioned by the cursor. Opening a song (or a seek) puts the cursor's system at the top of the
+    // score half, so the title block and the page margin above the first system do not take the room.
+    const tabletopSnap = tabletop && bringIntoView;
+    if (isAboveTop || isHidingBehindFretboard || isBelowThreshold || tabletopSnap) {
         const maxScroll = output.scrollHeight - output.clientHeight;
         const isFirstSystem = boundsLookup?.staffSystems?.length && targetStaffSystem === boundsLookup.staffSystems[0];
         const anchorY = (sysY > 0) ? sysY : cursorDocY;
-        const targetScrollTop = (isFirstSystem || anchorY < 160 + safeTop)
+        let targetScrollTop = (!tabletop && (isFirstSystem || anchorY < 160 + safeTop))
             ? 0
-            : Math.max(0, Math.min(maxScroll, anchorY - TOP_PADDING));
+            : Math.max(0, Math.min(maxScroll, anchorY - (tabletop ? 24 + safeTop : TOP_PADDING)));
+        if (tabletop && isFirstSystem) {
+            // The first system sits under the title block. Start at the title itself (the page margin above it is dead room in a
+            // half-height view) as long as the system still fits below it; otherwise the cursor's system leads.
+            const firstText = gpState.canvases[0]?.container?.querySelector('svg text');
+            if (firstText) {
+                const titleTop = firstText.getBoundingClientRect().top - outputRect.top + output.scrollTop;
+                const fromTitle = Math.max(0, Math.min(maxScroll, titleTop - 10));
+                if (sysY + sysH - fromTitle <= visibleViewportHeight - 8) targetScrollTop = fromTitle;
+            }
+        }
         if (Math.abs(output.scrollTop - targetScrollTop) > 5) {
             autoScrollWrite = true;
             output.scrollTop = targetScrollTop;

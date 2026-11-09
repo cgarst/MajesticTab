@@ -377,6 +377,22 @@ function loadGuitarProScore(file, container, { debug = false, originalFile = nul
             api.postRenderFinished.on(() => fitTempoLabels(container));
             api.postRenderFinished.on(() => fitScoreText(container));
 
+            // iPhone Duo tabletop: once the score has drawn, put the cursor's system at the top of the score half. The player
+            // may not have taken the score yet on the first draw, so it is tried again a little later.
+            let openedAtCursor = false;
+            api.postRenderFinished.on(() => {
+                if (openedAtCursor || !document.documentElement.classList.contains('duo-tabletop')) return;
+                for (const delay of [80, 400, 1200]) {
+                    setTimeout(() => {
+                        if (openedAtCursor) return;
+                        const output = document.getElementById('output');
+                        if (!output || output.scrollTop > 0 || typeof window.__majesticUpdateContinuousPlaybackScroll !== 'function') return;
+                        window.__majesticUpdateContinuousPlaybackScroll(api.tickPosition || 0, true, null, null, true);
+                        if (output.scrollTop > 0) openedAtCursor = true;
+                    }, delay);
+                }
+            });
+
             api.postRenderFinished.on(() => {
                 // debugging
                 if (debug) {
