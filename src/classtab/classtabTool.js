@@ -7,7 +7,7 @@ import {
     getCatalogRecord, installArchive, readArchiveEntry, onArchiveChange, ClasstabError
 } from './archive.js';
 import { canDownloadArchive, downloadArchive, readLocalZip, CLASSTAB_HOME, CLASSTAB_ZIP_URL } from './download.js';
-import { composerList, browse, pieceFacts, composerHeading, formatUpdated, passesFilters, nameParts, FILTERS, MORE_FILTERS } from './catalog.js';
+import { composerList, browse, pieceFacts, composerHeading, passesFilters, nameParts, FILTERS, MORE_FILTERS } from './catalog.js';
 import { resolvePins, isPiecePinned, isComposerPinned, togglePiecePin, toggleComposerPin } from './pins.js';
 import { showToast } from '../utils/toast.js';
 
@@ -209,17 +209,6 @@ export function renderClasstabTool(container, { onBack } = {}) {
         input.click();
     }
 
-    let updateArmed = false;
-    let updateTimer = 0;
-    /** First press arms the update (the button says what it does); a second press within 4 s goes ahead. No native dialog. */
-    function updateConfirmed() {
-        if (updateArmed) { updateArmed = false; clearTimeout(updateTimer); return true; }
-        updateArmed = true;
-        updateTimer = setTimeout(() => { updateArmed = false; render(); }, 4000);
-        render();
-        return false;
-    }
-
     const statusHtml = () => {
         if (state.job) {
             return `<div class="ct-status"><span class="ct-job-text" role="status">${esc(state.job.text)}</span>${state.job.cancel ? '<button type="button" class="ct-text" data-act="cancel">Cancel</button>' : ''}</div>`;
@@ -291,16 +280,9 @@ export function renderClasstabTool(container, { onBack } = {}) {
         const pinnedActive = !searching && pinCount > 0 && state.showPinned !== false;
         const shown = res.pieces.slice(0, MAX_ROWS);
         list = res.pieces;
-        const total = state.rec.counts.pieces;
         const filterBtn = (f) => `<button type="button" class="ct-filter" data-filter="${f.id}" aria-pressed="${state.filters.has(f.id)}">${f.label}</button>`;
         const moreOn = MORE_FILTERS.some((f) => state.filters.has(f.id));
         root.innerHTML = `
-        <header class="ct-head">
-          <div class="ct-head-row">
-            <p class="ct-sub ct-facts">${plural(total, 'piece', 'pieces')} · <span class="ct-credit-long">Tabs and MIDI files from </span><a href="${CLASSTAB_HOME}" data-ct-home>classtab.org</a><span class="ct-credit-long">, a free archive of classical guitar tabs · updated ${formatUpdated(state.rec.updatedAt)}</span></p>
-            ${state.job ? '' : `<button type="button" class="ct-text" data-act="update">${updateArmed ? 'Press again to replace the library (your songs stay)' : 'Update archive'}</button>`}
-          </div>
-        </header>
         ${statusHtml()}
         <input type="search" class="ct-search" placeholder="Search composers and pieces" aria-label="Search composers and pieces" value="${esc(state.query)}" autocomplete="off" spellcheck="false">
         <div class="ct-filters" role="group" aria-label="Filters">
@@ -408,10 +390,7 @@ export function renderClasstabTool(container, { onBack } = {}) {
         if (act === 'download') startDownload();
         else if (act === 'choose') chooseZip();
         else if (act === 'cancel') state.job?.cancel?.();
-        else if (act === 'update') {
-            if (!updateConfirmed()) return;
-            if (canDownloadArchive()) startDownload(); else chooseZip();
-        } else if (act === 'more') { state.moreOpen = !state.moreOpen; render(); }
+        else if (act === 'more') { state.moreOpen = !state.moreOpen; render(); }
         else if (act === 'clear') { state.filters.clear(); state.query = ''; render(); }
         else if (act === 'showpinned') { state.showPinned = true; state.query = ''; state.pane = 'pieces'; render(); }
         else if (act === 'pin') {

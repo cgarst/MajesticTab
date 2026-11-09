@@ -379,22 +379,81 @@ export function initSettingsPage() {
     // keep the originals referenced so their ids stay unique if anything still looks them up
     void syncBtn; void moreData; void clearCache; void deleteAll; void backupBtn; void restoreBtn;
 
-    // Classical tab: what the downloaded archive takes up, and removing it. Updating lives on the tool itself.
+    // Classical tab: what the downloaded archive takes up, updating it, who it comes from, and removing it.
+    let classtabBusy = false;
     const renderClasstabPane = async () => {
         const { getCatalogRecord, removeArchive } = await import('../classtab/archive.js');
         const { formatUpdated } = await import('../classtab/catalog.js');
         const rec = await getCatalogRecord();
         const pane = panes.classtab;
         pane.replaceChildren();
+        const credit = async () => {
+            const { CLASSTAB_HOME } = await import('../classtab/download.js');
+            const open = el('button', 'btn btn-sm srow-ghost srow-hit', 'Open');
+            open.type = 'button';
+            open.setAttribute('aria-label', 'Open classtab.org');
+            open.addEventListener('click', () => {
+                const opener = window.__TAURI__?.opener;
+                if (opener?.openUrl) opener.openUrl(CLASSTAB_HOME); else window.open(CLASSTAB_HOME, '_blank', 'noopener');
+            });
+            const r = row('Source', 'Tabs and MIDI files from classtab.org, a free archive of classical guitar tabs.', open);
+            r.classList.add('srow-task');
+            return group('About the archive', r);
+        };
         if (!rec) {
-            pane.appendChild(group('Archive', row('No archive', 'Download the Classtab archive from the Classical tab tool in Tools.')));
+            pane.appendChild(group('Archive', row('No archive', 'Download the Classtab archive from the Classical tab browser in Tools.')));
+            pane.appendChild(await credit());
             return;
         }
         const mb = (rec.bytes / 1048576).toFixed(1);
+        const upd = el('button', 'btn btn-sm srow-ghost srow-hit', 'Update');
+        upd.type = 'button';
+        upd.setAttribute('aria-label', 'Update archive');
+        let updArmed = null;
+        upd.addEventListener('click', async () => {
+            if (classtabBusy) return;
+            if (!updArmed) {
+                upd.textContent = 'Press again to replace the library (your songs stay)';
+                updArmed = setTimeout(() => { updArmed = null; upd.textContent = 'Update'; }, 4000);
+                return;
+            }
+            clearTimeout(updArmed);
+            updArmed = null;
+            classtabBusy = true;
+            upd.disabled = true;
+            upd.textContent = 'Updating\u2026';
+            const { showToast } = await import('./toast.js');
+            try {
+                const dl = await import('../classtab/download.js');
+                const { installArchive } = await import('../classtab/archive.js');
+                let bytes;
+                if (dl.canDownloadArchive()) bytes = await dl.downloadArchive({});
+                else {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.zip,application/zip';
+                    const f = await new Promise((resolve) => {
+                        input.addEventListener('change', () => resolve(input.files?.[0] || null));
+                        input.addEventListener('cancel', () => resolve(null));
+                        input.click();
+                    });
+                    if (f) bytes = await dl.readLocalZip(f);
+                }
+                if (bytes) {
+                    const res = await installArchive(bytes);
+                    showToast(`Classical tab browser updated \u00b7 ${res.added} new, ${res.changed} changed`, 'success');
+                }
+            } catch (e) {
+                if (e?.code !== 'cancelled') showToast(e?.message || "Couldn't update the archive.", 'warning');
+            }
+            classtabBusy = false;
+            renderClasstabPane();
+        });
         pane.appendChild(group('Archive',
             row('Size on this device', `${mb} MB \u00b7 ${rec.counts.pieces.toLocaleString()} pieces by ${rec.counts.composers.toLocaleString()} composers`),
-            row('Last updated', formatUpdated(rec.updatedAt)),
+            row('Update archive', `Last updated ${formatUpdated(rec.updatedAt)}. Downloads the archive again. Your songs stay.`, upd),
             row('Backup', 'Not part of your backup. Download it again anytime. Songs you added to your library are backed up.')));
+        pane.appendChild(await credit());
         const btn = el('button', 'btn btn-sm srow-ghost srow-hit is-danger', 'Remove');
         btn.type = 'button';
         btn.setAttribute('aria-label', 'Remove archive');
