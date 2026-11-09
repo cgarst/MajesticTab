@@ -2472,6 +2472,8 @@ body.phone-reader:not(.library-view-active) #output {
   flex: none; padding-bottom: 16px !important;
 }
 body.phone-reader:not(.library-view-active) #output.continuous-mode { padding-bottom: 24px !important; }
+/* A text sheet is a fixed page, not a scroll tail: no extra 24px under it, so it sits as close to the strip as it does to the top row */
+body.phone-reader:not(.library-view-active) #output.continuous-mode:has(.pageWrapper .text-line) { padding-bottom: 0 !important; }
 /* View does not repeat the toggle; the strip has it */
 #readingCell { display: none !important; }
 
