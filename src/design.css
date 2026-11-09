@@ -4551,6 +4551,15 @@ body:not(.sheet-mode-dark) .gp-reader-cursor svg { mix-blend-mode: multiply; }
   }
 }
 
+/* Portrait phone: the five words' sheets open from their tab, over the strip (ruler and transport), as in tabletop, instead of
+   stacking above the dock. The five words stay visible; Song and the sound panels keep their own places. */
+@media (orientation: portrait) {
+  :where(html:not(.duo-tabletop)) body.phone-reader:not(.library-view-active) :is(#viewMenu, #practiceMenu, #guitarMenu, #toolsMenu, #tracksMenu) {
+    bottom: var(--reader-bottom-nav-h, 0px) !important;
+    max-height: min(72vh, calc(100vh - var(--topbar-h, 52px) - var(--reader-bottom-nav-h, 0px) - 12px)) !important;
+  }
+}
+
 /* Phone: the View sheet's Screen row (Fullscreen, Reading mode) is not needed. The phone has no fullscreen toggle to
    offer, and Reading mode already has its own toggle in the bottom bar, which is its only home. */
 body.phone-reader #screenRow { display: none !important; }
