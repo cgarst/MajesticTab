@@ -376,6 +376,8 @@ let currentPageIndex = 0;
 let continuous = false;
 
 // --- TAB SIZE & DISPLAY SCALE ---
+let lastScaleRange = { min: 50, max: 150, value: 80, capWord: '' };
+
 export function syncGpSheetScale(nextValue) {
     const currentScale = Number.parseInt(nextValue, 10);
     // A text tab stops zooming where its widest line still fits the page, so nothing is cut off
@@ -387,7 +389,15 @@ export function syncGpSheetScale(nextValue) {
     if (input) { input.max = String(max); input.min = String(min); }
     const valueEl = document.getElementById('gpSheetScaleValue');
     if (input) input.value = String(safeValue);
-    if (valueEl) valueEl.textContent = `${safeValue}%`;
+    const atMax = safeValue >= max;
+    const atMin = safeValue <= min;
+    const capWord = atMax ? 'Max' : atMin ? 'Min' : '';
+    if (valueEl) {
+        valueEl.textContent = capWord ? `${safeValue}% \u00b7 ${capWord}` : `${safeValue}%`;
+        valueEl.dataset.cap = capWord.toLowerCase();
+    }
+    if (input) input.dataset.cap = capWord.toLowerCase();
+    lastScaleRange = { min, max, value: safeValue, capWord };
     return safeValue;
 }
 
@@ -436,10 +446,34 @@ function setupPinchToZoom() {
         return false;
     };
 
-    const commitScale = (targetPercent) => {
+    // Live readout that mirrors the Size slider. It is drawn from the gesture value
+    // right away, so it does not wait for the re-render to finish.
+    let readoutEl = null;
+    let readoutTimer = null;
+    const showReadout = () => {
+        if (!readoutEl) {
+            readoutEl = document.createElement('div');
+            readoutEl.id = 'pinchScaleReadout';
+            readoutEl.setAttribute('role', 'status');
+            readoutEl.innerHTML = '<span class="pinch-scale-label">Tab size</span><span class="pinch-scale-track"><span class="pinch-scale-fill"></span></span><span class="pinch-scale-value"></span>';
+            document.body.appendChild(readoutEl);
+        }
+        const { min, max, value, capWord } = lastScaleRange;
+        const span = Math.max(1, max - min);
+        readoutEl.querySelector('.pinch-scale-fill').style.transform = `scaleX(${(value - min) / span})`;
+        readoutEl.querySelector('.pinch-scale-value').textContent = capWord ? `${value}% \u00b7 ${capWord}` : `${value}%`;
+        readoutEl.dataset.cap = capWord.toLowerCase();
+        readoutEl.classList.add('is-shown');
+        clearTimeout(readoutTimer);
+        readoutTimer = setTimeout(() => readoutEl.classList.remove('is-shown'), 1200);
+    };
+
+    const commitScale = (requested) => {
+        const previous = latestTargetScale ?? getGpDisplayScalePercent();
+        const targetPercent = syncGpSheetScale(requested);
+        showReadout();
+        if (targetPercent === previous) return;
         latestTargetScale = targetPercent;
-        syncGpSheetScale(targetPercent);
-        showToast(`Tab size: ${targetPercent}%`, 'info', 1500, 'tab-size-scale');
         clearTimeout(pinchDebounceTimer);
         pinchDebounceTimer = setTimeout(() => {
             applyGpSheetScale(targetPercent);
@@ -475,9 +509,7 @@ function setupPinchToZoom() {
             const ratio = currentDist / activePinchInitialDistance;
             let targetPercent = Math.round((activePinchStartScale * ratio) / 5) * 5;
             targetPercent = Math.min(150, Math.max(50, targetPercent));
-            if (targetPercent !== (latestTargetScale ?? getGpDisplayScalePercent())) {
-                commitScale(targetPercent);
-            }
+            commitScale(targetPercent);
         }
     }, { passive: false });
 
@@ -508,9 +540,7 @@ function setupPinchToZoom() {
         if (activePinchStartScale !== null) {
             let targetPercent = Math.round((activePinchStartScale * e.scale) / 5) * 5;
             targetPercent = Math.min(150, Math.max(50, targetPercent));
-            if (targetPercent !== (latestTargetScale ?? getGpDisplayScalePercent())) {
-                commitScale(targetPercent);
-            }
+            commitScale(targetPercent);
         }
     });
 
@@ -535,9 +565,7 @@ function setupPinchToZoom() {
             wheelDeltaAccumulator -= steps * STEP_THRESHOLD;
             const currentPercent = latestTargetScale ?? getGpDisplayScalePercent();
             const nextPercent = Math.min(150, Math.max(50, currentPercent + steps * 5));
-            if (nextPercent !== currentPercent) {
-                commitScale(nextPercent);
-            }
+            commitScale(nextPercent);
         }
     }, { passive: false });
 }

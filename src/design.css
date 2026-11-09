@@ -4764,3 +4764,24 @@ html:is(.tauri-macos, .tauri-windows) body.reading-mode:not(.library-view-active
 /* The transport row: every gap between its keys is the same 8px, as at the edges */
 html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) .mobile-playback-dock-inner { column-gap: 8px; }
 html.duo-tabletop body.phone-reader:not(.reading-mode):not(.library-view-active) .dock-tr { gap: 8px; }
+
+/* Size cap: the slider thumb takes the ink tone at the limit, the readout names it */
+#gpSheetScale[data-cap="max"]::-webkit-slider-thumb, #gpSheetScale[data-cap="min"]::-webkit-slider-thumb { background: var(--ink); }
+#gpSheetScale[data-cap="max"]::-moz-range-thumb, #gpSheetScale[data-cap="min"]::-moz-range-thumb { background: var(--ink); }
+
+/* Live pinch readout: mirrors the Size slider from the gesture value, not from the re-render */
+#pinchScaleReadout {
+  position: fixed; z-index: 10000; left: 50%; bottom: calc(var(--dock-h, 0px) + var(--fretboard-effective-h, 0px) + 16px);
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px; min-width: 240px; max-width: calc(100% - 32px);
+  background: var(--s3); color: var(--ink); border-radius: var(--r-card); box-shadow: 0 6px 20px rgba(0, 0, 0, 0.28);
+  font-size: 0.9rem; pointer-events: none;
+  opacity: 0; transform: translateX(-50%) translateY(12px);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+}
+#pinchScaleReadout.is-shown { opacity: 1; transform: translateX(-50%); transition-duration: var(--dur-base); }
+#pinchScaleReadout .pinch-scale-label { color: var(--ink2); }
+#pinchScaleReadout .pinch-scale-track { flex: 1; height: 6px; border-radius: 3px; background: var(--s2); overflow: hidden; }
+#pinchScaleReadout .pinch-scale-fill { display: block; height: 100%; background: var(--hue); transform-origin: left; }
+#pinchScaleReadout[data-cap="max"] .pinch-scale-fill, #pinchScaleReadout[data-cap="min"] .pinch-scale-fill { background: var(--ink); }
+#pinchScaleReadout .pinch-scale-value { font-weight: 600; min-width: 5.5em; text-align: right; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { #pinchScaleReadout, #pinchScaleReadout.is-shown { transition: none; } }
