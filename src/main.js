@@ -1398,7 +1398,7 @@ function getPageStep() {
 // --- PAGE RENDERING ---
 function renderCurrentPage() {
     if (!pages || !pages.length) return;
-    renderPage(output, pages, currentPageIndex, updatePageDisplay);
+    renderPage(output, pages, currentPageIndex, updatePageDisplay, (index) => { currentPageIndex = index; updatePageDisplay(); });
     requestLazyPagesForView();
 }
 

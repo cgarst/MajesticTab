@@ -251,7 +251,7 @@ export function layoutPages(condensedCanvases) {
  * @param {number} currentPageIndex Current page index
  * @param {Function} onPageRendered Callback after rendering is complete
  */
-export function renderPage(output, pages, currentPageIndex, onPageRendered) {
+export function renderPage(output, pages, currentPageIndex, onPageRendered, onBandScroll) {
     if (!pages.length) return;
 
     clearOutput(output);
@@ -294,7 +294,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
                 canvas.style.maxWidth = 'none';
                 canvas.style.display = 'block';
                 win.appendChild(canvas);
-                bandJobs.push({ win, canvas, wrapper, page });
+                bandJobs.push({ win, canvas, wrapper, page, index: startIndex + i });
                 wrapper.appendChild(win);
             } else {
                 canvas.style.display = '';
@@ -314,7 +314,7 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
     outerContainer.appendChild(container);
     output.appendChild(outerContainer);
 
-    for (const { win, canvas, wrapper, page } of bandJobs) {
+    for (const { win, canvas, wrapper, page, index } of bandJobs) {
         const ws = getComputedStyle(wrapper);
         const avail = wrapper.clientWidth - (parseFloat(ws.paddingLeft) || 0) - (parseFloat(ws.paddingRight) || 0);
         const sc = avail / canvasSize(canvas).w;
@@ -324,6 +324,21 @@ export function renderPage(output, pages, currentPageIndex, onPageRendered) {
         canvas.style.width = `${avail}px`;
         canvas.style.marginTop = '0';
         win.scrollTop = page.srcY * sc;
+        // Scrolling is how the player moves through the bands: the page position follows the band in the middle of the window
+        let at = index;
+        win.addEventListener('scroll', () => {
+            const y = (win.scrollTop + win.clientHeight / 2) / sc; // the band in the middle of the window
+            let next = at;
+            for (let k = 0; k < pages.length; k++) {
+                const b = pages[k][0];
+                if (b && b.canvas === canvas && b.srcH && y >= b.srcY && y < b.srcY + b.srcH) { next = k; break; }
+            }
+            if (next === at) return;
+            at = next;
+            const num = wrapper.querySelector('.pageNumber');
+            if (num) num.textContent = `${at + 1}/${pages.length}`;
+            onBandScroll?.(at);
+        }, { passive: true });
     }
 
     if (onPageRendered) {
