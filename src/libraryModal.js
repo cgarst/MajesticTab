@@ -100,6 +100,7 @@ import { closeAllReaderPanels } from './utils/readerPanels.js';
 import { renderToolsPage, releaseEmbeddedTools, forgetResume } from './utils/toolsPage.js';
 import { hasStemDeckSupport } from './stemdeck/stemdeckClient.js';
 import { stemdeckReadout } from './stemdeck/stemdeckTool.js';
+import { bulkExportReadout } from './bulkExport/bulkExportTool.js';
 
 let activeView = 'library'; // 'library', 'recents', 'openFile', 'setlists', 'tools', 'settings'
 let activeCollectionId = DEFAULT_COLLECTION_ID;
@@ -4553,7 +4554,8 @@ function renderToolsView(container) {
     }).catch(() => {});
     const tools = [
         { id: 'openfile', group: 'files', title: 'Open file' },
-        { id: 'classtab', group: 'files', title: 'Classical tab browser', readout: classtabReadout }
+        { id: 'classtab', group: 'files', title: 'Classical tab browser', readout: classtabReadout },
+        { id: 'bulkexport', group: 'files', title: 'Bulk export', readout: bulkExportReadout }
     ];
     // Sends local audio to the StemDeck app on this computer or network; the web build cannot reach it
     if (hasStemDeckSupport()) tools.push({ id: 'stemdeck', group: 'files', title: 'Backing tracks', readout: stemdeckReadout });

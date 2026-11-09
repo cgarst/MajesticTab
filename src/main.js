@@ -827,8 +827,11 @@ function setupSettings() {
         }
     });
 
-    document.getElementById('bulkExportBtn')?.addEventListener('click', () => {
-        window.location.href = 'batchExport.html';
+    document.getElementById('bulkExportBtn')?.addEventListener('click', async () => {
+        const { openToolOnNextRender } = await import('./utils/toolsPage.js');
+        const { switchView } = await import('./libraryModal.js');
+        openToolOnNextRender('bulkexport');
+        await switchView('tools');
     });
 
     // Initialize Backup & Restore

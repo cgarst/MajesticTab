@@ -53,7 +53,7 @@ export function updateUrl(main, sub = null, replace = false) {
     if (main === 'reference') {
         const activeSub = sub || getActiveReferenceTab() || 'chords';
         targetHash = `#reference/${activeSub}`;
-    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'metronome' || main === 'setlists' || main === 'tools' || main === 'settings' || main === 'openfile' || main === 'classtab' || main === 'tunings') {
+    } else if (main === 'library' || main === 'recents' || main === 'tuner' || main === 'metronome' || main === 'setlists' || main === 'tools' || main === 'settings' || main === 'openfile' || main === 'classtab' || main === 'bulkexport' || main === 'tunings') {
         targetHash = `#${main}`;
     } else if (!main) {
         targetHash = '';
@@ -124,6 +124,22 @@ export async function navigateToUrlRoute(route, isInitial = false) {
             await new Promise((r) => setTimeout(r, 400));
             const btn = document.querySelector('.tools-shell button[data-tool="classtab"]');
             if (btn && btn.getAttribute('aria-current') !== 'true' && !document.querySelector('.classtab-tool-embedded')) btn.click();
+            return true;
+        }
+
+        if (route.main === 'bulkexport') {
+            closeTunerModal();
+            closeMetronomeModal();
+            closeReferenceModal();
+            (await import('./toolsPage.js')).openToolOnNextRender('bulkexport');
+            if (isLibraryOpen()) {
+                await switchLibraryView('tools', false);
+            } else {
+                await openLibraryModal('tools');
+            }
+            await new Promise((r) => setTimeout(r, 400));
+            const btn = document.querySelector('.tools-shell button[data-tool="bulkexport"]');
+            if (btn && btn.getAttribute('aria-current') !== 'true' && !document.querySelector('.bulkexport-tool-embedded')) btn.click();
             return true;
         }
 

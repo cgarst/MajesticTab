@@ -43,7 +43,7 @@ export async function releaseEmbeddedTools(keep = false) {
     if (!embedded) return;
     const { id, el, dispose } = embedded;
     embedded = null;
-    if (id === 'openfile' || id === 'classtab' || id === 'stemdeck') {
+    if (id === 'openfile' || id === 'classtab' || id === 'stemdeck' || id === 'bulkexport') {
         dispose?.(keep);
         el.remove();
         return;
@@ -92,6 +92,14 @@ async function openTool(id, pane) {
         el.className = 'tool-embedded stemdeck-tool-embedded';
         pane.appendChild(el);
         embedded = { id, el, dispose: renderStemdeckTool(el) };
+        return;
+    }
+    if (id === 'bulkexport') {
+        const { renderBulkExportTool } = await import('../bulkExport/bulkExportTool.js');
+        const el = document.createElement('div');
+        el.className = 'tool-embedded bulkexport-tool-embedded';
+        pane.appendChild(el);
+        embedded = { id, el, dispose: renderBulkExportTool(el) };
         return;
     }
     if (REFERENCE_TOOLS.includes(id)) (await import('../referenceLibrary.js')).openReferenceModal(id);
@@ -162,7 +170,7 @@ export function renderToolsPage(container, { tools, escapeHtml }) {
         shell.dataset.tool = id;
         await openTool(id, host);
         refreshReadouts();
-        if (id === 'classtab') import('./urlRouter.js').then((m) => m.updateUrl('classtab')).catch(() => {});
+        if (id === 'classtab' || id === 'bulkexport') import('./urlRouter.js').then((m) => m.updateUrl(id)).catch(() => {});
     }
     // Readouts follow real state: re-read them when a tool's own readout element changes, after any click or change inside the
     // open tool, and whenever the tool changes
