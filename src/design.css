@@ -3064,6 +3064,7 @@ body:not(.library-view-active):not(.dock-off) .mobile-playback-dock.has-audio-so
 .theme-modal-backdrop.tool-embedded .metronome-modal-card { max-width: none; width: 100%; }
 .theme-modal-backdrop.tool-embedded .metronome-body { padding: 0; }
 #latencyModal.tool-embedded .theme-modal-card { max-width: 520px; }
+@media (pointer: coarse) { #latencyModal [data-latency-step], #latencyModal #latencyStartBtn, #latencyModal #latencyApplyBtn { min-height: 44px; min-width: 44px; } }
 #latencyModal.tool-embedded .border-top { border-top: 0 !important; margin-top: 8px !important; }
 @media (prefers-reduced-motion: reduce) { .metro-mark, .metro-beat, .metro-step { transition: none; } }
 

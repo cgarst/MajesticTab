@@ -6,9 +6,14 @@ import { TRACK_PALETTE, getTrackColorIndexFor } from '../utils/trackColors.js';
 
 const PAN_LABELS = (pan) => (pan === 8 ? 'C' : pan < 8 ? `L${(8 - pan) * 100 / 8 | 0}` : `R${(pan - 8) * 100 / 8 | 0}`);
 
+// Pending close timers: opening again during the close transition must cancel the close, or it hides the new view
+const closeTimers = new WeakMap();
+
 export function openModal(id) {
     const modal = document.getElementById(id);
     if (!modal) return;
+    clearTimeout(closeTimers.get(modal));
+    modal.classList.remove('is-closing');
     toggleSynthPanel(false);
     toggleYouTubePanel(false);
     modal.classList.add('show');
@@ -31,7 +36,7 @@ export function closeModal(id) {
     if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         finishClose();
     } else {
-        setTimeout(finishClose, 150);
+        closeTimers.set(modal, setTimeout(finishClose, 150));
     }
 }
 

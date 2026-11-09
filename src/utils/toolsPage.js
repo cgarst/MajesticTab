@@ -52,8 +52,10 @@ export async function releaseEmbeddedTools(keep = false) {
         else if (id === 'tuner') (await import('../tuner/tuner.js')).closeTunerModal();
         else if (id === 'metronome') (await import('../metronome/metronome.js')).closeMetronomeModal();
         else if (id === 'jam' && el.style.display === 'flex') $('jamToggleBtn')?.click();
-        else if (id === 'latency') (await import('../gpProcessor/mixerPanel.js')).closeModal('latencyModal');
+        else if (id === 'latency') { const m = await import('../gpProcessor/mixerPanel.js'); if (embedded?.el !== el) m.closeModal('latencyModal'); }
     } catch { /* the tool is already gone */ }
+    // The tool was opened again while the closers above were loading: its screen is in use, leave it
+    if (embedded?.el === el) return;
     el.classList.remove('tool-embedded');
     el.style.display = 'none';
     document.body.appendChild(el);
