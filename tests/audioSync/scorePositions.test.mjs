@@ -84,8 +84,8 @@ test('a tick maps back to score time, the inverse of scoreMsToTick', () => {
 });
 
 test('playedBarsFromLookup reads AlphaTab lookup entries', () => {
-    const lookup = { masterBars: [{ masterBar: { index: 4 }, start: 0, end: 10, tempoChanges: [{ tick: 0, tempo: 90, extra: 1 }] }] };
-    assert.deepEqual(playedBarsFromLookup(lookup), [{ barIndex: 4, start: 0, end: 10, tempoChanges: [{ tick: 0, tempo: 90 }] }]);
+    const lookup = { masterBars: [{ masterBar: { index: 4, timeSignatureNumerator: 4, timeSignatureDenominator: 4 }, start: 0, end: 10, tempoChanges: [{ tick: 0, tempo: 90, extra: 1 }] }] };
+    assert.deepEqual(playedBarsFromLookup(lookup), [{ barIndex: 4, start: 0, end: 10, num: 4, den: 4, tempoChanges: [{ tick: 0, tempo: 90 }] }]);
     assert.deepEqual(playedBarsFromLookup(null), []);
 });
 

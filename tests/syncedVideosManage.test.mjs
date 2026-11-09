@@ -9,6 +9,7 @@ after(() => {
 // Mock DOM
 global.ResizeObserver = class { observe() {} unobserve() {} disconnect() {} };
 global.MutationObserver = class { observe() {} disconnect() {} };
+global.requestAnimationFrame = () => 1;
 
 const dummyEl = {
     style: { setProperty() {} },
