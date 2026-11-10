@@ -2755,7 +2755,8 @@ body.phone-reader.reading-mode:not(.library-view-active) .mobile-playback-dock-i
 body.phone-reader.reading-mode:not(.library-view-active) .dock-tools { grid-area: c; }
 
 /* Desktop Reading mode: the bar is one slim row (the phone bar already is) */
-body.reading-mode:not(.library-view-active):not(.phone-reader) .mobile-playback-dock-inner { padding-top: 4px; padding-bottom: 4px; }
+body.reading-mode:not(.library-view-active):not(.phone-reader) .mobile-playback-dock-inner { padding-top: 4px; padding-bottom: 4px; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: none; }
+body.reading-mode:not(.library-view-active):not(.phone-reader) .dock-tools { grid-column: 3; grid-row: 1; justify-self: end; }
 body.reading-mode:not(.library-view-active):not(.phone-reader) .ruler { height: 28px; }
 body.reading-mode:not(.library-view-active):not(.phone-reader) .ruler svg, body.reading-mode:not(.library-view-active):not(.phone-reader) .ruler-labels { height: 28px; }
 body.reading-mode:not(.library-view-active):not(.phone-reader) .ruler-labels em { display: none; }
