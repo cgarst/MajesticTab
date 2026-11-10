@@ -2190,13 +2190,13 @@ export function libraryEmptyWelcomeHtml({ title, subtitle }) {
         <div class="empty-section-header">Start with your music</div>
         <div class="empty-action-list" role="list">
           
-          <div class="empty-action-row" id="emptyStateBulkImportBtn" role="button" tabindex="0" aria-label="Bulk import a folder of tabs: Scan and auto-match an entire directory of tab files">
+          <div class="empty-action-row" id="emptyStateBulkImportBtn" role="button" tabindex="0" aria-label="Bulk import a folder of tabs: Scan and auto-match an entire directory of .gp*, PDF, or text files">
             <div class="empty-action-icon flex-shrink-0" aria-hidden="true">
               <i class="bi-folder-symlink"></i>
             </div>
             <div class="empty-action-content">
               <div class="empty-action-title">Bulk import a folder of tabs</div>
-              <div class="empty-action-desc">Scan and auto-match an entire directory of .gp, .gpx, PDF, or text files</div>
+              <div class="empty-action-desc">Scan and auto-match an entire directory of .gp*, PDF, or text files</div>
             </div>
             <i class="bi-chevron-right empty-action-chevron flex-shrink-0" aria-hidden="true"></i>
           </div>
@@ -2246,10 +2246,6 @@ export function libraryEmptyWelcomeHtml({ title, subtitle }) {
           </div>
 
         </div>
-      </div>
-
-      <div class="empty-welcome-footer">
-        Supported formats: Guitar Pro (.gp, .gpx, .gp3\u20135) \u00b7 PDF \u00b7 Text tabs
       </div>
     </div>
     `;
