@@ -3,7 +3,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cargoFeatures } from './channels.mjs';
+import { cargoFeatures, channels } from './channels.mjs';
 
 export function rewriteCargoToml(content, target, channel) {
   const crateTypes = target === 'android'
@@ -15,7 +15,19 @@ export function rewriteCargoToml(content, target, channel) {
   }
   // Channel capabilities (self-update, google-auth) become the crate's default features.
   const defaultFeatures = `default = [${cargoFeatures(channel).map((feature) => `"${feature}"`).join(', ')}]`;
-  return content.replace(/^default\s*=\s*\[.*?\]$/m, defaultFeatures);
+  content = content.replace(/^default\s*=\s*\[.*?\]$/m, defaultFeatures);
+  // Drop the plugin crates the build never compiles, so the source tree can leave their directories out (F-Droid's
+  // recipe removes them: its source scan rejects iOS crates without a lock and the Google Play services plugin).
+  // Android has no use for the iOS plugins; a channel without Google Drive has no use for google-auth.
+  if (target === 'android') {
+    content = content.replace(/^tauri-plugin-ios-(?:tabbar|fold) = .*\n/gm, '');
+  }
+  if (!channels[channel].capabilities.googleDrive) {
+    content = content.replace(/^tauri-plugin-google-auth = .*\n/m, '');
+    // lib.rs still names the feature in cfg attributes, so keep it declared, with nothing behind it.
+    content = content.replace(/^google-auth = \[.*?\]$/m, 'google-auth = []');
+  }
+  return content;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
