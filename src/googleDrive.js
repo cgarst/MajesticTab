@@ -172,6 +172,53 @@ export async function driveFetch(url, options = {}) {
     return res;
 }
 
+/**
+ * Turn a failed Drive API response into an Error that says what happened in plain words and keeps Google's own
+ * wording after it. Google's error body looks like {error: {code, message, errors: [{domain, reason}]}}.
+ * The error carries `status` and `reason` so callers can tell a full account (storageQuotaExceeded) from
+ * throttling (userRateLimitExceeded, rateLimitExceeded, 429) from a daily project limit (dailyLimitExceeded).
+ * @param {number} status HTTP status
+ * @param {string} bodyText Raw response body, JSON or not
+ * @param {string} [statusText]
+ * @returns {Error}
+ */
+export function driveApiError(status, bodyText, statusText = '') {
+    let message = statusText;
+    let reason = '';
+    try {
+        const err = JSON.parse(bodyText)?.error;
+        if (err) {
+            message = err.message || message;
+            reason = err.errors?.[0]?.reason || err.status || '';
+        }
+    } catch (_) {}
+
+    let plain;
+    if (reason === 'storageQuotaExceeded' || /storage quota/i.test(message)) {
+        plain = 'Your Google storage is full, so Drive cannot take more data. Free up space in Google Drive, then try again.';
+    } else if (status === 429 || reason === 'userRateLimitExceeded' || reason === 'rateLimitExceeded' || reason === 'RESOURCE_EXHAUSTED') {
+        plain = 'Google is limiting how fast this account can make requests right now. Wait a few minutes, then try again.';
+    } else if (reason === 'dailyLimitExceeded' || reason === 'quotaExceeded' || /quota/i.test(message)) {
+        plain = 'Google\'s request limit for MajesticTab has been reached for now. Try again later; the limit resets daily.';
+    } else if (status === 403) {
+        plain = 'Google Drive refused the request.';
+    } else {
+        plain = 'Google Drive returned an error.';
+    }
+    const said = [message && `"${message}"`, status && `HTTP ${status}`, reason].filter(Boolean).join(', ');
+    const error = new Error(said ? `${plain} (Google said: ${said})` : plain);
+    error.status = status;
+    error.reason = reason;
+    return error;
+}
+
+/** driveApiError for a fetch Response whose body has not been read. */
+export async function driveApiErrorFromResponse(res) {
+    let text = '';
+    try { text = await res.text(); } catch (_) {}
+    return driveApiError(res.status, text, res.statusText);
+}
+
 // Auth states that return the user to the Data Management modal after connecting
 const BACKUP_AUTH_STATES = {
     restore_backup: ['restore', { autoLoadDrive: true }],
@@ -600,7 +647,7 @@ async function fetchDriveFiles(query) {
         const res = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
-        if (!res.ok) throw new Error(`Google Drive API error: ${res.status} ${res.statusText}`);
+        if (!res.ok) throw await driveApiErrorFromResponse(res);
 
         const data = await res.json();
         files.push(...(data.files || []));
@@ -761,17 +808,12 @@ export async function saveFileToDrive(fileBlob, filename = 'MajesticTab-backup.m
                     resolve({ name: filename });
                 }
             } else {
-                let errorMsg = xhr.statusText;
-                try {
-                    const errData = JSON.parse(xhr.responseText);
-                    errorMsg = errData.error?.message || errorMsg;
-                } catch (e) {}
-
+                const apiError = driveApiError(xhr.status, xhr.responseText, xhr.statusText);
                 if (xhr.status === 401) {
                     clearStoredToken();
-                    reject(new Error(`Google Drive authorization expired: ${errorMsg}. Please reconnect Google Drive.`));
+                    reject(new Error(`Google Drive authorization expired: ${apiError.message}. Please reconnect Google Drive.`));
                 } else {
-                    reject(new Error(`Google Drive upload failed (${xhr.status}): ${errorMsg}`));
+                    reject(apiError);
                 }
             }
         };
@@ -831,12 +873,11 @@ export async function downloadDriveBackupFile(fileId, fileName = 'backup.mtbacku
     }
 
     if (!res.ok) {
-        let errorDetail = res.statusText;
         if (res.status === 401) {
             clearStoredToken();
-            throw new Error(`Google Drive authorization expired (${res.status}): ${errorDetail}. Please reconnect Google Drive.`);
+            throw new Error(`Google Drive authorization expired (${res.status}): ${res.statusText}. Please reconnect Google Drive.`);
         }
-        throw new Error(`Download failed (${res.status}): ${errorDetail}`);
+        throw await driveApiErrorFromResponse(res);
     }
 
     const contentLength = res.headers.get('content-length');

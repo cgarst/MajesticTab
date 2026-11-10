@@ -45,7 +45,7 @@ export async function withRetry(run, attempts = 3) {
         try {
             return await run();
         } catch (err) {
-            if (attempt >= attempts - 1 || /authorization expired|not connected|permission/i.test(err.message)) throw err;
+            if (attempt >= attempts - 1 || /authorization expired|not connected|permission|storage is full/i.test(err.message)) throw err;
             await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
         }
     }

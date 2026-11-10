@@ -416,12 +416,20 @@ function showDone(target, r, { replace = false } = {}) {
         { subtitle: `Synced with ${targetLabel(target)}`, footer: button('close', 'Done', { primary: true }) });
 }
 
-function showError(message) {
-    frame(notice(escapeHtml(message), { error: true }),
+function showError(message, note = '') {
+    frame(notice(escapeHtml(message), { error: true }) + (note ? `<p class="sync-hint">${escapeHtml(note)}</p>` : ''),
         { subtitle: 'Sync stopped', footer: button('close', 'Close') + button('retry', 'Try again', { primary: true }) });
 }
 
 // --- flow ---
+
+/** What a failure left behind, by the last stage that reported progress. Receiving always runs before sending. */
+function failureNote(stage, target) {
+    const place = targetLabel(target);
+    if (stage === 'pull') return `Nothing was sent. Items already received were kept, and the snapshot in ${place} is unchanged. Try again to pick up the rest.`;
+    if (stage === 'push') return `The snapshot in ${place} is unchanged and nothing on this device was lost. Changes waiting to send will be offered again next sync.`;
+    return '';
+}
 
 /** Compare and show the review screen. `interactive` calls come from a click, so folders may prompt. */
 async function start({ interactive = false } = {}) {
@@ -465,8 +473,9 @@ async function apply() {
     const { target, backend, plan } = context;
     const mine = ++session;
     showProgress(target);
+    let stage = null;
     try {
-        const result = await applySync(backend, plan, updateProgress);
+        const result = await applySync(backend, plan, (p) => { stage = p.phase; updateProgress(p); });
         if (mine !== session) return;
         context = null;
         showDone(target, result);
@@ -474,7 +483,7 @@ async function apply() {
     } catch (err) {
         if (mine !== session) return;
         console.error('[Sync] Failed:', err);
-        showError(err.message);
+        showError(err.message, failureNote(stage, target));
     }
 }
 
@@ -504,8 +513,9 @@ async function confirmReplace() {
     const { target, backend, replacePlan } = context;
     const mine = ++session;
     showProgress(target, { replace: true });
+    let stage = null;
     try {
-        const result = await applyReplaceRemote(backend, replacePlan, updateProgress);
+        const result = await applyReplaceRemote(backend, replacePlan, (p) => { stage = p.phase; updateProgress(p); });
         if (mine !== session) return;
         context = null;
         showDone(target, result, { replace: true });
@@ -513,7 +523,7 @@ async function confirmReplace() {
     } catch (err) {
         if (mine !== session) return;
         console.error('[Sync] Replace failed:', err);
-        showError(err.message);
+        showError(err.message, failureNote(stage, target));
     }
 }
 

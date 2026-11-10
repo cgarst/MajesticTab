@@ -1,7 +1,7 @@
 // driveBackup.js
 // Google Drive storage backend for incremental backups (see incrementalBackup.js for the layout).
 // Backups live in a "MajesticTab Backup" folder at the root of My Drive, created by the app so the drive.file scope covers it.
-import { driveFetch } from './googleDrive.js';
+import { driveFetch, driveApiErrorFromResponse } from './googleDrive.js';
 import { ROOT_FOLDER_NAME, BLOBS_FOLDER_NAME, MANIFESTS_FOLDER_NAME, isManifestName } from './incrementalBackup.js';
 
 const DRIVE_API = 'https://www.googleapis.com/drive/v3/files';
@@ -14,9 +14,7 @@ const DRIVE_ROOT = { id: 'root', name: 'My Drive' };
 async function driveJson(url, options) {
     const res = await driveFetch(url, options);
     if (!res.ok) {
-        let detail = res.statusText;
-        try { detail = (await res.json()).error?.message || detail; } catch (_) {}
-        throw new Error(`Google Drive API error (${res.status}): ${detail}`);
+        throw await driveApiErrorFromResponse(res);
     }
     return res.json();
 }
@@ -69,18 +67,18 @@ async function multipartUpload(name, parentId, mimeType, body, extraMeta = {}) {
         headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
         body: payload
     });
-    if (!res.ok) throw new Error(`Google Drive upload failed (${res.status}) for ${name}`);
+    if (!res.ok) throw await driveApiErrorFromResponse(res);
 }
 
 async function deleteDriveFile(fileId) {
     const res = await driveFetch(`${DRIVE_API}/${fileId}`, { method: 'DELETE' });
     // 404 means it is already gone, which is the outcome we wanted
-    if (!res.ok && res.status !== 404) throw new Error(`Could not delete from Google Drive (${res.status}).`);
+    if (!res.ok && res.status !== 404) throw await driveApiErrorFromResponse(res);
 }
 
 async function downloadDriveFile(fileId, label) {
     const res = await driveFetch(`${DRIVE_API}/${fileId}?alt=media`);
-    if (!res.ok) throw new Error(`Could not download ${label} (${res.status}).`);
+    if (!res.ok) throw await driveApiErrorFromResponse(res);
     return res;
 }
 
@@ -124,7 +122,8 @@ export function createDriveBackend() {
                 body: JSON.stringify({ name, parents: [folders.blobsId] })
             });
             const sessionUrl = init.headers.get('Location');
-            if (!init.ok || !sessionUrl) throw new Error(`Google Drive upload failed (${init.status}) for ${name}`);
+            if (!init.ok) throw await driveApiErrorFromResponse(init);
+            if (!sessionUrl) throw new Error(`Google Drive did not start the upload of ${name}.`);
 
             const total = buffer.byteLength;
             for (let start = 0; start < total; start += RESUMABLE_PIECE) {
@@ -135,7 +134,7 @@ export function createDriveBackend() {
                     headers: { 'Content-Range': `bytes ${start}-${end - 1}/${total}` },
                     body: buffer.slice(start, end)
                 });
-                if (res.status !== 308 && !res.ok) throw new Error(`Google Drive upload failed (${res.status}) for ${name}`);
+                if (res.status !== 308 && !res.ok) throw await driveApiErrorFromResponse(res);
             }
         },
 
