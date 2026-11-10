@@ -17,7 +17,7 @@ import { saveStoredFile } from '../fileStore.js';
 import { detectFileMetadata } from '../utils/tuningUtils.js';
 import { showToast } from '../utils/toast.js';
 import { STRATEGIES, pairFile, baseNameOf, sameArtist, sameTitle, looksLikeAlbumBook, VIA_LABEL } from './pairing.js';
-import { lookup, lookupAlbum, searchSongs, searchAlbums } from './matcher.js';
+import { lookup, lookupAlbum, searchSongs, searchAlbums, normKey } from './matcher.js';
 import { canPickFolder, pickAndScanFolder } from './scanFolder.js';
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -50,6 +50,7 @@ const state = {
     importDone: 0,
     importTotal: 0,
     songs: [], // library songs, for matching and for finding a song again
+    knownArtists: new Map(), // artists the library and the chosen folder's folder names suggest, for files that name none
     controller: null,
     scanController: null
 };
@@ -145,7 +146,7 @@ async function resolveRow(row, signal) {
         if (!row.manualKind && looks === 'weak' && state.songs.some((s) => !s.isAlbumTabContainer && sameArtist(s.artist, row.parsed.artist)
             && sameTitle(s.album, row.parsed.album) && sameTitle(s.title, row.parsed.title))) kind = 'song';
         row.kind = kind;
-        let found = kind === 'album' ? await lookupAlbum(row.parsed, { songs: state.songs, signal }) : await lookup(row.parsed, { songs: state.songs, signal });
+        let found = kind === 'album' ? await lookupAlbum(row.parsed, { songs: state.songs, signal }) : await lookup(row.parsed, { songs: state.songs, signal, knownArtists: state.knownArtists });
         if (kind === 'album' && !row.manualKind && looks === 'weak' && found.status === 'match') found = { ...found, status: 'maybe' };
         if (row.manual) return;
         row.status = found.status;
@@ -170,6 +171,11 @@ async function runLookups() {
     state.controller = controller;
     state.lookingUp = true;
     state.songs = await getAllSongs().catch(() => []);
+    const known = new Map();
+    const addKnown = (name) => { const key = normKey(name); if (key.length >= 3 && !known.has(key)) known.set(key, name); };
+    state.songs.forEach((s) => { if (s.artist && !s.isCustom && s.artist !== 'Unknown Artist') addKnown(s.artist); });
+    state.rows.forEach((r) => (r.entry.dirs || []).slice(1).forEach(addKnown));
+    state.knownArtists = known;
     notify();
     for (const row of state.rows) {
         if (controller.signal.aborted) break;

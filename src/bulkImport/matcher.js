@@ -24,7 +24,7 @@ export async function searchSongs(text, { signal } = {}) {
     const key = normName(text);
     if (!key) return [];
     if (cache.has(key)) return cache.get(key);
-    const found = (await searchMusicBrainz(text, 'song', { signal })).slice(0, 12).map(fromRecording);
+    const found = (await searchMusicBrainz(text, 'song', { signal })).slice(0, 25).map(fromRecording);
     cache.set(key, found);
     return found;
 }
@@ -54,7 +54,29 @@ const MAX_SEARCHES = 6; // MusicBrainz answers one request a second: a hard file
  * number or part of the song ("1 Pull Me Under", "7 Rings"). The library is asked about every reading first (free), then
  * MusicBrainz about each in turn until one gives a sure answer. Without one, the first reading's answer is kept.
  */
-export async function lookup(parsed, { songs = [], signal } = {}) {
+export async function lookup(parsed, { songs = [], signal, knownArtists = null } = {}) {
+    const found = await lookupReadings(parsed, { songs, signal });
+    // A file with no artist ("Chords/stairway to heaven chords.pdf") is a search by title alone, and a famous title has
+    // hundreds of covers that MusicBrainz ranks above the original. If one of the answers is by an artist this library or
+    // this folder already has, search that artist's song: that is far more likely to be the one meant.
+    if (found.status !== 'match' && found.status !== 'library' && !parsed?.artist && knownArtists?.size && found.candidates.length) {
+        const tried = new Set();
+        for (const c of found.candidates) {
+            const key = normKey(c.artist);
+            if (!knownArtists.has(key) || tried.has(key) || tried.size >= 2) continue;
+            tried.add(key);
+            const r = await lookupTitle({ ...parsed, artist: knownArtists.get(key), album: '' }, { songs: [], signal });
+            // The file never named the artist, so this stays a suggestion for the person to confirm
+            if (r.status === 'match') return { ...r, status: 'maybe' };
+        }
+    }
+    return found;
+}
+
+/** An artist name in the form the known-artists set is keyed by. */
+export const normKey = (name) => normName(name).replace(/^the /, '');
+
+async function lookupReadings(parsed, { songs = [], signal } = {}) {
     if (!parsed?.title) return { status: 'none', pick: null, candidates: [] };
     const base = parsed.rawTitle ?? parsed.title;
     const readings = [{ artist: parsed.artist, album: parsed.album || '' }, ...(parsed.alts || [])];
