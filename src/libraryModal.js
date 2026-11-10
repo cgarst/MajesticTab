@@ -4710,24 +4710,26 @@ function renderToolsView(container) {
         await set();
         if (!classtabUnsub) classtabUnsub = m.onArchiveChange(() => { m.getCatalogRecord().then(set); });
     }).catch(() => {});
+    // Grouped by what the player is doing, musical tools first: theory, then practice aids, then getting tabs in, then
+    // library upkeep. The first tool is the one a wide screen opens, so it must be a musician's tool, not a file picker.
     const tools = [
-        { id: 'openfile', group: 'files', title: 'Open file' },
-        { id: 'classtab', group: 'files', title: 'Classical tab browser', readout: classtabReadout },
-        { id: 'bulkimport', group: 'files', title: 'Bulk import', readout: bulkImportReadout },
-        { id: 'bulkexport', group: 'files', title: 'Bulk export', readout: bulkExportReadout },
-        { id: 'missingtabs', group: 'files', title: 'Fill in missing tabs', readout: missingTabsReadout }
+        { id: 'chords', group: 'theory', title: 'Chord library', readout: chordsReadout },
+        { id: 'scales', group: 'theory', title: 'Scales' },
+        { id: 'circle', group: 'theory', title: 'Circle of fifths' },
+        { id: 'tuner', group: 'practice', title: 'Tuner', readout: tunerReadout },
+        { id: 'metronome', group: 'practice', title: 'Metronome', readout: () => `${metronome.bpm} bpm`, watch: ['metroBpm'] }
     ];
-    import('./bulkFill/missingTabsTool.js').then((m) => m.refreshMissingTabsCount()).catch(() => {});
     // Sends local audio to the StemDeck app on this computer or network; the web build cannot reach it
-    if (hasStemDeckSupport()) tools.push({ id: 'stemdeck', group: 'files', title: 'Backing tracks', readout: stemdeckReadout });
+    if (hasStemDeckSupport()) tools.push({ id: 'stemdeck', group: 'practice', title: 'Backing tracks', readout: stemdeckReadout });
+    if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'practice', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
     tools.push(
-        { id: 'chords', group: 'reference', title: 'Chord library', readout: chordsReadout },
-        { id: 'scales', group: 'reference', title: 'Scales' },
-        { id: 'circle', group: 'reference', title: 'Circle of fifths' },
-        { id: 'tuner', group: 'play', title: 'Tuner', readout: tunerReadout },
-        { id: 'metronome', group: 'play', title: 'Metronome', readout: () => `${metronome.bpm} bpm`, watch: ['metroBpm'] }
+        { id: 'openfile', group: 'gettabs', title: 'Open file' },
+        { id: 'classtab', group: 'gettabs', title: 'Classical tab browser', readout: classtabReadout },
+        { id: 'missingtabs', group: 'gettabs', title: 'Fill in missing tabs', readout: missingTabsReadout },
+        { id: 'bulkimport', group: 'library', title: 'Bulk import', readout: bulkImportReadout },
+        { id: 'bulkexport', group: 'library', title: 'Bulk export', readout: bulkExportReadout }
     );
-    if ($('jamToggleBtn') && $('jamPill') && $('jamPill').style.display !== 'none') tools.push({ id: 'jam', group: 'play', title: 'Jam', readout: jamReadout, watch: ['jamStatusLabel'] });
+    import('./bulkFill/missingTabsTool.js').then((m) => m.refreshMissingTabsCount()).catch(() => {});
     renderToolsPage(container, { tools, escapeHtml });
 }
 
