@@ -55,7 +55,7 @@ export function planJobs(candidates, selected, includeExisting) {
     return [...jobs.values()];
 }
 
-/** "Song.mp3" becomes "Song (no guitar).flac". */
+/** "Song.mp3" becomes "Song (no guitar).mp3". */
 export function backingFileName(sourceName, ext) {
     const base = String(sourceName || 'Audio').replace(/\.[a-z0-9]{1,5}$/i, '');
     return `${base} (no guitar).${ext}`;

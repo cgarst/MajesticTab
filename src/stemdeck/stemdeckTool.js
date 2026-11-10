@@ -7,7 +7,7 @@
 
 import {
     createStemDeckClient, getStemDeckAddress, setStemDeckAddress, parseAddress, isLoopback, isDesktopShell,
-    findLocalStemDeck, nativeLoopbackScan, DEFAULT_PORT, StemDeckError
+    findLocalStemDeck, nativeLoopbackScan, DEFAULT_PORT, StemDeckError, mixFormatFor
 } from './stemdeckClient.js';
 import { listBackingCandidates, planJobs, backingFileName, slotFileKey, slotSourceKey } from './backingCandidates.js';
 import { listAudioFiles, getAudioFile, saveAudioFile, linkAudioFile } from '../audioSync/audioFileStore.js';
@@ -57,9 +57,10 @@ function setState(job, kind, text) {
 
 /** Stores the mix and makes it the Backing track of every song in the job. */
 async function saveBackingTrack(job, client, jobId, signal) {
-    let mix = await client.downloadMix(jobId, { signal });
+    // The format follows the file sent: a small lossy source gets a lossy mix, not a FLAC several times its size
+    let mix = await client.downloadMix(jobId, { format: mixFormatFor(job.source.name, job.source.type), signal });
     let analysed = await decodePeaks(mix.data);
-    // A webview that cannot decode FLAC gets the same mix as WAV
+    // A webview that cannot decode the format gets the same mix as WAV
     if (!analysed && mix.ext !== 'wav') {
         mix = await client.downloadMix(jobId, { format: 'wav', signal });
         analysed = await decodePeaks(mix.data);

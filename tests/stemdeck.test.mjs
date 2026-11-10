@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import {
     parseAddress, isLoopback, isDesktopShell, nativeLoopbackScan, uploadName, getStemDeckAddress, hasStemDeckSupport,
-    findLocalStemDeck, createStemDeckClient, NO_GUITAR_STEMS, DEFAULT_PORT
+    findLocalStemDeck, createStemDeckClient, NO_GUITAR_STEMS, DEFAULT_PORT, mixFormatFor
 } from '../src/stemdeck/stemdeckClient.js';
 import { listBackingCandidates, planJobs, backingFileName, slotFileKey } from '../src/stemdeck/backingCandidates.js';
 import { stemdeckIntroText, stemdeckHelpText } from '../src/stemdeck/stemdeckTool.js';
@@ -35,6 +35,10 @@ assert.ok(isDesktopShell(desktop) && !isDesktopShell(phone));
 assert.equal(uploadName('Song.MP3', 'audio/mpeg'), 'Song.MP3');
 assert.equal(uploadName('take 1', 'audio/mp4'), 'take 1.m4a');
 assert.equal(uploadName('a/b.webm', 'audio/webm'), 'a_b.webm');
+assert.equal(mixFormatFor('Song.opus', 'audio/ogg'), 'mp3');
+assert.equal(mixFormatFor('Song.mp3', ''), 'mp3');
+assert.equal(mixFormatFor('Song.flac', ''), 'flac');
+assert.equal(mixFormatFor('Song', 'audio/x-wav'), 'flac');
 assert.equal(backingFileName('Song.mp3', 'flac'), 'Song (no guitar).flac');
 
 // --- Candidates ---

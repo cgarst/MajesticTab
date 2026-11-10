@@ -32,6 +32,17 @@ const EXT_OF_TYPE = {
     'video/mp4': 'mp4', 'audio/ogg': 'ogg', 'audio/opus': 'opus'
 };
 
+const LOSSLESS_EXTS = new Set(['wav', 'flac']);
+/**
+ * The mix format that matches the file sent: a lossless source (WAV, FLAC) comes back as FLAC, a lossy one (MP3, Opus,
+ * Ogg, M4A, MP4) as MP3, so the result is about the size of what was sent and not several times larger.
+ * StemDeck offers no Opus, and MP3 is the lossy one every webview decodes.
+ */
+export function mixFormatFor(sourceName, sourceType) {
+    const ext = /\.([a-z0-9]{1,5})$/i.exec(String(sourceName || ''))?.[1]?.toLowerCase() || EXT_OF_TYPE[String(sourceType || '').toLowerCase()];
+    return LOSSLESS_EXTS.has(ext) ? 'flac' : 'mp3';
+}
+
 export class StemDeckError extends Error {
     constructor(message, code) {
         super(message);
@@ -244,17 +255,17 @@ export function createStemDeckClient({ address = LOCAL_ADDRESS, fetchImpl = null
     }
 
     /**
-     * The chosen stems of a finished job summed into one file. FLAC by default (lossless, about half the size of the
-     * WAV); `format: 'wav'` is for a webview that cannot decode FLAC.
+     * The chosen stems of a finished job summed into one file: 'flac' (lossless, about half the size of the WAV),
+     * 'mp3' (VBR about 190 kbps, for a lossy source) or 'wav' (for a webview that cannot decode the others).
      */
     async function downloadMix(jobId, { stems = NO_GUITAR_STEMS, format = 'flac', signal } = {}) {
-        const ext = format === 'wav' ? 'wav' : 'flac';
+        const ext = format === 'wav' ? 'wav' : format === 'mp3' ? 'mp3' : 'flac';
         const query = `stems=${stems.join(',')}&gains=${stems.map(() => 1).join(',')}`;
         const res = await call(`/jobs/${jobId}/mixdown.${ext}?${query}`, { signal });
         if (!res.ok) throw new StemDeckError(await refusal(res, 'StemDeck could not export the mix'), 'export');
         const data = await res.arrayBuffer();
         if (!data.byteLength) throw new StemDeckError('StemDeck returned an empty file', 'export');
-        return { data, type: `audio/${ext}`, ext };
+        return { data, type: ext === 'mp3' ? 'audio/mpeg' : `audio/${ext}`, ext };
     }
 
     /** Asks StemDeck to stop a job. Never throws: it is called on the way out. */
