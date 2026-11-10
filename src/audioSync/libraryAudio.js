@@ -11,6 +11,28 @@ const REGISTRY = (songId) => `audio_lib_${songId}`;
 const SONG_KEYS = (songId) => `yt_song_keys_${songId}`;
 const SLOTS = ['original', 'backing'];
 
+/** The storage keys that say which file is a song's Original or Backing, and its source: backed up with the video choices. */
+export const isAudioChoiceKey = (key) => typeof key === 'string'
+    && (key.startsWith('audio_file_') || key.startsWith('real_audio_source_') || key.startsWith('real_audio_last_slot_') || key.startsWith('audio_lib_'));
+
+const BACKING_NAME = /backing[\s_.-]*tracks?|no[\s_.-]*guitars?/i;
+
+/**
+ * A file restored from a backup made before slots were saved: when its song has no file in either slot, a name that says
+ * "backing track" or "no guitar" makes it the Backing track, and any other name the Original. A song the backup (or this
+ * device) already set up is left alone.
+ */
+export function assignRestoredAudioSlot(item) {
+    for (const key of item?.songKeys || []) {
+        const enc = encodeURIComponent(String(key).toLowerCase());
+        if (read(`audio_file_${enc}_original`) || read(`audio_file_${enc}_backing`) || read(`audio_file_last_${enc}`)) continue;
+        const slot = BACKING_NAME.test(item.name || '') ? 'backing' : 'original';
+        write(slotFileKey(key, slot), item.id);
+        if (slot === 'original') write(`audio_file_last_${enc}`, item.id);
+        if (!read(slotSourceKey(key, slot))) write(slotSourceKey(key, slot), 'local');
+    }
+}
+
 const read = (key) => { try { return localStorage.getItem(key); } catch { return null; } };
 const write = (key, value) => { try { localStorage.setItem(key, value); } catch { /* optional */ } };
 
@@ -66,14 +88,14 @@ export function rememberLastSlot(songKey, slot) {
 }
 
 /**
- * The slot a song opens on: the one with a local file when only one has, the last one used when both do (Original when
- * that was never recorded), and Original when neither does.
+ * The slot a song opens on: the one with a local file when only one has, and otherwise (both have one, or neither) the last
+ * one used, Original when that was never recorded.
  */
 export function preferredSlot(songKey) {
     const original = songHasLocalSlot(songKey, 'original');
     const backing = songHasLocalSlot(songKey, 'backing');
-    if (original && backing) return read(LAST_SLOT_KEY(songKey)) === 'backing' ? 'backing' : 'original';
-    return backing ? 'backing' : 'original';
+    if (original !== backing) return backing ? 'backing' : 'original';
+    return songKey && read(LAST_SLOT_KEY(songKey)) === 'backing' ? 'backing' : 'original';
 }
 
 /** Records a stored file as the song's audio and makes it the slot's file under the library key. */

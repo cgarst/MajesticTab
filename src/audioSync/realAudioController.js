@@ -10,7 +10,7 @@
 import {
     applySyncedDefaults, renderSyncedVideos,
     getSongKey, playerState, getVideoInfo, jamYouTubeControl, onYouTubeEvent, isYouTubeAvailable, isYouTubePlaying, playPauseYouTube,
-    pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode
+    pauseYouTube, rewindYouTube10Seconds, setYouTubePlaybackRate, setYouTubeTrackMode, cancelYouTubeSearch, showYouTubeSource
 } from '../youtubePlayer.js';
 import {
     isAudioFileAvailable, isAudioFilePlaying, playPauseAudioFile, pauseAudioFile,
@@ -351,6 +351,8 @@ export function switchRealAudioSource(source) {
     pauseAudioFile();
 
     setSlotSource(source, state.slot);
+    if (source !== 'youtube') cancelYouTubeSearch(); // a search under way stops: the slot plays its own audio now
+    else showYouTubeSource();
     if (source === 'embedded') closeSheet(); // the file's audio has no video (closing pauses)
     applyEmbeddedAudioMode();
     updateRealAudioPanelView();

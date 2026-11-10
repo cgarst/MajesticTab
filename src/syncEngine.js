@@ -13,6 +13,7 @@ import { listSoundFonts, deleteSoundFont, restoreSoundFontEntry } from './soundF
 import { CLASSTAB_BACKUP_STORE, isClasstabItem, classtabFingerprint, listClasstab, restoreClasstabEntry, deleteClasstab } from './classtab/backup.js';
 import { mergeAudioSync, AUDIO_SYNC_PREFIX } from './audioSync/syncStore.js';
 import { listAudioFiles } from './audioSync/audioFileStore.js';
+import { isAudioChoiceKey, assignRestoredAudioSlot } from './audioSync/libraryAudio.js';
 import {
     listAudioForBackup, restoreAudioEntry, isAudioItem, isAudioDownloadEnabled, audioItemFingerprint, audioSyncDecision
 } from './audioSync/audioBackup.js';
@@ -450,7 +451,8 @@ export async function applySync(backend, plan, onProgress) {
             const item = remoteById.get(change.key);
             if (item) {
                 if (change.kind === 'audio') {
-                    await restoreAudioEntry(item, { wipe: true });
+                    // The snapshot's own slot choices arrive with its settings below; a guess from the name would leave a wrong one behind
+                    await restoreAudioEntry(item, { wipe: true, guessSlot: false });
                 } else if (change.kind === 'classtab') {
                     await restoreClasstabEntry(item, { wipe: true });
                 } else if (change.kind === 'soundfont') {
@@ -493,6 +495,13 @@ export async function applySync(backend, plan, onProgress) {
 
     if (plan.needsPush) {
         const pushed = await createIncrementalBackup(backend, {
+        // A snapshot made before slot choices were saved has none: name the slots of the files just received from their names
+        if (!Object.keys(bundle.settings?.ytCache || {}).some(isAudioChoiceKey)) {
+            for (const change of downloads) {
+                const item = change.kind === 'audio' ? remoteById.get(change.key) : null;
+                if (item) assignRestoredAudioSlot(item);
+            }
+        }
             carryForward,
             onProgress: ({ phase, current, total, name }) => report(
                 'push', current, total,

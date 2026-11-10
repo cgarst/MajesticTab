@@ -5,6 +5,7 @@
 // the Audio File panel). A snapshot item carries the file's name, length and fingerprint, so a device that doesn't
 // take the audio can still relink it later. The waveform peaks are not stored; they are rebuilt when a file is opened.
 
+import { assignRestoredAudioSlot } from './libraryAudio.js';
 import { arrayBufferToBase64, arrayBufferToBase64Async, base64ToArrayBuffer } from '../fileStore.js';
 import {
     listAudioFiles, getAudioFile, getAudioMeta, putAudioRecord, linkAudioFile, fingerprintOf, audioFingerprint
@@ -137,10 +138,11 @@ export async function audioBackupPlan({ maxBytes = SINGLE_FILE_AUDIO_LIMIT } = {
  * `item` carries `dataBase64` (single-file backups) or `fetchData` (snapshots).
  * @returns {Promise<boolean>} true if written; a file already here is left alone (its song links are merged), unless `wipe`
  */
-export async function restoreAudioEntry(item, { wipe = false } = {}) {
+export async function restoreAudioEntry(item, { wipe = false, guessSlot = true } = {}) {
     const existing = wipe ? null : await getAudioMeta(item.id);
     if (existing) {
         for (const key of item.songKeys || []) await linkAudioFile(item.id, key);
+        if (guessSlot) assignRestoredAudioSlot(item);
         return false;
     }
     const data = item.fetchData ? await item.fetchData() : base64ToArrayBuffer(item.dataBase64);
@@ -158,6 +160,7 @@ export async function restoreAudioEntry(item, { wipe = false } = {}) {
         ...(item.generatedFrom ? { generatedFrom: item.generatedFrom } : {}),
         data
     });
+    if (guessSlot) assignRestoredAudioSlot(item);
     window.dispatchEvent(new CustomEvent(AUDIO_FILES_CHANGED_EVENT));
     return true;
 }

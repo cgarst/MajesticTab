@@ -4,7 +4,8 @@ import { pauseSynthPlayer, clearSynthHighlights, toggleSynthPanel, toggleScoreOp
 import { showPanel, hidePanel, placePanel } from './utils/readerPanels.js';
 import { getMasterVolume, onMasterVolume } from './utils/masterVolume.js';
 import { songHasSyncPoints, listRecords, saveRecord, deleteRecord, mediaKey, SYNC_CHANGED_EVENT } from './audioSync/syncStore.js';
-import { songHasLocalAudio, preferredSlot } from './audioSync/libraryAudio.js';
+import { songHasLocalAudio, songHasLocalSlot, preferredSlot } from './audioSync/libraryAudio.js';
+import { slotSourceKey } from './stemdeck/backingCandidates.js';
 import { listHistory, rememberVideo, forgetVideo } from './audioSync/videoHistory.js';
 import { showToast } from './utils/toast.js';
 import { updateGlobalRewindButton, setActiveAudioMode } from './utils/navigationUtils.js';
@@ -487,7 +488,7 @@ export function redoSearchWithQuery(override = null) {
     setVideoId(null, 'user');
 
     updateQueryInputUI();
-    loadCurrentTrack(true, { source: 'user' });
+    loadCurrentTrack(true, { source: 'user', search: true });
 }
 
 /**
@@ -636,9 +637,6 @@ function showNoVideoPrompt() {
 }
 
 const removedKey = (mode = playerState.trackMode) => `yt_none_${encodeURIComponent(getSongKey().toLowerCase())}_${mode}`;
-function isVideoRemoved(mode = playerState.trackMode) {
-    try { return Boolean(getSongKey() && localStorage.getItem(removedKey(mode))); } catch { return false; }
-}
 function clearVideoRemoved(mode = playerState.trackMode) {
     try { localStorage.removeItem(removedKey(mode)); } catch { /* optional */ }
 }
@@ -677,11 +675,36 @@ function showSearchTimeout() {
  * Update the YouTube iframe or prompt UI based on current video ID.
  * `videoId` forces a video without saving it for this song (Jam Mode).
  */
-async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = null, source = 'auto' } = {}) {
+/**
+ * Is the slot's recording a local file (or the file's own audio) rather than a video? Then the player leaves YouTube alone:
+ * no search, no loading, no sheet, until the person presses YouTube under Source in the Original audio panel.
+ */
+function slotUsesOwnAudio(mode = playerState.trackMode) {
+    const key = getSongKey();
+    if (!key) return false;
+    let source = null;
+    try { source = localStorage.getItem(slotSourceKey(key, mode)); } catch { /* optional */ }
+    if (source === 'local' || source === 'embedded') return true;
+    return source !== 'youtube' && songHasLocalSlot(key, mode);
+}
+
+/** The person chose YouTube as the slot's source: show its saved video, or ask for a search or a link. Never searches. */
+export function showYouTubeSource() {
+    loadCurrentTrack(false);
+}
+
+async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = null, source = 'auto', search = false } = {}) {
     const iframe = document.getElementById('ytIframe');
     const prompt = document.getElementById('ytPlaceholderPrompt');
     const loadingIndicator = document.getElementById('ytLoadingIndicator');
     const loadingQueryText = document.getElementById('ytLoadingQueryText');
+
+    // A slot that plays a local file never touches YouTube on its own (Jam, a pasted link and an explicit search still do)
+    if (source !== 'jam' && !forcedVideoId && !search && slotUsesOwnAudio()) {
+        if (playerState.isSearching) cancelYouTubeSearch();
+        if (loadingIndicator) loadingIndicator.style.setProperty('display', 'none', 'important');
+        return;
+    }
 
     // 1. Check if user already saved a video ID for this song & mode
     const storedId = localStorage.getItem(getStorageKey());
@@ -692,9 +715,9 @@ async function loadCurrentTrack(autoplay = false, { videoId: forcedVideoId = nul
         if (videoId) localStorage.setItem(getStorageKey(), videoId);
     }
 
-    // No automatic search when it would only be a guess: a tab with no artist (a plain file name is a poor query and
-    // finds unrelated videos), or one whose video the player removed. The panel then asks for a search or a link.
-    if (!videoId && source === 'auto' && (!playerState.artist || isVideoRemoved())) {
+    // A search runs only when the person asks for it (the search field or Search again): opening a song, switching between
+    // Original and Backing or opening the panel never attaches a video by itself. The panel then asks for a search or a link.
+    if (!videoId && !search) {
         showNoVideoPrompt();
         return;
     }
@@ -1599,7 +1622,7 @@ export function initYouTubePlayer() {
     document.getElementById('ytRetrySearchBtn')?.addEventListener('click', (e) => {
         e.stopPropagation();
         e.currentTarget.hidden = true;
-        loadCurrentTrack(false);
+        loadCurrentTrack(false, { search: true });
     });
 
     // Cancel search button in loading state

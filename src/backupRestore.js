@@ -4,6 +4,7 @@
 
 import { collectAudioSync, mergeAudioSync, clearAudioSync } from './audioSync/syncStore.js';
 import { clearAllAudioFiles } from './audioSync/audioFileStore.js';
+import { isAudioChoiceKey, assignRestoredAudioSlot } from './audioSync/libraryAudio.js';
 import {
     AUDIO_BACKUP_STORE, iterateAudioBackupEntries, audioBackupPlan, audioBackupOverview, restoreAudioEntry,
     isAudioDownloadEnabled, setAudioUploadEnabled, LARGE_AUDIO_UPLOAD_BYTES, SINGLE_FILE_AUDIO_LIMIT
@@ -141,7 +142,7 @@ export function collectAllSettings() {
     const gpTabStrings = {};
     for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_'))) {
+        if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isAudioChoiceKey(k))) {
             ytCache[k] = localStorage.getItem(k);
         } else if (k && k.startsWith('gp_tab_strings_')) {
             gpTabStrings[k] = localStorage.getItem(k);
@@ -615,7 +616,7 @@ export async function restoreBackupStream(file, { mode = 'merge', onProgress, re
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_'))) keysToRemove.push(k);
+            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isAudioChoiceKey(k))) keysToRemove.push(k);
         }
         for (const k of keysToRemove) localStorage.removeItem(k);
         clearAudioSync();
@@ -864,7 +865,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
             const k = localStorage.key(i);
-            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_'))) keysToRemove.push(k);
+            if (k && (k.startsWith('yt_track_') || k.startsWith('yt_videos_') || isAudioChoiceKey(k))) keysToRemove.push(k);
         }
         for (const k of keysToRemove) localStorage.removeItem(k);
         clearAudioSync();
@@ -875,6 +876,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
     let soundFontsImported = 0;
     let audioImported = 0;
     let audioSkipped = 0;
+    const restoredAudio = [];
 
     const files = bundle.fileStore?.files || (Array.isArray(bundle.files) ? bundle.files : []);
     const totalFiles = files.length;
@@ -893,8 +895,10 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
         }
 
         if (item.store === AUDIO_BACKUP_STORE) {
-            if (restoreAudio && await restoreAudioEntry(item, { wipe })) audioImported++;
+            // The slot choices come with the settings below; only a backup without them is guessed from the names
+            if (restoreAudio && await restoreAudioEntry(item, { wipe, guessSlot: false })) audioImported++;
             else audioSkipped++;
+            if (restoreAudio) restoredAudio.push(item);
             continue;
         }
 
@@ -963,6 +967,7 @@ async function restoreBackupObject(bundle, { mode = 'merge', onProgress, restore
     let settingsApplied = 0;
     if (bundle.settings && typeof bundle.settings === 'object') {
         settingsApplied = applyRestoredSettings(bundle.settings, { wipe });
+        if (!Object.keys(bundle.settings?.ytCache || {}).some(isAudioChoiceKey)) restoredAudio.forEach(assignRestoredAudioSlot);
     }
 
     applyRestoredPreferences();
@@ -1003,7 +1008,7 @@ export async function deleteAllAppData() {
     const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && ((k.startsWith('yt_track_') || k.startsWith('yt_videos_')) || k.startsWith('tab_downloader_'))) {
+        if (k && ((k.startsWith('yt_track_') || k.startsWith('yt_videos_')) || k.startsWith('tab_downloader_') || isAudioChoiceKey(k))) {
             keysToRemove.push(k);
         }
     }
