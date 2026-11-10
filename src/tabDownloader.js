@@ -68,6 +68,8 @@ let activeBatchIndex = 0;
 let activeBatchAlbumTitle = '';
 let activeBatchArtistName = '';
 let activeBatchAlbumId = null;
+// A batch that is not one album (Tools > Fill in missing tabs): its name for the bar, and each queue entry carries its own artist
+let activeBatchLabel = '';
 let activeAutoOpenOnDownload = false;
 let lastAcquiredTrack = null;
 let transientUndoTimer = null;
@@ -272,11 +274,15 @@ export function updateBatchHUD() {
     const doneBtn = document.getElementById('downloaderBatchDoneBtn');
     const popoverList = document.getElementById('downloaderBatchTracklist');
 
-    if (albumTitleEl) albumTitleEl.textContent = activeBatchAlbumTitle || 'Album';
+    if (albumTitleEl) albumTitleEl.textContent = activeBatchAlbumTitle || activeBatchLabel || 'Album';
+    const listTitleEl = document.getElementById('downloaderBatchPopoverTitle');
+    if (listTitleEl) listTitleEl.textContent = activeBatchAlbumTitle ? 'Album tracks' : 'Songs';
+    // Songs from many artists: the artist goes with the title
+    const nameOf = (t) => (!activeBatchAlbumTitle && t.artist ? `${t.artist} \u2013 ${t.title}` : t.title);
     const currentTrack = activeBatchQueue[activeBatchIndex];
     if (trackInfoEl) {
         if (currentTrack) {
-            trackInfoEl.innerHTML = `<span class="downloader-batch-progress tnum">${activeBatchIndex + 1} of ${activeBatchQueue.length}</span><span class="mx-1 text-muted">·</span><span class="downloader-batch-track-name text-truncate">${escapeHtml(currentTrack.title)}</span>`;
+            trackInfoEl.innerHTML = `<span class="downloader-batch-progress tnum">${activeBatchIndex + 1} of ${activeBatchQueue.length}</span><span class="mx-1 text-muted">·</span><span class="downloader-batch-track-name text-truncate">${escapeHtml(nameOf(currentTrack))}</span>`;
         } else {
             trackInfoEl.textContent = `${activeBatchQueue.length} tracks`;
         }
@@ -304,7 +310,7 @@ export function updateBatchHUD() {
             <div class="downloader-batch-popover-row ${isCurrent ? 'is-active' : ''}" data-track-index="${idx}">
               <span class="batch-popover-status ${statusClass}">${statusIcon}</span>
               <span class="batch-popover-num">${idx + 1}.</span>
-              <span class="batch-popover-title text-truncate">${escapeHtml(track.title)}</span>
+              <span class="batch-popover-title text-truncate">${escapeHtml(nameOf(track))}</span>
               <span class="batch-popover-meta text-muted text-truncate">${badgeText}</span>
               <div class="ms-auto">${actionBtn}</div>
             </div>
@@ -338,7 +344,7 @@ export function jumpToBatchTrack(targetIndex) {
     if (targetTrack) {
         const sources = getSources();
         const activeSource = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
-        const nextQuery = formatSearchQueryForSource(activeSource, activeBatchArtistName, targetTrack.title);
+        const nextQuery = formatSearchQueryForSource(activeSource, targetTrack.artist || activeBatchArtistName, targetTrack.title);
         currentSearchQuery = nextQuery;
         showLoadingInUrlBar(activeSource.name);
         navigateToDownloaderUrl(buildSearchUrl(activeSource, nextQuery));
@@ -365,9 +371,14 @@ export function skipCurrentBatchTrack() {
 export function finishBatchSession() {
     const albumTitle = activeBatchAlbumTitle;
     const artistName = activeBatchArtistName;
+    const label = activeBatchLabel;
     const addedCount = activeBatchQueue.filter(t => t.acquired).length;
     const totalCount = activeBatchQueue.length;
     closeTabDownloaderModal();
+    if (!albumTitle && label) {
+        showToast(addedCount === 0 ? 'No tabs added' : `Added ${addedCount} of ${totalCount} tabs`, addedCount === 0 ? 'info' : 'success');
+        window.dispatchEvent(new CustomEvent('libraryDataChanged'));
+    }
     if (albumTitle) {
         if (addedCount === 0) {
             showToast(`No tabs added to ${albumTitle}`, 'info');
@@ -748,7 +759,7 @@ export async function handleDownloadedTabFile(name, uint8, path = null) {
 
             const sources = getSources();
             const activeSource = sources.find(s => s.id === activeSourceId) || sources[0] || DEFAULT_SOURCES[0];
-            const nextQuery = formatSearchQueryForSource(activeSource, activeBatchArtistName, nextTrack.title);
+            const nextQuery = formatSearchQueryForSource(activeSource, nextTrack.artist || activeBatchArtistName, nextTrack.title);
             currentSearchQuery = nextQuery;
             showLoadingInUrlBar(activeSource.name);
             navigateToDownloaderUrl(buildSearchUrl(activeSource, nextQuery));
@@ -1774,6 +1785,7 @@ export async function openTabDownloader(options = {}) {
     activeBatchAlbumTitle = options.albumTitle || '';
     activeBatchArtistName = options.artistName || options.artist || '';
     activeBatchAlbumId = options.albumId || null;
+    activeBatchLabel = options.batchLabel || '';
     activeAutoOpenOnDownload = Boolean(options.autoOpenOnDownload);
     lastAcquiredTrack = null;
 
@@ -1794,7 +1806,7 @@ export async function openTabDownloader(options = {}) {
     }
 
     if (activeBatchMode && activeBatchQueue.length > 0 && activeBatchIndex < activeBatchQueue.length) {
-        activeArtistName = activeBatchArtistName;
+        activeArtistName = activeBatchQueue[activeBatchIndex]?.artist || activeBatchArtistName;
         activeSongName = activeBatchQueue[activeBatchIndex]?.title || '';
     } else {
         activeArtistName = options.artist || activeTargetSong?.artist || activeTargetAlbum?.artistName || '';
@@ -1901,6 +1913,7 @@ export function closeTabDownloaderModal(invokeNative = true) {
     activeBatchAlbumTitle = '';
     activeBatchArtistName = '';
     activeBatchAlbumId = null;
+    activeBatchLabel = '';
     activeAutoOpenOnDownload = false;
     lastAcquiredTrack = null;
 

@@ -43,7 +43,7 @@ export async function releaseEmbeddedTools(keep = false) {
     if (!embedded) return;
     const { id, el, dispose } = embedded;
     embedded = null;
-    if (id === 'openfile' || id === 'classtab' || id === 'stemdeck' || id === 'bulkexport') {
+    if (id === 'openfile' || id === 'classtab' || id === 'stemdeck' || id === 'bulkexport' || id === 'missingtabs') {
         dispose?.(keep);
         el.remove();
         return;
@@ -100,6 +100,14 @@ async function openTool(id, pane) {
         el.className = 'tool-embedded bulkexport-tool-embedded';
         pane.appendChild(el);
         embedded = { id, el, dispose: renderBulkExportTool(el) };
+        return;
+    }
+    if (id === 'missingtabs') {
+        const { renderMissingTabsTool } = await import('../bulkFill/missingTabsTool.js');
+        const el = document.createElement('div');
+        el.className = 'tool-embedded missingtabs-tool-embedded';
+        pane.appendChild(el);
+        embedded = { id, el, dispose: renderMissingTabsTool(el) };
         return;
     }
     if (REFERENCE_TOOLS.includes(id)) (await import('../referenceLibrary.js')).openReferenceModal(id);
