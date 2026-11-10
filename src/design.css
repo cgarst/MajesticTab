@@ -4576,7 +4576,7 @@ body > #controllerHelpModal { display: none; }
 .song-actions .dropdown > .dropdown-toggle.btn-theme-icon::after { display: none; }
 .song-actions .dropdown > .dropdown-toggle.btn-theme-icon { min-width: 36px; display: inline-flex; align-items: center; justify-content: center; }
 .song-actions-spacer { width: 36px; }
-@media (pointer: coarse) { .song-actions .dropdown > .dropdown-toggle.btn-theme-icon { min-width: 44px; } }
+@media (pointer: coarse) { .song-actions .dropdown > .dropdown-toggle.btn-theme-icon, .song-actions-spacer { min-width: 44px; width: 44px; } }
 
 /* Album list rows on phones: title and year get the full width, the actions sit under them */
 @media (max-width: 576px) {
