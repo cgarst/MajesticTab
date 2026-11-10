@@ -5,7 +5,7 @@
 //   'artist-song'  "Artist - Song.ext"
 //   'folders'      Artist/Album/Song.ext, a track number in front of the song is ignored
 //   'metadata'     the title, artist and album written inside a Guitar Pro file (read by the caller)
-//   'auto'         per file: metadata, then folders when the file is two folders deep, then the file name
+//   'auto'         per file: folders when the file is two folders deep, then the file name, then the file's metadata
 
 export const STRATEGIES = ['auto', 'artist-song', 'folders', 'metadata'];
 
@@ -22,11 +22,15 @@ export function normName(s) {
 }
 
 /** "01 - Song", "01. Song", "01_Song", "(01) Song", "01 Song" (zero padded only): the number goes. A name like "7 Rings" stays. */
-export function stripTrackNumber(name) {
+export function stripTrackNumber(name, { loose = false } = {}) {
     const s = String(name ?? '').trim();
     const m = s.match(/^\(?(\d{1,3})\)?\s*[-._)\]–]\s*(?=\S)/) || s.match(/^(0\d{1,2})\s+(?=\S)/);
-    if (!m) return { title: s, trackNumber: null };
-    return { title: s.slice(m[0].length).trim(), trackNumber: parseInt(m[1], 10) };
+    if (m) return { title: s.slice(m[0].length).trim(), trackNumber: parseInt(m[1], 10) };
+    // In an album folder a bare "1 Pull Me Under" is a track number too. It could be a song called "7 Rings", so the
+    // caller keeps the whole name as `altTitle` and the lookup tries both.
+    const bare = loose && s.match(/^(\d{1,2})\s+(?=\S)/);
+    if (bare) return { title: s.slice(bare[0].length).trim(), trackNumber: parseInt(bare[1], 10), altTitle: s };
+    return { title: s, trackNumber: null };
 }
 
 /** Words tab files tend to carry after the song: "(tab)", "(Guitar Pro)", "(ver 2)", "tabs". */
@@ -41,6 +45,7 @@ export function cleanSongTitle(title) {
 export function cleanAlbumName(name) {
     let a = clean(name);
     a = a.replace(/^[\(\[]?\d{4}[\)\]]?\s*[-–.]\s*/, '');
+    a = a.replace(/^\d{1,2}\s*[-–.)]\s+/, ''); // "02 - Images and Words": the album's place in a discography
     a = a.replace(/\s*[\(\[]\s*(?:\d{4}|flac|mp3|\d+\s*kbps|remaster(?:ed)?(?:\s+\d{4})?)\s*[\)\]]\s*$/gi, '');
     return a.trim();
 }
@@ -58,13 +63,15 @@ export function parseArtistSong(baseName) {
  * down, the chosen folder's own name first. One folder is an artist. No folder gives no artist.
  */
 export function parseFolders(dirs, baseName) {
-    const { title, trackNumber } = stripTrackNumber(clean(baseName));
+    const { title, trackNumber, altTitle } = stripTrackNumber(clean(baseName), { loose: true });
     const d = (dirs || []).map(clean).filter(Boolean);
     let artist = '';
     let album = '';
     if (d.length >= 2) { artist = d[d.length - 2]; album = cleanAlbumName(d[d.length - 1]); }
     else if (d.length === 1) artist = d[0];
-    return { artist, album, title: cleanSongTitle(title), trackNumber };
+    const out = { artist, album, title: cleanSongTitle(title), trackNumber };
+    if (altTitle) out.altTitle = cleanSongTitle(altTitle);
+    return out;
 }
 
 /** The file's name without its extension. */
@@ -99,9 +106,8 @@ export function pairFile(entry, strategy, meta = null) {
         const p = parseFolders(entry.dirs, base);
         return p.artist ? tag(p, 'folders') : null;
     }
-    // auto
+    // auto: how the person laid the files out beats what a tabber typed into the file
     const fromFile = fromMetadata(meta);
-    if (fromFile && fromFile.artist) return { ...fromFile, via: 'metadata' };
     const real = (entry.dirs || []).slice(1); // the folders inside the chosen one
     if (real.length >= 2) {
         const p = parseFolders(entry.dirs, base);
@@ -109,6 +115,7 @@ export function pairFile(entry, strategy, meta = null) {
     }
     const named = parseArtistSong(base);
     if (named.artist && named.title) return { ...named, via: 'artist-song' };
+    if (fromFile && fromFile.artist) return { ...fromFile, via: 'metadata' };
     if (real.length === 1) {
         const p = parseFolders(real, base);
         if (p.artist && p.title) return { ...p, via: 'folders' };

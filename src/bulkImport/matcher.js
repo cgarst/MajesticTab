@@ -48,6 +48,16 @@ const rank = (c, parsed) => (sameTitle(c.title, parsed.title) ? 4 : 0)
  *   none: nothing to offer
  */
 export async function lookup(parsed, { songs = [], signal } = {}) {
+    const first = await lookupTitle(parsed, { songs, signal });
+    // "1 Pull Me Under" read as track 1: if that found nothing sure, try the whole name as the title ("7 Rings")
+    if (parsed?.altTitle && first.status !== 'match' && first.status !== 'library') {
+        const second = await lookupTitle({ ...parsed, title: parsed.altTitle }, { songs, signal });
+        if (second.status === 'match' || second.status === 'library') return second;
+    }
+    return first;
+}
+
+async function lookupTitle(parsed, { songs, signal }) {
     if (!parsed?.title) return { status: 'none', pick: null, candidates: [] };
     const known = findInLibrary(parsed, songs);
     if (known.length && (parsed.artist || known.length === 1)) return { status: 'library', pick: known[0], candidates: known };

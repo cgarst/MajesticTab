@@ -1,7 +1,7 @@
 // bulkImportTool.js
 // Bulk import page in Tools: choose a folder, and every tab file in it (subfolders included) is paired with a song.
 //   1. Pairing: "Artist - Song.ext", Artist/Album/Song.ext (a track number before the song is ignored), or the metadata
-//      inside a Guitar Pro file; Auto tries them in that order of how much each file gives (see pairing.js).
+//      inside a Guitar Pro file; Auto picks per file (see pairing.js).
 //   2. Suggestions: each pairing is looked up in the library, then on MusicBrainz (one request at a time, as MusicBrainz asks;
 //      the rows fill in while it runs).
 //   3. Fixing: any row can be changed by searching MusicBrainz, imported as custom music (typed names, no MusicBrainz data;
@@ -25,7 +25,7 @@ const STRATEGY_LABEL = {
     metadata: 'Guitar Pro file data'
 };
 const STRATEGY_HELP = {
-    auto: 'Each file is paired by the best thing it gives: the data inside a Guitar Pro file, then two folders (Artist/Album), then “Artist - Song” in the name.',
+    auto: 'Each file is paired by the best thing it gives: two folders (Artist/Album), then “Artist - Song” in the name, then the data inside a Guitar Pro file.',
     'artist-song': 'Files are named like “Artist - Song.gp5”. A track number or “(tab)” in front or behind is ignored.',
     folders: 'Files sit in an artist folder and an album folder, like Artist/Album/03 Song.gp5. The two folders above each file are used, and a track number in front of the song is ignored.',
     metadata: 'The title, artist and album written inside each Guitar Pro file. PDF and text files carry none.'
