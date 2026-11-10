@@ -4476,6 +4476,47 @@ body > #controllerHelpModal { display: none; }
     }
 }
 
+/* Desktop: the address is not pinned to the centre. It fills whatever room is left between the navigation
+   buttons and the right-hand controls, so it shrinks (and truncates) instead of running into them. */
+@media (min-width: 701px) {
+    .tab-downloader-bar .downloader-nav-row {
+        display: flex !important;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 12px;
+    }
+    .downloader-nav-left,
+    .downloader-nav-right { flex: 0 0 auto; }
+    .downloader-nav-center {
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 0;
+    }
+    .downloader-url-group { flex: 1 1 auto; width: 100%; max-width: none; min-width: 0; }
+}
+
+/* A narrow window (577 to 700px) leaves the address under about 200px, so it takes its own full-width second
+   row, as on a phone. */
+@media (min-width: 577px) and (max-width: 700px) {
+    .tab-downloader-bar .downloader-nav-row {
+        display: flex !important;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        row-gap: 6px;
+        padding-bottom: 8px;
+    }
+    .downloader-nav-left { flex: 0 0 auto; order: 1; }
+    .downloader-nav-right { flex: 0 0 auto; order: 2; }
+    .downloader-nav-center {
+        flex: 0 0 100%;
+        order: 3;
+        min-width: 0;
+        padding: 0;
+    }
+    .downloader-url-group { width: 100%; max-width: none; min-width: 0; }
+}
+
 @media (orientation: portrait) {
     .tauri-ios .tab-downloader-bar .downloader-nav-row {
         padding-top: max(calc(env(safe-area-inset-top, 0px) + 8px), 54px) !important;
