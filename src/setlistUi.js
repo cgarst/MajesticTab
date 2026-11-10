@@ -82,7 +82,7 @@ async function renderSetlistsPage(container, onBack) {
     });
     const toolbarHtml = libraryListToolbarHtml({
         count: `${setlists.length} ${setlists.length === 1 ? 'setlist' : 'setlists'}`,
-        actionsHtml: setlist ? '' : newBtnHtml // with setlists, the button sits where the library's Artists | Tunings switch is
+        actionsHtml: ''
     });
 
     if (!setlist) {
@@ -93,7 +93,8 @@ async function renderSetlistsPage(container, onBack) {
             ${libraryEmptyStateHtml({
                 icon: 'bi-collection-play',
                 title: 'No setlists yet',
-                message: 'Create a setlist, then add songs from your library, recents or tunings, or from a tab\'s notation menu.'
+                message: 'Create a setlist, then add songs from your library, recents or tunings, or from a tab\'s notation menu.',
+                actionsHtml: newBtnHtml
             })}
           </div>
         </div>`;
