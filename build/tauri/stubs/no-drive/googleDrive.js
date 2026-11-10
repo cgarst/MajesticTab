@@ -21,3 +21,5 @@ export async function saveFileToDrive() { throw unavailable(); }
 export async function fetchDriveBackups() { throw unavailable(); }
 export async function downloadDriveBackupFile() { throw unavailable(); }
 export const downloadDriveFile = downloadDriveBackupFile;
+export function driveApiError() { return unavailable(); }
+export async function driveApiErrorFromResponse() { return unavailable(); }
