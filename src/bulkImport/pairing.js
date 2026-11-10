@@ -247,8 +247,8 @@ export const VIA_LABEL = { metadata: 'file data', folders: 'folders', 'artist-so
 export function cleanAudioTitle(title) {
     let t = clean(title);
     let backing = false;
-    const tag = /\s*[\(\[][^)\]]*\b(?:official(?: music)? (?:audio|video)|audio|lyrics?|hq|hd|remaster(?:ed)?(?: \d{4})?|backing(?: track)?|karaoke|instrumental|no guitars?|minus one)\b[^)\]]*[\)\]]/gi;
-    t = t.replace(tag, (m) => { if (/backing|no guitars?|minus one/i.test(m)) backing = true; return ''; });
+    const tag = /\s*[\(\[][^)\]]*\b(?:official(?: music)? (?:audio|video)|audio|lyrics?|hq|hd|remaster(?:ed)?(?: \d{4})?|backing(?: track)?|karaoke|instrumental|no guitars?)\b[^)\]]*[\)\]]/gi;
+    t = t.replace(tag, (m) => { if (/backing|no guitars?/i.test(m)) backing = true; return ''; });
     const tail = /\s+[-–]\s*(?:backing(?: track)?|no guitars?)$|\s+backing track$/i;
     if (tail.test(t)) { backing = true; t = t.replace(tail, ''); }
     return { title: t.replace(/\s+/g, ' ').trim(), backing };
