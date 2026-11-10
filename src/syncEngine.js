@@ -446,6 +446,9 @@ export async function applySync(backend, plan, onProgress) {
         const bundle = await loadIncrementalBundle(backend, newest);
         const remoteById = new Map((bundle.files || []).map(f => [itemKey(f), f]));
 
+        // The bar follows bytes received, so one large audio file weighs what it is
+        const weigh = (change) => Math.max(1, change.size || 0);
+        const pullTotal = downloads.reduce((acc, change) => acc + weigh(change), 0);
         let done = 0;
         await runPool(downloads, DOWNLOAD_CONCURRENCY, async (change) => {
             const item = remoteById.get(change.key);
@@ -473,7 +476,8 @@ export async function applySync(backend, plan, onProgress) {
                 }
                 result.downloaded++;
             }
-            report('pull', ++done, downloads.length, `Receiving ${change.name}`);
+            done += weigh(change);
+            report('pull', done, pullTotal, `Receiving ${change.name}`);
         });
 
         // Audio this device doesn't hold (it chose not to download it) stays in the snapshot it pushes next
@@ -491,10 +495,6 @@ export async function applySync(backend, plan, onProgress) {
         const droppedFileIds = new Set(of(SYNC_ACTION.DELETE_REMOTE).filter(c => c.kind === 'tab').map(c => c.id));
         result.recordsChanged = await applyRecordDecisions(bundle, plan.records || [], droppedFileIds);
         fillMissingPreferences(bundle);
-    }
-
-    if (plan.needsPush) {
-        const pushed = await createIncrementalBackup(backend, {
         // A snapshot made before slot choices were saved has none: name the slots of the files just received from their names
         if (!Object.keys(bundle.settings?.ytCache || {}).some(isAudioChoiceKey)) {
             for (const change of downloads) {
@@ -502,9 +502,13 @@ export async function applySync(backend, plan, onProgress) {
                 if (item) assignRestoredAudioSlot(item);
             }
         }
+    }
+
+    if (plan.needsPush) {
+        const pushed = await createIncrementalBackup(backend, {
             carryForward,
-            onProgress: ({ phase, current, total, name }) => report(
-                'push', current, total,
+            onProgress: ({ phase, current, total, weightDone, weightTotal, name }) => report(
+                'push', weightTotal ? weightDone : current, weightTotal || total,
                 phase === 'manifest' ? 'Saving the new snapshot' : name ? `Sending ${name}` : 'Checking what the backup already holds'
             )
         });
@@ -588,8 +592,8 @@ export async function applyReplaceRemote(backend, plan, onProgress) {
     }
     const pushed = await createIncrementalBackup(backend, {
         carryForward: [],
-        onProgress: ({ phase, current, total, name }) => report(
-            'push', current, total,
+        onProgress: ({ phase, current, total, weightDone, weightTotal, name }) => report(
+            'push', weightTotal ? weightDone : current, weightTotal || total,
             phase === 'manifest' ? 'Saving the new snapshot' : name ? `Sending ${name}` : 'Checking what the backup already holds'
         )
     });

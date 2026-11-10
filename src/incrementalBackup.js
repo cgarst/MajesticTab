@@ -123,7 +123,7 @@ function exportedAtFromManifestName(name) {
  * Back up to `backend`, storing only blobs it doesn't have.
  * @param {object} backend
  * @param {object} [options]
- * @param {function({phase: string, current: number, total: number, bytesSent: number, uploaded?: number, reused?: number, name?: string}): void} [options.onProgress]
+ * @param {function({phase: string, current: number, total: number, weightDone?: number, weightTotal?: number, bytesSent: number, uploaded?: number, reused?: number, name?: string}): void} [options.onProgress]
  * @param {Array} [options.carryForward] audio items of the previous snapshot that this device doesn't hold, kept in
  *   the new snapshot as they are (their blobs are already in the backend) so a device that skipped them doesn't drop them
  * @returns {Promise<{manifestName: string, uploaded: number, reused: number, bytesSent: number, pruned: number}>}
@@ -184,6 +184,15 @@ export async function createIncrementalBackup(backend, { onProgress, carryForwar
     let reused = 0;
     let bytesSent = 0;
 
+    // Progress is weighed by bytes still to move. A file whose cached hash is already in the backup costs next to
+    // nothing, so a large audio file that is already there does not fill the bar at once.
+    for (const source of sources) {
+        const cached = hashCache[source.cacheKey]?.fingerprint === source.fingerprint ? hashCache[source.cacheKey].hash : null;
+        source.weight = cached && remoteHashes.has(cached) ? 1 : Math.max(1, source.meta.size || 0);
+    }
+    const weightTotal = sources.reduce((acc, source) => acc + source.weight, 0);
+    let weightDone = 0;
+
     const processSource = async (source) => {
         let hash = hashCache[source.cacheKey]?.fingerprint === source.fingerprint
             ? hashCache[source.cacheKey].hash
@@ -212,7 +221,8 @@ export async function createIncrementalBackup(backend, { onProgress, carryForwar
         source.hash = hash;
 
         current++;
-        report({ phase: 'upload', current, total: sources.length, bytesSent, uploaded, reused, name: source.meta.name });
+        weightDone += source.weight;
+        report({ phase: 'upload', current, total: sources.length, weightDone, weightTotal, bytesSent, uploaded, reused, name: source.meta.name });
     };
 
     // Audio files can be hundreds of megabytes: one at a time, after the small files, so memory stays bounded

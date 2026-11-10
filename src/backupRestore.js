@@ -2288,8 +2288,9 @@ function attachModalHandlers(modal, options = {}) {
                 if (target.status !== 'ready') throw new Error('Choose a backup folder and allow access to it first.');
                 const { createIncrementalBackup } = await import('./incrementalBackup.js');
                 const result = await createIncrementalBackup(target.backend, {
-                    onProgress: ({ phase, current, total, bytesSent, uploaded = 0, reused = 0, name }) => {
-                        const pct = phase === 'manifest' ? 99 : total > 0 ? Math.min(98, Math.round((current / total) * 98)) : 0;
+                    onProgress: ({ phase, current, total, weightDone, weightTotal, bytesSent, uploaded = 0, reused = 0, name }) => {
+                        const share = weightTotal > 0 ? weightDone / weightTotal : total > 0 ? current / total : 0;
+                        const pct = phase === 'manifest' ? 99 : total > 0 ? Math.min(98, Math.round(share * 98)) : 0;
                         const known = phase !== 'scan' && total > 0;
                         showTaskProgress(backupStatusAlert, {
                             label: phase === 'scan' ? 'Checking what is already backed up…' : phase === 'manifest' ? 'Writing the backup manifest…' : 'Backing up…',
