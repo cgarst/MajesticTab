@@ -50,7 +50,7 @@ jobs:
   # Submit the store binaries built above. These need the secrets listed in each job; a missing secret
   # fails only that job, never the GitHub release.
   publish-play:
-    needs: store
+    needs: [build, store]
     runs-on: ubuntu-latest
     steps:
       # Checkout first: it cleans untracked files, which would delete the downloaded artifact.
@@ -82,7 +82,7 @@ jobs:
           bundle exec fastlane android release aab:'store-play/*.aab' symbols:'store-play/*-symbols.zip' release_name:"$GITHUB_REF_NAME"
 
   publish-msstore:
-    needs: store
+    needs: [build, store]
     runs-on: windows-latest
     steps:
       # Checkout first: it cleans untracked files, which would delete the downloaded artifact.
