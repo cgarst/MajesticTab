@@ -123,6 +123,23 @@ export function adoptUnassignedAudio(songKey, files) {
     return changed;
 }
 
+const ADOPTED_FLAG = 'audio_slots_adopted_v1';
+
+/**
+ * Once per install: every song's linked files that no slot uses fill its empty slots (see adoptUnassignedAudio), so audio from a
+ * backup made before slots were saved is in place for every song, not only the ones opened afterwards. Returns how many songs changed.
+ */
+export async function adoptAllUnassignedAudio() {
+    if (read(ADOPTED_FLAG)) return 0;
+    const { listAudioFiles } = await import('./audioFileStore.js');
+    const bySong = new Map();
+    for (const f of await listAudioFiles()) for (const key of f.songKeys || []) bySong.set(key, [...(bySong.get(key) || []), f]);
+    let changed = 0;
+    for (const [key, files] of bySong) if (adoptUnassignedAudio(key, files)) changed++;
+    write(ADOPTED_FLAG, '1');
+    return changed;
+}
+
 /** Records a stored file as the song's audio and makes it the slot's file under the library key. */
 export function attachLibraryAudio(song, audioId, slot) {
     const list = readLibraryAudio(song.id).filter((e) => !(e.audioId === audioId && e.slot === slot));

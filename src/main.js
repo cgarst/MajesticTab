@@ -933,6 +933,7 @@ async function initApp() {
     initAudioSyncUi();
     initAudioFilePlayer();
     initRealAudioController();
+    import('./audioSync/libraryAudio.js').then((m) => m.adoptAllUnassignedAudio()).catch(() => {});
     initSynthPlayer();
     initMidiSynthUi(getCurrentFile);
     initClasstabSongMenu(getCurrentFile);
