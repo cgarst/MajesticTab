@@ -20,11 +20,11 @@ const fromLibrary = (s) => ({
 });
 
 /** Search MusicBrainz for songs. Also used by the page's own search box. */
-export async function searchSongs(text, { signal } = {}) {
-    const key = normName(text);
-    if (!key) return [];
+export async function searchSongs(text, { signal, limit = 100 } = {}) {
+    const key = normName(text) + '|' + limit;
+    if (!normName(text)) return [];
     if (cache.has(key)) return cache.get(key);
-    const found = (await searchMusicBrainz(text, 'song', { signal })).slice(0, 25).map(fromRecording);
+    const found = (await searchMusicBrainz(text, 'song', { signal, limit })).slice(0, 25).map(fromRecording);
     cache.set(key, found);
     return found;
 }
@@ -107,7 +107,7 @@ async function lookupTitle(parsed, { songs, signal }) {
     const known = findInLibrary(parsed, songs);
     if (known.length && (parsed.artist || known.length === 1)) return { status: 'library', pick: known[0], candidates: known };
 
-    const found = await searchSongs([parsed.artist, parsed.title].filter(Boolean).join(' '), { signal });
+    const found = await searchSongs([parsed.artist, parsed.title].filter(Boolean).join(' '), { signal, limit: parsed.artist ? 25 : 100 });
     if (!found.length) return { status: 'none', pick: null, candidates: [] };
     const ranked = found.map((c, i) => ({ c, i, r: rank(c, parsed) })).sort((a, b) => b.r - a.r || a.i - b.i);
     const best = ranked[0];

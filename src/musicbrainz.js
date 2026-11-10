@@ -5,7 +5,9 @@ const MB_BASE = 'https://musicbrainz.org/ws/2';
 const USER_AGENT = 'MajesticTab/1.0.0 (https://github.com/cgarst/MajesticTab; admin@localhost)';
 const CACHE_PREFIX = 'mb_cache_';
 
-// Polite rate limiting (1 request every 1.15s with exponential backoff on rate limits)
+// Polite rate limiting. MusicBrainz measures how often requests ARRIVE (about 1 per second per IP, averaged; over that,
+// every request is declined until the rate drops), so the gap is counted from when the last request was sent, not from when its
+// answer came back: a slow search no longer costs a second more than it has to. Exponential backoff on 503.
 const MIN_REQUEST_INTERVAL = 1150;
 const MAX_RETRIES = 4;
 
@@ -50,7 +52,6 @@ async function executeWithRetry(url, maxRetries = MAX_RETRIES, signal = null) {
                 },
                 signal
             });
-            lastRequestTime = Date.now();
 
             if (res.ok) {
                 return await res.json();
@@ -87,7 +88,6 @@ async function executeWithRetry(url, maxRetries = MAX_RETRIES, signal = null) {
 
             throw new Error(`MusicBrainz HTTP ${status}`);
         } catch (err) {
-            lastRequestTime = Date.now();
             if (err.name === 'AbortError' || signal?.aborted) {
                 throw err;
             }
@@ -611,7 +611,8 @@ export async function searchMusicBrainz(query, type = 'artist', options = {}) {
         case 'song': {
             // High-precision Lucene query: exact title boosted, term matches, title track release matches, and live exclusion
             const lucene = `(recording:"${cleanQuery}"^10 OR recording:(${cleanQuery})^4 OR (recording:(${cleanQuery}) AND release:(${cleanQuery})^3) OR (recording:(${cleanQuery}) AND artist:(${cleanQuery})^5)) AND NOT comment:live AND NOT video:true`;
-            const url = `${MB_BASE}/recording?query=${encodeURIComponent(lucene)}&limit=100&fmt=json`;
+            // A search that names the artist finds the song in the first few; one by title alone needs a wide net
+            const url = `${MB_BASE}/recording?query=${encodeURIComponent(lucene)}&limit=${options.limit || 100}&fmt=json`;
             const data = await fetchMusicBrainz(url, options);
             return scoreAndRankRecordings(data.recordings || [], cleanQuery);
         }
