@@ -226,7 +226,7 @@ export function matchTrack(parsed, resolved) {
  * person to look at. No network.
  * @returns {{status: 'library'|'maybe'|'none', pick: object|null, candidates: object[]}}
  */
-export function lookupLibraryAudio(parsed, songs) {
+export function lookupLibraryAudio(parsed, songs, fileText = '', dirs = []) {
     const pool = songs.filter((s) => !s.isAlbumTabContainer && (s.tabOptions || []).length > 0);
     if (!parsed?.title || !pool.length) return { status: 'none', pick: null, candidates: [] };
     const titles = [parsed.title, parsed.altTitle].filter(Boolean);
@@ -243,6 +243,13 @@ export function lookupLibraryAudio(parsed, songs) {
         }
         if (candidates.some((c) => c.sure)) break;
     }
+    // The name reads as Title - Artist or has more words around the song than the parser took out: a library song whose artist and
+    // title both stand in the name as whole words is a sure match, whichever order and separators the person used.
+    if (!candidates.some((c) => c.sure)) {
+        for (const hit of findByWholeName(fileText, pool, dirs)) {
+            if (!seen.has(hit.songId)) { seen.add(hit.songId); candidates.unshift({ hit, sure: true }); }
+        }
+    }
     const sure = candidates.filter((c) => c.sure);
     if (sure.length) {
         // The same song on two albums: the one on the file's album, else the first, but then it is a guess
@@ -254,6 +261,24 @@ export function lookupLibraryAudio(parsed, songs) {
     // Nothing by title and artist: songs of that title by anyone are offered, never chosen
     const loose = pool.filter((s) => closeTitle(s.title, parsed.title)).slice(0, 8).map(fromLibrary);
     return { status: 'none', pick: null, candidates: loose };
+}
+
+/**
+ * Library songs whose artist and title both appear in the text as whole words (normalized, "the" left off the artist), in
+ * either order. The longest artist-and-title first, then a song whose album is one of the folders the file sits in.
+ */
+export function findByWholeName(text, pool, dirs = []) {
+    const hay = ` ${normName(text)} `;
+    if (hay.trim().length < 3) return [];
+    const has = (needle) => needle.length >= 2 && hay.includes(` ${needle} `);
+    const folders = dirs.map((d) => normName(d));
+    return pool
+        .filter((s) => !s.isAlbumTabContainer)
+        .map((s) => ({ s, artist: normKey(s.artist), title: normName(s.title) }))
+        .filter((x) => x.artist && x.title && has(x.artist) && has(x.title))
+        .sort((a, b) => (b.artist.length + b.title.length) - (a.artist.length + a.title.length)
+            || Number(folders.includes(normName(b.s.album))) - Number(folders.includes(normName(a.s.album))))
+        .map((x) => fromLibrary(x.s));
 }
 
 /** Songs with a tab whose title or artist contains the text, for the page's own search box. */

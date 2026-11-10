@@ -17,7 +17,7 @@ import { AUDIO_FILES_CHANGED_EVENT } from '../audioSync/audioBackup.js';
 import { SYNC_CHANGED_EVENT } from '../audioSync/syncStore.js';
 import { decodePeaks } from '../audioSync/peaks.js';
 import { libraryAudioKey, attachLibraryAudio, songHasAudioInSlot } from '../audioSync/libraryAudio.js';
-import { pairFile, cleanAudioTitle, baseNameOf, sameTitle, VIA_LABEL } from './pairing.js';
+import { pairFile, cleanAudioTitle, stripTrackNumber, baseNameOf, sameTitle, VIA_LABEL } from './pairing.js';
 import { lookupLibraryAudio, searchLibrarySongs } from './matcher.js';
 import { canPickFolder, pickAndScanFolder } from './scanFolder.js';
 
@@ -121,6 +121,12 @@ function makeRow(entry, i) {
     return { id: `a${i}`, entry, parsed: null, backing: false, stage: 'queued', status: 'none', pick: null, candidates: [], excluded: false, confirmed: false, forced: false, manual: false, hadAudio: false, imported: '', note: '' };
 }
 
+/** The file's name without its track number and the words that say it is a backing track, for matching whole names. */
+function wholeNameText(row) {
+    const { title } = stripTrackNumber(baseNameOf(row.entry.name));
+    return title.replace(new RegExp(BACKING_NAME.source, 'gi'), ' ');
+}
+
 function resolveRow(row) {
     const parsed = pairFile(row.entry, state.strategy, null);
     row.parsed = null;
@@ -133,7 +139,7 @@ function resolveRow(row) {
         row.backing = row.backing || Boolean(main?.backing || raw?.backing || alt?.backing);
         row.parsed = { ...parsed, title: main.title, ...(raw ? { rawTitle: raw.title } : {}), ...(alt ? { altTitle: alt.title } : {}) };
     }
-    const found = row.parsed ? lookupLibraryAudio(row.parsed, state.songs) : { status: 'none', pick: null, candidates: [] };
+    const found = row.parsed ? lookupLibraryAudio(row.parsed, state.songs, wholeNameText(row), row.entry.dirs || []) : { status: 'none', pick: null, candidates: [] };
     row.status = found.status;
     row.pick = found.pick;
     row.candidates = found.candidates;
