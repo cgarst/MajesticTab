@@ -675,6 +675,24 @@ pub fn hide_downloader(app_handle: &AppHandle) {
     focus_main_window(app_handle);
 }
 
+/// After a client-side captured download: hide the site view and mark it closed, unless a batch session
+/// (Fill in missing tabs, album batches) is running, which keeps it up for the next song. Returns whether it stayed.
+fn finish_captured_download(app_handle: &AppHandle) -> bool {
+    let keep_open = app_handle
+        .try_state::<TabDownloaderState>()
+        .map(|state| state.keep_open_after_download.lock().map(|g| *g).unwrap_or(false))
+        .unwrap_or(false);
+    if !keep_open {
+        hide_downloader(app_handle);
+        if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
+            if let Ok(mut g) = state.is_open.lock() {
+                *g = false;
+            }
+        }
+    }
+    keep_open
+}
+
 pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
     let url_str = url.as_str();
     eprintln!("[Tab Downloader] Navigation requested: {}", url_str);
@@ -738,19 +756,16 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
                 }
             }
             eprintln!("[Tab Downloader] Reassembled chunked download: {} ({} bytes)", final_name, data.as_ref().map(|d| d.len()).unwrap_or(0));
-            hide_downloader(app_handle);
-            if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
-                if let Ok(mut g) = state.is_open.lock() {
-                    *g = false;
-                }
-            }
+            let keep_open = finish_captured_download(app_handle);
             let escaped_name = serde_json::to_string(&final_name).unwrap_or_default();
             let escaped_b64 = serde_json::to_string(&sanitized_b64).unwrap_or_default();
             let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
             if let Some(main_win) = app_handle.get_webview_window("main") {
                 let _ = main_win.eval(&eval_script);
-                let _ = main_win.show();
-                let _ = main_win.set_focus();
+                if !keep_open {
+                    let _ = main_win.show();
+                    let _ = main_win.set_focus();
+                }
             } else if let Some(main_wv) = app_handle.get_webview("main") {
                 let _ = main_wv.eval(&eval_script);
             }
@@ -789,19 +804,16 @@ pub fn handle_navigation(app_handle: &AppHandle, url: &tauri::Url) -> bool {
             }
         }
         eprintln!("[Tab Downloader] Captured client-side download: {} ({} bytes)", final_name, data.as_ref().map(|d| d.len()).unwrap_or(0));
-        hide_downloader(app_handle);
-        if let Some(state) = app_handle.try_state::<TabDownloaderState>() {
-            if let Ok(mut g) = state.is_open.lock() {
-                *g = false;
-            }
-        }
+        let keep_open = finish_captured_download(app_handle);
         let escaped_name = serde_json::to_string(&final_name).unwrap_or_default();
         let escaped_b64 = serde_json::to_string(&sanitized_b64).unwrap_or_default();
         let eval_script = format!("window.__onTabDownloaded && window.__onTabDownloaded({}, {});", escaped_name, escaped_b64);
         if let Some(main_win) = app_handle.get_webview_window("main") {
             let _ = main_win.eval(&eval_script);
-            let _ = main_win.show();
-            let _ = main_win.set_focus();
+            if !keep_open {
+                let _ = main_win.show();
+                let _ = main_win.set_focus();
+            }
         } else if let Some(main_wv) = app_handle.get_webview("main") {
             let _ = main_wv.eval(&eval_script);
         }
