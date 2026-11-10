@@ -43,7 +43,11 @@ export function createChordLyricSegments(chordLine, lyricLine) {
     return segments;
 }
 
-const MAX_ABOVE = 2;   // lines directly above the ruler that travel with the system (a mark line, a short heading)
+const FINGERING = /^[\d\s_o]+$/;                            // a fingering line: digits, slurs and "o" marks only
+// A ruler line opens the next system only when a string line follows; a bar-line row right under the strings is stems.
+const startsRuler = (lines, i) => isRulerLine(lines[i]) && i + 1 < lines.length && isStaffLine(lines[i + 1]);
+
+const MAX_ABOVE = 3;   // lines directly above the ruler that travel with the system (a mark line, a short heading)
 const MAX_BELOW = 6;   // dynamics and fingering lines under the strings
 
 /**
@@ -72,11 +76,18 @@ export function groupBlocks(lines) {
         while (end + 1 < n && end - last < MAX_BELOW) {
             const below = lines[end + 1];
             // the next system's ruler or mark line is not ours; a blank line ends the system
-            if (isBlank(below) || isStaffLine(below) || isRulerLine(below)) break;
+            if (isBlank(below) || isStaffLine(below) || startsRuler(lines, end + 1)) break;
             end++;
         }
+        // a blank line may separate the stems from the fingering under them: a short run of digit-only lines that is
+        // itself followed by a blank line (or the end) is ours, unlike a label sitting right above the next ruler
+        if (end > last && end + 1 < n && isBlank(lines[end + 1])) {
+            let j = end + 2;
+            while (j < n && j - end - 1 <= MAX_BELOW && FINGERING.test(lines[j]) && !isBlank(lines[j])) j++;
+            if (j > end + 2 && (j >= n || isBlank(lines[j]))) end = j - 1;
+        }
         // marks above the next ruler (no blank line between) belong to the next system
-        while (end > last && end + 1 < n && isRulerLine(lines[end + 1])) end--;
+        while (end > last && end + 1 < n && startsRuler(lines, end + 1)) end--;
         systems.push({ start, end });
         i = last;
     }
