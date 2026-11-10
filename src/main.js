@@ -38,6 +38,7 @@ import { setPdfDocument, setBookmarkCurrentPageIndex, clearPdfBookmarks, initPdf
 import { initTheming } from './themeEngine.js';
 import { initUpdater } from './updater.js';
 import { initSecureStore } from './secureStore.js';
+import { initSyncRecordStore } from './audioSync/syncRecordStore.js';
 import { migrateS3Secret } from './s3Client.js';
 import { openLibraryModal, closeLibraryModal, isLibraryOpen } from './libraryModal.js';
 import { initTauriDownloadListener } from './tabDownloader.js';
@@ -912,6 +913,7 @@ async function initApp() {
 
     // Detects the keychain only; secrets are read on first use so the OS password prompt isn't shown at launch
     await initSecureStore();
+    await initSyncRecordStore(); // sync points live in IndexedDB: load them before anything reads them
     migrateS3Secret();
     // @googleDrive:begin
     migrateGoogleAuth();

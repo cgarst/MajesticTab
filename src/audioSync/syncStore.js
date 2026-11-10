@@ -4,8 +4,12 @@
 // (`yt_track_*`), the entries are collected into backups and cloud snapshots as one map (`audioSync`), see
 // collectAudioSync / mergeAudioSync below.
 //
+// Records live in IndexedDB (syncRecordStore.js): localStorage's ~10 MB quota filled up with them.
+//
 // Record: { version: 1, media: { kind: 'youtube', videoId } | { kind: 'local', audioId, name, durationMs, fingerprint },
 //           points: [{ id, barIndex, occurrence, pos, timeMs, source }], updatedAt }
+
+import { recordStorage } from './syncRecordStore.js';
 
 /** Fired on `window` when a recording's sync points change. */
 export const SYNC_CHANGED_EVENT = 'audiosync:changed';
@@ -70,11 +74,11 @@ function parse(text) {
 const SHARE_PREFIX = 'audio_sync_share_';
 const shareKey = (songKey) => `${SHARE_PREFIX}${encodeURIComponent(String(songKey).toLowerCase())}`;
 
-export function isSyncSharedFromOriginal(songKey, storage = localStorage) {
+export function isSyncSharedFromOriginal(songKey, storage = recordStorage) {
     try { return storage.getItem(shareKey(songKey)) === '1'; } catch { return false; }
 }
 
-export function setSyncSharedFromOriginal(songKey, on, storage = localStorage) {
+export function setSyncSharedFromOriginal(songKey, on, storage = recordStorage) {
     try {
         if (on) storage.setItem(shareKey(songKey), '1');
         else storage.removeItem(shareKey(songKey));
@@ -95,7 +99,7 @@ function loadOwnRecord(songKey, media, storage) {
  * The record for a recording. A backing track without points of its own gets the original recording's points
  * (marked `inherited`) when the song's option is on; saving after an edit stores them under the backing track.
  */
-export function loadRecord(songKey, media, storage = localStorage) {
+export function loadRecord(songKey, media, storage = recordStorage) {
     const own = loadOwnRecord(songKey, media, storage);
     if (own?.points.length || !slotMediaResolver || !isSyncSharedFromOriginal(songKey, storage)) return own;
     let slots = null;
@@ -108,7 +112,7 @@ export function loadRecord(songKey, media, storage = localStorage) {
 }
 
 /** Saves `points` for a recording, stamping `updatedAt`. An empty point list removes the entry. Returns the record. */
-export function saveRecord(songKey, media, points, storage = localStorage, now = Date.now()) {
+export function saveRecord(songKey, media, points, storage = recordStorage, now = Date.now()) {
     const key = storageKey(songKey, media);
     if (!key) return null;
     const record = normalizeRecord({ version: AUDIO_SYNC_VERSION, media, points, updatedAt: now });
@@ -122,13 +126,13 @@ export function saveRecord(songKey, media, points, storage = localStorage, now =
     return record;
 }
 
-export function deleteRecord(songKey, media, storage = localStorage) {
+export function deleteRecord(songKey, media, storage = recordStorage) {
     const key = storageKey(songKey, media);
     if (key) try { storage.removeItem(key); } catch { /* ignore */ }
 }
 
 /** Every stored record of a song, newest first. */
-export function listRecords(songKey, storage = localStorage) {
+export function listRecords(songKey, storage = recordStorage) {
     const prefix = `${AUDIO_SYNC_PREFIX}${encodeURIComponent(String(songKey).toLowerCase())}_`;
     const out = [];
     for (let i = 0; i < storage.length; i++) {
@@ -142,14 +146,14 @@ export function listRecords(songKey, storage = localStorage) {
 }
 
 /** True when any recording of the song has at least one sync point. */
-export function songHasSyncPoints(songKey, storage = localStorage) {
+export function songHasSyncPoints(songKey, storage = recordStorage) {
     try { return listRecords(songKey, storage).some(r => r.points.length > 0); } catch { return false; }
 }
 
 // --- Backup and cloud sync plumbing ------------------------------------------------------------------------------
 
 /** All entries as `{ storageKey: record }` for a backup or snapshot. Empty when there are none. */
-export function collectAudioSync(storage = localStorage) {
+export function collectAudioSync(storage = recordStorage) {
     const out = {};
     for (let i = 0; i < storage.length; i++) {
         const k = storage.key(i);
@@ -168,7 +172,7 @@ export function collectAudioSync(storage = localStorage) {
  * Applies a collected map. With `wipe` the incoming entries replace everything; otherwise an incoming record only
  * replaces a local one when it is newer, so editing on two devices keeps the latest edit. Returns the number written.
  */
-export function mergeAudioSync(incoming, { wipe = false } = {}, storage = localStorage) {
+export function mergeAudioSync(incoming, { wipe = false } = {}, storage = recordStorage) {
     let written = 0;
     for (const [key, raw] of Object.entries(incoming || {})) {
         if (!key.startsWith(AUDIO_SYNC_PREFIX)) continue;
@@ -189,7 +193,7 @@ export function mergeAudioSync(incoming, { wipe = false } = {}, storage = localS
 }
 
 /** Removes every entry (for a wipe or reset). */
-export function clearAudioSync(storage = localStorage) {
+export function clearAudioSync(storage = recordStorage) {
     const keys = [];
     for (let i = 0; i < storage.length; i++) {
         const k = storage.key(i);
